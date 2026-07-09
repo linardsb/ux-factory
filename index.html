@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · neutral base</title>
+  <meta name="description" content="The factory's neutral base: a page drawn entirely from the token contract and a neutral pack, with no brand loaded. Swap the pack and the same components re-skin." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- The whole point: contract + neutral pack + brand-agnostic components. No brand pack, no web fonts. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+</head>
+<body data-page="home">
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">Neutral base · no brand loaded</span>
+          <span class="meta"></span>
+        </div>
+        <h1 class="text-balance">The system renders with no brand <span class="hl">loaded</span>.</h1>
+        <p class="hero-sub">
+          This page is drawn entirely from the token contract and a neutral pack: a plain
+          greyscale, one accent blue, the system font stack. Swap the pack for a company's and
+          the same components re-skin, with no markup touched.
+        </p>
+        <div class="hero-cta-row">
+          <a class="btn btn-primary btn-arrow" href="#system">See the system check</a>
+          <a class="btn btn-secondary" href="#swap">How the swap works</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="system">
+      <div class="container">
+        <div class="section-label"><span class="num">01</span><span>System check</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">Every component, from tokens <span class="hl">alone</span>.</h2>
+          <div>
+            <p class="max-prose">
+              Components read only the semantic contract — no literals, no primitives. If a
+              token is left undefined, the contract's neutral fallback keeps the page coherent.
+              These three layers are exactly what a company build re-skins.
+            </p>
+          </div>
+        </div>
+        <div class="grid grid-3" style="margin-top: var(--spacing-xl);">
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">Layer 1 · contract</div>
+              <h3 class="h3 mb-md">The token contract</h3>
+              <p class="muted">
+                Every semantic token the components reference, each with a neutral fallback.
+                Brand-agnostic by design — the interface between the base and any pack.
+              </p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">Layer 2 · client pack</div>
+              <h3 class="h3 mb-md">The neutral pack</h3>
+              <p class="muted">
+                Primitives bound to the contract slots: greyscale, one blue, system fonts.
+                A company pack is a clone of this one file with its own values.
+              </p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">Layer 3 · components</div>
+              <h3 class="h3 mb-md">Brand-agnostic components</h3>
+              <p class="muted">
+                Buttons, cards, chrome and surfaces, all token-only. They render the same
+                under any pack — this base, or a live brand.
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-band" id="swap">
+      <div class="container">
+        <div class="section-label"><span class="num">02</span><span>The swap</span><span class="line"></span></div>
+        <h2 class="feature-headline">Swap one file. <span class="hl">Full re-skin</span>.</h2>
+        <div class="feature-grid cols-2">
+          <div class="feature-item">
+            <h3>One line in the head</h3>
+            <p>Change <code>tokens.neutral.css</code> to <code>tokens.&lt;company&gt;.css</code> and the whole site adopts the new brand.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Nothing else moves</h3>
+            <p>Markup, components and copy stay exactly where they are. The pack carries every brand decision on its own.</p>
+          </div>
+        </div>
+        <div class="on-dark" style="margin-top: var(--spacing-xl);">
+          <a class="btn btn-secondary btn-arrow" href="/system/tokens.contract.css">Read the token contract</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
+  <script src="/system/portfolio.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ux factory neutral base">
+  <!-- on-dark variant: light frame, light fill for crisp contrast on a dark ground -->
+  <rect x="3" y="3" width="26" height="26" rx="6" fill="none" stroke="#f4f4f5" stroke-width="2"/>
+  <rect x="9" y="9" width="14" height="14" rx="3" fill="#f4f4f5"/>
+</svg>

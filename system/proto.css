@@ -1,0 +1,649 @@
+/* one trip — prototype presentation shell + the app's own design system.
+ *
+ * Two systems live on this page, deliberately:
+ *   1. The SHELL (topbar, notes panel) follows the saulera system: stone/ocean,
+ *      0-radius, flat. It frames the exhibit.
+ *   2. The APP inside the phone is its own product ("one trip") with its own
+ *      tokens: platform type stack, soft radii, blue for rail (the core),
+ *      coral for the new verticals. The contrast is the point — the portfolio
+ *      frames the work; the work has its own voice.
+ */
+
+/* ---------------------------------------------------------------- shell */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-body, "Montserrat Ace", sans-serif);
+}
+
+.ot-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.ot-topbar a { text-decoration: none; }
+
+/* back to the portfolio — Depot tertiary button: surface fill, border,
+   ink chevron; hover bg + pressed border per Trainline's button tokens */
+.ot-topbar .back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-fg);
+  transition: background 160ms ease;
+}
+.ot-topbar .back svg { width: 24px; height: 24px; display: block; }
+.ot-topbar .back:hover { background: var(--color-bg); }
+.ot-topbar .back:active { background: var(--color-border); }
+
+.ot-topbar .title {
+  font-family: var(--font-display, sans-serif);
+  color: var(--color-fg-muted);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.ot-topbar .btn-log {
+  font-family: var(--font-display, sans-serif);
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  padding: 10px 18px;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.ot-topbar .btn-log:hover { background: var(--color-bg-inverse); color: var(--color-fg-on-inverse-strong); }
+
+.ot-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: var(--spacing-2xl);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--spacing-2xl) var(--spacing-xl) var(--spacing-3xl);
+  align-items: start;
+}
+
+.ot-phone-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.ot-caption {
+  color: var(--color-fg-muted);
+  font-size: 14px;
+  margin: 0;
+  text-align: center;
+}
+
+/* interaction cue — the phone is working software; say so.
+   Accent chip (fill-only rule), accent-fg text; bounces toward the phone. */
+.ot-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  animation: ot-cue-bounce 2s ease-in-out infinite;
+}
+.ot-cue .arr { font-size: 15px; }
+@keyframes ot-cue-bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(9px); }
+  60% { transform: translateY(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ot-cue { animation: none; }
+}
+
+/* the device — depicting hardware, so the bezel keeps its curves */
+.ot-phone {
+  width: min(392px, 94vw);
+  background: #11141C;
+  border-radius: 54px;
+  padding: 12px;
+  box-shadow: 0 24px 60px rgba(38, 70, 83, 0.28);
+}
+
+.ot-screen {
+  border-radius: 43px;
+  overflow: hidden;
+  height: min(800px, 80dvh);
+  min-height: 620px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* notes panel */
+.ot-notes {
+  position: sticky;
+  top: 92px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-lg);
+}
+
+.ot-notes-head {
+  font-family: var(--font-display, sans-serif);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 2px solid var(--color-accent);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.ot-notes-head .screen-name { color: var(--color-fg-muted); letter-spacing: 0.08em; }
+
+#ot-notes-body { transition: opacity 0.18s ease; }
+#ot-notes-body.fading { opacity: 0; }
+
+#ot-notes-body p {
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0 0 var(--spacing-md);
+  color: var(--color-fg);
+}
+
+#ot-notes-body p .k {
+  font-family: var(--font-display, sans-serif);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ot-notes-link {
+  font-family: var(--font-display, sans-serif);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--color-fg);
+  text-decoration: none;
+  border-bottom: 2px solid var(--color-accent);
+  padding-bottom: 2px;
+}
+.ot-notes-link:hover { color: var(--color-accent-secondary); }
+
+/* mobile: notes behind a floating button */
+.ot-notes-fab {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  background: var(--color-bg-inverse);
+  color: var(--color-fg-on-inverse-strong, #F4F1EA);
+  border: 0;
+  font-family: var(--font-display, sans-serif);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 13px;
+  padding: 14px 20px;
+  cursor: pointer;
+}
+
+@media (max-width: 1023px) {
+  .ot-stage { grid-template-columns: 1fr; padding: var(--spacing-lg) var(--spacing-md) 96px; }
+  .ot-notes {
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    max-height: 70dvh;
+    overflow-y: auto;
+    transform: translateY(105%);
+    transition: transform 0.25s ease;
+    z-index: 55;
+    box-shadow: 0 -12px 40px rgba(38, 70, 83, 0.25);
+  }
+  .ot-notes.open { transform: translateY(0); }
+  .ot-notes-fab { display: block; }
+  .ot-topbar { padding: var(--spacing-sm) var(--spacing-md); }
+  .ot-topbar .title { display: none; }
+}
+
+/* ------------------------------------------------------------- the app */
+
+.ot-screen {
+  /* one trip's own tokens — a product inside the exhibit */
+  --t-ink: #1C2437;
+  --t-ink-soft: #626B7D;
+  --t-line: #E5E7EE;
+  --t-bg: #F5F6F9;
+  --t-card: #FFFFFF;
+  --t-rail: #2E4FD6;        /* blue = the core rail journey */
+  --t-rail-soft: #E8EDFF;
+  --t-new: #E4572E;         /* coral = the new verticals */
+  --t-new-soft: #FDEEE8;
+  --t-good: #0E8A63;
+  --t-r: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: var(--t-bg);
+  color: var(--t-ink);
+}
+
+.ot-screen * { -webkit-tap-highlight-color: transparent; }
+
+.ot-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--t-ink);
+  background: var(--t-bg);
+}
+.ot-status .pins { display: flex; gap: 5px; }
+.ot-status .pins span {
+  width: 16px; height: 10px; border-radius: 3px; background: var(--t-ink); opacity: 0.85;
+}
+.ot-status .pins span:nth-child(2) { opacity: 0.35; width: 22px; }
+
+.ot-appbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 10px;
+  background: var(--t-bg);
+}
+
+.ot-back {
+  border: 0;
+  background: var(--t-card);
+  color: var(--t-ink);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(28, 36, 55, 0.10);
+  flex: none;
+}
+.ot-back:disabled { visibility: hidden; }
+
+.ot-appbar .t { font-size: 16px; font-weight: 700; flex: 1; }
+
+.ot-steps { display: flex; gap: 5px; }
+.ot-steps i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--t-line);
+}
+.ot-steps i.on { background: var(--t-rail); }
+.ot-steps i.new { background: var(--t-new); }
+
+.ot-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 16px 20px;
+  scrollbar-width: none;
+}
+.ot-body::-webkit-scrollbar { display: none; }
+
+.ot-body.anim { animation: ot-slide 0.26s ease; }
+@keyframes ot-slide {
+  from { transform: translateX(26px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.ot-body.anim-back { animation: ot-slide-b 0.26s ease; }
+@keyframes ot-slide-b {
+  from { transform: translateX(-26px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+.ot-foot {
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 8px));
+  background: var(--t-card);
+  border-top: 1px solid var(--t-line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ot-foot .sum { flex: 1; }
+.ot-foot .sum .l { font-size: 12px; color: var(--t-ink-soft); }
+.ot-foot .sum .v { font-size: 20px; font-weight: 800; }
+
+/* atoms */
+.ot-h1 { font-size: 28px; font-weight: 800; margin: 10px 4px 2px; letter-spacing: -0.02em; }
+.ot-sub { font-size: 14px; color: var(--t-ink-soft); margin: 0 4px 14px; line-height: 1.4; }
+
+.ot-card {
+  background: var(--t-card);
+  border-radius: var(--t-r);
+  box-shadow: 0 1px 3px rgba(28, 36, 55, 0.08);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.ot-btn {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: var(--t-r);
+  background: var(--t-rail);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.ot-btn:active { transform: scale(0.985); }
+.ot-btn.dark { background: #0B0E16; }
+.ot-btn.ghost {
+  background: transparent;
+  color: var(--t-ink-soft);
+  font-weight: 600;
+  box-shadow: none;
+  padding: 12px;
+}
+.ot-btn.ghost:hover { color: var(--t-ink); }
+
+.ot-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--t-rail-soft);
+  color: var(--t-rail);
+}
+.ot-chip.new { background: var(--t-new-soft); color: var(--t-new); }
+.ot-chip.good { background: #E2F5EE; color: var(--t-good); }
+.ot-chip.plain { background: #EEF0F4; color: var(--t-ink-soft); }
+
+/* search screen */
+.ot-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px 2px;
+  gap: 10px;
+}
+.ot-field + .ot-field { border-top: 1px solid var(--t-line); }
+.ot-field .l { font-size: 12px; color: var(--t-ink-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.ot-field .v { font-size: 16px; font-weight: 700; text-align: right; }
+.ot-field .v small { display: block; font-size: 12px; color: var(--t-ink-soft); font-weight: 600; }
+
+/* train result rows */
+.ot-train {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 2px solid transparent;
+  background: var(--t-card);
+  border-radius: var(--t-r);
+  box-shadow: 0 1px 3px rgba(28, 36, 55, 0.08);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--t-ink);
+  transition: border-color 0.12s ease;
+}
+.ot-train:hover { border-color: var(--t-rail); }
+.ot-train .times { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.ot-train .times span { color: var(--t-ink-soft); font-weight: 500; font-size: 14px; }
+.ot-train .meta { font-size: 12.5px; color: var(--t-ink-soft); margin-top: 3px; }
+.ot-train .price { margin-left: auto; text-align: right; }
+.ot-train .price .p { font-size: 18px; font-weight: 800; }
+.ot-train .price .f { font-size: 11px; color: var(--t-ink-soft); }
+
+/* the trip spine */
+.ot-spine { position: relative; padding-left: 26px; margin-top: 6px; }
+.ot-spine::before {
+  content: "";
+  position: absolute;
+  left: 8px; top: 14px; bottom: 14px;
+  width: 2px;
+  background: var(--t-line);
+}
+.ot-node { position: relative; margin-bottom: 14px; }
+.ot-node::before {
+  content: "";
+  position: absolute;
+  left: -24px; top: 16px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--t-rail);
+  border: 2.5px solid var(--t-bg);
+  box-shadow: 0 0 0 2px var(--t-rail);
+}
+.ot-node.new::before { background: var(--t-new); box-shadow: 0 0 0 2px var(--t-new); }
+.ot-node.probe::before { background: var(--t-bg); box-shadow: 0 0 0 2px var(--t-new); }
+
+.ot-node .ot-card { margin-bottom: 0; }
+.ot-node .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ot-node .head .d { font-size: 12px; font-weight: 700; color: var(--t-ink-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+.ot-node .head a { font-size: 13px; font-weight: 700; color: var(--t-rail); text-decoration: none; cursor: pointer; }
+.ot-node .big { font-size: 17px; font-weight: 800; margin-top: 4px; }
+.ot-node .sub2 { font-size: 13px; color: var(--t-ink-soft); margin-top: 2px; }
+
+.ot-node.probe .ot-card {
+  box-shadow: none;
+  border: 1.5px dashed var(--t-new);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* hotel rows */
+.ot-hotel {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--t-card);
+  border: 2px solid var(--t-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--t-ink);
+  transition: border-color 0.12s ease;
+}
+.ot-hotel:hover { border-color: var(--t-new); }
+.ot-hotel.sel { border-color: var(--t-new); background: var(--t-new-soft); }
+.ot-hotel .r1 { display: flex; justify-content: space-between; font-weight: 800; font-size: 15px; gap: 8px; }
+.ot-hotel .r2 { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--t-ink-soft); margin-top: 3px; gap: 8px; }
+.ot-hotel .r3 { margin-top: 6px; }
+
+.ot-stars { color: var(--t-new); letter-spacing: 1px; font-size: 12px; }
+
+/* toggle (trip cover) */
+.ot-toggle-row { display: flex; align-items: center; gap: 12px; }
+.ot-toggle-row .tx { flex: 1; }
+.ot-toggle-row .tx .t1 { font-weight: 800; font-size: 15px; }
+.ot-toggle-row .tx .t2 { font-size: 13px; color: var(--t-ink-soft); line-height: 1.45; margin-top: 3px; }
+.ot-switch {
+  position: relative;
+  width: 52px; height: 32px;
+  border-radius: 999px;
+  background: var(--t-line);
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex: none;
+}
+.ot-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.15s ease;
+}
+.ot-switch.on { background: var(--t-good); }
+.ot-switch.on::after { transform: translateX(20px); }
+
+/* summary + confirmation */
+.ot-row { display: flex; justify-content: space-between; font-size: 15px; padding: 9px 0; gap: 10px; }
+.ot-row + .ot-row { border-top: 1px solid var(--t-line); }
+.ot-row .a { color: var(--t-ink-soft); }
+.ot-row .b { font-weight: 700; text-align: right; }
+.ot-row.total .a, .ot-row.total .b { font-weight: 800; font-size: 17px; color: var(--t-ink); }
+
+.ot-check {
+  width: 74px; height: 74px;
+  border-radius: 50%;
+  background: var(--t-good);
+  color: #fff;
+  font-size: 34px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 26px auto 12px;
+}
+
+.ot-center { text-align: center; }
+.ot-ref { font-size: 13px; color: var(--t-ink-soft); margin-bottom: 16px; }
+.ot-ref b { color: var(--t-ink); letter-spacing: 0.08em; }
+
+.ot-it { display: flex; gap: 12px; padding: 12px 0; align-items: flex-start; }
+.ot-it + .ot-it { border-top: 1px solid var(--t-line); }
+.ot-it .ic {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--t-rail);
+  background: var(--t-rail-soft);
+}
+.ot-it.new .ic { color: var(--t-new); }
+.ot-it.new .ic { background: var(--t-new-soft); }
+.ot-it .t1 { font-weight: 700; font-size: 14.5px; }
+.ot-it .t2 { font-size: 12.5px; color: var(--t-ink-soft); margin-top: 2px; }
+
+.ot-note { font-size: 12px; color: var(--t-ink-soft); text-align: center; margin-top: 12px; line-height: 1.5; }
+.ot-note a { color: var(--t-rail); font-weight: 600; text-decoration: none; }
+
+/* bottom sheet (car hire fake door) */
+.ot-sheet-wrap {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 19, 27, 0.45);
+  display: flex;
+  align-items: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 20;
+}
+.ot-sheet-wrap.open { opacity: 1; pointer-events: auto; }
+.ot-sheet {
+  background: var(--t-card);
+  border-radius: 22px 22px 0 0;
+  padding: 20px 20px 28px;
+  width: 100%;
+  transform: translateY(30px);
+  transition: transform 0.22s ease;
+}
+.ot-sheet-wrap.open .ot-sheet { transform: translateY(0); }
+.ot-sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--t-line); margin: 0 auto 14px; }
+.ot-sheet h3 { margin: 8px 0 8px; font-size: 19px; }
+.ot-sheet p { font-size: 14px; color: var(--t-ink-soft); line-height: 1.5; margin: 0 0 16px; }
+
+/* toast */
+.ot-toast {
+  position: absolute;
+  left: 50%; bottom: 96px;
+  transform: translateX(-50%) translateY(8px);
+  background: #0B0E16;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  z-index: 30;
+  white-space: nowrap;
+}
+.ot-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ------------------------------------------------- a11y + shared additions */
+
+/* in-flow actions that read as links but are real buttons (keyboard-reachable) */
+.ot-linklike {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--t-rail);
+  cursor: pointer;
+}
+.ot-node .head .ot-linklike { font-size: 13px; font-weight: 700; }
+
+/* visible focus for keyboard users — shell and app */
+:focus-visible {
+  outline: 3px solid var(--color-accent-secondary, #2A7E8F);
+  outline-offset: 2px;
+}
+.ot-screen button:focus-visible,
+.ot-screen a:focus-visible {
+  outline: 3px solid var(--t-rail);
+  outline-offset: 2px;
+}
+
+/* coral as TEXT uses the darker tone (WCAG AA on soft grounds);
+   coral as GRAPHIC (borders, dots, fills) keeps --t-new */
+.ot-screen { --t-new-text: #C7431F; --t-alert: #B3261E; --t-alert-soft: #FCEBE9; }
+.ot-chip.new { color: var(--t-new-text); }
+.ot-stars { color: var(--t-new-text); }
+
+/* alert tone (disruption surfaces) */
+.ot-chip.alert { background: var(--t-alert-soft); color: var(--t-alert); }
+.ot-alert-card {
+  border-left: 4px solid var(--t-alert);
+  background: var(--t-card);
+  border-radius: var(--t-r);
+  box-shadow: 0 1px 3px rgba(28, 36, 55, 0.08);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+/* respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .ot-body.anim, .ot-body.anim-back { animation: none; }
+  .ot-sheet, .ot-sheet-wrap, .ot-switch::after, .ot-notes, .ot-toast, .ot-btn { transition: none; }
+}

@@ -1,0 +1,108 @@
+/* trainline — token pack (skin for the Trainline application)
+ *
+ * The ONE source of truth for this skin's values. Two tiers live here:
+ *   1. PRIMITIVES   — Trainline's palette, face, scales (the brand's facts).
+ *   2. SEMANTIC MAP — the contract tokens (--color-fg/bg/accent/…) bound to those primitives.
+ *
+ * Load order on every page: base/tokens.contract.css  →  THIS FILE  →  base/components.css.
+ * The contract declares neutral defaults; this pack (loaded after) overrides them with
+ * Trainline's values, so components are always defined and a re-skin = swap this one file.
+ * The previous skin is preserved verbatim in tokens.saulera.css — swapping back is a
+ * one-line change in each page's <head>.
+ *
+ * Colour values are Trainline's own production tokens, extracted from the --dp_* (Depot
+ * design system) sheet inlined on thetrainline.com, July 2026. Typeface is Figtree — an
+ * open stand-in for TL Circular, which is proprietary (see ../fonts/figtree.css).
+ * Components must reference the SEMANTIC tokens below — never a primitive, never a literal.
+ */
+
+/* Self-hosted face (bundled woff2 subsets). @import must precede all rules. */
+@import url("../fonts/figtree.css");
+
+:root {
+  /* ============================================================
+     1. PRIMITIVES — Trainline palette (raw brand values)
+     ============================================================ */
+  --color-ink:         #192325;   /* dp content base — near-black */
+  --color-mint:        #00A88F;   /* Trainline green — action primary */
+  --color-mint-hov:    #00705F;   /* dp button primary hover */
+  --color-mint-act:    #003E34;   /* dp button primary pressed */
+  --color-navy:        #160078;   /* deep navy — dark hero surfaces */
+  --color-blue:        #2332C4;   /* dp action secondary */
+  --color-pink:        #FF9DA1;   /* Sweet Pink — third of the core trio (unmapped, brand fact) */
+  --color-mist:        #F2F4F4;   /* dp backdrop dull — page ground */
+  --color-lavender:    #F3F1FD;   /* dp secondary brightest — light text on navy */
+  --color-grey-border: #D0D4D5;   /* dp border base */
+  --color-grey-mid:    #5B6466;   /* dp content dull */
+  --color-white:       #ffffff;
+
+  /* Fonts — one family for display and body, matching Trainline's single-family system */
+  --font-display: "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body:    "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Spacing scale (8 steps, 4px base) */
+  --spacing-xs:  4px;
+  --spacing-sm:  8px;
+  --spacing-md:  16px;
+  --spacing-lg:  24px;
+  --spacing-xl:  32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* Radius — Trainline is soft and rounded (brand rule; saulera was 0 everywhere).
+     Values observed in their production CSS: 6px on CTA buttons, 8px (--dp_s8)
+     on surfaces, 12px the largest in use. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Shadows (ink-tinted, very low alpha) */
+  --shadow-sm: 0 1px 2px rgba(25, 35, 37, 0.06);
+  --shadow-md: 0 4px 6px rgba(25, 35, 37, 0.09);
+  --shadow-lg: 0 10px 15px rgba(25, 35, 37, 0.12);
+
+  /* Layout */
+  --maxw:   1280px;
+  --gutter: 32px;
+
+  /* Type ramp — same clamp() scale as the previous skin (base 18px) */
+  --type-display: clamp(44px, 6.4vw, 88px);
+  --type-h1:      clamp(36px, 4.4vw, 64px);
+  --type-h2:      clamp(26px, 2.6vw, 36px);
+  --type-h3:      22px;
+  --type-lead:    clamp(18px, 1.5vw, 22px);
+  --type-body:    18px;
+  --type-caption: 13px;
+  --type-eyebrow: 12px;
+
+  /* ============================================================
+     2. SEMANTIC MAP — the contract, bound to Trainline primitives.
+        (Overrides the neutral defaults in base/tokens.contract.css.)
+     ============================================================ */
+
+  /* Foreground / surface (light context) */
+  --color-fg:            var(--color-ink);          /* primary text */
+  --color-fg-muted:      var(--color-grey-mid);     /* labels, captions, secondary text */
+  --color-bg:            var(--color-mist);         /* page ground */
+  --color-bg-surface:    var(--color-white);        /* cards, alt sections */
+  --color-border:        var(--color-grey-border);  /* 1px lines, dividers */
+  --color-border-strong: var(--color-ink);          /* emphasis / hover borders, thick rules */
+
+  /* Accent */
+  --color-accent:           var(--color-mint);      /* signal — fill */
+  --color-accent-hover:     var(--color-mint-hov);
+  --color-accent-active:    var(--color-mint-act);
+  --color-accent-fg:        var(--color-white);     /* text/icon on an accent fill */
+  --color-accent-secondary: var(--color-blue);      /* quiet accent, live dots */
+
+  /* Inverse (content sitting on a dark / navy surface) */
+  --color-bg-inverse:           var(--color-navy);      /* dark sections, footer */
+  --color-fg-on-inverse:        var(--color-lavender);  /* soft light text on dark (chrome) */
+  --color-fg-on-inverse-strong: var(--color-white);     /* high-contrast light (buttons on dark) */
+  --color-fg-on-inverse-muted:  color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
+  --color-fg-on-inverse-soft:   color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
+  --color-inverse-line:         color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
+  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%,  transparent);
+  --color-on-dark-border:       color-mix(in srgb, var(--color-white) 50%, transparent);
+}

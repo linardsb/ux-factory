@@ -1,0 +1,102 @@
+/* GENERATED MIRROR — do not edit here. Source: client/saulera/tokens.css (saulera-client-starter). Regenerate on change. */
+/* saulera — token source (client pack)
+ *
+ * The ONE source of truth for saulera's values. Two tiers live here:
+ *   1. PRIMITIVES   — saulera's raw Sunrise palette, fonts, scales (the brand's facts).
+ *   2. SEMANTIC MAP — the contract tokens (--color-fg/bg/accent/…) bound to those primitives.
+ *
+ * Load order on every page: base/tokens.contract.css  →  THIS FILE  →  base/components.css.
+ * The contract declares neutral defaults; this pack (loaded after) overrides them with
+ * saulera's values, so components are always defined and a re-skin = swap this one file.
+ *
+ * Values verified against the LIVE site (/Users/Berzins/Desktop/saulera/site.css :root).
+ * Components must reference the SEMANTIC tokens below — never a primitive, never a literal.
+ */
+
+/* Self-hosted faces (bundled woff2 subset). @import must precede all rules.
+   Path adjusted for the skill layout: system/tokens.css → ../fonts/fonts.css */
+@import url("../fonts/fonts.css");
+
+:root {
+  /* ============================================================
+     1. PRIMITIVES — Sunrise palette (raw brand values)
+     ============================================================ */
+  --color-deep-ocean:  #264653;
+  --color-amber:       #F59E0B;
+  --color-amber-hov:   #D98708;
+  --color-amber-act:   #B97208;
+  --color-teal:        #2A7E8F;
+  --color-stone:       #EAE6DE;
+  --color-cream:       #F4F1EA;
+  --color-grey-border: #C8C0B0;
+  --color-grey-mid:    #5A5A5A;
+  --color-white:       #ffffff;
+
+  /* Fonts (self-hosted in client/saulera/fonts/) */
+  --font-display: "Homizio", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body:    "Montserrat Ace", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Spacing scale (8 steps, 4px base) */
+  --spacing-xs:  4px;
+  --spacing-sm:  8px;
+  --spacing-md:  16px;
+  --spacing-lg:  24px;
+  --spacing-xl:  32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* Radius — saulera is 0 everywhere (sharp architectural edges; brand rule) */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+
+  /* Shadows (deep-ocean-tinted, very low alpha) */
+  --shadow-sm: 0 1px 2px rgba(38, 70, 83, 0.06);
+  --shadow-md: 0 4px 6px rgba(38, 70, 83, 0.09);
+  --shadow-lg: 0 10px 15px rgba(38, 70, 83, 0.12);
+
+  /* Layout */
+  --maxw:   1280px;
+  --gutter: 32px;
+
+  /* Type ramp — saulera's live clamp() scale (base 18px) */
+  --type-display: clamp(44px, 6.4vw, 88px);
+  --type-h1:      clamp(36px, 4.4vw, 64px);
+  --type-h2:      clamp(26px, 2.6vw, 36px);
+  --type-h3:      22px;
+  --type-lead:    clamp(18px, 1.5vw, 22px);
+  --type-body:    18px;
+  --type-caption: 13px;
+  --type-eyebrow: 12px;
+
+  /* ============================================================
+     2. SEMANTIC MAP — the contract, bound to saulera primitives.
+        (Overrides the neutral defaults in base/tokens.contract.css.)
+     ============================================================ */
+
+  /* Foreground / surface (light context) */
+  --color-fg:            var(--color-deep-ocean);   /* primary text */
+  --color-fg-muted:      var(--color-grey-mid);     /* labels, captions, secondary text */
+  --color-bg:            var(--color-stone);        /* page ground */
+  --color-bg-surface:    var(--color-cream);        /* cards, alt sections */
+  --color-border:        var(--color-grey-border);  /* 1px lines, dividers */
+  --color-border-strong: var(--color-deep-ocean);   /* emphasis / hover borders, thick rules */
+
+  /* Accent */
+  --color-accent:           var(--color-amber);      /* signal — fill */
+  --color-accent-hover:     var(--color-amber-hov);
+  --color-accent-active:    var(--color-amber-act);
+  --color-accent-fg:        var(--color-white);      /* text/icon on an accent fill */
+  --color-accent-secondary: var(--color-teal);       /* quiet accent, live dots */
+
+  /* Inverse (content sitting on a dark / deep-ocean surface) */
+  --color-bg-inverse:           var(--color-deep-ocean);  /* dark sections, footer */
+  --color-fg-on-inverse:        var(--color-stone);       /* soft light text on dark (chrome) */
+  --color-fg-on-inverse-strong: var(--color-white);       /* high-contrast light (buttons on dark) */
+  --color-fg-on-inverse-muted:  color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
+  --color-fg-on-inverse-soft:   color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
+  --color-inverse-line:         color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
+  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%,  transparent);
+  --color-on-dark-border:       color-mix(in srgb, var(--color-white) 50%, transparent);
+}

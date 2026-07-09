@@ -1,0 +1,11 @@
+# dependencies / build
+node_modules/
+dist/
+
+# cloudflare / wrangler
+.wrangler/
+.dev.vars
+
+# os / editor
+.DS_Store
+*.log
