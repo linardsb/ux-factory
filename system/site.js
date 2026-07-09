@@ -132,6 +132,7 @@
       ${areasHTML}
       <div class="footer-bottom">
         <span>${esc(footer.copyright)}</span>
+        ${footer.disclaimer ? `<span class="footer-disclaimer">${esc(footer.disclaimer)}</span>` : ""}
       </div>
     </div>
   `;

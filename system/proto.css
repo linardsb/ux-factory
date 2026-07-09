@@ -74,6 +74,32 @@ body {
 }
 .ot-topbar .btn-log:hover { background: var(--color-bg-inverse); color: var(--color-fg-on-inverse-strong); }
 
+/* built-because strip — C1: every prototype opens with the JD line or industry
+ * signal that justified building it. Promoted organism, all five shells (S5). */
+.proto-because {
+  margin: 0;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  color: var(--color-fg-muted);
+}
+.proto-because b { color: var(--color-fg); font-weight: 600; }
+@media (max-width: 640px) { .proto-because { padding: var(--spacing-sm) var(--spacing-md); } }
+
+/* prototype legal footer — B3 disclaimer on the (otherwise footerless) shells */
+.proto-legal {
+  margin: 0;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--type-eyebrow);
+  line-height: 1.6;
+  color: var(--color-fg-muted);
+  text-align: center;
+}
+@media (max-width: 640px) { .proto-legal { padding: var(--spacing-lg) var(--spacing-md); } }
+
 .ot-stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
