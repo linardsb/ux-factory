@@ -9,3 +9,7 @@ dist/
 # os / editor
 .DS_Store
 *.log
+
+# portal (local workbench — secrets + runtime state)
+portal/.env
+portal/.sessions.json

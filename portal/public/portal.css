@@ -1,0 +1,100 @@
+/* portal-only chrome — contract tokens only, on top of components.css */
+
+.portal-bar {
+  display: flex; align-items: center; gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--gutter);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  position: sticky; top: 0; z-index: 20;
+}
+.portal-brand { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg); text-decoration: none; }
+.portal-health { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.portal-bar-spacer { flex: 1; }
+
+.portal-main { max-width: var(--maxw); margin: 0 auto; padding: var(--spacing-xl) var(--gutter) var(--spacing-4xl); }
+
+/* filters */
+.portal-filters { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; margin-bottom: var(--spacing-xl); }
+.portal-chip {
+  border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg-muted);
+  padding: var(--spacing-xs) var(--spacing-md); border-radius: var(--radius-lg);
+  font-size: var(--type-caption); cursor: pointer;
+}
+.portal-chip[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); }
+.portal-search { margin-left: auto; }
+.portal-search input {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-md); font-size: var(--type-body);
+  background: var(--color-bg); color: var(--color-fg); min-width: 220px;
+}
+
+/* library grid */
+.portal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--spacing-lg); }
+.portal-card { cursor: pointer; }
+.portal-card .state-row { display: flex; gap: var(--spacing-sm); align-items: center; flex-wrap: wrap; margin-top: var(--spacing-md); }
+.portal-state {
+  font-size: var(--type-eyebrow); text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 2px var(--spacing-sm); border-radius: var(--radius-sm);
+  background: var(--color-bg-surface); color: var(--color-fg-muted); border: 1px solid var(--color-border);
+}
+.portal-state[data-state="interview"] { background: var(--color-accent); color: var(--color-accent-fg); border-color: var(--color-accent); }
+.portal-state[data-state="applied"] { border-color: var(--color-accent); color: var(--color-accent); }
+
+/* card detail */
+.portal-detail-head { display: flex; align-items: baseline; gap: var(--spacing-md); flex-wrap: wrap; margin-bottom: var(--spacing-lg); }
+.portal-tabs { display: flex; gap: var(--spacing-sm); border-bottom: 1px solid var(--color-border); margin-bottom: var(--spacing-lg); }
+.portal-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: var(--spacing-sm) var(--spacing-md); font-size: var(--type-body);
+  color: var(--color-fg-muted); cursor: pointer;
+}
+.portal-tab[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-accent); }
+.portal-pane pre { white-space: pre-wrap; font-size: var(--type-caption); background: var(--color-bg-surface); padding: var(--spacing-md); border-radius: var(--radius-sm); overflow-x: auto; }
+
+.portal-proto-frame { width: 100%; height: 70vh; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); }
+.portal-proto-picker { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; margin-bottom: var(--spacing-md); }
+
+/* drawer (intake) */
+.portal-drawer {
+  position: fixed; inset: 0; z-index: 40;
+  background: color-mix(in srgb, var(--color-bg-inverse) 40%, transparent);
+  display: flex; justify-content: flex-end;
+}
+.portal-form {
+  background: var(--color-bg); width: min(480px, 100%); height: 100%; overflow-y: auto;
+  padding: var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-md);
+  border-left: 1px solid var(--color-border);
+}
+.portal-form label { display: flex; flex-direction: column; gap: var(--spacing-xs); font-size: var(--type-caption); color: var(--color-fg-muted); }
+.portal-form input, .portal-form select, .portal-form textarea {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm); font-size: var(--type-body); font-family: var(--font-body);
+  background: var(--color-bg); color: var(--color-fg);
+}
+.portal-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); }
+.portal-form-actions { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm); }
+
+/* chat dock */
+.portal-chat {
+  position: fixed; right: 0; top: 0; bottom: 0; z-index: 30;
+  width: min(420px, 100vw); display: flex; flex-direction: column;
+  background: var(--color-bg); border-left: 1px solid var(--color-border); box-shadow: var(--shadow-lg);
+}
+.portal-chat-head { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-md); border-bottom: 1px solid var(--color-border); }
+.portal-chat-close { background: none; border: none; font-size: var(--type-h3); color: var(--color-fg-muted); cursor: pointer; }
+.portal-chat-log { flex: 1; overflow-y: auto; padding: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
+.chat-msg { border-radius: var(--radius-md); padding: var(--spacing-sm) var(--spacing-md); font-size: var(--type-body); white-space: pre-wrap; }
+.chat-msg.user { background: var(--color-accent); color: var(--color-accent-fg); align-self: flex-end; max-width: 90%; }
+.chat-msg.assistant { background: var(--color-bg-surface); color: var(--color-fg); align-self: stretch; }
+.chat-msg.tool { font-size: var(--type-caption); color: var(--color-fg-muted); padding: 0 var(--spacing-md); }
+.portal-chat-form { display: flex; gap: var(--spacing-sm); padding: var(--spacing-md); border-top: 1px solid var(--color-border); }
+.portal-chat-form textarea {
+  flex: 1; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm); font-size: var(--type-body); font-family: var(--font-body); resize: none;
+  background: var(--color-bg); color: var(--color-fg);
+}
+
+@media (max-width: 720px) {
+  .portal-search { margin-left: 0; width: 100%; }
+  .portal-form-row { grid-template-columns: 1fr; }
+}

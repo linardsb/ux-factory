@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · portal</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/portal.css" />
+</head>
+<body data-page="portal">
+
+  <header class="portal-bar">
+    <a class="portal-brand" href="#/">ux factory <span class="hl">portal</span></a>
+    <span class="portal-health" id="health">…</span>
+    <span class="portal-bar-spacer"></span>
+    <button class="btn btn-secondary" id="btn-chat" type="button">Chat</button>
+    <button class="btn btn-primary" id="btn-intake" type="button">New intake</button>
+  </header>
+
+  <main class="portal-main" id="main"><!-- rendered by portal.js --></main>
+
+  <!-- Intake panel -->
+  <div class="portal-drawer" id="intake-drawer" hidden>
+    <form class="portal-form" id="intake-form">
+      <h2 class="h3">New intake</h2>
+      <label>Company *<input name="company" required autocomplete="off" /></label>
+      <label>Role<input name="role" autocomplete="off" /></label>
+      <div class="portal-form-row">
+        <label>Industry<input name="industry" autocomplete="off" /></label>
+        <label>Tier
+          <select name="tier">
+            <option value="standard" selected>standard</option>
+            <option value="flagship">flagship</option>
+          </select>
+        </label>
+      </div>
+      <label>JD URL<input name="jdUrl" type="url" placeholder="https://…" /></label>
+      <label>Design-system URLs — one per line<textarea name="dsUrls" rows="3" placeholder="https://…"></textarea></label>
+      <label>Notes<textarea name="notes" rows="2"></textarea></label>
+      <div class="portal-form-actions">
+        <button class="btn btn-primary" type="submit">Add card</button>
+        <button class="btn btn-secondary" type="button" id="intake-cancel">Cancel</button>
+      </div>
+      <p class="muted portal-form-status" id="intake-status"></p>
+    </form>
+  </div>
+
+  <!-- Chat dock -->
+  <aside class="portal-chat" id="chat" hidden>
+    <div class="portal-chat-head">
+      <span class="card-kicker" id="chat-context">chat · global</span>
+      <button class="portal-chat-close" id="chat-close" type="button" aria-label="Close chat">×</button>
+    </div>
+    <div class="portal-chat-log" id="chat-log" aria-live="polite"></div>
+    <form class="portal-chat-form" id="chat-form">
+      <textarea id="chat-input" rows="2" placeholder="Research this company's design system…" required></textarea>
+      <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+  </aside>
+
+  <script src="/portal.js"></script>
+</body>
+</html>

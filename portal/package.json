@@ -1,0 +1,13 @@
+{
+  "name": "ux-factory-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first workbench: intake, card library, research chat over _factory/kb/ (strategy §13)",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.77"
+  }
+}
