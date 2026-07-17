@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/care-task-row.contract.json",
+  "title": "CareTask",
+  "description": "One scheduled care action as the Verdant mock API returns it (fictional demo data). The shape care-task-row binds; plantId references a Plant (plant-card.contract.json) by id.",
+  "type": "object",
+  "required": ["id", "plantId", "plantName", "action", "due", "status"],
+  "properties": {
+    "id":        { "type": "string", "description": "stable task id, e.g. \"t-031\"" },
+    "plantId":   { "type": "string", "description": "id of the plant this task belongs to" },
+    "plantName": { "type": "string", "minLength": 1, "description": "denormalised for display — the row renders without fetching the plant" },
+    "action":    { "type": "string", "enum": ["water", "mist", "feed"] },
+    "due":       { "type": "string", "format": "date-time" },
+    "status":    { "type": "string", "enum": ["ok", "due", "overdue"], "description": "derived server-side from due vs now" }
+  },
+  "additionalProperties": false
+}

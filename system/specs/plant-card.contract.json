@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/plant-card.contract.json",
+  "title": "Plant",
+  "description": "One plant as the Verdant mock API returns it (fictional demo data). The shape plant-card binds; care-task-row references plants by id.",
+  "type": "object",
+  "required": ["id", "name", "status", "lastWatered"],
+  "properties": {
+    "id":          { "type": "string", "description": "stable plant id, e.g. \"p-014\"" },
+    "name":        { "type": "string", "minLength": 1 },
+    "species":     { "type": "string", "description": "latin name; optional" },
+    "status":      { "type": "string", "enum": ["ok", "due", "overdue"], "description": "derived server-side from lastWatered + the care schedule" },
+    "lastWatered": { "type": "string", "format": "date-time" },
+    "photoUrl":    { "type": "string", "format": "uri-reference", "description": "site-relative image path; optional" }
+  },
+  "additionalProperties": false
+}
