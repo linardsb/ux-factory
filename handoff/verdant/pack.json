@@ -216,7 +216,7 @@
         "title": {
           "type": "string",
           "required": true,
-          "description": "screen name, centred, one line — the screen's h1"
+          "description": "screen name, centred, one line — the screen's top-level heading"
         },
         "showBack": {
           "type": "boolean",
@@ -257,7 +257,7 @@
         },
         {
           "title": "Accessibility",
-          "body": "A `<header>` landmark; the title is the screen's `<h1>`. Back and settings are `<button>`s with explicit labels (\"Back\", \"Settings\") — the glyphs are `aria-hidden`. Both targets minimum 44px with visible `:focus-visible` outlines; the empty-slot rule keeps the title from shifting when affordances toggle, so nothing moves under a screen-reader user's touch."
+          "body": "A `<header>` landmark; the title is the screen's top-level heading within its frame — when the screen is embedded in a page that owns the `<h1>` (like the prototype exhibit), the title steps down to the next level. Back and settings are `<button>`s with explicit labels (\"Back\", \"Settings\") — the glyphs are `aria-hidden`. Both targets minimum 44px with visible `:focus-visible` outlines; the empty-slot rule keeps the title from shifting when affordances toggle, so nothing moves under a screen-reader user's touch."
         }
       ]
     },

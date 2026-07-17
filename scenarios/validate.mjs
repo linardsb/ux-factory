@@ -218,6 +218,8 @@ const COHERENCE = {
         throw new Error(`${dir}/fixtures/jobs.json: ${j.id} status "${j.status}" inconsistent with completedAt ${j.completedAt}`);
       if (j.status === "overdue" && !(j.slaDue < today))
         throw new Error(`${dir}/fixtures/jobs.json: ${j.id} is "overdue" but slaDue ${j.slaDue} has not lapsed (today ${today})`);
+      if (!["urgent", "priority", "routine"].includes(j.priority))
+        throw new Error(`${dir}/fixtures/jobs.json: ${j.id} priority "${j.priority}" not in [urgent, priority, routine]`);
     }
     for (const s of collections.schedule)
       if (s.date < today || s.date > addDays(today, 7))

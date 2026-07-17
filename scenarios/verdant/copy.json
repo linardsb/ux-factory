@@ -18,6 +18,7 @@
     "allClearMessage": "All plants on rhythm — nothing due today.",
     "overdueLabel": "overdue",
     "dueTodayLabel": "due today",
+    "okLabel": "ok",
     "healthLabels": { "thriving": "Thriving", "stable": "Stable", "struggling": "Struggling" }
   }
 }

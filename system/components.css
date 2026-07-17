@@ -1770,6 +1770,11 @@ p, .body {
   text-transform: uppercase;
   color: var(--color-fg-muted);
 }
+.fw-panel-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
 .fw-job {
   display: flex;
   flex-wrap: wrap;
@@ -1827,6 +1832,8 @@ p, .body {
   color: var(--color-fg-muted);
 }
 .fw-priority[data-priority="urgent"] { color: var(--color-fg); font-weight: 700; }
+.fw-priority[data-priority="priority"] { color: var(--color-fg); }
+.fw-priority[data-priority="routine"] { color: var(--color-fg-muted); }
 .fw-sla {
   font-size: var(--type-eyebrow);
   font-weight: 700;

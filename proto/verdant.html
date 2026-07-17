@@ -86,7 +86,7 @@
       sourceEl.textContent = source === "worker" ? "data: live mock API" : "data: static fixtures";
 
       const chip = (status) => {
-        const label = status === "overdue" ? c.overdueLabel : status === "due" ? c.dueTodayLabel : "ok";
+        const label = status === "overdue" ? c.overdueLabel : status === "due" ? c.dueTodayLabel : c.okLabel;
         return `<span class="vd-status-chip is-${esc(status)}" aria-hidden="true">${esc(label)}</span>`;
       };
 

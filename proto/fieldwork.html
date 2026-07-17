@@ -58,6 +58,8 @@
 
     // The scenario's fixed fictional today (scenarios/fieldwork/brief.md head;
     // fixtures are validator-proven coherent with it — no relative dates anywhere).
+    // Unlike Verdant (derived fields baked into fixtures), this page derives at view
+    // time — if the brief's day is ever revised, update TODAY and SLA_SOON with it.
     const TODAY = "2026-07-14";
     const SLA_SOON = "2026-07-16"; // within two days of TODAY
 
@@ -92,7 +94,7 @@
           <p class="fw-job-customer">${esc(j.customer)}</p>
           <span class="fw-job-side">
             ${slaMark(j)}
-            <span class="fw-priority" data-priority="${esc(j.priority)}">${esc(j.priority)}</span>
+            <span class="fw-priority" data-priority="${esc(j.priority)}">${esc(c.priorityLabels[j.priority] ?? j.priority)}</span>
             ${statusChip(j)}
           </span>
           <p class="fw-job-meta">${esc(j.site)} · ${esc(c.regionLabels[j.region] ?? j.region)} · ${esc(j.type)} · SLA ${esc(j.slaDue)}</p>
@@ -140,17 +142,17 @@
         <div class="fw-board-main">
           <div class="vd-stack">
             <section class="fw-panel">
-              <header class="fw-panel-head"><span>Attention — SLA &amp; overdue</span><span>${attention.length}</span></header>
+              <header class="fw-panel-head"><h3 class="fw-panel-title">Attention — SLA &amp; overdue</h3><span>${attention.length}</span></header>
               ${attention.map(jobRow).join("")}
             </section>
             <section class="fw-panel">
-              <header class="fw-panel-head"><span>Today's schedule</span><span>${technicians.data.length} technicians</span></header>
+              <header class="fw-panel-head"><h3 class="fw-panel-title">Today's schedule</h3><span>${technicians.data.length} technicians</span></header>
               ${technicians.data.map(lane).join("")}
             </section>
           </div>
           <div class="vd-stack">
             <section class="fw-panel">
-              <header class="fw-panel-head"><span>${esc(c.unassignedHeading)}</span><span>${unassigned.length}</span></header>
+              <header class="fw-panel-head"><h3 class="fw-panel-title">${esc(c.unassignedHeading)}</h3><span>${unassigned.length}</span></header>
               ${unassigned.map(jobRow).join("")}
             </section>
             ${slot("insight-panel", "Computed insight over the live board — breach risk, load balance — composed by the agentic-UI study within this bounded region. Planned — not running yet.")}

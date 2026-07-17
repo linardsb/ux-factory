@@ -5,7 +5,7 @@
   "class": "vd-screen-header",
   "contract": null,
   "props": {
-    "title":        { "type": "string",  "required": true,  "description": "screen name, centred, one line — the screen's h1" },
+    "title":        { "type": "string",  "required": true,  "description": "screen name, centred, one line — the screen's top-level heading" },
     "showBack":     { "type": "boolean", "required": false, "description": "leading back affordance; omit on root screens like My plants" },
     "showSettings": { "type": "boolean", "required": false, "description": "trailing settings affordance; the today screen shows it" }
   },
@@ -36,4 +36,4 @@ Presentational — `contract: null`. No API record binds here; the composing scr
 
 ## Accessibility
 
-A `<header>` landmark; the title is the screen's `<h1>`. Back and settings are `<button>`s with explicit labels ("Back", "Settings") — the glyphs are `aria-hidden`. Both targets minimum 44px with visible `:focus-visible` outlines; the empty-slot rule keeps the title from shifting when affordances toggle, so nothing moves under a screen-reader user's touch.
+A `<header>` landmark; the title is the screen's top-level heading within its frame — when the screen is embedded in a page that owns the `<h1>` (like the prototype exhibit), the title steps down to the next level. Back and settings are `<button>`s with explicit labels ("Back", "Settings") — the glyphs are `aria-hidden`. Both targets minimum 44px with visible `:focus-visible` outlines; the empty-slot rule keeps the title from shifting when affordances toggle, so nothing moves under a screen-reader user's touch.

@@ -17,6 +17,7 @@
     "unassignedHeading": "Needs assignment",
     "slaWarningLabel": "SLA at risk",
     "overdueLabel": "overdue",
+    "priorityLabels": { "urgent": "Urgent", "priority": "Priority", "routine": "Routine" },
     "regionLabels": { "north": "North", "south": "South", "east": "East", "west": "West" },
     "statusLabels": { "scheduled": "Scheduled", "en-route": "En route", "on-site": "On site", "done": "Done", "overdue": "Overdue" }
   }
