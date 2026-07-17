@@ -66,7 +66,9 @@ The modules are relative-import self-contained (`vd-plant-card.mjs` and
 | event | `vd-toggle` | `bubbles + composed`, `detail: { id, checked }` |
 
 Attributes and the `data` property are one model — `data` reflects to attributes, and an
-attribute set after `data` wins (last write).
+attribute set after `data` wins (last write). Assigning `data = null` removes the record's
+reflected attributes and renders the empty state (list-item recycling); the row's `checked`
+is interaction state, not record state, and is untouched.
 
 ## Theming
 

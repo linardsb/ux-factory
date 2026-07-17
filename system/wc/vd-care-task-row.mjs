@@ -90,7 +90,10 @@ export class VdCareTaskRow extends HTMLElement {
   get data() { return this.#data; }
   set data(record) {
     this.#data = record ?? null;
-    if (!record) return;
+    if (!record) {
+      for (const a of ["action", "plant-name", "status", "task-id"]) this.removeAttribute(a);
+      return;
+    }
     this.setAttribute("action", record.action);
     this.setAttribute("plant-name", record.plantName);
     this.setAttribute("status", record.status);

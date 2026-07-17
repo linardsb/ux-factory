@@ -45,6 +45,7 @@ export class VdStatusChip extends HTMLElement {
   set data(record) {
     this.#data = record ?? null;
     if (record) { this.setAttribute("value", record.value); this.setAttribute("label", record.label); }
+    else { this.removeAttribute("value"); this.removeAttribute("label"); }
   }
 
   connectedCallback() { this.#render(); }

@@ -104,7 +104,10 @@ export class VdPlantCard extends HTMLElement {
   get data() { return this.#data; }
   set data(record) {
     this.#data = record ?? null;
-    if (!record) return;
+    if (!record) {
+      for (const a of ["name", "species", "status", "photo-url", "plant-id"]) this.removeAttribute(a);
+      return;
+    }
     this.setAttribute("name", record.name);
     this.setAttribute("status", record.status);
     this.setAttribute("plant-id", record.id);
@@ -127,9 +130,10 @@ export class VdPlantCard extends HTMLElement {
     const card = this.shadowRoot.querySelector(".card");
     card.classList.toggle("overdue", status === "overdue");
     card.setAttribute("href", this.getAttribute("href") ?? "#");
-    // Accessible name = name + status; the chip's text is aria-hidden against
-    // double announcement (spec ## Accessibility).
-    card.setAttribute("aria-label", `${name}, ${chipLabel}`);
+    // Accessible name = name + status (raw lowercase — the one register shared with
+    // care-task-row); the chip's text is aria-hidden against double announcement
+    // (spec ## Accessibility).
+    card.setAttribute("aria-label", `${name}, ${status ?? "ok"}`);
 
     const thumb = this.shadowRoot.querySelector(".thumb");
     if (photoUrl) {

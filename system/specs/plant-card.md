@@ -48,4 +48,4 @@ Sample record (valid against the contract):
 
 ## Accessibility
 
-The card is a single link (`<a>`), accessible name = name + status ("Monstera, watering due"); the chip's text is `aria-hidden` to avoid double announcement. Thumbnail `alt=""` (decorative — the name is adjacent). Minimum touch target 44px; visible `:focus-visible` outline in `--color-accent`; state changes never rely on colour alone (the chip carries a text label).
+The card is a single link (`<a>`), accessible name = name + status ("Monstera, due"); the chip's text is `aria-hidden` to avoid double announcement. Thumbnail `alt=""` (decorative — the name is adjacent). Minimum touch target 44px; visible `:focus-visible` outline in `--color-accent`; state changes never rely on colour alone (the chip carries a text label).
