@@ -184,8 +184,12 @@ function resolveChip(status, kids) {
 // contract says site-relative. Allow a relative path (no scheme) or an explicit https URL.
 // The leading-// alternative also rejects protocol-relative URLs (//host beacons an arbitrary
 // external host); pure regex keeps this Node-safe so #13's validator could reuse it.
+// Browsers strip ASCII tab/newline anywhere in a URL and trim leading/trailing whitespace before
+// resolving it, so " //evil" or "h\tttp://evil" would otherwise smuggle a scheme/host past the
+// anchored check — normalise the same way, then test the form the browser will actually load.
 function safePhotoUrl(url, path) {
-  if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(url) && !/^https:\/\//i.test(url)) {
+  const resolved = url.replace(/[\t\n\r]/g, "").trim();
+  if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(resolved) && !/^https:\/\//i.test(resolved)) {
     throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative or https URL (no javascript:/data: or protocol-relative //)`);
   }
   return url;

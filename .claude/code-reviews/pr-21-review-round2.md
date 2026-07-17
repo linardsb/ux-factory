@@ -13,7 +13,7 @@ Round-1 report: `.claude/code-reviews/pr-21-review.md`.
 | # | Finding (severity) | Status | Evidence |
 |---|---|---|---|
 | 1 | `validateComposition` crashes / silently accepts on `Object.prototype`-member names (HIGH) | **Fixed** | Own-property lookups at all three sites: `:44` `Object.hasOwn(vocab.components, node.name)`, `:58` `!Object.hasOwn(entry.props, key)`, `:323` `Object.hasOwn(TEMPLATES, node.name)`. `toString`/`constructor` now refuse cleanly ("unknown component"), and `__proto__`/`toString` extra props (real own keys after `JSON.parse`) refuse as out-of-vocabulary. Same discipline as the sibling `scenarios/validate.mjs:127`. |
-| 2 | `safePhotoUrl` doesn't block protocol-relative URLs (MEDIUM) | **Fixed** | Scheme regex extended to `/^([a-z][a-z0-9+.-]*:|\/\/)/i` (`:188`) — the `//` alternative now rejects `//host` beacons. Kept a pure regex (no `new URL`) so the function stays Node-safe. |
+| 2 | `safePhotoUrl` doesn't block protocol-relative URLs (MEDIUM) | **Fixed** | Scheme regex extended to `/^([a-z][a-z0-9+.-]*:|\/\/)/i` — the `//` alternative rejects `//host` beacons. Guard also normalises first (`url.replace(/[\t\n\r]/g,"").trim()`) so leading/internal whitespace can't smuggle a scheme/host past the anchored check the way a browser would resolve it (` //evil`, `h\ttp://evil`). Kept a pure regex (no `new URL`) so the function stays Node-safe. |
 | 3 | `photoUrl` scheme safety lives only in the template, not in `validateComposition` (LOW / design note, unscored) | **Deferred** | See recommendation below — kept out of the pure validator deliberately; logged for #13. |
 
 ## Regression battery (run against the fixed module + committed `vocabulary.json`)
@@ -40,12 +40,18 @@ Control (unchanged):
 ```
 PASS [name=hero-banner]  Error: composition: unknown component "hero-banner" (...)
 ```
-MEDIUM — `safePhotoUrl` scheme logic:
+MEDIUM — `safePhotoUrl` scheme logic (incl. whitespace-smuggling variants a browser would strip):
 ```
-PASS //evil.example/tracker.png → throws
-PASS http://evil.example/x.png  → throws
+PASS //evil.example/x           → throws
+PASS http://evil.example/x      → throws
 PASS javascript:alert(1)        → throws
 PASS data:text/html,x           → throws
+PASS " //evil.example/beacon"   → throws   (leading space)
+PASS "\t//evil.example/x"       → throws   (leading tab)
+PASS "\n//evil.example/x"       → throws   (leading newline)
+PASS "/\t/evil.example/x"       → throws   (tab between the slashes)
+PASS "h\ttp://evil.example/x"   → throws   (tab inside the scheme)
+PASS " javascript:alert(1)"     → throws   (leading space)
 PASS https://ok.example/x.png   → allowed
 PASS /local/x.png               → allowed
 PASS photos/fern.png            → allowed
