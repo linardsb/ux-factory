@@ -13,6 +13,7 @@ system/                     the shipped design system — brand-agnostic core + 
   portfolio.css / proto.css surface styles for portfolio pages / prototypes
   site.js                   injects chrome (header/footer/nav) from window.CLIENT_CONFIG
   derive.mjs (+ oklch.mjs, wcag.mjs, derive.rules.mjs)   view-time derivation engine: intake answers → token values + WCAG checks + ethics verdict; driven raw by /derive.html, spike runner in tooling/ (epic #1 ticket #3)
+  agentic-renderer.mjs + action-bus.mjs   declarative agentic bridge (hand-written canon): vocabulary-validated {name,props,children} → real components (refuses everything else) + one bidirectional action contract (agent/click/keyboard, voice-ready); driven raw by /agentic.html (epic #1 ticket #11)
   tokens.css / tokens.saulera.css / client.config.js   real packs kept as reference; NOT loaded by the shell
   specs/                    ComponentSpec .md + DataContract .json — the handoff source of truth (format: .claude/references/kb-format.md)
 index.html / 404.html       the neutral site template shell (loads contract + neutral pack + components)
@@ -27,8 +28,9 @@ portal/                     local-first workbench (127.0.0.1 only, never deploye
   public/                   vanilla SPA — hash routing, template strings, no framework
 scenarios/                  scenario packages — the demo subjects + fixtures (format: scenarios/README.md; validate: node scenarios/validate.mjs; check page: /scenarios/check.html)
 worker/                     fixture-backed mock API — public read-only GET, one Cloudflare Worker (cd worker && npx wrangler dev); site degrades to static fixtures via system/scenario-data.mjs
+proto/                      data-connected prototype pages — Verdant phone screen + Fieldwork hybrid canvas (vd-/fw- components implemented to system/specs/; slots for #13)
 docs/epics/                 PRD + architecture decisions governing the platform build
-handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs
+handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs (pack + tokens) · node agent-layer/gen-vocabulary.mjs (vocabulary.json — the agent-ready layer the renderer validates against)
 tooling/mcp/                local MCP helper scripts
 tooling/style-dictionary/   the one dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
 ```
