@@ -27,6 +27,7 @@ portal/                     local-first workbench (127.0.0.1 only, never deploye
   public/                   vanilla SPA — hash routing, template strings, no framework
 scenarios/                  scenario packages — the demo subjects + fixtures (format: scenarios/README.md; validate: node scenarios/validate.mjs; check page: /scenarios/check.html)
 worker/                     fixture-backed mock API — public read-only GET, one Cloudflare Worker (cd worker && npx wrangler dev); site degrades to static fixtures via system/scenario-data.mjs
+proto/                      data-connected prototype pages — Verdant phone screen + Fieldwork hybrid canvas (vd-/fw- components implemented to system/specs/; slots for #13)
 docs/epics/                 PRD + architecture decisions governing the platform build
 handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs
 tooling/mcp/                local MCP helper scripts

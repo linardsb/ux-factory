@@ -5,7 +5,7 @@
   "components": [
     {
       "component": "care-task-row",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-care-task-row",
       "contract": "contracts/care-task-row.contract.json",
       "props": {
@@ -82,7 +82,7 @@
     },
     {
       "component": "plant-card",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-plant-card",
       "contract": "contracts/plant-card.contract.json",
       "props": {
@@ -155,7 +155,7 @@
     },
     {
       "component": "primary-button",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-primary-button",
       "contract": null,
       "props": {
@@ -209,7 +209,7 @@
     },
     {
       "component": "screen-header",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-screen-header",
       "contract": null,
       "props": {
@@ -263,7 +263,7 @@
     },
     {
       "component": "stat-tile",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-stat-tile",
       "contract": "contracts/stat-tile.contract.json",
       "props": {
@@ -328,7 +328,7 @@
     },
     {
       "component": "status-chip",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-status-chip",
       "contract": "contracts/status-chip.contract.json",
       "props": {

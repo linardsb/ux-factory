@@ -1,7 +1,7 @@
 ```json
 {
   "component": "care-task-row",
-  "status": "spec",
+  "status": "shipped",
   "class": "vd-care-task-row",
   "contract": "care-task-row.contract.json",
   "props": {

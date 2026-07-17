@@ -1,7 +1,7 @@
 ```json
 {
   "component": "screen-header",
-  "status": "spec",
+  "status": "shipped",
   "class": "vd-screen-header",
   "contract": null,
   "props": {

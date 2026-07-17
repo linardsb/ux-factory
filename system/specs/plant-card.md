@@ -1,7 +1,7 @@
 ```json
 {
   "component": "plant-card",
-  "status": "spec",
+  "status": "shipped",
   "class": "vd-plant-card",
   "contract": "plant-card.contract.json",
   "props": {

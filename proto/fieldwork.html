@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fieldwork — Dispatch board · hybrid canvas prototype</title>
+  <meta name="description" content="Human-designed dispatch-board chrome with two designated, bounded agentic slots, rendering live from the fixture-backed mock API. Part of the ux-factory pipeline demo." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- proto/fieldwork.html — Fieldwork "Dispatch board": the hybrid canvas (epic #1, ticket #8).
+       Architecture §Agentic UI: human-designed chrome with designated, bounded agentic slots.
+       DESIGN CALL (recorded per architecture §Open questions): agent-composed = the two
+       proto-slot regions, summary-strip + insight-panel; human-fixed = toolbar, the Attention
+       and Needs-assignment panels, and the technician lanes. #13 (agentic-UI study) composes
+       into the two slots only. Data: worker/api.mjs, degrading to committed static fixtures
+       via system/scenario-data.mjs. Fieldwork is a fictional scenario; notice from copy.json. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/proto.css" />
+</head>
+<body data-page="proto-fieldwork">
+
+  <p class="proto-because" id="notice">Loading the scenario's notice…</p>
+
+  <header class="proto-head">
+    <div>
+      <h1>Fieldwork — Dispatch board</h1>
+      <p class="sub">A hybrid canvas: human-designed board chrome, with two designated agentic
+        slots the agentic-UI study will compose into. Renders from the mock API; stop the Worker
+        and the same board renders from the committed static fixtures.</p>
+    </div>
+    <span class="proto-source" id="source">checking data source…</span>
+  </header>
+
+  <main class="proto-stage-center">
+    <div class="proto-frame-board">
+      <div class="fw-board" id="board">
+        <p class="fw-job-meta">Loading the board…</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="proto-legal">
+    Part of the ux-factory pipeline demonstration. All data on this page is fictional fixture
+    data served by a mock API (or its committed static fallback) — no real company, customers,
+    or technicians are involved. The board shows the scenario's fixed fictional day.
+  </footer>
+
+  <script type="module">
+    import { loadCollection } from "/system/scenario-data.mjs";
+
+    const esc = (s) =>
+      String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    // The scenario's fixed fictional today (scenarios/fieldwork/brief.md head;
+    // fixtures are validator-proven coherent with it — no relative dates anywhere).
+    const TODAY = "2026-07-14";
+    const SLA_SOON = "2026-07-16"; // within two days of TODAY
+
+    const board = document.getElementById("board");
+
+    try {
+      const [jobs, technicians, schedule] = await Promise.all([
+        loadCollection("fieldwork", "jobs"),
+        loadCollection("fieldwork", "technicians"),
+        loadCollection("fieldwork", "schedule"),
+      ]);
+      const copy = await fetch("/scenarios/fieldwork/copy.json").then((r) => r.json());
+      const c = copy.prototype;
+
+      document.getElementById("notice").textContent = copy.fictionalNotice;
+
+      const source = [jobs, technicians, schedule].some((r) => r.source === "static") ? "static" : "worker";
+      const sourceEl = document.getElementById("source");
+      sourceEl.dataset.source = source;
+      sourceEl.textContent = source === "worker" ? "data: live mock API" : "data: static fixtures";
+
+      const jobById = Object.fromEntries(jobs.data.map((j) => [j.id, j]));
+      const open = (j) => j.completedAt === null;
+      const atRisk = (j) => open(j) && j.slaDue <= SLA_SOON;
+
+      const statusChip = (j) =>
+        `<span class="fw-status-chip" data-status="${esc(j.status)}">${esc(c.statusLabels[j.status] ?? j.status)}</span>`;
+      const slaMark = (j) => (atRisk(j) ? `<span class="fw-sla">${esc(c.slaWarningLabel)}</span>` : "");
+
+      const jobRow = (j) => `
+        <div class="fw-job">
+          <p class="fw-job-customer">${esc(j.customer)}</p>
+          <span class="fw-job-side">
+            ${slaMark(j)}
+            <span class="fw-priority" data-priority="${esc(j.priority)}">${esc(j.priority)}</span>
+            ${statusChip(j)}
+          </span>
+          <p class="fw-job-meta">${esc(j.site)} · ${esc(c.regionLabels[j.region] ?? j.region)} · ${esc(j.type)} · SLA ${esc(j.slaDue)}</p>
+        </div>`;
+
+      const attention = jobs.data
+        .filter((j) => open(j) && (j.status === "overdue" || atRisk(j)))
+        .sort((a, b) => (a.slaDue < b.slaDue ? -1 : 1));
+
+      const unassigned = jobs.data.filter((j) => j.techId === null);
+
+      const lane = (t) => {
+        const days = schedule.data.filter((s) => s.techId === t.id && s.date === TODAY);
+        const slots = days.flatMap((s) => s.slots);
+        const chips = slots.map((s) => {
+          if (!s.jobId) return `<span class="fw-slot-chip is-empty">—</span>`;
+          const j = jobById[s.jobId];
+          return `<span class="fw-slot-chip"><span class="t">${esc(s.start)}</span> ${esc(j.customer)} · ${esc(c.statusLabels[j.status] ?? j.status)}</span>`;
+        });
+        return `
+          <div class="fw-lane">
+            <div>
+              <p class="fw-lane-name">${esc(t.name)}</p>
+              <p class="fw-lane-skills">${esc(t.skills.join(" · "))} · ${esc(c.regionLabels[t.region] ?? t.region)}</p>
+            </div>
+            <div class="fw-lane-slots">${chips.join("") || `<span class="fw-slot-chip is-empty">no slots today</span>`}</div>
+          </div>`;
+      };
+
+      // Agentic slots — the two designated, bounded regions #13 composes into.
+      // Honest placeholders: designed and labeled, never faked content.
+      const slot = (id, note) => `
+        <section class="proto-slot" data-slot="${esc(id)}" aria-label="Agentic slot: ${esc(id)}">
+          <span class="proto-slot-label">Agentic slot — ${esc(id)}</span>
+          <p class="proto-slot-note">${esc(note)}</p>
+        </section>`;
+
+      board.innerHTML = `
+        <div class="fw-toolbar">
+          <h2 class="fw-toolbar-title">${esc(c.screenTitle)}</h2>
+          <span class="fw-toolbar-date">Board day: ${esc(TODAY)} — the scenario's fixed fictional today</span>
+          ${Object.values(c.regionLabels).map((r) => `<span class="fw-region-chip">${esc(r)}</span>`).join("")}
+        </div>
+        ${slot("summary-strip", "A one-line operational summary of this board, composed by the agentic-UI study from the same fixture data (ask → propose → adjust). Planned — not running yet, so this region stays honestly empty.")}
+        <div class="fw-board-main">
+          <div class="vd-stack">
+            <section class="fw-panel">
+              <header class="fw-panel-head"><span>Attention — SLA &amp; overdue</span><span>${attention.length}</span></header>
+              ${attention.map(jobRow).join("")}
+            </section>
+            <section class="fw-panel">
+              <header class="fw-panel-head"><span>Today's schedule</span><span>${technicians.data.length} technicians</span></header>
+              ${technicians.data.map(lane).join("")}
+            </section>
+          </div>
+          <div class="vd-stack">
+            <section class="fw-panel">
+              <header class="fw-panel-head"><span>${esc(c.unassignedHeading)}</span><span>${unassigned.length}</span></header>
+              ${unassigned.map(jobRow).join("")}
+            </section>
+            ${slot("insight-panel", "Computed insight over the live board — breach risk, load balance — composed by the agentic-UI study within this bounded region. Planned — not running yet.")}
+          </div>
+        </div>`;
+    } catch (e) {
+      board.innerHTML = `<p class="fw-job-meta">Could not load the scenario data: ${esc(e.message)}</p>`;
+    }
+  </script>
+</body>
+</html>
