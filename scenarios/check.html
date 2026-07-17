@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenario data check</title>
+  <meta name="description" content="Drives every scenario collection through the fetch helper and shows which source answered: the Worker mock API, or the committed static fixtures." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Bare check page (epic #1, ticket #4): contract + neutral pack + components, no chrome. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+</head>
+<body data-page="check">
+
+  <main>
+    <section class="section">
+      <div class="container">
+        <div class="section-label"><span class="num">✓</span><span>Scenario data check</span><span class="line"></span></div>
+        <h1 class="h3" style="margin-bottom: var(--spacing-md);">Is the Worker answering, or the static fallback?</h1>
+        <p class="muted max-prose">
+          This page loads every collection of every registered scenario through
+          <code>system/scenario-data.mjs</code>. <strong>Source</strong> says what actually
+          answered: <code>worker</code> is the live mock API; <code>static</code> is the
+          committed fixture files served by this page's own origin — the never-fails fallback.
+          Stop the Worker and reload to watch it degrade.
+        </p>
+
+        <div id="results" style="margin-top: var(--spacing-lg);">
+          <p class="muted">Loading…</p>
+        </div>
+
+        <div id="notices" class="grid grid-2" style="margin-top: var(--spacing-xl);"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { loadRegistry, loadCollection } from "/system/scenario-data.mjs";
+
+    const esc = (s) =>
+      String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    const results = document.getElementById("results");
+    const notices = document.getElementById("notices");
+
+    try {
+      const { scenarios } = await loadRegistry();
+      const rows = [];
+
+      for (const { slug, name } of scenarios) {
+        const proto = await fetch(`/scenarios/${slug}/proto.config.json`).then((r) => r.json());
+        const collections = [...new Set(proto.screens.flatMap((s) => s.collections))];
+        for (const collection of collections) {
+          try {
+            const { data, source } = await loadCollection(slug, collection);
+            rows.push({ name, collection, count: data.length, source });
+          } catch (e) {
+            rows.push({ name, collection, count: "—", source: `FAILED: ${e.message}` });
+          }
+        }
+
+        const copy = await fetch(`/scenarios/${slug}/copy.json`).then((r) => r.json());
+        notices.insertAdjacentHTML("beforeend", `
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">${esc(name)}</div>
+              <p class="muted">${esc(copy.fictionalNotice)}</p>
+            </div>
+          </article>
+        `);
+      }
+
+      results.innerHTML = `
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr>
+                ${["Scenario", "Collection", "Records", "Source"].map((h) => `
+                  <th style="padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--color-border-strong);">${h}</th>
+                `).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((r) => `
+                <tr>
+                  <td style="padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--color-border);">${esc(r.name)}</td>
+                  <td style="padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--color-border);"><code>${esc(r.collection)}</code></td>
+                  <td style="padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--color-border);">${esc(r.count)}</td>
+                  <td style="padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--color-border);"><span class="pill"></span> <code>${esc(r.source)}</code></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (e) {
+      results.innerHTML = `<p class="muted">Check failed: ${esc(e.message)}</p>`;
+    }
+  </script>
+</body>
+</html>

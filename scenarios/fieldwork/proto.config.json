@@ -1,0 +1,10 @@
+{
+  "screens": [
+    {
+      "id": "dispatch-board",
+      "title": "Dispatch board",
+      "collections": ["jobs", "technicians", "schedule"]
+    }
+  ],
+  "slots": ["insight-panel", "summary-strip"]
+}

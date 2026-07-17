@@ -23,6 +23,8 @@ portal/                     local-first workbench (127.0.0.1 only, never deploye
   server.mjs                zero-dep node:http server — thin route dispatch, logic in lib/
   lib/                      one concern per module: env.mjs (paths + .env), kb.mjs (card projections), intake.mjs, chat.mjs (Agent SDK behind SSE)
   public/                   vanilla SPA — hash routing, template strings, no framework
+scenarios/                  scenario packages — the demo subjects + fixtures (format: scenarios/README.md; validate: node scenarios/validate.mjs; check page: /scenarios/check.html)
+worker/                     fixture-backed mock API — public read-only GET, one Cloudflare Worker (cd worker && npx wrangler dev); site degrades to static fixtures via system/scenario-data.mjs
 docs/epics/                 PRD + architecture decisions governing the platform build
 tooling/mcp/                local MCP helper scripts
 ```
@@ -36,6 +38,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Brand/company skin** → clone `system/tokens.neutral.css` → `tokens.<company>.css` and `client.neutral.config.js` → `client.<company>.config.js`; never fork components.
 - **View-time behaviour on shipped pages** → a hand-written ES module beside `system/site.js`.
 - **kb record type or field** → `.claude/references/kb-format.md` (both parsers must stay in sync).
+- **New scenario** → clone a `scenarios/<slug>/` package per `scenarios/README.md` + one `scenarios/index.json` entry + its imports in `worker/fixtures.mjs`; the Worker's routes (`worker/api.mjs`) never change.
 - **Platform capability (epic work)** → check `docs/epics/ai-first-ux-factory.architecture.md` first — most "new" pieces are already-decided Missing pieces with format and placement pinned.
 
 ## Ground rules (conventions)

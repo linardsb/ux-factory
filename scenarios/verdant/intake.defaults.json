@@ -1,0 +1,84 @@
+{
+  "questions": [
+    {
+      "id": "problem",
+      "stage": "discovery",
+      "question": "What problem are users solving with your product?",
+      "default": "Houseplants die from irregular care. Owners with ten-plus plants on staggered rhythms can't hold the schedule in memory, so healthy plants get missed and struggling ones get noticed too late.",
+      "reasoning": "Anchoring on the care-rhythm problem (not 'people want a plant app') keeps every later decision testable against whether plants actually survive.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "current-solution",
+      "stage": "discovery",
+      "question": "How do they solve it today, and why does that need replacing?",
+      "default": "Memory, a recurring phone alarm labeled 'plants??', and sticky notes. Each works for about a week, then decays — none of them knows which plant was watered when.",
+      "reasoning": "The coping baseline defines the bar to clear: the product must beat sticky notes on reliability, not on features.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "named-user",
+      "stage": "discovery",
+      "question": "Who exactly is the user — can you name a real person who needs this?",
+      "default": "Rita, 34, product manager, eleven plants across three rooms. Loves them, forgets them in busy weeks, and doesn't want sensors or a smart-home hub — she wants to stop guessing.",
+      "reasoning": "A named persona forces concrete trade-offs (no hardware, two-minute sessions) instead of designing for 'plant people' in the abstract.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "target-behavior",
+      "stage": "behaviour",
+      "question": "What's the one behavior you want to become routine? How often would it realistically occur?",
+      "default": "The daily check-in: open the overview, see what needs attention, act or consciously defer. With ten-plus plants on staggered rhythms, something needs attention most days.",
+      "reasoning": "Per-plant care is weekly, but the aggregate check-in is near-daily — inside the Hooked habit zone (weekly or better), so a designed habit loop is realistic here.",
+      "bounds": ["multiple-daily", "daily", "weekly", "monthly", "rarely"],
+      "asked": true
+    },
+    {
+      "id": "internal-trigger",
+      "stage": "behaviour",
+      "question": "5 Whys: what emotion or moment actually cues that behavior?",
+      "default": "Low-grade worry when walking past the plants — 'am I forgetting one?' The check-in resolves that worry in one glance.",
+      "reasoning": "The trigger already exists in the user's day; the design attaches to it rather than manufacturing urgency with notifications.",
+      "bounds": null,
+      "asked": true
+    },
+    {
+      "id": "friction",
+      "stage": "friction",
+      "question": "From trigger to payoff, how many steps? Which of time / money / effort / confusion / social deviance / novelty limits users most?",
+      "default": "Two steps: open the overview, act on what it shows. The limiting factor is effort — any session longer than two minutes loses to the sticky note.",
+      "reasoning": "Naming effort as the binding constraint rules out feature depth that would grow the session: the overview must answer at a glance.",
+      "bounds": ["time", "money", "effort", "confusion", "social deviance", "novelty"],
+      "asked": false
+    },
+    {
+      "id": "success-signals",
+      "stage": "success",
+      "question": "What early signal would prove it's working, and what slower outcome sits behind it?",
+      "default": "Early: overdue care tasks trend toward zero within three weeks. Behind it: plants alive at six months that would previously have been lost.",
+      "reasoning": "A leading indicator the product can see (overdue tasks) paired with the lagging outcome the user actually wants (living plants).",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "ethics-gate",
+      "stage": "ethics-gate",
+      "question": "Does it materially improve users' lives — and would you use it yourself?",
+      "default": "Yes to both: plants genuinely stay alive, and the maker would run it daily. On the Manipulation Matrix that is the facilitator quadrant — the habit loop serves the user's own goal.",
+      "reasoning": "The gate is asked out loud, on stage: frequency passes and both matrix answers are yes, so building for habit is justified here — the contrast case is Fieldwork, where the same gate says no.",
+      "bounds": null,
+      "asked": true
+    }
+  ],
+  "axes": {
+    "brandColor": "#2F7A4D",
+    "density": "comfortable",
+    "rewardType": "self",
+    "frequency": "daily",
+    "improvesLives": true,
+    "wouldUseIt": true
+  }
+}

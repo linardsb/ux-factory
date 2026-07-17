@@ -1,0 +1,23 @@
+{
+  "fictionalNotice": "Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.",
+  "tagline": "A calm companion that keeps houseplants alive by turning care into a small, reliable routine.",
+  "ethicsReveal": {
+    "verdict": "habit-justified",
+    "narrative": "The frequency filter passes: with a dozen plants on staggered rhythms, the check-in is a near-daily behavior — inside the habit zone. And the Manipulation Matrix places Verdant in the facilitator quadrant: it materially improves users' lives (plants stay alive) and the maker would use it daily. So the habit loop is designed deliberately — trigger, action, variable reward of the self kind — because here it serves the user's own goal. Not every product earns this; the Fieldwork scenario shows the same gate ruling the other way."
+  },
+  "stations": {
+    "intake": "Verdant's stakeholder answers, with the reasoning behind each default. Override the asked questions — the output follows within bounds.",
+    "system": "From one brand green, a full accessible palette; from 'comfortable', the type and spacing scales. Watch the checks pass.",
+    "prototype": "The plant overview, rendered from live mock-API data — the same components an engineering team would receive.",
+    "handoff": "The pack an engineer gets: component specs, typed props, and the data contract behind the screen you just saw.",
+    "agents": "The real agent runs that produced Verdant's system — replayed as plan, gate, implement, validate."
+  },
+  "prototype": {
+    "screenTitle": "Plant overview",
+    "attentionHeading": "Needs attention today",
+    "allClearMessage": "All plants on rhythm — nothing due today.",
+    "overdueLabel": "overdue",
+    "dueTodayLabel": "due today",
+    "healthLabels": { "thriving": "Thriving", "stable": "Stable", "struggling": "Struggling" }
+  }
+}
