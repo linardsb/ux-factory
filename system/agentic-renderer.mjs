@@ -39,7 +39,9 @@ export function validateComposition(vocab, composition, path = "composition") {
     throw new Error(`${path}: expected a node { name, props, children? }, got ${node === null ? "null" : typeof node}`);
   }
 
-  const entry = vocab.components[node.name];
+  // Own-property lookup: a node named "toString"/"constructor" must refuse cleanly (unknown
+  // component), never resolve to an Object.prototype member (parity with scenarios/validate.mjs).
+  const entry = Object.hasOwn(vocab.components, node.name) ? vocab.components[node.name] : undefined;
   if (!entry) {
     throw new Error(`${path}: unknown component "${node.name}" (vocabulary: ${Object.keys(vocab.components).join(" | ")})`);
   }
@@ -49,9 +51,11 @@ export function validateComposition(vocab, composition, path = "composition") {
     throw new Error(`${path}.props: must be an object`);
   }
 
-  // Out-of-vocabulary props — a prop the component does not declare.
+  // Out-of-vocabulary props — a prop the component does not declare. Own-property check so an
+  // agent-supplied "__proto__"/"toString" key (a real own key after JSON.parse) is refused, not
+  // silently accepted via the prototype chain.
   for (const key of Object.keys(props)) {
-    if (!(key in entry.props)) {
+    if (!Object.hasOwn(entry.props, key)) {
       throw new Error(`${path}.props.${key}: "${key}" is not a prop of ${node.name} (allowed: ${Object.keys(entry.props).join(" | ")})`);
     }
   }
@@ -178,9 +182,11 @@ function resolveChip(status, kids) {
 
 // An <img src> is an injection surface for javascript:/data: even via setAttribute — the
 // contract says site-relative. Allow a relative path (no scheme) or an explicit https URL.
+// The leading-// alternative also rejects protocol-relative URLs (//host beacons an arbitrary
+// external host); pure regex keeps this Node-safe so #13's validator could reuse it.
 function safePhotoUrl(url, path) {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^https:\/\//i.test(url)) {
-    throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative or https URL (no javascript:/data: schemes)`);
+  if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(url) && !/^https:\/\//i.test(url)) {
+    throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative or https URL (no javascript:/data: or protocol-relative //)`);
   }
   return url;
 }
@@ -314,7 +320,7 @@ function build(vocab, node, bus, path) {
     node.forEach((n, i) => frag.appendChild(build(vocab, n, bus, `${path}[${i}]`)));
     return frag;
   }
-  const template = TEMPLATES[node.name];
+  const template = Object.hasOwn(TEMPLATES, node.name) ? TEMPLATES[node.name] : undefined;
   if (!template) {
     throw new Error(`${path}: "${node.name}" is in the vocabulary but this renderer has no template for it — renderer and vocabulary have drifted`);
   }
