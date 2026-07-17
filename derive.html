@@ -166,12 +166,19 @@
     let appliedKeys = [];
 
     function run() {
-      const result = derive({
-        brandColor: $("brandColor").value,
-        density: $("density").value,
-        rewardType: $("rewardType").value,
-        frequency: $("frequency").value,
-      });
+      let result;
+      try {
+        result = derive({
+          brandColor: $("brandColor").value,
+          density: $("density").value,
+          rewardType: $("rewardType").value,
+          frequency: $("frequency").value,
+        });
+      } catch (err) {
+        $("tokenDump").textContent = "derive() threw — " + err.message;
+        console.error(err);
+        return;
+      }
 
       // Inline custom properties on <html> outrank contract + pack — the mechanism.
       appliedKeys = Object.keys(result.tokens);

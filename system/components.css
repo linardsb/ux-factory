@@ -429,7 +429,7 @@ p, .body {
   .site-header.on-ocean .nav-panel .nav-links a:hover,
   .site-header.on-ocean .nav-panel .nav-links a:focus-visible {
     background: var(--color-inverse-wash);
-    color: var(--color-accent);
+    color: var(--color-fg-on-inverse-strong);
   }
   .site-header.on-ocean .nav-panel .nav-links a:active {
     background: var(--color-inverse-line);
@@ -437,9 +437,9 @@ p, .body {
 }
 .site-header.on-ocean .nav-cta {
   background: var(--color-accent);
-  color: var(--color-fg);
+  color: var(--color-accent-fg);
 }
-.nav-cta:hover { background: var(--color-accent); color: var(--color-fg); }
+.nav-cta:hover { background: var(--color-accent); color: var(--color-accent-fg); }
 
 /* ---------- Footer ---------- */
 
@@ -616,7 +616,7 @@ p, .body {
 }
 
 /* Selection */
-::selection { background: var(--color-accent); color: var(--color-fg); }
+::selection { background: var(--color-accent); color: var(--color-accent-fg); }
 
 /* Logo lockup using real SVG marks */
 .brand-lockup {

@@ -1,4 +1,4 @@
-// system/derive.rules.mjs — the derivation ruleset, v1.0.0 (view-time canon, this repo).
+// system/derive.rules.mjs — the derivation ruleset, v1.1.0 (view-time canon, this repo).
 // THE versioned artifact behind the derivation engine (docs/epics/
 // ai-first-ux-factory.architecture.md §Data model "Derivation rules"; epic #1, ticket #3):
 // every rule the engine applies lives here as inspectable, annotated data — the engine
@@ -16,7 +16,7 @@ const freeze = (o) => {
 };
 
 export const RULESET = freeze({
-  version: "1.0.0",
+  version: "1.1.0", // 1.1.0: accent-secondary held to 4.5 (it IS link text); wcagPairs exclusions corrected (PR #15 review)
 
   /* ------------------------------------------------------------------ palette
    * All targets are OKLCH: l = lightness [0,1], cMax = chroma ceiling, hue is
@@ -53,7 +53,7 @@ export const RULESET = freeze({
       // accent-fg: white wherever white clears AA on the accent fill (the
       // negotiation above makes that the normal case); otherwise the derived fg.
       fgContrastMin: 4.5,
-      secondary: { l: 0.55, cMax: 0.05 }, // quiet accent, live dots (non-text, 3:1)
+      secondary: { l: 0.55, cMax: 0.05 }, // quiet accent — live dots, and .lp-local link text (checked at 4.5)
     },
     neutrals: {
       fg:        { l: 0.26,  cMax: 0.015 },
@@ -101,7 +101,8 @@ export const RULESET = freeze({
 
   /* ----------------------------------------------------------------- patterns
    * Hooked variable-reward type → component patterns, selected from the REAL
-   * library (every class below exists in system/components.css). Patterns
+   * library (every class below is styled by the shipped stylesheets —
+   * components.css, or portfolio.css for .card-kicker). Patterns
    * flagged habitMechanic are return-visit machinery: when the frequency
    * filter (ethics below) fails, the engine keeps them visible but tags them
    * gatedBy: "frequency-filter" — the gate is shown working, not hiding rejects.
@@ -151,10 +152,9 @@ export const RULESET = freeze({
   },
 
   /* ---------------------------------------------------------------- wcagPairs
-   * "All token pairs" for the engine and the spike = THIS list: every fg/bg
-   * pairing the components actually create, each with its AA threshold
-   * (4.5 text · 3.0 non-text UI). Deliberate exclusions, so the list stays
-   * honest rather than impressive:
+   * "All token pairs" for the engine and the spike = THIS list, each with its
+   * AA threshold (4.5 text · 3.0 non-text UI). Deliberate exclusions, so the
+   * list stays honest rather than impressive:
    *   - color-border on bg: decorative hairlines, not identification-bearing UI
    *     (SC 1.4.11 does not apply).
    *   - the five color-mix() inverse tokens: relative values resolved by the
@@ -162,9 +162,12 @@ export const RULESET = freeze({
    *   - accent on bg-inverse: a single accent token cannot mathematically read
    *     as AA text on BOTH white and near-black grounds (it would need
    *     luminance ≤ 0.183 and ≥ 0.141 at once — a ~2-point lightness window
-   *     no brand hue survives). Components never set accent text on dark
-   *     (accent on dark appears only as a fill under accent-fg, checked below);
-   *     an on-dark accent variant is a contract extension, not an engine trick.
+   *     no brand hue survives). Interactive accent-on-dark states were
+   *     retokenized to checked tokens in the PR #15 review pass; what remains
+   *     (dark-footer link hovers, the feature-band numeral) is decorative
+   *     flavor that is UNCHECKED here and often below AA — tracked in issue
+   *     #17; an on-dark accent variant is the contract extension that fixes
+   *     it, not an engine trick.
    */
   wcagPairs: [
     { fg: "color-fg",                   bg: "color-bg",         min: 4.5, usage: "body text on the page ground" },
@@ -176,7 +179,7 @@ export const RULESET = freeze({
     { fg: "color-accent",               bg: "color-bg-surface", min: 4.5, usage: "accent text on cards" },
     { fg: "color-fg-on-inverse",        bg: "color-bg-inverse", min: 4.5, usage: "chrome text on dark sections" },
     { fg: "color-fg-on-inverse-strong", bg: "color-bg-inverse", min: 4.5, usage: "high-contrast text on dark" },
-    { fg: "color-accent-secondary",     bg: "color-bg",         min: 3.0, usage: "non-text: quiet accent, live dots" },
+    { fg: "color-accent-secondary",     bg: "color-bg",         min: 4.5, usage: "quiet accent — live dots, and link text (.lp-local)" },
     { fg: "color-border-strong",        bg: "color-bg",         min: 3.0, usage: "non-text: emphasis borders (SC 1.4.11)" },
   ],
 
