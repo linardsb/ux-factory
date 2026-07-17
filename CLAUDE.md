@@ -12,6 +12,7 @@ system/                     the shipped design system — brand-agnostic core + 
   components.css            layer 3: token-only components — no literals, render identically under any pack
   portfolio.css / proto.css surface styles for portfolio pages / prototypes
   site.js                   injects chrome (header/footer/nav) from window.CLIENT_CONFIG
+  derive.mjs (+ oklch.mjs, wcag.mjs, derive.rules.mjs)   view-time derivation engine: intake answers → token values + WCAG checks + ethics verdict; driven raw by /derive.html, spike runner in tooling/ (epic #1 ticket #3)
   tokens.css / tokens.saulera.css / client.config.js   real packs kept as reference; NOT loaded by the shell
 index.html / 404.html       the neutral site template shell (loads contract + neutral pack + components)
 _headers                    security headers + noindex (revisit at launch — epic open question)

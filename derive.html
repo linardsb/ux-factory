@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · derivation engine harness</title>
+  <meta name="description" content="Internal test harness for the view-time derivation engine: drives system/derive.mjs raw against the real component library." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Internal test harness (epic #1, ticket #3) — drives the derivation engine RAW.
+       Same three layers as every shipped page: contract → neutral pack → components.
+       The engine's output is applied as inline custom properties on <html>, which
+       outranks both stylesheets — that override IS the mechanism being tested.
+       The designed surface for this engine is the Factory page (ticket #10). -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+
+  <style>
+    /* Harness chrome only — everything below the controls strip is drawn by the
+       system's own components, from tokens alone. */
+    .harness-bar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; flex-wrap: wrap; gap: var(--spacing-md); align-items: end;
+      padding: var(--spacing-md) var(--gutter);
+      background: var(--color-bg); border-bottom: 1px solid var(--color-border);
+    }
+    .harness-bar label { display: flex; flex-direction: column; gap: 4px; font-size: var(--type-caption); color: var(--color-fg-muted); }
+    .harness-bar select, .harness-bar input[type="color"] {
+      font: inherit; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      background: var(--color-bg); color: var(--color-fg); min-height: 38px;
+    }
+    .harness-note { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 34ch; }
+    .checks-table { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+    .checks-table th, .checks-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
+    .checks-table .ok { color: var(--color-accent); font-weight: 600; }
+    .checks-table .bad { color: var(--color-fg); font-weight: 700; text-decoration: underline; }
+    .swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--color-border); vertical-align: -1px; margin-right: 6px; }
+    .gated { opacity: 0.55; text-decoration: line-through; }
+    .gated-tag { text-decoration: none; font-size: var(--type-eyebrow); color: var(--color-fg-muted); border: 1px solid var(--color-border); padding: 1px 6px; border-radius: var(--radius-sm); margin-left: 8px; }
+    pre.dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+  <div class="harness-bar">
+    <label>brand color
+      <input type="color" id="brandColor" value="#2563eb" />
+    </label>
+    <label>density
+      <select id="density">
+        <option value="compact">compact</option>
+        <option value="comfortable" selected>comfortable</option>
+        <option value="spacious">spacious</option>
+      </select>
+    </label>
+    <label>variable reward
+      <select id="rewardType">
+        <option value="tribe">tribe — social</option>
+        <option value="hunt" selected>hunt — resources / information</option>
+        <option value="self">self — mastery / completion</option>
+      </select>
+    </label>
+    <label>behavior frequency
+      <select id="frequency">
+        <option value="multiple-daily">multiple times a day</option>
+        <option value="daily">daily</option>
+        <option value="weekly" selected>weekly</option>
+        <option value="monthly">monthly</option>
+        <option value="rarely">rarely</option>
+      </select>
+    </label>
+    <button class="btn btn-secondary" id="reset" type="button">Reset to neutral</button>
+    <p class="harness-note">Internal test harness — drives <code>system/derive.mjs</code> raw.
+      Everything below re-skins live from the engine's emitted tokens; nothing is precomputed.</p>
+  </div>
+
+  <main>
+    <!-- Sample surface: real components, so a derived palette is judged on the
+         actual system, not on color chips. -->
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">Derived skin · live</span>
+        </div>
+        <h1 class="text-balance">Every value on this page was <span class="hl">derived</span>.</h1>
+        <p class="hero-sub">Brand color to accessible palette, density to scales, reward type to
+          patterns, frequency to an ethics verdict — deterministic rules, running in your browser.</p>
+        <div class="hero-cta-row">
+          <a class="btn btn-primary" href="#checks">See the checks</a>
+          <a class="btn btn-secondary" href="#tokens">Emitted tokens</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-label"><span class="num">01</span><span>Sample components</span><span class="line"></span></div>
+        <div class="grid grid-3" style="margin-top: var(--spacing-xl);">
+          <article class="card"><div class="card-body">
+            <div class="card-kicker">Card</div>
+            <h3 class="h3 mb-md">Text on a surface</h3>
+            <p class="muted">Muted body text on the derived card surface — one of the checked pairs.</p>
+          </div></article>
+          <article class="card"><div class="card-body">
+            <div class="card-kicker">Accent</div>
+            <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
+            <p class="muted">The accent must survive as text, not just as a fill.</p>
+          </div></article>
+          <article class="card"><div class="card-body">
+            <div class="card-kicker">States</div>
+            <p class="mb-md"><a class="btn btn-primary" href="#checks">Primary</a></p>
+            <p><a class="btn btn-secondary" href="#checks">Secondary</a></p>
+          </div></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dark band: the inverse group is where bad derivation hides — keep it visible. -->
+    <section class="feature-band">
+      <div class="container">
+        <div class="section-label"><span class="num">02</span><span>Inverse surface</span><span class="line"></span></div>
+        <h2 class="feature-headline">The dark band re-skins too.</h2>
+        <div class="feature-grid cols-2">
+          <div class="feature-item ruled"><h3>Derived ground</h3><p>bg-inverse is the brand hue at near-zero chroma — a tinted near-black, not #000.</p></div>
+          <div class="feature-item ruled"><h3>Relative tokens</h3><p>Muted and hairline values on this surface derive in CSS via color-mix, from the bases the engine emits.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="checks">
+      <div class="container">
+        <div class="section-label"><span class="num">03</span><span>Engine output</span><span class="line"></span></div>
+        <div class="grid grid-2" style="margin-top: var(--spacing-xl);">
+          <div>
+            <h3 class="h3 mb-md">WCAG AA checks</h3>
+            <table class="checks-table" id="checksTable"></table>
+            <h3 class="h3 mb-md" style="margin-top: var(--spacing-xl);">Engine notes — what was negotiated</h3>
+            <ul id="notesList" class="muted"></ul>
+          </div>
+          <div>
+            <h3 class="h3 mb-md">Ethics gate</h3>
+            <p id="ethicsVerdict" class="max-prose"></p>
+            <h3 class="h3 mb-md" style="margin-top: var(--spacing-xl);">Selected patterns</h3>
+            <ul id="patternsList"></ul>
+          </div>
+        </div>
+        <div id="tokens" style="margin-top: var(--spacing-2xl);">
+          <h3 class="h3 mb-md">Emitted tokens <span class="muted" id="rulesetVersion"></span></h3>
+          <pre class="dump" id="tokenDump"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { derive } from "/system/derive.mjs";
+
+    const $ = (id) => document.getElementById(id);
+    const controls = ["brandColor", "density", "rewardType", "frequency"];
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    let appliedKeys = [];
+
+    function run() {
+      const result = derive({
+        brandColor: $("brandColor").value,
+        density: $("density").value,
+        rewardType: $("rewardType").value,
+        frequency: $("frequency").value,
+      });
+
+      // Inline custom properties on <html> outrank contract + pack — the mechanism.
+      appliedKeys = Object.keys(result.tokens);
+      for (const [k, v] of Object.entries(result.tokens)) {
+        document.documentElement.style.setProperty("--" + k, v);
+      }
+
+      $("checksTable").innerHTML =
+        "<tr><th></th><th>pair</th><th>ratio</th><th>min</th><th>AA</th></tr>" +
+        result.checks.map((c) => `
+          <tr>
+            <td><span class="swatch" style="background:${esc(c.fgValue)}"></span><span class="swatch" style="background:${esc(c.bgValue)}"></span></td>
+            <td>${esc(c.fg)} / ${esc(c.bg)}<br><span class="muted">${esc(c.usage)}</span></td>
+            <td>${c.ratio.toFixed(2)}</td><td>${c.min}</td>
+            <td class="${c.pass ? "ok" : "bad"}">${c.pass ? "pass" : "FAIL"}</td>
+          </tr>`).join("");
+
+      $("notesList").innerHTML = result.notes.length
+        ? result.notes.map((n) => `<li><strong>${esc(n.action)}</strong>${n.token ? " · " + esc(n.token) : ""} — ${esc(n.why)}${n.from !== null ? ` (${esc(n.from)} → ${esc(n.to)})` : ""}</li>`).join("")
+        : "<li>none — the brand color passed every rule untouched</li>";
+
+      $("ethicsVerdict").textContent = result.ethics.verdict;
+      $("patternsList").innerHTML = result.patterns.map((p) => `
+        <li class="${p.gatedBy ? "gated" : ""}"><strong>${esc(p.name)}</strong>
+          ${p.gatedBy ? `<span class="gated-tag">rejected: ${esc(p.gatedBy)}</span>` : ""}<br>
+          <span class="muted">${esc(p.why)} <code>${esc(p.components.join(" "))}</code></span></li>`).join("");
+
+      $("rulesetVersion").textContent = `— ruleset v${result.rulesetVersion}`;
+      $("tokenDump").textContent = JSON.stringify(result.tokens, null, 2);
+    }
+
+    controls.forEach((id) => $(id).addEventListener("input", run));
+    $("reset").addEventListener("click", () => {
+      appliedKeys.forEach((k) => document.documentElement.style.removeProperty("--" + k));
+      appliedKeys = [];
+      ["checksTable", "notesList", "patternsList", "tokenDump"].forEach((id) => ($(id).innerHTML = ""));
+      $("ethicsVerdict").textContent = "";
+      $("rulesetVersion").textContent = "";
+    });
+
+    run();
+  </script>
+</body>
+</html>
