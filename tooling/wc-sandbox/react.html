@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wc react sandbox</title>
+  <meta name="description" content="Exercises the Verdant Web Component wrappers inside a React 19 tree: string props as attributes, DataContract records as DOM properties, custom events via refs, state round-trip." />
+  <meta name="robots" content="noindex" />
+
+  <!-- Factory tooling harness (epic #1, ticket #12; folds spike 3) — NOT a shipped page.
+       No build, no install: React 19 arrives via an import map at page load (esm.sh),
+       an authoring-time network dependency, acceptable in the unrestricted tooling zone.
+       The `?external=react` on react-dom is load-bearing: without it esm.sh resolves a
+       second React copy and hooks break (invalid-hook-call). Verified at plan time. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react"
+      }
+    }
+  </script>
+
+  <!-- Same two token layers the plain-page harness proves sufficient. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+
+  <style>
+    /* Page scaffolding only — the components under test carry their own shadow CSS. */
+    body {
+      margin: 0;
+      padding: var(--spacing-xl) var(--spacing-md);
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      color: var(--color-fg);
+      background: var(--color-bg);
+    }
+    main { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: var(--type-h3); margin: 0 0 var(--spacing-md); }
+    h2 { font-size: var(--type-body); margin: var(--spacing-2xl) 0 var(--spacing-sm); }
+    .muted { color: var(--color-fg-muted); }
+    .caption { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-sm) 0; }
+    .stack { display: grid; gap: var(--spacing-sm); }
+    .counter {
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font-size: var(--type-caption);
+    }
+  </style>
+</head>
+<body data-page="wc-react-sandbox">
+
+  <main id="root"><p class="muted">Loading React from esm.sh…</p></main>
+
+  <script type="module">
+    import { createElement as h, useState, useCallback } from "react";
+    import { createRoot } from "react-dom/client";
+    import "/system/wc/vd-plant-card.mjs";
+    import "/system/wc/vd-care-task-row.mjs";
+
+    // Sample records from the specs' ## Data binding sections (contract-valid).
+    // photoUrl omitted → the wrapper's monogram path; this page ships no image files.
+    const plant = { id: "p-014", name: "Monstera", species: "Monstera deliciosa", status: "due", lastWatered: "2026-07-14T08:30:00Z" };
+    const task = { id: "t-031", plantId: "p-014", plantName: "Monstera", action: "water", due: "2026-07-17T09:00:00Z", status: "due" };
+
+    function App() {
+      const [toggles, setToggles] = useState([]);
+
+      // Custom events are the one part React 19 does NOT bind declaratively — an
+      // `onVdToggle` prop would silently no-op. Attach via a ref callback; React 19
+      // runs the returned cleanup on unmount.
+      const rowRef = useCallback((el) => {
+        if (!el) return;
+        const handler = (e) => setToggles((t) => [...t, e.detail]);
+        el.addEventListener("vd-toggle", handler);
+        return () => el.removeEventListener("vd-toggle", handler);
+      }, []);
+
+      return h("div", null,
+        h("h1", null, "Web Component wrappers — React 19 sandbox"),
+        h("p", { className: "muted" },
+          "The same wrapper modules the plain-page check uses, rendered inside a React 19 tree ",
+          "with no build step: React comes from esm.sh via an import map at page load ",
+          "(authoring-time network; this is factory tooling, not a shipped page)."),
+        h("p", { className: "caption" },
+          "Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved."),
+
+        h("h2", null, "1 · String props → attributes"),
+        h("p", { className: "caption" }, "Primitive JSX props that match no instance property are set as attributes."),
+        h("div", { className: "stack" },
+          h("vd-plant-card", { "plant-id": "p-002", name: "Pothos", species: "Epipremnum aureum", status: "due" }),
+          h("vd-care-task-row", { "task-id": "t-002", action: "water", "plant-name": "Pothos", status: "overdue" })),
+
+        h("h2", null, "2 · DataContract record → DOM property"),
+        h("p", { className: "caption" },
+          "data={record} — React 19 assigns props that match a property on the custom-element ",
+          "instance as DOM properties (react.dev, React 19 release notes). React ≤18 would ",
+          "stringify this; see wc/README.md for the ref recipe."),
+        h("div", { className: "stack" },
+          h("vd-plant-card", { data: plant })),
+
+        h("h2", null, "3 · Custom event → React state round-trip"),
+        h("p", { className: "caption" }, "vd-toggle (via ref + addEventListener) drives React state, which re-renders the count below."),
+        h("div", { className: "stack" },
+          h("vd-care-task-row", { ref: rowRef, data: task }),
+          h("p", { className: "counter", id: "toggle-count" },
+            `React state saw ${toggles.length} toggle event(s)`,
+            toggles.length ? ` — last: ${JSON.stringify(toggles[toggles.length - 1])}` : "")));
+    }
+
+    createRoot(document.getElementById("root")).render(h(App));
+  </script>
+</body>
+</html>

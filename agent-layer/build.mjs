@@ -29,7 +29,7 @@ const t = genTokens(ledger);
 console.log(`  tokens.json     ✓  ${t.contract} contract + ${t.pack} pack tokens (DTCG)`);
 
 const hp = genHandoff();
-console.log(`  handoff pack    ✓  ${hp.components} specs + ${hp.targets} token targets (handoff/verdant)`);
+console.log(`  handoff pack    ✓  ${hp.components} specs + ${hp.targets} token targets + ${hp.wrappers} wc wrappers (handoff/verdant)`);
 
 const l = genLlms(ledger);
 console.log(`  llms.txt        ✓  ${l.prototypes} prototypes`);
