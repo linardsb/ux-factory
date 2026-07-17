@@ -23,9 +23,15 @@ const AXES = {
 };
 
 const nonEmpty = (v) => typeof v === "string" && v.trim().length > 0;
-const isoDay = (s) =>
-  typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) &&
-  new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s;
+const isoDay = (s) => {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  // Guard getTime() before toISOString(): a well-formatted but out-of-range value
+  // (month 13, day 32) yields an Invalid Date, and toISOString() would throw an
+  // unnamed RangeError instead of returning false — the caller's named error is the
+  // contract. The round-trip equality still rejects rollovers (Feb 30 → Mar 2).
+  const d = new Date(s + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
 const addDays = (iso, n) => {
   const d = new Date(iso + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
@@ -118,7 +124,7 @@ function checkFixtures(dir) {
     if (!Array.isArray(screen.collections) || screen.collections.length === 0)
       throw new Error(`${path}: screen "${screen.id}" has no collections`);
     for (const name of screen.collections) {
-      if (collections[name]) continue;
+      if (Object.hasOwn(collections, name)) continue; // hasOwn: a collection named "toString" must not hit a proto member (cf. worker/api.mjs)
       const fpath = join(dir, "fixtures", `${name}.json`);
       if (!existsSync(fpath)) throw new Error(`${path}: screen "${screen.id}" names collection "${name}" but ${fpath} does not exist`);
       const records = readJson(fpath);
@@ -139,7 +145,7 @@ function checkFixtures(dir) {
   // and worker/fixtures.mjs are three hand-maintained lists with no other cross-check —
   // an unreferenced file would be served by the Worker without ever being validated.
   for (const f of readdirSync(join(dir, "fixtures")))
-    if (f.endsWith(".json") && !collections[f.slice(0, -5)])
+    if (f.endsWith(".json") && !Object.hasOwn(collections, f.slice(0, -5)))
       throw new Error(`${join(dir, "fixtures", f)}: not referenced by any screen's "collections" in ${path}`);
 
   // Walk every record: <thing>Id fields resolve against a collection whose name starts
