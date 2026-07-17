@@ -1,0 +1,662 @@
+[
+  {
+    "id": "slot-day-01",
+    "techId": "tech-01",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": "16:30",
+        "durationMin": 90,
+        "jobId": "job-032"
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-02",
+    "techId": "tech-02",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-03",
+    "techId": "tech-03",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-04",
+    "techId": "tech-04",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-05",
+    "techId": "tech-05",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-06",
+    "techId": "tech-06",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-07",
+    "techId": "tech-07",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-08",
+    "techId": "tech-08",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-09",
+    "techId": "tech-09",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-10",
+    "techId": "tech-10",
+    "date": "2026-07-14",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-11",
+    "techId": "tech-01",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-12",
+    "techId": "tech-02",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": "15:00",
+        "durationMin": 180,
+        "jobId": "job-005"
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-13",
+    "techId": "tech-03",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": "14:00",
+        "durationMin": 90,
+        "jobId": "job-043"
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-14",
+    "techId": "tech-04",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": "15:30",
+        "durationMin": 180,
+        "jobId": "job-030"
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-15",
+    "techId": "tech-05",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-16",
+    "techId": "tech-06",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-17",
+    "techId": "tech-07",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-18",
+    "techId": "tech-08",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-19",
+    "techId": "tech-09",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-20",
+    "techId": "tech-10",
+    "date": "2026-07-15",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-21",
+    "techId": "tech-01",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-22",
+    "techId": "tech-02",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-23",
+    "techId": "tech-03",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-24",
+    "techId": "tech-04",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-25",
+    "techId": "tech-05",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-26",
+    "techId": "tech-06",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-27",
+    "techId": "tech-07",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": "16:00",
+        "durationMin": 60,
+        "jobId": "job-026"
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-28",
+    "techId": "tech-08",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-29",
+    "techId": "tech-09",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  },
+  {
+    "id": "slot-day-30",
+    "techId": "tech-10",
+    "date": "2026-07-16",
+    "slots": [
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      },
+      {
+        "start": null,
+        "durationMin": null,
+        "jobId": null
+      }
+    ]
+  }
+]

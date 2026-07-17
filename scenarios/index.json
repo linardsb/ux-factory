@@ -1,0 +1,10 @@
+{
+  "scenarios": [
+    { "slug": "verdant", "name": "Verdant", "label": "Plant care · consumer" },
+    { "slug": "fieldwork", "name": "Fieldwork", "label": "Field-service scheduling · B2B" }
+  ],
+  "api": {
+    "prod": "",
+    "local": "http://127.0.0.1:8787"
+  }
+}

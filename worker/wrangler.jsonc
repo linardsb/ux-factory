@@ -1,0 +1,11 @@
+// worker/wrangler.jsonc — factory-ux-api (epic #1, ticket #4; architecture §Stack:
+// "Cloudflare Pages (static) + one Cloudflare Worker as the real mock-API endpoint").
+// Lives INSIDE worker/ on purpose: the root `npx wrangler pages deploy .` must never
+// find a Worker config. Run from here:  npx wrangler dev  ·  npx wrangler deploy
+{
+  "name": "factory-ux-api",
+  "main": "api.mjs",
+  // Newest date the locally cached wrangler's runtime supports (a plain fetch handler
+  // needs nothing newer). Bump alongside wrangler upgrades.
+  "compatibility_date": "2026-05-03"
+}
