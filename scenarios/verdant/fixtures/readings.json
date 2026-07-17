@@ -1,0 +1,66 @@
+[
+  {
+    "id": "read-01",
+    "plantId": "plant-01",
+    "kind": "moisture",
+    "value": 46,
+    "unit": "%",
+    "label": "Moisture"
+  },
+  {
+    "id": "read-02",
+    "plantId": "plant-01",
+    "kind": "light",
+    "value": 540,
+    "unit": "lx",
+    "label": "Light"
+  },
+  {
+    "id": "read-03",
+    "plantId": "plant-03",
+    "kind": "moisture",
+    "value": 22,
+    "unit": "%",
+    "label": "Moisture"
+  },
+  {
+    "id": "read-04",
+    "plantId": "plant-03",
+    "kind": "light",
+    "value": 180,
+    "unit": "lx",
+    "label": "Light"
+  },
+  {
+    "id": "read-05",
+    "plantId": "plant-05",
+    "kind": "moisture",
+    "value": 18,
+    "unit": "%",
+    "label": "Moisture"
+  },
+  {
+    "id": "read-06",
+    "plantId": "plant-05",
+    "kind": "light",
+    "value": 320,
+    "unit": "lx",
+    "label": "Light"
+  },
+  {
+    "id": "read-07",
+    "plantId": "plant-08",
+    "kind": "moisture",
+    "value": 31,
+    "unit": "%",
+    "label": "Moisture"
+  },
+  {
+    "id": "read-08",
+    "plantId": "plant-08",
+    "kind": "light",
+    "value": 260,
+    "unit": "lx",
+    "label": "Light"
+  }
+]

@@ -12,7 +12,9 @@ system/                     the shipped design system — brand-agnostic core + 
   components.css            layer 3: token-only components — no literals, render identically under any pack
   portfolio.css / proto.css surface styles for portfolio pages / prototypes
   site.js                   injects chrome (header/footer/nav) from window.CLIENT_CONFIG
+  derive.mjs (+ oklch.mjs, wcag.mjs, derive.rules.mjs)   view-time derivation engine: intake answers → token values + WCAG checks + ethics verdict; driven raw by /derive.html, spike runner in tooling/ (epic #1 ticket #3)
   tokens.css / tokens.saulera.css / client.config.js   real packs kept as reference; NOT loaded by the shell
+  specs/                    ComponentSpec .md + DataContract .json — the handoff source of truth (format: .claude/references/kb-format.md)
 index.html / 404.html       the neutral site template shell (loads contract + neutral pack + components)
 _headers                    security headers + noindex (revisit at launch — epic open question)
 agent-layer/                build-time Node ESM generators: machine-readable projection of one site
@@ -26,7 +28,9 @@ portal/                     local-first workbench (127.0.0.1 only, never deploye
 scenarios/                  scenario packages — the demo subjects + fixtures (format: scenarios/README.md; validate: node scenarios/validate.mjs; check page: /scenarios/check.html)
 worker/                     fixture-backed mock API — public read-only GET, one Cloudflare Worker (cd worker && npx wrangler dev); site degrades to static fixtures via system/scenario-data.mjs
 docs/epics/                 PRD + architecture decisions governing the platform build
+handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs
 tooling/mcp/                local MCP helper scripts
+tooling/style-dictionary/   the one dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
 ```
 The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + parsers → `.claude/references/kb-format.md`.
 
@@ -35,6 +39,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Portal UI feature** → `portal/public/portal.js`: a hash route + render function using the existing `api()` helper; styles in `portal.css`.
 - **Machine-layer artifact** → `agent-layer/gen-<output>.mjs` exporting `gen<Name>(ledger)`; register in `build.mjs` (import + call + `✓` log line), keep the standalone-run guard. Shared parsing belongs in `lib.mjs`.
 - **Component** → token-only CSS in `system/components.css`; a new semantic token gets added to `system/tokens.source.json` (contract group) first, then regenerate: `node agent-layer/gen-token-css.mjs`.
+- **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`.
 - **Brand/company skin** → clone `system/tokens.neutral.css` → `tokens.<company>.css` and `client.neutral.config.js` → `client.<company>.config.js`; never fork components.
 - **View-time behaviour on shipped pages** → a hand-written ES module beside `system/site.js`.
 - **kb record type or field** → `.claude/references/kb-format.md` (both parsers must stay in sync).

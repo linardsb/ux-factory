@@ -1,8 +1,8 @@
 // Shared helpers for the agent-layer generators.
 // Zero dependencies — Node built-ins only. Run from the jobs folder (paths resolve from cwd).
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 
 const unquote = (s) => s.trim().replace(/^["'](.*)["']$/s, "$1").trim();
 
@@ -55,6 +55,65 @@ function parseEntry(heading, body) {
     }
   }
   return entry;
+}
+
+// Parse a ComponentSpec: a leading ```json head + four required `## ` prose
+// sections, in the format documented in .claude/references/kb-format.md
+// (§ComponentSpec + DataContract). Returns { head, sections, path }.
+export function parseComponentSpec(specPath) {
+  const path = resolve(specPath);
+  const text = readFileSync(path, "utf8");
+
+  const fence = text.match(/```json\s*\n([\s\S]*?)\n```/);
+  if (!fence) throw new Error(`${specPath}: no \`\`\`json head found`);
+  let head;
+  try {
+    head = JSON.parse(fence[1]);
+  } catch (e) {
+    throw new Error(`${specPath}: json head does not parse — ${e.message}`);
+  }
+
+  const stem = basename(path, ".md");
+  if (head.component !== stem) throw new Error(`${specPath}: head "component" ("${head.component}") does not match filename`);
+  if (head.status !== "spec" && head.status !== "shipped") throw new Error(`${specPath}: head "status" ("${head.status}") must be "spec" or "shipped"`);
+  if (typeof head.class !== "string" || !head.class) throw new Error(`${specPath}: head "class" must be a non-empty string`);
+  if (!head.props || typeof head.props !== "object" || Array.isArray(head.props)) throw new Error(`${specPath}: head "props" must be an object`);
+  for (const [name, prop] of Object.entries(head.props)) {
+    if (!prop || typeof prop.type !== "string" || typeof prop.required !== "boolean")
+      throw new Error(`${specPath}: prop "${name}" needs { type, required }`);
+  }
+  if (!Array.isArray(head.tokens) || !head.tokens.length || !head.tokens.every((t) => typeof t === "string" && t.startsWith("--")))
+    throw new Error(`${specPath}: head "tokens" must be a non-empty array of ---prefixed names`);
+  if (!Array.isArray(head.states) || !head.states.length) throw new Error(`${specPath}: head "states" must be a non-empty array`);
+  if (!Array.isArray(head.children)) throw new Error(`${specPath}: head "children" must be an array`);
+  if (head.contract !== null) {
+    if (typeof head.contract !== "string" || !head.contract) throw new Error(`${specPath}: head "contract" must be a sibling-relative path or null`);
+    const contractPath = join(dirname(path), head.contract);
+    if (!existsSync(contractPath)) throw new Error(`${specPath}: contract "${head.contract}" not found beside the spec`);
+    let schema;
+    try {
+      schema = JSON.parse(readFileSync(contractPath, "utf8"));
+    } catch (e) {
+      throw new Error(`${contractPath}: does not parse as JSON — ${e.message}`);
+    }
+    if (!schema.$schema || !schema.type) throw new Error(`${contractPath}: not a JSON Schema (needs "$schema" + "type")`);
+  }
+
+  const sections = text
+    .slice(fence.index + fence[0].length)
+    .split(/^##\s+/m)
+    .slice(1)
+    .map((part) => {
+      const nl = part.indexOf("\n");
+      return { title: part.slice(0, nl).trim(), body: part.slice(nl + 1).trim() };
+    });
+
+  const required = ["Usage", "States", "Data binding", "Accessibility"];
+  const found = sections.map((s) => s.title).filter((t) => required.includes(t));
+  if (found.join("·") !== required.join("·"))
+    throw new Error(`${specPath}: sections must include, in order: ${required.map((t) => `## ${t}`).join(" · ")}`);
+
+  return { head, sections, path };
 }
 
 // Strip HTML tags and collapse whitespace.

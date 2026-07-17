@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/stat-tile.contract.json",
+  "title": "Reading",
+  "description": "One plant reading as the Verdant mock API returns it (fictional demo data). The shape stat-tile binds — display values only, deliberately not a sensor API. plantId references a Plant (plant-card.contract.json) by id; the screen selects the featured plant's moisture + light pair.",
+  "type": "object",
+  "required": ["id", "plantId", "kind", "value", "unit", "label"],
+  "properties": {
+    "id":      { "type": "string", "description": "stable reading id, e.g. \"read-03\"" },
+    "plantId": { "type": "string", "description": "id of the plant this reading belongs to" },
+    "kind":    { "type": "string", "enum": ["moisture", "light"], "description": "which reading — selects the tile glyph" },
+    "value":   { "type": "number", "description": "already scaled for display; the tile does no conversion" },
+    "unit":    { "type": "string", "description": "display unit, e.g. \"%\", \"lx\"" },
+    "label":   { "type": "string", "minLength": 1, "description": "human name of the reading, e.g. \"Moisture\"" }
+  },
+  "additionalProperties": false
+}

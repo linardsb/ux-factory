@@ -13,3 +13,6 @@ dist/
 # portal (local workbench — secrets + runtime state)
 portal/.env
 portal/.sessions.json
+
+# repo-root secrets (.claude/mcp-posthog-headers.sh reads POSTHOG_API_KEY from here)
+.env

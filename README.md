@@ -58,4 +58,4 @@ npx serve .            # or: python3 -m http.server
 npx wrangler pages deploy . --project-name factory-ux --branch main
 ```
 
-Live neutral base: https://factory-ux.pages.dev
+
