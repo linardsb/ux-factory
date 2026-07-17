@@ -1,16 +1,20 @@
-/* GENERATED MIRROR — do not edit here. Source: base/tokens.contract.css (saulera-client-starter). Regenerate on change. */
-/* base — semantic token CONTRACT (brand-agnostic)
+/* GENERATED from system/tokens.source.json — do not edit by hand.
+ * Regenerate: node agent-layer/gen-token-css.mjs   ·   Drift check: node agent-layer/gen-token-css.mjs --check
+ * Canon lives in this repo (docs/epics/ai-first-ux-factory.architecture.md §Data model).
+ */
+/* system — semantic token CONTRACT (brand-agnostic)
  *
- * This is the interface between the base and any client pack. It declares every semantic
- * token the components in base/components.css reference, with NEUTRAL fallback defaults
- * (greyscale + one plain blue accent, a generic scale). No brand lives here.
+ * The interface between the system and any client pack. It declares every semantic
+ * token the components in system/components.css reference, with NEUTRAL fallback
+ * defaults (greyscale + one plain blue accent, a generic scale). No brand lives here.
  *
- * A client pack (e.g. client/saulera/tokens.css) is loaded AFTER this file and overrides
- * these values with its own. With no pack loaded, the base still renders as a coherent,
- * unbranded neutral theme — proving the base carries structure, not aesthetics.
+ * A client pack (tokens.neutral.css by default; a company's tokens.<company>.css) is
+ * loaded AFTER this file and overrides these values with its own. With no pack loaded,
+ * the system still renders as a coherent, unbranded neutral theme — proving the base
+ * carries structure, not aesthetics.
  *
- * Rule: if base/components.css starts using a new semantic token, declare it HERE too.
- * Brand-specific values (a real palette, fonts, radius, type scale) belong in the pack.
+ * Rule: if components.css starts using a new semantic token, add it to the contract
+ * group in system/tokens.source.json and regenerate. Brand values belong in packs.
  */
 
 :root {
@@ -37,7 +41,7 @@
   --color-fg-on-inverse-muted:  color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
   --color-fg-on-inverse-soft:   color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
   --color-inverse-line:         color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
-  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%,  transparent);
+  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%, transparent);
   --color-on-dark-border:       color-mix(in srgb, var(--color-white) 50%, transparent);
 
   /* ---- Fonts (neutral system stack; a pack picks real faces) ---- */

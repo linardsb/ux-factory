@@ -1,8 +1,12 @@
+/* GENERATED from system/tokens.source.json — do not edit by hand.
+ * Regenerate: node agent-layer/gen-token-css.mjs   ·   Drift check: node agent-layer/gen-token-css.mjs --check
+ * Canon lives in this repo (docs/epics/ai-first-ux-factory.architecture.md §Data model).
+ */
 /* neutral — token pack (the factory's no-brand default)
  *
- * The ONE source of truth for the neutral skin's values. Two tiers live here, exactly
- * as every real client pack does — so a company pack is a clone of THIS file with its
- * own primitives:
+ * Values live in system/tokens.source.json (neutral group); this file is their
+ * generated CSS form. Two tiers, exactly as every real client pack does — so a
+ * company pack is a clone of THIS file with its own primitives:
  *   1. PRIMITIVES   — a plain greyscale + one accent blue, a generic modular scale.
  *   2. SEMANTIC MAP — the contract tokens (--color-fg/bg/accent/…) bound to those primitives.
  *
@@ -17,23 +21,21 @@
  */
 
 :root {
-  /* ============================================================
-     1. PRIMITIVES — neutral palette (raw values, no brand)
-     ============================================================ */
-  --color-ink:         #1a1a1a;   /* near-black — content base */
-  --color-slate:       #6b7280;   /* mid grey — secondary text */
-  --color-blue:        #2563eb;   /* plain accent blue — signal */
-  --color-blue-hov:    #1d4ed8;
-  --color-blue-act:    #1e40af;
-  --color-cloud:       #f4f4f5;   /* light surface */
-  --color-line:        #d4d4d8;   /* border grey */
-  --color-white:       #ffffff;
+  /* ---- 1. PRIMITIVES — neutral palette (raw values, no brand) ---- */
+  --color-ink:      #1a1a1a;   /* near-black — content base */
+  --color-slate:    #6b7280;   /* mid grey — secondary text */
+  --color-blue:     #2563eb;   /* plain accent blue — signal */
+  --color-blue-hov: #1d4ed8;
+  --color-blue-act: #1e40af;
+  --color-cloud:    #f4f4f5;   /* light surface */
+  --color-line:     #d4d4d8;   /* border grey */
+  --color-white:    #ffffff;
 
-  /* Fonts — neutral system stack (a company pack swaps in a real face) */
+  /* ---- Fonts — neutral system stack (a company pack swaps in a real face) ---- */
   --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body:    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
-  /* Spacing scale (8 steps, 4px base) */
+  /* ---- Spacing scale (8 steps, 4px base) ---- */
   --spacing-xs:  4px;
   --spacing-sm:  8px;
   --spacing-md:  16px;
@@ -43,21 +45,21 @@
   --spacing-3xl: 64px;
   --spacing-4xl: 96px;
 
-  /* Radius — a modest neutral rounding (radius is a brand choice; this is the plain default) */
+  /* ---- Radius — a modest neutral rounding (radius is a brand choice; this is the plain default) ---- */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 16px;
 
-  /* Shadows (neutral, black-tinted, very low alpha) */
+  /* ---- Shadows (neutral, black-tinted, very low alpha) ---- */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.10);
 
-  /* Layout */
+  /* ---- Layout ---- */
   --maxw:   1200px;
   --gutter: 24px;
 
-  /* Type ramp — generic modular scale */
+  /* ---- Type ramp — generic modular scale ---- */
   --type-display: clamp(40px, 6vw, 76px);
   --type-h1:      clamp(32px, 4vw, 56px);
   --type-h2:      clamp(24px, 2.5vw, 34px);
@@ -68,33 +70,31 @@
   --type-eyebrow: 12px;
 
   /* ============================================================
-     2. SEMANTIC MAP — the contract, bound to neutral primitives.
-        (Overrides the neutral fallbacks in system/tokens.contract.css
-         with the identical intent, now expressed as a real pack.)
+     2. SEMANTIC MAP — the contract, bound to neutral primitives. (Overrides the neutral fallbacks in system/tokens.contract.css with the identical intent, now expressed as a real pack.)
      ============================================================ */
 
-  /* Foreground / surface (light context) */
-  --color-fg:            var(--color-ink);     /* primary text */
+  /* ---- Foreground / surface (light context) ---- */
+  --color-fg:            var(--color-ink);   /* primary text */
   --color-fg-muted:      var(--color-slate);   /* labels, captions, secondary text */
   --color-bg:            var(--color-white);   /* page ground */
   --color-bg-surface:    var(--color-cloud);   /* cards, alt sections */
-  --color-border:        var(--color-line);    /* 1px lines, dividers */
-  --color-border-strong: var(--color-ink);     /* emphasis / hover borders, thick rules */
+  --color-border:        var(--color-line);   /* 1px lines, dividers */
+  --color-border-strong: var(--color-ink);   /* emphasis / hover borders, thick rules */
 
-  /* Accent */
-  --color-accent:           var(--color-blue);      /* signal — fill */
+  /* ---- Accent ---- */
+  --color-accent:           var(--color-blue);   /* signal — fill */
   --color-accent-hover:     var(--color-blue-hov);
   --color-accent-active:    var(--color-blue-act);
-  --color-accent-fg:        var(--color-white);      /* text/icon on an accent fill */
-  --color-accent-secondary: var(--color-slate);      /* quiet accent, live dots */
+  --color-accent-fg:        var(--color-white);   /* text/icon on an accent fill */
+  --color-accent-secondary: var(--color-slate);   /* quiet accent, live dots */
 
-  /* Inverse (content sitting on a dark surface) */
-  --color-bg-inverse:           var(--color-ink);     /* dark sections, footer */
+  /* ---- Inverse (content sitting on a dark surface) ---- */
+  --color-bg-inverse:           var(--color-ink);   /* dark sections, footer */
   --color-fg-on-inverse:        var(--color-cloud);   /* soft light text on dark (chrome) */
   --color-fg-on-inverse-strong: var(--color-white);   /* high-contrast light (buttons on dark) */
   --color-fg-on-inverse-muted:  color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
   --color-fg-on-inverse-soft:   color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
   --color-inverse-line:         color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
-  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%,  transparent);
+  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%, transparent);
   --color-on-dark-border:       color-mix(in srgb, var(--color-white) 50%, transparent);
 }

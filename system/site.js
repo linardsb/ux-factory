@@ -1,4 +1,4 @@
-// GENERATED MIRROR — do not edit here. Source: base/site.js (saulera-client-starter). Regenerate on change.
+// system/site.js — hand-written canon (this repo; not generated).
 // base — shared chrome (header, mobile nav, footer), injected from a per-client config.
 //
 // Brand-agnostic: every brand string, link and asset path comes from

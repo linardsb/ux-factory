@@ -1,0 +1,166 @@
+{
+  "$description": "ux-factory design tokens (DTCG, widely-implemented string profile). Single source of truth — system/tokens.contract.css and system/tokens.neutral.css are GENERATED from this file by agent-layer/gen-token-css.mjs. `contract` = the brand-agnostic semantic slots every component references, with neutral literal fallbacks (no brand ever). `neutral` = the factory's no-brand pack: primitives plus the semantic map binding contract tokens to them. A company pack starts as a clone of the neutral group with its own primitives.",
+  "contract": {
+    "$description": "Layer 1 — semantic token CONTRACT (brand-agnostic). Every semantic token components may use, with neutral fallbacks. Literals only: the contract must stand alone with no pack loaded.",
+    "fg-surface": {
+      "$description": "Colour: foreground / surface (light context)",
+      "color-fg":            { "$value": "#1a1a1a", "$type": "color" },
+      "color-fg-muted":      { "$value": "#6b7280", "$type": "color" },
+      "color-bg":            { "$value": "#ffffff", "$type": "color" },
+      "color-bg-surface":    { "$value": "#f4f4f5", "$type": "color" },
+      "color-border":        { "$value": "#d4d4d8", "$type": "color" },
+      "color-border-strong": { "$value": "#1a1a1a", "$type": "color" },
+      "color-white":         { "$value": "#ffffff", "$type": "color" }
+    },
+    "accent": {
+      "$description": "Colour: accent",
+      "color-accent":           { "$value": "#2563eb", "$type": "color" },
+      "color-accent-hover":     { "$value": "#1d4ed8", "$type": "color" },
+      "color-accent-active":    { "$value": "#1e40af", "$type": "color" },
+      "color-accent-fg":        { "$value": "#ffffff", "$type": "color" },
+      "color-accent-secondary": { "$value": "#64748b", "$type": "color" }
+    },
+    "inverse": {
+      "$description": "Colour: inverse (content on a dark surface)",
+      "color-bg-inverse":           { "$value": "#1a1a1a", "$type": "color" },
+      "color-fg-on-inverse":        { "$value": "#f4f4f5", "$type": "color" },
+      "color-fg-on-inverse-strong": { "$value": "#ffffff", "$type": "color" },
+      "color-fg-on-inverse-muted":  { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent)", "$type": "color" },
+      "color-fg-on-inverse-soft":   { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent)", "$type": "color" },
+      "color-inverse-line":         { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent)", "$type": "color" },
+      "color-inverse-wash":         { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 6%, transparent)", "$type": "color" },
+      "color-on-dark-border":       { "$value": "color-mix(in srgb, var(--color-white) 50%, transparent)", "$type": "color" }
+    },
+    "fonts": {
+      "$description": "Fonts (neutral system stack; a pack picks real faces)",
+      "font-display": { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
+      "font-body":    { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" }
+    },
+    "spacing": {
+      "$description": "Spacing (generic 4px scale)",
+      "spacing-xs":  { "$value": "4px",  "$type": "dimension" },
+      "spacing-sm":  { "$value": "8px",  "$type": "dimension" },
+      "spacing-md":  { "$value": "16px", "$type": "dimension" },
+      "spacing-lg":  { "$value": "24px", "$type": "dimension" },
+      "spacing-xl":  { "$value": "32px", "$type": "dimension" },
+      "spacing-2xl": { "$value": "48px", "$type": "dimension" },
+      "spacing-3xl": { "$value": "64px", "$type": "dimension" },
+      "spacing-4xl": { "$value": "96px", "$type": "dimension" }
+    },
+    "radius": {
+      "$description": "Radius (non-zero default: radius is a brand choice, not a base rule)",
+      "radius-sm": { "$value": "4px",  "$type": "dimension" },
+      "radius-md": { "$value": "8px",  "$type": "dimension" },
+      "radius-lg": { "$value": "16px", "$type": "dimension" }
+    },
+    "shadows": {
+      "$description": "Shadows (neutral, black-tinted)",
+      "shadow-sm": { "$value": "0 1px 2px rgba(0, 0, 0, 0.06)",   "$type": "shadow" },
+      "shadow-md": { "$value": "0 4px 6px rgba(0, 0, 0, 0.08)",   "$type": "shadow" },
+      "shadow-lg": { "$value": "0 10px 15px rgba(0, 0, 0, 0.10)", "$type": "shadow" }
+    },
+    "layout": {
+      "$description": "Layout",
+      "maxw":   { "$value": "1200px", "$type": "dimension" },
+      "gutter": { "$value": "24px",   "$type": "dimension" }
+    },
+    "type-ramp": {
+      "$description": "Type ramp (generic modular scale)",
+      "type-display": { "$value": "clamp(40px, 6vw, 76px)",   "$type": "dimension" },
+      "type-h1":      { "$value": "clamp(32px, 4vw, 56px)",   "$type": "dimension" },
+      "type-h2":      { "$value": "clamp(24px, 2.5vw, 34px)", "$type": "dimension" },
+      "type-h3":      { "$value": "20px",                     "$type": "dimension" },
+      "type-lead":    { "$value": "clamp(18px, 1.5vw, 22px)", "$type": "dimension" },
+      "type-body":    { "$value": "16px",                     "$type": "dimension" },
+      "type-caption": { "$value": "13px",                     "$type": "dimension" },
+      "type-eyebrow": { "$value": "12px",                     "$type": "dimension" }
+    }
+  },
+  "neutral": {
+    "$description": "Layer 2 — the neutral token pack (the factory's no-brand default). Primitives + the semantic map, exactly the two-tier shape every real client pack clones.",
+    "primitives": {
+      "$description": "1. PRIMITIVES — neutral palette (raw values, no brand)",
+      "color-ink":      { "$value": "#1a1a1a", "$type": "color", "$description": "near-black — content base" },
+      "color-slate":    { "$value": "#6b7280", "$type": "color", "$description": "mid grey — secondary text" },
+      "color-blue":     { "$value": "#2563eb", "$type": "color", "$description": "plain accent blue — signal" },
+      "color-blue-hov": { "$value": "#1d4ed8", "$type": "color" },
+      "color-blue-act": { "$value": "#1e40af", "$type": "color" },
+      "color-cloud":    { "$value": "#f4f4f5", "$type": "color", "$description": "light surface" },
+      "color-line":     { "$value": "#d4d4d8", "$type": "color", "$description": "border grey" },
+      "color-white":    { "$value": "#ffffff", "$type": "color" }
+    },
+    "fonts": {
+      "$description": "Fonts — neutral system stack (a company pack swaps in a real face)",
+      "font-display": { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
+      "font-body":    { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" }
+    },
+    "spacing": {
+      "$description": "Spacing scale (8 steps, 4px base)",
+      "spacing-xs":  { "$value": "4px",  "$type": "dimension" },
+      "spacing-sm":  { "$value": "8px",  "$type": "dimension" },
+      "spacing-md":  { "$value": "16px", "$type": "dimension" },
+      "spacing-lg":  { "$value": "24px", "$type": "dimension" },
+      "spacing-xl":  { "$value": "32px", "$type": "dimension" },
+      "spacing-2xl": { "$value": "48px", "$type": "dimension" },
+      "spacing-3xl": { "$value": "64px", "$type": "dimension" },
+      "spacing-4xl": { "$value": "96px", "$type": "dimension" }
+    },
+    "radius": {
+      "$description": "Radius — a modest neutral rounding (radius is a brand choice; this is the plain default)",
+      "radius-sm": { "$value": "4px",  "$type": "dimension" },
+      "radius-md": { "$value": "8px",  "$type": "dimension" },
+      "radius-lg": { "$value": "16px", "$type": "dimension" }
+    },
+    "shadows": {
+      "$description": "Shadows (neutral, black-tinted, very low alpha)",
+      "shadow-sm": { "$value": "0 1px 2px rgba(0, 0, 0, 0.06)",   "$type": "shadow" },
+      "shadow-md": { "$value": "0 4px 6px rgba(0, 0, 0, 0.08)",   "$type": "shadow" },
+      "shadow-lg": { "$value": "0 10px 15px rgba(0, 0, 0, 0.10)", "$type": "shadow" }
+    },
+    "layout": {
+      "$description": "Layout",
+      "maxw":   { "$value": "1200px", "$type": "dimension" },
+      "gutter": { "$value": "24px",   "$type": "dimension" }
+    },
+    "type-ramp": {
+      "$description": "Type ramp — generic modular scale",
+      "type-display": { "$value": "clamp(40px, 6vw, 76px)",   "$type": "dimension" },
+      "type-h1":      { "$value": "clamp(32px, 4vw, 56px)",   "$type": "dimension" },
+      "type-h2":      { "$value": "clamp(24px, 2.5vw, 34px)", "$type": "dimension" },
+      "type-h3":      { "$value": "20px",                     "$type": "dimension" },
+      "type-lead":    { "$value": "clamp(18px, 1.5vw, 22px)", "$type": "dimension" },
+      "type-body":    { "$value": "16px",                     "$type": "dimension" },
+      "type-caption": { "$value": "13px",                     "$type": "dimension" },
+      "type-eyebrow": { "$value": "12px",                     "$type": "dimension" }
+    },
+    "semantic-fg-surface": {
+      "$description": "Foreground / surface (light context)",
+      "$extensions": { "factory": { "banner": "2. SEMANTIC MAP — the contract, bound to neutral primitives. (Overrides the neutral fallbacks in system/tokens.contract.css with the identical intent, now expressed as a real pack.)" } },
+      "color-fg":            { "$value": "{neutral.primitives.color-ink}",   "$type": "color", "$description": "primary text" },
+      "color-fg-muted":      { "$value": "{neutral.primitives.color-slate}", "$type": "color", "$description": "labels, captions, secondary text" },
+      "color-bg":            { "$value": "{neutral.primitives.color-white}", "$type": "color", "$description": "page ground" },
+      "color-bg-surface":    { "$value": "{neutral.primitives.color-cloud}", "$type": "color", "$description": "cards, alt sections" },
+      "color-border":        { "$value": "{neutral.primitives.color-line}",  "$type": "color", "$description": "1px lines, dividers" },
+      "color-border-strong": { "$value": "{neutral.primitives.color-ink}",   "$type": "color", "$description": "emphasis / hover borders, thick rules" }
+    },
+    "semantic-accent": {
+      "$description": "Accent",
+      "color-accent":           { "$value": "{neutral.primitives.color-blue}",     "$type": "color", "$description": "signal — fill" },
+      "color-accent-hover":     { "$value": "{neutral.primitives.color-blue-hov}", "$type": "color" },
+      "color-accent-active":    { "$value": "{neutral.primitives.color-blue-act}", "$type": "color" },
+      "color-accent-fg":        { "$value": "{neutral.primitives.color-white}",    "$type": "color", "$description": "text/icon on an accent fill" },
+      "color-accent-secondary": { "$value": "{neutral.primitives.color-slate}",    "$type": "color", "$description": "quiet accent, live dots" }
+    },
+    "semantic-inverse": {
+      "$description": "Inverse (content sitting on a dark surface)",
+      "color-bg-inverse":           { "$value": "{neutral.primitives.color-ink}",   "$type": "color", "$description": "dark sections, footer" },
+      "color-fg-on-inverse":        { "$value": "{neutral.primitives.color-cloud}", "$type": "color", "$description": "soft light text on dark (chrome)" },
+      "color-fg-on-inverse-strong": { "$value": "{neutral.primitives.color-white}", "$type": "color", "$description": "high-contrast light (buttons on dark)" },
+      "color-fg-on-inverse-muted":  { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent)", "$type": "color" },
+      "color-fg-on-inverse-soft":   { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent)", "$type": "color" },
+      "color-inverse-line":         { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent)", "$type": "color" },
+      "color-inverse-wash":         { "$value": "color-mix(in srgb, var(--color-fg-on-inverse) 6%, transparent)", "$type": "color" },
+      "color-on-dark-border":       { "$value": "color-mix(in srgb, var(--color-white) 50%, transparent)", "$type": "color" }
+    }
+  }
+}

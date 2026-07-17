@@ -5,6 +5,7 @@ import { copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseLedger } from "./lib.mjs";
 import { genDecisions } from "./gen-decisions.mjs";
+import { genTokenCss } from "./gen-token-css.mjs";
 import { genTokens } from "./gen-tokens.mjs";
 import { genLlms } from "./gen-llms.mjs";
 import { genHeaders } from "./gen-headers.mjs";
@@ -19,6 +20,9 @@ console.log(`agent layer → ${meta.site}  (source: ${ledgerPath})\n`);
 
 const d = genDecisions(ledger);
 console.log(`  decisions.json  ✓  ${d.count} decisions`);
+
+const c = genTokenCss();
+console.log(`  token css       ✓  ${c.contract} contract + ${c.neutral} pack tokens (from tokens.source.json)`);
 
 const t = genTokens(ledger);
 console.log(`  tokens.json     ✓  ${t.contract} contract + ${t.pack} pack tokens (DTCG)`);
