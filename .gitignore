@@ -13,3 +13,6 @@ dist/
 # portal (local workbench — secrets + runtime state)
 portal/.env
 portal/.sessions.json
+
+# figma parity (raw API dump — neither artifact nor proof)
+tooling/figma/.last-response.json
