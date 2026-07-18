@@ -1,4 +1,4 @@
-// system/derive.rules.mjs — the derivation ruleset, v1.1.0 (view-time canon, this repo).
+// system/derive.rules.mjs — the derivation ruleset, v1.2.0 (view-time canon, this repo).
 // THE versioned artifact behind the derivation engine (docs/epics/
 // ai-first-ux-factory.architecture.md §Data model "Derivation rules"; epic #1, ticket #3):
 // every rule the engine applies lives here as inspectable, annotated data — the engine
@@ -58,7 +58,7 @@ export const RULESET = freeze({
       // accent in 0.01 steps until ≥ 4.5:1 vs the derived bg-inverse. maxL is a loop
       // guard only: as l → 1 the gamut forces chroma → 0 (→ white, ~14:1 on any derived
       // inverse ground), so convergence is guaranteed well before it.
-      onInverse: { against: "color-bg-inverse", min: 4.5, step: 0.01, maxL: 0.98 },
+      onInverse: { min: 4.5, step: 0.01, maxL: 0.98 },
       secondary: { l: 0.55, cMax: 0.05 }, // quiet accent — live dots, and .lp-local link text (checked at 4.5)
     },
     neutrals: {
@@ -172,10 +172,11 @@ export const RULESET = freeze({
    * on-dark variant exists: color-accent-on-inverse (v1.2.0, resolves issue
    * #17) is derived by lightening the negotiated accent until it reads AA on
    * the derived bg-inverse (§palette.accent.onInverse) and is checked below
-   * as a first-class pair. Interactive accent-on-dark states were already
-   * retokenized to checked tokens in the PR #15 review pass; the decorative
-   * uses (dark-footer link hovers, the feature-band numeral) now render this
-   * checked token.
+   * as a first-class pair. Interactive accent-on-dark states were retokenized
+   * to checked tokens in the PR #15 review pass — except the .btn-ghost hover,
+   * which that audit missed (caught in the PR #29 review) and which now renders
+   * this token; the decorative uses (dark-footer link hovers, the feature-band
+   * numeral) likewise render this checked token.
    */
   wcagPairs: [
     { fg: "color-fg",                   bg: "color-bg",         min: 4.5, usage: "body text on the page ground" },

@@ -203,8 +203,8 @@ p, .body {
 .on-dark .btn-ghost:hover,
 .case.dark .btn-ghost:hover,
 .work-block.dark .btn-ghost:hover {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-on-inverse);
+  border-bottom-color: var(--color-accent-on-inverse);
 }
 
 .btn-ghost {
