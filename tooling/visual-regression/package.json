@@ -1,0 +1,11 @@
+{
+  "name": "ux-factory-visual-regression",
+  "private": true,
+  "type": "module",
+  "description": "CI visual-regression gate (epic #1, ticket #9, gate 3/3) — factory tooling, isolated.",
+  "scripts": {
+    "test": "playwright test",
+    "update:docker": "docker run --rm -v \"$PWD/../..\":/work -w /work/tooling/visual-regression mcr.microsoft.com/playwright:v1.61.1-jammy sh -c 'npm ci && npx playwright test --update-snapshots'"
+  },
+  "devDependencies": { "@playwright/test": "1.61.1" }
+}
