@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wc wrappers check</title>
+  <meta name="description" content="Exercises the Verdant Web Component wrappers in a plain page: every spec state, DataContract-shaped JSON via the data property, a token-override re-skin strip, and the composed custom events." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Bare check page (epic #1, ticket #12): contract + neutral pack ONLY — deliberately
+       NOT components.css. The point of this page is that the wrappers need nothing but
+       the two token layers; their CSS lives inside their own shadow DOM. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+
+  <style>
+    /* Page scaffolding only — the components under test carry their own shadow CSS. */
+    body {
+      margin: 0;
+      padding: var(--spacing-xl) var(--spacing-md);
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      color: var(--color-fg);
+      background: var(--color-bg);
+    }
+    main { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: var(--type-h3); margin: 0 0 var(--spacing-md); }
+    h2 { font-size: var(--type-body); margin: var(--spacing-2xl) 0 var(--spacing-sm); }
+    .muted { color: var(--color-fg-muted); }
+    .caption { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-sm) 0; }
+    .stack { display: grid; gap: var(--spacing-sm); }
+    .chips { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; align-items: center; }
+    .reskin {
+      padding: var(--spacing-md);
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-md);
+    }
+    pre {
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font-size: var(--type-caption);
+      min-height: 3em;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body data-page="wc-check">
+
+  <main>
+    <h1>Web Component wrappers — plain-page check</h1>
+    <p class="muted">
+      This page loads <strong>only the two token CSS layers</strong> (contract + neutral pack)
+      and the wrapper modules from <code>/system/wc/</code> — no components.css, no site chrome,
+      no framework. Everything below is styled by the wrappers' own shadow-DOM CSS, themed
+      through the token contract via custom-property inheritance.
+    </p>
+    <p class="caption">
+      Verdant is a fictional product, invented for this demonstration. No real company, users,
+      or data are involved.
+    </p>
+
+    <h2>1 · Every spec state, set via attributes</h2>
+    <p class="caption">vd-status-chip: ok · due · overdue</p>
+    <div class="chips">
+      <vd-status-chip value="ok" label="OK"></vd-status-chip>
+      <vd-status-chip value="due" label="DUE"></vd-status-chip>
+      <vd-status-chip value="overdue" label="3 DAYS OVERDUE"></vd-status-chip>
+    </div>
+
+    <p class="caption">vd-plant-card: default (no photo → monogram) · due · overdue · no species (line omitted)</p>
+    <div class="stack">
+      <vd-plant-card plant-id="p-001" name="Ficus" species="Ficus lyrata" status="ok"></vd-plant-card>
+      <vd-plant-card plant-id="p-002" name="Pothos" species="Epipremnum aureum" status="due"></vd-plant-card>
+      <vd-plant-card plant-id="p-003" name="Calathea" species="Calathea orbifolia" status="overdue"></vd-plant-card>
+      <vd-plant-card plant-id="p-004" name="Aloe" status="ok"></vd-plant-card>
+    </div>
+
+    <p class="caption">vd-care-task-row: default · due · overdue · checked</p>
+    <div class="stack">
+      <vd-care-task-row task-id="t-001" action="mist" plant-name="Calathea" status="ok"></vd-care-task-row>
+      <vd-care-task-row task-id="t-002" action="water" plant-name="Pothos" status="due"></vd-care-task-row>
+      <vd-care-task-row task-id="t-003" action="water" plant-name="Calathea" status="overdue"></vd-care-task-row>
+      <vd-care-task-row task-id="t-004" action="feed" plant-name="Ficus" status="ok" checked></vd-care-task-row>
+    </div>
+
+    <h2>2 · DataContract-shaped JSON, via the <code>data</code> property</h2>
+    <p class="muted">
+      The elements below are rendered by assigning the sample records from the specs'
+      <code>## Data binding</code> sections to <code>el.data</code> — the same records the
+      contracts in the handoff pack validate. The plant sample's <code>photoUrl</code>
+      normally points at a scenario asset; here it is swapped for an inline SVG data URI
+      (still contract-valid) so this page ships no image files. The second card omits
+      <code>photoUrl</code> and <code>species</code> → monogram placeholder, compacted card.
+    </p>
+    <div class="stack" id="data-driven"></div>
+
+    <h2>3 · Re-skin strip — token overrides pierce the shadow DOM</h2>
+    <p class="muted">
+      The same three elements inside a wrapper <code>&lt;div&gt;</code> that overrides four
+      semantic tokens inline. Nothing else changes — custom properties inherit through the
+      shadow boundary, so a consumer's pack (or any scoped override) is the whole theming story.
+    </p>
+    <div class="reskin stack" style="--color-accent: #7c2d92; --color-accent-fg: #fdf4ff; --color-bg-surface: #faf5fc; --radius-md: 2px; --radius-lg: 2px;">
+      <div class="chips">
+        <vd-status-chip value="overdue" label="3 DAYS OVERDUE"></vd-status-chip>
+      </div>
+      <vd-plant-card plant-id="p-003" name="Calathea" species="Calathea orbifolia" status="overdue"></vd-plant-card>
+      <vd-care-task-row task-id="t-003" action="water" plant-name="Calathea" status="overdue"></vd-care-task-row>
+    </div>
+
+    <h2>4 · Composed events</h2>
+    <p class="muted">
+      <code>vd-toggle</code> and <code>vd-select</code> are plain <code>CustomEvent</code>s with
+      <code>bubbles + composed</code> — they cross the shadow boundary; this log listens on
+      <code>document</code>. Click any row or card above.
+    </p>
+    <pre id="log">(no events yet)</pre>
+  </main>
+
+  <script type="module">
+    import "/system/wc/vd-plant-card.mjs";
+    import "/system/wc/vd-care-task-row.mjs";
+    // vd-status-chip registers transitively — both parents import it; the registration
+    // guard makes the double import a no-op.
+
+    // Inline SVG stand-in for the sample record's photoUrl (see the section intro).
+    const LEAF =
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23dbe7db'/%3E%3Cpath d='M24 10c6 3 10 9 10 16 0 6-4 10-10 12-6-2-10-6-10-12 0-7 4-13 10-16z' fill='%236b8f71'/%3E%3C/svg%3E";
+
+    // Sample records from the specs' ## Data binding sections (contract-valid).
+    const plant = {
+      id: "p-014", name: "Monstera", species: "Monstera deliciosa", status: "due",
+      lastWatered: "2026-07-14T08:30:00Z", photoUrl: LEAF,
+    };
+    const plantBare = { id: "p-015", name: "Zamioculcas", status: "ok", lastWatered: "2026-07-10T08:30:00Z" };
+    const task = {
+      id: "t-031", plantId: "p-014", plantName: "Monstera", action: "water",
+      due: "2026-07-17T09:00:00Z", status: "due",
+    };
+    const chipRecord = { value: "overdue", label: "3 DAYS OVERDUE" };
+
+    const host = document.getElementById("data-driven");
+    for (const [tag, record] of [
+      ["vd-plant-card", plant],
+      ["vd-plant-card", plantBare],
+      ["vd-care-task-row", task],
+      ["vd-status-chip", chipRecord],
+    ]) {
+      const el = document.createElement(tag);
+      el.data = record;
+      host.append(el);
+    }
+
+    const log = document.getElementById("log");
+    for (const type of ["vd-toggle", "vd-select"]) {
+      document.addEventListener(type, (e) => {
+        if (log.textContent === "(no events yet)") log.textContent = "";
+        log.textContent += `${type}  ${JSON.stringify(e.detail)}\n`;
+      });
+    }
+  </script>
+</body>
+</html>

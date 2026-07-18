@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · agentic bridge harness</title>
+  <meta name="description" content="Internal test harness for the agentic bridge: drives the component vocabulary, the declarative renderer, and the action bus raw against the real component library." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Internal test harness (epic #1, ticket #11) — drives the agentic bridge RAW:
+       vocabulary → validateComposition → renderComposition → action bus, both directions.
+       Same three layers as every shipped page: contract → neutral pack → components; the
+       components render styled because ticket #8's vd-* CSS lives in components.css.
+       The designed surface for this bridge is the agentic-UI study page (ticket #13) — this
+       is the workbench, not that. Everything below the harness chrome is drawn by the system. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+
+  <style>
+    /* Harness chrome only — the rendered composition below is real components from tokens. */
+    body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-sans, system-ui, sans-serif); }
+    .wrap { max-width: 960px; margin: 0 auto; padding: var(--spacing-lg, 24px) var(--spacing-md, 16px) 64px; }
+    h1 { font-size: var(--type-h2, 1.6rem); margin: 0 0 var(--spacing-xs, 8px); }
+    h2 { font-size: var(--type-h3, 1.2rem); margin: var(--spacing-xl, 40px) 0 var(--spacing-sm, 12px); }
+    .lede { color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-md, 16px); }
+    .strip { border: 1px solid var(--color-border); border-radius: var(--radius-md, 8px); padding: var(--spacing-md, 16px); margin: var(--spacing-md, 16px) 0; background: var(--color-bg-surface); }
+    .strip p { margin: 0 0 6px; font-size: var(--type-caption, 0.85rem); }
+    .strip p:last-child { margin-bottom: 0; }
+    .cap-live { color: var(--color-fg); font-weight: 600; }
+    .cap-css { color: var(--color-fg-muted); }
+    .cap-bad { color: var(--color-fg); font-weight: 700; }
+    .notice { font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); font-style: italic; }
+    .cols { display: grid; grid-template-columns: minmax(320px, 400px) 1fr; gap: var(--spacing-md, 16px); align-items: start; }
+    @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+    .stage {
+      display: flex; flex-direction: column; gap: var(--spacing-md, 16px);
+      padding: var(--spacing-md, 16px); background: var(--color-bg);
+      border: 1px solid var(--color-border); border-radius: var(--radius-md, 8px);
+    }
+    pre.dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm, 4px); padding: var(--spacing-md, 16px); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 0; }
+    pre.dump.small { font-size: 11px; padding: 8px 10px; }
+    .controls { display: flex; flex-wrap: wrap; gap: var(--spacing-sm, 12px); margin: var(--spacing-md, 16px) 0; }
+    .hbtn { font: inherit; font-size: var(--type-caption, 0.85rem); padding: 8px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm, 4px); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; }
+    .hbtn:hover { border-color: var(--color-accent); }
+    .hint { font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); margin: 6px 0 0; }
+    .refusal { border: 1px solid var(--color-border); border-left: 3px solid var(--color-accent); border-radius: var(--radius-sm, 4px); padding: 10px 12px; margin-bottom: 10px; }
+    .refusal-msg { margin: 8px 0 0; font-size: var(--type-caption, 0.85rem); color: var(--color-fg); font-weight: 600; }
+    table.log { width: 100%; border-collapse: collapse; font-size: var(--type-caption, 0.85rem); }
+    table.log th, table.log td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+    table.log th { color: var(--color-fg-muted); font-weight: 600; }
+    table.log code { font-size: 11px; }
+    .src { display: inline-block; padding: 1px 7px; border-radius: var(--radius-sm, 4px); border: 1px solid var(--color-border); font-size: 11px; }
+    .src-agent { border-color: var(--color-accent); color: var(--color-accent); }
+    .src-keyboard { font-weight: 700; }
+    .empty { color: var(--color-fg-muted); font-size: var(--type-caption, 0.85rem); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Agentic bridge — harness</h1>
+    <p class="lede">The design system made consumable by agents. An agent composes UI by naming components and props;
+      the renderer accepts only what is valid against the vocabulary and refuses everything else — the same managed-freedom
+      argument as the token contract. Click a component, or Tab to it and press Enter, and watch the same action arrive on
+      one bus. This is the raw workbench; the designed surface is the agentic-UI study page (ticket&nbsp;#13).</p>
+
+    <div class="strip">
+      <p class="notice" id="notice">Loading the scenario's notice…</p>
+    </div>
+    <div class="strip" id="capability"><p class="cap-css">Loading the vocabulary…</p></div>
+
+    <h2>Declarative in → components out</h2>
+    <div class="controls">
+      <button class="hbtn" id="agent-check" type="button">agent: check all care rows</button>
+      <button class="hbtn" id="agent-swap" type="button">agent: swap composition</button>
+      <button class="hbtn" id="reset" type="button">reset composition</button>
+    </div>
+    <p class="hint">The two <code>agent:</code> buttons emit onto the bus (<code>agent.*</code>); the page interprets them
+      declaratively — mutate the composition, re-render. An invalid agent proposal lands in the refusal gallery, not on the page.</p>
+    <div class="cols">
+      <div>
+        <div class="stage" id="stage"></div>
+      </div>
+      <pre class="dump" id="dump"></pre>
+    </div>
+
+    <h2>Refused compositions — the managed-freedom demonstration</h2>
+    <p class="hint">Each is run through <code>validateComposition</code> on load. Every refusal names the offending path.</p>
+    <div id="refusals"></div>
+
+    <h2>Action log — one bus, both directions</h2>
+    <p class="hint">UI → agent is <code>ui.*</code>; agent → UI is <code>agent.*</code>. The same click reports
+      <code>pointer</code> by mouse and <code>keyboard</code> by Tab+Enter — one contract, interchangeable modalities.</p>
+    <table class="log">
+      <thead><tr><th>type</th><th>source</th><th>target</th><th>params</th></tr></thead>
+      <tbody id="logbody"><tr><td colspan="4" class="empty">No actions yet — interact with the composition above.</td></tr></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { createBus } from "/system/action-bus.mjs";
+    import { validateComposition, renderComposition } from "/system/agentic-renderer.mjs";
+
+    const esc = (s) =>
+      String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = (id) => document.getElementById(id);
+
+    const bus = createBus();
+
+    // THE hand-authored composition — exercises both chip modes (explicit override on the
+    // overdue card, derived chip on the rows), an optional prop (species), and every
+    // interactive component. Kept as page state so agent commands mutate + re-render it.
+    const DEFAULT_COMPOSITION = [
+      { name: "screen-header", props: { title: "Today", showSettings: true } },
+      { name: "stat-tile", props: { kind: "moisture", value: 34, unit: "%", label: "Moisture" } },
+      { name: "stat-tile", props: { kind: "light", value: 820, unit: "lx", label: "Light" } },
+      { name: "plant-card", props: { name: "Monstera", species: "Monstera deliciosa", status: "overdue" },
+        children: [{ name: "status-chip", props: { value: "overdue", label: "3 DAYS OVERDUE" } }] },
+      { name: "care-task-row", props: { type: "water", plantName: "Monstera", status: "overdue" } },
+      { name: "care-task-row", props: { type: "fertilise", plantName: "Calathea", status: "due", checked: false } },
+      { name: "primary-button", props: { label: "Log care" } },
+    ];
+
+    // An alternate valid composition the "swap" agent command renders — a root screen
+    // (showBack, no settings), a derived-chip card, a compacted card (no species → monogram).
+    const ALT_COMPOSITION = [
+      { name: "screen-header", props: { title: "My plants", showBack: true } },
+      { name: "plant-card", props: { name: "Calathea", species: "Calathea orbifolia", status: "due" } },
+      { name: "plant-card", props: { name: "Snake plant", status: "ok" } },
+      { name: "primary-button", props: { label: "Add a plant" } },
+    ];
+
+    // The same five invalid compositions as the Node refusal battery.
+    const REFUSALS = [
+      { name: "hero-banner", props: {} },
+      { name: "status-chip", props: { value: "wet", label: "Wet" } },
+      { name: "primary-button", props: { label: "Log care", variant: "ghost" } },
+      { name: "plant-card", props: { name: "Monstera", status: "due" }, children: [{ name: "primary-button", props: { label: "x" } }] },
+      { name: "plant-card", props: { name: "Monstera", status: "ok" }, children: [{ name: "status-chip", props: { value: "overdue", label: "OVERDUE" } }] },
+    ];
+
+    let vocab;
+    let composition = DEFAULT_COMPOSITION;
+    let logged = false;
+
+    // Honest capability signal from RENDERING REALITY, not the spec's status field: #8's
+    // component CSS and the spec `status` flip are independent (the CSS can be in place while
+    // the specs still read "spec"), so we probe the loaded stylesheet for a vd-* rule.
+    function vdCssLoaded() {
+      for (const sheet of document.styleSheets) {
+        let rules;
+        try { rules = sheet.cssRules; } catch { continue; } // skip any unreadable sheet
+        for (const rule of rules) {
+          if (rule.selectorText && rule.selectorText.includes(".vd-")) return true;
+        }
+      }
+      return false;
+    }
+
+    function renderCapability() {
+      const live = "Live in your browser, right now: every composition below is validated against the vocabulary, rendered to real components, and every interaction rides the action bus — nothing is precomputed.";
+      const css = vdCssLoaded()
+        ? "Ticket #8's vd-* component CSS is loaded, so the compositions render fully styled — real components, real tokens, not mockups."
+        : "The vd-* component CSS (ticket #8) is not loaded here, so these render as real, valid DOM bound to real tokens — structure and accessibility complete, visual styling pending #8.";
+      $("capability").innerHTML = `<p class="cap-live">${live}</p><p class="cap-css">${css}</p>`;
+    }
+
+    function renderStage() {
+      const stage = $("stage");
+      stage.replaceChildren();
+      $("dump").textContent = JSON.stringify(composition, null, 2);
+      try {
+        stage.appendChild(renderComposition(vocab, composition, bus));
+      } catch (e) {
+        stage.innerHTML = `<p class="cap-bad">Refused: ${esc(e.message)}</p>`;
+      }
+    }
+
+    function refusalRow(comp, msg) {
+      const row = document.createElement("div");
+      row.className = "refusal";
+      row.innerHTML = `<pre class="dump small">${esc(JSON.stringify(comp))}</pre><p class="refusal-msg">✕ ${esc(msg)}</p>`;
+      $("refusals").appendChild(row);
+    }
+
+    function runRefusals() {
+      $("refusals").replaceChildren();
+      for (const c of REFUSALS) {
+        try { validateComposition(vocab, c); refusalRow(c, "ACCEPTED — unexpected, the battery should refuse this"); }
+        catch (e) { refusalRow(c, e.message); }
+      }
+    }
+
+    function logAction(a) {
+      if (!logged) { $("logbody").replaceChildren(); logged = true; }
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td><code>${esc(a.type)}</code></td>` +
+        `<td><span class="src src-${esc(a.source)}">${esc(a.source)}</span></td>` +
+        `<td>${esc(a.target && a.target.component ? a.target.component : "—")}</td>` +
+        `<td><code>${esc(JSON.stringify(a.params || {}))}</code></td>`;
+      $("logbody").insertBefore(tr, $("logbody").firstChild);
+    }
+
+    try {
+      const vocabRes = await fetch("/handoff/verdant/vocabulary.json");
+      if (!vocabRes.ok) throw new Error(`vocabulary.json → ${vocabRes.status}`);
+      vocab = await vocabRes.json();
+      const copy = await fetch("/scenarios/verdant/copy.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+
+      $("notice").textContent = copy.fictionalNotice || "Verdant is a fictional demo scenario, invented for this demonstration.";
+      renderCapability();
+
+      // The log hears everything — both directions on one bus.
+      bus.on("*", logAction);
+
+      // Agent → UI commands. The renderer stays passive; the composing page owns what a
+      // command means (same philosophy as the specs: the composing screen owns "commit").
+      bus.on("agent.set-checked", (a) => {
+        composition = composition.map((n) =>
+          n.name === "care-task-row" ? { ...n, props: { ...n.props, checked: a.params.checked } } : n);
+        renderStage();
+      });
+      bus.on("agent.render", (a) => {
+        try {
+          validateComposition(vocab, a.params.composition); // an invalid proposal is refused, not rendered
+          composition = a.params.composition;
+          renderStage();
+        } catch (e) {
+          refusalRow(a.params.composition, `agent proposal refused — ${e.message}`);
+        }
+      });
+
+      $("agent-check").addEventListener("click", () =>
+        bus.emit({ type: "agent.set-checked", source: "agent", target: { component: "care-task-row" }, params: { checked: true } }));
+      $("agent-swap").addEventListener("click", () =>
+        bus.emit({ type: "agent.render", source: "agent", params: { composition: ALT_COMPOSITION } }));
+      $("reset").addEventListener("click", () =>
+        bus.emit({ type: "agent.render", source: "agent", params: { composition: DEFAULT_COMPOSITION } }));
+
+      renderStage();
+      runRefusals();
+    } catch (e) {
+      $("capability").innerHTML =
+        `<p class="cap-bad">Could not load the vocabulary: ${esc(e.message)}.</p>` +
+        `<p class="cap-css">The bridge needs <code>handoff/verdant/vocabulary.json</code> — generate it with <code>node agent-layer/gen-vocabulary.mjs</code>.</p>`;
+    }
+  </script>
+</body>
+</html>

@@ -673,3 +673,123 @@ body {
   .ot-body.anim, .ot-body.anim-back { animation: none; }
   .ot-sheet, .ot-sheet-wrap, .ot-switch::after, .ot-notes, .ot-toast, .ot-btn { transition: none; }
 }
+
+/* ---------------------------------------------------------------- factory prototype shells
+ * epic #1, ticket #8 — chrome for the data-connected prototype pages
+ * (proto/verdant.html, proto/fieldwork.html). Shell layer: semantic tokens
+ * only, same discipline as the .proto-* strips above. The vd-*/fw-* app
+ * components themselves live in system/components.css (token contract —
+ * unlike the ot- exemplar's private token block, and that difference is
+ * the demonstration: the derived pack re-skins these screens for free). */
+
+.proto-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm) var(--spacing-md);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-xl) 0;
+}
+.proto-head h1 {
+  margin: 0;
+  font-size: var(--type-h2);
+  color: var(--color-fg);
+}
+.proto-head .sub {
+  margin: var(--spacing-xs) 0 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  max-width: 60ch;
+}
+
+/* capability indicator — honesty surface #3: states exactly what answered.
+   JS sets data-source; the TEXT carries the state (colour never alone). */
+.proto-source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.proto-source[data-source="worker"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.proto-source[data-source="static"] {
+  border-color: var(--color-border-strong);
+  color: var(--color-fg);
+}
+
+.proto-stage-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-3xl);
+}
+
+/* phone bezel — hardware depiction like .ot-phone, but token-bound
+   (bg-inverse ≈ device chassis in any pack; shadow from the scale) */
+.proto-frame-phone {
+  width: min(392px, 94vw);
+  background: var(--color-bg-inverse);
+  border-radius: 54px;
+  padding: 12px;
+  box-shadow: var(--shadow-lg);
+}
+.proto-frame-phone .proto-screen {
+  border-radius: 43px;
+  overflow: hidden;
+  height: min(800px, 80dvh);
+  min-height: 620px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+/* desktop board frame — the Fieldwork canvas */
+.proto-frame-board {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  box-shadow: var(--shadow-md);
+}
+
+/* designated agentic slot — bounded region, honestly labeled placeholder.
+   The dashed boundary + label IS the design: designed-and-bounded, not broken. */
+.proto-slot {
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.proto-slot-label {
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-fg);
+}
+.proto-slot-note {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}

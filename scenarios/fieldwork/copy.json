@@ -1,0 +1,24 @@
+{
+  "fictionalNotice": "Fieldwork is a fictional product, invented for this demonstration. No real company, users, or data are involved.",
+  "tagline": "A dispatch board that gets the right technician to the right job — and stays out of the way.",
+  "ethicsReveal": {
+    "verdict": "utility",
+    "narrative": "The frequency filter fails: the only behavior a habit loop could target — the customer's recurring booking — happens monthly at best, far below the habit zone. The dispatcher is in the tool all day, but that engagement is externally triggered by arriving work, not an internal itch to amplify. So the method rules habit mechanics out, and the design goes the other way: compact density, zero ceremony, success measured in seconds-to-assignment and SLA breaches caught early — never time-in-app. Same gate as Verdant, opposite verdict. That refusal is the demonstration."
+  },
+  "stations": {
+    "intake": "Fieldwork's stakeholder answers — including the one where the honest answer is 'there is no habit worth designing for'.",
+    "system": "From one brand orange and 'compact', a denser system for a day made of interrupts. Same engine, different verdict.",
+    "prototype": "The dispatch board, rendered from live mock-API data — human-designed chrome with designated agentic slots.",
+    "handoff": "The pack an engineer gets: component specs, typed props, and the data contract behind the board.",
+    "agents": "The real agent runs that produced Fieldwork's system — replayed as plan, gate, implement, validate."
+  },
+  "prototype": {
+    "screenTitle": "Dispatch board",
+    "unassignedHeading": "Needs assignment",
+    "slaWarningLabel": "SLA at risk",
+    "overdueLabel": "overdue",
+    "priorityLabels": { "urgent": "Urgent", "priority": "Priority", "routine": "Routine" },
+    "regionLabels": { "north": "North", "south": "South", "east": "East", "west": "West" },
+    "statusLabels": { "scheduled": "Scheduled", "en-route": "En route", "on-site": "On site", "done": "Done", "overdue": "Overdue" }
+  }
+}

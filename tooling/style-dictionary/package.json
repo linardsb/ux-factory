@@ -1,0 +1,8 @@
+{
+  "name": "factory-style-dictionary",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "style-dictionary": "^4.4.0"
+  }
+}

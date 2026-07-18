@@ -1,0 +1,82 @@
+{
+  "questions": [
+    {
+      "id": "problem",
+      "stage": "discovery",
+      "question": "What problem are users solving with your product?",
+      "default": "Small field-service firms schedule on whiteboards and a spreadsheet with one tab per technician. Double-bookings happen weekly, SLA breaches are discovered after the fact, and nobody can see which region is drowning.",
+      "reasoning": "The problem is operational visibility under interrupts — framing it that way keeps the product a board, not a suite.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "current-solution",
+      "stage": "discovery",
+      "question": "How do they solve it today, and why does that need replacing?",
+      "default": "Whiteboard, phone calls, and Excel. It works until two urgent callouts land in the same hour — then jobs collide, and the SLA clock is invisible until it has already run out.",
+      "reasoning": "The baseline fails exactly at peak load, so the design target is the worst hour of the week, not the average one.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "named-user",
+      "stage": "discovery",
+      "question": "Who exactly is the user — can you name a real person who needs this?",
+      "default": "Kaspars, 41, dispatcher at a heating-and-electrical firm: ten technicians, four regions, a day made of interrupts. He opens the tool because a job arrived — never because he wants to.",
+      "reasoning": "Naming a dispatcher (not the firm's owner) anchors the design on the person inside the interrupt stream.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "target-behavior",
+      "stage": "behaviour",
+      "question": "What's the one behavior you want to become routine? How often would it realistically occur?",
+      "default": "Honestly: there isn't one worth designing for. The only candidate is the customer's recurring service booking — monthly at the very best, mostly quarterly. Dispatcher usage is constant but demand-driven, not a routine to cultivate.",
+      "reasoning": "This is where Fieldwork diverges from Verdant: below the habit zone (weekly or better), a designed habit loop has nothing legitimate to attach to.",
+      "bounds": ["multiple-daily", "daily", "weekly", "monthly", "rarely"],
+      "asked": true
+    },
+    {
+      "id": "internal-trigger",
+      "stage": "behaviour",
+      "question": "5 Whys: what emotion or moment actually cues that behavior?",
+      "default": "The cues are external — a callout lands, a phone rings, an SLA clock runs down. There is no internal itch here for a design to amplify, and inventing one would be engagement theater on someone's workday.",
+      "reasoning": "External triggers mean the design should optimise response time, not return frequency — the tool register, not the habit register.",
+      "bounds": null,
+      "asked": true
+    },
+    {
+      "id": "friction",
+      "stage": "friction",
+      "question": "From trigger to payoff, how many steps? Which of time / money / effort / confusion / social deviance / novelty limits users most?",
+      "default": "Job lands → see it → assign it: three steps, seconds each. The limiting factor is time under pressure — anything that adds a click to assignment loses to the whiteboard.",
+      "reasoning": "Naming time as the constraint drives the compact density and a board that acts from the overview, without drill-in ceremony.",
+      "bounds": ["time", "money", "effort", "confusion", "social deviance", "novelty"],
+      "asked": false
+    },
+    {
+      "id": "success-signals",
+      "stage": "success",
+      "question": "What early signal would prove it's working, and what slower outcome sits behind it?",
+      "default": "Early: seconds-to-assignment drops and SLA warnings get caught before they lapse. Behind it: fewer breached SLAs per quarter and no double-bookings. Time-in-app is explicitly not a success metric.",
+      "reasoning": "For a utility, engagement metrics would reward the wrong thing — the product succeeds when people leave it sooner.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "ethics-gate",
+      "stage": "ethics-gate",
+      "question": "Does it materially improve users' lives — and would you use it yourself?",
+      "default": "It improves the dispatcher's working day, but the maker isn't a dispatcher — and with the frequency filter already failed, the honest verdict needs no matrix: build a utility. Get in, do the job, get out.",
+      "reasoning": "The gate ruling *against* habit design here, out loud, is the point of this scenario — the same method, the opposite verdict.",
+      "bounds": null,
+      "asked": true
+    }
+  ],
+  "axes": {
+    "brandColor": "#B4530A",
+    "density": "compact",
+    "rewardType": "hunt",
+    "frequency": "monthly"
+  }
+}

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "tech-01",
+    "name": "Marta Ozola",
+    "skills": [
+      "boiler",
+      "plumbing"
+    ],
+    "region": "north",
+    "shift": "early"
+  },
+  {
+    "id": "tech-02",
+    "name": "Dan Whitfield",
+    "skills": [
+      "hvac",
+      "electrical"
+    ],
+    "region": "north",
+    "shift": "day"
+  },
+  {
+    "id": "tech-03",
+    "name": "Priya Nair",
+    "skills": [
+      "hvac",
+      "boiler"
+    ],
+    "region": "south",
+    "shift": "day"
+  },
+  {
+    "id": "tech-04",
+    "name": "Tom Sikora",
+    "skills": [
+      "electrical",
+      "solar"
+    ],
+    "region": "south",
+    "shift": "late"
+  },
+  {
+    "id": "tech-05",
+    "name": "Aisha Bello",
+    "skills": [
+      "plumbing",
+      "hvac"
+    ],
+    "region": "east",
+    "shift": "early"
+  },
+  {
+    "id": "tech-06",
+    "name": "Georgs Kalnins",
+    "skills": [
+      "boiler",
+      "solar"
+    ],
+    "region": "east",
+    "shift": "day"
+  },
+  {
+    "id": "tech-07",
+    "name": "Nina Petrova",
+    "skills": [
+      "electrical",
+      "plumbing"
+    ],
+    "region": "west",
+    "shift": "day"
+  },
+  {
+    "id": "tech-08",
+    "name": "Sam Okafor",
+    "skills": [
+      "hvac",
+      "solar"
+    ],
+    "region": "west",
+    "shift": "late"
+  },
+  {
+    "id": "tech-09",
+    "name": "Lena Vogel",
+    "skills": [
+      "boiler",
+      "electrical"
+    ],
+    "region": "north",
+    "shift": "day"
+  },
+  {
+    "id": "tech-10",
+    "name": "Ravi Menon",
+    "skills": [
+      "plumbing",
+      "solar"
+    ],
+    "region": "south",
+    "shift": "early"
+  }
+]
