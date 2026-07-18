@@ -14,6 +14,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Least privilege — the job only checks out code and runs local scripts (never the GitHub API).
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       # Pin Node 20 — the local baseline the committed artifacts were generated against, so

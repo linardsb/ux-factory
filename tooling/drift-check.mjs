@@ -27,8 +27,8 @@ function checkSyntax() {
   for (const file of files) {
     try {
       execFileSync(process.execPath, ["--check", file], { cwd: ROOT, stdio: "pipe" });
-    } catch {
-      throw new Error(`syntax error in ${file} (node --check failed)`);
+    } catch (e) {
+      throw new Error(`syntax error in ${file} (node --check failed):\n${e.stderr}`);
     }
   }
 }
