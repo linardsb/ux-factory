@@ -121,11 +121,96 @@ All externally verified 2026-07-17 (research run; corrections against raw doc HT
   - CSR rule (verbatim): "props that match a property on the Custom Element instance will be assigned as properties, otherwise they will be assigned as attributes." Full Custom Elements Everywhere support. Custom **events** still need refs — no declarative binding.
   - Why: the load-bearing sandbox demonstration (Task 6) and the README's React notes (Task 7).
 - [esm.sh — external + import maps](https://github.com/esm-dev/esm.sh/blob/main/README.md#with-import-maps)
-  - No-build import map needs `?external=react` on the react-dom URL or esm.sh resolves its own second React copy (invalid-hook-call breakage): `{"imports": {"react": "https://esm.sh/react@19.2.0", "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react"}}`. Documented mechanism (esm.sh shows it for preact); react-specific form is high-confidence but **verify in-console** (no duplicate-React warning) before relying on it.
-  - Why: Task 6's exact import map + its verification step.
+  - No-build import map needs `?external=react` on the react-dom URL or esm.sh resolves its own second React copy (invalid-hook-call breakage): `{"imports": {"react": "https://esm.sh/react@19.2.0", "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react"}}`. Documented mechanism (esm.sh shows it for preact); the react-specific form was **verified working at plan time** (see "Verified at plan time" below).
+  - Why: Task 6's exact import map.
 - [MDN — custom property fallback values](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Cascading_variables/Using_custom_properties#custom_property_fallback_values)
   - Custom properties inherit through shadow boundaries (encapsulation scopes rule *matching*, not *inheritance*) — page-level `:root` tokens theme shadow CSS. Gotcha: never redefine a token on `:host` and never use `var(--token, fallback)` inside wrappers — both would mask pack-level overrides. (Our zero-literal rule already forbids fallbacks; keep it.)
   - Why: the mechanism the whole theming story rests on (Tasks 2–5).
+
+### Verified at plan time (2026-07-17 — live browser probe, the #7 spike-4 precedent)
+
+Every load-bearing mechanic below was exercised in a real Chrome session during planning (probe pages in the session scratchpad, served locally, driven via agent-browser). These are **facts, not assumptions** — the implementation agent does not need to re-derisk them:
+
+| # | Mechanic | Result |
+| --- | --- | --- |
+| P1 | Page-level `:root` custom property reaches `var()` inside shadow-DOM CSS | PASS |
+| P2 | A scoped wrapper-div token override (`style="--token: …"`) pierces shadow DOM and wins | PASS |
+| P3 | `CustomEvent` with `{bubbles: true, composed: true}` crosses the shadow boundary to `document` | PASS |
+| P4 | esm.sh import map with `?external=react` → **single** React instance, version 19.2.0 | PASS |
+| P5 | React 19 assigns an object JSX prop (`data={record}`) as a DOM **property** on a custom element | PASS (`el.data.n === 42`) |
+| P6 | Hooks work under that import map (no dual-React invalid-hook-call) | PASS |
+| P7 | Ref-attached `addEventListener` for a custom event drives React state | PASS |
+| E1–E7 | The golden exemplar below, loaded against the repo's real `tokens.contract.css` + `tokens.neutral.css`: ok/due/overdue variants match the spec's `## States` colours, `--type-eyebrow` resolves (12px), the `data` record reflects to attributes, and a scoped `--color-accent` override re-skins the filled variant | ALL PASS |
+
+Also verified: the Task 2–4 **token-audit one-liner** passes on a compliant stub and catches a rogue `var(--color-rogue-token)` — the command works as written.
+
+### Golden exemplar — `system/wc/vd-status-chip.mjs` (commit VERBATIM; mirror for card/row)
+
+This module was **run and validated at plan time** (rows E1–E7 above). Task 2 commits it as-is; Tasks 3–4 mirror its structure (CSS-in-template, `#data` + attribute reflection, `connectedCallback`/`attributeChangedCallback` → one `#render()`, registration guard).
+
+```js
+// system/wc/vd-status-chip.mjs — status-chip as a standalone custom element (hand-written
+// canon, this repo; not generated). The tech-agnostic handoff proof: shadow-DOM encapsulated,
+// themed only by the semantic tokens its spec declares — load the pack's tokens/css layers
+// (or override custom properties at any scope) and it re-skins; no other page CSS reaches it.
+// Spec: system/specs/status-chip.md · architecture §Boundaries "Components handoff"
+// (epic #1, ticket #12; folds spike 3).
+
+const VARIANTS = ["ok", "due", "overdue"];
+
+// Every var() here must name a token in the spec head's `tokens` array — no other tokens,
+// no colour literals, no var() fallbacks (the contract layer owns fallbacks; a fallback
+// here would mask pack-level overrides). Font-family is deliberately unset: inheritable
+// text properties flow into shadow DOM from the host page.
+const CSS = `
+  :host { display: inline-block; }
+  .pill {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    font-size: var(--type-eyebrow);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--color-bg-surface);
+    color: var(--color-fg-muted);
+  }
+  .pill.due { border-color: var(--color-accent); color: var(--color-accent); }
+  .pill.overdue { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); }
+`;
+
+export class VdStatusChip extends HTMLElement {
+  static observedAttributes = ["value", "label"];
+  #data = null;
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `<style>${CSS}</style><span class="pill"></span>`;
+  }
+
+  // DataContract path (status-chip.contract.json): assign a full Status record.
+  // Reflects to attributes so markup, property, and framework usage stay one model
+  // (React 19 assigns this object prop as a DOM property — verified at plan time).
+  get data() { return this.#data; }
+  set data(record) {
+    this.#data = record ?? null;
+    if (record) { this.setAttribute("value", record.value); this.setAttribute("label", record.label); }
+  }
+
+  connectedCallback() { this.#render(); }
+  attributeChangedCallback() { this.#render(); }
+
+  #render() {
+    const value = this.getAttribute("value");
+    const pill = this.shadowRoot.querySelector(".pill");
+    pill.className = "pill" + (VARIANTS.includes(value) && value !== "ok" ? " " + value : "");
+    pill.textContent = this.getAttribute("label") ?? "";
+  }
+}
+
+if (!customElements.get("vd-status-chip")) customElements.define("vd-status-chip", VdStatusChip);
+```
 
 ### Patterns to Follow
 
@@ -146,7 +231,7 @@ All externally verified 2026-07-17 (research run; corrections against raw doc HT
 if (!customElements.get("vd-status-chip")) customElements.define("vd-status-chip", VdStatusChip);
 ```
 
-**Token discipline in shadow CSS:** every `var(--x)` must appear in the spec head's `tokens` array; **no fallback literals** (`var(--color-fg, #333)` is a bug — the contract layer owns fallbacks; consumers load `tokens/css/contract.css` from the pack).
+**Token discipline in shadow CSS (stated precisely):** every `var(--x)` must appear in the spec head's `tokens` array; **no colour literals** (no hex/rgb/named colours — the `components.css:1-16` rule) and **no `var()` fallbacks** (`var(--color-fg, #333)` is a bug — the contract layer owns fallbacks, and a fallback would mask pack-level overrides; consumers load `tokens/css/contract.css` from the pack). Non-colour structural literals (`1px` hairlines, `letter-spacing: 0.08em`, `text-transform`) follow the same license `components.css` uses — they are fine.
 
 **Honesty surfaces:** demo + sandbox pages render the fictional notice; `figma-parity.json` carries `"note": "real run, from tooling/figma/figma-parity.mjs"` + ISO `ranAt`; capability wording follows the spike-1 branch actually taken.
 
@@ -182,23 +267,22 @@ Extend `gen-handoff.mjs`, regenerate `handoff/verdant/`, update CLAUDE.md, valid
 
 ### Task 1 — BRANCH: cut `feature/portability-proofs` from `feature/handoff-data-layer`
 
-- **IMPLEMENT**: `git checkout -b feature/portability-proofs feature/handoff-data-layer` (i.e. from `d656f05`). #12 depends on #2 (in `main`) and #7 (unmerged, on that branch) — `main` alone lacks `system/specs/`, `gen-handoff.mjs`, and `tooling/style-dictionary/`. If #7 has merged to `main` by implementation time, cut from `main` instead.
-- **GOTCHA**: this working tree is shared by concurrent sessions (see `.claude/reports/handoff-data-layer-report.md` deviations — HEAD moved mid-commit last ticket, and `feature/data-connected-prototypes` is checked out now). **Strongly prefer an isolated worktree** (`EnterWorktree` / `git worktree add`) over switching HEAD under a concurrent session.
+- **IMPLEMENT**: work in an **isolated worktree**, not by switching HEAD (this tree is shared by concurrent ticket sessions — see the memory `shared-worktree-parallel-sessions` and the #7 report's deviation 1). Exactly: `git worktree add ../ux-factory-wt-12 -b feature/portability-proofs feature/handoff-data-layer` (base = `d656f05`; #12 depends on #2 (in `main`) and #7 (unmerged, on that branch) — `main` alone lacks `system/specs/`, `gen-handoff.mjs`, and `tooling/style-dictionary/`). If #7 has merged to `main` by implementation time, base on `main` instead. All subsequent tasks run inside the worktree; verify the branch immediately before committing.
 - **GOTCHA 2**: `tooling/style-dictionary/node_modules` is gitignored — run `cd tooling/style-dictionary && npm install` once in a fresh worktree or `gen-handoff` throws (its error message says exactly this).
 - **VALIDATE**: `git branch --show-current` → `feature/portability-proofs`; `ls system/specs agent-layer/gen-handoff.mjs` both exist.
 - **SATISFIES**: prerequisite for all ACs.
 
-### Task 2 — CREATE `system/wc/vd-status-chip.mjs`
+### Task 2 — CREATE `system/wc/vd-status-chip.mjs` (verbatim from the golden exemplar)
 
-- **IMPLEMENT**: `class VdStatusChip extends HTMLElement` with shadow root (`{ mode: "open" }`). API: attributes `value` (`ok|due|overdue`) + `label`; property `data` accepting a Status record (`{value, label}` per `status-chip.contract.json`) whose setter reflects to attributes; `static observedAttributes = ["value", "label"]` re-render on change. Render: a pill `<span>` showing `label` uppercase. Shadow CSS: `:host` inline-block; variants keyed off `value` — `ok`: `--color-bg-surface`/`--color-fg-muted`/`--color-border`; `due`: accent-tinted per its spec `## States`; `overdue`: `--color-accent` bg + `--color-accent-fg` text; radius `--radius-lg`, padding `--spacing-xs`/`--spacing-sm`, type `--type-eyebrow`. Not focusable, no pointer handlers (spec: never a tap target).
-- **PATTERN**: header per `system/derive.mjs:1-2`; registration guard (Patterns above).
-- **GOTCHA**: only the 9 tokens in `status-chip.md`'s head may appear in the CSS; no literals, no fallbacks. Unknown/absent `value` → render as `ok` (contract enum makes other values invalid; don't build error UI).
+- **IMPLEMENT**: commit the **Golden exemplar** above verbatim — it was run and validated at plan time against the repo's real token layers (rows E1–E7). Do not redesign it.
+- **PATTERN**: it IS the pattern Tasks 3–4 mirror.
+- **GOTCHA**: only the 9 tokens in `status-chip.md`'s head appear in its CSS (audited); unknown/absent `value` renders as `ok` (contract enum makes other values invalid; no error UI). Not focusable, no pointer handlers (spec: never a tap target).
 - **VALIDATE**: `node --check system/wc/vd-status-chip.mjs` && `python3 -c "import re,json,sys; css=open('system/wc/vd-status-chip.mjs').read(); used=set(re.findall(r'var\((--[a-z0-9-]+)',css)); head=json.loads(re.search(r'\x60\x60\x60json\n(.*?)\n\x60\x60\x60',open('system/specs/status-chip.md').read(),re.S)[1]); extra=used-set(head['tokens']); sys.exit(f'undeclared tokens: {extra}' if extra else 0)"`
 - **SATISFIES**: AC #3 (wrappers).
 
 ### Task 3 — CREATE `system/wc/vd-plant-card.mjs`
 
-- **IMPLEMENT**: `class VdPlantCard extends HTMLElement`, imports + relies on `./vd-status-chip.mjs` (relative import — the pack copy must stay self-contained). API: attributes `name`, `species`, `status`, `photo-url`, `plant-id`, optional `href`; property `data` accepting a full Plant record (contract shape: `id`, `name`, `species?`, `status`, `lastWatered`, `photoUrl?`) — maps `id→plant-id`, `photoUrl→photo-url`, ignores `lastWatered` (spec: "not rendered here — care-task-row territory"). Render per the spec's `## Data binding` table: internal `<a>` (href from attr, else `#`), 48px thumbnail (`--radius-md`) or token-tinted monogram (first letter of name, `--color-bg-surface`/`--color-fg-muted`) when `photo-url` absent; name line (`--type-body`/`--color-fg`); species line (`--type-caption`/`--color-fg-muted`) omitted entirely when absent; trailing `<vd-status-chip value=… label=…>` with `aria-hidden="true"`. States per `## States`: `overdue` → border `--color-accent`; `:active` bg one step toward `--color-border` via `color-mix(in oklch, …)`? — NO: `color-mix` with two tokens is allowed ONLY if both are spec-head tokens; simplest compliant form is `background: var(--color-border)` at reduced strength is NOT expressible without a literal → use `background: color-mix(in srgb, var(--color-bg-surface), var(--color-border) 50%)` (both tokens declared; the % is a proportion, not a colour literal — same license `tokens.source.json` itself uses `color-mix` under). A11y per `## Accessibility`: accessible name = `${name}, ${chipLabel}` via `aria-label` on the `<a>`; thumbnail `alt=""`; min 44px target; `:focus-visible` outline `--color-accent`. On click also dispatch `vd-select` (`bubbles: true, composed: true`, `detail: { id }`).
+- **IMPLEMENT**: `class VdPlantCard extends HTMLElement`, imports + relies on `./vd-status-chip.mjs` (relative import — the pack copy must stay self-contained). API: attributes `name`, `species`, `status`, `photo-url`, `plant-id`, optional `href`; property `data` accepting a full Plant record (contract shape: `id`, `name`, `species?`, `status`, `lastWatered`, `photoUrl?`) — maps `id→plant-id`, `photoUrl→photo-url`, ignores `lastWatered` (spec: "not rendered here — care-task-row territory"). Render per the spec's `## Data binding` table: internal `<a>` (href from attr, else `#`), 48px thumbnail (`--radius-md`) or token-tinted monogram (first letter of name, `--color-bg-surface`/`--color-fg-muted`) when `photo-url` absent; name line (`--type-body`/`--color-fg`); species line (`--type-caption`/`--color-fg-muted`) omitted entirely when absent; trailing `<vd-status-chip value=… label=…>` with `aria-hidden="true"`. States per `## States`: `overdue` → border `--color-accent`; `pressed` (`:active`) → `background: color-mix(in srgb, var(--color-bg-surface), var(--color-border) 50%)` — **pinned**: both tokens are spec-head tokens, a percentage is a proportion not a colour literal, and `color-mix`-over-tokens has in-repo precedent at `system/tokens.source.json:28-31`; do not introduce any other mixing. A11y per `## Accessibility`: accessible name = `${name}, ${chipLabel}` via `aria-label` on the `<a>`; thumbnail `alt=""`; min 44px target; `:focus-visible` outline `--color-accent`. On click also dispatch `vd-select` (`bubbles: true, composed: true`, `detail: { id }`).
 - **PATTERN**: chip's structure from Task 2; spec sections are the behaviour source of truth — implement the mapping table literally.
 - **GOTCHA**: chip label text — derive from `status` (`ok→"OK"`, `due→"DUE"`, `overdue→"OVERDUE"`); the contract's Status record allows richer labels but the card spec gives the chip only `status`.
 - **VALIDATE**: `node --check system/wc/vd-plant-card.mjs` + the same token-audit one-liner against `plant-card.md`.
@@ -214,9 +298,10 @@ Extend `gen-handoff.mjs`, regenerate `handoff/verdant/`, update CLAUDE.md, valid
 
 ### Task 5 — CREATE `system/wc/demo.html` (plain-page harness)
 
-- **IMPLEMENT**: bare check page mirroring `scenarios/check.html`'s head (noindex, contract + neutral pack stylesheets — **deliberately NOT `components.css`**: the page proves the wrappers need only the two token layers). Sections: (1) fictional notice (wording from `scenarios/verdant/copy.json` `fictionalNotice`); (2) every element in every spec state, set via attributes; (3) "DataContract-shaped JSON" section — a `<script type="module">` that assigns the two **sample records from the specs' `## Data binding` sections verbatim** (`p-014` Monstera plant; `t-031` water task) to `el.data`; (4) re-skin strip: the same three elements inside a wrapper `<div>` that overrides 3–4 semantic tokens inline (`style="--color-accent: …; --radius-md: …"`) — custom properties piercing shadow DOM, the one-line re-skin story on WCs; (5) `vd-toggle`/`vd-select` event log `<pre>` (listener on `document` — proves `composed: true` crosses the shadow boundary).
+- **IMPLEMENT**: bare check page mirroring `scenarios/check.html`'s head (noindex, contract + neutral pack stylesheets — **deliberately NOT `components.css`**: the page proves the wrappers need only the two token layers). Sections: (1) fictional notice, exact wording from `scenarios/verdant/copy.json`: *"Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved."*; (2) every element in every spec state, set via attributes; (3) "DataContract-shaped JSON" section — a `<script type="module">` that assigns the two **sample records from the specs' `## Data binding` sections** (`p-014` Monstera plant; `t-031` water task) to `el.data`; (4) re-skin strip: the same three elements inside a wrapper `<div>` that overrides 3–4 semantic tokens inline (`style="--color-accent: …; --radius-md: …"`) — custom properties piercing shadow DOM (probe rows P1–P2), the one-line re-skin story on WCs; (5) `vd-toggle`/`vd-select` event log `<pre>` (listener on `document` — probe row P3).
 - **PATTERN**: `scenarios/check.html` structure + explanatory-intro voice.
-- **GOTCHA**: the re-skin strip's override values are literals ON THE DEMO PAGE (that's the point — a consumer's pack), not in wrapper CSS. Keep the modules literal-free.
+- **GOTCHA 1**: the plant sample record's `photoUrl` (`/assets/verdant/monstera.webp`) **does not exist in the repo** (`assets/` holds two logos only — verified). Show BOTH thumbnail paths without adding binary assets: one card whose record swaps `photoUrl` for a small inline SVG `data:` URI (still contract-valid — `format: "uri-reference"` admits data URIs), one card with `photoUrl` omitted → monogram. Do NOT commit an image; do NOT render the dead `/assets/…` path (a broken-image icon on a proof page undermines the proof).
+- **GOTCHA 2**: the re-skin strip's override values are literals ON THE DEMO PAGE (that's the point — a consumer's pack), not in wrapper CSS. Keep the modules colour-literal-free.
 - **VALIDATE**: `npx serve .` → open `http://localhost:3000/system/wc/demo.html`; drive it with the agent-browser skill: all states render, species line absent on a no-species record, monogram on a no-photo record, toggle logs events, re-skin strip differs visibly. Screenshot for the report.
 - **SATISFIES**: AC #3 ("work in plain page").
 
@@ -247,8 +332,10 @@ Extend `gen-handoff.mjs`, regenerate `handoff/verdant/`, update CLAUDE.md, valid
 ### Task 9 — RUN spike 1 (needs user input) + record outcome on issue #12
 
 - **IMPLEMENT**: **BLOCKED ON USER** — needs `FIGMA_TOKEN` (+ `FIGMA_FILE_KEY` of a test file) in `portal/.env`. PAT creation: Settings → Security → Generate new token, granular scopes — `file_content:read` minimum; add `file_variables:read` **only if the UI offers it** (it appears solely on Enterprise Full seats — its absence is itself spike-1 evidence, note it in the comment). Test-file setup exercising our own import docs (pick per account): **(a)** native DTCG import — drag `handoff/verdant/tokens.dtcg.json` into a Variable Collection (Schema 2025 UI feature) — BUT on a non-Enterprise account variables are REST-invisible, so ALSO **(b)** Tokens Studio (free): import the DTCG file, then "Create styles" from the color tokens and apply a few to nodes — that makes values resolvable via the GET-file fallback. Then: `node tooling/figma/figma-parity.mjs` — the run IS spike 1 (mind the ~6/month GET-file budget on Starter; use `--offline` for re-parses). Record on #12: which endpoint answered, the exact gate evidence if variables 403'd, parity summary, and the capability-indicator wording this dictates ("Enterprise-gated" label iff gated — honesty constraint decides wording).
-- **GOTCHA**: if the user cannot supply a token during implementation, complete everything else, commit with `figma-parity.json` absent, and leave #12 open with the remaining AC named — do NOT fabricate a parity artifact (honesty contract: never hand-write anything presented as a real run).
-- **VALIDATE**: `handoff/verdant/figma-parity.json` exists with `endpoint` + `ranAt`; `gh issue view 12 --comments | grep -i "spike 1"`.
+- **GOTCHA**: both outcomes below are one-pass successes — pick by whether the user supplied the token, and do NOT stall the ticket waiting:
+  - **Outcome A (token available)** — done when: `figma-parity.json` committed with `endpoint` + `ranAt` + (if gated) `gate` evidence; spike-1 comment on #12; figma-import.md wording matches the branch taken. Ticket fully closable (`Closes #12`).
+  - **Outcome B (no token by implementation time)** — done when: script committed with its error paths validated (no-token / bad-token runs), figma-import.md written with the variables path labeled per the *researched* gate facts (Enterprise-gated read/write — cited docs, not guesses), `pack.json.portability.figma.parity` set to `null` (the viewer renders "pending real run" honestly), and a #12 comment stating exactly what awaits the token (the run itself + the artifact). Commit WITHOUT `Closes #12`; the issue stays open on the real-run half of AC #1/#2 only. Do NOT fabricate a parity artifact (honesty contract: never hand-write anything presented as a real run).
+- **VALIDATE**: Outcome A: `handoff/verdant/figma-parity.json` exists with `endpoint` + `ranAt`; `gh issue view 12 --comments | grep -i "spike 1"`. Outcome B: error-path runs pass; the #12 status comment exists; `pack.json` parity field is `null`.
 - **SATISFIES**: AC #1 (spike 1 recorded; wording follows honesty constraint) + AC #2 (real run).
 
 ### Task 10 — CREATE `system/figma-import.md`
@@ -260,7 +347,7 @@ Extend `gen-handoff.mjs`, regenerate `handoff/verdant/`, update CLAUDE.md, valid
 
 ### Task 11 — UPDATE `agent-layer/gen-handoff.mjs` (pack integration)
 
-- **IMPLEMENT**: after the contracts copy: `mkdirSync(join(DEST, "wc"))`; copy `system/wc/*.mjs` + `system/wc/README.md` → `handoff/verdant/wc/` (NOT `demo.html` — it references absolute `/system/…` paths; the pack README links to the live demo instead); copy `system/figma-import.md` → `handoff/verdant/figma-import.md` (the `tokens.source.json → tokens.dtcg.json` copy precedent, line 42). Add to `pack.json`: `portability: { webComponents: { files: ["wc/vd-status-chip.mjs", …], readme: "wc/README.md", trajectory: "<one-line from README>" }, figma: { import: "figma-import.md", parity: "figma-parity.json" } }`. Extend the result object + `✓` line: `… + 3 wc wrappers`. Throw path-naming Errors if `system/wc/` or the docs are missing. Update the top-of-file header comment to name the new outputs. Keep `build.mjs`'s call site unchanged apart from the ✓ text if the result shape grew.
+- **IMPLEMENT**: after the contracts copy: `mkdirSync(join(DEST, "wc"))`; copy `system/wc/*.mjs` + `system/wc/README.md` → `handoff/verdant/wc/` (NOT `demo.html` — it references absolute `/system/…` paths; the pack README links to the live demo instead); copy `system/figma-import.md` → `handoff/verdant/figma-import.md` (the `tokens.source.json → tokens.dtcg.json` copy precedent, line 42). Add the `portability` block to `pack.json` exactly per the **Deliverable templates** in NOTES (`figma.parity: null` under Task 9 Outcome B). Extend the result object + `✓` line: `… + 3 wc wrappers`. Throw path-naming Errors if `system/wc/` or the docs are missing. Update the top-of-file header comment to name the new outputs. Keep `build.mjs`'s call site unchanged apart from the ✓ text if the result shape grew.
 - **PATTERN**: existing copy + pack.json construction in the same file.
 - **GOTCHA**: `figma-parity.json` is NOT emitted here (secret + network); gen-handoff must not delete or overwrite it — it only writes its own files, which already holds. pack.json stays deterministic (no timestamps).
 - **VALIDATE**: `node agent-layer/gen-handoff.mjs` prints the extended `✓`; run twice → `git status --porcelain handoff/` unchanged between runs (determinism).
@@ -333,8 +420,8 @@ No test suite exists by ground rule — "done" = run the surface you touched. Th
 
 (from issue #12, verbatim mapping)
 
-- [ ] **AC #1** Spike 1 outcome recorded as a comment on #12; UI/doc wording follows the honesty constraint (Tasks 8–10)
-- [ ] **AC #2** REST read script runs at authoring/build time with the token from local `portal/.env` only — nothing client-side, nothing committed (Task 8; `.gitignore` already covers `portal/.env`)
+- [ ] **AC #1** Spike 1 outcome recorded as a comment on #12; UI/doc wording follows the honesty constraint (Tasks 8–10; under Task 9 Outcome B the comment states what awaits the token and the wording cites the researched gate facts)
+- [ ] **AC #2** REST read script runs at authoring/build time with the token from local `portal/.env` only — nothing client-side, nothing committed (Task 8; `.gitignore` already covers `portal/.env`; under Outcome B the real run is the named remaining item on #12)
 - [ ] **AC #3** WC wrappers work in plain page + React sandbox; spike 3 outcome + trajectory wording recorded on #12 (Tasks 2–7)
 - [ ] **AC #4** Pack ships the DTCG file (already, from #7) + documented import path (Tasks 10–11)
 - [ ] All validation commands pass; no regression on any existing generator or shipped page
@@ -350,7 +437,7 @@ No test suite exists by ground rule — "done" = run the surface you touched. Th
 - [ ] Both harnesses driven end-to-end via agent-browser, screenshots captured
 - [ ] `handoff/verdant/` regenerated and committed (deploy = commit the artifacts)
 - [ ] Two spike comments live on #12
-- [ ] Atomic commit on `feature/portability-proofs`: `feat: portability proofs — WC wrappers + Figma parity script/docs (epic #1, ticket #12; folds spikes 1, 3) — Closes #12`
+- [ ] Atomic commit on `feature/portability-proofs`: `feat: portability proofs — WC wrappers + Figma parity script/docs (epic #1, ticket #12; folds spikes 1, 3)` — append `— Closes #12` only under Task 9 Outcome A (Outcome B leaves #12 open on the real-run half)
 - [ ] Execution report → `.claude/reports/portability-proofs-report.md`
 
 ---
@@ -359,7 +446,7 @@ No test suite exists by ground rule — "done" = run the surface you touched. Th
 
 1. **[NEEDS USER — blocks Task 9 only]** A Figma personal access token + a test file key in `portal/.env` (`FIGMA_TOKEN=`, `FIGMA_FILE_KEY=`). PAT scopes: `file_content:read` (+ `file_variables:read` only if the UI offers it — Enterprise Full seats only). Test-file prep per Task 9: on a non-Enterprise account, Tokens Studio → import the DTCG file → "Create styles" → apply to nodes (styles, not variables, are what the fallback can read). Without these, spike 1 cannot run — the script and docs still land, and #12 stays open on AC #1/#2's real-run half. **Ask the user for these before starting Phase 3.**
 2. **"Runs at build time" is read as "authoring time, standalone"** — the parity script is deliberately NOT registered in `build.mjs`, because the generator chain must stay deterministic and offline-runnable (drift-gate #9 will re-run it in CI, where no secret exists). If the user meant literally "inside build.mjs", flag before implementing — it would contradict #9's design.
-3. **esm.sh CDN in the React sandbox** — an authoring-time network dependency in factory tooling (unrestricted zone). Assumed acceptable vs. adding a second dependency-carrying tool; the sandbox page says so honestly.
+3. **esm.sh CDN in the React sandbox** — an authoring-time network dependency in factory tooling (unrestricted zone). Assumed acceptable vs. adding a second dependency-carrying tool; the sandbox page says so honestly. (The *mechanics* — single React instance, property assignment, hooks — are already verified live at plan time, probe rows P4–P7; only this acceptability call remains open.)
 4. **Placement of `system/figma-import.md`** — a lone doc at `system/` root, justified by the `system/ → pack` copy precedent (`tokens.source.json`). Alternative (`tooling/figma/README.md`) documents the script, not the pack's import path — both may exist; only the former ships in the pack.
 5. **Assumption:** `feature/handoff-data-layer` (`d656f05`) is the correct base and #7's PR will merge before #12's — #12's PR will transiently contain #7's commit if opened first (note in the PR body, or stack the PR on #7's branch).
 
@@ -386,6 +473,44 @@ No test suite exists by ground rule — "done" = run the surface you touched. Th
 **Rejected: WC wrappers consuming the Worker API via `system/scenario-data.mjs`** — tempting (live data!), but the fixtures aren't contract-shaped yet (that reconciliation is #8's scope), and coupling the wrappers to the loader would smuggle a data dependency into what must stay a drop-in file. The `data` property takes any contract-valid record; #8 can wire the loader to it later in one line.
 
 **Sequencing note:** Phases 1–2 and Phase 3 are genuinely parallel (different files, different prongs). If the user's Figma token is available on day one, run Task 9 early — the epic explicitly allows pulling spike 1 forward; its outcome only affects *wording* in Tasks 7/10, not code.
+
+---
+
+### Deliverable templates (fill the ⟨⟩ slots from actual results; do not soften the honesty wording)
+
+**`pack.json` `portability` block (Task 11):**
+
+```json
+"portability": {
+  "webComponents": {
+    "files": ["wc/vd-status-chip.mjs", "wc/vd-plant-card.mjs", "wc/vd-care-task-row.mjs"],
+    "readme": "wc/README.md",
+    "trajectory": "⟨one line from wc/README.md — the declared-trajectory sentence⟩"
+  },
+  "figma": {
+    "import": "figma-import.md",
+    "parity": "figma-parity.json"
+  }
+}
+```
+
+(`figma.parity` becomes `null` under Task 9 Outcome B — never a placeholder file. JSON carries no comments; don't copy this parenthetical in.)
+
+**Spike-3 comment on #12 (Task 7) — skeleton:**
+
+> **Spike 3 outcome (Web Component handoff DX) — executed ⟨date⟩, plain page + React 19 sandbox against the real specs/contracts:**
+> - Wrappers: `vd-status-chip` / `vd-plant-card` / `vd-care-task-row`, shadow-DOM, spec-head tokens only; themed by the token contract through the shadow boundary (page-level pack + scoped overrides both verified).
+> - Props: attributes for primitives + a `data` property taking the full DataContract record — React 19 assigns it as a DOM property declaratively; React ≤18 needs a ref (documented in wc/README.md). Custom events (`vd-toggle`/`vd-select`) compose across the boundary; React still binds them via refs, not `onX` props.
+> - Slots: deliberately absent — these specs pin bounded composition ("never nest a card in a card"; chip never free-standing); light-DOM slots would weaken `additionalProperties: false`. ⟨adjust only if implementation found otherwise⟩
+> - **Decision rule: ⟨clean → "trajectory declared in the pack: every component as a standalone element; canonical form remains copy-paste HTML/CSS reading only tokens" | not clean → "WC presented as roadmap because ⟨specific friction⟩"⟩.**
+
+**Spike-1 comment on #12 (Task 9) — skeleton, per branch:**
+
+> **Spike 1 outcome (Figma REST access gate) — executed ⟨date⟩ against test file ⟨key⟩:**
+> - `GET /v1/files/:key/variables/local` → ⟨`200` — variables readable; account is Enterprise | `403` — quote Figma's exact error body⟩.
+> - ⟨If gated⟩ Fallback taken: one `GET /v1/files/:key` (`file_content:read`), styles resolved via node fills; parity rows: ⟨n matched / n name-only / n missing⟩.
+> - **Decision rule: ⟨variables branch → variables parity demo | styles branch → styles-based parity; the variables path is labeled "Enterprise-gated" in figma-import.md and every capability indicator — Figma's own 403 body is the citation⟩.**
+> - Artifact: `handoff/verdant/figma-parity.json` (real run, committed).
 
 ## AMENDMENTS
 

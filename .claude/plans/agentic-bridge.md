@@ -468,3 +468,28 @@ agent-browser (skill available): screenshot `/agentic.html`, assert the refusal 
 ## AMENDMENTS
 
 <!-- Append-only after first approval/execution. -->
+
+### Execution (branch `feature/agentic-bridge`) — #8 had already landed (uncommitted)
+
+At execution time #8 had largely landed: at HEAD (`4a3997b`) its `vd-*` CSS is **committed** in
+`system/components.css` and the six spec heads are committed as `status: "spec"`; the working tree also
+carried #8's uncommitted in-flight work (`proto/verdant.html`, specs mid-flip to `"shipped"`). Consequences
+(full detail in `.claude/reports/agentic-bridge-report.md`):
+
+- **Open Question 1 — RESOLVED.** CSS-present and spec `status` are decoupled at HEAD (CSS committed, specs
+  `"spec"`). So: `vocabulary.json` emits `status: "spec"` — regenerated from the *committed* specs via a
+  detached temp worktree, so it reproduces from committed source (the repo's hard rule). And the harness
+  capability strip is keyed to **actual CSS presence** (`vdCssLoaded()` probes the loaded stylesheets for a
+  `.vd-` rule), not the misleading spec status → honestly reports "fully styled" because #8's CSS is
+  committed at HEAD, and self-corrects if the CSS is ever absent.
+- **Prop names.** `care-task-row`'s prop is `type` (enum `water|fertilise|repot|inspect`), not `action`;
+  fixed across templates, bus params, and the hand-authored composition. The composition's `"mist"`
+  (not in the enum) → `"fertilise"`.
+- **Templates realize #8's shipped DOM**, not the plan's pinned Template DOM contracts: prefixed child
+  classes (`.vd-task-check`, `.vd-plant-name`, `.vd-stat-*`, …), `is-*` state/variant classes, stat-tile
+  `label → reading` nesting, `aria-label = "${name}, ${status}"`, props-only (`href="#"` + preventDefault,
+  no `id`/`data-*`). This is the coordination the Forward-references anticipated.
+- **Ancestry.** `d656f05` is not an ancestor of HEAD, but the specs are present via `4a3997b` (green
+  gen-handoff run); the pre-flight ancestry check was adapted.
+- **Commit hygiene.** Stage only the seven #11 files by explicit path; the shared tree carries concurrent
+  #8 / other-ticket changes that are not part of this ticket.

@@ -689,3 +689,11 @@ specs ~120 · components.css section ~350 · proto.css section ~120 · two pages
 ## AMENDMENTS
 
 <!-- Append-only after first approval/execution. -->
+
+- 2026-07-17 — Executed as planned (report: `.claude/reports/data-connected-prototypes-report.md`).
+  Two browser-found CSS fixes beyond the written tasks: `.vd-screen-body > * { flex: none }`
+  (scroll-column flexbox compressed cards below natural height) and `.fw-job` grid → flex-wrap
+  (side cluster overlapped the customer in the narrow panel). Mid-run, a parallel session
+  committed the epic snapshot `4a3997b` onto this branch carrying Phases 1–3; the ticket's
+  remaining delta commits separately (stage by explicit path — two foreign plan files are
+  in-flight in the shared tree).
