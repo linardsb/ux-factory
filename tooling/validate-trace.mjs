@@ -32,6 +32,20 @@ export function validateTrace(file) {
   const curated = Boolean(meta.curation);
   if (curated && (!Array.isArray(meta.curation.rules) || !meta.curation.rules.length))
     throw new Error(`${rel}:1: curated meta must list ≥1 curation rule`);
+  // A curated trace must derive from ITS committed raw sibling — same recorded session —
+  // or the "diff raw vs curated" honesty promise silently breaks (e.g. a --force re-run
+  // that was never re-curated leaves run #2's raw beside run #1's curated; both would
+  // pass file-local checks).
+  if (curated) {
+    const rawSibling = join(dirname(file), `${meta.slug}.raw.jsonl`);
+    if (!existsSync(rawSibling))
+      throw new Error(`${rel}:1: curated trace has no raw sibling "${meta.slug}.raw.jsonl" — raw + curated are committed as a pair`);
+    let rawMeta;
+    try { rawMeta = JSON.parse(readFileSync(rawSibling, 'utf8').split('\n').find((l) => l.trim())); }
+    catch (e) { throw new Error(`${rel}:1: raw sibling "${meta.slug}.raw.jsonl" meta line does not parse — ${e.message}`); }
+    if (rawMeta.sessionId !== meta.sessionId)
+      throw new Error(`${rel}:1: meta sessionId "${meta.sessionId}" does not match raw sibling's "${rawMeta.sessionId}" — curated must derive from the committed raw run`);
+  }
 
   const result = rows[rows.length - 1];
   if (result.type !== 'result') throw new Error(`${rel}:${rows.length}: last line must be type "result"`);

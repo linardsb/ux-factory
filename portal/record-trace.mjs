@@ -93,7 +93,7 @@ function makeFence(root) {
   return async (tool, input) => {
     if (tool === 'Write' || tool === 'Edit') {
       const fp = input?.file_path || '';
-      if (/\.env|\.sessions\.json/.test(fp))
+      if (/\.env|\.sessions\.json/i.test(fp))
         return { behavior: 'deny', message: 'The recorded run may not touch secrets (.env / .sessions.json).' };
       const target = path.resolve(realRoot, fp);
       if (target === realRoot || target.startsWith(realRoot + path.sep))
