@@ -1,7 +1,7 @@
 ```json
 {
   "component": "status-chip",
-  "status": "spec",
+  "status": "shipped",
   "class": "vd-status-chip",
   "contract": "status-chip.contract.json",
   "props": {

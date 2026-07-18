@@ -93,7 +93,7 @@ Derivation engine (color/type/space + WCAG checker) · DTCG→CSS generator (inv
 - [ ] Scenario content depth — how many prototype screens per scenario prove the claim without bloating scope? (Product call during build.)
 - [ ] Intake question final cut (PRD open item) — resolves during Factory-page design.
 - [ ] When the per-company layer lands: ledger → scenario-package unification?
-- [ ] Agentic-slot boundaries in the Fieldwork canvas — which regions are agent-composed vs. human-fixed. (Design call during build.)
+- [x] Agentic-slot boundaries in the Fieldwork canvas — settled 2026-07-17 (#8): agent-composed = the two bounded `proto-slot` regions, **summary-strip** (full-width, under the toolbar) + **insight-panel** (side column); human-fixed = toolbar, Attention panel, Needs-assignment panel, technician lanes. #13 composes into the two slots only (`proto/fieldwork.html`).
 - [ ] Voice command set + the strong-case write-up (hands-busy technician context) — drafted when the post-MVP voice layer is scheduled.
 
 ---

@@ -1,7 +1,7 @@
 ```json
 {
   "component": "stat-tile",
-  "status": "spec",
+  "status": "shipped",
   "class": "vd-stat-tile",
   "contract": "stat-tile.contract.json",
   "props": {

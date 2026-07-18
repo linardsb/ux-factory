@@ -1,7 +1,7 @@
 ```json
 {
   "component": "primary-button",
-  "status": "spec",
+  "status": "shipped",
   "class": "vd-primary-button",
   "contract": null,
   "props": {
