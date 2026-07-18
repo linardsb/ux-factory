@@ -4,19 +4,53 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The factory · Linards Berzins</title>
-  <meta name="description" content="The factory route: a product brief will travel intake → design system → prototype → handoff pack here, performed in the open. This page states exactly what runs today." />
+  <meta name="description" content="The factory route: a product brief travels intake → design system → prototype → handoff pack, performed in the open across five stations. Two run now (data-connected prototypes, handoff pack); three are in build. Each station states exactly what runs today." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- Reserved deep-linkable route (epic #1, ticket #6). Ticket #10 replaces this body with
-       the five-station pipeline. Everything listed under "runs today" must actually run from
-       this deploy. -->
+  <!-- factory.html — the flagship, deep-linkable Factory page (epic #1, ticket #10; slice 10.1).
+       The five-station pipeline shell: Prototypes (03) + Handoff (04) run now; Intake (01),
+       Design-system generation (02) and Agents visible (05) are in build and each links the raw
+       surface that already runs. Later 10.x slices fill 01/02/05 with the guided wizard, the live
+       re-skin, the mounted trace player, and the scenario toggle. Honesty contract: capability
+       badges state what runs vs. what is plan-gated; nothing here is faked. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/portfolio.css" />
+
+  <style>
+    /* Factory-shell layout — page-unique, styled from tokens alone (colour / space / radius / type
+       via var(--…)); grid / % / fixed heights are inherently structural literals — same justification
+       as handoff.html's viewer styles. Single-page layout, not a reused organism → deliberately not
+       promoted to components.css. Later 10.x slices restyle these on the station. */
+    #intake, #generation, #prototypes, #handoff, #agents { scroll-margin-top: 90px; }
+
+    .factory-embeds { display: grid; gap: var(--spacing-2xl); }
+    .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .factory-embed {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-surface);
+      display: block;
+    }
+    /* Heights measured (Playwright, static-fixture render), rounded up so nothing clips at any width:
+       Verdant content 1218–1252px (phone pinned at its 800px cap); Fieldwork 1830–1880px desktop. */
+    .factory-embed-phone { height: 1280px; }
+    .factory-embed-board { height: 1920px; }
+    .factory-embed-cap { font-size: 13.5px; line-height: 1.55; color: var(--color-fg-muted); }
+    .factory-embed-cap a { color: var(--color-accent); }
+
+    .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
+
+    @media (max-width: 640px) {
+      /* Fieldwork's panels stack on narrow widths → ~2087px; keep it un-clipped there too. */
+      .factory-embed-board { height: 2160px; }
+    }
+  </style>
 </head>
 <body data-page="factory">
 
@@ -25,36 +59,62 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">The factory · route reserved</span>
+          <span class="stamp">The factory · five stations</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">The factory will run <span class="hl">here</span>.</h1>
+        <h1 class="text-balance">The factory, performed <span class="hl">station by station</span>.</h1>
         <p class="hero-sub">
-          This page will perform the pipeline: a short intake steers a generated design system,
-          a data-connected prototype, and an engineer-ready handoff pack — with the agents'
-          build-time work replayed. It's being built in the open, and everything below states
-          exactly what runs today.
+          A product brief travels intake → design system → prototype → handoff pack, with the agents'
+          build-time work replayed. The stations land one at a time — two run in front of you now,
+          three are in build. Each says exactly what runs today; nothing here is faked.
+        </p>
+        <nav class="cs-jump" aria-label="Jump to a station">
+          <a href="#intake">01 · Intake</a>
+          <a href="#generation">02 · Generation</a>
+          <a href="#prototypes">03 · Prototypes</a>
+          <a href="#handoff">04 · Handoff</a>
+          <a href="#agents">05 · Agents</a>
+        </nav>
+      </div>
+    </section>
+
+    <!-- Station 1 · Intake — in build (the guided wizard lands in a later 10.x slice) -->
+    <section class="section" id="intake">
+      <div class="container">
+        <h2 class="section-label"><span class="num">01</span><span>Intake <span class="capability">In build</span></span><span class="line"></span></h2>
+        <p class="max-prose">
+          A short guided wizard: one decision at a time, each question carrying a recommended default
+          and the reasoning behind it, your overrides kept within safe bounds. Your answers — brand
+          colour, density, reward type, frequency — steer the design system the next station generates.
+          The wizard is landing next.
         </p>
       </div>
     </section>
 
-    <section class="section">
+    <!-- Station 2 · Design-system generation — in build; the engine itself already runs (linked raw) -->
+    <section class="section" id="generation">
       <div class="container">
-        <h2 class="section-label"><span class="num">01</span><span>What runs today</span><span class="line"></span></h2>
+        <h2 class="section-label"><span class="num">02</span><span>Design-system generation <span class="capability">In build</span></span><span class="line"></span></h2>
+        <p class="max-prose">
+          A staged worked example of the brief becoming a design system, with one genuinely live
+          moment: the derivation engine turns your answers into an accessible token palette — WCAG
+          checks shown passing — and re-skins a sample in front of you. The staged surface is landing
+          next; the engine itself already runs, and you can see it raw:
+        </p>
         <div class="lineup">
           <a class="lineup-item linked" href="/derive">
             <span class="lineup-n">01</span>
             <div>
-              <h3 class="lineup-title">The derivation engine, raw</h3>
-              <p>Internal harness, not the designed surface: the real view-time engine turning intake answers into token values, with WCAG checks shown passing.</p>
+              <h3 class="lineup-title">The derivation engine, raw <span class="capability live">Runs now</span></h3>
+              <p>An internal harness, not the designed surface: the real view-time engine turning intake answers into token values, with the WCAG contrast checks shown passing.</p>
             </div>
             <span class="go">→</span>
           </a>
           <a class="lineup-item linked" href="/system/tokens.contract.css">
             <span class="lineup-n">02</span>
             <div>
-              <h3 class="lineup-title">The token contract</h3>
-              <p>Every semantic token components may use — the file a company pack re-skins.</p>
+              <h3 class="lineup-title">The token contract <span class="capability live">Runs now</span></h3>
+              <p>Every semantic token components may use — the file a company pack re-skins. Read it straight from this deploy.</p>
             </div>
             <span class="go">→</span>
           </a>
@@ -62,45 +122,76 @@
       </div>
     </section>
 
-    <section class="section">
+    <!-- Station 3 · Prototypes — RUNS NOW: both data-connected screens embedded (Fieldwork slots empty) -->
+    <section class="section" id="prototypes">
       <div class="container">
-        <h2 class="section-label"><span class="num">02</span><span>What's plan-gated</span><span class="line"></span></h2>
+        <h2 class="section-label"><span class="num">03</span><span>Prototypes <span class="capability live">Runs now</span></span><span class="line"></span></h2>
+        <p class="max-prose">
+          Two prototype screens built on this system, each rendering live from the fixture-backed mock
+          API and degrading to committed static fixtures when the API is down — the source indicator in
+          each frame says which it used. Both are fictional scenarios, labelled as such.
+        </p>
+        <div class="factory-embeds">
+          <figure class="factory-embed-figure">
+            <iframe class="factory-embed factory-embed-phone"
+                    src="/proto/verdant.html"
+                    title="Verdant — Plant overview: a data-connected prototype rendering from the mock API, degrading to committed static fixtures"
+                    loading="lazy"></iframe>
+            <figcaption class="factory-embed-cap">
+              Verdant · Plant overview — a phone screen wired to the mock API.
+              <a href="/proto/verdant.html">Open it in its own tab →</a>
+            </figcaption>
+          </figure>
+          <figure class="factory-embed-figure">
+            <iframe class="factory-embed factory-embed-board"
+                    src="/proto/fieldwork.html"
+                    title="Fieldwork — Dispatch board: a hybrid canvas with two bounded agentic slots, rendering from the mock API"
+                    loading="lazy"></iframe>
+            <figcaption class="factory-embed-cap">
+              Fieldwork · Dispatch board — a hybrid canvas. Its two agentic slots stay honestly empty
+              here; the agentic-UI study fills them.
+              <a href="/proto/fieldwork.html">Open it in its own tab →</a>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Station 4 · Handoff — RUNS NOW: the viewer + the one-file download (ticket #14) -->
+    <section class="section" id="handoff">
+      <div class="container">
+        <h2 class="section-label"><span class="num">04</span><span>Handoff <span class="capability live">Runs now</span></span><span class="line"></span></h2>
+        <p class="max-prose">
+          The pack an engineer would actually receive: every component's spec head, engineer docs, and
+          agent vocabulary side by side, generated from one source — plus the whole thing as a single
+          JSON download. Inspect it.
+        </p>
+        <div class="factory-actions">
+          <a class="btn btn-primary btn-arrow" href="/handoff">Inspect the handoff pack</a>
+          <a class="btn btn-secondary" href="/handoff/verdant/pack.bundle.json" download>Download the pack · one JSON</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Station 5 · Agents visible — in build; a raw replay already runs (linked) -->
+    <section class="section" id="agents">
+      <div class="container">
+        <h2 class="section-label"><span class="num">05</span><span>Agents visible <span class="capability">In build</span></span><span class="line"></span></h2>
+        <p class="max-prose">
+          The build-time agent runs, replayed: each reasoning step paired with the artifact it produced,
+          grouped into the plan → gate → implement → validate acts. Real runs, curated for length —
+          never hand-written. The station's designed surface is landing next; you can already watch a
+          raw replay:
+        </p>
         <div class="lineup">
-          <div class="lineup-item">
+          <a class="lineup-item linked" href="/trace">
             <span class="lineup-n">01</span>
             <div>
-              <h3 class="lineup-title">Intake <span class="capability">In build</span></h3>
-              <p>a short guided wizard; your answers steer the output within designed bounds.</p>
+              <h3 class="lineup-title">A replayed agent run, raw <span class="capability live">Runs now</span></h3>
+              <p>The trace player mounted on an internal harness — a real, curated run stepped through its PIV acts.</p>
             </div>
-          </div>
-          <div class="lineup-item">
-            <span class="lineup-n">02</span>
-            <div>
-              <h3 class="lineup-title">Design-system generation <span class="capability">In build</span></h3>
-              <p>a staged worked example, with one genuinely live re-skin moment.</p>
-            </div>
-          </div>
-          <div class="lineup-item">
-            <span class="lineup-n">03</span>
-            <div>
-              <h3 class="lineup-title">Data-connected prototype <span class="capability">In build</span></h3>
-              <p>components rendering from the mock API.</p>
-            </div>
-          </div>
-          <div class="lineup-item">
-            <span class="lineup-n">04</span>
-            <div>
-              <h3 class="lineup-title">Handoff pack <span class="capability">In build</span></h3>
-              <p>component specs, typed props and data contracts, downloadable.</p>
-            </div>
-          </div>
-          <div class="lineup-item">
-            <span class="lineup-n">05</span>
-            <div>
-              <h3 class="lineup-title">Replayed agent runs <span class="capability">In build</span></h3>
-              <p>real build-time traces, labeled and curated for length.</p>
-            </div>
-          </div>
+            <span class="go">→</span>
+          </a>
         </div>
       </div>
     </section>

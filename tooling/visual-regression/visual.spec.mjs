@@ -15,7 +15,10 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const PAGES = [
   { name: 'index',           url: '/index.html',           kind: 'ia' },
   { name: 'approach',        url: '/approach.html',        kind: 'ia' },
-  { name: 'factory',         url: '/factory.html',         kind: 'ia' },
+  // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
+  // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
+  // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: 'iframe.factory-embed' },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
@@ -76,7 +79,10 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
       // take "two consecutive stable screenshots". A fixed integer viewport removes that nondeterminism.
       const h = await page.evaluate(() => Math.ceil(document.documentElement.getBoundingClientRect().height));
       await page.setViewportSize({ width: 1280, height: h });
-      await expect(page).toHaveScreenshot(`${p.name}-${pack}.png`);
+      // p.mask (factory only): paint a solid box over the embed iframes so their async content can't
+      // move the baseline. A locator matching multiple elements masks them all. (#10, slice 10.1)
+      const shotOpts = p.mask ? { mask: [page.locator(p.mask)] } : {};
+      await expect(page).toHaveScreenshot(`${p.name}-${pack}.png`, shotOpts);
     });
   }
 }
