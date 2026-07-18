@@ -16,3 +16,6 @@ portal/.sessions.json
 
 # repo-root secrets (.claude/mcp-posthog-headers.sh reads POSTHOG_API_KEY from here)
 .env
+
+# figma parity (raw API dump — neither artifact nor proof)
+tooling/figma/.last-response.json

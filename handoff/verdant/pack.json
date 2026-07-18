@@ -426,5 +426,20 @@
         }
       ]
     }
-  ]
+  ],
+  "portability": {
+    "webComponents": {
+      "files": [
+        "wc/vd-care-task-row.mjs",
+        "wc/vd-plant-card.mjs",
+        "wc/vd-status-chip.mjs"
+      ],
+      "readme": "wc/README.md",
+      "trajectory": "every component ships as a standalone custom element, themed by the token contract alone; the canonical handoff form remains copy-paste HTML/CSS reading only semantic tokens"
+    },
+    "figma": {
+      "import": "figma-import.md",
+      "parity": null
+    }
+  }
 }
