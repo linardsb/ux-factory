@@ -9,6 +9,7 @@ import { genTokenCss } from "./gen-token-css.mjs";
 import { genTokens } from "./gen-tokens.mjs";
 import { genHandoff } from "./gen-handoff.mjs";
 import { genVocabulary } from "./gen-vocabulary.mjs";
+import { genPackBundle } from "./gen-pack-bundle.mjs";
 import { genLlms } from "./gen-llms.mjs";
 import { genHeaders } from "./gen-headers.mjs";
 import { injectJsonLd } from "./inject-jsonld.mjs";
@@ -34,6 +35,9 @@ console.log(`  handoff pack    ✓  ${hp.components} specs + ${hp.targets} token
 
 const v = genVocabulary();
 console.log(`  vocabulary      ✓  ${v.components} components (handoff/verdant/vocabulary.json)`);
+
+const pb = genPackBundle();
+console.log(`  pack bundle     ✓  ${pb.files} files (handoff/verdant/pack.bundle.json)`);
 
 const l = genLlms(ledger);
 console.log(`  llms.txt        ✓  ${l.prototypes} prototypes`);
