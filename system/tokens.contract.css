@@ -28,11 +28,12 @@
   --color-white:         #ffffff;
 
   /* ---- Colour: accent ---- */
-  --color-accent:           #2563eb;
-  --color-accent-hover:     #1d4ed8;
-  --color-accent-active:    #1e40af;
-  --color-accent-fg:        #ffffff;
-  --color-accent-secondary: #64748b;
+  --color-accent:            #2563eb;
+  --color-accent-hover:      #1d4ed8;
+  --color-accent-active:     #1e40af;
+  --color-accent-fg:         #ffffff;
+  --color-accent-secondary:  #64748b;
+  --color-accent-on-inverse: #3d7bff;
 
   /* ---- Colour: inverse (content on a dark surface) ---- */
   --color-bg-inverse:           #1a1a1a;

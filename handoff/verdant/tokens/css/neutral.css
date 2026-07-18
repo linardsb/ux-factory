@@ -8,6 +8,7 @@
   --color-blue: #2563eb; /** plain accent blue — signal */
   --color-blue-hov: #1d4ed8;
   --color-blue-act: #1e40af;
+  --color-blue-bright: #3d7bff; /** lightened accent blue — accent as text on dark */
   --color-cloud: #f4f4f5; /** light surface */
   --color-line: #d4d4d8; /** border grey */
   --color-white: #ffffff;
@@ -53,6 +54,7 @@
   --color-accent-active: var(--color-blue-act);
   --color-accent-fg: var(--color-white); /** text/icon on an accent fill */
   --color-accent-secondary: var(--color-slate); /** quiet accent, live dots */
+  --color-accent-on-inverse: var(--color-blue-bright); /** accent as text on the dark ground (footer link hovers, feature-band numeral) */
   --color-bg-inverse: var(--color-ink); /** dark sections, footer */
   --color-fg-on-inverse: var(--color-cloud); /** soft light text on dark (chrome) */
   --color-fg-on-inverse-strong: var(--color-white); /** high-contrast light (buttons on dark) */

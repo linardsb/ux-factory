@@ -500,7 +500,7 @@ p, .body {
   opacity: 0.85;
   transition: color 160ms ease, opacity 160ms ease;
 }
-.footer-col a:hover { color: var(--color-accent); opacity: 1; }
+.footer-col a:hover { color: var(--color-accent-on-inverse); opacity: 1; }
 
 .footer-bottom {
   display: flex;
@@ -683,8 +683,8 @@ p, .body {
   opacity: 0.8;
   transition: color 160ms ease, opacity 160ms ease;
 }
-.footer-areas-links a:hover { color: var(--color-accent); opacity: 1; }
-.footer-areas-links a.all { color: var(--color-accent); opacity: 1; }
+.footer-areas-links a:hover { color: var(--color-accent-on-inverse); opacity: 1; }
+.footer-areas-links a.all { color: var(--color-accent-on-inverse); opacity: 1; }
 
 /* ---------- Local & industry landing pages (.lp-*) ---------- */
 
@@ -1247,6 +1247,7 @@ p, .body {
 }
 .work-block.dark .block-fit { color: var(--color-fg-on-inverse-strong); }
 .work-block.dark p.lede { color: var(--color-fg-on-inverse-strong); opacity: 1; }
+.work-block.dark .block-num { color: var(--color-accent-on-inverse); }
 
 .meta-row {
   display: grid;
@@ -1329,7 +1330,7 @@ p, .body {
   position: relative;
 }
 .feature-band .section-label { color: var(--color-fg-on-inverse-muted); }
-.feature-band .section-label .num { color: var(--color-accent); }
+.feature-band .section-label .num { color: var(--color-accent-on-inverse); }
 .feature-band .section-label .line { background: var(--color-inverse-line); }
 .feature-headline {
   font-family: var(--font-display);
