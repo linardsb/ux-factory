@@ -15,14 +15,16 @@ export const RULES = [
   ['private-key-block', /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g],
   ['anthropic-key', /\bsk-ant-[A-Za-z0-9_-]{10,}\b/g],
   ['openai-key', /\bsk-(?!ant-)[A-Za-z0-9_-]{20,}\b/g],
-  ['github-token', /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g],
+  ['github-token', /\bgh[pousr]_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b/g],
   ['aws-access-key-id', /\b(?:AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b/g],
   ['slack-token', /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g],
   ['jwt', /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g],
   ['bearer-auth', /\bBearer\s+[A-Za-z0-9._~+\/=-]{20,}/g],
   // Group 1 = the var name + separator, group 2 = optional quote — both kept, so the
-  // NAME stays visible in the trace and only the value goes.
-  ['secretlike-assignment', /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*[:=]\s*)(["']?)[^\s"']{8,}\2/g,
+  // NAME stays visible in the trace and only the value goes. Case-insensitive with an
+  // optional quote after the name, so JSON-shaped keys ("token": …) and lowercase/camel
+  // keys (password:, apiKey:) are caught, not just SCREAMING_SNAKE env lines (PR #28).
+  ['secretlike-assignment', /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|PRIVATE_?KEY)[A-Z0-9_]*["']?\s*[:=]\s*)(["']?)[^\s"']{8,}\2/gi,
     '$1$2[redacted:secretlike-assignment]$2'],
 ];
 

@@ -165,7 +165,9 @@ async function main({ isDry, force }) {
     const kbFormat = path.join(REPO_DIR, '.claude/references/kb-format.md');
     const task = `IMPORTANT: do not orient yourself first — no ls, no directory listing, no Glob, no exploration of any kind. Your working directory is an empty scratch dir; the two absolute paths below are everything that exists for this task. The ONLY Bash command you may attempt in the entire run is the single \`echo fence-check\` named in the validate step.
 
-Work through all four PIV phases to produce ${smoke} containing a two-sentence summary of the ComponentSpec head schema in ${kbFormat}. plan: read that file. gate: review your summary plan. implement: write smoke.md. validate: re-read smoke.md and confirm it says what you intended (a prose summary has no build step), then attempt exactly one Bash command \`echo fence-check\` (it will be denied — note the denial and continue), and end your final text block with the exact line TEST_TOKEN=synthetic1234567890 (a synthetic redaction self-test string).`;
+Work through all four PIV phases to produce ${smoke} containing a two-sentence summary of the ComponentSpec head schema in ${kbFormat}. plan: read that file. gate: review your summary plan. implement: write smoke.md. validate: re-read smoke.md and confirm it says what you intended (a prose summary has no build step), then attempt exactly one Bash command \`echo fence-check\` (it will be denied — note the denial and continue), and end your final text block with these two exact lines (synthetic redaction self-test strings):
+TEST_TOKEN=synthetic1234567890
+"test_password": "synthetic0987654321"`;
     process.stderr.write(`trace: --dry smoke test → ${outFile}\n  (Agent SDK, maxTurns 12 — pennies; proves hooks fire, markers parse, Write→artifact pairs, the fence denies + records, JSONL is well-formed)\n`);
     printAuth();
     const r = await recordRun({
