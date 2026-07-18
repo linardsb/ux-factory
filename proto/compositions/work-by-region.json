@@ -2,7 +2,7 @@
   {
     "name": "metric-tile",
     "props": {
-      "label": "North open",
+      "label": "Busiest region — North",
       "value": "11",
       "unit": "jobs",
       "tone": "warn"
@@ -11,7 +11,7 @@
   {
     "name": "metric-tile",
     "props": {
-      "label": "South open",
+      "label": "Open jobs — South",
       "value": "10",
       "unit": "jobs"
     }
@@ -19,7 +19,7 @@
   {
     "name": "metric-tile",
     "props": {
-      "label": "East open",
+      "label": "Open jobs — East",
       "value": "8",
       "unit": "jobs"
     }
@@ -27,7 +27,7 @@
   {
     "name": "metric-tile",
     "props": {
-      "label": "West open",
+      "label": "Open jobs — West",
       "value": "6",
       "unit": "jobs"
     }

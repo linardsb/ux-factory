@@ -3,7 +3,17 @@
     "name": "metric-tile",
     "props": {
       "label": "Open jobs",
-      "value": "35"
+      "value": "35",
+      "unit": "jobs"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "SLA at risk",
+      "value": "8",
+      "unit": "jobs",
+      "tone": "warn"
     }
   },
   {
@@ -11,6 +21,7 @@
     "props": {
       "label": "Overdue",
       "value": "4",
+      "unit": "jobs",
       "tone": "critical"
     }
   },
@@ -19,14 +30,7 @@
     "props": {
       "label": "Needs assignment",
       "value": "5",
-      "tone": "warn"
-    }
-  },
-  {
-    "name": "metric-tile",
-    "props": {
-      "label": "In progress",
-      "value": "2"
+      "unit": "jobs"
     }
   }
 ]

@@ -112,34 +112,51 @@ recording, just work well.`;
 
 // Build the task prompt from ONLY: the question, the slot + its bounds, and the fixed data
 // paths. No example composition, no external reference — this literal construction is the proof.
-function buildTask(question, slot, outPathForAgent) {
+// `refs` are the paths the agent references: repo-RELATIVE on real runs (cwd = the repo, so the
+// committed trace stays portable — no absolute home-dir paths leak into the inspectable artifact),
+// ABSOLUTE only for --dry (cwd = a scratch dir, so it must reach the real repo data).
+function buildTask(question, slot, refs) {
   return `Compose a dashboard view that answers this question about the Fieldwork dispatch board:
 
   "${question}"
 
 It must fit the "${slot}" slot, whose bounds are: ${SLOTS[slot]}
 
+Do not explore or orient first — no ls, cd, pwd, glob, or directory listing (all denied). The five
+files listed below are everything readable, and the ONLY Bash command you run is the single validate
+command at the end. Use the paths exactly as written below (they resolve from your working directory).
+
 Read these files (and ONLY these — nothing else is readable):
-1. ${VOCAB_PATH}
+1. ${refs.vocab}
    — the component vocabulary: every component you may use, its props, enums, and the
      top-level "composition" shape rules ({name, props, children?}). Compose ONLY from this.
-2. ${FIXTURE_PATHS.jobs}         — the dispatch jobs (each has status, region, techId, slaDue, completedAt, …)
-3. ${FIXTURE_PATHS.technicians}  — the technicians (region, skills, shift)
-4. ${FIXTURE_PATHS.schedule}     — today's schedule slots per technician
-5. ${FIXTURE_PATHS.copy}         — the scenario's human-authored display labels (statusLabels, regionLabels, slaWarningLabel, …); prefer these for tile labels
+2. ${refs.jobs}         — the dispatch jobs (each has status, region, techId, slaDue, completedAt, …)
+3. ${refs.technicians}  — the technicians (region, skills, shift)
+4. ${refs.schedule}     — today's schedule slots per technician
+5. ${refs.copy}         — the scenario's human-authored display labels (statusLabels, regionLabels, slaWarningLabel, …); prefer these for tile labels
 
 The board's fixed fictional "today" is 2026-07-14; treat a job as open when completedAt is null.
-A job is SLA-at-risk when it is open and its slaDue is on or before 2026-07-16 — the board's own
-2-day SLA-warning window (use this window, not a wider one, so your figures match the board this
-panel renders beside). Overdue jobs (status "overdue") are already breached — count them separately.
-Compute every figure yourself from these raw records — do not assume any count.
+A job is SLA-at-risk when it is open and its slaDue is on or before 2026-07-16 — exactly the board's
+own "SLA at risk" marker (a 2-day window). This count INCLUDES the overdue jobs (their slaDue is
+already past, so the board marks them "SLA at risk" too). You may also show an "Overdue" tile (the
+already-breached subset), but do NOT subtract overdue from the SLA-at-risk count — keep your figures
+matching the board this panel renders beside. Compute every figure yourself from these raw records —
+do not assume any count.
 
 IMPLEMENT by writing the composition — a JSON array of {name, props, children?} nodes — to:
-  ${outPathForAgent}
+  ${refs.out}
 
 VALIDATE by running exactly:
-  node -e "import('${path.join(REPO_DIR, 'system/agentic-renderer.mjs')}').then(async m=>{const fs=await import('node:fs');const v=JSON.parse(fs.readFileSync('${VOCAB_PATH}','utf8'));const c=JSON.parse(fs.readFileSync('${outPathForAgent}','utf8'));m.validateComposition(v,c);console.log('composition valid');})"
+  node -e "import('${refs.renderer}').then(async m=>{const fs=await import('node:fs');const v=JSON.parse(fs.readFileSync('${refs.vocab}','utf8'));const c=JSON.parse(fs.readFileSync('${refs.out}','utf8'));m.validateComposition(v,c);console.log('composition valid');})"
 If it prints a refusal (naming a path like composition[1].props.tone), fix the composition and re-run until it prints "composition valid".`;
+}
+
+// Reference paths for buildTask: absolute (dry: agent's cwd is scratch, must reach real repo
+// data) or repo-relative (real: agent's cwd is the repo, keeps the committed trace portable).
+function refsFor({ absolute, out }) {
+  return absolute
+    ? { vocab: VOCAB_PATH, jobs: FIXTURE_PATHS.jobs, technicians: FIXTURE_PATHS.technicians, schedule: FIXTURE_PATHS.schedule, copy: FIXTURE_PATHS.copy, renderer: path.join(REPO_DIR, "system/agentic-renderer.mjs"), out }
+    : { vocab: "handoff/verdant/vocabulary.json", jobs: "scenarios/fieldwork/fixtures/jobs.json", technicians: "scenarios/fieldwork/fixtures/technicians.json", schedule: "scenarios/fieldwork/fixtures/schedule.json", copy: "scenarios/fieldwork/copy.json", renderer: "./system/agentic-renderer.mjs", out };
 }
 
 // Fence: Write → only the one composition file; Read → only the vocabulary + fixtures;
@@ -251,7 +268,7 @@ async function main({ question, slot, slug, isDry, force }) {
     process.stderr.write(`composition: --dry smoke test → ${outFile}\n  (Agent SDK, model ${MODEL}, maxTurns 40 — real tokens but a cheap single run; proves auth, all four PIV markers, Write→artifact pairing, the Read/Write fence denies, and in-process validateComposition accepts the written file)\n`);
     printAuth();
     const r = await recordRun({
-      slug, task: buildTask(question, slot, outAbs), taskSummary: `DRY — compose "${slot}" for: ${question}`,
+      slug, task: buildTask(question, slot, refsFor({ absolute: true, out: outAbs })), taskSummary: `DRY — compose "${slot}" for: ${question}`,
       systemPrompt: PIV_COMPOSE_SYSTEM, model: MODEL, maxTurns: 40,
       tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir, outAbs), outFile, cwd: dryDir,
     });
@@ -279,7 +296,7 @@ async function main({ question, slot, slug, isDry, force }) {
   process.stderr.write(`composition: recording the real run → ${outRel}\n  (Agent SDK, model ${MODEL}, maxTurns 40 — real tokens; ~2–5 min)\n`);
   printAuth();
   const r = await recordRun({
-    slug, task: buildTask(question, slot, outRel), taskSummary: `Compose "${slot}" for: ${question}`,
+    slug, task: buildTask(question, slot, refsFor({ absolute: false, out: outRel })), taskSummary: `Compose "${slot}" for: ${question}`,
     systemPrompt: PIV_COMPOSE_SYSTEM, model: MODEL, maxTurns: 40,
     tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(REPO_DIR, outAbs), outFile: rawOut,
   });

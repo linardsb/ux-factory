@@ -20,6 +20,15 @@
   {
     "name": "metric-tile",
     "props": {
+      "label": "SLA at risk",
+      "value": "8",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
       "label": "Urgent priority",
       "value": "9",
       "unit": "jobs",
@@ -29,7 +38,7 @@
   {
     "name": "metric-tile",
     "props": {
-      "label": "Priority level",
+      "label": "Priority tier",
       "value": "15",
       "unit": "jobs",
       "tone": "neutral"
@@ -38,7 +47,7 @@
   {
     "name": "metric-tile",
     "props": {
-      "label": "Routine level",
+      "label": "Routine tier",
       "value": "11",
       "unit": "jobs",
       "tone": "neutral"
