@@ -14,5 +14,8 @@
 /scenarios/*
   Cache-Control: public, max-age=300, must-revalidate
 
+/traces/*
+  Cache-Control: public, max-age=300, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

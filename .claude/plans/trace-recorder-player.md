@@ -517,3 +517,35 @@ node scenarios/validate.mjs && node agent-layer/gen-token-css.mjs --check
 ## AMENDMENTS
 
 (append-only; newest at the bottom)
+
+### 2026-07-17 — Spike 5 verdict: SHIP the pattern. Tuning that got there.
+
+Recorded run: `demo-notice` ComponentSpec, **claude-sonnet-5**, 23 steps, 4 acts in order
+(plan 12 · gate 2 · implement 2 · validate 7), 0 null-phase, 1 artifact, ~$0.45, gate ✓.
+The curated trace reads as engineering — the gate phase is a real line-by-line self-review
+against the head schema (not a rubber stamp), the validate phase shows the actual
+`gen-handoff` ✓, annotations say *why*. Work product is a valid, honest spec (5 real
+contract tokens, presentational, renders `fictionalNotice` verbatim). **Decision rule met.**
+
+Two levers were tuned to get a clean run (both honesty-safe; NO trace was ever hand-edited):
+
+1. **PIV system prompt (lever #2), several iterations** — sonnet/opus kept folding one marker
+   per run (16 null-phase → gate skipped → implement folded). Rewrote `PIV_SYSTEM` as a literal
+   numbered protocol: plan-marker before ANY tool call; plan states intent only; gate is a
+   mandatory review-only block; `[[piv:implement]]` immediately precedes the Write. Each dirty
+   run was diagnosed from the raw trace and the prompt tightened — that loop **is** spike 5.
+2. **Recorder detection (deviation from the plan's literal regex, documented in the report)** —
+   the plan's `/^\s*\[\[piv:…\]\]/` anchored to the block *start*; models emit conversational
+   preamble before the marker and sometimes cram two markers in one block. Loosened to "marker
+   alone on **any** line" (`/^[ \t]*\[\[piv:…\]\][ \t]*$/gm`) + record every marker per block,
+   adopt the last as current phase. This honors the plan's PROSE contract ("marker alone on its
+   own line") and is what actually made a clean four-act trace reliable.
+
+**Model note (assumption #3):** tried **claude-opus-4-8** once (~$1.06) — it emitted all four
+markers but crammed gate+implement into one 3800-char block (→ an *empty gate act* on screen)
+and cost 2.5×. sonnet-5 separates the acts cleanly and reads as engineering, so the shipped
+exhibit is the sonnet run. Meta records `claude-sonnet-5` — whatever ran, honestly.
+
+**Spike cost:** ~$3.3 total across dry probes + real runs (the dry auth/mechanics probe worked
+first try — SDK inherits the Mac CLI login; the spend was the marker-discipline loop). One
+clean sonnet run is the committed exhibit.

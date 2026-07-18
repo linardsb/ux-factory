@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · trace player harness</title>
+  <meta name="description" content="Internal test harness for the view-time trace player: replays a committed real agent run (traces/*.jsonl) as stepped annotated cards grouped into the four PIV acts." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Internal test harness (epic #1, ticket #5) — drives the trace player RAW.
+       Same three layers as every shipped page: contract → neutral pack → components.
+       The page fetches a committed trace JSONL and hands it to system/trace-player.mjs;
+       nothing runs live at view time (the agents ran at build time; the reader replays).
+       The designed surface for the player is the Factory page (ticket #10). -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+
+  <style>
+    /* Harness chrome only — the trace-* classes the player emits, styled from tokens
+       alone (the player injects no <style>; #10 will restyle these on the Factory page). */
+    .trace-player { display: flex; flex-direction: column; gap: var(--spacing-lg, 24px); }
+    .trace-header { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .trace-task { font-size: var(--type-h3, 1.3rem); margin: 0; }
+    .trace-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; font-size: var(--type-caption); }
+    .trace-label {
+      font-weight: 700; color: var(--color-accent-fg, #fff); background: var(--color-accent);
+      padding: 2px 10px; border-radius: var(--radius-sm); letter-spacing: 0.01em;
+    }
+    .trace-controls { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; margin-top: var(--spacing-sm); }
+    .trace-progress { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+    .trace-act { border-top: 2px solid var(--color-border); padding-top: var(--spacing-md); }
+    .trace-act-head { display: flex; align-items: baseline; gap: var(--spacing-sm); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow, 0.72rem); }
+    .trace-act-num { color: var(--color-accent); font-weight: 700; }
+    .trace-act-name { font-weight: 700; color: var(--color-fg); }
+    .trace-act-count { margin-left: auto; text-transform: none; letter-spacing: 0; }
+    .trace-act-body { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md); }
+
+    .trace-step { padding: var(--spacing-md); transition: box-shadow 0.15s ease; }
+    .trace-step-hidden { display: none; }
+    .trace-step-current { box-shadow: 0 0 0 2px var(--color-accent); }
+    .trace-step--text .trace-step-text { white-space: pre-wrap; font-size: var(--type-body); line-height: 1.55; }
+    .trace-step--tool { background: var(--color-bg-surface); }
+    .trace-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+    .trace-tool { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .trace-hint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); word-break: break-all; }
+    .trace-status { margin-left: auto; font-weight: 700; }
+    .trace-status.ok { color: var(--color-accent); }
+    .trace-status.bad { color: var(--color-fg); text-decoration: underline; }
+    .trace-step--fail { border-color: var(--color-fg); }
+    .trace-error { margin-top: var(--spacing-sm); color: var(--color-fg); font-size: var(--type-caption); white-space: pre-wrap; }
+    .trace-artifact {
+      display: inline-block; margin-top: var(--spacing-sm); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: var(--type-caption); color: var(--color-fg-muted); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: 1px 8px;
+    }
+    .trace-artifact::before { content: "◇ artifact · "; color: var(--color-accent); }
+    .trace-response { margin-top: var(--spacing-sm); font-size: var(--type-caption); }
+    .trace-response summary { cursor: pointer; color: var(--color-fg-muted); }
+    .trace-response-body {
+      margin-top: var(--spacing-sm); background: var(--color-bg); border: 1px solid var(--color-border);
+      padding: var(--spacing-sm); overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+    }
+    .trace-error-card { border-color: var(--color-fg); }
+  </style>
+</head>
+<body>
+
+  <main>
+    <section class="section">
+      <div class="container">
+        <div class="section-label"><span class="num">05</span><span>Agents, visible</span><span class="line"></span></div>
+        <h1 class="text-balance" style="margin-top: var(--spacing-md);">The real agent run, replayed.</h1>
+        <p class="max-prose muted" style="margin-top: var(--spacing-md);">
+          A <strong>trace</strong> is a real Claude Agent SDK run — recorded step by step and grouped into the
+          four PIV acts: <strong>plan → gate → implement → validate</strong>. The skeleton is drawn before any
+          step; use Next/Prev (or ← →) to fill it in, or Show all to skim. Nothing runs live here — the page
+          replays a committed JSONL file. Prefer the raw record? Read <code>traces/</code> in the repo.
+        </p>
+
+        <div id="player" style="margin-top: var(--spacing-2xl, 48px);"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { parseTrace, renderTracePlayer } from "/system/trace-player.mjs";
+
+    const mount = document.getElementById("player");
+    const raw = new URLSearchParams(location.search).get("trace") || "demo-notice";
+    const slug = /^[a-z0-9-]+$/.test(raw) ? raw : ""; // same-origin only — reject ../ and the like
+
+    function errorCard(message) {
+      mount.textContent = "";
+      const card = document.createElement("article");
+      card.className = "card trace-error-card";
+      card.style.padding = "var(--spacing-md)";
+      const h = document.createElement("h3");
+      h.className = "h3"; h.textContent = "Trace unavailable";
+      const p = document.createElement("p");
+      p.className = "muted"; p.style.marginTop = "var(--spacing-sm)"; p.textContent = message;
+      card.append(h, p);
+      mount.append(card);
+    }
+
+    if (!slug) {
+      errorCard(`Invalid trace name "${raw}" — allowed: lowercase letters, digits and hyphens.`);
+    } else {
+      const path = `/traces/${slug}.jsonl`;
+      fetch(path)
+        .then((res) => { if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`); return res.text(); })
+        .then((text) => renderTracePlayer(mount, parseTrace(text)))
+        .catch((err) => errorCard(`Could not load ${path} — ${err.message}`));
+    }
+  </script>
+</body>
+</html>

@@ -39,7 +39,9 @@ export function validateComposition(vocab, composition, path = "composition") {
     throw new Error(`${path}: expected a node { name, props, children? }, got ${node === null ? "null" : typeof node}`);
   }
 
-  const entry = vocab.components[node.name];
+  // Own-property lookup: a node named "toString"/"constructor" must refuse cleanly (unknown
+  // component), never resolve to an Object.prototype member (parity with scenarios/validate.mjs).
+  const entry = Object.hasOwn(vocab.components, node.name) ? vocab.components[node.name] : undefined;
   if (!entry) {
     throw new Error(`${path}: unknown component "${node.name}" (vocabulary: ${Object.keys(vocab.components).join(" | ")})`);
   }
@@ -49,9 +51,11 @@ export function validateComposition(vocab, composition, path = "composition") {
     throw new Error(`${path}.props: must be an object`);
   }
 
-  // Out-of-vocabulary props — a prop the component does not declare.
+  // Out-of-vocabulary props — a prop the component does not declare. Own-property check so an
+  // agent-supplied "__proto__"/"toString" key (a real own key after JSON.parse) is refused, not
+  // silently accepted via the prototype chain.
   for (const key of Object.keys(props)) {
-    if (!(key in entry.props)) {
+    if (!Object.hasOwn(entry.props, key)) {
       throw new Error(`${path}.props.${key}: "${key}" is not a prop of ${node.name} (allowed: ${Object.keys(entry.props).join(" | ")})`);
     }
   }
@@ -176,11 +180,24 @@ function resolveChip(status, kids) {
   return statusChip(chipProps);
 }
 
-// An <img src> is an injection surface for javascript:/data: even via setAttribute — the
-// contract says site-relative. Allow a relative path (no scheme) or an explicit https URL.
+// An <img src> is both an injection surface (javascript:/data:) and a beacon surface (a cross-
+// origin host silently exfiltrates via the image request) — the contract says site-relative.
+// Resolve with the browser's own parser against the page base, then require the SAME ORIGIN:
+// this defers every normalisation quirk to the engine that actually loads the src (backslash-as-
+// slash for http/https, C0-control stripping, tab/newline removal), so no hand-rolled regex can
+// drift from it. Render-path only (validateComposition never calls this), so new URL + location
+// are fine here. Same-origin is narrower than allow-external-https, but post-resolution "//evil"
+// and "https://cdn" are indistinguishable (both https, both cross-origin) — blocking the beacon
+// requires same-origin, and the contract already ships photoUrl as a site-relative path (no demo images).
 function safePhotoUrl(url, path) {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^https:\/\//i.test(url)) {
-    throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative or https URL (no javascript:/data: schemes)`);
+  let resolved;
+  try {
+    resolved = new URL(url, document.baseURI);
+  } catch {
+    throw new Error(`${path}.props.photoUrl: "${url}" is not a valid URL`);
+  }
+  if (resolved.origin !== location.origin) {
+    throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative (same-origin) URL — no cross-origin host, javascript:/data:, or protocol-relative //`);
   }
   return url;
 }
@@ -314,7 +331,7 @@ function build(vocab, node, bus, path) {
     node.forEach((n, i) => frag.appendChild(build(vocab, n, bus, `${path}[${i}]`)));
     return frag;
   }
-  const template = TEMPLATES[node.name];
+  const template = Object.hasOwn(TEMPLATES, node.name) ? TEMPLATES[node.name] : undefined;
   if (!template) {
     throw new Error(`${path}: "${node.name}" is in the vocabulary but this renderer has no template for it — renderer and vocabulary have drifted`);
   }
