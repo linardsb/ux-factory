@@ -387,3 +387,64 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
     padding: 16px var(--gutter);
   }
 }
+
+/* ---------- Capability indicators (honesty surface #3 — Home, Work, Factory) ----------
+   The TEXT states the status ("Runs now" / "In build" / "Planned"); .live only
+   re-colors — state is never carried by color alone. Chip idiom mirrors .fig-hint. */
+
+.capability {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  margin-left: 6px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.capability.live {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* ---------- Loop table (Approach §03) ---------- */
+
+.table-scroll { overflow-x: auto; }
+.loop-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  margin-top: var(--spacing-lg);
+}
+.loop-table thead th {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  text-align: left;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-strong);
+}
+.loop-table td,
+.loop-table tbody th {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-fg-muted);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  vertical-align: top;
+}
+/* Row-header cell (first column): reads as a body cell, not the column header. */
+.loop-table tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--color-fg);
+}
+
+/* Deep-linked Approach sections land below the sticky header (same idiom as .cs-h) */
+#seat, #layers, #loop, #value, #case, #sources, #practice { scroll-margin-top: 90px; }

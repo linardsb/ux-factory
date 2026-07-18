@@ -1,15 +1,17 @@
-// Neutral chrome config — the factory's no-brand default.
-// site.js injects the header, mobile nav and footer from window.CLIENT_CONFIG; this is the
-// neutral pack's half of that. A company build clones this to client.<company>.config.js
-// (its brand strings, links, logo) — base/site.js never changes. Load BEFORE system/site.js.
+// Neutral chrome config — the shipped site's IA on the neutral shell.
+// site.js injects the header, mobile nav and footer from window.CLIENT_CONFIG; this is
+// the neutral pack's half of that. A company build clones this to
+// client.<company>.config.js (its brand strings, links, logo) — system/site.js never
+// changes. Load BEFORE system/site.js.
 //
-// Nothing personal or brand-specific lives here: the point of the neutral base is that the
-// chrome renders coherently with no brand loaded. Every href resolves to a file or on-page
-// anchor that exists in this shell (index + 404).
+// The chrome brand stays neutral ("ux factory", neutral logos); the person lives in
+// page content and the footer (identity call, ticket #6 plan). Nav pages are
+// extensionless — CF Pages and `npx serve` both resolve /approach → approach.html.
+// Contact rides the CTA slot rather than a fifth nav item (nav-cta idiom).
 
 window.CLIENT_CONFIG = {
   brand: {
-    name: "ux factory · neutral base",
+    name: "ux factory",
     homeHref: "/",
     logo: {
       default: "/assets/logo-neutral.svg",         // light header
@@ -18,38 +20,41 @@ window.CLIENT_CONFIG = {
   },
 
   nav: [
-    { label: "Home",         href: "/",        key: "home" },
-    { label: "System check", href: "/#system", key: "system" },
-    { label: "The swap",     href: "/#swap",   key: "swap" },
+    { label: "Home",     href: "/",         key: "home" },
+    { label: "Approach", href: "/approach", key: "approach" },
+    { label: "Factory",  href: "/factory",  key: "factory" },
+    { label: "Work",     href: "/work",     key: "work" },
   ],
 
-  cta: { label: "The token contract", href: "/system/tokens.contract.css" },
+  cta: { label: "Get in touch", href: "/contact" },
 
   footer: {
     tagline:
-      "The factory's neutral base. Nothing here is a brand — every page renders from the " +
-      "token contract and the neutral pack alone. Load a company pack and the same " +
-      "components re-skin, no markup touched.",
+      "A working factory for UX engineering: a token-contract design system, generated " +
+      "artifacts committed in the open, agents at build time only. Built by Linards Berzins.",
 
     columns: [
       {
-        title: "The system",
+        title: "Site",
         items: [
-          { label: "Token contract",    href: "/system/tokens.contract.css" },
-          { label: "Neutral pack",      href: "/system/tokens.neutral.css" },
-          { label: "Components",        href: "/system/components.css" },
+          { label: "Home",     href: "/" },
+          { label: "Approach", href: "/approach" },
+          { label: "Factory",  href: "/factory" },
+          { label: "Work",     href: "/work" },
+          { label: "Contact",  href: "/contact" },
         ],
       },
       {
-        title: "This base",
+        title: "The system",
         items: [
-          { label: "Home",         href: "/" },
-          { label: "System check", href: "/#system" },
-          { label: "The swap",     href: "/#swap" },
+          { label: "Token contract",  href: "/system/tokens.contract.css" },
+          { label: "Neutral pack",    href: "/system/tokens.neutral.css" },
+          { label: "Components",      href: "/system/components.css" },
+          { label: "Source (GitHub)", href: "https://github.com/linardsb/ux-factory" },
         ],
       },
     ],
 
-    copyright: "ux factory · neutral base — no brand loaded",
+    copyright: "© 2026 Linards Berzins · ux factory",
   },
 };

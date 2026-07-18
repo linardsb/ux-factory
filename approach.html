@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Approach · Linards Berzins</title>
+  <meta name="description" content="How I work as a design engineer: shaping vague work into time-boxed bets, designing around real behaviour, checking whether it worked, and shipping it as a proper design system." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+</head>
+<body data-page="approach">
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">Approach · how I work</span>
+          <span class="meta"></span>
+        </div>
+        <h1 class="text-balance">I don't hand off screens. I own the whole problem, from shaping the work to proving it <span class="hl">landed</span>.</h1>
+        <p class="hero-sub">
+          I'm a design engineer. I sit between design and front-end, close enough to each to
+          make the call and then build it. The code is only part of what I bring. I also carry
+          a way of working: I shape vague asks into time-boxed bets, design around how people
+          actually behave, check whether the result worked, and ship it as a real design
+          system. Those four things run as one loop.
+        </p>
+        <div class="hero-cta-row">
+          <a class="btn btn-primary btn-arrow" href="#layers">See the four layers</a>
+          <a class="btn btn-secondary" href="#loop">The loop</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="seat">
+      <div class="container">
+        <div class="section-label"><span class="num">01</span><span>The seat</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">The interesting problems live <span class="hl">between</span> design and engineering.</h2>
+          <div>
+            <p class="max-prose">
+              Most teams split the work in two. Designers decide what a thing should be;
+              engineers make it real. The interesting problems fall in the gap between them:
+              the interaction that felt right in Figma and wrong in the browser, the component
+              that drifts because everyone hard-codes its colour, the feature that ships and
+              nobody checks whether it helped. I work in that gap. I know enough design to
+              shape and scope what gets built, and enough code to put it into production. So
+              there are fewer hand-offs, less gets lost in translation, and the person making
+              the call is the one who has to live with it in both tools.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="layers">
+      <div class="container">
+        <div class="section-label"><span class="num">02</span><span>The method</span><span class="line"></span></div>
+        <p class="lead max-prose">Each layer answers a different question. I run them as one loop, on a fixed cadence.</p>
+        <div class="grid grid-2 mt-2xl">
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">How I decide and pace work</div>
+              <h3 class="h3 mb-md">Shape it</h3>
+              <p class="muted">
+                I turn a vague ask into a shaped bet before anyone writes a line of code. I set
+                an appetite, which is a time budget rather than an estimate, and design the
+                solution to fit it instead of fixing the scope and watching the date slip. I
+                rough out the flow as connected steps before touching pixels, name the risks
+                that could blow the budget, and say plainly what's out of scope. While it's
+                being built I track progress by confidence rather than percentage: what's still
+                being figured out versus what's just work left to do.
+              </p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">How I make it work for real people</div>
+              <h3 class="h3 mb-md">Design for behaviour</h3>
+              <p class="muted">
+                A feature only matters if someone actually does the thing. I start from the
+                real trigger, which is usually an emotion or a moment rather than a button, and
+                I look for friction in the flow: every extra step, decision, or bit of
+                confusion between the person and the payoff. Fogg's rule is the one I design
+                by: make the behaviour easier before you try to make it more motivating. I also
+                keep an ethics gate on this. If a pattern lifts a metric by making someone feel
+                worse, I won't ship it.
+              </p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">How I know it worked</div>
+              <h3 class="h3 mb-md">Prove it</h3>
+              <p class="muted">
+                Before I build, I write down what would tell me it worked: an early signal like
+                first-week usage or activation, and the slower outcome behind it like retention
+                or task completion. Once it ships I go back and check, then record what I
+                learned so the next call starts from evidence rather than opinion. Most work
+                never gets that second look. I make it a step.
+              </p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-body">
+              <div class="card-kicker">How I make it durable</div>
+              <h3 class="h3 mb-md">Ship it as a system</h3>
+              <p class="muted">
+                I build interfaces as systems rather than one-off pages: semantic, accessible
+                markup, motion that has a reason, and performance I can stand behind. When every
+                component reads from a shared contract of design tokens, consistency is built
+                into the structure. Colours and spacing can't drift, because there's nowhere for
+                them to drift to, so it isn't something the team has to catch in review. This
+                portfolio is built that way (see <a href="#case">the case study</a> below).
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="loop">
+      <div class="container">
+        <div class="section-label"><span class="num">03</span><span>The loop</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">Run together, the four layers make one <span class="hl">loop</span>.</h2>
+          <div>
+            <p class="max-prose">
+              Shaping opens the work and aims the behaviour and evidence layers at the right
+              problem. The build turns it into system components. The measurement at the end
+              feeds the next round of shaping.
+            </p>
+          </div>
+        </div>
+        <div class="table-scroll mt-2xl">
+          <table class="loop-table">
+            <thead>
+              <tr>
+                <th scope="col">I'm doing this…</th>
+                <th scope="col">…with this behaviour lens</th>
+                <th scope="col">…measuring this</th>
+                <th scope="col">…and shipping this</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Shaping the problem</th>
+                <td>The real trigger or job behind the ask</td>
+                <td>Prior insight</td>
+                <td>A rough flow, scoped to an appetite</td>
+              </tr>
+              <tr>
+                <th scope="row">Designing the solution</th>
+                <td>A friction check plus the payoff that makes it worth it</td>
+                <td>Usability signal</td>
+                <td>Elements cut to fit the budget</td>
+              </tr>
+              <tr>
+                <th scope="row">Committing to build</th>
+                <td>An ethics check on the pattern</td>
+                <td>The success metric, named up front</td>
+                <td>Go or no-go</td>
+              </tr>
+              <tr>
+                <th scope="row">Building</th>
+                <td>The small "investment" that makes it stick</td>
+                <td>Self-serve evidence during the build</td>
+                <td>Shipped, token-built components</td>
+              </tr>
+              <tr>
+                <th scope="row">Wrapping up</th>
+                <td>Did it become a habit, or did the task get easier?</td>
+                <td>The outcome, checked</td>
+                <td>Notes back into the system</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="value">
+      <div class="container">
+        <div class="section-label"><span class="num">04</span><span>What you get</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">What this looks like from the <span class="hl">other</span> side of the desk.</h2>
+          <div>
+            <ul class="max-prose">
+              <li>You get production code, not just a Figma file: modern CSS, a tidy component layer, and interactions that still feel right in a browser.</li>
+              <li>You get a design system that stays consistent, because brand and theming live in one place instead of being copied around and slowly diverging.</li>
+              <li>Accessibility and performance are handled at the system level, so contrast, keyboard use, and focus are right by default, and features get checked against a real speed budget before they ship.</li>
+              <li>You can hand me a half-formed idea and get back a scoped, time-boxed bet, with the risks named and a plan to hit the date.</li>
+              <li>I say what success should look like before building and check it afterwards, so decisions rest on what happened rather than a hunch.</li>
+              <li>I can translate between design and engineering, so both sides share one picture of what's being built and why.</li>
+              <li>Decisions come with their reasoning attached — the problem, the call, and what it produced — written so a designer, an engineer, and a PM can each follow the why without a meeting.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="case">
+      <div class="container">
+        <div class="section-label"><span class="num">05</span><span>In practice</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">This portfolio re-skins itself from <span class="hl">one line</span> of CSS.</h2>
+          <div>
+            <p class="max-prose">
+              <code>ux-factory</code> is the design system this site runs on, and the clearest
+              example of how I work, because it's the method used on itself.
+            </p>
+          </div>
+        </div>
+        <div class="grid mt-2xl">
+          <div class="decision-card">
+            <h3 class="decision-card-title">Problem &amp; appetite</h3>
+            <p>
+              Re-theming a portfolio for each company meant hand-editing CSS across every page.
+              It was slow and easy to get inconsistent. I treated it as a systems problem worth
+              one focused cycle rather than an open-ended refactor.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h3 class="decision-card-title">Shaping</h3>
+            <p>
+              The actual job was less about colours than about proving I could build a system,
+              and making each version feel tailored without tailoring it by hand every time. One
+              rule kept the rest safe: components may only reference semantic tokens, never raw
+              values. One thing stayed off the table: no build step and no framework, just plain
+              HTML and CSS.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h3 class="decision-card-title">Design &amp; ethics</h3>
+            <p>
+              I ran the same friction check on my own re-theming workflow. The friction was
+              memory and time: remembering which files to touch. So I collapsed re-theming down
+              to a single edit. It genuinely saves the work it promises to, and I use it myself,
+              which is the honest test of whether it was worth building.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h3 class="decision-card-title">Build</h3>
+            <p>
+              Three stylesheets load in order: a token contract with neutral fallbacks, a
+              swappable brand pack, and components that read only from tokens. The header and
+              footer come from one config object instead of being hard-coded on every page.
+              Accessibility defaults sit in the contract, so every component inherits them. An
+              agent called Wright assembles each page from that contract, so a new page starts
+              on-brand instead of being styled from scratch.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h3 class="decision-card-title">Outcome</h3>
+            <p>
+              Re-theming the whole site went from scattered edits on every page to a single line
+              in each page's <code>&lt;head&gt;</code>. On top of that I generated a
+              machine-readable layer: structured data and an <code>llms.txt</code> file, so an
+              AI agent can read the system, not only a browser. Consistency stopped being
+              something I maintained by hand and became part of how the thing is built.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="sources">
+      <div class="container">
+        <div class="section-label"><span class="num">06</span><span>Sources</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">I learn from the <span class="hl">primary</span> sources.</h2>
+          <div class="grid grid-2">
+            <div>
+              <h3 class="caption">Process</h3>
+              <p class="muted">Shape Up (Ryan Singer / Basecamp), Bob Moesta on Jobs-to-be-Done.</p>
+            </div>
+            <div>
+              <h3 class="caption">Behaviour &amp; ethics</h3>
+              <p class="muted">Nir Eyal, BJ Fogg's behaviour model, Growth.Design, Harry Brignull's Deceptive Patterns, Nielsen Norman Group.</p>
+            </div>
+            <div>
+              <h3 class="caption">UI craft &amp; front-end</h3>
+              <p class="muted">Josh Comeau, Ahmad Shadeed, Rauno Freiberg's Web Interface Guidelines, Emil Kowalski on motion, web.dev.</p>
+            </div>
+            <div>
+              <h3 class="caption">Design systems &amp; tokens</h3>
+              <p class="muted">the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="practice">
+      <div class="container">
+        <div class="section-label"><span class="num">07</span><span>Principles</span><span class="line"></span></div>
+        <div class="section-split">
+          <h2 class="headline">A few things I hold to.</h2>
+          <div class="grid">
+            <div>
+              <h3 class="h3 mb-md">The combination is what matters.</h3>
+              <p class="muted">Plenty of people know one of these disciplines well. The value is in running all four as a single way of working.</p>
+            </div>
+            <div>
+              <h3 class="h3 mb-md">I commit to one approach.</h3>
+              <p class="muted">There's more than one good way to run product work, so I pick the one that suits the team and stick with it, rather than blending methods into mush.</p>
+            </div>
+            <div>
+              <h3 class="h3 mb-md">Engagement has an ethical line.</h3>
+              <p class="muted">I design for behaviour, but only where a habit actually helps the person using the product. For tools people should open, use, and close, "come back more often" is the wrong target.</p>
+            </div>
+            <div>
+              <h3 class="h3 mb-md">The work should explain itself.</h3>
+              <p class="muted">Anywhere this site makes a call — a token, a pattern, a scope cut — the reasoning sits a click or a hover away: the problem, the call, what it produced, and where the idea comes from. It's roughly how decision records read on teams I work with. If you leave with something you can use, whether or not we ever talk, the page did its job.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="container">
+        <span class="disc"></span>
+        <div class="closing-inner">
+          <div>
+            <h2>If this is how you'd want someone on your team to work, I'd like to talk.</h2>
+          </div>
+          <div class="hero-cta-row">
+            <a class="btn btn-primary btn-arrow" href="/work">See selected work</a>
+            <a class="btn btn-secondary" href="/contact">Get in touch</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
+  <script src="/system/portfolio.js"></script>
+  <script type="module" src="/system/analytics.mjs"></script>
+</body>
+</html>

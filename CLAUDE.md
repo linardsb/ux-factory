@@ -12,6 +12,7 @@ system/                     the shipped design system — brand-agnostic core + 
   components.css            layer 3: token-only components — no literals, render identically under any pack
   portfolio.css / proto.css surface styles for portfolio pages / prototypes
   site.js                   injects chrome (header/footer/nav) from window.CLIENT_CONFIG
+  analytics.mjs             CF Web Analytics beacon (public token, filled at launch) + "factory driven" event helper — CF WA has no custom events, so the event is a virtual-route pageview at /factory/driven (ticket #6)
   derive.mjs (+ oklch.mjs, wcag.mjs, derive.rules.mjs)   view-time derivation engine: intake answers → token values + WCAG checks + ethics verdict; driven raw by /derive.html, spike runner in tooling/ (epic #1 ticket #3)
   agentic-renderer.mjs + action-bus.mjs   declarative agentic bridge (hand-written canon): vocabulary-validated {name,props,children} → real components (refuses everything else) + one bidirectional action contract (agent/click/keyboard, voice-ready); driven raw by /agentic.html (epic #1 ticket #11)
   trace-player.mjs          view-time trace replay (hand-written canon): parseTrace + renderTracePlayer render a committed trace as stepped cards in the four PIV acts; driven raw by /trace.html, designed surface = Factory page (epic #1 ticket #5)
@@ -19,7 +20,7 @@ system/                     the shipped design system — brand-agnostic core + 
   specs/                    ComponentSpec .md + DataContract .json — the handoff source of truth (format: .claude/references/kb-format.md)
   wc/                       custom-element wrappers (vd-*) + demo.html — hand-written canon, spec-first, shadow CSS reads only spec-head tokens (epic #1 ticket #12)
   figma-import.md           DTCG→Figma import-path doc; ships in the pack via gen-handoff
-index.html / 404.html       the neutral site template shell (loads contract + neutral pack + components)
+index.html + approach/factory/work/contact.html + 404.html   the shipped five-page IA on the neutral shell — Home is the 90-second recruiter gate; factory.html reserves the deep-linkable route as an honest stub (epic #1 ticket #6)
 _headers                    security headers + noindex (revisit at launch — epic open question)
 agent-layer/                build-time Node ESM generators: machine-readable projection of one site
   build.mjs                 orchestrator — run FROM THE JOBS FOLDER against a decisions ledger
