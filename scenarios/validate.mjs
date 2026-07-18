@@ -5,7 +5,7 @@
 // contract (#3) so packages and engine can't drift apart silently.
 // Standalone:  node scenarios/validate.mjs   — one ✓ line per package, exit 1 on failure.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -140,6 +140,13 @@ function checkFixtures(dir) {
       collections[name] = records;
     }
   }
+
+  // Every fixture file must be reachable from some screen: proto.config, fixtures/,
+  // and worker/fixtures.mjs are three hand-maintained lists with no other cross-check —
+  // an unreferenced file would be served by the Worker without ever being validated.
+  for (const f of readdirSync(join(dir, "fixtures")))
+    if (f.endsWith(".json") && !Object.hasOwn(collections, f.slice(0, -5)))
+      throw new Error(`${join(dir, "fixtures", f)}: not referenced by any screen's "collections" in ${path}`);
 
   // Walk every record: <thing>Id fields resolve against a collection whose name starts
   // with <thing>; every YYYY-MM-DD-shaped string is a real calendar date.

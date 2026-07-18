@@ -34,9 +34,11 @@ export default {
 
     if (parts.length === 3) {
       const [, scenario, collection] = parts;
-      const pack = FIXTURES[scenario];
+      // Object.hasOwn: segments are request-controlled — bare bracket access would
+      // resolve inherited Object.prototype members (/__proto__, /toString → 200).
+      const pack = Object.hasOwn(FIXTURES, scenario) ? FIXTURES[scenario] : undefined;
       if (!pack) return json({ error: `unknown scenario "${scenario}"` }, 404);
-      const data = pack[collection];
+      const data = Object.hasOwn(pack, collection) ? pack[collection] : undefined;
       if (!data) return json({ error: `unknown collection "${collection}"` }, 404);
       return json(data);
     }

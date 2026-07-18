@@ -723,7 +723,7 @@
     "status": "scheduled",
     "scheduledStart": "2026-07-22T14:00:00Z",
     "durationMin": 120,
-    "techId": "tech-05",
+    "techId": null,
     "slaDue": "2026-07-23",
     "completedAt": null
   },
