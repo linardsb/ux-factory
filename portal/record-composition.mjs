@@ -22,7 +22,7 @@
 //   real  → traces/<slug>.{raw.jsonl,jsonl} + proto/compositions/<slug>.json + index.json upsert
 // slot ∈ {summary-strip, insight-panel}. Run from anywhere — paths resolve from env.mjs.
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -30,6 +30,7 @@ import { recordRun } from './lib/trace-recorder.mjs';
 import { REPO_DIR, HAS_TOKEN } from './lib/env.mjs';
 import { validateComposition } from '../system/agentic-renderer.mjs';
 import { curateTrace } from '../tooling/curate-trace.mjs';
+import { validateTrace } from '../tooling/validate-trace.mjs';
 
 const MODEL = 'claude-sonnet-5';
 const PIV_ORDER = ['plan', 'gate', 'implement', 'validate'];
@@ -73,26 +74,36 @@ vocabulary — and NOTHING else. Hard rules:
   an invented or remembered number. Compute it yourself from the raw records.
 • A label must read the state without its tone (e.g. "Overdue" + "4", not a bare "4"); tone is
   redundant emphasis, never the sole signal.
+• Each tile's value is a NUMBER (or a ≤2-word phrase) — it renders LARGE, like a headline
+  figure. Put entity names, region names, and any qualifier in the LABEL, never in the value:
+  e.g. label "Busiest technician — Priya Nair", value "5", unit "jobs" (NOT value "Priya Nair —
+  5 open jobs"). A sentence in the value slot breaks the tile.
 
 Everything you do is recorded as a four-act engineering trace with these phases, in this
 exact order: plan, gate, implement, validate. Emit four phase markers, each ALONE on the
-first line of its own text block, exactly once each, in order:
+first line of its OWN separate text block, exactly once each, in order:
 [[piv:plan]] … [[piv:gate]] … [[piv:implement]] … [[piv:validate]].
+NEVER put two markers in the same text block — each phase is a separate message.
 
-1. Your VERY FIRST output must be a text block beginning with [[piv:plan]]. In the plan phase
-   you Read the vocabulary and the fixture files the task names, then state exactly which
-   components you will use and which value you will compute for each — do NOT judge or verify
-   here; planning is stating intent.
-2. STOP, open a NEW block beginning with [[piv:gate]], and review there: adversarially check
-   your planned composition against the vocabulary's prop schemas + enums, the named slot's
-   bounds, and the honesty rule (labels self-describing, tone redundant). Say plainly what
-   passes and what you corrected. Write NO file in this phase; gate is review only.
-3. Only after the gate block, emit a block beginning with [[piv:implement]] — its own block —
-   and make your single Write call immediately after it, writing the composition JSON to the
-   path the task names. NEVER Write under the plan, gate, or validate marker.
-4. Then a block beginning with [[piv:validate]]: run the exact node command the task names to
-   validate the file you wrote against the real vocabulary, and report the real result. If it
-   throws, fix the composition and re-run inside this phase until it validates.
+1. Your VERY FIRST output must be a text block beginning with [[piv:plan]], emitted BEFORE you
+   read, glob, or run anything — do NOT call any tool until that marker is out. Then, in the
+   plan phase, you Read the vocabulary and the fixture files the task names and state exactly
+   which components you will use and which value you will compute for each — do NOT judge or
+   verify here; planning is stating intent.
+2. STOP the plan phase. Open a NEW, separate text block beginning with [[piv:gate]]. In this
+   gate phase you MUST re-Read the vocabulary file (a second Read of it) and adversarially
+   verify that every component name, prop, and enum value in your planned composition exists
+   exactly as you intend, that the composition fits the named slot's bounds, and that each
+   label reads the state without its tone; then say plainly what passed and what you corrected.
+   That verifying Read is a REQUIRED gate action and belongs to the gate phase. Write NO
+   composition file here — gate is review only — and do NOT emit [[piv:implement]] in this block.
+3. Only AFTER the gate block and its verifying Read, open a SEPARATE new text block beginning
+   with [[piv:implement]], then make your single Write call immediately after it, writing the
+   composition JSON to the path the task names. NEVER Write under the plan, gate, or validate
+   marker, and never place [[piv:gate]] and [[piv:implement]] in the same block.
+4. Then a SEPARATE block beginning with [[piv:validate]]: run the exact node command the task
+   names to validate the file you wrote against the real vocabulary, and report the real
+   result. If it throws, fix the composition and re-run inside this phase until it validates.
 
 Never place a marker anywhere but the first line of a text block, and never do a phase's work
 before its marker. Narrate your decisions in short plain paragraphs — say WHY, not just what.
@@ -118,6 +129,9 @@ Read these files (and ONLY these — nothing else is readable):
 5. ${FIXTURE_PATHS.copy}         — the scenario's human-authored display labels (statusLabels, regionLabels, slaWarningLabel, …); prefer these for tile labels
 
 The board's fixed fictional "today" is 2026-07-14; treat a job as open when completedAt is null.
+A job is SLA-at-risk when it is open and its slaDue is on or before 2026-07-16 — the board's own
+2-day SLA-warning window (use this window, not a wider one, so your figures match the board this
+panel renders beside). Overdue jobs (status "overdue") are already breached — count them separately.
 Compute every figure yourself from these raw records — do not assume any count.
 
 IMPLEMENT by writing the composition — a JSON array of {name, props, children?} nodes — to:
@@ -193,6 +207,21 @@ function assertValid(vocabPath, compPath) {
   return composition;
 }
 
+// Remove a slug's SHIPPABLE artifacts (curated trace + manifest entry), leaving the raw
+// trace + composition file on disk for inspection. Called when a run is invalid or not
+// PIV-clean so a weak/failed (re-)run never leaves a shippable proposal behind.
+function dropShipped(slug) {
+  const curated = path.join(REPO_DIR, 'traces', `${slug}.jsonl`);
+  if (existsSync(curated)) rmSync(curated);
+  const indexPath = path.join(REPO_DIR, 'proto/compositions/index.json');
+  if (!existsSync(indexPath)) return;
+  let list = [];
+  try { list = JSON.parse(readFileSync(indexPath, 'utf8')); } catch { return; }
+  if (!Array.isArray(list)) return;
+  const next = list.filter((e) => e.slug !== slug);
+  if (next.length !== list.length) writeFileSync(indexPath, JSON.stringify(next, null, 2) + '\n');
+}
+
 // Replace-by-slug upsert into the committed manifest (deterministic: sorted by slug).
 function upsertIndex(indexPath, entry) {
   let list = [];
@@ -241,6 +270,11 @@ async function main({ question, slot, slug, isDry, force }) {
   const curatedOut = path.join(REPO_DIR, 'traces', `${slug}.jsonl`);
   if (existsSync(rawOut) && !force)
     throw new Error(`${path.relative(REPO_DIR, rawOut)} exists — pass --force to overwrite the committed trace (or delete it first).`);
+  // Remove any stale target so the agent writes a NEW file: Claude Code's Write tool requires a
+  // prior Read when OVERWRITING, but the Read fence denies reading proto/compositions/ — leaving
+  // the old file in place forces a Bash `node` write fallback (no Write→artifact pairing). A
+  // re-run replaces the proposal anyway, so clearing it first keeps the implement step a real Write.
+  if (existsSync(outAbs)) rmSync(outAbs);
 
   process.stderr.write(`composition: recording the real run → ${outRel}\n  (Agent SDK, model ${MODEL}, maxTurns 40 — real tokens; ~2–5 min)\n`);
   printAuth();
@@ -250,24 +284,42 @@ async function main({ question, slot, slug, isDry, force }) {
     tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(REPO_DIR, outAbs), outFile: rawOut,
   });
 
-  // Refuse to keep an invalid proposal (re-run, never edit). Leaves the raw trace on disk for
-  // inspection, but does not curate/index it — a weak run should not look shipped.
-  let composition;
+  // A proposal SHIPS only if BOTH hold: the composition validates AND the CURATED trace passes
+  // the EXACT drift guard the ticket ships under (validate-trace.mjs: four phases as distinct
+  // STEP phases in order, artifact-exists, honesty label). The recorder's marker-scan can call
+  // a run "clean" when the model crams two markers into one text block (e.g. gate+implement),
+  // so validate-trace — not the scan — is the authority here. Either check failing → drop the
+  // shippable artifacts (curated trace + manifest entry), keep the raw for inspection, exit 1:
+  // tighten committed source + re-run, NEVER hand-edit.
+  let composition = null;
   try { composition = assertValid(VOCAB_PATH, outAbs); }
-  catch (e) {
-    process.stderr.write(`  ✗ the written composition is INVALID — ${e.message}\n  Not curating/indexing it. Tighten the prompt or vocabulary rules and re-run with --force (never hand-edit).\n`);
-    summarize(slug, r, ' · ✗ INVALID (not shipped)');
+  catch (e) { process.stderr.write(`  ✗ the written composition is INVALID — ${e.message}\n`); }
+  if (!composition) {
+    dropShipped(slug);
+    process.stderr.write('  Not shipping (invalid composition). Tighten the prompt/vocabulary and re-run with --force — never hand-edit.\n');
+    process.stderr.write(`  composition ${slug} ✗  ~$${(r.totalCostUsd ?? 0).toFixed(4)} · INVALID (not shipped)\n`);
     process.exitCode = 1;
     return;
   }
 
   curateTrace(rawOut, curatedOut);
+  try {
+    validateTrace(curatedOut);
+  } catch (e) {
+    dropShipped(slug);
+    process.stderr.write(`  ✗ the trace is not a clean PIV run — ${e.message}\n`);
+    process.stderr.write('  Not shipping it. Each PIV marker must be ALONE in its own text block; tighten the prompt and re-run with --force — never hand-edit.\n');
+    process.stderr.write(`  composition ${slug} ✗  phases: ${r.phases.join('→') || '(none)'} · ~$${(r.totalCostUsd ?? 0).toFixed(4)} · PIV-incomplete (not shipped)\n`);
+    process.exitCode = 1;
+    return;
+  }
+
   const total = upsertIndex(path.join(REPO_DIR, 'proto/compositions/index.json'), {
     slug, question, slot,
     proposal: `/proto/compositions/${slug}.json`,
     trace: `/traces/${slug}.jsonl`,
   });
-  summarize(slug, r, ` · ${composition.length ?? 1} node(s) · valid ✓ · manifest: ${total} entr${total === 1 ? 'y' : 'ies'}`);
+  summarize(slug, r, ` · ${composition.length ?? 1} node(s) · valid ✓ · trace ✓ · manifest: ${total} entr${total === 1 ? 'y' : 'ies'}`);
   process.stderr.write(`  proposal: ${outRel}\n  trace:    traces/${slug}.jsonl (curated) + traces/${slug}.raw.jsonl (raw)\n`);
 }
 

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Open jobs",
+      "value": "35"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Overdue",
+      "value": "4",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Needs assignment",
+      "value": "5",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "In progress",
+      "value": "2"
+    }
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Overdue jobs",
+      "value": "4",
+      "unit": "jobs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "SLA at risk",
+      "value": "4",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Busiest region for SLA risk — East",
+      "value": "3",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Unassigned jobs at SLA risk",
+      "value": "2",
+      "unit": "jobs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Busiest technician — Priya Nair",
+      "value": "5",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Idle technicians — no open jobs",
+      "value": "1",
+      "unit": "techs",
+      "tone": "neutral"
+    }
+  }
+]

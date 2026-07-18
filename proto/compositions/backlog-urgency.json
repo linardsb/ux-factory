@@ -1,0 +1,47 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Open backlog",
+      "value": "35",
+      "unit": "jobs",
+      "tone": "neutral"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Overdue",
+      "value": "4",
+      "unit": "jobs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Urgent priority",
+      "value": "9",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Priority level",
+      "value": "15",
+      "unit": "jobs",
+      "tone": "neutral"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Routine level",
+      "value": "11",
+      "unit": "jobs",
+      "tone": "neutral"
+    }
+  }
+]

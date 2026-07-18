@@ -1,0 +1,30 @@
+[
+  {
+    "slug": "backlog-urgency",
+    "question": "How urgent is the open backlog, and what is its priority mix?",
+    "slot": "insight-panel",
+    "proposal": "/proto/compositions/backlog-urgency.json",
+    "trace": "/traces/backlog-urgency.jsonl"
+  },
+  {
+    "slug": "operational-state",
+    "question": "What's the operational state of the board right now?",
+    "slot": "summary-strip",
+    "proposal": "/proto/compositions/operational-state.json",
+    "trace": "/traces/operational-state.jsonl"
+  },
+  {
+    "slug": "sla-risk-and-load",
+    "question": "Where is SLA-breach risk concentrated, and is technician load balanced today?",
+    "slot": "insight-panel",
+    "proposal": "/proto/compositions/sla-risk-and-load.json",
+    "trace": "/traces/sla-risk-and-load.jsonl"
+  },
+  {
+    "slug": "work-by-region",
+    "question": "How is the open workload distributed across the four regions?",
+    "slot": "summary-strip",
+    "proposal": "/proto/compositions/work-by-region.json",
+    "trace": "/traces/work-by-region.jsonl"
+  }
+]
