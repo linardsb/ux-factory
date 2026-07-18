@@ -1,0 +1,32 @@
+# verify.yml — CI verification gates (epic #1, ticket #9, scoped).
+# Runs the two repo-self-contained gates on push to main + every PR:
+#   drift-check  — regenerates the committed generators/artifacts, fails on any divergence.
+#   token-lint   — undeclared / orphan / DTCG-valid contract checks.
+# The third #9 gate (visual regression — Playwright) is deferred to a follow-up; this
+# workflow does NOT close #9.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Pin Node 20 — the local baseline the committed artifacts were generated against, so
+      # Style Dictionary output + generator determinism don't silently move under the runner.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Style Dictionary is the one dependency-carrying tool; gen-handoff child-process-invokes
+      # it, so its node_modules must exist before drift-check runs. Lockfile present → npm ci.
+      - name: Install Style Dictionary
+        run: npm ci
+        working-directory: tooling/style-dictionary
+      - name: Drift check
+        run: node tooling/drift-check.mjs
+      - name: Token lint
+        run: node tooling/token-lint.mjs
