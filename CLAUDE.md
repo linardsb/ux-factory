@@ -17,6 +17,8 @@ system/                     the shipped design system — brand-agnostic core + 
   trace-player.mjs          view-time trace replay (hand-written canon): parseTrace + renderTracePlayer render a committed trace as stepped cards in the four PIV acts; driven raw by /trace.html, designed surface = Factory page (epic #1 ticket #5)
   tokens.css / tokens.saulera.css / client.config.js   real packs kept as reference; NOT loaded by the shell
   specs/                    ComponentSpec .md + DataContract .json — the handoff source of truth (format: .claude/references/kb-format.md)
+  wc/                       custom-element wrappers (vd-*) + demo.html — hand-written canon, spec-first, shadow CSS reads only spec-head tokens (epic #1 ticket #12)
+  figma-import.md           DTCG→Figma import-path doc; ships in the pack via gen-handoff
 index.html / 404.html       the neutral site template shell (loads contract + neutral pack + components)
 _headers                    security headers + noindex (revisit at launch — epic open question)
 agent-layer/                build-time Node ESM generators: machine-readable projection of one site
@@ -33,9 +35,11 @@ worker/                     fixture-backed mock API — public read-only GET, on
 proto/                      data-connected prototype pages — Verdant phone screen + Fieldwork hybrid canvas (vd-/fw- components implemented to system/specs/; slots for #13)
 traces/                     committed real agent-run traces (format: traces/README.md): raw + curated JSONL pairs from portal/record-trace.mjs; validate: node tooling/validate-trace.mjs; replayed by system/trace-player.mjs
 docs/epics/                 PRD + architecture decisions governing the platform build
-handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs (pack + tokens) · node agent-layer/gen-vocabulary.mjs (vocabulary.json — the agent-ready layer the renderer validates against)
+handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs (pack + tokens + wc wrappers) · node agent-layer/gen-vocabulary.mjs (vocabulary.json — the agent-ready layer the renderer validates against); figma-parity.json is the one exception: written only by the parity script's real run
+tooling/figma/              figma-parity.mjs — Figma REST parity read; secret-gated (portal/.env), standalone-only, never registered in build.mjs
 tooling/mcp/                local MCP helper scripts
 tooling/style-dictionary/   the one dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
+tooling/wc-sandbox/         React 19 harness for the wc wrappers (esm.sh import map, no install)
 tooling/curate-trace.mjs · validate-trace.mjs   deterministic trace curation (selection + truncation only, rules recorded in meta) + the Trace format's drift guard (candidate CI gate #9)
 ```
 The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + parsers → `.claude/references/kb-format.md`.
@@ -46,6 +50,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Machine-layer artifact** → `agent-layer/gen-<output>.mjs` exporting `gen<Name>(ledger)`; register in `build.mjs` (import + call + `✓` log line), keep the standalone-run guard. Shared parsing belongs in `lib.mjs`.
 - **Component** → token-only CSS in `system/components.css`; a new semantic token gets added to `system/tokens.source.json` (contract group) first, then regenerate: `node agent-layer/gen-token-css.mjs`.
 - **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`.
+- **WC wrapper** → `system/wc/<tag>.mjs`, spec-first (a wrapper exists only for a `system/specs/` component; shadow CSS uses only spec-head tokens, no literals, no var() fallbacks), copied into the pack by `gen-handoff`.
 - **Brand/company skin** → clone `system/tokens.neutral.css` → `tokens.<company>.css` and `client.neutral.config.js` → `client.<company>.config.js`; never fork components.
 - **View-time behaviour on shipped pages** → a hand-written ES module beside `system/site.js`.
 - **kb record type or field** → `.claude/references/kb-format.md` (both parsers must stay in sync).
