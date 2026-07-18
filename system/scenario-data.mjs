@@ -17,10 +17,16 @@ const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
 let registryPromise = null;
 
 export function loadRegistry() {
-  registryPromise ??= fetch("/scenarios/index.json").then((res) => {
-    if (!res.ok) throw new Error(`/scenarios/index.json: ${res.status} ${res.statusText}`);
-    return res.json();
-  });
+  registryPromise ??= fetch("/scenarios/index.json")
+    .then((res) => {
+      if (!res.ok) throw new Error(`/scenarios/index.json: ${res.status} ${res.statusText}`);
+      return res.json();
+    })
+    .catch((err) => {
+      // a failed fetch must not stick for the page's life — drop the memo so the next call retries
+      registryPromise = null;
+      throw err;
+    });
   return registryPromise;
 }
 

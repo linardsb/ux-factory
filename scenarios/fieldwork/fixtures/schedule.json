@@ -71,9 +71,9 @@
     "date": "2026-07-14",
     "slots": [
       {
-        "start": null,
-        "durationMin": null,
-        "jobId": null
+        "start": "17:30",
+        "durationMin": 60,
+        "jobId": "job-006"
       },
       {
         "start": null,
