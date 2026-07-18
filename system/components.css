@@ -603,6 +603,8 @@ p, .body {
 .mb-xl { margin-bottom: var(--spacing-xl); }
 .mb-2xl { margin-bottom: var(--spacing-2xl); }
 .mb-3xl { margin-bottom: var(--spacing-3xl); }
+.mt-xl { margin-top: var(--spacing-xl); }
+.mt-2xl { margin-top: var(--spacing-2xl); }
 
 .text-center { text-align: center; }
 .text-balance { text-wrap: balance; }

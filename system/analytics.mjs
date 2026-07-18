@@ -15,13 +15,18 @@
 // committing it is safe. Empty token = beacon not injected; the helper stays callable.
 // End-to-end recording is verifiable only once the token exists at launch; the
 // contract testable today: imports cleanly, flips the URL, restores it, fires once.
+//
+// PRODUCTION_HOST gates injection to the canonical production host ONLY — an allow-list,
+// not a local-host deny-list — so CF Pages `*.pages.dev` branch previews and local dev
+// never record traffic once the token lands. Fill it alongside BEACON_TOKEN at launch;
+// empty host = beacon not injected anywhere (fail-closed).
 
 const BEACON_TOKEN = ""; // filled at launch
+const PRODUCTION_HOST = ""; // filled at launch — canonical prod hostname (e.g. "linardsberzins.com")
 const VIRTUAL_EVENT_PATH = "/factory/driven";
 const RESTORE_DELAY_MS = 50; // lets the beacon's pushState hook read the virtual path
-const LOCAL_HOSTS = ["localhost", "127.0.0.1"]; // never measure local dev (mirrors scenario-data.mjs)
 
-if (BEACON_TOKEN && !LOCAL_HOSTS.includes(location.hostname)) {
+if (BEACON_TOKEN && location.hostname === PRODUCTION_HOST) {
   const s = document.createElement("script");
   s.defer = true;
   s.src = "https://static.cloudflareinsights.com/beacon.min.js";
