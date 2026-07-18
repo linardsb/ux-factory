@@ -7,12 +7,15 @@
 //
 // Honesty contract (hard): this file is the ONLY producer of trace step content —
 // trace content is never hand-written or hand-edited (curation lives in
-// tooling/curate-trace.mjs and does selection + truncation only).
+// tooling/curate-trace.mjs and does selection + truncation only) — and it redacts
+// secret patterns (portal/lib/redact.mjs) before any line is written; the rule
+// names are recorded in meta.redaction.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { REPO_DIR } from './env.mjs';
+import { redactDeep, redactString, RULE_NAMES } from './redact.mjs';
 
 // Raw recorder response cap (keeps the raw file bounded; curation caps further).
 const RESPONSE_CAP = 4000;
@@ -31,8 +34,9 @@ function capResponse(resp) {
 
 // Record one real Agent SDK run to `outFile` as Trace JSONL. Returns run stats for
 // the runner's ✓ line. `taskSummary` is the short human label stored in the meta;
-// `task` is the full prompt handed to the agent.
-export async function recordRun({ slug, task, taskSummary, systemPrompt, model, maxTurns, allowedTools, tools, canUseTool, outFile }) {
+// `task` is the full prompt handed to the agent. `cwd` defaults to the repo — a
+// --dry run passes its scratch dir (query cwd, meta, artifact paths all follow it).
+export async function recordRun({ slug, task, taskSummary, systemPrompt, model, maxTurns, allowedTools, tools, canUseTool, outFile, cwd = REPO_DIR }) {
   mkdirSync(path.dirname(outFile), { recursive: true });
   writeFileSync(outFile, ''); // start fresh; appendFileSync builds it up line by line
 
@@ -41,27 +45,40 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
   const seenPhases = [];
   let nullPhaseSteps = 0;
   let artifacts = 0;
+  let denials = 0;
 
   const now = () => new Date().toISOString();
   const write = (obj) => appendFileSync(outFile, JSON.stringify(obj) + '\n');
 
   // A tool step from a hook payload. ok=false carries the failure error; a successful
-  // Write/Edit pairs the artifact it produced (repo-relative) — the pairing the Trace
-  // definition demands. Text blocks and hook firings share `seq`, so the file stays in
-  // true chronology — never buffer and sort (GOTCHA #3).
+  // Write/Edit pairs the artifact it produced (relative to the run's cwd — the repo in
+  // real runs) — the pairing the Trace definition demands. Text blocks and hook firings
+  // share `seq`, so the file stays in true chronology — never buffer and sort (GOTCHA #3).
+  // Every trace-derived string (input, response, error) is redacted before it is written;
+  // the rules that hit land in step.redacted.
   const toolStep = (input, ok) => {
     if (currentPhase === null) nullPhaseSteps++;
     const { response, responseTruncated } = capResponse(input.tool_response);
+    const rin = redactDeep(input.tool_input);
+    const rresp = redactString(response);
+    const hit = new Set([...rin.rules, ...rresp.rules]);
     const step = {
       type: 'step', seq: ++seq, ts: now(), phase: currentPhase, kind: 'tool',
-      tool: input.tool_name, input: input.tool_input,
-      ok, response, responseTruncated, toolUseId: input.tool_use_id,
+      tool: input.tool_name, input: rin.value,
+      ok, response: rresp.value, responseTruncated, toolUseId: input.tool_use_id,
     };
-    if (!ok) step.error = input.error;
+    if (!ok) {
+      const rerr = redactDeep(input.error);
+      step.error = rerr.value;
+      for (const n of rerr.rules) hit.add(n);
+    }
+    if (hit.size) step.redacted = [...hit];
     if (ok && (input.tool_name === 'Write' || input.tool_name === 'Edit')) {
+      // Artifact from the ORIGINAL input — a "[redacted:…]" file_path would break the
+      // validator's artifact-exists check (the stored input above is the redacted one).
       const fp = input.tool_input?.file_path;
       if (fp) {
-        step.artifact = { path: path.relative(REPO_DIR, path.resolve(REPO_DIR, fp)) };
+        step.artifact = { path: path.relative(cwd, path.resolve(cwd, fp)) };
         artifacts++;
       }
     }
@@ -85,20 +102,40 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
   // flow, canUseTool included, still runs). Unlike the recording hooks this one MAY
   // alter the run — blocking out-of-fence calls is its job — and it fails CLOSED.
   const fenceHook = async (input) => {
+    let deny = null;
     try {
       const verdict = await canUseTool(input.tool_name, input.tool_input);
-      if (verdict.behavior === 'deny')
-        return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: verdict.message } };
-      return { continue: true };
+      if (verdict.behavior === 'deny') deny = verdict.message;
     } catch (e) {
-      return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `fence error (fail closed): ${e.message}` } };
+      deny = `fence error (fail closed): ${e.message}`;
     }
+    if (deny === null) return { continue: true };
+    // Record the denial as a step — "the agent tried something off-fence" belongs in the
+    // trace (a PreToolUse deny fires no PostToolUse/Failure hook, so this is the only
+    // record point; no double-record). No response/toolUseId — the tool never ran. The
+    // write is try/caught so a recording failure still returns the deny (fail closed).
+    try {
+      if (currentPhase === null) nullPhaseSteps++;
+      denials++;
+      const rin = redactDeep(input.tool_input);
+      const rerr = redactString(deny);
+      const hit = new Set([...rin.rules, ...rerr.rules]);
+      const step = {
+        type: 'step', seq: ++seq, ts: now(), phase: currentPhase, kind: 'tool',
+        tool: input.tool_name, input: rin.value, ok: false, denied: true, error: rerr.value,
+      };
+      if (hit.size) step.redacted = [...hit];
+      write(step);
+    } catch (e) {
+      process.stderr.write(`trace-recorder: denial-record error (non-fatal): ${e.message}\n`);
+    }
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: deny } };
   };
 
   const q = query({
     prompt: task,
     options: {
-      cwd: REPO_DIR, model, maxTurns, systemPrompt, allowedTools, tools, canUseTool,
+      cwd, model, maxTurns, systemPrompt, allowedTools, tools, canUseTool,
       hooks: {
         ...(canUseTool ? { PreToolUse: [{ hooks: [fenceHook] }] } : {}),
         PostToolUse:        [{ hooks: [hook(true)] }],
@@ -114,7 +151,10 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
         write({
           type: 'meta', version: 1, slug, task: taskSummary,
           label: 'Real run — raw, uncurated', model,
-          sessionId: msg.session_id, startedAt: now(), cwd: REPO_DIR,
+          sessionId: msg.session_id, startedAt: now(), cwd,
+          // Recorded on EVERY run, hits or not: "what protection ran" is static and
+          // known at init; per-step `redacted` arrays carry where it fired.
+          redaction: { rules: RULE_NAMES },
         });
       } else if (msg.type === 'assistant') {
         for (const block of msg.message?.content || []) {
@@ -122,12 +162,17 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
             // A block may carry preamble before its marker, or several markers at once;
             // record every phase in order and adopt the LAST as current (subsequent steps
             // follow it). The block-step is tagged with that phase — preamble folds into
-            // the phase it introduces. Text is verbatim (markers kept; curation strips).
+            // the phase it introduces. Text is verbatim apart from redaction (markers
+            // kept; curation strips) — narration can quote Bash stdout, so it is in
+            // scope. Redact AFTER the marker scan: the scan must see the original block.
             const markers = [...block.text.matchAll(PIV_MARKER)];
             for (const mk of markers) if (!seenPhases.includes(mk[1])) seenPhases.push(mk[1]);
             if (markers.length) currentPhase = markers[markers.length - 1][1];
             if (currentPhase === null) nullPhaseSteps++;
-            write({ type: 'step', seq: ++seq, ts: now(), phase: currentPhase, kind: 'text', text: block.text });
+            const rtext = redactString(block.text);
+            const step = { type: 'step', seq: ++seq, ts: now(), phase: currentPhase, kind: 'text', text: rtext.value };
+            if (rtext.rules.length) step.redacted = rtext.rules;
+            write(step);
           }
         }
       } else if (msg.type === 'result') {
@@ -144,5 +189,5 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
   }
 
   if (!result) throw new Error(`${outFile}: run produced no result message — no trace to keep`);
-  return { outFile, steps: seq, phases: seenPhases, nullPhaseSteps, artifacts, ok: result.ok, totalCostUsd: result.totalCostUsd };
+  return { outFile, steps: seq, phases: seenPhases, nullPhaseSteps, artifacts, denials, ok: result.ok, totalCostUsd: result.totalCostUsd };
 }
