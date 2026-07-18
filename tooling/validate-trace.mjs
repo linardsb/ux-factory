@@ -7,7 +7,7 @@
 // (default: every traces/*.jsonl) — one ✓ line per file, exit 1 on drift.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve, isAbsolute } from 'node:path';
+import { dirname, join, resolve, isAbsolute, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +52,8 @@ export function validateTrace(file) {
       const p = s.artifact?.path;
       if (!nonEmpty(p)) throw new Error(`${rel}:${ln}: successful ${s.tool} step must carry "artifact.path" (step↔artifact pairing)`);
       if (isAbsolute(p)) throw new Error(`${rel}:${ln}: artifact.path "${p}" must be repo-relative, not absolute`);
+      if (!resolve(ROOT, p).startsWith(ROOT + sep))
+        throw new Error(`${rel}:${ln}: artifact.path "${p}" escapes the repo root — ".." segments are not allowed`);
       if (!existsSync(join(ROOT, p))) throw new Error(`${rel}:${ln}: artifact.path "${p}" does not exist in the repo`);
     }
     if (s.artifact) artifacts++;

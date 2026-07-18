@@ -27,6 +27,9 @@ const PIV_ORDER = ['plan', 'gate', 'implement', 'validate'];
 // .d.ts): `tools` sets the base set the agent CAN reach; `allowedTools` auto-approves
 // (skips canUseTool). So the read-only tools are auto-approved and the write/exec tools
 // are left for canUseTool to FENCE — listing them in allowedTools would bypass the fence.
+// canUseTool alone is NOT sufficient: the permission layer's fast path auto-allows
+// "trivially safe" commands (e.g. `true`) without consulting it, so recordRun also wires
+// this same fence into a PreToolUse hook, which fires before every execution (PR #24 review).
 const TOOLS = ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'];
 const READONLY = ['Read', 'Grep', 'Glob'];
 

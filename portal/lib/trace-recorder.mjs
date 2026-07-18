@@ -78,11 +78,29 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
     return { continue: true };
   };
 
+  // The permission layer's fast path can auto-allow "trivially safe" commands (e.g.
+  // `true`) without ever consulting canUseTool, so canUseTool alone cannot enforce the
+  // fence. PreToolUse hooks fire before EVERY tool execution, fast path or not — run the
+  // same fence here and deny when it denies; an allow adds no opinion (the permission
+  // flow, canUseTool included, still runs). Unlike the recording hooks this one MAY
+  // alter the run — blocking out-of-fence calls is its job — and it fails CLOSED.
+  const fenceHook = async (input) => {
+    try {
+      const verdict = await canUseTool(input.tool_name, input.tool_input);
+      if (verdict.behavior === 'deny')
+        return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: verdict.message } };
+      return { continue: true };
+    } catch (e) {
+      return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `fence error (fail closed): ${e.message}` } };
+    }
+  };
+
   const q = query({
     prompt: task,
     options: {
       cwd: REPO_DIR, model, maxTurns, systemPrompt, allowedTools, tools, canUseTool,
       hooks: {
+        ...(canUseTool ? { PreToolUse: [{ hooks: [fenceHook] }] } : {}),
         PostToolUse:        [{ hooks: [hook(true)] }],
         PostToolUseFailure: [{ hooks: [hook(false)] }],
       },

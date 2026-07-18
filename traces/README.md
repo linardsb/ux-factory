@@ -99,8 +99,12 @@ text block**, before that phase's work:
 [[piv:plan]]   then   [[piv:gate]]   then   [[piv:implement]]   then   [[piv:validate]]
 ```
 
-The recorder scans each text block for `/^\s*\[\[piv:(plan|gate|implement|validate)\]\]/`,
-updates the current phase, and tags every subsequent step with it. Steps recorded **before the
+The recorder scans **every line** of each text block for a marker alone on its own line
+(`/^[ \t]*\[\[piv:(plan|gate|implement|validate)\]\][ \t]*$/gm`) — models emit conversational
+preamble before the marker and sometimes several markers in one block — records each marker in
+order, and adopts the **last** one as the current phase, tagging every subsequent step with it.
+(The prompt demands first-line markers; the parser is deliberately more lenient — the "alone on
+its own line" contract is what matters.) Steps recorded **before the
 first marker** carry `"phase": null` → the validator fails the trace → the fix is a tighter
 prompt and a re-run (spike 5's loop), **never a hand-tag**. Raw traces keep the marker lines;
 curation strips them (the `phase` field already carries the tag).
