@@ -180,17 +180,24 @@ function resolveChip(status, kids) {
   return statusChip(chipProps);
 }
 
-// An <img src> is an injection surface for javascript:/data: even via setAttribute — the
-// contract says site-relative. Allow a relative path (no scheme) or an explicit https URL.
-// The leading-// alternative also rejects protocol-relative URLs (//host beacons an arbitrary
-// external host); pure regex keeps this Node-safe so #13's validator could reuse it.
-// Browsers strip ASCII tab/newline anywhere in a URL and trim leading/trailing whitespace before
-// resolving it, so " //evil" or "h\tttp://evil" would otherwise smuggle a scheme/host past the
-// anchored check — normalise the same way, then test the form the browser will actually load.
+// An <img src> is both an injection surface (javascript:/data:) and a beacon surface (a cross-
+// origin host silently exfiltrates via the image request) — the contract says site-relative.
+// Resolve with the browser's own parser against the page base, then require the SAME ORIGIN:
+// this defers every normalisation quirk to the engine that actually loads the src (backslash-as-
+// slash for http/https, C0-control stripping, tab/newline removal), so no hand-rolled regex can
+// drift from it. Render-path only (validateComposition never calls this), so new URL + location
+// are fine here. Same-origin is narrower than allow-external-https, but post-resolution "//evil"
+// and "https://cdn" are indistinguishable (both https, both cross-origin) — blocking the beacon
+// requires same-origin, and the contract already ships photoUrl as a site-relative path (no demo images).
 function safePhotoUrl(url, path) {
-  const resolved = url.replace(/[\t\n\r]/g, "").trim();
-  if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(resolved) && !/^https:\/\//i.test(resolved)) {
-    throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative or https URL (no javascript:/data: or protocol-relative //)`);
+  let resolved;
+  try {
+    resolved = new URL(url, document.baseURI);
+  } catch {
+    throw new Error(`${path}.props.photoUrl: "${url}" is not a valid URL`);
+  }
+  if (resolved.origin !== location.origin) {
+    throw new Error(`${path}.props.photoUrl: "${url}" must be a site-relative (same-origin) URL — no cross-origin host, javascript:/data:, or protocol-relative //`);
   }
   return url;
 }
