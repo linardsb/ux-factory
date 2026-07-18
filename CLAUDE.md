@@ -39,7 +39,8 @@ docs/epics/                 PRD + architecture decisions governing the platform 
 handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs (pack + tokens + wc wrappers) · node agent-layer/gen-vocabulary.mjs (vocabulary.json — the agent-ready layer the renderer validates against); figma-parity.json is the one exception: written only by the parity script's real run
 tooling/figma/              figma-parity.mjs — Figma REST parity read; secret-gated (portal/.env), standalone-only, never registered in build.mjs
 tooling/mcp/                local MCP helper scripts
-tooling/style-dictionary/   the one dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
+tooling/style-dictionary/   a dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
+tooling/visual-regression/  isolated Playwright (the other dependency-carrying tool); CI visual-regression gate — screenshots the 8 shipped pages under neutral + saulera packs, pixel-diffs vs committed Linux baselines (#9, gate 3/3)
 tooling/wc-sandbox/         React 19 harness for the wc wrappers (esm.sh import map, no install)
 tooling/curate-trace.mjs · validate-trace.mjs   deterministic trace curation (selection + truncation only, rules recorded in meta) + the Trace format's drift guard (candidate CI gate #9)
 ```

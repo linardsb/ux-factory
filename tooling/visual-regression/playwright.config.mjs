@@ -11,7 +11,6 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://127.0.0.1:4757',
-    viewport: { width: 1280, height: 800 },
     colorScheme: 'light',
     reducedMotion: 'reduce',
   },
