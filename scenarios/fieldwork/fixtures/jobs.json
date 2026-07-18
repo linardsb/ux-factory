@@ -838,5 +838,61 @@
     "techId": "tech-02",
     "slaDue": "2026-07-16",
     "completedAt": "2026-07-09T19:54:00Z"
+  },
+  {
+    "id": "job-061",
+    "customer": "Millbrook Dental Clinic",
+    "site": "Reception",
+    "region": "north",
+    "type": "repair",
+    "priority": "urgent",
+    "status": "scheduled",
+    "scheduledStart": "2026-07-15T08:30:00Z",
+    "durationMin": 90,
+    "techId": null,
+    "slaDue": "2026-07-15",
+    "completedAt": null
+  },
+  {
+    "id": "job-062",
+    "customer": "Rowan & Fell Brewery",
+    "site": "Cold store",
+    "region": "east",
+    "type": "callout",
+    "priority": "priority",
+    "status": "scheduled",
+    "scheduledStart": "2026-07-15T13:00:00Z",
+    "durationMin": 60,
+    "techId": null,
+    "slaDue": "2026-07-16",
+    "completedAt": null
+  },
+  {
+    "id": "job-063",
+    "customer": "Southgate Primary School",
+    "site": "Boiler room",
+    "region": "south",
+    "type": "maintenance",
+    "priority": "routine",
+    "status": "scheduled",
+    "scheduledStart": "2026-07-17T09:00:00Z",
+    "durationMin": 120,
+    "techId": null,
+    "slaDue": "2026-07-21",
+    "completedAt": null
+  },
+  {
+    "id": "job-064",
+    "customer": "Westquay Marina Office",
+    "site": "Pontoon B",
+    "region": "west",
+    "type": "install",
+    "priority": "routine",
+    "status": "scheduled",
+    "scheduledStart": "2026-07-20T10:30:00Z",
+    "durationMin": 180,
+    "techId": null,
+    "slaDue": "2026-07-24",
+    "completedAt": null
   }
 ]

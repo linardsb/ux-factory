@@ -1,4 +1,5 @@
-/* GENERATED MIRROR — do not edit here. Source: base/components.css (saulera-client-starter). Regenerate on change. */
+/* system/components.css — token-only component layer. Canon lives in THIS repo
+   (architecture §Data model: the starter-mirror header is retired; edit here). */
 /* base — shared components (brand-agnostic)
  *
  * Ported from the saulera live site (site.css), with EVERY colour rewritten to a
@@ -1444,3 +1445,438 @@ p, .body {
   border-color: var(--color-border-strong);
 }
 .field textarea { min-height: 90px; resize: vertical; }
+
+/* ==========================================================================
+   SCENARIO PROTOTYPE COMPONENTS — vd-* (Verdant) · fw-* (Fieldwork)
+   Implements system/specs/*.md (epic #1, ticket #8). Token-only: a literal
+   colour here is a bug. Each vd- class matches its spec head's "class" field
+   and touches only the tokens its spec lists; state classes mirror the
+   spec's named states. fw- board chrome is human-fixed canvas (no specs —
+   see the ticket's scope note); same token discipline.
+   ========================================================================== */
+
+/* ---------- vd-screen-header (system/specs/screen-header.md) ---------- */
+
+.vd-screen-header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid transparent;
+}
+.vd-screen-header.is-scrolled { border-bottom-color: var(--color-border); }
+.vd-screen-title {
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--type-h3);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-fg);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vd-header-affordance {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.vd-header-affordance:focus-visible { outline: 2px solid var(--color-fg); outline-offset: -2px; }
+
+/* ---------- vd-status-chip (system/specs/status-chip.md) ---------- */
+
+.vd-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.vd-status-chip.is-due {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.vd-status-chip.is-overdue {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+
+/* ---------- vd-plant-card (system/specs/plant-card.md) ---------- */
+
+.vd-plant-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: 44px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--color-fg);
+}
+.vd-plant-card:active { background: color-mix(in srgb, var(--color-bg-surface), var(--color-border) 45%); }
+.vd-plant-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.vd-plant-card.is-overdue { border-color: var(--color-accent); }
+.vd-plant-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-fg-muted);
+  font-size: var(--type-body);
+  font-weight: 600;
+}
+.vd-plant-text { display: block; min-width: 0; }
+.vd-plant-name {
+  display: block;
+  margin: 0;
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--color-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vd-plant-species {
+  display: block;
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+
+/* ---------- vd-stat-tile (system/specs/stat-tile.md) ---------- */
+
+.vd-stat-tile {
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+/* DOM order is label → value+unit (screen readers hear "Moisture, 22 %");
+   column-reverse puts the value visually on top, per the spec's a11y note. */
+.vd-stat-tile p {
+  margin: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--spacing-sm);
+}
+.vd-stat-reading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+.vd-stat-glyph { color: var(--color-fg-muted); }
+.vd-stat-value {
+  font-size: var(--type-h3);
+  font-weight: 600;
+  color: var(--color-fg);
+  line-height: 1;
+}
+.vd-stat-unit {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.vd-stat-label {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+
+/* ---------- vd-care-task-row (system/specs/care-task-row.md) ---------- */
+
+.vd-care-task-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.vd-care-task-row:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.vd-task-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+}
+.vd-care-task-row.is-overdue .vd-task-check { border-color: var(--color-accent); }
+.vd-care-task-row.is-checked .vd-task-check {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+.vd-care-task-row.is-checked .vd-task-label { color: var(--color-fg-muted); }
+.vd-task-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- vd-primary-button (system/specs/primary-button.md) ---------- */
+
+.vd-primary-button {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-md);
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: var(--type-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+.vd-primary-button:hover { background: var(--color-accent-hover); }
+.vd-primary-button:active { background: var(--color-accent-active); }
+.vd-primary-button:focus-visible { outline: 2px solid var(--color-accent-active); outline-offset: 2px; }
+.vd-primary-button:disabled {
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+}
+
+/* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
+
+.vd-screen-body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--color-bg);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+/* children keep natural height — a scrolling column flexbox otherwise
+   compresses them (flex-shrink) once content exceeds the screen */
+.vd-screen-body > * { flex: none; }
+.vd-section-heading {
+  margin: var(--spacing-sm) 0 0;
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.vd-tile-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+.vd-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.vd-allclear {
+  margin: 0;
+  padding: var(--spacing-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-fg-muted);
+  font-size: var(--type-caption);
+  text-align: center;
+}
+
+/* ---------- fw-* — Fieldwork dispatch-board chrome (human-fixed canvas) ---------- */
+
+.fw-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-width: 760px;
+}
+.fw-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-sm) var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 2px solid var(--color-border-strong);
+}
+.fw-toolbar-title {
+  margin: 0;
+  font-size: var(--type-h3);
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.fw-toolbar-date {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.fw-region-chip {
+  display: inline-flex;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--type-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.fw-board-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--spacing-md);
+  align-items: start;
+}
+.fw-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.fw-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.fw-panel-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.fw-job {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--type-caption);
+}
+.fw-job:last-child { border-bottom: 0; }
+.fw-job-customer {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-fg);
+}
+.fw-job-meta {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-fg-muted);
+}
+.fw-job-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs) var(--spacing-sm);
+  justify-content: flex-end;
+  margin-left: auto;
+}
+.fw-status-chip {
+  display: inline-flex;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-fg-muted);
+}
+.fw-status-chip[data-status="en-route"] { border-color: var(--color-border-strong); color: var(--color-fg); }
+.fw-status-chip[data-status="on-site"] { border-color: var(--color-accent); color: var(--color-accent); }
+.fw-status-chip[data-status="done"] { background: var(--color-bg-surface); border-color: var(--color-bg-surface); }
+.fw-status-chip[data-status="overdue"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+.fw-priority {
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.fw-priority[data-priority="urgent"] { color: var(--color-fg); font-weight: 700; }
+.fw-priority[data-priority="priority"] { color: var(--color-fg); }
+.fw-priority[data-priority="routine"] { color: var(--color-fg-muted); }
+.fw-sla {
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.fw-lane {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: var(--spacing-sm);
+  align-items: start;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+.fw-lane:last-child { border-bottom: 0; }
+.fw-lane-name {
+  margin: 0;
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--color-fg);
+}
+.fw-lane-skills {
+  margin: 0;
+  font-size: var(--type-eyebrow);
+  color: var(--color-fg-muted);
+}
+.fw-lane-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+.fw-slot-chip {
+  display: inline-flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-eyebrow);
+  color: var(--color-fg);
+}
+.fw-slot-chip .t { color: var(--color-fg-muted); }
+.fw-slot-chip.is-empty {
+  border-style: dashed;
+  color: var(--color-fg-muted);
+}

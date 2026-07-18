@@ -199,6 +199,26 @@ const COHERENCE = {
       }
       if (t.due < addDays(today, -30) || t.due > addDays(today, 60))
         throw new Error(`${dir}/fixtures/care-tasks.json: ${t.id} due ${t.due} outside the plausible window around ${today}`);
+      // Contract-promised fields (#8): the API serves what the DataContracts describe —
+      // plantName denormalised, status derived from due vs the fixed fictional today.
+      if (t.plantName !== byId[t.plantId].name)
+        throw new Error(`${dir}/fixtures/care-tasks.json: ${t.id} plantName "${t.plantName}" ≠ ${t.plantId}'s name "${byId[t.plantId].name}"`);
+      const expectedStatus = t.done ? "ok" : t.due < today ? "overdue" : t.due === today ? "due" : "ok";
+      if (t.status !== expectedStatus)
+        throw new Error(`${dir}/fixtures/care-tasks.json: ${t.id} status "${t.status}" ≠ "${expectedStatus}" (due ${t.due}, done ${t.done}, today ${today})`);
+    }
+    const sev = { ok: 0, due: 1, overdue: 2 };
+    for (const p of collections.plants) {
+      const open = collections["care-tasks"].filter((t) => t.plantId === p.id && !t.done);
+      const worst = open.reduce((w, t) => (sev[t.status] > sev[w] ? t.status : w), "ok");
+      if (p.status !== worst)
+        throw new Error(`${dir}/fixtures/plants.json: ${p.id} status "${p.status}" ≠ worst open task status "${worst}"`);
+    }
+    for (const r of collections.readings) {
+      if (!["moisture", "light"].includes(r.kind))
+        throw new Error(`${dir}/fixtures/readings.json: ${r.id} kind "${r.kind}" not in [moisture, light]`);
+      if (typeof r.value !== "number" || !nonEmpty(r.unit) || !nonEmpty(r.label))
+        throw new Error(`${dir}/fixtures/readings.json: ${r.id} needs numeric value + non-empty unit and label`);
     }
   },
   fieldwork({ dir, head, collections }) {
@@ -211,10 +231,15 @@ const COHERENCE = {
         throw new Error(`${dir}/fixtures/jobs.json: ${j.id} status "${j.status}" inconsistent with completedAt ${j.completedAt}`);
       if (j.status === "overdue" && !(j.slaDue < today))
         throw new Error(`${dir}/fixtures/jobs.json: ${j.id} is "overdue" but slaDue ${j.slaDue} has not lapsed (today ${today})`);
+      if (!["urgent", "priority", "routine"].includes(j.priority))
+        throw new Error(`${dir}/fixtures/jobs.json: ${j.id} priority "${j.priority}" not in [urgent, priority, routine]`);
     }
     for (const s of collections.schedule)
       if (s.date < today || s.date > addDays(today, 7))
         throw new Error(`${dir}/fixtures/schedule.json: ${s.id} date ${s.date} outside the board window (today ${today})`);
+    // The dispatch board's "Needs assignment" panel (#8) must never be able to go silently empty.
+    if (!collections.jobs.some((j) => j.techId === null))
+      throw new Error(`${dir}/fixtures/jobs.json: no unassigned job (techId null) — the board's Needs-assignment panel needs at least one`);
   },
 };
 

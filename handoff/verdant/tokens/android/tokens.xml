@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Do not edit directly, this file was auto-generated.
+-->
+<resources>
+  <color name="neutral_primitives_color_ink">#ff1a1a1a</color>
+  <color name="neutral_primitives_color_slate">#ff6b7280</color>
+  <color name="neutral_primitives_color_blue">#ff2563eb</color>
+  <color name="neutral_primitives_color_blue_hov">#ff1d4ed8</color>
+  <color name="neutral_primitives_color_blue_act">#ff1e40af</color>
+  <color name="neutral_primitives_color_cloud">#fff4f4f5</color>
+  <color name="neutral_primitives_color_line">#ffd4d4d8</color>
+  <color name="neutral_primitives_color_white">#ffffffff</color>
+  <dimen name="neutral_spacing_spacing_xs">4.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_sm">8.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_md">16.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_lg">24.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_xl">32.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_2xl">48.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_3xl">64.00dp</dimen>
+  <dimen name="neutral_spacing_spacing_4xl">96.00dp</dimen>
+  <dimen name="neutral_radius_radius_sm">4.00dp</dimen>
+  <dimen name="neutral_radius_radius_md">8.00dp</dimen>
+  <dimen name="neutral_radius_radius_lg">16.00dp</dimen>
+  <dimen name="neutral_layout_maxw">1200.00dp</dimen>
+  <dimen name="neutral_layout_gutter">24.00dp</dimen>
+  <dimen name="neutral_type_ramp_type_h3">20.00dp</dimen>
+  <dimen name="neutral_type_ramp_type_body">16.00dp</dimen>
+  <dimen name="neutral_type_ramp_type_caption">13.00dp</dimen>
+  <dimen name="neutral_type_ramp_type_eyebrow">12.00dp</dimen>
+  <color name="neutral_semantic_fg_surface_color_fg">#ff1a1a1a</color>
+  <color name="neutral_semantic_fg_surface_color_fg_muted">#ff6b7280</color>
+  <color name="neutral_semantic_fg_surface_color_bg">#ffffffff</color>
+  <color name="neutral_semantic_fg_surface_color_bg_surface">#fff4f4f5</color>
+  <color name="neutral_semantic_fg_surface_color_border">#ffd4d4d8</color>
+  <color name="neutral_semantic_fg_surface_color_border_strong">#ff1a1a1a</color>
+  <color name="neutral_semantic_accent_color_accent">#ff2563eb</color>
+  <color name="neutral_semantic_accent_color_accent_hover">#ff1d4ed8</color>
+  <color name="neutral_semantic_accent_color_accent_active">#ff1e40af</color>
+  <color name="neutral_semantic_accent_color_accent_fg">#ffffffff</color>
+  <color name="neutral_semantic_accent_color_accent_secondary">#ff6b7280</color>
+  <color name="neutral_semantic_inverse_color_bg_inverse">#ff1a1a1a</color>
+  <color name="neutral_semantic_inverse_color_fg_on_inverse">#fff4f4f5</color>
+  <color name="neutral_semantic_inverse_color_fg_on_inverse_strong">#ffffffff</color>
+</resources>

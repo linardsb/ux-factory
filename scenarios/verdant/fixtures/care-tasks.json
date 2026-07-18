@@ -2,141 +2,181 @@
   {
     "id": "task-01",
     "plantId": "plant-01",
+    "plantName": "Monstera",
     "type": "water",
     "due": "2026-07-18",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-02",
     "plantId": "plant-02",
+    "plantName": "Snake plant",
     "type": "water",
     "due": "2026-07-19",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-03",
     "plantId": "plant-03",
+    "plantName": "Fiddle-leaf fig",
     "type": "water",
     "due": "2026-07-12",
-    "done": false
+    "done": false,
+    "status": "overdue"
   },
   {
     "id": "task-04",
     "plantId": "plant-04",
+    "plantName": "Pothos",
     "type": "water",
     "due": "2026-07-19",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-05",
     "plantId": "plant-05",
+    "plantName": "Peace lily",
     "type": "water",
     "due": "2026-07-13",
-    "done": false
+    "done": false,
+    "status": "overdue"
   },
   {
     "id": "task-06",
     "plantId": "plant-06",
+    "plantName": "Rubber plant",
     "type": "water",
     "due": "2026-07-19",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-07",
     "plantId": "plant-07",
+    "plantName": "ZZ plant",
     "type": "water",
     "due": "2026-07-20",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-08",
     "plantId": "plant-08",
+    "plantName": "Boston fern",
     "type": "water",
     "due": "2026-07-12",
-    "done": false
+    "done": false,
+    "status": "overdue"
   },
   {
     "id": "task-09",
     "plantId": "plant-09",
+    "plantName": "Spider plant",
     "type": "water",
     "due": "2026-07-19",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-10",
     "plantId": "plant-10",
+    "plantName": "Aloe vera",
     "type": "water",
     "due": "2026-07-20",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-11",
     "plantId": "plant-11",
+    "plantName": "Calathea",
     "type": "water",
     "due": "2026-07-15",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-12",
     "plantId": "plant-12",
+    "plantName": "String of pearls",
     "type": "water",
     "due": "2026-07-18",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-13",
     "plantId": "plant-13",
+    "plantName": "Chinese evergreen",
     "type": "water",
     "due": "2026-07-17",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-14",
     "plantId": "plant-14",
+    "plantName": "Jade plant",
     "type": "water",
     "due": "2026-07-22",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-15",
     "plantId": "plant-15",
+    "plantName": "Parlour palm",
     "type": "water",
     "due": "2026-07-18",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-16",
     "plantId": "plant-03",
+    "plantName": "Fiddle-leaf fig",
     "type": "inspect",
     "due": "2026-07-12",
-    "done": true
+    "done": true,
+    "status": "ok"
   },
   {
     "id": "task-17",
     "plantId": "plant-05",
+    "plantName": "Peace lily",
     "type": "fertilise",
     "due": "2026-07-17",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-18",
     "plantId": "plant-08",
+    "plantName": "Boston fern",
     "type": "inspect",
     "due": "2026-07-14",
-    "done": false
+    "done": false,
+    "status": "due"
   },
   {
     "id": "task-19",
     "plantId": "plant-09",
+    "plantName": "Spider plant",
     "type": "repot",
     "due": "2026-07-24",
-    "done": false
+    "done": false,
+    "status": "ok"
   },
   {
     "id": "task-20",
     "plantId": "plant-01",
+    "plantName": "Monstera",
     "type": "fertilise",
     "due": "2026-07-08",
-    "done": true
+    "done": true,
+    "status": "ok"
   }
 ]

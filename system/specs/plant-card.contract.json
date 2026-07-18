@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/plant-card.contract.json",
+  "title": "Plant",
+  "description": "One plant as the Verdant mock API returns it (fictional demo data). The card binds a subset (see the spec's Data binding); care-task-row references plants by id. Derived fields are baked against the scenario's fixed fictional today (the brief's head).",
+  "type": "object",
+  "required": ["id", "name", "species", "location", "acquired", "wateringIntervalDays", "lastWatered", "lastFertilized", "health", "status", "notes"],
+  "properties": {
+    "id":                   { "type": "string", "description": "stable plant id, e.g. \"plant-03\"" },
+    "name":                 { "type": "string", "minLength": 1 },
+    "species":              { "type": "string", "description": "latin name" },
+    "location":             { "type": "string", "description": "room, e.g. \"living room\"" },
+    "acquired":             { "type": "string", "format": "date" },
+    "wateringIntervalDays": { "type": "integer", "minimum": 1 },
+    "lastWatered":          { "type": "string", "format": "date" },
+    "lastFertilized":       { "type": "string", "format": "date" },
+    "health":               { "type": "string", "enum": ["thriving", "stable", "struggling"], "description": "long-run condition — distinct from status, which is care urgency" },
+    "status":               { "type": "string", "enum": ["ok", "due", "overdue"], "description": "worst status among the plant's not-done care tasks, derived against the fictional today" },
+    "notes":                { "type": "string" },
+    "photoUrl":             { "type": "string", "format": "uri-reference", "description": "site-relative image path; optional — never present in the demo data (no image assets in fixtures), so the card's monogram placeholder is the exercised path" }
+  },
+  "additionalProperties": false
+}

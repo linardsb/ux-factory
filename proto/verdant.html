@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verdant — Plant overview · data-connected prototype</title>
+  <meta name="description" content="Hand-crafted prototype screen rendering live from the fixture-backed mock API, degrading to committed static fixtures. Part of the ux-factory pipeline demo." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- proto/verdant.html — Verdant "Plant overview": data-connected prototype (epic #1, ticket #8).
+       PRD §6.3: components render from the real mock-API data source (worker/api.mjs), degrading
+       to the committed static fixtures via system/scenario-data.mjs. Every component below is a
+       vd-* class implemented to its system/specs/*.md spec — the handoff pack describes exactly
+       what this page runs. Verdant is a fictional scenario; the notice renders from copy.json. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/proto.css" />
+</head>
+<body data-page="proto-verdant">
+
+  <p class="proto-because" id="notice">Loading the scenario's notice…</p>
+
+  <header class="proto-head">
+    <div>
+      <h1>Verdant — Plant overview</h1>
+      <p class="sub">A hand-crafted prototype screen whose components render from the mock API.
+        Stop the Worker and reload: the same screen renders from the committed static fixtures,
+        and the indicator says so.</p>
+    </div>
+    <span class="proto-source" id="source">checking data source…</span>
+  </header>
+
+  <main class="proto-stage-center">
+    <div class="proto-frame-phone">
+      <div class="proto-screen">
+        <header class="vd-screen-header" id="screen-header">
+          <span></span>
+          <h2 class="vd-screen-title" id="screen-title">Plant overview</h2>
+          <button class="vd-header-affordance" type="button" aria-label="Settings (decorative in this prototype)">⚙</button>
+        </header>
+        <div class="vd-screen-body" id="app">
+          <p class="vd-allclear">Loading plants…</p>
+        </div>
+      </div>
+    </div>
+    <p class="proto-slot-note">Prototype interaction only — checking rows and logging care changes
+      nothing anywhere: the mock API is read-only.</p>
+  </main>
+
+  <footer class="proto-legal">
+    Part of the ux-factory pipeline demonstration. All data on this page is fictional fixture
+    data served by a mock API (or its committed static fallback) — no real company, users, or
+    plants are involved.
+  </footer>
+
+  <script type="module">
+    import { loadCollection } from "/system/scenario-data.mjs";
+
+    const esc = (s) =>
+      String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    const app = document.getElementById("app");
+    const SEV = { ok: 0, due: 1, overdue: 2 };
+
+    try {
+      const [plants, tasks, readings] = await Promise.all([
+        loadCollection("verdant", "plants"),
+        loadCollection("verdant", "care-tasks"),
+        loadCollection("verdant", "readings"),
+      ]);
+      const copy = await fetch("/scenarios/verdant/copy.json").then((r) => r.json());
+      const c = copy.prototype;
+
+      document.getElementById("notice").textContent = copy.fictionalNotice;
+      document.getElementById("screen-title").textContent = c.screenTitle;
+
+      // Honesty surface #3: report the worst source seen — if ANY collection fell
+      // back to static, the indicator must not claim the live API answered.
+      const source = [plants, tasks, readings].some((r) => r.source === "static") ? "static" : "worker";
+      const sourceEl = document.getElementById("source");
+      sourceEl.dataset.source = source;
+      sourceEl.textContent = source === "worker" ? "data: live mock API" : "data: static fixtures";
+
+      const chip = (status) => {
+        const label = status === "overdue" ? c.overdueLabel : status === "due" ? c.dueTodayLabel : c.okLabel;
+        return `<span class="vd-status-chip is-${esc(status)}" aria-hidden="true">${esc(label)}</span>`;
+      };
+
+      const plantCard = (p) => `
+        <a class="vd-plant-card${p.status === "overdue" ? " is-overdue" : ""}" href="#plant-${esc(p.id)}"
+           data-plant-id="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(p.status)}">
+          <span class="vd-plant-thumb" aria-hidden="true">${esc(p.name[0])}</span>
+          <span class="vd-plant-text">
+            <span class="vd-plant-name">${esc(p.name)}</span>
+            <span class="vd-plant-species">${esc(p.species)}</span>
+          </span>
+          ${chip(p.status)}
+        </a>`;
+
+      // Featured plant: first overdue, else first due, else first — stable sort
+      // keeps fixture order within equal severity.
+      const sorted = [...plants.data].sort((a, b) => SEV[b.status] - SEV[a.status]);
+      const featured = sorted[0];
+      const rest = sorted.slice(1);
+      const pair = readings.data.filter((r) => r.plantId === featured.id);
+
+      const verb = (t) => t[0].toUpperCase() + t.slice(1);
+      const todayTasks = tasks.data.filter((t) => !t.done && (t.status === "due" || t.status === "overdue"));
+
+      const taskRow = (t) => `
+        <button class="vd-care-task-row is-${esc(t.status)}" type="button" role="checkbox"
+                aria-checked="false" data-task-id="${esc(t.id)}"
+                aria-label="${esc(verb(t.type))} ${esc(t.plantName)}, ${esc(t.status)}">
+          <span class="vd-task-check" aria-hidden="true"></span>
+          <span class="vd-task-label">${esc(verb(t.type))} ${esc(t.plantName)}</span>
+          ${chip(t.status)}
+        </button>`;
+
+      const tile = (r) => `
+        <div class="vd-stat-tile">
+          <p>
+            <span class="vd-stat-label">${esc(r.label)}</span>
+            <span class="vd-stat-reading">
+              <span class="vd-stat-glyph" aria-hidden="true">${r.kind === "moisture" ? "💧" : "☀️"}</span>
+              <span class="vd-stat-value">${esc(r.value)}</span>
+              <span class="vd-stat-unit">${esc(r.unit)}</span>
+            </span>
+          </p>
+        </div>`;
+
+      app.innerHTML = `
+        ${plantCard(featured)}
+        <div class="vd-tile-pair">${pair.map(tile).join("")}</div>
+        <h3 class="vd-section-heading">${esc(c.attentionHeading)}</h3>
+        <div class="vd-stack" id="today-list">
+          ${todayTasks.length ? todayTasks.map(taskRow).join("") : `<p class="vd-allclear">${esc(c.allClearMessage)}</p>`}
+        </div>
+        <button class="vd-primary-button" id="log-care" type="button" disabled>Log care</button>
+        <h3 class="vd-section-heading">All plants</h3>
+        <div class="vd-stack">${rest.map(plantCard).join("")}</div>`;
+
+      // Session-only interaction: check rows → the button enables → commit clears
+      // them from the list. Nothing persists (read-only API; the caption says so).
+      const list = document.getElementById("today-list");
+      const btn = document.getElementById("log-care");
+      const sync = () => { btn.disabled = !list.querySelector('[aria-checked="true"]'); };
+      list.addEventListener("click", (e) => {
+        const row = e.target.closest(".vd-care-task-row");
+        if (!row) return;
+        const checked = row.getAttribute("aria-checked") === "true";
+        row.setAttribute("aria-checked", String(!checked));
+        row.classList.toggle("is-checked", !checked);
+        sync();
+      });
+      btn.addEventListener("click", () => {
+        for (const row of list.querySelectorAll('[aria-checked="true"]')) row.remove();
+        if (!list.querySelector(".vd-care-task-row"))
+          list.innerHTML = `<p class="vd-allclear">${esc(c.allClearMessage)}</p>`;
+        sync();
+      });
+
+      // screen-header "scrolled" state (spec: hairline appears once content scrolls)
+      app.addEventListener("scroll", () => {
+        document.getElementById("screen-header").classList.toggle("is-scrolled", app.scrollTop > 0);
+      }, { passive: true });
+    } catch (e) {
+      app.innerHTML = `<p class="vd-allclear">Could not load the scenario data: ${esc(e.message)}</p>`;
+    }
+  </script>
+</body>
+</html>

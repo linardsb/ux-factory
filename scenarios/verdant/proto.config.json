@@ -3,7 +3,7 @@
     {
       "id": "plant-overview",
       "title": "Plant overview",
-      "collections": ["plants", "care-tasks"]
+      "collections": ["plants", "care-tasks", "readings"]
     }
   ],
   "slots": []

@@ -9,6 +9,7 @@
     "lastWatered": "2026-07-11",
     "lastFertilized": "2026-06-14",
     "health": "thriving",
+    "status": "ok",
     "notes": "New leaf unfurling since early July."
   },
   {
@@ -21,6 +22,7 @@
     "lastWatered": "2026-07-05",
     "lastFertilized": "2026-06-09",
     "health": "thriving",
+    "status": "ok",
     "notes": "Tolerates neglect; do not overwater."
   },
   {
@@ -33,6 +35,7 @@
     "lastWatered": "2026-07-05",
     "lastFertilized": "2026-06-12",
     "health": "struggling",
+    "status": "overdue",
     "notes": "Dropped two leaves after the move away from the window."
   },
   {
@@ -45,6 +48,7 @@
     "lastWatered": "2026-07-12",
     "lastFertilized": "2026-06-10",
     "health": "thriving",
+    "status": "ok",
     "notes": "Cutting from Ana; trails along the shelf."
   },
   {
@@ -57,6 +61,7 @@
     "lastWatered": "2026-07-08",
     "lastFertilized": "2026-06-14",
     "health": "struggling",
+    "status": "overdue",
     "notes": "Droops dramatically when thirsty — reliable early warning."
   },
   {
@@ -69,6 +74,7 @@
     "lastWatered": "2026-07-10",
     "lastFertilized": "2026-06-05",
     "health": "stable",
+    "status": "ok",
     "notes": "Dust the leaves monthly."
   },
   {
@@ -81,6 +87,7 @@
     "lastWatered": "2026-07-02",
     "lastFertilized": "2026-06-17",
     "health": "thriving",
+    "status": "ok",
     "notes": "Lowest-maintenance plant in the flat."
   },
   {
@@ -93,6 +100,7 @@
     "lastWatered": "2026-07-08",
     "lastFertilized": "2026-06-13",
     "health": "struggling",
+    "status": "overdue",
     "notes": "Needs the bathroom humidity; browns fast if missed."
   },
   {
@@ -105,6 +113,7 @@
     "lastWatered": "2026-07-13",
     "lastFertilized": "2026-06-11",
     "health": "thriving",
+    "status": "ok",
     "notes": "Three plantlets ready to pot on."
   },
   {
@@ -117,6 +126,7 @@
     "lastWatered": "2026-07-04",
     "lastFertilized": "2026-06-14",
     "health": "stable",
+    "status": "ok",
     "notes": "South windowsill; water sparingly."
   },
   {
@@ -129,6 +139,7 @@
     "lastWatered": "2026-07-10",
     "lastFertilized": "2026-06-22",
     "health": "stable",
+    "status": "ok",
     "notes": "Filtered water only — tap water browns the edges."
   },
   {
@@ -141,6 +152,7 @@
     "lastWatered": "2026-07-06",
     "lastFertilized": "2026-06-23",
     "health": "stable",
+    "status": "ok",
     "notes": "Hanging pot by the bookshelf."
   },
   {
@@ -153,6 +165,7 @@
     "lastWatered": "2026-07-09",
     "lastFertilized": "2026-06-22",
     "health": "thriving",
+    "status": "ok",
     "notes": "Fine in the low-light corner."
   },
   {
@@ -165,6 +178,7 @@
     "lastWatered": "2026-07-07",
     "lastFertilized": "2026-06-07",
     "health": "thriving",
+    "status": "ok",
     "notes": "Slow and steady; prune in spring."
   },
   {
@@ -177,6 +191,7 @@
     "lastWatered": "2026-07-11",
     "lastFertilized": "2026-06-23",
     "health": "stable",
+    "status": "ok",
     "notes": "Brown tips mean the room is too dry."
   }
 ]

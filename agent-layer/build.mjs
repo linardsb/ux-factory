@@ -7,6 +7,8 @@ import { parseLedger } from "./lib.mjs";
 import { genDecisions } from "./gen-decisions.mjs";
 import { genTokenCss } from "./gen-token-css.mjs";
 import { genTokens } from "./gen-tokens.mjs";
+import { genHandoff } from "./gen-handoff.mjs";
+import { genVocabulary } from "./gen-vocabulary.mjs";
 import { genLlms } from "./gen-llms.mjs";
 import { genHeaders } from "./gen-headers.mjs";
 import { injectJsonLd } from "./inject-jsonld.mjs";
@@ -26,6 +28,12 @@ console.log(`  token css       ✓  ${c.contract} contract + ${c.neutral} pack t
 
 const t = genTokens(ledger);
 console.log(`  tokens.json     ✓  ${t.contract} contract + ${t.pack} pack tokens (DTCG)`);
+
+const hp = genHandoff();
+console.log(`  handoff pack    ✓  ${hp.components} specs + ${hp.targets} token targets (handoff/verdant)`);
+
+const v = genVocabulary();
+console.log(`  vocabulary      ✓  ${v.components} components (handoff/verdant/vocabulary.json)`);
 
 const l = genLlms(ledger);
 console.log(`  llms.txt        ✓  ${l.prototypes} prototypes`);

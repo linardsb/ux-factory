@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/status-chip.contract.json",
+  "title": "Status",
+  "description": "One care state as the Verdant mock API expresses it (fictional demo data). The shape status-chip binds; plant-card and care-task-row derive it from their own status field.",
+  "type": "object",
+  "required": ["value", "label"],
+  "properties": {
+    "value": { "type": "string", "enum": ["ok", "due", "overdue"], "description": "categorical care state — selects the chip variant" },
+    "label": { "type": "string", "minLength": 1, "description": "visible chip text, e.g. \"OK\", \"DUE\", \"3 DAYS OVERDUE\"" }
+  },
+  "additionalProperties": false
+}

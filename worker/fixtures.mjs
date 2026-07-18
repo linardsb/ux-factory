@@ -8,6 +8,7 @@
 
 import verdantPlants from "../scenarios/verdant/fixtures/plants.json" with { type: "json" };
 import verdantCareTasks from "../scenarios/verdant/fixtures/care-tasks.json" with { type: "json" };
+import verdantReadings from "../scenarios/verdant/fixtures/readings.json" with { type: "json" };
 import fieldworkJobs from "../scenarios/fieldwork/fixtures/jobs.json" with { type: "json" };
 import fieldworkTechnicians from "../scenarios/fieldwork/fixtures/technicians.json" with { type: "json" };
 import fieldworkSchedule from "../scenarios/fieldwork/fixtures/schedule.json" with { type: "json" };
@@ -16,6 +17,7 @@ export const FIXTURES = {
   verdant: {
     plants: verdantPlants,
     "care-tasks": verdantCareTasks,
+    readings: verdantReadings,
   },
   fieldwork: {
     jobs: fieldworkJobs,

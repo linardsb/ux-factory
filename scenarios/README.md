@@ -105,6 +105,19 @@ package whose name **begins with** `<thing>` — e.g. `plantId` → `plants`, `t
 `technicians`, `jobId` → `jobs`. The validator walks and checks these, and also checks that
 every `YYYY-MM-DD`-shaped string is a real calendar date.
 
+**Fixtures carry what the DataContracts promise** (#8): the mock API serves contract-valid
+records, so derived/denormalised fields are baked in — deterministic against the brief's fixed
+fictional `today`, coherence-proven by the validator:
+
+- Verdant `care-tasks`: `plantName` equals the referenced plant's `name`; `status` is
+  `overdue` (due before today) / `due` (due today) / `ok` (future, or `done: true`).
+- Verdant `plants`: `status` is the worst status among the plant's not-done tasks
+  (`overdue` > `due` > `ok`; no open tasks → `ok`).
+- Verdant `readings`: display-values-only sensor pairs
+  (`{ id, plantId, kind: "moisture"|"light", value, unit, label }`) — the stat-tile source.
+- Fieldwork `jobs`: at least one job has `techId: null` — the dispatch board's
+  "Needs assignment" panel must never be able to go silently empty.
+
 ## Who consumes what
 
 | Consumer | Reads |
