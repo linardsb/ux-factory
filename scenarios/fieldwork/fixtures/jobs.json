@@ -76,11 +76,11 @@
     "region": "south",
     "type": "callout",
     "priority": "priority",
-    "status": "scheduled",
-    "scheduledStart": "2026-07-17T10:30:00Z",
+    "status": "en-route",
+    "scheduledStart": "2026-07-14T17:30:00Z",
     "durationMin": 60,
     "techId": "tech-04",
-    "slaDue": "2026-07-20",
+    "slaDue": "2026-07-16",
     "completedAt": null
   },
   {

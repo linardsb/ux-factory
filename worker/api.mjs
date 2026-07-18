@@ -15,7 +15,11 @@ const HEADERS = {
 };
 
 const json = (body, status = 200, extra = {}) =>
-  new Response(JSON.stringify(body), { status, headers: { ...HEADERS, ...extra } });
+  new Response(JSON.stringify(body), {
+    status,
+    // errors are never cached — a mistyped route's 404 must not be replayed for 5 minutes
+    headers: { ...HEADERS, ...(status !== 200 && { "cache-control": "no-store" }), ...extra },
+  });
 
 export default {
   fetch(request) {
