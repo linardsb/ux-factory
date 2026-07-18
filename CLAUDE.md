@@ -14,6 +14,7 @@ system/                     the shipped design system — brand-agnostic core + 
   site.js                   injects chrome (header/footer/nav) from window.CLIENT_CONFIG
   derive.mjs (+ oklch.mjs, wcag.mjs, derive.rules.mjs)   view-time derivation engine: intake answers → token values + WCAG checks + ethics verdict; driven raw by /derive.html, spike runner in tooling/ (epic #1 ticket #3)
   agentic-renderer.mjs + action-bus.mjs   declarative agentic bridge (hand-written canon): vocabulary-validated {name,props,children} → real components (refuses everything else) + one bidirectional action contract (agent/click/keyboard, voice-ready); driven raw by /agentic.html (epic #1 ticket #11)
+  trace-player.mjs          view-time trace replay (hand-written canon): parseTrace + renderTracePlayer render a committed trace as stepped cards in the four PIV acts; driven raw by /trace.html, designed surface = Factory page (epic #1 ticket #5)
   tokens.css / tokens.saulera.css / client.config.js   real packs kept as reference; NOT loaded by the shell
   specs/                    ComponentSpec .md + DataContract .json — the handoff source of truth (format: .claude/references/kb-format.md)
 index.html / 404.html       the neutral site template shell (loads contract + neutral pack + components)
@@ -24,15 +25,18 @@ agent-layer/                build-time Node ESM generators: machine-readable pro
   gen-*.mjs + inject-jsonld.mjs   one file per emitted artifact (canon token CSS, decisions.json, DTCG tokens.json, llms.txt, _headers, JSON-LD); each runnable standalone
 portal/                     local-first workbench (127.0.0.1 only, never deployed)
   server.mjs                zero-dep node:http server — thin route dispatch, logic in lib/
-  lib/                      one concern per module: env.mjs (paths + .env), kb.mjs (card projections), intake.mjs, chat.mjs (Agent SDK behind SSE)
+  lib/                      one concern per module: env.mjs (paths + .env), kb.mjs (card projections), intake.mjs, chat.mjs (Agent SDK behind SSE), trace-recorder.mjs (Agent SDK hooks → Trace JSONL)
   public/                   vanilla SPA — hash routing, template strings, no framework
+  record-trace.mjs          build-time trace recorder run (CLI, not deployed): wraps the Agent SDK in hooks, emits traces/<slug>.raw.jsonl — a REAL agent run (epic #1 ticket #5)
 scenarios/                  scenario packages — the demo subjects + fixtures (format: scenarios/README.md; validate: node scenarios/validate.mjs; check page: /scenarios/check.html)
 worker/                     fixture-backed mock API — public read-only GET, one Cloudflare Worker (cd worker && npx wrangler dev); site degrades to static fixtures via system/scenario-data.mjs
 proto/                      data-connected prototype pages — Verdant phone screen + Fieldwork hybrid canvas (vd-/fw- components implemented to system/specs/; slots for #13)
+traces/                     committed real agent-run traces (format: traces/README.md): raw + curated JSONL pairs from portal/record-trace.mjs; validate: node tooling/validate-trace.mjs; replayed by system/trace-player.mjs
 docs/epics/                 PRD + architecture decisions governing the platform build
 handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs (pack + tokens) · node agent-layer/gen-vocabulary.mjs (vocabulary.json — the agent-ready layer the renderer validates against)
 tooling/mcp/                local MCP helper scripts
 tooling/style-dictionary/   the one dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
+tooling/curate-trace.mjs · validate-trace.mjs   deterministic trace curation (selection + truncation only, rules recorded in meta) + the Trace format's drift guard (candidate CI gate #9)
 ```
 The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + parsers → `.claude/references/kb-format.md`.
 
@@ -46,6 +50,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **View-time behaviour on shipped pages** → a hand-written ES module beside `system/site.js`.
 - **kb record type or field** → `.claude/references/kb-format.md` (both parsers must stay in sync).
 - **New scenario** → clone a `scenarios/<slug>/` package per `scenarios/README.md` + one `scenarios/index.json` entry + its imports in `worker/fixtures.mjs`; the Worker's routes (`worker/api.mjs`) never change.
+- **New trace** → record a REAL run: `node portal/record-trace.mjs` → curate `node tooling/curate-trace.mjs <raw> <out>` → validate `node tooling/validate-trace.mjs`. Hand-writing or hand-editing trace content is forbidden (honesty contract, hard) — a bad run is fixed by a tighter agent prompt + re-run, never an edit.
 - **Platform capability (epic work)** → check `docs/epics/ai-first-ux-factory.architecture.md` first — most "new" pieces are already-decided Missing pieces with format and placement pinned.
 
 ## Ground rules (conventions)
