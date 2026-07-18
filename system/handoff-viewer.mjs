@@ -36,6 +36,9 @@ function el(tag, attrs, ...children) {
 // prepareHandoff(pack, vocab) → { components, composition }. Pure (no DOM) so it runs under
 // Node. Throws a plain Error if the pack is corrupt (it is generated, not user input).
 export function prepareHandoff(pack, vocab) {
+  // Shallow on purpose: pack.json is a trusted, CI-drift-checked generated artifact, not user
+  // input — a top-level shape check is enough. (Deeper than trace-player's parseTrace, which
+  // guards an externally-recorded file.)
   if (!pack || !Array.isArray(pack.components) || !pack.components.length)
     throw new Error("handoff: pack.components missing or empty");
   const vocabComponents = (vocab && vocab.components) || {};
@@ -71,6 +74,9 @@ export function prepareHandoff(pack, vocab) {
 // Inline pass: split on **bold** / `code`, classify each piece, build text/element nodes.
 // Bold and code are never nested in this data, so a single-regex split suffices. Empty
 // strings (between adjacent tokens and at the ends of split()) are skipped.
+// Assumes every `**` in the pack data is a paired bold marker — two `**` with no `*` between
+// them span as one bold run (all committed section bodies have even, adjacent pairs; a future
+// spec edit introducing an unpaired `**` would mis-render).
 function inlineInto(node, text) {
   const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/);
   for (const part of parts) {
