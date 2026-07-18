@@ -10,7 +10,7 @@
   "components": {
     "care-task-row": {
       "class": "vd-care-task-row",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "type": {
           "type": "string",
@@ -113,9 +113,26 @@
         "additionalProperties": false
       }
     },
+    "demo-notice": {
+      "class": "vd-demo-notice",
+      "status": "spec",
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "description": "the scenario's fictionalNotice string, rendered verbatim — never paraphrased or summarized"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "usage": "Component of the Verdant demo scenario (fictional product). This is honesty surface #1: the visible label telling a viewer that the scenario they're looking at — its company, users, plants, data — is invented for the demonstration. It renders whatever `fictionalNotice` string the active scenario's copy carries, nothing more. The composing page decides which scenario is active and where the notice sits in the layout; this component's only job is to display the string it's given, unedited.",
+      "contract": null
+    },
     "plant-card": {
       "class": "vd-plant-card",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "name": {
           "type": "string",
@@ -237,7 +254,7 @@
     },
     "primary-button": {
       "class": "vd-primary-button",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "label": {
           "type": "string",
@@ -262,7 +279,7 @@
     },
     "screen-header": {
       "class": "vd-screen-header",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "title": {
           "type": "string",
@@ -290,7 +307,7 @@
     },
     "stat-tile": {
       "class": "vd-stat-tile",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "kind": {
           "type": "string",
@@ -372,7 +389,7 @@
     },
     "status-chip": {
       "class": "vd-status-chip",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "value": {
           "type": "string",
