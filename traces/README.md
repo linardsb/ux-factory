@@ -15,6 +15,10 @@ trace as stepped annotated cards grouped into the four PIV acts. No live LLM run
 - A trace file is only ever produced by `portal/record-trace.mjs` from a **real** agent run.
   **Never hand-write or hand-edit trace content** — not one line. If a run reads badly, the
   honest fix is a better run (tighter prompts), never an edit.
+- The recorder **redacts secret patterns before any line is written** (`portal/lib/redact.mjs`).
+  Redaction is part of *recording*, not curation — "exactly as recorded" means post-redaction.
+  The rule names ship in every `meta.redaction`; a redacted span reads `[redacted:<rule>]`.
+  Traces recorded before ticket #25 predate this and carry no `redaction` record.
 - Curation is `tooling/curate-trace.mjs` **only** — selection + truncation, never rewriting.
   Every curated `meta` records exactly what curation did (its rule names + counts).
 - **Raw and curated are both committed**, so a reader can diff them and see curation touched
@@ -43,8 +47,12 @@ written to a scratch dir and **never lands here** — this directory holds only 
   "task": "Author the demo-notice ComponentSpec",
   "label": "Real run — raw, uncurated",
   "model": "claude-sonnet-5", "sessionId": "…", "startedAt": "2026-07-17T…Z",
-  "cwd": "/…/ux-factory" }
+  "cwd": "/…/ux-factory",
+  "redaction": { "rules": ["private-key-block", "anthropic-key", "…"] } }
 ```
+
+`redaction` names every rule the recorder ran (recorded on every run, hits or not — the
+per-step `redacted` arrays below carry where a rule actually fired).
 
 A **curated** meta adds a `curation` record and merges the run stats up from the result line:
 
@@ -82,6 +90,20 @@ Trace definition demands (path is repo-relative):
 A failed tool step carries `"ok": false` and `"error"` and is **kept through curation** — a
 check that failed and got fixed is the governance story, not something to hide.
 
+Any step may carry `"redacted": ["<rule>", …]` — the redaction rules that fired on it (its
+strings then contain `[redacted:<rule>]` spans).
+
+A **fence denial** (the run tried something off-fence) is recorded as a step too — the
+governance story deserves the receipt. It carries `"ok": false`, `"denied": true` and the
+fence's message as `"error"`; there is no `response`, `toolUseId` or `artifact` (the tool
+never ran). Denied steps are kept through curation like every failed step:
+
+```json
+{ "type": "step", "seq": 21, "ts": "…Z", "phase": "validate", "kind": "tool",
+  "tool": "Bash", "input": { "command": "echo fence-check" },
+  "ok": false, "denied": true, "error": "The recorded run may only run `node …` via Bash." }
+```
+
 **Last line — `result`**:
 
 ```json
@@ -113,6 +135,7 @@ curation strips them (the `phase` field already carries the tag).
 
 ```bash
 node portal/record-trace.mjs --dry     # smoke test (pennies) → scratch dir, never traces/
+                                       # (provokes + records exactly one fence denial)
 node portal/record-trace.mjs           # the real run → traces/<slug>.raw.jsonl + a ✓ summary
 node tooling/curate-trace.mjs traces/<slug>.raw.jsonl traces/<slug>.jsonl
 node tooling/validate-trace.mjs        # every traces/*.jsonl — one ✓ per file, exit 1 on drift

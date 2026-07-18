@@ -15,6 +15,10 @@
 // player only renders (keeps #10 free to inline or preload). Zero runtime deps — shipped
 // raw via <script type="module">. The designed surface is the Factory page (#10);
 // trace.html is the bare harness. Semantic classes only; the module injects no <style>.
+//
+// Embedding surfaces (#10's Factory page) MUST call the returned `destroy()` before
+// re-rendering or removing the player — the module adds a document-level keydown
+// listener that otherwise stacks.
 
 const ACTS = [['plan', 'Plan'], ['gate', 'Gate'], ['implement', 'Implement'], ['validate', 'Validate']];
 
@@ -102,10 +106,11 @@ export function renderTracePlayer(container, trace) {
   line.append(el('span', 'trace-label', meta.label)); // honesty surface #2 on screen — verbatim
   line.append(el('span', 'muted', meta.model));
   line.append(el('span', 'muted', fmtDate(meta.startedAt)));
-  line.append(el('span', 'muted', `${result.numTurns} turns`));
+  if (Number.isFinite(result.numTurns)) line.append(el('span', 'muted', `${result.numTurns} turns`));
   const dur = fmtDuration(result.durationMs);
   if (dur) line.append(el('span', 'muted', dur));
-  line.append(el('span', 'muted', `~$${Number(result.totalCostUsd ?? 0).toFixed(2)} (SDK estimate)`));
+  if (result.totalCostUsd != null && Number.isFinite(Number(result.totalCostUsd)))
+    line.append(el('span', 'muted', `~$${Number(result.totalCostUsd).toFixed(2)} (SDK estimate)`));
   line.append(el('span', 'muted', `${steps.length} steps`));
   header.append(line);
 

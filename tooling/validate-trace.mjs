@@ -1,7 +1,8 @@
 // tooling/validate-trace.mjs — the Trace format's drift guard (epic #1, ticket #5).
 // Enforces traces/README.md: every line parses; PIV phases occur in order (null phase =
 // fail); every successful Write/Edit pairs an artifact that exists in the repo; the honesty
-// label is present; curated files carry a curation record and no [[piv: remnant. Candidate
+// label is present; curated files carry a curation record and no [[piv: remnant; a
+// redaction record (when present) lists its rules; denied steps are well-formed. Candidate
 // CI gate for #9. No schema library (project rule): hand checks, every throw names
 // file + line + field.  Standalone:  node tooling/validate-trace.mjs [file…]
 // (default: every traces/*.jsonl) — one ✓ line per file, exit 1 on drift.
@@ -32,6 +33,9 @@ export function validateTrace(file) {
   const curated = Boolean(meta.curation);
   if (curated && (!Array.isArray(meta.curation.rules) || !meta.curation.rules.length))
     throw new Error(`${rel}:1: curated meta must list ≥1 curation rule`);
+  // Optional: traces recorded before ticket #25 carry no redaction record (additive).
+  if (meta.redaction && (!Array.isArray(meta.redaction.rules) || !meta.redaction.rules.length || !meta.redaction.rules.every(nonEmpty)))
+    throw new Error(`${rel}:1: meta "redaction.rules" must be a non-empty array of rule names`);
   // A curated trace must derive from ITS committed raw sibling — same recorded session —
   // or the "diff raw vs curated" honesty promise silently breaks (e.g. a --force re-run
   // that was never re-curated leaves run #2's raw beside run #1's curated; both would
@@ -62,6 +66,11 @@ export function validateTrace(file) {
     if (!PHASES.includes(s.phase))
       throw new Error(`${rel}:${ln}: step "phase" (${s.phase}) is not one of ${PHASES.join('|')} — a null phase means the step preceded the first [[piv:plan]] marker`);
     if (!seen.includes(s.phase)) seen.push(s.phase);
+    if (s.denied) {
+      if (s.ok !== false) throw new Error(`${rel}:${ln}: denied step must carry "ok": false`);
+      if (!nonEmpty(s.error)) throw new Error(`${rel}:${ln}: denied step must carry a non-empty "error" (the fence's message)`);
+      if (s.artifact) throw new Error(`${rel}:${ln}: denied step must not carry "artifact" — the tool never ran`);
+    }
     if (s.kind === 'tool' && s.ok && (s.tool === 'Write' || s.tool === 'Edit')) {
       const p = s.artifact?.path;
       if (!nonEmpty(p)) throw new Error(`${rel}:${ln}: successful ${s.tool} step must carry "artifact.path" (step↔artifact pairing)`);

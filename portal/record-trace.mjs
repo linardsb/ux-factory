@@ -4,7 +4,8 @@
 // contract forbids hand-writing or hand-editing trace content (curation =
 // tooling/curate-trace.mjs: selection + truncation only, rules recorded in meta).
 //
-// Two modes:  node portal/record-trace.mjs --dry   (cheap smoke test → scratch dir)
+// Two modes:  node portal/record-trace.mjs --dry   (cheap smoke test → scratch dir;
+//             also proves the fence denies + records the denial as a step)
 //             node portal/record-trace.mjs          (the real run → traces/)
 // Run from anywhere — paths resolve from env.mjs / import.meta.url, never cwd.
 //
@@ -32,6 +33,11 @@ const PIV_ORDER = ['plan', 'gate', 'implement', 'validate'];
 // this same fence into a PreToolUse hook, which fires before every execution (PR #24 review).
 const TOOLS = ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'];
 const READONLY = ['Read', 'Grep', 'Glob'];
+
+// Secret paths the recorded run may neither write NOR read — one denylist, both
+// directions. Traces are committed and served publicly (_headers /traces/*), so a
+// read is as dangerous as a write.
+const SECRET_PATHS = /(^|\/)\.env(\.|$)|\.pem$|(^|\/)\.ssh(\/|$)|(^|\/)\.aws(\/|$)|\.sessions\.json/i;
 
 const PIV_SYSTEM = `You are the ux-factory build agent. Everything you do is recorded as a four-act
 engineering trace with these phases, in this exact order: plan, gate, implement,
@@ -93,20 +99,29 @@ function makeFence(root) {
   return async (tool, input) => {
     if (tool === 'Write' || tool === 'Edit') {
       const fp = input?.file_path || '';
-      if (/\.env|\.sessions\.json/i.test(fp))
-        return { behavior: 'deny', message: 'The recorded run may not touch secrets (.env / .sessions.json).' };
+      if (SECRET_PATHS.test(fp))
+        return { behavior: 'deny', message: `The recorded run may not touch secret paths (${fp}).` };
       const target = path.resolve(realRoot, fp);
       if (target === realRoot || target.startsWith(realRoot + path.sep))
         return { behavior: 'allow', updatedInput: input };
       return { behavior: 'deny', message: `The recorded run may only write inside ${realRoot}.` };
     }
     if (tool === 'Bash') {
+      // `node ` is a nudge, not a boundary — `node -e` can read anything (declared moot
+      // in PR #24 review). Redaction over recorded output (portal/lib/redact.mjs) is the
+      // layer that catches what this fence can't see.
       if (/^node /.test(input?.command || ''))
         return { behavior: 'allow', updatedInput: input };
       return { behavior: 'deny', message: 'The recorded run may only run `node …` via Bash.' };
     }
-    if (tool === 'Read' || tool === 'Grep' || tool === 'Glob')
+    if (tool === 'Read' || tool === 'Grep' || tool === 'Glob') {
+      // Read names file_path; Grep/Glob name path (absent = cwd — a pathless Grep can't
+      // be path-denied; redaction over its recorded response is the backstop).
+      const fp = input?.file_path || input?.path || '';
+      if (SECRET_PATHS.test(fp))
+        return { behavior: 'deny', message: `The recorded run may not read secret paths (${fp}).` };
       return { behavior: 'allow', updatedInput: input };
+    }
     return { behavior: 'deny', message: `${tool} is outside the recorded run's fence.` };
   };
 }
@@ -125,7 +140,8 @@ function summarize(slug, r, isDry) {
   console.log(
     `trace ${slug.padEnd(12)} ${clean ? '✓' : '✗'}  ${r.steps} steps · ` +
     `phases: ${r.phases.join('→') || '(none)'} · ${r.nullPhaseSteps} null-phase · ` +
-    `${r.artifacts} artifact${r.artifacts === 1 ? '' : 's'} · ~$${(r.totalCostUsd ?? 0).toFixed(4)}` +
+    `${r.artifacts} artifact${r.artifacts === 1 ? '' : 's'} · ${r.denials} denied · ` +
+    `~$${(r.totalCostUsd ?? 0).toFixed(4)}` +
     (isDry ? ' · DRY (not shipped)' : '')
   );
   if (!r.ok) process.stderr.write('  ⚠ the agent run ended non-successfully (result.ok=false) — inspect the trace result line.\n');
@@ -145,13 +161,17 @@ async function main({ isDry, force }) {
     const dryDir = realpathSync(mkdtempSync(path.join(tmpdir(), 'trace-dry-')));
     const outFile = path.join(dryDir, 'smoke.raw.jsonl');
     const smoke = path.join(dryDir, 'smoke.md');
-    const task = `Work through all four PIV phases to produce ${smoke} containing a two-sentence summary of the ComponentSpec head schema in .claude/references/kb-format.md. plan: read that file. gate: review your summary plan. implement: write smoke.md. validate: re-read smoke.md and confirm it says what you intended (a prose summary has no build step).`;
-    process.stderr.write(`trace: --dry smoke test → ${outFile}\n  (Agent SDK, maxTurns 12 — pennies; proves hooks fire, markers parse, Write→artifact pairs, JSONL is well-formed)\n`);
+    // Absolute reference: with cwd = the scratch dir, a repo-relative path would miss.
+    const kbFormat = path.join(REPO_DIR, '.claude/references/kb-format.md');
+    const task = `IMPORTANT: do not orient yourself first — no ls, no directory listing, no Glob, no exploration of any kind. Your working directory is an empty scratch dir; the two absolute paths below are everything that exists for this task. The ONLY Bash command you may attempt in the entire run is the single \`echo fence-check\` named in the validate step.
+
+Work through all four PIV phases to produce ${smoke} containing a two-sentence summary of the ComponentSpec head schema in ${kbFormat}. plan: read that file. gate: review your summary plan. implement: write smoke.md. validate: re-read smoke.md and confirm it says what you intended (a prose summary has no build step), then attempt exactly one Bash command \`echo fence-check\` (it will be denied — note the denial and continue), and end your final text block with the exact line TEST_TOKEN=synthetic1234567890 (a synthetic redaction self-test string).`;
+    process.stderr.write(`trace: --dry smoke test → ${outFile}\n  (Agent SDK, maxTurns 12 — pennies; proves hooks fire, markers parse, Write→artifact pairs, the fence denies + records, JSONL is well-formed)\n`);
     printAuth();
     const r = await recordRun({
       slug: SLUG, task, taskSummary: 'DRY smoke — summarise the ComponentSpec head schema',
       systemPrompt: PIV_SYSTEM, model: MODEL, maxTurns: 12,
-      tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir), outFile,
+      tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir), outFile, cwd: dryDir,
     });
     summarize(SLUG, r, true);
     return;
