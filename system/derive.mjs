@@ -99,6 +99,19 @@ export function derive(rawInput, ruleset = RULESET) {
   }
   const accentSecondary = tint(P.accent.secondary);
 
+  // On-inverse accent: lighten (never darken) from the negotiated accent until it
+  // reads AA as text on the derived dark ground (ruleset §palette.accent.onInverse).
+  const oi = P.accent.onInverse;
+  let accOn = { ...acc };
+  while (contrastRatio(oklchToHex(accOn), bgInverse) < oi.min && accOn.l + oi.step <= oi.maxL) {
+    accOn = toGamut({ l: accOn.l + oi.step, c: accOn.c, h: accOn.h });
+  }
+  if (accOn.l - acc.l > 1e-9) {
+    notes.push({ token: "color-accent-on-inverse", action: "lightened-for-contrast", from: round3(acc.l), to: round3(accOn.l),
+      why: `lightness raised until the accent reads ≥ ${oi.min}:1 as text on the dark ground` });
+  }
+  const accentOnInverse = oklchToHex(accOn);
+
   // ---- Scales: table-driven spacing, ratio-driven modular type ramp ----
   const scale = ruleset.scales[input.density];
   const spacingNames = ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl"];
@@ -141,6 +154,7 @@ export function derive(rawInput, ruleset = RULESET) {
     "color-accent-active": accentActive,
     "color-accent-fg": accentFg,
     "color-accent-secondary": accentSecondary,
+    "color-accent-on-inverse": accentOnInverse,
     "color-bg-inverse": bgInverse,
     "color-fg-on-inverse": fgOnInverse,
     "color-fg-on-inverse-strong": P.inverse.fgOnInverseStrong,

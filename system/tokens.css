@@ -95,6 +95,7 @@
   --color-accent-active:    var(--color-mint-act);
   --color-accent-fg:        var(--color-white);     /* text/icon on an accent fill */
   --color-accent-secondary: var(--color-blue);      /* quiet accent, live dots */
+  --color-accent-on-inverse: var(--color-mint);     /* accent as text on navy — 5.36:1, passes AA */
 
   /* Inverse (content sitting on a dark / navy surface) */
   --color-bg-inverse:           var(--color-navy);      /* dark sections, footer */

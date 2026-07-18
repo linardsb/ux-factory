@@ -18,7 +18,8 @@
       "color-accent-hover":     { "$value": "#1d4ed8", "$type": "color" },
       "color-accent-active":    { "$value": "#1e40af", "$type": "color" },
       "color-accent-fg":        { "$value": "#ffffff", "$type": "color" },
-      "color-accent-secondary": { "$value": "#64748b", "$type": "color" }
+      "color-accent-secondary": { "$value": "#64748b", "$type": "color" },
+      "color-accent-on-inverse": { "$value": "#3d7bff", "$type": "color" }
     },
     "inverse": {
       "$description": "Colour: inverse (content on a dark surface)",
@@ -85,6 +86,7 @@
       "color-blue":     { "$value": "#2563eb", "$type": "color", "$description": "plain accent blue — signal" },
       "color-blue-hov": { "$value": "#1d4ed8", "$type": "color" },
       "color-blue-act": { "$value": "#1e40af", "$type": "color" },
+      "color-blue-bright": { "$value": "#3d7bff", "$type": "color", "$description": "lightened accent blue — accent as text on dark" },
       "color-cloud":    { "$value": "#f4f4f5", "$type": "color", "$description": "light surface" },
       "color-line":     { "$value": "#d4d4d8", "$type": "color", "$description": "border grey" },
       "color-white":    { "$value": "#ffffff", "$type": "color" }
@@ -149,7 +151,8 @@
       "color-accent-hover":     { "$value": "{neutral.primitives.color-blue-hov}", "$type": "color" },
       "color-accent-active":    { "$value": "{neutral.primitives.color-blue-act}", "$type": "color" },
       "color-accent-fg":        { "$value": "{neutral.primitives.color-white}",    "$type": "color", "$description": "text/icon on an accent fill" },
-      "color-accent-secondary": { "$value": "{neutral.primitives.color-slate}",    "$type": "color", "$description": "quiet accent, live dots" }
+      "color-accent-secondary": { "$value": "{neutral.primitives.color-slate}",    "$type": "color", "$description": "quiet accent, live dots" },
+      "color-accent-on-inverse": { "$value": "{neutral.primitives.color-blue-bright}", "$type": "color", "$description": "accent as text on the dark ground (footer link hovers, feature-band numeral)" }
     },
     "semantic-inverse": {
       "$description": "Inverse (content sitting on a dark surface)",

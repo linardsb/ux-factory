@@ -9,6 +9,7 @@
   <color name="neutral_primitives_color_blue">#ff2563eb</color>
   <color name="neutral_primitives_color_blue_hov">#ff1d4ed8</color>
   <color name="neutral_primitives_color_blue_act">#ff1e40af</color>
+  <color name="neutral_primitives_color_blue_bright">#ff3d7bff</color>
   <color name="neutral_primitives_color_cloud">#fff4f4f5</color>
   <color name="neutral_primitives_color_line">#ffd4d4d8</color>
   <color name="neutral_primitives_color_white">#ffffffff</color>
@@ -40,6 +41,7 @@
   <color name="neutral_semantic_accent_color_accent_active">#ff1e40af</color>
   <color name="neutral_semantic_accent_color_accent_fg">#ffffffff</color>
   <color name="neutral_semantic_accent_color_accent_secondary">#ff6b7280</color>
+  <color name="neutral_semantic_accent_color_accent_on_inverse">#ff3d7bff</color>
   <color name="neutral_semantic_inverse_color_bg_inverse">#ff1a1a1a</color>
   <color name="neutral_semantic_inverse_color_fg_on_inverse">#fff4f4f5</color>
   <color name="neutral_semantic_inverse_color_fg_on_inverse_strong">#ffffffff</color>

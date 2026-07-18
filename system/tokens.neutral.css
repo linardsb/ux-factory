@@ -22,14 +22,15 @@
 
 :root {
   /* ---- 1. PRIMITIVES — neutral palette (raw values, no brand) ---- */
-  --color-ink:      #1a1a1a;   /* near-black — content base */
-  --color-slate:    #6b7280;   /* mid grey — secondary text */
-  --color-blue:     #2563eb;   /* plain accent blue — signal */
-  --color-blue-hov: #1d4ed8;
-  --color-blue-act: #1e40af;
-  --color-cloud:    #f4f4f5;   /* light surface */
-  --color-line:     #d4d4d8;   /* border grey */
-  --color-white:    #ffffff;
+  --color-ink:         #1a1a1a;   /* near-black — content base */
+  --color-slate:       #6b7280;   /* mid grey — secondary text */
+  --color-blue:        #2563eb;   /* plain accent blue — signal */
+  --color-blue-hov:    #1d4ed8;
+  --color-blue-act:    #1e40af;
+  --color-blue-bright: #3d7bff;   /* lightened accent blue — accent as text on dark */
+  --color-cloud:       #f4f4f5;   /* light surface */
+  --color-line:        #d4d4d8;   /* border grey */
+  --color-white:       #ffffff;
 
   /* ---- Fonts — neutral system stack (a company pack swaps in a real face) ---- */
   --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -82,11 +83,12 @@
   --color-border-strong: var(--color-ink);   /* emphasis / hover borders, thick rules */
 
   /* ---- Accent ---- */
-  --color-accent:           var(--color-blue);   /* signal — fill */
-  --color-accent-hover:     var(--color-blue-hov);
-  --color-accent-active:    var(--color-blue-act);
-  --color-accent-fg:        var(--color-white);   /* text/icon on an accent fill */
-  --color-accent-secondary: var(--color-slate);   /* quiet accent, live dots */
+  --color-accent:            var(--color-blue);   /* signal — fill */
+  --color-accent-hover:      var(--color-blue-hov);
+  --color-accent-active:     var(--color-blue-act);
+  --color-accent-fg:         var(--color-white);   /* text/icon on an accent fill */
+  --color-accent-secondary:  var(--color-slate);   /* quiet accent, live dots */
+  --color-accent-on-inverse: var(--color-blue-bright);   /* accent as text on the dark ground (footer link hovers, feature-band numeral) */
 
   /* ---- Inverse (content sitting on a dark surface) ---- */
   --color-bg-inverse:           var(--color-ink);   /* dark sections, footer */

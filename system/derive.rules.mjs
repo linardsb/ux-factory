@@ -1,4 +1,4 @@
-// system/derive.rules.mjs — the derivation ruleset, v1.1.0 (view-time canon, this repo).
+// system/derive.rules.mjs — the derivation ruleset, v1.2.0 (view-time canon, this repo).
 // THE versioned artifact behind the derivation engine (docs/epics/
 // ai-first-ux-factory.architecture.md §Data model "Derivation rules"; epic #1, ticket #3):
 // every rule the engine applies lives here as inspectable, annotated data — the engine
@@ -16,7 +16,7 @@ const freeze = (o) => {
 };
 
 export const RULESET = freeze({
-  version: "1.1.0", // 1.1.0: accent-secondary held to 4.5 (it IS link text); wcagPairs exclusions corrected (PR #15 review)
+  version: "1.2.0", // 1.2.0: color-accent-on-inverse added — accent-on-dark now a checked pair (issue #17)
 
   /* ------------------------------------------------------------------ palette
    * All targets are OKLCH: l = lightness [0,1], cMax = chroma ceiling, hue is
@@ -53,6 +53,12 @@ export const RULESET = freeze({
       // accent-fg: white wherever white clears AA on the accent fill (the
       // negotiation above makes that the normal case); otherwise the derived fg.
       fgContrastMin: 4.5,
+      // on-inverse accent: accent used as TEXT on the derived dark ground (dark-footer
+      // link hovers, the feature-band numeral — issue #17). LIGHTEN from the negotiated
+      // accent in 0.01 steps until ≥ 4.5:1 vs the derived bg-inverse. maxL is a loop
+      // guard only: as l → 1 the gamut forces chroma → 0 (→ white, ~14:1 on any derived
+      // inverse ground), so convergence is guaranteed well before it.
+      onInverse: { min: 4.5, step: 0.01, maxL: 0.98 },
       secondary: { l: 0.55, cMax: 0.05 }, // quiet accent — live dots, and .lp-local link text (checked at 4.5)
     },
     neutrals: {
@@ -159,15 +165,18 @@ export const RULESET = freeze({
    *     (SC 1.4.11 does not apply).
    *   - the five color-mix() inverse tokens: relative values resolved by the
    *     browser at paint time; a JS checker would need a backdrop assumption.
-   *   - accent on bg-inverse: a single accent token cannot mathematically read
-   *     as AA text on BOTH white and near-black grounds (it would need
-   *     luminance ≤ 0.183 and ≥ 0.141 at once — a ~2-point lightness window
-   *     no brand hue survives). Interactive accent-on-dark states were
-   *     retokenized to checked tokens in the PR #15 review pass; what remains
-   *     (dark-footer link hovers, the feature-band numeral) is decorative
-   *     flavor that is UNCHECKED here and often below AA — tracked in issue
-   *     #17; an on-dark accent variant is the contract extension that fixes
-   *     it, not an engine trick.
+   * Accent on bg-inverse is no longer an exclusion. A single accent token
+   * cannot mathematically read as AA text on BOTH white and near-black
+   * grounds (it would need luminance ≤ 0.183 and ≥ 0.141 at once — a ~2-point
+   * lightness window no brand hue survives) — which is exactly why a separate
+   * on-dark variant exists: color-accent-on-inverse (v1.2.0, resolves issue
+   * #17) is derived by lightening the negotiated accent until it reads AA on
+   * the derived bg-inverse (§palette.accent.onInverse) and is checked below
+   * as a first-class pair. Interactive accent-on-dark states were retokenized
+   * to checked tokens in the PR #15 review pass — except the .btn-ghost hover,
+   * which that audit missed (caught in the PR #29 review) and which now renders
+   * this token; the decorative uses (dark-footer link hovers, the feature-band
+   * numeral) likewise render this checked token.
    */
   wcagPairs: [
     { fg: "color-fg",                   bg: "color-bg",         min: 4.5, usage: "body text on the page ground" },
@@ -179,6 +188,7 @@ export const RULESET = freeze({
     { fg: "color-accent",               bg: "color-bg-surface", min: 4.5, usage: "accent text on cards" },
     { fg: "color-fg-on-inverse",        bg: "color-bg-inverse", min: 4.5, usage: "chrome text on dark sections" },
     { fg: "color-fg-on-inverse-strong", bg: "color-bg-inverse", min: 4.5, usage: "high-contrast text on dark" },
+    { fg: "color-accent-on-inverse",    bg: "color-bg-inverse", min: 4.5, usage: "accent text on dark sections (footer link hovers, feature-band numeral)" },
     { fg: "color-accent-secondary",     bg: "color-bg",         min: 4.5, usage: "quiet accent — live dots, and link text (.lp-local)" },
     { fg: "color-border-strong",        bg: "color-bg",         min: 3.0, usage: "non-text: emphasis borders (SC 1.4.11)" },
   ],

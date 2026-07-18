@@ -90,6 +90,7 @@
   --color-accent-active:    var(--color-amber-act);
   --color-accent-fg:        var(--color-white);      /* text/icon on an accent fill */
   --color-accent-secondary: var(--color-teal);       /* quiet accent, live dots */
+  --color-accent-on-inverse: var(--color-amber);     /* accent as text on deep-ocean — 4.69:1, passes AA */
 
   /* Inverse (content sitting on a dark / deep-ocean surface) */
   --color-bg-inverse:           var(--color-deep-ocean);  /* dark sections, footer */
