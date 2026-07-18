@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agentic-UI study · Linards Berzins</title>
+  <meta name="description" content="A build-time agent composes dispatch-board views from a bounded component vocabulary; the reader adjusts them live and watches the system refuse anything out of vocabulary. Exhibit 02 of the ux-factory." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- agentic-ui-study.html — the designed ask → propose → adjust surface (epic #1, ticket #13).
+       Architecture §Agentic UI (line 23): "the design system built in Exhibit 1 is what makes
+       agentic UI safe in Exhibit 2." This is the DESIGNED successor agentic.html deferred to
+       (that page is the raw harness). Proposals are committed files from real build-time runs
+       (proto/compositions/, gated by spike 6); adjustment + rendering run live in the browser;
+       there is NO live model call at view time (PRD §8, hard). Chrome via site.js; the workbench
+       is drawn by system/agentic-study.mjs from real components + tokens alone. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+
+  <style>
+    /* Study workbench chrome — the tiles inside the preview are real components from tokens.
+       Semantic study-* classes the module (system/agentic-study.mjs) emits, styled here. */
+    .study-notice { font-size: var(--type-caption); color: var(--color-fg-muted); font-style: italic; margin: 0 0 var(--spacing-md); }
+    .study-cap { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-md); margin: 0 0 var(--spacing-lg); }
+    .study-cap p { margin: 0 0 6px; font-size: var(--type-caption); }
+    .study-cap p:last-child { margin: 0; }
+    .study-cap .live { color: var(--color-fg); font-weight: 600; }
+    .study-cap .muted { color: var(--color-fg-muted); }
+
+    .study-block { margin: 0 0 var(--spacing-xl); }
+    .study-eyebrow { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent); margin: 0 0 var(--spacing-sm); }
+    .study-hint { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-md); }
+
+    .study-ask { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    .study-tab { font: inherit; font-size: var(--type-caption); text-align: left; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; max-width: 44ch; }
+    .study-tab:hover { border-color: var(--color-accent); }
+    .study-tab[aria-selected="true"] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%); font-weight: 600; }
+
+    .study-propose { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: var(--spacing-md); align-items: start; }
+    @media (max-width: 720px) { .study-propose { grid-template-columns: 1fr; } }
+    .study-preview-frame { border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-md); }
+    .study-preview--summary-strip { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    .study-preview--summary-strip > * { flex: 1 1 0; min-width: 120px; }
+    .study-preview--insight-panel { display: flex; flex-direction: column; gap: var(--spacing-sm); max-width: 320px; }
+    .study-dump-label { font-size: var(--type-eyebrow); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-fg-muted); margin: 0 0 6px; }
+    .study-dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 0; color: var(--color-fg); }
+
+    .study-controls { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .study-control-row { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
+    .study-control-name { flex: 1 1 12ch; min-width: 12ch; font-size: var(--type-caption); color: var(--color-fg); }
+    .study-select { font: inherit; font-size: var(--type-caption); padding: 6px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-fg); }
+    .study-btn { font: inherit; font-size: var(--type-caption); min-width: 34px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; }
+    .study-btn:hover { border-color: var(--color-accent); }
+    .study-btn--reset { align-self: flex-start; margin-top: var(--spacing-sm); }
+
+    .study-refusal { display: flex; align-items: baseline; gap: var(--spacing-sm); margin-top: var(--spacing-md); padding: 10px 12px; border: 1px solid var(--color-accent); border-left-width: 3px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 6%); }
+    .study-refusal-tag { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent); }
+    .study-refusal-msg { font-size: var(--type-caption); color: var(--color-fg); font-weight: 600; }
+
+    .study-provenance { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
+    .study-prov-label { font-weight: 600; color: var(--color-fg); }
+    .study-empty { font-size: var(--type-caption); color: var(--color-fg-muted); margin: 0; }
+    .study-lineage { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 72ch; }
+  </style>
+</head>
+<body data-page="agentic-ui-study">
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">Work · Exhibit 02</span>
+          <span class="meta"></span>
+        </div>
+        <h1 class="text-balance">Agentic UI, made safe by the <span class="hl">design system</span>.</h1>
+        <p class="hero-sub">
+          A build-time agent composes dispatch-board views from a bounded component vocabulary —
+          the same library that renders this page. Pick a question, see what it proposed, adjust it
+          live within the guardrails, and reach past them: the system refuses anything out of
+          vocabulary and names the exact path. The engineer's role moved up — to designing the
+          vocabulary, the slot bounds, and the review controls.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p class="study-notice" id="notice">Loading the scenario's notice…</p>
+
+        <div class="study-cap" id="capability"><p class="muted">Loading the vocabulary and the committed proposals…</p></div>
+
+        <div id="study"><p class="study-empty">Loading the study…</p></div>
+
+        <p class="study-lineage" id="lineage">
+          Lineage: an agent composing UI from a bounded, declarative component vocabulary is
+          pattern-compatible with emerging agent-UI protocols — Google's
+          <strong>A2UI</strong> and the open <strong>AG-UI</strong> project. The bridge here is a
+          hand-written implementation of that idea against a real design system, not a dependency
+          on either.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
+  <script src="/system/portfolio.js"></script>
+  <script type="module" src="/system/analytics.mjs"></script>
+
+  <script type="module">
+    import { renderStudy } from "/system/agentic-study.mjs";
+    import { createBus } from "/system/action-bus.mjs";
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? "" : s);
+
+    // Honest capability, from RENDERING REALITY — the ds-metric-tile CSS is either loaded or not.
+    function dsCssLoaded() {
+      for (const sheet of document.styleSheets) {
+        let rules; try { rules = sheet.cssRules; } catch { continue; }
+        for (const rule of rules) if (rule.selectorText && rule.selectorText.includes(".ds-metric-tile")) return true;
+      }
+      return false;
+    }
+    function renderCapability(count) {
+      const styled = dsCssLoaded();
+      const cap = $("capability");
+      cap.replaceChildren();
+      const p = (cls, text) => { const n = document.createElement("p"); n.className = cls; n.textContent = text; return n; };
+      cap.appendChild(p("live", `${count} proposals, precomputed from real build-time agent runs (each labeled “real run, curated”). Adjustment + rendering run live in your browser, right now.`));
+      cap.appendChild(p("muted", styled
+        ? "The composed tiles render as real components on real tokens — not mockups; the same library renders this page."
+        : "The metric-tile CSS is not loaded here; tiles render as real, valid DOM bound to tokens — structure complete, visual styling pending the component stylesheet."));
+      cap.appendChild(p("muted", "There is no live model call at view time: the agent ran at build time, you replay and adjust its committed proposals."));
+    }
+
+    try {
+      const [index, vocab, copy] = await Promise.all([
+        fetch("/proto/compositions/index.json").then((r) => { if (!r.ok) throw new Error(`index.json → ${r.status}`); return r.json(); }),
+        fetch("/handoff/verdant/vocabulary.json").then((r) => { if (!r.ok) throw new Error(`vocabulary.json → ${r.status}`); return r.json(); }),
+        fetch("/scenarios/fieldwork/copy.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+      ]);
+
+      $("notice").textContent = copy.fictionalNotice || "Fieldwork is a fictional scenario, invented for this demonstration.";
+
+      // Fetch each proposal + its committed trace's honesty label (the meta line, verbatim).
+      const entries = [];
+      for (const e of index) {
+        const composition = await fetch(e.proposal).then((r) => r.json());
+        let label;
+        try {
+          const firstLine = (await fetch(e.trace).then((r) => r.text())).split("\n").find((l) => l.trim());
+          label = JSON.parse(firstLine).label;
+        } catch { /* provenance label is best-effort */ }
+        entries.push({ ...e, composition, label });
+      }
+
+      renderCapability(entries.length);
+      const bus = createBus();
+      renderStudy($("study"), { vocab, entries, bus });
+    } catch (e) {
+      const cap = $("capability");
+      cap.replaceChildren();
+      const bad = document.createElement("p"); bad.className = "live";
+      bad.textContent = `Could not load the study: ${esc(e.message)}.`;
+      const hint = document.createElement("p"); hint.className = "muted";
+      hint.textContent = "It needs the committed proposals (proto/compositions/) and the vocabulary (node agent-layer/gen-vocabulary.mjs).";
+      cap.append(bad, hint);
+      $("study").replaceChildren();
+    }
+  </script>
+</body>
+</html>
