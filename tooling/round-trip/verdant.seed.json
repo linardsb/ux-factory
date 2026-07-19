@@ -44,5 +44,5 @@
     "type-caption": { "$value": "13px", "$type": "dimension" },
     "type-eyebrow": { "$value": "11px", "$type": "dimension" }
   },
-  "review": { "approved": false, "changedTokens": [], "by": "", "date": "" }
+  "review": { "approved": true, "changedTokens": ["color-accent"], "corrections": { "color-accent": "#2f7a4d" }, "by": "Linards Bērziņš", "date": "2026-07-19" }
 }
