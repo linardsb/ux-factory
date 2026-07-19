@@ -185,7 +185,15 @@ export function diffPackSeed(seed) {
     radius: { usable: radiusUsable, steps: RADIUS_STEPS.map((s, i) => ({ step: s, proposed: proposedValue(seed, s) ?? null, truth: truth[s], px: radiusPx[i] })) },
     aa: aaError ? { error: aaError } : { note: "proposed palette completed with contract fallback for any unproposed token", pairs: aaTable },
     notProposed,
-    verdict: { label, passes, rule: "accent ΔE ≤ 0.05 AND type usable AND spacing usable" },
+    verdict: {
+      label,
+      labelScope: "The fidelity tier the derivation CAPABILITY earns from this measurement (architecture §Spikes 1 decision rule) — NOT a claim that this seed was human-approved. This seed's actual human-gate status is `seedReview` below (and the committed seed's review block).",
+      rule: "accent ΔE ≤ 0.05 AND type usable AND spacing usable",
+      passes,
+    },
+    // The actual human-gate status of THIS seed — reported alongside the fidelity-tier label so a
+    // reader never mistakes the label for a per-seed approval (honesty contract, hard).
+    seedReview: seed?.review ?? null,
     caveat,
   };
 }
@@ -199,8 +207,9 @@ export function diffMarkdown(r) {
     "",
     `Ground truth: \`${r.groundTruth.source}\` (axes \`${r.groundTruth.axes.brandColor}\` / ${r.groundTruth.axes.density} / ${r.groundTruth.axes.rewardType} / ${r.groundTruth.axes.frequency}; ruleset v${r.groundTruth.rulesetVersion}).`,
     "",
-    `**Verdict: ${r.verdict.label}** — rule: ${r.verdict.rule}.`,
+    `**Fidelity tier (capability label, §Spikes 1 rule): ${r.verdict.label}** — rule: ${r.verdict.rule}.`,
     `accent within ${r.accent.threshold} ΔE: ${yn(r.verdict.passes.accentWithin)} · type usable: ${yn(r.verdict.passes.typeUsable)} · spacing usable: ${yn(r.verdict.passes.spacingUsable)}.`,
+    `_This label is the capability's fidelity tier, not this seed's approval. Seed human-gate status: review.approved = ${r.seedReview ? r.seedReview.approved : "n/a"}._`,
     "",
     "### Accent (drives the verdict)",
     "| token | proposed | ground truth | ΔE (OKLab) |",

@@ -409,12 +409,19 @@
   ],
   "verdict": {
     "label": "agent-proposed, human-approved",
+    "labelScope": "The fidelity tier the derivation CAPABILITY earns from this measurement (architecture §Spikes 1 decision rule) — NOT a claim that this seed was human-approved. This seed's actual human-gate status is `seedReview` below (and the committed seed's review block).",
+    "rule": "accent ΔE ≤ 0.05 AND type usable AND spacing usable",
     "passes": {
       "accentWithin": true,
       "typeUsable": true,
       "spacingUsable": true
-    },
-    "rule": "accent ΔE ≤ 0.05 AND type usable AND spacing usable"
+    }
+  },
+  "seedReview": {
+    "approved": false,
+    "changedTokens": [],
+    "by": "",
+    "date": ""
   },
   "caveat": "Verdant is a CLOSED round-trip against the engine's own derive() output — an easy, controlled case: reading a solid accent off a render is near colour-picking, so a near-zero accent ΔE is expected and proves the PIPELINE, not high-fidelity derivation. Neutral tokens are tinted by the engine at sub-perceptual chroma (bgSurface cMax 0.006); a vision agent reads them as plain white/grey, so their ΔE looks large but is perceptually trivial — reported for transparency, EXCLUDED from the verdict. The fidelity claim rests on the offline real-product test (real photography, real published tokens, real ambiguity), recorded in the architecture's §Spikes — not on this number."
 }
