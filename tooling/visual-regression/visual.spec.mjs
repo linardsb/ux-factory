@@ -15,7 +15,14 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const PAGES = [
   { name: 'index',           url: '/index.html',           kind: 'ia' },
   { name: 'approach',        url: '/approach.html',        kind: 'ia' },
-  { name: 'factory',         url: '/factory.html',         kind: 'ia' },
+  // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
+  // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
+  // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
+  // waitReady: the slice-10.2 intake module applies the derived preview AFTER an async module load and
+  // sets [data-reskin] exactly once — wait for that attribute so the derived palette has painted before
+  // capture (deterministic by construction, not by luck). The derived preview is NOT masked — it is what
+  // this slice regression-guards. (#10, slice 10.2)
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: 'iframe.factory-embed', waitReady: '#reskin-preview[data-reskin]' },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
@@ -54,6 +61,9 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
         await page.waitForSelector('#source[data-source="static"]');
         await page.waitForSelector(p.rows);
       }
+      // waitReady (factory only): the async intake module sets [data-reskin] once it has applied the
+      // derived preview — wait for it so the palette swap can't race the capture. (#10, slice 10.2)
+      if (p.waitReady) await page.locator(p.waitReady).first().waitFor({ state: 'attached' });
       await page.evaluate(() => document.fonts.ready);
       // Capture-normalization (makes the capture deterministic; zero visual cost — see below). Both
       // still matter with the integer-viewport capture used at the end: setViewportSize also resizes,
@@ -76,7 +86,10 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
       // take "two consecutive stable screenshots". A fixed integer viewport removes that nondeterminism.
       const h = await page.evaluate(() => Math.ceil(document.documentElement.getBoundingClientRect().height));
       await page.setViewportSize({ width: 1280, height: h });
-      await expect(page).toHaveScreenshot(`${p.name}-${pack}.png`);
+      // p.mask (factory only): paint a solid box over the embed iframes so their async content can't
+      // move the baseline. A locator matching multiple elements masks them all. (#10, slice 10.1)
+      const shotOpts = p.mask ? { mask: [page.locator(p.mask)] } : {};
+      await expect(page).toHaveScreenshot(`${p.name}-${pack}.png`, shotOpts);
     });
   }
 }
