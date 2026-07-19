@@ -1,9 +1,13 @@
-# verify.yml — CI verification gates (epic #1, ticket #9, scoped).
-# Runs the two repo-self-contained gates on push to main + every PR:
+# verify.yml — CI verification gates (epic #1, ticket #9).
+# Runs three gates on push to main + every PR:
 #   drift-check  — regenerates the committed generators/artifacts, fails on any divergence.
 #   token-lint   — undeclared / orphan / DTCG-valid contract checks.
-# The third #9 gate (visual regression — Playwright) is deferred to a follow-up; this
-# workflow does NOT close #9.
+#   visual       — Playwright screenshots of the shipped pages (6 IA + 2 data-connected proto)
+#                  under the neutral pack + one client pack (saulera, applied by swapping the one
+#                  tokens.neutral.css link), pixel-diffed vs committed baselines. Runs in the
+#                  pinned Playwright image so rendering is byte-stable across platforms.
+# The visual gate lands here; #9 stays open pending the deferred interactive-surface follow-up
+# (derive/agentic/trace), so this workflow is Part of #9, not its closure.
 name: verify
 
 on:
@@ -33,3 +37,29 @@ jobs:
         run: node tooling/drift-check.mjs
       - name: Token lint
         run: node tooling/token-lint.mjs
+
+  visual:
+    runs-on: ubuntu-latest
+    # Pinned Playwright image — browsers are baked in at this exact tag; the tag MUST equal the
+    # @playwright/test version pinned in tooling/visual-regression (v1.61.1-jammy ↔ 1.61.1), else
+    # the browser build differs from the one the baselines were rendered against.
+    container: mcr.microsoft.com/playwright:v1.61.1-jammy
+    # Least privilege — checks out code, runs the browser gate, uploads a report artifact on failure.
+    # Never touches the GitHub API; artifact upload needs no contents:write.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Playwright (JS)
+        run: npm ci
+        working-directory: tooling/visual-regression
+      - name: Visual regression
+        run: npx playwright test
+        working-directory: tooling/visual-regression
+      - name: Upload diff report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tooling/visual-regression/playwright-report/
+          retention-days: 7

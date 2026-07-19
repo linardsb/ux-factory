@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { genTokenCss } from "../agent-layer/gen-token-css.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
+import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
 import { validateScenarios } from "../scenarios/validate.mjs";
 import { validateTrace } from "./validate-trace.mjs";
 
@@ -48,6 +49,7 @@ function checkTokenCss() {
 function checkHandoff() {
   genHandoff();
   genVocabulary();
+  genPackBundle(); // bundles the two above — must run last, must be deterministic
   const out = execFileSync("git", ["status", "--porcelain", "--", "handoff/"], {
     cwd: ROOT,
     encoding: "utf8",

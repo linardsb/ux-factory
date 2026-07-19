@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · handoff pack</title>
+  <meta name="description" content="The Verdant handoff pack made legible: each component's spec head, engineer docs, and agent vocabulary side by side from one generated source — plus the whole pack as one download." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Handoff-pack viewer (epic #1, ticket #14; architecture §Data model line 39).
+       Same three layers as every shipped page: contract → neutral pack → components.
+       The page fetches the committed pack.json + vocabulary.json, joins them by component
+       name, and hands the pair to system/handoff-viewer.mjs. Nothing runs live at view time
+       (the pack was generated at build time; the reader reads). The designed surface is the
+       Factory page (ticket #10); this is the standalone deep-linkable viewer. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+
+  <style>
+    /* Viewer layout — the hv-* classes the module emits, styled from tokens alone (the module
+       injects no <style>; #10 will restyle these on the Factory page). Colour/space/radius/type
+       come from var(--…); grid/%/@media are inherently structural literals. */
+    .hv-root { display: flex; flex-direction: column; gap: var(--spacing-2xl, 48px); }
+
+    .hv-eyebrow {
+      text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow);
+      color: var(--color-fg-muted); font-weight: 700;
+    }
+    .hv-contract-link { text-transform: none; letter-spacing: 0; color: var(--color-accent); }
+
+    .hv-composition {
+      border: 1px solid var(--color-border); border-radius: var(--radius-md);
+      background: var(--color-bg-surface); padding: var(--spacing-md);
+      display: flex; flex-direction: column; gap: var(--spacing-sm);
+    }
+
+    .hv-component { border-top: 2px solid var(--color-border); padding-top: var(--spacing-md); }
+    .hv-component-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+    .hv-name { font-size: var(--type-h2); margin: 0; }
+    .hv-class {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption);
+      color: var(--color-fg-muted);
+    }
+    .hv-status {
+      text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--type-eyebrow); font-weight: 700;
+      color: var(--color-fg); background: var(--color-bg-surface);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 8px;
+    }
+
+    /* Three projections, side by side — weighted toward the prose column so the head/vocab
+       JSON rails don't crush the docs. align-items:start keeps the three columns top-aligned. */
+    .hv-grid {
+      display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 0.9fr);
+      gap: var(--spacing-lg); align-items: start; margin-top: var(--spacing-md);
+    }
+    .hv-head, .hv-docs, .hv-vocab { display: flex; flex-direction: column; gap: var(--spacing-sm); min-width: 0; }
+
+    /* JSON rails: a tall entry scrolls INSIDE its cell rather than stretching the row. */
+    .hv-json {
+      margin: 0; overflow: auto; max-height: 34rem;
+      background: var(--color-bg-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: var(--spacing-sm);
+      font-size: 12px; line-height: 1.5;
+    }
+    .hv-json code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+
+    .hv-section-title { font-size: var(--type-h3); margin: var(--spacing-sm) 0 0; }
+    .hv-p { font-size: var(--type-body); line-height: 1.6; margin: 0; }
+    .hv-muted { color: var(--color-fg-muted); }
+    .hv-inline-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+      background: var(--color-bg-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: 0 4px;
+    }
+
+    .hv-list { margin: 0; padding-left: var(--spacing-lg); display: flex; flex-direction: column; gap: var(--spacing-xs, 4px); }
+    .hv-list li { font-size: var(--type-body); line-height: 1.55; }
+
+    .hv-code {
+      margin: 0; overflow-x: auto; background: var(--color-bg); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: var(--spacing-sm); font-size: 12px; line-height: 1.5;
+    }
+    .hv-code code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+
+    .hv-table { border-collapse: collapse; font-size: var(--type-caption); display: block; overflow-x: auto; }
+    .hv-table th, .hv-table td {
+      border: 1px solid var(--color-border); padding: var(--spacing-xs, 4px) var(--spacing-sm);
+      text-align: left; vertical-align: top;
+    }
+    .hv-table th { background: var(--color-bg-surface); }
+
+    /* Page header + the download control. */
+    .hv-page-head { display: flex; flex-direction: column; gap: var(--spacing-md); }
+    .hv-notice { font-size: var(--type-caption); color: var(--color-fg-muted); }
+    .hv-download {
+      display: inline-block; align-self: flex-start;
+      background: var(--color-accent); color: var(--color-accent-fg, #fff);
+      border-radius: var(--radius-md); padding: var(--spacing-sm) var(--spacing-md);
+      font-size: var(--type-body); font-weight: 700; text-decoration: none;
+    }
+    .hv-download:hover { background: var(--color-accent-hover, var(--color-accent)); }
+
+    .hv-error-card { border-color: var(--color-fg); }
+
+    /* Stack the three projections under a narrow width — the JSON rails need the room. */
+    @media (max-width: 1000px) {
+      .hv-grid { grid-template-columns: 1fr; }
+      .hv-json { max-height: 24rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <main>
+    <section class="section">
+      <div class="container">
+        <div class="section-label"><span class="num">04</span><span>The handoff pack</span><span class="line"></span></div>
+
+        <div class="hv-page-head" style="margin-top: var(--spacing-md);">
+          <h1 class="text-balance">The Verdant handoff pack.</h1>
+          <p class="max-prose muted">
+            Typed props and states for every component; data contracts and sample records
+            where a component binds data — enough to wire real data today.
+          </p>
+          <!-- Honesty surface #1 — verbatim fictionalNotice, baked static so it is present and
+               never paraphrased even if the copy.json fetch fails; the fetch re-confirms it. -->
+          <p class="hv-notice" id="fictional-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</p>
+          <a class="hv-download" href="/handoff/verdant/pack.bundle.json" download>Download the handoff pack (specs · data contracts · tokens · vocabulary)</a>
+        </div>
+
+        <div id="viewer" style="margin-top: var(--spacing-2xl, 48px);"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { prepareHandoff, renderHandoffViewer } from "/system/handoff-viewer.mjs";
+
+    const mount = document.getElementById("viewer");
+    const noticeEl = document.getElementById("fictional-notice");
+
+    function errorCard(message) {
+      const card = document.createElement("article");
+      card.className = "card hv-error-card";
+      card.style.padding = "var(--spacing-md)";
+      const h = document.createElement("h3");
+      h.className = "h3"; h.textContent = "Handoff pack unavailable";
+      const p = document.createElement("p");
+      p.className = "muted"; p.style.marginTop = "var(--spacing-sm)"; p.textContent = message;
+      card.append(h, p);
+      return card;
+    }
+
+    // Honesty surface #1 — its own fetch, so it survives a pack/vocab failure. The baked
+    // verbatim string is the source of truth; this only re-confirms it (never paraphrases).
+    fetch("/scenarios/verdant/copy.json")
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((copy) => { if (copy && copy.fictionalNotice) noticeEl.textContent = copy.fictionalNotice; })
+      .catch(() => { /* keep the baked verbatim notice — no paraphrase, ever */ });
+
+    // The viewer — pack + vocab joined; failure shows an error card, notice + download stay put.
+    Promise.all([
+      fetch("/handoff/verdant/pack.json").then((r) => { if (!r.ok) throw new Error(`pack.json → ${r.status}`); return r.json(); }),
+      fetch("/handoff/verdant/vocabulary.json").then((r) => { if (!r.ok) throw new Error(`vocabulary.json → ${r.status}`); return r.json(); }),
+    ])
+      .then(([pack, vocab]) => renderHandoffViewer(mount, prepareHandoff(pack, vocab)))
+      .catch((err) => { mount.textContent = ""; mount.append(errorCard(`Could not load the handoff pack — ${err.message}`)); });
+  </script>
+</body>
+</html>
