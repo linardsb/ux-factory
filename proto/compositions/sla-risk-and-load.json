@@ -1,0 +1,56 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "SLA at risk",
+      "value": "8",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Overdue",
+      "value": "4",
+      "unit": "jobs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "SLA risk concentration — East",
+      "value": "3",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Needs assignment",
+      "value": "5",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Busiest technician — Priya Nair",
+      "value": "5",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Idle technician — Ravi Menon",
+      "value": "0",
+      "unit": "jobs",
+      "tone": "neutral"
+    }
+  }
+]

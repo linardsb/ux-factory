@@ -1,0 +1,35 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Busiest region — North",
+      "value": "11",
+      "unit": "jobs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Open jobs — South",
+      "value": "10",
+      "unit": "jobs"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Open jobs — East",
+      "value": "8",
+      "unit": "jobs"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Open jobs — West",
+      "value": "6",
+      "unit": "jobs"
+    }
+  }
+]

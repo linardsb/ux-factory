@@ -313,6 +313,17 @@ const TEMPLATES = {
       el("h1", { class: "vd-screen-title", text: props.title }),
       trail);
   },
+
+  // Library-generic primitive (ds-, cross-scenario) — the one component both demo scenarios
+  // reuse (ticket #13). Non-interactive like stat-tile (no glyph, no bus); DOM order is
+  // label → value → unit (spec's Accessibility note); tone rides an is-* class for the
+  // warn/critical fill-inversion (neutral = base, no modifier — mirrors stat-tile's one state).
+  "metric-tile": (props) => el("div", { class: `ds-metric-tile${props.tone && props.tone !== "neutral" ? " is-" + props.tone : ""}` },
+    el("p", {},
+      el("span", { class: "ds-metric-label", text: props.label }),
+      el("span", { class: "ds-metric-reading" },
+        el("span", { class: "ds-metric-value", text: String(props.value) }),
+        props.unit != null ? el("span", { class: "ds-metric-unit", text: props.unit }) : null))),
 };
 
 // ---------------------------------------------------------------------------

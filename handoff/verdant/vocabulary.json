@@ -130,6 +130,45 @@
       "usage": "Component of the Verdant demo scenario (fictional product). This is honesty surface #1: the visible label telling a viewer that the scenario they're looking at — its company, users, plants, data — is invented for the demonstration. It renders whatever `fictionalNotice` string the active scenario's copy carries, nothing more. The composing page decides which scenario is active and where the notice sits in the layout; this component's only job is to display the string it's given, unedited.",
       "contract": null
     },
+    "metric-tile": {
+      "class": "ds-metric-tile",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the metric measures, e.g. \"Overdue\", \"Unassigned\" — must read the state without the tone"
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "description": "the computed reading as a display string, e.g. \"4\", \"5 unassigned\", \"94%\" — the tile renders it as-is, no rounding"
+        },
+        "unit": {
+          "type": "string",
+          "required": false,
+          "description": "optional display unit set beside the value, e.g. \"%\", \"jobs\", \"min\""
+        },
+        "tone": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "neutral",
+            "warn",
+            "critical"
+          ],
+          "description": "optional emphasis — redundant weight, never the sole signal (the label + value must already read the state)"
+        }
+      },
+      "states": [
+        "neutral",
+        "warn",
+        "critical"
+      ],
+      "children": [],
+      "usage": "A single computed metric: a label, a value, an optional unit, and an optional emphasis tone. Library-generic — the one primitive both demo scenarios reuse (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). Use it anywhere a dashboard needs a KPI or reading: a horizontal summary strip above a board, a vertical column of readings beside it, the agentic slots in Fieldwork's dispatch canvas. Unlike stat-tile (Verdant, glyph-led, `kind` enum-locked to sensor readings), metric-tile carries no domain vocabulary — the composing agent computes the label and value from the scenario's own data, so one primitive expresses moisture, dispatch load, or anything else a metric can name. The tile displays; it does not judge — tone adds emphasis, never a threshold verdict the label does not already state.",
+      "contract": null
+    },
     "plant-card": {
       "class": "vd-plant-card",
       "status": "shipped",

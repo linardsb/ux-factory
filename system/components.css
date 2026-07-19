@@ -1450,13 +1450,67 @@ p, .body {
 .field textarea { min-height: 90px; resize: vertical; }
 
 /* ==========================================================================
-   SCENARIO PROTOTYPE COMPONENTS — vd-* (Verdant) · fw-* (Fieldwork)
-   Implements system/specs/*.md (epic #1, ticket #8). Token-only: a literal
+   SCENARIO PROTOTYPE COMPONENTS — ds-* (cross-scenario library) · vd-* (Verdant) · fw-* (Fieldwork)
+   Implements system/specs/*.md (epic #1, tickets #8 + #13). Token-only: a literal
    colour here is a bug. Each vd- class matches its spec head's "class" field
    and touches only the tokens its spec lists; state classes mirror the
    spec's named states. fw- board chrome is human-fixed canvas (no specs —
-   see the ticket's scope note); same token discipline.
+   see the ticket's scope note); same token discipline. ds- = a library-generic
+   primitive both scenarios reuse (metric-tile, #13) — not scoped to one scenario.
    ========================================================================== */
+
+/* ---------- ds-metric-tile (system/specs/metric-tile.md) — cross-scenario library primitive ---------- */
+
+.ds-metric-tile {
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+/* DOM order is label → value+unit (screen readers hear "Overdue, 4");
+   column-reverse puts the value visually on top, mirroring vd-stat-tile. */
+.ds-metric-tile p {
+  margin: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--spacing-sm);
+}
+.ds-metric-reading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+.ds-metric-value {
+  font-size: var(--type-h3);
+  font-weight: 600;
+  color: var(--color-fg);
+  line-height: 1;
+}
+.ds-metric-unit {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.ds-metric-label {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+/* Tone = emphasis via fill-inversion on the accent family (no warn/critical hue exists,
+   and none is needed — same escalation mechanic as vd-status-chip due→overdue). Colour is
+   never the sole signal; the label + value carry the state (spec's Accessibility note). */
+.ds-metric-tile.is-warn {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%);
+}
+.ds-metric-tile.is-warn .ds-metric-value { color: var(--color-accent); }
+.ds-metric-tile.is-critical {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+.ds-metric-tile.is-critical .ds-metric-label,
+.ds-metric-tile.is-critical .ds-metric-value,
+.ds-metric-tile.is-critical .ds-metric-unit {
+  color: var(--color-accent-fg);
+}
 
 /* ---------- vd-screen-header (system/specs/screen-header.md) ---------- */
 

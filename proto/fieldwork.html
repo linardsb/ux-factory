@@ -51,6 +51,8 @@
 
   <script type="module">
     import { loadCollection } from "/system/scenario-data.mjs";
+    import { createBus } from "/system/action-bus.mjs";
+    import { renderComposition } from "/system/agentic-renderer.mjs";
 
     const esc = (s) =>
       String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
@@ -138,7 +140,7 @@
           <span class="fw-toolbar-date">Board day: ${esc(TODAY)} — the scenario's fixed fictional today</span>
           ${Object.values(c.regionLabels).map((r) => `<span class="fw-region-chip">${esc(r)}</span>`).join("")}
         </div>
-        ${slot("summary-strip", "A one-line operational summary of this board, composed by the agentic-UI study from the same fixture data (ask → propose → adjust). Planned — not running yet, so this region stays honestly empty.")}
+        ${slot("summary-strip", "Reserved for a precomputed operational summary from the agentic-UI study — adjustable on the study page.")}
         <div class="fw-board-main">
           <div class="vd-stack">
             <section class="fw-panel">
@@ -155,9 +157,33 @@
               <header class="fw-panel-head"><h3 class="fw-panel-title">${esc(c.unassignedHeading)}</h3><span>${unassigned.length}</span></header>
               ${unassigned.map(jobRow).join("")}
             </section>
-            ${slot("insight-panel", "Computed insight over the live board — breach risk, load balance — composed by the agentic-UI study within this bounded region. Planned — not running yet.")}
+            ${slot("insight-panel", "Reserved for a precomputed breach-risk & load insight from the agentic-UI study — adjustable on the study page.")}
           </div>
         </div>`;
+
+      // Fill the two designated agentic slots with the canonical composition proposals from the
+      // agentic-UI study (#13): precomputed real build-time runs, rendered live here via the same
+      // declarative renderer and adjustable on the study page. Degrades to the labeled slot on any
+      // failure — never a broken region; the human-designed board chrome (above) is untouched.
+      const fillSlot = async (id, proposalUrl, vocab, bus) => {
+        const region = board.querySelector(`[data-slot="${id}"]`);
+        if (!region) return;
+        try {
+          const composition = await fetch(proposalUrl).then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+          const fill = document.createElement("div");
+          fill.className = `proto-slot-fill proto-slot-fill--${id}`;
+          fill.appendChild(renderComposition(vocab, composition, bus));
+          const noteEl = region.querySelector(".proto-slot-note");
+          if (noteEl) noteEl.textContent = "A precomputed proposal from the agentic-UI study — a real build-time agent run, adjustable on the study page.";
+          region.appendChild(fill);
+        } catch { /* leave the labeled placeholder — never a broken region */ }
+      };
+      try {
+        const vocab = await fetch("/handoff/verdant/vocabulary.json").then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+        const bus = createBus();
+        await fillSlot("summary-strip", "/proto/compositions/operational-state.json", vocab, bus);
+        await fillSlot("insight-panel", "/proto/compositions/sla-risk-and-load.json", vocab, bus);
+      } catch { /* vocabulary load failed — leave both labeled placeholders */ }
     } catch (e) {
       board.innerHTML = `<p class="fw-job-meta">Could not load the scenario data: ${esc(e.message)}</p>`;
     }
