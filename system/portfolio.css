@@ -33,9 +33,43 @@
   font-size: 14px;
   letter-spacing: 0.08em;
   padding: 14px 20px;
-  transition: top 160ms ease;
+  transition: top var(--motion-fast) var(--motion-ease);
 }
 .skip-link:focus-visible { top: 12px; outline-offset: 0; }
+
+/* ---------- Cross-document view transitions (Chrome 126+ / Safari 18.2+; every
+   other browser keeps today's instant hard navigation — pure enhancement) ---------- */
+
+@view-transition {
+  navigation: auto;
+}
+/* The sticky header is chrome, not content: its own group holds it still while the
+   page crossfades beneath it. The active nav link morphs to its new position (the
+   classic tab slide); the page title morphs between heroes. */
+.site-header { view-transition-name: site-header; }
+.nav-links a.active { view-transition-name: nav-active; }
+.page-hero h1 { view-transition-name: page-title; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-base);
+}
+
+/* The 0.01ms kill-switch above matches elements, not these UA pseudos — reduced
+   motion must silence the navigation animation explicitly. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
+
+/* ---------- Header scroll state (class set by portfolio.js) ---------- */
+
+.site-header {
+  transition: box-shadow var(--motion-fast) var(--motion-ease);
+}
+.site-header.is-scrolled { box-shadow: var(--shadow-md); }
 
 /* ---------- Prose rhythm (base zeroes p margins) ---------- */
 
@@ -110,7 +144,7 @@ a.lineup-item { color: inherit; }
   font-size: 18px;
   color: var(--color-fg-muted);
   transform: translateX(0);
-  transition: transform 200ms ease, color 200ms ease;
+  transition: transform var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
   align-self: center;
 }
 a.lineup-item:hover .lineup-title,
@@ -130,7 +164,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   text-transform: uppercase;
   color: var(--color-fg-muted);
   padding: 10px 12px 10px 0;
-  transition: color 160ms ease;
+  transition: color var(--motion-fast) var(--motion-ease);
 }
 .crumb:hover { color: var(--color-accent); }
 
@@ -165,7 +199,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  transition: border-color 160ms ease, color 160ms ease;
+  transition: border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .cs-jump a:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
@@ -197,7 +231,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   padding: 2px 8px;
   margin-left: 4px;
   white-space: nowrap;
-  transition: border-color 160ms ease, color 160ms ease;
+  transition: border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .fig-zoom:hover .fig-hint {
   border-color: var(--color-border-strong);
@@ -209,7 +243,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 .cs-acc details {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  transition: border-color 160ms ease;
+  transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .cs-acc details:hover, .cs-acc details[open] { border-color: var(--color-border-strong); }
 .cs-acc summary {
@@ -234,7 +268,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   content: "";
   position: absolute;
   background: var(--color-accent);
-  transition: transform 200ms ease;
+  transition: transform var(--motion-base) var(--motion-ease);
 }
 .cs-acc .mark::before { top: 6px; left: 0; width: 14px; height: 2px; }
 .cs-acc .mark::after  { top: 0; left: 6px; width: 2px; height: 14px; }
@@ -315,13 +349,15 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   color: var(--color-accent);
   padding: 9px 15px; /* 10px 16px minus the border, matching .nav-cta metrics */
   white-space: nowrap;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 .nav-links a[href="/system-map.html"]:hover {
   background: transparent;
   border-color: var(--color-border-strong);
   color: var(--color-fg);
 }
+/* the chip carries its own border — no sliding underline on it */
+.nav-links a[href="/system-map.html"]::after { display: none; }
 /* on the page itself, stand down: read like the rest of the nav (amber active underline) */
 .nav-links a[href="/system-map.html"].active,
 .nav-links a[href="/system-map.html"].active:hover {
@@ -358,7 +394,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
-  transition: opacity 160ms ease, transform 160ms ease, background 160ms ease;
+  transition: opacity var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
   z-index: 40;
 }
 .to-top.show {
