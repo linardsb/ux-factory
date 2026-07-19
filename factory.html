@@ -50,6 +50,72 @@
       /* Fieldwork's panels stack on narrow widths → ~2087px; keep it un-clipped there too. */
       .factory-embed-board { height: 2160px; }
     }
+
+    /* Station 1 + 2 intake wizard + live re-skin (slice 10.2) — same token-only discipline as
+       above (colour / space / radius / type via var(--…); grid / flex / px are structural
+       literals). Page-scoped: single-surface styling, not a reused organism. The wizard + the
+       narrative read the PAGE's neutral pack; ONLY #reskin-preview carries the derived tokens
+       the engine emits, so the re-skin stays scoped to the sample. */
+
+    /* fictional-scenario label — honesty surface #1 (this non-iframe surface needs its own) */
+    .fw-scenario { margin-bottom: var(--spacing-xl); max-width: 62ch; color: var(--color-fg-muted); }
+    .fw-scenario-tag {
+      display: inline-block; margin-right: var(--spacing-sm);
+      font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--color-accent); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      padding: 2px 8px;
+    }
+
+    /* wizard card — one decision at a time */
+    .fw-card {
+      background: var(--color-bg-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-md); padding: var(--spacing-xl); max-width: 60ch;
+    }
+    .fw-loading { padding: var(--spacing-lg) 0; }
+    .fw-progress { font-size: var(--type-eyebrow); letter-spacing: 0.1em; color: var(--color-fg-muted); margin: 0 0 var(--spacing-sm); }
+    .fw-prompt { font-size: var(--type-h3); margin: 0 0 var(--spacing-sm); }
+    .fw-reasoning { margin: 0 0 var(--spacing-lg); max-width: 54ch; }
+    .fw-control { margin-bottom: var(--spacing-lg); }
+    .fw-radios { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .fw-radio { display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; }
+    .fw-radio input { accent-color: var(--color-accent); width: 18px; height: 18px; }
+    .fw-color { display: inline-flex; align-items: center; gap: var(--spacing-md); }
+    .fw-color input[type="color"] {
+      width: 56px; height: 40px; padding: 2px; cursor: pointer;
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg);
+    }
+    .fw-color-value { color: var(--color-fg-muted); }
+    .fw-footer { display: flex; gap: var(--spacing-md); }
+
+    /* the re-skin preview frame — the only element carrying the engine's derived tokens */
+    #reskin-preview {
+      margin: var(--spacing-xl) 0; overflow: hidden; background: var(--color-bg);
+      border: 1px solid var(--color-border); border-radius: var(--radius-md);
+      scroll-margin-top: 90px; /* the wizard's "Review" jump clears the sticky header */
+    }
+    #reskin-preview .fw-preview-pad { padding: var(--spacing-xl); }
+    #reskin-preview .feature-band { padding: var(--spacing-2xl) 0; }
+    #reskin-preview .fw-band-inner { padding: 0 var(--spacing-xl); }
+    #reskin-preview .feature-headline { font-size: var(--type-h2); margin-bottom: var(--spacing-lg); }
+
+    /* staged narrative beats */
+    #factory-narrative { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-xl); }
+    .fw-beat-title { display: flex; align-items: baseline; gap: var(--spacing-sm); font-size: var(--type-h3); margin: 0 0 var(--spacing-md); }
+    .fw-beat-num { font-size: var(--type-eyebrow); color: var(--color-accent); letter-spacing: 0.1em; }
+    .fw-beat-sub { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-sm); }
+    .fw-note { margin: 0; }
+    .fw-scale, .fw-verdict { margin: 0; max-width: 62ch; }
+
+    /* WCAG checks table (mirrors derive.html; .ok/.bad read the page accent/fg, never a literal) */
+    .fw-checks { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+    .fw-checks th, .fw-checks td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
+    .fw-checks .ok { color: var(--color-accent); font-weight: 600; }
+    .fw-checks .bad { color: var(--color-fg); font-weight: 700; text-decoration: underline; }
+    .fw-swatch { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--color-border); }
+    .fw-notes, .fw-patterns { margin: 0; padding-left: 1.1em; display: grid; gap: var(--spacing-sm); }
+    .fw-gated { opacity: 0.6; text-decoration: line-through; }
+    .fw-gated-tag { text-decoration: none; margin-left: 8px; padding: 1px 6px; font-size: var(--type-eyebrow); color: var(--color-fg-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+    .fw-raw-pointer { margin-top: var(--spacing-2xl); font-size: var(--type-caption); }
   </style>
 </head>
 <body data-page="factory">
@@ -78,47 +144,74 @@
       </div>
     </section>
 
-    <!-- Station 1 · Intake — in build (the guided wizard lands in a later 10.x slice) -->
+    <!-- Station 1 · Intake — RUNS NOW: the guided wizard drives the real derivation engine (slice 10.2) -->
     <section class="section" id="intake">
       <div class="container">
-        <h2 class="section-label"><span class="num">01</span><span>Intake <span class="capability">In build</span></span><span class="line"></span></h2>
-        <p class="max-prose">
-          A short guided wizard: one decision at a time, each question carrying a recommended default
-          and the reasoning behind it, your overrides kept within safe bounds. Your answers — brand
-          colour, density, reward type, frequency — steer the design system the next station generates.
-          The wizard is landing next.
+        <h2 class="section-label"><span class="num">01</span><span>Intake <span class="capability live">Runs now</span></span><span class="line"></span></h2>
+        <p class="fw-scenario">
+          <strong class="fw-scenario-tag">Fictional scenario</strong> Verdant — a houseplant-care app. The
+          company is invented and labelled as such; the four answers below are real inputs to the live engine.
         </p>
+        <p class="max-prose">
+          A short guided wizard, one decision at a time. Each question carries a recommended default and
+          the reasoning behind it; your overrides stay within the engine's own bounds. Your answers drive
+          the design system the next station generates.
+        </p>
+        <div id="factory-wizard">
+          <p class="fw-loading muted">Loading the intake wizard…</p>
+        </div>
       </div>
     </section>
 
-    <!-- Station 2 · Design-system generation — in build; the engine itself already runs (linked raw) -->
+    <!-- Station 2 · Design-system generation — RUNS NOW: live re-skin + staged narrative (slice 10.2) -->
     <section class="section" id="generation">
       <div class="container">
-        <h2 class="section-label"><span class="num">02</span><span>Design-system generation <span class="capability">In build</span></span><span class="line"></span></h2>
+        <h2 class="section-label"><span class="num">02</span><span>Design-system generation <span class="capability live">Runs now</span></span><span class="line"></span></h2>
         <p class="max-prose">
-          A staged worked example of the brief becoming a design system, with one genuinely live
-          moment: the derivation engine turns your answers into an accessible token palette — WCAG
-          checks shown passing — and re-skins a sample in front of you. The staged surface is landing
-          next; the engine itself already runs, and you can see it raw:
+          Your answers run through the real derivation engine and re-skin the sample below live — brand
+          colour to an accessible palette (with the WCAG contrast checks shown), density to type and
+          spacing scales, reward type to component patterns, frequency to an ethics verdict.
         </p>
-        <div class="lineup">
-          <a class="lineup-item linked" href="/derive">
-            <span class="lineup-n">01</span>
-            <div>
-              <h3 class="lineup-title">The derivation engine, raw <span class="capability live">Runs now</span></h3>
-              <p>An internal harness, not the designed surface: the real view-time engine turning intake answers into token values, with the WCAG contrast checks shown passing.</p>
+
+        <!-- Sample surface: real components. Static in HTML so it renders even if the module is slow or
+             blocked; the module only sets the engine's derived tokens as custom properties on this root,
+             which outrank the contract + pack layers (shape lifted from derive.html). -->
+        <div id="reskin-preview">
+          <div class="fw-preview-pad">
+            <div class="grid grid-3">
+              <article class="card"><div class="card-body">
+                <div class="card-kicker">Card</div>
+                <h3 class="h3 mb-md">Text on a surface</h3>
+                <p class="muted">Muted body text on the derived card surface — one of the checked pairs.</p>
+              </div></article>
+              <article class="card"><div class="card-body">
+                <div class="card-kicker">Accent</div>
+                <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
+                <p class="muted">The accent must survive as text, not just as a fill.</p>
+              </div></article>
+              <article class="card"><div class="card-body">
+                <div class="card-kicker">Buttons</div>
+                <p class="mb-md"><a class="btn btn-primary" href="#generation">Primary</a></p>
+                <p><a class="btn btn-secondary" href="#generation">Secondary</a></p>
+              </div></article>
             </div>
-            <span class="go">→</span>
-          </a>
-          <a class="lineup-item linked" href="/system/tokens.contract.css">
-            <span class="lineup-n">02</span>
-            <div>
-              <h3 class="lineup-title">The token contract <span class="capability live">Runs now</span></h3>
-              <p>Every semantic token components may use — the file a company pack re-skins. Read it straight from this deploy.</p>
+          </div>
+          <!-- Dark band: the inverse group is where bad derivation hides — keep it visible. -->
+          <div class="feature-band">
+            <div class="fw-band-inner">
+              <h3 class="feature-headline">The dark band re-skins too.</h3>
+              <div class="feature-grid cols-2">
+                <div class="feature-item ruled"><h4>Derived ground</h4><p>bg-inverse is the brand hue at near-zero chroma — a tinted near-black, not #000.</p></div>
+                <div class="feature-item ruled"><h4>Relative tokens</h4><p>Muted and hairline values here derive in CSS via color-mix, from the bases the engine emits.</p></div>
+              </div>
             </div>
-            <span class="go">→</span>
-          </a>
+          </div>
         </div>
+
+        <!-- Staged "how it's generated" narrative, rendered from the engine's own output. -->
+        <div id="factory-narrative"></div>
+
+        <p class="muted fw-raw-pointer">The same engine, raw &rarr; <a href="/derive">/derive</a>.</p>
       </div>
     </section>
 
@@ -211,5 +304,6 @@
   <script src="/system/site.js"></script>
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
+  <script type="module" src="/system/factory-intake.mjs"></script>
 </body>
 </html>
