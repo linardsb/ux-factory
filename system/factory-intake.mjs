@@ -257,9 +257,16 @@ function init() {
 
   function renderToggle() {
     if (!toggleMount) return;
+    // a11y: arrow-navigating the radio group fires change → setScenario → this rebuild, which
+    // replaceChildren()s away the radio the user just acted on and drops focus to <body>. Mirror
+    // renderWizard's guard: read focus BEFORE the swap, then restore it to the now-checked radio —
+    // but only if focus was inside the toggle. contains() is false for Safari's mouse-click quirk
+    // (clicking a radio doesn't focus it), so a mouse toggle never gets unwanted focus.
+    const hadFocus = toggleMount.contains(document.activeElement);
     const fieldset = el("fieldset", "fw-toggle");
     fieldset.appendChild(el("legend", "fw-toggle-legend", "Scenario"));
     const group = el("div", "fw-toggle-options");
+    let activeInput;
     for (const slug of Object.keys(SCENARIOS)) {
       const label = el("label", "fw-toggle-option");
       const input = document.createElement("input");
@@ -267,6 +274,7 @@ function init() {
       input.name = "fw-scenario-toggle";
       input.value = slug;
       input.checked = slug === active;
+      if (input.checked) activeInput = input;
       input.addEventListener("change", () => setScenario(slug));
       label.appendChild(input);
       label.appendChild(el("span", "fw-toggle-label", SCENARIOS[slug].label));
@@ -274,6 +282,7 @@ function init() {
     }
     fieldset.appendChild(group);
     toggleMount.replaceChildren(fieldset);
+    if (hadFocus && activeInput) activeInput.focus(); // AFTER it's in the document (focus on a detached node is a no-op)
   }
 
   // The non-wizard per-scenario surfaces. Honesty-surface sweep made mechanical: under either
@@ -465,6 +474,10 @@ function init() {
     let revealBtn;
     const revealPanel = el("div", "fw-reveal");
     revealPanel.hidden = true;
+    // a11y: the reveal appears below the button without moving focus; make it a live region so a
+    // screen-reader user is told the compare-notes content arrived. role="status" implies a polite,
+    // atomic live region; renderReveal unhides it BEFORE inserting content so the change announces.
+    revealPanel.setAttribute("role", "status");
 
     function selectCell(cell, btn) {
       ethicsPlacement = { improvesLives: cell.improvesLives, wouldUseIt: cell.wouldUseIt };
@@ -476,6 +489,9 @@ function init() {
         rec.mark.textContent = on ? "✓ your placement" : ""; // text marker, never colour-only (WCAG)
       }
       if (revealBtn) revealBtn.disabled = false;
+      // If the reveal is already open, re-placing to a different cell must re-derive it — otherwise
+      // the matrix (new cell) and the panel (old placement) contradict each other on screen.
+      if (revealPanel && !revealPanel.hidden) renderReveal(revealPanel, s);
     }
 
     function cellButton(cell) {
@@ -557,8 +573,8 @@ function init() {
     right.appendChild(el("p", "fw-reveal-narrative max-prose", s.ethicsReveal.narrative));
 
     cols.append(left, right);
+    revealPanel.hidden = false; // unhide the live region BEFORE inserting content so role="status" announces the change (matches the error path above)
     revealPanel.replaceChildren(cols);
-    revealPanel.hidden = false;
   }
 
   // Guard native ←/→ nav on the control containers from the trace player's document listener.
