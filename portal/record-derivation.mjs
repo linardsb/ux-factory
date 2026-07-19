@@ -78,36 +78,44 @@ function realTask(repoDir) {
   const seedPath = path.join(repoDir, 'tooling/round-trip/verdant.seed.json');
   const genPack = path.join(repoDir, 'agent-layer/gen-pack-css.mjs');
   const contract = path.join(repoDir, 'system/tokens.source.json');
-  return `Emit [[piv:plan]] BEFORE any tool call (do not orient yourself first — no ls/Glob to discover
-files; the exact paths are below). Then Read the two committed Verdant product screenshots —
-${shotPhone} (the phone screen) and ${shotFull} (the full page): a green-skinned plant-care app.
-Propose a COMPLETE pack seed derived ONLY from those pixels, as DTCG:
+  return `Derive a complete Verdant pack seed from the product screenshots. Work in four PIV phases,
+emitting each marker ALONE on the first line of its own text block, in this order: [[piv:plan]],
+[[piv:gate]], [[piv:implement]], [[piv:validate]]. You already have every path you need below — do
+not search for files.
+
+[[piv:plan]] — your FIRST output is this text block (before any tool call). In it, read exactly
+these three files, in order, and nothing else:
+  1. ${shotPhone}   (the Verdant phone screen)
+  2. ${shotFull}    (the full page)
+  3. ${contract}    (for the contract's leaf token NAMES only)
+Then state the palette, type scale, spacing, and radius you read from the PIXELS and the contract
+token each maps to. The ground-truth Verdant pack, the scenario axes, and the derivation
+engine/ruleset are off-limits (the fence denies them) — propose only from what you see.
+
+[[piv:gate]] — a new text block. Review your mapping: every value justified by a pixel; colours
+#rrggbb; dimensions px or clamp(min,vw,max); fonts a stack. Write nothing in this phase.
+
+[[piv:implement]] — a new text block beginning with the marker; only then Write the seed to
+${seedPath} as DTCG:
 
   { "tokens": {
-      "color-accent":  { "$value": "#2f7a4d", "$type": "color" },
-      "type-body":     { "$value": "16px",    "$type": "dimension" },
-      "font-display":  { "$value": "Inter, system-ui, sans-serif", "$type": "fontFamily" },
+      "color-accent": { "$value": "#2f7a4d", "$type": "color" },
+      "type-body":    { "$value": "16px",    "$type": "dimension" },
+      "font-display": { "$value": "Inter, system-ui, sans-serif", "$type": "fontFamily" },
       …every perceptual contract token…
     },
     "review": { "approved": false, "changedTokens": [], "by": "", "date": "" }
   }
 
-Give a value for every PERCEPTUAL contract token: the palette (foreground, muted, background,
-surface, border, border-strong, white, accent + hover/active/fg/secondary/on-inverse, the three
-inverse tokens), the full type ramp (display…eyebrow), the 8 spacing steps, the 3 radii, and the
-two fonts. Colours as #rrggbb; type/spacing/radius as px or clamp(min,vw,max); fonts as a stack.
-The exact contract token NAMES are the leaf keys of the "contract" group in ${contract} — you MAY
-read that file and system/tokens.contract.css for the names. You may NOT read the ground-truth
-Verdant pack, the scenario axes, or the derivation engine/ruleset — propose only from the pixels
-(the fence will deny those reads).
+Give a value for EVERY perceptual contract token (37 in all): the palette (foreground, muted,
+background, surface, border, border-strong, white, accent + hover/active/fg/secondary/on-inverse,
+and the three inverse tokens), the full type ramp (display…eyebrow), the 8 spacing steps, the 3
+radii, and the two fonts.
 
-Write the seed to ${seedPath}.
-
-Validate by running:  node ${genPack} ${seedPath}
-It throws on an unknown/malformed token and PRINTS which tokens it auto-filled from contract
-defaults. A correct seed auto-fills ONLY the relative/static tokens (the color-mix inverse tokens,
-shadows, maxw, gutter). If it auto-fills any colour/type/spacing/radius/font token, you omitted it
-— add it and re-run until only the relative/static tokens are auto-filled.`;
+[[piv:validate]] — a new text block, then run:  node ${genPack} ${seedPath}  and report the real
+result. It PRINTS which tokens it auto-filled from contract defaults; a correct seed auto-fills only
+the relative/static tokens (the color-mix inverse tokens, shadows, maxw, gutter). If it auto-fills
+any colour/type/spacing/radius/font token — or throws — fix the seed and re-run in this phase.`;
 }
 
 // Write/read/exec fence. writeDir = the ONLY dir writes may land (repo's tooling/round-trip for the

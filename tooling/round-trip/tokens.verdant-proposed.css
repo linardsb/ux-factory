@@ -1,0 +1,73 @@
+/* GENERATED — the "verdant-proposed" token pack. Do not edit by hand.
+ * Emitted by agent-layer/gen-pack-css.mjs from a DTCG seed / token map, reusing the
+ * gen-token-css cssValue emission — so this pack renders identically to contract/neutral.
+ * From tooling/round-trip/verdant.seed.json. Regenerate: node agent-layer/gen-pack-css.mjs tooling/round-trip/verdant.seed.json tooling/round-trip/tokens.verdant-proposed.css
+ * Loads AFTER system/tokens.contract.css, in place of tokens.neutral.css (one <head> line).
+ */
+
+:root {
+  /* ---- Colour: foreground / surface (light context) ---- */
+  --color-fg:            #1a2420;
+  --color-fg-muted:      #5f6b63;
+  --color-bg:            #ffffff;
+  --color-bg-surface:    #eef3ee;
+  --color-border:        #dbe3dc;
+  --color-border-strong: #1f4d33;
+  --color-white:         #ffffff;
+
+  /* ---- Colour: accent ---- */
+  --color-accent:            #2d6a48;
+  --color-accent-hover:      #245536;
+  --color-accent-active:     #1c4229;
+  --color-accent-fg:         #ffffff;
+  --color-accent-secondary:  #3f7d55;
+  --color-accent-on-inverse: #5cbf83;
+
+  /* ---- Colour: inverse (content on a dark surface) ---- */
+  --color-bg-inverse:           #16241a;
+  --color-fg-on-inverse:        #eef3ee;
+  --color-fg-on-inverse-strong: #ffffff;
+  --color-fg-on-inverse-muted:  color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
+  --color-fg-on-inverse-soft:   color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
+  --color-inverse-line:         color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
+  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%, transparent);
+  --color-on-dark-border:       color-mix(in srgb, var(--color-white) 50%, transparent);
+
+  /* ---- Fonts (neutral system stack; a pack picks real faces) ---- */
+  --font-display: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-body:    Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* ---- Spacing (generic 4px scale) ---- */
+  --spacing-xs:  4px;
+  --spacing-sm:  8px;
+  --spacing-md:  16px;
+  --spacing-lg:  24px;
+  --spacing-xl:  32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* ---- Radius (non-zero default: radius is a brand choice, not a base rule) ---- */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 24px;
+
+  /* ---- Shadows (neutral, black-tinted) ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.10);
+
+  /* ---- Layout ---- */
+  --maxw:   1200px;
+  --gutter: 24px;
+
+  /* ---- Type ramp (generic modular scale) ---- */
+  --type-display: clamp(38px, 6vw, 58px);
+  --type-h1:      clamp(30px, 4vw, 40px);
+  --type-h2:      clamp(24px, 2.5vw, 28px);
+  --type-h3:      20px;
+  --type-lead:    18px;
+  --type-body:    16px;
+  --type-caption: 13px;
+  --type-eyebrow: 11px;
+}
