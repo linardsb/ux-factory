@@ -18,11 +18,14 @@ const PAGES = [
   // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
   // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
   // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
+  // slice 10.3: the scenario toggle `hidden`s the inactive proto figure, so mask only the VISIBLE one
+  // (:not([hidden])) — masking a display:none iframe has no box to paint.
   // waitReady: the slice-10.2 intake module applies the derived preview AFTER an async module load and
-  // sets [data-reskin] exactly once — wait for that attribute so the derived palette has painted before
-  // capture (deterministic by construction, not by luck). The derived preview is NOT masked — it is what
-  // this slice regression-guards. (#10, slice 10.2)
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: 'iframe.factory-embed', waitReady: '#reskin-preview[data-reskin]' },
+  // sets [data-reskin] once; the slice-10.3 trace player mounts AFTER an async fetch and sets
+  // [data-trace="ready"] on success. Wait for BOTH so neither async paint can race the capture
+  // (deterministic by construction, not by luck). The derived preview + the trace player are NOT masked
+  // — they are what these slices regression-guard. (#10, slices 10.2 + 10.3)
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]'] },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
@@ -61,9 +64,13 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
         await page.waitForSelector('#source[data-source="static"]');
         await page.waitForSelector(p.rows);
       }
-      // waitReady (factory only): the async intake module sets [data-reskin] once it has applied the
-      // derived preview — wait for it so the palette swap can't race the capture. (#10, slice 10.2)
-      if (p.waitReady) await page.locator(p.waitReady).first().waitFor({ state: 'attached' });
+      // waitReady (factory only): the async intake module sets [data-reskin] and the async trace mount
+      // sets [data-trace="ready"] — wait for every listed selector so neither can race the capture.
+      // A string or an array of selectors is accepted. (#10, slices 10.2 + 10.3)
+      if (p.waitReady) {
+        for (const sel of (Array.isArray(p.waitReady) ? p.waitReady : [p.waitReady]))
+          await page.locator(sel).first().waitFor({ state: 'attached' });
+      }
       await page.evaluate(() => document.fonts.ready);
       // Capture-normalization (makes the capture deterministic; zero visual cost — see below). Both
       // still matter with the integer-viewport capture used at the end: setViewportSize also resizes,
