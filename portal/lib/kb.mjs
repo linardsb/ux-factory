@@ -42,6 +42,22 @@ function parseOutcomes(company) {
   return rows;
 }
 
+// Thin projection of a company-brief record (companies/<slug>/brief.md) — the same
+// physical shape agent-layer/lib.mjs's parseCompanyBrief parses authoritatively (the kb
+// sync rule: both parsers read the shape). Display-only; null when the company has no brief.
+export function parseBrief(slug) {
+  const head = parseFencedJson(read(path.join(COMPANIES_DIR, slug, 'brief.md')));
+  if (!head) return null;
+  const real = head.fictional === false;
+  return {
+    name: head.name || slug,
+    fictional: !real,
+    oneLiner: head.oneLiner || '',
+    sources: Array.isArray(head.sources) ? head.sources : [],
+    provenance: real ? 'real' : 'fictional',
+  };
+}
+
 function scanArtifacts(slug) {
   // md artifacts in the company's working folder (case-insensitive dir match)
   const dir = findCompanyDir(slug);
@@ -118,6 +134,7 @@ export function cardFor(slug, { full = false } = {}) {
     card.notes = section(md, 'Notes');
     const cacheDir = path.join(COMPANIES_DIR, slug, 'cache');
     card.cache = existsSync(cacheDir) ? readdirSync(cacheDir) : [];
+    card.brief = parseBrief(slug); // null unless the company also authored a company-brief record
   }
   return card;
 }

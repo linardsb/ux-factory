@@ -3,10 +3,12 @@
 // No schema library (project rule): boundary checks by hand, every throw names the
 // offending file and field. Axes vocabularies mirror the derivation engine's input
 // contract (#3) so packages and engine can't drift apart silently.
-// Standalone:  node scenarios/validate.mjs   — one ✓ line per package, exit 1 on failure.
+// Standalone:  node scenarios/validate.mjs        — the registry: one ✓ line per package, exit 1 on failure.
+//              node scenarios/validate.mjs <dir>   — one package by path, out of registry (the
+//              company-brief compiler's self-check; no verdict-differ check).
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -60,7 +62,7 @@ function checkBrief(dir, slug) {
     throw new Error(`${path}: json head — ${e.message}`);
   }
   if (head.slug !== slug) throw new Error(`${path}: head slug "${head.slug}" ≠ directory "${slug}"`);
-  if (head.fictional !== true) throw new Error(`${path}: head must declare "fictional": true (honesty contract)`);
+  if (typeof head.fictional !== "boolean") throw new Error(`${path}: head must declare "fictional": true|false (provenance is explicit — honesty contract)`);
   for (const k of ["name", "domain", "oneLiner"])
     if (!nonEmpty(head[k])) throw new Error(`${path}: head "${k}" is missing or empty`);
   if (!isoDay(head.today)) throw new Error(`${path}: head "today" ("${head.today}") is not a YYYY-MM-DD date`);
@@ -98,13 +100,26 @@ function checkIntake(dir) {
   return data;
 }
 
-function checkCopy(dir) {
+function checkCopy(dir, head) {
   const path = join(dir, "copy.json");
   const copy = readJson(path);
-  if (!nonEmpty(copy.fictionalNotice))
-    throw new Error(`${path}: "fictionalNotice" is missing or empty (honesty surface #1)`);
-  if (!/fiction/i.test(copy.fictionalNotice))
-    throw new Error(`${path}: "fictionalNotice" must actually say the scenario is fictional`);
+  // Provenance drives the required honesty surface. Fictional packages carry the
+  // fictional notice; real-provenance packages (fictional: false — compiled from a
+  // company brief, never committed to this repo) must instead carry the speculative-work
+  // disclaimer AND their linked sources.
+  if (head.fictional === false) {
+    if (!nonEmpty(copy.speculativeNotice))
+      throw new Error(`${path}: "speculativeNotice" is missing or empty (real-provenance honesty surface #1)`);
+    if (!/speculative|public statements|not affiliated/i.test(copy.speculativeNotice))
+      throw new Error(`${path}: "speculativeNotice" must carry the speculative-work disclaimer (speculative / public statements / not affiliated)`);
+    if (!Array.isArray(copy.sources) || copy.sources.length === 0 || !copy.sources.every(nonEmpty))
+      throw new Error(`${path}: "sources" must be a non-empty array of non-empty strings (real-provenance packages cite their sources)`);
+  } else {
+    if (!nonEmpty(copy.fictionalNotice))
+      throw new Error(`${path}: "fictionalNotice" is missing or empty (honesty surface #1)`);
+    if (!/fiction/i.test(copy.fictionalNotice))
+      throw new Error(`${path}: "fictionalNotice" must actually say the scenario is fictional`);
+  }
   if (!nonEmpty(copy.ethicsReveal?.verdict) || !nonEmpty(copy.ethicsReveal?.narrative))
     throw new Error(`${path}: "ethicsReveal" needs non-empty "verdict" and "narrative"`);
   return copy;
@@ -245,6 +260,27 @@ const COHERENCE = {
 
 // ---- entry -----------------------------------------------------------------
 
+// Validate one package directory (by path, out of registry) — the single-package body
+// of validateScenarios, factored out so the company-brief compiler
+// (agent-layer/gen-company-package.mjs) can self-validate its emitted package. The
+// cross-scenario verdict-differ check is NOT here — it is inherently multi-package and
+// lives in validateScenarios. Returns the same result-object shape validateScenarios uses.
+export function validatePackage(dir, slug = basename(dir)) {
+  const head = checkBrief(dir, slug);
+  const intake = checkIntake(dir);
+  const copy = checkCopy(dir, head);
+  const collections = checkFixtures(dir);
+  COHERENCE[slug]?.({ dir, head, collections });
+
+  return {
+    slug,
+    verdict: copy.ethicsReveal.verdict,
+    questions: intake.questions.length,
+    collections: Object.keys(collections).length,
+    records: Object.values(collections).reduce((n, r) => n + r.length, 0),
+  };
+}
+
 export function validateScenarios() {
   const registryPath = join(ROOT, "index.json");
   const registry = readJson(registryPath);
@@ -259,20 +295,7 @@ export function validateScenarios() {
       throw new Error(`${registryPath}: every scenario needs slug, name, label`);
     const dir = join(ROOT, slug);
     if (!existsSync(dir)) throw new Error(`${registryPath}: scenario "${slug}" has no ${dir} directory`);
-
-    const head = checkBrief(dir, slug);
-    const intake = checkIntake(dir);
-    const copy = checkCopy(dir);
-    const collections = checkFixtures(dir);
-    COHERENCE[slug]?.({ dir, head, collections });
-
-    results.push({
-      slug,
-      verdict: copy.ethicsReveal.verdict,
-      questions: intake.questions.length,
-      collections: Object.keys(collections).length,
-      records: Object.values(collections).reduce((n, r) => n + r.length, 0),
-    });
+    results.push(validatePackage(dir, slug));
   }
 
   const verdicts = new Set(results.map((r) => r.verdict));
@@ -284,10 +307,16 @@ export function validateScenarios() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const results = validateScenarios();
-    for (const r of results)
+    if (process.argv[2]) {
+      // By-path mode: one package directory, out of registry — no verdict-differ check.
+      const r = validatePackage(resolve(process.argv[2]));
       console.log(`scenario ${r.slug.padEnd(10)} ✓  ${r.questions} questions · ${r.collections} collections · ${r.records} records · verdict: ${r.verdict}`);
-    console.log(`scenarios ${" ".repeat(9)} ✓  verdicts differ: ${results.map((r) => r.verdict).join(" vs ")}`);
+    } else {
+      const results = validateScenarios();
+      for (const r of results)
+        console.log(`scenario ${r.slug.padEnd(10)} ✓  ${r.questions} questions · ${r.collections} collections · ${r.records} records · verdict: ${r.verdict}`);
+      console.log(`scenarios ${" ".repeat(9)} ✓  verdicts differ: ${results.map((r) => r.verdict).join(" vs ")}`);
+    }
   } catch (e) {
     console.error(`scenarios ✗  ${e.message}`);
     process.exit(1);
