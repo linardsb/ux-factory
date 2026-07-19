@@ -1,0 +1,432 @@
+{
+  "spike": "1 — derivation fidelity (Verdant round-trip)",
+  "groundTruth": {
+    "source": "derive(Verdant axes).tokens",
+    "axes": {
+      "brandColor": "#2F7A4D",
+      "density": "comfortable",
+      "rewardType": "self",
+      "frequency": "daily",
+      "improvesLives": true,
+      "wouldUseIt": true
+    },
+    "rulesetVersion": "1.2.0"
+  },
+  "accent": {
+    "token": "color-accent",
+    "proposed": "#2d6a48",
+    "truth": "#2f7a4d",
+    "deltaE": 0.05,
+    "note": null,
+    "threshold": 0.05,
+    "within": true
+  },
+  "accentFamily": [
+    {
+      "token": "color-accent-hover",
+      "proposed": "#245536",
+      "truth": "#1a683d",
+      "deltaE": 0.0598,
+      "note": null
+    },
+    {
+      "token": "color-accent-active",
+      "proposed": "#1c4229",
+      "truth": "#005a2f",
+      "deltaE": 0.0788,
+      "note": null
+    },
+    {
+      "token": "color-accent-fg",
+      "proposed": "#ffffff",
+      "truth": "#ffffff",
+      "deltaE": 0,
+      "note": null
+    },
+    {
+      "token": "color-accent-secondary",
+      "proposed": "#3f7d55",
+      "truth": "#5b7a64",
+      "deltaE": 0.0429,
+      "note": null
+    },
+    {
+      "token": "color-accent-on-inverse",
+      "proposed": "#5cbf83",
+      "truth": "#4c9567",
+      "deltaE": 0.1222,
+      "note": null
+    }
+  ],
+  "neutrals": {
+    "note": "tinted at sub-perceptual chroma by the engine; reported, EXCLUDED from the verdict",
+    "tokens": [
+      {
+        "token": "color-fg",
+        "proposed": "#1a2420",
+        "truth": "#1f2621",
+        "deltaE": 0.0115,
+        "note": null
+      },
+      {
+        "token": "color-fg-muted",
+        "proposed": "#5f6b63",
+        "truth": "#5e6a61",
+        "deltaE": 0.0041,
+        "note": null
+      },
+      {
+        "token": "color-bg",
+        "proposed": "#ffffff",
+        "truth": "#ffffff",
+        "deltaE": 0,
+        "note": null
+      },
+      {
+        "token": "color-bg-surface",
+        "proposed": "#eef3ee",
+        "truth": "#f2f6f3",
+        "deltaE": 0.0107,
+        "note": null
+      },
+      {
+        "token": "color-border",
+        "proposed": "#dbe3dc",
+        "truth": "#cfd6d1",
+        "deltaE": 0.0386,
+        "note": null
+      },
+      {
+        "token": "color-border-strong",
+        "proposed": "#1f4d33",
+        "truth": "#1f2621",
+        "deltaE": 0.1318,
+        "note": null
+      },
+      {
+        "token": "color-white",
+        "proposed": "#ffffff",
+        "truth": "#ffffff",
+        "deltaE": 0,
+        "note": null
+      },
+      {
+        "token": "color-bg-inverse",
+        "proposed": "#16241a",
+        "truth": "#18221b",
+        "deltaE": 0.0087,
+        "note": null
+      },
+      {
+        "token": "color-fg-on-inverse",
+        "proposed": "#eef3ee",
+        "truth": "#ecefed",
+        "deltaE": 0.0107,
+        "note": null
+      },
+      {
+        "token": "color-fg-on-inverse-strong",
+        "proposed": "#ffffff",
+        "truth": "#ffffff",
+        "deltaE": 0,
+        "note": null
+      }
+    ]
+  },
+  "type": {
+    "usable": true,
+    "checks": {
+      "monotonic": true,
+      "bodyInRange": true,
+      "ratiosInBand": true
+    },
+    "ratioBand": [
+      1.05,
+      1.7
+    ],
+    "ratios": [
+      1.45,
+      1.429,
+      1.4,
+      1.111,
+      1.125,
+      1.231,
+      1.182
+    ],
+    "scored": [
+      {
+        "step": "type-h3",
+        "proposed": "20px",
+        "truth": "20px",
+        "proposedPx": 20,
+        "truthPx": 20,
+        "deltaPx": 0
+      },
+      {
+        "step": "type-body",
+        "proposed": "16px",
+        "truth": "16px",
+        "proposedPx": 16,
+        "truthPx": 16,
+        "deltaPx": 0
+      },
+      {
+        "step": "type-caption",
+        "proposed": "13px",
+        "truth": "13px",
+        "proposedPx": 13,
+        "truthPx": 13,
+        "deltaPx": 0
+      },
+      {
+        "step": "type-eyebrow",
+        "proposed": "11px",
+        "truth": "12px",
+        "proposedPx": 11,
+        "truthPx": 12,
+        "deltaPx": -1
+      }
+    ],
+    "unscored": [
+      {
+        "step": "type-display",
+        "proposed": "clamp(38px, 6vw, 58px)",
+        "truth": "clamp(40px, 6vw, 76px)",
+        "note": "vw-sloped clamp — reported, not scored (viewport artifact, GOTCHA 1)"
+      },
+      {
+        "step": "type-h1",
+        "proposed": "clamp(30px, 4vw, 40px)",
+        "truth": "clamp(28px, 4vw, 49px)",
+        "note": "vw-sloped clamp — reported, not scored (viewport artifact, GOTCHA 1)"
+      },
+      {
+        "step": "type-h2",
+        "proposed": "clamp(24px, 2.5vw, 28px)",
+        "truth": "clamp(22px, 2.5vw, 31px)",
+        "note": "vw-sloped clamp — reported, not scored (viewport artifact, GOTCHA 1)"
+      },
+      {
+        "step": "type-lead",
+        "proposed": "18px",
+        "truth": "clamp(14px, 1.5vw, 18px)",
+        "note": "vw-sloped clamp — reported, not scored (viewport artifact, GOTCHA 1)"
+      }
+    ]
+  },
+  "spacing": {
+    "usable": true,
+    "checks": {
+      "monotonic": true,
+      "multiplesOf4": true
+    },
+    "steps": [
+      {
+        "step": "spacing-xs",
+        "proposed": "4px",
+        "truth": "4px",
+        "px": 4
+      },
+      {
+        "step": "spacing-sm",
+        "proposed": "8px",
+        "truth": "8px",
+        "px": 8
+      },
+      {
+        "step": "spacing-md",
+        "proposed": "16px",
+        "truth": "16px",
+        "px": 16
+      },
+      {
+        "step": "spacing-lg",
+        "proposed": "24px",
+        "truth": "24px",
+        "px": 24
+      },
+      {
+        "step": "spacing-xl",
+        "proposed": "32px",
+        "truth": "32px",
+        "px": 32
+      },
+      {
+        "step": "spacing-2xl",
+        "proposed": "48px",
+        "truth": "48px",
+        "px": 48
+      },
+      {
+        "step": "spacing-3xl",
+        "proposed": "64px",
+        "truth": "64px",
+        "px": 64
+      },
+      {
+        "step": "spacing-4xl",
+        "proposed": "96px",
+        "truth": "96px",
+        "px": 96
+      }
+    ]
+  },
+  "radius": {
+    "usable": true,
+    "steps": [
+      {
+        "step": "radius-sm",
+        "proposed": "6px",
+        "truth": "4px",
+        "px": 6
+      },
+      {
+        "step": "radius-md",
+        "proposed": "12px",
+        "truth": "8px",
+        "px": 12
+      },
+      {
+        "step": "radius-lg",
+        "proposed": "24px",
+        "truth": "16px",
+        "px": 24
+      }
+    ]
+  },
+  "aa": {
+    "note": "proposed palette completed with contract fallback for any unproposed token",
+    "pairs": [
+      {
+        "fg": "color-fg",
+        "bg": "color-bg",
+        "min": 4.5,
+        "usage": "body text on the page ground",
+        "ratio": 15.94,
+        "pass": true
+      },
+      {
+        "fg": "color-fg-muted",
+        "bg": "color-bg",
+        "min": 4.5,
+        "usage": "secondary text on the page ground",
+        "ratio": 5.57,
+        "pass": true
+      },
+      {
+        "fg": "color-fg",
+        "bg": "color-bg-surface",
+        "min": 4.5,
+        "usage": "body text on cards / alt sections",
+        "ratio": 14.19,
+        "pass": true
+      },
+      {
+        "fg": "color-fg-muted",
+        "bg": "color-bg-surface",
+        "min": 4.5,
+        "usage": "captions on cards",
+        "ratio": 4.96,
+        "pass": true
+      },
+      {
+        "fg": "color-accent-fg",
+        "bg": "color-accent",
+        "min": 4.5,
+        "usage": "button label on an accent fill",
+        "ratio": 6.43,
+        "pass": true
+      },
+      {
+        "fg": "color-accent",
+        "bg": "color-bg",
+        "min": 4.5,
+        "usage": "accent text / links (.amber) on the page ground",
+        "ratio": 6.43,
+        "pass": true
+      },
+      {
+        "fg": "color-accent",
+        "bg": "color-bg-surface",
+        "min": 4.5,
+        "usage": "accent text on cards",
+        "ratio": 5.72,
+        "pass": true
+      },
+      {
+        "fg": "color-fg-on-inverse",
+        "bg": "color-bg-inverse",
+        "min": 4.5,
+        "usage": "chrome text on dark sections",
+        "ratio": 14.36,
+        "pass": true
+      },
+      {
+        "fg": "color-fg-on-inverse-strong",
+        "bg": "color-bg-inverse",
+        "min": 4.5,
+        "usage": "high-contrast text on dark",
+        "ratio": 16.14,
+        "pass": true
+      },
+      {
+        "fg": "color-accent-on-inverse",
+        "bg": "color-bg-inverse",
+        "min": 4.5,
+        "usage": "accent text on dark sections (footer link hovers, feature-band numeral)",
+        "ratio": 7.1,
+        "pass": true
+      },
+      {
+        "fg": "color-accent-secondary",
+        "bg": "color-bg",
+        "min": 4.5,
+        "usage": "quiet accent — live dots, and link text (.lp-local)",
+        "ratio": 4.91,
+        "pass": true
+      },
+      {
+        "fg": "color-border-strong",
+        "bg": "color-bg",
+        "min": 3,
+        "usage": "non-text: emphasis borders (SC 1.4.11)",
+        "ratio": 9.69,
+        "pass": true
+      }
+    ]
+  },
+  "notProposed": [
+    "color-fg-on-inverse-muted",
+    "color-fg-on-inverse-soft",
+    "color-inverse-line",
+    "color-inverse-wash",
+    "color-on-dark-border",
+    "shadow-sm",
+    "shadow-md",
+    "shadow-lg",
+    "maxw",
+    "gutter"
+  ],
+  "verdict": {
+    "label": "agent-proposed, human-approved",
+    "labelScope": "The fidelity tier the derivation CAPABILITY earns from this measurement (architecture §Spikes 1 decision rule) — NOT a claim that this seed was human-approved. This seed's actual human-gate status is `seedReview` below (and the committed seed's review block).",
+    "rule": "accent ΔE ≤ 0.05 AND type usable AND spacing usable",
+    "passes": {
+      "accentWithin": true,
+      "typeUsable": true,
+      "spacingUsable": true
+    }
+  },
+  "seedReview": {
+    "approved": true,
+    "changedTokens": [
+      "color-accent"
+    ],
+    "corrections": {
+      "color-accent": "#2f7a4d"
+    },
+    "by": "Linards Bērziņš",
+    "date": "2026-07-19"
+  },
+  "caveat": "Verdant is a CLOSED round-trip against the engine's own derive() output — an easy, controlled case: reading a solid accent off a render is near colour-picking, so a near-zero accent ΔE is expected and proves the PIPELINE, not high-fidelity derivation. Neutral tokens are tinted by the engine at sub-perceptual chroma (bgSurface cMax 0.006); a vision agent reads them as plain white/grey, so their ΔE looks large but is perceptually trivial — reported for transparency, EXCLUDED from the verdict. The fidelity claim rests on the offline real-product test (real photography, real published tokens, real ambiguity), recorded in the architecture's §Spikes — not on this number."
+}

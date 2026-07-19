@@ -58,7 +58,10 @@ export function loadSource() {
 
 // One token value → its CSS text. Aliases become var(--leaf); arrays re-join as a
 // font stack (quoting entries with spaces); everything else passes through verbatim.
-function cssValue($value) {
+// Exported for gen-pack-css.mjs (the sibling pack emitter) — same emission path, so a
+// derived pack renders identically to a contract/neutral one. The drift-checked default
+// path (loadSource/genTokenCss/emitCss) is untouched.
+export function cssValue($value) {
   const alias = aliasPath($value);
   if (alias) return `var(--${alias.split(".").pop()})`;
   if (Array.isArray($value)) return $value.map((f) => (/\s/.test(f) ? `"${f}"` : f)).join(", ");

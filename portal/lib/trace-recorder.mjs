@@ -25,8 +25,26 @@ const RESPONSE_CAP = 4000;
 // this scans every line (m flag, g for matchAll) rather than anchoring to the block start.
 const PIV_MARKER = /^[ \t]*\[\[piv:(plan|gate|implement|validate)\]\][ \t]*$/gm;
 
-// Stringify + cap a tool_response; report whether we cut it.
+// Count image blocks in a tool_response. A Read of a PNG (this recorder's vision input —
+// epic #38, ticket #40) comes back as base64 image block(s); a text/JSON response has none.
+// Handles the block-array shape, the { content: [...] } wrapper, and a single block object.
+function countImageBlocks(resp) {
+  if (!resp || typeof resp === 'string') return 0;
+  const arr = Array.isArray(resp) ? resp : Array.isArray(resp.content) ? resp.content : [resp];
+  let n = 0;
+  for (const b of arr) {
+    if (b && typeof b === 'object' && (b.type === 'image' || b.source?.data != null || b.source?.type === 'base64')) n++;
+  }
+  return n;
+}
+
+// Stringify + cap a tool_response; report whether we cut it. An IMAGE response is replaced by a
+// clean placeholder, never the base64 blob: traces are committed and served publicly (_headers
+// /traces/*), so a multi-MB data URI is neither inspectable nor safe to ship. The text/JSON path
+// is byte-identical to before, so pre-existing committed traces re-validate unchanged.
 function capResponse(resp) {
+  const images = countImageBlocks(resp);
+  if (images > 0) return { response: `[image tool_response: ${images} image block(s) — omitted]`, responseTruncated: true };
   const s = resp == null ? '' : typeof resp === 'string' ? resp : JSON.stringify(resp) ?? '';
   if (s.length <= RESPONSE_CAP) return { response: s, responseTruncated: false };
   return { response: s.slice(0, RESPONSE_CAP), responseTruncated: true };

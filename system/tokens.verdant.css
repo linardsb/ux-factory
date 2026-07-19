@@ -1,0 +1,73 @@
+/* GENERATED — the "verdant" token pack. Do not edit by hand.
+ * Emitted by agent-layer/gen-pack-css.mjs from a DTCG seed / token map, reusing the
+ * gen-token-css cssValue emission — so this pack renders identically to contract/neutral.
+ * Canonical Verdant pack — derive(Verdant axes #2F7A4D/comfortable/self/daily from scenarios/verdant/intake.defaults.json). Regenerate: node agent-layer/gen-pack-css.mjs --verdant
+ * Loads AFTER system/tokens.contract.css, in place of tokens.neutral.css (one <head> line).
+ */
+
+:root {
+  /* ---- Colour: foreground / surface (light context) ---- */
+  --color-fg:            #1f2621;
+  --color-fg-muted:      #5e6a61;
+  --color-bg:            #ffffff;
+  --color-bg-surface:    #f2f6f3;
+  --color-border:        #cfd6d1;
+  --color-border-strong: #1f2621;
+  --color-white:         #ffffff;
+
+  /* ---- Colour: accent ---- */
+  --color-accent:            #2f7a4d;
+  --color-accent-hover:      #1a683d;
+  --color-accent-active:     #005a2f;
+  --color-accent-fg:         #ffffff;
+  --color-accent-secondary:  #5b7a64;
+  --color-accent-on-inverse: #4c9567;
+
+  /* ---- Colour: inverse (content on a dark surface) ---- */
+  --color-bg-inverse:           #18221b;
+  --color-fg-on-inverse:        #ecefed;
+  --color-fg-on-inverse-strong: #ffffff;
+  --color-fg-on-inverse-muted:  color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
+  --color-fg-on-inverse-soft:   color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
+  --color-inverse-line:         color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
+  --color-inverse-wash:         color-mix(in srgb, var(--color-fg-on-inverse) 6%, transparent);
+  --color-on-dark-border:       color-mix(in srgb, var(--color-white) 50%, transparent);
+
+  /* ---- Fonts (neutral system stack; a pack picks real faces) ---- */
+  --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body:    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* ---- Spacing (generic 4px scale) ---- */
+  --spacing-xs:  4px;
+  --spacing-sm:  8px;
+  --spacing-md:  16px;
+  --spacing-lg:  24px;
+  --spacing-xl:  32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* ---- Radius (non-zero default: radius is a brand choice, not a base rule) ---- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  /* ---- Shadows (neutral, black-tinted) ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.10);
+
+  /* ---- Layout ---- */
+  --maxw:   1200px;
+  --gutter: 24px;
+
+  /* ---- Type ramp (generic modular scale) ---- */
+  --type-display: clamp(40px, 6vw, 76px);
+  --type-h1:      clamp(28px, 4vw, 49px);
+  --type-h2:      clamp(22px, 2.5vw, 31px);
+  --type-h3:      20px;
+  --type-lead:    clamp(14px, 1.5vw, 18px);
+  --type-body:    16px;
+  --type-caption: 13px;
+  --type-eyebrow: 12px;
+}
