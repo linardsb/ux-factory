@@ -9,7 +9,8 @@ It runs the capability as a **closed round-trip on the fictional Verdant scenari
 
 **This is a controlled, favourable case — read it as such.** The "ground truth" is the engine's
 own `derive(Verdant axes)` output, and reading a solid accent off a clean render is close to a
-colour-picker operation. A near-perfect accent ΔE here proves the **pipeline works end to end**,
+colour-picker operation. A small accent ΔE here (measured **0.05**, right at the threshold — a
+slightly-dark read, not a rigged near-zero) proves the **pipeline works end to end**,
 *not* that derivation is high-fidelity in the wild. The fidelity claim rests on the **offline
 real-product test** (real photography, real published tokens, real ambiguity) — recorded, with
 numbers, in the architecture's §Spikes. The `verdant.diff.json.caveat` says the same.
