@@ -142,6 +142,9 @@ function init() {
       const input = document.createElement("input");
       input.type = "color";
       input.value = answers.brandColor;
+      // a11y: the wrapping <label> also holds the live hex readout (valueSpan), so without an
+      // explicit name the control's accessible name resolves to the hex value, not its purpose.
+      input.setAttribute("aria-label", "Brand colour");
       const valueSpan = el("span", "fw-color-value", answers.brandColor);
       input.addEventListener("input", () => {
         valueSpan.textContent = input.value;
@@ -154,6 +157,9 @@ function init() {
     }
     const group = el("div", "fw-radios");
     group.setAttribute("role", "radiogroup");
+    // a11y: name the group with the step's visible prompt (the h3#fw-prompt rendered above it),
+    // so a screen reader announces the question rather than an unnamed radio group.
+    group.setAttribute("aria-labelledby", "fw-prompt");
     for (const value of ENUM[axis]) {
       const row = el("label", "fw-radio");
       const input = document.createElement("input");
@@ -170,11 +176,14 @@ function init() {
     return wrap;
   }
 
-  function renderWizard() {
+  function renderWizard(focusOnRender) {
     const w = WIZARD[step];
     const card = el("div", "fw-card");
     card.appendChild(el("p", "fw-progress", `${step + 1} / ${WIZARD.length}`));
-    card.appendChild(el("h3", "fw-prompt", w.prompt));
+    const promptEl = el("h3", "fw-prompt", w.prompt);
+    promptEl.id = "fw-prompt";  // stable target for the radiogroup's aria-labelledby
+    promptEl.tabIndex = -1;     // programmatically focusable (out of tab order) so Back/Next can land focus here
+    card.appendChild(promptEl);
     card.appendChild(el("p", "fw-reasoning muted", w.reasoning));
     card.appendChild(renderControl(w.axis));
 
@@ -182,7 +191,7 @@ function init() {
     const back = el("button", "btn btn-secondary", "Back");
     back.type = "button";
     back.disabled = step === 0;
-    back.addEventListener("click", () => { if (step > 0) { step -= 1; renderWizard(); } });
+    back.addEventListener("click", () => { if (step > 0) { step -= 1; renderWizard(true); } });
     const last = step === WIZARD.length - 1;
     const next = el("button", "btn btn-primary", last ? "Review" : "Next");
     next.type = "button";
@@ -190,13 +199,18 @@ function init() {
     // generated result (instant scroll — reduced-motion-safe) rather than dead-ending disabled.
     next.addEventListener("click", () => {
       if (last) previewRoot.scrollIntoView({ block: "start" });
-      else { step += 1; renderWizard(); }
+      else { step += 1; renderWizard(true); }
     });
     footer.appendChild(back);
     footer.appendChild(next);
     card.appendChild(footer);
 
     wizardMount.replaceChildren(card); // replaces the static "Loading…" seed on first mount
+    // a11y: on Back/Next the button that held focus was just destroyed by replaceChildren — move
+    // focus to the new step's heading so keyboard / screen-reader users keep their place. Must run
+    // AFTER the card is in the document (focus on a detached node is a no-op). NOT on the initial
+    // render (called with no arg) — focusing on page load would steal focus + scroll.
+    if (focusOnRender) promptEl.focus();
   }
 
   // --- staged "how it's generated" narrative + WCAG table (rendered from the engine output) --
