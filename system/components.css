@@ -330,18 +330,13 @@ p, .body {
 .nav-links a.active {
   opacity: 1;
 }
-.nav-links a::after {
+.nav-links a.active::after {
   content: "";
   position: absolute;
   left: 0; right: 0; bottom: -2px;
   height: 2px;
   background: var(--color-accent);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform var(--motion-base) var(--motion-ease-spring);
 }
-.nav-links a:hover::after,
-.nav-links a.active::after { transform: scaleX(1); }
 
 .nav-cta {
   font-family: var(--font-display);
@@ -411,7 +406,7 @@ p, .body {
   }
   .nav-panel .nav-links a:active { background: var(--color-border); }
   .nav-panel .nav-links a.active { color: var(--color-accent); }
-  .nav-panel .nav-links a::after { display: none; }
+  .nav-panel .nav-links a.active::after { display: none; }
 
   .nav-panel .nav-cta {
     display: flex;

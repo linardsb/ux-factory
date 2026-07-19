@@ -44,10 +44,9 @@
   navigation: auto;
 }
 /* The sticky header is chrome, not content: its own group holds it still while the
-   page crossfades beneath it. The active nav link morphs to its new position (the
-   classic tab slide); the page title morphs between heroes. */
+   page crossfades beneath it (the nav itself does not animate); the page title
+   morphs between heroes. */
 .site-header { view-transition-name: site-header; }
-.nav-links a.active { view-transition-name: nav-active; }
 .page-hero h1 { view-transition-name: page-title; }
 
 ::view-transition-old(root),
@@ -356,8 +355,6 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   border-color: var(--color-border-strong);
   color: var(--color-fg);
 }
-/* the chip carries its own border — no sliding underline on it */
-.nav-links a[href="/system-map.html"]::after { display: none; }
 /* on the page itself, stand down: read like the rest of the nav (amber active underline) */
 .nav-links a[href="/system-map.html"].active,
 .nav-links a[href="/system-map.html"].active:hover {

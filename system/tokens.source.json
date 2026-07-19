@@ -65,8 +65,7 @@
       "motion-fast":        { "$value": "160ms", "$type": "duration", "$description": "micro feedback — hovers, color/opacity" },
       "motion-base":        { "$value": "200ms", "$type": "duration", "$description": "structural — lifts, slides, panels, page crossfade" },
       "motion-ambient":     { "$value": "3s",    "$type": "duration", "$description": "idle pulses (the hero pill)" },
-      "motion-ease":        { "$value": "ease",  "$type": "easing",   "$description": "default curve" },
-      "motion-ease-spring": { "$value": "linear(0, 0.009, 0.035 4.6%, 0.62 15.7%, 0.833, 0.995 30.1%, 1.064, 1.096 39.3%, 1.087 44%, 1.005 60.1%, 0.995, 1.001 79.6%, 1)", "$type": "easing", "$description": "baked spring, subtle overshoot — emphasis moves" }
+      "motion-ease":        { "$value": "ease",  "$type": "easing",   "$description": "default curve" }
     },
     "layout": {
       "$description": "Layout",
@@ -132,8 +131,7 @@
       "motion-fast":        { "$value": "160ms", "$type": "duration", "$description": "micro feedback — hovers, color/opacity" },
       "motion-base":        { "$value": "200ms", "$type": "duration", "$description": "structural — lifts, slides, panels, page crossfade" },
       "motion-ambient":     { "$value": "3s",    "$type": "duration", "$description": "idle pulses (the hero pill)" },
-      "motion-ease":        { "$value": "ease",  "$type": "easing",   "$description": "default curve" },
-      "motion-ease-spring": { "$value": "linear(0, 0.009, 0.035 4.6%, 0.62 15.7%, 0.833, 0.995 30.1%, 1.064, 1.096 39.3%, 1.087 44%, 1.005 60.1%, 0.995, 1.001 79.6%, 1)", "$type": "easing", "$description": "baked spring, subtle overshoot — emphasis moves" }
+      "motion-ease":        { "$value": "ease",  "$type": "easing",   "$description": "default curve" }
     },
     "layout": {
       "$description": "Layout",
