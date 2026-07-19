@@ -15,7 +15,7 @@
 // Standalone (run from the jobs folder — input paths resolve from cwd; --out is REQUIRED):
 //   node agent-layer/gen-company-package.mjs <brief.md> --out <dir>
 
-import { mkdirSync, writeFileSync, readdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, readdirSync, copyFileSync, existsSync, rmSync, statSync } from "node:fs";
 import path, { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseCompanyBrief } from "./lib.mjs";
@@ -24,6 +24,27 @@ import { validatePackage } from "../scenarios/validate.mjs";
 // Module-relative (NOT cwd): the repo root the privacy guard forbids real packages inside.
 // agent-layer/.. = repo root. cwd is the jobs folder at runtime, so this must not use it.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// Physical-identity containment (inode + device), NOT a lexical string test: is `target` the repo
+// root, or inside it? statSync follows symlinks and collapses filesystem case-folding, so this
+// catches a `--out` that reaches the repo via a symlink or a differently-cased path — both of which
+// a lexical `startsWith` misses, and which realpathSync also misses for case (it does not fold case
+// on APFS). `target` may not exist yet (we are about to create it), so stat only its existing
+// ancestors, walking up to the filesystem root. Deliberately stricter than portal/server.mjs's
+// lexical idiom — the two no longer share a containment implementation, and that is intentional.
+function insideRepo(target) {
+  const root = statSync(REPO_ROOT); // the repo root always exists
+  let cur = resolve(target);
+  while (true) {
+    if (existsSync(cur)) {
+      const s = statSync(cur);
+      if (s.ino === root.ino && s.dev === root.dev) return true;
+    }
+    const parent = dirname(cur);
+    if (parent === cur) return false; // reached the filesystem root
+    cur = parent;
+  }
+}
 
 // The canonical 8-question skeleton. Verified identical (stage/question/asked/bounds) across
 // scenarios/verdant + scenarios/fieldwork — only default/reasoning/axes are per-company. So the
@@ -57,10 +78,12 @@ export function genCompanyPackage({ briefPath, outDir }) {
   const { head, sections, dir } = parseCompanyBrief(briefPath);
   const outAbs = path.resolve(outDir, head.slug);
 
-  // Privacy guard (mirrors portal/server.mjs containment, inverted) — BEFORE any write.
-  // `+ path.sep` so a sibling like ../ux-factory-real/ is not false-blocked.
-  if (head.fictional === false && (outAbs === REPO_ROOT || outAbs.startsWith(REPO_ROOT + path.sep)))
-    throw new Error(`gen-company-package: refusing to write real-brand package "${head.slug}" inside the public repo (${outAbs}) — real packages compile to the jobs-folder build target (privacy boundary, per-company-brief.architecture.md §Boundaries)`);
+  // Privacy guard — refuse writing a real (fictional: false) package into the public repo, BEFORE
+  // any write. Physical-identity containment (see insideRepo) so a symlinked or differently-cased
+  // --out that resolves into the repo is refused too, not just a literal in-repo path. A genuine
+  // sibling like ../ux-factory-real/ has a distinct inode, so it is not false-blocked.
+  if (head.fictional === false && insideRepo(outAbs))
+    throw new Error(`gen-company-package: refusing to write real-brand package "${head.slug}" into ${outAbs} — it resolves inside the public repo (${REPO_ROOT}); real packages compile to the jobs-folder build target (privacy boundary, per-company-brief.architecture.md §Boundaries)`);
 
   // The optional token-pack reference must exist BEFORE we create/write anything — fail-before-write
   // like the guard above, so a missing referenced file never leaves a half-written package on disk.
