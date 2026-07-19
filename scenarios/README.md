@@ -15,6 +15,16 @@ where habit mechanics would be inappropriate. The validator enforces that the ve
 in the brief's JSON head, a non-empty `fictionalNotice` in `copy.json`, rendered wherever the
 scenario appears.
 
+**Provenance.** Fictional and real subjects are the *same package format* with different labels. The
+two packages committed here are fictional (`fictional: true`). A real company can also become a
+package — compiled from a company-brief record by `agent-layer/gen-company-package.mjs` (epic #38) —
+carrying `fictional: false`; its honesty surface is a `speculativeNotice` + linked `sources` in
+`copy.json` in place of the `fictionalNotice` (speculative work based on the company's public
+statements, not affiliated with or endorsed by them). **Real-provenance packages are never committed
+to this repo** — it is public and inspectable, so the compiler enforces a privacy boundary that
+refuses to write one inside the repo. They are validated out of registry, by path:
+`node scenarios/validate.mjs <dir>` (also the compiler's own self-check) — no `index.json` entry.
+
 ## Package layout
 
 ```
@@ -43,6 +53,8 @@ machine head, prose under `##` headings.
 Head: `{ "slug", "name", "fictional": true, "domain", "oneLiner", "today" }` — `slug` must match
 the directory; `today` is the scenario's fixed fictional current date (fixtures use absolute dates
 coherent with it — committed data must stay coherent forever, so no relative dates anywhere).
+`fictional` is a required boolean: `true` for the committed fictional scenarios; a real-provenance
+package (compiled from a company brief, never committed here) sets it `false` (see **Provenance** above).
 
 Required sections: `## Product` · `## Users` · `## Problem` · `## Behaviour model` ·
 `## Ethics position`. The Behaviour-model section argues the frequency-filter reading; the
@@ -82,7 +94,10 @@ Ethics-position section states the verdict the copy's `ethicsReveal` renders.
 Flat string map. Required: `fictionalNotice` (non-empty — honesty surface #1) and
 `ethicsReveal: { "verdict", "narrative" }` (the guess-then-reveal moment's payload; the two
 shipped scenarios' verdicts must differ). Everything else — `tagline`, `stations.*`, prototype
-strings — is free-form content #10 and #8 render.
+strings — is free-form content #10 and #8 render. In a real-provenance package (`fictional: false`,
+never committed here) the required honesty surface is instead `speculativeNotice` (carrying the
+speculative-work disclaimer) + a non-empty `sources` array; `validate.mjs` enforces whichever the
+provenance declares.
 
 ### `proto.config.json`
 
