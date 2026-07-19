@@ -2,7 +2,7 @@
 // Zero dependencies — Node built-ins only. Run from the jobs folder (paths resolve from cwd).
 
 import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 const unquote = (s) => s.trim().replace(/^["'](.*)["']$/s, "$1").trim();
 
@@ -149,6 +149,12 @@ export function parseCompanyBrief(briefPath) {
     throw new Error(`${briefPath}: head "today" ("${head.today}") is not a YYYY-MM-DD date`);
   if (head.fictional === false && (!Array.isArray(head.sources) || !head.sources.length || !head.sources.every(ne)))
     throw new Error(`${briefPath}: a real-provenance brief (fictional: false) needs head "sources" — a non-empty array of non-empty URLs`);
+  // publishedTokens (optional) — a repo-relative filename the compiler copies through verbatim.
+  // Validate its shape here (single-sourced with the other head checks): a non-string, an absolute
+  // path, or any ".." would let the compiler's copyFileSync write outside the package directory.
+  if (head.publishedTokens &&
+      (typeof head.publishedTokens !== "string" || head.publishedTokens.includes("..") || isAbsolute(head.publishedTokens)))
+    throw new Error(`${briefPath}: head "publishedTokens" must be a repo-relative filename with no ".." (got ${JSON.stringify(head.publishedTokens)})`);
 
   if (!head.axes || typeof head.axes !== "object" || Array.isArray(head.axes))
     throw new Error(`${briefPath}: head "axes" must be an object`);

@@ -62,6 +62,13 @@ export function genCompanyPackage({ briefPath, outDir }) {
   if (head.fictional === false && (outAbs === REPO_ROOT || outAbs.startsWith(REPO_ROOT + path.sep)))
     throw new Error(`gen-company-package: refusing to write real-brand package "${head.slug}" inside the public repo (${outAbs}) — real packages compile to the jobs-folder build target (privacy boundary, per-company-brief.architecture.md §Boundaries)`);
 
+  // The optional token-pack reference must exist BEFORE we create/write anything — fail-before-write
+  // like the guard above, so a missing referenced file never leaves a half-written package on disk.
+  // Its shape (repo-relative, no ".."/absolute) is already enforced by parseCompanyBrief.
+  const tokensSrc = head.publishedTokens ? join(dir, head.publishedTokens) : null;
+  if (tokensSrc && !existsSync(tokensSrc))
+    throw new Error(`gen-company-package: publishedTokens source "${head.publishedTokens}" not found at ${tokensSrc} (referenced by ${briefPath})`);
+
   // Overwrite in place (the writeFileSync/copyFileSync below), do NOT pre-clear the directory:
   // an unconditional recursive delete of a user-supplied outDir/<slug> is a footgun — a mistyped
   // --out or a slug colliding with an existing directory would erase it (e.g. `--out .` + a slug
@@ -116,10 +123,10 @@ export function genCompanyPackage({ briefPath, outDir }) {
     for (const f of readdirSync(fixturesSrc))
       if (f.endsWith(".json")) copyFileSync(join(fixturesSrc, f), join(outAbs, "fixtures", f));
 
-  // token-pack reference (optional) — copy a pre-existing published-tokens CSS through verbatim.
-  // No derivation here (that is #40); this is the copy-through the ticket scopes.
-  if (head.publishedTokens)
-    copyFileSync(join(dir, head.publishedTokens), join(outAbs, head.publishedTokens));
+  // token-pack reference (optional) — copy the pre-existing published-tokens CSS through verbatim
+  // (source existence checked before any write, above). No derivation here (that is #40).
+  if (tokensSrc)
+    copyFileSync(tokensSrc, join(outAbs, head.publishedTokens));
 
   // Self-validate the emitted package by path. A throw means it is not a valid package, so
   // discard the output — never leave a half-written package on disk (critical for a real compile

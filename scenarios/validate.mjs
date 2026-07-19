@@ -270,7 +270,15 @@ export function validatePackage(dir, slug = basename(dir)) {
   const intake = checkIntake(dir);
   const copy = checkCopy(dir, head);
   const collections = checkFixtures(dir);
-  COHERENCE[slug]?.({ dir, head, collections });
+  // A COHERENCE profile is keyed by slug and assumes that scenario's committed fixture shape
+  // (verdant → collections.plants, …). Reached by-path or via the company-brief compiler, an
+  // arbitrary package slugged "verdant"/"fieldwork" hits it without that shape and would throw a
+  // raw, path-less TypeError — name the failure so it keeps this file's throw-names-the-path rule.
+  try {
+    COHERENCE[slug]?.({ dir, head, collections });
+  } catch (e) {
+    throw new Error(`${dir}: coherence profile "${slug}" — ${e.message}`);
+  }
 
   return {
     slug,
