@@ -1,0 +1,42 @@
+[
+  {
+    "id": "item-01",
+    "title": "The Overstory",
+    "author": "Richard Powers",
+    "addedOn": "2026-05-28",
+    "lastReadOn": "2026-07-18",
+    "pagesRead": 402,
+    "pagesTotal": 502,
+    "status": "reading"
+  },
+  {
+    "id": "item-02",
+    "title": "Braiding Sweetgrass",
+    "author": "Robin Wall Kimmerer",
+    "addedOn": "2026-06-15",
+    "lastReadOn": "2026-07-17",
+    "pagesRead": 88,
+    "pagesTotal": 391,
+    "status": "reading"
+  },
+  {
+    "id": "item-03",
+    "title": "Piranesi",
+    "author": "Susanna Clarke",
+    "addedOn": "2026-04-02",
+    "lastReadOn": "2026-06-30",
+    "pagesRead": 245,
+    "pagesTotal": 245,
+    "status": "finished"
+  },
+  {
+    "id": "item-04",
+    "title": "A Psalm for the Wild-Built",
+    "author": "Becky Chambers",
+    "addedOn": "2026-07-10",
+    "lastReadOn": "2026-07-19",
+    "pagesRead": 34,
+    "pagesTotal": 160,
+    "status": "reading"
+  }
+]

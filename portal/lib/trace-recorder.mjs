@@ -166,13 +166,21 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
   try {
     for await (const msg of q) {
       if (msg.type === 'system' && msg.subtype === 'init') {
+        // Redact the two human-authored label fields too (the PR #28 meta gap #13 closes):
+        // #13 derives slug + task from a free-form question, so a secret pasted into a
+        // question must not survive into the meta line. Const-string call sites
+        // (record-trace.mjs) match no rule → existing traces stay byte-identical.
+        const mslug = redactString(slug);
+        const mtask = redactString(taskSummary);
+        const metaRedacted = [...new Set([...mslug.rules, ...mtask.rules])];
         write({
-          type: 'meta', version: 1, slug, task: taskSummary,
+          type: 'meta', version: 1, slug: mslug.value, task: mtask.value,
           label: 'Real run — raw, uncurated', model,
           sessionId: msg.session_id, startedAt: now(), cwd,
           // Recorded on EVERY run, hits or not: "what protection ran" is static and
-          // known at init; per-step `redacted` arrays carry where it fired.
-          redaction: { rules: RULE_NAMES },
+          // known at init; per-step `redacted` arrays carry where it fired. When a rule
+          // fired on the meta labels themselves, name it here too (else no per-line record).
+          redaction: metaRedacted.length ? { rules: RULE_NAMES, meta: metaRedacted } : { rules: RULE_NAMES },
         });
       } else if (msg.type === 'assistant') {
         for (const block of msg.message?.content || []) {

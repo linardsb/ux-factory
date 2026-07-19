@@ -793,3 +793,13 @@ body {
   font-size: var(--type-caption);
   color: var(--color-fg-muted);
 }
+/* agentic slot fill — the study's composed proposal renders within the bounded frame (#13):
+   a horizontal KPI row for the summary strip, a vertical toned column for the insight panel. */
+.proto-slot-fill {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+.proto-slot-fill--summary-strip { flex-wrap: wrap; }
+.proto-slot-fill--summary-strip > * { flex: 1 1 0; min-width: 120px; }
+.proto-slot-fill--insight-panel { flex-direction: column; }

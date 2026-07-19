@@ -1,0 +1,29 @@
+[
+  {
+    "id": "sku-01",
+    "name": "Kraft mailing box, medium",
+    "warehouse": "north",
+    "onHand": 1420,
+    "committed": 900,
+    "updatedOn": "2026-07-18",
+    "status": "ok"
+  },
+  {
+    "id": "sku-02",
+    "name": "Bubble wrap roll, 500mm",
+    "warehouse": "south",
+    "onHand": 240,
+    "committed": 210,
+    "updatedOn": "2026-07-17",
+    "status": "low"
+  },
+  {
+    "id": "sku-03",
+    "name": "Pallet wrap, 23 micron",
+    "warehouse": "east",
+    "onHand": 60,
+    "committed": 145,
+    "updatedOn": "2026-07-19",
+    "status": "oversold"
+  }
+]
