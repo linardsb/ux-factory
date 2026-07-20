@@ -557,6 +557,68 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 .asrc-note p { color: var(--color-fg-muted); }
 .asrc-note p + p { margin-top: var(--spacing-md); }
 
+/* Derive probe (approach.html §05; system/derive-probe.mjs — the exhibited rule, executed on a
+   reader-chosen colour). At-rest addition: changes the approach baselines (regen in this PR). */
+.asrc-probe {
+  margin-top: var(--spacing-md);
+  background: var(--color-bg-surface);   /* same surface recipe as .asrc-block above */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.asrc-probe-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-probe-row input[type="color"] {
+  inline-size: 34px;
+  block-size: 26px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+.asrc-probe-label { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.asrc-probe-arrow { color: var(--color-fg-muted); }
+.asrc-probe-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* raw stack — same noted exception as .asrc-code code */
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+}
+.asrc-probe-swatch {
+  display: inline-block;
+  inline-size: 18px;
+  block-size: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.asrc-probe-check { font-size: var(--type-caption); color: var(--color-fg); margin: 0 0 var(--spacing-sm); }
+.asrc-probe-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.asrc-probe-notes li {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  margin: 0 0 4px;
+}
+.asrc-probe-fixed { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
+
+/* Measured-size line under the annotated source (system/loc-summary.json — the number is the
+   artifact's, never hand-written). */
+.loc-proof {
+  margin-top: var(--spacing-lg);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  max-width: 72ch;
+}
+
 dfn.term {
   font-style: normal;                    /* kill dfn's default italic */
   text-decoration: underline dotted var(--color-fg-muted);

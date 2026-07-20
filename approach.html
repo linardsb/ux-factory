@@ -274,8 +274,16 @@
              visitors, loud for CI — VR waits on [data-asrc="ready"]). -->
         <div class="grid grid-2 mt-2xl" id="asrc" hidden>
           <div data-snippet="btn-primary-tokens"></div>
-          <div data-snippet="derive-accent-contrast"></div>
+          <div>
+            <div data-snippet="derive-accent-contrast"></div>
+            <!-- The rule above, executed: system/derive-probe.mjs runs the shipped engine on a
+                 reader-chosen colour — the quoted code and the running code are the same file. -->
+            <div id="asrc-probe"></div>
+          </div>
         </div>
+        <!-- Measured size of the shipped system, from the drift-checked artifact
+             (system/loc-summary.json, agent-layer/gen-loc-summary.mjs) — never a hand-written number. -->
+        <p class="loc-proof" id="loc-proof" hidden></p>
       </div>
     </section>
 
@@ -357,17 +365,25 @@
   <script type="module">
     import { initGlossary } from "/system/glossary.mjs";
     import { prepareAnnotatedSource, renderAnnotatedSource } from "/system/annotated-source.mjs";
+    import { renderDeriveProbe } from "/system/derive-probe.mjs";
 
     // An unknown term key throws here and aborts the module — data-asrc is never set, VR red.
     initGlossary(document);
 
     const wrap = document.getElementById("asrc");
-    fetch("/system/annotated-source.json")
-      .then((r) => { if (!r.ok) throw new Error(`annotated-source.json → ${r.status}`); return r.json(); })
-      .then((data) => {
+    const grab = (path) => fetch(path).then((r) => { if (!r.ok) throw new Error(`${path} → ${r.status}`); return r.json(); });
+    Promise.all([grab("/system/annotated-source.json"), grab("/system/loc-summary.json")])
+      .then(([data, loc]) => {
         const model = prepareAnnotatedSource(data);
         for (const mount of wrap.querySelectorAll("[data-snippet]"))
           renderAnnotatedSource(mount, model, mount.dataset.snippet);
+        renderDeriveProbe(document.getElementById("asrc-probe"));
+
+        const runtime = loc.groups.find((g) => g.id === "runtime");
+        const line = document.getElementById("loc-proof");
+        line.textContent = `Measured, not estimated: the design system this site ships — every token file, component rule and view-time module under system/ — is ${runtime.files} files, ≈${runtime.linesApprox.toLocaleString("en-GB")} lines, counted from the tracked source at build time and drift-checked in CI. No framework, no build step.`;
+        line.hidden = false;
+
         wrap.hidden = false;
         wrap.dataset.asrc = "ready";   // VR waits on this — set ONLY on full success
       })
