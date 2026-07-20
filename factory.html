@@ -214,6 +214,80 @@
       padding: var(--spacing-sm); overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
     }
     .trace-error-card { border-color: var(--color-fg); }
+
+    /* ===================================================================================
+       Phase 3 — presentation motion (.claude/plans/portfolio-motion-phase03-factory-showpiece.md).
+       Compositor-safe, token-driven, and — the contract — ZERO at-rest change: every entrance
+       lives inside @media (prefers-reduced-motion: no-preference) with its rest state == its final
+       state (the hl-draw idiom, portfolio.css:89-96), so it is invisible in the reduced-motion VR
+       capture; the only new at-rest elements (the trace progress bar) are rendered by JS ONLY under
+       no-preference (trace-player.mjs), so they never paint at capture either. Factory-page
+       choreography stays inline here (not promoted) per the parent plan's promotion rule. */
+
+    /* Item 1 — animated re-skin: the preview's token-driven colours interpolate to the derived
+       palette instead of snapping. .is-animated is armed one frame after the first settle
+       (factory-intake.mjs) so the initial paint is transition-free. Scoped to named surfaces +
+       text and EXCLUDES .btn — buttons already transition their own fill+transform
+       (components.css:164); a broad `#reskin-preview *` would outrank (1,0,0 > 0,1,0) and drop the
+       button hover-transform. Covers background-color/color/border-color — the only properties the
+       engine's derived colour tokens (color-bg, color-fg, color-accent, color-border families) drive. */
+    @media (prefers-reduced-motion: no-preference) {
+      #reskin-preview.is-animated,
+      #reskin-preview.is-animated .card,
+      #reskin-preview.is-animated .card-body,
+      #reskin-preview.is-animated .card-kicker,
+      #reskin-preview.is-animated .fw-preview-pad,
+      #reskin-preview.is-animated .feature-band,
+      #reskin-preview.is-animated .feature-headline,
+      #reskin-preview.is-animated .feature-item,
+      #reskin-preview.is-animated .amber,
+      #reskin-preview.is-animated h3,
+      #reskin-preview.is-animated h4,
+      #reskin-preview.is-animated p {
+        transition: background-color var(--motion-slow) var(--motion-ease),
+                    color var(--motion-slow) var(--motion-ease),
+                    border-color var(--motion-slow) var(--motion-ease);
+      }
+    }
+
+    /* Item 2 — trace Play mode: the progress bar (rendered by JS only under no-preference, so
+       absent from the reduced-motion capture) + a fade+rise as each step card is revealed
+       (display:none → shown replays the keyframe). */
+    .trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+    .trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
+    @media (prefers-reduced-motion: no-preference) {
+      .trace-step:not(.trace-step-hidden) { animation: trace-step-in var(--motion-base) var(--motion-ease-spring) both; }
+    }
+    @keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
+
+    /* Item 3 — wizard/ethics/checks choreography. .fw-card animates per step (renderWizard
+       replaceChildren()s a fresh node — no JS change; enter-only, not a crossfade). The ethics pop
+       fires on the .is-selected toggle (interaction → never at capture); its box-shadow rule above
+       stays — the pop is additive. The WCAG rows stagger via a per-row --i index set in
+       renderNarrative (var(--i, 0) fallback keeps un-indexed rows at delay 0). */
+    @media (prefers-reduced-motion: no-preference) {
+      .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
+      .fw-quadrant.is-selected { animation: fw-pop var(--motion-base) var(--motion-ease-spring); }
+      .fw-checks tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+    }
+    @keyframes fw-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
+    @keyframes fw-pop { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+    @keyframes fw-row-in { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }
+
+    /* Item 4 (optional) — animated <details> disclosure where the platform supports it; degrades
+       to today's instant snap everywhere else (@supports fails) and under reduced motion. Closed
+       state unchanged → no churn. interpolate-size on .trace-response is REQUIRED to enable the
+       0↔auto interpolation (inherited down to ::details-content). */
+    @media (prefers-reduced-motion: no-preference) {
+      @supports (interpolate-size: allow-keywords) {
+        .trace-response { interpolate-size: allow-keywords; }
+        .trace-response::details-content {
+          block-size: 0; overflow: hidden;
+          transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
+        }
+        .trace-response[open]::details-content { block-size: auto; }
+      }
+    }
   </style>
 </head>
 <body data-page="factory">

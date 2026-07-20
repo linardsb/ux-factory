@@ -404,8 +404,8 @@ function init() {
     const table = el("table", "fw-checks");
     table.innerHTML =
       "<thead><tr><th></th><th>pair</th><th>ratio</th><th>min</th><th>AA</th></tr></thead><tbody>" +
-      result.checks.map((c) => `
-        <tr>
+      result.checks.map((c, i) => `
+        <tr style="--i:${i}">
           <td><span class="fw-swatch" style="background:${esc(c.fgValue)}"></span><span class="fw-swatch" style="background:${esc(c.bgValue)}"></span></td>
           <td>${esc(c.fg)} / ${esc(c.bg)}<br><span class="muted">${esc(c.usage)}</span></td>
           <td>${c.ratio.toFixed(2)}</td><td>${c.min}</td>
@@ -589,6 +589,11 @@ function init() {
   renderEthics();
   renderWizard();
   run();
+  // Arm the re-skin transition ONE frame after the first settle, so the initial paint is
+  // transition-free (no load-flash) and the reduced-motion VR capture stays instant. Every
+  // subsequent re-skin (answer change, scenario toggle) then interpolates its colours. The
+  // transition itself is CSS on #reskin-preview.is-animated, gated behind no-preference. (Phase 3)
+  requestAnimationFrame(() => previewRoot.classList.add("is-animated"));
 }
 
 if (typeof document !== "undefined") init();

@@ -66,6 +66,30 @@
       padding: var(--spacing-sm); overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
     }
     .trace-error-card { border-color: var(--color-fg); }
+
+    /* Phase 3 — presentation motion for the trace player. Mirror of factory.html's trace-* motion:
+       the player injects no <style>, so each host styles its own copy (established convention — the
+       new classes go in BOTH). trace.html is NOT visual-regression-gated → visual correctness only.
+       The progress bar is rendered by JS only under no-preference (trace-player.mjs); the
+       step-entrance + <details> expand are no-preference-gated with rest == final, so reduced motion
+       keeps today's instant snap. (.claude/plans/portfolio-motion-phase03-factory-showpiece.md) */
+    .trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+    .trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
+    @media (prefers-reduced-motion: no-preference) {
+      .trace-step:not(.trace-step-hidden) { animation: trace-step-in var(--motion-base) var(--motion-ease-spring) both; }
+    }
+    @keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
+
+    @media (prefers-reduced-motion: no-preference) {
+      @supports (interpolate-size: allow-keywords) {
+        .trace-response { interpolate-size: allow-keywords; }
+        .trace-response::details-content {
+          block-size: 0; overflow: hidden;
+          transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
+        }
+        .trace-response[open]::details-content { block-size: auto; }
+      }
+    }
   </style>
 </head>
 <body>
