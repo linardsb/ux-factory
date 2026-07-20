@@ -28,7 +28,7 @@ const PAGES = [
   // [data-trace="ready"] on success. Wait for BOTH so neither async paint can race the capture
   // (deterministic by construction, not by luck). The derived preview + the trace player are NOT masked
   // — they are what these slices regression-guard. (#10, slices 10.2 + 10.3)
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]', '#system-graph[data-graph="ready"]'] },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
