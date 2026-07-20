@@ -9,7 +9,11 @@
   },
   "tokens": ["--color-fg-muted", "--color-bg-surface", "--color-border", "--type-caption", "--spacing-sm"],
   "states": ["default"],
-  "children": []
+  "children": [],
+  "aiPatterns": [
+    { "pillar": "transparency", "pattern": "content-provenance labeling",
+      "how": "renders the scenario's provenance notice (fictionalNotice / speculativeNotice) verbatim and always in the accessibility tree, never dismissed or collapsed — on an AI feature this is where AI/speculative provenance is disclosed to the viewer on the same terms as everyone else" }
+  ]
 }
 ```
 

@@ -24,7 +24,8 @@ ComponentSpec reuses the kb record **shape** (JSON head + `## ` prose sections) 
   - `tokens` — `--`-prefixed names, each present in the `contract` group of `system/tokens.source.json`
   - `states` — named visual states (non-empty)
   - `children` — other spec'd components only (composition rules)
+  - `aiPatterns` (optional) — when the component participates in an AI feature, an array of `{ pillar, pattern, how }` recording an AI-UX pattern it carries wherever used; `pillar` ∈ `trust | clarity | control | transparency | meaningful-benefit`. Absent on non-AI specs. Screen/flow-level patterns (plan-before-act, visible reasoning, stop/undo, …) live in the scenario package's `rubric.json`, not here — **a screen's rubric is the union of its components' `aiPatterns` and its screen-level patterns.** One model, two levels.
   - Prose sections, all four required, in order: `## Usage` · `## States` · `## Data binding` · `## Accessibility`
 - `system/specs/<component>.contract.json` — DataContract: standalone JSON Schema 2020-12 (`$schema` + `type` required), sibling of its spec, describing the data the component binds (not its props). Consumed verbatim by validators, `$ref` tooling, and the WC spike.
 
-Sync rule: the physical shape (leading ```json fence + `## ` sections) must stay readable by `portal/lib/kb.mjs`'s `parseFencedJson`/`section` — change the shape, keep both parsers in sync.
+Sync rule: the physical shape (leading ```json fence + `## ` sections) must stay readable by `portal/lib/kb.mjs`'s `parseFencedJson`/`section` — change the shape, keep both parsers in sync. Adding an *optional* head key (like `aiPatterns`) does not change the shape — the fence still parses as one JSON object and the prose sections are untouched — so `parseFencedJson`/`section` stay compatible and no portal-side change is needed.

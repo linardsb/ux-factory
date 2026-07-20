@@ -51,6 +51,18 @@
       border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 8px;
     }
 
+    /* AI-UX patterns carried (#41) — the component-level rubric highlight under the component head.
+       Mirrors .hv-composition: a quiet surface panel, token-only, no accent fill (calm colour). */
+    .hv-aipatterns {
+      margin-top: var(--spacing-md);
+      border: 1px solid var(--color-border); border-radius: var(--radius-md);
+      background: var(--color-bg-surface); padding: var(--spacing-md);
+      display: flex; flex-direction: column; gap: var(--spacing-sm);
+    }
+    .hv-aipattern { display: flex; flex-direction: column; gap: var(--spacing-xs, 4px); }
+    .hv-aipattern-head { font-size: var(--type-caption); margin: 0; }
+    .hv-aipattern-how { font-size: var(--type-caption); line-height: 1.55; margin: 0; }
+
     /* Three projections, side by side — weighted toward the prose column so the head/vocab
        JSON rails don't crush the docs. align-items:start keeps the three columns top-aligned. */
     .hv-grid {

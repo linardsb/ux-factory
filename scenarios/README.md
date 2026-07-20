@@ -38,6 +38,7 @@ scenarios/
     copy.json                 strings shipped pages render (incl. the fictional notice)
     proto.config.json         which prototype screens exist and which collections they use
     fixtures/<collection>.json  the mock data the Worker serves and the fallback ships
+    rubric.json                 (optional) the screen's five-pillar AI-UX rubric — maker-authored, cited
 ```
 
 Markdown where the audience is humans and authoring agents (`brief.md`); plain JSON where the
@@ -132,6 +133,34 @@ fictional `today`, coherence-proven by the validator:
   (`{ id, plantId, kind: "moisture"|"light", value, unit, label }`) — the stat-tile source.
 - Fieldwork `jobs`: at least one job has `techId: null` — the dispatch board's
   "Needs assignment" panel must never be able to go silently empty.
+
+### `rubric.json` (optional)
+
+Present only when the package's prototype includes a real AI feature — today, Fieldwork's agentic
+dispatch composition (the `/agentic-ui-study` screen). It records the screen's five-pillar AI-UX
+rubric: each entry ties a pillar (`trust | clarity | control | transparency | meaningful-benefit`)
+to an affordance the screen ships **today**, and cites its primary source.
+
+```json
+{
+  "screen": "…",
+  "aiFeature": true,
+  "patterns": [
+    { "pillar": "transparency", "pattern": "…", "how": "…a real, present affordance…", "cite": "…verified primary source…" }
+  ]
+}
+```
+
+**Maker-authored assessment, not agent output** (honesty contract, hard): every `how` must name an
+affordance that exists now, and every `cite` is verified against its primary source (no fabricated
+guideline numbers, no talk-speaker names, no verbatim secondary-source reuse). `validate.mjs` does
+**not** read it — it inspects only `brief.md` / `intake.defaults.json` / `copy.json` /
+`proto.config.json` and the `fixtures/` directory, with no top-level allowlist — so `rubric.json`
+never trips the scenario gate; the study page shape-checks it at view time and renders nothing if it
+is absent or malformed. Screen/flow-level patterns live here; the pattern a single *component* carries
+wherever used lives on its ComponentSpec `aiPatterns` head field — a screen's full rubric is the union
+of the two (`.claude/references/kb-format.md` §ComponentSpec). Format set by #41; the per-company build
+(#43/#44) authors packaged rubrics via this same shape.
 
 ## Who consumes what
 

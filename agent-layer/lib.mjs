@@ -86,6 +86,21 @@ export function parseComponentSpec(specPath) {
     throw new Error(`${specPath}: head "tokens" must be a non-empty array of ---prefixed names`);
   if (!Array.isArray(head.states) || !head.states.length) throw new Error(`${specPath}: head "states" must be a non-empty array`);
   if (!Array.isArray(head.children)) throw new Error(`${specPath}: head "children" must be an array`);
+  // aiPatterns (optional): the AI-UX pattern(s) this component carries wherever used — the
+  // component-level half of the five-pillar rubric (kb-format §ComponentSpec). Absent on every
+  // non-AI spec, so guarded by `!== undefined`; screen/flow-level patterns live in a scenario's
+  // rubric.json, not here (#41).
+  if (head.aiPatterns !== undefined) {
+    if (!Array.isArray(head.aiPatterns) || !head.aiPatterns.length)
+      throw new Error(`${specPath}: head "aiPatterns", when present, must be a non-empty array`);
+    const PILLARS = ["trust", "clarity", "control", "transparency", "meaningful-benefit"];
+    for (const p of head.aiPatterns) {
+      if (!p || typeof p.pillar !== "string" || !PILLARS.includes(p.pillar))
+        throw new Error(`${specPath}: aiPatterns[].pillar must be one of ${PILLARS.join(" | ")}`);
+      if (typeof p.pattern !== "string" || !p.pattern.trim() || typeof p.how !== "string" || !p.how.trim())
+        throw new Error(`${specPath}: aiPatterns[] needs non-empty "pattern" and "how" strings`);
+    }
+  }
   if (head.contract !== null) {
     if (typeof head.contract !== "string" || !head.contract) throw new Error(`${specPath}: head "contract" must be a sibling-relative path or null`);
     const contractPath = join(dirname(path), head.contract);

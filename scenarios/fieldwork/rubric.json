@@ -1,0 +1,43 @@
+{
+  "screen": "Fieldwork dispatch — agentic composition",
+  "aiFeature": true,
+  "note": "Maker-authored assessment of the AI-UX patterns the Fieldwork agentic composition (the /agentic-ui-study screen) ships TODAY — not agent output. Every `how` names a real, present affordance (see system/agentic-study.mjs); every `cite` is verified against its primary source. Screen/flow-level rubric; a screen's full rubric is this ∪ the `aiPatterns` its components carry (kb-format §ComponentSpec). #41.",
+  "patterns": [
+    {
+      "pillar": "clarity",
+      "pattern": "guided input over blank boxes",
+      "how": "the reader picks from a bounded set of questions — never a blank prompt — via the study's 'Pick a question' tablist; the bounded set is itself a statement of what the feature can do",
+      "cite": "Microsoft Guidelines for Human-AI Interaction — G1 'Make clear what the system can do', G7 'Support efficient invocation'; Google PAIR — User Needs + Defining Success"
+    },
+    {
+      "pillar": "trust",
+      "pattern": "plan-before-act",
+      "how": "the agent's proposed composition is shown first — slot preview plus the raw {name, props, children} — before the reader acts; every adjustment edits a deep-cloned working copy, never the committed proposal",
+      "cite": "Nielsen — Visibility of system status (#1); Microsoft Guidelines for Human-AI Interaction — G9 'Support efficient correction'"
+    },
+    {
+      "pillar": "control",
+      "pattern": "stop / undo affordances",
+      "how": "'Reset to the agent's proposal' returns to the committed state; tone, remove and reorder are all reversible; reaching past the vocabulary refuses non-destructively — the control reverts and the working copy is untouched",
+      "cite": "Nielsen — User control and freedom (#3; undo/redo and 'emergency exit'); Microsoft Guidelines for Human-AI Interaction — G17 'Provide global controls'"
+    },
+    {
+      "pillar": "transparency",
+      "pattern": "visible reasoning",
+      "how": "links the committed real-run PIV trace, dumps the raw composition JSON live, and names the exact refused out-of-vocabulary path verbatim when a probe is rejected",
+      "cite": "Microsoft Guidelines for Human-AI Interaction — G11 'Make clear why the system did what it did'; Google PAIR — Explainability + Trust"
+    },
+    {
+      "pillar": "transparency",
+      "pattern": "AI-content labeling",
+      "how": "the composition is labeled real, curated agent output ('Real run, curated for length') and stated to be precomputed at build time — there is no live model call at view time",
+      "cite": "Microsoft Guidelines for Human-AI Interaction — G1 'Make clear what the system can do', G2 'Make clear how well the system can do what it can do'; Google PAIR — Explainability + Trust (transparency about what ran — PAIR does not phrase this as 'label AI content', so it is not cited that way)"
+    },
+    {
+      "pillar": "meaningful-benefit",
+      "pattern": "utility over engagement",
+      "how": "each proposed view answers a real operational dispatch question ('what's the operational state of the board', 'where is SLA-breach risk concentrated') with figures computed from the real Fieldwork fixtures — open · SLA-at-risk · overdue · needs-assignment — so the agent's output is decision support grounded in the actual board state",
+      "cite": "Google PAIR — User Needs + Defining Success (ground the feature in a real user need and define success by it)"
+    }
+  ]
+}
