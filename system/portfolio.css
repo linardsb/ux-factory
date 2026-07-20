@@ -642,3 +642,99 @@ dfn.term {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
 }
+
+/* ---------- Derivation round-trip exhibit (#42) — fidelity diff display + trace player ----------
+   Token-only (colour / space / radius / type via var(--…); grid / flex / px are structural literals,
+   same licence as the factory <style> block and the .fw-*/.cs-* classes). Calm by the calm-colour
+   bar: the ΔE is stated in --color-fg and contextualized, never celebrated in accent green; the
+   caveat panel is co-equal with the metric. Swatch/sample colours are set inline from the diff data
+   in JS (the hex IS the data being shown) — never a colour literal here. */
+
+.rt { display: grid; gap: var(--spacing-xl); }
+
+/* headline metric · human gate · verdict — three co-equal bordered panels (same weight as .rt-caveat) */
+.rt-metric, .rt-gate, .rt-verdict {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.rt-metric-label, .rt-gate-title { margin: 0 0 var(--spacing-md); font-weight: 600; color: var(--color-fg); }
+
+/* swatches — the one place a hex reaches the DOM, via .style.background in JS, never a CSS literal */
+.rt-swatch {
+  display: inline-block; width: 14px; height: 14px; vertical-align: -2px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.rt-swatch-pair { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-md); }
+.rt-sw-cell { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
+.rt-hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.rt-sw-tag { font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-muted); }
+.rt-arrow { color: var(--color-fg-muted); }
+
+/* ΔE line — emphasized in FG, not accent: the number is stated, not celebrated (calm-colour rule) */
+.rt-metric-delta { margin: var(--spacing-md) 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+.rt-delta-num { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg); }
+.rt-delta-note { color: var(--color-fg-muted); font-size: var(--type-caption); }
+
+.rt-gate-line { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+.rt-gate-note, .rt-verdict-scope, .rt-note {
+  margin: var(--spacing-md) 0 0; color: var(--color-fg-muted);
+  font-size: var(--type-caption); line-height: 1.55; max-width: 72ch;
+}
+
+/* verdict */
+.rt-verdict-head { margin: 0 0 var(--spacing-sm); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+.rt-verdict-eyebrow { font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-muted); }
+.rt-verdict-label { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg); }
+.rt-verdict-rule { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.rt-passes, .rt-checks { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-md); }
+
+/* pass/fail token — glyph + WORD; state is read from the word, never colour alone (portfolio.css:466) */
+.rt-mark { display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-caption); }
+.rt-mark-glyph { font-weight: 700; }
+.rt-mark.is-ok .rt-mark-glyph { color: var(--color-accent); }
+.rt-mark.is-bad .rt-mark-glyph { color: var(--color-fg); }
+.rt-mark.is-bad { text-decoration: underline; }
+
+/* progressive-disclosure tables (mirror .fw-checks) */
+.rt-accordions { display: grid; gap: 10px; margin-top: var(--spacing-md); }
+.rt-diff-table { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+.rt-diff-table th, .rt-diff-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.rt-diff-table th { color: var(--color-fg-muted); font-weight: 600; }
+.rt-diff-table .rt-excluded td { opacity: 0.6; } /* neutrals: reported but excluded — muted, not struck */
+
+/* WCAG mini-sample: the actual fg-on-bg contrast (both colours are the data, set inline in JS) */
+.rt-aa-sample {
+  display: inline-block; min-width: 34px; text-align: center;
+  padding: 2px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  font-weight: 700; font-size: var(--type-caption);
+}
+
+.rt-subhead { margin: var(--spacing-md) 0 var(--spacing-sm); font-weight: 600; font-size: var(--type-caption); color: var(--color-fg); }
+.rt-list { margin: var(--spacing-sm) 0 0; padding-left: 1.1em; display: grid; gap: var(--spacing-xs); font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.5; }
+.rt-list-inline { list-style: none; padding-left: 0; display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.rt-list-inline li { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 8px; color: var(--color-fg-muted); }
+.rt-token { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-fg); }
+.rt-muted { color: var(--color-fg-muted); }
+
+/* the caveat panel — STATIC HTML in factory.html; styled co-equal with .rt-metric (calm-colour) */
+.rt-caveat {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin: var(--spacing-lg) 0;
+  max-width: 74ch;
+}
+.rt-caveat p { margin: 0; color: var(--color-fg); line-height: 1.6; }
+.rt-caveat p + p { margin-top: var(--spacing-md); }
+.rt-caveat code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+
+/* vision-input screenshots — two compact figures side by side (click to zoom via .fig-zoom) */
+.rt-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); margin: var(--spacing-lg) 0; }
+@media (max-width: 640px) { .rt-inputs { grid-template-columns: 1fr; } }
+
+/* the newly-focusable trace-player root gets a visible focus ring (mirrors .cs-acc:focus-visible) */
+.trace-player:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
