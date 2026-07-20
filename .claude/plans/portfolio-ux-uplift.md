@@ -1,7 +1,8 @@
 # Portfolio UX Uplift — Motion & Excitement Plan
 
-> Status: phases 0–1 implemented on `feature/portfolio-motion-phase01` (2026-07-19);
-> phases 2–4 proposed. Research-backed plan to take the shipped IA pages from
+> Status: phases 0–4 MERGED to main (phase 4 = PR #58, 2026-07-20); phase 5 planned —
+> per-ticket plan: `.claude/plans/portfolio-motion-phase05-utility-dock.md`.
+> Research-backed plan to take the shipped IA pages from
 > "austere and inert" to "high-craft and alive" without breaking any repo constraint
 > (vanilla pages, token-only components, honesty contract, visual-regression gate).
 >
@@ -169,6 +170,45 @@ tokens. Zero visual change → **zero baseline churn**. Company packs can now re
 
 - Effort: M. Verify: neutral stays austere (this phase must not fight the editorial
   voice), saulera pack shows its own atmosphere, VR regen committed.
+
+### Phase 5 — Utility dock (evebouffard.com-inspired sidebars, 2026-07-19)
+
+Reference: evebouffard.com builds the personal site as an OS — left rail = identity dock
+(avatar, app shortcuts, socials) + a scroll-tick ruler; right rail = utility dock where
+every icon opens a URL-routed settings panel (`/home/wallpaper` re-themes the site from
+painting swatches, `/home/column` tunes the reading column with sliders, "Copy settings"
+copies your customization) and `/design-system` renders the site's own components live
+with per-component "Copy prompt" buttons.
+
+Mapped honestly onto this repo's thesis (the site IS a token-contract demo):
+
+1. **Right dock → pack switcher panel** (the wallpaper picker, made honest): a slim
+   fixed rail on shipped pages; its first icon opens an "Appearance" panel listing the
+   real packs (neutral · saulera · a factory-derived pack). Choosing one swaps the single
+   `tokens.<pack>.css` `<head>` line — the platform's one-line re-skin claim, demonstrated
+   by the reader on the page they're reading. Hash-routed (`#appearance`) so it deep-links;
+   choice persists in `localStorage`; panel is monochrome chrome (calm-colour rule).
+2. **"Copy settings" → "Copy tokens"**: a button in that panel copying the active pack's
+   DTCG JSON / CSS to the clipboard — customization-as-handoff, pure thesis.
+3. **Left scroll-tick ruler**: a fixed column of hairline ticks marking page sections,
+   filled by scroll progress (`animation-timeline: scroll()`, `@supports`-gated, tokens
+   only) — the quiet "instrument panel" texture of the reference without its whimsy.
+4. **Per-component "Copy agent prompt"** on the handoff viewer: each component card
+   offers its vocabulary entry / spec head as a copyable prompt block — the reference's
+   most AI-native idea, and this repo already generates the data (`vocabulary.json`).
+
+5. **"Shape of the system" exhibit** (from her `/shapeofminds` + `/shape-of-minds-data`
+   pair): an interactive graph of THIS design system — contract tokens ↔ pack bindings ↔
+   the components that consume them — rendered from `tokens.source.json` + a build-time
+   scan of `components.css` (vanilla SVG, hover a token → highlight its consumers; the
+   trait-legend-with-counts idiom fits perfectly). Her companion data page ("Last edited
+   by Claude", every node + sources rendered flat) is the honesty-contract pattern this
+   repo already lives by: exhibit up front, full generated dataset one click away.
+
+Constraints: dock + ruler are at-rest changes on every shipped page → one deliberate
+16-baseline regen PR; panel logic is a hand-written view-time module beside `site.js`
+(no framework); skipped from the reference: cursor easter eggs, confetti, shaders,
+wallpaper imagery — gimmick-risk and off-voice for a hiring audience.
 
 ### Explicitly deferred / rejected
 

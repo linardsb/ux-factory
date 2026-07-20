@@ -784,3 +784,131 @@ dfn.term {
 
 /* the newly-focusable trace-player root gets a visible focus ring (mirrors .cs-acc:focus-visible) */
 .trace-player:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+
+/* ---------- Appearance dock + scroll ruler (§Phase 5, system/dock.mjs) ----------
+   Monochrome chrome by the calm-colour bar (fg-muted / border / bg-surface only — the packs
+   themselves provide the colour). Fixed-chrome z-index ladder: header 50 · to-top 90 ·
+   skip-link 100 → rails 40 (under header), open panel 95 (over to-top, under skip-link).
+   Colour/space/duration from tokens; px widths and offsets are structural literals (file norm).
+   Both rails are ≥1100px-only desktop chrome and never print. */
+
+.dock {
+  position: fixed;
+  right: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+}
+.dock-toggle {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.dock-toggle:hover,
+.dock-toggle[aria-expanded="true"] {
+  color: var(--color-fg);
+  border-color: var(--color-border-strong);
+}
+
+/* Non-modal disclosure (hash-routed by dock.mjs). Hidden = display:none, entrance = a
+   keyframe on the DISCRETE .is-open toggle (no continuous rebuild — the PR-#55 trap) so
+   the reduced-motion kill-switch (portfolio.css:16-23) makes open/close truly instant. */
+.dock-panel {
+  display: none;
+  position: fixed;
+  right: calc(var(--spacing-md) + 40px + var(--spacing-sm));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 95;
+  width: min(320px, calc(100vw - 120px));
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-lg);
+}
+.dock-panel.is-open {
+  display: block;
+  animation: dock-panel-in var(--motion-base) var(--motion-ease);
+}
+@keyframes dock-panel-in {
+  from { opacity: 0; transform: translateY(-50%) translateX(8px); }
+}
+
+.dock-packs { border: 0; margin: 0 0 var(--spacing-lg); padding: 0; }
+.dock-legend {
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-fg-muted);
+  padding: 0;
+  margin: 0 0 var(--spacing-sm);
+}
+.dock-pack-row { display: flex; align-items: flex-start; gap: var(--spacing-sm); }
+.dock-pack-row + .dock-pack-row { margin-top: var(--spacing-sm); }
+.dock-pack-row input { margin-top: 3px; accent-color: var(--color-fg); }
+.dock-pack-label { cursor: pointer; display: block; }
+.dock-pack-name { display: block; font-weight: 600; font-size: var(--type-caption); color: var(--color-fg); }
+.dock-pack-note { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.5; }
+
+.dock-copy { padding: 10px 14px; font-size: 12px; }
+.dock-dtcg { margin-left: var(--spacing-md); font-size: var(--type-caption); }
+.dock-caption {
+  margin: var(--spacing-md) 0 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  line-height: 1.5;
+}
+
+/* Scroll ruler — a decorative minimap: one hairline tick per main>section (placed by
+   dock.mjs), a fill bar tracking scroll position. The fill is a POSITION indicator, not
+   autonomous motion, so it correctly survives reduced-motion (scroll-driven animations
+   ignore the kill-switch's duration override). Outside @supports: ticks alone. */
+.ruler {
+  position: fixed;
+  left: var(--spacing-md);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 40;
+  pointer-events: none;
+}
+.ruler-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--color-fg-muted);
+  transform: scaleY(0); /* at rest / unsupported: no fill — ticks alone */
+  transform-origin: top;
+}
+@supports (animation-timeline: scroll()) {
+  .ruler-fill {
+    animation: ruler-fill linear both;
+    animation-timeline: scroll();
+  }
+  @keyframes ruler-fill {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+}
+.ruler-tick {
+  position: absolute;
+  left: -3px;
+  width: 8px;
+  height: 1px;
+  background: var(--color-border);
+}
+
+@media (max-width: 1099px) {
+  .dock, .ruler { display: none; }
+}
+@media print {
+  .dock, .ruler { display: none; }
+}
