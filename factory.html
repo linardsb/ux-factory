@@ -66,6 +66,11 @@
       padding: 2px 8px;
     }
 
+    /* Legibility nuggets (#41) — muted, cited captions that teach the AI-UX discipline without
+       badging it (subtlety bar / calm colour; the .study-lineage register). One quiet sentence
+       each, placed OUTSIDE any replaceChildren mount so wizard stepping never wipes them. */
+    .fw-nugget { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-lg); }
+
     /* wizard card — one decision at a time */
     .fw-card {
       background: var(--color-bg-surface); border: 1px solid var(--color-border);
@@ -250,10 +255,22 @@
           <span id="fw-scenario-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</span>
           The four answers below are real inputs to the live engine.
         </p>
+        <!-- Legibility nugget (#41): honesty-label surface → content-provenance / transparency. -->
+        <p class="fw-nugget">
+          Naming what's fictional and what actually runs — the label above is one instance — is the
+          provenance discipline an AI feature owes its user: making clear what the system did, the
+          transparency baseline in Google PAIR's explainability guidance.
+        </p>
         <p class="max-prose">
           A short guided wizard, one decision at a time. Each question carries a recommended default and
           the reasoning behind it; your overrides stay within the engine's own bounds. Your answers drive
           the design system the next station generates.
+        </p>
+        <!-- Legibility nugget (#41): wizard surface → guided input / clarity. Outside #factory-wizard. -->
+        <p class="fw-nugget">
+          One decision at a time, with the reasoning shown — guided input in place of a blank box:
+          efficient invocation (Microsoft's Human-AI guidelines) built on defining what the user needs
+          (Google PAIR).
         </p>
         <div id="factory-wizard">
           <p class="fw-loading muted">Loading the intake wizard…</p>
@@ -382,6 +399,11 @@
           A real Claude Agent SDK run from this factory, recorded step by step and replayed in the four
           PIV acts — plan · gate · implement · validate. This run authored a ComponentSpec; per-scenario
           generation traces are in build. Nothing runs live here — the page replays a committed file.
+        </p>
+        <!-- Legibility nugget (#41): trace-player surface → visible reasoning / transparency. -->
+        <p class="fw-nugget">
+          Shown as stepped acts, not a log — the agent's reasoning made visible: Nielsen's visibility of
+          system status, and the guideline to make clear why the system did what it did (Amershi et al.).
         </p>
         <div id="agents-player" style="margin-top: var(--spacing-2xl);"></div>
       </div>
