@@ -12,6 +12,8 @@ system/                     the shipped design system — brand-agnostic core + 
   components.css            layer 3: token-only components — no literals, render identically under any pack
   portfolio.css / proto.css surface styles for portfolio pages / prototypes
   site.js                   injects chrome (header/footer/nav) from window.CLIENT_CONFIG
+  pack-boot.js              pre-paint pack restore on the six IA pages (classic script): re-points the one tokens.<pack>.css head line from localStorage, hard-allowlisted, guaranteed no-op by default (VR relies on that) (portfolio-ux-uplift §Phase 5)
+  dock.mjs                  appearance dock (hand-written canon): pack switcher across the three committed packs + copy-tokens + left scroll ruler; hash-routed #appearance disclosure, persisted choice restored by pack-boot.js (portfolio-ux-uplift §Phase 5)
   analytics.mjs             CF Web Analytics beacon (public token, filled at launch) + "factory driven" event helper — CF WA has no custom events, so the event is a virtual-route pageview at /factory/driven (ticket #6)
   derive.mjs (+ oklch.mjs, wcag.mjs, derive.rules.mjs)   view-time derivation engine: intake answers → token values + WCAG checks + ethics verdict; driven raw by /derive.html, spike runner in tooling/ (epic #1 ticket #3)
   agentic-renderer.mjs + action-bus.mjs   declarative agentic bridge (hand-written canon): vocabulary-validated {name,props,children} → real components (refuses everything else) + one bidirectional action contract (agent/click/keyboard, voice-ready); driven raw by /agentic.html (epic #1 ticket #11)
