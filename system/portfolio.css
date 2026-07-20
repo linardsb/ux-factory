@@ -33,9 +33,42 @@
   font-size: 14px;
   letter-spacing: 0.08em;
   padding: 14px 20px;
-  transition: top 160ms ease;
+  transition: top var(--motion-fast) var(--motion-ease);
 }
 .skip-link:focus-visible { top: 12px; outline-offset: 0; }
+
+/* ---------- Cross-document view transitions (Chrome 126+ / Safari 18.2+; every
+   other browser keeps today's instant hard navigation — pure enhancement) ---------- */
+
+@view-transition {
+  navigation: auto;
+}
+/* The sticky header is chrome, not content: its own group holds it still while the
+   page crossfades beneath it (the nav itself does not animate); the page title
+   morphs between heroes. */
+.site-header { view-transition-name: site-header; }
+.page-hero h1 { view-transition-name: page-title; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-base);
+}
+
+/* The 0.01ms kill-switch above matches elements, not these UA pseudos — reduced
+   motion must silence the navigation animation explicitly. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
+
+/* ---------- Header scroll state (class set by portfolio.js) ---------- */
+
+.site-header {
+  transition: box-shadow var(--motion-fast) var(--motion-ease);
+}
+.site-header.is-scrolled { box-shadow: var(--shadow-md); }
 
 /* ---------- Prose rhythm (base zeroes p margins) ---------- */
 
@@ -48,6 +81,19 @@
   padding-bottom: 0.02em;
   white-space: nowrap;
 }
+
+/* Accent-underline draw-in — hero highlights only, drawn after the h1 lands (Phase 2, move 2).
+   Rest state keeps the border-bottom (above) → zero baseline churn on all 14 .hl instances,
+   since the VR gate captures under prefers-reduced-motion: reduce. Scope is .page-hero .hl ONLY:
+   the body-prose .hl on approach.html must keep the static border and never draw. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-hero .hl {
+    border-bottom-color: transparent;
+    background: linear-gradient(var(--color-accent), var(--color-accent)) 0 calc(100% + 0.12em) / 0% 0.12em no-repeat;
+    animation: hl-draw var(--motion-slow) var(--motion-ease-spring) var(--motion-slow) forwards;
+  }
+}
+@keyframes hl-draw { to { background-size: 100% 0.12em; } }
 
 /* ---------- Cards with a thumbnail (work grid) ---------- */
 
@@ -77,6 +123,35 @@
   font-size: 14px;
   letter-spacing: 0.04em;
 }
+
+/* ---------- Home "ways to verify" cards — monochrome glyph + hover-revealed proof (Phase 2, move 5) ----------
+   The glyph is the ONLY at-rest change (it churns index-{neutral,saulera} baselines, by design).
+   The proof line is collapsed at rest (grid-template-rows: 0fr, opacity 0) so the baseline shows only the
+   glyph; it surfaces on card hover/focus — the Active-Grid rule: hover SURFACES content, not just a lift.
+   Monochrome (--color-fg-muted, stroke: currentColor) → no new hue under either pack (calm-colour rule). */
+.verify-glyph {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-fg-muted);
+}
+.verify-glyph svg { width: 100%; height: 100%; display: block; }
+.verify-proof {
+  margin: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows var(--motion-base) var(--motion-ease-spring),
+              opacity var(--motion-fast) var(--motion-ease);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--color-fg-muted);
+}
+.verify-proof > span { overflow: hidden; min-height: 0; }
+.card-link:hover .verify-proof,
+.card-link:focus-visible .verify-proof { grid-template-rows: 1fr; opacity: 1; }
 
 /* Work grid: five cards spaced evenly — three across the top, two across the bottom */
 .work-grid { grid-template-columns: repeat(6, 1fr); }
@@ -110,7 +185,7 @@ a.lineup-item { color: inherit; }
   font-size: 18px;
   color: var(--color-fg-muted);
   transform: translateX(0);
-  transition: transform 200ms ease, color 200ms ease;
+  transition: transform var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
   align-self: center;
 }
 a.lineup-item:hover .lineup-title,
@@ -130,7 +205,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   text-transform: uppercase;
   color: var(--color-fg-muted);
   padding: 10px 12px 10px 0;
-  transition: color 160ms ease;
+  transition: color var(--motion-fast) var(--motion-ease);
 }
 .crumb:hover { color: var(--color-accent); }
 
@@ -165,7 +240,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  transition: border-color 160ms ease, color 160ms ease;
+  transition: border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .cs-jump a:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
@@ -197,7 +272,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   padding: 2px 8px;
   margin-left: 4px;
   white-space: nowrap;
-  transition: border-color 160ms ease, color 160ms ease;
+  transition: border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .fig-zoom:hover .fig-hint {
   border-color: var(--color-border-strong);
@@ -209,7 +284,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 .cs-acc details {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  transition: border-color 160ms ease;
+  transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .cs-acc details:hover, .cs-acc details[open] { border-color: var(--color-border-strong); }
 .cs-acc summary {
@@ -234,7 +309,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   content: "";
   position: absolute;
   background: var(--color-accent);
-  transition: transform 200ms ease;
+  transition: transform var(--motion-base) var(--motion-ease);
 }
 .cs-acc .mark::before { top: 6px; left: 0; width: 14px; height: 2px; }
 .cs-acc .mark::after  { top: 0; left: 6px; width: 2px; height: 14px; }
@@ -315,7 +390,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   color: var(--color-accent);
   padding: 9px 15px; /* 10px 16px minus the border, matching .nav-cta metrics */
   white-space: nowrap;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 .nav-links a[href="/system-map.html"]:hover {
   background: transparent;
@@ -358,7 +433,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
-  transition: opacity 160ms ease, transform 160ms ease, background 160ms ease;
+  transition: opacity var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
   z-index: 40;
 }
 .to-top.show {

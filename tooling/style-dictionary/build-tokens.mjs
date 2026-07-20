@@ -11,6 +11,7 @@
 //   - clamp() type ramp (viewport-relative CSS expressions)
 //   - color-mix() derived colors (CSS color expressions over custom properties)
 //   - string shadows (CSS box-shadow shorthand, $type "shadow")
+//   - motion durations/easings (CSS transition grammar, $type "duration"/"easing")
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +54,8 @@ function stripCssOnly(node) {
       const webOnly =
         child.$type === "fontFamily" ||
         child.$type === "shadow" ||
+        child.$type === "duration" ||
+        child.$type === "easing" ||
         (typeof child.$value === "string" && /\b(?:clamp|color-mix)\(/.test(child.$value));
       if (webOnly) delete node[key];
     } else {

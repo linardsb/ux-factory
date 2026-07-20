@@ -11,6 +11,7 @@ import UIKit
 public class FactoryTokens {
     public static let neutralLayoutGutter = CGFloat(24.00)
     public static let neutralLayoutMaxw = CGFloat(1200.00)
+    public static let neutralMotionMotionRise = CGFloat(20.00) /** reveal translate offset — how far elements travel in */
     public static let neutralPrimitivesColorBlue = UIColor(red: 0.145, green: 0.388, blue: 0.922, alpha: 1) /** plain accent blue — signal */
     public static let neutralPrimitivesColorBlueAct = UIColor(red: 0.118, green: 0.251, blue: 0.686, alpha: 1)
     public static let neutralPrimitivesColorBlueBright = UIColor(red: 0.239, green: 0.482, blue: 1.000, alpha: 1) /** lightened accent blue — accent as text on dark */

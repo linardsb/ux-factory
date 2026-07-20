@@ -24,6 +24,7 @@
   <dimen name="neutral_radius_radius_sm">4.00dp</dimen>
   <dimen name="neutral_radius_radius_md">8.00dp</dimen>
   <dimen name="neutral_radius_radius_lg">16.00dp</dimen>
+  <dimen name="neutral_motion_motion_rise">20.00dp</dimen>
   <dimen name="neutral_layout_maxw">1200.00dp</dimen>
   <dimen name="neutral_layout_gutter">24.00dp</dimen>
   <dimen name="neutral_type_ramp_type_h3">20.00dp</dimen>

@@ -60,6 +60,17 @@
       "shadow-md": { "$value": "0 4px 6px rgba(0, 0, 0, 0.08)",   "$type": "shadow" },
       "shadow-lg": { "$value": "0 10px 15px rgba(0, 0, 0, 0.10)", "$type": "shadow" }
     },
+    "motion": {
+      "$description": "Motion: durations + easings — how the system moves; a pack retunes pace and character like any other token",
+      "motion-fast":        { "$value": "160ms", "$type": "duration", "$description": "micro feedback — hovers, color/opacity" },
+      "motion-base":        { "$value": "200ms", "$type": "duration", "$description": "structural — lifts, slides, panels, page crossfade" },
+      "motion-ambient":     { "$value": "3s",    "$type": "duration", "$description": "idle pulses (the hero pill)" },
+      "motion-ease":        { "$value": "ease",  "$type": "easing",   "$description": "default curve" },
+      "motion-slow":        { "$value": "480ms", "$type": "duration", "$description": "entrances + reveals — hero cascade, underline draw, section labels" },
+      "motion-stagger":     { "$value": "70ms",  "$type": "duration", "$description": "step between staggered children (compose delays with calc)" },
+      "motion-rise":        { "$value": "20px",  "$type": "dimension","$description": "reveal translate offset — how far elements travel in" },
+      "motion-ease-spring": { "$value": "linear(0, 0.004, 0.016, 0.035, 0.062, 0.096, 0.138, 0.187, 0.242, 0.304, 0.371, 0.443, 0.519, 0.598, 0.68, 0.763, 0.846, 0.918, 0.973, 1.007, 1.019, 1.016, 1.007, 1.001, 1)", "$type": "easing", "$description": "baked spring — subtle single overshoot (~1.9%) for emphasis" }
+    },
     "layout": {
       "$description": "Layout",
       "maxw":   { "$value": "1200px", "$type": "dimension" },
@@ -118,6 +129,17 @@
       "shadow-sm": { "$value": "0 1px 2px rgba(0, 0, 0, 0.06)",   "$type": "shadow" },
       "shadow-md": { "$value": "0 4px 6px rgba(0, 0, 0, 0.08)",   "$type": "shadow" },
       "shadow-lg": { "$value": "0 10px 15px rgba(0, 0, 0, 0.10)", "$type": "shadow" }
+    },
+    "motion": {
+      "$description": "Motion — the neutral pace: unhurried defaults, one baked spring for emphasis",
+      "motion-fast":        { "$value": "160ms", "$type": "duration", "$description": "micro feedback — hovers, color/opacity" },
+      "motion-base":        { "$value": "200ms", "$type": "duration", "$description": "structural — lifts, slides, panels, page crossfade" },
+      "motion-ambient":     { "$value": "3s",    "$type": "duration", "$description": "idle pulses (the hero pill)" },
+      "motion-ease":        { "$value": "ease",  "$type": "easing",   "$description": "default curve" },
+      "motion-slow":        { "$value": "480ms", "$type": "duration", "$description": "entrances + reveals — hero cascade, underline draw, section labels" },
+      "motion-stagger":     { "$value": "70ms",  "$type": "duration", "$description": "step between staggered children (compose delays with calc)" },
+      "motion-rise":        { "$value": "20px",  "$type": "dimension","$description": "reveal translate offset — how far elements travel in" },
+      "motion-ease-spring": { "$value": "linear(0, 0.004, 0.016, 0.035, 0.062, 0.096, 0.138, 0.187, 0.242, 0.304, 0.371, 0.443, 0.519, 0.598, 0.68, 0.763, 0.846, 0.918, 0.973, 1.007, 1.019, 1.016, 1.007, 1.001, 1)", "$type": "easing", "$description": "baked spring — subtle single overshoot (~1.9%) for emphasis" }
     },
     "layout": {
       "$description": "Layout",
