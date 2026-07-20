@@ -53,6 +53,11 @@ export function prepareHandoff(pack, vocab) {
       tokens: c.tokens,
       states: c.states,
       children: c.children,
+      // aiPatterns is optional (#41) — include it in the head projection only when the spec
+      // actually carries it, so a non-AI component's "Source (spec head)" JSON stays a faithful
+      // picture of its real head (no injected `null` key). The dedicated block below is the
+      // legible projection of the same array.
+      ...(c.aiPatterns ? { aiPatterns: c.aiPatterns } : {}),
     };
     return {
       name: c.component,
@@ -60,6 +65,7 @@ export function prepareHandoff(pack, vocab) {
       className: c.class,
       contractPath: c.contract ?? null, // pack's contract is a PATH STRING (or null)
       head,
+      aiPatterns: c.aiPatterns ?? null, // carried out for the dedicated rubric block (null on non-AI specs)
       sections: c.sections,
       // vocab entry's own `.contract` is the full INLINED DataContract object (or null) —
       // a different shape from contractPath; the vocab <pre> shows it, that's the point.
@@ -191,6 +197,23 @@ export function renderHandoffViewer(container, model) {
     // Honesty surface: a non-shipped status is shown, not hidden (not a pedagogy callout).
     if (c.status && c.status !== "shipped") head.appendChild(el("span", { class: "hv-status", text: c.status }));
     article.appendChild(head);
+
+    // AI-UX patterns carried (#41) — the component-level half of the five-pillar rubric, shown
+    // as a legible highlight when the spec declares them (the same array also appears in the
+    // Source (spec head) JSON below). pillar · pattern is the emphasis, `how` the muted detail.
+    if (c.aiPatterns?.length) {
+      const ai = el("section", { class: "hv-aipatterns" });
+      ai.appendChild(el("div", { class: "hv-eyebrow", text: "AI-UX patterns carried" }));
+      for (const p of c.aiPatterns) {
+        const row = el("div", { class: "hv-aipattern" });
+        row.appendChild(el("p", { class: "hv-aipattern-head" },
+          el("strong", { text: p.pillar }),
+          document.createTextNode(` · ${p.pattern}`)));
+        row.appendChild(el("p", { class: "hv-aipattern-how hv-muted", text: p.how }));
+        ai.appendChild(row);
+      }
+      article.appendChild(ai);
+    }
 
     const grid = el("div", { class: "hv-grid" });
 

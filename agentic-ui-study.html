@@ -66,6 +66,17 @@
     .study-prov-label { font-weight: 600; color: var(--color-fg); }
     .study-empty { font-size: var(--type-caption); color: var(--color-fg-muted); margin: 0; }
     .study-lineage { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 72ch; }
+
+    /* Screen rubric (#41) — a maker's five-pillar read of the affordances above, in the quiet
+       .study-lineage register (muted, no badge — subtlety bar / calm colour). Hidden when empty. */
+    #rubric { margin: 0 0 var(--spacing-xl); }
+    #rubric:empty { display: none; }
+    .study-rubric-eyebrow { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 var(--spacing-sm); }
+    .study-rubric-intro { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 72ch; margin: 0 0 var(--spacing-md); }
+    .study-rubric-row { max-width: 72ch; margin: 0 0 var(--spacing-md); }
+    .study-rubric-head { font-size: var(--type-caption); color: var(--color-fg); margin: 0 0 2px; }
+    .study-rubric-how { font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.55; margin: 0 0 2px; }
+    .study-rubric-cite { font-size: var(--type-eyebrow); color: var(--color-fg-muted); margin: 0; }
   </style>
 </head>
 <body data-page="agentic-ui-study">
@@ -96,6 +107,10 @@
         <div class="study-cap" id="capability"><p class="muted">Loading the vocabulary and the committed proposals…</p></div>
 
         <div id="study"><p class="study-empty">Loading the study…</p></div>
+
+        <!-- Screen rubric (#41): a maker's five-pillar read of the affordances above, rendered
+             from scenarios/fieldwork/rubric.json. Empty (and display:none) if the fetch fails. -->
+        <div id="rubric"></div>
 
         <p class="study-lineage" id="lineage">
           Lineage: an agent composing UI from a bounded, declarative component vocabulary is
@@ -140,11 +155,59 @@
       cap.appendChild(p("muted", "There is no live model call at view time: the agent ran at build time, you replay and adjust its committed proposals."));
     }
 
+    // Screen rubric (#41) — render scenarios/fieldwork/rubric.json into #rubric. Maker-authored
+    // assessment (not agent output). Absent/malformed → render nothing (never a broken surface).
+    function renderRubric(rubric) {
+      const mount = $("rubric");
+      if (!mount) return;
+      mount.replaceChildren();
+      const patterns = Array.isArray(rubric?.patterns)
+        ? rubric.patterns.filter((p) => p && typeof p.pillar === "string" && typeof p.pattern === "string" && typeof p.how === "string")
+        : [];
+      if (!patterns.length) return;
+
+      const eyebrow = document.createElement("p");
+      eyebrow.className = "study-rubric-eyebrow";
+      eyebrow.textContent = "How this AI screen earns the five pillars";
+      mount.appendChild(eyebrow);
+
+      const intro = document.createElement("p");
+      intro.className = "study-rubric-intro";
+      intro.textContent = "A maker's read of the affordances above, each tied to a canonical pattern and its primary source — assessment, not agent output.";
+      mount.appendChild(intro);
+
+      for (const p of patterns) {
+        const row = document.createElement("div");
+        row.className = "study-rubric-row";
+
+        const head = document.createElement("p");
+        head.className = "study-rubric-head";
+        const strong = document.createElement("strong");
+        strong.textContent = p.pillar;
+        head.append(strong, document.createTextNode(` · ${p.pattern}`));
+        row.appendChild(head);
+
+        const how = document.createElement("p");
+        how.className = "study-rubric-how";
+        how.textContent = p.how;
+        row.appendChild(how);
+
+        if (typeof p.cite === "string" && p.cite.trim()) {
+          const cite = document.createElement("p");
+          cite.className = "study-rubric-cite";
+          cite.textContent = p.cite;
+          row.appendChild(cite);
+        }
+        mount.appendChild(row);
+      }
+    }
+
     try {
-      const [index, vocab, copy] = await Promise.all([
+      const [index, vocab, copy, rubric] = await Promise.all([
         fetch("/proto/compositions/index.json").then((r) => { if (!r.ok) throw new Error(`index.json → ${r.status}`); return r.json(); }),
         fetch("/handoff/verdant/vocabulary.json").then((r) => { if (!r.ok) throw new Error(`vocabulary.json → ${r.status}`); return r.json(); }),
         fetch("/scenarios/fieldwork/copy.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+        fetch("/scenarios/fieldwork/rubric.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
       $("notice").textContent = copy.fictionalNotice || "Fieldwork is a fictional scenario, invented for this demonstration.";
@@ -164,6 +227,7 @@
       renderCapability(entries.length);
       const bus = createBus();
       renderStudy($("study"), { vocab, entries, bus });
+      renderRubric(rubric); // maker's five-pillar read, adjacent to the real affordances above
     } catch (e) {
       const cap = $("capability");
       cap.replaceChildren();
