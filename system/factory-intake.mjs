@@ -208,7 +208,11 @@ function init() {
   }
 
   // --- live re-skin (approach B: view-time-safe) --------------------------------------------
-  function run() {
+  // `animate` gates the WCAG-table row entrance. True for discrete renders (initial mount,
+  // scenario toggle, radio change); false for the continuous colour-picker drag — the CSS
+  // entrance restarts on every freshly-built row, so re-triggering it each `input` tick keeps
+  // the (rebuilt-every-tick) table blank for the whole drag. Values still update live either way.
+  function run(animate = true) {
     let result;
     try {
       result = derive(answers);
@@ -221,7 +225,7 @@ function init() {
     appliedKeys = Object.keys(result.tokens);
     for (const [k, v] of Object.entries(result.tokens)) previewRoot.style.setProperty("--" + k, v);
     previewRoot.dataset.reskin = "ready"; // readiness signal for the visual-regression gate
-    renderNarrative(result);
+    renderNarrative(result, animate);
   }
 
   // On any derive() throw: clear props → the container inherits the committed neutral pack, and
@@ -234,10 +238,10 @@ function init() {
     console.error(err);
   }
 
-  function setAnswer(axis, value) {
+  function setAnswer(axis, value, animate = true) {
     answers[axis] = value;
     markDriven(); // first user-initiated change only
-    run();
+    run(animate);
   }
 
   // --- scenario toggle: swap the whole Station-1/2 pipeline (synchronous, no fetch) ----------
@@ -318,7 +322,7 @@ function init() {
       const valueSpan = el("span", "fw-color-value", answers.brandColor);
       input.addEventListener("input", () => {
         valueSpan.textContent = input.value;
-        setAnswer("brandColor", input.value);
+        setAnswer("brandColor", input.value, false); // continuous drag: update values live, but don't restart the row entrance each tick
       });
       label.appendChild(input);
       label.appendChild(valueSpan);
@@ -394,7 +398,7 @@ function init() {
     return s;
   }
 
-  function renderNarrative(result) {
+  function renderNarrative(result, animate = true) {
     const frag = document.createDocumentFragment();
 
     // Beat 1 — Brand → accessible palette: the WCAG checks table (shown passing at the defaults;
@@ -402,6 +406,7 @@ function init() {
     // then the brand-vs-accessibility negotiation from result.notes.
     const b1 = beat("01", "Brand → accessible palette");
     const table = el("table", "fw-checks");
+    if (animate) table.classList.add("fw-animate"); // entrance stagger only on discrete renders (see run())
     table.innerHTML =
       "<thead><tr><th></th><th>pair</th><th>ratio</th><th>min</th><th>AA</th></tr></thead><tbody>" +
       result.checks.map((c, i) => `

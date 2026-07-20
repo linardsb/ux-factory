@@ -179,7 +179,7 @@ export function renderTracePlayer(container, trace) {
   const next = () => { if (current < cards.length - 1) { current++; apply(true); } };
   const prev = () => { if (current > -1) { current--; apply(true); } };
   const reveal = (i, scroll = true) => { current = Math.max(-1, Math.min(cards.length - 1, i)); apply(scroll); };
-  const revealAll = () => { current = cards.length - 1; cards.forEach((c) => { c.classList.remove('trace-step-hidden'); c.classList.remove('trace-step-current'); }); progress.textContent = `${cards.length} / ${cards.length}`; if (fill) fill.style.width = '100%'; };
+  const revealAll = () => { current = cards.length - 1; cards.forEach((c) => { c.classList.remove('trace-step-hidden'); c.classList.remove('trace-step-current'); }); progress.textContent = `${cards.length} / ${cards.length}`; if (fill) fill.style.width = cards.length ? '100%' : '0%'; };
 
   // Autoplay (Phase 3, item 2): pausable, never auto-starts (WCAG 2.2.2 — user-initiated).
   // Advances one step / 1400ms, scrolling block:'nearest' so a card already on screen isn't
