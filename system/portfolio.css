@@ -528,6 +528,11 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
    system/glossary.mjs — docs/epics/annotated-source-glossary.architecture.md).
    At-rest addition: changes the approach-neutral + approach-saulera baselines (regen in this PR). */
 
+/* 1fr grid tracks won't shrink below the items' min-content, and the unwrappable code lines
+   inflate both columns past the grid — the page's overflow-x:hidden then clips the second card
+   at the viewport. Letting the items shrink hands the overflow to .asrc-code's own scrollbar. */
+#asrc > div { min-width: 0; }
+
 .asrc-block {
   margin: 0; /* figure reset */
   background: var(--color-bg-surface);   /* surface recipe mirrors .decision-card (components.css:541-547), minus its accent left-border */
