@@ -524,7 +524,7 @@ p, .body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--spacing-xl);
-  transition: transform var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease);
+  transition: transform var(--motion-base) var(--motion-ease-spring), box-shadow var(--motion-base) var(--motion-ease-spring), border-color var(--motion-base) var(--motion-ease);
 }
 .card-link { display: block; cursor: pointer; }
 .card-link:hover {
@@ -652,6 +652,38 @@ p, .body {
   background: var(--color-border);
   margin-left: 12px;
 }
+
+/* Scroll-driven reveals — section labels + opt-in card grids (Phase 2, moves 3 + 4).
+   Double-gated: @supports AND no-preference. Outside these, content is fully visible
+   (Firefox / reduced-motion / the VR gate all see the at-rest state) → zero churn.
+   card-rise animates `translate` (independent property), NOT `transform`, so a revealed
+   card's fill:both does not override the .card-link:hover transform lift (move 4). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .section-label .num {
+      animation: label-num var(--motion-slow) var(--motion-ease-spring) both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 18%;
+    }
+    .section-label .line {
+      transform-origin: left center;
+      animation: label-line var(--motion-slow) var(--motion-ease-spring) both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+    /* Opt-in staggered grid reveal (add class="… stagger" on the grid) */
+    .stagger > * {
+      animation: card-rise var(--motion-slow) var(--motion-ease-spring) both;
+      animation-timeline: view();
+      animation-range: entry 2% cover 26%;
+    }
+    .stagger > :nth-child(3n+2) { animation-range: entry 6% cover 30%; }
+    .stagger > :nth-child(3n+3) { animation-range: entry 10% cover 34%; }
+  }
+}
+@keyframes label-num  { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }
+@keyframes label-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes card-rise  { from { opacity: 0; translate: 0 var(--motion-rise); } to { opacity: 1; translate: 0 0; } }
 
 /* ---------- Footer areas strip (injected site-wide by site.js) ---------- */
 
@@ -947,6 +979,24 @@ p, .body {
   gap: 24px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+/* Hero entrance cascade — the intro stack rises in on load (Phase 2, move 1).
+   Scoped :is() list, NOT a wildcard: an animating transform makes the element a
+   containing block + stacking context, which would reparent factory's sticky wizard. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-hero > .container > :is(.hero-eyebrow, h1, .hero-sub, .hero-cta-row, .cs-jump) {
+    animation: hero-rise var(--motion-slow) var(--motion-ease-spring) both;
+  }
+  /* child 1 keeps the default zero delay — no rule (writing the delay out as a literal would trip the no-literals grep) */
+  .page-hero > .container > :nth-child(2)   { animation-delay: calc(var(--motion-stagger) * 1); }
+  .page-hero > .container > :nth-child(3)   { animation-delay: calc(var(--motion-stagger) * 2); }
+  .page-hero > .container > :nth-child(4)   { animation-delay: calc(var(--motion-stagger) * 3); }
+  .page-hero > .container > :nth-child(n+5) { animation-delay: calc(var(--motion-stagger) * 4); }
+}
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(var(--motion-rise)); }
+  to   { opacity: 1; transform: none; }
 }
 
 .hero-grid {

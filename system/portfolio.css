@@ -82,6 +82,19 @@
   white-space: nowrap;
 }
 
+/* Accent-underline draw-in — hero highlights only, drawn after the h1 lands (Phase 2, move 2).
+   Rest state keeps the border-bottom (above) → zero baseline churn on all 14 .hl instances,
+   since the VR gate captures under prefers-reduced-motion: reduce. Scope is .page-hero .hl ONLY:
+   the body-prose .hl on approach.html must keep the static border and never draw. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-hero .hl {
+    border-bottom-color: transparent;
+    background: linear-gradient(var(--color-accent), var(--color-accent)) 0 calc(100% + 0.12em) / 0% 0.12em no-repeat;
+    animation: hl-draw var(--motion-slow) var(--motion-ease-spring) var(--motion-slow) forwards;
+  }
+}
+@keyframes hl-draw { to { background-size: 100% 0.12em; } }
+
 /* ---------- Cards with a thumbnail (work grid) ---------- */
 
 .card.has-thumb { padding: 0; overflow: hidden; }
@@ -110,6 +123,35 @@
   font-size: 14px;
   letter-spacing: 0.04em;
 }
+
+/* ---------- Home "ways to verify" cards — monochrome glyph + hover-revealed proof (Phase 2, move 5) ----------
+   The glyph is the ONLY at-rest change (it churns index-{neutral,saulera} baselines, by design).
+   The proof line is collapsed at rest (grid-template-rows: 0fr, opacity 0) so the baseline shows only the
+   glyph; it surfaces on card hover/focus — the Active-Grid rule: hover SURFACES content, not just a lift.
+   Monochrome (--color-fg-muted, stroke: currentColor) → no new hue under either pack (calm-colour rule). */
+.verify-glyph {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-fg-muted);
+}
+.verify-glyph svg { width: 100%; height: 100%; display: block; }
+.verify-proof {
+  margin: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows var(--motion-base) var(--motion-ease-spring),
+              opacity var(--motion-fast) var(--motion-ease);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--color-fg-muted);
+}
+.verify-proof > span { overflow: hidden; min-height: 0; }
+.card-link:hover .verify-proof,
+.card-link:focus-visible .verify-proof { grid-template-rows: 1fr; opacity: 1; }
 
 /* Work grid: five cards spaced evenly — three across the top, two across the bottom */
 .work-grid { grid-template-columns: repeat(6, 1fr); }
