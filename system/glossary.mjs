@@ -61,6 +61,8 @@ export function initGlossary(root = document) {
 
   let open = null; // the trigger currently described, or null
   let hideTimer = 0;
+  let hovered = false; // pointer is over a trigger or the bubble
+  let focusTrigger = null; // the trigger holding keyboard focus, or null
 
   function position(trigger) {
     const r = trigger.getBoundingClientRect();
@@ -88,31 +90,37 @@ export function initGlossary(root = document) {
   }
 
   // 1.4.13 hoverable: leaving the trigger only ARMS the hide; reaching the bubble cancels it.
+  // Hover and focus are tracked separately — a pointer graze must not hide the bubble while
+  // keyboard focus still holds a term, so the timer re-shows the focused term instead.
   function armHide() {
     clearTimeout(hideTimer);
-    hideTimer = setTimeout(hide, 120);
+    hideTimer = setTimeout(() => {
+      if (hovered) return;
+      if (focusTrigger) show(focusTrigger);
+      else hide();
+    }, 120);
   }
 
+  // One AbortController for every listener, so destroy() detaches the per-trigger handlers too.
+  const wiring = new AbortController();
+  const { signal } = wiring;
   for (const t of triggers) {
-    t.addEventListener("mouseenter", () => show(t));
-    t.addEventListener("focusin", () => show(t));
-    t.addEventListener("mouseleave", armHide);
-    t.addEventListener("focusout", armHide);
+    t.addEventListener("mouseenter", () => { hovered = true; show(t); }, { signal });
+    t.addEventListener("focusin", () => { focusTrigger = t; show(t); }, { signal });
+    t.addEventListener("mouseleave", () => { hovered = false; armHide(); }, { signal });
+    t.addEventListener("focusout", () => { focusTrigger = null; armHide(); }, { signal });
   }
-  bubble.addEventListener("mouseenter", () => clearTimeout(hideTimer));
-  bubble.addEventListener("mouseleave", armHide);
+  bubble.addEventListener("mouseenter", () => { hovered = true; clearTimeout(hideTimer); }, { signal });
+  bubble.addEventListener("mouseleave", () => { hovered = false; armHide(); }, { signal });
 
   // 1.4.13 dismissible: Esc, only while open. Scroll hides too — a fixed bubble would detach.
-  const onKeydown = (e) => { if (!bubble.hidden && e.key === "Escape") hide(); };
-  const onScroll = () => { if (!bubble.hidden) hide(); };
-  document.addEventListener("keydown", onKeydown);
-  window.addEventListener("scroll", onScroll, { passive: true });
+  document.addEventListener("keydown", (e) => { if (!bubble.hidden && e.key === "Escape") hide(); }, { signal });
+  window.addEventListener("scroll", () => { if (!bubble.hidden) hide(); }, { passive: true, signal });
 
   const destroy = () => {
     hide();
     bubble.remove();
-    document.removeEventListener("keydown", onKeydown);
-    window.removeEventListener("scroll", onScroll);
+    wiring.abort();
   };
   return { destroy };
 }
