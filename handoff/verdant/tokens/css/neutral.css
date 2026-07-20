@@ -14,6 +14,7 @@
   --color-white: #ffffff;
   --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace; /** technical stamp — numerals, code, machine-adjacent text */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -46,6 +47,7 @@
   --type-body: 16px;
   --type-caption: 13px;
   --type-eyebrow: 12px;
+  --color-accent-wash: color-mix(in srgb, var(--color-accent) 5%, transparent); /** atmosphere — the accent as a barely-there ground wash (hero glow) */
   --color-fg-on-inverse-muted: color-mix(in srgb, var(--color-fg-on-inverse) 50%, transparent);
   --color-fg-on-inverse-soft: color-mix(in srgb, var(--color-fg-on-inverse) 82%, transparent);
   --color-inverse-line: color-mix(in srgb, var(--color-fg-on-inverse) 12%, transparent);
