@@ -208,7 +208,10 @@ function init() {
   }
 
   // --- live re-skin (approach B: view-time-safe) --------------------------------------------
-  function run() {
+  // `animate` gates the WCAG-table row entrance (the .fw-animate class renderNarrative adds). Only
+  // the renders where the table genuinely (re)appears pass true: initial mount and the scenario
+  // toggle. Every within-scenario value change goes through setAnswer → run(false) — see there.
+  function run(animate = true) {
     let result;
     try {
       result = derive(answers);
@@ -221,7 +224,7 @@ function init() {
     appliedKeys = Object.keys(result.tokens);
     for (const [k, v] of Object.entries(result.tokens)) previewRoot.style.setProperty("--" + k, v);
     previewRoot.dataset.reskin = "ready"; // readiness signal for the visual-regression gate
-    renderNarrative(result);
+    renderNarrative(result, animate);
   }
 
   // On any derive() throw: clear props → the container inherits the committed neutral pack, and
@@ -234,10 +237,15 @@ function init() {
     console.error(err);
   }
 
+  // Every within-scenario value change updates the WCAG table IN PLACE, so it must NOT re-fire the
+  // staggered row entrance (run(false)): on the continuous colour drag the animation restarts on
+  // each freshly-built row every `input` tick and later rows never settle (blank table); on a radio
+  // change it would re-cascade rows whose content didn't even change (checks depend on brandColor
+  // alone). Mount + scenario toggle keep the entrance (run() → true).
   function setAnswer(axis, value) {
     answers[axis] = value;
     markDriven(); // first user-initiated change only
-    run();
+    run(false);
   }
 
   // --- scenario toggle: swap the whole Station-1/2 pipeline (synchronous, no fetch) ----------
@@ -394,7 +402,7 @@ function init() {
     return s;
   }
 
-  function renderNarrative(result) {
+  function renderNarrative(result, animate = true) {
     const frag = document.createDocumentFragment();
 
     // Beat 1 — Brand → accessible palette: the WCAG checks table (shown passing at the defaults;
@@ -402,10 +410,11 @@ function init() {
     // then the brand-vs-accessibility negotiation from result.notes.
     const b1 = beat("01", "Brand → accessible palette");
     const table = el("table", "fw-checks");
+    if (animate) table.classList.add("fw-animate"); // entrance stagger only on discrete renders (see run())
     table.innerHTML =
       "<thead><tr><th></th><th>pair</th><th>ratio</th><th>min</th><th>AA</th></tr></thead><tbody>" +
-      result.checks.map((c) => `
-        <tr>
+      result.checks.map((c, i) => `
+        <tr style="--i:${i}">
           <td><span class="fw-swatch" style="background:${esc(c.fgValue)}"></span><span class="fw-swatch" style="background:${esc(c.bgValue)}"></span></td>
           <td>${esc(c.fg)} / ${esc(c.bg)}<br><span class="muted">${esc(c.usage)}</span></td>
           <td>${c.ratio.toFixed(2)}</td><td>${c.min}</td>
@@ -589,6 +598,11 @@ function init() {
   renderEthics();
   renderWizard();
   run();
+  // Arm the re-skin transition ONE frame after the first settle, so the initial paint is
+  // transition-free (no load-flash) and the reduced-motion VR capture stays instant. Every
+  // subsequent re-skin (answer change, scenario toggle) then interpolates its colours. The
+  // transition itself is CSS on #reskin-preview.is-animated, gated behind no-preference. (Phase 3)
+  requestAnimationFrame(() => previewRoot.classList.add("is-animated"));
 }
 
 if (typeof document !== "undefined") init();

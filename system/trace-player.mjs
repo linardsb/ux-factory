@@ -107,6 +107,14 @@ export function renderTracePlayer(container, trace) {
   // groups the same accessible name.
   root.setAttribute('aria-label', `Trace replay: ${meta.task || 'untitled run'} — use arrow keys to step`);
 
+  // Optional Play mode (Phase 3, item 2) is rendered ONLY under no-preference: reduced-motion
+  // users keep Next/Prev + the text counter, and the auto-advancing control is withheld — the
+  // correct design (they don't want moving content) that, as a side effect, keeps the
+  // reduced-motion VR capture unchanged. btnPlay/fill stay null under reduce, so stop() (called
+  // on every manual navigation) is a safe no-op there. Mirrors portfolio.js:26's matchMedia gate.
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let btnPlay = null, fill = null, timer = null;
+
   // Header strip: task, the honesty label (verbatim), model/date/turns/duration/cost/steps.
   const header = el('header', 'trace-header');
   header.append(el('h2', 'trace-task', meta.task));
@@ -128,6 +136,13 @@ export function renderTracePlayer(container, trace) {
   const btnAll = el('button', 'btn btn-secondary', 'Show all');
   const progress = el('span', 'trace-progress muted');
   controls.append(btnPrev, btnNext, btnAll, progress);
+  if (!reduceMotion.matches) {
+    btnPlay = el('button', 'btn btn-secondary', '▶ Play');
+    const track = el('span', 'trace-progress-track');
+    fill = el('span', 'trace-progress-fill');
+    track.append(fill);
+    progress.before(btnPlay, track); // Play groups with the nav buttons; the fill bar spans to the counter
+  }
   header.append(controls);
   root.append(header);
 
@@ -157,30 +172,51 @@ export function renderTracePlayer(container, trace) {
 
   container.append(root);
 
-  // Stepping: cards 0..current visible, current highlighted; > current hidden. No autoplay.
+  // Stepping: cards 0..current visible, current highlighted; > current hidden. Manual by
+  // default; the optional Play timer (below) drives the same `next` under no-preference.
   let current = -1;
-  function apply(scroll) {
+  function apply(scroll, block = 'center') {
     cards.forEach((c, i) => {
       c.classList.toggle('trace-step-hidden', i > current);
       c.classList.toggle('trace-step-current', i === current);
     });
     progress.textContent = `${Math.max(0, current + 1)} / ${cards.length}`;
-    if (scroll && current >= 0 && cards[current]) cards[current].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (fill) fill.style.width = `${cards.length ? ((current + 1) / cards.length) * 100 : 0}%`;
+    if (scroll && current >= 0 && cards[current]) cards[current].scrollIntoView({ block, behavior: 'smooth' });
   }
   const next = () => { if (current < cards.length - 1) { current++; apply(true); } };
   const prev = () => { if (current > -1) { current--; apply(true); } };
   const reveal = (i, scroll = true) => { current = Math.max(-1, Math.min(cards.length - 1, i)); apply(scroll); };
-  const revealAll = () => { current = cards.length - 1; cards.forEach((c) => { c.classList.remove('trace-step-hidden'); c.classList.remove('trace-step-current'); }); progress.textContent = `${cards.length} / ${cards.length}`; };
+  const revealAll = () => { current = cards.length - 1; cards.forEach((c) => { c.classList.remove('trace-step-hidden'); c.classList.remove('trace-step-current'); }); progress.textContent = `${cards.length} / ${cards.length}`; if (fill) fill.style.width = cards.length ? '100%' : '0%'; };
 
-  btnNext.addEventListener('click', next);
-  btnPrev.addEventListener('click', prev);
-  btnAll.addEventListener('click', revealAll);
+  // Autoplay (Phase 3, item 2): pausable, never auto-starts (WCAG 2.2.2 — user-initiated).
+  // Advances one step / 1400ms, scrolling block:'nearest' so a card already on screen isn't
+  // yanked to centre; self-stops at the last step. Manual navigation calls stop() first so
+  // autoplay never fights the user. Under reduced motion btnPlay is null → stop()/play() no-op.
+  function stop() {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (btnPlay) btnPlay.textContent = '▶ Play';
+  }
+  function play() {
+    if (timer || !btnPlay) return;
+    if (current >= cards.length - 1) reveal(0, false); // at the end → rewind so Play replays
+    btnPlay.textContent = '❚❚ Pause';
+    timer = setInterval(() => {
+      if (current >= cards.length - 1) stop();
+      else { current++; apply(true, 'nearest'); }
+    }, 1400);
+  }
+
+  btnNext.addEventListener('click', () => { stop(); next(); });
+  btnPrev.addEventListener('click', () => { stop(); prev(); });
+  btnAll.addEventListener('click', () => { stop(); revealAll(); });
+  if (btnPlay) btnPlay.addEventListener('click', () => { timer ? stop() : play(); });
   const onKey = (e) => {
-    if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); stop(); next(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stop(); prev(); }
   };
   root.addEventListener('keydown', onKey);
-  const destroy = () => { root.removeEventListener('keydown', onKey); container.textContent = ''; };
+  const destroy = () => { if (timer) clearInterval(timer); root.removeEventListener('keydown', onKey); container.textContent = ''; };
 
   reveal(0, false); // start on the first step (skeleton + step 1), no jump-scroll on load
   return { next, prev, reveal, revealAll, destroy };
