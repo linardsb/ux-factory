@@ -73,11 +73,37 @@ export function renderStudy(container, { vocab, entries, bus } = {}) {
     controls,
     refusalPanel));
 
+  // messages — the bus contract, visible. Every adjustment above rides the action bus as a
+  // typed message; on("*") is the contract's documented log tap (action-bus.mjs header). An
+  // agent or a voice layer would emit the SAME ui.* types — a new `source`, not a new bus.
+  const busList = el("div", { class: "study-bus-list" });
+  const busEmpty = el("p", { class: "study-empty", text: "No messages yet — adjust a tile above and its intents appear here." });
+  root.appendChild(el("details", { class: "study-bus" },
+    el("summary", { class: "study-bus-summary", text: "Messages on the bus" }),
+    el("p", { class: "study-hint", text: "The raw action contract, live: type (ui.* = UI → agent) · source modality · target · params. This is the log tap the bus header documents — the same messages an agent or a voice layer would carry." }),
+    busEmpty,
+    busList));
+
   // provenance — honest label + a link to the committed real-run trace
   const provenance = el("p", { class: "study-provenance" });
   root.appendChild(provenance);
 
   container.appendChild(root);
+
+  // --- bus log --------------------------------------------------------------
+  const BUS_LOG_MAX = 30; // bound the DOM; newest first
+  let busSeq = 0;
+  const offBusLog = bus.on("*", (a) => {
+    busEmpty.hidden = true;
+    busSeq += 1;
+    busList.prepend(el("p", { class: "study-bus-row" },
+      el("span", { class: "study-bus-seq", text: String(busSeq).padStart(2, "0") }),
+      el("code", { class: "study-bus-type", text: a.type }),
+      el("span", { class: "study-bus-src", text: a.source }),
+      a.target ? el("span", { class: "study-bus-target", text: `${a.target.component}${a.target.id != null ? `#${a.target.id}` : ""}` }) : null,
+      a.params ? el("code", { class: "study-bus-params", text: JSON.stringify(a.params) }) : null)); // textContent — agent-supplied strings stay inert
+    while (busList.children.length > BUS_LOG_MAX) busList.lastChild.remove();
+  });
 
   // --- behaviour ------------------------------------------------------------
   function setRefusal(message) {
@@ -189,5 +215,5 @@ export function renderStudy(container, { vocab, entries, bus } = {}) {
 
   pick(entries[0], ask.firstChild);
 
-  return { destroy() { container.replaceChildren(); } };
+  return { destroy() { offBusLog(); container.replaceChildren(); } };
 }
