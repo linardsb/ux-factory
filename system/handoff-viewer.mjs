@@ -237,11 +237,33 @@ export function renderHandoffViewer(container, model) {
 
     // Projection 3 — the agent vocabulary entry, generated from the same head.
     const vocabSec = el("section", { class: "hv-vocab" });
-    vocabSec.appendChild(el("div", { class: "hv-eyebrow", text: "Agent vocabulary (generated from the same head)" }));
-    if (c.vocab)
+    const vocabEyebrow = el("div", { class: "hv-eyebrow", text: "Agent vocabulary (generated from the same head)" });
+    vocabSec.appendChild(vocabEyebrow);
+    if (c.vocab) {
+      // Copy agent prompt (portfolio-ux-uplift §Phase 5): a self-contained excerpt — the
+      // composition grammar + this component's entry — an agent could compose against.
+      // 100% generated data (vocabulary.json content); the label names exactly what it is.
+      // Rides the eyebrow like the DataContract link above (docsEyebrow idiom).
+      const copyBtn = el("button", { type: "button", class: "btn btn-secondary hv-copy", text: "Copy agent prompt" });
+      let copyTimer = null;
+      copyBtn.addEventListener("click", () => {
+        if (copyTimer) { clearTimeout(copyTimer); copyTimer = null; }
+        const done = (label) => {
+          copyBtn.textContent = label;
+          copyTimer = setTimeout(() => { copyBtn.textContent = "Copy agent prompt"; copyTimer = null; }, 1600);
+        };
+        const excerpt = JSON.stringify(
+          { composition: model.composition, components: { [c.name]: c.vocab } },
+          null,
+          2
+        );
+        navigator.clipboard.writeText(excerpt).then(() => done("Copied ✓"), () => done("Copy failed"));
+      });
+      vocabEyebrow.appendChild(copyBtn);
       vocabSec.appendChild(el("pre", { class: "hv-json" }, el("code", { text: JSON.stringify(c.vocab, null, 2) })));
-    else
+    } else {
       vocabSec.appendChild(el("p", { class: "hv-p hv-muted", text: "not in the agent vocabulary" }));
+    }
     grid.appendChild(vocabSec);
 
     article.appendChild(grid);
