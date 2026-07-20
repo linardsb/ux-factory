@@ -5,8 +5,8 @@
     {
       "id": "btn-primary-tokens",
       "file": "system/components.css",
-      "startLine": 169,
-      "endLine": 174,
+      "startLine": 173,
+      "endLine": 178,
       "title": "The primary button's colour, in full",
       "prose": [
         "This is the entire colour styling of the site's primary button: three semantic tokens. There is no hex value here to drift out of sync — the button asks for \"the accent\", and whichever brand pack is loaded decides what that is.",

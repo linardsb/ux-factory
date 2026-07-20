@@ -19,7 +19,8 @@
       "color-accent-active":    { "$value": "#1e40af", "$type": "color" },
       "color-accent-fg":        { "$value": "#ffffff", "$type": "color" },
       "color-accent-secondary": { "$value": "#64748b", "$type": "color" },
-      "color-accent-on-inverse": { "$value": "#3d7bff", "$type": "color" }
+      "color-accent-on-inverse": { "$value": "#3d7bff", "$type": "color" },
+      "color-accent-wash":      { "$value": "color-mix(in srgb, var(--color-accent) 5%, transparent)", "$type": "color", "$description": "atmosphere — the accent as a barely-there ground wash (hero glow); packs may retune or null it" }
     },
     "inverse": {
       "$description": "Colour: inverse (content on a dark surface)",
@@ -35,7 +36,8 @@
     "fonts": {
       "$description": "Fonts (neutral system stack; a pack picks real faces)",
       "font-display": { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
-      "font-body":    { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" }
+      "font-body":    { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
+      "font-mono":    { "$value": ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"], "$type": "fontFamily", "$description": "technical stamp — numerals, code, machine-adjacent text" }
     },
     "spacing": {
       "$description": "Spacing (generic 4px scale)",
@@ -105,7 +107,8 @@
     "fonts": {
       "$description": "Fonts — neutral system stack (a company pack swaps in a real face)",
       "font-display": { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
-      "font-body":    { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" }
+      "font-body":    { "$value": ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
+      "font-mono":    { "$value": ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"], "$type": "fontFamily", "$description": "technical stamp — numerals, code, machine-adjacent text" }
     },
     "spacing": {
       "$description": "Spacing scale (8 steps, 4px base)",
@@ -174,7 +177,8 @@
       "color-accent-active":    { "$value": "{neutral.primitives.color-blue-act}", "$type": "color" },
       "color-accent-fg":        { "$value": "{neutral.primitives.color-white}",    "$type": "color", "$description": "text/icon on an accent fill" },
       "color-accent-secondary": { "$value": "{neutral.primitives.color-slate}",    "$type": "color", "$description": "quiet accent, live dots" },
-      "color-accent-on-inverse": { "$value": "{neutral.primitives.color-blue-bright}", "$type": "color", "$description": "accent as text on the dark ground (footer link hovers, feature-band numeral)" }
+      "color-accent-on-inverse": { "$value": "{neutral.primitives.color-blue-bright}", "$type": "color", "$description": "accent as text on the dark ground (footer link hovers, feature-band numeral)" },
+      "color-accent-wash":      { "$value": "color-mix(in srgb, var(--color-accent) 5%, transparent)", "$type": "color", "$description": "atmosphere — the accent as a barely-there ground wash (hero glow)" }
     },
     "semantic-inverse": {
       "$description": "Inverse (content sitting on a dark surface)",

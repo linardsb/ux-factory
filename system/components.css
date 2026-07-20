@@ -37,7 +37,11 @@ body {
 
 a { color: inherit; text-decoration: none; }
 img, svg { display: block; max-width: 100%; }
-html, body { overflow-x: hidden; }
+/* `overflow-x: hidden` on body makes it a scroll container, which silently unbinds every
+   `position: sticky` descendant from the viewport — the shipped sticky header never stuck.
+   `clip` clips identically WITHOUT creating a scroll container; the `hidden` line stays as
+   the pre-Safari-16 fallback (older engines keep today's behaviour, no worse). */
+html, body { overflow-x: hidden; overflow-x: clip; }
 
 /* ---------- Type ---------- */
 
@@ -642,7 +646,8 @@ p, .body {
   margin-bottom: var(--spacing-2xl);
 }
 .section-label .num {
-  font-family: var(--font-display);
+  font-family: var(--font-mono); /* Phase 4: mono stamp — churns all IA baselines */
+  font-variant-numeric: tabular-nums;
   font-size: 14px;
   color: var(--color-fg);
 }
@@ -1028,7 +1033,8 @@ p, .body {
   margin-bottom: 8px;
 }
 .hero-stat .value {
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 28px;
   line-height: 1.1;
   color: var(--color-fg);
@@ -1058,7 +1064,8 @@ p, .body {
 }
 .hero-meta .item strong {
   display: block;
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 18px;
   letter-spacing: 0.02em;
   color: var(--color-fg);
