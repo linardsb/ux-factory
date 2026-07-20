@@ -1,0 +1,27 @@
+{
+  "$description": "Hand-authored spec for gen-annotated-source.mjs: which real source regions are extracted (by unique anchor strings) and the plain-English prose shown beside them. The prose is the author's voice; the code is extracted at build time and never hand-copied (docs/epics/annotated-source-glossary.architecture.md).",
+  "snippets": [
+    {
+      "id": "btn-primary-tokens",
+      "file": "system/components.css",
+      "anchorStart": ".btn-primary {",
+      "anchorEnd": ".btn-primary:active",
+      "title": "The primary button's colour, in full",
+      "prose": [
+        "This is the entire colour styling of the site's primary button: three semantic tokens. There is no hex value here to drift out of sync — the button asks for \"the accent\", and whichever brand pack is loaded decides what that is.",
+        "The hover and active steps read from the same contract, so even the interaction states re-skin when the pack changes. Swapping one stylesheet line restyles every button on the site, states included."
+      ]
+    },
+    {
+      "id": "derive-accent-contrast",
+      "file": "system/derive.rules.mjs",
+      "anchorStart": "// Brand-preservation bounds:",
+      "anchorEnd": "fgContrastMin: 4.5,",
+      "title": "Accessibility as a rule, not a review step",
+      "prose": [
+        "When the factory derives a design system from a brand colour, this is the rule that negotiates the accent: stay as close to the brand as the bounds allow, then darken in 0.01 steps until the colour reads at WCAG AA contrast (4.5:1) against the derived card surface.",
+        "Because that surface is lighter than the page ground, the one condition guarantees three contrast pairs at once. And if the hard floor is reached without passing, the check fails honestly — it reports a miss rather than shipping a near-miss."
+      ]
+    }
+  ]
+}

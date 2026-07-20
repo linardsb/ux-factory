@@ -523,3 +523,55 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 
 /* Deep-linked Approach sections land below the sticky header (same idiom as .cs-h) */
 #seat, #layers, #loop, #value, #case, #sources, #practice { scroll-margin-top: 90px; }
+
+/* ---------- Annotated source + glossary (approach.html §05; system/annotated-source.mjs +
+   system/glossary.mjs — docs/epics/annotated-source-glossary.architecture.md).
+   At-rest addition: changes the approach-neutral + approach-saulera baselines (regen in this PR). */
+
+.asrc-block {
+  margin: 0; /* figure reset */
+  background: var(--color-bg-surface);   /* surface recipe mirrors .decision-card (components.css:541-547), minus its accent left-border */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.asrc-title {
+  font-family: var(--font-display);
+  font-size: var(--type-body);
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-code {
+  margin: 0 0 var(--spacing-md);
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  background: var(--color-bg);           /* page ground inset inside the surface card */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.asrc-code code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* raw stack: no --font-mono token exists — same noted exception as handoff.html:45 */
+  font-size: var(--type-caption);
+  white-space: pre;
+  tab-size: 2;
+}
+.asrc-note p { color: var(--color-fg-muted); }
+.asrc-note p + p { margin-top: var(--spacing-md); }
+
+dfn.term {
+  font-style: normal;                    /* kill dfn's default italic */
+  text-decoration: underline dotted var(--color-fg-muted);
+  text-underline-offset: 0.15em;
+  cursor: help;
+}
+.glossary-bubble {
+  position: fixed;
+  z-index: 90;                           /* under .skip-link's 100 (portfolio.css:29) */
+  max-width: 36ch;
+  padding: var(--spacing-md);
+  background: var(--color-bg-inverse);   /* inverse pairing mirrors .skip-link, portfolio.css:30-31 */
+  color: var(--color-fg-on-inverse-strong);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}

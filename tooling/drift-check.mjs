@@ -11,6 +11,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { genTokenCss } from "../agent-layer/gen-token-css.mjs";
+import { genAnnotatedSource } from "../agent-layer/gen-annotated-source.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
 import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
@@ -40,6 +41,15 @@ function checkTokenCss() {
   if (r.drifted.length)
     throw new Error(
       `token CSS drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-token-css.mjs`
+    );
+}
+
+// 2b. Annotated-source drift — check mode writes nothing; compares in-memory regen vs disk.
+function checkAnnotatedSource() {
+  const r = genAnnotatedSource({ check: true });
+  if (r.drifted.length)
+    throw new Error(
+      `annotated-source drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-annotated-source.mjs`
     );
 }
 
@@ -76,10 +86,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     checkSyntax();
     checkTokenCss();
+    checkAnnotatedSource();
     checkHandoff();
     checkScenarios();
     checkTraces();
-    console.log("drift-check     ✓  syntax · token-css · handoff · scenarios · traces");
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · handoff · scenarios · traces");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);
