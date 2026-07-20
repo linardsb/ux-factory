@@ -524,6 +524,125 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 /* Deep-linked Approach sections land below the sticky header (same idiom as .cs-h) */
 #seat, #layers, #loop, #value, #case, #sources, #practice { scroll-margin-top: 90px; }
 
+/* ---------- Annotated source + glossary (approach.html §05; system/annotated-source.mjs +
+   system/glossary.mjs — docs/epics/annotated-source-glossary.architecture.md).
+   At-rest addition: changes the approach-neutral + approach-saulera baselines (regen in this PR). */
+
+/* 1fr grid tracks won't shrink below the items' min-content, and the unwrappable code lines
+   inflate both columns past the grid — the page's overflow-x:hidden then clips the second card
+   at the viewport. Letting the items shrink hands the overflow to .asrc-code's own scrollbar. */
+#asrc > div { min-width: 0; }
+
+.asrc-block {
+  margin: 0; /* figure reset */
+  background: var(--color-bg-surface);   /* surface recipe mirrors .decision-card (components.css:541-547), minus its accent left-border */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.asrc-title {
+  font-family: var(--font-display);
+  font-size: var(--type-body);
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-code {
+  margin: 0 0 var(--spacing-md);
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  background: var(--color-bg);           /* page ground inset inside the surface card */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.asrc-code code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* raw stack: no --font-mono token exists — same noted exception as handoff.html:45 */
+  font-size: var(--type-caption);
+  white-space: pre;
+  tab-size: 2;
+}
+.asrc-note p { color: var(--color-fg-muted); }
+.asrc-note p + p { margin-top: var(--spacing-md); }
+
+/* Derive probe (approach.html §05; system/derive-probe.mjs — the exhibited rule, executed on a
+   reader-chosen colour). At-rest addition: changes the approach baselines (regen in this PR). */
+.asrc-probe {
+  margin-top: var(--spacing-md);
+  background: var(--color-bg-surface);   /* same surface recipe as .asrc-block above */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.asrc-probe-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-probe-row input[type="color"] {
+  inline-size: 34px;
+  block-size: 26px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+.asrc-probe-label { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.asrc-probe-arrow { color: var(--color-fg-muted); }
+.asrc-probe-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* raw stack — same noted exception as .asrc-code code */
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+}
+.asrc-probe-swatch {
+  display: inline-block;
+  inline-size: 18px;
+  block-size: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.asrc-probe-check { font-size: var(--type-caption); color: var(--color-fg); margin: 0 0 var(--spacing-sm); }
+.asrc-probe-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.asrc-probe-notes li {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  margin: 0 0 4px;
+}
+.asrc-probe-fixed { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
+
+/* Measured-size line under the annotated source (system/loc-summary.json — the number is the
+   artifact's, never hand-written). */
+.loc-proof {
+  margin-top: var(--spacing-lg);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  max-width: 72ch;
+}
+
+dfn.term {
+  font-style: normal;                    /* kill dfn's default italic */
+  text-decoration: underline dotted var(--color-fg-muted);
+  text-underline-offset: 0.15em;
+  cursor: help;
+}
+.glossary-bubble {
+  position: fixed;
+  z-index: 90;                           /* under .skip-link's 100 (portfolio.css:29) */
+  max-width: 36ch;
+  padding: var(--spacing-md);
+  background: var(--color-bg-inverse);   /* inverse pairing mirrors .skip-link, portfolio.css:30-31 */
+  color: var(--color-fg-on-inverse-strong);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
 /* ---------- Derivation round-trip exhibit (#42) — fidelity diff display + trace player ----------
    Token-only (colour / space / radius / type via var(--…); grid / flex / px are structural literals,
    same licence as the factory <style> block and the .fw-*/.cs-* classes). Calm by the calm-colour

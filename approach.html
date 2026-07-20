@@ -102,7 +102,7 @@
               <h3 class="h3 mb-md">Prove it</h3>
               <p class="muted">
                 Before I build, I write down what would tell me it worked: an early signal like
-                first-week usage or activation, and the slower outcome behind it like retention
+                first-week usage or <dfn class="term" data-term="activation" tabindex="0">activation</dfn>, and the slower outcome behind it like <dfn class="term" data-term="retention" tabindex="0">retention</dfn>
                 or task completion. Once it ships I go back and check, then record what I
                 learned so the next call starts from evidence rather than opinion. Most work
                 never gets that second look. I make it a step.
@@ -233,7 +233,7 @@
             <p>
               The actual job was less about colours than about proving I could build a system,
               and making each version feel tailored without tailoring it by hand every time. One
-              rule kept the rest safe: components may only reference semantic tokens, never raw
+              rule kept the rest safe: components may only reference <dfn class="term" data-term="semantic-token" tabindex="0">semantic tokens</dfn>, never raw
               values. One thing stayed off the table: no build step and no framework, just plain
               HTML and CSS.
             </p>
@@ -250,8 +250,8 @@
           <div class="decision-card">
             <h3 class="decision-card-title">Build</h3>
             <p>
-              Three stylesheets load in order: a token contract with neutral fallbacks, a
-              swappable brand pack, and components that read only from tokens. The header and
+              Three stylesheets load in order: a <dfn class="term" data-term="token-contract" tabindex="0">token contract</dfn> with neutral fallbacks, a
+              swappable <dfn class="term" data-term="brand-pack" tabindex="0">brand pack</dfn>, and components that read only from tokens. The header and
               footer come from one config object instead of being hard-coded on every page.
               Accessibility defaults sit in the contract, so every component inherits them. An
               agent called Wright assembles each page from that contract, so a new page starts
@@ -263,12 +263,27 @@
             <p>
               Re-theming the whole site went from scattered edits on every page to a single line
               in each page's <code>&lt;head&gt;</code>. On top of that I generated a
-              machine-readable layer: structured data and an <code>llms.txt</code> file, so an
+              machine-readable layer: <dfn class="term" data-term="structured-data" tabindex="0">structured data</dfn> and an <dfn class="term" data-term="llms-txt" tabindex="0"><code>llms.txt</code></dfn> file, so an
               AI agent can read the system, not only a browser. Consistency stopped being
               something I maintained by hand and became part of how the thing is built.
             </p>
           </div>
         </div>
+        <!-- Annotated source: rendered by system/annotated-source.mjs from the build-time-extracted
+             artifact. Starts hidden; unhidden only on full render success (the degrade is silent for
+             visitors, loud for CI — VR waits on [data-asrc="ready"]). -->
+        <div class="grid grid-2 mt-2xl" id="asrc" hidden>
+          <div data-snippet="btn-primary-tokens"></div>
+          <div>
+            <div data-snippet="derive-accent-contrast"></div>
+            <!-- The rule above, executed: system/derive-probe.mjs runs the shipped engine on a
+                 reader-chosen colour — the quoted code and the running code are the same file. -->
+            <div id="asrc-probe"></div>
+          </div>
+        </div>
+        <!-- Measured size of the shipped system, from the drift-checked artifact
+             (system/loc-summary.json, agent-layer/gen-loc-summary.mjs) — never a hand-written number. -->
+        <p class="loc-proof" id="loc-proof" hidden></p>
       </div>
     </section>
 
@@ -347,5 +362,32 @@
   <script src="/system/site.js"></script>
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
+  <script type="module">
+    import { initGlossary } from "/system/glossary.mjs";
+    import { prepareAnnotatedSource, renderAnnotatedSource } from "/system/annotated-source.mjs";
+    import { renderDeriveProbe } from "/system/derive-probe.mjs";
+
+    // An unknown term key throws here and aborts the module — data-asrc is never set, VR red.
+    initGlossary(document);
+
+    const wrap = document.getElementById("asrc");
+    const grab = (path) => fetch(path).then((r) => { if (!r.ok) throw new Error(`${path} → ${r.status}`); return r.json(); });
+    Promise.all([grab("/system/annotated-source.json"), grab("/system/loc-summary.json")])
+      .then(([data, loc]) => {
+        const model = prepareAnnotatedSource(data);
+        for (const mount of wrap.querySelectorAll("[data-snippet]"))
+          renderAnnotatedSource(mount, model, mount.dataset.snippet);
+        renderDeriveProbe(document.getElementById("asrc-probe"));
+
+        const runtime = loc.groups.find((g) => g.id === "runtime");
+        const line = document.getElementById("loc-proof");
+        line.textContent = `Measured, not estimated: the design system this site ships — every token file, component rule and view-time module under system/ — is ${runtime.files} files, ≈${runtime.linesApprox.toLocaleString("en-GB")} lines, counted from the tracked source at build time and drift-checked in CI. No framework, no build step.`;
+        line.hidden = false;
+
+        wrap.hidden = false;
+        wrap.dataset.asrc = "ready";   // VR waits on this — set ONLY on full success
+      })
+      .catch(() => {});                // visitor: exhibit stays hidden · CI: waitReady times out loudly
+  </script>
 </body>
 </html>

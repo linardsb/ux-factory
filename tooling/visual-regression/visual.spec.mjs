@@ -14,7 +14,10 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 // static-fixture fallback + rendered rows). `rows` names a data-bound selector proving fixtures rendered.
 const PAGES = [
   { name: 'index',           url: '/index.html',           kind: 'ia' },
-  { name: 'approach',        url: '/approach.html',        kind: 'ia' },
+  // waitReady: the annotated-source exhibit renders after an async fetch and sets
+  // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
+  // broken artifact fails loudly instead of baselining an empty exhibit.
+  { name: 'approach',        url: '/approach.html',        kind: 'ia', waitReady: '#asrc[data-asrc="ready"]' },
   // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
   // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
   // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
