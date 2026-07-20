@@ -208,10 +208,9 @@ function init() {
   }
 
   // --- live re-skin (approach B: view-time-safe) --------------------------------------------
-  // `animate` gates the WCAG-table row entrance. True for discrete renders (initial mount,
-  // scenario toggle, radio change); false for the continuous colour-picker drag — the CSS
-  // entrance restarts on every freshly-built row, so re-triggering it each `input` tick keeps
-  // the (rebuilt-every-tick) table blank for the whole drag. Values still update live either way.
+  // `animate` gates the WCAG-table row entrance (the .fw-animate class renderNarrative adds). Only
+  // the renders where the table genuinely (re)appears pass true: initial mount and the scenario
+  // toggle. Every within-scenario value change goes through setAnswer → run(false) — see there.
   function run(animate = true) {
     let result;
     try {
@@ -238,10 +237,15 @@ function init() {
     console.error(err);
   }
 
-  function setAnswer(axis, value, animate = true) {
+  // Every within-scenario value change updates the WCAG table IN PLACE, so it must NOT re-fire the
+  // staggered row entrance (run(false)): on the continuous colour drag the animation restarts on
+  // each freshly-built row every `input` tick and later rows never settle (blank table); on a radio
+  // change it would re-cascade rows whose content didn't even change (checks depend on brandColor
+  // alone). Mount + scenario toggle keep the entrance (run() → true).
+  function setAnswer(axis, value) {
     answers[axis] = value;
     markDriven(); // first user-initiated change only
-    run(animate);
+    run(false);
   }
 
   // --- scenario toggle: swap the whole Station-1/2 pipeline (synchronous, no fetch) ----------
@@ -322,7 +326,7 @@ function init() {
       const valueSpan = el("span", "fw-color-value", answers.brandColor);
       input.addEventListener("input", () => {
         valueSpan.textContent = input.value;
-        setAnswer("brandColor", input.value, false); // continuous drag: update values live, but don't restart the row entrance each tick
+        setAnswer("brandColor", input.value);
       });
       label.appendChild(input);
       label.appendChild(valueSpan);

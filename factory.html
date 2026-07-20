@@ -264,10 +264,10 @@
        replaceChildren()s a fresh node — no JS change; enter-only, not a crossfade). The ethics pop
        fires on the .is-selected toggle (interaction → never at capture); its box-shadow rule above
        stays — the pop is additive. The WCAG rows stagger via a per-row --i index set in
-       renderNarrative, gated behind the .fw-animate class renderNarrative adds only on discrete
-       renders (mount / scenario toggle / radio change) — NOT on the continuous colour-drag
-       rebuild, where restarting the stagger every input tick would blank the whole table
-       (var(--i, 0) fallback keeps un-indexed rows at delay 0). */
+       renderNarrative, gated behind the .fw-animate class renderNarrative adds only where the
+       table genuinely (re)appears (mount / scenario toggle) — NOT on within-scenario value changes,
+       where restarting the stagger re-cascades unchanged rows and, on the continuous colour drag,
+       blanks the whole table (var(--i, 0) fallback keeps un-indexed rows at delay 0). */
     @media (prefers-reduced-motion: no-preference) {
       .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
       .fw-quadrant.is-selected { animation: fw-pop var(--motion-base) var(--motion-ease-spring); }
