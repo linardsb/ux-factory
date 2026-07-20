@@ -30,6 +30,9 @@
 
     .factory-embeds { display: grid; gap: var(--spacing-2xl); }
     .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    /* The flex rule above outranks the UA's [hidden]{display:none} (author origin wins), which would
+       leave the toggled-away figure painting — and outside the VR mask's :not([hidden]). */
+    .factory-embed-figure[hidden] { display: none; }
     .factory-embed {
       width: 100%;
       border: 1px solid var(--color-border);
@@ -403,10 +406,11 @@
         <p class="max-prose">The proposed pack, measured against ground truth — shown, not asserted:</p>
         <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
 
-        <!-- The recorded run — replayed in the mounted player; scenario-neutral honesty copy. -->
+        <!-- The recorded run — replayed in the mounted player; scenario-neutral honesty copy. The
+             player supplies its own h2 from meta.task (same as Station 05), so no heading here — an
+             h3 above it would put an h2 after an h3 inside the same container (backward jump). -->
         <div style="margin-top: var(--spacing-2xl);">
-          <h3 class="h3">The recorded derivation run</h3>
-          <p class="max-prose" style="margin-top: var(--spacing-md);">
+          <p class="max-prose">
             The real Claude Agent SDK vision run that produced the proposal above, recorded step by step
             and replayed in the four PIV acts — plan · gate · implement · validate. Nothing runs live
             here; the page replays a committed file.

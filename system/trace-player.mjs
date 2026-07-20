@@ -103,7 +103,9 @@ export function renderTracePlayer(container, trace) {
   // focused player responds — two players on one page never both catch arrows.
   root.tabIndex = 0;
   root.setAttribute('role', 'group');
-  root.setAttribute('aria-label', 'Trace replay — use arrow keys to step');
+  // Named per run (meta.task) — two players share factory.html, so a fixed string would give both
+  // groups the same accessible name.
+  root.setAttribute('aria-label', `Trace replay: ${meta.task || 'untitled run'} — use arrow keys to step`);
 
   // Header strip: task, the honesty label (verbatim), model/date/turns/duration/cost/steps.
   const header = el('header', 'trace-header');

@@ -22,6 +22,20 @@ export function prepareDiff(diff) {
   for (const key of required) {
     if (diff[key] == null) throw new Error(`verdant.diff.json: missing ${key}`);
   }
+  // The nested shapes renderRoundTrip iterates unguarded — checked here so a malformed artifact
+  // fails with a named path, not a TypeError mid-render.
+  const arrays = {
+    "accentFamily": diff.accentFamily, "neutrals.tokens": diff.neutrals.tokens,
+    "type.scored": diff.type.scored, "type.unscored": diff.type.unscored,
+    "spacing.steps": diff.spacing.steps, "radius.steps": diff.radius.steps, "aa.pairs": diff.aa.pairs,
+  };
+  for (const [path, value] of Object.entries(arrays)) {
+    if (!Array.isArray(value)) throw new Error(`verdant.diff.json: ${path} is not an array`);
+  }
+  const objects = { "verdict.passes": diff.verdict.passes, "type.checks": diff.type.checks, "spacing.checks": diff.spacing.checks };
+  for (const [path, value] of Object.entries(objects)) {
+    if (value == null || typeof value !== "object") throw new Error(`verdant.diff.json: missing ${path}`);
+  }
   return diff; // thin normalizer — the diff object is already the render-ready model
 }
 
