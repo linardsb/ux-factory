@@ -26,7 +26,7 @@
        via var(--…)); grid / % / fixed heights are inherently structural literals — same justification
        as handoff.html's viewer styles. Single-page layout, not a reused organism → deliberately not
        promoted to components.css. Later 10.x slices restyle these on the station. */
-    #intake, #generation, #prototypes, #handoff, #agents { scroll-margin-top: 90px; }
+    #intake, #generation, #prototypes, #handoff, #agents, #round-trip { scroll-margin-top: 90px; }
 
     .factory-embeds { display: grid; gap: var(--spacing-2xl); }
     .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
@@ -332,6 +332,98 @@
         <div id="ethics-gate"></div>
 
         <p class="muted fw-raw-pointer">The same engine, raw &rarr; <a href="/derive">/derive</a>.</p>
+        <p class="muted" style="margin-top: var(--spacing-sm); font-size: var(--type-caption);">Run in reverse — screenshots → pack — on Verdant's own screens: <a href="#round-trip">the derivation round-trip ↓</a></p>
+      </div>
+    </section>
+
+    <!-- Un-numbered exhibit (#42): the Verdant derivation round-trip — #40's screenshot→pack derivation
+         run end to end on Verdant's own screens, its proposal measured honestly against the known pack.
+         Deep-linkable by #round-trip; NOT a sixth station (five-station identity preserved). Static
+         framing (fictional notice · caveat · provisional label) is always visible even if the module
+         fails; the NUMBERS are rendered by /system/derivation-roundtrip.mjs from committed files only. -->
+    <section class="section" id="round-trip">
+      <div class="container">
+        <div class="hero-eyebrow"><span class="stamp">Fidelity evidence</span></div>
+        <h2 class="h2">The derivation round-trip <span class="capability">agent-proposed, human-approved · provisional</span></h2>
+        <p class="max-prose muted">
+          “Provisional” deliberately: the label is pending a clean fidelity read on a real product whose
+          tokens the model has not memorized, read purely from pixels. Both measured cases so far are
+          favourable-and-controlled — see the caveat below.
+        </p>
+        <p class="max-prose">
+          The factory's screenshot→pack derivation, run end to end on Verdant's own prototype and measured
+          against the known Verdant pack. It shows the pipeline runs and is measured honestly on a
+          controlled, favourable case — <strong>not</strong> that derivation is high-fidelity in the wild.
+          Everything below is read from committed files; nothing runs live.
+        </p>
+
+        <!-- Honesty surface: fictional subject (reuses the Station-1 notice idiom). -->
+        <p class="fw-scenario">
+          <strong class="fw-scenario-tag">Fictional scenario</strong>
+          <span>Verdant is a fictional product, invented for this demonstration. No real company, users,
+          or data are involved.</span>
+          The screenshots are of Verdant's own prototype — so the round-trip has a known answer to measure against.
+        </p>
+
+        <!-- Caveat panel — STATIC (survives a JS/fetch failure), co-equal with the metric. Paraphrases
+             tooling/round-trip/README.md:10-16 + the diff's own caveat; names the excluded neutrals. -->
+        <div class="rt-caveat">
+          <p><strong>Read this as a controlled, favourable case.</strong> The “ground truth” is the
+          engine's own <code>derive(Verdant&nbsp;axes)</code> output, and reading a solid accent off a
+          clean render is close to a colour-picker operation — so a near-zero accent ΔE is expected and
+          proves the <strong>pipeline works end to end</strong>, not that derivation is high-fidelity on
+          unfamiliar input.</p>
+          <p>Neutral tokens are tinted by the engine at sub-perceptual chroma; a vision agent reads them
+          as plain white/grey, so their ΔE looks large but is perceptually trivial — reported for
+          transparency, <strong>excluded from the verdict</strong>. The real fidelity claim rests on the
+          offline real-product test recorded in the architecture's spikes, not on this number.</p>
+        </div>
+
+        <!-- Vision input — the two committed screenshots the agent read (fictional Verdant → no
+             copyright concern). Eager (no lazy) so the window load event covers them in the VR gate. -->
+        <div class="rt-inputs">
+          <figure class="cs-fig">
+            <a class="fig-zoom" href="/tooling/round-trip/input/verdant-full.png">
+              <img src="/tooling/round-trip/input/verdant-full.png"
+                   alt="Vision input: Verdant's full prototype page, as read by the derivation agent" />
+            </a>
+            <figcaption>Vision input — Verdant's full page. <span class="fig-hint">Tap to enlarge</span></figcaption>
+          </figure>
+          <figure class="cs-fig">
+            <a class="fig-zoom" href="/tooling/round-trip/input/verdant-plant-overview.png">
+              <img src="/tooling/round-trip/input/verdant-plant-overview.png"
+                   alt="Vision input: Verdant's plant-overview phone screen, as read by the derivation agent" />
+            </a>
+            <figcaption>Vision input — the phone overview. <span class="fig-hint">Tap to enlarge</span></figcaption>
+          </figure>
+        </div>
+
+        <!-- The measured diff — rendered by the module from tooling/round-trip/verdant.diff.json (the
+             single source for every number). Degrades to an honest error card; the framing above stays. -->
+        <p class="max-prose">The proposed pack, measured against ground truth — shown, not asserted:</p>
+        <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
+
+        <!-- The recorded run — replayed in the mounted player; scenario-neutral honesty copy. -->
+        <div style="margin-top: var(--spacing-2xl);">
+          <h3 class="h3">The recorded derivation run</h3>
+          <p class="max-prose" style="margin-top: var(--spacing-md);">
+            The real Claude Agent SDK vision run that produced the proposal above, recorded step by step
+            and replayed in the four PIV acts — plan · gate · implement · validate. Nothing runs live
+            here; the page replays a committed file.
+          </p>
+          <!-- Legibility nugget (#41): transparency — show the diff, don't assert the fidelity. -->
+          <p class="fw-nugget">
+            Showing the measured diff rather than asserting the fidelity is the honest move: surface how
+            well the system did and let the reader judge — transparency over claims (Google PAIR), and
+            making clear why the system did what it did (Amershi et al.).
+          </p>
+          <div id="roundtrip-player" style="margin-top: var(--spacing-xl);"></div>
+        </div>
+
+        <p class="muted fw-raw-pointer">
+          The raw evidence, inspectable → <a href="/tooling/round-trip/verdant.diff.json">verdant.diff.json</a>
+          · <a href="/tooling/round-trip/README.md">how it's framed</a>
+        </p>
       </div>
     </section>
 
@@ -425,11 +517,12 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/factory-intake.mjs"></script>
+  <script type="module" src="/system/derivation-roundtrip.mjs"></script>
 
   <!-- Station-5 trace mount (slice 10.3): fetch the committed, CURATED demo-notice run (a real
        Agent SDK run) and hand it to the view-time player. Mirrors trace.html:90–118. Mounts ONCE
-       and is never re-rendered on toggle → no destroy() needed (the player adds a document-level
-       keydown listener that would otherwise stack). The [data-trace="ready"] attribute is the
+       and is never re-rendered on toggle → no destroy() needed (keyboard stepping is now scoped to
+       each player's own root, so listeners never stack across players). The [data-trace="ready"] attribute is the
        visual-regression gate's wait handle — set ONLY on fetch success, so a real failure fails
        loud (the gate hangs) instead of baking a false-green baseline. -->
   <script type="module">
