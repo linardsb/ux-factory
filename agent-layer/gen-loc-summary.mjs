@@ -39,7 +39,10 @@ export function genLocSummary({ check = false } = {}) {
   const groups = GROUPS.map((g) => {
     const files = tracked.filter(g.test);
     if (!files.length) throw new Error(`loc-summary: group "${g.id}" matched no tracked files — fix agent-layer/gen-loc-summary.mjs`);
-    const lines = files.reduce((sum, f) => sum + readFileSync(join(ROOT, f), "utf8").split("\n").length, 0);
+    // Read each file's committed index blob (`git show :<path>`), not the working tree, so the count
+    // reflects the same tracked source as the file list (git ls-files) — else a parallel ticket's
+    // uncommitted edits in the shared worktree silently poison the artifact (#56; git add before regen).
+    const lines = files.reduce((sum, f) => sum + execFileSync("git", ["show", `:${f}`], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).split("\n").length, 0);
     totalFiles += files.length;
     totalLines += lines;
     return { id: g.id, label: g.label, files: files.length, linesApprox: round100(lines) };
