@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { genTokenCss } from "../agent-layer/gen-token-css.mjs";
 import { genAnnotatedSource } from "../agent-layer/gen-annotated-source.mjs";
 import { genLocSummary } from "../agent-layer/gen-loc-summary.mjs";
+import { genSystemGraph } from "../agent-layer/gen-system-graph.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
 import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
@@ -63,6 +64,15 @@ function checkLocSummary() {
     );
 }
 
+// 2d. System-graph drift — check mode writes nothing; compares in-memory regen vs disk.
+function checkSystemGraph() {
+  const r = genSystemGraph({ check: true });
+  if (r.drifted.length)
+    throw new Error(
+      `system-graph drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-system-graph.mjs`
+    );
+}
+
 // 3. Handoff/vocabulary drift — these generators WRITE under handoff/ (deterministic), then
 // git porcelain (not `git diff`: porcelain also lists a newly-emitted untracked file). Scoped
 // to handoff/ — the only tree these three generators write.
@@ -98,10 +108,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkTokenCss();
     checkAnnotatedSource();
     checkLocSummary();
+    checkSystemGraph();
     checkHandoff();
     checkScenarios();
     checkTraces();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · handoff · scenarios · traces");
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · system-graph · handoff · scenarios · traces");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);
