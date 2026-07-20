@@ -523,3 +523,218 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 
 /* Deep-linked Approach sections land below the sticky header (same idiom as .cs-h) */
 #seat, #layers, #loop, #value, #case, #sources, #practice { scroll-margin-top: 90px; }
+
+/* ---------- Annotated source + glossary (approach.html §05; system/annotated-source.mjs +
+   system/glossary.mjs — docs/epics/annotated-source-glossary.architecture.md).
+   At-rest addition: changes the approach-neutral + approach-saulera baselines (regen in this PR). */
+
+/* 1fr grid tracks won't shrink below the items' min-content, and the unwrappable code lines
+   inflate both columns past the grid — the page's overflow-x:hidden then clips the second card
+   at the viewport. Letting the items shrink hands the overflow to .asrc-code's own scrollbar. */
+#asrc > div { min-width: 0; }
+
+.asrc-block {
+  margin: 0; /* figure reset */
+  background: var(--color-bg-surface);   /* surface recipe mirrors .decision-card (components.css:541-547), minus its accent left-border */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.asrc-title {
+  font-family: var(--font-display);
+  font-size: var(--type-body);
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-code {
+  margin: 0 0 var(--spacing-md);
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  background: var(--color-bg);           /* page ground inset inside the surface card */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.asrc-code code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* raw stack: no --font-mono token exists — same noted exception as handoff.html:45 */
+  font-size: var(--type-caption);
+  white-space: pre;
+  tab-size: 2;
+}
+.asrc-note p { color: var(--color-fg-muted); }
+.asrc-note p + p { margin-top: var(--spacing-md); }
+
+/* Derive probe (approach.html §05; system/derive-probe.mjs — the exhibited rule, executed on a
+   reader-chosen colour). At-rest addition: changes the approach baselines (regen in this PR). */
+.asrc-probe {
+  margin-top: var(--spacing-md);
+  background: var(--color-bg-surface);   /* same surface recipe as .asrc-block above */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.asrc-probe-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-probe-row input[type="color"] {
+  inline-size: 34px;
+  block-size: 26px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+.asrc-probe-label { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.asrc-probe-arrow { color: var(--color-fg-muted); }
+.asrc-probe-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* raw stack — same noted exception as .asrc-code code */
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+}
+.asrc-probe-swatch {
+  display: inline-block;
+  inline-size: 18px;
+  block-size: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.asrc-probe-check { font-size: var(--type-caption); color: var(--color-fg); margin: 0 0 var(--spacing-sm); }
+.asrc-probe-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.asrc-probe-notes li {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  margin: 0 0 4px;
+}
+.asrc-probe-fixed { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
+
+/* Measured-size line under the annotated source (system/loc-summary.json — the number is the
+   artifact's, never hand-written). */
+.loc-proof {
+  margin-top: var(--spacing-lg);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  max-width: 72ch;
+}
+
+dfn.term {
+  font-style: normal;                    /* kill dfn's default italic */
+  text-decoration: underline dotted var(--color-fg-muted);
+  text-underline-offset: 0.15em;
+  cursor: help;
+}
+.glossary-bubble {
+  position: fixed;
+  z-index: 90;                           /* under .skip-link's 100 (portfolio.css:29) */
+  max-width: 36ch;
+  padding: var(--spacing-md);
+  background: var(--color-bg-inverse);   /* inverse pairing mirrors .skip-link, portfolio.css:30-31 */
+  color: var(--color-fg-on-inverse-strong);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- Derivation round-trip exhibit (#42) — fidelity diff display + trace player ----------
+   Token-only (colour / space / radius / type via var(--…); grid / flex / px are structural literals,
+   same licence as the factory <style> block and the .fw-*/.cs-* classes). Calm by the calm-colour
+   bar: the ΔE is stated in --color-fg and contextualized, never celebrated in accent green; the
+   caveat panel is co-equal with the metric. Swatch/sample colours are set inline from the diff data
+   in JS (the hex IS the data being shown) — never a colour literal here. */
+
+.rt { display: grid; gap: var(--spacing-xl); }
+
+/* headline metric · human gate · verdict — three co-equal bordered panels (same weight as .rt-caveat) */
+.rt-metric, .rt-gate, .rt-verdict {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+.rt-metric-label, .rt-gate-title { margin: 0 0 var(--spacing-md); font-weight: 600; color: var(--color-fg); }
+
+/* swatches — the one place a hex reaches the DOM, via .style.background in JS, never a CSS literal */
+.rt-swatch {
+  display: inline-block; width: 14px; height: 14px; vertical-align: -2px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.rt-swatch-pair { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-md); }
+.rt-sw-cell { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
+.rt-hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.rt-sw-tag { font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-muted); }
+.rt-arrow { color: var(--color-fg-muted); }
+
+/* ΔE line — emphasized in FG, not accent: the number is stated, not celebrated (calm-colour rule) */
+.rt-metric-delta { margin: var(--spacing-md) 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+.rt-delta-num { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg); }
+.rt-delta-note { color: var(--color-fg-muted); font-size: var(--type-caption); }
+
+.rt-gate-line { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+.rt-gate-note, .rt-verdict-scope, .rt-note {
+  margin: var(--spacing-md) 0 0; color: var(--color-fg-muted);
+  font-size: var(--type-caption); line-height: 1.55; max-width: 72ch;
+}
+
+/* verdict */
+.rt-verdict-head { margin: 0 0 var(--spacing-sm); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+.rt-verdict-eyebrow { font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-muted); }
+.rt-verdict-label { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg); }
+.rt-verdict-rule { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.rt-passes, .rt-checks { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-md); }
+
+/* pass/fail token — glyph + WORD; state is read from the word, never colour alone (portfolio.css:466) */
+.rt-mark { display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-caption); }
+.rt-mark-glyph { font-weight: 700; }
+.rt-mark.is-ok .rt-mark-glyph { color: var(--color-accent); }
+.rt-mark.is-bad .rt-mark-glyph { color: var(--color-fg); }
+.rt-mark.is-bad { text-decoration: underline; }
+
+/* progressive-disclosure tables (mirror .fw-checks) */
+.rt-accordions { display: grid; gap: 10px; margin-top: var(--spacing-md); }
+.rt-diff-table { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+.rt-diff-table th, .rt-diff-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.rt-diff-table th { color: var(--color-fg-muted); font-weight: 600; }
+.rt-diff-table .rt-excluded td { opacity: 0.6; } /* neutrals: reported but excluded — muted, not struck */
+
+/* WCAG mini-sample: the actual fg-on-bg contrast (both colours are the data, set inline in JS) */
+.rt-aa-sample {
+  display: inline-block; min-width: 34px; text-align: center;
+  padding: 2px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  font-weight: 700; font-size: var(--type-caption);
+}
+
+.rt-subhead { margin: var(--spacing-md) 0 var(--spacing-sm); font-weight: 600; font-size: var(--type-caption); color: var(--color-fg); }
+.rt-list { margin: var(--spacing-sm) 0 0; padding-left: 1.1em; display: grid; gap: var(--spacing-xs); font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.5; }
+.rt-list-inline { list-style: none; padding-left: 0; display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.rt-list-inline li { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 8px; color: var(--color-fg-muted); }
+.rt-token { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-fg); }
+.rt-muted { color: var(--color-fg-muted); }
+
+/* the caveat panel — STATIC HTML in factory.html; styled co-equal with .rt-metric (calm-colour) */
+.rt-caveat {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin: var(--spacing-lg) 0;
+  max-width: 74ch;
+}
+.rt-caveat p { margin: 0; color: var(--color-fg); line-height: 1.6; }
+.rt-caveat p + p { margin-top: var(--spacing-md); }
+.rt-caveat code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+
+/* vision-input screenshots — two compact figures side by side (click to zoom via .fig-zoom) */
+.rt-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); margin: var(--spacing-lg) 0; }
+@media (max-width: 640px) { .rt-inputs { grid-template-columns: 1fr; } }
+
+/* the newly-focusable trace-player root gets a visible focus ring (mirrors .cs-acc:focus-visible) */
+.trace-player:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }

@@ -14,7 +14,10 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 // static-fixture fallback + rendered rows). `rows` names a data-bound selector proving fixtures rendered.
 const PAGES = [
   { name: 'index',           url: '/index.html',           kind: 'ia' },
-  { name: 'approach',        url: '/approach.html',        kind: 'ia' },
+  // waitReady: the annotated-source exhibit renders after an async fetch and sets
+  // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
+  // broken artifact fails loudly instead of baselining an empty exhibit.
+  { name: 'approach',        url: '/approach.html',        kind: 'ia', waitReady: '#asrc[data-asrc="ready"]' },
   // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
   // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
   // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
@@ -25,7 +28,7 @@ const PAGES = [
   // [data-trace="ready"] on success. Wait for BOTH so neither async paint can race the capture
   // (deterministic by construction, not by luck). The derived preview + the trace player are NOT masked
   // — they are what these slices regression-guard. (#10, slices 10.2 + 10.3)
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]'] },
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },

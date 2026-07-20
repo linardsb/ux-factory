@@ -53,7 +53,7 @@ The hand-crafted prototype screen is authored per application against the same s
 - **The wizard is shared, not forked:** private instances configure the existing wizard (pre-seed + bounds), never duplicate it.
 
 ## Missing pieces
-Company-brief record format (kb-format addition, both parsers) · screenshot+tokens → pack-seed derivation run + recorder (portal-side, emits trace) · brief → scenario-package generator · per-company build + unlisted-deploy path from the jobs folder · private-instance shell (Factory-station variant: real-brand labeling, pre-seeded wizard, derivation trace embedded) · public round-trip demo stage + diff display · five-pillar rubric hooks in ComponentSpec/handoff format · cited legibility nuggets on existing surfaces (trace player, wizard, honesty labels).
+Company-brief record format (kb-format addition, both parsers) · screenshot+tokens → pack-seed derivation run + recorder (portal-side, emits trace) · brief → scenario-package generator · per-company build + unlisted-deploy path from the jobs folder · private-instance shell (Factory-station variant: real-brand labeling, pre-seeded wizard, derivation trace embedded) · five-pillar rubric hooks in ComponentSpec/handoff format · cited legibility nuggets on existing surfaces (trace player, wizard, honesty labels).
 
 ## Spikes & experiments
 
