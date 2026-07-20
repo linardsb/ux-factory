@@ -16,9 +16,10 @@
 // raw via <script type="module">. The designed surface is the Factory page (#10);
 // trace.html is the bare harness. Semantic classes only; the module injects no <style>.
 //
-// Embedding surfaces (#10's Factory page) MUST call the returned `destroy()` before
-// re-rendering or removing the player — the module adds a document-level keydown
-// listener that otherwise stacks.
+// Keyboard stepping (arrow keys) is scoped to the player's own root element (a focusable,
+// labelled group): only the focused player responds, so two players on one page never fight
+// over arrows. The returned `destroy()` removes that listener and clears the container — call
+// it before re-rendering or removing a player (cleanup hygiene; the listener no longer stacks).
 
 const ACTS = [['plan', 'Plan'], ['gate', 'Gate'], ['implement', 'Implement'], ['validate', 'Validate']];
 
@@ -98,6 +99,13 @@ export function renderTracePlayer(container, trace) {
   const { meta, steps, result } = trace;
   container.textContent = '';
   const root = el('div', 'trace-player');
+  // Focusable, labelled group so arrow-key stepping scopes to THIS player (see header): only the
+  // focused player responds — two players on one page never both catch arrows.
+  root.tabIndex = 0;
+  root.setAttribute('role', 'group');
+  // Named per run (meta.task) — two players share factory.html, so a fixed string would give both
+  // groups the same accessible name.
+  root.setAttribute('aria-label', `Trace replay: ${meta.task || 'untitled run'} — use arrow keys to step`);
 
   // Header strip: task, the honesty label (verbatim), model/date/turns/duration/cost/steps.
   const header = el('header', 'trace-header');
@@ -171,8 +179,8 @@ export function renderTracePlayer(container, trace) {
     if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
   };
-  document.addEventListener('keydown', onKey);
-  const destroy = () => { document.removeEventListener('keydown', onKey); container.textContent = ''; };
+  root.addEventListener('keydown', onKey);
+  const destroy = () => { root.removeEventListener('keydown', onKey); container.textContent = ''; };
 
   reveal(0, false); // start on the first step (skeleton + step 1), no jump-scroll on load
   return { next, prev, reveal, revealAll, destroy };
