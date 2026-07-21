@@ -93,7 +93,7 @@ function diffTable(headers, rows, rowCls) {
 
 // A collapsed <details> accordion mirroring portfolio.css .cs-acc (summary = the claim, body = the data).
 function accordion(summaryText, ...bodyNodes) {
-  const wrap = el("div", "cs-acc rt-acc");
+  const wrap = el("div", "cs-acc");
   const det = document.createElement("details");
   const sum = el("summary", null, summaryText);
   sum.append(el("span", "mark"));
@@ -252,10 +252,16 @@ export function renderRoundTrip(container, model) {
   return { destroy: () => { container.textContent = ""; } };
 }
 
+// Reader-facing label for a camelCase check key: bodyInRange → "Body in range", multiplesOf4 → "Multiples of 4".
+function humanizeCheck(key) {
+  const spaced = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/(\d+)/g, " $1").trim();
+  return spaced[0].toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
 // A row of intrinsic-usability checks (monotonic / bodyInRange / …) as text pass marks.
 function checksRow(checks) {
   const row = el("div", "rt-checks");
-  Object.entries(checks).forEach(([name, ok]) => row.append(verdictMark(!!ok, name)));
+  Object.entries(checks).forEach(([name, ok]) => row.append(verdictMark(!!ok, humanizeCheck(name))));
   return row;
 }
 
