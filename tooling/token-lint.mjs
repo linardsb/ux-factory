@@ -13,9 +13,12 @@ import { loadSource } from "../agent-layer/gen-token-css.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+// Tokens inside /* … */ CSS comments are not declarations or references — strip before matching.
+const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "");
+
 // Every `--name:` declaration in the contract (the 47 semantic tokens packs may set).
 function declaredTokens() {
-  const css = readFileSync(join(ROOT, "system/tokens.contract.css"), "utf8");
+  const css = stripComments(readFileSync(join(ROOT, "system/tokens.contract.css"), "utf8"));
   return new Set([...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]));
 }
 
@@ -25,7 +28,7 @@ function varsIn(relPaths) {
   for (const rel of relPaths) {
     const abs = join(ROOT, rel);
     if (!existsSync(abs)) continue;
-    for (const m of readFileSync(abs, "utf8").matchAll(/var\(\s*(--[a-z0-9-]+)/g)) used.add(m[1]);
+    for (const m of stripComments(readFileSync(abs, "utf8")).matchAll(/var\(\s*(--[a-z0-9-]+)/g)) used.add(m[1]);
   }
   return used;
 }
