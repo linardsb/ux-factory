@@ -1,0 +1,13 @@
+{
+  "fictionalNotice": "Northwind is a fictional company, invented to demonstrate this private-instance shell. No real company, users, or data are involved — the label below is rendered exactly as a real instance renders it.",
+  "speculativeNotice": "Speculative work based on Northwind's public statements. Sources linked below. Not affiliated with or endorsed by Northwind.",
+  "sources": [
+    "https://example.com/northwind/vision",
+    "https://example.com/northwind/product-announcement"
+  ],
+  "tagline": "A stock dashboard that shows what's really on the shelf — and gets out of the way.",
+  "ethicsReveal": {
+    "verdict": "utility",
+    "narrative": "The frequency filter fails: reconciliation is demand-driven, not a routine to cultivate. So the method rules habit mechanics out and the design goes the other way — compact density, zero ceremony, success measured in oversells caught early rather than time-in-app. Same gate as the habit scenarios, opposite verdict."
+  }
+}

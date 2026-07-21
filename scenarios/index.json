@@ -1,7 +1,8 @@
 {
   "scenarios": [
     { "slug": "verdant", "name": "Verdant", "label": "Plant care · consumer" },
-    { "slug": "fieldwork", "name": "Fieldwork", "label": "Field-service scheduling · B2B" }
+    { "slug": "fieldwork", "name": "Fieldwork", "label": "Field-service scheduling · B2B" },
+    { "slug": "northwind", "name": "Northwind", "label": "Wholesale inventory · demo instance" }
   ],
   "api": {
     "prod": "",

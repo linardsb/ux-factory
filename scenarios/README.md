@@ -25,6 +25,15 @@ to this repo** — it is public and inspectable, so the compiler enforces a priv
 refuses to write one inside the repo. They are validated out of registry, by path:
 `node scenarios/validate.mjs <dir>` (also the compiler's own self-check) — no `index.json` entry.
 
+**Demo-instance convention (in-repo).** One committed package, `northwind`, is fictional
+(`fictional: true`) yet *additionally* carries `speculativeNotice` + a `sources` array as extra
+`copy.json` keys — the validator ignores keys beyond the ones a package's provenance requires. This
+lets the private-instance shell (`instance.html`, epic #38 ticket #43) exercise the real-provenance
+rendering path in-repo while the subject stays honestly labelled fictional: the shell renders the
+`fictionalNotice` first, then the `speculativeNotice` below it exactly as a real instance renders the
+latter on its own. It is a rendering demonstration, not a real-provenance package (those are never
+committed here — see above).
+
 ## Package layout
 
 ```

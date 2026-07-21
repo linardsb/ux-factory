@@ -1,0 +1,6 @@
+{
+  "screens": [
+    { "id": "stock-overview", "title": "Stock overview", "collections": ["items"] }
+  ],
+  "slots": []
+}
