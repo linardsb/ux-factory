@@ -472,7 +472,7 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 
 **Context Rich**: The Plan passes "No Prior Knowledge Test" - someone unfamiliar with codebase can implement using only Plan content
 
-**Confidence Score**: #/10 that execution will succeed on first attempt
+**Confidence Score**: #/10 that execution will succeed on first attempt, IMPORTANT: should not be below 9/10, ideally 9.5/10
 
 ## Report
 
