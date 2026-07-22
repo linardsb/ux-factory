@@ -138,6 +138,7 @@
    covers the feature-band CTA and every footer link. */
 .site-footer { position: relative; }
 .feature-band::after,
+.band--dark::after,
 .site-footer::after {
   content: "";
   position: absolute;
@@ -972,4 +973,289 @@ dfn.term {
 }
 @media print {
   .dock, .ruler { display: none; }
+}
+
+/* ============================================================================
+   v3 spine organisms (#71 · docs/epics/portfolio-v3-experience §6.1, D6/D8)
+   The static, at-rest layer of the five-beat demo spine on index.html — it IS the
+   reduced-motion / no-JS first paint AND the VR baseline. rest == final: nothing
+   here animates its at-rest state (the hero cascade + .hl draw-in above are the
+   page's only motion; #72 adds the choreography that animates TO these states).
+   Token-only for colour / space / radius / type / motion (var(--…)); grid / flex /
+   px / % are structural literals, same licence as .bento and .dock above.
+   I2 bands · I4 numerals · I3 row-list · I6 close-card · I7 arrow refinement.
+   ============================================================================ */
+
+/* Deep links + the hero CTA land below the sticky header (same 90px idiom as .cs-h) */
+#beat-hero, #beat-intake, #beat-brand, #beat-peak, #beat-close, #verify { scroll-margin-top: 90px; }
+
+/* I2 — full-bleed chapter bands. .band is the light default (inherits the page
+   ground); .band--dark is the near-black inverse recipe (mirrors .feature-band, plus
+   the grain treatment above). ONE dark band exists on the spine — the peak — kept
+   singular so nothing competes with the signature moment; pacing among the light
+   beats is carried by whitespace steps + the numerals, not a second dark surface. */
+.band { position: relative; padding: var(--spacing-4xl) 0; }
+.band--dark { background: var(--color-bg-inverse); color: var(--color-fg-on-inverse); }
+
+/* I4 — the oversized ordinal anchoring each demo station (01–05). Mono + tabular so
+   the sequence reads as a real, ordered pipeline, not decoration (the demo genuinely
+   is ordered). --type-display is the ramp ceiling — #72 owns any larger scale token. */
+.beat-head { display: flex; align-items: flex-start; gap: var(--spacing-lg); margin-bottom: var(--spacing-2xl); }
+.beat-numeral {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--type-display);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  color: var(--color-fg);
+}
+.band--dark .beat-numeral { color: var(--color-accent-on-inverse); }
+.beat-head-text { flex: 1 1 auto; min-width: 0; }
+.beat-kicker {
+  font-family: var(--font-display);
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  margin: 0 0 var(--spacing-xs);
+}
+.band--dark .beat-kicker { color: var(--color-fg-on-inverse-muted); }
+.beat-title {
+  font-family: var(--font-display);
+  font-size: var(--type-h2);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--color-fg);
+  margin: 0;
+  max-width: 22ch;
+  text-wrap: balance;
+}
+.band--dark .beat-title { color: var(--color-fg-on-inverse-strong); }
+.beat-lead {
+  font-size: var(--type-lead);
+  line-height: 1.55;
+  color: var(--color-fg);
+  max-width: 60ch;
+  margin: 0 0 var(--spacing-2xl);
+  text-wrap: pretty;
+}
+.band--dark .beat-lead { color: var(--color-fg-on-inverse-soft); }
+
+/* Beat 01 — intake preview: the first brief question shown static, with its
+   recommended default + the reasoning. A designed preview of the interface, no live
+   chip: #73 replaces the interior with the shared wizard. */
+.brief-card {
+  max-width: 60ch;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xl);
+}
+.brief-step {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  margin: 0 0 var(--spacing-sm);
+}
+.brief-q {
+  font-family: var(--font-display);
+  font-size: var(--type-h3);
+  color: var(--color-fg);
+  margin: 0 0 var(--spacing-md);
+}
+.brief-rec { display: flex; align-items: baseline; gap: var(--spacing-sm); margin: 0 0 var(--spacing-md); }
+.brief-rec-tag {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+.brief-rec p { margin: 0; color: var(--color-fg); }
+.brief-why { font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-muted); margin: 0; }
+
+/* Beat 02 — your brand: a bounded colour-input affordance shown at rest as an
+   empty-state invitation (dashed field, empty swatch). Honestly not-yet-live, no
+   chip: #74 wires the real input + derived-pack persistence. */
+.brand-try {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  max-width: 60ch;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-surface);
+  border: 1px dashed var(--color-border-strong);   /* dashed = empty state, an invitation not a filled control */
+  border-radius: var(--radius-md);
+}
+.brand-swatch {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.brand-try-text { flex: 1 1 auto; min-width: 0; }
+.brand-prompt { display: block; font-family: var(--font-display); font-size: var(--type-body); color: var(--color-fg); margin: 0; }
+.brand-note { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); margin-top: var(--spacing-xs); }
+
+/* Beat 03 — the peak (the one dark band, the signature). A STILL of the composed
+   product screen + illustrative WCAG receipts + the ethics gate as a guess-then-reveal.
+   Framed as "this is what it builds", never as a live run: #75 makes it assemble under
+   the visitor's answers. Fictional product, tagged. */
+.peak-stage {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--spacing-2xl);
+  align-items: start;
+  position: relative;
+  z-index: 1;   /* above the band grain */
+}
+.peak-stage > * { min-width: 0; }
+@media (max-width: 900px) { .peak-stage { grid-template-columns: 1fr; gap: var(--spacing-xl); } }
+
+/* the built screen — a bright light card floating on the dark stage (the brand accent
+   is the one place colour is spent here: colour as demonstration) */
+.peak-screen {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-lg);
+}
+.peak-screen-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--spacing-md);
+}
+.peak-screen-title { font-family: var(--font-display); font-weight: 500; font-size: var(--type-body); color: var(--color-fg); }
+.peak-screen-dot { width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--color-accent); }
+.peak-screen-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); }
+.peak-tile { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); min-width: 0; }
+.peak-tile .n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--type-h3); color: var(--color-fg); }
+.peak-tile .l { font-size: var(--type-caption); color: var(--color-fg-muted); margin-top: 2px; }
+
+/* illustrative receipts on the dark stage */
+.peak-tag {
+  display: inline-block;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-on-inverse);
+  border: 1px solid var(--color-on-dark-border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  margin: 0 0 var(--spacing-md);
+}
+.wcag-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-inverse-line);
+}
+.wcag-pair { font-size: var(--type-caption); color: var(--color-fg-on-inverse-soft); }
+.wcag-pass { flex: 0 0 auto; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.1em; color: var(--color-accent-on-inverse); }
+.peak-note { font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-on-inverse-muted); margin: var(--spacing-md) 0 0; max-width: 48ch; }
+.peak-ethics { margin-top: var(--spacing-lg); border-top: 1px solid var(--color-inverse-line); padding-top: var(--spacing-lg); }
+.peak-ethics summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: var(--type-body);
+  color: var(--color-fg-on-inverse-strong);
+  list-style: none;
+}
+.peak-ethics summary::-webkit-details-marker { display: none; }
+.peak-ethics summary:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 3px; }
+.peak-ethics-body p { color: var(--color-fg-on-inverse-soft); font-size: var(--type-caption); line-height: 1.6; margin: var(--spacing-md) 0 0; max-width: 52ch; }
+
+/* I6 — the single-card close: one sentence, one action, floated on the light band. */
+.close-card {
+  max-width: 62ch;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-2xl);
+  box-shadow: var(--shadow-sm);
+}
+.close-card-line {
+  font-family: var(--font-display);
+  font-size: var(--type-h2);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--color-fg);
+  margin: 0 0 var(--spacing-xl);
+  text-wrap: balance;
+}
+
+/* I3 — one item per row, hairline dividers, a circular arrow affordance per row.
+   The whole row is the link target (≥44px); hover/focus tint the title + spring the
+   arrow. Used by #verify; reusable for the Work proof index later. */
+.row-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg) 0;
+  min-height: 44px;
+  border-bottom: 1px solid var(--color-border);
+  color: inherit;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.row-item:hover { border-bottom-color: var(--color-border-strong); }
+.row-item-text { flex: 1 1 auto; min-width: 0; }
+.row-item-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--type-h3);
+  color: var(--color-fg);
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+.row-item-desc { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); margin-top: var(--spacing-xs); }
+.row-item-arrow {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-fg-muted);
+  transition: transform var(--motion-base) var(--motion-ease-spring), border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+.row-item:hover .row-item-title,
+.row-item:focus-visible .row-item-title { color: var(--color-accent); }
+.row-item:hover .row-item-arrow,
+.row-item:focus-visible .row-item-arrow {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: translateX(4px);
+}
+
+/* I7 — arrow-glyph refinement over the base .btn-arrow (components.css). Hover +
+   transition ONLY (compositor transform) → zero at-rest change, so the pages that
+   carry an arrow button (factory/approach/work/contact) keep their baselines. The
+   base ease becomes the subtle spring, matching the .row-item arrows: one arrow
+   language across the site (Q5). */
+.btn-arrow::after { transition: transform var(--motion-base) var(--motion-ease-spring); }
+.btn-arrow:hover::after { transform: translateX(6px); }
+
+/* Spine responsive compaction (bands reflow to 360px without horizontal scroll) */
+@media (max-width: 640px) { .band { padding: var(--spacing-2xl) 0; } }
+@media (max-width: 600px) {
+  .beat-head { flex-direction: column; gap: var(--spacing-sm); margin-bottom: var(--spacing-xl); }
+  .beat-numeral { line-height: 1; }
+  .close-card { padding: var(--spacing-xl); }
 }

@@ -5,13 +5,13 @@
       "id": "runtime",
       "label": "design system (system/ — tokens, components, view-time modules)",
       "files": 36,
-      "linesApprox": 8800
+      "linesApprox": 9100
     },
     {
       "id": "pages",
       "label": "shipped pages (root + proto/)",
       "files": 15,
-      "linesApprox": 3500
+      "linesApprox": 3600
     },
     {
       "id": "generators",
@@ -22,6 +22,6 @@
   ],
   "total": {
     "files": 68,
-    "linesApprox": 14200
+    "linesApprox": 14600
   }
 }
