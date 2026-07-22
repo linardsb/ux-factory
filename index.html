@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Linards Berzins · UX engineer</title>
-  <meta name="description" content="A UX-engineering portfolio you can verify: watch a product brief become a design system, a data-connected prototype, and an engineer-ready handoff pack." />
+  <meta name="description" content="A UX-engineering portfolio you can try: answer four product questions and watch it generate an accessible design system, live in your browser." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
@@ -26,16 +26,16 @@
           <span class="stamp">Linards Berzins · UX engineer</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">Most portfolios ask you to trust them. This one lets you <span class="hl">check</span>.</h1>
+        <h1 class="text-balance">Answer four questions. Watch a design system get <span class="hl">built</span>.</h1>
         <p class="hero-sub">
-          I'm a UX engineer — I sit between design and front-end and build the systems that
-          connect them. This site is a working factory: a product brief goes in; a design
-          system, a data-connected prototype, and an engineer-ready handoff pack come out, with
-          the agents' build-time work replayed in front of you. Watch it run, inspect the
-          output, judge for yourself.
+          I'm Linards, a UX engineer. I design interfaces and build the systems behind them.
+          Instead of telling you that, this site shows it: pick a brand colour and a few
+          product answers, and it generates an accessible design system, re-skins a working
+          prototype, and prepares the files an engineer would receive. All of it runs in your
+          browser, and you can inspect every step.
         </p>
         <div class="hero-cta-row">
-          <a class="btn btn-primary btn-arrow" href="/factory">Watch the factory</a>
+          <a class="btn btn-primary btn-arrow" href="/factory">Try the factory</a>
           <a class="btn btn-secondary" href="/approach">How I work</a>
         </div>
       </div>
@@ -43,49 +43,67 @@
 
     <section class="section">
       <div class="container">
-        <h2 class="section-label"><span class="num">01</span><span>Three ways to verify</span><span class="line"></span></h2>
-        <div class="grid grid-3 mt-xl stagger verify-grid">
-          <a class="card card-link" href="/factory">
+        <h2 class="section-label"><span class="num">01</span><span>What you can do here</span><span class="line"></span></h2>
+        <div class="bento mt-xl stagger verify-grid">
+          <a class="card card-link bento-lg" href="/factory">
             <div class="card-body">
-              <span class="verify-glyph" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3"/><circle cx="16" cy="16" r="3"/><circle cx="26" cy="16" r="3"/><path d="M9 16h4M19 16h4"/></svg></span>
-              <div class="card-kicker">The factory <span class="capability">In build</span></div>
-              <h3 class="h3 mb-md">Watch the pipeline run</h3>
+              <div class="card-kicker">The factory <span class="capability live">Runs now</span></div>
+              <h3 class="h3 mb-md">Run the factory</h3>
               <p class="muted">
-                Intake → generated design system → data-connected prototype → handoff pack,
-                performed in front of you. The route is reserved and the stations are landing
-                one by one; the page states exactly what runs today.
+                Answer four questions about a fictional product. The site generates the colour
+                palette, checks every contrast pair against WCAG, and re-skins a sample screen
+                while you watch.
               </p>
-              <p class="verify-proof"><span>Five stations · one pipeline</span></p>
-              <div class="card-foot"><span class="card-foot-link">See the factory →</span></div>
+              <div class="mini-q" aria-hidden="true">
+                <p class="mini-q-step">1 / 4</p>
+                <p class="mini-q-prompt">What colour carries the brand?</p>
+                <div class="mini-q-row">
+                  <span class="mini-q-swatch"></span>
+                  <span>pick any colour</span>
+                  <span class="mini-q-next">Next →</span>
+                </div>
+              </div>
+              <p class="verify-proof"><span>Four questions · a live result</span></p>
+              <div class="card-foot"><span class="card-foot-link">Start with question one →</span></div>
             </div>
           </a>
           <a class="card card-link" href="/approach#case">
             <div class="card-body">
-              <span class="verify-glyph" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5" y="5" width="15" height="15" rx="2"/><rect x="12" y="12" width="15" height="15" rx="2"/></svg></span>
               <div class="card-kicker">The system <span class="capability live">Runs now</span></div>
-              <h3 class="h3 mb-md">Re-skin this site from one line</h3>
+              <h3 class="h3 mb-md">Re-skin this site</h3>
               <p class="muted">
-                Every component reads only semantic tokens, so swapping one file re-skins the
-                whole site. The contract behind that claim is public — read it straight from
-                this page's source.
+                One CSS file styles every page here. Swap it and the whole site changes.
+                On desktop, try the style switcher in the top-right corner.
               </p>
-              <p class="verify-proof"><span>One file re-skins the site</span></p>
-              <div class="card-foot"><span class="card-foot-link">How it's built →</span></div>
+              <div class="mini-packs" aria-hidden="true">
+                <span class="mini-pack is-current"></span>
+                <span class="mini-pack alt-a"></span>
+                <span class="mini-pack alt-b"></span>
+              </div>
+              <p class="verify-proof"><span>One file · every page</span></p>
+              <div class="card-foot"><span class="card-foot-link">See how it's built →</span></div>
             </div>
           </a>
           <a class="card card-link" href="/work">
             <div class="card-body">
               <span class="verify-glyph" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10v10H4z"/><path d="M9 4v10M4 9h10"/><circle cx="20" cy="20" r="6.5"/><path d="M25 25l3 3"/></svg></span>
-              <div class="card-kicker">The work <span class="capability">First exhibits in build</span></div>
-              <h3 class="h3 mb-md">Inspect the output</h3>
+              <div class="card-kicker">The work <span class="capability live">Runs now</span></div>
+              <h3 class="h3 mb-md">Inspect the results</h3>
               <p class="muted">
-                Data-connected prototypes and an agentic-UI study, built on the same system —
-                with the handoff pack an engineer would actually receive.
+                Two working demos: a plant-care app and a dispatch board with an AI-composed
+                panel you can adjust. Both come with the handoff files an engineer would
+                actually receive.
               </p>
-              <p class="verify-proof"><span>Two prototypes · one agentic study</span></p>
+              <p class="verify-proof"><span>Two demos · one handoff pack</span></p>
               <div class="card-foot"><span class="card-foot-link">See the work →</span></div>
             </div>
           </a>
+          <div class="bento-strip">
+            <span>No framework</span>
+            <span>No build step</span>
+            <span>Nothing runs behind your back</span>
+            <span>Everything inspectable</span>
+          </div>
         </div>
       </div>
     </section>
@@ -93,14 +111,29 @@
     <section class="feature-band">
       <div class="container">
         <div class="section-label"><span class="num">02</span><span>For the technical reader</span><span class="line"></span></div>
-        <h2 class="feature-headline">The source is part of the <span class="hl">proof</span>.</h2>
+        <h2 class="feature-headline">Everything generated is committed in the <span class="hl">open</span>.</h2>
         <p class="max-prose">
-          This repo commits its generated artifacts instead of hiding them behind a build
-          step — the token contract, the generators, and every generated output are
-          inspectable as-is.
+          The repository commits its generated files instead of hiding them behind a build
+          step. You can read the token definitions, the generators, and every output exactly
+          as they ship.
         </p>
         <div class="on-dark mt-xl">
           <a class="btn btn-secondary btn-arrow" href="https://github.com/linardsb/ux-factory">Read the repo</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="container">
+        <span class="disc"></span>
+        <div class="closing-inner">
+          <div>
+            <h2>Hiring a UX engineer or design engineer? Let's talk.</h2>
+          </div>
+          <div class="hero-cta-row">
+            <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
+            <a class="btn btn-secondary" href="/approach">How I work</a>
+          </div>
         </div>
       </div>
     </section>
