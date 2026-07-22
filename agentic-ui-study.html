@@ -41,14 +41,11 @@
     .study-tab:hover { border-color: var(--color-accent); }
     .study-tab[aria-selected="true"] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%); font-weight: 600; }
 
-    .study-propose { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: var(--spacing-md); align-items: start; }
-    @media (max-width: 720px) { .study-propose { grid-template-columns: 1fr; } }
-    .study-preview-frame { border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-md); }
+    .study-preview-frame { border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-md); margin: 0 0 var(--spacing-sm); }
     .study-preview--summary-strip { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
     .study-preview--summary-strip > * { flex: 1 1 0; min-width: 120px; }
     .study-preview--insight-panel { display: flex; flex-direction: column; gap: var(--spacing-sm); max-width: 320px; }
-    .study-dump-label { font-size: var(--type-eyebrow); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-fg-muted); margin: 0 0 6px; }
-    .study-dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 0; color: var(--color-fg); }
+    .study-dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: var(--spacing-sm) 0 0; color: var(--color-fg); }
 
     .study-controls { display: flex; flex-direction: column; gap: var(--spacing-sm); }
     .study-control-row { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
@@ -78,11 +75,9 @@
     .study-empty { font-size: var(--type-caption); color: var(--color-fg-muted); margin: 0; }
     .study-lineage { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 72ch; }
 
-    /* Screen rubric (#41) — a maker's five-pillar read of the affordances above, in the quiet
-       .study-lineage register (muted, no badge — subtlety bar / calm colour). Hidden when empty. */
-    #rubric { margin: 0 0 var(--spacing-xl); }
-    #rubric:empty { display: none; }
-    .study-rubric-eyebrow { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 var(--spacing-sm); }
+    /* Screen rubric (#41) — a maker's five-pillar read of the affordances above, inside a
+       closed disclosure (#rubric-acc, the shared .cs-acc organism). Quiet register throughout. */
+    #rubric-acc { margin: 0 0 var(--spacing-xl); }
     .study-rubric-intro { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 72ch; margin: 0 0 var(--spacing-md); }
     .study-rubric-row { max-width: 72ch; margin: 0 0 var(--spacing-md); }
     .study-rubric-head { font-size: var(--type-caption); color: var(--color-fg); margin: 0 0 2px; }
@@ -102,11 +97,11 @@
         </div>
         <h1 class="text-balance">Agentic UI, made safe by the <span class="hl">design system</span>.</h1>
         <p class="hero-sub">
-          A build-time agent composes dispatch-board views from a bounded component vocabulary —
-          the same library that renders this page. Pick a question, see what it proposed, adjust it
-          live within the guardrails, and reach past them: the system refuses anything out of
-          vocabulary and names the exact path. The engineer's role moved up — to designing the
-          vocabulary, the slot bounds, and the review controls.
+          At build time, an AI agent proposed dashboard views using only my approved components,
+          the same library that renders this page. Pick a question, see its proposal, and adjust
+          it live. Then try to push past the guardrails: the system refuses anything outside the
+          approved set and tells you exactly why. My job moved up a level, to designing the
+          vocabulary, the bounds, and the review controls the agent works inside.
         </p>
       </div>
     </section>
@@ -120,15 +115,21 @@
         <div id="study"><p class="study-empty">Loading the study…</p></div>
 
         <!-- Screen rubric (#41): a maker's five-pillar read of the affordances above, rendered
-             from scenarios/fieldwork/rubric.json. Empty (and display:none) if the fetch fails. -->
-        <div id="rubric"></div>
+             from scenarios/fieldwork/rubric.json into a closed disclosure. The whole block stays
+             hidden if the fetch fails or the rubric is empty. -->
+        <div class="cs-acc" id="rubric-acc" hidden>
+          <details>
+            <summary>How this screen earns the five AI-UX pillars <span class="mark" aria-hidden="true"></span></summary>
+            <div class="acc-body">
+              <div id="rubric"></div>
+            </div>
+          </details>
+        </div>
 
         <p class="study-lineage" id="lineage">
-          Lineage: an agent composing UI from a bounded, declarative component vocabulary is
-          pattern-compatible with emerging agent-UI protocols — Google's
-          <strong>A2UI</strong> and the open <strong>AG-UI</strong> project. The bridge here is a
-          hand-written implementation of that idea against a real design system, not a dependency
-          on either.
+          Composing UI from a bounded component vocabulary is the same idea explored by Google's
+          A2UI and the open AG-UI project. The bridge here is hand-written against a real design
+          system and depends on neither.
         </p>
       </div>
     </section>
@@ -175,16 +176,11 @@
       const patterns = Array.isArray(rubric?.patterns)
         ? rubric.patterns.filter((p) => p && typeof p.pillar === "string" && typeof p.pattern === "string" && typeof p.how === "string")
         : [];
-      if (!patterns.length) return;
-
-      const eyebrow = document.createElement("p");
-      eyebrow.className = "study-rubric-eyebrow";
-      eyebrow.textContent = "How this AI screen earns the five pillars";
-      mount.appendChild(eyebrow);
+      if (!patterns.length) return; // #rubric-acc stays hidden
 
       const intro = document.createElement("p");
       intro.className = "study-rubric-intro";
-      intro.textContent = "A maker's read of the affordances above, each tied to a canonical pattern and its primary source — assessment, not agent output.";
+      intro.textContent = "My own read of the controls above, each tied to a canonical pattern and its source. Assessment, not agent output.";
       mount.appendChild(intro);
 
       for (const p of patterns) {
@@ -211,6 +207,7 @@
         }
         mount.appendChild(row);
       }
+      $("rubric-acc").hidden = false;
     }
 
     try {

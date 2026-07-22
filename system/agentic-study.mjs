@@ -59,17 +59,18 @@ export function renderStudy(container, { vocab, entries, bus } = {}) {
   const dump = el("pre", { class: "study-dump" });
   root.appendChild(el("div", { class: "study-block" },
     el("p", { class: "study-eyebrow", text: "Propose" }),
-    el("p", { class: "study-hint", text: "The agent's precomputed composition, rendered to real components. Declarative in (the JSON) → components out — the renderer accepts only what the vocabulary allows." }),
-    el("div", { class: "study-propose" },
-      el("div", { class: "study-preview-frame" }, previewMount),
-      el("div", { class: "study-dump-wrap" }, el("p", { class: "study-dump-label", text: "the composition {name, props, children}" }), dump))));
+    el("p", { class: "study-hint", text: "What the agent proposed, rendered with real components. The renderer accepts only components from the approved vocabulary and refuses everything else." }),
+    el("div", { class: "study-preview-frame" }, previewMount),
+    el("details", { class: "study-bus" },
+      el("summary", { class: "study-bus-summary", text: "See the raw composition the agent proposed (name · props · children)" }),
+      dump)));
 
   // adjust — bounded controls + the boundary-probe refusal (the thesis)
   const controls = el("div", { class: "study-controls" });
   const refusalPanel = el("div", { class: "study-refusal", hidden: true });
   root.appendChild(el("div", { class: "study-block" },
     el("p", { class: "study-eyebrow", text: "Adjust" }),
-    el("p", { class: "study-hint", text: "Managed freedom, shown. Change a tile's emphasis, drop or reorder tiles — the renderer re-validates and re-renders. Reach past the vocabulary (the “not in vocabulary” option) and it refuses, naming the exact path. The engineer designed the vocabulary and the bounds; the reader moves inside them." }),
+    el("p", { class: "study-hint", text: "Change a tile's emphasis, drop or reorder tiles; everything re-validates and re-renders live. Then pick the “not in vocabulary” option to push past the boundary and watch the system refuse it, naming the exact path." }),
     controls,
     refusalPanel));
 
@@ -80,7 +81,7 @@ export function renderStudy(container, { vocab, entries, bus } = {}) {
   const busEmpty = el("p", { class: "study-empty", text: "No messages yet — adjust a tile above and its intents appear here." });
   root.appendChild(el("details", { class: "study-bus" },
     el("summary", { class: "study-bus-summary", text: "Messages on the bus" }),
-    el("p", { class: "study-hint", text: "The raw action contract, live: type (ui.* = UI → agent) · source modality · target · params. This is the log tap the bus header documents — the same messages an agent or a voice layer would carry." }),
+    el("p", { class: "study-hint", text: "The raw action contract, live: type (ui.* = UI → agent) · source modality · target · params. These are the same messages an agent or a voice layer would carry." }),
     busEmpty,
     busList));
 
@@ -195,7 +196,7 @@ export function renderStudy(container, { vocab, entries, bus } = {}) {
   function renderProvenance() {
     provenance.replaceChildren();
     provenance.appendChild(el("span", { class: "study-prov-label", text: picked.label || "Real run, curated for length" })); // verbatim honesty label
-    provenance.appendChild(document.createTextNode(" — a real build-time agent run over the Fieldwork fixtures, replayable. "));
+    provenance.appendChild(document.createTextNode(": a real build-time agent run over the Fieldwork fixtures, replayable. "));
     if (picked.trace) provenance.appendChild(el("a", { class: "study-prov-link", href: picked.trace }, "View the committed trace"));
   }
 
