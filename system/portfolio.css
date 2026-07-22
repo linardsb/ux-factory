@@ -1172,6 +1172,9 @@ dfn.term {
 .peak-ethics { margin-top: var(--spacing-lg); border-top: 1px solid var(--color-inverse-line); padding-top: var(--spacing-lg); }
 .peak-ethics summary {
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   font-family: var(--font-display);
   font-size: var(--type-body);
   color: var(--color-fg-on-inverse-strong);
