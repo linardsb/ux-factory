@@ -212,6 +212,7 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
   const ethicsMount = document.getElementById("ethics-gate");
   const scenarioNotice = document.getElementById("fw-scenario-notice");
   const handoffNote = document.getElementById("handoff-note");
+  const summaryMount = document.getElementById("factory-summary");
 
   let active = defaultScenario;
   let answers = { ...scenarios[active].defaults };
@@ -476,6 +477,28 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
     frag.appendChild(b4);
 
     narrativeRoot.replaceChildren(frag);
+    renderSummary(result);
+  }
+
+  // The four-cell stat strip above the collapsed narrative (#factory-summary, optional — absent on
+  // instance.html). Every number is read from the same derive() result the narrative renders, so
+  // the strip can never disagree with the evidence behind the disclosure.
+  function renderSummary(result) {
+    if (!summaryMount) return;
+    const cell = (n, l) => {
+      const c = el("div", "cell");
+      c.append(el("div", "n", n), el("div", "l", l));
+      return c;
+    };
+    const passN = result.checks.filter((c) => c.pass).length;
+    const kept = result.patterns.filter((p) => !p.gatedBy).length;
+    const gated = result.patterns.length - kept;
+    summaryMount.replaceChildren(
+      cell(result.input.brandColor, "brand colour in"),
+      cell(`${passN}/${result.checks.length}`, passN === result.checks.length ? "contrast pairs pass AA" : "contrast pairs pass AA (failures shown below)"),
+      cell(`${RULESET.scales[result.input.density].ratio}×`, "modular type ramp"),
+      cell(gated ? `${kept} · ${gated}` : String(kept), gated ? "patterns kept · gated by ethics" : "patterns kept"),
+    );
   }
 
   // --- the ethics guess-then-reveal: the Manipulation Matrix, run out loud -------------------

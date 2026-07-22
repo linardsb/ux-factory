@@ -804,6 +804,19 @@ dfn.term {
 .rt-muted { color: var(--color-fg-muted); }
 
 /* the caveat panel — STATIC HTML in factory.html; styled co-equal with .rt-metric (calm-colour) */
+/* Fictional-scenario notice + quiet cited captions + raw-file pointers — shared by the factory
+   page and the round-trip deep viewer (promoted from factory.html's inline block when the
+   round-trip exhibit got its own page; UX overhaul phase 2). */
+.fw-scenario { margin-bottom: var(--spacing-xl); max-width: 62ch; color: var(--color-fg-muted); }
+.fw-scenario-tag {
+  display: inline-block; margin-right: var(--spacing-sm);
+  font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-accent); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+.fw-nugget { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-lg); }
+.fw-raw-pointer { margin-top: var(--spacing-2xl); font-size: var(--type-caption); }
+
 .rt-caveat {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);

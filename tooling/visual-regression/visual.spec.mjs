@@ -1,6 +1,7 @@
 // tooling/visual-regression/visual.spec.mjs — CI visual-regression gate (epic #1, ticket #9, gate 3/3).
-// Screenshots eight shipped pages — the six IA pages + the two data-connected proto pages (verdant,
-// fieldwork) — under the neutral pack + one client pack (saulera, applied by swapping the single
+// Screenshots nine shipped pages — the six IA pages, the /roundtrip deep viewer, and the two
+// data-connected proto pages (verdant, fieldwork) — under the neutral pack + one client pack
+// (saulera, applied by swapping the single
 // tokens.neutral.css link), pixel-diffed vs committed baselines. Proto pages render from the mock
 // Worker, degrading to committed static fixtures; the gate blocks the Worker so they deterministically
 // hit that fixture fallback. Playwright is factory tooling (ticket #9), isolated here — never a
@@ -28,7 +29,12 @@ const PAGES = [
   // [data-trace="ready"] on success. Wait for BOTH so neither async paint can race the capture
   // (deterministic by construction, not by luck). The derived preview + the trace player are NOT masked
   // — they are what these slices regression-guard. (#10, slices 10.2 + 10.3)
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]', '#system-graph[data-graph="ready"]'] },
+  // UX-overhaul restructure: #roundtrip-player moved to the /roundtrip deep viewer (its own entry
+  // below) — keeping its selector here would hang the gate forever. The remaining mounts now live
+  // inside closed <details>; the waitFor below uses state:'attached', which a closed disclosure
+  // satisfies, so the readiness contract is unchanged.
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#system-graph[data-graph="ready"]'] },
+  { name: 'roundtrip',       url: '/roundtrip.html',       kind: 'ia', waitReady: ['#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
