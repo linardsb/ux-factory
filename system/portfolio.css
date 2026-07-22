@@ -54,6 +54,12 @@
   animation-duration: var(--motion-base);
 }
 
+/* pill-glide: the active-nav underline is a named group, so on navigation it morphs from the
+   old page's active link to the new one — the underline visibly travels between tabs. One
+   active link exists per page (site.js), so the name is always unique. */
+.nav-links a.active { view-transition-name: nav-active; }
+::view-transition-group(nav-active) { animation-duration: var(--motion-base); }
+
 /* The 0.01ms kill-switch above matches elements, not these UA pseudos — reduced
    motion must silence the navigation animation explicitly. */
 @media (prefers-reduced-motion: reduce) {
@@ -561,6 +567,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   transform: translateY(0);
   pointer-events: auto;
 }
+.to-top.show:active { transform: scale(0.94); transition-duration: var(--motion-fast); }
 .to-top:hover { background: var(--color-bg-inverse); color: var(--color-fg-on-inverse-strong); }
 .to-top:focus-visible { outline: 2px solid var(--color-border-strong); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
@@ -861,8 +868,10 @@ dfn.term {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+  /* press-squish: the release travels back through the bounce spring */
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce);
 }
+.dock-toggle:active { transform: scale(0.92); transition-duration: var(--motion-fast); }
 .dock-toggle:hover,
 .dock-toggle[aria-expanded="true"] {
   color: var(--color-fg);
@@ -888,7 +897,7 @@ dfn.term {
 }
 .dock-panel.is-open {
   display: block;
-  animation: dock-panel-in var(--motion-base) var(--motion-ease);
+  animation: dock-panel-in var(--motion-base) var(--motion-ease-spring);
 }
 @keyframes dock-panel-in {
   from { opacity: 0; transform: translateY(-50%) translateX(8px); }

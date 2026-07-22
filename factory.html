@@ -142,6 +142,12 @@
     .fw-checks { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
     .fw-checks th, .fw-checks td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
     .fw-checks .ok { color: var(--color-accent); font-weight: 600; }
+    /* draw-in pass check: fully drawn at rest (stroke-dashoffset initial = 0); it draws itself
+       only on discrete renders (.fw-animate) under no-preference, staggered with the rows. */
+    .fw-checks .check-draw {
+      width: 11px; height: 11px; margin-right: 4px; vertical-align: -1px;
+      fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
     .fw-checks .bad { color: var(--color-fg); font-weight: 700; text-decoration: underline; }
     .fw-swatch { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--color-border); }
     .fw-notes, .fw-patterns { margin: 0; padding-left: 1.1em; display: grid; gap: var(--spacing-sm); }
@@ -263,9 +269,15 @@
 
     @media (prefers-reduced-motion: no-preference) {
       .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
-      .fw-quadrant.is-selected { animation: fw-pop var(--motion-base) var(--motion-ease-spring); }
+      .fw-quadrant.is-selected { animation: fw-pop var(--motion-bounce) var(--motion-ease-bounce); }
       .fw-checks.fw-animate tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+      .fw-checks.fw-animate .check-draw path {
+        stroke-dasharray: 1; stroke-dashoffset: 1;
+        animation: check-draw var(--motion-base) var(--motion-ease-settle) forwards;
+        animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+      }
     }
+    @keyframes check-draw { to { stroke-dashoffset: 0; } }
     @keyframes fw-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
     @keyframes fw-pop { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
     @keyframes fw-row-in { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }

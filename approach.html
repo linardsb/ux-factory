@@ -290,6 +290,7 @@
     import { initGlossary } from "/system/glossary.mjs";
     import { prepareAnnotatedSource, renderAnnotatedSource } from "/system/annotated-source.mjs";
     import { renderDeriveProbe } from "/system/derive-probe.mjs";
+    import { countUpOnVisible } from "/system/motion.mjs";
 
     // An unknown term key throws here and aborts the module — data-asrc is never set, VR red.
     initGlossary(document);
@@ -305,8 +306,19 @@
 
         const runtime = loc.groups.find((g) => g.id === "runtime");
         const line = document.getElementById("loc-proof");
-        line.textContent = `Counted at build time and checked in CI: the design system this site ships is ${runtime.files} files, about ${runtime.linesApprox.toLocaleString("en-GB")} lines. No framework, no build step.`;
+        // The two measured numbers sit in their own spans so they can count up into view
+        // (motion.mjs writes the final measured string verbatim; instant under reduced motion).
+        const filesN = document.createElement("span");
+        filesN.textContent = String(runtime.files);
+        const linesN = document.createElement("span");
+        linesN.textContent = runtime.linesApprox.toLocaleString("en-GB");
+        line.append(
+          "Counted at build time and checked in CI: the design system this site ships is ",
+          filesN, " files, about ", linesN, " lines. No framework, no build step.",
+        );
         line.hidden = false;
+        countUpOnVisible(filesN);
+        countUpOnVisible(linesN);
 
         wrap.hidden = false;
         wrap.dataset.asrc = "ready";   // VR waits on this — set ONLY on full success

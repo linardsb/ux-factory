@@ -37,6 +37,7 @@
 import { derive } from "./derive.mjs";
 import { RULESET } from "./derive.rules.mjs";
 import { trackFactoryDriven } from "./analytics.mjs";
+import { countUp } from "./motion.mjs";
 
 // Untrusted-value escape — verbatim from derive.html:165. Used for the few strings assembled
 // into markup (the WCAG rows / notes / patterns lists, as derive.html does); structural nodes
@@ -437,7 +438,9 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
           <td><span class="fw-swatch" style="background:${esc(c.fgValue)}"></span><span class="fw-swatch" style="background:${esc(c.bgValue)}"></span></td>
           <td>${esc(c.fg)} / ${esc(c.bg)}<br><span class="muted">${esc(c.usage)}</span></td>
           <td>${c.ratio.toFixed(2)}</td><td>${c.min}</td>
-          <td class="${c.pass ? "ok" : "bad"}">${c.pass ? "pass" : "FAIL"}</td>
+          <td class="${c.pass ? "ok" : "bad"}">${c.pass
+            ? '<svg class="check-draw" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 5 9.5 10 3" pathLength="1"/></svg>pass'
+            : "FAIL"}</td>
         </tr>`).join("") + "</tbody>";
     b1.appendChild(table);
     b1.appendChild(el("p", "fw-beat-sub", "What the engine negotiated"));
@@ -477,6 +480,10 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
     frag.appendChild(b4);
 
     narrativeRoot.replaceChildren(frag);
+    // Ratios count up to their measured value on discrete renders only (mount / scenario
+    // toggle) — never on within-scenario value changes, where counting on every input tick
+    // would strobe. countUp itself no-ops under reduced motion.
+    if (animate) for (const td of table.querySelectorAll("tbody td:nth-child(3)")) countUp(td, td.textContent);
     renderSummary(result);
   }
 
