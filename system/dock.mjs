@@ -49,7 +49,19 @@ const activePack = () => {
 function applyPack(pack) {
   if (!PACK_IDS.includes(pack)) return; // hard allowlist — never interpolate junk into an href
   const link = packLink();
-  if (link) link.href = "/system/tokens." + pack + ".css";
+  if (link) {
+    // pack-crossfade: the one-line re-skin is witnessed, not snapped. The view transition
+    // resolves once the new sheet has loaded, so both captured frames are fully styled;
+    // without VT support or under reduced motion the swap stays instant.
+    const swap = () => new Promise((resolve) => {
+      link.addEventListener("load", resolve, { once: true });
+      link.addEventListener("error", resolve, { once: true });
+      link.href = "/system/tokens." + pack + ".css";
+    });
+    const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (document.startViewTransition && !reduce) document.startViewTransition(swap);
+    else link.href = "/system/tokens." + pack + ".css";
+  }
   try { localStorage.setItem("factory-pack", pack); } catch { /* private mode — session-only */ }
 }
 

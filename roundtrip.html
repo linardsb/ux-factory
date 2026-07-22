@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Derivation round-trip · Linards Berzins</title>
+  <meta name="description" content="The screenshot-to-pack derivation, run on Verdant's own prototype and measured against the known answer: the full diff, the caveat, and the recorded run." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- roundtrip.html — standalone deep viewer for the derivation round-trip exhibit (UX overhaul
+       phase 2; plan: enchanted-snuggling-hejlsberg). The factory page keeps a compact summary card
+       (#round-trip) and links here; this page carries the full evidence: both vision-input
+       screenshots, the caveat, the measured diff, and the recorded run. Same shell discipline as
+       handoff.html: static framing survives a JS/fetch failure; every number is rendered by
+       /system/derivation-roundtrip.mjs from committed files only. Nothing runs live. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+  <script src="/system/pack-boot.js"></script>
+
+  <style>
+    /* Trace-player classes the module emits (ported from factory.html's block, token-only). */
+    .trace-player { display: flex; flex-direction: column; gap: var(--spacing-lg, 24px); }
+    .trace-header { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .trace-task { font-size: var(--type-h3); margin: 0; }
+    .trace-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; font-size: var(--type-caption); }
+    .trace-label {
+      font-weight: 700; color: var(--color-accent-fg, #fff); background: var(--color-accent);
+      padding: 2px 10px; border-radius: var(--radius-sm); letter-spacing: 0.01em;
+    }
+    .trace-controls { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; margin-top: var(--spacing-sm); }
+    .trace-progress { margin-left: auto; font-variant-numeric: tabular-nums; }
+    .trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+    .trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
+    .trace-act { border-top: 2px solid var(--color-border); padding-top: var(--spacing-md); }
+    .trace-act-head { display: flex; align-items: baseline; gap: var(--spacing-sm); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow); }
+    .trace-act-num { color: var(--color-accent); font-weight: 700; }
+    .trace-act-name { font-weight: 700; color: var(--color-fg); }
+    .trace-act-count { margin-left: auto; text-transform: none; letter-spacing: 0; }
+    .trace-act-body { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md); }
+    .trace-step { padding: var(--spacing-md); transition: box-shadow 0.15s ease; }
+    .trace-step-hidden { display: none; }
+    .trace-step-current { box-shadow: 0 0 0 2px var(--color-accent); }
+    .trace-step--text .trace-step-text { white-space: pre-wrap; font-size: var(--type-body); line-height: 1.55; }
+    .trace-step--tool { background: var(--color-bg-surface); }
+    .trace-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+    .trace-tool { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .trace-hint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); word-break: break-all; }
+    .trace-status { margin-left: auto; font-weight: 700; }
+    .trace-status.ok { color: var(--color-accent); }
+    .trace-status.bad { color: var(--color-fg); text-decoration: underline; }
+    .trace-step--fail { border-color: var(--color-fg); }
+    .trace-error { margin-top: var(--spacing-sm); color: var(--color-fg); font-size: var(--type-caption); white-space: pre-wrap; }
+    .trace-artifact {
+      display: inline-block; margin-top: var(--spacing-sm); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: var(--type-caption); color: var(--color-fg-muted); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: 1px 8px;
+    }
+    .trace-artifact::before { content: "◇ artifact · "; color: var(--color-accent); }
+    .trace-response { margin-top: var(--spacing-sm); font-size: var(--type-caption); }
+    .trace-response summary { cursor: pointer; color: var(--color-fg-muted); }
+    .trace-response-body {
+      margin-top: var(--spacing-sm); background: var(--color-bg); border: 1px solid var(--color-border);
+      padding: var(--spacing-sm); overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+    }
+    .trace-error-card { border-color: var(--color-fg); }
+    @media (prefers-reduced-motion: no-preference) {
+      .trace-step:not(.trace-step-hidden) { animation: trace-step-in var(--motion-base) var(--motion-ease-spring) both; }
+      @supports (interpolate-size: allow-keywords) {
+        .trace-response { interpolate-size: allow-keywords; }
+        .trace-response::details-content {
+          block-size: 0; overflow: hidden;
+          transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
+        }
+        .trace-response[open]::details-content { block-size: auto; }
+      }
+    }
+    @keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
+
+    .rt-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); }
+    @media (max-width: 800px) { .rt-inputs { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body data-page="factory">
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">Factory · fidelity evidence</span>
+          <span class="meta"></span>
+        </div>
+        <h1 class="text-balance">The derivation round-trip, in <span class="hl">full</span>.</h1>
+        <p class="hero-sub">
+          The factory can also run in reverse: give it screenshots and it proposes the design
+          tokens behind them. Here that ran on Verdant's own prototype, where the right answer
+          is known, so the proposal can be measured instead of trusted. This page shows the
+          whole exhibit: what the AI read, what it proposed, how far off it was, and the
+          recorded run itself.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="evidence">
+      <div class="container">
+        <h2 class="section-label"><span class="num">01</span><span>What was read, and how to read the result</span><span class="line"></span></h2>
+
+        <p class="fw-scenario">
+          <strong class="fw-scenario-tag">Fictional scenario</strong>
+          <span>Verdant is a fictional product, invented for this demonstration. No real company, users,
+          or data are involved.</span>
+          The screenshots are of Verdant's own prototype, so the round-trip has a known answer to measure against.
+        </p>
+
+        <div class="rt-caveat">
+          <p><strong>Read this as a controlled, favourable case.</strong> The "ground truth" is the
+          engine's own output for Verdant, and reading a solid accent colour off a clean render is
+          close to a colour-picker operation. A near-zero accent difference proves the
+          <strong>pipeline works end to end</strong>, not that derivation is high-fidelity on
+          unfamiliar input.</p>
+          <p>Neutral tokens carry a tint too subtle for the eye, so the AI reads them as plain
+          white or grey. Their measured difference looks large but is invisible in practice:
+          reported for transparency, <strong>excluded from the verdict</strong>.</p>
+        </div>
+
+        <div class="rt-inputs" style="margin-top: var(--spacing-xl);">
+          <figure class="cs-fig">
+            <a class="fig-zoom" href="/tooling/round-trip/input/verdant-full.png">
+              <img src="/tooling/round-trip/input/verdant-full.png"
+                   alt="Vision input: Verdant's full prototype page, as read by the derivation agent" />
+            </a>
+            <figcaption>Vision input, Verdant's full page. <span class="fig-hint">Tap to enlarge</span></figcaption>
+          </figure>
+          <figure class="cs-fig">
+            <a class="fig-zoom" href="/tooling/round-trip/input/verdant-plant-overview.png">
+              <img src="/tooling/round-trip/input/verdant-plant-overview.png"
+                   alt="Vision input: Verdant's plant-overview phone screen, as read by the derivation agent" />
+            </a>
+            <figcaption>Vision input, the phone overview. <span class="fig-hint">Tap to enlarge</span></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="diff">
+      <div class="container">
+        <h2 class="section-label"><span class="num">02</span><span>The measured diff</span><span class="line"></span></h2>
+        <p class="max-prose">The proposed pack, measured against ground truth. Shown, not asserted:</p>
+        <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
+        <p class="muted fw-raw-pointer">
+          The raw evidence, inspectable → <a href="/tooling/round-trip/verdant.diff.json">verdant.diff.json</a>
+          · <a href="/tooling/round-trip/README.md">how it's framed</a>
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="run">
+      <div class="container">
+        <h2 class="section-label"><span class="num">03</span><span>The recorded run</span><span class="line"></span></h2>
+        <p class="max-prose">
+          The real Claude Agent SDK vision run that produced the proposal above, recorded step by
+          step. Nothing runs live here; the page replays a committed file.
+        </p>
+        <div id="roundtrip-player" style="margin-top: var(--spacing-xl);"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="hero-cta-row">
+          <a class="btn btn-secondary" href="/factory#round-trip">Back to the factory</a>
+          <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
+  <script src="/system/portfolio.js"></script>
+  <script type="module" src="/system/analytics.mjs"></script>
+  <script type="module" src="/system/dock.mjs"></script>
+  <script type="module" src="/system/derivation-roundtrip.mjs"></script>
+</body>
+</html>

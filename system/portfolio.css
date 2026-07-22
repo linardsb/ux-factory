@@ -54,6 +54,12 @@
   animation-duration: var(--motion-base);
 }
 
+/* pill-glide: the active-nav underline is a named group, so on navigation it morphs from the
+   old page's active link to the new one — the underline visibly travels between tabs. One
+   active link exists per page (site.js), so the name is always unique. */
+.nav-links a.active { view-transition-name: nav-active; }
+::view-transition-group(nav-active) { animation-duration: var(--motion-base); }
+
 /* The 0.01ms kill-switch above matches elements, not these UA pseudos — reduced
    motion must silence the navigation animation explicitly. */
 @media (prefers-reduced-motion: reduce) {
@@ -170,10 +176,10 @@
   letter-spacing: 0.04em;
 }
 
-/* ---------- Home "ways to verify" cards — monochrome glyph + hover-revealed proof (Phase 2, move 5) ----------
-   The glyph is the ONLY at-rest change (it churns index-{neutral,saulera} baselines, by design).
-   The proof line is collapsed at rest (grid-template-rows: 0fr, opacity 0) so the baseline shows only the
-   glyph; it surfaces on card hover/focus — the Active-Grid rule: hover SURFACES content, not just a lift.
+/* ---------- Home "ways to verify" cards — monochrome glyph + always-visible proof line ----------
+   The proof line is visible at rest: content is never gated behind hover, so touch and
+   screen-reader users get the same page as a mouse user. Hover/focus emphasis is a glyph
+   scale only (transform — instant under the reduced-motion kill-switch).
    Monochrome (--color-fg-muted, stroke: currentColor) → no new hue under either pack (calm-colour rule). */
 .verify-glyph {
   display: block;
@@ -181,23 +187,97 @@
   height: 32px;
   margin-bottom: var(--spacing-md);
   color: var(--color-fg-muted);
+  transition: transform var(--motion-base) var(--motion-ease-spring);
 }
 .verify-glyph svg { width: 100%; height: 100%; display: block; }
+.card-link:hover .verify-glyph,
+.card-link:focus-visible .verify-glyph { transform: scale(1.08); }
 .verify-proof {
   margin: 0;
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows var(--motion-base) var(--motion-ease-spring),
-              opacity var(--motion-fast) var(--motion-ease);
   font-family: var(--font-display);
   font-size: 13px;
   letter-spacing: 0.04em;
   color: var(--color-fg-muted);
 }
-.verify-proof > span { overflow: hidden; min-height: 0; }
-.card-link:hover .verify-proof,
-.card-link:focus-visible .verify-proof { grid-template-rows: 1fr; opacity: 1; }
+
+/* ---------- Home bento (section 01) — mixed-size tiles with mini previews ----------
+   One large interactive-feeling tile (the factory) beside two stacked tiles, and a
+   full-width claims strip. All values are tokens, so every pack re-skins the previews. */
+.bento {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: var(--spacing-lg);
+}
+.bento-lg { grid-row: span 2; }
+.bento .card-body { height: 100%; display: flex; flex-direction: column; }
+.bento .verify-proof { margin-top: auto; padding-top: var(--spacing-md); }
+.bento-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm) var(--spacing-xl);
+  padding: var(--spacing-md) 0 0;
+  border-top: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+@media (max-width: 900px) {
+  .bento { grid-template-columns: 1fr; }
+  .bento-lg { grid-row: auto; }
+}
+
+/* The mini previews inside bento tiles — decorative echoes of the real exhibits */
+.mini-q {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.mini-q-step {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin: 0 0 4px;
+}
+.mini-q-prompt {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--color-fg);
+  margin: 0 0 var(--spacing-sm);
+}
+.mini-q-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+.mini-q-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+}
+.mini-q-next {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--color-accent);
+}
+.mini-packs { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-lg); }
+.mini-pack {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+.mini-pack.is-current { background: var(--color-accent); border-color: var(--color-accent); }
+.mini-pack.alt-b { background: var(--color-bg-inverse); border-color: var(--color-bg-inverse); }
 
 /* Work grid: five cards spaced evenly — three across the top, two across the bottom */
 .work-grid { grid-template-columns: repeat(6, 1fr); }
@@ -487,6 +567,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   transform: translateY(0);
   pointer-events: auto;
 }
+.to-top.show:active { transform: scale(0.94); transition-duration: var(--motion-fast); }
 .to-top:hover { background: var(--color-bg-inverse); color: var(--color-fg-on-inverse-strong); }
 .to-top:focus-visible { outline: 2px solid var(--color-border-strong); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
@@ -532,43 +613,8 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   border-color: var(--color-accent);
 }
 
-/* ---------- Loop table (Approach §03) ---------- */
-
-.table-scroll { overflow-x: auto; }
-.loop-table {
-  width: 100%;
-  min-width: 720px;
-  border-collapse: collapse;
-  margin-top: var(--spacing-lg);
-}
-.loop-table thead th {
-  font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-fg-muted);
-  text-align: left;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-strong);
-}
-.loop-table td,
-.loop-table tbody th {
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--color-fg-muted);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-top: 1px solid var(--color-border);
-  vertical-align: top;
-}
-/* Row-header cell (first column): reads as a body cell, not the column header. */
-.loop-table tbody th {
-  text-align: left;
-  font-weight: 500;
-  color: var(--color-fg);
-}
-
 /* Deep-linked Approach sections land below the sticky header (same idiom as .cs-h) */
-#seat, #layers, #loop, #value, #case, #sources, #practice { scroll-margin-top: 90px; }
+#layers, #loop, #value, #case, #sources, #practice { scroll-margin-top: 90px; }
 
 /* ---------- Annotated source + glossary (approach.html §05; system/annotated-source.mjs +
    system/glossary.mjs — docs/epics/annotated-source-glossary.architecture.md).
@@ -765,6 +811,19 @@ dfn.term {
 .rt-muted { color: var(--color-fg-muted); }
 
 /* the caveat panel — STATIC HTML in factory.html; styled co-equal with .rt-metric (calm-colour) */
+/* Fictional-scenario notice + quiet cited captions + raw-file pointers — shared by the factory
+   page and the round-trip deep viewer (promoted from factory.html's inline block when the
+   round-trip exhibit got its own page; UX overhaul phase 2). */
+.fw-scenario { margin-bottom: var(--spacing-xl); max-width: 62ch; color: var(--color-fg-muted); }
+.fw-scenario-tag {
+  display: inline-block; margin-right: var(--spacing-sm);
+  font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-accent); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+.fw-nugget { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-lg); }
+.fw-raw-pointer { margin-top: var(--spacing-2xl); font-size: var(--type-caption); }
+
 .rt-caveat {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
@@ -809,8 +868,10 @@ dfn.term {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+  /* press-squish: the release travels back through the bounce spring */
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce);
 }
+.dock-toggle:active { transform: scale(0.92); transition-duration: var(--motion-fast); }
 .dock-toggle:hover,
 .dock-toggle[aria-expanded="true"] {
   color: var(--color-fg);
@@ -836,7 +897,7 @@ dfn.term {
 }
 .dock-panel.is-open {
   display: block;
-  animation: dock-panel-in var(--motion-base) var(--motion-ease);
+  animation: dock-panel-in var(--motion-base) var(--motion-ease-spring);
 }
 @keyframes dock-panel-in {
   from { opacity: 0; transform: translateY(-50%) translateX(8px); }

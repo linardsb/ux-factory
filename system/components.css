@@ -165,10 +165,13 @@ p, .body {
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease);
+  /* press-squish: colours on the base curve; transform releases through the bounce spring.
+     :active overrides to the fast curve, so the press is quick and the release rebounds. */
+  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce);
   text-decoration: none;
   line-height: 1;
 }
+.btn:active { transform: scale(0.96); transition-duration: var(--motion-base), var(--motion-base), var(--motion-fast); }
 
 .btn-primary {
   background: var(--color-accent);

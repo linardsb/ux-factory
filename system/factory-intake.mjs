@@ -37,6 +37,7 @@
 import { derive } from "./derive.mjs";
 import { RULESET } from "./derive.rules.mjs";
 import { trackFactoryDriven } from "./analytics.mjs";
+import { countUp } from "./motion.mjs";
 
 // Untrusted-value escape — verbatim from derive.html:165. Used for the few strings assembled
 // into markup (the WCAG rows / notes / patterns lists, as derive.html does); structural nodes
@@ -212,6 +213,7 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
   const ethicsMount = document.getElementById("ethics-gate");
   const scenarioNotice = document.getElementById("fw-scenario-notice");
   const handoffNote = document.getElementById("handoff-note");
+  const summaryMount = document.getElementById("factory-summary");
 
   let active = defaultScenario;
   let answers = { ...scenarios[active].defaults };
@@ -436,7 +438,9 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
           <td><span class="fw-swatch" style="background:${esc(c.fgValue)}"></span><span class="fw-swatch" style="background:${esc(c.bgValue)}"></span></td>
           <td>${esc(c.fg)} / ${esc(c.bg)}<br><span class="muted">${esc(c.usage)}</span></td>
           <td>${c.ratio.toFixed(2)}</td><td>${c.min}</td>
-          <td class="${c.pass ? "ok" : "bad"}">${c.pass ? "pass" : "FAIL"}</td>
+          <td class="${c.pass ? "ok" : "bad"}">${c.pass
+            ? '<svg class="check-draw" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 5 9.5 10 3" pathLength="1"/></svg>pass'
+            : "FAIL"}</td>
         </tr>`).join("") + "</tbody>";
     b1.appendChild(table);
     b1.appendChild(el("p", "fw-beat-sub", "What the engine negotiated"));
@@ -476,6 +480,32 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
     frag.appendChild(b4);
 
     narrativeRoot.replaceChildren(frag);
+    // Ratios count up to their measured value on discrete renders only (mount / scenario
+    // toggle) — never on within-scenario value changes, where counting on every input tick
+    // would strobe. countUp itself no-ops under reduced motion.
+    if (animate) for (const td of table.querySelectorAll("tbody td:nth-child(3)")) countUp(td, td.textContent);
+    renderSummary(result);
+  }
+
+  // The four-cell stat strip above the collapsed narrative (#factory-summary, optional — absent on
+  // instance.html). Every number is read from the same derive() result the narrative renders, so
+  // the strip can never disagree with the evidence behind the disclosure.
+  function renderSummary(result) {
+    if (!summaryMount) return;
+    const cell = (n, l) => {
+      const c = el("div", "cell");
+      c.append(el("div", "n", n), el("div", "l", l));
+      return c;
+    };
+    const passN = result.checks.filter((c) => c.pass).length;
+    const kept = result.patterns.filter((p) => !p.gatedBy).length;
+    const gated = result.patterns.length - kept;
+    summaryMount.replaceChildren(
+      cell(result.input.brandColor, "brand colour in"),
+      cell(`${passN}/${result.checks.length}`, passN === result.checks.length ? "contrast pairs pass AA" : "contrast pairs pass AA (failures shown below)"),
+      cell(`${RULESET.scales[result.input.density].ratio}×`, "modular type ramp"),
+      cell(gated ? `${kept} · ${gated}` : String(kept), gated ? "patterns kept · gated by ethics" : "patterns kept"),
+    );
   }
 
   // --- the ethics guess-then-reveal: the Manipulation Matrix, run out loud -------------------

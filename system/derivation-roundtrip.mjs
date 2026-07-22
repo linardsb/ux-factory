@@ -11,6 +11,7 @@
 // a hex reaches the DOM only via element.style.background (the hex IS the data being shown), never markup.
 
 import { parseTrace, renderTracePlayer } from "./trace-player.mjs";
+import { countUp } from "./motion.mjs";
 
 // --- prepareDiff: pure boundary validation (no document, no fetch — runs under Node) -------------
 // The committed diff is the single source of truth for every number on the exhibit; this only reads
@@ -122,7 +123,9 @@ export function renderRoundTrip(container, model) {
   pair.append(proposedCell, el("span", "rt-arrow", "→"), truthCell);
   metric.append(pair);
   const delta = el("p", "rt-metric-delta");
-  delta.append(el("span", "rt-delta-num", `ΔE ${model.accent.deltaE}`));
+  const deltaNum = el("span", "rt-delta-num", `ΔE ${model.accent.deltaE}`);
+  delta.append(deltaNum);
+  countUp(deltaNum, `ΔE ${model.accent.deltaE}`); // lands on the measured value verbatim
   delta.append(el("span", "rt-delta-note", `${model.accent.within ? "within" : "outside"} the ${model.accent.threshold} accent threshold`));
   metric.append(delta);
   root.append(metric);

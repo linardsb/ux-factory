@@ -4,18 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The factory · Linards Berzins</title>
-  <meta name="description" content="The factory route: a product brief travels intake → design system → prototype → handoff pack, performed in the open across five stations. Each station states exactly what runs today." />
+  <meta name="description" content="Answer four questions about a fictional product and watch a design system get generated, checked, prototyped, and packed for handoff, with the AI runs behind it replayable." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- factory.html — the flagship, deep-linkable Factory page (epic #1, ticket #10; slice 10.1).
-       The five-station pipeline shell: Prototypes (03) + Handoff (04) run now; Intake (01),
-       Design-system generation (02) and Agents visible (05) are in build and each links the raw
-       surface that already runs. Later 10.x slices fill 01/02/05 with the guided wizard, the live
-       re-skin, the mounted trace player, and the scenario toggle. Honesty contract: capability
-       badges state what runs vs. what is plan-gated; nothing here is faked. -->
+  <!-- factory.html — the flagship, deep-linkable Factory page (epic #1, ticket #10; restructured in
+       the UX overhaul, plan: enchanted-snuggling-hejlsberg). The wizard is the spine: Station 01
+       asks four questions, the stations after it show the consequences, one artifact per station,
+       with dense evidence behind native <details> disclosures. The round-trip exhibit keeps a
+       compact summary here and links its full evidence page (/roundtrip). Honesty contract:
+       capability badges state what runs; fictional labels and "nothing runs live" statements stay
+       visible at rest, outside all disclosures; nothing here is faked. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
@@ -26,8 +27,47 @@
     /* Factory-shell layout — page-unique, styled from tokens alone (colour / space / radius / type
        via var(--…)); grid / % / fixed heights are inherently structural literals — same justification
        as handoff.html's viewer styles. Single-page layout, not a reused organism → deliberately not
-       promoted to components.css. Later 10.x slices restyle these on the station. */
-    #intake, #generation, #prototypes, #handoff, #agents, #round-trip, #shape { scroll-margin-top: 90px; }
+       promoted to components.css. */
+    /* 130px = sticky header + the sticky station rail stacked above an anchor target.
+       scroll-padding on the root covers EVERY scroll-into-view — anchors, keyboard focus,
+       assistive tech — so nothing ever lands hidden under the sticky chrome. */
+    html { scroll-padding-top: 130px; }
+    #intake, #generation, #prototypes, #handoff, #agents, #round-trip, #shape { scroll-margin-top: 130px; }
+
+    /* The sticky station rail — always says where you are in intake → … → agents.
+       top 72px tucks it just under the sticky site header (z 50 > 40, so any 1–2px of
+       header-height variance hides behind the header, never in front of it). */
+    .factory-rail {
+      position: sticky; top: 72px; z-index: 40;
+      background: var(--color-bg);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .factory-rail-inner {
+      display: flex; align-items: center; gap: var(--spacing-sm);
+      overflow-x: auto; padding: var(--spacing-sm) 0;
+    }
+    .factory-rail a {
+      flex: 0 0 auto;
+      font-family: var(--font-display);
+      font-size: 13px; letter-spacing: 0.04em;
+      color: var(--color-fg-muted);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      padding: 4px 10px; text-decoration: none;
+      transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+    }
+    .factory-rail a:hover { color: var(--color-accent); border-color: var(--color-accent); }
+    .factory-rail a[aria-current="true"] { color: var(--color-accent); border-color: var(--color-accent); }
+    .factory-rail a.rail-exhibit { border-style: dashed; }
+    .factory-rail-sep { flex: 0 0 auto; width: 1px; align-self: stretch; background: var(--color-border); margin: 0 var(--spacing-sm); }
+
+    /* The stage: wizard left (sticky on desktop), consequences right. One reading order below 960px. */
+    .factory-stage { padding: var(--spacing-3xl) 0; }
+    @media (min-width: 960px) {
+      /* Items stretch (default): #intake spans the full row height, so the sticky wizard can
+         travel beside the whole of #generation instead of stopping at its own short content. */
+      .factory-stage-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--spacing-2xl); }
+      .fw-sticky { position: sticky; top: 130px; }
+    }
 
     .factory-embeds { display: grid; gap: var(--spacing-2xl); }
     .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
@@ -41,39 +81,19 @@
       background: var(--color-bg-surface);
       display: block;
     }
-    /* Heights measured (Playwright, static-fixture render), rounded up so nothing clips at any width:
-       Verdant content 1218–1252px (phone pinned at its 800px cap); Fieldwork 1830–1880px desktop. */
-    .factory-embed-phone { height: 1280px; }
-    .factory-embed-board { height: 1920px; }
+    /* Heights are deliberate viewport caps (UX overhaul): the prototypes scroll inside their own
+       frame instead of stretching this page to their full height — "Open it in its own tab" is the
+       full view. Nothing is clipped; the frame is a window, not a container. */
+    .factory-embed-phone { height: 720px; }
+    .factory-embed-board { height: 780px; }
     .factory-embed-cap { font-size: 13.5px; line-height: 1.55; color: var(--color-fg-muted); }
     .factory-embed-cap a { color: var(--color-accent); }
 
     .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
 
-    @media (max-width: 640px) {
-      /* Fieldwork's panels stack on narrow widths → ~2087px; keep it un-clipped there too. */
-      .factory-embed-board { height: 2160px; }
-    }
-
-    /* Station 1 + 2 intake wizard + live re-skin (slice 10.2) — same token-only discipline as
-       above (colour / space / radius / type via var(--…); grid / flex / px are structural
-       literals). Page-scoped: single-surface styling, not a reused organism. The wizard + the
-       narrative read the PAGE's neutral pack; ONLY #reskin-preview carries the derived tokens
+    /* Station 1 + 2 intake wizard + live re-skin — token-only discipline as above. The wizard +
+       the narrative read the PAGE's neutral pack; ONLY #reskin-preview carries the derived tokens
        the engine emits, so the re-skin stays scoped to the sample. */
-
-    /* fictional-scenario label — honesty surface #1 (this non-iframe surface needs its own) */
-    .fw-scenario { margin-bottom: var(--spacing-xl); max-width: 62ch; color: var(--color-fg-muted); }
-    .fw-scenario-tag {
-      display: inline-block; margin-right: var(--spacing-sm);
-      font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--color-accent); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-      padding: 2px 8px;
-    }
-
-    /* Legibility nuggets (#41) — muted, cited captions that teach the AI-UX discipline without
-       badging it (subtlety bar / calm colour; the .study-lineage register). One quiet sentence
-       each, placed OUTSIDE any replaceChildren mount so wizard stepping never wipes them. */
-    .fw-nugget { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-lg); }
 
     /* wizard card — one decision at a time */
     .fw-card {
@@ -100,15 +120,18 @@
     #reskin-preview {
       margin: var(--spacing-xl) 0; overflow: hidden; background: var(--color-bg);
       border: 1px solid var(--color-border); border-radius: var(--radius-md);
-      scroll-margin-top: 90px; /* the wizard's "Review" jump clears the sticky header */
+      scroll-margin-top: 130px; /* the wizard's "Review" jump clears the sticky header + rail */
     }
     #reskin-preview .fw-preview-pad { padding: var(--spacing-xl); }
+    /* In the stage's right column the three sample cards get ~220px each — too narrow to read.
+       Let them wrap to their natural minimum instead of forcing three abreast. */
+    #reskin-preview .grid-3 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     #reskin-preview .feature-band { padding: var(--spacing-2xl) 0; }
     #reskin-preview .fw-band-inner { padding: 0 var(--spacing-xl); }
     #reskin-preview .feature-headline { font-size: var(--type-h2); margin-bottom: var(--spacing-lg); }
 
-    /* staged narrative beats */
-    #factory-narrative { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-xl); }
+    /* staged narrative beats (inside the evidence disclosure) */
+    #factory-narrative { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-md); }
     .fw-beat-title { display: flex; align-items: baseline; gap: var(--spacing-sm); font-size: var(--type-h3); margin: 0 0 var(--spacing-md); }
     .fw-beat-num { font-size: var(--type-eyebrow); color: var(--color-accent); letter-spacing: 0.1em; }
     .fw-beat-sub { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-sm); }
@@ -119,18 +142,19 @@
     .fw-checks { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
     .fw-checks th, .fw-checks td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
     .fw-checks .ok { color: var(--color-accent); font-weight: 600; }
+    /* draw-in pass check: fully drawn at rest (stroke-dashoffset initial = 0); it draws itself
+       only on discrete renders (.fw-animate) under no-preference, staggered with the rows. */
+    .fw-checks .check-draw {
+      width: 11px; height: 11px; margin-right: 4px; vertical-align: -1px;
+      fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
     .fw-checks .bad { color: var(--color-fg); font-weight: 700; text-decoration: underline; }
     .fw-swatch { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--color-border); }
     .fw-notes, .fw-patterns { margin: 0; padding-left: 1.1em; display: grid; gap: var(--spacing-sm); }
     .fw-gated { opacity: 0.6; text-decoration: line-through; }
     .fw-gated-tag { text-decoration: none; margin-left: 8px; padding: 1px 6px; font-size: var(--type-eyebrow); color: var(--color-fg-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
-    .fw-raw-pointer { margin-top: var(--spacing-2xl); font-size: var(--type-caption); }
 
-    /* Scenario toggle + ethics guess-then-reveal (slice 10.3) — same token-only discipline as
-       above (colour / space / radius / type via var(--…); grid / flex / px are structural
-       literals). Page-scoped: single-surface styling, not a reused organism. */
-
-    /* toggle — a labelled two-option scenario switch (drives Stations 1–3 + Stations 4–5 copy) */
+    /* Scenario toggle + ethics guess-then-reveal — token-only discipline as above. */
     .fw-toggle { border: 0; padding: 0; margin: 0 0 var(--spacing-xl); }
     .fw-toggle-legend { font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-muted); padding: 0; margin-bottom: var(--spacing-sm); }
     .fw-toggle-options { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
@@ -142,8 +166,6 @@
     .fw-ethics { margin-top: var(--spacing-2xl); padding-top: var(--spacing-xl); border-top: 1px solid var(--color-border); }
     .fw-ethics-title { font-size: var(--type-h3); margin: 0 0 var(--spacing-sm); }
     .fw-ethics-intro { margin: 0 0 var(--spacing-lg); max-width: 60ch; }
-
-    /* the 2×2 grid: row-axis header column + two value columns */
     .fw-matrix { display: grid; grid-template-columns: max-content 1fr 1fr; gap: var(--spacing-sm); max-width: 56ch; margin: var(--spacing-lg) 0; }
     .fw-matrix-corner { min-width: 1px; }
     .fw-matrix-colhead, .fw-matrix-rowhead { display: flex; align-items: center; font-size: var(--type-caption); color: var(--color-fg-muted); }
@@ -160,8 +182,6 @@
     .fw-quadrant-name { font-weight: 700; font-size: var(--type-body); }
     .fw-quadrant-mark { min-height: 1.2em; font-size: var(--type-eyebrow); letter-spacing: 0.04em; color: var(--color-accent); }
     .fw-ethics-actions { margin-top: var(--spacing-md); }
-
-    /* reveal — two columns side by side (compare notes), the reader left, the maker right */
     .fw-reveal { margin-top: var(--spacing-xl); }
     .fw-reveal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-xl); }
     .fw-reveal-col { padding: var(--spacing-lg); background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
@@ -171,9 +191,8 @@
     .fw-reveal-narrative { margin: 0; }
     @media (max-width: 640px) { .fw-reveal-cols { grid-template-columns: 1fr; } }
 
-    /* Station-5 trace player (ported verbatim from trace.html:22–68 — the player injects no
-       <style>; the page styles the trace-* classes it emits, token-only). The designed surface
-       for the player is this page (#10); trace.html is the bare harness. (slice 10.3) */
+    /* Station-5 trace player (the player injects no <style>; the page styles the trace-* classes
+       it emits, token-only). */
     .trace-player { display: flex; flex-direction: column; gap: var(--spacing-lg, 24px); }
     .trace-header { display: flex; flex-direction: column; gap: var(--spacing-sm); }
     .trace-task { font-size: var(--type-h3); margin: 0; }
@@ -219,22 +238,9 @@
     }
     .trace-error-card { border-color: var(--color-fg); }
 
-    /* ===================================================================================
-       Phase 3 — presentation motion (.claude/plans/portfolio-motion-phase03-factory-showpiece.md).
-       Compositor-safe, token-driven, and — the contract — ZERO at-rest change: every entrance
-       lives inside @media (prefers-reduced-motion: no-preference) with its rest state == its final
-       state (the hl-draw idiom, portfolio.css:89-96), so it is invisible in the reduced-motion VR
-       capture; the only new at-rest elements (the trace progress bar) are rendered by JS ONLY under
-       no-preference (trace-player.mjs), so they never paint at capture either. Factory-page
-       choreography stays inline here (not promoted) per the parent plan's promotion rule. */
-
-    /* Item 1 — animated re-skin: the preview's token-driven colours interpolate to the derived
-       palette instead of snapping. .is-animated is armed one frame after the first settle
-       (factory-intake.mjs) so the initial paint is transition-free. Scoped to named surfaces +
-       text and EXCLUDES .btn — buttons already transition their own fill+transform
-       (components.css:164); a broad `#reskin-preview *` would outrank (1,0,0 > 0,1,0) and drop the
-       button hover-transform. Covers background-color/color/border-color — the only properties the
-       engine's derived colour tokens (color-bg, color-fg, color-accent, color-border families) drive. */
+    /* Presentation motion (.claude/plans/portfolio-motion-phase03-factory-showpiece.md) —
+       compositor-safe, token-driven, ZERO at-rest change: every entrance lives inside
+       @media (prefers-reduced-motion: no-preference) with its rest state == its final state. */
     @media (prefers-reduced-motion: no-preference) {
       #reskin-preview.is-animated,
       #reskin-preview.is-animated .card,
@@ -254,9 +260,6 @@
       }
     }
 
-    /* Item 2 — trace Play mode: the progress bar (rendered by JS only under no-preference, so
-       absent from the reduced-motion capture) + a fade+rise as each step card is revealed
-       (display:none → shown replays the keyframe). */
     .trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
     .trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
     @media (prefers-reduced-motion: no-preference) {
@@ -264,41 +267,37 @@
     }
     @keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
 
-    /* Item 3 — wizard/ethics/checks choreography. .fw-card animates per step (renderWizard
-       replaceChildren()s a fresh node — no JS change; enter-only, not a crossfade). The ethics pop
-       fires on the .is-selected toggle (interaction → never at capture); its box-shadow rule above
-       stays — the pop is additive. The WCAG rows stagger via a per-row --i index set in
-       renderNarrative, gated behind the .fw-animate class renderNarrative adds only where the
-       table genuinely (re)appears (mount / scenario toggle) — NOT on within-scenario value changes,
-       where restarting the stagger re-cascades unchanged rows and, on the continuous colour drag,
-       blanks the whole table (var(--i, 0) fallback keeps un-indexed rows at delay 0). */
     @media (prefers-reduced-motion: no-preference) {
       .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
-      .fw-quadrant.is-selected { animation: fw-pop var(--motion-base) var(--motion-ease-spring); }
+      .fw-quadrant.is-selected { animation: fw-pop var(--motion-bounce) var(--motion-ease-bounce); }
       .fw-checks.fw-animate tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+      .fw-checks.fw-animate .check-draw path {
+        stroke-dasharray: 1; stroke-dashoffset: 1;
+        animation: check-draw var(--motion-base) var(--motion-ease-settle) forwards;
+        animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+      }
     }
+    @keyframes check-draw { to { stroke-dashoffset: 0; } }
     @keyframes fw-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
     @keyframes fw-pop { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
     @keyframes fw-row-in { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }
 
-    /* Item 4 (optional) — animated <details> disclosure where the platform supports it; degrades
-       to today's instant snap everywhere else (@supports fails) and under reduced motion. Closed
-       state unchanged → no churn. interpolate-size on .trace-response is REQUIRED to enable the
-       0↔auto interpolation (inherited down to ::details-content). */
+    /* Animated <details> disclosure where the platform supports it; degrades to an instant snap
+       everywhere else and under reduced motion. Closed state unchanged → no churn. Extended to the
+       page's evidence disclosures (.factory-acc) in the restructure. */
     @media (prefers-reduced-motion: no-preference) {
       @supports (interpolate-size: allow-keywords) {
-        .trace-response { interpolate-size: allow-keywords; }
-        .trace-response::details-content {
+        .trace-response, .factory-acc details { interpolate-size: allow-keywords; }
+        .trace-response::details-content, .factory-acc details::details-content {
           block-size: 0; overflow: hidden;
           transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
         }
-        .trace-response[open]::details-content { block-size: auto; }
+        .trace-response[open]::details-content, .factory-acc details[open]::details-content { block-size: auto; }
       }
     }
 
-    /* "Shape of the system" exhibit (§Phase 5) — the sg-* classes system/system-graph.mjs
-       emits; colour from tokens only, geometry literals structural (same licence as above).
-       At rest no edges are drawn; accent appears only as the interaction highlight. */
+    /* "Shape of the system" exhibit — the sg-* classes system/system-graph.mjs emits; colour from
+       tokens only, geometry literals structural. At rest no edges are drawn. */
     .sg-legend { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-md); }
     .sg-scroll { overflow-x: auto; min-width: 0; }
     .sg-svg text { font-family: var(--font-mono); font-size: 11px; fill: var(--color-fg-muted); }
@@ -325,216 +324,170 @@
           <span class="stamp">The factory · five stations</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">The factory, performed <span class="hl">station by station</span>.</h1>
+        <h1 class="text-balance">Four answers become a design <span class="hl">system</span>.</h1>
         <p class="hero-sub">
-          A product brief travels intake → design system → prototype → handoff pack, with the agents'
-          build-time work replayed. Each station says exactly what runs today; nothing here is faked.
+          This is the factory floor. Station 01 asks you four questions about a fictional
+          product. The stations after it show what your answers produce: a contrast-checked
+          colour system, working prototypes, the files an engineer would receive, and the
+          recorded AI runs behind them. Every station says what really runs. Nothing is faked.
         </p>
-        <nav class="cs-jump" aria-label="Jump to a station">
-          <a href="#intake">01 · Intake</a>
-          <a href="#generation">02 · Generation</a>
-          <a href="#prototypes">03 · Prototypes</a>
-          <a href="#handoff">04 · Handoff</a>
-          <a href="#agents">05 · Agents</a>
-        </nav>
       </div>
     </section>
 
-    <!-- Station 1 · Intake — RUNS NOW: the guided wizard drives the real derivation engine (slice 10.2/10.3) -->
-    <section class="section" id="intake">
-      <div class="container">
-        <h2 class="section-label"><span class="num">01</span><span>Intake <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-        <!-- Scenario toggle (slice 10.3): the module renders a labelled two-option control here.
-             This static fallback keeps a truthful label if the module is slow or blocked. Choosing a
-             scenario re-seeds the wizard, re-skins the sample, and swaps the narrative + ethics verdict
-             for Stations 1–3, and updates the honest capability copy on Stations 4–5. -->
-        <div id="scenario-toggle"><p class="muted">Scenario: Verdant · plant care</p></div>
-        <p class="fw-scenario">
-          <strong class="fw-scenario-tag">Fictional scenario</strong>
-          <span id="fw-scenario-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</span>
-          The four answers below are real inputs to the live engine.
-        </p>
-        <!-- Legibility nugget (#41): honesty-label surface → content-provenance / transparency. -->
-        <p class="fw-nugget">
-          Naming what's fictional and what actually runs — the label above is one instance — is the
-          provenance discipline an AI feature owes its user: making clear what the system did, the
-          transparency baseline in Google PAIR's explainability guidance.
-        </p>
-        <p class="max-prose">
-          A short guided wizard, one decision at a time. Each question carries a recommended default and
-          the reasoning behind it; your overrides stay within the engine's own bounds. Your answers drive
-          the design system the next station generates.
-        </p>
-        <!-- Legibility nugget (#41): wizard surface → guided input / clarity. Outside #factory-wizard. -->
-        <p class="fw-nugget">
-          One decision at a time, with the reasoning shown — guided input in place of a blank box:
-          efficient invocation (Microsoft's Human-AI guidelines) built on defining what the user needs
-          (Google PAIR).
-        </p>
-        <div id="factory-wizard">
-          <p class="fw-loading muted">Loading the intake wizard…</p>
-        </div>
+    <nav class="factory-rail" aria-label="Stations">
+      <div class="container factory-rail-inner">
+        <a href="#intake">01 · Intake</a>
+        <a href="#generation">02 · Generation</a>
+        <a href="#prototypes">03 · Prototypes</a>
+        <a href="#handoff">04 · Handoff</a>
+        <a href="#agents">05 · Agents</a>
+        <span class="factory-rail-sep" aria-hidden="true"></span>
+        <a class="rail-exhibit" href="#round-trip">Round-trip</a>
+        <a class="rail-exhibit" href="#shape">Shape</a>
       </div>
-    </section>
+    </nav>
 
-    <!-- Station 2 · Design-system generation — RUNS NOW: live re-skin + staged narrative (slice 10.2) -->
-    <section class="section" id="generation">
-      <div class="container">
-        <h2 class="section-label"><span class="num">02</span><span>Design-system generation <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-        <p class="max-prose">
-          Your answers run through the real derivation engine and re-skin the sample below live — brand
-          colour to an accessible palette (with the WCAG contrast checks shown), density to type and
-          spacing scales, reward type to component patterns, frequency to an ethics verdict.
-        </p>
+    <!-- The stage: Station 01 (wizard, sticky) beside Station 02 (its live consequences). Two real
+         sections in one grid, so both anchors and section labels survive; below 960px it stacks in
+         the same reading order as before. -->
+    <div class="factory-stage">
+      <div class="container factory-stage-grid">
 
-        <!-- Sample surface: real components. Static in HTML so it renders even if the module is slow or
-             blocked; the module only sets the engine's derived tokens as custom properties on this root,
-             which outrank the contract + pack layers (shape lifted from derive.html). -->
-        <div id="reskin-preview">
-          <div class="fw-preview-pad">
-            <div class="grid grid-3">
-              <article class="card"><div class="card-body">
-                <div class="card-kicker">Card</div>
-                <h3 class="h3 mb-md">Text on a surface</h3>
-                <p class="muted">Muted body text on the derived card surface — one of the checked pairs.</p>
-              </div></article>
-              <article class="card"><div class="card-body">
-                <div class="card-kicker">Accent</div>
-                <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
-                <p class="muted">The accent must survive as text, not just as a fill.</p>
-              </div></article>
-              <article class="card"><div class="card-body">
-                <div class="card-kicker">Buttons</div>
-                <p class="mb-md"><a class="btn btn-primary" href="#generation">Primary</a></p>
-                <p><a class="btn btn-secondary" href="#generation">Secondary</a></p>
-              </div></article>
+        <!-- Station 1 · Intake — the guided wizard drives the real derivation engine -->
+        <section id="intake">
+          <h2 class="section-label"><span class="num">01</span><span>Intake <span class="capability live">Runs now</span></span><span class="line"></span></h2>
+          <!-- Scenario toggle: the module renders a labelled two-option control here. This static
+               fallback keeps a truthful label if the module is slow or blocked. -->
+          <div id="scenario-toggle"><p class="muted">Scenario: Verdant · plant care</p></div>
+          <p class="fw-scenario">
+            <strong class="fw-scenario-tag">Fictional scenario</strong>
+            <span id="fw-scenario-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</span>
+            The four answers below are real inputs to the live engine.
+          </p>
+          <div class="fw-sticky">
+            <div id="factory-wizard">
+              <p class="fw-loading muted">Loading the intake wizard…</p>
             </div>
+            <!-- Legibility nugget (#41), compressed: guided input over a blank prompt. -->
+            <p class="fw-nugget" style="margin-top: var(--spacing-lg);">
+              Guided questions instead of a blank prompt: you always see what the system can do
+              and why each default was chosen (Microsoft Human-AI guidelines; Google PAIR).
+            </p>
           </div>
-          <!-- Dark band: the inverse group is where bad derivation hides — keep it visible. -->
-          <div class="feature-band">
-            <div class="fw-band-inner">
-              <h3 class="feature-headline">The dark band re-skins too.</h3>
-              <div class="feature-grid cols-2">
-                <div class="feature-item ruled"><h4>Derived ground</h4><p>bg-inverse is the brand hue at near-zero chroma — a tinted near-black, not #000.</p></div>
-                <div class="feature-item ruled"><h4>Relative tokens</h4><p>Muted and hairline values here derive in CSS via color-mix, from the bases the engine emits.</p></div>
+        </section>
+
+        <!-- Station 2 · Design-system generation — live re-skin + summary + evidence disclosure -->
+        <section id="generation">
+          <h2 class="section-label"><span class="num">02</span><span>Generation <span class="capability live">Runs now</span></span><span class="line"></span></h2>
+          <p class="max-prose">
+            Your answers run through the real engine and re-skin this sample live. The strip
+            below is the engine's own summary; open the evidence for every number behind it.
+          </p>
+
+          <!-- Sample surface: real components. Static in HTML so it renders even if the module is
+               slow or blocked; the module only sets derived tokens as custom properties here. -->
+          <div id="reskin-preview">
+            <div class="fw-preview-pad">
+              <div class="grid grid-3">
+                <article class="card"><div class="card-body">
+                  <div class="card-kicker">Card</div>
+                  <h3 class="h3 mb-md">Text on a surface</h3>
+                  <p class="muted">Muted body text on the derived card surface, one of the checked pairs.</p>
+                </div></article>
+                <article class="card"><div class="card-body">
+                  <div class="card-kicker">Accent</div>
+                  <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
+                  <p class="muted">The accent must survive as text, not just as a fill.</p>
+                </div></article>
+                <article class="card"><div class="card-body">
+                  <div class="card-kicker">Buttons</div>
+                  <p class="mb-md"><a class="btn btn-primary" href="#generation">Primary</a></p>
+                  <p><a class="btn btn-secondary" href="#generation">Secondary</a></p>
+                </div></article>
+              </div>
+            </div>
+            <!-- Dark band: the inverse group is where bad derivation hides — keep it visible. -->
+            <div class="feature-band">
+              <div class="fw-band-inner">
+                <h3 class="feature-headline">The dark band re-skins too.</h3>
+                <div class="feature-grid cols-2">
+                  <div class="feature-item ruled"><h4>Derived ground</h4><p>The dark ground keeps a trace of the brand hue instead of falling back to plain black.</p></div>
+                  <div class="feature-item ruled"><h4>Relative tokens</h4><p>Muted text and hairlines on this surface are derived from the same few base colours.</p></div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Staged "how it's generated" narrative, rendered from the engine's own output. -->
-        <div id="factory-narrative"></div>
+          <!-- The engine's four-cell summary — rendered by factory-intake.mjs from the same
+               derive() result as the narrative, so strip and evidence can never disagree. -->
+          <div id="factory-summary" class="cs-meta"></div>
 
-        <!-- The ethics guess-then-reveal (Manipulation Matrix, slice 10.3) — its OWN container so a
-             wizard answer change (which replaceChildren()s #factory-narrative) never wipes the
-             reader's placement. Reset to un-placed only on a scenario toggle. -->
-        <div id="ethics-gate"></div>
+          <div class="cs-acc factory-acc" style="margin-top: var(--spacing-lg);">
+            <details>
+              <summary>The evidence: contrast checks · scales · patterns · verdict <span class="mark" aria-hidden="true"></span></summary>
+              <div class="acc-body">
+                <!-- Legibility nugget (#41), compressed: show the checks, don't assert them. -->
+                <p class="fw-nugget">Shown, not asserted: the checks and the reasoning are the exhibit (Google PAIR; Amershi et al.).</p>
+                <!-- Staged "how it's generated" narrative, rendered from the engine's own output. -->
+                <div id="factory-narrative"></div>
+              </div>
+            </details>
+          </div>
 
-        <p class="muted fw-raw-pointer">The same engine, raw &rarr; <a href="/derive">/derive</a>.</p>
-        <p class="muted" style="margin-top: var(--spacing-sm); font-size: var(--type-caption);">Run in reverse — screenshots → pack — on Verdant's own screens: <a href="#round-trip">the derivation round-trip ↓</a></p>
+          <!-- The ethics guess-then-reveal (Manipulation Matrix) — its OWN container so a wizard
+               answer change (which replaceChildren()s #factory-narrative) never wipes the reader's
+               placement. Reset to un-placed only on a scenario toggle. -->
+          <div id="ethics-gate"></div>
+
+          <p class="muted fw-raw-pointer" style="margin-top: var(--spacing-xl);">
+            The same engine, raw → <a href="/derive">/derive</a> ·
+            in reverse, screenshots → tokens: <a href="#round-trip">the round-trip ↓</a>
+          </p>
+        </section>
+
       </div>
-    </section>
+    </div>
 
-    <!-- Un-numbered exhibit (#42): the Verdant derivation round-trip — #40's screenshot→pack derivation
-         run end to end on Verdant's own screens, its proposal measured honestly against the known pack.
-         Deep-linkable by #round-trip; NOT a sixth station (five-station identity preserved). Static
-         framing (fictional notice · caveat · provisional label) is always visible even if the module
-         fails; the NUMBERS are rendered by /system/derivation-roundtrip.mjs from committed files only. -->
+    <!-- Un-numbered exhibit: the derivation round-trip, compact. The full evidence page is
+         /roundtrip (screenshots · caveat · recorded run); this card keeps the measured diff
+         on-page, collapsed, so the number is shown here, never merely claimed. -->
     <section class="section" id="round-trip">
       <div class="container">
         <div class="hero-eyebrow"><span class="stamp">Fidelity evidence</span></div>
-        <h2 class="h2">The derivation round-trip <span class="capability">agent-proposed, human-approved · provisional</span></h2>
-        <p class="max-prose muted">
-          “Provisional” deliberately: the label is pending a clean fidelity read on a real product whose
-          tokens the model has not memorized, read purely from pixels. Both measured cases so far are
-          favourable-and-controlled — see the caveat below.
-        </p>
-        <p class="max-prose">
-          The factory's screenshot→pack derivation, run end to end on Verdant's own prototype and measured
-          against the known Verdant pack. It shows the pipeline runs and is measured honestly on a
-          controlled, favourable case — <strong>not</strong> that derivation is high-fidelity in the wild.
-          Everything below is read from committed files; nothing runs live.
-        </p>
-
-        <!-- Honesty surface: fictional subject (reuses the Station-1 notice idiom). -->
+        <h2 class="h2">The round-trip <span class="capability">provisional</span></h2>
         <p class="fw-scenario">
           <strong class="fw-scenario-tag">Fictional scenario</strong>
-          <span>Verdant is a fictional product, invented for this demonstration. No real company, users,
-          or data are involved.</span>
-          The screenshots are of Verdant's own prototype — so the round-trip has a known answer to measure against.
+          <span>Verdant is a fictional product, invented for this demonstration. No real company,
+          users, or data are involved.</span>
         </p>
-
-        <!-- Caveat panel — STATIC (survives a JS/fetch failure), co-equal with the metric. Paraphrases
-             tooling/round-trip/README.md:10-16 + the diff's own caveat; names the excluded neutrals. -->
-        <div class="rt-caveat">
-          <p><strong>Read this as a controlled, favourable case.</strong> The “ground truth” is the
-          engine's own <code>derive(Verdant&nbsp;axes)</code> output, and reading a solid accent off a
-          clean render is close to a colour-picker operation — so a near-zero accent ΔE is expected and
-          proves the <strong>pipeline works end to end</strong>, not that derivation is high-fidelity on
-          unfamiliar input.</p>
-          <p>Neutral tokens are tinted by the engine at sub-perceptual chroma; a vision agent reads them
-          as plain white/grey, so their ΔE looks large but is perceptually trivial — reported for
-          transparency, <strong>excluded from the verdict</strong>. The real fidelity claim rests on the
-          offline real-product test recorded in the architecture's spikes, not on this number.</p>
-        </div>
-
-        <!-- Vision input — the two committed screenshots the agent read (fictional Verdant → no
-             copyright concern). Eager (no lazy) so the window load event covers them in the VR gate. -->
-        <div class="rt-inputs">
-          <figure class="cs-fig">
-            <a class="fig-zoom" href="/tooling/round-trip/input/verdant-full.png">
-              <img src="/tooling/round-trip/input/verdant-full.png"
-                   alt="Vision input: Verdant's full prototype page, as read by the derivation agent" />
-            </a>
-            <figcaption>Vision input — Verdant's full page. <span class="fig-hint">Tap to enlarge</span></figcaption>
-          </figure>
-          <figure class="cs-fig">
-            <a class="fig-zoom" href="/tooling/round-trip/input/verdant-plant-overview.png">
-              <img src="/tooling/round-trip/input/verdant-plant-overview.png"
-                   alt="Vision input: Verdant's plant-overview phone screen, as read by the derivation agent" />
-            </a>
-            <figcaption>Vision input — the phone overview. <span class="fig-hint">Tap to enlarge</span></figcaption>
-          </figure>
-        </div>
-
-        <!-- The measured diff — rendered by the module from tooling/round-trip/verdant.diff.json (the
-             single source for every number). Degrades to an honest error card; the framing above stays. -->
-        <p class="max-prose">The proposed pack, measured against ground truth — shown, not asserted:</p>
-        <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
-
-        <!-- The recorded run — replayed in the mounted player; scenario-neutral honesty copy. The
-             player supplies its own h2 from meta.task (same as Station 05), so no heading here — an
-             h3 above it would put an h2 after an h3 inside the same container (backward jump). -->
-        <div style="margin-top: var(--spacing-2xl);">
-          <p class="max-prose">
-            The real Claude Agent SDK vision run that produced the proposal above, recorded step by step
-            and replayed in the four PIV acts — plan · gate · implement · validate. Nothing runs live
-            here; the page replays a committed file.
-          </p>
-          <!-- Legibility nugget (#41): transparency — show the diff, don't assert the fidelity. -->
-          <p class="fw-nugget">
-            Showing the measured diff rather than asserting the fidelity is the honest move: surface how
-            well the system did and let the reader judge — transparency over claims (Google PAIR), and
-            making clear why the system did what it did (Amershi et al.).
-          </p>
-          <div id="roundtrip-player" style="margin-top: var(--spacing-xl);"></div>
-        </div>
-
-        <p class="muted fw-raw-pointer">
-          The raw evidence, inspectable → <a href="/tooling/round-trip/verdant.diff.json">verdant.diff.json</a>
-          · <a href="/tooling/round-trip/README.md">how it's framed</a>
+        <p class="max-prose">
+          The factory can also run in reverse: screenshots in, proposed design tokens out. Here
+          it ran on Verdant's own prototype, where the right answer is known, so the proposal is
+          measured instead of trusted. It is a controlled, favourable case, and the verdict says
+          so. Nothing runs live; every number comes from committed files.
         </p>
+        <div class="cs-acc factory-acc">
+          <details>
+            <summary>The measured diff: every token against ground truth <span class="mark" aria-hidden="true"></span></summary>
+            <div class="acc-body">
+              <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
+            </div>
+          </details>
+        </div>
+        <div class="factory-actions">
+          <a class="btn btn-secondary btn-arrow" href="/roundtrip">The full exhibit: what was read, the caveat, the recorded run</a>
+        </div>
       </div>
     </section>
 
-    <!-- Station 3 · Prototypes — RUNS NOW: both data-connected screens embedded (Fieldwork slots filled by #13) -->
+    <!-- Station 3 · Prototypes — both data-connected screens embedded, capped frames -->
     <section class="section" id="prototypes">
       <div class="container">
         <h2 class="section-label"><span class="num">03</span><span>Prototypes <span class="capability live">Runs now</span></span><span class="line"></span></h2>
         <p class="max-prose">
-          Two prototype screens built on this system, each rendering live from the fixture-backed mock
-          API and degrading to committed static fixtures when the API is down — the source indicator in
-          each frame says which it used. Both are fictional scenarios, labelled as such.
+          Two prototype screens built on this system, rendering live from the mock API and
+          falling back to committed fixtures when it's down. The indicator in each frame says
+          which one you're seeing. The frame is a window: scroll inside it, or open the full tab.
         </p>
         <div class="factory-embeds">
           <!-- Both figures stay in the DOM; the toggle shows the active scenario's proto and `hidden`s
@@ -546,7 +499,7 @@
                     title="Verdant — Plant overview: a data-connected prototype rendering from the mock API, degrading to committed static fixtures"
                     loading="lazy"></iframe>
             <figcaption class="factory-embed-cap">
-              Verdant · Plant overview — a phone screen wired to the mock API.
+              Verdant · Plant overview: a phone screen wired to the mock API.
               <a href="/proto/verdant.html">Open it in its own tab →</a>
             </figcaption>
           </figure>
@@ -556,7 +509,7 @@
                     title="Fieldwork — Dispatch board: a hybrid canvas with two bounded agentic slots, rendering from the mock API"
                     loading="lazy"></iframe>
             <figcaption class="factory-embed-cap">
-              Fieldwork · Dispatch board — a hybrid canvas. Its two agentic slots are filled by
+              Fieldwork · Dispatch board: a hybrid canvas. Its two agentic slots are filled by
               committed proposals from the agentic-UI study.
               <a href="/proto/fieldwork.html">Open it in its own tab →</a>
             </figcaption>
@@ -565,14 +518,13 @@
       </div>
     </section>
 
-    <!-- Station 4 · Handoff — RUNS NOW: the viewer + the one-file download (ticket #14) -->
+    <!-- Station 4 · Handoff — the viewer + the one-file download -->
     <section class="section" id="handoff">
       <div class="container">
         <h2 class="section-label"><span class="num">04</span><span>Handoff <span class="capability live">Runs now</span></span><span class="line"></span></h2>
         <p class="max-prose" id="handoff-note">
-          The pack an engineer would actually receive: every component's spec head, engineer docs, and
-          agent vocabulary side by side, generated from one source — plus the whole thing as a single
-          JSON download. Inspect it.
+          The pack an engineer would actually receive: every component's spec, docs, and agent
+          vocabulary side by side, generated from one source. Also downloadable as a single JSON.
         </p>
         <div class="factory-actions">
           <a class="btn btn-primary btn-arrow" href="/handoff">Inspect the handoff pack</a>
@@ -581,44 +533,47 @@
       </div>
     </section>
 
-    <!-- Station 5 · Agents visible — RUNS NOW: the view-time trace player mounted on a real, curated run (slice 10.3) -->
+    <!-- Station 5 · Agents visible — the trace player on a real, curated run, collapsed -->
     <section class="section" id="agents">
       <div class="container">
         <h2 class="section-label"><span class="num">05</span><span>Agents visible <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-        <!-- Scenario-neutral honest copy (honesty surface #2): the mounted run is a real spec-authoring
-             task, not a per-scenario generation run — stated plainly. Not swapped on toggle. -->
+        <!-- Scenario-neutral honest copy (honesty surface #2). Not swapped on toggle. -->
         <p class="max-prose" id="agents-note">
-          A real Claude Agent SDK run from this factory, recorded step by step and replayed in the four
-          PIV acts — plan · gate · implement · validate. This run authored a ComponentSpec; per-scenario
-          generation traces are in build. Nothing runs live here — the page replays a committed file.
+          A real Claude Agent SDK run from building this factory, recorded step by step: it
+          planned, passed a gate, implemented, and validated a component spec. Nothing runs
+          live here; the page replays a committed file.
         </p>
-        <!-- Legibility nugget (#41): trace-player surface → visible reasoning / transparency. -->
-        <p class="fw-nugget">
-          Shown as stepped acts, not a log — the agent's reasoning made visible: Nielsen's visibility of
-          system status, and the guideline to make clear why the system did what it did (Amershi et al.).
-        </p>
-        <div id="agents-player" style="margin-top: var(--spacing-2xl);"></div>
+        <div class="cs-acc factory-acc">
+          <details>
+            <summary>Replay the recorded run: plan · gate · implement · validate <span class="mark" aria-hidden="true"></span></summary>
+            <div class="acc-body">
+              <!-- Legibility nugget (#41), compressed. -->
+              <p class="fw-nugget">Stepped acts instead of a log: the agent's reasoning made visible (Nielsen; Amershi et al.).</p>
+              <div id="agents-player" style="margin-top: var(--spacing-md);"></div>
+            </div>
+          </details>
+        </div>
       </div>
     </section>
 
-    <!-- Un-numbered exhibit (§Phase 5): the shape of the system — the shipped token contract
-         rendered from its generated, drift-checked artifact. Deep-linkable by #shape; NOT a
-         sixth station (five-station identity preserved, same rule as #round-trip). The prose
-         here is static (survives a JS/fetch failure); every node, count and pack value is
-         rendered by /system/system-graph.mjs from committed system/system-graph.json only. -->
+    <!-- Un-numbered exhibit: the shape of the system — prose visible, measured graph collapsed. -->
     <section class="section" id="shape">
       <div class="container">
         <div class="hero-eyebrow"><span class="stamp">The contract, measured</span></div>
         <h2 class="h2">The shape of the system</h2>
         <p class="max-prose">
-          The token contract this whole site runs on, drawn from measurement: every semantic
-          token, the component blocks that consume it, and the value each committed pack binds
-          it to — quoted verbatim. Generated by <code>agent-layer/gen-system-graph.mjs</code>
-          from <code>tokens.source.json</code> and a <code>components.css</code> scan,
-          drift-checked in CI. Nothing here is hand-drawn. Hover or focus a token to see its
-          blast radius; a component, to see its token diet.
+          Every design token this site uses, the components that consume it, and the value each
+          committed style pack binds it to. Drawn from measurement, never by hand. Hover or
+          focus a token to see everything it touches.
         </p>
-        <div id="system-graph"><p class="muted">Loading the measured graph…</p></div>
+        <div class="cs-acc factory-acc">
+          <details>
+            <summary>The measured graph: every token, every consumer <span class="mark" aria-hidden="true"></span></summary>
+            <div class="acc-body">
+              <div id="system-graph"><p class="muted">Loading the measured graph…</p></div>
+            </div>
+          </details>
+        </div>
         <p class="muted fw-raw-pointer">
           Full dataset → <a href="/system/system-graph.json">system-graph.json</a>
         </p>
@@ -644,12 +599,54 @@
   <script type="module" src="/system/factory-intake.mjs"></script>
   <script type="module" src="/system/derivation-roundtrip.mjs"></script>
 
-  <!-- Station-5 trace mount (slice 10.3): fetch the committed, CURATED demo-notice run (a real
-       Agent SDK run) and hand it to the view-time player. Mirrors trace.html:90–118. Mounts ONCE
-       and is never re-rendered on toggle → no destroy() needed (keyboard stepping is now scoped to
-       each player's own root, so listeners never stack across players). The [data-trace="ready"] attribute is the
-       visual-regression gate's wait handle — set ONLY on fetch success, so a real failure fails
-       loud (the gate hangs) instead of baking a false-green baseline. -->
+  <!-- Deep links into collapsed evidence stay honest: if the hash targets a node inside a closed
+       <details>, open its ancestors before the browser scrolls to it. -->
+  <script>
+    (function () {
+      function openForHash() {
+        if (!location.hash) return;
+        var target;
+        try { target = document.querySelector(location.hash); } catch (e) { return; }
+        if (!target) return;
+        var d = target.closest("details");
+        while (d) { d.open = true; d = d.parentElement && d.parentElement.closest("details"); }
+      }
+      openForHash();
+      addEventListener("hashchange", openForHash);
+    })();
+  </script>
+
+  <!-- Station-rail scroll-spy: mark the chip for the section in view. Progressive enhancement;
+       at rest (scroll 0, hero in view) no chip is current. -->
+  <script>
+    (function () {
+      var rail = document.querySelector(".factory-rail");
+      if (!rail || !("IntersectionObserver" in window)) return;
+      var links = {};
+      rail.querySelectorAll("a[href^='#']").forEach(function (a) { links[a.hash.slice(1)] = a; });
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var link = links[entry.target.id];
+          if (!link) return;
+          if (entry.isIntersecting) {
+            rail.querySelectorAll("a[aria-current]").forEach(function (a) { a.removeAttribute("aria-current"); });
+            link.setAttribute("aria-current", "true");
+          }
+        });
+      }, { rootMargin: "-35% 0px -60% 0px" });
+      Object.keys(links).forEach(function (id) {
+        var s = document.getElementById(id);
+        if (s) io.observe(s);
+      });
+    })();
+  </script>
+
+  <!-- Station-5 trace mount: fetch the committed, CURATED demo-notice run (a real Agent SDK run)
+       and hand it to the view-time player. Mounts ONCE and is never re-rendered on toggle. The
+       [data-trace="ready"] attribute is the visual-regression gate's wait handle — set ONLY on
+       fetch success, so a real failure fails loud (the gate hangs) instead of baking a
+       false-green baseline. The mount lives inside a closed <details>; the gate waits on
+       attachment, not visibility. -->
   <script type="module">
     import { parseTrace, renderTracePlayer } from "/system/trace-player.mjs";
     const mount = document.getElementById("agents-player");
@@ -674,10 +671,9 @@
     }
   </script>
 
-  <!-- Shape-of-the-system mount (§Phase 5): fetch the committed, generated graph artifact
-       and hand it to the view-time module. [data-graph="ready"] is the visual-regression
-       gate's wait handle — set ONLY on success, so a broken artifact fails loud (the gate
-       hangs) instead of baselining an empty exhibit. -->
+  <!-- Shape-of-the-system mount: fetch the committed, generated graph artifact and hand it to the
+       view-time module. [data-graph="ready"] is the visual-regression gate's wait handle — set
+       ONLY on success, so a broken artifact fails loud instead of baselining an empty exhibit. -->
   <script type="module">
     import { prepareGraph, renderSystemGraph } from "/system/system-graph.mjs";
     const mount = document.getElementById("system-graph");
