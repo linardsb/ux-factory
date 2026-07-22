@@ -24,6 +24,15 @@
 // throw the preview's inline props are cleared (reverting to the committed neutral pack) and
 // an honest note shows. Everything is synchronous after the deferred module load — no network
 // at view time; the trace player at Station 5 replays a committed file.
+//
+// Config seam (epic #38, ticket #43): the wizard is SHARED, not forked. init() is exported as
+// initIntake(config) — factory.html auto-inits with the inlined SCENARIOS (default config →
+// byte-identical behaviour, its VR baseline untouched); the private-instance shell
+// (system/instance.mjs) marks its mount with data-intake="external" to stand down the import-time
+// auto-init, then calls initIntake() itself with a scenario config built from a compiled company
+// package. assertScenarioConfig runs on both — load-time on the inlined map, call-time on whatever
+// a page supplies. Governing doc: docs/epics/per-company-brief.architecture.md §Other ("the wizard
+// is shared, not forked").
 
 import { derive } from "./derive.mjs";
 import { RULESET } from "./derive.rules.mjs";
@@ -150,14 +159,20 @@ const CELLS = [
   { improvesLives: false, wouldUseIt: false },
 ].map((c) => ({ ...c, quadrant: RULESET.ethics.matrix[c.improvesLives][c.wouldUseIt] }));
 
-// Fail-fast at load, per scenario: each enum non-empty, and every default a real member of its
-// enum — so a future ruleset edit that renames/drops a key breaks loudly here, not on stage.
-for (const [slug, s] of Object.entries(SCENARIOS)) {
-  for (const axis of ["density", "rewardType", "frequency"]) {
-    if (!ENUM[axis].length) throw new Error(`factory-intake: RULESET exposes no options for "${axis}"`);
-    if (!ENUM[axis].includes(s.defaults[axis])) throw new Error(`factory-intake: ${slug} default "${s.defaults[axis]}" is not a valid "${axis}"`);
+// Fail-fast, per scenario: each enum non-empty, and every default a real member of its enum — so a
+// future ruleset edit that renames/drops a key breaks loudly here, not on stage. Reads module-level
+// ENUM (from RULESET, the single source of truth); parameterized over the scenario map so initIntake
+// can re-run it on a page-supplied config (ticket #43's seam), not only the inlined SCENARIOS.
+// Named assertScenarioConfig — NOT validateScenarios, which is scenarios/validate.mjs's export.
+function assertScenarioConfig(scenarios) {
+  for (const [slug, s] of Object.entries(scenarios)) {
+    for (const axis of ["density", "rewardType", "frequency"]) {
+      if (!ENUM[axis].length) throw new Error(`factory-intake: RULESET exposes no options for "${axis}"`);
+      if (!ENUM[axis].includes(s.defaults[axis])) throw new Error(`factory-intake: ${slug} default "${s.defaults[axis]}" is not a valid "${axis}"`);
+    }
   }
 }
+assertScenarioConfig(SCENARIOS); // load-time failure on the inlined scenarios (preserves 10.2's guarantee)
 
 // --- DOM helpers (structural nodes; trace-player convention — text via textContent) ----------
 function el(tag, className, text) {
@@ -181,9 +196,12 @@ function guardArrows(node) {
   });
 }
 
-// self-init behind a document guard so `import()` under Node (the parse check) never touches the
-// DOM; the module is inert on any page lacking its three required anchors.
-function init() {
+// The exported init (ticket #43's seam): behind a document guard at the bottom so `import()` under
+// Node (the parse check) never touches the DOM; inert on any page lacking its three required anchors.
+// config = { scenarios, defaultScenario } — both default to the inlined map so factory.html's call is
+// byte-identical; the shell (instance.mjs) passes a scenario config built from a company package.
+export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO } = {}) {
+  assertScenarioConfig(scenarios); // re-validate whatever config arrived (page-supplied or the default)
   const wizardMount = document.getElementById("factory-wizard");
   const previewRoot = document.getElementById("reskin-preview");
   const narrativeRoot = document.getElementById("factory-narrative");
@@ -195,8 +213,8 @@ function init() {
   const scenarioNotice = document.getElementById("fw-scenario-notice");
   const handoffNote = document.getElementById("handoff-note");
 
-  let active = DEFAULT_SCENARIO;
-  let answers = { ...SCENARIOS[active].defaults };
+  let active = defaultScenario;
+  let answers = { ...scenarios[active].defaults };
   let step = 0;
   let ethicsPlacement = null; // reader's {improvesLives, wouldUseIt} — NEVER prefilled from the scenario
   let driven = false; // fire-once guard for the "factory driven" analytics event
@@ -250,9 +268,9 @@ function init() {
 
   // --- scenario toggle: swap the whole Station-1/2 pipeline (synchronous, no fetch) ----------
   function setScenario(slug) {
-    if (!SCENARIOS[slug]) return;
+    if (!scenarios[slug]) return;
     active = slug;
-    answers = { ...SCENARIOS[slug].defaults }; // matrix booleans intentionally NOT seeded
+    answers = { ...scenarios[slug].defaults }; // matrix booleans intentionally NOT seeded
     step = 0;
     ethicsPlacement = null; // un-place the reader's ethics guess
     markDriven(); // toggling IS a drive → fire-once analytics
@@ -275,7 +293,7 @@ function init() {
     fieldset.appendChild(el("legend", "fw-toggle-legend", "Scenario"));
     const group = el("div", "fw-toggle-options");
     let activeInput;
-    for (const slug of Object.keys(SCENARIOS)) {
+    for (const slug of Object.keys(scenarios)) {
       const label = el("label", "fw-toggle-option");
       const input = document.createElement("input");
       input.type = "radio";
@@ -285,7 +303,7 @@ function init() {
       if (input.checked) activeInput = input;
       input.addEventListener("change", () => setScenario(slug));
       label.appendChild(input);
-      label.appendChild(el("span", "fw-toggle-label", SCENARIOS[slug].label));
+      label.appendChild(el("span", "fw-toggle-label", scenarios[slug].label));
       group.appendChild(label);
     }
     fieldset.appendChild(group);
@@ -298,7 +316,7 @@ function init() {
   // toggle by stating what runs via the capability indicator, with Verdant's REAL pack + trace
   // always reachable — the toggle labels the gap, it never hides the real thing.
   function renderScenarioChrome() {
-    const s = SCENARIOS[active];
+    const s = scenarios[active];
     if (scenarioNotice) scenarioNotice.textContent = s.fictionalNotice; // honesty surface #1
     // Station 3 — show only the active scenario's proto figure; keep the other in the DOM (hidden).
     document.querySelectorAll(".factory-embed-figure[data-scenario]").forEach((fig) => {
@@ -355,7 +373,7 @@ function init() {
   }
 
   function renderWizard(focusOnRender) {
-    const wiz = SCENARIOS[active].wizard;
+    const wiz = scenarios[active].wizard;
     const w = wiz[step];
     const card = el("div", "fw-card");
     card.appendChild(el("p", "fw-progress", `${step + 1} / ${wiz.length}`));
@@ -468,7 +486,7 @@ function init() {
   // guess never graded, no red X.
   function renderEthics() {
     if (!ethicsMount) return;
-    const s = SCENARIOS[active];
+    const s = scenarios[active];
 
     const section = el("section", "fw-ethics");
     section.appendChild(el("h4", "fw-ethics-title", "Place it on the Manipulation Matrix"));
@@ -605,4 +623,7 @@ function init() {
   requestAnimationFrame(() => previewRoot.classList.add("is-animated"));
 }
 
-if (typeof document !== "undefined") init();
+// Auto-init ONLY when no page has claimed the seam: a #factory-wizard marked data-intake="external"
+// (the shell's static mount) stands the default config down so instance.mjs can call initIntake()
+// with its own. factory.html has no marker → the querySelector is null → today's code path, unchanged.
+if (typeof document !== "undefined" && !document.querySelector('#factory-wizard[data-intake="external"]')) initIntake();

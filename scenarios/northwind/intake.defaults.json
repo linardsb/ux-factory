@@ -1,0 +1,82 @@
+{
+  "questions": [
+    {
+      "id": "problem",
+      "stage": "discovery",
+      "question": "What problem are users solving with your product?",
+      "default": "Small wholesalers lose track of stock across warehouses; orders get promised against inventory that isn't actually there.",
+      "reasoning": "Framing the problem as promise-accuracy under distributed stock keeps the product a dashboard, not an ERP.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "current-solution",
+      "stage": "discovery",
+      "question": "How do they solve it today, and why does that need replacing?",
+      "default": "A shared spreadsheet updated by hand, always a day stale, reconciled before the morning cutoff.",
+      "reasoning": "The baseline fails at the cutoff, so the design target is the reconciliation moment, not steady-state browsing.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "named-user",
+      "stage": "discovery",
+      "question": "Who exactly is the user — can you name a real person who needs this?",
+      "default": "Priya, 38, operations lead reconciling three warehouses before the morning order cutoff.",
+      "reasoning": "Naming the operator (not the owner) anchors the design on the person inside the daily cutoff pressure.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "target-behavior",
+      "stage": "behaviour",
+      "question": "What's the one behavior you want to become routine? How often would it realistically occur?",
+      "default": "Honestly there isn't one worth designing for — reconciliation is demand-driven, with full stock-takes monthly at best.",
+      "reasoning": "This is below the habit zone; a designed habit loop would have nothing legitimate to attach to.",
+      "bounds": ["multiple-daily", "daily", "weekly", "monthly", "rarely"],
+      "asked": true
+    },
+    {
+      "id": "internal-trigger",
+      "stage": "behaviour",
+      "question": "5 Whys: what emotion or moment actually cues that behavior?",
+      "default": "External cues only: an order arrives, a discrepancy surfaces, the cutoff approaches. No internal itch to amplify.",
+      "reasoning": "External triggers mean the design should optimise time-to-answer, not return frequency — the tool register.",
+      "bounds": null,
+      "asked": true
+    },
+    {
+      "id": "friction",
+      "stage": "friction",
+      "question": "From trigger to payoff, how many steps? Which of time / money / effort / confusion / social deviance / novelty limits users most?",
+      "default": "Order lands, check stock, confirm or flag: seconds each, under pressure. The limiting factor is time.",
+      "reasoning": "Naming time as the constraint drives the compact density and a board that answers at a glance.",
+      "bounds": ["time", "money", "effort", "confusion", "social deviance", "novelty"],
+      "asked": false
+    },
+    {
+      "id": "success-signals",
+      "stage": "success",
+      "question": "What early signal would prove it's working, and what slower outcome sits behind it?",
+      "default": "Early: fewer oversells caught after the fact. Behind it: accurate promise dates. Time-in-app is explicitly not a metric.",
+      "reasoning": "For a utility, engagement metrics reward the wrong thing — success is getting the operator out faster.",
+      "bounds": null,
+      "asked": false
+    },
+    {
+      "id": "ethics-gate",
+      "stage": "ethics-gate",
+      "question": "Does it materially improve users' lives — and would you use it yourself?",
+      "default": "It improves the operator's working day, but the maker isn't an operator — and with the frequency filter already failed, the honest verdict is a utility.",
+      "reasoning": "The gate ruling against habit design here, out loud, is the point — the tool register, not the habit register.",
+      "bounds": null,
+      "asked": true
+    }
+  ],
+  "axes": {
+    "brandColor": "#0A5C6B",
+    "density": "compact",
+    "rewardType": "hunt",
+    "frequency": "monthly"
+  }
+}

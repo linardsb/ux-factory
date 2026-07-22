@@ -12,6 +12,7 @@ import verdantReadings from "../scenarios/verdant/fixtures/readings.json" with {
 import fieldworkJobs from "../scenarios/fieldwork/fixtures/jobs.json" with { type: "json" };
 import fieldworkTechnicians from "../scenarios/fieldwork/fixtures/technicians.json" with { type: "json" };
 import fieldworkSchedule from "../scenarios/fieldwork/fixtures/schedule.json" with { type: "json" };
+import northwindItems from "../scenarios/northwind/fixtures/items.json" with { type: "json" };
 
 export const FIXTURES = {
   verdant: {
@@ -23,5 +24,8 @@ export const FIXTURES = {
     jobs: fieldworkJobs,
     technicians: fieldworkTechnicians,
     schedule: fieldworkSchedule,
+  },
+  northwind: {
+    items: northwindItems,
   },
 };
