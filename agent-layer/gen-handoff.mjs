@@ -5,10 +5,16 @@
 // builds, the wc/ custom-element wrappers + README, and figma-import.md. figma-parity.json
 // is NOT emitted here — the parity script writes it (secret + network; this chain stays
 // deterministic) and this generator never touches it.
+// contracts/ and wc/ are rebuilt from scratch each run (rmSync): they are entirely owned by
+// this generator — one sidecar per spec / per wrapper — so a spec or wrapper removed at source
+// leaves no orphaned sidecar behind. A stale, already-committed sidecar is byte-identical to
+// HEAD, so the drift gate's porcelain check can't see it and it would ship silently in the pack
+// + pack.bundle.json (#64). The clean-slate is scoped to those two dirs only — the top-level,
+// real-run-only figma-parity.json is never at risk.
 // Standalone:  node agent-layer/gen-handoff.mjs
 // Paths resolve from this module (NOT cwd) — build.mjs runs from the jobs folder.
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -40,6 +46,7 @@ export function genHandoff() {
     throw new Error(`${SD_BUILD}: Style Dictionary build failed — if node_modules is missing, run: cd tooling/style-dictionary && npm install`);
   }
 
+  rmSync(join(DEST, "contracts"), { recursive: true, force: true }); // clean-slate rebuild — no orphaned sidecar for a removed spec (#64; see header)
   mkdirSync(join(DEST, "contracts"), { recursive: true });
   for (const s of specs) {
     if (s.head.contract) copyFileSync(join(SPECS, s.head.contract), join(DEST, "contracts", s.head.contract));
@@ -54,6 +61,7 @@ export function genHandoff() {
   if (!wcFiles.length) throw new Error(`${WC_SRC}: no wrapper modules found — did system/wc/ move?`);
   if (!existsSync(join(WC_SRC, "README.md"))) throw new Error(`${WC_SRC}/README.md: missing — the pack ships the wrapper doc`);
   if (!existsSync(FIGMA_DOC)) throw new Error(`${FIGMA_DOC}: missing — the pack ships the Figma import doc`);
+  rmSync(join(DEST, "wc"), { recursive: true, force: true }); // clean-slate rebuild — no orphaned wrapper for a removed wc module (#64; see header)
   mkdirSync(join(DEST, "wc"), { recursive: true });
   for (const f of [...wcFiles, "README.md"]) copyFileSync(join(WC_SRC, f), join(DEST, "wc", f));
   copyFileSync(FIGMA_DOC, join(DEST, "figma-import.md"));
