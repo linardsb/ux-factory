@@ -19,122 +19,247 @@
 <body data-page="home">
 
   <main>
-    <section class="page-hero">
+    <!-- ============================================================================
+         v3 spine — region contract (ticket #71). Home IS the product-demo (PRD D6).
+         Five band-chaptered <section> beats. Each #beat-* section is owned INTERNALLY
+         by a later ticket, which fills it as a DISJOINT region (parallel-safe). This
+         file ships the STATIC, at-rest state only: it is the reduced-motion / no-JS
+         first paint AND the VR baseline. rest == final — later beats animate TO these
+         states and must not change them.
+
+           #beat-hero    Beat 1 · instant proof.   Owner #72 — adds system/spine.mjs
+                         (the beat-orchestration seam) + build-in choreography + ONE
+                         real derive() re-skin via :root custom properties.
+           #beat-intake  Beat 2a · you brief it.   Owner #73 — mounts the rewritten
+                         stakeholder wizard (shared factory-intake.mjs via initIntake).
+                         NB: the wizard's existing mount convention is id="intake"
+                         (factory.html); #73 may nest #intake inside #beat-intake.
+           #beat-brand   Beat 2b · your brand.     Owner #74 — bounded brand-colour
+                         input + derived-pack persistence (pack-derived.mjs + pack-boot).
+           #beat-peak    Beat 3 · the peak.        Owner #75 — a committed proto/
+                         composition assembles under the answers/brand + WCAG receipts
+                         + the Manipulation-Matrix ethics gate. The signature moment.
+           #beat-close   Beat 4 · you keep it.     Owner #77 — handoff link + shareable
+                         URL-state + the contact close.
+           #verify       Beat 5 · verify.          STATIC evidence index (row-list) to
+                         factory / roundtrip / study / approach / work. No JS mount.
+
+         system/spine.mjs does NOT exist yet — #72 adds it and its <script> tag. Do not
+         reference it here. Honesty: a placeholder must not claim a live capability it
+         does not yet perform (no `.capability.live` chip until the beat is wired).
+         ============================================================================ -->
+
+    <!-- Beat 1 · instant proof — the billboard cover (I1). #72 animates TO this state. -->
+    <section class="page-hero" id="beat-hero">
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
           <span class="stamp">Linards Berzins · UX engineer</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">Answer four questions. Watch a design system get <span class="hl">built</span>.</h1>
+        <h1 class="text-balance">Turn a brand colour into a working <span class="hl">design system</span>.</h1>
         <p class="hero-sub">
-          I'm Linards, a UX engineer. I design interfaces and build the systems behind them.
-          Instead of telling you that, this site shows it: pick a brand colour and a few
-          product answers, and it generates an accessible design system, re-skins a working
-          prototype, and prepares the files an engineer would receive. All of it runs in your
-          browser, and you can inspect every step.
+          I'm Linards, a UX engineer. Instead of telling you what I do, this site shows it.
+          Brief a product, pick a brand colour, and watch an accessible design system get
+          built in your browser. Every step is inspectable.
         </p>
         <div class="hero-cta-row">
-          <a class="btn btn-primary btn-arrow" href="/factory">Try the factory</a>
+          <a class="btn btn-primary btn-arrow" href="#beat-intake">Start the brief</a>
           <a class="btn btn-secondary" href="/approach">How I work</a>
         </div>
       </div>
     </section>
 
-    <section class="section">
+    <!-- Beat 2a · you brief it (I4 numeral + designed static preview). #73 mounts the live wizard. -->
+    <section class="band" id="beat-intake">
       <div class="container">
-        <h2 class="section-label"><span class="num">01</span><span>What you can do here</span><span class="line"></span></h2>
-        <div class="bento mt-xl stagger verify-grid">
-          <a class="card card-link bento-lg" href="/factory">
-            <div class="card-body">
-              <div class="card-kicker">The factory <span class="capability live">Runs now</span></div>
-              <h3 class="h3 mb-md">Run the factory</h3>
-              <p class="muted">
-                Answer four questions about a fictional product. The site generates the colour
-                palette, checks every contrast pair against WCAG, and re-skins a sample screen
-                while you watch.
-              </p>
-              <div class="mini-q" aria-hidden="true">
-                <p class="mini-q-step">1 / 4</p>
-                <p class="mini-q-prompt">What colour carries the brand?</p>
-                <div class="mini-q-row">
-                  <span class="mini-q-swatch"></span>
-                  <span>pick any colour</span>
-                  <span class="mini-q-next">Next →</span>
-                </div>
-              </div>
-              <p class="verify-proof"><span>Four questions · a live result</span></p>
-              <div class="card-foot"><span class="card-foot-link">Start with question one →</span></div>
-            </div>
-          </a>
-          <a class="card card-link" href="/approach#case">
-            <div class="card-body">
-              <div class="card-kicker">The system <span class="capability live">Runs now</span></div>
-              <h3 class="h3 mb-md">Re-skin this site</h3>
-              <p class="muted">
-                One CSS file styles every page here. Swap it and the whole site changes.
-                On desktop, try the style switcher in the top-right corner.
-              </p>
-              <div class="mini-packs" aria-hidden="true">
-                <span class="mini-pack is-current"></span>
-                <span class="mini-pack alt-a"></span>
-                <span class="mini-pack alt-b"></span>
-              </div>
-              <p class="verify-proof"><span>One file · every page</span></p>
-              <div class="card-foot"><span class="card-foot-link">See how it's built →</span></div>
-            </div>
-          </a>
-          <a class="card card-link" href="/work">
-            <div class="card-body">
-              <span class="verify-glyph" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10v10H4z"/><path d="M9 4v10M4 9h10"/><circle cx="20" cy="20" r="6.5"/><path d="M25 25l3 3"/></svg></span>
-              <div class="card-kicker">The work <span class="capability live">Runs now</span></div>
-              <h3 class="h3 mb-md">Inspect the results</h3>
-              <p class="muted">
-                Two working demos: a plant-care app and a dispatch board with an AI-composed
-                panel you can adjust. Both come with the handoff files an engineer would
-                actually receive.
-              </p>
-              <p class="verify-proof"><span>Two demos · one handoff pack</span></p>
-              <div class="card-foot"><span class="card-foot-link">See the work →</span></div>
-            </div>
-          </a>
-          <div class="bento-strip">
-            <span>No framework</span>
-            <span>No build step</span>
-            <span>Nothing runs behind your back</span>
-            <span>Everything inspectable</span>
+        <div class="beat-head">
+          <span class="beat-numeral">01</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">You brief it</p>
+            <h2 class="beat-title">Brief a product in four questions.</h2>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section class="feature-band">
-      <div class="container">
-        <div class="section-label"><span class="num">02</span><span>For the technical reader</span><span class="line"></span></div>
-        <h2 class="feature-headline">Everything generated is committed in the <span class="hl">open</span>.</h2>
-        <p class="max-prose">
-          The repository commits its generated files instead of hiding them behind a build
-          step. You can read the token definitions, the generators, and every output exactly
-          as they ship.
+        <p class="beat-lead">
+          Each question carries a recommended answer and the reason behind it, so the brief
+          stays sharp. Here is the first one.
         </p>
-        <div class="on-dark mt-xl">
-          <a class="btn btn-secondary btn-arrow" href="https://github.com/linardsb/ux-factory">Read the repo</a>
+        <div class="brief-card">
+          <p class="brief-step">Question 1 of 4</p>
+          <p class="brief-q">What problem does the product solve?</p>
+          <div class="brief-rec">
+            <span class="brief-rec-tag">Recommended</span>
+            <p>Plant owners forget their watering schedule, and their plants die.</p>
+          </div>
+          <p class="brief-why">
+            Why this default: one sharp sentence keeps every later decision honest. You can
+            change it, and the demo updates the system to match.
+          </p>
         </div>
       </div>
     </section>
 
-    <section class="closing">
+    <!-- Beat 2b · your brand (I4 numeral + empty-state colour affordance). #74 wires the input. -->
+    <section class="band" id="beat-brand">
       <div class="container">
-        <span class="disc"></span>
-        <div class="closing-inner">
-          <div>
-            <h2>Hiring a UX engineer or design engineer? Let's talk.</h2>
+        <div class="beat-head">
+          <span class="beat-numeral">02</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your brand</p>
+            <h2 class="beat-title">Try it with your own brand colour.</h2>
           </div>
+        </div>
+        <p class="beat-lead">
+          Give the demo a brand colour and it pulls your product onto the stage. The whole
+          site can wear it while you look around.
+        </p>
+        <div class="brand-try">
+          <span class="brand-swatch" aria-hidden="true"></span>
+          <span class="brand-try-text">
+            <span class="brand-prompt">Enter a brand colour</span>
+            <span class="brand-note">The demo derives a full palette from it and checks every contrast pair.</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Beat 3 · the peak — the ONE dark band, the signature. A STILL of what it builds. #75 makes it assemble. -->
+    <section class="band band--dark" id="beat-peak">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">03</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">It builds</p>
+            <h2 class="beat-title">A screen, composed from your brief and brand.</h2>
+          </div>
+        </div>
+        <div class="peak-stage">
+          <div class="peak-screen">
+            <div class="peak-screen-bar">
+              <span class="peak-screen-title">Verdant</span>
+              <span class="peak-screen-dot" aria-hidden="true"></span>
+            </div>
+            <div class="peak-screen-tiles">
+              <div class="peak-tile">
+                <div class="n">3</div>
+                <div class="l">plants need water</div>
+              </div>
+              <div class="peak-tile">
+                <div class="n">12</div>
+                <div class="l">healthy today</div>
+              </div>
+            </div>
+          </div>
+          <div class="peak-side">
+            <span class="peak-tag">Fictional product</span>
+            <div class="wcag-row">
+              <span class="wcag-pair">Body text on the card</span>
+              <span class="wcag-pass">Pass AA</span>
+            </div>
+            <div class="wcag-row">
+              <span class="wcag-pair">Brand accent on the card</span>
+              <span class="wcag-pass">Pass AA</span>
+            </div>
+            <p class="peak-note">
+              An illustrative still. The live build measures each pair with the real contrast
+              engine and shows the receipts. The round trip under Verify holds the real numbers.
+            </p>
+            <details class="peak-ethics">
+              <summary>Does this screen manipulate the user? Reveal the check.</summary>
+              <div class="peak-ethics-body">
+                <p>
+                  The demo runs every proposed screen through a manipulation matrix before it
+                  ships, and shows the verdict. This still shows the shape of that gate. The
+                  live build runs it on your screen.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Beat 4 · you keep it — the single-card close (I6). #77 adds the shareable URL-state. -->
+    <section class="band" id="beat-close">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">04</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">You keep it</p>
+            <h2 class="beat-title">You keep what it builds.</h2>
+          </div>
+        </div>
+        <div class="close-card">
+          <p class="close-card-line">This is what I'd do for your team in week one.</p>
           <div class="hero-cta-row">
             <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
-            <a class="btn btn-secondary" href="/approach">How I work</a>
+            <a class="btn btn-secondary" href="/handoff.html">See the handoff pack</a>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Beat 5 · verify — static evidence index (I3 row-list), one disclosure deep (D8). No JS mount. -->
+    <section class="band" id="verify">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">05</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Verify</p>
+            <h2 class="beat-title">Verify any of it.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          None of this asks for your trust. Every claim on this page opens to the evidence
+          behind it, one click deep.
+        </p>
+        <ul class="row-list">
+          <li>
+            <a class="row-item" href="/factory">
+              <span class="row-item-text">
+                <span class="row-item-title">The factory floor</span>
+                <span class="row-item-desc">Real agent-run traces, replayed step by step</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/roundtrip">
+              <span class="row-item-text">
+                <span class="row-item-title">The round-trip check</span>
+                <span class="row-item-desc">Screenshots turned back into tokens, with the fidelity diff</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/agentic-ui-study">
+              <span class="row-item-text">
+                <span class="row-item-title">The agentic study</span>
+                <span class="row-item-desc">An interface composed by an agent, adjustable live</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/approach">
+              <span class="row-item-text">
+                <span class="row-item-title">How I work</span>
+                <span class="row-item-desc">The method, the token contract, the annotated source</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/work">
+              <span class="row-item-text">
+                <span class="row-item-title">The work</span>
+                <span class="row-item-desc">Two working demos and the handoff pack an engineer receives</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+        </ul>
       </div>
     </section>
 

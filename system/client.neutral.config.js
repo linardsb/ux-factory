@@ -19,10 +19,12 @@ window.CLIENT_CONFIG = {
     },
   },
 
+  // v3 IA (#71): top nav shrinks to Home · Approach · Work + the Contact CTA. Factory
+  // drops from the nav (D6: it becomes the evidence layer) and is reached from the Home
+  // #verify row-list + the footer, which stays the full site index. Every route resolves.
   nav: [
     { label: "Home",     href: "/",         key: "home" },
     { label: "Approach", href: "/approach", key: "approach" },
-    { label: "Factory",  href: "/factory",  key: "factory" },
     { label: "Work",     href: "/work",     key: "work" },
   ],
 
