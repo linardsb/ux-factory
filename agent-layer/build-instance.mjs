@@ -15,7 +15,7 @@
 //   node ../ux-factory/agent-layer/build-instance.mjs <brief.md> --out <dir> \
 //     --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--name <s>] [--proto <url>] [--handoff <url>]
 
-import { cpSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { cpSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, statSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
@@ -85,6 +85,18 @@ const HEADERS = `/*
 function stampShell(html, { name, slug, traceBase, links }) {
   const nameHtml = htmlEscape(name);
   let out = html;
+
+  // Strip the shell's head dev-comment FIRST. It documents the in-repo DEMO/fictional configuration
+  // ("demo-configured to the fictional `scenarios/northwind`…") and carries internal ticket refs —
+  // accurate for the committed shell, but it must never survive into a real instance's view-source
+  // (honesty contract · ticket AC #1: a real instance shows only real copy, no demo/fictional
+  // scaffolding). Anchored on its unique "<!-- instance.html" opening so it can't touch the
+  // INSTANCE_CONFIG:start/end markers. Runs BEFORE Mechanism B, whose unanchored replaces would
+  // otherwise mutate (not remove) this comment — which is why validateAssembly's residue checks
+  // couldn't catch the leak. Other dev-comments (e.g. the <style> block's) stay by design: they carry
+  // no demo/fictional labeling, and blanket comment-stripping would also remove the INSTANCE_CONFIG
+  // markers that Mechanism A and validateAssembly rely on.
+  out = out.replace(/[ \t]*<!-- instance\.html[\s\S]*?-->\n?/, "");
 
   const rewrite = (re, replacement, anchor) => {
     if (!re.test(out))
@@ -171,7 +183,11 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   let config = null;
   if (!region) problems.push("INSTANCE_CONFIG markers missing");
   else {
-    const obj = region.match(/window\.INSTANCE_CONFIG\s*=\s*([\s\S]*?);/); // config JSON has no ';' inside it
+    // Capture the assignment's RHS greedily up to the terminating `;` right before `</script>`. A lazy
+    // `[\s\S]*?;` would stop at the FIRST `;` — truncating the JSON if any config value contains one
+    // (e.g. a --proto/--handoff URL like `…/p?a=1;b=2`, or a ';'-bearing --name). Safe because the
+    // config JSON escapes `<`→< (stampShell), so `</script>` appears exactly once in the region.
+    const obj = region.match(/window\.INSTANCE_CONFIG\s*=\s*([\s\S]*);\s*<\/script>/);
     if (!obj) problems.push("INSTANCE_CONFIG assignment not found between markers");
     else { try { config = JSON.parse(obj[1]); } catch (e) { problems.push(`INSTANCE_CONFIG does not parse as JSON — ${e.message}`); } }
   }
@@ -238,29 +254,40 @@ export function buildInstance({ briefPath, outDir, packPath, tracePath, name, li
   const { head } = parseCompanyBrief(briefPath);
   const instanceName = typeof name === "string" && name.trim() ? name.trim() : head.name;
 
-  // Compile brief → deployDir/scenarios/<slug> (self-validates; enforces its own privacy guard too).
-  const pkg = genCompanyPackage({ briefPath, outDir: join(deployDir, "scenarios") });
-  const slug = pkg.slug;
+  // Discard-on-failure: never leave a half-assembled OR invalid deploy dir on disk — an operator could
+  // otherwise `wrangler pages deploy <deployDir>` it straight from shell history, bypassing this
+  // builder's gate. Mirrors gen-company-package.mjs's preexisting-gated cleanup: remove ONLY a dir THIS
+  // build created; if deployDir pre-existed we merely wrote into it and its prior contents may predate
+  // us — leave them for the operator (genCompanyPackage's own inner cleanup is idempotent with this).
+  const preexisting = existsSync(deployDir);
+  try {
+    // Compile brief → deployDir/scenarios/<slug> (self-validates; enforces its own privacy guard too).
+    const pkg = genCompanyPackage({ briefPath, outDir: join(deployDir, "scenarios") });
+    const slug = pkg.slug;
 
-  // Assemble the self-contained deploy dir. system/ is copied WHOLESALE (robust to the shell's
-  // transitive import closure — do not hand-track it; the extra reference packs are harmless).
-  cpSync(join(REPO_ROOT, "system"), join(deployDir, "system"), { recursive: true });
-  cpSync(join(REPO_ROOT, "assets"), join(deployDir, "assets"), { recursive: true });
-  copyFileSync(packAbs, join(deployDir, "system", `tokens.${slug}.css`));
-  const traceBase = basename(traceAbs);
-  mkdirSync(join(deployDir, "traces"), { recursive: true });
-  copyFileSync(traceAbs, join(deployDir, "traces", traceBase));
-  writeFileSync(join(deployDir, "_headers"), HEADERS);
+    // Assemble the self-contained deploy dir. system/ is copied WHOLESALE (robust to the shell's
+    // transitive import closure — do not hand-track it; the extra reference packs are harmless).
+    cpSync(join(REPO_ROOT, "system"), join(deployDir, "system"), { recursive: true });
+    cpSync(join(REPO_ROOT, "assets"), join(deployDir, "assets"), { recursive: true });
+    copyFileSync(packAbs, join(deployDir, "system", `tokens.${slug}.css`));
+    const traceBase = basename(traceAbs);
+    mkdirSync(join(deployDir, "traces"), { recursive: true });
+    copyFileSync(traceAbs, join(deployDir, "traces", traceBase));
+    writeFileSync(join(deployDir, "_headers"), HEADERS);
 
-  // Stamp the shell → index.html (renamed → bare root URL).
-  const stamped = stampShell(readFileSync(join(REPO_ROOT, "instance.html"), "utf8"),
-    { name: instanceName, slug, traceBase, links });
-  writeFileSync(join(deployDir, "index.html"), stamped);
+    // Stamp the shell → index.html (renamed → bare root URL).
+    const stamped = stampShell(readFileSync(join(REPO_ROOT, "instance.html"), "utf8"),
+      { name: instanceName, slug, traceBase, links });
+    writeFileSync(join(deployDir, "index.html"), stamped);
 
-  // Gate: the assembled dir must validate before the operator deploys.
-  validateAssembly(deployDir, { slug, traceBase, name: instanceName });
+    // Gate: the assembled dir must validate before the operator deploys.
+    validateAssembly(deployDir, { slug, traceBase, name: instanceName });
 
-  return { deployDir, slug, name: instanceName, provenance: pkg.provenance, traceBase };
+    return { deployDir, slug, name: instanceName, provenance: pkg.provenance, traceBase };
+  } catch (e) {
+    if (!preexisting) rmSync(deployDir, { recursive: true, force: true }); // discard only what we created
+    throw e; // preserve the original error (bad brief, bad stamp, or failed validation)
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
