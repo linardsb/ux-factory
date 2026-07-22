@@ -164,13 +164,21 @@ function renderLinks(links) {
   const grid = el("div", "pi-links");
   for (const slot of slots) {
     const href = links && links[slot.key];
-    const card = el("article", "card pi-link-card");
+    const card = el("article", "card");
     const body = el("div", "card-body");
     body.append(el("div", "card-kicker", slot.title));
     body.append(el("p", "muted", slot.blurb));
+    // Scheme guard (mirrors sourcesList above) — but a link value may be a root-absolute same-origin
+    // path (the repo's link convention, e.g. /proto/x.html), unlike the absolute source URLs, so
+    // resolve against document.baseURI before the scheme check. Only http(s) becomes a link; a
+    // javascript:/data: href (or anything unresolvable) falls back to the honest placeholder.
+    let safeHref = null;
     if (href) {
+      try { const p = new URL(href, document.baseURI).protocol; if (p === "http:" || p === "https:") safeHref = href; } catch { safeHref = null; }
+    }
+    if (safeHref) {
       const a = el("a", "btn btn-primary btn-arrow", `Open the ${slot.title.toLowerCase()}`);
-      a.href = href;
+      a.href = safeHref;
       body.append(a);
     } else {
       body.append(el("p", "pi-link-placeholder muted", "Authored per application — not part of this demo instance."));
