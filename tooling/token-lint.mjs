@@ -22,13 +22,17 @@ function declaredTokens() {
   return new Set([...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]));
 }
 
-// Union of every `var(--name)` reference across the given repo-relative paths (skips absent).
+// Union of every token reference across the given repo-relative paths (skips absent):
+// `var(--name)` in CSS/markup, plus `getPropertyValue("--name")` — a view-time module reading a
+// token off the computed style (system/motion.mjs reads --motion-count) is a real consumer too.
 function varsIn(relPaths) {
   const used = new Set();
   for (const rel of relPaths) {
     const abs = join(ROOT, rel);
     if (!existsSync(abs)) continue;
-    for (const m of stripComments(readFileSync(abs, "utf8")).matchAll(/var\(\s*(--[a-z0-9-]+)/g)) used.add(m[1]);
+    const text = stripComments(readFileSync(abs, "utf8"));
+    for (const m of text.matchAll(/var\(\s*(--[a-z0-9-]+)/g)) used.add(m[1]);
+    for (const m of text.matchAll(/getPropertyValue\(\s*["'](--[a-z0-9-]+)/g)) used.add(m[1]);
   }
   return used;
 }
@@ -55,10 +59,12 @@ function checkUndeclared(declared) {
 }
 
 // 2. ORPHAN (generous, full shipped/proto consumer set — NO packs): a declared token nothing
-// references is dead contract surface. Consumer set is LOCKED (see plan §Phase 2): the shipped/
-// proto CSS + the contract's own self-references (keeps --color-white non-orphan) + every shipped
-// page's inline <style> + proto pages + wc shadow CSS. Packs are excluded on purpose — a pack
-// SETS tokens, it is not a surface the contract serves.
+// references is dead contract surface. Consumer set (locked at plan §Phase 2, extended in the
+// UX overhaul for view-time modules): the shipped/proto CSS + the contract's own self-references
+// (keeps --color-white non-orphan) + every shipped page's inline <style> + proto pages + wc
+// shadow CSS + system/ view-time modules (they emit var() styles and read tokens via
+// getPropertyValue — both are real consumption). Packs are excluded on purpose — a pack SETS
+// tokens, it is not a surface the contract serves.
 function checkOrphans(declared) {
   const consumers = [
     "system/components.css",
@@ -68,6 +74,7 @@ function checkOrphans(declared) {
     ...htmlFiles("."),
     ...htmlFiles("proto"),
     ...mjsFiles("system/wc"),
+    ...mjsFiles("system"),
   ];
   const referenced = varsIn(consumers);
   const orphans = [...declared].filter((t) => !referenced.has(t)).sort();

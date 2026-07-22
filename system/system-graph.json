@@ -434,15 +434,6 @@
       }
     },
     {
-      "name": "--motion-settle",
-      "group": "motion",
-      "packs": {
-        "neutral": "520ms",
-        "saulera": null,
-        "verdant": null
-      }
-    },
-    {
       "name": "--motion-count",
       "group": "motion",
       "packs": {
@@ -1063,7 +1054,7 @@
     }
   ],
   "counts": {
-    "tokens": 62,
+    "tokens": 61,
     "consumers": 28,
     "edges": 304
   }
