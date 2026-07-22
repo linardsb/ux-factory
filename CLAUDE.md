@@ -32,10 +32,11 @@ system/                     the shipped design system — brand-agnostic core + 
   wc/                       custom-element wrappers (vd-*) + demo.html — hand-written canon, spec-first, shadow CSS reads only spec-head tokens (epic #1 ticket #12)
   figma-import.md           DTCG→Figma import-path doc; ships in the pack via gen-handoff
 index.html + approach/factory/work/contact.html + 404.html   the shipped five-page IA on the neutral shell — Home is the 90-second recruiter gate; factory.html reserves the deep-linkable route as an honest stub (epic #1 ticket #6)
-instance.html               the deep-link-only private-instance shell (off-nav, not in the five-page IA): a Factory-station variant a real application deploys unlisted; demo-configured to scenarios/northwind via one inline window.INSTANCE_CONFIG line #44 rewrites per company (epic #38 ticket #43)
+instance.html               the deep-link-only private-instance shell (off-nav, not in the five-page IA): a Factory-station variant a real application deploys unlisted; demo-configured to scenarios/northwind. Carries build-instance.mjs's stamping seams — INSTANCE_CONFIG markers + data-when="demo"/"real" prose regions — that #44 rewrites demo→real per company (epic #38 tickets #43, #44)
 _headers                    security headers + noindex (revisit at launch — epic open question)
 agent-layer/                build-time Node ESM generators: machine-readable projection of one site
   build.mjs                 orchestrator — run FROM THE JOBS FOLDER against a decisions ledger
+  build-instance.mjs        SIBLING orchestrator (NOT a gen-*, not in build.mjs): compiles one company brief (gen-company-package) + a derived pack + a trace + the #43 instance.html shell into a self-contained deploy dir OUTSIDE the repo, stamps the shell demo→real, emits a standalone noindex _headers, and PRINTS the wrangler direct-upload command — deploy stays a human step; nothing company-real is committed (epic #38 ticket #44, folds spike 2)
   lib.mjs                   ledger parser + shared helpers
   gen-*.mjs + inject-jsonld.mjs   one file per emitted artifact (canon token CSS, decisions.json, DTCG tokens.json, llms.txt, _headers, JSON-LD); each runnable standalone
 portal/                     local-first workbench (127.0.0.1 only, never deployed)
@@ -94,6 +95,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - portal: `cd portal && npm install && npm start` → http://localhost:4747
 - static shell preview: `npx serve .` (repo root)
 - agent layer (from the jobs folder): `node ../ux-factory/agent-layer/build.mjs _factory/kb/decisions/<company>.md`
+- per-company instance (from the jobs folder; **--out MUST be outside the repo**): `node ../ux-factory/agent-layer/build-instance.mjs <brief.md> --out <dir> --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--proto <url>] [--handoff <url>]` — builds the deploy dir + prints the deploy command; then run `npx wrangler pages project create inst-<slug>-<rand> --production-branch main` and `npx wrangler pages deploy <dir> --project-name inst-<slug>-<rand> --branch main` (unlisted + noindex; deploy is the operator's explicit step)
 - deploy: `npx wrangler pages deploy . --project-name factory-ux --branch main`
 
 ## On-demand context

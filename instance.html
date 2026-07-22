@@ -17,10 +17,14 @@
        labeling · no public upload surface).
 
        This is the GENERIC, config-driven shell — nothing company-real is ever committed here (the
-       repo is public by design). #44's per-company build rewrites the one window.INSTANCE_CONFIG line
-       below and ships a company package + pack beside this shell. The committed demo runs on the
-       clearly-labelled fictional `scenarios/northwind` package, which additionally carries the
-       real-provenance labels so this shell's speculative-notice + sources path is exercised in-repo.
+       repo is public by design). #44's per-company build (agent-layer/build-instance.mjs) STAMPS this
+       shell into a real instance: it swaps the tokens.neutral.css pack <link>, rewrites the
+       INSTANCE_CONFIG block (between the markers below), the <title>, the <meta description>, and the
+       #instance-name text, and toggles the data-when="demo"/"real" prose regions (demo deleted, real
+       un-hidden, {{name}} substituted) — then ships a company package + pack beside this shell. In
+       this repo the shell is demo-configured to the fictional `scenarios/northwind` package (which
+       also carries the real-provenance labels, so the speculative-notice + sources path is exercised
+       in-repo); a stamped real instance carries the company's own package instead.
 
        Screenshots-in-trace decision (epic §Open questions): on an unlisted link the replayed
        derivation trace MAY include the company's own product screenshots — default YES. The demo
@@ -254,8 +258,8 @@
           This is the page a hiring manager opens on an unlisted link: the factory run on a company's
           own publicly stated product vision. The intake is pre-seeded with the company's curated
           answers and the reasoning behind each one, the design system re-derives live as you change
-          them, and the recorded agent run that proposed it replays below. Here it runs on a
-          clearly-labelled fictional company; a real instance runs on yours.
+          them, and the recorded agent run that proposed it replays below. <span data-when="demo">Here it runs on a
+          clearly-labelled fictional company; a real instance runs on yours.</span>
         </p>
         <nav class="cs-jump" aria-label="Jump to a station">
           <a href="#curated-intake">01 · Intake</a>
@@ -275,8 +279,8 @@
       <div class="container">
         <p class="max-prose pi-lead">
           What this is, stated plainly before anything else — speculative work based on a company's
-          public statements, sources linked, not affiliated with or endorsed by them. On this committed
-          demo the subject is fictional, and the label is rendered exactly as a real instance renders it.
+          public statements, sources linked, not affiliated with or endorsed by them. <span data-when="demo">On this committed
+          demo the subject is fictional, and the label is rendered exactly as a real instance renders it.</span>
         </p>
         <div id="instance-notices"><p class="muted">Loading the instance's labels…</p></div>
       </div>
@@ -383,10 +387,14 @@
           replayed in the four PIV acts — plan · gate · implement · validate. Nothing runs live here;
           the page replays a committed file.
         </p>
-        <p class="max-prose muted">
+        <p class="max-prose muted" data-when="demo">
           This demo instance embeds the committed <strong>Verdant</strong> derivation run — a real,
           measured run, always reachable — because nothing company-real is committed to this public
           repo. A real instance embeds the run recorded on the company's own product.
+        </p>
+        <p class="max-prose muted" data-when="real" hidden>
+          The recorded run in which the agent proposed {{name}}'s design language from its own
+          product's screens — replayed step by step. Nothing runs live here.
         </p>
         <div id="instance-player"></div>
       </div>
@@ -400,8 +408,8 @@
         <h2 class="section-label"><span class="num">05</span><span>Materials</span><span class="line"></span></h2>
         <p class="max-prose">
           The hand-crafted prototype screen and the engineer-ready handoff pack for this application.
-          A real instance links both; this demo instance shows the honest placeholders — that content
-          is authored per application, not part of the generic shell.
+          <span data-when="demo">A real instance links both; this demo instance shows the honest placeholders — that content
+          is authored per application, not part of the generic shell.</span>
         </p>
         <div id="instance-links"></div>
       </div>
@@ -418,10 +426,10 @@
 
   </main>
 
-  <!-- The one line #44's per-company build rewrites: the package dir, the display name, the derivation
-       trace, and the prototype/handoff links. package is a root-absolute dir (no trailing slash). The
-       demo trace is Verdant's committed run (labelled in the station copy above); links are null →
-       the shell renders honest placeholders. Nothing company-real is ever committed here. -->
+  <!-- INSTANCE_CONFIG:start — build-instance.mjs replaces everything between these markers per company -->
+  <!-- Demo config: the fictional northwind package + Verdant's committed derivation run; package is a
+       root-absolute dir (no trailing slash), links null → honest placeholders. A stamped real instance
+       gets its own package, trace, and links here (nothing company-real is committed in this repo). -->
   <script>
     window.INSTANCE_CONFIG = {
       package: "/scenarios/northwind",
@@ -430,6 +438,7 @@
       links: { prototype: null, handoff: null },
     };
   </script>
+  <!-- INSTANCE_CONFIG:end -->
 
   <script src="/system/client.neutral.config.js"></script>
   <script src="/system/site.js"></script>

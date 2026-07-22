@@ -16,12 +16,12 @@
     {
       "id": "generators",
       "label": "build-time generators (agent-layer/)",
-      "files": 16,
-      "linesApprox": 1700
+      "files": 17,
+      "linesApprox": 2000
     }
   ],
   "total": {
-    "files": 65,
-    "linesApprox": 13600
+    "files": 66,
+    "linesApprox": 13900
   }
 }
