@@ -14,7 +14,12 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 // Six IA pages (chrome injected by site.js after load) + two proto pages (data-connected; settle on the
 // static-fixture fallback + rendered rows). `rows` names a data-bound selector proving fixtures rendered.
 const PAGES = [
-  { name: 'index',           url: '/index.html',           kind: 'ia' },
+  // waitReady: spine.mjs (#72) runs a transient live re-skin on load; it sets data-spine="ready"
+  // on #beat-hero only AFTER the derived palette has fully reverted to the committed pack — wait so
+  // the capture cannot race (and silently baseline) the branded flush. Set in a finally on every
+  // path (reduced-motion, success, derive failure), so a JS context always resolves it; a spine.mjs
+  // that fails to load hangs to timeout and fails LOUD — the intended never-baseline-a-broken-hero.
+  { name: 'index',           url: '/index.html',           kind: 'ia', waitReady: '#beat-hero[data-spine="ready"]' },
   // waitReady: the annotated-source exhibit renders after an async fetch and sets
   // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
   // broken artifact fails loudly instead of baselining an empty exhibit.
