@@ -126,9 +126,9 @@ function wizardSteps(name, intake) {
   const freqReasoning = byId["target-behavior"] ? byId["target-behavior"].reasoning : curated;
   return [
     { axis: "brandColor", prompt: "What colour carries the brand?", reasoning: `${name}'s curated brand colour. Override it — the engine keeps your hue and negotiates only lightness, down to the WCAG contrast floor.` },
-    { axis: "density", prompt: "How much breathing room should the interface have?", reasoning: curated },
-    { axis: "rewardType", prompt: "What kind of variable reward brings people back?", reasoning: curated },
-    { axis: "frequency", prompt: "How often would the core behaviour realistically happen?", reasoning: freqReasoning },
+    { axis: "density", prompt: "What kind of product is it, and how do people use it?", reasoning: curated },
+    { axis: "rewardType", prompt: "Who is it for, and what brings them back?", reasoning: curated },
+    { axis: "frequency", prompt: "How often would someone realistically do the core thing?", reasoning: freqReasoning },
   ];
 }
 function mountWizard(slug, name, intake, copy) {
