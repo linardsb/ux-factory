@@ -40,6 +40,12 @@ jobs:
 
   visual:
     runs-on: ubuntu-latest
+    # D11 VR-freeze (epic #70): every v3 beat legitimately re-skins the shipped pages, so the pixel
+    # baselines churn by design during v3 dev. On feature/v3-* branches the gate still RUNS and reports
+    # (regressions stay visible in the run log + the uploaded diff report), but a failure no longer
+    # blocks — #82 removes this line and does the full baseline regen + VR re-block at the final v3
+    # merge. On main (github.head_ref empty → false) and every non-v3 branch, VR blocks as normal.
+    continue-on-error: ${{ startsWith(github.head_ref, 'feature/v3-') }}
     # Pinned Playwright image — browsers are baked in at this exact tag; the tag MUST equal the
     # @playwright/test version pinned in tooling/visual-regression (v1.61.1-jammy ↔ 1.61.1), else
     # the browser build differs from the one the baselines were rendered against.

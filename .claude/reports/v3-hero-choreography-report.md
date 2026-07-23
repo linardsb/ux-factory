@@ -6,7 +6,7 @@
 
 Added `system/spine.mjs` — the v3 spine's beat-orchestration **seam** (`registerBeat`/`getBeat` + a shared `IntersectionObserver` activator, once-guarded, effect and analytics each fail-closed) **and** Beat 1, the hero re-skin. After the inherited CSS entrance cascade settles, the real `derive.mjs` engine runs on the committed Verdant brand and the `color-*` subset flushes across the whole page (`:root`) through a guarded `startViewTransition` crossfade (the `dock.mjs applyPack` idiom), holds ~1.2s, then reverts to the active pack via `removeProperty`. The hero dogfoods the seam (`activateOn: 'load'`); #73/#75/#77 register through the same API. `rest == final`: reduced-motion and no-JS render #71's neutral hero with no re-skin, and the VR capture is pinned to the reverted state by a `data-spine="ready"` handle.
 
-Everything is committed atomically as `16d0f52`. No new dependency, no new token, vanilla only.
+Everything is committed atomically as `7131975`. No new dependency, no new token, vanilla only.
 
 ## Tasks completed
 
@@ -77,4 +77,4 @@ No unit suite in this repo (CLAUDE.md: "run the surface you touched"). Verified 
 
 ## Ready for the next step
 
-Work is committed atomically as `16d0f52` on `feature/v3-hero`. Next: `piv-create-pr` (this report fills the PR body; the PR closes #72 and should carry the spike outcome + the Chromium/Firefox/WebKit functional matrix, noting perceptual smoothness is left for owner sign-off), then `piv-review-pr`.
+Work is committed atomically as `7131975` on `feature/v3-hero`. Next: `piv-create-pr` (this report fills the PR body; the PR closes #72 and should carry the spike outcome + the Chromium/Firefox/WebKit functional matrix, noting perceptual smoothness is left for owner sign-off), then `piv-review-pr`.
