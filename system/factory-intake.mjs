@@ -387,6 +387,10 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
     // default, so filtering the ASKED steps never starves derive() (brandColor stays seeded).
     const full = scenarios[active].wizard;
     const asked = askedAxes ? full.filter((a) => askedAxes.includes(a.axis)) : full;
+    if (askedAxes && !asked.length) {
+      console.warn(`factory-intake: askedAxes [${askedAxes.join(", ")}] matched no axis of ` +
+        `"${active}" (has ${full.map((a) => a.axis).join(" | ")}) — showing the full wizard`);
+    }
     const wiz = asked.length ? asked : full; // never render an empty wizard on a misconfigured askedAxes
     const w = wiz[step];
     const card = el("div", "fw-card");
