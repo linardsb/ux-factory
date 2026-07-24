@@ -15,7 +15,7 @@
     "onHand": 240,
     "committed": 210,
     "updatedOn": "2026-07-17",
-    "status": "low"
+    "status": "ok"
   },
   {
     "id": "sku-03",
@@ -25,5 +25,176 @@
     "committed": 145,
     "updatedOn": "2026-07-19",
     "status": "oversold"
+  },
+  {
+    "id": "sku-04",
+    "name": "Kraft mailing box, large",
+    "warehouse": "north",
+    "onHand": 980,
+    "committed": 640,
+    "updatedOn": "2026-07-16",
+    "status": "ok"
+  },
+  {
+    "id": "sku-05",
+    "name": "Kraft mailing box, small",
+    "warehouse": "north",
+    "onHand": 2100,
+    "committed": 1550,
+    "updatedOn": "2026-07-18",
+    "status": "ok"
+  },
+  {
+    "id": "sku-06",
+    "name": "Corrugated sheet, A1",
+    "warehouse": "west",
+    "onHand": 760,
+    "committed": 300,
+    "updatedOn": "2026-07-15",
+    "status": "ok"
+  },
+  {
+    "id": "sku-07",
+    "name": "Packing tape, clear 48mm",
+    "warehouse": "south",
+    "onHand": 3400,
+    "committed": 3300,
+    "updatedOn": "2026-07-19",
+    "status": "low"
+  },
+  {
+    "id": "sku-08",
+    "name": "Packing tape, brown 48mm",
+    "warehouse": "south",
+    "onHand": 2800,
+    "committed": 1900,
+    "updatedOn": "2026-07-17",
+    "status": "ok"
+  },
+  {
+    "id": "sku-09",
+    "name": "Void-fill paper, 400m",
+    "warehouse": "east",
+    "onHand": 520,
+    "committed": 180,
+    "updatedOn": "2026-07-14",
+    "status": "ok"
+  },
+  {
+    "id": "sku-10",
+    "name": "Stretch film, hand 400%",
+    "warehouse": "east",
+    "onHand": 90,
+    "committed": 130,
+    "updatedOn": "2026-07-19",
+    "status": "oversold"
+  },
+  {
+    "id": "sku-11",
+    "name": "Fragile labels, roll 500",
+    "warehouse": "west",
+    "onHand": 610,
+    "committed": 240,
+    "updatedOn": "2026-07-16",
+    "status": "ok"
+  },
+  {
+    "id": "sku-12",
+    "name": "Document wallet, A5",
+    "warehouse": "west",
+    "onHand": 1750,
+    "committed": 1600,
+    "updatedOn": "2026-07-18",
+    "status": "low"
+  },
+  {
+    "id": "sku-13",
+    "name": "Mailing bag, grey 350mm",
+    "warehouse": "north",
+    "onHand": 4200,
+    "committed": 2600,
+    "updatedOn": "2026-07-15",
+    "status": "ok"
+  },
+  {
+    "id": "sku-14",
+    "name": "Mailing bag, grey 250mm",
+    "warehouse": "north",
+    "onHand": 3900,
+    "committed": 3720,
+    "updatedOn": "2026-07-19",
+    "status": "low"
+  },
+  {
+    "id": "sku-15",
+    "name": "Cardboard corner guard",
+    "warehouse": "east",
+    "onHand": 1300,
+    "committed": 720,
+    "updatedOn": "2026-07-13",
+    "status": "ok"
+  },
+  {
+    "id": "sku-16",
+    "name": "Wooden pallet, EUR",
+    "warehouse": "west",
+    "onHand": 340,
+    "committed": 410,
+    "updatedOn": "2026-07-19",
+    "status": "oversold"
+  },
+  {
+    "id": "sku-17",
+    "name": "Strapping band, 12mm",
+    "warehouse": "south",
+    "onHand": 880,
+    "committed": 520,
+    "updatedOn": "2026-07-16",
+    "status": "ok"
+  },
+  {
+    "id": "sku-18",
+    "name": "Strapping buckle, 12mm",
+    "warehouse": "south",
+    "onHand": 5400,
+    "committed": 2100,
+    "updatedOn": "2026-07-14",
+    "status": "ok"
+  },
+  {
+    "id": "sku-19",
+    "name": "Bubble wrap roll, 750mm",
+    "warehouse": "south",
+    "onHand": 150,
+    "committed": 138,
+    "updatedOn": "2026-07-18",
+    "status": "low"
+  },
+  {
+    "id": "sku-20",
+    "name": "Gummed paper tape, 70mm",
+    "warehouse": "east",
+    "onHand": 470,
+    "committed": 300,
+    "updatedOn": "2026-07-17",
+    "status": "ok"
+  },
+  {
+    "id": "sku-21",
+    "name": "Postal tube, 630mm",
+    "warehouse": "west",
+    "onHand": 720,
+    "committed": 690,
+    "updatedOn": "2026-07-19",
+    "status": "low"
+  },
+  {
+    "id": "sku-22",
+    "name": "Shrink bag, heavy duty",
+    "warehouse": "north",
+    "onHand": 260,
+    "committed": 95,
+    "updatedOn": "2026-07-15",
+    "status": "ok"
   }
 ]
