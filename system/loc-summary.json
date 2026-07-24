@@ -11,17 +11,17 @@
       "id": "pages",
       "label": "shipped pages (root + proto/)",
       "files": 15,
-      "linesApprox": 3500
+      "linesApprox": 3600
     },
     {
       "id": "generators",
       "label": "build-time generators (agent-layer/)",
       "files": 17,
-      "linesApprox": 2000
+      "linesApprox": 2100
     }
   ],
   "total": {
     "files": 72,
-    "linesApprox": 15700
+    "linesApprox": 15900
   }
 }

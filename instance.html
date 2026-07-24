@@ -238,9 +238,61 @@
     .pi-intake { display: grid; gap: var(--spacing-sm); max-width: 74ch; }
     .pi-answer { margin: 0 0 var(--spacing-sm); max-width: 64ch; }
     .pi-answer-why { margin: 0; max-width: 64ch; font-size: var(--type-caption); }
-    .pi-links { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); }
+    /* auto-fit, not a fixed 1fr 1fr: Station 5 renders ONE card here (the handoff pack) — the
+       prototype slot is its own sub-surface above — and a lone card should fill the row. */
+    .pi-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--spacing-lg); }
     .pi-link-placeholder { margin: var(--spacing-md) 0 0; }
+    .pi-materials-head { margin: var(--spacing-2xl) 0 var(--spacing-sm); }
     @media (max-width: 640px) { .pi-links { grid-template-columns: 1fr; } }
+
+    /* Study workbench chrome (ported VERBATIM from agentic-ui-study.html:35–76) — the semantic
+       study-* classes system/agentic-study.mjs emits, token-only. Station 5 mounts that SAME module
+       for the composed prototype view, so it needs the same rules. (agentic-ui-study.html:28–34 is
+       that page's own chrome — .study-notice / .study-cap — deliberately NOT ported.) The tiles
+       inside the preview are real components: .ds-metric-tile lives in the shared
+       system/components.css already linked above, never re-declared here. */
+    .study-block { margin: 0 0 var(--spacing-xl); }
+    .study-eyebrow { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent); margin: 0 0 var(--spacing-sm); }
+    .study-hint { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-md); }
+
+    .study-ask { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    .study-tab { font: inherit; font-size: var(--type-caption); text-align: left; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; max-width: 44ch; }
+    .study-tab:hover { border-color: var(--color-accent); }
+    .study-tab[aria-selected="true"] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%); font-weight: 600; }
+
+    .study-preview-frame { border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-md); margin: 0 0 var(--spacing-sm); }
+    .study-preview--summary-strip { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    .study-preview--summary-strip > * { flex: 1 1 0; min-width: 120px; }
+    .study-preview--insight-panel { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    .study-preview--insight-panel > * { flex: 1 1 220px; min-width: 200px; }
+    .study-dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: var(--spacing-sm) 0 0; color: var(--color-fg); }
+
+    .study-controls { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .study-control-row { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
+    .study-control-name { flex: 1 1 12ch; min-width: 12ch; font-size: var(--type-caption); color: var(--color-fg); }
+    .study-select { font: inherit; font-size: var(--type-caption); padding: 6px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-fg); }
+    .study-btn { font: inherit; font-size: var(--type-caption); min-width: 34px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; }
+    .study-btn:hover { border-color: var(--color-accent); }
+    .study-btn--reset { align-self: flex-start; margin-top: var(--spacing-sm); }
+
+    .study-refusal { display: flex; align-items: baseline; gap: var(--spacing-sm); margin-top: var(--spacing-md); padding: 10px 12px; border: 1px solid var(--color-accent); border-left-width: 3px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 6%); }
+    .study-refusal-tag { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent); }
+    .study-refusal-msg { font-size: var(--type-caption); color: var(--color-fg); font-weight: 600; }
+
+    .study-bus { margin: 0 0 var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-sm) var(--spacing-md); }
+    .study-bus-summary { cursor: pointer; font-size: var(--type-caption); font-weight: 600; color: var(--color-fg); }
+    .study-bus[open] .study-bus-summary { margin-bottom: var(--spacing-sm); }
+    .study-bus-list { display: flex; flex-direction: column; gap: 4px; margin-top: var(--spacing-sm); max-height: 240px; overflow-y: auto; }
+    .study-bus-row { display: flex; gap: var(--spacing-sm); align-items: baseline; flex-wrap: wrap; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .study-bus-seq { color: var(--color-fg-muted); }
+    .study-bus-type { font-weight: 600; color: var(--color-accent); }
+    .study-bus-src { color: var(--color-fg-muted); }
+    .study-bus-target { color: var(--color-fg); }
+    .study-bus-params { color: var(--color-fg-muted); overflow-wrap: anywhere; }
+
+    .study-provenance { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
+    .study-prov-label { font-weight: 600; color: var(--color-fg); }
+    .study-empty { font-size: var(--type-caption); color: var(--color-fg-muted); margin: 0; }
   </style>
 </head>
 <body data-page="instance">
@@ -400,17 +452,36 @@
       </div>
     </section>
 
-    <!-- Station 5 · Materials — the per-application prototype screen + handoff pack. Config-driven
-         links, or honest placeholders when a link is absent (that content is authored per application,
-         in the jobs folder — not part of this demo instance). No capability badge claims anything. -->
+    <!-- Station 5 · Materials — the prototype screen + the handoff pack. The prototype sub-surface
+         renders the composed view INSIDE the instance (instance.mjs renderPrototype → the SHARED
+         renderStudy surface, agentic-renderer + action-bus) when INSTANCE_CONFIG.composition is
+         present; otherwise it falls back to a config-driven link, then an honest placeholder. The
+         handoff card stays link-or-placeholder (that pack is authored per application). The one
+         capability badge claims only what actually runs here: the reader ADJUSTS a view composed at
+         build time — bounded by the vocabulary, with no model call at view time (epic #86, #89). -->
     <section class="section" id="materials">
       <div class="container">
         <h2 class="section-label"><span class="num">05</span><span>Materials</span><span class="line"></span></h2>
         <p class="max-prose">
-          The hand-crafted prototype screen and the engineer-ready handoff pack for this application.
-          <span data-when="demo">A real instance links both; this demo instance shows the honest placeholders — that content
-          is authored per application, not part of the generic shell.</span>
+          The prototype screen built for this application, and the engineer-ready handoff pack that
+          ships beside it.
         </p>
+
+        <h3 class="h3 pi-materials-head">Prototype screen <span class="capability live" id="prototype-capability">Adjusts now · composed at build time</span></h3>
+        <!-- The badge + this claim describe a SHIPPED composed view. An instance built without one
+             must not carry either: instance.mjs's renderPrototype removes the badge and rewrites this
+             paragraph synchronously on the fallback path. It cannot be a static hidden/data-when
+             variant — validateAssembly rejects any surviving `hidden`, and data-when's axis is
+             demo/real, not composition-present/absent. -->
+        <p class="max-prose" id="prototype-claim">
+          A view the factory composed at build time from this application's own data — real components
+          on the derived pack, every one of them from the approved vocabulary. Adjust it below; nothing
+          runs live here. <span data-when="demo">On this demo instance the subject is the fictional Northwind
+          wholesale-stock dashboard.</span>
+        </p>
+        <div id="instance-prototype"><p class="fw-loading muted">Loading the composed view…</p></div>
+
+        <h3 class="h3 pi-materials-head">Handoff pack</h3>
         <div id="instance-links"></div>
       </div>
     </section>
@@ -428,13 +499,19 @@
 
   <!-- INSTANCE_CONFIG:start — build-instance.mjs replaces everything between these markers per company -->
   <!-- Demo config: the fictional northwind package + Verdant's committed derivation run; package is a
-       root-absolute dir (no trailing slash), links null → honest placeholders. A stamped real instance
-       gets its own package, trace, and links here (nothing company-real is committed in this repo). -->
+       root-absolute dir (no trailing slash), links null → honest placeholders. `composition` points at
+       northwind's committed composed views (the manifest + the vocabulary they validate against) and
+       supersedes links.prototype when present. A stamped real instance gets its own package, trace,
+       composition, and links here (nothing company-real is committed in this repo). -->
   <script>
     window.INSTANCE_CONFIG = {
       package: "/scenarios/northwind",
       name: "Northwind",
       trace: { path: "/traces/pack-seed-verdant.jsonl" },
+      composition: {
+        index: "/proto/compositions/northwind/index.json",
+        vocab: "/handoff/verdant/vocabulary.json"
+      },
       links: { prototype: null, handoff: null },
     };
   </script>

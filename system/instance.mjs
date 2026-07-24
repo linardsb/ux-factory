@@ -12,7 +12,10 @@
 //   3. The SHARED wizard (system/factory-intake.mjs) configured, never forked, via initIntake() —
 //      pre-seeded from the package's axes, reader overrides re-derive live through derive.mjs.
 //   4. The recorded pack-seed derivation trace, replayed via system/trace-player.mjs.
-//   5. Config-driven prototype/handoff link slots (honest placeholders when a link is absent).
+//   5. The bespoke prototype: the view the factory COMPOSED at build time, replayed and adjustable
+//      in place via the shared study surface (system/agentic-study.mjs) when INSTANCE_CONFIG carries
+//      a `composition` ref — else a config-driven link, else an honest placeholder (epic #86, #89).
+//   6. The config-driven handoff link slot (honest placeholder when the link is absent).
 //
 // Screenshots-in-trace decision (epic §Open questions, recorded here per AC3): on an unlisted link
 // the replayed derivation trace MAY include the company's own product screenshots — default YES.
@@ -31,6 +34,8 @@
 
 import { initIntake } from "./factory-intake.mjs";
 import { parseTrace, renderTracePlayer } from "./trace-player.mjs";
+import { renderStudy } from "./agentic-study.mjs";
+import { createBus } from "./action-bus.mjs";
 
 // --- DOM helper (all package text via textContent — untrusted at the boundary) -------------------
 const el = (tag, cls, text) => {
@@ -152,41 +157,99 @@ function mountWizard(slug, name, intake, copy) {
   initIntake({ scenarios: { [slug]: scenario }, defaultScenario: slug });
 }
 
-// --- Prototype / handoff link slots (config-driven; honest placeholder when a link is absent) -----
+// --- Prototype / handoff slots (config-driven; honest placeholder when nothing is configured) -----
+// One card shape, two callers: the handoff slot (always) and the prototype slot's FALLBACK (only
+// when no composed view ships — see renderPrototype). Returned inside a .pi-links grid so a lone
+// card is laid out the same either way.
+function linkCard(title, blurb, href) {
+  const card = el("article", "card");
+  const body = el("div", "card-body");
+  body.append(el("div", "card-kicker", title));
+  body.append(el("p", "muted", blurb));
+  // Scheme guard (mirrors sourcesList above) — but a link value may be a root-absolute same-origin
+  // path (the repo's link convention, e.g. /proto/x.html), unlike the absolute source URLs, so
+  // resolve against document.baseURI before the scheme check. Only http(s) becomes a link; a
+  // javascript:/data: href (or anything unresolvable) falls back to the honest placeholder.
+  let safeHref = null;
+  if (href) {
+    try { const p = new URL(href, document.baseURI).protocol; if (p === "http:" || p === "https:") safeHref = href; } catch { safeHref = null; }
+  }
+  if (safeHref) {
+    const a = el("a", "btn btn-primary btn-arrow", `Open the ${title.toLowerCase()}`);
+    a.href = safeHref;
+    body.append(a);
+  } else {
+    body.append(el("p", "pi-link-placeholder muted", "Authored per application — not part of this instance."));
+  }
+  card.append(body);
+  const grid = el("div", "pi-links");
+  grid.append(card);
+  return grid;
+}
+
+// The handoff slot only — the prototype slot moved to its own sub-surface (#instance-prototype)
+// when #89 gave it a composed view to render in place.
 function renderLinks(links) {
   const mount = document.getElementById("instance-links");
   if (!mount) return;
-  mount.textContent = "";
-  const slots = [
-    { key: "prototype", title: "Prototype screen", blurb: "The hand-crafted, data-connected screen built for this application." },
-    { key: "handoff", title: "Handoff pack", blurb: "The engineer-ready pack: component specs, typed props, data contracts, agent vocabulary." },
-  ];
-  const grid = el("div", "pi-links");
-  for (const slot of slots) {
-    const href = links && links[slot.key];
-    const card = el("article", "card");
-    const body = el("div", "card-body");
-    body.append(el("div", "card-kicker", slot.title));
-    body.append(el("p", "muted", slot.blurb));
-    // Scheme guard (mirrors sourcesList above) — but a link value may be a root-absolute same-origin
-    // path (the repo's link convention, e.g. /proto/x.html), unlike the absolute source URLs, so
-    // resolve against document.baseURI before the scheme check. Only http(s) becomes a link; a
-    // javascript:/data: href (or anything unresolvable) falls back to the honest placeholder.
-    let safeHref = null;
-    if (href) {
-      try { const p = new URL(href, document.baseURI).protocol; if (p === "http:" || p === "https:") safeHref = href; } catch { safeHref = null; }
-    }
-    if (safeHref) {
-      const a = el("a", "btn btn-primary btn-arrow", `Open the ${slot.title.toLowerCase()}`);
-      a.href = safeHref;
-      body.append(a);
-    } else {
-      body.append(el("p", "pi-link-placeholder muted", "Authored per application — not part of this demo instance."));
-    }
-    card.append(body);
-    grid.append(card);
+  mount.replaceChildren(linkCard(
+    "Handoff pack",
+    "The engineer-ready pack: component specs, typed props, data contracts, agent vocabulary.",
+    links && links.handoff));
+}
+
+// --- Prototype slot: the composed view, rendered IN PLACE (epic #86, ticket #89) -------------------
+// A view the factory composed at BUILD TIME (a real, honesty-gated record-composition run) is
+// replayed here through the SHARED study surface (system/agentic-study.mjs → agentic-renderer +
+// action-bus) — the same module agentic-ui-study.html mounts, configured not forked. The reader
+// adjusts a deep-cloned working copy within the vocabulary's bounds and watches it refuse anything
+// outside them. There is NO model call at view time: proposals are committed files this instance
+// ships. `trace`/`label` are deliberately omitted from the entries — the composition traces are not
+// shipped with an instance (station 04 carries the headline derivation run), so the study renders no
+// in-slot trace link and falls back to its own honest default label.
+function renderPrototype(config, name) {
+  const mount = document.getElementById("instance-prototype");
+  if (!mount) return;
+  const comp = config.composition;
+
+  // The station's capability badge ("Adjusts now · composed at build time") and its claim paragraph
+  // are authored for the case where a composed view SHIPS. Withdraw them the moment that turns out
+  // to be untrue — an instance built without --compositions, or one whose view fails to load — so
+  // the shell never claims a capability the reader can't exercise (honesty contract). The badge
+  // can't be a static hidden variant: validateAssembly rejects any surviving `hidden` attribute.
+  const unclaim = (replacementText) => {
+    const badge = document.getElementById("prototype-capability");
+    if (badge) badge.remove();
+    const claim = document.getElementById("prototype-claim");
+    if (claim && replacementText) claim.textContent = replacementText;
+  };
+
+  // No composed view shipped → the honest link/placeholder, rendered SYNCHRONOUSLY so an instance
+  // built without one never sits on the static "Loading…" seed.
+  if (!comp || typeof comp.index !== "string" || typeof comp.vocab !== "string") {
+    unclaim("The data-connected screen built for this application. No composed view ships inside this instance — when a prototype exists, it is linked below.");
+    mount.replaceChildren(linkCard(
+      "Prototype screen",
+      "The data-connected screen built for this application.",
+      config.links && config.links.prototype));
+    return;
   }
-  mount.append(grid);
+
+  // INDEPENDENT of the package + trace chains (below): a failure here error-cards this slot only.
+  Promise.all([grabJson(comp.index), grabJson(comp.vocab)])
+    .then(([index, vocab]) => {
+      if (!Array.isArray(index) || index.length === 0) throw new Error(`${comp.index} carries no composed views`);
+      return Promise.all(index.map((e) =>
+        grabJson(e.proposal).then((composition) => ({ slug: e.slug, question: e.question, slot: e.slot, composition }))))
+        .then((entries) => {
+          renderStudy(mount, { vocab, entries, bus: createBus(), subject: `${name}'s data` });
+          mount.dataset.prototype = "ready";
+        });
+    })
+    .catch((err) => {
+      unclaim(null); // the error card explains itself; the badge must not outlive the capability
+      errorCard(mount, `Could not load the composed view — ${err.message}`);
+    });
 }
 
 // --- self-mount: inert under Node and on any page without the shell's notices anchor -------------
@@ -212,6 +275,10 @@ function init() {
   // Link slots depend only on config (not the package) → render synchronously, robust to a package
   // fetch failure.
   renderLinks(config.links);
+
+  // (C) Prototype chain — INDEPENDENT of (A) and (B) below; its own readiness flag, and it never
+  // gates body[data-instance="ready"]. Synchronous when no composed view is configured.
+  renderPrototype(config, name);
 
   // (A) Package chain — notices + curated intake + wizard. body[data-instance="ready"] is set only
   // after all of it renders (readiness handle; instance.html is not in the VR set today — a possible
