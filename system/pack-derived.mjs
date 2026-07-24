@@ -32,9 +32,12 @@ export const NAME_MAX = 40;
 // these values never reach the page — they exist to satisfy the engine's bounded input.
 export const DEFAULT_AXES = { density: "comfortable", rewardType: "self", frequency: "daily" };
 
-// The pre-paint allowlist value shape, shared with pack-boot.js: derive() emits concrete
-// hex for the brand-dependent colour tokens. Keeping the record to exactly this shape makes
-// the stage-side apply and the pre-paint re-apply set an IDENTICAL token set.
+// The per-entry allowlist, mirrored in SHAPE from pack-boot.js (a classic script can't import
+// this module, so the two predicates are kept identical by hand): every applied key a --color-
+// custom property, every value a concrete hex. derive() emits exactly this, so keeping the record
+// to this shape makes the stage-side apply and the pre-paint re-apply set an IDENTICAL token set;
+// applyToRoot re-checks it per entry so a foreign entry gets the SAME scrutiny on both appliers.
+const KEY_NAME = /^--color-[a-z0-9-]+$/;
 const HEX_VALUE = /^#[0-9a-fA-F]{3,8}$/;
 
 // ---------------------------------------------------------------- pure helpers
@@ -78,10 +81,14 @@ export function buildRecord(hex, name) {
 // ---------------------------------------------------------------- :root apply / clear
 // Inline custom properties on <html> outrank the contract + pack layers, so applying the
 // derived colour set re-skins the whole page live (dock.mjs's committed-pack line-swap and
-// this coexist last-write-wins — see the plan's integration notes).
+// this coexist last-write-wins — see the plan's integration notes). Per-entry KEY_NAME + HEX_VALUE
+// check mirrors pack-boot.js:34-37 so a foreign/tampered record entry never reaches :root here
+// when pack-boot would reject it on the next page — a clean derived record passes every entry.
 export function applyToRoot(tokens) {
   const style = document.documentElement.style;
-  for (const [k, v] of Object.entries(tokens || {})) style.setProperty(k, v);
+  for (const [k, v] of Object.entries(tokens || {})) {
+    if (KEY_NAME.test(k) && typeof v === "string" && HEX_VALUE.test(v)) style.setProperty(k, v);
+  }
 }
 export function clearRoot(tokens) {
   const style = document.documentElement.style;
@@ -114,8 +121,12 @@ export function clearRecord() {
 export function wear() {
   try { localStorage.setItem(SELECTOR_KEY, "derived"); } catch { /* private mode — session-only */ }
 }
-// unwear() stops wearing — but ONLY if the derived pack is the active selection, so it never
-// clobbers a saulera/verdant choice a visitor made in the dock.
+// unwear() stops wearing — but only touches the selector if the derived pack is still the active
+// selection, so it never clobbers a saulera/verdant choice a visitor made in the dock AFTER wearing
+// derived. It does NOT restore a committed pick made BEFORE: wear() overwrites the selector with no
+// backup, so that earlier choice is already gone and a reload lands on neutral. That pre-wear lost-
+// pick is a known #76 transient (the redesigned selector there arbitrates prewear/derived properly);
+// #74 accepts it under the plan's last-write-wins selector model (NOTES §"Why one selector key").
 export function unwear() {
   try {
     if (localStorage.getItem(SELECTOR_KEY) === "derived") localStorage.removeItem(SELECTOR_KEY);
