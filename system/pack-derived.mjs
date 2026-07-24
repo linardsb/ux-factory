@@ -23,10 +23,28 @@ import { derive } from "./derive.mjs";
 //                       value joins neutral (default no-op) / saulera / verdant.
 // factory-pack-derived — the JSON record, independent of the selector so it survives a toggle
 //                       to a committed pack and back (#76 re-offers "your brand" without re-entry).
+// factory-pack-prewear — the committed pick that was active when derived was worn (#76), so
+//                       unwear() puts back the pack they had instead of dropping them to neutral.
 export const SELECTOR_KEY = "factory-pack";
 export const RECORD_KEY = "factory-pack-derived";
+export const PREWEAR_KEY = "factory-pack-prewear";
 export const RECORD_VERSION = 1;
 export const NAME_MAX = 40;
+
+// The committed picks the selector may hold. A pristine selector is ABSENT (null), not "neutral":
+// pack-boot.js treats anything outside saulera/verdant/derived as the no-op default (VR-critical),
+// so restoring "neutral" and removing the key are equivalent — we only ever write back what we read.
+const COMMITTED = ["neutral", "saulera", "verdant"];
+
+// Same-tab change signal. The `storage` event fires only in OTHER tabs, so the dock (#76) cannot
+// learn about this beat's writes any other way — every mutation of the record or the selector
+// announces itself here and the dock re-reads state. Listeners REFLECT state; they never re-apply
+// it (wear() below dispatches, so an applying listener would re-enter its own caller).
+export const BRAND_CHANGE_EVENT = "factory-brand-change";
+function emitBrandChange() {
+  if (typeof window === "undefined") return; // Node import — no bus to announce on
+  window.dispatchEvent(new CustomEvent(BRAND_CHANGE_EVENT));
+}
 
 // The three throwaway non-brand axes derive() also requires. Only color-* is ever used, so
 // these values never reach the page — they exist to satisfy the engine's bounded input.
@@ -110,27 +128,48 @@ export function readRecord() {
 }
 export function writeRecord(rec) {
   try { localStorage.setItem(RECORD_KEY, JSON.stringify(rec)); } catch { /* private mode — session-only */ }
+  emitBrandChange(); // the dock offers "your brand" the moment a record exists, with no reload
 }
-// The "forget" primitive (#76 owns the UI for it); #74's reset stops WEARING but keeps the record.
+// The "forget" primitive. No UI calls it yet — #76's reset stops WEARING but deliberately keeps the
+// record, so "your brand" stays on offer without re-entering a colour; nothing in its acceptance set
+// asks the control to forget. Kept as the seam a later forget affordance wires to.
 export function clearRecord() {
   try { localStorage.removeItem(RECORD_KEY); } catch { /* private mode — session-only */ }
+  emitBrandChange();
 }
 
 // ---------------------------------------------------------------- selector: wear / unwear
-// wear() makes the whole site wear the derived pack (pack-boot re-applies it pre-paint on nav).
+// wear() makes the whole site wear the derived pack (pack-boot re-applies it pre-paint on nav) and
+// backs up the committed pick it displaces, so unwear() can hand it back (#76; #74 shipped without
+// the backup and knowingly dropped that pick to neutral).
+// The backup is written ONLY on the derived transition: wear() re-fires on every colour change while
+// the beat toggle is on (see the colour listener below), and a second write would replace a genuine
+// pre-wear pick with "derived" and lose it for good.
 export function wear() {
-  try { localStorage.setItem(SELECTOR_KEY, "derived"); } catch { /* private mode — session-only */ }
+  try {
+    const prev = localStorage.getItem(SELECTOR_KEY);
+    if (prev !== "derived") {
+      if (COMMITTED.includes(prev)) localStorage.setItem(PREWEAR_KEY, prev);
+      else localStorage.removeItem(PREWEAR_KEY); // pristine/foreign selector — nothing to hand back
+    }
+    localStorage.setItem(SELECTOR_KEY, "derived");
+  } catch { /* private mode — session-only */ }
+  emitBrandChange();
 }
 // unwear() stops wearing — but only touches the selector if the derived pack is still the active
 // selection, so it never clobbers a saulera/verdant choice a visitor made in the dock AFTER wearing
-// derived. It does NOT restore a committed pick made BEFORE: wear() overwrites the selector with no
-// backup, so that earlier choice is already gone and a reload lands on neutral. That pre-wear lost-
-// pick is a known #76 transient (the redesigned selector there arbitrates prewear/derived properly);
-// #74 accepts it under the plan's last-write-wins selector model (NOTES §"Why one selector key").
+// derived. The pre-wear pack comes back (or the selector goes absent, which pack-boot reads as the
+// neutral no-op default), and the backup is spent either way.
 export function unwear() {
   try {
-    if (localStorage.getItem(SELECTOR_KEY) === "derived") localStorage.removeItem(SELECTOR_KEY);
+    if (localStorage.getItem(SELECTOR_KEY) === "derived") {
+      const prewear = localStorage.getItem(PREWEAR_KEY);
+      if (COMMITTED.includes(prewear)) localStorage.setItem(SELECTOR_KEY, prewear);
+      else localStorage.removeItem(SELECTOR_KEY);
+      localStorage.removeItem(PREWEAR_KEY);
+    }
   } catch { /* private mode — session-only */ }
+  emitBrandChange();
 }
 function selectorIsDerived() {
   try { return localStorage.getItem(SELECTOR_KEY) === "derived"; } catch { return false; }

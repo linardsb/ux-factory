@@ -86,6 +86,7 @@
   --motion-ease-settle:         linear(0, 0.102, 0.199, 0.29, 0.373, 0.449, 0.518, 0.581, 0.638, 0.689, 0.735, 0.775, 0.811, 0.843, 0.871, 0.895, 0.916, 0.934, 0.949, 0.962, 0.972, 0.98, 0.987, 0.992, 0.995, 0.998, 0.999, 1);   /* critically damped glide — fast start, long soft landing, no overshoot */
   --motion-tab-glide:           260ms;   /* evidence-viewer tab pill glide between tabs — a thing arriving, so paired with motion-ease-settle */
   --motion-skeleton-to-content: 520ms;   /* peak assembly reveal — the built screen settles skeleton-to-content on arrival, so paired with motion-ease-settle */
+  --motion-icon-morph:          220ms;   /* appearance-control toggle glyph morph (closed↔open) — a thing you touch, so paired with motion-ease-bounce */
 
   /* ---- Layout ---- */
   --maxw:   1200px;
