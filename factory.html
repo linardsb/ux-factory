@@ -42,7 +42,7 @@
     .ev-viewer { margin-top: var(--spacing-2xl); }
 
     .ev-tablist {
-      --ev-pad: 4px;
+      --ev-pad: var(--spacing-xs);
       position: relative;
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
       padding: var(--ev-pad);
@@ -454,8 +454,8 @@
         });
       });
 
-      // Deep link: activate the panel the hash names, open any <details> the player nests inside
-      // it, and bring the whole viewer (tabs + active panel) into view.
+      // Deep link: activate the panel the hash names and bring the whole viewer (tabs + active
+      // panel) into view.
       function fromHash() {
         if (!location.hash) return;
         var id;
@@ -464,8 +464,6 @@
         panels.forEach(function (p, j) { if (p && p.id === id) idx = j; });
         if (idx < 0) return;
         activate(idx, false);
-        var d = panels[idx].closest("details");
-        while (d) { d.open = true; d = d.parentElement && d.parentElement.closest("details"); }
         var viewer = document.querySelector(".ev-viewer");
         if (viewer) viewer.scrollIntoView();
       }
