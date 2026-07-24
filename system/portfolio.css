@@ -1042,43 +1042,110 @@ dfn.term {
 }
 .band--dark .beat-lead { color: var(--color-fg-on-inverse-soft); }
 
-/* Beat 01 — intake preview: the first brief question shown static, with its
-   recommended default + the reasoning. A designed preview of the interface, no live
-   chip: #73 replaces the interior with the shared wizard. */
-.brief-card {
-  max-width: 60ch;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-xl);
+/* Beat 01 — intake: the SHARED factory wizard (system/factory-intake.mjs), mounted Verdant-only via
+   initIntake (#73, PRD D4). Home-scoped under #beat-intake so factory.html's own inline copies of the
+   .fw-* / #reskin-preview rules stay the single source of truth for that page — nothing here reaches
+   it. Home skips the scenario toggle, the Manipulation Matrix, the trace player, the dark feature-band
+   and the colour input, so only the wizard core + preview + derived-output narrative are styled. Values
+   mirror factory.html's proven block; structural px are literals (same licence as that block). */
+
+/* Ask (the wizard) beside Stage (the re-skinned sample); one reading order below 960px. The tall
+   "how it's generated" narrative sits full-width BELOW this row (.intake-evidence), not in the right
+   column, so neither column is stranded tall — body{overflow-x:clip} rules out a sticky wizard here,
+   so the balance is structural, not pinned. */
+.intake-live { display: grid; gap: var(--spacing-2xl); }
+@media (min-width: 960px) {
+  .intake-live { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--spacing-3xl); align-items: start; }
 }
-.brief-step {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--type-caption);
-  color: var(--color-fg-muted);
-  margin: 0 0 var(--spacing-sm);
-}
-.brief-q {
-  font-family: var(--font-display);
-  font-size: var(--type-h3);
-  color: var(--color-fg);
-  margin: 0 0 var(--spacing-md);
-}
-.brief-rec { display: flex; align-items: baseline; gap: var(--spacing-sm); margin: 0 0 var(--spacing-md); }
-.brief-rec-tag {
-  flex: 0 0 auto;
+.intake-ask { min-width: 0; }
+.intake-stage { min-width: 0; display: grid; gap: var(--spacing-lg); }
+.intake-evidence { margin-top: var(--spacing-2xl); display: grid; gap: var(--spacing-md); }
+.intake-stage-cap {
   font-family: var(--font-display);
   font-size: var(--type-eyebrow);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
+  color: var(--color-fg-muted);
+  margin: 0;
 }
-.brief-rec p { margin: 0; color: var(--color-fg); }
-.brief-why { font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-muted); margin: 0; }
+
+/* wizard card — one decision at a time */
+#beat-intake .fw-card {
+  background: var(--color-bg-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: var(--spacing-xl);
+}
+#beat-intake .fw-loading { padding: var(--spacing-lg) 0; }
+#beat-intake .fw-progress { font-size: var(--type-eyebrow); letter-spacing: 0.1em; color: var(--color-fg-muted); margin: 0 0 var(--spacing-sm); }
+#beat-intake .fw-prompt { font-size: var(--type-h3); margin: 0 0 var(--spacing-sm); }
+#beat-intake .fw-reasoning { margin: 0 0 var(--spacing-lg); max-width: 54ch; }
+#beat-intake .fw-control { margin-bottom: var(--spacing-lg); }
+#beat-intake .fw-radios { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+/* label wraps input + text → the whole 44px row is the hit target (CHECKLIST: ≥44px touch) */
+#beat-intake .fw-radio { display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; min-height: 44px; }
+#beat-intake .fw-radio input { accent-color: var(--color-accent); width: 18px; height: 18px; }
+#beat-intake .fw-footer { display: flex; gap: var(--spacing-md); }
+
+/* the re-skin preview frame — the only element carrying the engine's derived tokens */
+#beat-intake #reskin-preview {
+  overflow: hidden; background: var(--color-bg);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  scroll-margin-top: 90px; /* the wizard's "Review" jump clears the sticky header */
+}
+#beat-intake #reskin-preview .fw-preview-pad { padding: var(--spacing-xl); }
+#beat-intake #reskin-preview .grid-3 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+/* derived-output narrative — visible on home (not behind a disclosure) so each answer's change in
+   the generated system is on stage: density → scales, reward → patterns, frequency → verdict. */
+#beat-intake #factory-narrative { display: grid; gap: var(--spacing-xl); }
+#beat-intake .fw-beat-title { display: flex; align-items: baseline; gap: var(--spacing-sm); font-size: var(--type-h3); margin: 0 0 var(--spacing-md); }
+#beat-intake .fw-beat-num { font-size: var(--type-eyebrow); color: var(--color-accent); letter-spacing: 0.1em; }
+#beat-intake .fw-beat-sub { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-sm); }
+#beat-intake .fw-note { margin: 0; }
+#beat-intake .fw-scale, #beat-intake .fw-verdict { margin: 0; max-width: 62ch; }
+
+/* WCAG checks table (.ok/.bad read the page accent/fg, never a literal); the stage column carries
+   min-width:0 so a wide row can't blow the grid out (PR #54). */
+#beat-intake .fw-checks { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+#beat-intake .fw-checks th, #beat-intake .fw-checks td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
+#beat-intake .fw-checks .ok { color: var(--color-accent); font-weight: 600; }
+#beat-intake .fw-checks .check-draw {
+  width: 11px; height: 11px; margin-right: 4px; vertical-align: -1px;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+#beat-intake .fw-checks .bad { color: var(--color-fg); font-weight: 700; text-decoration: underline; }
+#beat-intake .fw-swatch { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--color-border); }
+#beat-intake .fw-notes, #beat-intake .fw-patterns { margin: 0; padding-left: 1.1em; display: grid; gap: var(--spacing-sm); }
+#beat-intake .fw-gated { opacity: 0.6; text-decoration: line-through; }
+#beat-intake .fw-gated-tag { text-decoration: none; margin-left: 8px; padding: 1px 6px; font-size: var(--type-eyebrow); color: var(--color-fg-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+
+/* Presentation motion — compositor-safe. ZERO at-rest change: rest == final, every entrance inside
+   no-preference. The re-skin crossfades colour on #reskin-preview (armed one frame after mount); the
+   wizard card + WCAG rows enter on DISCRETE renders only (step change / mount), never on the radio
+   change that goes through run(false) — so no restart-and-blank on repeated answers (PR #55). */
+@media (prefers-reduced-motion: no-preference) {
+  #beat-intake #reskin-preview.is-animated,
+  #beat-intake #reskin-preview.is-animated .card,
+  #beat-intake #reskin-preview.is-animated .card-body,
+  #beat-intake #reskin-preview.is-animated .card-kicker,
+  #beat-intake #reskin-preview.is-animated .fw-preview-pad,
+  #beat-intake #reskin-preview.is-animated .amber,
+  #beat-intake #reskin-preview.is-animated h3,
+  #beat-intake #reskin-preview.is-animated p {
+    transition: background-color var(--motion-slow) var(--motion-ease),
+                color var(--motion-slow) var(--motion-ease),
+                border-color var(--motion-slow) var(--motion-ease);
+  }
+  #beat-intake .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
+  #beat-intake .fw-checks.fw-animate tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+  #beat-intake .fw-checks.fw-animate .check-draw path {
+    stroke-dasharray: 1; stroke-dashoffset: 1;
+    animation: check-draw var(--motion-base) var(--motion-ease-settle) forwards;
+    animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+  }
+}
+@keyframes fw-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
+@keyframes fw-row-in { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }
+@keyframes check-draw { to { stroke-dashoffset: 0; } }
 
 /* Beat 02 — your brand: a bounded colour-input affordance shown at rest as an
    empty-state invitation (dashed field, empty swatch). Honestly not-yet-live, no

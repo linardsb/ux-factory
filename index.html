@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Linards Berzins · UX engineer</title>
-  <meta name="description" content="A UX-engineering portfolio you can try: answer four product questions and watch it generate an accessible design system, live in your browser." />
+  <meta name="description" content="A UX-engineering portfolio you can try: answer three product questions and watch it generate an accessible design system, live in your browser." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
@@ -70,31 +70,70 @@
       </div>
     </section>
 
-    <!-- Beat 2a · you brief it (I4 numeral + designed static preview). #73 mounts the live wizard. -->
+    <!-- Beat 2a · you brief it — the SHARED factory wizard (system/factory-intake.mjs), configured
+         Verdant-only and to the three non-brand axes via initIntake, mounted by system/intake-beat.mjs
+         on the spine's beat seam. data-intake="external" stands down factory-intake's import-time
+         auto-init so the beat owns the mount. Brand is #74's beat; the Manipulation Matrix is #75's —
+         home shows only the live frequency→verdict line, inside the narrative. (#73; PRD D4)
+         The static wizard/preview seed below is the no-JS / reduced-motion first paint AND the VR
+         baseline; the module replaces the "Loading…" seed and sets derived tokens on #reskin-preview. -->
     <section class="band" id="beat-intake">
       <div class="container">
         <div class="beat-head">
           <span class="beat-numeral">01</span>
           <div class="beat-head-text">
             <p class="beat-kicker">You brief it</p>
-            <h2 class="beat-title">Brief a product in four questions.</h2>
+            <h2 class="beat-title">Brief a product in three questions.</h2>
           </div>
         </div>
         <p class="beat-lead">
           Each question carries a recommended answer and the reason behind it, so the brief
-          stays sharp. Here is the first one.
+          stays sharp. Answer them and watch the design system rebuild to match.
         </p>
-        <div class="brief-card">
-          <p class="brief-step">Question 1 of 4</p>
-          <p class="brief-q">What problem does the product solve?</p>
-          <div class="brief-rec">
-            <span class="brief-rec-tag">Recommended</span>
-            <p>Plant owners forget their watering schedule, and their plants die.</p>
+        <p class="fw-scenario">
+          <strong class="fw-scenario-tag">Fictional scenario</strong>
+          <span id="fw-scenario-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</span>
+          The answers below are real inputs to the live engine.
+        </p>
+        <div class="intake-live">
+          <div class="intake-ask">
+            <div id="factory-wizard" data-intake="external">
+              <p class="fw-loading muted">Loading the intake wizard…</p>
+            </div>
           </div>
-          <p class="brief-why">
-            Why this default: one sharp sentence keeps every later decision honest. You can
-            change it, and the demo updates the system to match.
-          </p>
+          <div class="intake-stage">
+            <p class="intake-stage-cap">The system, generated live from your answers</p>
+            <!-- Sample surface: real components. Static so it renders even if the module is blocked;
+                 the module only sets the engine's derived tokens as custom properties on this root. -->
+            <div id="reskin-preview">
+              <div class="fw-preview-pad">
+                <div class="grid grid-3">
+                  <article class="card"><div class="card-body">
+                    <div class="card-kicker">Card</div>
+                    <h3 class="h3 mb-md">Text on a surface</h3>
+                    <p class="muted">Muted body text on the derived card surface, one of the checked pairs.</p>
+                  </div></article>
+                  <article class="card"><div class="card-body">
+                    <div class="card-kicker">Accent</div>
+                    <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
+                    <p class="muted">The accent must survive as text, not just as a fill.</p>
+                  </div></article>
+                  <article class="card"><div class="card-body">
+                    <div class="card-kicker">Buttons</div>
+                    <p class="mb-md"><a class="btn btn-primary" href="#beat-intake">Primary</a></p>
+                    <p><a class="btn btn-secondary" href="#beat-intake">Secondary</a></p>
+                  </div></article>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Staged "how it's generated" narrative, full-width below the ask|stage row and visible (no
+             disclosure) so the reward → patterns and frequency → verdict changes land on stage even
+             though only density re-skins the preview tokens above. -->
+        <div class="intake-evidence">
+          <p class="intake-stage-cap">How it's generated, step by step</p>
+          <div id="factory-narrative"></div>
         </div>
       </div>
     </section>
@@ -271,5 +310,6 @@
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
   <script type="module" src="/system/spine.mjs"></script>
+  <script type="module" src="/system/intake-beat.mjs"></script>
 </body>
 </html>

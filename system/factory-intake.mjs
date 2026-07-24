@@ -1,7 +1,7 @@
 // system/factory-intake.mjs — view-time guided intake wizard + live re-skin + the ethics
 // guess-then-reveal, for TWO inlined scenarios (hand-written canon, this repo; not
 // generated). The designed Station 1 + Station 2 surface for the Factory page: a stepped
-// 4-question wizard drives the real derivation engine (system/derive.mjs) and re-skins a
+// guided wizard drives the real derivation engine (system/derive.mjs) and re-skins a
 // sample of real components live, scoped to a preview container, plus a staged "how it's
 // generated" narrative rendered from the engine's own output (brand→accessible palette +
 // WCAG · density→scales · reward→patterns · frequency→ethics verdict) and — new in 10.3 —
@@ -54,7 +54,8 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 // scenarios/<slug>/intake.defaults.json. fictionalNotice + ethicsReveal come from copy.json.
 // makerMatrix is the AUTHOR's own Manipulation-Matrix placement (part of the reveal, NOT the
 // reader's start state); null where a scenario omits the booleans by design ("needs no matrix").
-const SCENARIOS = {
+// Exported so a host beat can pass a single scenario as a Verdant-only config (index.html #73).
+export const SCENARIOS = {
   verdant: {
     label: "Verdant · plant care",
     fictionalNotice: "Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.",
@@ -66,18 +67,18 @@ const SCENARIOS = {
       },
       {
         axis: "density",
-        prompt: "How much breathing room should the interface have?",
-        reasoning: "Comfortable — a plant-care overview is browsed calmly at home, not scanned under time pressure, so it can breathe rather than pack every pixel.",
+        prompt: "What kind of product is it, and how do people use it?",
+        reasoning: "A plant-care overview is browsed calmly at home, not scanned under pressure, so it can breathe — a comfortable spacing and type scale.",
       },
       {
         axis: "rewardType",
-        prompt: "What kind of variable reward brings people back?",
-        reasoning: "Self — the reward is mastery made visible: plants kept alive, overdue tasks trending to zero. Not social proof, not a hunt for novelty.",
+        prompt: "Who is it for, and what brings them back?",
+        reasoning: "Verdant's reward is mastery made visible — plants kept alive, overdue tasks trending to zero. That is a 'self' reward, so the engine picks progress-stat patterns.",
       },
       {
         axis: "frequency",
-        prompt: "How often would the core behaviour realistically happen?",
-        reasoning: "Per-plant care is weekly, but the aggregate check-in is near-daily — inside the Hooked habit zone (weekly or better), so a designed habit loop is legitimate here.",
+        prompt: "How often would someone realistically do the core thing?",
+        reasoning: "Per-plant care is weekly, but the aggregate check-in is near-daily — inside the habit zone (weekly or better), so a designed habit loop is legitimate here. Below weekly, the engine rules habit mechanics out.",
       },
     ],
     // scenarios/verdant/intake.defaults.json → axes. improvesLives / wouldUseIt are the
@@ -101,17 +102,17 @@ const SCENARIOS = {
       },
       {
         axis: "density",
-        prompt: "How much breathing room should the interface have?",
+        prompt: "What kind of product is it, and how do people use it?",
         reasoning: "Compact — the dispatcher works under time pressure, assigning in seconds. Density that packs the whole board into one glance beats anything that adds a click.",
       },
       {
         axis: "rewardType",
-        prompt: "What kind of variable reward brings people back?",
+        prompt: "Who is it for, and what brings them back?",
         reasoning: "Hunt — the reward is finding the right technician for the job, fast: scanning, matching, resolving. Not social proof or self-mastery — locating the answer under load.",
       },
       {
         axis: "frequency",
-        prompt: "How often would the core behaviour realistically happen?",
+        prompt: "How often would someone realistically do the core thing?",
         reasoning: "Monthly — the only habit candidate is the customer's recurring booking, below the habit zone (weekly or better). A designed habit loop has nothing legitimate to attach to here.",
       },
     ],
@@ -135,10 +136,13 @@ const ENUM = {
   rewardType: Object.keys(RULESET.patterns),
   frequency: Object.keys(RULESET.ethics.frequencyFilter),
 };
+// Stakeholder option wording (D4): the reader picks a plain-product answer; the engine enum member
+// stays the option's VALUE (LABELS is display-only). Shared across scenarios — the phrasings describe
+// the OPTION, not one product, so they read true whether the host is Verdant, Fieldwork, or a company.
 const LABELS = {
-  density: { compact: "Compact", comfortable: "Comfortable", spacious: "Spacious" },
-  rewardType: { tribe: "Tribe — social", hunt: "Hunt — resources / information", self: "Self — mastery / completion" },
-  frequency: { "multiple-daily": "Multiple times a day", daily: "Daily", weekly: "Weekly", monthly: "Monthly", rarely: "Rarely" },
+  density: { compact: "Fast — used under time pressure", comfortable: "Calm — browsed at home, no time pressure", spacious: "Roomy — lots of detail to lay out" },
+  rewardType: { tribe: "For other people — community, social proof", hunt: "To find or track something", self: "To make their own progress visible" },
+  frequency: { "multiple-daily": "Several times a day", daily: "About daily", weekly: "Weekly", monthly: "Monthly", rarely: "Rarely" },
 };
 
 // Manipulation Matrix — the four quadrant meanings, lifted VERBATIM (not invented) from
@@ -199,9 +203,12 @@ function guardArrows(node) {
 
 // The exported init (ticket #43's seam): behind a document guard at the bottom so `import()` under
 // Node (the parse check) never touches the DOM; inert on any page lacking its three required anchors.
-// config = { scenarios, defaultScenario } — both default to the inlined map so factory.html's call is
-// byte-identical; the shell (instance.mjs) passes a scenario config built from a company package.
-export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO } = {}) {
+// config = { scenarios, defaultScenario, askedAxes } — the first two default to the inlined map so
+// factory.html's call is byte-identical; the shell (instance.mjs) passes a scenario config built from a
+// company package. askedAxes (optional array) restricts the wizard to a SUBSET of the scenario's axes —
+// home (#73) asks the three non-brand axes; a null askedAxes asks the full wizard. answers still seeds
+// every default (brandColor included), so derive() runs on the whole axis set no matter what is asked.
+export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO, askedAxes = null } = {}) {
   assertScenarioConfig(scenarios); // re-validate whatever config arrived (page-supplied or the default)
   const wizardMount = document.getElementById("factory-wizard");
   const previewRoot = document.getElementById("reskin-preview");
@@ -375,7 +382,16 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
   }
 
   function renderWizard(focusOnRender) {
-    const wiz = scenarios[active].wizard;
+    // askedAxes (config): a host may ask a SUBSET of the scenario's axes (home asks the three
+    // non-brand axes; factory/instance pass none → the full wizard). answers already carries every
+    // default, so filtering the ASKED steps never starves derive() (brandColor stays seeded).
+    const full = scenarios[active].wizard;
+    const asked = askedAxes ? full.filter((a) => askedAxes.includes(a.axis)) : full;
+    if (askedAxes && !asked.length) {
+      console.warn(`factory-intake: askedAxes [${askedAxes.join(", ")}] matched no axis of ` +
+        `"${active}" (has ${full.map((a) => a.axis).join(" | ")}) — showing the full wizard`);
+    }
+    const wiz = asked.length ? asked : full; // never render an empty wizard on a misconfigured askedAxes
     const w = wiz[step];
     const card = el("div", "fw-card");
     card.appendChild(el("p", "fw-progress", `${step + 1} / ${wiz.length}`));
