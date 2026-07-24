@@ -10,15 +10,15 @@
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- factory.html — the evidence home (epic #70 / ticket #78, plan: v3-evidence-home-restructure).
+  <!-- factory.html — the evidence home (epic #70 / tickets #78, #80).
        In v3 the live product-demo lives on the spine (index.html: hero → intake → your-brand →
        peak → close). This page sheds that duplicate wizard and becomes the deep layer a technical
        reader opens to VERIFY the demo's claims: a tabbed evidence viewer over three committed-replay
        engines — the recorded agent-run traces, the round-trip fidelity diff (which carries the WCAG
-       contrast pairs), and the measured token↔consumer graph — plus the prototypes and handoff pack
-       kept minimally here until #80 relocates them to Work, and outbound links to the annotated
-       source and the agentic study. Honesty contract: every capability chip states replay-not-live;
-       fictional labels stay visible at rest, outside all disclosures; nothing here is faked. -->
+       contrast pairs), and the measured token↔consumer graph — plus outbound links onward to the
+       prototypes and handoff pack (relocated to Work by #80), the annotated source, and the agentic
+       study. Honesty contract: every capability chip states replay-not-live; fictional labels stay
+       visible at rest, outside all disclosures; nothing here is faked. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
@@ -34,7 +34,7 @@
        scroll-into-view — anchors, keyboard focus, assistive tech — so a deep-linked panel never
        lands hidden under the header. (The old sticky station rail is gone in v3.) */
     html { scroll-padding-top: 96px; }
-    .ev-viewer, #prototypes, #handoff { scroll-margin-top: 96px; }
+    .ev-viewer { scroll-margin-top: 96px; }
 
     /* ── The evidence viewer — the page's one signature surface. A segmented tablist with a
        sliding pill (the --motion-tab-glide token) swapping between three committed-replay engines.
@@ -96,21 +96,6 @@
     .ev-panel-title { font-size: var(--type-h3); margin: 0; }
     .ev-panel-lead { margin: 0 0 var(--spacing-lg); max-width: 68ch; }
     .ev-panel-pointer { margin: var(--spacing-lg) 0 0; }
-
-    /* Prototype embeds — capped frames; the proto scrolls inside its own window. */
-    .factory-embeds { display: grid; gap: var(--spacing-2xl); }
-    .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
-    .factory-embed {
-      width: 100%;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background: var(--color-bg-surface);
-      display: block;
-    }
-    .factory-embed-phone { height: 720px; }
-    .factory-embed-board { height: 780px; }
-    .factory-embed-cap { font-size: 13.5px; line-height: 1.55; color: var(--color-fg-muted); }
-    .factory-embed-cap a { color: var(--color-accent); }
 
     .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
 
@@ -303,69 +288,8 @@
       </div>
     </section>
 
-    <!-- Prototypes — kept minimally on factory until #80 relocates them to Work. Both screens shown
-         (the scenario toggle was part of the retired live demo). -->
-    <section class="band" id="prototypes">
-      <div class="container">
-        <div class="beat-head">
-          <div class="beat-head-text">
-            <p class="beat-kicker">Prototypes</p>
-            <h2 class="beat-title">Two screens built on the system.</h2>
-          </div>
-        </div>
-        <p class="beat-lead">
-          Both render live from the mock API and fall back to committed fixtures when it is down.
-          The indicator in each frame says which one you are seeing. The frame is a window: scroll
-          inside it, or open the full tab.
-        </p>
-        <div class="factory-embeds">
-          <figure class="factory-embed-figure" data-scenario="verdant">
-            <iframe class="factory-embed factory-embed-phone"
-                    src="/proto/verdant.html"
-                    title="Verdant — Plant overview: a data-connected prototype rendering from the mock API, degrading to committed static fixtures"
-                    loading="lazy"></iframe>
-            <figcaption class="factory-embed-cap">
-              Verdant · Plant overview: a phone screen wired to the mock API.
-              <a href="/proto/verdant.html">Open it in its own tab →</a>
-            </figcaption>
-          </figure>
-          <figure class="factory-embed-figure" data-scenario="fieldwork">
-            <iframe class="factory-embed factory-embed-board"
-                    src="/proto/fieldwork.html"
-                    title="Fieldwork — Dispatch board: a hybrid canvas with two bounded agentic slots, rendering from the mock API"
-                    loading="lazy"></iframe>
-            <figcaption class="factory-embed-cap">
-              Fieldwork · Dispatch board: a hybrid canvas. Its two agentic slots are filled by
-              committed proposals from the agentic-UI study.
-              <a href="/proto/fieldwork.html">Open it in its own tab →</a>
-            </figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <!-- Handoff — kept minimally until #80. Static prose (#handoff-note; no module writes it now)
-         + the viewer link and the one-file download. -->
-    <section class="band" id="handoff">
-      <div class="container">
-        <div class="beat-head">
-          <div class="beat-head-text">
-            <p class="beat-kicker">Handoff</p>
-            <h2 class="beat-title">The pack an engineer receives.</h2>
-          </div>
-        </div>
-        <p class="beat-lead" id="handoff-note">
-          Every component's spec, docs, and agent vocabulary side by side, generated from one
-          source. Also downloadable as a single JSON.
-        </p>
-        <div class="factory-actions">
-          <a class="btn btn-primary btn-arrow" href="/handoff">Inspect the handoff pack</a>
-          <a class="btn btn-secondary" href="/handoff/verdant/pack.bundle.json" download>Download the pack · one JSON</a>
-        </div>
-      </div>
-    </section>
-
-    <!-- Go deeper — outbound links to the two evidence surfaces that keep their own pages. -->
+    <!-- Go deeper — outbound links to the prototypes + handoff pack (now on Work) and the two
+         evidence surfaces that keep their own pages. -->
     <section class="band" id="verify-further">
       <div class="container">
         <div class="beat-head">
@@ -375,6 +299,24 @@
           </div>
         </div>
         <ul class="row-list">
+          <li>
+            <a class="row-item" href="/work#screens">
+              <span class="row-item-text">
+                <span class="row-item-title">The prototypes, on Work</span>
+                <span class="row-item-desc">Two screens built on the system, rendering from the mock API with a fixture fallback</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/work#handoff">
+              <span class="row-item-text">
+                <span class="row-item-title">The handoff pack, on Work</span>
+                <span class="row-item-desc">Every component's spec, docs, and agent vocabulary from one source, downloadable as one JSON</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
           <li>
             <a class="row-item" href="/approach">
               <span class="row-item-text">

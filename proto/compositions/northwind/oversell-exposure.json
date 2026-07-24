@@ -1,0 +1,47 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Oversold SKUs",
+      "value": "3",
+      "unit": "SKUs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Total shortfall across oversold SKUs",
+      "value": "195",
+      "unit": "units",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Deepest single shortfall — Pallet wrap, 23 micron",
+      "value": "85",
+      "unit": "units",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Most exposed warehouse — East",
+      "value": "2",
+      "unit": "oversold SKUs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Thin-cover SKUs, low stock at risk",
+      "value": "5",
+      "unit": "SKUs",
+      "tone": "warn"
+    }
+  }
+]

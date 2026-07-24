@@ -887,22 +887,6 @@
       ]
     },
     {
-      "id": "closing-cta-band",
-      "label": "Closing CTA band",
-      "spec": null,
-      "tokens": [
-        "--spacing-4xl",
-        "--color-bg-surface",
-        "--color-border",
-        "--font-display",
-        "--type-h1",
-        "--font-body",
-        "--type-body",
-        "--color-fg-muted",
-        "--color-accent"
-      ]
-    },
-    {
       "id": "form-fields-atoms",
       "label": "Form fields (atoms)",
       "spec": null,
@@ -1073,7 +1057,7 @@
   ],
   "counts": {
     "tokens": 63,
-    "consumers": 28,
-    "edges": 304
+    "consumers": 27,
+    "edges": 295
   }
 }
