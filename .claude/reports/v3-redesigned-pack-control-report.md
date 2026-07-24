@@ -4,7 +4,7 @@
 
 ## Summary
 
-The v2 side dock is rebuilt as the one persistent utility of the v3 site: a control that states its purpose, offers the three committed packs plus the visitor's own derived "your brand" pack, and carries that pick across all eight pages. A non-numbered `#beat-wear` interstitial on Home introduces it, so it is no longer an unexplained widget. The shared `pack-derived.mjs` seam gains the pre-wear backup #74 chartered to this ticket and a same-tab change event, and one `selectPack()` state machine now arbitrates the committed-stylesheet and inline-custom-property mechanisms that previously only coexisted last-write-wins.
+The v2 side dock is rebuilt as the one persistent utility of the v3 site: a control that states its purpose, offers the three committed packs plus the visitor's own derived "your brand" pack, and carries that pick across every page that loads it (seven: the five-page IA, `/404.html` and `/roundtrip.html`). A non-numbered `#beat-wear` interstitial on Home introduces it, so it is no longer an unexplained widget. The shared `pack-derived.mjs` seam gains the pre-wear backup #74 chartered to this ticket and a same-tab change event, and one `selectPack()` state machine now arbitrates the committed-stylesheet and inline-custom-property mechanisms that previously only coexisted last-write-wins.
 
 ## Tasks completed
 
@@ -37,7 +37,9 @@ No unit-test suite exists in this repo (CLAUDE.md: "no suite, no linter, no type
 11. Console clean on a fresh `/`
 12. Reduced motion: morph and disclosure land instantly
 
-**Whole-site sweep** (Chromium + WebKit, 8 pages each, **16/16 clean**): `/`, `/approach.html`, `/factory.html`, `/work.html`, `/contact.html`, `/404.html`, `/instance.html`, `/handoff.html`. This is the check the new import chain needs — `dock.mjs` now pulls `pack-derived.mjs` → `derive.mjs` on every page that loads the control, so the six pages beyond Home and Work had to be proven clean too. The control mounts on the six IA pages and correctly does not on `/instance.html` or `/handoff.html`, which do not load `dock.mjs`.
+**Whole-site sweep** (Chromium + WebKit, 8 pages each, **16/16 clean**): `/`, `/approach.html`, `/factory.html`, `/work.html`, `/contact.html`, `/404.html`, `/instance.html`, `/handoff.html`. This is the check the new import chain needs — `dock.mjs` now pulls `pack-derived.mjs` → `derive.mjs` on every page that loads the control, so the pages beyond Home and Work had to be proven clean too.
+
+**Correction (PR #99 review, finding 3):** that sweep list is not the set of pages carrying the control. `dock.mjs` loads on **seven** pages — `index.html`, `approach.html`, `factory.html`, `work.html`, `contact.html`, `404.html`, `roundtrip.html` — and `/instance.html` + `/handoff.html`, which the sweep did include, do **not** load it (`instance.html:448` opts out explicitly). So the one page carrying the new import chain that the sweep as run missed was `/roundtrip.html`. It was swept separately after the review: Chromium at 1280px, `/roundtrip.html` renders with `.dock` mounted, 3 pack rows, **console clean** — no defect behind the miscount.
 
 **Visual check**: the open panel was eyeballed in both Chromium and WebKit (real Safari engine) at 1280px — the `:has()` checked-row highlight, the stacked actions and the four-row list render identically. CHECKLIST's "eyeball in real Safari AND real Chrome" MUST is satisfied.
 

@@ -3,8 +3,9 @@
 // view-time only.
 // The control performs the platform's core claim on the page the reader is looking at: picking a
 // pack re-points the ONE tokens.<pack>.css line in this page's head — the same swap a company
-// build ships and the CI gate performs (visual.spec.mjs:58). It is fixed side chrome on all eight
-// pages on purpose: the pick follows the reader, so every page they open is another test of the
+// build ships and the CI gate performs (visual.spec.mjs:58). It is fixed side chrome on every page
+// that loads it (the five-page IA + 404 + roundtrip; the off-nav deep-link surfaces opt out —
+// instance.html:448 says so) on purpose: the pick follows the reader, so every page is another test of the
 // same token contract. index.html's #beat-wear interstitial introduces it, so it is never an
 // unexplained widget (#76; PRD §2 "weird colour selectors, for what").
 // "Copy tokens" copies what is skinning the page RIGHT NOW: the committed artifact for a committed
@@ -109,6 +110,11 @@ function buildDock() {
   // dispatchEvent is synchronous, so wear() re-enters our own BRAND_CHANGE_EVENT listener. This
   // flag keeps that listener to REFLECTING state (it must never re-apply, or it re-enters its caller).
   let selfEmit = false;
+  // Which swap is the live one. packLink() always returns the SAME <link>, so a swap that is
+  // superseded before its sheet lands leaves its load listener attached ({ once: true } self-removes
+  // on FIRE, not on abandonment) and the eventual load runs every pending listener, oldest first.
+  // Last swap started wins — see swap().
+  let swapGen = 0;
 
   const toggle = el("button", {
     type: "button", class: "dock-toggle", "aria-label": "Appearance",
@@ -176,6 +182,11 @@ function buildDock() {
     const href = "/system/tokens." + (derived ? "neutral" : target) + ".css";
 
     const swap = () => {
+      // Claim the swap. Taken HERE, not in selectPack(): on the view-transition path the callback
+      // runs when the transition starts it, and it is the most recently STARTED swap that owns
+      // :root. A superseded swap's late load still resolves (a pending promise would hang the view
+      // transition that holds it) — it just no longer applies its colours over the pack that won.
+      const gen = ++swapGen;
       // Gated on the record, not on the selector: a colour entered in #beat-brand WITHOUT "wear"
       // is on :root while the selector still says saulera, and those props must go too.
       if (rec) clearRoot(rec.tokens); // removeProperty on an unset key is a no-op
@@ -184,7 +195,7 @@ function buildDock() {
         return Promise.resolve(); // same sheet — re-assigning href never re-fires load, so never await one
       }
       return new Promise((resolve) => {
-        const done = () => { if (derived) applyToRoot(rec.tokens); resolve(); };
+        const done = () => { if (gen === swapGen && derived) applyToRoot(rec.tokens); resolve(); };
         link.addEventListener("load", done, { once: true });
         link.addEventListener("error", done, { once: true });
         link.href = href;

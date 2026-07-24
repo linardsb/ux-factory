@@ -847,7 +847,7 @@ dfn.term {
 
 /* ---------- Appearance control + scroll ruler (§Phase 5 · redesigned by #76, system/dock.mjs) ----
    The one persistent utility of the v3 site: the control the reader picks a design system from and
-   then carries across all eight pages. index.html's #beat-wear interstitial introduces it, so the
+   then carries across every page that loads it. index.html's #beat-wear interstitial introduces it, so the
    rail is never an unexplained widget (PRD §2 "weird colour selectors, for what").
    Monochrome chrome by the calm-colour bar (fg-muted / border / bg-surface only — the packs
    themselves provide the colour). Fixed-chrome z-index ladder: header 50 · to-top 90 ·

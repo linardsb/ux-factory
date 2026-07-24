@@ -130,7 +130,9 @@ export function writeRecord(rec) {
   try { localStorage.setItem(RECORD_KEY, JSON.stringify(rec)); } catch { /* private mode — session-only */ }
   emitBrandChange(); // the dock offers "your brand" the moment a record exists, with no reload
 }
-// The "forget" primitive (#76 owns the UI for it); #74's reset stops WEARING but keeps the record.
+// The "forget" primitive. No UI calls it yet — #76's reset stops WEARING but deliberately keeps the
+// record, so "your brand" stays on offer without re-entering a colour; nothing in its acceptance set
+// asks the control to forget. Kept as the seam a later forget affordance wires to.
 export function clearRecord() {
   try { localStorage.removeItem(RECORD_KEY); } catch { /* private mode — session-only */ }
   emitBrandChange();
