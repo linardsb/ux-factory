@@ -203,12 +203,14 @@ function guardArrows(node) {
 
 // The exported init (ticket #43's seam): behind a document guard at the bottom so `import()` under
 // Node (the parse check) never touches the DOM; inert on any page lacking its three required anchors.
-// config = { scenarios, defaultScenario, askedAxes } — the first two default to the inlined map so
-// factory.html's call is byte-identical; the shell (instance.mjs) passes a scenario config built from a
-// company package. askedAxes (optional array) restricts the wizard to a SUBSET of the scenario's axes —
-// home (#73) asks the three non-brand axes; a null askedAxes asks the full wizard. answers still seeds
-// every default (brandColor included), so derive() runs on the whole axis set no matter what is asked.
-export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO, askedAxes = null } = {}) {
+// config = { scenarios, defaultScenario, askedAxes, onAnswers } — the first two default to the inlined
+// map so factory.html's call is byte-identical; the shell (instance.mjs) passes a scenario config built
+// from a company package. askedAxes (optional array) restricts the wizard to a SUBSET of the scenario's
+// axes — home (#73) asks the three non-brand axes; a null askedAxes asks the full wizard. answers still
+// seeds every default (brandColor included), so derive() runs on the whole axis set no matter what is
+// asked. onAnswers (optional fn, #75) is an additive publish hook called with a copy of the live axes on
+// every run() (mount + each change) — the home peak reads them; unset on factory/instance (no-op there).
+export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO, askedAxes = null, onAnswers = null } = {}) {
   assertScenarioConfig(scenarios); // re-validate whatever config arrived (page-supplied or the default)
   const wizardMount = document.getElementById("factory-wizard");
   const previewRoot = document.getElementById("reskin-preview");
@@ -239,6 +241,10 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
   // the renders where the table genuinely (re)appears pass true: initial mount and the scenario
   // toggle. Every within-scenario value change goes through setAnswer → run(false) — see there.
   function run(animate = true) {
+    // Additive host seam (#75): publish the live axis set to any interested host beat (the home
+    // peak reads density/frequency/brandColor from here). factory.html/instance.html pass no
+    // onAnswers → this is a no-op and their behaviour is byte-identical ("configured, never forked").
+    onAnswers?.({ ...answers });
     let result;
     try {
       result = derive(answers);

@@ -21,12 +21,23 @@ import { initIntake, SCENARIOS } from "./factory-intake.mjs";
 // derive() runs on the full axis set no matter that home asks only three.
 const HOME_AXES = ["density", "rewardType", "frequency"];
 
+// The latest home axis set, published by the wizard on every run() (mount + each change) via the
+// additive onAnswers seam. Beat 3 (the peak, #75) reads this to build the screen under the visitor's
+// live density/reward/frequency — falling back to its own defaults until the wizard has run once.
+// A plain module-level cache: intake-beat is a singleton, imported by both its own <script> tag and
+// by peak.mjs, so the two share this value. Null before the wizard mounts (peak falls back).
+let homeAnswers = null;
+export function getHomeAnswers() {
+  return homeAnswers;
+}
+
 registerBeat("beat-intake", {
   effect: () =>
     initIntake({
       scenarios: { verdant: SCENARIOS.verdant }, // Verdant-only: no toggle anchor on home, so the toggle render no-ops
       defaultScenario: "verdant",
       askedAxes: HOME_AXES,
+      onAnswers: (a) => { homeAnswers = a; }, // #75: publish the live axes for the peak
     }),
   activateOn: "load",
 });
