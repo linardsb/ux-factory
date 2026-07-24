@@ -1,0 +1,47 @@
+{
+  "$description": "Composition config for the parameterized record-composition runner (#88). Restates Fieldwork's EXISTING baked-in semantics verbatim so the runner needs no Fieldwork branch — the regression anchor for the prompt-fidelity diff. HONESTY FIREWALL: computeRules carries DEFINITIONS ONLY (what a field/state means, the fixed today, which copy labels to prefer); it never names which tiles/metrics answer a question — that selection stays the agent's job. (The grandfathered \"you may also show an Overdue tile\" clause predates the firewall and is kept verbatim only to preserve byte-fidelity with the committed Fieldwork run; it is NOT a pattern to copy into new scenarios.)",
+  "subject": "the Fieldwork dispatch board",
+  "today": "2026-07-14",
+  "fixtures": [
+    {
+      "name": "jobs",
+      "hint": "the dispatch jobs (each has status, region, techId, slaDue, completedAt, …)"
+    },
+    {
+      "name": "technicians",
+      "hint": "the technicians (region, skills, shift)"
+    },
+    {
+      "name": "schedule",
+      "hint": "today's schedule slots per technician"
+    }
+  ],
+  "copy": "the scenario's human-authored display labels (statusLabels, regionLabels, slaWarningLabel, …); prefer these for tile labels",
+  "slots": {
+    "summary-strip": "a HORIZONTAL KPI row: a small array (3–5) of metric-tile nodes, no children, that fit one band above the board — each tile a headline number answering the question at a glance. Use tone sparingly for the one or two figures that carry urgency.",
+    "insight-panel": "a VERTICAL column of metric-tile nodes (typically 3–6, several toned) answering one analytical question, fitting the narrow side region beside the board — a focused read, not a whole dashboard."
+  },
+  "computeRules": "The board's fixed fictional \"today\" is 2026-07-14; treat a job as open when completedAt is null.\nA job is SLA-at-risk when it is open and its slaDue is on or before 2026-07-16 — exactly the board's\nown \"SLA at risk\" marker (a 2-day window). This count INCLUDES the overdue jobs (their slaDue is\nalready past, so the board marks them \"SLA at risk\" too). You may also show an \"Overdue\" tile (the\nalready-breached subset), but do NOT subtract overdue from the SLA-at-risk count — keep your figures\nmatching the board this panel renders beside. Compute every figure yourself from these raw records —\ndo not assume any count.",
+  "questions": [
+    {
+      "slug": "operational-state",
+      "slot": "summary-strip",
+      "question": "What's the operational state of the board right now?"
+    },
+    {
+      "slug": "backlog-urgency",
+      "slot": "insight-panel",
+      "question": "How urgent is the open backlog, and what is its priority mix?"
+    },
+    {
+      "slug": "sla-risk-and-load",
+      "slot": "insight-panel",
+      "question": "Where is SLA-breach risk concentrated, and is technician load balanced today?"
+    },
+    {
+      "slug": "work-by-region",
+      "slot": "summary-strip",
+      "question": "How is the open workload distributed across the four regions?"
+    }
+  ]
+}

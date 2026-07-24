@@ -1,0 +1,18 @@
+{
+  "$description": "Floor composition config for the parameterized record-composition runner (#88). Carries per-scenario compute SEMANTICS + slots + questions. HONESTY FIREWALL: computeRules states DEFINITIONS ONLY (what a field/state means, the fixed today, which copy labels to prefer) — it must never name which tiles/metrics answer a question. 'Which metrics answer this' is the agent's job; naming them here would make the output half-hand-authored and break the no-example contract this spike protects.",
+  "subject": "the Northwind wholesale-stock dashboard",
+  "today": "2026-07-19",
+  "fixtures": [
+    { "name": "items", "hint": "one row per SKU: id, name, warehouse (north|south|east|west), onHand, committed, updatedOn (date), status (ok|low|oversold)" }
+  ],
+  "copy": "the scenario's human-authored product copy (tagline, notices) — prefer any display labels it carries for tile labels",
+  "slots": {
+    "summary-strip": "a HORIZONTAL KPI row: a small array (3–5) of metric-tile nodes, no children, that fit one band above a stock table — each tile a headline number answering the question at a glance. Use tone sparingly for the one or two figures that carry risk.",
+    "insight-panel": "a VERTICAL column of metric-tile nodes (typically 3–6, several toned) answering one analytical question, fitting the narrow side region beside a stock table — a focused read, not a whole dashboard."
+  },
+  "computeRules": "The dashboard's fixed fictional \"today\" is 2026-07-19. Each row is a SKU with onHand (physical stock) and committed (already promised on orders). A SKU is OVERSOLD when committed > onHand (more promised than exists); its shortfall is committed − onHand. A SKU's 'available' is onHand − committed (may be negative). The status field is pre-derived: 'oversold' | 'low' (thin cover) | 'ok'. Prefer the copy.json labels where present. Compute every figure yourself from the raw records — do not assume any count. Northwind is a utility, not a habit product: report the operator's risk under time pressure, not engagement.",
+  "questions": [
+    { "slug": "stock-risk-state", "slot": "summary-strip", "question": "What is the overall stock-risk state across the warehouses right now?" },
+    { "slug": "oversell-exposure", "slot": "insight-panel", "question": "Where is oversell exposure concentrated, and how deep is it?" }
+  ]
+}

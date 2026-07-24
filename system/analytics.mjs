@@ -47,3 +47,18 @@ export function trackFactoryDriven() {
   // the virtual URL in place would break refresh and bookmarking instead.
   setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
 }
+
+const BUILT_EVENT_PATH = "/factory/built";
+let builtFired = false;
+
+// The spine-completion event (#75): fired once by the peak beat when a reader REACHES the built
+// screen (the PRD success metric — visitors who reach the peak, not everyone who loads home). Its
+// own fire-once guard: sharing trackFactoryDriven's module-level `fired` would let whichever event
+// fires first suppress the other. Same virtual-route mechanism (CF WA has no custom events).
+export function trackFactoryBuilt() {
+  if (builtFired) return;
+  builtFired = true;
+  const real = location.pathname + location.search + location.hash;
+  history.pushState(history.state, "", BUILT_EVENT_PATH);
+  setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
+}

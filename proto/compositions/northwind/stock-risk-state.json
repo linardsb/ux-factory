@@ -1,0 +1,34 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Oversold SKUs",
+      "value": "3",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Low stock SKUs",
+      "value": "5",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "At-risk SKUs",
+      "value": "8",
+      "unit": "of 22"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Oversold shortfall",
+      "value": "195",
+      "unit": "units"
+    }
+  }
+]

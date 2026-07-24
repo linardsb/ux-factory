@@ -1312,6 +1312,123 @@ dfn.term {
 .peak-ethics summary:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 3px; }
 .peak-ethics-body p { color: var(--color-fg-on-inverse-soft); font-size: var(--type-caption); line-height: 1.6; margin: var(--spacing-md) 0 0; max-width: 52ch; }
 
+/* ── #75 · the built-screen peak, live ──────────────────────────────────────
+   With JS, system/peak.mjs replaces the still with a Verdant screen the real
+   renderer builds from a committed example composition — re-skinned to the
+   visitor's brand + density (the full derived token set applied inline on
+   .peak-screen--live only) — draws the real WCAG receipts, runs the ethics
+   guess-then-reveal, and appends the adjust-live control. Token-only; the
+   assembly entrance is this page's one authored moment, gated behind
+   .discrete-render so adjust re-renders never re-trigger it. */
+
+.peak-screen-col { display: flex; flex-direction: column; gap: var(--spacing-lg); min-width: 0; }
+
+/* the built screen — the same bright card as the still, now a grid the composed
+   Verdant components fill: header / [moisture · light] / tasks / plant / action. */
+.peak-screen--live {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+.peak-screen--live > .vd-screen-header,
+.peak-screen--live > .vd-care-task-row,
+.peak-screen--live > .vd-plant-card,
+.peak-screen--live > .vd-primary-button { grid-column: 1 / -1; }
+
+/* assembly reveal — the one authored moment: composed pieces settle in, staggered.
+   At rest IS the final state; the entrance is gated behind .discrete-render (a JS
+   class added only for the one-shot assembly under no-preference, dropped before
+   any adjust re-render) so continuous re-renders never restart it. Compositor
+   props only (transform/opacity), settle curve, ease-out by construction. */
+@media (prefers-reduced-motion: no-preference) {
+  .peak-screen--live.discrete-render > * {
+    animation: peak-assemble var(--motion-skeleton-to-content) var(--motion-ease-settle) both;
+  }
+  .peak-screen--live.discrete-render > *:nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
+  .peak-screen--live.discrete-render > *:nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
+  .peak-screen--live.discrete-render > *:nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
+  .peak-screen--live.discrete-render > *:nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
+  .peak-screen--live.discrete-render > *:nth-child(6) { animation-delay: calc(var(--motion-stagger) * 5); }
+  .peak-screen--live.discrete-render > *:nth-child(n + 7) { animation-delay: calc(var(--motion-stagger) * 6); }
+}
+@keyframes peak-assemble {
+  from { opacity: 0; transform: translateY(var(--motion-rise)); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* real WCAG receipts — replace the faux rows on assembly. Headline is computed
+   over ALL pairs; a failing pair (deliberately low-contrast entered brand) is
+   surfaced honestly, never a hard-coded pass. */
+.peak-receipts-headline {
+  display: flex; align-items: baseline; gap: var(--spacing-sm);
+  margin: 0 0 var(--spacing-sm);
+  font-family: var(--font-display); font-size: var(--type-caption); font-weight: 500;
+  color: var(--color-fg-on-inverse-strong);
+}
+.peak-receipts-mark {
+  flex: 0 0 auto; align-self: center;
+  display: inline-grid; place-items: center; width: 18px; height: 18px;
+  border-radius: 50%; font-size: var(--type-eyebrow); line-height: 1;
+  color: var(--color-bg-inverse); background: var(--color-accent-on-inverse);
+}
+.peak-receipts-headline.is-flagged .peak-receipts-mark { background: var(--color-fg-on-inverse-strong); }
+.peak-receipts .wcag-pair { flex: 1 1 auto; min-width: 0; }
+.wcag-ratio { flex: 0 0 auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--type-caption); color: var(--color-fg-on-inverse-soft); }
+.wcag-fail { flex: 0 0 auto; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-on-inverse-strong); }
+.wcag-row.is-fail { border-bottom-color: var(--color-fg-on-inverse-strong); }
+
+/* adjust-live — one valid control + the out-of-vocabulary refusal (the thesis) */
+.peak-adjust { border-top: 1px solid var(--color-inverse-line); padding-top: var(--spacing-lg); }
+.peak-adjust-eyebrow { margin: 0; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-on-inverse-muted); }
+.peak-adjust-hint { margin: var(--spacing-sm) 0 var(--spacing-md); font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-on-inverse-soft); max-width: 52ch; }
+.peak-adjust-control { display: flex; align-items: center; gap: var(--spacing-md); flex-wrap: wrap; }
+.peak-adjust-label { font-size: var(--type-caption); color: var(--color-fg-on-inverse); }
+.peak-adjust-select {
+  min-height: 44px; padding: 0 var(--spacing-md); border-radius: var(--radius-sm);
+  border: 1px solid var(--color-on-dark-border); background: transparent;
+  color: var(--color-fg-on-inverse); font: inherit; font-size: var(--type-caption); cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.peak-adjust-select:hover { border-color: var(--color-fg-on-inverse-soft); }
+.peak-adjust-select:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 2px; }
+
+/* the refusal — the system naming the exact offending path. A controlled "no",
+   not an error blowout; the message can be long, so it wraps inside its column. */
+.peak-refusal {
+  margin-top: var(--spacing-md); padding: var(--spacing-md);
+  border-radius: var(--radius-sm); border: 1px solid var(--color-on-dark-border);
+  border-left: 3px solid var(--color-accent-on-inverse); min-width: 0;
+}
+.peak-refusal-tag { display: inline-block; margin-bottom: 6px; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent-on-inverse); }
+.peak-refusal-msg { display: block; font-family: var(--font-mono); font-size: var(--type-caption); line-height: 1.5; color: var(--color-fg-on-inverse-soft); overflow-wrap: anywhere; }
+
+/* ethics guess-then-reveal — plain-label guesses, then the engine's canonical read */
+.peak-ethics-intro { margin: 0 0 var(--spacing-md); font-size: var(--type-caption); color: var(--color-fg-on-inverse-soft); }
+.peak-ethics-choices { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.peak-ethics-choice {
+  min-height: 44px; padding: 0 var(--spacing-md); border-radius: var(--radius-lg);
+  border: 1px solid var(--color-on-dark-border); background: transparent;
+  color: var(--color-fg-on-inverse); font: inherit; font-size: var(--type-caption); cursor: pointer;
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+.peak-ethics-choice:hover { border-color: var(--color-fg-on-inverse-soft); }
+.peak-ethics-choice:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 2px; }
+.peak-ethics-choice:active { transform: scale(0.97); }
+.peak-ethics-choice[aria-pressed="true"] { background: var(--color-accent-on-inverse); border-color: var(--color-accent-on-inverse); color: var(--color-bg-inverse); }
+.peak-ethics-result { margin-top: var(--spacing-md); }
+.peak-ethics-verdict { display: flex; align-items: baseline; gap: var(--spacing-sm); flex-wrap: wrap; margin: 0; }
+.peak-ethics-verdict-label { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg-on-inverse-strong); }
+.peak-ethics-verdict-tag { font-size: var(--type-eyebrow); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-fg-on-inverse-muted); }
+.peak-ethics-gloss { margin: var(--spacing-sm) 0 0; font-size: var(--type-caption); line-height: 1.6; }
+.peak-ethics-judge { margin: var(--spacing-sm) 0 0; font-size: var(--type-caption); line-height: 1.6; color: var(--color-fg-on-inverse-soft); }
+@media (prefers-reduced-motion: reduce) { .peak-ethics-choice:active { transform: none; } }
+
 /* I6 — the single-card close: one sentence, one action, floated on the light band. */
 .close-card {
   max-width: 62ch;

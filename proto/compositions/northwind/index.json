@@ -1,0 +1,16 @@
+[
+  {
+    "slug": "oversell-exposure",
+    "question": "Where is oversell exposure concentrated, and how deep is it?",
+    "slot": "insight-panel",
+    "proposal": "/proto/compositions/northwind/oversell-exposure.json",
+    "trace": "/traces/oversell-exposure.jsonl"
+  },
+  {
+    "slug": "stock-risk-state",
+    "question": "What is the overall stock-risk state across the warehouses right now?",
+    "slot": "summary-strip",
+    "proposal": "/proto/compositions/northwind/stock-risk-state.json",
+    "trace": "/traces/stock-risk-state.jsonl"
+  }
+]
