@@ -58,19 +58,20 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.10);
 
   /* ---- Motion — the neutral pace: unhurried defaults, one baked spring for emphasis ---- */
-  --motion-fast:        160ms;   /* micro feedback — hovers, color/opacity */
-  --motion-base:        200ms;   /* structural — lifts, slides, panels, page crossfade */
-  --motion-ambient:     3s;   /* idle pulses (the hero pill) */
-  --motion-ease:        ease;   /* default curve */
-  --motion-slow:        480ms;   /* entrances + reveals — hero cascade, underline draw, section labels */
-  --motion-stagger:     70ms;   /* step between staggered children (compose delays with calc) */
-  --motion-rise:        20px;   /* reveal translate offset — how far elements travel in */
-  --motion-ease-spring: linear(0, 0.004, 0.016, 0.035, 0.062, 0.096, 0.138, 0.187, 0.242, 0.304, 0.371, 0.443, 0.519, 0.598, 0.68, 0.763, 0.846, 0.918, 0.973, 1.007, 1.019, 1.016, 1.007, 1.001, 1);   /* baked spring — subtle single overshoot (~1.9%) for emphasis */
-  --motion-bounce:      300ms;   /* micro-interaction release — squish return, glyph pop (pairs with motion-ease-bounce) */
-  --motion-count:       900ms;   /* count-up length for measured numbers (read by JS via getComputedStyle) */
-  --motion-ease-bounce: linear(0, 0.063, 0.223 3.9%, 0.605 8.7%, 0.882 12.7%, 1.017 15.7%, 1.092 18.7%, 1.126 21.6%, 1.13 24.6%, 1.111 28%, 1.028 36.3%, 0.99 41.6%, 0.973 46.9%, 0.972 52.5%, 0.996 68.8%, 1.003 79.4%, 1);   /* playful spring — ~13% overshoot with one rebound; things you touch, never entrances */
-  --motion-ease-settle: linear(0, 0.102, 0.199, 0.29, 0.373, 0.449, 0.518, 0.581, 0.638, 0.689, 0.735, 0.775, 0.811, 0.843, 0.871, 0.895, 0.916, 0.934, 0.949, 0.962, 0.972, 0.98, 0.987, 0.992, 0.995, 0.998, 0.999, 1);   /* critically damped glide — fast start, long soft landing, no overshoot */
-  --motion-tab-glide:   260ms;   /* evidence-viewer tab pill glide between tabs — a thing arriving, so paired with motion-ease-settle */
+  --motion-fast:                160ms;   /* micro feedback — hovers, color/opacity */
+  --motion-base:                200ms;   /* structural — lifts, slides, panels, page crossfade */
+  --motion-ambient:             3s;   /* idle pulses (the hero pill) */
+  --motion-ease:                ease;   /* default curve */
+  --motion-slow:                480ms;   /* entrances + reveals — hero cascade, underline draw, section labels */
+  --motion-stagger:             70ms;   /* step between staggered children (compose delays with calc) */
+  --motion-rise:                20px;   /* reveal translate offset — how far elements travel in */
+  --motion-ease-spring:         linear(0, 0.004, 0.016, 0.035, 0.062, 0.096, 0.138, 0.187, 0.242, 0.304, 0.371, 0.443, 0.519, 0.598, 0.68, 0.763, 0.846, 0.918, 0.973, 1.007, 1.019, 1.016, 1.007, 1.001, 1);   /* baked spring — subtle single overshoot (~1.9%) for emphasis */
+  --motion-bounce:              300ms;   /* micro-interaction release — squish return, glyph pop (pairs with motion-ease-bounce) */
+  --motion-count:               900ms;   /* count-up length for measured numbers (read by JS via getComputedStyle) */
+  --motion-ease-bounce:         linear(0, 0.063, 0.223 3.9%, 0.605 8.7%, 0.882 12.7%, 1.017 15.7%, 1.092 18.7%, 1.126 21.6%, 1.13 24.6%, 1.111 28%, 1.028 36.3%, 0.99 41.6%, 0.973 46.9%, 0.972 52.5%, 0.996 68.8%, 1.003 79.4%, 1);   /* playful spring — ~13% overshoot with one rebound; things you touch, never entrances */
+  --motion-ease-settle:         linear(0, 0.102, 0.199, 0.29, 0.373, 0.449, 0.518, 0.581, 0.638, 0.689, 0.735, 0.775, 0.811, 0.843, 0.871, 0.895, 0.916, 0.934, 0.949, 0.962, 0.972, 0.98, 0.987, 0.992, 0.995, 0.998, 0.999, 1);   /* critically damped glide — fast start, long soft landing, no overshoot */
+  --motion-tab-glide:           260ms;   /* evidence-viewer tab pill glide between tabs — a thing arriving, so paired with motion-ease-settle */
+  --motion-skeleton-to-content: 520ms;   /* peak assembly reveal — the built screen settles skeleton-to-content on arrival, so paired with motion-ease-settle */
 
   /* ---- Layout ---- */
   --maxw:   1200px;

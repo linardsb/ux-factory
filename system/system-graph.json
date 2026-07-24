@@ -470,6 +470,15 @@
       }
     },
     {
+      "name": "--motion-skeleton-to-content",
+      "group": "motion",
+      "packs": {
+        "neutral": "520ms",
+        "saulera": null,
+        "verdant": null
+      }
+    },
+    {
       "name": "--maxw",
       "group": "layout",
       "packs": {
@@ -1063,7 +1072,7 @@
     }
   ],
   "counts": {
-    "tokens": 62,
+    "tokens": 63,
     "consumers": 28,
     "edges": 304
   }
