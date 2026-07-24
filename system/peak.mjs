@@ -181,6 +181,7 @@ function enhanceEthics(host) {
     }
     const truth = QUADRANT_LABELS[quadrant] || { label: quadrant, gloss: "" };
     const right = guessed === quadrant;
+    result.hidden = false; // unhide the live region BEFORE inserting content so role="status" announces the change (factory-intake.mjs:655 does the same)
     result.replaceChildren(
       el("p", { class: "peak-ethics-verdict" },
         el("span", { class: "peak-ethics-verdict-label", text: truth.label }),
@@ -189,7 +190,6 @@ function enhanceEthics(host) {
       el("p", { class: "peak-ethics-judge", text: right
         ? "That matches your guess."
         : `You guessed “${QUADRANT_LABELS[guessed].label}.” The honest read is “${truth.label}.”` }));
-    result.hidden = false;
   }
 
   QUADRANT_ORDER.forEach((q) => {
@@ -286,7 +286,9 @@ async function peakEffect({ el: beatEl, reduce }) {
   };
 
   const surface = el("div", { class: "peak-adjust" });
-  const refusal = el("div", { class: "peak-refusal", hidden: true });
+  // role=status + aria-live so a screen-reader user hears the refusal — the interaction the peak
+  // calls its thesis. setRefusal unhides BEFORE appending (below), so the message is announced.
+  const refusal = el("div", { class: "peak-refusal", hidden: true, role: "status", "aria-live": "polite" });
   const setRefusal = (msg) => {
     refusal.replaceChildren();
     if (!msg) { refusal.hidden = true; return; }

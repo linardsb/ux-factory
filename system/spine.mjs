@@ -36,7 +36,9 @@ const isWearingDerived = () => {
 // registerBeat(id, spec) — a beat plugs its stage effect. Called by #73/#75/#77 and the hero here.
 //   id: string                          — matches a #beat-* mount id in index.html
 //   spec.effect?:    (ctx) => void|Promise — the stage logic; runs once, inside try/catch
-//   spec.analytics?: () => void          — fired once after effect (e.g. #75 passes trackFactoryBuilt)
+//   spec.analytics?: () => void          — fired once after effect, SUCCESS OR handled failure; a beat
+//                                          whose event means "reached the real thing" fires it from
+//                                          inside its effect on the success path instead (#75 peak)
 //   spec.activateOn?: 'load' | 'visible' — 'load' runs immediately (above-the-fold hero);
 //                                          'visible' (default) runs on first IntersectionObserver hit
 //   ctx: { el, reduce }                  — the beat's element + the reduced-motion flag at activation
