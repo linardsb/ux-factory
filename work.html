@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Work · Linards Berzins</title>
-  <meta name="description" content="Two demos you can run: the factory pipeline and an agentic-UI study, both on the token system that renders this site." />
+  <meta name="description" content="The proof index: two demos you can run, the prototypes they produce, the handoff pack an engineer receives, and the deeper evidence behind each claim." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
@@ -15,6 +15,37 @@
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/portfolio.css" />
   <script src="/system/pack-boot.js"></script>
+
+  <style>
+    /* Relocated from factory.html (#80): the two prototype embeds now live here. Capped frames
+       styled from tokens alone (colour / space / radius / type via var(--…)); grid / % / fixed
+       heights are inherently structural literals. Single-page layout, not a reused organism →
+       deliberately inline, not promoted to components.css. */
+
+    /* 96px ≈ the sticky site header + a little air. scroll-padding on the root covers every
+       scroll-into-view (anchors, keyboard focus, assistive tech); the per-target scroll-margin
+       catches the deep links factory.html's "Go deeper" list points here (/work#screens,
+       /work#handoff), so a deep-linked band never lands hidden under the header. */
+    html { scroll-padding-top: 96px; }
+    #screens, #handoff { scroll-margin-top: 96px; }
+
+    /* Prototype embeds — capped frames; the proto scrolls inside its own window. */
+    .factory-embeds { display: grid; gap: var(--spacing-2xl); }
+    .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .factory-embed {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-surface);
+      display: block;
+    }
+    .factory-embed-phone { height: 720px; }
+    .factory-embed-board { height: 780px; }
+    .factory-embed-cap { font-size: 13.5px; line-height: 1.55; color: var(--color-fg-muted); }
+    .factory-embed-cap a { color: var(--color-accent); }
+
+    .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
+  </style>
 </head>
 <body data-page="work">
 
@@ -23,32 +54,42 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">Work · exhibits</span>
+          <span class="stamp">Work · proof index</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">Two demos you can run right <span class="hl">now</span>.</h1>
+        <h1 class="text-balance">The proof you can run <span class="hl">yourself</span>.</h1>
         <p class="hero-sub">
-          The factory builds a design system from your answers. The agentic study lets you
-          adjust what an AI agent proposed, inside clear guardrails. Both run on the design
-          system that renders this page.
+          Two exhibits that run in your browser, the two prototypes they produce, the handoff
+          pack an engineer receives, and links to the deeper evidence. Everything here runs on
+          the design system that renders this page.
         </p>
       </div>
     </section>
 
-    <section class="section">
+    <section class="band" id="run">
       <div class="container">
-        <h2 class="section-label"><span class="num">01</span><span>Exhibits</span><span class="line"></span></h2>
-        <div class="grid grid-3 mt-xl stagger">
-          <a class="card card-link" href="/factory">
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Run it</p>
+            <h2 class="beat-title">Two demos you can drive right now.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          The factory builds a design system from your answers. The agentic study lets you
+          adjust what an AI agent proposed, inside clear guardrails.
+        </p>
+        <div class="grid grid-2 mt-2xl stagger">
+          <a class="card card-link" href="/">
             <div class="card-body">
               <div class="card-kicker">Exhibit 01 <span class="capability live">Runs now</span></div>
               <h3 class="h3 mb-md">The factory, end to end</h3>
               <p class="muted">
-                A fictional product brief, clearly labelled as fictional, travels from intake
-                to design system to prototype to handoff files. You drive the intake yourself.
-                The AI steps are recorded runs you can replay.
+                Start from a brand colour on the home page and watch a design system build
+                itself: you answer a short brief, the tokens generate, a screen composes, and
+                a handoff pack falls out. You drive the brief. The AI steps are recorded runs
+                you can replay.
               </p>
-              <div class="card-foot"><span class="card-foot-link">Run the factory →</span></div>
+              <div class="card-foot"><span class="card-foot-link">Start the brief →</span></div>
             </div>
           </a>
           <a class="card card-link" href="/agentic-ui-study">
@@ -63,31 +104,113 @@
               <div class="card-foot"><span class="card-foot-link">Open the study →</span></div>
             </div>
           </a>
-          <a class="card card-link" href="/approach#case">
-            <div class="card-body">
-              <div class="card-kicker">The system <span class="capability live">Runs now</span></div>
-              <h3 class="h3 mb-md">The system behind this site</h3>
-              <p class="muted">
-                One CSS file styles every page. Swap it and the whole site re-skins, safely.
-                The case study explains the token system that makes that possible.
-              </p>
-              <div class="card-foot"><span class="card-foot-link">Read the case study →</span></div>
-            </div>
-          </a>
         </div>
       </div>
     </section>
 
-    <section class="closing">
+    <section class="band" id="screens">
       <div class="container">
-        <span class="disc"></span>
-        <div class="closing-inner">
-          <div>
-            <h2>Want a walkthrough of any of these? Happy to talk.</h2>
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">The screens</p>
+            <h2 class="beat-title">Two prototypes built on the system.</h2>
           </div>
-          <div class="hero-cta-row">
-            <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
+        </div>
+        <p class="beat-lead">
+          Both render live from the mock API and fall back to committed fixtures when it is down.
+          The indicator in each frame says which one you are seeing. The frame is a window: scroll
+          inside it, or open the full tab.
+        </p>
+        <div class="factory-embeds">
+          <figure class="factory-embed-figure" data-scenario="verdant">
+            <iframe class="factory-embed factory-embed-phone"
+                    src="/proto/verdant.html"
+                    title="Verdant — Plant overview: a data-connected prototype rendering from the mock API, degrading to committed static fixtures"
+                    loading="lazy"></iframe>
+            <figcaption class="factory-embed-cap">
+              Verdant · Plant overview: a phone screen wired to the mock API.
+              <a href="/proto/verdant.html">Open it in its own tab →</a>
+            </figcaption>
+          </figure>
+          <figure class="factory-embed-figure" data-scenario="fieldwork">
+            <iframe class="factory-embed factory-embed-board"
+                    src="/proto/fieldwork.html"
+                    title="Fieldwork — Dispatch board: a hybrid canvas with two bounded agentic slots, rendering from the mock API"
+                    loading="lazy"></iframe>
+            <figcaption class="factory-embed-cap">
+              Fieldwork · Dispatch board: a hybrid canvas. Its two agentic slots are filled by
+              committed proposals from the agentic-UI study.
+              <a href="/proto/fieldwork.html">Open it in its own tab →</a>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="handoff">
+      <div class="container">
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">The handoff pack</p>
+            <h2 class="beat-title">The pack an engineer receives.</h2>
           </div>
+        </div>
+        <p class="beat-lead">
+          Every component's spec, docs, and agent vocabulary side by side, generated from one
+          source. Also downloadable as a single JSON.
+        </p>
+        <div class="factory-actions">
+          <a class="btn btn-primary btn-arrow" href="/handoff">Inspect the handoff pack</a>
+          <a class="btn btn-secondary" href="/handoff/verdant/pack.bundle.json" download>Download the pack · one JSON</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="more">
+      <div class="container">
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">More proof</p>
+            <h2 class="beat-title">Check the work behind the demos.</h2>
+          </div>
+        </div>
+        <ul class="row-list">
+          <li>
+            <a class="row-item" href="/roundtrip">
+              <span class="row-item-text">
+                <span class="row-item-title">The round-trip check</span>
+                <span class="row-item-desc">Screenshots turned back into tokens, measured against the truth with its contrast pairs</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/factory">
+              <span class="row-item-text">
+                <span class="row-item-title">The evidence home</span>
+                <span class="row-item-desc">Recorded agent runs, the round-trip diff, and the measured token graph, all from committed files</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/approach#case">
+              <span class="row-item-text">
+                <span class="row-item-title">The system behind this site</span>
+                <span class="row-item-desc">One CSS file re-skins every page; the case study explains the token system, with real source</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="hero-cta-row">
+          <a class="btn btn-secondary" href="/approach">How I work</a>
+          <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
         </div>
       </div>
     </section>

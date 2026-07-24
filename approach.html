@@ -15,6 +15,15 @@
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/portfolio.css" />
   <script src="/system/pack-boot.js"></script>
+
+  <style>
+    /* Deep links + the hero CTA land below the sticky header. scroll-padding on the root
+       covers every scroll-into-view (anchors, keyboard focus, assistive tech); the per-target
+       scroll-margin is the same 96px idiom the sibling factory.html uses. No at-rest visual
+       effect, so the VR baselines don't churn. */
+    html { scroll-padding-top: 96px; }
+    #method, #case, #sources { scroll-margin-top: 96px; }
+  </style>
 </head>
 <body data-page="approach">
 
@@ -34,16 +43,21 @@
           the code to ship it.
         </p>
         <div class="hero-cta-row">
-          <a class="btn btn-primary btn-arrow" href="#layers">The method</a>
+          <a class="btn btn-primary btn-arrow" href="#method">The method</a>
           <a class="btn btn-secondary" href="#case">The case study</a>
         </div>
       </div>
     </section>
 
-    <section class="section" id="layers">
+    <section class="band" id="method">
       <div class="container">
-        <div class="section-label"><span class="num">01</span><span>The method</span><span class="line"></span></div>
-        <p class="lead max-prose">Four habits, run as one loop on every piece of work.</p>
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">The method</p>
+            <h2 class="beat-title">Four habits, run as one loop.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">I run all four on every piece of work, and I go back to check whether the last one actually worked.</p>
         <div class="grid grid-2 mt-2xl stagger">
           <article class="card">
             <div class="card-body">
@@ -95,72 +109,15 @@
       </div>
     </section>
 
-    <section class="section" id="loop">
+    <section class="band" id="case">
       <div class="container">
-        <div class="section-label"><span class="num">02</span><span>The loop</span><span class="line"></span></div>
-        <div class="section-split">
-          <h2 class="headline">Together they make one <span class="hl">loop</span>.</h2>
-          <div>
-            <p class="max-prose">
-              Shaping aims the work at the right problem. The build turns it into system
-              components. The check at the end feeds the next round of shaping.
-            </p>
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">In practice</p>
+            <h2 class="beat-title">This site re-skins itself from one line of CSS.</h2>
           </div>
         </div>
-        <ol class="lineup mt-2xl">
-          <li class="lineup-item">
-            <span class="lineup-n">01</span>
-            <div><span class="lineup-title">Shape</span>
-            <p>Scope the ask into a bet that fits a time budget, with risks and non-goals named.</p></div>
-          </li>
-          <li class="lineup-item">
-            <span class="lineup-n">02</span>
-            <div><span class="lineup-title">Design</span>
-            <p>Start from the real trigger, remove friction, and run an ethics check on the pattern.</p></div>
-          </li>
-          <li class="lineup-item">
-            <span class="lineup-n">03</span>
-            <div><span class="lineup-title">Build</span>
-            <p>Token-built components with accessibility handled at the system level, not per screen.</p></div>
-          </li>
-          <li class="lineup-item">
-            <span class="lineup-n">04</span>
-            <div><span class="lineup-title">Check</span>
-            <p>Measure the signal named up front, then write down what happened for the next bet.</p></div>
-          </li>
-        </ol>
-      </div>
-    </section>
-
-    <section class="section" id="value">
-      <div class="container">
-        <div class="section-label"><span class="num">03</span><span>What you get</span><span class="line"></span></div>
-        <div class="section-split">
-          <h2 class="headline">From the <span class="hl">other</span> side of the desk.</h2>
-          <div>
-            <ul class="max-prose">
-              <li>Production code, not just a Figma file: modern CSS and interactions that still feel right in a real browser.</li>
-              <li>A design system that stays consistent, because brand and theming live in one place.</li>
-              <li>Accessibility and performance handled at the system level, so contrast, keyboard use and focus are right by default.</li>
-              <li>A half-formed idea in, a scoped and time-boxed bet out, with success defined before the work starts and checked after it ships.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="case">
-      <div class="container">
-        <div class="section-label"><span class="num">04</span><span>In practice</span><span class="line"></span></div>
-        <div class="section-split">
-          <h2 class="headline">This site re-skins itself from <span class="hl">one line</span> of CSS.</h2>
-          <div>
-            <p class="max-prose">
-              The clearest example of the method is this site itself, because the method was
-              used on it.
-            </p>
-          </div>
-        </div>
+        <p class="beat-lead">The clearest example of the method is this site itself, because the method was used to build it.</p>
         <div class="grid mt-2xl">
           <div class="decision-card">
             <h3 class="decision-card-title">Problem &amp; budget</h3>
@@ -214,67 +171,40 @@
       </div>
     </section>
 
-    <section class="section" id="sources">
+    <section class="band" id="sources">
       <div class="container">
-        <div class="section-label"><span class="num">05</span><span>Sources</span><span class="line"></span></div>
-        <div class="section-split">
-          <h2 class="headline">I learn from the <span class="hl">primary</span> sources.</h2>
-          <div class="grid grid-2">
-            <div>
-              <h3 class="caption">Process</h3>
-              <p class="muted">Shape Up (Ryan Singer / Basecamp), Bob Moesta on Jobs-to-be-Done.</p>
-            </div>
-            <div>
-              <h3 class="caption">Behaviour &amp; ethics</h3>
-              <p class="muted">Nir Eyal, BJ Fogg's behaviour model, Growth.Design, Harry Brignull's Deceptive Patterns, Nielsen Norman Group.</p>
-            </div>
-            <div>
-              <h3 class="caption">UI craft &amp; front-end</h3>
-              <p class="muted">Josh Comeau, Ahmad Shadeed, Rauno Freiberg's Web Interface Guidelines, Emil Kowalski on motion, web.dev.</p>
-            </div>
-            <div>
-              <h3 class="caption">Design systems &amp; tokens</h3>
-              <p class="muted">the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.</p>
-            </div>
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Sources</p>
+            <h2 class="beat-title">I learn from the primary sources.</h2>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section class="section" id="practice">
-      <div class="container">
-        <div class="section-label"><span class="num">06</span><span>Principles</span><span class="line"></span></div>
-        <div class="section-split">
-          <h2 class="headline">A few things I hold to.</h2>
-          <div class="grid">
-            <div>
-              <h3 class="h3 mb-md">The combination is the value.</h3>
-              <p class="muted">Plenty of people know one of these disciplines well. I run all four as a single way of working.</p>
-            </div>
-            <div>
-              <h3 class="h3 mb-md">Engagement has an ethical line.</h3>
-              <p class="muted">Habits are worth designing only where they help the person using the product. For tools people should open, use and close, "come back more often" is the wrong target.</p>
-            </div>
-            <div>
-              <h3 class="h3 mb-md">The work should explain itself.</h3>
-              <p class="muted">Anywhere this site makes a call, the reasoning sits a click away: the problem, the decision, and what it produced. If you leave with something you can use, the page did its job.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="closing">
-      <div class="container">
-        <span class="disc"></span>
-        <div class="closing-inner">
+        <div class="grid grid-2 mt-2xl">
           <div>
-            <h2>Want this way of working on your team?</h2>
+            <h3 class="caption">Process</h3>
+            <p class="muted">Shape Up (Ryan Singer / Basecamp), Bob Moesta on Jobs-to-be-Done.</p>
           </div>
-          <div class="hero-cta-row">
-            <a class="btn btn-primary btn-arrow" href="/work">See the demos</a>
-            <a class="btn btn-secondary" href="/contact">Get in touch</a>
+          <div>
+            <h3 class="caption">Behaviour &amp; ethics</h3>
+            <p class="muted">Nir Eyal, BJ Fogg's behaviour model, Growth.Design, Harry Brignull's Deceptive Patterns, Nielsen Norman Group.</p>
           </div>
+          <div>
+            <h3 class="caption">UI craft &amp; front-end</h3>
+            <p class="muted">Josh Comeau, Ahmad Shadeed, Rauno Freiberg's Web Interface Guidelines, Emil Kowalski on motion, web.dev.</p>
+          </div>
+          <div>
+            <h3 class="caption">Design systems &amp; tokens</h3>
+            <p class="muted">the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="hero-cta-row">
+          <a class="btn btn-secondary" href="/work">See the demos</a>
+          <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
         </div>
       </div>
     </section>

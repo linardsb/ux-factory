@@ -1425,55 +1425,6 @@ p, .body {
   opacity: 0.78;
 }
 
-/* ---------- Closing CTA band ---------- */
-
-.closing {
-  padding: var(--spacing-4xl) 0;
-  background: var(--color-bg-surface);
-  border-top: 1px solid var(--color-border);
-  position: relative;
-  overflow: hidden;
-}
-.closing-inner {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 64px;
-  align-items: end;
-  position: relative;
-  z-index: 2;
-}
-@media (max-width: 900px) {
-  .closing-inner { grid-template-columns: 1fr; gap: 32px; align-items: start; }
-}
-.closing h2 {
-  font-family: var(--font-display);
-  font-size: var(--type-h1);
-  line-height: 1.05;
-  max-width: 22ch;
-  text-wrap: balance;
-}
-.closing .softener {
-  font-family: var(--font-body);
-  font-size: var(--type-body);
-  line-height: 1.55;
-  color: var(--color-fg-muted);
-  max-width: 50ch;
-  margin-top: 24px;
-}
-.closing .disc {
-  position: absolute;
-  left: 50%;
-  bottom: -340px;
-  width: 680px;
-  height: 680px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: var(--color-accent);
-  opacity: 0.07;
-  z-index: 1;
-  pointer-events: none;
-}
-
 /* ---------- Form fields (atoms) ---------- */
 
 .form-row {
