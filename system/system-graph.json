@@ -461,6 +461,15 @@
       }
     },
     {
+      "name": "--motion-tab-glide",
+      "group": "motion",
+      "packs": {
+        "neutral": "260ms",
+        "saulera": null,
+        "verdant": null
+      }
+    },
+    {
       "name": "--maxw",
       "group": "layout",
       "packs": {
@@ -1054,7 +1063,7 @@
     }
   ],
   "counts": {
-    "tokens": 61,
+    "tokens": 62,
     "consumers": 28,
     "edges": 304
   }

@@ -134,7 +134,7 @@
     }
   </style>
 </head>
-<body>
+<body data-page="work">
 
   <main>
     <section class="section">
@@ -157,6 +157,11 @@
       </div>
     </section>
   </main>
+
+  <!-- Site chrome — header + footer injected from window.CLIENT_CONFIG (config MUST load before
+       site.js reads it). Same order every shipped page uses; #69 fix, this page had none. -->
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
 
   <script type="module">
     import { prepareHandoff, renderHandoffViewer } from "/system/handoff-viewer.mjs";

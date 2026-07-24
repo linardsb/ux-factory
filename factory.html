@@ -3,20 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The factory · Linards Berzins</title>
-  <meta name="description" content="Answer four questions about a fictional product and watch a design system get generated, checked, prototyped, and packed for handoff, with the AI runs behind it replayable." />
+  <title>The factory · evidence · Linards Berzins</title>
+  <meta name="description" content="Verify the demo's claims: the real recorded agent runs, the round-trip that turns screenshots back into tokens with its contrast pairs, and the measured map of every design token. Nothing runs live here; every number comes from a committed file." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- factory.html — the flagship, deep-linkable Factory page (epic #1, ticket #10; restructured in
-       the UX overhaul, plan: enchanted-snuggling-hejlsberg). The wizard is the spine: Station 01
-       asks four questions, the stations after it show the consequences, one artifact per station,
-       with dense evidence behind native <details> disclosures. The round-trip exhibit keeps a
-       compact summary here and links its full evidence page (/roundtrip). Honesty contract:
-       capability badges state what runs; fictional labels and "nothing runs live" statements stay
-       visible at rest, outside all disclosures; nothing here is faked. -->
+  <!-- factory.html — the evidence home (epic #70 / ticket #78, plan: v3-evidence-home-restructure).
+       In v3 the live product-demo lives on the spine (index.html: hero → intake → your-brand →
+       peak → close). This page sheds that duplicate wizard and becomes the deep layer a technical
+       reader opens to VERIFY the demo's claims: a tabbed evidence viewer over three committed-replay
+       engines — the recorded agent-run traces, the round-trip fidelity diff (which carries the WCAG
+       contrast pairs), and the measured token↔consumer graph — plus the prototypes and handoff pack
+       kept minimally here until #80 relocates them to Work, and outbound links to the annotated
+       source and the agentic study. Honesty contract: every capability chip states replay-not-live;
+       fictional labels stay visible at rest, outside all disclosures; nothing here is faked. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
@@ -24,56 +26,80 @@
   <script src="/system/pack-boot.js"></script>
 
   <style>
-    /* Factory-shell layout — page-unique, styled from tokens alone (colour / space / radius / type
-       via var(--…)); grid / % / fixed heights are inherently structural literals — same justification
-       as handoff.html's viewer styles. Single-page layout, not a reused organism → deliberately not
-       promoted to components.css. */
-    /* 130px = sticky header + the sticky station rail stacked above an anchor target.
-       scroll-padding on the root covers EVERY scroll-into-view — anchors, keyboard focus,
-       assistive tech — so nothing ever lands hidden under the sticky chrome. */
-    html { scroll-padding-top: 130px; }
-    #intake, #generation, #prototypes, #handoff, #agents, #round-trip, #shape { scroll-margin-top: 130px; }
+    /* Evidence-home layout — page-unique, styled from tokens alone (colour / space / radius / type
+       via var(--…)); grid / % / fixed heights are inherently structural literals. Single-page
+       layout, not a reused organism → deliberately not promoted to components.css. */
 
-    /* The sticky station rail — always says where you are in intake → … → agents.
-       top 72px tucks it just under the sticky site header (z 50 > 40, so any 1–2px of
-       header-height variance hides behind the header, never in front of it). */
-    .factory-rail {
-      position: sticky; top: 72px; z-index: 40;
+    /* 96px ≈ the sticky site header + a little air. scroll-padding on the root covers EVERY
+       scroll-into-view — anchors, keyboard focus, assistive tech — so a deep-linked panel never
+       lands hidden under the header. (The old sticky station rail is gone in v3.) */
+    html { scroll-padding-top: 96px; }
+    .ev-viewer, #prototypes, #handoff { scroll-margin-top: 96px; }
+
+    /* ── The evidence viewer — the page's one signature surface. A segmented tablist with a
+       sliding pill (the --motion-tab-glide token) swapping between three committed-replay engines.
+       The pill's resting position under the default (Traces) tab is its at-rest / VR state. ── */
+    .ev-viewer { margin-top: var(--spacing-2xl); }
+
+    .ev-tablist {
+      --ev-pad: var(--spacing-xs);
+      position: relative;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+      padding: var(--ev-pad);
+      max-width: 42rem;
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+    }
+    .ev-tab {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 44px; /* full touch target without a pseudo-element */
+      font-family: var(--font-display); font-size: var(--type-body); letter-spacing: 0.01em;
+      text-align: center; padding: 8px 12px;
+      border: 0; background: transparent; color: var(--color-fg-muted);
+      border-radius: var(--radius-sm); cursor: pointer;
+      transition: color var(--motion-fast) var(--motion-ease);
+    }
+    .ev-tab:hover { color: var(--color-fg); }
+    /* the active signal is carried three ways, never by the pill alone: weight, colour, aria-selected */
+    .ev-tab[aria-selected="true"] { color: var(--color-fg); font-weight: 600; }
+    .ev-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+    /* the sliding pill — an inset thumb the exact size of one button column. width + insets map it
+       onto the content box the three buttons span; translateX moves it by its own width per index. */
+    .ev-pill {
+      position: absolute; z-index: 0;
+      top: var(--ev-pad); bottom: var(--ev-pad); left: var(--ev-pad);
+      width: calc((100% - 2 * var(--ev-pad)) / 3);
       background: var(--color-bg);
-      border-bottom: 1px solid var(--color-border);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      transform: translateX(calc(var(--ev-i, 0) * 100%));
     }
-    .factory-rail-inner {
-      display: flex; align-items: center; gap: var(--spacing-sm);
-      overflow-x: auto; padding: var(--spacing-sm) 0;
-    }
-    .factory-rail a {
-      flex: 0 0 auto;
-      font-family: var(--font-display);
-      font-size: 13px; letter-spacing: 0.04em;
-      color: var(--color-fg-muted);
-      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-      padding: 4px 10px; text-decoration: none;
-      transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
-    }
-    .factory-rail a:hover { color: var(--color-accent); border-color: var(--color-accent); }
-    .factory-rail a[aria-current="true"] { color: var(--color-accent); border-color: var(--color-accent); }
-    .factory-rail a.rail-exhibit { border-style: dashed; }
-    .factory-rail-sep { flex: 0 0 auto; width: 1px; align-self: stretch; background: var(--color-border); margin: 0 var(--spacing-sm); }
-
-    /* The stage: wizard left (sticky on desktop), consequences right. One reading order below 960px. */
-    .factory-stage { padding: var(--spacing-3xl) 0; }
-    @media (min-width: 960px) {
-      /* Items stretch (default): #intake spans the full row height, so the sticky wizard can
-         travel beside the whole of #generation instead of stopping at its own short content. */
-      .factory-stage-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--spacing-2xl); }
-      .fw-sticky { position: sticky; top: 130px; }
+    /* Motion lives inside no-preference with rest == final: the pill only GLIDES; its resting
+       position is the static default. Reduced motion → the transform snaps instantly. */
+    @media (prefers-reduced-motion: no-preference) {
+      .ev-pill { transition: transform var(--motion-tab-glide) var(--motion-ease-settle); }
     }
 
+    /* panels: no-JS leaves them ALL visible (evidence is never hidden without JS); the controller
+       adds [hidden] to the inactive two. The engine mounts inside fetch + set data-*="ready"
+       regardless of visibility, so the VR gate (state:'attached') is satisfied while hidden. */
+    .ev-panels { margin-top: var(--spacing-2xl); }
+    .ev-panel { min-width: 0; }
+    /* Inter-panel spacing applies ONLY to the no-JS stacked case (all panels visible). Under JS
+       exactly one panel is shown, so no :not([hidden]) pair matches → the active panel takes its
+       top gap from .ev-panels alone and never jumps a tier when you switch tabs. */
+    .ev-panel:not([hidden]) + .ev-panel:not([hidden]) { margin-top: var(--spacing-3xl); }
+    .ev-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+    .ev-panel-title { font-size: var(--type-h3); margin: 0; }
+    .ev-panel-lead { margin: 0 0 var(--spacing-lg); max-width: 68ch; }
+    .ev-panel-pointer { margin: var(--spacing-lg) 0 0; }
+
+    /* Prototype embeds — capped frames; the proto scrolls inside its own window. */
     .factory-embeds { display: grid; gap: var(--spacing-2xl); }
     .factory-embed-figure { margin: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
-    /* The flex rule above outranks the UA's [hidden]{display:none} (author origin wins), which would
-       leave the toggled-away figure painting — and outside the VR mask's :not([hidden]). */
-    .factory-embed-figure[hidden] { display: none; }
     .factory-embed {
       width: 100%;
       border: 1px solid var(--color-border);
@@ -81,9 +107,6 @@
       background: var(--color-bg-surface);
       display: block;
     }
-    /* Heights are deliberate viewport caps (UX overhaul): the prototypes scroll inside their own
-       frame instead of stretching this page to their full height — "Open it in its own tab" is the
-       full view. Nothing is clipped; the frame is a window, not a container. */
     .factory-embed-phone { height: 720px; }
     .factory-embed-board { height: 780px; }
     .factory-embed-cap { font-size: 13.5px; line-height: 1.55; color: var(--color-fg-muted); }
@@ -91,108 +114,8 @@
 
     .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
 
-    /* Station 1 + 2 intake wizard + live re-skin — token-only discipline as above. The wizard +
-       the narrative read the PAGE's neutral pack; ONLY #reskin-preview carries the derived tokens
-       the engine emits, so the re-skin stays scoped to the sample. */
-
-    /* wizard card — one decision at a time */
-    .fw-card {
-      background: var(--color-bg-surface); border: 1px solid var(--color-border);
-      border-radius: var(--radius-md); padding: var(--spacing-xl); max-width: 60ch;
-    }
-    .fw-loading { padding: var(--spacing-lg) 0; }
-    .fw-progress { font-size: var(--type-eyebrow); letter-spacing: 0.1em; color: var(--color-fg-muted); margin: 0 0 var(--spacing-sm); }
-    .fw-prompt { font-size: var(--type-h3); margin: 0 0 var(--spacing-sm); }
-    .fw-reasoning { margin: 0 0 var(--spacing-lg); max-width: 54ch; }
-    .fw-control { margin-bottom: var(--spacing-lg); }
-    .fw-radios { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-    .fw-radio { display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; }
-    .fw-radio input { accent-color: var(--color-accent); width: 18px; height: 18px; }
-    .fw-color { display: inline-flex; align-items: center; gap: var(--spacing-md); }
-    .fw-color input[type="color"] {
-      width: 56px; height: 40px; padding: 2px; cursor: pointer;
-      border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg);
-    }
-    .fw-color-value { color: var(--color-fg-muted); }
-    .fw-footer { display: flex; gap: var(--spacing-md); }
-
-    /* the re-skin preview frame — the only element carrying the engine's derived tokens */
-    #reskin-preview {
-      margin: var(--spacing-xl) 0; overflow: hidden; background: var(--color-bg);
-      border: 1px solid var(--color-border); border-radius: var(--radius-md);
-      scroll-margin-top: 130px; /* the wizard's "Review" jump clears the sticky header + rail */
-    }
-    #reskin-preview .fw-preview-pad { padding: var(--spacing-xl); }
-    /* In the stage's right column the three sample cards get ~220px each — too narrow to read.
-       Let them wrap to their natural minimum instead of forcing three abreast. */
-    #reskin-preview .grid-3 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    #reskin-preview .feature-band { padding: var(--spacing-2xl) 0; }
-    #reskin-preview .fw-band-inner { padding: 0 var(--spacing-xl); }
-    #reskin-preview .feature-headline { font-size: var(--type-h2); margin-bottom: var(--spacing-lg); }
-
-    /* staged narrative beats (inside the evidence disclosure) */
-    #factory-narrative { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-md); }
-    .fw-beat-title { display: flex; align-items: baseline; gap: var(--spacing-sm); font-size: var(--type-h3); margin: 0 0 var(--spacing-md); }
-    .fw-beat-num { font-size: var(--type-eyebrow); color: var(--color-accent); letter-spacing: 0.1em; }
-    .fw-beat-sub { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-sm); }
-    .fw-note { margin: 0; }
-    .fw-scale, .fw-verdict { margin: 0; max-width: 62ch; }
-
-    /* WCAG checks table (mirrors derive.html; .ok/.bad read the page accent/fg, never a literal) */
-    .fw-checks { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
-    .fw-checks th, .fw-checks td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
-    .fw-checks .ok { color: var(--color-accent); font-weight: 600; }
-    /* draw-in pass check: fully drawn at rest (stroke-dashoffset initial = 0); it draws itself
-       only on discrete renders (.fw-animate) under no-preference, staggered with the rows. */
-    .fw-checks .check-draw {
-      width: 11px; height: 11px; margin-right: 4px; vertical-align: -1px;
-      fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-    }
-    .fw-checks .bad { color: var(--color-fg); font-weight: 700; text-decoration: underline; }
-    .fw-swatch { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--color-border); }
-    .fw-notes, .fw-patterns { margin: 0; padding-left: 1.1em; display: grid; gap: var(--spacing-sm); }
-    .fw-gated { opacity: 0.6; text-decoration: line-through; }
-    .fw-gated-tag { text-decoration: none; margin-left: 8px; padding: 1px 6px; font-size: var(--type-eyebrow); color: var(--color-fg-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
-
-    /* Scenario toggle + ethics guess-then-reveal — token-only discipline as above. */
-    .fw-toggle { border: 0; padding: 0; margin: 0 0 var(--spacing-xl); }
-    .fw-toggle-legend { font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-muted); padding: 0; margin-bottom: var(--spacing-sm); }
-    .fw-toggle-options { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-    .fw-toggle-option { display: inline-flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; padding: var(--spacing-sm) var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); }
-    .fw-toggle-option:has(input:checked) { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
-    .fw-toggle-option input { accent-color: var(--color-accent); width: 16px; height: 16px; }
-
-    /* ethics beat — the Manipulation Matrix, placed then compared (no grading, ever) */
-    .fw-ethics { margin-top: var(--spacing-2xl); padding-top: var(--spacing-xl); border-top: 1px solid var(--color-border); }
-    .fw-ethics-title { font-size: var(--type-h3); margin: 0 0 var(--spacing-sm); }
-    .fw-ethics-intro { margin: 0 0 var(--spacing-lg); max-width: 60ch; }
-    .fw-matrix { display: grid; grid-template-columns: max-content 1fr 1fr; gap: var(--spacing-sm); max-width: 56ch; margin: var(--spacing-lg) 0; }
-    .fw-matrix-corner { min-width: 1px; }
-    .fw-matrix-colhead, .fw-matrix-rowhead { display: flex; align-items: center; font-size: var(--type-caption); color: var(--color-fg-muted); }
-    .fw-matrix-colhead { justify-content: center; text-align: center; padding-bottom: var(--spacing-xs); }
-    .fw-matrix-rowhead { padding-right: var(--spacing-sm); }
-    .fw-quadrant {
-      display: flex; flex-direction: column; gap: var(--spacing-xs); align-items: flex-start; text-align: left;
-      min-height: 84px; padding: var(--spacing-md); font: inherit; cursor: pointer; color: var(--color-fg);
-      background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md);
-    }
-    .fw-quadrant:hover { border-color: var(--color-accent); }
-    .fw-quadrant:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-    .fw-quadrant.is-selected { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent); }
-    .fw-quadrant-name { font-weight: 700; font-size: var(--type-body); }
-    .fw-quadrant-mark { min-height: 1.2em; font-size: var(--type-eyebrow); letter-spacing: 0.04em; color: var(--color-accent); }
-    .fw-ethics-actions { margin-top: var(--spacing-md); }
-    .fw-reveal { margin-top: var(--spacing-xl); }
-    .fw-reveal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-xl); }
-    .fw-reveal-col { padding: var(--spacing-lg); background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
-    .fw-reveal-eyebrow { font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 var(--spacing-sm); }
-    .fw-reveal-quadrant { font-size: var(--type-h3); font-weight: 700; color: var(--color-accent); margin: 0 0 var(--spacing-sm); }
-    .fw-reveal-meaning { margin: 0 0 var(--spacing-md); }
-    .fw-reveal-narrative { margin: 0; }
-    @media (max-width: 640px) { .fw-reveal-cols { grid-template-columns: 1fr; } }
-
-    /* Station-5 trace player (the player injects no <style>; the page styles the trace-* classes
-       it emits, token-only). */
+    /* Trace player — the player injects no <style>; the page styles the trace-* classes it emits,
+       token-only. (Retained from the pre-v3 factory; the Traces tab drives it.) */
     .trace-player { display: flex; flex-direction: column; gap: var(--spacing-lg, 24px); }
     .trace-header { display: flex; flex-direction: column; gap: var(--spacing-sm); }
     .trace-task { font-size: var(--type-h3); margin: 0; }
@@ -238,28 +161,6 @@
     }
     .trace-error-card { border-color: var(--color-fg); }
 
-    /* Presentation motion (.claude/plans/portfolio-motion-phase03-factory-showpiece.md) —
-       compositor-safe, token-driven, ZERO at-rest change: every entrance lives inside
-       @media (prefers-reduced-motion: no-preference) with its rest state == its final state. */
-    @media (prefers-reduced-motion: no-preference) {
-      #reskin-preview.is-animated,
-      #reskin-preview.is-animated .card,
-      #reskin-preview.is-animated .card-body,
-      #reskin-preview.is-animated .card-kicker,
-      #reskin-preview.is-animated .fw-preview-pad,
-      #reskin-preview.is-animated .feature-band,
-      #reskin-preview.is-animated .feature-headline,
-      #reskin-preview.is-animated .feature-item,
-      #reskin-preview.is-animated .amber,
-      #reskin-preview.is-animated h3,
-      #reskin-preview.is-animated h4,
-      #reskin-preview.is-animated p {
-        transition: background-color var(--motion-slow) var(--motion-ease),
-                    color var(--motion-slow) var(--motion-ease),
-                    border-color var(--motion-slow) var(--motion-ease);
-      }
-    }
-
     .trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
     .trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
     @media (prefers-reduced-motion: no-preference) {
@@ -267,32 +168,17 @@
     }
     @keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
 
-    @media (prefers-reduced-motion: no-preference) {
-      .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
-      .fw-quadrant.is-selected { animation: fw-pop var(--motion-bounce) var(--motion-ease-bounce); }
-      .fw-checks.fw-animate tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
-      .fw-checks.fw-animate .check-draw path {
-        stroke-dasharray: 1; stroke-dashoffset: 1;
-        animation: check-draw var(--motion-base) var(--motion-ease-settle) forwards;
-        animation-delay: calc(var(--i, 0) * var(--motion-stagger));
-      }
-    }
-    @keyframes check-draw { to { stroke-dashoffset: 0; } }
-    @keyframes fw-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
-    @keyframes fw-pop { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
-    @keyframes fw-row-in { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }
-
-    /* Animated <details> disclosure where the platform supports it; degrades to an instant snap
-       everywhere else and under reduced motion. Closed state unchanged → no churn. Extended to the
-       page's evidence disclosures (.factory-acc) in the restructure. */
+    /* Animated <details> disclosure (the trace player's per-step response) where the platform
+       supports it; degrades to an instant snap everywhere else and under reduced motion. Closed
+       state unchanged → no VR churn. */
     @media (prefers-reduced-motion: no-preference) {
       @supports (interpolate-size: allow-keywords) {
-        .trace-response, .factory-acc details { interpolate-size: allow-keywords; }
-        .trace-response::details-content, .factory-acc details::details-content {
+        .trace-response { interpolate-size: allow-keywords; }
+        .trace-response::details-content {
           block-size: 0; overflow: hidden;
           transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
         }
-        .trace-response[open]::details-content, .factory-acc details[open]::details-content { block-size: auto; }
+        .trace-response[open]::details-content { block-size: auto; }
       }
     }
 
@@ -321,178 +207,118 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">The factory · five stations</span>
+          <span class="stamp">The factory · evidence</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">Four answers become a design <span class="hl">system</span>.</h1>
+        <h1 class="text-balance">Verify the demo, <span class="hl">claim by claim</span>.</h1>
         <p class="hero-sub">
-          This is the factory floor. Station 01 asks you four questions about a fictional
-          product. The stations after it show what your answers produce: a contrast-checked
-          colour system, working prototypes, the files an engineer would receive, and the
-          recorded AI runs behind them. Every station says what really runs. Nothing is faked.
+          The home page builds a design system in front of you. This page holds the receipts:
+          the real agent runs recorded step by step, the round-trip that turns screenshots back
+          into tokens with its contrast pairs, and the measured map of every token and the
+          components that use it. Nothing runs live here. Every number comes from a committed file.
         </p>
       </div>
     </section>
 
-    <nav class="factory-rail" aria-label="Stations">
-      <div class="container factory-rail-inner">
-        <a href="#intake">01 · Intake</a>
-        <a href="#generation">02 · Generation</a>
-        <a href="#prototypes">03 · Prototypes</a>
-        <a href="#handoff">04 · Handoff</a>
-        <a href="#agents">05 · Agents</a>
-        <span class="factory-rail-sep" aria-hidden="true"></span>
-        <a class="rail-exhibit" href="#round-trip">Round-trip</a>
-        <a class="rail-exhibit" href="#shape">Shape</a>
-      </div>
-    </nav>
-
-    <!-- The stage: Station 01 (wizard, sticky) beside Station 02 (its live consequences). Two real
-         sections in one grid, so both anchors and section labels survive; below 960px it stacks in
-         the same reading order as before. -->
-    <div class="factory-stage">
-      <div class="container factory-stage-grid">
-
-        <!-- Station 1 · Intake — the guided wizard drives the real derivation engine -->
-        <section id="intake">
-          <h2 class="section-label"><span class="num">01</span><span>Intake <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-          <!-- Scenario toggle: the module renders a labelled two-option control here. This static
-               fallback keeps a truthful label if the module is slow or blocked. -->
-          <div id="scenario-toggle"><p class="muted">Scenario: Verdant · plant care</p></div>
-          <p class="fw-scenario">
-            <strong class="fw-scenario-tag">Fictional scenario</strong>
-            <span id="fw-scenario-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</span>
-            The four answers below are real inputs to the live engine.
-          </p>
-          <div class="fw-sticky">
-            <div id="factory-wizard">
-              <p class="fw-loading muted">Loading the intake wizard…</p>
-            </div>
-            <!-- Legibility nugget (#41), compressed: guided input over a blank prompt. -->
-            <p class="fw-nugget" style="margin-top: var(--spacing-lg);">
-              Guided questions instead of a blank prompt: you always see what the system can do
-              and why each default was chosen (Microsoft Human-AI guidelines; Google PAIR).
-            </p>
-          </div>
-        </section>
-
-        <!-- Station 2 · Design-system generation — live re-skin + summary + evidence disclosure -->
-        <section id="generation">
-          <h2 class="section-label"><span class="num">02</span><span>Generation <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-          <p class="max-prose">
-            Your answers run through the real engine and re-skin this sample live. The strip
-            below is the engine's own summary; open the evidence for every number behind it.
-          </p>
-
-          <!-- Sample surface: real components. Static in HTML so it renders even if the module is
-               slow or blocked; the module only sets derived tokens as custom properties here. -->
-          <div id="reskin-preview">
-            <div class="fw-preview-pad">
-              <div class="grid grid-3">
-                <article class="card"><div class="card-body">
-                  <div class="card-kicker">Card</div>
-                  <h3 class="h3 mb-md">Text on a surface</h3>
-                  <p class="muted">Muted body text on the derived card surface, one of the checked pairs.</p>
-                </div></article>
-                <article class="card"><div class="card-body">
-                  <div class="card-kicker">Accent</div>
-                  <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
-                  <p class="muted">The accent must survive as text, not just as a fill.</p>
-                </div></article>
-                <article class="card"><div class="card-body">
-                  <div class="card-kicker">Buttons</div>
-                  <p class="mb-md"><a class="btn btn-primary" href="#generation">Primary</a></p>
-                  <p><a class="btn btn-secondary" href="#generation">Secondary</a></p>
-                </div></article>
-              </div>
-            </div>
-            <!-- Dark band: the inverse group is where bad derivation hides — keep it visible. -->
-            <div class="feature-band">
-              <div class="fw-band-inner">
-                <h3 class="feature-headline">The dark band re-skins too.</h3>
-                <div class="feature-grid cols-2">
-                  <div class="feature-item ruled"><h4>Derived ground</h4><p>The dark ground keeps a trace of the brand hue instead of falling back to plain black.</p></div>
-                  <div class="feature-item ruled"><h4>Relative tokens</h4><p>Muted text and hairlines on this surface are derived from the same few base colours.</p></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- The engine's four-cell summary — rendered by factory-intake.mjs from the same
-               derive() result as the narrative, so strip and evidence can never disagree. -->
-          <div id="factory-summary" class="cs-meta"></div>
-
-          <div class="cs-acc factory-acc" style="margin-top: var(--spacing-lg);">
-            <details>
-              <summary>The evidence: contrast checks · scales · patterns · verdict <span class="mark" aria-hidden="true"></span></summary>
-              <div class="acc-body">
-                <!-- Legibility nugget (#41), compressed: show the checks, don't assert them. -->
-                <p class="fw-nugget">Shown, not asserted: the checks and the reasoning are the exhibit (Google PAIR; Amershi et al.).</p>
-                <!-- Staged "how it's generated" narrative, rendered from the engine's own output. -->
-                <div id="factory-narrative"></div>
-              </div>
-            </details>
-          </div>
-
-          <!-- The ethics guess-then-reveal (Manipulation Matrix) — its OWN container so a wizard
-               answer change (which replaceChildren()s #factory-narrative) never wipes the reader's
-               placement. Reset to un-placed only on a scenario toggle. -->
-          <div id="ethics-gate"></div>
-
-          <p class="muted fw-raw-pointer" style="margin-top: var(--spacing-xl);">
-            The same engine, raw → <a href="/derive">/derive</a> ·
-            in reverse, screenshots → tokens: <a href="#round-trip">the round-trip ↓</a>
-          </p>
-        </section>
-
-      </div>
-    </div>
-
-    <!-- Un-numbered exhibit: the derivation round-trip, compact. The full evidence page is
-         /roundtrip (screenshots · caveat · recorded run); this card keeps the measured diff
-         on-page, collapsed, so the number is shown here, never merely claimed. -->
-    <section class="section" id="round-trip">
+    <!-- Centerpiece · the tabbed evidence viewer. Three committed-replay engines behind a segmented
+         tablist: Traces (default) · Round-trip · Graph. The panel ids #agents / #round-trip / #shape
+         preserve the pre-v3 handover anchors, so /factory#round-trip (roundtrip.html) still lands. -->
+    <section class="band">
       <div class="container">
-        <div class="hero-eyebrow"><span class="stamp">Fidelity evidence</span></div>
-        <h2 class="h2">The round-trip <span class="capability">provisional</span></h2>
-        <p class="fw-scenario">
-          <strong class="fw-scenario-tag">Fictional scenario</strong>
-          <span>Verdant is a fictional product, invented for this demonstration. No real company,
-          users, or data are involved.</span>
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">The evidence</p>
+            <h2 class="beat-title">Three ways to check the work.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Pick a tab. Each one replays a committed artifact from building this site, not a live
+          run. The label on each says exactly what you are looking at.
         </p>
-        <p class="max-prose">
-          The factory can also run in reverse: screenshots in, proposed design tokens out. Here
-          it ran on Verdant's own prototype, where the right answer is known, so the proposal is
-          measured instead of trusted. It is a controlled, favourable case, and the verdict says
-          so. Nothing runs live; every number comes from committed files.
-        </p>
-        <div class="cs-acc factory-acc">
-          <details>
-            <summary>The measured diff: every token against ground truth <span class="mark" aria-hidden="true"></span></summary>
-            <div class="acc-body">
+
+        <div class="ev-viewer">
+          <div class="ev-tablist" role="tablist" aria-label="Evidence">
+            <span class="ev-pill" aria-hidden="true"></span>
+            <button type="button" class="ev-tab" role="tab" id="ev-tab-agents" aria-controls="agents" aria-selected="true">Traces</button>
+            <button type="button" class="ev-tab" role="tab" id="ev-tab-round-trip" aria-controls="round-trip" aria-selected="false">Round-trip</button>
+            <button type="button" class="ev-tab" role="tab" id="ev-tab-shape" aria-controls="shape" aria-selected="false">Graph</button>
+          </div>
+
+          <div class="ev-panels">
+            <!-- Traces (default) -->
+            <div class="ev-panel" id="agents" role="tabpanel" aria-labelledby="ev-tab-agents" tabindex="0">
+              <div class="ev-panel-head">
+                <h3 class="ev-panel-title">Recorded agent runs</h3>
+                <span class="capability">Real run · replayed</span>
+              </div>
+              <p class="ev-panel-lead max-prose">
+                A real Claude Agent SDK run from building this factory, recorded step by step. It
+                planned, passed a gate, implemented, and validated a component spec. The player
+                replays the committed file. Nothing runs live.
+              </p>
+              <div id="agents-player"><p class="muted">Loading the recorded run…</p></div>
+            </div>
+
+            <!-- Round-trip · carries the WCAG contrast pairs -->
+            <div class="ev-panel" id="round-trip" role="tabpanel" aria-labelledby="ev-tab-round-trip" tabindex="0">
+              <div class="ev-panel-head">
+                <h3 class="ev-panel-title">The round-trip check</h3>
+                <span class="capability">Provisional · measured</span>
+              </div>
+              <p class="fw-scenario">
+                <strong class="fw-scenario-tag">Fictional scenario</strong>
+                <span>Verdant is a fictional product, invented for this demonstration. No real
+                company, users, or data are involved.</span>
+              </p>
+              <p class="ev-panel-lead max-prose">
+                The factory can also run in reverse: screenshots in, proposed tokens out. Here it
+                ran on Verdant's own prototype, where the right answer is known, so the proposal is
+                measured against ground truth instead of trusted. It is a controlled, favourable
+                case, and the verdict says so. The twelve contrast pairs below are the WCAG evidence.
+              </p>
               <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
+              <div class="factory-actions">
+                <a class="btn btn-secondary btn-arrow" href="/roundtrip">The full exhibit: what was read, the caveat, the recorded run</a>
+              </div>
             </div>
-          </details>
-        </div>
-        <div class="factory-actions">
-          <a class="btn btn-secondary btn-arrow" href="/roundtrip">The full exhibit: what was read, the caveat, the recorded run</a>
+
+            <!-- Graph -->
+            <div class="ev-panel" id="shape" role="tabpanel" aria-labelledby="ev-tab-shape" tabindex="0">
+              <div class="ev-panel-head">
+                <h3 class="ev-panel-title">The shape of the system</h3>
+                <span class="capability">Measured · generated</span>
+              </div>
+              <p class="ev-panel-lead max-prose">
+                Every design token this site uses, the components that consume it, and the value
+                each committed pack binds it to. Drawn from measurement, never by hand. Hover or
+                focus a token to see everything it touches.
+              </p>
+              <div id="system-graph"><p class="muted">Loading the measured graph…</p></div>
+              <p class="muted ev-panel-pointer">
+                Full dataset → <a href="/system/system-graph.json">system-graph.json</a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Station 3 · Prototypes — both data-connected screens embedded, capped frames -->
-    <section class="section" id="prototypes">
+    <!-- Prototypes — kept minimally on factory until #80 relocates them to Work. Both screens shown
+         (the scenario toggle was part of the retired live demo). -->
+    <section class="band" id="prototypes">
       <div class="container">
-        <h2 class="section-label"><span class="num">03</span><span>Prototypes <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-        <p class="max-prose">
-          Two prototype screens built on this system, rendering live from the mock API and
-          falling back to committed fixtures when it's down. The indicator in each frame says
-          which one you're seeing. The frame is a window: scroll inside it, or open the full tab.
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Prototypes</p>
+            <h2 class="beat-title">Two screens built on the system.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Both render live from the mock API and fall back to committed fixtures when it is down.
+          The indicator in each frame says which one you are seeing. The frame is a window: scroll
+          inside it, or open the full tab.
         </p>
         <div class="factory-embeds">
-          <!-- Both figures stay in the DOM; the toggle shows the active scenario's proto and `hidden`s
-               the other (renderScenarioChrome). Default: Verdant visible (pins the baseline). The visual
-               mask targets only the visible figure (:not([hidden])). -->
           <figure class="factory-embed-figure" data-scenario="verdant">
             <iframe class="factory-embed factory-embed-phone"
                     src="/proto/verdant.html"
@@ -503,7 +329,7 @@
               <a href="/proto/verdant.html">Open it in its own tab →</a>
             </figcaption>
           </figure>
-          <figure class="factory-embed-figure" data-scenario="fieldwork" hidden>
+          <figure class="factory-embed-figure" data-scenario="fieldwork">
             <iframe class="factory-embed factory-embed-board"
                     src="/proto/fieldwork.html"
                     title="Fieldwork — Dispatch board: a hybrid canvas with two bounded agentic slots, rendering from the mock API"
@@ -518,13 +344,19 @@
       </div>
     </section>
 
-    <!-- Station 4 · Handoff — the viewer + the one-file download -->
-    <section class="section" id="handoff">
+    <!-- Handoff — kept minimally until #80. Static prose (#handoff-note; no module writes it now)
+         + the viewer link and the one-file download. -->
+    <section class="band" id="handoff">
       <div class="container">
-        <h2 class="section-label"><span class="num">04</span><span>Handoff <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-        <p class="max-prose" id="handoff-note">
-          The pack an engineer would actually receive: every component's spec, docs, and agent
-          vocabulary side by side, generated from one source. Also downloadable as a single JSON.
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Handoff</p>
+            <h2 class="beat-title">The pack an engineer receives.</h2>
+          </div>
+        </div>
+        <p class="beat-lead" id="handoff-note">
+          Every component's spec, docs, and agent vocabulary side by side, generated from one
+          source. Also downloadable as a single JSON.
         </p>
         <div class="factory-actions">
           <a class="btn btn-primary btn-arrow" href="/handoff">Inspect the handoff pack</a>
@@ -533,50 +365,35 @@
       </div>
     </section>
 
-    <!-- Station 5 · Agents visible — the trace player on a real, curated run, collapsed -->
-    <section class="section" id="agents">
+    <!-- Go deeper — outbound links to the two evidence surfaces that keep their own pages. -->
+    <section class="band" id="verify-further">
       <div class="container">
-        <h2 class="section-label"><span class="num">05</span><span>Agents visible <span class="capability live">Runs now</span></span><span class="line"></span></h2>
-        <!-- Scenario-neutral honest copy (honesty surface #2). Not swapped on toggle. -->
-        <p class="max-prose" id="agents-note">
-          A real Claude Agent SDK run from building this factory, recorded step by step: it
-          planned, passed a gate, implemented, and validated a component spec. Nothing runs
-          live here; the page replays a committed file.
-        </p>
-        <div class="cs-acc factory-acc">
-          <details>
-            <summary>Replay the recorded run: plan · gate · implement · validate <span class="mark" aria-hidden="true"></span></summary>
-            <div class="acc-body">
-              <!-- Legibility nugget (#41), compressed. -->
-              <p class="fw-nugget">Stepped acts instead of a log: the agent's reasoning made visible (Nielsen; Amershi et al.).</p>
-              <div id="agents-player" style="margin-top: var(--spacing-md);"></div>
-            </div>
-          </details>
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Go deeper</p>
+            <h2 class="beat-title">Follow the work further.</h2>
+          </div>
         </div>
-      </div>
-    </section>
-
-    <!-- Un-numbered exhibit: the shape of the system — prose visible, measured graph collapsed. -->
-    <section class="section" id="shape">
-      <div class="container">
-        <div class="hero-eyebrow"><span class="stamp">The contract, measured</span></div>
-        <h2 class="h2">The shape of the system</h2>
-        <p class="max-prose">
-          Every design token this site uses, the components that consume it, and the value each
-          committed style pack binds it to. Drawn from measurement, never by hand. Hover or
-          focus a token to see everything it touches.
-        </p>
-        <div class="cs-acc factory-acc">
-          <details>
-            <summary>The measured graph: every token, every consumer <span class="mark" aria-hidden="true"></span></summary>
-            <div class="acc-body">
-              <div id="system-graph"><p class="muted">Loading the measured graph…</p></div>
-            </div>
-          </details>
-        </div>
-        <p class="muted fw-raw-pointer">
-          Full dataset → <a href="/system/system-graph.json">system-graph.json</a>
-        </p>
+        <ul class="row-list">
+          <li>
+            <a class="row-item" href="/approach">
+              <span class="row-item-text">
+                <span class="row-item-title">How I work, in annotated source</span>
+                <span class="row-item-desc">The method and the token contract, with real code pulled from this repo</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/agentic-ui-study">
+              <span class="row-item-text">
+                <span class="row-item-title">The agentic study</span>
+                <span class="row-item-desc">An interface composed by an agent, adjustable live, with the refusal shown</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -596,57 +413,70 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
-  <script type="module" src="/system/factory-intake.mjs"></script>
   <script type="module" src="/system/derivation-roundtrip.mjs"></script>
 
-  <!-- Deep links into collapsed evidence stay honest: if the hash targets a node inside a closed
-       <details>, open its ancestors before the browser scrolls to it. -->
+  <!-- Evidence-viewer tab controller (replaces the pre-v3 rail scroll-spy + hash-opens-details
+       inline scripts). Progressive enhancement: with no JS all three panels stay visible; JS hides
+       the inactive two, drives the pill, wires click + APG arrow-key nav, and activates the tab a
+       matching deep-link (/factory#round-trip) points at. -->
   <script>
     (function () {
-      function openForHash() {
-        if (!location.hash) return;
-        var target;
-        try { target = document.querySelector(location.hash); } catch (e) { return; }
-        if (!target) return;
-        var d = target.closest("details");
-        while (d) { d.open = true; d = d.parentElement && d.parentElement.closest("details"); }
-      }
-      openForHash();
-      addEventListener("hashchange", openForHash);
-    })();
-  </script>
+      var tablist = document.querySelector(".ev-tablist");
+      if (!tablist) return;
+      var pill = tablist.querySelector(".ev-pill");
+      var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[role="tab"]'));
+      var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute("aria-controls")); });
 
-  <!-- Station-rail scroll-spy: mark the chip for the section in view. Progressive enhancement;
-       at rest (scroll 0, hero in view) no chip is current. -->
-  <script>
-    (function () {
-      var rail = document.querySelector(".factory-rail");
-      if (!rail || !("IntersectionObserver" in window)) return;
-      var links = {};
-      rail.querySelectorAll("a[href^='#']").forEach(function (a) { links[a.hash.slice(1)] = a; });
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          var link = links[entry.target.id];
-          if (!link) return;
-          if (entry.isIntersecting) {
-            rail.querySelectorAll("a[aria-current]").forEach(function (a) { a.removeAttribute("aria-current"); });
-            link.setAttribute("aria-current", "true");
-          }
+      function activate(i, moveFocus) {
+        tabs.forEach(function (tab, j) {
+          var on = j === i;
+          tab.setAttribute("aria-selected", on ? "true" : "false");
+          tab.tabIndex = on ? 0 : -1;
+          if (panels[j]) panels[j].hidden = !on;
         });
-      }, { rootMargin: "-35% 0px -60% 0px" });
-      Object.keys(links).forEach(function (id) {
-        var s = document.getElementById(id);
-        if (s) io.observe(s);
+        if (pill) pill.style.setProperty("--ev-i", i);
+        if (moveFocus) tabs[i].focus();
+      }
+
+      // JS is on → collapse to the default (Traces) tab. No-JS never reaches here, so all panels
+      // stay painted for the reader without scripting.
+      activate(0, false);
+
+      tabs.forEach(function (tab, i) {
+        tab.addEventListener("click", function () { activate(i, false); });
+        tab.addEventListener("keydown", function (e) {
+          var n = tabs.length, next = -1;
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % n;
+          else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (i - 1 + n) % n;
+          else if (e.key === "Home") next = 0;
+          else if (e.key === "End") next = n - 1;
+          if (next >= 0) { e.preventDefault(); activate(next, true); }
+        });
       });
+
+      // Deep link: activate the panel the hash names and bring the whole viewer (tabs + active
+      // panel) into view.
+      function fromHash() {
+        if (!location.hash) return;
+        var id;
+        try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { id = location.hash.slice(1); }
+        var idx = -1;
+        panels.forEach(function (p, j) { if (p && p.id === id) idx = j; });
+        if (idx < 0) return;
+        activate(idx, false);
+        var viewer = document.querySelector(".ev-viewer");
+        if (viewer) viewer.scrollIntoView();
+      }
+      fromHash();
+      addEventListener("hashchange", fromHash);
     })();
   </script>
 
-  <!-- Station-5 trace mount: fetch the committed, CURATED demo-notice run (a real Agent SDK run)
-       and hand it to the view-time player. Mounts ONCE and is never re-rendered on toggle. The
-       [data-trace="ready"] attribute is the visual-regression gate's wait handle — set ONLY on
-       fetch success, so a real failure fails loud (the gate hangs) instead of baking a
-       false-green baseline. The mount lives inside a closed <details>; the gate waits on
-       attachment, not visibility. -->
+  <!-- Traces mount: fetch the committed, CURATED demo-notice run (a real Agent SDK run) and hand it
+       to the view-time player. [data-trace="ready"] is the visual-regression gate's wait handle —
+       set ONLY on fetch success, so a real failure fails loud (the gate hangs) instead of baking a
+       false-green baseline. The mount sits inside a tab panel that JS may have `hidden`; the module
+       fetches + sets the attribute regardless of visibility, and the gate waits on attachment. -->
   <script type="module">
     import { parseTrace, renderTracePlayer } from "/system/trace-player.mjs";
     const mount = document.getElementById("agents-player");
@@ -671,9 +501,9 @@
     }
   </script>
 
-  <!-- Shape-of-the-system mount: fetch the committed, generated graph artifact and hand it to the
-       view-time module. [data-graph="ready"] is the visual-regression gate's wait handle — set
-       ONLY on success, so a broken artifact fails loud instead of baselining an empty exhibit. -->
+  <!-- Graph mount: fetch the committed, generated graph artifact and hand it to the view-time
+       module. [data-graph="ready"] is the visual-regression gate's wait handle — set ONLY on
+       success, so a broken artifact fails loud instead of baselining an empty exhibit. -->
   <script type="module">
     import { prepareGraph, renderSystemGraph } from "/system/system-graph.mjs";
     const mount = document.getElementById("system-graph");

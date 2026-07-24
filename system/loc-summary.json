@@ -11,7 +11,7 @@
       "id": "pages",
       "label": "shipped pages (root + proto/)",
       "files": 15,
-      "linesApprox": 3600
+      "linesApprox": 3500
     },
     {
       "id": "generators",
@@ -22,6 +22,6 @@
   ],
   "total": {
     "files": 71,
-    "linesApprox": 15400
+    "linesApprox": 15200
   }
 }
