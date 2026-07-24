@@ -247,7 +247,11 @@ function renderPrototype(config, name) {
         });
     })
     .catch((err) => {
-      unclaim(null); // the error card explains itself; the badge must not outlive the capability
+      // Badge AND claim both go: the error card below says what broke, but the paragraph above it
+      // would otherwise still read "Adjust it below" over a slot holding nothing adjustable. Same
+      // honesty-contract reasoning as the no-composition path — a capability the reader cannot
+      // exercise must not be claimed, whatever the reason it is unavailable.
+      unclaim("The data-connected screen built for this application. This instance's composed view could not be loaded, so there is nothing to adjust here.");
       errorCard(mount, `Could not load the composed view — ${err.message}`);
     });
 }

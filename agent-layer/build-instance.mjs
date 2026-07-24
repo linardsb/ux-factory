@@ -174,6 +174,21 @@ function stampShell(html, { name, slug, traceBase, links, composition }) {
   return out;
 }
 
+// The composition manifest's `proposal` paths are a CONTRACT, not a hint: each must name a plain file
+// directly inside THIS instance's own composition dir. Returns the ref when it holds, else null.
+// Enforced at both the copy step and validateAssembly, because a manifest value ends up in
+// readFileSync twice — a `../…` ref would otherwise walk straight out of the deploy dir (the manifest
+// is the operator's own record-composition output, so this is a contract guard, not a trust boundary,
+// but a gate whose stated job is "what validates is what ships" has to enforce it, not infer it from
+// a downstream symptom). `.`/`..` are excluded explicitly: neither contains a slash.
+function compositionRef(slug, ref) {
+  if (typeof ref !== "string") return null;
+  const prefix = `/proto/compositions/${slug}/`;
+  if (!ref.startsWith(prefix)) return null;
+  const file = ref.slice(prefix.length);
+  return file && file !== "." && file !== ".." && !file.includes("/") ? ref : null;
+}
+
 // Validate the assembled deploy dir — the gate that catches a bad stamp or a missing asset before the
 // operator deploys. Throws one aggregated Error naming every problem.
 function validateAssembly(deployDir, { slug, traceBase, name }) {
@@ -228,6 +243,7 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   const refs = new Set();
   for (const m of html.matchAll(/(?:href|src)="(\/(?:system|assets|scenarios|traces|proto|handoff)\/[^"]+)"/g)) refs.add(m[1]);
   let compositionIndex = null; // the parsed manifest, when this instance ships a composed view
+  const composedViews = [];    // only its entries whose proposal path holds to the contract
   if (config) {
     refs.add(`${config.package}/intake.defaults.json`);
     refs.add(`${config.package}/copy.json`);
@@ -242,7 +258,18 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
         compositionIndex = JSON.parse(readFileSync(join(deployDir, config.composition.index.replace(/^\//, "")), "utf8"));
         if (!Array.isArray(compositionIndex) || compositionIndex.length === 0)
           problems.push(`${config.composition.index} carries no composed views (expected a non-empty manifest array)`);
-        else for (const entry of compositionIndex) refs.add(entry.proposal);
+        else for (const entry of compositionIndex) {
+          // Contract first, filesystem second. A violating entry is named here and dropped — it is
+          // deliberately NOT ref'd and NOT validated below, so each bad entry yields exactly one
+          // problem instead of a fence complaint plus a "referenced asset missing" echo.
+          const ref = compositionRef(slug, entry && entry.proposal);
+          if (!ref) {
+            problems.push(`composed view path ${JSON.stringify(entry && entry.proposal)} is outside this instance's manifest contract — every proposal must read /proto/compositions/${slug}/<file> (record the run with scenario == "${slug}")`);
+            continue;
+          }
+          refs.add(ref);
+          composedViews.push(entry);
+        }
       } catch (e) {
         compositionIndex = null;
         problems.push(`could not read the copied composition manifest ${config.composition.index} — ${e.message}`);
@@ -257,10 +284,10 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   //     never reach a deploy. Runs only on files that resolved above — a missing one is already a
   //     problem, and re-reporting it as a validation failure would just double the noise.
   const resolved = (ref) => typeof ref === "string" && existsSync(join(deployDir, ref.replace(/^\//, "")));
-  if (config && config.composition && Array.isArray(compositionIndex) && resolved(config.composition.vocab)) {
+  if (config && config.composition && composedViews.length && resolved(config.composition.vocab)) {
     try {
       const vocab = JSON.parse(readFileSync(join(deployDir, config.composition.vocab.replace(/^\//, "")), "utf8"));
-      for (const entry of compositionIndex) {
+      for (const entry of composedViews) {
         if (!resolved(entry.proposal)) continue;
         try {
           validateComposition(vocab, JSON.parse(readFileSync(join(deployDir, entry.proposal.replace(/^\//, "")), "utf8")), entry.slug);
@@ -344,7 +371,29 @@ export function buildInstance({ briefPath, outDir, packPath, tracePath, composit
     // record-composition with scenario == slug) — validateAssembly fails loudly on a mismatch.
     let composition = null;
     if (compAbs) {
-      cpSync(compAbs, join(deployDir, "proto", "compositions", slug), { recursive: true });
+      // COPY BY NAME, never wholesale. `--trace` ships exactly the one file it references; this ships
+      // index.json plus exactly the proposals that manifest names, so "only what the manifest
+      // references reaches the unlisted deploy dir" is structural rather than incidental — a stray
+      // scratch file, an earlier run's artifact or a .DS_Store in the source dir has no path in.
+      // Entries that fail the path contract are deliberately not copied: validateAssembly names each
+      // one below, and a name is more use to the operator than a silently-absent file.
+      const srcIndexPath = join(compAbs, "index.json");
+      let srcIndex;
+      try {
+        srcIndex = JSON.parse(readFileSync(srcIndexPath, "utf8"));
+      } catch (e) {
+        throw new Error(`build-instance: --compositions manifest ${srcIndexPath} is not readable JSON — ${e.message}`);
+      }
+      const compDir = join(deployDir, "proto", "compositions", slug);
+      mkdirSync(compDir, { recursive: true });
+      copyFileSync(srcIndexPath, join(compDir, "index.json"));
+      if (Array.isArray(srcIndex))
+        for (const entry of srcIndex) {
+          const ref = compositionRef(slug, entry && entry.proposal);
+          if (!ref) continue;
+          const file = basename(ref);
+          if (existsSync(join(compAbs, file))) copyFileSync(join(compAbs, file), join(compDir, file));
+        }
       mkdirSync(join(deployDir, "handoff", "verdant"), { recursive: true });
       copyFileSync(join(REPO_ROOT, "handoff", "verdant", "vocabulary.json"), join(deployDir, "handoff", "verdant", "vocabulary.json"));
       composition = { index: `/proto/compositions/${slug}/index.json`, vocab: "/handoff/verdant/vocabulary.json" };

@@ -60,7 +60,7 @@ genuinely independent.
 | stamped, **no** `--compositions` | *removed* | "…**No composed view ships inside this instance** — when a prototype exists, it is linked below." | placeholder card |
 | stamped, **with** `--compositions` | "Adjusts now · composed at build time" | composed-view claim | 5 tiles, `ready` |
 | repo demo | same + the `data-when="demo"` sentence | composed-view claim | 5 tiles, `ready` |
-| forced fetch failure | *removed* | — | error card |
+| forced fetch failure | *removed* | "…**could not be loaded, so there is nothing to adjust here**." | error card |
 
 0 console errors in every state.
 
@@ -81,7 +81,7 @@ CLI usage prints `--compositions`. PASS.
 | run | expected | result |
 |---|---|---|
 | PASSING (slug-matched dir) | exit 0, stamped, validated | ✓ `build-instance acme ✓ fictional · … · prototype 2 composed views`; `grep -c '"composition"' index.html` → 1; `proto/compositions/acme/` (3 files) + `handoff/verdant/vocabulary.json` present |
-| NEGATIVE — slug mismatch | named "referenced asset missing" | ✓ both proposals named; deploy dir discarded |
+| NEGATIVE — slug mismatch | named contract violation | ✓ both proposals named (`composed view path "/proto/compositions/northwind/…" is outside this instance's manifest contract`); deploy dir discarded |
 | NEGATIVE — out-of-vocab proposal (`tone:"urgent"`) | `validateComposition` refusal blocks deploy | ✓ `composed view /proto/compositions/acme/stock-risk-state.json is not renderable — stock-risk-state[0].props.tone: "urgent" is not in enum […]`; dir discarded |
 | NEGATIVE — **no** `--compositions` (#43/#44 regression) | still builds, no composition key | ✓ exit 0; `"composition"` count 0; no `proto/` dir; prototype slot falls back to the honest placeholder |
 
@@ -168,3 +168,48 @@ system-graph · handoff · scenarios · traces` (after regenerating `loc-summary
 ## Not done (out of scope, per the plan)
 - No `ds-` list-row primitive (#88 deferred it), no ceiling/vision engine (#90), no composition-index
   path rewriting, no in-slot composition-trace links, no change to the privacy posture.
+
+## PR #100 review findings — fixed in-branch
+
+All three Low findings from the review were fixed here rather than deferred (owner's call on #3).
+
+**#1 — the manifest path contract is now enforced, not inferred.** A new `compositionRef(slug, ref)`
+fence requires every `proposal` to name a plain file directly under `/proto/compositions/<slug>/`
+(`.`/`..` excluded explicitly). The review's suggested one-line guard at the `refs` loop would NOT
+have closed the hole: block 6b iterates the manifest directly and gated only on `existsSync`, so
+`readFileSync` still reached the outside file. The fence is applied at **both** read sites — a
+violating entry is named and dropped before it is ref'd or validated, so each bad entry yields exactly
+one problem instead of a fence complaint plus a "referenced asset missing" echo.
+
+Reviewer's repro re-run — `"proposal": "../../../../../../../../etc/hosts"` now fails as a named
+contract violation with **no file contents echoed** (previously `Unexpected token '#', "## # Host"…`,
+which was the read having already happened):
+```
+- composed view path "../../../../../../../../etc/hosts" is outside this instance's manifest
+  contract — every proposal must read /proto/compositions/acme/<file> (record the run with
+  scenario == "acme")
+```
+
+**#3 — `--compositions` copies by name.** The wholesale `cpSync(…, {recursive:true})` is replaced by
+`index.json` plus exactly the proposals the manifest references, matching what `--trace` already did.
+Proven with a source dir salted with `STRAY-SCRATCH.txt` + `.DS_Store`: neither reaches the deploy
+dir, which holds exactly the 3 expected files. A malformed source manifest now throws a named error
+naming its path.
+
+**#2 — the claim paragraph is withdrawn on the failure path too.** `unclaim(null)` →
+`unclaim("…could not be loaded, so there is nothing to adjust here.")`, applying deviation #9's
+honesty-contract reasoning to the failure case: the paragraph previously still read "Adjust it below"
+above the error card. The four-state table's forced-failure row (which had recorded the claim as "—",
+i.e. withdrawn, when it was retained verbatim) is corrected above.
+
+**Re-validation** — `node --check` on both edited modules; five real `build-instance` runs (passing
+with `--compositions`; traversal manifest; slug mismatch; out-of-vocab `tone:"urgent"`; **no**
+`--compositions`) — every negative fails loud and discards the deploy dir, and the #43/#44 regression
+still exits 0 with composition count 0 and no `proto/` dir. Headless Chromium over the repo demo
+confirms the healthy path is unchanged (badge live, `data-prototype="ready"`, 5 tiles) and the forced
+fetch failure now withdraws badge **and** claim while `body[data-instance="ready"]` and
+`#instance-player[data-trace="ready"]` stay set — the chains remain independent.
+
+The slug-mismatch negative now reports the contract violation instead of "referenced asset missing";
+its row above is updated to match. Finding #4 (red `visual`) needed no action — it is the D11 freeze
+on `feature/v3-*` and reproduces on `main` at the same base commit.
