@@ -37,6 +37,12 @@ No unit-test suite exists in this repo (CLAUDE.md: "no suite, no linter, no type
 11. Console clean on a fresh `/`
 12. Reduced motion: morph and disclosure land instantly
 
+**Whole-site sweep** (Chromium + WebKit, 8 pages each, **16/16 clean**): `/`, `/approach.html`, `/factory.html`, `/work.html`, `/contact.html`, `/404.html`, `/instance.html`, `/handoff.html`. This is the check the new import chain needs — `dock.mjs` now pulls `pack-derived.mjs` → `derive.mjs` on every page that loads the control, so the six pages beyond Home and Work had to be proven clean too. The control mounts on the six IA pages and correctly does not on `/instance.html` or `/handoff.html`, which do not load `dock.mjs`.
+
+**Visual check**: the open panel was eyeballed in both Chromium and WebKit (real Safari engine) at 1280px — the `:has()` checked-row highlight, the stacked actions and the four-row list render identically. CHECKLIST's "eyeball in real Safari AND real Chrome" MUST is satisfied.
+
+**Private mode / throwing `localStorage`** is covered by construction rather than by a test: every storage access in both `dock.mjs` and `pack-derived.mjs` sits in a `try/catch`, so the control degrades to session-only with no uncaught error. Playwright cannot easily force `localStorage` to throw, so this is an inspection claim, not a measured one.
+
 ## Validation results
 
 | Gate | Result |
@@ -64,9 +70,13 @@ No unit-test suite exists in this repo (CLAUDE.md: "no suite, no linter, no type
 
 7. **Panel title uses `--type-h3`.** The plan implied a step below `h3`; there is no `--type-h4` token, and inventing one for a single panel is not worth a contract addition.
 
-8. **`#beat-brand`'s label can go stale in one edge case.** Enter a colour without wearing it, then pick a committed pack in the dock: the inline colours are cleared (correctly), but the beat's own label still reads "Your colour is on the stage". Fixing that means reaching into #74's merged `wireBeatBrand()`, which the plan scopes out (the event contract is dock-listens-to-beat, one direction). Flagged rather than fixed.
+8. **The committed line-swap path is functionally, not textually, identical.** The acceptance criterion asks for "byte-identical to today", and `selectPack()` is a rewrite of `applyPack()`. What VR actually keys on is preserved exactly: `system/pack-boot.js` is untouched (`git diff origin/main -- system/pack-boot.js` is empty, so `visual.spec.mjs:58`'s literal-neutral-URL swap and the no-op default both stand), and the control's committed path still uses the same two href strings, the same `PACK_IDS` allowlist, the same `factory-pack` key and the same view-transition-wrapped swap. The rewrite adds only the derived branch and the promise catches.
 
-9. **One pre-existing em dash removed** from the verdant pack note in `dock.mjs`, since the redesign is held to the CHECKLIST's humanizer rule and that string was being rewritten anyway.
+9. **Two `#beat-brand`-path behaviours are named, not fixed.** Both come from #74's in-beat control, whose internals the plan scopes out (the event contract is dock-listens-to-beat, one direction):
+   - *Stale label*: enter a colour without wearing it, then pick a committed pack in the control. The inline colours are cleared correctly, but the beat's own label still reads "Your colour is on the stage".
+   - *Base rule*: the beat's own "Wear it across the site" toggle calls `wear()`, which writes only the selector. The `<link>` stays on whatever committed pack is active, so that page shows derived colours over, say, saulera's type until the reader navigates, at which point pack-boot lands them on the neutral default. The neutral-base rule is enforced for every pick made in *this* control; #74's toggle self-heals on the next navigation rather than immediately.
+
+10. **One pre-existing em dash removed** from the verdant pack note in `dock.mjs`, since the redesign is held to the CHECKLIST's humanizer rule and that string was being rewritten anyway.
 
 ## Issues encountered
 
