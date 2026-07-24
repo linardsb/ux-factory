@@ -845,7 +845,10 @@ dfn.term {
 /* the newly-focusable trace-player root gets a visible focus ring (mirrors .cs-acc:focus-visible) */
 .trace-player:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
 
-/* ---------- Appearance dock + scroll ruler (§Phase 5, system/dock.mjs) ----------
+/* ---------- Appearance control + scroll ruler (§Phase 5 · redesigned by #76, system/dock.mjs) ----
+   The one persistent utility of the v3 site: the control the reader picks a design system from and
+   then carries across all eight pages. index.html's #beat-wear interstitial introduces it, so the
+   rail is never an unexplained widget (PRD §2 "weird colour selectors, for what").
    Monochrome chrome by the calm-colour bar (fg-muted / border / bg-surface only — the packs
    themselves provide the colour). Fixed-chrome z-index ladder: header 50 · to-top 90 ·
    skip-link 100 → rails 40 (under header), open panel 95 (over to-top, under skip-link).
@@ -862,8 +865,8 @@ dfn.term {
 .dock-toggle {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px; /* CHECKLIST: the visible control IS the ≥44px hit target */
   background: var(--color-bg-surface);
   color: var(--color-fg-muted);
   border: 1px solid var(--color-border);
@@ -879,22 +882,36 @@ dfn.term {
   border-color: var(--color-border-strong);
 }
 
+/* The morph the --motion-icon-morph token exists for: the filled half of the glyph sweeps to the
+   other side of the circle as the panel opens. Keyed on the DISCRETE aria-expanded attribute, not
+   a per-render keyframe (the PR-#55 restart-and-blank trap), and transform-only, so the
+   reduced-motion kill-switch (portfolio.css:16-23) makes it land instantly. transform-box:view-box
+   puts the rotation origin in the glyph's own 24×24 coordinate space in every engine. */
+.dock-glyph-half {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  transition: transform var(--motion-icon-morph) var(--motion-ease-bounce);
+}
+.dock-toggle[aria-expanded="true"] .dock-glyph-half { transform: rotate(180deg); }
+
 /* Non-modal disclosure (hash-routed by dock.mjs). Hidden = display:none, entrance = a
    keyframe on the DISCRETE .is-open toggle (no continuous rebuild — the PR-#55 trap) so
    the reduced-motion kill-switch (portfolio.css:16-23) makes open/close truly instant. */
 .dock-panel {
   display: none;
   position: fixed;
-  right: calc(var(--spacing-md) + 40px + var(--spacing-sm));
+  right: calc(var(--spacing-md) + 44px + var(--spacing-sm));
   top: 50%;
   transform: translateY(-50%);
   z-index: 95;
-  width: min(320px, calc(100vw - 120px));
-  background: var(--color-bg);
+  width: min(340px, calc(100vw - 120px));
+  max-height: calc(100vh - var(--spacing-2xl) * 2);
+  overflow-y: auto;
+  background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg); /* the .close-card vocabulary — parent radius, rows step down */
   box-shadow: var(--shadow-lg);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-xl);
 }
 .dock-panel.is-open {
   display: block;
@@ -902,6 +919,26 @@ dfn.term {
 }
 @keyframes dock-panel-in {
   from { opacity: 0; transform: translateY(-50%) translateX(8px); }
+}
+
+/* The panel states its purpose in its first two lines — the v2 verdict was a control with no
+   stated one. Eyebrow + one plain sentence, then the choices. */
+.dock-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  margin: 0 0 var(--spacing-xs);
+}
+.dock-title {
+  font-family: var(--font-display);
+  font-size: var(--type-h3);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--color-fg);
+  margin: 0 0 var(--spacing-lg);
+  text-wrap: balance;
 }
 
 .dock-packs { border: 0; margin: 0 0 var(--spacing-lg); padding: 0; }
@@ -914,15 +951,33 @@ dfn.term {
   padding: 0;
   margin: 0 0 var(--spacing-sm);
 }
-.dock-pack-row { display: flex; align-items: flex-start; gap: var(--spacing-sm); }
-.dock-pack-row + .dock-pack-row { margin-top: var(--spacing-sm); }
-.dock-pack-row input { margin-top: 3px; accent-color: var(--color-fg); }
-.dock-pack-label { cursor: pointer; display: block; }
+/* One choice per row, the whole row a ≥44px target. The checked row is marked by border weight
+   AND the native radio, never by colour alone (CHECKLIST). :has() is progressive: without it the
+   radio still carries the state. */
+.dock-pack-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  padding: var(--spacing-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.dock-pack-row + .dock-pack-row { margin-top: var(--spacing-xs); }
+.dock-pack-row:hover { background: var(--color-bg); border-color: var(--color-border); }
+.dock-pack-row:has(input:checked) { background: var(--color-bg); border-color: var(--color-border-strong); }
+.dock-pack-row:has(input:focus-visible) { border-color: var(--color-accent); }
+.dock-pack-row input { margin-top: 3px; accent-color: var(--color-accent); }
+.dock-pack-label { cursor: pointer; display: block; flex: 1 1 auto; min-width: 0; }
 .dock-pack-name { display: block; font-weight: 600; font-size: var(--type-caption); color: var(--color-fg); }
 .dock-pack-note { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.5; }
 
-.dock-copy { padding: 10px 14px; font-size: 12px; }
-.dock-dtcg { margin-left: var(--spacing-md); font-size: var(--type-caption); }
+/* Both actions are secondary to the choice above, so they stack full width rather than competing
+   for one row (at 340px a two-up row wraps mid-label). */
+.dock-actions { display: grid; gap: var(--spacing-sm); justify-items: stretch; }
+.dock-reset, .dock-copy { padding: 10px 14px; font-size: var(--type-caption); text-align: center; }
+.dock-dtcg { display: inline-block; margin-top: var(--spacing-md); font-size: var(--type-caption); }
 .dock-caption {
   margin: var(--spacing-md) 0 0;
   font-size: var(--type-caption);
@@ -987,7 +1042,7 @@ dfn.term {
    ============================================================================ */
 
 /* Deep links + the hero CTA land below the sticky header (same 90px idiom as .cs-h) */
-#beat-hero, #beat-intake, #beat-brand, #beat-peak, #beat-close, #verify { scroll-margin-top: 90px; }
+#beat-hero, #beat-intake, #beat-brand, #beat-wear, #beat-peak, #beat-close, #verify { scroll-margin-top: 90px; }
 
 /* I2 — full-bleed chapter bands. .band is the light default (inherits the page
    ground); .band--dark is the near-black inverse recipe (mirrors .feature-band, plus
@@ -996,6 +1051,9 @@ dfn.term {
    beats is carried by whitespace steps + the numerals, not a second dark surface. */
 .band { position: relative; padding: var(--spacing-4xl) 0; }
 .band--dark { background: var(--color-bg-inverse); color: var(--color-fg-on-inverse); }
+/* An interstitial is not a station: it carries no numeral and takes a shorter breath, so the
+   01-05 pacing still reads as the sequence and this reads as the aside between two of them. */
+.band--interstitial { padding: var(--spacing-3xl) 0; }
 
 /* I4 — the oversized ordinal anchoring each demo station (01–05). Mono + tabular so
    the sequence reads as a real, ordered pipeline, not decoration (the demo genuinely
@@ -1041,6 +1099,15 @@ dfn.term {
   text-wrap: pretty;
 }
 .band--dark .beat-lead { color: var(--color-fg-on-inverse-soft); }
+
+/* Interstitial · the appearance control (#76). The affordance renders only at the widths where
+   the control it opens exists (system/dock.mjs's rail is hidden below 1100px), so the page never
+   offers a control the reader cannot reach; the copy above it names that width either way. */
+.wear-intro { max-width: 62ch; }
+.wear-intro .beat-title { margin-bottom: var(--spacing-lg); } /* no .beat-head here to carry the step */
+.wear-intro .beat-lead { margin-bottom: var(--spacing-xl); }
+.wear-cue { display: none; margin: 0; }
+@media (min-width: 1100px) { .wear-cue { display: block; } }
 
 /* Beat 01 — intake: the SHARED factory wizard (system/factory-intake.mjs), mounted Verdant-only via
    initIntake (#73, PRD D4). Home-scoped under #beat-intake so factory.html's own inline copies of the

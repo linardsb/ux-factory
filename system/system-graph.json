@@ -479,6 +479,15 @@
       }
     },
     {
+      "name": "--motion-icon-morph",
+      "group": "motion",
+      "packs": {
+        "neutral": "220ms",
+        "saulera": null,
+        "verdant": null
+      }
+    },
+    {
       "name": "--maxw",
       "group": "layout",
       "packs": {
@@ -1056,7 +1065,7 @@
     }
   ],
   "counts": {
-    "tokens": 63,
+    "tokens": 64,
     "consumers": 27,
     "edges": 295
   }
