@@ -4,8 +4,8 @@
     {
       "id": "runtime",
       "label": "design system (system/ — tokens, components, view-time modules)",
-      "files": 39,
-      "linesApprox": 9700
+      "files": 40,
+      "linesApprox": 10200
     },
     {
       "id": "pages",
@@ -21,7 +21,7 @@
     }
   ],
   "total": {
-    "files": 71,
-    "linesApprox": 15100
+    "files": 72,
+    "linesApprox": 15700
   }
 }
