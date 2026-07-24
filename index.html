@@ -138,7 +138,9 @@
       </div>
     </section>
 
-    <!-- Beat 2b · your brand (I4 numeral + empty-state colour affordance). #74 wires the input. -->
+    <!-- Beat 2b · your brand (I4 numeral + real colour input). #74: system/pack-derived.mjs derives
+         a full palette from the entered colour, applies it stage-side on :root, and (when worn)
+         persists it across the site via pack-boot. Colour only; the name is a display label. -->
     <section class="band" id="beat-brand">
       <div class="container">
         <div class="beat-head">
@@ -152,12 +154,25 @@
           Give the demo a brand colour and it pulls your product onto the stage. The whole
           site can wear it while you look around.
         </p>
-        <div class="brand-try">
-          <span class="brand-swatch" aria-hidden="true"></span>
-          <span class="brand-try-text">
-            <span class="brand-prompt">Enter a brand colour</span>
-            <span class="brand-note">The demo derives a full palette from it and checks every contrast pair.</span>
-          </span>
+        <div class="brand-input">
+          <div class="brand-fields">
+            <label class="brand-field">
+              <span class="brand-field-label">Brand colour</span>
+              <input type="color" class="brand-color" data-brand-color value="#2563eb" />
+            </label>
+            <label class="brand-field brand-field--name">
+              <span class="brand-field-label">Company name <span class="brand-field-hint">(for the label only)</span></span>
+              <input type="text" class="brand-name" data-brand-name maxlength="40" autocomplete="off" spellcheck="false" placeholder="Optional" />
+            </label>
+          </div>
+          <div class="brand-actions">
+            <label class="brand-wear">
+              <input type="checkbox" class="brand-wear-box" data-brand-wear />
+              <span class="brand-wear-text">Wear it across the site</span>
+            </label>
+            <button type="button" class="btn btn-ghost" data-brand-reset>Reset to neutral</button>
+          </div>
+          <p class="brand-label" data-brand-label data-state="empty">Pick a colour. The demo derives a full palette and checks every contrast pair. Nothing you enter leaves your browser.</p>
         </div>
       </div>
     </section>
@@ -311,5 +326,6 @@
   <script type="module" src="/system/dock.mjs"></script>
   <script type="module" src="/system/spine.mjs"></script>
   <script type="module" src="/system/intake-beat.mjs"></script>
+  <script type="module" src="/system/pack-derived.mjs"></script>
 </body>
 </html>

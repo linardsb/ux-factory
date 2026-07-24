@@ -24,6 +24,15 @@ const OBSERVE_THRESHOLD = 0.35; // a beat activates once it is ~a third in view
 const prefersReduce = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// A worn "your brand" derived pack (#74, D5b) lives as inline --color-* props on :root that
+// pack-boot.js applies pre-paint — NOT a stylesheet. The hero re-skin below reverts by
+// removeProperty()-ing those exact keys, so on home it would STRIP a worn brand ~1.2s in
+// (every other page keeps it — the worst page to lose it). Skip the re-skin when derived is
+// worn; the CSS entrances (hero-rise/hl-draw) still play. Storage-safe (Node/no-storage → false).
+const isWearingDerived = () => {
+  try { return localStorage.getItem("factory-pack") === "derived"; } catch { return false; }
+};
+
 // registerBeat(id, spec) — a beat plugs its stage effect. Called by #73/#75/#77 and the hero here.
 //   id: string                          — matches a #beat-* mount id in index.html
 //   spec.effect?:    (ctx) => void|Promise — the stage logic; runs once, inside try/catch
@@ -121,7 +130,9 @@ const root = () => document.documentElement;
 async function heroBeat({ el, reduce }) {
   let applied = null; // the color entries currently on :root (non-null ⇒ a revert is owed)
   try {
-    if (reduce) return; // reduced motion → no re-skin; the neutral hero already IS the final state
+    // reduced motion, OR a worn brand already on :root pre-paint → skip the re-skin. In both
+    // cases the current :root IS the intended final state; re-skinning would revert-strip a worn brand.
+    if (reduce || isWearingDerived()) return;
     await assemblySettled(el); // let hero-rise + hl-draw land first, so the re-skin reads as a second act
     const { tokens } = derive(CANNED_AXES); // the real derivation, live in the browser
     applied = Object.entries(tokens).filter(isColorToken);
