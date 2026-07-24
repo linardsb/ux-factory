@@ -195,7 +195,15 @@ function buildDock() {
         return Promise.resolve(); // same sheet — re-assigning href never re-fires load, so never await one
       }
       return new Promise((resolve) => {
-        const done = () => { if (gen === swapGen && derived) applyToRoot(rec.tokens); resolve(); };
+        // Re-read the record rather than closing over the one selectPack() opened with: #beat-brand
+        // writes a new one on every `input` tick of the colour picker, so a drag during a slow sheet
+        // load would otherwise land the colour the reader started from on top of the one they ended
+        // on. Re-read here, clear from the ENTRY record above — that is what is actually on :root.
+        const done = () => {
+          const live = derived ? readRecord() : null;
+          if (gen === swapGen && live) applyToRoot(live.tokens);
+          resolve();
+        };
         link.addEventListener("load", done, { once: true });
         link.addEventListener("error", done, { once: true });
         link.href = href;
