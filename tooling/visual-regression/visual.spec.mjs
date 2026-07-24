@@ -24,21 +24,22 @@ const PAGES = [
   // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
   // broken artifact fails loudly instead of baselining an empty exhibit.
   { name: 'approach',        url: '/approach.html',        kind: 'ia', waitReady: '#asrc[data-asrc="ready"]' },
-  // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
-  // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
-  // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
-  // mask only the VISIBLE proto figures (:not([hidden])) — masking a display:none iframe has no box
-  // to paint. In v3 both figures show (the scenario toggle is retired), so both are masked.
   // waitReady (v3 evidence home, #78): the live wizard is gone, so #reskin-preview[data-reskin] is
   // dropped — nothing sets it now and it would hang the gate forever. The three evidence engines each
   // mount AFTER an async fetch and set their [data-*="ready"] handle on success: the trace player
   // (#agents-player), the round-trip diff (#roundtrip-diff), the system graph (#system-graph). They
   // live inside the tabbed viewer's panels, which JS `hidden`s when inactive; the waitFor below uses
   // state:'attached', which a hidden-but-attached panel satisfies, so readiness is unchanged. The
-  // baseline captures the default (Traces) tab active, the other two panels hidden.
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#system-graph[data-graph="ready"]'] },
+  // baseline captures the default (Traces) tab active, the other two panels hidden. (#80 moved the
+  // proto embeds off this page to Work, so factory no longer masks anything.)
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', waitReady: ['#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#system-graph[data-graph="ready"]'] },
   { name: 'roundtrip',       url: '/roundtrip.html',       kind: 'ia', waitReady: ['#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
-  { name: 'work',            url: '/work.html',            kind: 'ia' },
+  // Work (#80) now embeds the two proto pages in iframes (fixed-height boxes). Their content loads
+  // async and the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic
+  // regardless of load state. Zero coverage loss: verdant + fieldwork are screenshotted standalone
+  // below. Mask only the VISIBLE proto figures (:not([hidden])) — masking a display:none iframe has
+  // no box to paint; both figures show here, so both are masked. (#10 slice 10.1, relocated by #80)
+  { name: 'work',            url: '/work.html',            kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
   { name: 'proto-verdant',   url: '/proto/verdant.html',   kind: 'proto', rows: '.vd-plant-card' },
