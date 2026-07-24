@@ -27,18 +27,16 @@ const PAGES = [
   // Factory embeds the two proto pages in iframes (fixed-height boxes). Their content loads async and
   // the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic regardless of load
   // state. Zero coverage loss: verdant + fieldwork are screenshotted standalone below. (#10, slice 10.1)
-  // slice 10.3: the scenario toggle `hidden`s the inactive proto figure, so mask only the VISIBLE one
-  // (:not([hidden])) — masking a display:none iframe has no box to paint.
-  // waitReady: the slice-10.2 intake module applies the derived preview AFTER an async module load and
-  // sets [data-reskin] once; the slice-10.3 trace player mounts AFTER an async fetch and sets
-  // [data-trace="ready"] on success. Wait for BOTH so neither async paint can race the capture
-  // (deterministic by construction, not by luck). The derived preview + the trace player are NOT masked
-  // — they are what these slices regression-guard. (#10, slices 10.2 + 10.3)
-  // UX-overhaul restructure: #roundtrip-player moved to the /roundtrip deep viewer (its own entry
-  // below) — keeping its selector here would hang the gate forever. The remaining mounts now live
-  // inside closed <details>; the waitFor below uses state:'attached', which a closed disclosure
-  // satisfies, so the readiness contract is unchanged.
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#reskin-preview[data-reskin]', '#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#system-graph[data-graph="ready"]'] },
+  // mask only the VISIBLE proto figures (:not([hidden])) — masking a display:none iframe has no box
+  // to paint. In v3 both figures show (the scenario toggle is retired), so both are masked.
+  // waitReady (v3 evidence home, #78): the live wizard is gone, so #reskin-preview[data-reskin] is
+  // dropped — nothing sets it now and it would hang the gate forever. The three evidence engines each
+  // mount AFTER an async fetch and set their [data-*="ready"] handle on success: the trace player
+  // (#agents-player), the round-trip diff (#roundtrip-diff), the system graph (#system-graph). They
+  // live inside the tabbed viewer's panels, which JS `hidden`s when inactive; the waitFor below uses
+  // state:'attached', which a hidden-but-attached panel satisfies, so readiness is unchanged. The
+  // baseline captures the default (Traces) tab active, the other two panels hidden.
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed', waitReady: ['#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#system-graph[data-graph="ready"]'] },
   { name: 'roundtrip',       url: '/roundtrip.html',       kind: 'ia', waitReady: ['#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
   { name: 'work',            url: '/work.html',            kind: 'ia' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
