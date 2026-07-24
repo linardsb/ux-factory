@@ -6,9 +6,11 @@
 // designed affordance, not an edge case: it IS the thesis (the design system from Exhibit 1 is
 // what makes agentic UI safe in Exhibit 2). No live model call — proposals are committed files.
 //
-// Contract: renderStudy(container, { vocab, entries, bus }) → { destroy() }.
+// Contract: renderStudy(container, { vocab, entries, bus, subject }) → { destroy() }.
 //   entries = the manifest, each with its fetched `composition` array attached (+ optional
-//   `label`/`trace` for provenance). The reader adjusts a deep-cloned WORKING COPY — never the
+//   `label`/`trace` for provenance). `subject` names what the build-time run ran over in the
+//   provenance line (the Fieldwork fixtures here, the company's own data in a private instance).
+//   The reader adjusts a deep-cloned WORKING COPY — never the
 //   committed proposal. Every adjustment routes through validateComposition before re-render;
 //   normal controls always render, the boundary-probe always refuses. Adjust intents ride the
 //   action bus (ui.*) — the renderer stays passive (the #11 seam), voice-ready by construction.
@@ -34,7 +36,7 @@ function el(tag, attrs, ...kids) {
   return n;
 }
 
-export function renderStudy(container, { vocab, entries, bus } = {}) {
+export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
   if (!container || typeof container.replaceChildren !== "function") throw new Error("renderStudy: a DOM container is required");
   if (!vocab || !vocab.components) throw new Error("renderStudy: vocab { components } is required");
   if (!Array.isArray(entries) || entries.length === 0) throw new Error("renderStudy: entries must be a non-empty array");
@@ -196,7 +198,7 @@ export function renderStudy(container, { vocab, entries, bus } = {}) {
   function renderProvenance() {
     provenance.replaceChildren();
     provenance.appendChild(el("span", { class: "study-prov-label", text: picked.label || "Real run, curated for length" })); // verbatim honesty label
-    provenance.appendChild(document.createTextNode(": a real build-time agent run over the Fieldwork fixtures, replayable. "));
+    provenance.appendChild(document.createTextNode(`: a real build-time agent run over ${subject || "the scenario's fixtures"}, replayable. `));
     if (picked.trace) provenance.appendChild(el("a", { class: "study-prov-link", href: picked.trace }, "View the committed trace"));
   }
 
