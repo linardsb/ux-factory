@@ -1147,31 +1147,92 @@ dfn.term {
 @keyframes fw-row-in { from { opacity: 0; transform: translateY(calc(var(--motion-rise) / 2)); } to { opacity: 1; transform: none; } }
 @keyframes check-draw { to { stroke-dashoffset: 0; } }
 
-/* Beat 02 — your brand: a bounded colour-input affordance shown at rest as an
-   empty-state invitation (dashed field, empty swatch). Honestly not-yet-live, no
-   chip: #74 wires the real input + derived-pack persistence. */
-.brand-try {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
+/* Beat 02 — your brand: the real bounded colour input (system/pack-derived.mjs). The visitor picks
+   a colour; the demo derives a full WCAG-checked palette and applies it stage-side on :root, and can
+   wear it across the site. Token-only; the derived accent is the one place brand colour is spent here.
+   Native <input type="color"> for a keyboard-accessible, no-free-text picker (mirrors .asrc-probe-row). */
+.brand-input {
+  display: grid;
+  gap: var(--spacing-lg);
   max-width: 60ch;
   padding: var(--spacing-lg);
   background: var(--color-bg-surface);
-  border: 1px dashed var(--color-border-strong);   /* dashed = empty state, an invitation not a filled control */
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
-.brand-swatch {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border: 1px dashed var(--color-border-strong);
+.brand-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-lg);
+}
+.brand-field { display: grid; gap: var(--spacing-xs); min-width: 0; }
+.brand-field--name { flex: 1 1 18ch; }
+.brand-field-label {
+  font-family: var(--font-display);
+  font-size: var(--type-caption);
+  letter-spacing: 0.04em;
+  color: var(--color-fg-muted);
+}
+.brand-field-hint { font-weight: 400; letter-spacing: 0; }
+
+.brand-color {
+  inline-size: 56px;
+  block-size: 44px;   /* comfortable touch target */
+  padding: 3px;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease);
 }
-.brand-try-text { flex: 1 1 auto; min-width: 0; }
-.brand-prompt { display: block; font-family: var(--font-display); font-size: var(--type-body); color: var(--color-fg); margin: 0; }
-.brand-note { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); margin-top: var(--spacing-xs); }
+.brand-name {
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  padding: 10px var(--spacing-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.brand-name::placeholder { color: var(--color-fg-muted); }
+.brand-color:hover, .brand-name:hover { border-color: var(--color-fg); }
+
+.brand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+.brand-wear {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  cursor: pointer;
+}
+.brand-wear-box {
+  inline-size: 18px;
+  block-size: 18px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.brand-wear-text { font-size: var(--type-body); color: var(--color-fg); }
+
+/* the honest status label — empty (invitation, muted) · applied (derived + honesty, full fg) · error */
+.brand-label {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--type-caption);
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+.brand-label[data-state="applied"],
+.brand-label[data-state="error"] { color: var(--color-fg); }
 
 /* Beat 03 — the peak (the one dark band, the signature). A STILL of the composed
    product screen + illustrative WCAG receipts + the ethics gate as a guess-then-reveal.
