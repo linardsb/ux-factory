@@ -235,7 +235,7 @@
 
       renderCapability(entries.length);
       const bus = createBus();
-      renderStudy($("study"), { vocab, entries, bus });
+      renderStudy($("study"), { vocab, entries, bus, subject: "the Fieldwork fixtures" });
       renderRubric(rubric); // maker's five-pillar read, adjacent to the real affordances above
     } catch (e) {
       const cap = $("capability");

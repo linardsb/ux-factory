@@ -13,7 +13,13 @@
 //
 // Standalone (from the jobs folder):
 //   node ../ux-factory/agent-layer/build-instance.mjs <brief.md> --out <dir> \
-//     --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--name <s>] [--proto <url>] [--handoff <url>]
+//     --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--compositions <dir>] \
+//     [--name <s>] [--proto <url>] [--handoff <url>]
+//
+// --compositions adds the BESPOKE-PROTOTYPE step (epic #86, ticket #89): a pre-recorded composed
+// view (a real record-composition run) is copied into the deploy dir with the vocabulary it
+// validates against, referenced from INSTANCE_CONFIG, and gated by validateAssembly through the
+// same refusal engine the reader's browser renders it with. Copy-not-run — no SDK here.
 
 import { cpSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, statSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -21,6 +27,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
 import { parseCompanyBrief } from "./lib.mjs";
 import { genCompanyPackage } from "./gen-company-package.mjs";
+// The SAME engine the view uses to render a composed view — pure + DOM-free (agentic-renderer.mjs
+// header), so validateAssembly can gate every copied proposal with it before an operator deploys.
+import { validateComposition } from "../system/agentic-renderer.mjs";
 
 // Repo assets resolve from the MODULE (agent-layer/.. = repo root); NEVER cwd (cwd is the jobs folder
 // at runtime). The same module-relative-vs-cwd split gen-company-package.mjs + build.mjs use.
@@ -71,6 +80,12 @@ const HEADERS = `/*
 /traces/*
   Cache-Control: public, max-age=300, must-revalidate
 
+/proto/*
+  Cache-Control: public, max-age=300, must-revalidate
+
+/handoff/*
+  Cache-Control: public, max-age=300, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 `;
@@ -82,7 +97,7 @@ const HEADERS = `/*
 //      and the INSTANCE_CONFIG block (between its marker comments).
 //   B) demo/real region toggling — delete every [data-when="demo"], un-hide every [data-when="real"],
 //      strip the data-when marker, substitute {{name}} (HTML-escaped).
-function stampShell(html, { name, slug, traceBase, links }) {
+function stampShell(html, { name, slug, traceBase, links, composition }) {
   const nameHtml = htmlEscape(name);
   let out = html;
 
@@ -125,10 +140,13 @@ function stampShell(html, { name, slug, traceBase, links }) {
 
   // INSTANCE_CONFIG block (between markers). JSON in a <script> context → JSON.stringify handles
   // quoting; escape `<` so a stray "</script>" or "<" inside a value can't break out of the element.
+  // `composition` is present ONLY when this build shipped a bespoke composed view (--compositions);
+  // without the key instance.mjs falls back to the prototype link, then the honest placeholder.
   const config = {
     package: `/scenarios/${slug}`,
     name,
     trace: { path: `/traces/${traceBase}` },
+    ...(composition ? { composition } : {}),
     links: { prototype: (links && links.prototype) || null, handoff: (links && links.handoff) || null },
   };
   const configJson = JSON.stringify(config, null, 2).replace(/</g, "\\u003c").replace(/\n/g, "\n    ");
@@ -154,6 +172,21 @@ function stampShell(html, { name, slug, traceBase, links }) {
   out = out.replace(/\{\{name\}\}/g, nameHtml);
 
   return out;
+}
+
+// The composition manifest's `proposal` paths are a CONTRACT, not a hint: each must name a plain file
+// directly inside THIS instance's own composition dir. Returns the ref when it holds, else null.
+// Enforced at both the copy step and validateAssembly, because a manifest value ends up in
+// readFileSync twice — a `../…` ref would otherwise walk straight out of the deploy dir (the manifest
+// is the operator's own record-composition output, so this is a contract guard, not a trust boundary,
+// but a gate whose stated job is "what validates is what ships" has to enforce it, not infer it from
+// a downstream symptom). `.`/`..` are excluded explicitly: neither contains a slash.
+function compositionRef(slug, ref) {
+  if (typeof ref !== "string") return null;
+  const prefix = `/proto/compositions/${slug}/`;
+  if (!ref.startsWith(prefix)) return null;
+  const file = ref.slice(prefix.length);
+  return file && file !== "." && file !== ".." && !file.includes("/") ? ref : null;
 }
 
 // Validate the assembled deploy dir — the gate that catches a bad stamp or a missing asset before the
@@ -208,14 +241,64 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   // 6. Every referenced same-origin asset resolves in the deploy dir (chrome cross-links like /factory
   //    /contact are intentionally excluded — documented v1 limitation, they 404 pre-launch).
   const refs = new Set();
-  for (const m of html.matchAll(/(?:href|src)="(\/(?:system|assets|scenarios|traces)\/[^"]+)"/g)) refs.add(m[1]);
+  for (const m of html.matchAll(/(?:href|src)="(\/(?:system|assets|scenarios|traces|proto|handoff)\/[^"]+)"/g)) refs.add(m[1]);
+  let compositionIndex = null; // the parsed manifest, when this instance ships a composed view
+  const composedViews = [];    // only its entries whose proposal path holds to the contract
   if (config) {
     refs.add(`${config.package}/intake.defaults.json`);
     refs.add(`${config.package}/copy.json`);
     if (config.trace && config.trace.path) refs.add(config.trace.path);
+    if (config.composition) {
+      refs.add(config.composition.index);
+      refs.add(config.composition.vocab);
+      // Each manifest entry's PROPOSAL must resolve. Its `trace` is deliberately NOT ref'd: the
+      // per-composition PIV traces are not shipped with an instance (station 04 carries the headline
+      // derivation run) — ref'ing them would fail every build.
+      try {
+        compositionIndex = JSON.parse(readFileSync(join(deployDir, config.composition.index.replace(/^\//, "")), "utf8"));
+        if (!Array.isArray(compositionIndex) || compositionIndex.length === 0)
+          problems.push(`${config.composition.index} carries no composed views (expected a non-empty manifest array)`);
+        else for (const entry of compositionIndex) {
+          // Contract first, filesystem second. A violating entry is named here and dropped — it is
+          // deliberately NOT ref'd and NOT validated below, so each bad entry yields exactly one
+          // problem instead of a fence complaint plus a "referenced asset missing" echo.
+          const ref = compositionRef(slug, entry && entry.proposal);
+          if (!ref) {
+            problems.push(`composed view path ${JSON.stringify(entry && entry.proposal)} is outside this instance's manifest contract — every proposal must read /proto/compositions/${slug}/<file> (record the run with scenario == "${slug}")`);
+            continue;
+          }
+          refs.add(ref);
+          composedViews.push(entry);
+        }
+      } catch (e) {
+        compositionIndex = null;
+        problems.push(`could not read the copied composition manifest ${config.composition.index} — ${e.message}`);
+      }
+    }
   }
   for (const ref of refs)
-    if (!existsSync(join(deployDir, ref.replace(/^\//, "")))) problems.push(`referenced asset missing in deploy dir: ${ref}`);
+    if (typeof ref !== "string" || !existsSync(join(deployDir, ref.replace(/^\//, "")))) problems.push(`referenced asset missing in deploy dir: ${ref}`);
+
+  // 6b. Every copied proposal VALIDATES against the copied vocabulary — the same refusal engine the
+  //     view renders through, run here so a composition that the reader's browser would refuse can
+  //     never reach a deploy. Runs only on files that resolved above — a missing one is already a
+  //     problem, and re-reporting it as a validation failure would just double the noise.
+  const resolved = (ref) => typeof ref === "string" && existsSync(join(deployDir, ref.replace(/^\//, "")));
+  if (config && config.composition && composedViews.length && resolved(config.composition.vocab)) {
+    try {
+      const vocab = JSON.parse(readFileSync(join(deployDir, config.composition.vocab.replace(/^\//, "")), "utf8"));
+      for (const entry of composedViews) {
+        if (!resolved(entry.proposal)) continue;
+        try {
+          validateComposition(vocab, JSON.parse(readFileSync(join(deployDir, entry.proposal.replace(/^\//, "")), "utf8")), entry.slug);
+        } catch (e) {
+          problems.push(`composed view ${entry.proposal} is not renderable — ${e.message}`);
+        }
+      }
+    } catch (e) {
+      problems.push(`could not read the copied vocabulary ${config.composition.vocab} — ${e.message}`);
+    }
+  }
 
   // 7. _headers carries the unconditional noindex.
   const headersPath = join(deployDir, "_headers");
@@ -228,7 +311,7 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
 // Compile briefPath + pack + trace + the shell into a self-contained deploy dir under outDir. Paths
 // resolve from cwd; REPO_ROOT (the privacy boundary + the shell/assets source) resolves from this
 // module. Returns { deployDir, slug, name, provenance, traceBase }.
-export function buildInstance({ briefPath, outDir, packPath, tracePath, name, links, publicOrigin }) {
+export function buildInstance({ briefPath, outDir, packPath, tracePath, compositionsDir, name, links, publicOrigin }) {
   if (!briefPath) throw new Error("build-instance: <brief.md> is required");
   if (!outDir) throw new Error("build-instance: --out <dir> is required (must be OUTSIDE this repo)");
   // --public-origin is a DESIGNED HOOK, deliberately not implemented in v1 (per-company-brief
@@ -249,6 +332,12 @@ export function buildInstance({ briefPath, outDir, packPath, tracePath, name, li
   const traceAbs = resolve(tracePath || "");
   if (!tracePath || !traceAbs.endsWith(".jsonl") || !existsSync(traceAbs))
     throw new Error(`build-instance: --trace must be an existing .jsonl derivation trace (got ${JSON.stringify(tracePath)})`);
+  // --compositions is OPTIONAL (an instance with no bespoke prototype still builds). COPY-NOT-RUN,
+  // exactly like --trace: the composed views come from a real record-composition run through
+  // record → curate → validate; this builder never generates one (no SDK here, by design).
+  const compAbs = compositionsDir ? resolve(compositionsDir) : null;
+  if (compAbs && !existsSync(join(compAbs, "index.json")))
+    throw new Error(`build-instance: --compositions must be an existing record-composition output dir containing index.json (got ${JSON.stringify(compositionsDir)} → ${join(compAbs, "index.json")})`);
 
   // Brief head → the instance display name default (genCompanyPackage re-parses + validates the rest).
   const { head } = parseCompanyBrief(briefPath);
@@ -275,15 +364,54 @@ export function buildInstance({ briefPath, outDir, packPath, tracePath, name, li
     copyFileSync(traceAbs, join(deployDir, "traces", traceBase));
     writeFileSync(join(deployDir, "_headers"), HEADERS);
 
+    // Bespoke-prototype step (epic #86, ticket #89) — copy the pre-recorded composed views in, and
+    // the design-system vocabulary they validate against. vocabulary.json is GENERATED design-system
+    // output (gen-vocabulary.mjs), never company-real, so it sources from REPO_ROOT and is safe to
+    // ship. The manifest's proposal paths must already be /proto/compositions/<slug>/… (run
+    // record-composition with scenario == slug) — validateAssembly fails loudly on a mismatch.
+    let composition = null;
+    if (compAbs) {
+      // COPY BY NAME, never wholesale. `--trace` ships exactly the one file it references; this ships
+      // index.json plus exactly the proposals that manifest names, so "only what the manifest
+      // references reaches the unlisted deploy dir" is structural rather than incidental — a stray
+      // scratch file, an earlier run's artifact or a .DS_Store in the source dir has no path in.
+      // Entries that fail the path contract are deliberately not copied: validateAssembly names each
+      // one below, and a name is more use to the operator than a silently-absent file.
+      const srcIndexPath = join(compAbs, "index.json");
+      let srcIndex;
+      try {
+        srcIndex = JSON.parse(readFileSync(srcIndexPath, "utf8"));
+      } catch (e) {
+        throw new Error(`build-instance: --compositions manifest ${srcIndexPath} is not readable JSON — ${e.message}`);
+      }
+      const compDir = join(deployDir, "proto", "compositions", slug);
+      mkdirSync(compDir, { recursive: true });
+      copyFileSync(srcIndexPath, join(compDir, "index.json"));
+      if (Array.isArray(srcIndex))
+        for (const entry of srcIndex) {
+          const ref = compositionRef(slug, entry && entry.proposal);
+          if (!ref) continue;
+          const file = basename(ref);
+          if (existsSync(join(compAbs, file))) copyFileSync(join(compAbs, file), join(compDir, file));
+        }
+      mkdirSync(join(deployDir, "handoff", "verdant"), { recursive: true });
+      copyFileSync(join(REPO_ROOT, "handoff", "verdant", "vocabulary.json"), join(deployDir, "handoff", "verdant", "vocabulary.json"));
+      composition = { index: `/proto/compositions/${slug}/index.json`, vocab: "/handoff/verdant/vocabulary.json" };
+    }
+
     // Stamp the shell → index.html (renamed → bare root URL).
     const stamped = stampShell(readFileSync(join(REPO_ROOT, "instance.html"), "utf8"),
-      { name: instanceName, slug, traceBase, links });
+      { name: instanceName, slug, traceBase, links, composition });
     writeFileSync(join(deployDir, "index.html"), stamped);
 
     // Gate: the assembled dir must validate before the operator deploys.
     validateAssembly(deployDir, { slug, traceBase, name: instanceName });
 
-    return { deployDir, slug, name: instanceName, provenance: pkg.provenance, traceBase };
+    // Manifest parse is safe here: validateAssembly above already gated it.
+    const views = composition
+      ? JSON.parse(readFileSync(join(deployDir, "proto", "compositions", slug, "index.json"), "utf8")).length
+      : 0;
+    return { deployDir, slug, name: instanceName, provenance: pkg.provenance, traceBase, views };
   } catch (e) {
     if (!preexisting) rmSync(deployDir, { recursive: true, force: true }); // discard only what we created
     throw e; // preserve the original error (bad brief, bad stamp, or failed validation)
@@ -298,17 +426,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const outDir = flag("--out");
     const packPath = flag("--pack");
     const tracePath = flag("--trace");
+    const compositionsDir = flag("--compositions");
     if (!briefPath || !outDir || !packPath || !tracePath)
       throw new Error(
-        "usage: node agent-layer/build-instance.mjs <brief.md> --out <dir> --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--name <s>] [--proto <url>] [--handoff <url>]\n" +
+        "usage: node agent-layer/build-instance.mjs <brief.md> --out <dir> --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--compositions <dir>] [--name <s>] [--proto <url>] [--handoff <url>]\n" +
+        "  --compositions  a pre-recorded record-composition output dir (its index.json proposal paths must be\n" +
+        "                  /proto/compositions/<slug>/…); copied in and validated here, never generated here\n" +
         "  run FROM THE JOBS FOLDER; --out MUST be OUTSIDE this repo (nothing company-real is committed here)");
     const links = { prototype: flag("--proto"), handoff: flag("--handoff") };
-    const r = buildInstance({ briefPath, outDir, packPath, tracePath, name: flag("--name"), links, publicOrigin: flag("--public-origin") });
+    const r = buildInstance({ briefPath, outDir, packPath, tracePath, compositionsDir, name: flag("--name"), links, publicOrigin: flag("--public-origin") });
 
     // Non-guessable deploy target — the <rand> suffix keeps the URL unguessable from the company name
     // (spike 2's non-discoverability requirement). project/branch naming per the wrangler skill.
     const target = `inst-${r.slug}-${randomBytes(3).toString("hex")}`;
-    console.log(`build-instance ${r.slug.padEnd(10)} ✓  ${r.provenance} · name "${r.name}" · trace ${r.traceBase} → ${r.deployDir}`);
+    console.log(`build-instance ${r.slug.padEnd(10)} ✓  ${r.provenance} · name "${r.name}" · trace ${r.traceBase}` +
+      (r.views ? ` · prototype ${r.views} composed view${r.views === 1 ? "" : "s"}` : "") + ` → ${r.deployDir}`);
     console.log("\nNext — DEPLOY is the operator's explicit step (irreversible + outward-facing; needs Cloudflare auth, separate from the SDK login):\n");
     console.log("  # auth once — either:  npx wrangler login   OR   export CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=…  (token: Account · Cloudflare Pages · Edit)");
     console.log(`  npx wrangler pages project create ${target} --production-branch main`);
