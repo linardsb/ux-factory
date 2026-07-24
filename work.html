@@ -27,7 +27,7 @@
        catches the deep links factory.html's "Go deeper" list points here (/work#screens,
        /work#handoff), so a deep-linked band never lands hidden under the header. */
     html { scroll-padding-top: 96px; }
-    #screens, #handoff { scroll-margin-top: 96px; }
+    #screens, #library, #handoff { scroll-margin-top: 96px; }
 
     /* Prototype embeds — capped frames; the proto scrolls inside its own window. */
     .factory-embeds { display: grid; gap: var(--spacing-2xl); }
@@ -45,6 +45,108 @@
     .factory-embed-cap a { color: var(--color-accent); }
 
     .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
+
+    /* ---------- Library grid (#79) — one card per shipped component, mounted live ----------
+       The presentation model is a grid of one-thing cards, each holding a real component you
+       can touch. Every motion value here is a committed token from this repo's own scale;
+       nothing is lifted from another library. Inline for the same reason the embeds above are:
+       a single-page layout, not a reused organism (the #80 precedent). Grid track widths and
+       the press scale are structural literals, as they are in the embed frames above. */
+    .lib-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+      gap: var(--spacing-lg);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .lib-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      /* A grid track will not shrink below its item's min-content unless the item may shrink;
+         the components inside carry long unbreakable labels (recorded blowout, PR #54). */
+      min-width: 0;
+      padding: var(--spacing-lg);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      transition: transform var(--motion-fast) var(--motion-ease),
+                  box-shadow var(--motion-fast) var(--motion-ease),
+                  border-color var(--motion-fast) var(--motion-ease);
+    }
+    /* Hover and keyboard focus both raise contrast; neither hides anything. */
+    .lib-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--color-border-strong);
+    }
+    .lib-card:focus-within { border-color: var(--color-border-strong); }
+
+    .lib-card-name {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: var(--type-caption);
+      color: var(--color-fg);
+      overflow-wrap: anywhere;
+    }
+    .lib-card-note {
+      /* auto pins the note to the card foot, so the notes line up across a row however
+         tall the specimens above them are. */
+      margin: auto 0 0;
+      font-size: var(--type-caption);
+      line-height: 1.55;
+      color: var(--color-fg-muted);
+    }
+    /* The demo area is a stage on the page ground (--color-bg), not the card's own surface.
+       Every component here fills with --color-bg-surface, which is where they sit in the
+       prototypes too — on the card's surface they would be surface-on-surface, and the
+       disabled button would lose its shape entirely. Child radius stays inside the card's. */
+    .lib-demo {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-width: 0;
+      padding: var(--spacing-md);
+      background: var(--color-bg);
+      border-radius: var(--radius-sm);
+    }
+    .lib-demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); min-width: 0; }
+
+    /* The one authored moment on this band: press squish, released through the touch spring.
+       motion-ease-bounce is documented as "things you touch, never entrances", so it sits on
+       the release and the :active press itself uses the fast curve. It never runs on load.
+       The wrapper squishes rather than the component, so no shipped component is restyled. */
+    .lib-press { transition: transform var(--motion-bounce) var(--motion-ease-bounce); }
+    .lib-press:active {
+      transform: scale(0.97);
+      transition: transform var(--motion-fast) var(--motion-ease);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .lib-card, .lib-press { transition: none; }
+      .lib-card:hover, .lib-press:active { transform: none; }
+    }
+
+    /* On a phone the card padding and the stage padding together take ~100px off the
+       specimen, and these components truncate their own labels rather than wrap. Tighten
+       both so the component keeps roughly the width it gets inside the prototypes. */
+    @media (max-width: 520px) {
+      .lib-card { padding: var(--spacing-md); }
+      .lib-demo { padding: var(--spacing-sm); }
+    }
+
+    /* Upgrade fallback: until (or unless) the wrapper modules define these tags, a custom
+       element is an unstyled inline box. Give it a token-styled placeholder so a card with a
+       blocked module still reads as a component slot instead of a gap. */
+    .lib-demo :not(:defined) {
+      display: block;
+      padding: var(--spacing-md);
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-md);
+      font-size: var(--type-caption);
+      color: var(--color-fg-muted);
+    }
+    .lib-demo :not(:defined)::before { content: "Component not loaded"; }
   </style>
 </head>
 <body data-page="work">
@@ -147,6 +249,145 @@
       </div>
     </section>
 
+    <section class="band" id="library">
+      <div class="container">
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">The components</p>
+            <h2 class="beat-title">The library, live. Touch anything.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Both prototypes above are built from these. Every card holds the shipped component
+          itself, running here on this page. They read the same token contract the page does,
+          so switching the pack re-skins them along with everything else.
+        </p>
+        <ul class="lib-grid stagger mt-2xl" data-lib>
+          <li class="lib-card">
+            <p class="lib-card-name">vd-plant-card</p>
+            <div class="lib-demo">
+              <div class="lib-press">
+                <vd-plant-card plant-id="p-001" name="Ficus" species="Ficus lyrata" status="ok"></vd-plant-card>
+              </div>
+              <div class="lib-press">
+                <!-- A short name on the overdue card: the wide chip plus the card's own
+                     ellipsis would otherwise clip a long one on a phone. -->
+                <vd-plant-card plant-id="p-004" name="Aloe" species="Aloe vera" status="overdue"></vd-plant-card>
+              </div>
+            </div>
+            <p class="lib-card-note">
+              A custom element with its own shadow DOM. Press one: it tints, squishes, and
+              fires a vd-select event. The card is a link, which Safari puts in the tab order
+              only when full keyboard access is on. Verdant is a made-up product, invented for
+              this demonstration.
+            </p>
+          </li>
+
+          <li class="lib-card">
+            <p class="lib-card-name">vd-status-chip</p>
+            <div class="lib-demo">
+              <div class="lib-demo-row">
+                <vd-status-chip value="ok" label="OK"></vd-status-chip>
+                <vd-status-chip value="due" label="DUE"></vd-status-chip>
+                <vd-status-chip value="overdue" label="3 DAYS OVERDUE"></vd-status-chip>
+              </div>
+            </div>
+            <p class="lib-card-note">
+              All three states at once. The chip reports status and takes no input, so its
+              spec gives it no role and no tab stop. The word carries the state; the colour
+              only adds weight.
+            </p>
+          </li>
+
+          <li class="lib-card">
+            <p class="lib-card-name">vd-care-task-row</p>
+            <div class="lib-demo">
+              <div class="lib-press">
+                <vd-care-task-row task-id="t-002" action="water" plant-name="Pothos" status="due"></vd-care-task-row>
+              </div>
+              <div class="lib-press">
+                <vd-care-task-row task-id="t-003" action="water" plant-name="Calathea" status="overdue"></vd-care-task-row>
+              </div>
+            </div>
+            <p class="lib-card-note">
+              A checkbox that reads as a row. Click it or press Space to tick one off. The
+              status chip stays put on purpose: the task is late until the log commits, and
+              ticking it does not change that.
+            </p>
+          </li>
+
+          <li class="lib-card">
+            <p class="lib-card-name">ds-metric-tile</p>
+            <div class="lib-demo">
+              <div class="ds-metric-tile">
+                <p>
+                  <span class="ds-metric-label">Plants healthy</span>
+                  <span class="ds-metric-reading">
+                    <span class="ds-metric-value">18</span>
+                    <span class="ds-metric-unit">of 21</span>
+                  </span>
+                </p>
+              </div>
+              <div class="ds-metric-tile is-warn">
+                <p>
+                  <span class="ds-metric-label">Due today</span>
+                  <span class="ds-metric-reading">
+                    <span class="ds-metric-value">3</span>
+                    <span class="ds-metric-unit">tasks</span>
+                  </span>
+                </p>
+              </div>
+              <div class="ds-metric-tile is-critical">
+                <p>
+                  <span class="ds-metric-label">Overdue</span>
+                  <span class="ds-metric-reading">
+                    <span class="ds-metric-value">4</span>
+                    <span class="ds-metric-unit">tasks</span>
+                  </span>
+                </p>
+              </div>
+            </div>
+            <p class="lib-card-note">
+              The one primitive both scenarios share, shown at its three emphasis levels. It
+              is read-only by spec, so it hovers with its card and takes no press. The label
+              and the number say the state on their own; the tone only turns up the volume.
+            </p>
+          </li>
+
+          <li class="lib-card">
+            <p class="lib-card-name">.btn-primary / .btn-secondary / .btn-ghost</p>
+            <div class="lib-demo">
+              <div class="lib-demo-row">
+                <button type="button" class="btn btn-primary btn-arrow">Primary</button>
+                <button type="button" class="btn btn-secondary">Secondary</button>
+              </div>
+              <div class="lib-demo-row">
+                <button type="button" class="btn btn-ghost">Ghost</button>
+              </div>
+            </div>
+            <p class="lib-card-note">
+              The site's own buttons, the same ones under every call to action on this page.
+              The press squish lives inside the component: it scales down on the fast curve
+              and rebounds through the bounce spring. The arrow slides on hover.
+            </p>
+          </li>
+
+          <li class="lib-card">
+            <p class="lib-card-name">.vd-primary-button</p>
+            <div class="lib-demo">
+              <button type="button" class="vd-primary-button">Log care</button>
+              <button type="button" class="vd-primary-button" disabled>Nothing to log</button>
+            </div>
+            <p class="lib-card-note">
+              The prototype's commit button, enabled and disabled. The disabled one keeps its
+              text and drops to a muted surface, so the reason stays readable rather than
+              greyed into noise.
+            </p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <section class="band" id="handoff">
       <div class="container">
         <div class="beat-head">
@@ -222,5 +463,31 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
+
+  <!-- Library grid (#79): mount the shipped wrapper modules exactly as system/wc/demo.html
+       mounts them. vd-status-chip registers transitively through both parents; its own
+       define is guarded, so the transitive double import is a no-op. -->
+  <script type="module">
+    import "/system/wc/vd-plant-card.mjs";
+    import "/system/wc/vd-care-task-row.mjs";
+
+    const grid = document.querySelector("[data-lib]");
+
+    // vd-plant-card wraps itself in an anchor, defaulting to href="#". Here the card is a
+    // specimen rather than a link, so swallow the navigation: a reader can press it as often
+    // as they like without filling the back button with history entries. The component's own
+    // behaviour is untouched — it dispatches vd-select synchronously from its shadow handler,
+    // which has already run by the time this listener cancels the default action.
+    grid?.addEventListener("click", (e) => {
+      if (e.target.closest("vd-plant-card")) e.preventDefault();
+    });
+
+    // A live-surface handle: the grid says "ready" only once every tag it mounts is defined.
+    Promise.all([
+      customElements.whenDefined("vd-plant-card"),
+      customElements.whenDefined("vd-care-task-row"),
+      customElements.whenDefined("vd-status-chip"),
+    ]).then(() => grid?.setAttribute("data-lib", "ready"));
+  </script>
 </body>
 </html>
