@@ -14,10 +14,16 @@
 //
 // Honesty (hard, CLAUDE.md contract): EXAMPLE_COMPOSITION below is HAND-AUTHORED and framed as a
 // committed example — never labelled "agent output"/"real run" (real runs live in proto/compositions/
-// with paired traces). Epic #86 later swaps only the composition SOURCE (committed → per-employer
-// agent-composed on a private instance); this render/receipt/adjust machinery is unchanged, which is
-// exactly why the example is a plain {name,props,children}[] the renderer already accepts. All copy
-// is true of a committed example.
+// with paired traces). The example is a plain {name,props,children}[] the renderer already accepts.
+// All copy is true of a committed example.
+//
+// This header used to promise that epic #86 would swap only the composition SOURCE here (committed →
+// per-employer agent-composed on a private instance), leaving this render/receipt/adjust machinery
+// unchanged. Ticket #81 decided against that seam and the note is corrected rather than left
+// contradicting the code: the private instance already ships the RICHER renderStudy surface (#89 —
+// ask-tabs, per-prop controls, refusal display, bus pane, provenance), so driving its peak through
+// this module would DOWNGRADE it to one composition and one <select>. Only the receipt presentation
+// is shared, extracted into wcag-receipts.mjs (see .claude/plans/v3-private-instance-spine.md).
 //
 // Node-import-safe: DOM/fetch are touched only inside the beat effect (which the spine runs only in a
 // browser); registerBeat no-ops with no DOM (spine.mjs:48), so `node --check` and any Node harness
@@ -30,6 +36,9 @@ import { renderComposition, validateComposition } from "./agentic-renderer.mjs";
 import { createBus } from "./action-bus.mjs";
 import { registerBeat } from "./spine.mjs";
 import { trackFactoryBuilt } from "./analytics.mjs";
+// The receipt presentation, shared with the private-instance peak (#81). Pure + DOM-only, zero
+// imports of its own — the instance can reuse it without dragging this module's pack-derived chain.
+import { buildReceipts } from "./wcag-receipts.mjs";
 
 // ---------------------------------------------------------------------------- the committed example
 
@@ -69,23 +78,13 @@ const QUADRANT_LABELS = {
 };
 const QUADRANT_ORDER = ["facilitator", "peddler", "entertainer", "dealer"];
 
-// The receipt rows the peak SHOWS — the pairs a reader sees on this light card screen (the rest of
-// the 12 are page-chrome pairs). The headline pass-count is computed over ALL 12, and any FAILING
-// pair is surfaced even when it is outside this set (the engine shows the gate working, never hides
-// a reject — derive.rules.mjs ethos). Matched by the ruleset's verbatim `usage` strings.
-const RECEIPT_USAGES = [
-  "body text on cards / alt sections",
-  "captions on cards",
-  "accent text on cards",
-  "button label on an accent fill",
-];
-
 // ---------------------------------------------------------------------------- DOM helpers
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
 // Element builder — never innerHTML from data, so agent-/visitor-supplied strings stay inert text
 // (mirrors agentic-study.mjs:25). `text` sets textContent; on*/addEventListener wire handlers.
+// wcag-receipts.mjs carries its own copy of this helper on purpose (it stays import-free).
 function el(tag, attrs, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -124,36 +123,6 @@ function computeDerived(ethicsPair) {
 // visibly shift the screen too — the peak reflects the visitor's answers, not just their colour.
 function applyDerivedTokens(target, tokens) {
   for (const [k, v] of Object.entries(tokens)) target.style.setProperty("--" + k, v);
-}
-
-// ---------------------------------------------------------------------------- WCAG receipts
-
-// Build the real receipts from derive().checks. Headline over ALL pairs; shown rows = the card-
-// relevant subset plus any failing pair (surfaced honestly — never a hard-coded "Pass AA").
-function buildReceipts(checks) {
-  const total = checks.length;
-  const passed = checks.filter((c) => c.pass).length;
-  const allPass = passed === total;
-
-  const shown = checks.filter((c) => RECEIPT_USAGES.includes(c.usage));
-  for (const c of checks) if (!c.pass && !shown.includes(c)) shown.push(c); // never hide a reject
-
-  const wrap = el("div", { class: "peak-receipts", "data-peak-receipts": true });
-  wrap.appendChild(el("p", { class: `peak-receipts-headline${allPass ? "" : " is-flagged"}` },
-    el("span", { class: "peak-receipts-mark", "aria-hidden": "true", text: allPass ? "✓" : "!" }),
-    el("span", {
-      text: allPass
-        ? `All ${total} contrast pairs pass AA`
-        : `${passed} of ${total} contrast pairs pass AA, ${total - passed} flagged`,
-    })));
-
-  for (const c of shown) {
-    wrap.appendChild(el("div", { class: `wcag-row${c.pass ? "" : " is-fail"}` },
-      el("span", { class: "wcag-pair", text: c.usage }),
-      el("span", { class: "wcag-ratio", text: `${c.ratio.toFixed(2)}:1` }),
-      el("span", { class: c.pass ? "wcag-pass" : "wcag-fail", text: c.pass ? "Pass AA" : "Fails AA" })));
-  }
-  return wrap;
 }
 
 // ---------------------------------------------------------------------------- ethics guess-then-reveal
