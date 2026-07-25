@@ -137,13 +137,15 @@ paged fallback spends one request per page (a community kit can have 90+). So:
 ## The other direction — importing a Figma file's values as a pack
 
 Everything above sends tokens *to* Figma. `tooling/figma/figma-pull.mjs` brings a Figma
-file's colours back the other way, as a **token pack** — `system/tokens.<slug>.css`, the
-file the shell swaps in its one `<head>` line to re-skin the whole site:
+file's colours — and, from an export, its scale — back the other way, as a **token pack**
+— `system/tokens.<slug>.css`, the file the shell swaps in its one `<head>` line to re-skin
+the whole site:
 
 ```
 node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> --page Color
 node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> --offline   # free re-run
 node tooling/figma/figma-pull.mjs --slug <slug> --map tooling/figma/maps/<slug>.json
+node tooling/figma/figma-pull.mjs --slug <slug> --from <export.json>       # + scale
 ```
 
 It targets a pack and never the contract. The repo splits contract tokens (semantic,
@@ -181,11 +183,29 @@ wherever the accent landed, so a negotiated accent can't collide with its own ho
 pairs and thresholds are `RULESET.wcagPairs` — the same list `derive()` is held to,
 imported rather than restated.
 
+**Scale is imported the same way — by order, not by name — from an export only.** Spacing
+(8 slots), radius (3), the type ramp (8) and shadows (3) are read from a `--from` export's
+dimension and shadow values, classified into a family by name keyword, and filled by rank:
+spacing and radius smallest→largest, shadows subtlest→heaviest, the type ramp
+**largest→smallest**. A family fills only if the design offers at least as many distinct
+values as it has slots; short of that it imports *nothing* and stays on this repo's
+defaults, because a half-imported ramp is neither the design's nor this repo's. Extra
+values are dropped and listed, and a dimension matching no family keyword is reported as
+unclassified rather than guessed. A type slot keeps the contract's `clamp()` shape with the
+imported size as its max and the `vw` term verbatim: the responsive behaviour is this
+repo's, the number is the design's. `--map` pins any contract token, not only a colour.
+
+The styles fallback carries no scale at all — it names text and effect styles without
+valuing them — so on that path every spacing, radius, type and shadow value is this repo's
+default and the run says so. The variables endpoint returns numbers that import the same way
+as an export's, but it is Enterprise-gated. Fonts never come across on any path: a Figma file
+gives a font *name*, not a licensed file.
+
 The pack's header comment records whose design work it is, the ramps mapped, every
-negotiation made, and any pair still failing. The ~48 contract tokens with no colour
-role (motion, the type ramp, spacing, shadows, and the `color-mix()` inverse tokens,
-which stay relative and re-derive from the imported accent) are auto-filled from contract
-defaults by `gen-pack-css.mjs` and reported as auto-filled.
+negotiation made, any pair still failing, and — family by family — what the scale import
+took, dropped, could not classify, and left on this repo's defaults. Every contract token
+no role claims is auto-filled from contract defaults by `gen-pack-css.mjs` and reported as
+auto-filled.
 
 This is build-time only, and can never be a view-time connection: shipped pages are
 vanilla with no runtime dependencies, and `FIGMA_TOKEN` is a secret that must never reach
