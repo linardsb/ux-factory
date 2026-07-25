@@ -89,7 +89,11 @@ function diffTable(headers, rows, rowCls) {
     tbody.append(tr);
   });
   t.append(tbody);
-  return t;
+  // Wide content gets its own scroll container — otherwise body{overflow-x:clip} silently clips the
+  // last column at narrow widths instead of letting it scroll (CHECKLIST layout MUST, #82).
+  const scroller = el("div", "rt-table-scroll");
+  scroller.append(t);
+  return scroller;
 }
 
 // A collapsed <details> accordion mirroring portfolio.css .cs-acc (summary = the claim, body = the data).
