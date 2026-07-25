@@ -10,7 +10,11 @@
 // Deliberately NOT registered in agent-layer/build.mjs: the generator chain stays deterministic
 // and offline-runnable; this script needs a secret + network.
 //   node tooling/figma/figma-parity.mjs [--page <name|id>] [--max-pages <n>] [--refresh]
-//   node tooling/figma/figma-parity.mjs --offline      (re-parse the cache, spending nothing)
+//   node tooling/figma/figma-parity.mjs --offline            (re-parse the cache, spending nothing)
+//   node tooling/figma/figma-parity.mjs --from <export.json> [--scope <group>]
+//     — diff a PLUGIN EXPORT instead of the API: no token, no rate limit, and it can carry the
+//       variables REST gates behind Enterprise. --scope picks a side when a name appears in two
+//       groups (tokens.dtcg.json ships `contract` and `neutral` with identical leaf names).
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -53,7 +57,11 @@ function indexEntries(entries) {
   return { exact, bySegment };
 }
 
-export function compareRows(tokens, figmaEntries) {
+// `scope` breaks the one ambiguity that is guaranteed rather than accidental: tokens.dtcg.json
+// ships a `contract` group AND a `neutral` group carrying the SAME leaf names, so importing it
+// into Figma duplicates every name. This diff is a diff of the contract, so a "contract/…" style
+// is the right side of that tie — not a guess. Any other collision stays reported, not resolved.
+export function compareRows(tokens, figmaEntries, { scope = "contract" } = {}) {
   const { exact, bySegment } = indexEntries(figmaEntries);
   return Object.entries(tokens).map(([name, t]) => {
     const key = norm(name);
@@ -61,15 +69,20 @@ export function compareRows(tokens, figmaEntries) {
     let matchedBy = figma ? "name" : null;
 
     if (!figma) {
-      const candidates = [...(bySegment.get(key)?.values() ?? [])];
-      if (candidates.length === 1) { [figma] = candidates; matchedBy = "leaf"; }
+      let candidates = [...(bySegment.get(key)?.values() ?? [])];
+      let scoped = false;
+      if (candidates.length > 1 && scope) {
+        const inScope = candidates.filter((c) => norm(c.name).startsWith(`${norm(scope)}-`));
+        if (inScope.length === 1) { candidates = inScope; scoped = true; }
+      }
+      if (candidates.length === 1) { [figma] = candidates; matchedBy = scoped ? "leaf-scoped" : "leaf"; }
       else if (candidates.length > 1) {
         return { token: name, type: t.type, comparison: "missing", match: null, tokenValue: t.value,
-          note: `ambiguous: ${candidates.length} Figma styles end in "/${name}" (${candidates.map((c) => c.name).join(", ")}) — rename or scope them` };
+          note: `ambiguous: ${candidates.length} Figma styles end in "/${name}" (${candidates.map((c) => c.name).join(", ")}) — rename them, or pass --scope <group>` };
       }
     }
     if (!figma) return { token: name, type: t.type, comparison: "missing", match: null, tokenValue: t.value, note: "no Figma variable/style under this name" };
-    const via = matchedBy === "leaf" ? { matchedBy, note: `matched on the last path segment of "${figma.name}"` } : {};
+    const via = matchedBy?.startsWith("leaf") ? { matchedBy, note: `matched on the last path segment of "${figma.name}"${matchedBy === "leaf-scoped" ? " (disambiguated by scope)" : ""}` } : {};
 
     const isPlainHex = t.type === "color" && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(t.value);
     const isPlainPx = t.type === "dimension" && /^\d+(\.\d+)?px$/.test(t.value);
@@ -87,11 +100,11 @@ export function compareRows(tokens, figmaEntries) {
   });
 }
 
-export async function runParity(options = {}) {
+export async function runParity({ scope = "contract", ...options } = {}) {
   const { fileKey, endpoint, gate, entries, pages } = await readFigma(options);
 
   const source = JSON.parse(readFileSync(TOKENS_SOURCE, "utf8"));
-  const rows = compareRows(flattenContract(source.contract), entries);
+  const rows = compareRows(flattenContract(source.contract), entries, { scope });
 
   const summary = {
     tokens: rows.length,
@@ -101,7 +114,7 @@ export async function runParity(options = {}) {
     nameOnly: rows.filter((r) => r.comparison === "name-only").length,
     missing: rows.filter((r) => r.comparison === "missing").length,
     // Counted separately so a run can never pass off path-suffix matches as exact ones.
-    leafMatched: rows.filter((r) => r.matchedBy === "leaf").length,
+    leafMatched: rows.filter((r) => r.matchedBy?.startsWith("leaf")).length,
     ambiguous: rows.filter((r) => r.note?.startsWith("ambiguous")).length,
   };
 
@@ -113,7 +126,12 @@ export async function runParity(options = {}) {
   console.log(`${endpoint} · ${summary.valueMatch} value-match / ${summary.nameOnly} name-only / ${summary.missing} missing of ${summary.tokens} contract tokens`);
 
   const artifact = {
-    note: "real run, from tooling/figma/figma-parity.mjs",
+    // Name the SOURCE, not just the script: a run against an exported file proves the tokens
+    // survived a round-trip through whatever wrote it — it is not a read of Figma's own API,
+    // and an artifact that blurs the two would overclaim.
+    note: endpoint === "export-file"
+      ? `real run, from tooling/figma/figma-parity.mjs — read from the exported file ${fileKey}, NOT from Figma's API`
+      : "real run, from tooling/figma/figma-parity.mjs — read from Figma's REST API",
     ranAt: new Date().toISOString(),
     endpoint,
     gate,
@@ -130,7 +148,7 @@ export async function runParity(options = {}) {
 // pathToFileURL, not `file://${argv[1]}`: this repo's path contains a space, which
 // import.meta.url percent-encodes — the naive comparison never matches.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runParity(readFlags(process.argv)).catch((e) => {
+  runParity({ ...readFlags(process.argv), ...(process.argv.includes("--scope") ? { scope: process.argv[process.argv.indexOf("--scope") + 1] } : {}) }).catch((e) => {
     console.error(e.stack ?? e.message); // the stack is the diagnosis — the 07-25 run lost it
     process.exit(1);
   });
