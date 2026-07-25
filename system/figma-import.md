@@ -62,6 +62,17 @@ parity only, and the output says so per row):
    secret never ships client-side and never enters the build).
 3. `node tooling/figma/figma-parity.mjs`
 
+**Names carry their group path, and the diff allows for it.** However a Figma file gets
+seeded — Tokens Studio, a plugin export, hand-authored styles — the DTCG group path rides
+along in the style name: `tokens.dtcg.json` nests `contract → fg-surface → color-fg`, so
+the style lands as `contract/fg-surface/color-fg`. Comparing whole names would normalise
+that to `contract-fg-surface-color-fg` and match nothing, scoring zero for a purely
+clerical reason. So the diff tries the exact whole name first, then the **last path
+segment** — and only when exactly one style claims that segment. Two styles ending
+`/color-fg` (say a light and a dark collection) is a real ambiguity, reported as such
+rather than silently resolved. Segment matches are counted separately as `leafMatched`,
+so a run can never pass them off as exact.
+
 The script tries the variables endpoint first; if your plan gates it (HTTP 403), it
 records Figma's exact error body as evidence and falls back to a **paged** read:
 `GET /v1/files/:key?depth=1` for the page index, then one

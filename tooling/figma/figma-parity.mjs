@@ -33,25 +33,57 @@ function flattenContract(node, out = {}) {
 // Figma name ("color/accent", "Color Accent") ↔ token leaf ("color-accent").
 const norm = (s) => String(s).toLowerCase().replace(/^--/, "").replace(/[\s/._]+/g, "-");
 
-function compareRows(tokens, figmaEntries) {
-  const byName = new Map(figmaEntries.map((e) => [norm(e.name), e]));
+// Whichever route seeds a Figma file — Tokens Studio, a plugin export, hand-authored styles — it
+// carries the DTCG GROUP PATH into the style name: tokens.dtcg.json nests `contract → fg-surface
+// → color-fg`, so the style lands as "contract/fg-surface/color-fg" and a whole-name compare
+// normalises it to "contract-fg-surface-color-fg" — which matches nothing, scoring 0 for a purely
+// clerical reason. So: exact whole-name first, then the LAST path segment, and only when exactly
+// one style claims that segment. Two styles ending "/color-fg" (a light and a dark collection) is
+// a real ambiguity the run must report rather than silently pick a side of.
+function indexEntries(entries) {
+  const exact = new Map();
+  const bySegment = new Map();
+  for (const e of entries) {
+    const full = norm(e.name);
+    if (!exact.has(full)) exact.set(full, e);
+    const seg = norm(String(e.name).split("/").pop());
+    if (!bySegment.has(seg)) bySegment.set(seg, new Map());
+    if (!bySegment.get(seg).has(full)) bySegment.get(seg).set(full, e);
+  }
+  return { exact, bySegment };
+}
+
+export function compareRows(tokens, figmaEntries) {
+  const { exact, bySegment } = indexEntries(figmaEntries);
   return Object.entries(tokens).map(([name, t]) => {
-    const figma = byName.get(norm(name));
+    const key = norm(name);
+    let figma = exact.get(key);
+    let matchedBy = figma ? "name" : null;
+
+    if (!figma) {
+      const candidates = [...(bySegment.get(key)?.values() ?? [])];
+      if (candidates.length === 1) { [figma] = candidates; matchedBy = "leaf"; }
+      else if (candidates.length > 1) {
+        return { token: name, type: t.type, comparison: "missing", match: null, tokenValue: t.value,
+          note: `ambiguous: ${candidates.length} Figma styles end in "/${name}" (${candidates.map((c) => c.name).join(", ")}) — rename or scope them` };
+      }
+    }
     if (!figma) return { token: name, type: t.type, comparison: "missing", match: null, tokenValue: t.value, note: "no Figma variable/style under this name" };
+    const via = matchedBy === "leaf" ? { matchedBy, note: `matched on the last path segment of "${figma.name}"` } : {};
 
     const isPlainHex = t.type === "color" && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(t.value);
     const isPlainPx = t.type === "dimension" && /^\d+(\.\d+)?px$/.test(t.value);
     if (isPlainHex && figma.type === "color" && figma.value) {
       const match = t.value.toLowerCase() === String(figma.value).toLowerCase();
-      return { token: name, type: t.type, figmaName: figma.name, comparison: "value", match, tokenValue: t.value, figmaValue: figma.value };
+      return { token: name, type: t.type, figmaName: figma.name, comparison: "value", match, tokenValue: t.value, figmaValue: figma.value, ...via };
     }
     if (isPlainPx && figma.type === "dimension") {
       const match = parseFloat(t.value) === figma.value;
-      return { token: name, type: t.type, figmaName: figma.name, comparison: "value", match, tokenValue: t.value, figmaValue: `${figma.value}px` };
+      return { token: name, type: t.type, figmaName: figma.name, comparison: "value", match, tokenValue: t.value, figmaValue: `${figma.value}px`, ...via };
     }
     // Web-only values (clamp(), color-mix(), shadow strings, font stacks) and
     // unresolved aliases never match Figma numerically — name parity is the honest claim.
-    return { token: name, type: t.type, figmaName: figma.name, comparison: "name-only", match: true, tokenValue: t.value, note: "web-only or non-plain value; name parity only" };
+    return { token: name, type: t.type, figmaName: figma.name, comparison: "name-only", match: true, tokenValue: t.value, ...via, note: via.note ? `${via.note}; web-only or non-plain value, name parity only` : "web-only or non-plain value; name parity only" };
   });
 }
 
@@ -68,6 +100,9 @@ export async function runParity(options = {}) {
     valueMismatch: rows.filter((r) => r.comparison === "value" && !r.match).length,
     nameOnly: rows.filter((r) => r.comparison === "name-only").length,
     missing: rows.filter((r) => r.comparison === "missing").length,
+    // Counted separately so a run can never pass off path-suffix matches as exact ones.
+    leafMatched: rows.filter((r) => r.matchedBy === "leaf").length,
+    ambiguous: rows.filter((r) => r.note?.startsWith("ambiguous")).length,
   };
 
   for (const r of rows) {
