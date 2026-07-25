@@ -1,0 +1,4 @@
+{
+  "$note": "Fixture map for the refusal path (not a real design): names a style the file does not publish, so the run must THROW and list what it does publish rather than fall back to a contract default.",
+  "spacing-md": "Nope/Missing"
+}
