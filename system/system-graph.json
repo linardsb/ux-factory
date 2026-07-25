@@ -930,6 +930,27 @@
       ]
     },
     {
+      "id": "ds-list-row-cross-scenario-library-primitive",
+      "label": "ds-list-row — cross-scenario library primitive",
+      "spec": "system/specs/list-row.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-md",
+        "--color-bg-surface",
+        "--color-border",
+        "--radius-md",
+        "--spacing-xs",
+        "--type-body",
+        "--color-fg",
+        "--type-caption",
+        "--color-fg-muted",
+        "--radius-lg",
+        "--type-eyebrow",
+        "--color-accent",
+        "--color-accent-fg"
+      ]
+    },
+    {
       "id": "vd-screen-header",
       "label": "vd-screen-header",
       "spec": "system/specs/screen-header.md",
@@ -1066,7 +1087,7 @@
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 27,
-    "edges": 295
+    "consumers": 28,
+    "edges": 309
   }
 }

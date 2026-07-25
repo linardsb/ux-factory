@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The six templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The seven templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -212,7 +212,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the six specs. Classes match
+// Templates — the canonical DOM realization of the seven specs. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
 // ---------------------------------------------------------------------------
@@ -324,6 +324,21 @@ const TEMPLATES = {
       el("span", { class: "ds-metric-reading" },
         el("span", { class: "ds-metric-value", text: String(props.value) }),
         props.unit != null ? el("span", { class: "ds-metric-unit", text: props.unit }) : null))),
+
+  // Library-generic primitive (ds-, cross-scenario) — one named entity per row, the row-shaped
+  // sibling of metric-tile (ticket #101). Non-interactive like metric-tile (no bus); DOM order is
+  // reading order (name → meta → value → unit → status) so the row is heard as one sentence;
+  // `status` is FREE text rendered as the row's own pill — deliberately NOT a status-chip child,
+  // which would re-lock this primitive to Verdant's ok|due|overdue enum (spec's Usage prose).
+  "list-row": (props) => el("div", { class: `ds-list-row${props.tone && props.tone !== "neutral" ? " is-" + props.tone : ""}` },
+    el("p", {},
+      el("span", { class: "ds-row-text" },
+        el("span", { class: "ds-row-name", text: props.label }),
+        props.meta != null ? el("span", { class: "ds-row-meta", text: props.meta }) : null),
+      el("span", { class: "ds-row-reading" },
+        el("span", { class: "ds-row-value", text: String(props.value) }),
+        props.unit != null ? el("span", { class: "ds-row-unit", text: props.unit }) : null),
+      props.status != null ? el("span", { class: "ds-row-status", text: props.status }) : null)),
 };
 
 // ---------------------------------------------------------------------------

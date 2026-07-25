@@ -1467,7 +1467,8 @@ p, .body {
    and touches only the tokens its spec lists; state classes mirror the
    spec's named states. fw- board chrome is human-fixed canvas (no specs —
    see the ticket's scope note); same token discipline. ds- = a library-generic
-   primitive both scenarios reuse (metric-tile, #13) — not scoped to one scenario.
+   primitive any scenario reuses (metric-tile, #13; list-row, #101) — not scoped
+   to one scenario.
    ========================================================================== */
 
 /* ---------- ds-metric-tile (system/specs/metric-tile.md) — cross-scenario library primitive ---------- */
@@ -1522,6 +1523,98 @@ p, .body {
 .ds-metric-tile.is-critical .ds-metric-unit {
   color: var(--color-accent-fg);
 }
+
+/* ---------- ds-list-row (system/specs/list-row.md) — cross-scenario library primitive ---------- */
+
+.ds-list-row {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+/* DOM order is name → meta → value → unit → status (screen readers hear one sentence);
+   the row lays that out horizontally — text leading, reading and pill trailing. */
+.ds-list-row p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.ds-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1 1 auto;
+  min-width: 0; /* a long entity name ellipsises instead of blowing the row out */
+}
+.ds-row-name {
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-row-meta {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-row-reading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  flex: 0 0 auto;
+}
+.ds-row-value {
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-row-unit {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+/* The row owns its pill: `status` is free text, never a vd-status-chip child — that child's
+   ok|due|overdue enum would re-lock this cross-scenario primitive to Verdant's vocabulary
+   (spec's Usage prose). Same quiet token vocabulary as .vd-status-chip. */
+.ds-row-status {
+  flex: 0 0 auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-fg-muted);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Tone = emphasis via fill-inversion on the accent family — the identical mechanic to
+   .ds-metric-tile (no warn/critical hue exists, and none is needed). Colour is never the sole
+   signal; the name, value and status carry the state (spec's Accessibility note). */
+.ds-list-row.is-warn {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%);
+}
+.ds-list-row.is-warn .ds-row-value,
+.ds-list-row.is-warn .ds-row-status {
+  color: var(--color-accent);
+}
+.ds-list-row.is-warn .ds-row-status { border-color: var(--color-accent); }
+.ds-list-row.is-critical {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+.ds-list-row.is-critical .ds-row-name,
+.ds-list-row.is-critical .ds-row-meta,
+.ds-list-row.is-critical .ds-row-value,
+.ds-list-row.is-critical .ds-row-unit,
+.ds-list-row.is-critical .ds-row-status {
+  color: var(--color-accent-fg);
+}
+.ds-list-row.is-critical .ds-row-status { border-color: var(--color-accent-fg); }
 
 /* ---------- vd-screen-header (system/specs/screen-header.md) ---------- */
 
