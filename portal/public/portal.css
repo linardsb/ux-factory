@@ -60,6 +60,9 @@
   background: color-mix(in srgb, var(--color-bg-inverse) 40%, transparent);
   display: flex; justify-content: flex-end;
 }
+/* An author `display` beats the UA's [hidden] rule, so the line above was leaving every drawer
+   on screen — inset:0 and z-index:40 — however its `hidden` property was set. */
+.portal-drawer[hidden] { display: none; }
 .portal-form {
   background: var(--color-bg); width: min(480px, 100%); height: 100%; overflow-y: auto;
   padding: var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-md);
@@ -80,6 +83,9 @@
   width: min(420px, 100vw); display: flex; flex-direction: column;
   background: var(--color-bg); border-left: 1px solid var(--color-border); box-shadow: var(--shadow-lg);
 }
+/* Same trap as the drawer: without this the dock sat over the header's right-hand buttons whether
+   or not it was `hidden`. */
+.portal-chat[hidden] { display: none; }
 .portal-chat-head { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-md); border-bottom: 1px solid var(--color-border); }
 .portal-chat-close { background: none; border: none; font-size: var(--type-h3); color: var(--color-fg-muted); cursor: pointer; }
 .portal-chat-log { flex: 1; overflow-y: auto; padding: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
