@@ -874,3 +874,12 @@ the visible half of the arc on its own. The reverse isn't true — don't reorder
 ## AMENDMENTS
 
 <!-- append-only; newest at the bottom -->
+
+**2026-07-25 — Open Question #4 reversed: the PR carries `Closes #N` after all.** The plan recorded
+"no ticket exists, so no trailer" as an explicit call. On review the owner chose the other fix the
+question itself offered: umbrella issue #121 was written retroactively (scope, the three problems,
+and the deliberate non-goals — fonts, components, the parity artifact, extending the REST read), and
+PR #120's body now closes it. Nothing in the implementation changed. The reason to prefer this: a
+merged PR that closes nothing leaves the work looking unplanned, which cost a wasted planning pass
+once already (#78), and CLAUDE.md makes the trailer mandatory — a one-off exemption is a worse
+precedent than a five-minute retroactive ticket.
