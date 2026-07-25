@@ -351,6 +351,9 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
     (pick.neutral ? ` --neutral ${pick.neutral}` : "") +
     (pick.accent ? ` --accent ${pick.accent}` : "") +
     (map ? ` --map ${map}` : "") +
+    // Name the source this run actually read. A pack imported from an export must not tell the
+    // next reader to regenerate it through the API, which needs a token, spends the file's
+    // ~6-a-month budget, and cannot see variables outside an Enterprise plan.
     (readOptions.from ? ` --from ${readOptions.from}` : "") +
     (derivedUsed.length
       ? `\n * Rung numbers DERIVED, not read: this file does not number these colours, so each ramp ` +

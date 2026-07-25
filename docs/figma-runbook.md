@@ -66,8 +66,8 @@ also sees variables Figma's API refuses outside Enterprise.
 node tooling/figma/figma-parity.mjs --from ~/Downloads/export.json --land
 ```
 
-**4. Check the numbers, then commit the three files it names**, and `node tooling/drift-check.mjs`
-should print ✓.
+**4. Check the numbers, then commit the three files it names.** No gate watches this artifact —
+`drift-check` does not read it — so your reading of the numbers is the only check there is.
 
 **If the numbers look wrong, don't commit** — `git checkout -- handoff/ && rm -f
 handoff/verdant/figma-parity.json` puts it back, and nothing was lost. This artifact ships as
