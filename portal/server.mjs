@@ -7,6 +7,7 @@ import { PORT, REPO_DIR, JOBS_DIR, PORTAL_DIR, HAS_TOKEN } from './lib/env.mjs';
 import { listCards, cardFor } from './lib/kb.mjs';
 import { createIntake } from './lib/intake.mjs';
 import { streamChat } from './lib/chat.mjs';
+import { receiveExport, runFigmaPull } from './lib/figma.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -55,6 +56,18 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req);
       const result = await createIntake(body);
       return json(res, 200, result);
+    }
+    // One route, two modes. A raw JSON body is a NEW export — streamed straight to disk by
+    // receiveExport, never buffered, so the shared readBody's 1 MB cap stays where it is for every
+    // other route. `x-figma-retry` re-runs off the export already on disk, which is how a
+    // candidate swatch answers an ambiguous-ramp refusal without re-uploading the file.
+    if (p === '/api/figma/pull' && req.method === 'POST') {
+      const slug = url.searchParams.get('slug');
+      const accent = url.searchParams.get('accent') || null;
+      const neutral = url.searchParams.get('neutral') || null;
+      if (req.headers['x-figma-retry'] === '1') req.resume(); // nothing to read; don't stall the socket
+      else await receiveExport(req, slug);
+      return json(res, 200, await runFigmaPull({ slug, accent, neutral }));
     }
     if (p === '/api/chat' && req.method === 'POST') {
       const body = await readBody(req);

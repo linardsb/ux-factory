@@ -20,3 +20,6 @@ portal/.sessions.json
 # figma parity (raw API dumps + their manifest — neither artifact nor proof)
 tooling/figma/.last-response.json
 tooling/figma/.raw/
+
+# figma imports (a dropped export is someone else's design file — the pack is the artifact)
+tooling/figma/exports/

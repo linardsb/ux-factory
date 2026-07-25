@@ -132,6 +132,190 @@ $('#intake-form').addEventListener('submit', async (e) => {
   }
 });
 
+/* ---------- figma → pack ---------- */
+const MAX_EXPORT_BYTES = 32 * 1024 * 1024; // mirrors portal/lib/figma.mjs — keep in step
+const figma = { file: null };
+const mb = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+// A swatch hex is third-party data on its way into a style attribute — prove it is a hex first.
+const swatchStyle = (hex) => (/^#[0-9a-f]{6}$/i.test(hex) ? `background:${hex}` : '');
+
+// Focus the file input, not the slug: it is the drawer's first control and the first thing the
+// operator needs, and landing past it would leave the drop zone reachable only by Shift+Tab.
+$('#btn-figma').addEventListener('click', () => { $('#figma-drawer').hidden = false; $('#figma-file').focus(); });
+$('#figma-cancel').addEventListener('click', () => { $('#figma-drawer').hidden = true; });
+
+const drop = $('#figma-drop');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('is-over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+drop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  drop.classList.remove('is-over');
+  pickFile(e.dataTransfer.files[0]);
+});
+$('#figma-file').addEventListener('change', (e) => pickFile(e.target.files[0]));
+
+// Client-side checks are a courtesy — they name the limit before a 33 MB upload starts and catch
+// a mis-drop instantly. The server validates all of it again; neither side trusts the other.
+async function pickFile(file) {
+  figma.file = null;
+  $('#figma-file-name').textContent = '';
+  if (!file) return;
+  if (!/\.json$/i.test(file.name)) {
+    $('#figma-status').textContent = `"${file.name}" isn't a .json export. Export the design's tokens (Tokens Studio, a variables dump, or any nested name→value JSON) and drop that.`;
+    return;
+  }
+  if (file.size > MAX_EXPORT_BYTES) {
+    $('#figma-status').textContent = `"${file.name}" is ${mb(file.size)}, over the ${mb(MAX_EXPORT_BYTES)} cap — a token export should be far smaller; this looks like the wrong file.`;
+    return;
+  }
+  try {
+    JSON.parse(await file.text());
+  } catch (err) {
+    $('#figma-status').textContent = `"${file.name}" isn't valid JSON — ${err.message}`;
+    return;
+  }
+  figma.file = file;
+  $('#figma-file-name').textContent = `${file.name} · ${mb(file.size)}`;
+  $('#figma-status').textContent = '';
+}
+
+// Not the shared api(): that helper assumes a JSON-stringified request and throws on !res.ok,
+// and this route posts a raw File and answers a refusal with 200.
+async function postPull(params, opts = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`/api/figma/pull?${qs}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
+    body: opts.body ?? null,
+  });
+  const body = await res.json().catch(() => ({ error: res.statusText }));
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+$('#figma-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const slug = f.get('slug').trim();
+  if (!figma.file) {
+    $('#figma-status').textContent = 'Drop an export first (or choose one with the file picker).';
+    return;
+  }
+  const params = { slug };
+  if (f.get('accent').trim()) params.accent = f.get('accent').trim();
+  if (f.get('neutral').trim()) params.neutral = f.get('neutral').trim();
+  $('#figma-report').innerHTML = '';
+  $('#figma-status').textContent = `Reading ${figma.file.name}, mapping roles, negotiating contrast…`;
+  try {
+    const body = await postPull(params, { body: figma.file });
+    if (body.ok) renderReport(body.pack);
+    else renderCandidates(body, slug);
+  } catch (err) {
+    // A refusal with no candidates lands here too — no usable ramp at all, no grey ramp, an empty
+    // read. Show it verbatim with no affordance: the tool is saying this design can't be imported
+    // as-is, and inventing a control for that would be an overclaim.
+    $('#figma-status').textContent = err.message;
+  }
+});
+
+function renderCandidates(body, slug) {
+  $('#figma-status').textContent = body.message;
+  $('#figma-report').innerHTML = `
+    <p class="muted">The importer won't pick a brand colour for you. Choose the ramp it should use as the accent:</p>
+    <div class="portal-swatches">
+      ${body.candidates.map((c) => `
+        <button class="portal-swatch" type="button" data-hue="${esc(c.hue)}">
+          <span class="portal-swatch-chip" style="${swatchStyle(c.swatch)}"></span>
+          <span>${esc(c.hue)}</span>
+          <span class="muted">${c.rungs} rungs · chroma ${Number(c.chroma).toFixed(3)}</span>
+        </button>`).join('')}
+    </div>`;
+  $('#figma-report').querySelectorAll('.portal-swatch').forEach((el) =>
+    el.addEventListener('click', async () => {
+      $('#figma-status').textContent = `Re-running with ${el.dataset.hue} as the accent…`;
+      try {
+        // The retry re-reads the export already on disk — no re-upload, and it exercises the
+        // very path the pack header names as the run's source.
+        const body2 = await postPull({ slug, accent: el.dataset.hue }, { headers: { 'x-figma-retry': '1' } });
+        if (body2.ok) renderReport(body2.pack);
+        else renderCandidates(body2, slug);
+      } catch (err) {
+        $('#figma-status').textContent = err.message;
+      }
+    })
+  );
+}
+
+function renderReport(pack) {
+  const failing = pack.failures.length;
+  $('#figma-status').textContent = `Wrote ${pack.dest} — ${pack.tokenCount} tokens, ${pack.checks.length - failing}/${pack.checks.length} WCAG pairs pass.`;
+  $('#figma-report').innerHTML = `
+    <h3 class="h3">What this run did</h3>
+    <p class="muted">
+      Read <code>${esc(pack.exportPath)}</code> (${esc(pack.fileName ?? '')}) → wrote <code>${esc(pack.dest)}</code>.<br />
+      Ramps in the file: ${pack.available.map((r) => `<code>${esc(r)}</code>`).join(' · ')}
+      ${pack.pages ? `<br />Pages read: ${esc(pack.pages.read.map((p) => p.name).join(', '))}` : ''}
+      ${pack.derivedUsed.length ? `<br /><strong>Rung numbers derived, not read</strong> for ${pack.derivedUsed.map((h) => `<code>${esc(h)}</code>`).join(' · ')} — ordered by OKLCH lightness. The numbers are the importer's; the colours are the design's.` : ''}
+    </p>
+
+    <h3 class="h3">Mapped from the design — ${pack.placed.length} tokens</h3>
+    <div class="portal-table-scroll">
+      <table class="portal-wcag">
+        <thead><tr><th>Token</th><th>Value</th><th>Where it came from</th></tr></thead>
+        <tbody>
+          ${pack.placed.map((p) => `
+            <tr>
+              <td><code>${esc(p.token)}</code></td>
+              <td><span class="portal-swatch-chip portal-swatch-chip-sm" style="${swatchStyle(pack.values[p.token])}"></span> <code>${esc(pack.values[p.token])}</code></td>
+              <td>${esc(p.source)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="h3">WCAG — ${pack.checks.length - failing}/${pack.checks.length} pairs pass</h3>
+    <div class="portal-table-scroll">
+      <table class="portal-wcag">
+        <thead><tr><th></th><th>Ratio</th><th>Min</th><th>Pair</th></tr></thead>
+        <tbody>
+          ${pack.checks.map((c) => `
+            <tr data-pass="${c.pass}">
+              <td>${c.pass ? '✓' : '✗'}</td>
+              <td>${esc(c.ratio)}</td>
+              <td>${esc(c.min)}</td>
+              <td><code>${esc(c.fg)}</code> on <code>${esc(c.bg)}</code></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${failing ? `<p class="muted"><strong>${failing} pair(s) still failing</strong> — no value this design offers satisfies them. The pack ships saying so in its header.</p>` : ''}
+
+    ${pack.stepped.length ? `
+      <h3 class="h3">Contrast negotiated within the design's own ramps</h3>
+      <ul class="muted">
+        ${pack.stepped.map((s) => `<li><code>${esc(s.token)}</code>: ${esc(s.ramp)}/${esc(s.from)} (${esc(s.fromValue)}) → ${esc(s.ramp)}/${esc(s.to)} (${esc(s.toValue)})</li>`).join('')}
+      </ul>` : '<p class="muted">No contrast negotiation was needed — every nominal rung passed as mapped.</p>'}
+
+    ${pack.collapsed.length ? `
+      <h3 class="h3">Too few rungs for a distinct state colour</h3>
+      <ul class="muted">${pack.collapsed.map((c) => `<li><code>${esc(c.token)}</code> repeats <code>${esc(c.twin)}</code> — the ramp holds nothing else to move to.</li>`).join('')}</ul>` : ''}
+
+    <h3 class="h3">Auto-filled from contract defaults — ${pack.filled.length} tokens</h3>
+    <p class="muted">Not read from the design. These are the repo's own values, and this is the full list:</p>
+    <p class="portal-filled">${pack.filled.map((t) => `<code>${esc(t)}</code>`).join(' ')}</p>
+
+    <h3 class="h3">The pack header, verbatim</h3>
+    <pre>${esc(pack.note)}</pre>
+
+    <h3 class="h3">To keep it</h3>
+    <p class="muted">
+      Commit <code>${esc(pack.dest)}</code>. A new pack under <code>system/</code> changes
+      <code>loc-summary.json</code>, so regenerate it and the approach VR baselines in the same commit:<br />
+      <code>node agent-layer/gen-loc-summary.mjs</code> ·
+      <code>cd tooling/visual-regression &amp;&amp; npm run update:docker</code>
+    </p>`;
+}
+
 /* ---------- chat ---------- */
 $('#btn-chat').addEventListener('click', () => { $('#chat').hidden = false; $('#chat-input').focus(); });
 $('#chat-close').addEventListener('click', () => { $('#chat').hidden = true; });
