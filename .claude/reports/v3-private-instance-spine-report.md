@@ -76,7 +76,11 @@ Audits over both stamped outputs: `data-when=` / `{{` residue → **0**; `demo`/
 | `build-instance.mjs`, both ways | ✓ / ✓ |
 | Home peak regression (`/index.html`) | identical after the extraction: `data-peak="ready"`, headline `All 12 contrast pairs pass AA`, the same 4 rows with the same ratios, live screen + adjust control present, no errors |
 
-`loc-summary.json` moved (runtime 42→44 files, 11100→11500 lines; total 17100→17700), so the two approach baselines were regenerated in this PR per the recorded cascade.
+`loc-summary.json` moved, so the two approach baselines were regenerated in this PR per the recorded cascade.
+
+**Post-merge note.** The branch was 5 commits behind `origin/main` (the figma token-import thread, PR #111), which had itself already moved `loc-summary.json` and both approach baselines — so those three generated files conflicted on the merge. Resolved the recorded way: take one side to get a parseable tree, **complete the merge**, then regenerate on the clean tree (never hand-edit a generated file, never diagnose drift mid-merge). Final numbers on the merged tree: runtime 45 files / 11,600 lines, total 77 / 17,800. `drift-check`, `token-lint`, `gen-loc-summary --check` (after staging) and the 18-shot VR gate were all re-run green on the merged tree, and the full three-engine drive plus the `?brand=` isolation proof and the home-peak regression check were repeated against a freshly stamped `inst-b`.
+
+Commits: `4aea791` (the ticket) · `f8733bf` (merge `origin/main`) · `13ca76d` (post-merge regen).
 
 ## Deviations from the plan
 
