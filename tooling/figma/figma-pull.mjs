@@ -9,10 +9,14 @@
 // so a pack is the natural landing site — and it keeps this script clear of the drift-check that
 // polices tokens.contract.css / tokens.neutral.css as generated from tokens.source.json.
 //
-// Mapped by ROLE, not by name. A design system's colours arrive as <hue>/<step> ramps
-// ("gray/900", "indigo/600") which share no vocabulary with the contract's semantic names, so
-// name matching would import nothing. Each contract token instead claims a nominal rung of the
-// neutral or accent ramp, and every emitted value is a real value from the file.
+// Mapped by ROLE, not by name. A design system's colours share no vocabulary with the contract's
+// semantic names, so name matching would import nothing. Each contract token instead claims a
+// nominal rung of the neutral or accent ramp, and every emitted value is a real value from the
+// file. Rungs come from <hue>/<step> names ("gray/900", "indigo/600") where the file uses them,
+// and are otherwise DERIVED: colours are grouped by name prefix and ordered by OKLCH lightness,
+// so "Blue/Light, Blue/Base, Blue/Dark" is a 3-rung ramp whose numbers this importer synthesised
+// and says so. A role then takes the NEAREST rung its ramp actually has. Where inference can't
+// read a design at all, --map <file> pins tokens to named styles explicitly and beats it.
 //
 // Then it negotiates for contrast, in the file's own ramp. A nominal rung is not automatically
 // accessible — a yellow accent at /600 fails as text on white. Where a WCAG pair fails, the token
@@ -33,11 +37,13 @@
 //   node tooling/figma/figma-pull.mjs --slug <company>
 //   node tooling/figma/figma-pull.mjs --slug <company> --accent indigo --page Color  (explicit)
 //   node tooling/figma/figma-pull.mjs --slug <company> --offline                     (spends nothing)
+//   node tooling/figma/figma-pull.mjs --slug <company> --map tooling/figma/maps/<slug>.json
 //   node tooling/figma/figma-pull.mjs --slug <company> --from <export.json>
 //     — read a PLUGIN EXPORT instead of the API: no token, no rate limit, and it sees the
-//       variables REST gates behind Enterprise. The file still has to carry <hue>/<step> ramps.
+//       variables REST gates behind Enterprise.
 
-import { relative } from "node:path";
+import { readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { genPackCss } from "../../agent-layer/gen-pack-css.mjs";
 import { RULESET } from "../../system/derive.rules.mjs";
@@ -86,6 +92,68 @@ export function toRamps(entries) {
   return { ramps, loose };
 }
 
+// Ramps DERIVED from arbitrary names, for the designs that don't number their colours.
+// "Blue/Light, Blue/Base, Blue/Dark" is a ramp too — it states its order in words instead of
+// digits. Group the leftover colours by name prefix (everything before the last "/", or the
+// leading word), order each group by OKLCH lightness the way the numeric convention runs
+// (light → dark), and synthesise rungs from that ORDER, spread across the same 50…950 scale.
+// The numbers are this importer's and every report says so; the colours stay the designer's.
+// A prefix that already names a numbered ramp is left alone — a real ramp is never widened with
+// a guessed rung. Nothing is removed from `loose`: the white lookup still reads it.
+export function deriveRamps(loose, numbered = {}) {
+  const groups = {};
+  for (const [name, hex] of Object.entries(loose)) {
+    const cut = name.lastIndexOf("/");
+    const prefix = (cut === -1 ? name.split(/[\s_-]+/)[0] : name.slice(0, cut)).trim();
+    if (!prefix || prefix in numbered) continue;
+    (groups[prefix] ??= []).push({ name, hex });
+  }
+
+  const ramps = {};
+  const derived = {};
+  for (const [prefix, members] of Object.entries(groups)) {
+    const ordered = members
+      .map((m, i) => ({ ...m, l: hexToOklch(m.hex).l, i }))
+      .sort((a, b) => b.l - a.l || a.i - b.i); // lightest first, declaration order breaks ties
+    ramps[prefix] = {};
+    derived[prefix] = {};
+    ordered.forEach((m, i) => {
+      const step = ordered.length === 1 ? 500 : Math.round((50 + (i * 900) / (ordered.length - 1)) / 50) * 50;
+      ramps[prefix][step] = m.hex;
+      derived[prefix][step] = { name: m.name, rung: i + 1, of: ordered.length };
+    });
+  }
+  return { ramps, derived };
+}
+
+// --map <file>: { "color-accent": "Brand/Primary" } — the explicit answer for a design inference
+// can't read, committed beside the pack it produces. Explicit ALWAYS beats inference: a mapped
+// token is pinned to that style's value and never negotiated (negotiate skips entries with no
+// ramp), so a mapped colour that fails a pair is reported as a failure rather than moved. A name
+// the file doesn't publish throws — never a silent fall back to a default.
+function readMap(path, entries) {
+  const spec = JSON.parse(readFileSync(resolve(process.cwd(), path), "utf8"));
+  const colors = entries.filter((e) => e.type === "color" && typeof e.value === "string" && /^#[0-9a-f]{6}$/i.test(e.value));
+  const pinned = {};
+  for (const [token, styleName] of Object.entries(spec)) {
+    if (token.startsWith("$")) continue; // a $note key, the way the DTCG files carry prose
+    if (typeof styleName !== "string") throw new Error(`${path}: "${token}" must name a Figma style as a string, not ${JSON.stringify(styleName)}`);
+    const want = styleName.trim().toLowerCase();
+    const hits = colors.filter((e) => e.name.trim().toLowerCase() === want);
+    // Last-segment match is the fallback (a map may name "Primary" for "Colors/Brand/Primary"),
+    // and it refuses when two styles share that segment rather than taking the first.
+    const matched = hits.length ? hits : colors.filter((e) => e.name.split("/").pop().trim().toLowerCase() === want);
+    if (!matched.length) throw new Error(`${path}: "${token}" → no colour style named "${styleName}" in this file. It publishes: ${colors.map((e) => e.name).join(", ")}`);
+    if (matched.length > 1) throw new Error(`${path}: "${token}" → "${styleName}" matches ${matched.length} styles (${matched.map((e) => e.name).join(", ")}) — name one in full.`);
+    pinned[token] = { hex: matched[0].value.toLowerCase(), name: matched[0].name };
+  }
+  return pinned;
+}
+
+// The nearest rung a ramp actually has. A derived ramp — or a small file — has no /900, so a role
+// takes the closest thing to its nominal rung instead of the run refusing over a missing number.
+const nearestRung = (rungs, target) => rungs.reduce((best, s) => (Math.abs(s - target) < Math.abs(best - target) ? s : best));
+
 // Which ramp is the greys and which is the brand, decided from the colours themselves rather
 // than from the reader. Chroma (OKLCH, the repo's own converter) separates a grey ramp from a
 // coloured one; a ramp NAMED for a UI state is a state, not a brand, however saturated it is.
@@ -102,19 +170,21 @@ export function classifyRamps(ramps) {
   });
 }
 
-function pickRamps(ramps, { neutral, accent }) {
+// `need` says which ramps still have unmapped roles to fill: a --map that pins every accent role
+// leaves nothing for an accent ramp to answer, so the run must not refuse over one being absent.
+function pickRamps(ramps, { neutral, accent, need = { neutral: true, accent: true } }) {
   const classified = classifyRamps(ramps);
   const usable = classified.filter((r) => r.rungs >= 5); // a 2-rung ramp can't carry the roles
 
   let pickedNeutral = neutral;
-  if (!pickedNeutral) {
+  if (!pickedNeutral && need.neutral) {
     const greys = usable.filter((r) => r.chroma <= NEUTRAL_MAX_CHROMA).sort((a, b) => a.chroma - b.chroma);
     if (!greys.length) throw new Error(`figma-pull: no near-grey ramp found for the neutral role — name one with --neutral <hue>. Ramps: ${classified.map((r) => `${r.hue}(chroma ${r.chroma.toFixed(3)})`).join(", ")}`);
     pickedNeutral = greys[0].hue;
   }
 
   let pickedAccent = accent;
-  if (!pickedAccent) {
+  if (!pickedAccent && need.accent) {
     const candidates = usable.filter((r) => r.chroma > NEUTRAL_MAX_CHROMA && r.hue !== pickedNeutral && !STATE_RAMP.test(r.hue));
     if (candidates.length === 1) pickedAccent = candidates[0].hue;
     else {
@@ -125,7 +195,7 @@ function pickRamps(ramps, { neutral, accent }) {
       );
     }
   }
-  return { neutral: pickedNeutral, accent: pickedAccent, classified };
+  return { neutral: pickedNeutral ?? null, accent: pickedAccent ?? null, classified };
 }
 
 // Every WCAG pair this token takes part in, on either side.
@@ -133,7 +203,7 @@ const pairsFor = (token) => RULESET.wcagPairs.filter((p) => p.fg === token || p.
 
 // Where a pair fails, walk the token's OWN ramp to the nearest rung that satisfies every pair it
 // takes part in. Values stay the designer's; only the choice of rung is ours, and it is reported.
-function negotiate(values, placed, ramps) {
+function negotiate(values, placed, ramps, derived = {}) {
   const steps = [];
   for (const entry of placed) {
     const { token, ramp, step } = entry;
@@ -149,77 +219,153 @@ function negotiate(values, placed, ramps) {
     steps.push({ token, ramp, from: step, to: won, fromValue: values[token], toValue: ramps[ramp][won] });
     values[token] = ramps[ramp][won];
     entry.step = won; // so the mapping report shows the rung actually emitted, not the nominal one
-    entry.source = `${ramp}/${won} (negotiated from /${step} for contrast)`;
+    const d = derived[ramp]?.[won];
+    entry.source = `${ramp}/${won}${d ? ` = "${d.name}"` : ""} (negotiated from /${step} for contrast)`;
   }
   return steps;
 }
 
-export async function runPull({ slug, accent = null, neutral = null, ...readOptions } = {}) {
+export async function runPull({ slug, accent = null, neutral = null, map = null, ...readOptions } = {}) {
   if (!slug) throw new Error("figma-pull: --slug <name> is required (it names system/tokens.<slug>.css)");
   const { fileKey, fileName, entries, pages } = await readFigma(readOptions);
-  const { ramps, loose } = toRamps(entries);
+  const { ramps: numbered, loose } = toRamps(entries);
+  const { ramps: inferred, derived } = deriveRamps(loose, numbered);
+  const ramps = { ...numbered, ...inferred };
+  const pinned = map ? readMap(map, entries) : {};
 
   const available = Object.keys(ramps).sort();
   if (!available.length) {
     throw new Error(
-      `figma-pull: none of the ${entries.length} styles read are named "<hue>/<step>" (e.g. "gray/900"), ` +
-      `so there is no ramp to map roles onto. Read a page that carries the palette — --page Color — ` +
-      `or map this file by hand.`,
+      `figma-pull: none of the ${entries.length} styles read is a colour, so there is no ramp to map ` +
+      `roles onto. Read a page that carries the palette — --page Color — or pin the roles by hand ` +
+      `with --map <file>.`,
     );
   }
   for (const [role, hue] of Object.entries({ neutral, accent })) {
     if (hue && !ramps[hue]) throw new Error(`figma-pull: no "${hue}" ramp in this file for the ${role} role. Available: ${available.join(", ")}`);
   }
-  const pick = pickRamps(ramps, { neutral, accent });
-  if (!neutral || !accent) console.log(`  detected ramps: neutral=${pick.neutral} accent=${pick.accent}${accent && neutral ? "" : "  (override with --neutral / --accent)"}`);
+  // A ramp is only needed where a role is left for it to answer — see pickRamps.
+  const need = { neutral: false, accent: false };
+  for (const role of ROLES) if (role.ramp && !role.white && !pinned[role.token]) need[role.ramp] = true;
+  const pick = pickRamps(ramps, { neutral, accent, need });
+  if ((need.neutral && !neutral) || (need.accent && !accent)) {
+    console.log(`  detected ramps: neutral=${pick.neutral ?? "(not needed)"} accent=${pick.accent ?? "(not needed)"}  (override with --neutral / --accent)`);
+  }
 
   // The file's own white if it publishes one, so even the plain grounds are the designer's value.
   const whiteKey = Object.keys(loose).find((n) => /(^|\/)white$/.test(n));
   const white = whiteKey ? loose[whiteKey] : "#ffffff";
 
+  // How a rung reads in the report: a derived rung names the style it actually came from, so
+  // nobody mistakes a number this importer synthesised for one the designer wrote.
+  const rungSource = (hue, step, nominal) => {
+    const d = derived[hue]?.[step];
+    return (
+      `${hue}/${step}` +
+      (d ? ` = "${d.name}" (derived: rung ${d.rung} of ${d.of}, ordered by OKLCH lightness)` : "") +
+      (nominal !== undefined && step !== nominal ? ` (nearest rung to nominal /${nominal})` : "")
+    );
+  };
+
   const values = {};
   const placed = [];
   for (const role of ROLES) {
     if (role.follows) continue; // resolved below, once the anchor has settled
+    if (pinned[role.token]) {
+      values[role.token] = pinned[role.token].hex;
+      placed.push({ token: role.token, source: `pinned by --map to "${pinned[role.token].name}"` });
+      continue;
+    }
     if (role.white) {
       values[role.token] = white;
       placed.push({ token: role.token, source: whiteKey ?? "(no white style in the file — #ffffff)" });
       continue;
     }
     const hue = pick[role.ramp];
-    const hex = ramps[hue][role.step];
-    if (!hex) throw new Error(`figma-pull: the "${hue}" ramp has no /${role.step} rung (has ${Object.keys(ramps[hue]).join(", ")}), needed for --${role.token}`);
-    values[role.token] = hex;
-    placed.push({ token: role.token, ramp: hue, step: role.step, source: `${hue}/${role.step}` });
+    const step = nearestRung(Object.keys(ramps[hue]).map(Number), role.step);
+    values[role.token] = ramps[hue][step];
+    placed.push({ token: role.token, ramp: hue, step, source: rungSource(hue, step, role.step) });
   }
 
-  const stepped = negotiate(values, placed, ramps);
+  const stepped = negotiate(values, placed, ramps, derived);
 
   // Interaction states, offset from the accent's FINAL rung so they stay visibly distinct from it.
   for (const role of ROLES.filter((r) => r.follows)) {
+    if (pinned[role.token]) {
+      values[role.token] = pinned[role.token].hex;
+      placed.push({ token: role.token, source: `pinned by --map to "${pinned[role.token].name}"` });
+      continue;
+    }
     const hue = pick[role.ramp];
     const anchor = placed.find((p) => p.token === role.follows);
+    if (anchor.step === undefined) {
+      throw new Error(
+        `figma-pull: ${role.follows} is pinned by --map, so it has no rung for ${role.token} to offset from. ` +
+        `Add "${role.token}" to the map too — a state colour is a design decision, not something to guess.`,
+      );
+    }
     const anchorStep = stepped.find((s) => s.token === role.follows)?.to ?? anchor.step;
+    // Exclude the anchor's own rung where the ramp has another: a hover the same colour as its
+    // rest state is no hover state at all. A one-rung ramp has nothing else, and says so below.
     const rungs = Object.keys(ramps[hue]).map(Number);
-    const target = anchorStep + role.offset;
-    const rung = rungs.reduce((best, s) => (Math.abs(s - target) < Math.abs(best - target) ? s : best));
+    const distinct = rungs.filter((s) => s !== anchorStep);
+    const rung = nearestRung(distinct.length ? distinct : rungs, anchorStep + role.offset);
     values[role.token] = ramps[hue][rung];
-    placed.push({ token: role.token, ramp: hue, step: rung, source: `${hue}/${rung} (${role.follows} ${anchorStep} + ${role.offset})` });
+    placed.push({ token: role.token, ramp: hue, step: rung, source: `${rungSource(hue, rung)} (${role.follows} ${anchorStep} + ${role.offset})` });
   }
+  // A map may pin a contract token that has no ROLE of its own (a wash, an inverse line). Honour
+  // it here; gen-pack-css is what rejects a name that is not a contract token at all.
+  for (const [token, p] of Object.entries(pinned)) {
+    if (token in values) continue;
+    values[token] = p.hex;
+    placed.push({ token, source: `pinned by --map to "${p.name}"` });
+  }
+
   const checks = checkPairs(values, RULESET.wcagPairs);
   const failures = checks.filter((c) => !c.pass);
+
+  // Which ramps the run actually leaned on, and which of their rungs this importer synthesised.
+  const usedRamps = [pick.neutral, pick.accent].filter(Boolean);
+  const derivedUsed = usedRamps.filter((hue) => derived[hue]);
+  const mappedTokens = Object.entries(pinned);
+  // A ramp with too few rungs runs out of distinct state colours: whichever states ended up
+  // wearing a colour another state already wears is a fact the pack has to carry, not hide.
+  const states = ROLES.filter((r) => r.follows).map((r) => r.token);
+  const collapsed = states
+    .map((token, i) => ({ token, twin: [...states.slice(0, i), ROLES.find((r) => r.token === token).follows].find((t) => values[t] === values[token]) }))
+    .filter((c) => c.twin);
 
   const label =
     `IMPORTED, NOT DESIGNED — every colour below is a real value read from the Figma file ` +
     `"${fileName ?? fileKey}" (key ${fileKey}) by tooling/figma/figma-pull.mjs. It is that file's ` +
-    `design work, not this repo's; the pack only maps its ${pick.neutral}/${pick.accent} ramps onto ` +
-    `contract roles.\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug} ` +
-    `--neutral ${pick.neutral} --accent ${pick.accent}` +
+    `design work, not this repo's; the pack only maps its ` +
+    (usedRamps.length ? `${usedRamps.join("/")} ramps onto contract roles.` : `own colour styles onto contract roles.`) +
+    `\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug}` +
+    (pick.neutral ? ` --neutral ${pick.neutral}` : "") +
+    (pick.accent ? ` --accent ${pick.accent}` : "") +
+    (map ? ` --map ${map}` : "") +
+    (derivedUsed.length
+      ? `\n * Rung numbers DERIVED, not read: this file does not number these colours, so each ramp ` +
+        `was ordered by OKLCH lightness and numbered from that order — ` +
+        derivedUsed.map((hue) => `${hue}: ${Object.entries(derived[hue]).sort((a, b) => a[0] - b[0]).map(([step, d]) => `/${step} = "${d.name}"`).join(", ")}`).join(" · ") +
+        `. The numbers are this importer's; the colours are the file's.`
+      : "") +
+    (mappedTokens.length
+      ? `\n * Pinned explicitly by ${map} (an operator's map beats inference, and a pinned value is never moved for contrast): ` +
+        mappedTokens.map(([token, p]) => `${token} ← "${p.name}"`).join(", ")
+      : "") +
+    (collapsed.length
+      ? `\n * Too few rungs for a distinct state colour: ` +
+        collapsed.map((c) => `${c.token} repeats ${c.twin} (${values[c.token]})`).join(", ") +
+        ` — the ramp holds nothing else to move to.`
+      : "") +
     `\n * WCAG (RULESET.wcagPairs, the same list derive() is held to): ${checks.length - failures.length}/${checks.length} pairs pass` +
     (stepped.length
       ? `\n * Contrast negotiated within the file's own ramps: ` +
         stepped.map((s) => `${s.token} ${s.ramp}/${s.from}→${s.ramp}/${s.to}`).join(", ")
-      : `\n * No contrast negotiation was needed — every nominal rung passed as mapped.`) +
+      : usedRamps.length
+        ? `\n * No contrast negotiation was needed — every nominal rung passed as mapped.`
+        : `\n * No contrast negotiation was needed — every value passed as pinned.`) +
     (failures.length
       ? `\n * STILL FAILING (no rung in the ramp satisfies these — the pack ships saying so): ` +
         failures.map((f) => `${f.fg} on ${f.bg} ${f.ratio}:1 < ${f.min}`).join(", ")
@@ -228,8 +374,8 @@ export async function runPull({ slug, accent = null, neutral = null, ...readOpti
   const dest = `${ROOT}/system/tokens.${slug}.css`;
   const r = genPackCss(values, { slug, dest, note: label });
 
-  for (const r of ROLES) {
-    const p = placed.find((x) => x.token === r.token);
+  const roleOrder = [...ROLES.map((r) => r.token), ...placed.map((p) => p.token).filter((t) => !ROLES.some((r) => r.token === t))];
+  for (const p of roleOrder.map((t) => placed.find((x) => x.token === t))) {
     console.log(`${p.token.padEnd(28)} ${String(values[p.token]).padEnd(9)} ← ${p.source}`);
   }
   if (pages) console.log(`\npages read: ${pages.read.map((p) => p.name).join(", ") || "none"} · skipped: ${pages.skipped.length}`);
@@ -249,7 +395,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const i = process.argv.indexOf(name);
     return i === -1 ? undefined : process.argv[i + 1];
   };
-  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral") ?? "gray", ...readFlags(process.argv) }).catch((e) => {
+  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral"), map: flag("--map"), ...readFlags(process.argv) }).catch((e) => {
     console.error(e.stack ?? e.message);
     process.exit(1);
   });

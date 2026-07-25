@@ -30,6 +30,8 @@ and skip straight to using `--from` below.
 node tooling/figma/figma-pull.mjs --slug <company>
 # from an export instead — no token, no rate limit:
 node tooling/figma/figma-pull.mjs --slug <company> --from ~/Downloads/export.json
+# a design whose names inference can't read — pin the roles by hand:
+node tooling/figma/figma-pull.mjs --slug <company> --map tooling/figma/maps/<company>.json
 ```
 
 **3. Commit** `system/tokens.<company>.css`.
@@ -81,10 +83,14 @@ only match by name.
 
 ## If it asks you something
 
-The scripts stop and ask rather than guess. There are only four questions they can ask:
+The scripts stop and ask rather than guess. There are only five questions they can ask:
 
 **"N ramps could be the brand colour"** — the file has no single brand (a palette library has
 20+). Pick from the list it prints: `--accent indigo`.
+
+**"no near-grey ramp for the neutral role"** / **"no non-grey, non-state ramp to use as the
+accent"** — nothing in the file groups into a ramp of 5+ rungs. Name a shorter one it lists
+(`--neutral ink --accent marine`), or pin the roles with `--map` (see below).
 
 **"no page looks like a palette"** — it prints every page; name the right one: `--page Foundations`.
 
@@ -111,11 +117,25 @@ copy while it still matters.
 
 ## What a design needs, and what actually comes across
 
-**It has to name colours as `<hue>/<step>` ramps** — `gray/900`, `indigo/600`, `brand/500`. That
-convention is near-universal in design systems, but it isn't guaranteed: a palette named
-`Primary`, `Brand Blue` or `Surface/Default` has no rungs to map roles onto, and the run refuses
-rather than guessing. A role ramp also needs at least 5 rungs, so the contrast negotiation has
-somewhere to move.
+**Its colours have to sit in groups.** `<hue>/<step>` ramps — `gray/900`, `indigo/600` — are read
+as written. Anything else is derived: colours are grouped by name prefix (everything before the
+last `/`, or the leading word), each group is ordered by OKLCH lightness, and the rungs are
+numbered from that order. `Blue/Light, Blue/Base, Blue/Dark` becomes a 3-rung ramp. The numbers
+are the importer's and both the run and the pack header say so; the colours are always the
+designer's.
+
+**Auto-detection still wants 5 rungs**, so a 3-rung ramp won't be *found* on its own — the run
+lists it and you name it: `--accent marine`. Once named, a short ramp is used as it is: contrast
+negotiation has fewer places to move, a 1-rung brand colour gives hover and active the same value,
+and every one of those is stated in the pack header rather than papered over.
+
+**Where inference can't read the design, map it by hand.** A palette named `Primary`, `Surface`,
+`Text` has no groups to order, so the run refuses. Write `tooling/figma/maps/<slug>.json` —
+`{"color-accent": "Primary", "color-fg": "Text", …}` — and pass `--map`. An explicit entry always
+beats inference, is pinned exactly (never moved for contrast, so its failures are reported as
+failures), and a name the file doesn't publish stops the run instead of falling back to a default.
+Map `color-accent-hover`/`-active` too if you map `color-accent`: a state colour is a decision, and
+the run won't guess one.
 
 **Colours are the only thing imported.** 16 contract tokens are mapped from the design. The other
 48 — spacing, radius, the type ramp, shadows, motion, and the `color-mix()` inverse tokens —
