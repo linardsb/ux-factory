@@ -1,5 +1,23 @@
 # __TODO — ai-first-ux-factory: spikes & build phases
 
+> ## ⚠️ SUPERSEDED — historical record only (2026-07-25)
+>
+> **Epic #1 is closed and every ticket in it is merged, including the two this doc calls blockers.**
+> Do not plan or sequence work from this file; its checkboxes and its through-line are stale.
+>
+> Specifically, the Status note below is now false: it says the **Factory page (#10)** and the
+> **agentic-UI study page (#13)** "are still open, which blocks most of Phase 5/6". Both shipped —
+> #10 via PR #37 + #45, #13 via PR #36 — and #10's `factory.html` has since been rebuilt again as
+> the v3 evidence home (#78, PR #93). Everything in Steps 1–3 below is done.
+>
+> **Current sources of truth:**
+> - **What to build next** → GitHub issues (`linardsb/ux-factory`); the live epic is #70 (portfolio v3),
+>   with #86 proposed. This repo does not use the Jira board.
+> - **Intent + decisions** → `docs/epics/*.prd.md` and `docs/epics/*.architecture.md`.
+> - **Per-ticket plans / reports / reviews** → `.claude/plans/`, `.claude/reports/`, `.claude/code-reviews/`.
+>
+> Kept because the spike rationale and the scope-hammer ordering below are still useful history.
+
 Consolidated from [docs/epics/ai-first-ux-factory.prd.md](docs/epics/ai-first-ux-factory.prd.md) (intent) and
 [docs/epics/ai-first-ux-factory.architecture.md](docs/epics/ai-first-ux-factory.architecture.md) (decisions).
 Working sequence doc — ticket slicing happens later via `piv-slice-epic`. Order is dependency-driven;
