@@ -206,10 +206,24 @@ function enhanceEthics(host) {
 
 // ---------------------------------------------------------------------------- the beat effect
 
+// The readiness handle: data-peak="ready" on #beat-peak, set in a finally on EVERY path (unexpected
+// markup, vocab/derive/render fallback, full success) so it can never hang — the same contract
+// spine.mjs gives data-spine. The VR gate's index shot waits on it: the peak assembles on 'visible',
+// so a fullPage capture would otherwise race the skeleton→content swap and silently bake a
+// mid-assembly frame (issue #105). Reduced motion resolves it too — there the inserted screen IS
+// the final state, so the handle lands immediately.
+async function peakEffect(ctx) {
+  try {
+    await buildPeak(ctx);
+  } finally {
+    ctx.el.setAttribute("data-peak", "ready");
+  }
+}
+
 // Build-then-swap: the static #71 still is retained until the live tree is PROVEN. Any failure —
 // vocab fetch, derive() throw, or a composition the renderer refuses — logs once and leaves the
 // still exactly as it was (nothing fails on stage). Runs inside the spine's own try/catch too.
-async function peakEffect({ el: beatEl, reduce }) {
+async function buildPeak({ el: beatEl, reduce }) {
   const still = beatEl.querySelector(".peak-screen");
   const screenCol = beatEl.querySelector(".peak-screen-col") || (still && still.parentElement);
   const side = beatEl.querySelector(".peak-side");
