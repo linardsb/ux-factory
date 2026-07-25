@@ -34,16 +34,25 @@ and re-run.
 To use the pack: `build-instance.mjs … --pack tokens.<company>.css`. Putting it in the site's
 appearance dock is a separate change (`dock.mjs` + `pack-boot.js` + new VR baselines).
 
-### Two lines worth reading in the output
+### Three lines worth reading in the output
 
 ```
+neutral: "carbon" — least chromatic of 3 ramps (chroma 0.023). Pass --neutral <hue> to override.
 accent: "indigo" — picked alphabetically, NOT because it is the brand. Also in this file: teal.
 negotiated: color-accent teal/600 (#0d9488) → teal/700 (#0f766e) for contrast
 ```
 
-The first says it guessed. If the brand is the other one, re-run with `--accent teal`. The second
-says a colour moved to pass contrast — it moved within the design's own ramp, so the value is still
-one the designer chose.
+**neutral** — it found the greys on its own, and says how: by name (`neutral/`, `gray/`, `grey/`,
+`slate/`, `zinc/`, `stone/`, `mono/`, `ink/`) or, failing that, by picking the least colourful ramp
+in the file. It is almost always right, because greys are the only near-grey thing in a palette.
+
+**accent** — it guessed. This one it cannot infer: in a file shipping `red/`, `green/` and a muted
+corporate `blue/`, the brand is not the most colourful ramp, so it takes the first non-grey
+alphabetically and tells you what else was available. If the brand is one of those, re-run with
+`--accent <hue>`. Passing either flag silences its line.
+
+**negotiated** — a colour moved to pass contrast. It moved within the design's own ramp, so the
+value is still one the designer chose.
 
 ---
 

@@ -26,9 +26,14 @@
 // readers replay it, the same rule the agent traces follow. Not registered in build.mjs (the
 // generator chain stays deterministic and offline-runnable; this needs a secret + network).
 //
+//   node tooling/figma/figma-pull.mjs --slug plusui --from <export.json>
+//     — the whole job. Both roles are inferred and REPORTED: the neutral ramp by name
+//       (neutral/gray/grey/slate/zinc/stone/mono/ink) or, failing that, as the least chromatic
+//       ramp in the file; the accent as the first non-neutral ramp alphabetically, which is a
+//       declared guess, not a reading of which ramp is the brand. Pass --neutral/--accent to pin
+//       either one — an explicit flag silences that role's line.
 //   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --page Color
 //   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --offline   (spends nothing)
-//   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --from <export.json>
 //     — read a PLUGIN EXPORT instead of the API: no token, no rate limit, and it sees the
 //       variables REST gates behind Enterprise. The file still has to carry <hue>/<step> ramps.
 
@@ -36,6 +41,7 @@ import { relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { genPackCss } from "../../agent-layer/gen-pack-css.mjs";
 import { RULESET } from "../../system/derive.rules.mjs";
+import { hexToOklch } from "../../system/oklch.mjs";
 import { checkPairs } from "../../system/wcag.mjs";
 import { ROOT, readFigma, readFlags } from "./figma-read.mjs";
 
@@ -106,7 +112,7 @@ function negotiate(values, placed, ramps) {
   return steps;
 }
 
-export async function runPull({ slug, accent, neutral = "gray", ...readOptions } = {}) {
+export async function runPull({ slug, accent, neutral, ...readOptions } = {}) {
   if (!slug) throw new Error("figma-pull: --slug <name> is required (it names system/tokens.<slug>.css)");
   const { fileKey, fileName, entries, pages } = await readFigma(readOptions);
   const { ramps, loose } = toRamps(entries);
@@ -119,17 +125,38 @@ export async function runPull({ slug, accent, neutral = "gray", ...readOptions }
       `or map this file by hand.`,
     );
   }
+  // Which ramp is the greys. Design systems name them a dozen ways, and a file using any of them
+  // but "gray" used to crash with an error the operator had to fix by re-running with --neutral.
+  // Name first (high precision), then chroma: greys sit at near-zero chroma and semantic ramps do
+  // not, so the least chromatic ramp IS the greys. Safe for this role only — the brand is not the
+  // most colourful ramp in a file that also ships red/ and green/, which is why the accent below
+  // stays a declared guess rather than a heuristic.
+  const NEUTRAL_NAMES = /^(neutral|gray|grey|slate|zinc|stone|mono|ink)$/;
+  // Median, not mean: one tinted rung must not reclassify an otherwise grey ramp.
+  const chromaOf = (hue) => {
+    const cs = Object.values(ramps[hue]).map((hex) => hexToOklch(hex).c).sort((a, b) => a - b);
+    return cs[Math.floor(cs.length / 2)];
+  };
+  let neutralWhy = null;
+  if (!neutral) {
+    const named = available.find((h) => NEUTRAL_NAMES.test(h));
+    neutral = named ?? available.reduce((a, b) => (chromaOf(a) <= chromaOf(b) ? a : b));
+    neutralWhy = named ? `named "${named}"` : `least chromatic of ${available.length} ramps (chroma ${chromaOf(neutral).toFixed(3)})`;
+  }
+
   const pick = { neutral, accent: accent ?? available.find((h) => h !== neutral) };
   for (const [role, hue] of Object.entries(pick)) {
     if (!ramps[hue]) throw new Error(`figma-pull: no "${hue}" ramp in this file for the ${role} role. Available: ${available.join(", ")}`);
   }
+  if (neutralWhy) console.log(`neutral: "${pick.neutral}" — ${neutralWhy}. Pass --neutral <hue> to override.`);
   // An unnamed accent falls to the first non-neutral ramp ALPHABETICALLY — which is an ordering
   // accident, not a reading of which ramp is the brand. Say so when the file offers a choice:
   // silently picking "amber" over "brand" would ship a pack in the wrong colour, unremarked.
-  const others = available.filter((h) => h !== neutral && h !== pick.accent);
+  const others = available.filter((h) => h !== pick.neutral && h !== pick.accent);
   if (!accent && others.length) {
-    console.log(`accent: "${pick.accent}" — picked alphabetically, NOT because it is the brand. Also in this file: ${others.join(", ")}. Pass --accent <hue> if the brand is one of those.\n`);
+    console.log(`accent: "${pick.accent}" — picked alphabetically, NOT because it is the brand. Also in this file: ${others.join(", ")}. Pass --accent <hue> if the brand is one of those.`);
   }
+  if (neutralWhy || (!accent && others.length)) console.log("");
 
   // The file's own white if it publishes one, so even the plain grounds are the designer's value.
   const whiteKey = Object.keys(loose).find((n) => /(^|\/)white$/.test(n));
@@ -210,7 +237,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const i = process.argv.indexOf(name);
     return i === -1 ? undefined : process.argv[i + 1];
   };
-  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral") ?? "gray", ...readFlags(process.argv) }).catch((e) => {
+  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral"), ...readFlags(process.argv) }).catch((e) => {
     console.error(e.stack ?? e.message);
     process.exit(1);
   });
