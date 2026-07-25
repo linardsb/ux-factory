@@ -1515,6 +1515,97 @@ dfn.term {
   text-wrap: balance;
 }
 
+/* The investment tiers inside the close card (#77 · the Hook Model's investment step): the
+   statement plus the one action, then the pack you keep, then the JS-built share layer. Each
+   tier steps down behind a hairline at the same rhythm, so the card still reads as one confident
+   close (Q6) instead of a pile of links, and the JS layer looks native rather than bolted on. */
+.close-takeaway,
+.close-extras {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--color-border);
+}
+/* The mount is empty with JS off and until the beat activates, and an empty tier would leave an
+   orphan hairline. :empty keeps the no-JS card byte-identical to the pre-#77 close. */
+.close-extras:empty { display: none; }
+
+.close-takeaway-line,
+.close-share-line,
+.close-note {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--type-caption);
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+.close-takeaway-line,
+.close-share-line { margin-bottom: var(--spacing-lg); }
+.close-tokens,
+.close-extras > .close-note { margin-top: var(--spacing-lg); }
+/* The token copy is a ghost, one step quieter than the share pill, so the tier still reads as one
+   action. .btn-ghost is a text-height control, so lift it to the 44px target on its own. */
+.close-tokens .btn-ghost { min-height: 44px; }
+.close-tokens .close-note { margin-top: var(--spacing-sm); }
+
+.close-takeaway-row,
+.close-share-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+/* The live region beside each copy button. It carries no height until it is filled, so the at-rest
+   card is unchanged; the arrival is a short settle, which is what a confirmation should feel like
+   (motion vocabulary: settle for things that arrive). Compositor props only. */
+.close-share-status {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 24ch;
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  color: var(--color-fg-muted);
+  opacity: 0;
+  transform: translateY(2px);
+}
+.close-share-status[data-filled] { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .close-share-status {
+    transition: opacity var(--motion-fast) var(--motion-ease-settle),
+                transform var(--motion-fast) var(--motion-ease-settle);
+  }
+}
+
+/* The clipboard fallback: a real, selectable, focusable link on an insecure origin or a refused
+   write. Takes its own row (flex-basis 100%) and min-width: 0, or a long URL blows the flex line
+   out in Safari and Chrome stable while the bundled Chromium looks fine (PR #54). */
+.close-share-url {
+  flex: 1 1 100%;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+  padding: 10px var(--spacing-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+/* The arrival note, marked with a rule in the colour that arrived. The colour is the state it is
+   reporting, so it is demonstration rather than decoration; the sentence carries the information
+   on its own for anyone who cannot see the rule. */
+.close-shared-note {
+  margin: 0 0 var(--spacing-lg);
+  max-width: 60ch;
+  padding-left: var(--spacing-md);
+  border-left: 3px solid var(--color-accent);
+  font-size: var(--type-caption);
+  line-height: 1.55;
+  color: var(--color-fg);
+}
+
 /* I3 — one item per row, hairline dividers, a circular arrow affordance per row.
    The whole row is the link target (≥44px); hover/focus tint the title + spring the
    arrow. Used by #verify; reusable for the Work proof index later. */

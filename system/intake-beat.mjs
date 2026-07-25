@@ -3,8 +3,11 @@
 // factory wizard (system/factory-intake.mjs) as a Verdant-only, three-question configuration via
 // initIntake — configured, never forked. Brand is #74's beat; the Manipulation Matrix is #75's.
 // #73 asks the three non-brand axes (density · reward · frequency) and shows the live
-// frequency→verdict line as its whole ethics presence on home. (epic #70 ticket #73; PRD §6.1
-// beat 2a / D4; architecture "Wizard rewrite = rewrite inside factory-intake.mjs behind the seam".)
+// frequency→verdict line as its whole ethics presence on home. (epic #70 tickets #73 and #77; PRD
+// §6.1 beat 2a / D4; architecture "Wizard rewrite = rewrite inside factory-intake.mjs behind the seam".)
+//
+// #77 adds one line: a shared link's three axes seed the wizard through the additive seedAnswers
+// option, so a recipient opens on the sender's answers and the peak assembles under them.
 //
 // Boot: imports registerBeat from spine.mjs (the shared singleton registry #72 exposes) + the
 // wizard's initIntake/SCENARIOS. index.html marks its #factory-wizard data-intake="external", which
@@ -15,6 +18,7 @@
 
 import { registerBeat } from "./spine.mjs";
 import { initIntake, SCENARIOS } from "./factory-intake.mjs";
+import { decodeShareState } from "./share-state.mjs";
 
 // The three non-brand axes, in brief order. brandColor is seeded from the scenario default (#2F7A4D)
 // but not asked here — that input is #74's #beat-brand. answers still carries every default, so
@@ -38,6 +42,10 @@ registerBeat("beat-intake", {
       defaultScenario: "verdant",
       askedAxes: HOME_AXES,
       onAnswers: (a) => { homeAnswers = a; }, // #75: publish the live axes for the peak
+      // #77: a shared link's axes, decoded here independently rather than threaded from another
+      // beat. decodeShareState is pure and idempotent, so the three call sites (this, pack-derived,
+      // close) cannot disagree, and no beat has to run before another for the seed to be right.
+      seedAnswers: decodeShareState(location.search)?.axes || null,
     }),
   activateOn: "load",
 });

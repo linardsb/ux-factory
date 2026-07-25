@@ -62,3 +62,56 @@ export function trackFactoryBuilt() {
   history.pushState(history.state, "", BUILT_EVENT_PATH);
   setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
 }
+
+const SHARED_EVENT_PATH = "/factory/shared";
+let sharedFired = false;
+
+// The investment event (#77): fired once by the close beat when a reader HAS a share link in hand,
+// on the clipboard-success path or the hand-it-over fallback. It measures link production, which is
+// the leading indicator for the PRD §7 "Forwarded internally" metric, NOT the metric itself — a
+// forward can only be observed at the receiving end, and firing on arrival is not safe here: the
+// virtual-route flip drops location.search for RESTORE_DELAY_MS, and every arrival module reads
+// location.search inside that window. Measuring the arrival side stays an open call for the owner.
+// This is also #77 EXTENDING the epic's analytics call rather than executing it: the architecture
+// doc names only /factory/built as the added virtual route, so a reviewer should see it as a scope
+// decision (delete this function and its one call site and nothing else changes).
+// Its own fire-once guard, for the same reason trackFactoryBuilt has one. Note for callers: this
+// rewrites location for RESTORE_DELAY_MS, so build the share URL BEFORE calling it.
+export function trackFactoryShared() {
+  if (sharedFired) return;
+  sharedFired = true;
+  const real = location.pathname + location.search + location.hash;
+  history.pushState(history.state, "", SHARED_EVENT_PATH);
+  setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
+}
+
+const ARRIVED_EVENT_PATH = "/factory/arrived";
+let arrivedFired = false;
+
+// The receiving half of the share loop (#77): fired once when a reader opens SOMEONE ELSE's share
+// link. This is the PRD §7 "Forwarded internally" metric itself — a forward is only observable where
+// it lands, so /factory/shared counts senders producing links and this counts the links arriving.
+// The pair is what makes the metric readable: neither number means much on its own.
+//
+// HELD UNTIL `load`, unlike the three above, and that is load-bearing rather than tidy. Its caller is
+// pack-derived.mjs's shared-link hydration, which runs while dock.mjs is being imported — before
+// intake-beat.mjs and close.mjs have read location.search out of the URL. The flip blanks the query
+// string for RESTORE_DELAY_MS, so firing early breaks the arrival this event exists to measure.
+//
+// A macrotask is NOT enough, and this was measured, not assumed: each deferred <script type="module">
+// is its own task, so a setTimeout(0) queued from one tag fires BEFORE a later tag evaluates. On that
+// interleaving the wizard read an empty search and fell back to the scenario defaults — 7 of 25 loads
+// silently dropped the sender's answers. `load` fires only after every deferred module has evaluated,
+// which makes the ordering a guarantee rather than a race. `real` is read inside the handler for the
+// same reason: it must be the settled URL, not the one that existed when the caller asked.
+export function trackFactoryArrived() {
+  if (arrivedFired) return;
+  arrivedFired = true;
+  const flip = () => {
+    const real = location.pathname + location.search + location.hash;
+    history.pushState(history.state, "", ARRIVED_EVENT_PATH);
+    setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
+  };
+  if (document.readyState === "complete") flip();
+  else window.addEventListener("load", flip, { once: true });
+}
