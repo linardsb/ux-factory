@@ -7,6 +7,9 @@ Governs: `docs/figma-runbook.md` §A becomes a UI, not a command. Prior state an
 `.claude/plans/figma-any-design-handover.md` — **read §A before starting; it records owner
 decisions that must not be reopened.**
 
+Implementation plan (task-level, with the 20 build decisions answered):
+`.claude/plans/figma-drop-portal-ui-implementation.md` · ticket: **#116**.
+
 ---
 
 ## §1 · What this is
