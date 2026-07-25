@@ -61,6 +61,7 @@ state instead (both reached `Copied ✓`).
   derived tokens, each with a 3px focus outline; `Enter` on the share button reaches `Copied ✓` and
   the live region announces.
 - 360px: no horizontal overflow, controls wrap.
+- Shared link over an existing worn pack, both starting states (see Issues encountered).
 
 ## Validation results
 
@@ -112,9 +113,19 @@ state instead (both reached `Copied ✓`).
    three answers you picked", which overclaims before a colour is entered. It now reads "carries what
    you picked here", and the empty state names what is missing and invites the next action.
 
-8. **`/factory/shared` kept** (plan Open Question 1). Implemented as recommended, with the scope
-   decision stated in the module comment: the architecture doc names only `/factory/built`, so this is
-   #77 extending the epic's analytics call. Deleting it is `trackFactoryShared` plus its one call site.
+8. **`/factory/shared` kept, but scoped to what it actually measures** (plan Open Question 1).
+   Implemented as recommended, with the scope decision stated in the module comment: the architecture
+   doc names only `/factory/built`, so this is #77 extending the epic's analytics call. Deleting it is
+   `trackFactoryShared` plus its two call sites. Two corrections to the plan's framing:
+   - The event measures **link production**, not the PRD §7 "Forwarded internally" metric. A forward is
+     only observable at the receiving end. Firing on arrival is not safe here: the virtual-route flip
+     drops `location.search` for `RESTORE_DELAY_MS`, and every arrival module reads `location.search`
+     synchronously inside that window, so an arrival event would break the arrival path it measures.
+     The comment now says this, and measuring the arrival side is left as an owner call.
+   - It fires from the **success paths** (clipboard resolved, or the hand-over fallback rendered), not
+     from the click. The plan had it firing before the clipboard promise settled, which would have
+     counted a refused copy as a share — the same trap `peak.mjs:343-348` calls out for
+     `/factory/built` and memory `spine-analytics-slot-fires-regardless` records.
 
 9. **`approach-*` baselines needed the PNGs removed to force a rewrite.** `update:docker` rewrote only
    `index-*` on the first pass even though the loc-summary numbers moved; `rm` forced it (the recorded
@@ -129,6 +140,20 @@ state instead (both reached `Copied ✓`).
 - **`getHomeAnswers()` is the right seeding assertion, not the wizard DOM.** The home wizard renders
   one question at a time, so counting checked radios sees only the current step. The verification
   drive imports `intake-beat.mjs` in-page and reads the published axes instead.
+- **Plan Open Question 2, now measured.** A shared link opened over an existing worn pack was run in
+  both starting states:
+
+  | pre-wear selector | after arrival | after the dock's Reset to neutral |
+  | --- | --- | --- |
+  | `saulera` (committed) | shared brand `#b5322f` worn, `PREWEAR_KEY=saulera` | saulera handed back (`#F59E0B`) |
+  | `derived` (their own colour) | shared brand `#b5322f` worn, no `PREWEAR_KEY` | drops to neutral (`#2563eb`) |
+
+  The first row is the intended reversible path. The second is the cost the plan flagged: `wear()`
+  writes the backup only on the `prev !== "derived"` transition (`pack-derived.mjs:151`), so a
+  recipient who was already wearing their own derived colour loses it with no restore path, because
+  the record itself is overwritten too. That is #76's `PREWEAR_KEY` contract (it backs up committed
+  picks only), not something #77 should change, and the plan rules out a confirm dialog. Recorded here
+  because it writes to a visitor's storage as a side effect of one click.
 - **Not a bug, will look like one:** opening the appearance dock strips the query string
   (`dock.mjs`'s `stripHash()` does `pushState(null, "", location.pathname)`). The state survives in
   storage and the share link is rebuilt from storage plus the wizard, but the shared-link arrival note

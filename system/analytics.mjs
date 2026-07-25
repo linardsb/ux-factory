@@ -66,10 +66,15 @@ export function trackFactoryBuilt() {
 const SHARED_EVENT_PATH = "/factory/shared";
 let sharedFired = false;
 
-// The investment event (#77): fired once by the close beat when a reader copies a share link — the
-// mechanism behind the PRD §7 "Forwarded internally" metric, which had no measurement before. This
-// is #77 EXTENDING the epic's analytics call rather than executing it: the architecture doc names
-// only /factory/built as the added virtual route, so a reviewer should see this as a scope decision.
+// The investment event (#77): fired once by the close beat when a reader HAS a share link in hand,
+// on the clipboard-success path or the hand-it-over fallback. It measures link production, which is
+// the leading indicator for the PRD §7 "Forwarded internally" metric, NOT the metric itself — a
+// forward can only be observed at the receiving end, and firing on arrival is not safe here: the
+// virtual-route flip drops location.search for RESTORE_DELAY_MS, and every arrival module reads
+// location.search inside that window. Measuring the arrival side stays an open call for the owner.
+// This is also #77 EXTENDING the epic's analytics call rather than executing it: the architecture
+// doc names only /factory/built as the added virtual route, so a reviewer should see it as a scope
+// decision (delete this function and its one call site and nothing else changes).
 // Its own fire-once guard, for the same reason trackFactoryBuilt has one. Note for callers: this
 // rewrites location for RESTORE_DELAY_MS, so build the share URL BEFORE calling it.
 export function trackFactoryShared() {

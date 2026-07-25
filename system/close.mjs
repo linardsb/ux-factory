@@ -113,7 +113,11 @@ function closeEffect({ el: beatEl }) {
   // means the browser refused the write. Either way this control's entire job is handing over a
   // link, so it shows one the reader can select and copy by hand rather than dead-ending.
   let field = null;
+  // Fires on both success paths, never on the click itself: the event has to mean "the reader has a
+  // link", not "the reader pressed a button that may have failed" (peak.mjs:343-348 makes the same
+  // call for /factory/built). trackFactoryShared guards itself, so calling it from two paths is safe.
   const handOver = (url) => {
+    trackFactoryShared();
     if (!field) {
       field = el("input", {
         type: "text", class: "close-share-url", readonly: true, "aria-label": "Share link",
@@ -129,11 +133,14 @@ function closeEffect({ el: beatEl }) {
   // Secondary pill: sharing is the beat's one act, so it keeps the card's button grammar. The
   // token copy below is a ghost, one step quieter, so the tier still reads as one action.
   const shareBtn = copyButton("Copy the link", "btn-secondary", (done) => {
-    const url = buildShareUrl(); // BEFORE tracking: the event rewrites location for ~50ms
-    trackFactoryShared();
+    const url = buildShareUrl(); // BEFORE any tracking: the event rewrites location for ~50ms
     if (!navigator.clipboard) { handOver(url); return; }
     navigator.clipboard.writeText(url).then(
-      () => { done("Copied ✓"); say("Copied. The link carries a colour and three answers, nothing else."); },
+      () => {
+        done("Copied ✓");
+        say("Copied. The link carries a colour and three answers, nothing else.");
+        trackFactoryShared();
+      },
       () => handOver(url)
     );
   });
