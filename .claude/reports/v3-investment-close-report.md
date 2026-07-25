@@ -20,7 +20,7 @@ stands on its own with JavaScript off.
 - `hydrateFromSharedLink()` + `sharedLabel()` + the `wireBeatBrand(sharedRec)` seam → `system/pack-derived.mjs` (UPDATE)
 - Additive `seedAnswers` option + `validSeed()` boundary check → `system/factory-intake.mjs` (UPDATE)
 - Decode the URL and pass the seed → `system/intake-beat.mjs` (UPDATE)
-- `trackFactoryShared()` → `system/analytics.mjs` (UPDATE)
+- `trackFactoryShared()` + `trackFactoryArrived()` → `system/analytics.mjs` (UPDATE)
 - Static close card: takeaway tier, bundle download, JS mount, `close.mjs` tag → `index.html` (UPDATE)
 - Beat 4 → `system/close.mjs` (CREATE)
 - The `.close-*` organism → `system/portfolio.css` (UPDATE)
@@ -45,6 +45,7 @@ decode, name trimmed on encode.
 | --- | --- | --- | --- |
 | bare URL: console clean, no `wear()`, hero's canned re-skin still reverts to `#2563eb` | ✓ | ✓ | ✓ |
 | shared URL: `:root` wears `#b5322f`, label is the shared variant with the Acme Ltd denial, `data-state="shared"`, wizard seeded compact/hunt/weekly, dock shows "your brand" checked | ✓ | ✓ | ✓ |
+| shared URL: `/factory/arrived` flips the URL and restores it, address bar back to the share link | ✓ | ✓ | ✓ |
 | close beat: arrival note, bundle download, derived-token copy, copy reaches `Copied ✓`, link round-trips brand + label + axes, copied URL is not `/factory/shared` | ✓ | ✓ | ✓ |
 | reduced motion: brand and answers still apply, no transition on the status node | ✓ | ✓ | ✓ |
 
@@ -113,19 +114,24 @@ state instead (both reached `Copied ✓`).
    three answers you picked", which overclaims before a colour is entered. It now reads "carries what
    you picked here", and the empty state names what is missing and invites the next action.
 
-8. **`/factory/shared` kept, but scoped to what it actually measures** (plan Open Question 1).
-   Implemented as recommended, with the scope decision stated in the module comment: the architecture
-   doc names only `/factory/built`, so this is #77 extending the epic's analytics call. Deleting it is
-   `trackFactoryShared` plus its two call sites. Two corrections to the plan's framing:
-   - The event measures **link production**, not the PRD §7 "Forwarded internally" metric. A forward is
-     only observable at the receiving end. Firing on arrival is not safe here: the virtual-route flip
-     drops `location.search` for `RESTORE_DELAY_MS`, and every arrival module reads `location.search`
-     synchronously inside that window, so an arrival event would break the arrival path it measures.
-     The comment now says this, and measuring the arrival side is left as an owner call.
-   - It fires from the **success paths** (clipboard resolved, or the hand-over fallback rendered), not
-     from the click. The plan had it firing before the clipboard promise settled, which would have
-     counted a refused copy as a share — the same trap `peak.mjs:343-348` calls out for
-     `/factory/built` and memory `spine-analytics-slot-fires-regardless` records.
+8. **Two analytics routes, not one** (plan Open Question 1). The plan proposed `/factory/shared` alone
+   and flagged it as a scope decision; both routes here were confirmed with the owner before shipping.
+   The architecture doc names only `/factory/built`, so a reviewer should read both as #77 extending
+   the epic's analytics call rather than executing it.
+   - **`/factory/shared`** measures **link production**, and it fires from the **success paths**
+     (clipboard resolved, or the hand-over fallback rendered), not from the click. The plan had it
+     firing before the clipboard promise settled, which would have counted a refused copy as a share —
+     the trap `peak.mjs:343-348` calls out for `/factory/built`, and memory
+     `spine-analytics-slot-fires-regardless` records.
+   - **`/factory/arrived`** (added, not in the plan) measures the PRD §7 "Forwarded internally" metric
+     itself, fired once from `hydrateFromSharedLink()`'s success path. A forward is only observable
+     where it lands, so link production alone could never satisfy that metric. It is **deferred by one
+     macrotask**, and that is load-bearing: its caller runs inside the synchronous module-evaluation
+     pass, so an immediate URL flip would blank `location.search` while `intake-beat.mjs` and
+     `close.mjs` are still reading it out of that same pass — the event would break the arrival it
+     exists to measure. Verified in all three engines that the address bar settles back to the share
+     link with every arrival behaviour intact.
+   - Either route is deletable on its own: one function plus its call sites, nothing else depends on them.
 
 9. **`approach-*` baselines needed the PNGs removed to force a rewrite.** `update:docker` rewrote only
    `index-*` on the first pass even though the loc-summary numbers moved; `rm` forced it (the recorded
@@ -152,8 +158,9 @@ state instead (both reached `Copied ✓`).
   writes the backup only on the `prev !== "derived"` transition (`pack-derived.mjs:151`), so a
   recipient who was already wearing their own derived colour loses it with no restore path, because
   the record itself is overwritten too. That is #76's `PREWEAR_KEY` contract (it backs up committed
-  picks only), not something #77 should change, and the plan rules out a confirm dialog. Recorded here
-  because it writes to a visitor's storage as a side effect of one click.
+  picks only), not something #77 should change, and the plan rules out a confirm dialog. **Owner
+  decision: accept and document, with a follow-up ticket for the restore affordance** — that surface
+  belongs to #76's dock, which this ticket is forbidden to touch.
 - **Not a bug, will look like one:** opening the appearance dock strips the query string
   (`dock.mjs`'s `stripHash()` does `pushState(null, "", location.pathname)`). The state survives in
   storage and the share link is rebuilt from storage plus the wizard, but the shared-link arrival note

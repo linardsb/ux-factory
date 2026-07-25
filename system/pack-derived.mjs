@@ -18,6 +18,7 @@
 
 import { derive } from "./derive.mjs";
 import { decodeShareState } from "./share-state.mjs";
+import { trackFactoryArrived } from "./analytics.mjs";
 
 // ---------------------------------------------------------------- contract (shared with #76)
 // factory-pack        — the SELECTOR, shared with dock.mjs / pack-boot.js. A new "derived"
@@ -320,6 +321,9 @@ function hydrateFromSharedLink() {
   applyToRoot(rec.tokens);
   writeRecord(rec);
   wear(); // backs the displaced committed pick up in PREWEAR_KEY, so the dock's reset hands it back
+  // Fired from the success path only, so the count means "a shared link landed and re-derived",
+  // never "a link arrived and was refused". Deferred inside the helper — see analytics.mjs.
+  trackFactoryArrived();
   return rec;
 }
 

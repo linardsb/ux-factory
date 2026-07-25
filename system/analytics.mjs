@@ -84,3 +84,27 @@ export function trackFactoryShared() {
   history.pushState(history.state, "", SHARED_EVENT_PATH);
   setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
 }
+
+const ARRIVED_EVENT_PATH = "/factory/arrived";
+let arrivedFired = false;
+
+// The receiving half of the share loop (#77): fired once when a reader opens SOMEONE ELSE's share
+// link. This is the PRD §7 "Forwarded internally" metric itself — a forward is only observable where
+// it lands, so /factory/shared counts senders producing links and this counts the links arriving.
+// The pair is what makes the metric readable: neither number means much on its own.
+//
+// DEFERRED by one macrotask, unlike the three above, and that is load-bearing rather than tidy. Its
+// caller is pack-derived.mjs's shared-link hydration, which runs inside the synchronous module
+// evaluation pass; flipping the URL there would blank location.search while intake-beat.mjs and
+// close.mjs are still reading it out of that same pass, so the event would break the arrival it
+// exists to measure. setTimeout hands the flip to the next task, after every reader of the URL has
+// had it. `real` is read inside the callback for the same reason: it must be the settled URL.
+export function trackFactoryArrived() {
+  if (arrivedFired) return;
+  arrivedFired = true;
+  setTimeout(() => {
+    const real = location.pathname + location.search + location.hash;
+    history.pushState(history.state, "", ARRIVED_EVENT_PATH);
+    setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
+  }, 0);
+}
