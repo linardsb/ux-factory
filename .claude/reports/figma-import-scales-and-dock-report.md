@@ -54,6 +54,7 @@ by a reader with no network and zero Figma request spend.
 | `maps/fixture-scales.json` on `scales-partial` | `spacing-md 20px` and `shadow-lg 0px 16px 32px -8px #00000026` pinned — both in families too short to import, i.e. the count gate bypassed |
 | `maps/fixture-missing.json` | exits **1**, message names `spacing-md`, the missing style and all 19 dimensions the file publishes; no file written |
 | classifier unit cases | 10/10 (`Regular/size 5` → `null`, `Semi Bold/text-2xl` → `type`, `Elevation/High` → `shadow`) |
+| a map pinning a slot in a family that **did** fill | pin wins, sibling ranks untouched (`spacing-lg` still rank 4), and the source records what it overrode |
 | plusui `--offline` | **byte-identical** |
 
 **Real browser (Chromium, Playwright, static-served)** — 15/15 assertions: fresh visit loads
@@ -76,7 +77,15 @@ git status --short tooling/visual-regression/  ✓  empty — no baseline PNG to
 ls system/tokens.chk-* / tokens.fixt*          ✓  none — --out held
 ```
 
-CI (`verify` + `visual`) is read on the PR, not assumed.
+**Visual regression, measured not reasoned** — `npm run update:docker` (the Linux baselines, in
+Docker) on a clean tree: **18 passed, zero PNGs rewritten**. The fourth radio row lives inside
+`.dock-panel { display: none }` and nothing at rest sizes off the fieldset, so at-rest renders are
+identical across all 9 pages × 2 packs. AC13 holds locally; CI `verify` + `visual` are still read on
+the PR rather than assumed.
+
+Note for the portal drop-UI (`figma-drop-portal-ui.md`), which consumes this return: `scales.imported`
+is keyed **only** by families that actually filled — a short family appears in `scales.short` and
+nowhere in `imported`, so a consumer rendering all four families must read both keys.
 
 ## Deviations from the plan
 
