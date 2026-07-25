@@ -993,6 +993,25 @@ dfn.term {
 .dock-pack-name { display: block; font-weight: 600; font-size: var(--type-caption); color: var(--color-fg); }
 .dock-pack-note { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.5; }
 
+/* The restore offer (#108) — shown only to a visitor whose own colour a shared link displaced, so
+   it sits between the choice and the standing actions rather than becoming a third one. */
+.dock-restore-row { margin: 0 0 var(--spacing-md); }
+.dock-restore-note {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  line-height: 1.5;
+}
+/* .btn-ghost is a text-height control, so lift it to the 44px target on its own (the same fix
+   .close-tokens .btn-ghost takes below). */
+.dock-restore {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: var(--type-caption);
+  text-align: center;
+}
+
 /* Both actions are secondary to the choice above, so they stack full width rather than competing
    for one row (at 340px a two-up row wraps mid-label). */
 .dock-actions { display: grid; gap: var(--spacing-sm); justify-items: stretch; }

@@ -24,7 +24,7 @@
 
 import { registerBeat } from "./spine.mjs";
 import { encodeShareState, hasSharedBrand } from "./share-state.mjs";
-import { readRecord } from "./pack-derived.mjs";
+import { readRecord, readDisplacedRecord } from "./pack-derived.mjs";
 import { getHomeAnswers } from "./intake-beat.mjs";
 import { trackFactoryShared } from "./analytics.mjs";
 
@@ -106,9 +106,18 @@ function closeEffect({ el: beatEl }) {
   // Reads the URL captured at module evaluation, so it is true even for a reader who opened the
   // appearance dock on the way down and no longer has the share params in the address bar.
   if (ARRIVED_SHARED) {
+    // The appearance dock is the only surface that can hand the displaced colour back, and
+    // portfolio.css hides the whole rail below 1100px. So ask the CSS whether the control is
+    // actually rendered instead of copying the breakpoint into JS or promising a control this
+    // reader has not got (index.html sets the same honesty precedent for #beat-wear).
+    // getComputedStyle, not offsetParent: .dock is position:fixed, so offsetParent is null either way.
+    const dock = document.querySelector(".dock");
+    const canRestore = Boolean(readDisplacedRecord()) && Boolean(dock) &&
+      getComputedStyle(dock).display !== "none";
     mount.appendChild(el("p", {
       class: "close-shared-note",
-      text: "You opened a shared link. The colour and the answers came from the link, and this browser derived the palette again from them.",
+      text: "You opened a shared link. The colour and the answers came from the link, and this browser derived the palette again from them." +
+        (canRestore ? " The colour you entered before is still here. The appearance control can put it back." : ""),
     }));
   }
 
