@@ -5,7 +5,9 @@
 // pack re-points the ONE tokens.<pack>.css line in this page's head — the same swap a company
 // build ships and the CI gate performs (visual.spec.mjs:58). It is fixed side chrome on every page
 // that loads it (the five-page IA + 404 + roundtrip; the off-nav deep-link surfaces opt out —
-// instance.html:448 says so) on purpose: the pick follows the reader, so every page is another test of the
+// instance.html's head comment records why: a private instance PINS its pack, and #81 gives it its
+// own two-option control instead, system/instance-pack.mjs) on purpose: the pick follows the reader,
+// so every page is another test of the
 // same token contract. index.html's #beat-wear interstitial introduces it, so it is never an
 // unexplained widget (#76; PRD §2 "weird colour selectors, for what").
 // "Copy tokens" copies what is skinning the page RIGHT NOW: the committed artifact for a committed

@@ -1,7 +1,8 @@
 // system/instance.mjs — the private-instance shell's view-time config module, hand-written canon
 // (this repo; not generated). Governing doc: docs/epics/per-company-brief.architecture.md
 // §Recommended approach (private layer + bounded steering) + §Boundaries (honesty labeling ·
-// privacy · no public upload surface). Implements epic #38, ticket #43 (closes #43).
+// privacy · no public upload surface). Implements epic #38, ticket #43 (closes #43); re-chaptered
+// onto the v3 spine by epic #70, ticket #81 (PRD §6.1 the beats · §6.2 the instance clause).
 //
 // What it does: reads one inline `window.INSTANCE_CONFIG`, fetches the configured scenario
 // package's two JSON files (intake.defaults.json + copy.json — committed static files, never a
@@ -16,6 +17,28 @@
 //      in place via the shared study surface (system/agentic-study.mjs) when INSTANCE_CONFIG carries
 //      a `composition` ref — else a config-driven link, else an honest placeholder (epic #86, #89).
 //   6. The config-driven handoff link slot (honest placeholder when the link is absent).
+//   7. (#81) The spine's beats: #instance-hero and #beat-built are registered on spine.mjs's
+//      registerBeat seam, the peak band's WCAG receipts are measured live off the wizard's own
+//      onAnswers publish, and the instance's two-option pack control is mounted.
+//
+// Boot contract (#81). Importing spine.mjs self-registers home's `beat-hero` at module scope — that
+// registration is INERT here, because this page has no #beat-hero element and registerBeat returns
+// early for an absent mount (spine.mjs:55). So home's canned neutral→green re-skin never runs on an
+// instance, and spine.mjs needs no change to accommodate this page. The instance's own hero is
+// `instance-hero`, and it deliberately performs NO re-skin: the page already wears the company's
+// committed pack from its head <link>, so a flush-and-revert would either be invisible or would
+// strip that pack mid-visit.
+//
+// Deliberate NON-imports, each load-bearing:
+//   · pack-derived.mjs — its module tail runs hydrateFromSharedLink() unguarded by any mount, so a
+//     forwarded instance URL carrying ?brand=… would apply derived colours to :root, write the
+//     record and wear() it — silently overriding the pinned company pack, which IS the thing this
+//     page demonstrates. This is also why the receipts come from wcag-receipts.mjs rather than from
+//     peak.mjs (peak.mjs imports pack-derived transitively).
+//   · dock.mjs — its pack allowlist is neutral|saulera|verdant, so on a company pack its radio would
+//     show "neutral" checked while the page wears the brand. instance-pack.mjs replaces it here.
+//   · close.mjs / share-state.mjs — a share link encodes a brand hex + three axes for a DERIVED
+//     pack, which is meaningless against a pack pinned at build time.
 //
 // Screenshots-in-trace decision (epic §Open questions, recorded here per AC3): on an unlisted link
 // the replayed derivation trace MAY include the company's own product screenshots — default YES.
@@ -36,6 +59,10 @@ import { initIntake } from "./factory-intake.mjs";
 import { parseTrace, renderTracePlayer } from "./trace-player.mjs";
 import { renderStudy } from "./agentic-study.mjs";
 import { createBus } from "./action-bus.mjs";
+import { registerBeat } from "./spine.mjs";
+import { derive } from "./derive.mjs";
+import { buildReceipts } from "./wcag-receipts.mjs";
+import { initInstancePack } from "./instance-pack.mjs";
 
 // --- DOM helper (all package text via textContent — untrusted at the boundary) -------------------
 const el = (tag, cls, text) => {
@@ -154,7 +181,15 @@ function mountWizard(slug, name, intake, copy) {
   };
   // The shell supplies a SINGLE scenario → no #scenario-toggle anchor on the page, so the wizard's
   // toggle render no-ops (guarded). assertScenarioConfig re-runs inside initIntake on this config.
-  initIntake({ scenarios: { [slug]: scenario }, defaultScenario: slug });
+  // onAnswers (#75's additive seam) is the peak's input: the wizard publishes a copy of the live
+  // axes on mount and on every change, and #81 turns each publish into one derive() that both
+  // re-skins the peak panel and rebuilds its receipts — so the screen and the ratios beside it can
+  // never describe different palettes.
+  initIntake({
+    scenarios: { [slug]: scenario },
+    defaultScenario: slug,
+    onAnswers: (axes) => renderPeakDerivation(axes),
+  });
 }
 
 // --- Prototype / handoff slots (config-driven; honest placeholder when nothing is configured) -----
@@ -198,6 +233,99 @@ function renderLinks(links) {
     links && links.handoff));
 }
 
+// --- Beat 02 · the peak: one derive() call feeds BOTH the screen's palette and its receipts --------
+// The receipts are computed from the wizard's LIVE axes, so a reader who overrides the brand colour
+// in beat 01 would otherwise see ratios describing palette B beside a composed screen still wearing
+// the committed pack's palette A — a contradiction inside the one band the PRD calls visually
+// singular. So renderPeakDerivation does two things from ONE derive(): it applies the full derived
+// token set as inline custom properties SCOPED to .pi-peak-panel, and it rebuilds the receipts. The
+// panel is a contained preview (the same argument factory-intake.mjs:280-283 makes for
+// #reskin-preview and peak.mjs:120-127 for the home peak), so density-driven spacing and type scales
+// move with the answers too. Nothing here ever writes to :root — that would strip the pinned company
+// pack for the rest of the visit, which is the single worst failure this page can have.
+
+let peakAppliedKeys = [];      // the inline custom properties currently on the panel
+let peakPanel = null;          // stable node: renderStudy replaces the MOUNT's children, never this
+let lastAxes = null;           // the wizard's most recent publish (the peak beat may activate later)
+
+function peakBand() { return document.getElementById("beat-built"); }
+
+// An honest, verdict-free receipts node — the shape the static seed in instance.html already carries,
+// rebuilt in JS for the derive-refused path so a stale measured set never outlives the palette it
+// described. No ratio, no pass/fail token, no .wcag-pass/.wcag-fail class.
+function seedReceipts(text) {
+  const wrap = el("div", "peak-receipts");
+  wrap.setAttribute("data-peak-receipts", "");
+  wrap.append(el("p", "peak-receipts-headline", text));
+  return wrap;
+}
+
+function renderPeakDerivation(axes) {
+  lastAxes = axes;
+  const band = peakBand();
+  if (!band) return; // no peak on this page (a partial shell) — the wizard is unaffected
+  if (!peakPanel) peakPanel = band.querySelector(".pi-peak-panel");
+  // Read the host FRESH each call: buildReceipts returns a NEW element that replaceWith() swaps in,
+  // so a cached node goes stale after the first render (peak.mjs:279-282 has the same contract).
+  const host = band.querySelector("[data-peak-receipts]");
+
+  let result;
+  try {
+    result = derive(axes);
+  } catch (err) {
+    // Fail-closed, the shape factory-intake.mjs:289-295 uses: drop the applied props so the panel
+    // inherits the committed company pack, and state no verdict rather than keep a measurement of a
+    // palette nothing is wearing. Nothing fails on stage.
+    if (peakPanel) for (const k of peakAppliedKeys) peakPanel.style.removeProperty("--" + k);
+    peakAppliedKeys = [];
+    if (host) host.replaceWith(seedReceipts("Live derivation is unavailable, so no contrast measurement is shown here."));
+    console.error(err);
+    return;
+  }
+
+  if (peakPanel) {
+    for (const k of peakAppliedKeys) peakPanel.style.removeProperty("--" + k);
+    peakAppliedKeys = Object.keys(result.tokens);
+    for (const [k, v] of Object.entries(result.tokens)) peakPanel.style.setProperty("--" + k, v);
+  }
+  if (host) host.replaceWith(buildReceipts(result.checks));
+}
+
+// Beat 1 · the hero. No effect beyond the readiness handle, and that is the point: the page already
+// wears the company's pack from its head <link>, so there is no re-skin to perform (a revert would
+// land on the same palette; a persisting one would strip the pinned pack). The entrance is the
+// inherited .page-hero CSS cascade. The handle lands in a finally on every path, the same contract
+// spine.mjs gives data-spine, so a later visual-regression addition can wait on it.
+function heroEffect(ctx) {
+  try {
+    // nothing to do — see above
+  } finally {
+    ctx.el.setAttribute("data-spine", "ready");
+  }
+}
+
+// Beat 2 · the peak. activateOn:'load', NOT 'visible' — a measured deviation from home's peak, and
+// the reason is spine.mjs's observer threshold. It observes at 0.35 of the TARGET's own area, so a
+// target taller than viewportHeight / 0.35 can never cross it and the beat never activates. This
+// band carries the composed view, the receipts and the full Manipulation Matrix panel: measured at
+// 2301px, which needs an 805px-tall viewport. Verified in Chromium — data-peak lands at a 900px
+// viewport and NEVER lands at 800/740/640px, i.e. on most laptops. A readiness handle that silently
+// fails to land is worse than none (a future VR waitReady would deadlock on it — the trap the handle
+// exists to avoid, issue #105), so it lands on load here.
+// Nothing is lost by the change: unlike peak.mjs:363 there is no analytics event gated on "reached
+// the built screen" (deliberately — see the plan's Q2), and the effect owns no expensive work. The
+// receipts ride the wizard's own publish on the package chain, which does not wait for scroll;
+// re-rendering from the cached axes here is idempotent and only covers the reverse ordering.
+// The handle means "this beat did its own work" — the composed view has its OWN handle
+// (#instance-prototype[data-prototype="ready"]) and the wizard has #reskin-preview[data-reskin].
+function peakEffect(ctx) {
+  try {
+    if (lastAxes) renderPeakDerivation(lastAxes);
+  } finally {
+    ctx.el.setAttribute("data-peak", "ready");
+  }
+}
+
 // --- Prototype slot: the composed view, rendered IN PLACE (epic #86, ticket #89) -------------------
 // A view the factory composed at BUILD TIME (a real, honesty-gated record-composition run) is
 // replayed here through the SHARED study surface (system/agentic-study.mjs → agentic-renderer +
@@ -212,16 +340,25 @@ function renderPrototype(config, name) {
   if (!mount) return;
   const comp = config.composition;
 
-  // The station's capability badge ("Adjusts now · composed at build time") and its claim paragraph
-  // are authored for the case where a composed view SHIPS. Withdraw them the moment that turns out
-  // to be untrue — an instance built without --compositions, or one whose view fails to load — so
-  // the shell never claims a capability the reader can't exercise (honesty contract). The badge
-  // can't be a static hidden variant: validateAssembly rejects any surviving `hidden` attribute.
+  // The peak band's capability badge ("Adjusts now · composed at build time"), its claim paragraph
+  // and its note are authored for the case where a composed view SHIPS. Withdraw all three the
+  // moment that turns out to be untrue — an instance built without --compositions, or one whose view
+  // fails to load — so the shell never claims a capability the reader can't exercise (honesty
+  // contract). This is sharper here than on home: home's peak falls back to a committed Verdant
+  // still, so it always has an honest screen to show; this page has none, because the instance's
+  // screen only exists if a composed view shipped. The badge can't be a static hidden variant —
+  // validateAssembly rejects any surviving `hidden`, and data-when's axis is company-vs-shell, not
+  // composition present/absent.
+  // The RECEIPTS are deliberately NOT withdrawn: they come from the wizard's live derive, not from
+  // the composition, so they stay true whatever happens to this slot.
   const unclaim = (replacementText) => {
     const badge = document.getElementById("prototype-capability");
     if (badge) badge.remove();
     const claim = document.getElementById("prototype-claim");
     if (claim && replacementText) claim.textContent = replacementText;
+    const note = document.getElementById("prototype-note");
+    if (note) note.textContent =
+      "The contrast ratios above are measured live from the answers in the brief, and describe the design system this instance ships.";
   };
 
   // No composed view shipped → the honest link/placeholder, rendered SYNCHRONOUSLY so an instance
@@ -280,9 +417,22 @@ function init() {
   // fetch failure.
   renderLinks(config.links);
 
-  // (C) Prototype chain — INDEPENDENT of (A) and (B) below; its own readiness flag, and it never
+  // (D) Pack control — same reasoning: it reads only the page's own head <link> and config.name, so
+  // a package fetch failure must not take it down. Session-only by design (a private instance pins
+  // its pack), so there is nothing to restore and no order to respect beyond "after the head is
+  // parsed", which a module script guarantees.
+  initInstancePack({ name });
+
+  // (C) Prototype chain — INDEPENDENT of (A), (B) and (D); its own readiness flag, and it never
   // gates body[data-instance="ready"]. Synchronous when no composed view is configured.
   renderPrototype(config, name);
+
+  // The spine's beats. Registered here, AFTER the config guard, for two reasons: activateOn:'load'
+  // calls activate() synchronously inside registerBeat (spine.mjs:56), so a malformed
+  // INSTANCE_CONFIG must still produce exactly one honest error card and nothing else; and keeping
+  // the calls inside init() means a Node import of this module never touches the DOM.
+  registerBeat("instance-hero", { effect: heroEffect, activateOn: "load" });
+  registerBeat("beat-built", { effect: peakEffect, activateOn: "load" }); // 'load', not 'visible' — see peakEffect
 
   // (A) Package chain — notices + curated intake + wizard. body[data-instance="ready"] is set only
   // after all of it renders (readiness handle; instance.html is not in the VR set today — a possible
