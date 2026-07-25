@@ -130,6 +130,55 @@
       "usage": "Component of the Verdant demo scenario (fictional product). This is honesty surface #1: the visible label telling a viewer that the scenario they're looking at — its company, users, plants, data — is invented for the demonstration. It renders whatever `fictionalNotice` string the active scenario's copy carries, nothing more. The composing page decides which scenario is active and where the notice sits in the layout; this component's only job is to display the string it's given, unedited.",
       "contract": null
     },
+    "list-row": {
+      "class": "ds-list-row",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "the entity this row is about, e.g. a SKU name, a technician, an account — one line, truncates with an ellipsis"
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "description": "the row's primary computed figure as a display string, e.g. \"85\", \"−85\", \"94%\" — rendered as-is, no rounding"
+        },
+        "unit": {
+          "type": "string",
+          "required": false,
+          "description": "optional display unit beside the value, e.g. \"units\", \"jobs\""
+        },
+        "meta": {
+          "type": "string",
+          "required": false,
+          "description": "one short secondary qualifier — a location, a second figure, a date; ≤ 6 words, never a sentence"
+        },
+        "status": {
+          "type": "string",
+          "required": false,
+          "description": "optional short free text rendered as a pill, one or two words — cross-scenario, so NO enum: the employer's own vocabulary (\"OVERSOLD\", \"LOW\") is the point"
+        },
+        "tone": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "neutral",
+            "warn",
+            "critical"
+          ],
+          "description": "optional emphasis — redundant weight, never the sole signal (label + value + status must already read the state)"
+        }
+      },
+      "states": [
+        "neutral",
+        "warn",
+        "critical"
+      ],
+      "children": [],
+      "usage": "One named entity per row: what it is, one computed figure about it, an optional qualifier, and an optional short status. Library-generic — the second `ds-` primitive after metric-tile (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). The pair splits the labour: **metric-tile reports one aggregate reading over a whole dataset** (\"Oversold SKUs, 3\"); **list-row reports one named entity** (\"Pallet wrap, 23 micron — 85 units short\"). Use list-row when the honest answer to a question is *which ones*, and metric-tile when it is *how many*.\n\nThe bound is a handful of rows that carry the answer, **not one row per record — this is not a table.** It has no columns, no header row, no sort and no pagination; if a reading needs those, it is the wrong primitive. Like metric-tile it carries no domain vocabulary: the composing agent computes every field from the scenario's own data, so one primitive expresses a SKU, a technician, or an account without knowing what any of them are. `status` is deliberately free text with no enum — the employer's own word for the state (\"OVERSOLD\", \"LOW\", \"AT RISK\") is the point, and an enum would re-scope the primitive to one scenario. The row displays; it does not judge — tone adds emphasis, never a verdict the label, value and status do not already state.",
+      "contract": null
+    },
     "metric-tile": {
       "class": "ds-metric-tile",
       "status": "shipped",
