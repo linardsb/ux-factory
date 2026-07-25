@@ -18,6 +18,16 @@
 // and says so. A role then takes the NEAREST rung its ramp actually has. Where inference can't
 // read a design at all, --map <file> pins tokens to named styles explicitly and beats it.
 //
+// Scale comes across the same way, by ORDER rather than by name: spacing, radius, the type ramp
+// and shadows are read from a plugin export's dimension / shadow values (the REST styles path
+// names text and effect styles without ever valuing them, so it contributes none), classified into
+// a family by name keyword, and filled BY RANK — but only where the design offers at least as many
+// distinct values as the family has slots. A family that falls short imports NOTHING and stays on
+// this repo's contract defaults, because a half-imported ramp is neither the design's nor this
+// repo's and no reader could tell which slot was which. Imported, dropped, auto-filled and
+// unclassified are all named in the pack header. A type slot keeps the contract's clamp() shape —
+// the responsive behaviour is this repo's, the number is the design's, and the header says that.
+//
 // Then it negotiates for contrast, in the file's own ramp. A nominal rung is not automatically
 // accessible — a yellow accent at /600 fails as text on white. Where a WCAG pair fails, the token
 // walks to the nearest rung OF THE SAME RAMP where every pair it takes part in passes, so the
@@ -40,12 +50,14 @@
 //   node tooling/figma/figma-pull.mjs --slug <company> --map tooling/figma/maps/<slug>.json
 //   node tooling/figma/figma-pull.mjs --slug <company> --from <export.json>
 //     — read a PLUGIN EXPORT instead of the API: no token, no rate limit, and it sees the
-//       variables REST gates behind Enterprise.
+//       variables REST gates behind Enterprise. The ONLY path that carries scale values.
+//   node tooling/figma/figma-pull.mjs --slug <company> --from <export.json> --out <path.css>
+//     — write somewhere other than system/tokens.<slug>.css (a fixture run, a scratch check).
 
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { genPackCss } from "../../agent-layer/gen-pack-css.mjs";
+import { genPackCss, loadContract } from "../../agent-layer/gen-pack-css.mjs";
 import { RULESET } from "../../system/derive.rules.mjs";
 import { hexToOklch } from "../../system/oklch.mjs";
 import { checkPairs } from "../../system/wcag.mjs";
@@ -53,9 +65,9 @@ import { ROOT, readFigma, readFlags } from "./figma-read.mjs";
 
 // Which rung of which ramp each contract token claims. Steps follow the near-universal
 // 50…950 convention (light → dark). `white` resolves to the file's own white if it publishes one.
-// The ~48 remaining contract tokens — motion, type ramp, spacing, shadows, and the color-mix()
-// inverse tokens that stay relative and re-derive from the imported accent — are auto-filled from
-// contract defaults by gen-pack-css and reported as such.
+// The contract tokens no colour role and no SCALE_ROLE claims — motion, layout, fonts, and the
+// color-mix() inverse tokens that stay relative and re-derive from the imported accent — are
+// auto-filled from contract defaults by gen-pack-css and reported as such.
 const ROLES = [
   { token: "color-fg", ramp: "neutral", step: 900 },
   { token: "color-fg-muted", ramp: "neutral", step: 500 },
@@ -77,6 +89,225 @@ const ROLES = [
   { token: "color-fg-on-inverse", ramp: "neutral", step: 100 },
   { token: "color-fg-on-inverse-strong", white: true },
 ];
+
+// ── Scale: the design's spacing, radius, type ramp and shadows ────────────────────────────
+// Colour alone makes a pack "the design's palette on THIS repo's scale" — its spacing-md is 16px
+// because that is this repo's default, not because the design said so. These four families come
+// across too, and by the same discipline as the colours: mapped by ORDER, not by name (a design's
+// "Spacing/4" shares no vocabulary with "spacing-md"), all-or-nothing per family, and every value
+// imported, dropped or auto-filled is named in the pack header.
+//
+// Rank is the family's OWN slot order, not a global "smallest first": spacing/radius/shadow run
+// small → large, the type ramp runs large → small (its first slot is a display size). Rank 1
+// therefore takes the smallest imported spacing and the LARGEST imported type size.
+const SCALE_ROLES = [
+  { token: "spacing-xs", family: "spacing", rank: 1 },
+  { token: "spacing-sm", family: "spacing", rank: 2 },
+  { token: "spacing-md", family: "spacing", rank: 3 },
+  { token: "spacing-lg", family: "spacing", rank: 4 },
+  { token: "spacing-xl", family: "spacing", rank: 5 },
+  { token: "spacing-2xl", family: "spacing", rank: 6 },
+  { token: "spacing-3xl", family: "spacing", rank: 7 },
+  { token: "spacing-4xl", family: "spacing", rank: 8 },
+  { token: "radius-sm", family: "radius", rank: 1 },
+  { token: "radius-md", family: "radius", rank: 2 },
+  { token: "radius-lg", family: "radius", rank: 3 },
+  // Descending size, which is NOT tokens.source.json's declaration order: type-h3 (20px) sits
+  // BELOW type-lead (clamp max 22px), so reading the contract's order would invert the ramp.
+  { token: "type-display", family: "type", rank: 1 },
+  { token: "type-h1", family: "type", rank: 2 },
+  { token: "type-h2", family: "type", rank: 3 },
+  { token: "type-lead", family: "type", rank: 4 },
+  { token: "type-h3", family: "type", rank: 5 },
+  { token: "type-body", family: "type", rank: 6 },
+  { token: "type-caption", family: "type", rank: 7 },
+  { token: "type-eyebrow", family: "type", rank: 8 },
+  { token: "shadow-sm", family: "shadow", rank: 1 },
+  { token: "shadow-md", family: "shadow", rank: 2 },
+  { token: "shadow-lg", family: "shadow", rank: 3 },
+];
+const FAMILY_ORDER = { spacing: "asc", radius: "asc", shadow: "asc", type: "desc" };
+const FAMILY_LABEL = { spacing: "spacing", radius: "radius", type: "type ramp", shadow: "shadows" };
+const FAMILY_RULE = {
+  spacing: "smallest→largest", radius: "smallest→largest",
+  type: "largest→smallest", shadow: "subtlest→heaviest (blur + spread)",
+};
+const scaleRole = (token) => SCALE_ROLES.find((r) => r.token === token);
+
+// Which family a dimension belongs to. TYPE IS TESTED FIRST on purpose: a design that names its
+// text styles "Regular/size 5" would have its font sizes swallowed by a spacing keyword, so bare
+// "size" is deliberately not one. A name matching nothing returns null and is reported as
+// unclassified in the pack header — never guessed into a family.
+const FAMILY_KEYWORDS = [
+  { family: "type", re: /(^|[/\s_-])(text|font|type|typography|heading|body)/i },
+  { family: "radius", re: /(^|[/\s_-])(radius|corner|rounded|round)/i },
+  { family: "shadow", re: /(^|[/\s_-])(shadow|elevation|depth)/i },
+  { family: "spacing", re: /(^|[/\s_-])(spacing|space|gap|inset|padding|margin)/i },
+];
+export function classifyDimension(name) {
+  for (const { family, re } of FAMILY_KEYWORDS) if (re.test(String(name))) return family;
+  return null;
+}
+
+// Tokens Studio writes a shadow as { value: { x, y, blur, spread, color, type } }, which the read
+// SHATTERS into one leaf entry per member (entriesFromExport never emits an object). Reassemble by
+// the shared name prefix; DTCG's composite shadow arrives whole instead, under its own $type.
+const TS_SHADOW_PART = /^(.+)\/value\/(x|y|blur|spread|color|type)$/i;
+
+const px = (v) =>
+  typeof v === "number" ? `${v}px`
+    : typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? `${Number(v.trim())}px`
+      : typeof v === "string" && v.trim() ? v.trim() : null;
+const numOf = (v) => (Number.isFinite(parseFloat(v)) ? parseFloat(v) : 0);
+
+// One CSS shadow from either shape. A group with no colour or no blur is not half-composed — it is
+// skipped and named. An 8-digit hex is a legal CSS colour, so it passes through as the design wrote it.
+function composeShadow(name, parts) {
+  const blur = px(parts.blur);
+  const color = typeof parts.color === "string" && parts.color.trim() ? parts.color.trim() : null;
+  if (blur === null || !color) return null;
+  const x = px(parts.x ?? 0) ?? "0px";
+  const y = px(parts.y ?? 0) ?? "0px";
+  const spread = parts.spread == null ? null : px(parts.spread);
+  const hasSpread = spread !== null && numOf(spread) !== 0;
+  return {
+    name,
+    css: `${x} ${y} ${blur}${hasSpread ? ` ${spread}` : ""} ${color}`,
+    weight: numOf(blur) + (spread === null ? 0 : numOf(spread)),
+    tie: Math.abs(numOf(y)),
+  };
+}
+
+// Everything the read offers that could fill a scale slot. `value == null` entries are dropped
+// first: the REST path names text and effect styles without ever valuing them (collectStyleFills
+// harvests fills only), so a styles read contributes nothing here and the run says so.
+export function collectScales(entries) {
+  const consumed = new Set();
+  const groups = {};
+  for (const e of entries) {
+    const m = TS_SHADOW_PART.exec(e.name);
+    if (!m) continue;
+    consumed.add(e.name);
+    (groups[m[1]] ??= {})[m[2].toLowerCase()] = e.value;
+  }
+
+  const shadows = [];
+  const unclassified = [];
+  for (const [base, parts] of Object.entries(groups)) {
+    const s = composeShadow(base, parts);
+    if (s) shadows.push(s);
+    else unclassified.push(`${base} (shadow group missing its colour or blur — not half-composed)`);
+  }
+
+  const dims = [];
+  for (const e of entries) {
+    if (e.value == null || consumed.has(e.name)) continue;
+    if (e.type === "shadow" && typeof e.value === "object" && !Array.isArray(e.value)) {
+      // DTCG composite: { color, offsetX, offsetY, blur, spread }. A multi-layer shadow arrives as
+      // its first layer only (the read emits no arrays) — the truncation is named in the header.
+      const v = e.value;
+      const s = composeShadow(e.name, { x: v.offsetX, y: v.offsetY, blur: v.blur, spread: v.spread, color: v.color });
+      if (s) shadows.push(s);
+      else unclassified.push(`${e.name} (shadow missing its colour or blur)`);
+      continue;
+    }
+    if (e.type !== "dimension" || typeof e.value !== "number") continue;
+    const family = classifyDimension(e.name);
+    // A number named like a shadow is not a shadow (a shadow needs a colour): say so, don't guess.
+    if (family === null || family === "shadow") { unclassified.push(e.name); continue; }
+    dims.push({ name: e.name, num: e.value, family });
+  }
+  return { dims, shadows, unclassified };
+}
+
+// The contract's own clamp: the RESPONSIVE BEHAVIOUR stays this repo's (the vw term is copied
+// verbatim), the NUMBER becomes the design's, and the min scales by the same ratio so the ramp
+// keeps its shape. Rounded to whole px — a committed pack carrying clamp(36.571428571px, …) is
+// what a reviewer flags, and the fraction buys nothing.
+const CLAMP = /^clamp\(\s*([\d.]+)px\s*,\s*([^,]+?)\s*,\s*([\d.]+)px\s*\)$/;
+
+function formatScale(role, item, defaults) {
+  if (role.family === "shadow") return { css: item.css, note: "" };
+  const def = defaults[role.token];
+  if (role.family === "type" && typeof def === "string" && def.startsWith("clamp(")) {
+    const m = CLAMP.exec(def);
+    if (m) {
+      const [, min, vw, max] = m;
+      return {
+        css: `clamp(${Math.round((Number(min) * item.num) / Number(max))}px, ${vw}, ${item.num}px)`,
+        note: "",
+      };
+    }
+    return { css: `${item.num}px`, note: " (plain px: the contract default is a clamp() this importer could not parse)" };
+  }
+  return { css: `${item.num}px`, note: "" };
+}
+
+// Fill each family BY RANK, and only if the design offers at least as many distinct values as the
+// family has slots. Fewer and the family is left entirely alone: a half-imported ramp would be
+// neither the design's nor this repo's, and no reader could tell which slots were which. Extra
+// values are dropped and listed. Pinned slots (--map) are set afterwards and always win.
+export function fillScales({ dims, shadows }, defaults, pinnedScales = {}) {
+  const values = {};
+  const placed = [];
+  const imported = {};
+  const short = [];
+  const plainPx = [];
+
+  for (const family of ["spacing", "radius", "type", "shadow"]) {
+    const slots = SCALE_ROLES.filter((r) => r.family === family).sort((a, b) => a.rank - b.rank);
+    const pool = family === "shadow"
+      ? shadows.map((s) => ({ name: s.name, css: s.css, key: s.weight, tie: s.tie }))
+      : dims.filter((d) => d.family === family).map((d) => ({ name: d.name, num: d.num, key: d.num, tie: 0 }));
+
+    // A design that publishes 4px twice offers ONE value, not two — dedupe before counting.
+    const seen = new Set();
+    const uniq = [];
+    for (const item of pool) {
+      const k = family === "shadow" ? item.css : item.num;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      uniq.push(item);
+    }
+    const dir = FAMILY_ORDER[family];
+    uniq.sort((a, b) => (dir === "asc" ? a.key - b.key : b.key - a.key) || a.tie - b.tie);
+
+    if (uniq.length < slots.length) {
+      short.push({ family, offered: uniq.length, needs: slots.length });
+      continue;
+    }
+    const taken = uniq.slice(0, slots.length);
+    const dropped = uniq.slice(slots.length);
+    imported[family] = {
+      slots: slots.length,
+      offered: uniq.length,
+      rule: FAMILY_RULE[family],
+      taken: [],
+      dropped: dropped.map((d) => (family === "shadow" ? d.css : `${d.num}px`)),
+    };
+    slots.forEach((role, i) => {
+      const item = taken[i];
+      const { css, note } = formatScale(role, item, defaults);
+      if (note) plainPx.push(role.token);
+      values[role.token] = css;
+      placed.push({ token: role.token, source: `${FAMILY_LABEL[family]} rank ${role.rank} of ${slots.length} (${FAMILY_RULE[family]}) = "${item.name}"${note}` });
+      imported[family].taken.push({ token: role.token, name: item.name, value: css });
+    });
+  }
+
+  // Explicit beats inference, exactly as it does for a colour: a pinned slot takes its value even
+  // where its family is short, and it is never moved by the ranking.
+  for (const [token, p] of Object.entries(pinnedScales)) {
+    values[token] = p.value;
+    const existing = placed.find((x) => x.token === token);
+    if (existing) existing.source = `pinned by --map to "${p.name}" (overrides ${existing.source})`;
+    else placed.push({ token, source: `pinned by --map to "${p.name}"` });
+    const fam = scaleRole(token)?.family;
+    const rec = imported[fam]?.taken.find((t) => t.token === token);
+    if (rec) { rec.name = p.name; rec.value = p.value; rec.pinned = true; }
+  }
+  return { values, placed, imported, short, plainPx };
+}
 
 // Colour entries named "<hue>/<step>" → { hue: { step: hex } }. Everything else (a kit's
 // "base/white", a one-off brand colour) is kept flat under `loose` for the white lookup.
@@ -133,28 +364,42 @@ export function deriveRamps(loose, numbered = {}) {
   return { ramps, derived };
 }
 
-// --map <file>: { "color-accent": "Brand/Primary" } — the explicit answer for a design inference
-// can't read, committed beside the pack it produces. Explicit ALWAYS beats inference: a mapped
-// token is pinned to that style's value and never negotiated (negotiate skips entries with no
-// ramp), so a mapped colour that fails a pair is reported as a failure rather than moved. A name
-// the file doesn't publish throws — never a silent fall back to a default.
-function readMap(path, entries) {
+// --map <file>: { "color-accent": "Brand/Primary", "spacing-md": "Spacing/4" } — the explicit
+// answer for a design inference can't read, committed beside the pack it produces. Explicit ALWAYS
+// beats inference: a mapped token is pinned to that style's value and never negotiated (negotiate
+// skips entries with no ramp), so a mapped colour that fails a pair is reported as a failure rather
+// than moved, and a mapped scale slot fills even where its family is short. A name the file doesn't
+// publish throws — never a silent fall back to a default. Returns colours and scales apart: they
+// travel different paths from here (a rung to negotiate vs. a value to format).
+function readMap(path, entries, scaleSource, defaults) {
   const spec = JSON.parse(readFileSync(resolve(process.cwd(), path), "utf8"));
   const colors = entries.filter((e) => e.type === "color" && typeof e.value === "string" && /^#[0-9a-f]{6}$/i.test(e.value));
   const pinned = {};
+  const scales = {};
+  // One matcher for both kinds: exact name, then last-segment as the fallback (a map may name
+  // "Primary" for "Colors/Brand/Primary"), refusing when two candidates share that segment.
+  const match = (token, styleName, pool, kind) => {
+    const want = styleName.trim().toLowerCase();
+    const hits = pool.filter((e) => e.name.trim().toLowerCase() === want);
+    const matched = hits.length ? hits : pool.filter((e) => e.name.split("/").pop().trim().toLowerCase() === want);
+    if (!matched.length) throw new Error(`${path}: "${token}" → no ${kind} named "${styleName}" in this file. It publishes: ${pool.map((e) => e.name).join(", ") || "(none)"}`);
+    if (matched.length > 1) throw new Error(`${path}: "${token}" → "${styleName}" matches ${matched.length} styles (${matched.map((e) => e.name).join(", ")}) — name one in full.`);
+    return matched[0];
+  };
   for (const [token, styleName] of Object.entries(spec)) {
     if (token.startsWith("$")) continue; // a $note key, the way the DTCG files carry prose
     if (typeof styleName !== "string") throw new Error(`${path}: "${token}" must name a Figma style as a string, not ${JSON.stringify(styleName)}`);
-    const want = styleName.trim().toLowerCase();
-    const hits = colors.filter((e) => e.name.trim().toLowerCase() === want);
-    // Last-segment match is the fallback (a map may name "Primary" for "Colors/Brand/Primary"),
-    // and it refuses when two styles share that segment rather than taking the first.
-    const matched = hits.length ? hits : colors.filter((e) => e.name.split("/").pop().trim().toLowerCase() === want);
-    if (!matched.length) throw new Error(`${path}: "${token}" → no colour style named "${styleName}" in this file. It publishes: ${colors.map((e) => e.name).join(", ")}`);
-    if (matched.length > 1) throw new Error(`${path}: "${token}" → "${styleName}" matches ${matched.length} styles (${matched.map((e) => e.name).join(", ")}) — name one in full.`);
-    pinned[token] = { hex: matched[0].value.toLowerCase(), name: matched[0].name };
+    const role = scaleRole(token);
+    if (role) {
+      const pool = role.family === "shadow" ? scaleSource.shadows : scaleSource.dims;
+      const hit = match(token, styleName, pool, role.family === "shadow" ? "shadow" : "dimension");
+      scales[token] = { value: formatScale(role, hit, defaults).css, name: hit.name };
+      continue;
+    }
+    const hit = match(token, styleName, colors, "colour style");
+    pinned[token] = { hex: hit.value.toLowerCase(), name: hit.name };
   }
-  return pinned;
+  return { pinned, scales };
 }
 
 // The nearest rung a ramp actually has. A derived ramp — or a small file — has no /900, so a role
@@ -232,13 +477,19 @@ function negotiate(values, placed, ramps, derived = {}) {
   return steps;
 }
 
-export async function runPull({ slug, accent = null, neutral = null, map = null, ...readOptions } = {}) {
+export async function runPull({ slug, accent = null, neutral = null, map = null, out = null, ...readOptions } = {}) {
   if (!slug) throw new Error("figma-pull: --slug <name> is required (it names system/tokens.<slug>.css)");
   const { fileKey, fileName, entries, pages } = await readFigma(readOptions);
   const { ramps: numbered, loose } = toRamps(entries);
   const { ramps: inferred, derived } = deriveRamps(loose, numbered);
   const ramps = { ...numbered, ...inferred };
-  const pinned = map ? readMap(map, entries) : {};
+  // The contract's own defaults, read from the file that generates the contract — the clamp shapes
+  // a type import has to keep are not restated here.
+  const { byName } = loadContract(`${ROOT}/system/tokens.source.json`);
+  const defaults = Object.fromEntries(Object.entries(byName).map(([n, t]) => [n, t.$value]));
+  const scaleSource = collectScales(entries);
+  const scaleOffered = scaleSource.dims.length > 0 || scaleSource.shadows.length > 0;
+  const { pinned, scales: pinnedScales } = map ? readMap(map, entries, scaleSource, defaults) : { pinned: {}, scales: {} };
 
   const available = Object.keys(ramps).sort();
   if (!available.length) {
@@ -328,13 +579,44 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
     placed.push({ token, source: `pinned by --map to "${p.name}"` });
   }
 
+  // The four non-colour families, filled by rank from whatever the read offered.
+  const scale = fillScales(scaleSource, defaults, pinnedScales);
+  Object.assign(values, scale.values);
+  placed.push(...scale.placed);
+
   const checks = checkPairs(values, RULESET.wcagPairs);
   const failures = checks.filter((c) => !c.pass);
 
   // Which ramps the run actually leaned on, and which of their rungs this importer synthesised.
   const usedRamps = [pick.neutral, pick.accent].filter(Boolean);
   const derivedUsed = usedRamps.filter((hue) => derived[hue]);
-  const mappedTokens = Object.entries(pinned);
+  const mappedTokens = [...Object.entries(pinned), ...Object.entries(pinnedScales)];
+
+  // What the scale import did, in the pack itself. Written ONLY when the read actually offered a
+  // dimension or a shadow: a styles read (the REST path) names text and effect styles without
+  // valuing them, so it contributes nothing here and the pack stays silent about a family it never
+  // saw rather than carrying a line about an absence. The run says so on stdout instead.
+  const importedFamilies = Object.entries(scale.imported);
+  const scaleNote = !scaleOffered
+    ? ""
+    : (importedFamilies.length
+      ? `\n * Scale imported from this file: ` +
+        importedFamilies.map(([f, r]) =>
+          `${FAMILY_LABEL[f]} (${r.slots} of ${r.offered} value(s), ${r.rule}` +
+          (r.dropped.length ? ` — dropped: ${r.dropped.join(", ")}` : "") + `)`).join(", ") +
+        `.` +
+        (scale.imported.type ? ` The fluid clamp() shape and its vw term are this repo's contract; the numbers are the design's.` : "") +
+        (scale.plainPx.length ? ` Emitted as plain px because the contract default did not parse as a clamp(): ${scale.plainPx.join(", ")}.` : "") +
+        (scale.imported.shadow ? ` A multi-layer shadow imports its first layer only.` : "")
+      : "") +
+      (scale.short.length
+        ? `\n * Scale NOT imported, auto-filled from this repo's contract defaults: ` +
+          scale.short.map((s) => `${FAMILY_LABEL[s.family]} (the design offered ${s.offered}, the contract has ${s.needs} slots)`).join(", ") +
+          `. These values are NOT the design's.`
+        : "") +
+      (scaleSource.unclassified.length
+        ? `\n * Read but not classified into a family, so not imported: ` + scaleSource.unclassified.join(", ") + `.`
+        : "");
   // A ramp with too few rungs runs out of distinct state colours: whichever states ended up
   // wearing a colour another state already wears is a fact the pack has to carry, not hide.
   const states = ROLES.filter((r) => r.follows).map((r) => r.token);
@@ -362,6 +644,7 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
       ? `\n * Pinned explicitly by ${map} (an operator's map beats inference, and a pinned value is never moved for contrast): ` +
         mappedTokens.map(([token, p]) => `${token} ← "${p.name}"`).join(", ")
       : "") +
+    scaleNote +
     (collapsed.length
       ? `\n * Too few rungs for a distinct state colour: ` +
         collapsed.map((c) => `${c.token} repeats ${c.twin} (${values[c.token]})`).join(", ") +
@@ -379,7 +662,8 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
         failures.map((f) => `${f.fg} on ${f.bg} ${f.ratio}:1 < ${f.min}`).join(", ")
       : "");
 
-  const dest = `${ROOT}/system/tokens.${slug}.css`;
+  // --out keeps a fixture run out of system/, which gen-loc-summary counts as shipped source.
+  const dest = out ? resolve(process.cwd(), out) : `${ROOT}/system/tokens.${slug}.css`;
   const r = genPackCss(values, { slug, dest, note: label });
 
   const roleOrder = [...ROLES.map((r) => r.token), ...placed.map((p) => p.token).filter((t) => !ROLES.some((r) => r.token === t))];
@@ -388,13 +672,30 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
   }
   if (pages) console.log(`\npages read: ${pages.read.map((p) => p.name).join(", ") || "none"} · skipped: ${pages.skipped.length}`);
   console.log(`ramps found: ${available.join(", ")}`);
+  if (!scaleOffered) {
+    console.log(`scale: this read offered no dimension or shadow VALUES (a styles read names text and effect styles without valuing them) — spacing, radius, the type ramp and shadows are all this repo's contract defaults.`);
+  } else {
+    for (const [f, rec] of importedFamilies) console.log(`scale: ${FAMILY_LABEL[f]} imported — ${rec.slots} of ${rec.offered} value(s), ${rec.rule}${rec.dropped.length ? ` · dropped ${rec.dropped.join(", ")}` : ""}`);
+    for (const s of scale.short) console.log(`scale: ${FAMILY_LABEL[s.family]} NOT imported — the design offered ${s.offered}, the contract has ${s.needs} slots (auto-filled from contract defaults)`);
+    if (scaleSource.unclassified.length) console.log(`scale: not classified into a family — ${scaleSource.unclassified.join(", ")}`);
+  }
   console.log(`roles mapped: ${placed.length} · auto-filled from contract defaults: ${r.filled.length}`);
   for (const s of stepped) console.log(`negotiated: ${s.token} ${s.ramp}/${s.from} (${s.fromValue}) → ${s.ramp}/${s.to} (${s.toValue}) for contrast`);
   for (const c of checks) console.log(`  ${c.pass ? "✓" : "✗"} ${String(c.ratio).padStart(6)} / ${c.min}  ${c.fg} on ${c.bg}`);
   console.log(`figma pull      ${failures.length ? "⚠" : "✓"}  ${slug} — ${r.tokenCount} tokens → ${relative(ROOT, dest)}` +
     (failures.length ? `  (${failures.length} WCAG pair(s) still failing — named in the pack header)` : ""));
 
-  return { slug, dest, values, checks, stepped, failures };
+  return {
+    slug, dest, values, checks, stepped, failures,
+    // Additive: the portal drop-UI renders this rather than re-deriving it from the header prose.
+    scales: {
+      offered: scaleOffered,
+      imported: scale.imported,
+      short: scale.short,
+      autoFilled: r.filled,
+      unclassified: scaleSource.unclassified,
+    },
+  };
 }
 
 // pathToFileURL, not `file://${argv[1]}`: this repo's path contains a space (gen-token-css L148).
@@ -403,7 +704,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const i = process.argv.indexOf(name);
     return i === -1 ? undefined : process.argv[i + 1];
   };
-  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral"), map: flag("--map"), ...readFlags(process.argv) }).catch((e) => {
+  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral"), map: flag("--map"), out: flag("--out"), ...readFlags(process.argv) }).catch((e) => {
     console.error(e.stack ?? e.message);
     process.exit(1);
   });

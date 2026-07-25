@@ -1,0 +1,5 @@
+{
+  "$note": "Fixture map for the round-trip tests (not a real design): proves --map pins a NON-COLOUR contract token — a dimension and a shadow — beats inference, and fills a slot whose family is otherwise too short to import. Run against fixtures/scales-partial.json.",
+  "spacing-md": "Spacing/4",
+  "shadow-lg": "Elevation/High"
+}

@@ -33,7 +33,9 @@ const SOURCE = join(SYSTEM, "tokens.source.json");
 
 // The contract group of tokens.source.json is the completion source + the name whitelist.
 // Returns the sections (for grouped emission), a name→token lookup, and the ordered names.
-function loadContract(sourceJson) {
+// Exported because figma-pull reads the same defaults to keep a design's imported type size
+// inside the contract's own clamp() shape — one source of truth, never a second copy.
+export function loadContract(sourceJson) {
   const src = JSON.parse(readFileSync(sourceJson, "utf8"));
   if (!src.contract) throw new Error(`gen-pack-css: ${sourceJson} has no "contract" group`);
   const sections = [];

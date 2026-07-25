@@ -1,0 +1,39 @@
+{
+  "$description": "SYNTHETIC fixture — not a real design. The Tokens Studio boxShadow shape: { value: { x, y, blur, spread, color, type } }, which the read SHATTERS into one leaf entry per member (entriesFromExport never emits an object). Proves figma-pull reassembles those leaves into one CSS shadow — and that a group missing its colour is skipped and named, never half-composed. Colours are here only so the run can complete.",
+  "gray": {
+    "50": { "value": "#f9fafb", "type": "color" },
+    "200": { "value": "#e5e7eb", "type": "color" },
+    "400": { "value": "#9ca3af", "type": "color" },
+    "600": { "value": "#4b5563", "type": "color" },
+    "800": { "value": "#1f2937", "type": "color" },
+    "900": { "value": "#111827", "type": "color" }
+  },
+  "indigo": {
+    "50": { "value": "#eef2ff", "type": "color" },
+    "200": { "value": "#c7d2fe", "type": "color" },
+    "400": { "value": "#818cf8", "type": "color" },
+    "600": { "value": "#4f46e5", "type": "color" },
+    "800": { "value": "#3730a3", "type": "color" }
+  },
+  "base": {
+    "white": { "value": "#ffffff", "type": "color" }
+  },
+  "shadow": {
+    "soft": {
+      "value": { "x": 0, "y": 2, "blur": 4, "spread": 0, "color": "#0000000f", "type": "dropShadow" },
+      "type": "boxShadow"
+    },
+    "medium": {
+      "value": { "x": 0, "y": 6, "blur": 12, "spread": -2, "color": "#00000017", "type": "dropShadow" },
+      "type": "boxShadow"
+    },
+    "hard": {
+      "value": { "x": 0, "y": 18, "blur": 36, "spread": -6, "color": "#00000024", "type": "dropShadow" },
+      "type": "boxShadow"
+    },
+    "broken": {
+      "value": { "x": 0, "y": 4, "blur": 8, "spread": 0, "type": "dropShadow" },
+      "type": "boxShadow"
+    }
+  }
+}
