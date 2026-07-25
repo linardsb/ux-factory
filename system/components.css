@@ -1537,6 +1537,7 @@ p, .body {
 .ds-list-row p {
   margin: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing-sm);
 }
@@ -1544,8 +1545,11 @@ p, .body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  flex: 1 1 auto;
-  min-width: 0; /* a long entity name ellipsises instead of blowing the row out */
+  /* The name is the row's subject, so it gets the flex basis: where the reading and pill would
+     squeeze it below ~14ch they wrap to their own line instead. min-width:0 keeps a long name
+     ellipsising rather than blowing the row out once wrapping has run out of room. */
+  flex: 1 1 14ch;
+  min-width: 0;
 }
 .ds-row-name {
   font-size: var(--type-body);
