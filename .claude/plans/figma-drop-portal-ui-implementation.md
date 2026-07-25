@@ -148,17 +148,31 @@ land a 3-way merge can legitimately keep **both**, and the result is a header pr
 above returns 2, delete the duplicate before Phase 2 and re-run the plusui regression. If it returns
 0, the branch you cut from predates both fixes — stop, you're on the wrong base.
 
-**Two branches, not one, have to land before Phase 1.**
+**Nothing is waiting on a PR — there are none.** Verified 2026-07-25 16:4x: `gh pr list --state
+open` → `[]`, and both relevant branches are **local-only with no upstream**.
 
 | Branch | Carries | State (2026-07-25) |
 |---|---|---|
-| `feature/figma-any-naming` | `deriveRamps`, `--map`, `nearestRung`, the larger header | 2 commits, clean, **unpushed** (in `ux-factory-wt-figma`) |
-| `chore/v3-merge-vr-reblock` | `0293e4b`'s `--from` header fix, the design note, **this plan**, #82 work | 11 commits ahead of `origin/main`, **unpushed** (primary worktree) |
+| `feature/figma-any-naming` @ `caf9d84` | `deriveRamps`, `--map`, `nearestRung`, the larger header, **plus a merge of `origin/main`** | 3 ahead of `origin/main`, clean, no upstream, in `ux-factory-wt-figma`. **Exactly one** `--from` header line (L354) — no merge artifact |
+| `chore/v3-merge-vr-reblock` | `0293e4b`'s own copy of the `--from` fix, the design note, **this plan**, #82 work | 12 ahead of `origin/main`, no upstream, primary worktree |
 
-Cut the implementation branch from a `main` that has **both**. If only one has landed when work
-starts, branch from whichever holds the design note (`chore/v3-merge-vr-reblock`) and merge the
-other in — but say so in the report, because the plusui byte-identical regression is only meaningful
-against the post-merge engine.
+**So `feature/figma-any-naming` is already the base.** It is `origin/main` + the naming work, clean
+and artifact-free; cut `feature/figma-drop-portal-ui` from `caf9d84` and start. Waiting for a merge
+to `main` buys nothing and the branch may drift further.
+
+The `--from` duplication risk therefore belongs to whoever merges **`chore/v3-merge-vr-reblock`**
+(its `0293e4b` is the second copy) — which is why the Phase-2 grep stays in this plan: run it after
+any merge that touches the engine, and expect exactly 1.
+
+**Reading this plan from `ux-factory-wt-figma`:** it is committed on `chore/v3-merge-vr-reblock`, a
+different merge path, so it is not in that worktree's tree. Read it from the primary worktree's
+path, or `git show chore/v3-merge-vr-reblock:.claude/plans/figma-drop-portal-ui-implementation.md`.
+Same for the design note. Do **not** cherry-pick them onto the implementation branch — they arrive
+on `main` with `chore/v3-merge-vr-reblock`, and a second copy would conflict.
+
+**Unrelated but adjacent:** `ux-factory-wt-figma` also holds an untracked 876-line
+`.claude/plans/figma-import-scales-and-dock.md` (handover §C prompts 2+3). Not this ticket's, not
+this ticket's to commit — but don't `git clean` that worktree.
 
 If `deriveRamps` is absent, **stop and tell the owner** — the accent-refusal site is byte-identical
 across both versions, so the `err.candidates` edit itself is a mechanical rebase, but `runPull`'s
