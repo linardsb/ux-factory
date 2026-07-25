@@ -266,7 +266,11 @@
       </div>
     </section>
 
-    <!-- Beat 4 · you keep it — the single-card close (I6). #77 adds the shareable URL-state. -->
+    <!-- Beat 4 · you keep it — the single-card close (I6), the Hook Model's investment step
+         (#77). Everything below the .close-extras mount is the no-JS floor and the documented
+         circuit-breaker state: one statement, one action, and a handoff pack you can keep.
+         system/close.mjs fills .close-extras with the share link and the derived-token copy.
+         The pack is Verdant's committed pack, never "your pack" — honesty contract, hard. -->
     <section class="band" id="beat-close">
       <div class="container">
         <div class="beat-head">
@@ -280,8 +284,19 @@
           <p class="close-card-line">This is what I'd do for your team in week one.</p>
           <div class="hero-cta-row">
             <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
-            <a class="btn btn-secondary" href="/handoff.html">See the handoff pack</a>
           </div>
+          <div class="close-takeaway">
+            <p class="close-takeaway-line">
+              Take the handoff pack with you. It is the pack an engineer receives for Verdant, the
+              fictional product this demo builds: component specs, data contracts, tokens, and the
+              agent vocabulary.
+            </p>
+            <div class="close-takeaway-row">
+              <a class="btn btn-secondary" href="/handoff.html">See the handoff pack</a>
+              <a class="btn btn-secondary" href="/handoff/verdant/pack.bundle.json" download>Download the pack</a>
+            </div>
+          </div>
+          <div class="close-extras" data-close-extras></div>
         </div>
       </div>
     </section>
@@ -361,5 +376,9 @@
   <script type="module" src="/system/intake-beat.mjs"></script>
   <script type="module" src="/system/pack-derived.mjs"></script>
   <script type="module" src="/system/peak.mjs"></script>
+  <!-- Beat 4. Last is fine (it imports spine.mjs), but do NOT move any module above dock.mjs:
+       dock imports pack-derived, and that import is what makes the shared-link hydration run
+       before spine's hero registers. Reordering these tags breaks the arrival path (#77). -->
+  <script type="module" src="/system/close.mjs"></script>
 </body>
 </html>

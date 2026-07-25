@@ -17,6 +17,7 @@
 // parse check (node --check) and any Node harness import cleanly.
 
 import { derive } from "./derive.mjs";
+import { decodeShareState } from "./share-state.mjs";
 
 // ---------------------------------------------------------------- contract (shared with #76)
 // factory-pack        — the SELECTOR, shared with dock.mjs / pack-boot.js. A new "derived"
@@ -189,12 +190,23 @@ function appliedLabel(name) {
   const notOfficial = name ? `not ${name}'s official design system` : "not an official design system";
   return `Your colour is on the stage, derived into a full palette. It is a demo, ${notOfficial}.`;
 }
+// A shared link (#77) puts the SENDER's colour on the stage, so "your colour" would be false —
+// and this is the label a recipient actually sees on arrival, because the close card's own note
+// sits below the fold. Same affiliation denial as appliedLabel; only the provenance clause changes.
+function sharedLabel(name) {
+  const notOfficial = name ? `not ${name}'s official design system` : "not an official design system";
+  return `This colour came from a shared link and was derived again in this browser. It is a demo, ${notOfficial}.`;
+}
 function setLabel(node, state, text) {
   node.dataset.state = state;
   node.textContent = text; // textContent — the name can never become markup
 }
 
-function wireBeatBrand() {
+// sharedRec — the record hydrateFromSharedLink() just built and applied, or null on a normal load.
+// Passed in rather than re-read so the beat can tell "this colour is the visitor's" from "this
+// colour arrived in a link", which are two different honest labels (AC #3), and so the arrival
+// reflects even where localStorage is blocked and readRecord() cannot see what :root is wearing.
+function wireBeatBrand(sharedRec = null) {
   const beat = document.getElementById("beat-brand");
   if (!beat) return; // not this page — inert
   const colorInput = beat.querySelector("[data-brand-color]");
@@ -207,14 +219,18 @@ function wireBeatBrand() {
   let current = null; // the --color-* map on :root right now (null ⇒ nothing to clear)
 
   // Reflect only a WORN record on load, so the beat matches :root (pack-boot already applied it).
-  const rec = readRecord();
-  if (rec && selectorIsDerived()) {
+  // A shared record counts as worn without consulting the selector: hydration applied it to :root
+  // a moment ago, so it IS what the page is wearing even if storage refused the write.
+  const rec = sharedRec || readRecord();
+  if (rec && (sharedRec || selectorIsDerived())) {
     current = rec.tokens;
     if (rec.brandColor) colorInput.value = rec.brandColor;
     if (nameInput && rec.label && rec.label !== "your brand") nameInput.value = rec.label;
     if (wearToggle) wearToggle.checked = true;
     applyToRoot(current); // idempotent with pack-boot; covers a no-storage / no-pack-boot page
-    setLabel(label, "applied", appliedLabel(sanitizeName(nameInput ? nameInput.value : "")));
+    const shownName = sanitizeName(nameInput ? nameInput.value : "");
+    if (sharedRec) setLabel(label, "shared", sharedLabel(shownName));
+    else setLabel(label, "applied", appliedLabel(shownName));
   } else {
     setLabel(label, "empty", emptyLabel());
   }
@@ -276,5 +292,36 @@ function wireBeatBrand() {
   }
 }
 
+// ---------------------------------------------------------------- shared-link arrival (#77)
+// A shared link carries the sender's INPUTS, so the receiving browser re-derives the palette with
+// the real engine rather than trusting a colour set from a URL (system/share-state.mjs explains
+// the trade). Returns the hydrated record, or null when the URL carries no usable brand.
+//
+// ORDERING IS LOAD-BEARING, and the <script> tag order in index.html reads as the opposite of what
+// makes it work: pack-derived's own tag sits AFTER spine.mjs. What puts this first is dock.mjs —
+// it statically imports this module (dock.mjs:23-26) and its tag precedes spine's, so this whole
+// module body evaluates before spine's does. That matters because spine.mjs registers the hero with
+// activateOn:'load', registerBeat calls activate() synchronously (spine.mjs:56), and heroBeat reads
+// isWearingDerived() before its first await (spine.mjs:137). With wear() already written, the guard
+// is true and the hero skips its canned re-skin instead of overwriting the shared brand and then
+// stripping it on revert. If a future change ever breaks that order the failure is graceful, not
+// silent: wireBeatBrand's MutationObserver below re-applies the colour when the hero's revert lands.
+function hydrateFromSharedLink() {
+  const shared = decodeShareState(location.search);
+  if (!shared?.brandColor) return null;
+  let rec;
+  try {
+    rec = buildRecord(shared.brandColor, shared.name);
+  } catch (err) {
+    // Nothing fails on stage: a refused colour leaves the committed pack exactly as it was.
+    console.error("pack-derived: shared link colour refused — committed pack retained", err);
+    return null;
+  }
+  applyToRoot(rec.tokens);
+  writeRecord(rec);
+  wear(); // backs the displaced committed pick up in PREWEAR_KEY, so the dock's reset hands it back
+  return rec;
+}
+
 // Self-boot behind a DOM guard so a Node import (drift-check's node --check, any harness) stays clean.
-if (typeof document !== "undefined") wireBeatBrand();
+if (typeof document !== "undefined") wireBeatBrand(hydrateFromSharedLink());

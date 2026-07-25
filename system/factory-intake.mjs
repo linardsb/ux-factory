@@ -201,6 +201,24 @@ function guardArrows(node) {
   });
 }
 
+// validSeed(defaults, seed) — the boundary check for the optional seedAnswers config (#77). Home
+// passes the axes decoded from a shared link, which is a stranger's URL, so nothing here trusts it:
+// an axis the active scenario does not define, or a value the RULESET does not know, is DROPPED and
+// the scenario default stands. Gates on `axis in defaults` rather than a hard-coded axis list —
+// instance.mjs passes company-package scenarios with their own default sets. The ENUM check is the
+// one that actually protects derive(), which throws on a value its ruleset lacks (derive.mjs:23-45);
+// share-state.mjs runs the same check on the way in, and the two mirror each other deliberately.
+function validSeed(defaults, seed) {
+  if (!seed || typeof seed !== "object") return {};
+  const out = {};
+  for (const [axis, value] of Object.entries(seed)) {
+    if (!(axis in defaults) || typeof value !== "string" || value === "") continue;
+    if (ENUM[axis] && !ENUM[axis].includes(value)) continue;
+    out[axis] = value;
+  }
+  return out;
+}
+
 // The exported init (ticket #43's seam): behind a document guard at the bottom so `import()` under
 // Node (the parse check) never touches the DOM; inert on any page lacking its three required anchors.
 // config = { scenarios, defaultScenario, askedAxes, onAnswers } — the first two default to the inlined
@@ -210,7 +228,10 @@ function guardArrows(node) {
 // seeds every default (brandColor included), so derive() runs on the whole axis set no matter what is
 // asked. onAnswers (optional fn, #75) is an additive publish hook called with a copy of the live axes on
 // every run() (mount + each change) — the home peak reads them; unset on factory/instance (no-op there).
-export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO, askedAxes = null, onAnswers = null } = {}) {
+// seedAnswers (optional object, #77) lets a host pre-answer a SUBSET of axes from outside — home passes
+// what a shared link carried, so the recipient's wizard opens on the sender's answers. Validated through
+// validSeed above; unset on factory/instance, where the scenario defaults stand exactly as before.
+export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SCENARIO, askedAxes = null, onAnswers = null, seedAnswers = null } = {}) {
   assertScenarioConfig(scenarios); // re-validate whatever config arrived (page-supplied or the default)
   const wizardMount = document.getElementById("factory-wizard");
   const previewRoot = document.getElementById("reskin-preview");
@@ -225,7 +246,10 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
   const summaryMount = document.getElementById("factory-summary");
 
   let active = defaultScenario;
-  let answers = { ...scenarios[active].defaults };
+  // The seed merges OVER the scenario defaults, so an axis the link did not carry keeps its default
+  // and derive() still runs on the full axis set. The two matrix booleans are never seeded from here
+  // either (see setScenario below) — the reader's ethics guess is theirs to make.
+  let answers = { ...scenarios[active].defaults, ...validSeed(scenarios[active].defaults, seedAnswers) };
   let step = 0;
   let ethicsPlacement = null; // reader's {improvesLives, wouldUseIt} — NEVER prefilled from the scenario
   let driven = false; // fire-once guard for the "factory driven" analytics event
