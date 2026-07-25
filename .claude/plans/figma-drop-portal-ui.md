@@ -87,9 +87,12 @@ third-party gets committed.
 `record-composition.mjs` already write into `traces/` and `proto/`, so a build-time tool mutating
 the repo is established. The operator still reviews and commits the diff.
 
-**D3 · Size limit on the dropped file.** `readBody` has no cap today. A design export is tens of
-KB; a whole-file dump can be tens of MB. Cap it and reject with a clear message rather than
-buffering unbounded.
+**D3 · Size limit on the dropped file.** `readBody` already caps at 1 MB and rejects with
+`body too large` (`portal/server.mjs`), so the risk is the opposite of unbounded buffering: a real
+variables export carrying every mode can exceed 1 MB and would be refused with a message that
+reads like a bug. Either raise the cap for this route or reject in the browser first, with a
+message naming the actual limit. Decide against a real export, not a guess — this repo already
+has a "don't refuse a large file" bug in its history (`fix/figma-parity-large-file`).
 
 ## §6 · Not in scope
 
