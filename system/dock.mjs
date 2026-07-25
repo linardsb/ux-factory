@@ -24,6 +24,7 @@
 
 import {
   readRecord, applyToRoot, clearRoot, wear, derivedOnRoot,
+  readDisplacedRecord, restoreDisplacedRecord,
   SELECTOR_KEY, PREWEAR_KEY, BRAND_CHANGE_EVENT, PACK_REQUEST_EVENT, PACK_CHANGE_EVENT,
 } from "./pack-derived.mjs";
 
@@ -255,10 +256,29 @@ function buildDock() {
 
   const resetBtn = el("button", { type: "button", class: "btn btn-ghost dock-reset", text: "Reset to neutral" });
   const copyBtn = el("button", { type: "button", class: "btn btn-secondary dock-copy", text: "Copy tokens" });
+
+  // The restore offer (#108). A shared link overwrites the visitor's own derived record — it has to,
+  // because a worn brand IS the record pack-boot reads pre-paint — so pack-derived preserves the
+  // displaced one and this hands it back. It sits ABOVE the actions, not inside their stack: it is a
+  // recovery that exists for one visitor in one situation, not a third standing action. The label
+  // names the ACT, because the row above it already reads "your brand" and, while a shared colour is
+  // worn, that row is describing someone else's colour.
+  const restoreBtn = el("button", {
+    type: "button", class: "btn btn-ghost dock-restore", text: "Restore the colour you entered",
+  });
+  const restoreRow = el("div", { class: "dock-restore-row" },
+    el("p", { class: "dock-restore-note", text: "A shared link replaced the colour you entered. It is still here." }),
+    restoreBtn);
+  restoreRow.hidden = true;
+  // Offered only while a preserved record exists. Called wherever renderPacks() is, because the two
+  // read the same two storage keys and must never disagree.
+  const renderRestore = () => { restoreRow.hidden = !readDisplacedRecord(); };
+
   const panel = el("section", { class: "dock-panel", id: "appearance", role: "dialog", "aria-label": "Appearance" },
     el("p", { class: "dock-eyebrow", text: "Appearance" }),
     el("h2", { class: "dock-title", text: "Pick the design system this site wears." }),
     fieldset,
+    restoreRow,
     el("div", { class: "dock-actions" }, copyBtn, resetBtn),
     el("a", { class: "dock-dtcg", href: "/handoff/verdant/tokens.dtcg.json", text: "DTCG source →" }),
     el("p", { class: "dock-caption", text:
@@ -267,6 +287,7 @@ function buildDock() {
   const dock = el("aside", { class: "dock" }, toggle, panel);
   document.body.appendChild(dock);
   renderPacks();
+  renderRestore(); // hydrateFromSharedLink ran during this module's import graph, so the key is already there
 
   fieldset.addEventListener("change", (e) => {
     if (e.target.name === "pack") selectPack(e.target.value);
@@ -277,12 +298,32 @@ function buildDock() {
   // forget primitive; nothing in the acceptance set asks this control to forget).
   resetBtn.addEventListener("click", () => selectPack("neutral"));
 
+  // Restore: promote the preserved record back, then ask selectPack for the transition. selectPack
+  // owns clear-first + the neutral base + the view transition (#102), so this control never touches
+  // :root itself. Wrapped in selfEmit for the same reason wear() is (see selectPack): writeRecord
+  // fires BRAND_CHANGE_EVENT synchronously, and at that instant the restored record is in storage
+  // while :root still holds the shared colours — so groundTruth() would read "neutral" and the radio
+  // would flip off "your brand" a line before selectPack puts it back.
+  restoreBtn.addEventListener("click", () => {
+    selfEmit = true;
+    const rec = restoreDisplacedRecord();
+    selfEmit = false;
+    if (!rec) { renderRestore(); return; } // nothing preserved — the row should not have been up
+    selectPack(DERIVED_ID);
+    renderRestore();
+    // The control just removed itself, so hand focus to the pack it restored rather than dropping it
+    // to <body> (APG disclosure; the same rule renderPacks() follows for a replaced row).
+    const checked = fieldset.querySelector("input:checked");
+    if (checked) checked.focus();
+  });
+
   // Something outside this module changed the record or the selector (#beat-brand is the only
   // other writer today). storage events do not fire in the same tab, so this CustomEvent is the
   // only way to hear it. REFLECT ONLY — see `selfEmit`.
   window.addEventListener(BRAND_CHANGE_EVENT, () => {
     if (!selfEmit) selection = groundTruth();
     renderPacks();
+    renderRestore(); // the same two keys renderPacks reads — the offer and the row can never disagree
   });
 
   // Copy what is skinning the page RIGHT NOW. For a committed pack that is the artifact itself
