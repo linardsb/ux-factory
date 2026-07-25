@@ -93,18 +93,25 @@ let arrivedFired = false;
 // it lands, so /factory/shared counts senders producing links and this counts the links arriving.
 // The pair is what makes the metric readable: neither number means much on its own.
 //
-// DEFERRED by one macrotask, unlike the three above, and that is load-bearing rather than tidy. Its
-// caller is pack-derived.mjs's shared-link hydration, which runs inside the synchronous module
-// evaluation pass; flipping the URL there would blank location.search while intake-beat.mjs and
-// close.mjs are still reading it out of that same pass, so the event would break the arrival it
-// exists to measure. setTimeout hands the flip to the next task, after every reader of the URL has
-// had it. `real` is read inside the callback for the same reason: it must be the settled URL.
+// HELD UNTIL `load`, unlike the three above, and that is load-bearing rather than tidy. Its caller is
+// pack-derived.mjs's shared-link hydration, which runs while dock.mjs is being imported — before
+// intake-beat.mjs and close.mjs have read location.search out of the URL. The flip blanks the query
+// string for RESTORE_DELAY_MS, so firing early breaks the arrival this event exists to measure.
+//
+// A macrotask is NOT enough, and this was measured, not assumed: each deferred <script type="module">
+// is its own task, so a setTimeout(0) queued from one tag fires BEFORE a later tag evaluates. On that
+// interleaving the wizard read an empty search and fell back to the scenario defaults — 7 of 25 loads
+// silently dropped the sender's answers. `load` fires only after every deferred module has evaluated,
+// which makes the ordering a guarantee rather than a race. `real` is read inside the handler for the
+// same reason: it must be the settled URL, not the one that existed when the caller asked.
 export function trackFactoryArrived() {
   if (arrivedFired) return;
   arrivedFired = true;
-  setTimeout(() => {
+  const flip = () => {
     const real = location.pathname + location.search + location.hash;
     history.pushState(history.state, "", ARRIVED_EVENT_PATH);
     setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
-  }, 0);
+  };
+  if (document.readyState === "complete") flip();
+  else window.addEventListener("load", flip, { once: true });
 }

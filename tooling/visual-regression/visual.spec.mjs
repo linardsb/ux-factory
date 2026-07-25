@@ -19,7 +19,15 @@ const PAGES = [
   // the capture cannot race (and silently baseline) the branded flush. Set in a finally on every
   // path (reduced-motion, success, derive failure), so a JS context always resolves it; a spine.mjs
   // that fails to load hangs to timeout and fails LOUD — the intended never-baseline-a-broken-hero.
-  { name: 'index',           url: '/index.html',           kind: 'ia', waitReady: '#beat-hero[data-spine="ready"]' },
+  // waitVisible (#105): the peak (#75) is activateOn:'visible', and this spec reveals the whole page
+  // only at the final viewport resize (see below) — so #beat-peak starts its skeleton→content swap
+  // AFTER every load-time wait, immediately before the shot. animations:'disabled' freezes CSS but
+  // not a DOM swap, so without a post-resize wait the two stability samples differ: the shot either
+  // fails ("two consecutive stable screenshots") or silently bakes a mid-assembly frame. It must be
+  // waited for after the resize, never here — at load the peak is off-screen and never activates,
+  // so waiting on it in waitReady would deadlock to timeout. peak.mjs sets it in a finally on every
+  // path, so a peak that falls back to the static still resolves it too.
+  { name: 'index',           url: '/index.html',           kind: 'ia', waitReady: '#beat-hero[data-spine="ready"]', waitVisible: '#beat-peak[data-peak="ready"]' },
   // waitReady: the annotated-source exhibit renders after an async fetch and sets
   // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
   // broken artifact fails loudly instead of baselining an empty exhibit.
@@ -106,6 +114,10 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
       // take "two consecutive stable screenshots". A fixed integer viewport removes that nondeterminism.
       const h = await page.evaluate(() => Math.ceil(document.documentElement.getBoundingClientRect().height));
       await page.setViewportSize({ width: 1280, height: h });
+      // waitVisible (index only, #105): the resize above is what first reveals the whole page, so any
+      // activateOn:'visible' beat starts its work HERE. Wait for its settled handle before capturing,
+      // or the shot races the assembly. Deliberately after the resize — see the PAGES note.
+      if (p.waitVisible) await page.locator(p.waitVisible).first().waitFor({ state: 'attached' });
       // p.mask (factory only): paint a solid box over the embed iframes so their async content can't
       // move the baseline. A locator matching multiple elements masks them all. (#10, slice 10.1)
       const shotOpts = p.mask ? { mask: [page.locator(p.mask)] } : {};

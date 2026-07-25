@@ -43,6 +43,17 @@ const COMMITTED = ["neutral", "saulera", "verdant"];
 // announces itself here and the dock re-reads state. Listeners REFLECT state; they never re-apply
 // it (wear() below dispatches, so an applying listener would re-enter its own caller).
 export const BRAND_CHANGE_EVENT = "factory-brand-change";
+// Beat → dock: "arbitrate this pick for me." #76's selectPack owns the one transition — clearRoot
+// first, "your brand" always on the NEUTRAL base, every mutation inside the view-transition callback.
+// The beat must not grow a second copy of that rule (#102), so it asks instead of re-implementing.
+// cancelable: the dock calls preventDefault() to claim the request, which is how the beat learns a
+// dock was actually listening and can fall back to the selector-only path when none is.
+export const PACK_REQUEST_EVENT = "factory-pack-request";
+// Dock → beat: "the pack changed under you, and :root is final." The contract used to run one way
+// only (dock listened to the beat, never the reverse), so the beat's label kept claiming a colour was
+// on the stage after the dock had cleared it (#103). Emitted only once BOTH the swap has settled and
+// the selector is written, so a listener reading ground truth can never catch a half-applied state.
+export const PACK_CHANGE_EVENT = "factory-pack-change";
 function emitBrandChange() {
   if (typeof window === "undefined") return; // Node import — no bus to announce on
   window.dispatchEvent(new CustomEvent(BRAND_CHANGE_EVENT));
@@ -113,6 +124,16 @@ export function applyToRoot(tokens) {
 export function clearRoot(tokens) {
   const style = document.documentElement.style;
   for (const k of Object.keys(tokens || {})) style.removeProperty(k);
+}
+// Is the stored record's colour set the one actually sitting on :root right now? The ground-truth
+// test, shared by the dock's groundTruth() and the beat's syncFromRoot() — ONE implementation, so the
+// two surfaces can never disagree about what the page is wearing (#103; it lived only in dock.mjs).
+// Also rules out the hero's ~1.2s canned re-skin (spine.mjs), whose values are the demo brand's.
+export function derivedOnRoot(rec) {
+  const entries = rec && rec.tokens ? Object.entries(rec.tokens) : [];
+  if (!entries.length) return false;
+  const style = document.documentElement.style;
+  return entries.every(([k, v]) => style.getPropertyValue(k) === v);
 }
 
 // ---------------------------------------------------------------- record read / write / clear
@@ -219,22 +240,56 @@ function wireBeatBrand(sharedRec = null) {
 
   let current = null; // the --color-* map on :root right now (null ⇒ nothing to clear)
 
-  // Reflect only a WORN record on load, so the beat matches :root (pack-boot already applied it).
-  // A shared record counts as worn without consulting the selector: hydration applied it to :root
-  // a moment ago, so it IS what the page is wearing even if storage refused the write.
-  const rec = sharedRec || readRecord();
-  if (rec && (sharedRec || selectorIsDerived())) {
-    current = rec.tokens;
-    if (rec.brandColor) colorInput.value = rec.brandColor;
-    if (nameInput && rec.label && rec.label !== "your brand") nameInput.value = rec.label;
-    if (wearToggle) wearToggle.checked = true;
-    applyToRoot(current); // idempotent with pack-boot; covers a no-storage / no-pack-boot page
-    const shownName = sanitizeName(nameInput ? nameInput.value : "");
-    if (sharedRec) setLabel(label, "shared", sharedLabel(shownName));
-    else setLabel(label, "applied", appliedLabel(shownName));
-  } else {
-    setLabel(label, "empty", emptyLabel());
+  // Ask the dock to arbitrate a pick. Returns false when nothing claimed it (no dock on this page,
+  // or it is not built yet) so the caller can fall back to the selector-only path.
+  const requestPack = (target) =>
+    !window.dispatchEvent(new CustomEvent(PACK_REQUEST_EVENT, { detail: { target }, cancelable: true }));
+
+  // Provenance, not state (#77): true while the colour on show is the one a shared link brought in.
+  // The record is identical either way, so this flag is the only thing that can tell the label where
+  // the colour came from. It survives a dock round trip, because a pack toggle does not change where
+  // the colour came from, and is cleared the moment the visitor enters a colour of their own.
+  let fromSharedLink = Boolean(sharedRec);
+
+  // The beat's shown state ALWAYS matches :root — the invariant this control was written to hold.
+  // On load it reflects only a WORN record (pack-boot applied it pre-paint); afterwards the dock
+  // calls it again through PACK_CHANGE_EVENT, so a dock-driven clear can never leave the label
+  // claiming a colour is on the stage (#103). `applied` is decided by derivedOnRoot, not by the
+  // selector alone: the selector can say "derived" while the dock's clearRoot has already stripped
+  // the props, and the label must follow the pixels.
+  function syncFromRoot({ apply = false } = {}) {
+    const stored = readRecord();
+    // On the load call a shared record stands in for storage: hydration applied it to :root a moment
+    // ago, so it IS what the page wears even where localStorage refused the write (#77). Without
+    // this the beat would say "pick a colour" over a page that is visibly wearing one.
+    const rec = stored || (apply ? sharedRec : null);
+    const selected = stored ? selectorIsDerived() : Boolean(rec); // no storage ⇒ no selector to read
+    const worn = Boolean(rec) && selected && (apply ? true : derivedOnRoot(rec));
+    if (rec && worn) {
+      current = rec.tokens;
+      if (rec.brandColor) colorInput.value = rec.brandColor;
+      if (nameInput && rec.label && rec.label !== "your brand") nameInput.value = rec.label;
+      if (wearToggle) wearToggle.checked = true;
+      if (apply) applyToRoot(current); // idempotent with pack-boot; covers a no-storage / no-pack-boot page
+      const shownName = sanitizeName(nameInput ? nameInput.value : "");
+      // Only the provenance clause differs: "your colour" is false for a colour that arrived in
+      // someone else's link, and this label is what a recipient reads on arrival (#77, AC #3).
+      if (fromSharedLink) setLabel(label, "shared", sharedLabel(shownName));
+      else setLabel(label, "applied", appliedLabel(shownName));
+    } else {
+      current = null; // stop believing we own keys the dock has already removed — a stale `current`
+      if (wearToggle) wearToggle.checked = false; // would make the next colour change clear the wrong keys
+      setLabel(label, "empty", emptyLabel());
+    }
   }
+
+  // Load: trust the selector and (re-)apply, the #74 behaviour — at this point the hero may not have
+  // finished its revert, so derivedOnRoot would read false against a record that pack-boot did apply.
+  syncFromRoot({ apply: true });
+
+  // The dock changed the pack (or cleared our colours) — re-read ground truth. REFLECT ONLY: this
+  // never requests a pack back, so the two listeners cannot ping-pong.
+  window.addEventListener(PACK_CHANGE_EVENT, () => syncFromRoot());
 
   // The #72 hero re-skins :root then REVERTS (~1.2s in) by removeProperty()-ing the same --color-*
   // keys — so a colour entered during that window gets stripped when the hero finishes. The hero
@@ -268,14 +323,31 @@ function wireBeatBrand(sharedRec = null) {
     applyToRoot(current);
     writeRecord(record);
     if (wearToggle && wearToggle.checked) wear(); // keep wearing across a colour change
+    fromSharedLink = false; // their own colour now, whatever a link put here first (#77)
     setLabel(label, "applied", appliedLabel(sanitizeName(name)));
   });
 
-  // Wear across the site → toggle the selector. Only meaningful once a colour is applied.
+  // Stop wearing. The pre-wear pick must be read BEFORE unwear(), which spends the backup.
+  // Routed through the dock so the page re-bases onto the pack we hand back instead of keeping the
+  // neutral base "your brand" was riding — the mirror of the wear path below.
+  function stopWearing() {
+    let prewear = null;
+    try { prewear = localStorage.getItem(PREWEAR_KEY); } catch { /* private mode */ }
+    const target = COMMITTED.includes(prewear) ? prewear : "neutral";
+    if (!requestPack(target)) unwear(); // no dock — selector only, the #74 behaviour
+  }
+
+  // Wear across the site → the dock's selectPack, which enforces "your brand always rides the NEUTRAL
+  // base" and clears :root first (#102). Before this, wear() only wrote the selector, so toggling while
+  // saulera/verdant was active left the derived --color-* props sitting on THAT pack's sheet and blended
+  // its ~26 non-colour tokens (type/space/radius) into "your brand" until the next navigation, when
+  // pack-boot finally re-pointed the head line. The beat and the next page disagreed about the same brand.
   if (wearToggle) {
     wearToggle.addEventListener("change", () => {
       if (!current) { wearToggle.checked = false; return; }
-      if (wearToggle.checked) wear(); else unwear();
+      if (wearToggle.checked) {
+        if (!requestPack("derived")) wear(); // no dock on this page — selector only, as before
+      } else stopWearing();
     });
   }
 
@@ -284,7 +356,7 @@ function wireBeatBrand(sharedRec = null) {
     resetBtn.addEventListener("click", () => {
       clearRoot(current);
       current = null;
-      unwear();
+      stopWearing(); // same re-base as the toggle, so reset cannot leave a neutral base behind either
       if (wearToggle) wearToggle.checked = false;
       if (nameInput) nameInput.value = "";
       colorInput.value = colorInput.defaultValue; // the at-rest value from the HTML
@@ -324,6 +396,16 @@ function hydrateFromSharedLink() {
   // Fired from the success path only, so the count means "a shared link landed and re-derived",
   // never "a link arrived and was refused". Deferred inside the helper — see analytics.mjs.
   trackFactoryArrived();
+  // "Your brand" always rides the NEUTRAL base (#102). A returning recipient may have had saulera or
+  // verdant selected, in which case pack-boot.js re-pointed the head line pre-paint and these props
+  // would blend that pack's non-colour tokens into the shared brand until the next navigation. The
+  // dock owns that transition and must not be re-implemented here, but it is not built yet — we are
+  // mid-import of its dependency. So ask on the next task, once it is listening. Unclaimed (no dock
+  // on this page) this is a no-op, the same fallback the beat's own toggle takes, and on a pristine
+  // recipient the base is already neutral so the dock's swap is a re-apply with nothing to load.
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent(PACK_REQUEST_EVENT, { detail: { target: "derived" }, cancelable: true }));
+  }, 0);
   return rec;
 }
 

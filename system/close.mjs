@@ -30,6 +30,17 @@ import { trackFactoryShared } from "./analytics.mjs";
 
 const RESET_MS = 1600; // how long a copy button holds its confirmation (dock.mjs:280 uses the same)
 
+// The URL the reader actually opened, captured at module evaluation rather than read when the beat
+// activates. Three things rewrite location afterwards, and this beat is the last thing on the page
+// to run, so it would see all of them: the /factory/arrived and /factory/shared virtual routes flip
+// the path for ~50ms each, and the dock's stripHash drops the query string outright when the
+// appearance panel opens (dock.mjs — pushState to location.pathname). Reading late would build a
+// share link to /factory/arrived, or hide the arrival note from anyone who visited the dock first.
+// Guarded so a Node import stays clean; the beat effect never runs without a DOM anyway.
+const HAS_LOCATION = typeof location !== "undefined";
+const PAGE_URL = HAS_LOCATION ? location.origin + location.pathname : "";
+const ARRIVED_SHARED = HAS_LOCATION && hasSharedBrand(location.search);
+
 // Element builder — never innerHTML from data, so visitor-supplied strings stay inert text
 // (mirrors peak.mjs:89-99). `text` sets textContent; onclick wires a handler.
 function el(tag, attrs, ...kids) {
@@ -59,8 +70,7 @@ const derivedNote = (label) =>
 function buildShareUrl() {
   const rec = readRecord();
   const query = encodeShareState({ brandColor: rec?.brandColor, name: rec?.label, axes: getHomeAnswers() });
-  const base = location.origin + location.pathname;
-  return query ? base + "?" + query : base;
+  return query ? PAGE_URL + "?" + query : PAGE_URL;
 }
 
 // The derived `:root` block, byte-identical in shape to the dock's copy-tokens output
@@ -93,11 +103,9 @@ function closeEffect({ el: beatEl }) {
   if (!mount) return; // unexpected markup — leave the static close exactly as it is
 
   // --- the arrival notice, first, because it explains what the reader is already looking at.
-  // Read at activation time. Opening the appearance dock strips the query string by design
-  // (dock.mjs stripHash → pushState to location.pathname), so a reader who visited the dock before
-  // scrolling this far will not see this note. The state itself is unaffected: it lives in storage
-  // and the share link below is rebuilt from storage plus the wizard, never from the URL.
-  if (hasSharedBrand(location.search)) {
+  // Reads the URL captured at module evaluation, so it is true even for a reader who opened the
+  // appearance dock on the way down and no longer has the share params in the address bar.
+  if (ARRIVED_SHARED) {
     mount.appendChild(el("p", {
       class: "close-shared-note",
       text: "You opened a shared link. The colour and the answers came from the link, and this browser derived the palette again from them.",

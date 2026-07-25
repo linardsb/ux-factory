@@ -21,8 +21,8 @@
 // lives at their boundary — see selectPack() for the three rules that keep them honest.
 
 import {
-  readRecord, applyToRoot, clearRoot, wear,
-  SELECTOR_KEY, PREWEAR_KEY, BRAND_CHANGE_EVENT,
+  readRecord, applyToRoot, clearRoot, wear, derivedOnRoot,
+  SELECTOR_KEY, PREWEAR_KEY, BRAND_CHANGE_EVENT, PACK_REQUEST_EVENT, PACK_CHANGE_EVENT,
 } from "./pack-derived.mjs";
 
 const PACKS = [
@@ -67,16 +67,9 @@ const activePack = () => {
   return m ? m[1] : "neutral";
 };
 
-// Is the stored record's colour set the one actually sitting on :root right now? Same
-// ground-truth-from-the-DOM rule as activePack() reading the href: the radio reflects what the
-// page is WEARING, never a storage value that has not landed. It also rules out the hero's ~1.2s
-// canned re-skin (spine.mjs:132), whose values are the demo brand's, not this record's.
-function derivedOnRoot(rec) {
-  const entries = rec && rec.tokens ? Object.entries(rec.tokens) : [];
-  if (!entries.length) return false;
-  const style = document.documentElement.style;
-  return entries.every(([k, v]) => style.getPropertyValue(k) === v);
-}
+// derivedOnRoot (imported): the same ground-truth-from-the-DOM rule as activePack() reading the href —
+// the radio reflects what the page is WEARING, never a storage value that has not landed. It moved into
+// pack-derived.mjs so the beat's own sync shares this exact test and the two can never disagree (#103).
 
 const selectorIsDerived = () => {
   try { return localStorage.getItem(SELECTOR_KEY) === "derived"; } catch { return false; }
@@ -214,6 +207,10 @@ function buildDock() {
     // once the new sheet has loaded, so both captured frames are fully styled; without VT support
     // or under reduced motion the swap stays instant.
     const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // `settled` resolves once swap() has finished mutating :root — the precondition for telling anyone
+    // else what the page is wearing (#103). updateCallbackDone is exactly that moment, so the notice
+    // does not wait out the crossfade; .finished is the fallback where the engine lacks it.
+    let settled;
     if (document.startViewTransition && !reduce) {
       // A skipped transition (hidden document, engine bail-out) rejects; the swap itself still
       // runs, so swallow it rather than leave an unhandled rejection in the console. Firefox
@@ -221,7 +218,8 @@ function buildDock() {
       const vt = document.startViewTransition(swap);
       vt.ready.catch(() => {});
       vt.finished.catch(() => {});
-    } else swap();
+      settled = (vt.updateCallbackDone || vt.finished).catch(() => {});
+    } else settled = Promise.resolve(swap()).catch(() => {});
 
     selection = target;
     if (derived) {
@@ -235,7 +233,19 @@ function buildDock() {
       } catch { /* private mode — session-only */ }
     }
     syncChecked();
+    // Announce only now: the selector is written (above) and :root is final (settled), so a listener
+    // reading ground truth cannot catch a half-applied swap and mislabel it (#103).
+    settled.then(() => window.dispatchEvent(new CustomEvent(PACK_CHANGE_EVENT, { detail: { target } })));
   }
+
+  // #beat-brand asks us to arbitrate its "Wear it" toggle rather than re-implementing the neutral-base
+  // rule (#102). preventDefault() claims the request, which is how the beat knows a dock handled it.
+  window.addEventListener(PACK_REQUEST_EVENT, (e) => {
+    const target = e.detail && e.detail.target;
+    if (!target) return;
+    e.preventDefault();
+    selectPack(target);
+  });
 
   const resetBtn = el("button", { type: "button", class: "btn btn-ghost dock-reset", text: "Reset to neutral" });
   const copyBtn = el("button", { type: "button", class: "btn btn-secondary dock-copy", text: "Copy tokens" });
