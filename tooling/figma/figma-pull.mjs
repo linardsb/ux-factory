@@ -26,14 +26,14 @@
 // readers replay it, the same rule the agent traces follow. Not registered in build.mjs (the
 // generator chain stays deterministic and offline-runnable; this needs a secret + network).
 //
-//   node tooling/figma/figma-pull.mjs --slug plusui --from <export.json>
-//     — the whole job. Both roles are inferred and REPORTED: the neutral ramp by name
-//       (neutral/gray/grey/slate/zinc/stone/mono/ink) or, failing that, as the least chromatic
-//       ramp in the file; the accent as the first non-neutral ramp alphabetically, which is a
-//       declared guess, not a reading of which ramp is the brand. Pass --neutral/--accent to pin
-//       either one — an explicit flag silences that role's line.
-//   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --page Color
-//   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --offline   (spends nothing)
+// Operator steps: docs/figma-runbook.md. --page and --accent/--neutral are OPTIONAL: with no page
+// filter the read auto-selects the foundation pages, and the ramps are classified by OKLCH chroma
+// (grey vs coloured) with state-named ramps excluded. Where a file has no single brand colour — a
+// palette library carries 20+ — the run REFUSES and lists the candidates instead of picking one.
+//   node tooling/figma/figma-pull.mjs --slug <company>
+//   node tooling/figma/figma-pull.mjs --slug <company> --accent indigo --page Color  (explicit)
+//   node tooling/figma/figma-pull.mjs --slug <company> --offline                     (spends nothing)
+//   node tooling/figma/figma-pull.mjs --slug <company> --from <export.json>
 //     — read a PLUGIN EXPORT instead of the API: no token, no rate limit, and it sees the
 //       variables REST gates behind Enterprise. The file still has to carry <hue>/<step> ramps.
 
@@ -86,6 +86,48 @@ export function toRamps(entries) {
   return { ramps, loose };
 }
 
+// Which ramp is the greys and which is the brand, decided from the colours themselves rather
+// than from the reader. Chroma (OKLCH, the repo's own converter) separates a grey ramp from a
+// coloured one; a ramp NAMED for a UI state is a state, not a brand, however saturated it is.
+// If more than one candidate survives, the file genuinely has no single brand colour — a palette
+// library like Plus UI carries 20+ — so the run asks instead of picking one arbitrarily.
+const NEUTRAL_MAX_CHROMA = 0.03;
+const STATE_RAMP = /^(red|green|yellow|orange|amber|lime|success|error|warning|danger|info|destructive|positive|negative|neutral|grey|gray)$/i;
+
+export function classifyRamps(ramps) {
+  return Object.entries(ramps).map(([hue, rungs]) => {
+    const steps = Object.keys(rungs).map(Number);
+    const mid = rungs[steps.reduce((best, s) => (Math.abs(s - 500) < Math.abs(best - 500) ? s : best))];
+    return { hue, rungs: steps.length, chroma: hexToOklch(mid).c };
+  });
+}
+
+function pickRamps(ramps, { neutral, accent }) {
+  const classified = classifyRamps(ramps);
+  const usable = classified.filter((r) => r.rungs >= 5); // a 2-rung ramp can't carry the roles
+
+  let pickedNeutral = neutral;
+  if (!pickedNeutral) {
+    const greys = usable.filter((r) => r.chroma <= NEUTRAL_MAX_CHROMA).sort((a, b) => a.chroma - b.chroma);
+    if (!greys.length) throw new Error(`figma-pull: no near-grey ramp found for the neutral role — name one with --neutral <hue>. Ramps: ${classified.map((r) => `${r.hue}(chroma ${r.chroma.toFixed(3)})`).join(", ")}`);
+    pickedNeutral = greys[0].hue;
+  }
+
+  let pickedAccent = accent;
+  if (!pickedAccent) {
+    const candidates = usable.filter((r) => r.chroma > NEUTRAL_MAX_CHROMA && r.hue !== pickedNeutral && !STATE_RAMP.test(r.hue));
+    if (candidates.length === 1) pickedAccent = candidates[0].hue;
+    else {
+      throw new Error(
+        candidates.length
+          ? `figma-pull: ${candidates.length} ramps could be the brand colour, so this file has no single one to detect — pick with --accent <hue>.\n  candidates: ${candidates.sort((a, b) => b.chroma - a.chroma).map((r) => r.hue).join(", ")}`
+          : `figma-pull: no non-grey, non-state ramp to use as the accent — name one with --accent <hue>. Ramps: ${classified.map((r) => r.hue).join(", ")}`,
+      );
+    }
+  }
+  return { neutral: pickedNeutral, accent: pickedAccent, classified };
+}
+
 // Every WCAG pair this token takes part in, on either side.
 const pairsFor = (token) => RULESET.wcagPairs.filter((p) => p.fg === token || p.bg === token);
 
@@ -112,7 +154,7 @@ function negotiate(values, placed, ramps) {
   return steps;
 }
 
-export async function runPull({ slug, accent, neutral, ...readOptions } = {}) {
+export async function runPull({ slug, accent = null, neutral = null, ...readOptions } = {}) {
   if (!slug) throw new Error("figma-pull: --slug <name> is required (it names system/tokens.<slug>.css)");
   const { fileKey, fileName, entries, pages } = await readFigma(readOptions);
   const { ramps, loose } = toRamps(entries);
@@ -125,38 +167,11 @@ export async function runPull({ slug, accent, neutral, ...readOptions } = {}) {
       `or map this file by hand.`,
     );
   }
-  // Which ramp is the greys. Design systems name them a dozen ways, and a file using any of them
-  // but "gray" used to crash with an error the operator had to fix by re-running with --neutral.
-  // Name first (high precision), then chroma: greys sit at near-zero chroma and semantic ramps do
-  // not, so the least chromatic ramp IS the greys. Safe for this role only — the brand is not the
-  // most colourful ramp in a file that also ships red/ and green/, which is why the accent below
-  // stays a declared guess rather than a heuristic.
-  const NEUTRAL_NAMES = /^(neutral|gray|grey|slate|zinc|stone|mono|ink)$/;
-  // Median, not mean: one tinted rung must not reclassify an otherwise grey ramp.
-  const chromaOf = (hue) => {
-    const cs = Object.values(ramps[hue]).map((hex) => hexToOklch(hex).c).sort((a, b) => a - b);
-    return cs[Math.floor(cs.length / 2)];
-  };
-  let neutralWhy = null;
-  if (!neutral) {
-    const named = available.find((h) => NEUTRAL_NAMES.test(h));
-    neutral = named ?? available.reduce((a, b) => (chromaOf(a) <= chromaOf(b) ? a : b));
-    neutralWhy = named ? `named "${named}"` : `least chromatic of ${available.length} ramps (chroma ${chromaOf(neutral).toFixed(3)})`;
+  for (const [role, hue] of Object.entries({ neutral, accent })) {
+    if (hue && !ramps[hue]) throw new Error(`figma-pull: no "${hue}" ramp in this file for the ${role} role. Available: ${available.join(", ")}`);
   }
-
-  const pick = { neutral, accent: accent ?? available.find((h) => h !== neutral) };
-  for (const [role, hue] of Object.entries(pick)) {
-    if (!ramps[hue]) throw new Error(`figma-pull: no "${hue}" ramp in this file for the ${role} role. Available: ${available.join(", ")}`);
-  }
-  if (neutralWhy) console.log(`neutral: "${pick.neutral}" — ${neutralWhy}. Pass --neutral <hue> to override.`);
-  // An unnamed accent falls to the first non-neutral ramp ALPHABETICALLY — which is an ordering
-  // accident, not a reading of which ramp is the brand. Say so when the file offers a choice:
-  // silently picking "amber" over "brand" would ship a pack in the wrong colour, unremarked.
-  const others = available.filter((h) => h !== pick.neutral && h !== pick.accent);
-  if (!accent && others.length) {
-    console.log(`accent: "${pick.accent}" — picked alphabetically, NOT because it is the brand. Also in this file: ${others.join(", ")}. Pass --accent <hue> if the brand is one of those.`);
-  }
-  if (neutralWhy || (!accent && others.length)) console.log("");
+  const pick = pickRamps(ramps, { neutral, accent });
+  if (!neutral || !accent) console.log(`  detected ramps: neutral=${pick.neutral} accent=${pick.accent}${accent && neutral ? "" : "  (override with --neutral / --accent)"}`);
 
   // The file's own white if it publishes one, so even the plain grounds are the designer's value.
   const whiteKey = Object.keys(loose).find((n) => /(^|\/)white$/.test(n));
@@ -200,9 +215,6 @@ export async function runPull({ slug, accent, neutral, ...readOptions } = {}) {
     `design work, not this repo's; the pack only maps its ${pick.neutral}/${pick.accent} ramps onto ` +
     `contract roles.\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug} ` +
     `--neutral ${pick.neutral} --accent ${pick.accent}` +
-    // Name the source this run actually read. A pack pulled from an export must not tell the next
-    // reader to regenerate it through the API, which needs a token and spends the file's quota.
-    (readOptions.from ? ` --from ${readOptions.from}` : "") +
     `\n * WCAG (RULESET.wcagPairs, the same list derive() is held to): ${checks.length - failures.length}/${checks.length} pairs pass` +
     (stepped.length
       ? `\n * Contrast negotiated within the file's own ramps: ` +
@@ -237,7 +249,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const i = process.argv.indexOf(name);
     return i === -1 ? undefined : process.argv[i + 1];
   };
-  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral"), ...readFlags(process.argv) }).catch((e) => {
+  runPull({ slug: flag("--slug"), accent: flag("--accent"), neutral: flag("--neutral") ?? "gray", ...readFlags(process.argv) }).catch((e) => {
     console.error(e.stack ?? e.message);
     process.exit(1);
   });
