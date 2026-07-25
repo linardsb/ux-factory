@@ -1,6 +1,6 @@
 # Implementation Report — v3 investment close (beat 4)
 
-**Plan**: `.claude/plans/v3-investment-close.md`   **Branch**: `feature/v3-close`   **Status**: COMPLETE
+**Plan**: `.claude/plans/v3-investment-close.md`   **Branch**: `feature/v3-close`   **Status**: COMPLETE   **Follow-up**: [#108](https://github.com/linardsb/ux-factory/issues/108)
 
 ## Summary
 
@@ -24,7 +24,7 @@ stands on its own with JavaScript off.
 - Static close card: takeaway tier, bundle download, JS mount, `close.mjs` tag → `index.html` (UPDATE)
 - Beat 4 → `system/close.mjs` (CREATE)
 - The `.close-*` organism → `system/portfolio.css` (UPDATE)
-- Regenerate after staging → `system/loc-summary.json` (UPDATE, runtime group 40→42 files, 10,500→11,000 lines)
+- Regenerate after staging → `system/loc-summary.json` (UPDATE, runtime group 40→42 files, 10,500→11,100 lines)
 - Regenerate → `tooling/visual-regression/baselines/{index,approach}-{neutral,saulera}.png` (UPDATE)
 
 ## Tests added
@@ -46,6 +46,8 @@ decode, name trimmed on encode.
 | bare URL: console clean, no `wear()`, hero's canned re-skin still reverts to `#2563eb` | ✓ | ✓ | ✓ |
 | shared URL: `:root` wears `#b5322f`, label is the shared variant with the Acme Ltd denial, `data-state="shared"`, wizard seeded compact/hunt/weekly, dock shows "your brand" checked | ✓ | ✓ | ✓ |
 | shared URL: `/factory/arrived` flips the URL and restores it, address bar back to the share link | ✓ | ✓ | ✓ |
+| arrival flip: the seeded answers survive 10/10 consecutive loads | ✓ | ✓ | ✓ |
+| dock visited first: the arrival note still renders and the share link still rebuilds, with the query string gone from the address bar | ✓ | ✓ | ✓ |
 | close beat: arrival note, bundle download, derived-token copy, copy reaches `Copied ✓`, link round-trips brand + label + axes, copied URL is not `/factory/shared` | ✓ | ✓ | ✓ |
 | reduced motion: brand and answers still apply, no transition on the status node | ✓ | ✓ | ✓ |
 
@@ -84,11 +86,11 @@ state instead (both reached `Copied ✓`).
    the docs commit onto `origin/main` (verified docs-only: nothing outside `.claude/`, `docs/epics/`,
    `__Final_phase.md`), pushed it as `a1a5a6c`, and branched `feature/v3-close` off the updated `main`.
 
-2. **`wireBeatBrand` prefers the shared record over `readRecord()`.** The plan passes `sharedRec` in
-   only to choose the label. It also gates the load branch now: `const rec = sharedRec || readRecord()`
-   and `if (rec && (sharedRec || selectorIsDerived()))`. Without this, a shared link opened where
-   `localStorage` is blocked re-skins `:root` but leaves the beat saying "Pick a colour", which is
-   the site claiming the opposite of what the reader is looking at.
+2. **The shared record stands in for storage on the load sync.** The plan passes `sharedRec` in only
+   to choose the label. `syncFromRoot` also falls back to it when `readRecord()` is empty on the load
+   call. Without this, a shared link opened where `localStorage` is blocked re-skins `:root` but
+   leaves the beat saying "Pick a colour", which is the site claiming the opposite of what the reader
+   is looking at.
 
 3. **`sharedLabel` copy: "derived again in this browser", not "re-derived".** Humanizer rule, plain
    words. Same affiliation denial, same shape as `appliedLabel`.
@@ -137,6 +139,50 @@ state instead (both reached `Copied ✓`).
    `index-*` on the first pass even though the loc-summary numbers moved; `rm` forced it (the recorded
    sub-perceptual trap). Confirmed after the fact that `approach.html` renders "42 files, about 11,000
    lines" and that the full gate passes against the regenerated set.
+
+## Merged `origin/main` mid-ticket
+
+`main` moved 12 commits during the build, including PR #107 (#102/#103), which reworked the same
+beat/dock contract this ticket touches. Three conflicts resolved by hand, two by regeneration:
+
+- **`pack-derived.mjs`** — #107 replaced the load branch with `syncFromRoot({apply})`, called on load
+  and again on `PACK_CHANGE_EVENT`. The shared-arrival label folds into it, with provenance carried by
+  a `fromSharedLink` flag rather than the `sharedRec` argument alone: a dock pack toggle does not
+  change where a colour came from, so the label has to survive the round trip, and it clears when the
+  visitor enters a colour of their own.
+- **`pack-derived.mjs`, new** — #102 established that "your brand" always rides the **neutral** sheet.
+  Hydration did not honour that: a returning recipient with saulera or verdant selected would get the
+  shared brand's colours blended with that pack's non-colour tokens until the next navigation. The
+  dock owns that transition and must not be re-implemented, but it is not built at hydration time, so
+  hydration now dispatches `PACK_REQUEST_EVENT` on the next task, once the dock is listening.
+  Unclaimed it is the same no-op fallback the beat's own toggle takes.
+- **`loc-summary.json` and four baseline PNGs** — taken from `main`, then regenerated. The baselines
+  were re-captured against main's updated `visual.spec.mjs` (the peak readiness handle, `d4ddba0`).
+
+## The one real bug this ticket found in itself
+
+`/factory/arrived` shipped, was measured, and was wrong — **7 of 25 loads silently dropped the
+sender's answers** and the shared link then carried the Verdant defaults.
+
+The cause: the event was deferred by `setTimeout(0)` on the reasoning that all module bodies evaluate
+in one synchronous pass, so one macrotask would land after every reader of `location.search`. That is
+false. **Each deferred `<script type="module">` is its own task**, so a timer queued during
+`dock.mjs`'s import can fire *before* `intake-beat.mjs` evaluates and reads the URL — and the URL is
+blank for `RESTORE_DELAY_MS` while the virtual route is up.
+
+Fixed in two places, and the second is worth more than the first:
+
+1. `trackFactoryArrived()` now holds the flip until `load`, which fires only after every deferred
+   module has evaluated. That is a guarantee, not a race.
+2. `close.mjs` captures the page URL and the shared-arrival flag **at module evaluation**, so nothing
+   it does depends on `location` still being intact later. This also fixes a pre-existing wart that was
+   documented as "not a bug" in the first pass: the dock's `stripHash()` drops the query string when
+   the appearance panel opens, which used to hide the arrival note from anyone who visited the dock on
+   the way down. Confirmed in Firefox and WebKit, where the address bar reads `/index.html` after a
+   dock visit and the note renders anyway.
+
+Regression coverage added: a 10-load seed-stability assertion and a dock-visit assertion, both in all
+three engines.
 
 ## Issues encountered
 
