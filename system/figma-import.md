@@ -92,6 +92,49 @@ paged fallback spends one request per page (a community kit can have 90+). So:
 - `node tooling/figma/figma-parity.mjs --offline` re-parses the whole cache, spending
   nothing.
 
+## The other direction — importing a Figma file's values as a pack
+
+Everything above sends tokens *to* Figma. `tooling/figma/figma-pull.mjs` brings a Figma
+file's colours back the other way, as a **token pack** — `system/tokens.<slug>.css`, the
+file the shell swaps in its one `<head>` line to re-skin the whole site:
+
+```
+node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> --page Color
+node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> --offline   # free re-run
+```
+
+It targets a pack and never the contract. The repo splits contract tokens (semantic,
+brand-free, what components reference) from pack values (the brand layer); a Figma file
+holds brand values, so a pack is where they belong — and it keeps the importer clear of
+the drift check that polices `tokens.contract.css` / `tokens.neutral.css` as generated
+from `tokens.source.json`.
+
+**Mapped by role, not by name.** Design systems publish colours as `<hue>/<step>` ramps
+(`gray/900`, `indigo/600`) which share no vocabulary with the contract's semantic names,
+so name matching would import nothing at all. Each contract token instead claims a
+nominal rung of the neutral or accent ramp — and every value emitted is a real value from
+the file.
+
+**Contrast is then negotiated inside the file's own ramps.** A nominal rung is not
+automatically accessible: a yellow accent at `/600` fails as text on white. Where a pair
+fails, the token walks to the nearest rung *of the same ramp* where every pair it takes
+part in passes, so the value stays one the designer actually chose rather than something
+this repo invented. The accent's hover/active states are then re-derived as offsets from
+wherever the accent landed, so a negotiated accent can't collide with its own hover. The
+pairs and thresholds are `RULESET.wcagPairs` — the same list `derive()` is held to,
+imported rather than restated.
+
+The pack's header comment records whose design work it is, the ramps mapped, every
+negotiation made, and any pair still failing. The ~48 contract tokens with no colour
+role (motion, the type ramp, spacing, shadows, and the `color-mix()` inverse tokens,
+which stay relative and re-derive from the imported accent) are auto-filled from contract
+defaults by `gen-pack-css.mjs` and reported as auto-filled.
+
+This is build-time only, and can never be a view-time connection: shipped pages are
+vanilla with no runtime dependencies, and `FIGMA_TOKEN` is a secret that must never reach
+a client. Pull → commit the pack → readers replay it — the same rule the agent traces
+follow.
+
 ## Current state of the committed artifact
 
 The parity artifact is produced only by a real run against a real file — it is never

@@ -52,7 +52,10 @@ proto/compositions/         COMMITTED composition proposals (one {name,props,chi
 traces/                     committed real agent-run traces (format: traces/README.md): raw + curated JSONL pairs from portal/record-trace.mjs (+ record-composition.mjs for #13's composition runs); validate: node tooling/validate-trace.mjs; replayed by system/trace-player.mjs
 docs/epics/                 PRD + architecture decisions governing the platform build
 handoff/                    GENERATED handoff pack (verdant/) — committed, never edited by hand; regenerate: node agent-layer/gen-handoff.mjs (pack + tokens + wc wrappers) · node agent-layer/gen-vocabulary.mjs (vocabulary.json — the agent-ready layer the renderer validates against) · node agent-layer/gen-pack-bundle.mjs (pack.bundle.json — every pack file inlined as one downloadable bundle, the /handoff.html download); figma-parity.json is the one exception: written only by the parity script's real run
-tooling/figma/              figma-parity.mjs — Figma REST parity read; secret-gated (portal/.env), standalone-only, never registered in build.mjs
+tooling/figma/              the Figma boundary — secret-gated (portal/.env), standalone-only, never registered in build.mjs
+  figma-read.mjs            the SHARED read both scripts use: auth, the Enterprise variables gate, the paged fallback, and the response cache that conserves a Starter file's ~6 GET-file/month (#110)
+  figma-parity.mjs          READ-BACK: diffs a Figma file against the token contract → handoff/verdant/figma-parity.json
+  figma-pull.mjs            IMPORT: a Figma file's colour ramps → system/tokens.<slug>.css, mapped by ROLE (ramps share no names with the contract), contrast-negotiated within the file's own ramps against RULESET.wcagPairs — the same list derive() is held to
 tooling/mcp/                local MCP helper scripts
 tooling/style-dictionary/   a dependency-carrying tool; emits the pack's multi-target tokens (css/ios/android)
 tooling/visual-regression/  isolated Playwright (the other dependency-carrying tool); CI visual-regression gate — screenshots the 8 shipped pages under neutral + saulera packs, pixel-diffs vs committed Linux baselines (#9, gate 3/3)
@@ -70,6 +73,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`.
 - **WC wrapper** → `system/wc/<tag>.mjs`, spec-first (a wrapper exists only for a `system/specs/` component; shadow CSS uses only spec-head tokens, no literals, no var() fallbacks), copied into the pack by `gen-handoff`.
 - **Brand/company skin** → clone `system/tokens.neutral.css` → `tokens.<company>.css` and `client.neutral.config.js` → `client.<company>.config.js`; never fork components.
+- **Pack imported from Figma** → `node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> [--page Color]` → `system/tokens.<slug>.css` (`--offline` re-runs off the cache for free). It targets a PACK, never the contract — a Figma file holds brand values, and the contract layers stay generated from `tokens.source.json`. Same honesty rule as traces: the pack header states whose design work it is, which ramps were mapped, and every contrast negotiation and remaining WCAG failure.
 - **View-time behaviour on shipped pages** → a hand-written ES module beside `system/site.js`.
 - **kb record type or field** → `.claude/references/kb-format.md` (both parsers must stay in sync).
 - **New scenario** → clone a `scenarios/<slug>/` package per `scenarios/README.md` + one `scenarios/index.json` entry + its imports in `worker/fixtures.mjs`; the Worker's routes (`worker/api.mjs`) never change.
