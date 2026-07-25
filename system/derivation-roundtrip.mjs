@@ -256,7 +256,37 @@ export function renderRoundTrip(container, model) {
 
   root.append(acc);
   container.append(root);
-  return { destroy: () => { container.textContent = ""; } };
+
+  // A scroll region is only reachable by a keyboard reader if it can be focused, and no engine
+  // grants that automatically here (measured: Chromium, Firefox and WebKit all skip it) — so the
+  // columns the wrapper above rescued from being clipped would still be mouse-only. Label and
+  // focus each wrapper ONLY while it actually scrolls, so wide viewports gain no empty tab stops.
+  // Re-run on resize and on any accordion toggle, since both change what overflows. (#82)
+  const syncScrollers = () => {
+    for (const s of root.querySelectorAll(".rt-table-scroll")) {
+      if (s.scrollWidth > s.clientWidth + 1) {
+        const summary = s.closest("details")?.querySelector("summary")?.textContent.trim();
+        s.tabIndex = 0;
+        s.setAttribute("role", "region");
+        s.setAttribute("aria-label", summary ? `${summary} — scrollable table` : "Scrollable table");
+      } else {
+        s.removeAttribute("tabindex");
+        s.removeAttribute("role");
+        s.removeAttribute("aria-label");
+      }
+    }
+  };
+  syncScrollers();
+  // `toggle` does not bubble — listen in the capture phase so one listener covers every accordion.
+  root.addEventListener("toggle", syncScrollers, true);
+  window.addEventListener("resize", syncScrollers);
+
+  return {
+    destroy: () => {
+      window.removeEventListener("resize", syncScrollers);
+      container.textContent = "";
+    },
+  };
 }
 
 // Reader-facing label for a camelCase check key: bodyInRange → "Body in range", multiplesOf4 → "Multiples of 4".

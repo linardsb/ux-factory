@@ -417,6 +417,10 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 
 /* Design decisions — accordions (summary = the claim, body = the reasoning) */
 .cs-acc { display: grid; gap: 10px; margin-top: var(--spacing-md); }
+/* Both accordion grids: an item floors at min-content by default, so a wide table inside one
+   stretched the whole track past the viewport instead of scrolling in its own container (the
+   PR #54 trap). No effect at any width where the content already fits. (#82) */
+.cs-acc > *, .rt-accordions > * { min-width: 0; }
 .cs-acc details {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
@@ -805,6 +809,9 @@ dfn.term {
    body{overflow-x:clip} with nothing to scroll. Wide content scrolls in its own container
    (CHECKLIST layout MUST); inert at captured widths, where the table already fits. (#82) */
 .rt-table-scroll { overflow-x: auto; }
+/* focus ring for the wrapper, which becomes a focusable region only while it actually scrolls
+   (system/derivation-roundtrip.mjs syncScrollers) — at-rest paint is unchanged either way */
+.rt-table-scroll:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .rt-diff-table { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
 .rt-diff-table th, .rt-diff-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
 .rt-diff-table th { color: var(--color-fg-muted); font-weight: 600; }

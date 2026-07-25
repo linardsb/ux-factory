@@ -33,6 +33,11 @@ forbids inventing one. Each is reproducible from the commands recorded in the se
   than in the message text, so a classifier keying on message text alone reports false failures.
 - `index.html`'s hero runs a canned re-skin ~2.4s after load. Every index measurement below waited
   3.4s so it reads settled colour, not a mid-flush frame.
+- **A closed `<details>` still reports layout.** Its subtree is `content-visibility: hidden`, so it
+  has a `clientWidth`, a `getBoundingClientRect()` and a non-null `offsetParent` — but it is not
+  painted and not focusable, and the width it reports is an *unconstrained* one. `el.hidden` and
+  `display: none` both miss it; `el.checkVisibility({ contentVisibilityAuto: true })` catches it.
+  This produced one wrong measurement in this pass before it was caught — see F-2.
 
 ---
 
@@ -51,7 +56,7 @@ other than the Worker-absent ones.
 | `factory.html` | PASS 0 err | PASS | PASS | PASS | PASS 31 stops | PASS 2 at rest ‡ |
 | `contact.html` | PASS 0 err | PASS | PASS | PASS | PASS 20 stops | N/A |
 | `404.html` | PASS 0 err | PASS | PASS | PASS | PASS 20 stops | N/A |
-| `roundtrip.html` | PASS 0 err | PASS | **FIXED** — diff table was clipped | PASS | PASS 35 stops | PASS 3/3 visible |
+| `roundtrip.html` | PASS 0 err | PASS | **FIXED** — accordions blew the viewport once opened | PASS | PASS 35 stops | PASS 3/3 visible |
 | `instance.html` | PASS 0 err | PASS | **FIXED** — hero + matrix were clipped | PASS | PASS 73 stops | PASS 6/6 visible |
 | `proto/verdant.html` | PASS 0 err (6 ignored) | PASS | PASS | PASS | PASS 20 stops | PASS 3/3 visible |
 | `proto/fieldwork.html` | PASS 0 err (6 ignored) | PASS (board scrolls in `.proto-frame-board`) | PASS (same) | PASS | see observation O-1 | PASS 3/3 visible |
@@ -89,16 +94,46 @@ the fix is scoped rather than a system-wide nowrap removal.
 Fix: `system/portfolio.css` — release the nowrap below 640px only, with `box-decoration-break: clone`
 so the draw-in gradient still paints on each wrapped fragment. Zero effect at any captured width.
 
-### F-2 · `roundtrip.html` diff tables clipped their last column at 360px
+Because the fix has a hard `max-width: 640px` boundary while the h1 font-size is a viewport clamp,
+the boundary itself was swept in both engines — 360 / 390 / 480 / 600 / 640 / **641** / 768 / 1024 /
+1280. Every width clears, and 641px (where nowrap returns) clears by 210px at a 40px h1. Eyeballed
+at 360 in WebKit: the phrase reads in full across two lines with the accent underline drawn on both
+fragments.
 
-`.rt-diff-table` is `width: 100%`, but a table cannot shrink below its min-content — measured
-**386px (Chromium) / 389px (WebKit) in a 360px viewport**, with no `overflow-x` ancestor anywhere
-up the chain to `body`. The CHECKLIST MUST is explicit: wide content scrolls in its own container.
+### F-2 · `roundtrip.html` accordions blew past the viewport once opened at 360px
 
-Fix: `system/derivation-roundtrip.mjs` wraps each table in `div.rt-table-scroll`, styled
-`overflow-x: auto` in `system/portfolio.css`. Inert at desktop widths where the table already fits.
-This also covers `factory.html`, which mounts the same module (its panel is hidden by default, so
-the sweep could not measure it there).
+**The first measurement of this was wrong, and the correction is the finding.** The initial probe
+reported `.rt-diff-table` at 386px (Chromium) / 389px (WebKit) in a 360px viewport with no
+`overflow-x` ancestor. Wrapping each table in `div.rt-table-scroll` made the geometry probe report
+PASS — and the defect was still there. The tables sit inside closed `<details>`, so what was
+measured was a `content-visibility: hidden` subtree laying out unconstrained (see Method).
+
+Re-measured the way a reader meets it — click each summary open at 360px — and the real cause
+showed: `.rt-accordions` and `.cs-acc` are both `display: grid`, and a grid item's default
+`min-width: auto` floors it at min-content. The wide table dragged the whole track to **381px in a
+360px viewport**, so `body { overflow-x: clip }` cut the accordion itself off. The wrapper could not
+scroll because it was never constrained. This is the recorded PR #54 trap, one level up from where
+it was looked for.
+
+Fix, three parts, all needed:
+
+1. `system/portfolio.css` — `.cs-acc > *, .rt-accordions > * { min-width: 0; }` so the track can
+   shrink to its container.
+2. `system/derivation-roundtrip.mjs` — each table wrapped in `div.rt-table-scroll`
+   (`overflow-x: auto`), which now actually scrolls because of (1).
+3. `system/derivation-roundtrip.mjs` — a scroll region is useless to a keyboard reader if it cannot
+   be focused, and **no engine grants that automatically here** (measured: Chromium, Firefox and
+   WebKit all skip it). `syncScrollers` gives each wrapper `tabindex="0"`, `role="region"` and an
+   `aria-label` taken from its accordion summary **only while it actually overflows**, re-run on
+   resize and on any accordion toggle — so wide viewports gain no empty tab stops.
+
+This also covers `factory.html`, which mounts the same module.
+
+Measured after the fix, accordions opened, all three engines at 360px: **0 elements past the
+viewport**, 3 wrappers scrolling, exactly 3 focusable. At 1280px: 0 scrolling, 0 focusable, so the
+desktop tab order is untouched. Tab from an accordion summary lands on the region with a visible
+`outline: solid 2px` in Chromium and WebKit. Eyeballed at 360 in WebKit: the accordion fits its
+card and the last column scrolls inside it.
 
 ### F-3 · `instance.html` Manipulation Matrix clipped 65px at 360px
 
@@ -112,12 +147,20 @@ full-width section label, plus `min-width: 0` on the quadrants. The grid still r
 yes/no. `instance.html` is not in the VR matrix (deep-link-only, off the five-page IA), so nothing
 is baselined here — it is audited, per the plan's assumption 5.
 
-**Verification after all three:** re-ran the wide-element probe in Chromium and WebKit. `instance`
-reports *none past the viewport*; `roundtrip`'s table now reports
-`container=div.rt-table-scroll containerFits=true`. The only elements still extending past the
-viewport anywhere are `approach`'s `code` inside `pre.asrc-code` and `fieldwork`'s board inside
-`.proto-frame-board` — both in their own scroll container that fits, which is the MUST satisfied,
-not violated.
+**Verification after all three.** Two different checks, named so it is clear which one ran:
+
+- *Geometric* — the wide-element probe, re-run in Chromium and WebKit with visibility filtered
+  through `checkVisibility({ contentVisibilityAuto: true })`. `instance` reports *none past the
+  viewport* (quadrants now end at 176/303 in a 360px viewport, `.hl` at 266; before the fix they
+  were 425 and 431). `roundtrip` with every accordion opened reports *none past the viewport* in
+  Chromium, Firefox and WebKit. The only elements still extending past the viewport anywhere are
+  `approach`'s `code` inside `pre.asrc-code` and `fieldwork`'s board inside `.proto-frame-board` —
+  both in their own scroll container that fits, which is the MUST satisfied, not violated.
+- *Eyeball* — the CHECKLIST MUST is literally "eyeball every new layout in real Safari AND real
+  Chrome", and F-3 rearranged a grid, which is exactly where geometry passes and reading breaks. All
+  three changed layouts were screenshotted at 360px in WebKit at 2× and read: the matrix still reads
+  as yes/no × yes/no with both column headers on screen above both rows of quadrants; the hero
+  phrase reads in full; the accordion sits inside its card with the last column scrolling.
 
 **Baseline impact: none.** Verified, not assumed — the pinned Docker gate was run against the
 committed baselines after the fixes:
@@ -147,12 +190,23 @@ verdant's cards are interactive components, fieldwork's board is a rendered comp
 the owner as a follow-up ticket rather than fixed here; a fix would add interactive surface, which
 this ticket's non-goals exclude.
 
-### O-2 · Two measurement traps worth keeping
+### O-2 · WebKit does not arrow-scroll a focused overflow container
 
-Recorded above in Method, repeated here because both cost time in this pass and both will recur:
-resource-failure classification must read `consoleMessage.location().url`, not the message text; and
-a Tab-order audit must descend into `shadowRoot.activeElement` or every web component reads as a
-missing focus ring.
+Measured at 360px with a `.rt-table-scroll` region focused: `ArrowRight` moves `scrollLeft` 0 → 40
+in Chromium and 0 → 0 in WebKit. The region is focusable and announced in both; Safari simply does
+not map arrow keys onto a focused scroller, and no CSS or markup here changes that. Touch, trackpad
+and shift-wheel all scroll it normally. Recorded rather than worked around — a JS key handler on a
+scroll region would be inventing a control the platform already owns everywhere else.
+
+### O-3 · Two measurement traps worth keeping
+
+Recorded above in Method, repeated here because each cost a re-run in this pass and all three will
+recur: resource-failure classification must read `consoleMessage.location().url`, not the message
+text; a Tab-order audit must descend into `shadowRoot.activeElement` or every web component reads as
+a missing focus ring; and a layout probe must filter on
+`checkVisibility({ contentVisibilityAuto: true })` or a closed `<details>` hands back real-looking
+numbers for an unconstrained subtree — which is how F-2 was first measured wrong, and would have
+been signed off as fixed while still broken.
 
 ---
 

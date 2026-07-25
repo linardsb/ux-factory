@@ -40,7 +40,10 @@ and are reproducible from the audit's Method section; they are deliberately not 
 | `node tooling/drift-check.mjs` | ✓ syntax · token-css · annotated-source · loc-summary · system-graph · handoff · scenarios · traces |
 | `node tooling/token-lint.mjs` | ✓ 64 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
 | `node agent-layer/gen-loc-summary.mjs --check` (after `git add`) | ✓ 3 groups — no drift |
-| Docker VR, pinned `v1.61.1-jammy`, against committed baselines | **18 passed** |
+| Docker VR, pinned `v1.61.1-jammy`, against committed baselines | **18 passed** (re-run after the second round of fixes — also 18 passed) |
+| `.hl` breakpoint boundary, 9 widths incl. 641px, Chromium + WebKit | 18/18 clear |
+| Scroll-region keyboard path, accordions opened, 3 engines | focusable only while overflowing (3 at 360, 0 at 1280); Tab lands on it with `outline: solid 2px` |
+| Eyeball check, 360px WebKit at 2×, all three changed layouts | read and confirmed |
 | Cross-engine console + layout, 10 surfaces × 3 engines | 30/30 pass |
 | Pack-control + derived-pack seam checks | 28/28 pass (14 assertions × Chromium, WebKit) |
 | Reduced-motion rest == final | 10/10 pass (frames byte-identical 3.1s apart) |
@@ -66,6 +69,11 @@ and are reproducible from the audit's Method section; they are deliberately not 
 5. **`.hl` fix is scoped to ≤640px rather than removing `white-space: nowrap`.** Measured every
    `.hl` on every page at 360px first: only instance.html crosses the line (+71px; the next worst is
    64px clear). A system-wide nowrap removal would risk 12 baselines to fix one surface.
+6. **F-2 grew from one change to three, because the first version did not work.** The plan's task
+   was "fix MUST failures the sweep surfaces"; what changed is the diagnosis, not the scope. The
+   table wrapper alone left the defect in place — the real cause was the accordion grids' default
+   `min-width: auto`, and the scroll region it finally created was not keyboard reachable in any
+   engine. All three parts are in the audit's F-2.
 
 ## Issues encountered
 
@@ -74,7 +82,13 @@ and are reproducible from the audit's Method section; they are deliberately not 
   appeared mid-pass. Nothing of theirs is staged — every path in commit `e993990` was staged
   explicitly. Worth knowing before the PR: if that session commits onto this branch, its work joins
   this ticket's PR.
-- **Two measurement traps cost a re-run each**, both now recorded in the audit so they don't recur:
+- **A geometry probe signed off a fix that had not worked.** A closed `<details>` reports layout
+  from a `content-visibility: hidden` subtree — real-looking `clientWidth` and rects, measured
+  without its container's constraint. The first F-2 fix made that probe report PASS while the defect
+  survived; only re-measuring the way a reader meets it (click each accordion open) exposed the
+  actual cause. The lesson is in the audit as O-3: filter layout probes through
+  `checkVisibility({ contentVisibilityAuto: true })`, and drive the surface rather than the DOM.
+- **Two further measurement traps cost a re-run each**, both now recorded in the audit so they don't recur:
   Chromium and WebKit put a failed resource's URL in `consoleMessage.location()` rather than in the
   message text (a text-only classifier reports the designed Worker-absent degradation as failures),
   and a Tab-order audit that reads `document.activeElement` alone sees every web component as having
