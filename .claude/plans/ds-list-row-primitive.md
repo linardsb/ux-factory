@@ -608,3 +608,15 @@ instance.html / study CSS       → neither page is VR-captured                 
 ## AMENDMENTS
 
 <!-- append-only; newest at the bottom -->
+
+**2026-07-25 — implementation amendments.** Full detail + evidence in `.claude/reports/ds-list-row-primitive-report.md` §Deviations. The three substantive ones:
+
+1. **Task 0 — built in a worktree, not the shared dir.** The session's working dir was on `fix/shared-link-brand-restore` with 5 staged files of another ticket's in-flight work, so `git checkout -b` would have carried that index into task 13's `git add -A`. Built in `../ux-factory-wt-101` off `origin/main` instead (the repo's wt-12/88/116 convention); the plan file was copied in so plan + report ship in the same PR.
+
+2. **Task 2 — the text side is `flex: 1 1 14ch` with `flex-wrap: wrap` on the row, not `flex: 1 1 auto`.** Task 12's mandated WebKit check found the `label` crushed to `Pallet wra…` at 420px in *both* engines (the reading and pill are `flex: 0 0 auto`, so `min-width: 0` let the name shrink to a stub). It ellipsised rather than overflowing — the letter of the edge case held — but a per-entity row whose entity is unreadable defeats the ticket. The name now carries the flex basis and the reading/pill wrap to their own line before squeezing it; `min-width: 0` still ellipsises once wrapping runs out. Wide layout unchanged. One row of four still clips at 420px (its shorter unit + pill keep line 1 viable) — graceful degradation, deliberately not chased with a second magic number.
+
+3. **Task 6 — dropped the suggested `"(or, on a row, its meta)"` clause.** `meta` is a prop only `list-row` declares, so that wording would have leaked the answer into the shared system prompt and weakened the free-choice evidence — against task 6's own GOTCHA. Shipped the component-agnostic *"or in whatever secondary field the component you chose declares"* instead. The run confirms the guidance still landed: every row uses `meta` correctly.
+
+Minor: task 3 used the plan's own "simpler equivalent" validation; task 14 forced the two `approach` PNGs (the first `update:docker` pass rewrote nothing — the sub-perceptual skip); one line of the CSS section banner now enumerates both `ds-` primitives.
+
+**Outcome on the open question the plan left genuinely open:** the agent chose the row **freely**, in both the `--dry` and the real run, under a bound naming no component. The pre-authorized second directive run was not needed and was not performed.
