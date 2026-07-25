@@ -64,7 +64,13 @@ also sees variables Figma's API refuses outside Enterprise.
 node tooling/figma/figma-parity.mjs --from ~/Downloads/export.json --land
 ```
 
-**4. Commit the three files it names**, then `node tooling/drift-check.mjs` should print ✓.
+**4. Check the numbers, then commit the three files it names**, and `node tooling/drift-check.mjs`
+should print ✓.
+
+**If the numbers look wrong, don't commit** — `git checkout -- handoff/ && rm -f
+handoff/verdant/figma-parity.json` puts it back, and nothing was lost. This artifact ships as
+proof, so a bad run is worse than no run. A near-zero match usually means the styles never got
+applied to nodes, or the names lost their group path.
 
 Expect roughly **34 value-match / 30 name-only / 0 missing of 64**. 34 is the ceiling, not a
 shortfall: only 16 contract tokens are plain hex and 18 plain px. The rest — `clamp()` ramps,

@@ -209,7 +209,11 @@ async function readPagedStyles(fileKey, token, { maxPages, only }) {
   let autoPicked = null;
   if (!only.length) {
     const looksFoundational = /colou?r|palette|brand|foundation|token|theme|style/i;
-    const auto = all.filter((p) => looksFoundational.test(p.name));
+    let auto = all.filter((p) => looksFoundational.test(p.name));
+    // A small file has no budget to protect: a seeded fixture is usually one page called
+    // "Page 1", which no name heuristic will ever match. Refusing there would break the
+    // round-trip for the exact file this whole exercise is about.
+    if (!auto.length && all.length <= 4) auto = all;
     if (!auto.length) {
       throw new Error(
         `no page in this file looks like a palette, so there is nothing safe to auto-select. ` +
