@@ -124,6 +124,12 @@ numbered from that order. `Blue/Light, Blue/Base, Blue/Dark` becomes a 3-rung ra
 are the importer's and both the run and the pack header say so; the colours are always the
 designer's.
 
+Derived ramps then compete for the roles on equal terms with numbered ones — a file that numbers
+its palette but *also* groups five or more role-named greys (`Text/Primary`, `Text/Secondary`, …)
+can have that group detected as the neutral, since detection picks the least-saturated candidate,
+not the most conventionally named. The run prints which ramps it detected; if they aren't the ones
+you meant, name them with `--neutral` / `--accent`.
+
 **Auto-detection still wants 5 rungs**, so a 3-rung ramp won't be *found* on its own — the run
 lists it and you name it: `--accent marine`. Once named, a short ramp is used as it is: contrast
 negotiation has fewer places to move, a 1-rung brand colour gives hover and active the same value,

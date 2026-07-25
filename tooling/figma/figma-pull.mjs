@@ -115,13 +115,20 @@ export function deriveRamps(loose, numbered = {}) {
     const ordered = members
       .map((m, i) => ({ ...m, l: hexToOklch(m.hex).l, i }))
       .sort((a, b) => b.l - a.l || a.i - b.i); // lightest first, declaration order breaks ties
+    const n = ordered.length;
     ramps[prefix] = {};
     derived[prefix] = {};
     ordered.forEach((m, i) => {
-      const step = ordered.length === 1 ? 500 : Math.round((50 + (i * 900) / (ordered.length - 1)) / 50) * 50;
+      // Multiples of 50 read like the convention, but that grid holds only 19 rungs — past that
+      // two colours would snap to one number and one of them would vanish from the ramp with
+      // nothing said. A wide group gets exact numbers instead; the invariant below is the guard.
+      const raw = 50 + (i * 900) / (n - 1);
+      const step = n === 1 ? 500 : n <= 19 ? Math.round(raw / 50) * 50 : Math.round(raw);
       ramps[prefix][step] = m.hex;
-      derived[prefix][step] = { name: m.name, rung: i + 1, of: ordered.length };
+      derived[prefix][step] = { name: m.name, rung: i + 1, of: n };
     });
+    if (Object.keys(ramps[prefix]).length !== n)
+      throw new Error(`figma-pull: the "${prefix}" group holds ${n} colours but only ${Object.keys(ramps[prefix]).length} rungs came out of numbering them — refusing to drop a colour the design contains.`);
   }
   return { ramps, derived };
 }
@@ -344,6 +351,7 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
     (pick.neutral ? ` --neutral ${pick.neutral}` : "") +
     (pick.accent ? ` --accent ${pick.accent}` : "") +
     (map ? ` --map ${map}` : "") +
+    (readOptions.from ? ` --from ${readOptions.from}` : "") +
     (derivedUsed.length
       ? `\n * Rung numbers DERIVED, not read: this file does not number these colours, so each ramp ` +
         `was ordered by OKLCH lightness and numbered from that order — ` +
@@ -367,7 +375,7 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
         ? `\n * No contrast negotiation was needed — every nominal rung passed as mapped.`
         : `\n * No contrast negotiation was needed — every value passed as pinned.`) +
     (failures.length
-      ? `\n * STILL FAILING (no rung in the ramp satisfies these — the pack ships saying so): ` +
+      ? `\n * STILL FAILING (no value the design offers satisfies these — the pack ships saying so): ` +
         failures.map((f) => `${f.fg} on ${f.bg} ${f.ratio}:1 < ${f.min}`).join(", ")
       : "");
 
