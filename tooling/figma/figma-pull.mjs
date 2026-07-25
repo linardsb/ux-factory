@@ -123,6 +123,13 @@ export async function runPull({ slug, accent, neutral = "gray", ...readOptions }
   for (const [role, hue] of Object.entries(pick)) {
     if (!ramps[hue]) throw new Error(`figma-pull: no "${hue}" ramp in this file for the ${role} role. Available: ${available.join(", ")}`);
   }
+  // An unnamed accent falls to the first non-neutral ramp ALPHABETICALLY — which is an ordering
+  // accident, not a reading of which ramp is the brand. Say so when the file offers a choice:
+  // silently picking "amber" over "brand" would ship a pack in the wrong colour, unremarked.
+  const others = available.filter((h) => h !== neutral && h !== pick.accent);
+  if (!accent && others.length) {
+    console.log(`accent: "${pick.accent}" — picked alphabetically, NOT because it is the brand. Also in this file: ${others.join(", ")}. Pass --accent <hue> if the brand is one of those.\n`);
+  }
 
   // The file's own white if it publishes one, so even the plain grounds are the designer's value.
   const whiteKey = Object.keys(loose).find((n) => /(^|\/)white$/.test(n));
@@ -166,6 +173,9 @@ export async function runPull({ slug, accent, neutral = "gray", ...readOptions }
     `design work, not this repo's; the pack only maps its ${pick.neutral}/${pick.accent} ramps onto ` +
     `contract roles.\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug} ` +
     `--neutral ${pick.neutral} --accent ${pick.accent}` +
+    // Name the source this run actually read. A pack pulled from an export must not tell the next
+    // reader to regenerate it through the API, which needs a token and spends the file's quota.
+    (readOptions.from ? ` --from ${readOptions.from}` : "") +
     `\n * WCAG (RULESET.wcagPairs, the same list derive() is held to): ${checks.length - failures.length}/${checks.length} pairs pass` +
     (stepped.length
       ? `\n * Contrast negotiated within the file's own ramps: ` +

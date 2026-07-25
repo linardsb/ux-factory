@@ -1,156 +1,115 @@
 # Figma runbook
 
-The operator's guide to the Figma boundary: getting a design's tokens **into** the portfolio,
-and proving the round-trip **back out**. Written to be followed without reading the code.
+Only the steps a human has to do. Everything else — choosing which pages to buy, which ramp is the
+brand, contrast negotiation, regenerating the pack — is done by the scripts.
 
-Reference docs, if you want the reasoning rather than the steps:
-`system/figma-import.md` (the four paths and their gates) · `CLAUDE.md` (architecture map).
-
----
-
-## Do I have to do this for every design?
-
-**No — these are two different jobs, and only one repeats.**
-
-| | How often | Effort |
-|---|---|---|
-| **A. Import a design as a pack** — a new brand skins the site | **once per design** | one command |
-| **B. The parity round-trip** — proof tokens survive a trip out to Figma and back | **once, ever** | ~10 min, mostly in Figma |
-
-Job B is *evidence*, not plumbing. It demonstrates the pipeline is real. Once it's done and the
-artifact is committed, it's done — a new design doesn't need it again.
-
-Job A is the one you'll repeat, and it's a single command per design.
+Reasoning and gates: `system/figma-import.md`. Architecture: `CLAUDE.md`.
 
 ---
 
-## A · Import a design as a pack (per design)
+## The job — import a design as a pack
 
-### A1 — with a Figma file you can reach over the API
+Once per design. Two steps.
+
+**1. Export the palette from Figma**, then run:
 
 ```bash
-node tooling/figma/figma-pull.mjs --slug <company> --accent <hue> --page Color
+node tooling/figma/figma-pull.mjs --slug <company> --from ~/Downloads/export.json
 ```
 
-- `--slug` names the output: `system/tokens.<slug>.css`
-- `--accent` picks which colour ramp is the brand (`indigo`, `teal`, …). Omit it and the first
-  non-neutral ramp is used; the run prints every ramp it found, so a wrong guess is cheap to fix.
-- `--neutral <hue>` if the greys aren't called `gray` (`slate`, `zinc`, `stone` are common)
-- `--page Color` buys only the page holding the palette. **Do not omit this on a large file** —
-  it costs one request per page, and a UI kit can have 90+.
+In Figma: **Variables** panel (`Shift+I`) → right-click the collection → **Export to JSON**. No
+native export on your account? The **Tokens Studio** plugin exports the same thing, and it sees
+variables the API can't.
 
-Re-run any number of times with `--offline` to try different ramps; that spends nothing.
+**2. Read the last line, then commit `system/tokens.<company>.css`.**
 
-### A2 — with a plugin export (no API, no limits)
-
-```bash
-node tooling/figma/figma-pull.mjs --slug <company> --accent <hue> --from ~/Downloads/export.json
+```
+figma pull      ✓  acme — 64 tokens → system/tokens.acme.css
 ```
 
-Prefer this when the file isn't yours, the month's request budget is spent, or the design uses
-**variables** (which the REST API refuses outside Enterprise, but a plugin reads fine).
+`✓` means every WCAG pair passes — commit it. `⚠` names the pairs that still fail; that is a fact
+about the design, and the pack ships saying so. Commit it anyway, or pick a different accent ramp
+and re-run.
 
-### What you get
+To use the pack: `build-instance.mjs … --pack tokens.<company>.css`. Putting it in the site's
+appearance dock is a separate change (`dock.mjs` + `pack-boot.js` + new VR baselines).
 
-`system/tokens.<slug>.css` — a complete pack. Commit it. Its header records whose design work it
-is, which ramps were mapped, every contrast adjustment, and any accessibility pair still failing.
+### Two lines worth reading in the output
 
-The run prints a WCAG table. **Read it.** A nominal ramp rung isn't automatically accessible, so
-the importer walks to the nearest rung of the *same ramp* that passes and tells you it did. If a
-pair still fails after that, no rung in the ramp can satisfy it — that's a fact about the design,
-not a bug, and the pack ships saying so.
+```
+accent: "indigo" — picked alphabetically, NOT because it is the brand. Also in this file: teal.
+negotiated: color-accent teal/600 (#0d9488) → teal/700 (#0f766e) for contrast
+```
 
-### Using the pack
-
-- **A company instance** (the normal case) — feed it to the instance build:
-  `node ../ux-factory/agent-layer/build-instance.mjs <brief.md> --out <dir> --pack tokens.<slug>.css …`
-- **The main site's appearance dock** — needs the pack added to `dock.mjs`'s list and
-  `pack-boot.js`'s allowlist, plus regenerated VR baselines. Not automatic.
-
-### What does NOT come across
-
-Colours, and (via an export) spacing/radius/type. **Not components.** Figma's API returns a
-description of a drawing — fills and coordinates — not a Button's hover state, focus ring, or
-markup. No plan changes that. Components stay this repo's own, token-only, wearing the imported
-values. That's the point of the architecture.
+The first says it guessed. If the brand is the other one, re-run with `--accent teal`. The second
+says a colour moved to pass contrast — it moved within the design's own ramp, so the value is still
+one the designer chose.
 
 ---
 
-## B · The parity round-trip (once)
+Everything below is reference. You do not need it for the job above.
 
-Proves the tokens survive a trip out to Figma and back. Needs no paid plan and no API.
+## Reading from the API instead of an export
 
-**1. Locate the token file** — `handoff/verdant/tokens.dtcg.json`. Open Finder there.
+`--from` needs no token, no quota and no Enterprise plan, so it is the better path. If you would
+rather point at a live file, put `FIGMA_TOKEN` and `FIGMA_FILE_KEY` (the part of the Figma URL
+after `/design/`) in `portal/.env` and drop the `--from` flag.
 
-**2. Import into Figma.** New file → **Variables** panel (`Shift+I` → Variables) → create a
-collection → **drag `tokens.dtcg.json` onto it**.
+Then the budget matters: a Starter-plan file allows about **6 file reads per month**, counted
+against the file's plan, not yours. Responses are cached and reused rather than re-bought, so
+re-running is free; `--offline` guarantees it spends nothing. The cache is gitignored, so it only
+exists in the working copy that fetched it — don't delete that copy while it still matters.
 
-You'll get variables under both `contract/…` and `neutral/…` — expected, the file ships both
-groups. Colours and px values import cleanly; `clamp()`, `color-mix()` and font stacks arrive as
-strings or not at all. Fine — those are the ones that can only match by name.
+## If it stops and asks
 
-*If drag-drop isn't offered* (Figma rolled it out gradually, no published plan matrix), use the
-**Tokens Studio** plugin: enable "W3C DTCG" format in settings, then import the same file.
+The scripts refuse rather than guess. Three things they can stop on:
 
-**3. Export back out.** Right-click the collection → **Export to JSON**. Save anywhere, e.g.
-`~/Downloads/figma-export.json`. If the native export isn't there, Tokens Studio exports too —
-and it's the better option, since it also sees variables the API would refuse.
+**"none of the N styles read are named `<hue>/<step>`"** — it read the wrong page, or the file
+doesn't use ramps at all. Name the palette page: `--page Foundations`.
 
-**4. Run the diff**, from the repo root:
+**"Figma returned no variables or styles"** — the design uses variables, which the API can't read
+outside Enterprise. Export from Figma and use `--from`.
 
-```bash
-node tooling/figma/figma-parity.mjs --from ~/Downloads/figma-export.json
-```
+**"ambiguous: 2 Figma styles end in /color-fg"** (parity only) — the same name exists in two
+groups. Add `--scope <group>`.
 
-Expect roughly **34 value-match / 30 name-only / 0 missing of 64**.
+## What a design needs, and what actually comes across
 
-**34 is the ceiling, not a shortfall.** Only 16 contract tokens are plain hex colours and 18 are
-plain px. The other 30 — `clamp()` type ramps, `color-mix()` inverse tokens, shadow strings, font
-stacks, motion curves — have no numeric equivalent in Figma and can only ever match by name.
+**It has to name colours as `<hue>/<step>` ramps** — `gray/900`, `indigo/600`, `brand/500`. That
+convention is near-universal in design systems, but it isn't guaranteed: a palette named `Primary`,
+`Brand Blue` or `Surface/Default` has no rungs to map roles onto, and the run refuses rather than
+guessing. A role ramp also needs at least 5 rungs, so the contrast negotiation has somewhere to
+move.
 
-**5. Regenerate the pack — this is not automatic.** The run writes
-`handoff/verdant/figma-parity.json`, but `pack.json` only notices when the pack is rebuilt:
+**Colours are the only thing imported.** 16 contract tokens are mapped from the design. The other
+48 — spacing, radius, the type ramp, shadows, motion, and the `color-mix()` inverse tokens — are
+filled from this repo's contract defaults, and every run reports them as auto-filled. So an
+imported pack carries the design's *colour*, on this repo's *scale*. Don't claim otherwise.
 
-```bash
-node agent-layer/gen-handoff.mjs
-node agent-layer/gen-pack-bundle.mjs
-node tooling/drift-check.mjs        # must print ✓
-```
+**Components never come across.** Figma's API returns a description of a drawing — fills and
+coordinates — not a Button's hover state, focus ring or markup. No plan changes that. Components
+stay this repo's own, token-only, wearing the imported colours.
 
-`portability.figma.parity` flips from `null` to `"figma-parity.json"`.
+## Parity round-trip — once, ever
 
-**6. Commit** the artifact *and* the regenerated pack together, or CI's drift check goes red.
+Proof that tokens survive a trip through Figma. It is evidence, not plumbing: once its artifact is
+committed you never repeat it — but **it has not been run yet**. `handoff/verdant/figma-parity.json`
+does not exist, so this is still outstanding, and it is the only part of this doc that is.
 
----
+1. New Figma file → **Variables** (`Shift+I`) → create a collection → drag
+   `handoff/verdant/tokens.dtcg.json` onto it. (No drag-drop? Tokens Studio plugin, with "W3C DTCG"
+   enabled in its settings.)
+2. Right-click the collection → **Export to JSON**.
+3. `node tooling/figma/figma-parity.mjs --from ~/Downloads/export.json --land`
+4. Check the numbers, then commit the three files it names. (No gate watches this artifact —
+   `drift-check` does not read it — so the numbers below are the only check there is.)
 
-## Troubleshooting
+Expect roughly **34 value-match / 30 name-only / 0 missing of 64**. 34 is the ceiling, not a
+shortfall: only 16 contract tokens are plain hex and 18 plain px. The rest — `clamp()` ramps,
+`color-mix()`, shadows, font stacks, motion curves — have no numeric equivalent in Figma and can
+only match by name.
 
-**"ambiguous: 2 Figma styles end in /color-fg"** — a name exists in two groups. Add
-`--scope contract` (or whatever your top-level group is called). The default is already
-`contract`; you only need this if your naming differs.
-
-**"none of the N styles read are named `<hue>/<step>`"** — `figma-pull` found no ramps. You read a
-page that has no palette on it. Add `--page Color` (or whatever the foundations page is called).
-
-**"Figma returned no variables or styles"** — the file's values are variables, not styles, and REST
-can't see them on a non-Enterprise plan. Use the export route (A2 / B3).
-
-**429, or "past this script's parse ceiling"** — you've hit the monthly budget or a page too big to
-parse. Both are cached; re-run with `--offline`, and narrow with `--page` next time.
-
----
-
-## The request budget — the one rule worth memorising
-
-A Starter-plan file allows roughly **6 `GET /v1/files/:key` requests per month**, counted against
-the *file's* plan, not yours. The scripts protect it: every response is banked to disk before it's
-parsed (a crash can't cost a request), and a cached response is reused rather than re-bought.
-
-So: **`--offline` first, always.** It re-parses everything already fetched for free. Spend a
-request only to reach a page you haven't bought, and prefer `--page <name>` over an unbounded run.
-
-The cache lives in `tooling/figma/.raw/` and `tooling/figma/.last-response.json`, both gitignored —
-so it exists only in the working copy that fetched it. Don't delete that working copy while the
-cache still matters.
-
-`--from` sidesteps all of this. When in doubt, export from Figma and skip the API.
+**If the numbers look wrong, don't commit** — `git checkout -- handoff/ && rm -f
+handoff/verdant/figma-parity.json` puts it back, and nothing was lost. This artifact ships as
+proof, so a bad run is worse than no run. A near-zero match usually means the styles never got
+applied to nodes, or the names lost their group path.
