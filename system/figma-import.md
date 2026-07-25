@@ -41,6 +41,12 @@ scopes + variables endpoints; note Figma's "Organization" plan is gated too — 
 Enterprise qualifies). Variable writes are the eventual push-automation path; this repo
 ships the read/parity half only.
 
+Measured, not just cited (Starter file, 2026-07-25): the read answers `403` with
+`{"status":403,"error":true,"message":"Invalid scope(s): current_user:read,
+file_comments:read, file_content:read, …"}` — Figma listing the scopes the token *does*
+carry, none of which is `file_variables:read`, because the UI never offered it. The
+parity script keeps that body verbatim as the gate evidence.
+
 ## The parity script — verifying the round-trip against your own file
 
 `tooling/figma/figma-parity.mjs` (zero-dep Node, standalone — deliberately not part of
@@ -57,14 +63,34 @@ parity only, and the output says so per row):
 3. `node tooling/figma/figma-parity.mjs`
 
 The script tries the variables endpoint first; if your plan gates it (HTTP 403), it
-records Figma's exact error body as evidence and falls back to one `GET /v1/files/:key`,
-resolving style values from node fills. Either branch writes
-`handoff/verdant/figma-parity.json` labeled `"real run"` with the endpoint that answered.
+records Figma's exact error body as evidence and falls back to a **paged** read:
+`GET /v1/files/:key?depth=1` for the page index, then one
+`GET /v1/files/:key/nodes?ids=<page>` per page, resolving style values from node fills.
+Either branch writes `handoff/verdant/figma-parity.json` labeled `"real run"` with the
+endpoint that answered.
+
+Why paged, and not one `GET /v1/files/:key`: a real design system's document overflows a
+JavaScript string (~512 MB), and both `res.text()` and `JSON.parse` need the whole thing
+at once — so streaming cannot rescue it and the payload has to be made smaller
+server-side. `GET /v1/files/:key/styles` is *not* the way in either: it lists **published
+team-library** styles only, and answers `200` with an empty array on a non-Enterprise
+file (measured against a Starter file, 2026-07-25). Local styles are named only in a
+response's top-level `styles` map and valued only on the nodes that reference them, which
+is why the fallback walks node fills.
 
 **Rate budget warning:** since Nov 2025 Figma rate-limits by the *file's* plan — on a
-Starter-plan file, `GET /v1/files/:key` allows roughly **6 requests per month**. The
-script caches the raw response to `tooling/figma/.last-response.json` (gitignored);
-re-parse without spending a request via `node tooling/figma/figma-parity.mjs --offline`.
+Starter-plan file, `GET /v1/files/:key` allows roughly **6 requests per month**, and the
+paged fallback spends one request per page (a community kit can have 90+). So:
+
+- Every response is streamed to `tooling/figma/.raw/` and recorded in
+  `tooling/figma/.last-response.json` (both gitignored) **before** it is parsed — a crash
+  can never cost you a request.
+- A cached response is reused, never re-bought; `--refresh` forces a re-fetch.
+- `--page <name|id>` (repeatable, comma-list ok) buys only the pages you name — a kit
+  keeps its values on a few foundation pages — and `--max-pages <n>` caps a run. Every
+  page a run declines is listed in the artifact's `pages.skipped` with the reason.
+- `node tooling/figma/figma-parity.mjs --offline` re-parses the whole cache, spending
+  nothing.
 
 ## Current state of the committed artifact
 
