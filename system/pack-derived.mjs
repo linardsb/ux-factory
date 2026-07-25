@@ -299,6 +299,9 @@ function wireBeatBrand(sharedRec = null) {
   if (!colorInput || !label) return; // the two load-bearing nodes must exist
 
   let current = null; // the --color-* map on :root right now (null ⇒ nothing to clear)
+  // The record the name input was last filled from (ts|label). syncFromRoot re-runs on every pack
+  // change, so without this it would rewrite the input from an UNCHANGED record — see below.
+  let syncedSig = null;
 
   // Ask the dock to arbitrate a pick. Returns false when nothing claimed it (no dock on this page,
   // or it is not built yet) so the caller can fall back to the selector-only path.
@@ -322,9 +325,19 @@ function wireBeatBrand(sharedRec = null) {
     if (rec && worn) {
       current = rec.tokens;
       if (rec.brandColor) colorInput.value = rec.brandColor;
-      // Clear as well as set: restoring a record whose label is the generic fallback must not leave
-      // a previous sender's company name sitting in the input (#108).
-      if (nameInput) nameInput.value = rec.label && rec.label !== "your brand" ? rec.label : "";
+      // Clear as well as set, but ONLY when the record changed. Restoring a record whose label is the
+      // generic fallback must not leave a previous sender's company name in the input (#108) — and a
+      // re-sync of the SAME record must not wipe a name the visitor is midway through typing. The name
+      // reaches the record only on the next colour change, so an unconditional clear made the form's
+      // own order (colour, then name, then "Wear it") erase the name on the wear, which also dropped it
+      // out of the label's affiliation denial. ts|label is the identity: a restore brings a different
+      // record, so it still clears. Never reset when the pack is unworn — a clear-then-re-wear would
+      // then wipe the input the same way.
+      const sig = rec.ts + "|" + rec.label;
+      if (nameInput && sig !== syncedSig) {
+        nameInput.value = rec.label && rec.label !== "your brand" ? rec.label : "";
+      }
+      syncedSig = sig;
       if (wearToggle) wearToggle.checked = true;
       if (apply) applyToRoot(current); // idempotent with pack-boot; covers a no-storage / no-pack-boot page
       const shownName = sanitizeName(nameInput ? nameInput.value : "");
@@ -382,6 +395,10 @@ function wireBeatBrand(sharedRec = null) {
     applyToRoot(current);
     clearDisplacedRecord(); // their own colour now — the preserved one is spent (#108)
     writeRecord(record);    // emits the one change event, so the dock drops the offer in the same tick
+    // This record was BUILT from the inputs, so they already agree — claim the signature so the next
+    // syncFromRoot leaves the name box alone. Without this the first re-sync (the "Wear it" toggle)
+    // reads a record it has never seen and clears a name typed after the colour.
+    syncedSig = record.ts + "|" + record.label;
     if (wearToggle && wearToggle.checked) wear(); // keep wearing across a colour change
     setLabel(label, "applied", appliedLabel(sanitizeName(name)));
   });

@@ -149,3 +149,70 @@ in both cases.
 
 **Request changes** for the High only. Fix `pack-derived.mjs:327` (three lines), decide on the close-note clause,
 and this is ready — the fix it was written for is correct and measured on two engines.
+
+---
+
+# Triage + outcomes
+
+Triaged with the author on 2026-07-25. Two fixed in this PR, one won't-fix.
+
+| # | Finding | Call | Outcome |
+|---|---|---|---|
+| High | name erased on the wear-toggle resync | fix now | **FIXED** — `pack-derived.mjs` |
+| Medium | arrival note keeps offering a spent restore | fix now (self-correcting, not dropped) | **FIXED** — `close.mjs` |
+| Low | pre-#108 shared record reads as the visitor's own | **won't-fix** | documented below |
+
+## Fixed — High · `system/pack-derived.mjs`
+
+`syncFromRoot` now writes the name input only when the record's identity (`ts|label`) differs from the one the
+input was last filled from. A restore brings a *different* record, so #108's intent — never leave a previous
+sender's company name in the box — is unchanged; a re-sync of the *same* record leaves a name the visitor is
+still typing alone.
+
+One thing the review's suggested patch missed, caught by the test rather than by reading: the signature also has
+to be claimed **where the beat writes a record** (the `colorInput` change handler). The record is built *from*
+the inputs there, so they already agree — without that line the first re-sync reads a record it has never seen
+and clears the box anyway. The first run of the proof drive failed 3/12 on exactly that, which is why the test
+came before the sign-off.
+
+`syncedSig` is deliberately never reset on the unworn branch: resetting it would let a
+clear-then-re-wear reintroduce the same erase.
+
+## Fixed — Medium · `system/close.mjs`
+
+The notice is split into `ARRIVAL_NOTE` (true while the page is open) and `RESTORE_CLAUSE` (true only while
+there is something to restore). When the clause is rendered, the effect listens on `BRAND_CHANGE_EVENT` — which
+already fires on both spend paths — and takes the clause back off. The note now follows state instead of a
+snapshot, which is the invariant this ticket's own provenance move exists to hold.
+
+## Won't-fix — Low · legacy record without `origin`
+
+Reachable only for a browser holding a shared-derived record written by the currently deployed code, whose
+owner then opens a *second* shared link. It self-heals on the first own colour entry or restore, and the only
+available remedy is copy — `origin` is genuinely unknowable for those records. Rewording to "the colour that was
+here before" would weaken the wording for every normal case to cover a one-record, one-browser window. Recorded
+here rather than fixed.
+
+## Verification — 12/12 in Chromium and WebKit
+
+Proof drive over the real page, real storage, real `derive()`, real dock; one fresh browser context per row.
+
+| Row | Chromium | WebKit |
+|---|---|---|
+| A1 typed name survives "Wear it" (`"Acme"`) | PASS | PASS |
+| A2 the denial still names the company ("not Acme's official design system") | PASS | PASS |
+| A3 name survives a derived → saulera → derived round trip | PASS | PASS |
+| B1 arrival fills the box with the sender's name | PASS | PASS |
+| B2 restore still clears the sender's name | PASS | PASS |
+| B3 restore still returns the own accent `#00823e` | PASS | PASS |
+| C1 ×2 clause present on arrival | PASS | PASS |
+| C2 ×2 clause retracted after **restore** and after an **own colour entry** | PASS | PASS |
+| C3 ×2 the first sentence survives both | PASS | PASS |
+
+Rows B and C also re-run the original #108 acceptance path unchanged: `:root` back to `#00823e`, backup `null`,
+restore row hidden, radio `derived`, focus on `#dock-pack-derived`, beat label `shared` → `applied`.
+
+Gates after the fixes: `node --check` ✓ both files · Node import ✓ · token-lint ✓ · drift-check ✓ 8/8 ·
+loc-summary ✓ no drift post-staging (the added lines do not flip the rounded number, so no VR baseline
+cascade this time). No at-rest change to any shipped page — the close clause renders only on a shared-link
+arrival, which no visual baseline loads.
