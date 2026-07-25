@@ -11,11 +11,15 @@
 // and offline-runnable; this script needs a secret + network.
 //   node tooling/figma/figma-parity.mjs [--page <name|id>] [--max-pages <n>] [--refresh]
 //   node tooling/figma/figma-parity.mjs --offline            (re-parse the cache, spending nothing)
-//   node tooling/figma/figma-parity.mjs --from <export.json> [--scope <group>]
+//   node tooling/figma/figma-parity.mjs --from <export.json> [--scope <group>] [--land]
 //     — diff a PLUGIN EXPORT instead of the API: no token, no rate limit, and it can carry the
 //       variables REST gates behind Enterprise. --scope picks a side when a name appears in two
 //       groups (tokens.dtcg.json ships `contract` and `neutral` with identical leaf names).
+//     — --land also re-runs gen-handoff + gen-pack-bundle, so pack.json's
+//       portability.figma.parity actually flips instead of sitting null while looking done.
+// Operator steps: docs/figma-runbook.md.
 
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -100,7 +104,7 @@ export function compareRows(tokens, figmaEntries, { scope = "contract" } = {}) {
   });
 }
 
-export async function runParity({ scope = "contract", ...options } = {}) {
+export async function runParity({ scope = "contract", land = false, ...options } = {}) {
   const { fileKey, endpoint, gate, entries, pages } = await readFigma(options);
 
   const source = JSON.parse(readFileSync(TOKENS_SOURCE, "utf8"));
@@ -142,13 +146,37 @@ export async function runParity({ scope = "contract", ...options } = {}) {
   };
   writeFileSync(ARTIFACT, JSON.stringify(artifact, null, 2) + "\n");
   console.log(`figma parity    ✓  ${ARTIFACT}`);
+
+  // --land: the artifact on its own changes nothing a reader can see. pack.json only learns the
+  // parity exists when gen-handoff re-runs, so leaving that step to the operator is how
+  // portability.figma.parity sits null while looking done. Spawned rather than imported: each
+  // generator stays a standalone CLI, and the deterministic build chain keeps knowing nothing
+  // about this script.
+  // Deliberately NOT running drift-check here: it fails by design until the regenerated files are
+  // committed, so chaining it would end every successful land on a red error. Commit, then it goes
+  // green — which is exactly what CI checks.
+  if (land) {
+    for (const script of ["agent-layer/gen-handoff.mjs", "agent-layer/gen-pack-bundle.mjs"]) {
+      const r = spawnSync(process.execPath, [join(ROOT, script)], { cwd: ROOT, stdio: "inherit" });
+      if (r.status !== 0) throw new Error(`--land: ${script} exited ${r.status}. The parity artifact IS written, but the pack was not updated — fix that failure and re-run.`);
+    }
+    console.log(
+      `\nland            ✓  pack.json portability.figma.parity → "figma-parity.json"\n` +
+      `                   commit: handoff/verdant/figma-parity.json · pack.json · pack.bundle.json\n` +
+      `                   then: node tooling/drift-check.mjs  (it stays red until those are committed)`,
+    );
+  }
   return artifact;
 }
 
 // pathToFileURL, not `file://${argv[1]}`: this repo's path contains a space, which
 // import.meta.url percent-encodes — the naive comparison never matches.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runParity({ ...readFlags(process.argv), ...(process.argv.includes("--scope") ? { scope: process.argv[process.argv.indexOf("--scope") + 1] } : {}) }).catch((e) => {
+  runParity({
+    ...readFlags(process.argv),
+    land: process.argv.includes("--land"),
+    ...(process.argv.includes("--scope") ? { scope: process.argv[process.argv.indexOf("--scope") + 1] } : {}),
+  }).catch((e) => {
     console.error(e.stack ?? e.message); // the stack is the diagnosis — the 07-25 run lost it
     process.exit(1);
   });

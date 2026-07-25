@@ -202,6 +202,30 @@ async function readPagedStyles(fileKey, token, { maxPages, only }) {
   const idx = parseRaw(index);
   const all = (idx.document?.children ?? []).map((p) => ({ id: p.id, name: p.name }));
 
+  // No page filter given: pick the pages that look like foundations rather than buying the whole
+  // file. A design system keeps its values on a handful of pages, and the default has to be
+  // budget-safe — an unbounded run on a 92-page kit would spend three months of quota at once.
+  // If nothing matches, refuse and print the index rather than guess with the reader's requests.
+  let autoPicked = null;
+  if (!only.length) {
+    const looksFoundational = /colou?r|palette|brand|foundation|token|theme|style/i;
+    let auto = all.filter((p) => looksFoundational.test(p.name));
+    // A small file has no budget to protect: a seeded fixture is usually one page called
+    // "Page 1", which no name heuristic will ever match. Refusing there would break the
+    // round-trip for the exact file this whole exercise is about.
+    if (!auto.length && all.length <= 4) auto = all;
+    if (!auto.length) {
+      throw new Error(
+        `no page in this file looks like a palette, so there is nothing safe to auto-select. ` +
+        `Name one with --page <name|id>. Pages:\n${all.map((p) => `    - ${p.name} [${p.id}]`).join("\n")}`,
+      );
+    }
+    only = auto.map((p) => p.id);
+    autoPicked = auto.map((p) => p.name);
+    if (maxPages === Infinity) maxPages = 4; // a cap the caller can lift with --max-pages
+    console.log(`  auto-selected ${auto.length} foundation page(s): ${autoPicked.join(", ")}`);
+  }
+
   const styles = { ...(idx.styles ?? {}) };
   const values = {};
   const read = [];
@@ -213,7 +237,7 @@ async function readPagedStyles(fileKey, token, { maxPages, only }) {
     // values live on a handful of foundation pages, not across all 92 of a kit's screens. Both
     // bounds are only honest because every page they decline is named in the caller's report.
     if (only.length && !only.some((q) => q === page.id || page.name.toLowerCase().includes(q.toLowerCase()))) {
-      skipped.push({ ...page, reason: `not requested — page filter ${only.join(",")}` });
+      skipped.push({ ...page, reason: autoPicked ? "not requested — does not look like a foundations page" : `not requested — page filter ${only.join(",")}` });
       continue;
     }
     if (bought >= maxPages) {
