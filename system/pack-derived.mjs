@@ -27,9 +27,15 @@ import { trackFactoryArrived } from "./analytics.mjs";
 //                       to a committed pack and back (#76 re-offers "your brand" without re-entry).
 // factory-pack-prewear — the committed pick that was active when derived was worn (#76), so
 //                       unwear() puts back the pack they had instead of dropping them to neutral.
+// factory-pack-derived-prewear — the visitor's OWN derived record, preserved when a shared link
+//                       (#77) overwrites it. The record key can hold only one record and a worn
+//                       brand must be THE record (pack-boot.js reads it pre-paint on every page),
+//                       so the arrival displaces what is there; this is where it is kept so the
+//                       dock can hand it back (#108). Never read pre-paint — pack-boot ignores it.
 export const SELECTOR_KEY = "factory-pack";
 export const RECORD_KEY = "factory-pack-derived";
 export const PREWEAR_KEY = "factory-pack-prewear";
+export const PREWEAR_RECORD_KEY = "factory-pack-derived-prewear";
 export const RECORD_VERSION = 1;
 export const NAME_MAX = 40;
 
@@ -100,7 +106,7 @@ export function sanitizeName(name) {
 // to the honest generic when no name is given; tokens are the --prefixed colour set. brandColor
 // keeps the RAW visitor input (the tokens carry the NEGOTIATED accent, which can differ a lot from
 // the entered hex) so the picker restores what they actually chose; pack-boot ignores this field.
-export function buildRecord(hex, name) {
+export function buildRecord(hex, name, { origin } = {}) {
   return {
     v: RECORD_VERSION,
     source: "derived",
@@ -108,6 +114,12 @@ export function buildRecord(hex, name) {
     ts: Date.now(),
     brandColor: hex,
     tokens: deriveBrandTokens(hex),
+    // Provenance, written ONLY by the shared-link path. An ABSENT field means the visitor entered
+    // this colour themselves — which is also what every record stored before #108 means, so an
+    // existing record needs no migration. Both validators (parseRecord below, pack-boot.js:31)
+    // check v/source/tokens and ignore unknown fields, so this is invisible to every consumer
+    // that does not ask for it.
+    ...(origin === "shared" ? { origin: "shared" } : {}),
   };
 }
 
@@ -140,9 +152,9 @@ export function derivedOnRoot(rec) {
 
 // ---------------------------------------------------------------- record read / write / clear
 // All localStorage access is try/catch (private mode → session-only, mirror dock.mjs:65).
-export function readRecord() {
-  let raw;
-  try { raw = localStorage.getItem(RECORD_KEY); } catch { return null; }
+// The record shape check, shared by both keys so a preserved record can never be handed back on
+// looser terms than the live one (it becomes the live one on restore).
+function parseRecord(raw) {
   if (!raw) return null;
   let rec;
   try { rec = JSON.parse(raw); } catch { return null; }
@@ -150,6 +162,18 @@ export function readRecord() {
     return null;
   }
   return rec;
+}
+export function readRecord() {
+  let raw;
+  try { raw = localStorage.getItem(RECORD_KEY); } catch { return null; }
+  return parseRecord(raw);
+}
+// The record a shared link displaced, or null. Same validation as the live record, because a
+// restore promotes this straight into RECORD_KEY.
+export function readDisplacedRecord() {
+  let raw;
+  try { raw = localStorage.getItem(PREWEAR_RECORD_KEY); } catch { return null; }
+  return parseRecord(raw);
 }
 export function writeRecord(rec) {
   try { localStorage.setItem(RECORD_KEY, JSON.stringify(rec)); } catch { /* private mode — session-only */ }
@@ -161,6 +185,39 @@ export function writeRecord(rec) {
 export function clearRecord() {
   try { localStorage.removeItem(RECORD_KEY); } catch { /* private mode — session-only */ }
   emitBrandChange();
+}
+
+// ------------------------------------------------- the record a shared link displaced (#108)
+// preserveDisplacedRecord — called by hydrateFromSharedLink BEFORE it overwrites the record.
+// Preserves ONLY a record the visitor authored: a second shared link must not offer the FIRST
+// sender's colour back as "the colour you entered", which would be an affiliation claim by the
+// back door. That one condition is correct in every ordering, because the visitor's own next
+// colour entry clears the backup (see the colour handler below), so there is never a stale one
+// to protect.
+function preserveDisplacedRecord() {
+  const outgoing = readRecord();
+  if (!outgoing || outgoing.origin === "shared") return;
+  try { localStorage.setItem(PREWEAR_RECORD_KEY, JSON.stringify(outgoing)); } catch { /* private mode — session-only */ }
+}
+// The visitor authored a colour of their own, so the preserved one is spent — restoring it after
+// this would undo a pick they just made. Silent: the caller's writeRecord() emits the one change
+// event, and the dock re-reads both keys from it.
+export function clearDisplacedRecord() {
+  try { localStorage.removeItem(PREWEAR_RECORD_KEY); } catch { /* private mode — session-only */ }
+}
+// Hand the preserved record back: it becomes THE record again and the backup is spent. Storage
+// only — the caller owns the :root transition (the dock's selectPack, which is the one place
+// allowed to move the page between packs). Returns the restored record, or null when there is
+// nothing preserved.
+export function restoreDisplacedRecord() {
+  const rec = readDisplacedRecord();
+  if (!rec) return null;
+  // Remove BEFORE writeRecord: writeRecord emits BRAND_CHANGE_EVENT synchronously and the dock's
+  // listener re-reads this key to decide whether to keep offering the restore. Emitting first
+  // would leave the offer up over a spent backup.
+  try { localStorage.removeItem(PREWEAR_RECORD_KEY); } catch { /* private mode — session-only */ }
+  writeRecord(rec);
+  return rec;
 }
 
 // ---------------------------------------------------------------- selector: wear / unwear
@@ -227,9 +284,10 @@ function setLabel(node, state, text) {
 }
 
 // sharedRec — the record hydrateFromSharedLink() just built and applied, or null on a normal load.
-// Passed in rather than re-read so the beat can tell "this colour is the visitor's" from "this
-// colour arrived in a link", which are two different honest labels (AC #3), and so the arrival
-// reflects even where localStorage is blocked and readRecord() cannot see what :root is wearing.
+// Passed in rather than re-read so the arrival still reflects where localStorage is blocked and
+// readRecord() cannot see what :root is wearing. It carries origin:"shared" like any other
+// hydrated record, so the label below reads provenance from the record either way (#108); telling
+// "the visitor's colour" from "a colour that arrived in a link" is no longer this argument's job.
 function wireBeatBrand(sharedRec = null) {
   const beat = document.getElementById("beat-brand");
   if (!beat) return; // not this page — inert
@@ -241,17 +299,14 @@ function wireBeatBrand(sharedRec = null) {
   if (!colorInput || !label) return; // the two load-bearing nodes must exist
 
   let current = null; // the --color-* map on :root right now (null ⇒ nothing to clear)
+  // The record the name input was last filled from (ts|label). syncFromRoot re-runs on every pack
+  // change, so without this it would rewrite the input from an UNCHANGED record — see below.
+  let syncedSig = null;
 
   // Ask the dock to arbitrate a pick. Returns false when nothing claimed it (no dock on this page,
   // or it is not built yet) so the caller can fall back to the selector-only path.
   const requestPack = (target) =>
     !window.dispatchEvent(new CustomEvent(PACK_REQUEST_EVENT, { detail: { target }, cancelable: true }));
-
-  // Provenance, not state (#77): true while the colour on show is the one a shared link brought in.
-  // The record is identical either way, so this flag is the only thing that can tell the label where
-  // the colour came from. It survives a dock round trip, because a pack toggle does not change where
-  // the colour came from, and is cleared the moment the visitor enters a colour of their own.
-  let fromSharedLink = Boolean(sharedRec);
 
   // The beat's shown state ALWAYS matches :root — the invariant this control was written to hold.
   // On load it reflects only a WORN record (pack-boot applied it pre-paint); afterwards the dock
@@ -270,13 +325,28 @@ function wireBeatBrand(sharedRec = null) {
     if (rec && worn) {
       current = rec.tokens;
       if (rec.brandColor) colorInput.value = rec.brandColor;
-      if (nameInput && rec.label && rec.label !== "your brand") nameInput.value = rec.label;
+      // Clear as well as set, but ONLY when the record changed. Restoring a record whose label is the
+      // generic fallback must not leave a previous sender's company name in the input (#108) — and a
+      // re-sync of the SAME record must not wipe a name the visitor is midway through typing. The name
+      // reaches the record only on the next colour change, so an unconditional clear made the form's
+      // own order (colour, then name, then "Wear it") erase the name on the wear, which also dropped it
+      // out of the label's affiliation denial. ts|label is the identity: a restore brings a different
+      // record, so it still clears. Never reset when the pack is unworn — a clear-then-re-wear would
+      // then wipe the input the same way.
+      const sig = rec.ts + "|" + rec.label;
+      if (nameInput && sig !== syncedSig) {
+        nameInput.value = rec.label && rec.label !== "your brand" ? rec.label : "";
+      }
+      syncedSig = sig;
       if (wearToggle) wearToggle.checked = true;
       if (apply) applyToRoot(current); // idempotent with pack-boot; covers a no-storage / no-pack-boot page
       const shownName = sanitizeName(nameInput ? nameInput.value : "");
       // Only the provenance clause differs: "your colour" is false for a colour that arrived in
       // someone else's link, and this label is what a recipient reads on arrival (#77, AC #3).
-      if (fromSharedLink) setLabel(label, "shared", sharedLabel(shownName));
+      // Provenance now lives ON the record (buildRecord stamps origin only on the shared-link path),
+      // so it survives a dock round trip, a page navigation, and a restore, and it cannot get out of
+      // step with what :root is wearing the way a closure flag could (#103's failure mode).
+      if (rec.origin === "shared") setLabel(label, "shared", sharedLabel(shownName));
       else setLabel(label, "applied", appliedLabel(shownName));
     } else {
       current = null; // stop believing we own keys the dock has already removed — a stale `current`
@@ -323,9 +393,13 @@ function wireBeatBrand(sharedRec = null) {
     clearRoot(current);
     current = record.tokens;
     applyToRoot(current);
-    writeRecord(record);
+    clearDisplacedRecord(); // their own colour now — the preserved one is spent (#108)
+    writeRecord(record);    // emits the one change event, so the dock drops the offer in the same tick
+    // This record was BUILT from the inputs, so they already agree — claim the signature so the next
+    // syncFromRoot leaves the name box alone. Without this the first re-sync (the "Wear it" toggle)
+    // reads a record it has never seen and clears a name typed after the colour.
+    syncedSig = record.ts + "|" + record.label;
     if (wearToggle && wearToggle.checked) wear(); // keep wearing across a colour change
-    fromSharedLink = false; // their own colour now, whatever a link put here first (#77)
     setLabel(label, "applied", appliedLabel(sanitizeName(name)));
   });
 
@@ -386,15 +460,23 @@ function hydrateFromSharedLink() {
   if (!shared?.brandColor) return null;
   let rec;
   try {
-    rec = buildRecord(shared.brandColor, shared.name);
+    rec = buildRecord(shared.brandColor, shared.name, { origin: "shared" });
   } catch (err) {
     // Nothing fails on stage: a refused colour leaves the committed pack exactly as it was.
     console.error("pack-derived: shared link colour refused — committed pack retained", err);
     return null;
   }
+  // After the build, before the overwrite: a refused colour must preserve nothing, because the
+  // visitor's own record survives untouched in that case and there is nothing to hand back (#108).
+  preserveDisplacedRecord();
   applyToRoot(rec.tokens);
   writeRecord(rec);
-  wear(); // backs the displaced committed pick up in PREWEAR_KEY, so the dock's reset hands it back
+  // Two different backups, two different keys. wear() backs up the displaced COMMITTED PICK in
+  // PREWEAR_KEY so the dock's reset hands that pack back (#76); preserveDisplacedRecord above
+  // backs up the displaced RECORD in PREWEAR_RECORD_KEY so the dock can hand the visitor's own
+  // colour back (#108). A visitor already wearing their own brand has neither a committed pick to
+  // displace nor a prev !== "derived" transition, which is exactly why the second key exists.
+  wear();
   // Fired from the success path only, so the count means "a shared link landed and re-derived",
   // never "a link arrived and was refused". Deferred inside the helper — see analytics.mjs.
   trackFactoryArrived();
