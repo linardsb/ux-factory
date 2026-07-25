@@ -215,6 +215,10 @@ export async function runPull({ slug, accent = null, neutral = null, ...readOpti
     `design work, not this repo's; the pack only maps its ${pick.neutral}/${pick.accent} ramps onto ` +
     `contract roles.\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug} ` +
     `--neutral ${pick.neutral} --accent ${pick.accent}` +
+    // Name the source this run actually read. A pack imported from an export must not tell the
+    // next reader to regenerate it through the API, which needs a token, spends the file's
+    // ~6-a-month budget, and cannot see variables outside an Enterprise plan.
+    (readOptions.from ? ` --from ${readOptions.from}` : "") +
     `\n * WCAG (RULESET.wcagPairs, the same list derive() is held to): ${checks.length - failures.length}/${checks.length} pairs pass` +
     (stepped.length
       ? `\n * Contrast negotiated within the file's own ramps: ` +
