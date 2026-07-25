@@ -109,9 +109,19 @@ copy while it still matters.
 
 ---
 
-## What does not come across
+## What a design needs, and what actually comes across
 
-Colours, and (via an export) spacing, radius and type. **Not components.** Figma's API returns a
-description of a drawing — fills and coordinates — not a Button's hover state, focus ring or
-markup. No plan changes that. Components stay this repo's own, token-only, wearing the imported
-values.
+**It has to name colours as `<hue>/<step>` ramps** — `gray/900`, `indigo/600`, `brand/500`. That
+convention is near-universal in design systems, but it isn't guaranteed: a palette named
+`Primary`, `Brand Blue` or `Surface/Default` has no rungs to map roles onto, and the run refuses
+rather than guessing. A role ramp also needs at least 5 rungs, so the contrast negotiation has
+somewhere to move.
+
+**Colours are the only thing imported.** 16 contract tokens are mapped from the design. The other
+48 — spacing, radius, the type ramp, shadows, motion, and the `color-mix()` inverse tokens —
+are filled from this repo's contract defaults, and every run reports them as auto-filled. So an
+imported pack carries the design's *colour*, on this repo's *scale*. Don't claim otherwise.
+
+**Components never come across.** Figma's API returns a description of a drawing — fills and
+coordinates — not a Button's hover state, focus ring or markup. No plan changes that. Components
+stay this repo's own, token-only, wearing the imported colours.
