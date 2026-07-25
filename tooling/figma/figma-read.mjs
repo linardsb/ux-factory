@@ -20,7 +20,7 @@
 // never cost a request. A cached response is REUSED, never re-bought (`refresh` forces).
 
 import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -150,6 +150,41 @@ function collectStyleFills(node, out) {
   (node.children ?? []).forEach((child) => collectStyleFills(child, out));
 }
 
+// A plugin export (Tokens Studio, a variables dump, anything that walks the document in-app) is
+// the way past BOTH walls at once: it reads variables the REST API gates behind Enterprise, and
+// it costs no request. Rather than guess which tool wrote the file, flatten ANY nested JSON to
+// path → value: DTCG `$value`/`$type` nodes, Tokens Studio's `{value,type}`, or bare strings.
+// The REST variables envelope is delegated, so a raw API dump works too.
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const expandHex = (v) => (v.length === 4 ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}` : v).toLowerCase();
+
+function leafEntry(name, value, declaredType) {
+  if (typeof value === "string" && HEX.test(value.trim())) return { name, type: "color", value: expandHex(value.trim()) };
+  if (typeof value === "number") return { name, type: "dimension", value };
+  if (typeof value === "string" && /^-?\d+(\.\d+)?px$/.test(value.trim())) return { name, type: "dimension", value: parseFloat(value) };
+  // Anything else (clamp(), a font stack, a shadow string) still counts for NAME parity.
+  return { name, type: declaredType ?? null, value: value ?? null };
+}
+
+export function entriesFromExport(json) {
+  if (json?.meta?.variables) return entriesFromVariables(json); // a raw REST variables dump
+  const out = [];
+  (function walk(node, path) {
+    if (node === null || typeof node !== "object") {
+      if (path.length) out.push(leafEntry(path.join("/"), node));
+      return;
+    }
+    if (Array.isArray(node)) return; // font stacks etc. — no token name of their own
+    if ("$value" in node) return void out.push(leafEntry(path.join("/"), node.$value, node.$type));
+    if ("value" in node && typeof node.value !== "object") return void out.push(leafEntry(path.join("/"), node.value, node.type));
+    for (const [key, child] of Object.entries(node)) {
+      if (key.startsWith("$") || key === "extensions") continue;
+      walk(child, [...path, key]);
+    }
+  })(json, []);
+  return out;
+}
+
 const entriesFromStyles = ({ styles, values }) =>
   Object.entries(styles).map(([id, s]) => ({
     name: s.name,
@@ -219,7 +254,16 @@ async function readPagedStyles(fileKey, token, { maxPages, only }) {
 
 // Read a Figma file's design values. Returns { fileKey, fileName, endpoint, gate, entries, pages }
 // where entries is [{ name, type, value }] — the shape both consumers diff or map against.
-export async function readFigma({ offline: replay = false, refresh: force = false, maxPages = Infinity, only = [] } = {}) {
+export async function readFigma({ from = null, offline: replay = false, refresh: force = false, maxPages = Infinity, only = [] } = {}) {
+  // A file on disk short-circuits the network entirely: no token, no quota, no Enterprise gate.
+  if (from) {
+    const path = resolve(process.cwd(), from);
+    const entries = entriesFromExport(JSON.parse(readFileSync(path, "utf8")));
+    if (!entries.length) throw new Error(`${from}: no tokens found — expected DTCG ($value/$type), Tokens Studio ({value,type}), or a nested name→value map.`);
+    console.log(`  export  ${from}  ${entries.length} tokens`);
+    return { fileKey: from, fileName: basename(path), endpoint: "export-file", gate: null, entries, pages: null };
+  }
+
   offline = replay;
   refresh = force;
   if (existsSync(MANIFEST)) manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
@@ -283,6 +327,8 @@ export async function readFigma({ offline: replay = false, refresh: force = fals
 export function readFlags(argv) {
   const maxPages = Number(argv[argv.indexOf("--max-pages") + 1]);
   return {
+    // --from <export.json>: a plugin export instead of the API — no token, no quota, no gate.
+    from: argv.includes("--from") ? argv[argv.indexOf("--from") + 1] : null,
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
     maxPages: argv.includes("--max-pages") && Number.isFinite(maxPages) ? maxPages : Infinity,

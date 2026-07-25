@@ -47,6 +47,37 @@ file_comments:read, file_content:read, …"}` — Figma listing the scopes the t
 carry, none of which is `file_variables:read`, because the UI never offered it. The
 parity script keeps that body verbatim as the gate evidence.
 
+## Path 4 — a plugin export (the route with no plan gate and no rate limit)
+
+Both scripts below take `--from <export.json>` instead of reading the API. This is worth
+knowing because it walks around **both** walls at once:
+
+- **No Enterprise gate.** A plugin runs inside Figma and reads the document directly, so
+  it sees variables that `GET /v1/files/:key/variables/local` refuses (Path 3).
+- **No rate limit.** The ~6-requests-per-month ceiling is a REST limit. Export as often
+  as you like.
+
+Any nested JSON works — DTCG (`$value`/`$type`), Tokens Studio's `{value, type}`, a plain
+name→value map, or a raw REST variables dump. Names keep their group path and are matched
+as described above.
+
+```
+node tooling/figma/figma-parity.mjs --from tokens-export.json [--scope contract]
+node tooling/figma/figma-pull.mjs   --from tokens-export.json --slug <slug> --accent <hue>
+```
+
+Worked example, using this repo's own generated DTCG file as the export:
+`node tooling/figma/figma-parity.mjs --from handoff/verdant/tokens.dtcg.json` →
+**34 value-match / 30 name-only / 0 missing of 64**. That 34 is the ceiling: only 16
+contract tokens are plain hex colours and 18 are plain px, and the other 30 (`clamp()`
+ramps, `color-mix()`, shadows, font stacks, motion curves) can only ever match by name.
+The `--scope contract` default matters there — `tokens.dtcg.json` ships a `contract` group
+and a `neutral` group with identical leaf names, so without it every token is ambiguous.
+
+Note what that run does and does not prove: it shows tokens survive the round-trip through
+the exchange format. It is **not** a read of Figma's API, and the artifact says so in its
+`note`.
+
 ## The parity script — verifying the round-trip against your own file
 
 `tooling/figma/figma-parity.mjs` (zero-dep Node, standalone — deliberately not part of
@@ -61,6 +92,17 @@ parity only, and the output says so per row):
 2. Put `FIGMA_TOKEN=...` and `FIGMA_FILE_KEY=...` in `portal/.env` (gitignored — the
    secret never ships client-side and never enters the build).
 3. `node tooling/figma/figma-parity.mjs`
+
+**Names carry their group path, and the diff allows for it.** However a Figma file gets
+seeded — Tokens Studio, a plugin export, hand-authored styles — the DTCG group path rides
+along in the style name: `tokens.dtcg.json` nests `contract → fg-surface → color-fg`, so
+the style lands as `contract/fg-surface/color-fg`. Comparing whole names would normalise
+that to `contract-fg-surface-color-fg` and match nothing, scoring zero for a purely
+clerical reason. So the diff tries the exact whole name first, then the **last path
+segment** — and only when exactly one style claims that segment. Two styles ending
+`/color-fg` (say a light and a dark collection) is a real ambiguity, reported as such
+rather than silently resolved. Segment matches are counted separately as `leafMatched`,
+so a run can never pass them off as exact.
 
 The script tries the variables endpoint first; if your plan gates it (HTTP 403), it
 records Figma's exact error body as evidence and falls back to a **paged** read:

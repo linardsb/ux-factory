@@ -28,6 +28,9 @@
 //
 //   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --page Color
 //   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --offline   (spends nothing)
+//   node tooling/figma/figma-pull.mjs --slug plusui --accent indigo --from <export.json>
+//     — read a PLUGIN EXPORT instead of the API: no token, no rate limit, and it sees the
+//       variables REST gates behind Enterprise. The file still has to carry <hue>/<step> ramps.
 
 import { relative } from "node:path";
 import { pathToFileURL } from "node:url";

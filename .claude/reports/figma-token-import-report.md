@@ -92,5 +92,7 @@ both allowlists and `PACK_RE`, and is its own change.
 15 `--motion-*` tokens, so it is missing 17 the current contract declares. `gen-pack-css` is not in
 `build.mjs`, so no gate catches it. Not touched here; worth a `--verdant` regen.
 
-**`FIGMA_TOKEN` appeared in a session transcript on 2026-07-25.** Rotating it in Figma is cheap
-insurance, and is the owner's action.
+**No token rotation is pending.** The handover doc claims `FIGMA_TOKEN` "appeared in a session
+transcript on 2026-07-25" — the owner confirmed that is wrong: it only ever went into
+`portal/.env` (gitignored, never staged, verified absent from `git status`). The token is live
+(`GET /v1/me` → 200). Treat the handover's line as an error, not a to-do.
