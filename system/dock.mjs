@@ -14,11 +14,11 @@
 // pack, the derived custom properties for "your brand".
 // The panel is a non-modal disclosure (APG): location.hash === "#appearance" is the single source
 // of truth, so the panel is deep-linkable and back-button honest.
-// system/pack-boot.js (classic, pre-paint) restores the persisted choice; the three href-swap lines
+// system/pack-boot.js (classic, pre-paint) restores the persisted choice; the href-swap lines
 // are deliberately duplicated there — sharing would force pack-boot into a deferred module (FOUC)
 // or this file out of module hygiene.
 //
-// The fourth option, "your brand", is the visitor's own derived pack (#74). It is not a stylesheet
+// The last option, "your brand", is the visitor's own derived pack (#74). It is not a stylesheet
 // but a set of inline --color-* props, so the two mechanisms coexist last-write-wins and every bug
 // lives at their boundary — see selectPack() for the three rules that keep them honest.
 
@@ -31,9 +31,13 @@ const PACKS = [
   { id: "neutral", name: "neutral", note: "the no-brand default (generated)" },
   { id: "saulera", name: "saulera", note: "reference client pack (hand-authored)" },
   { id: "verdant", name: "verdant", note: "factory-derived, generated from the recorded pack-seed run" },
+  // Someone else's design work, imported by tooling/figma/figma-pull.mjs from a public Community
+  // Figma file. It is here because a token contract that only ever wears packs this repo authored
+  // proves nothing about being brand-agnostic — the attribution is the point, so it is in the note.
+  { id: "plusui", name: "Plus UI", note: "imported from someone else's Figma file — their design work, not mine" },
 ];
 const PACK_IDS = PACKS.map((p) => p.id);
-const PACK_RE = /\/system\/tokens\.(neutral|saulera|verdant)\.css$/;
+const PACK_RE = /\/system\/tokens\.(neutral|saulera|verdant|plusui)\.css$/;
 const DERIVED_ID = "derived";
 const SVGNS = "http://www.w3.org/2000/svg";
 
@@ -128,7 +132,7 @@ function buildDock() {
   const fieldset = el("fieldset", { class: "dock-packs" },
     el("legend", { class: "dock-legend", text: "Token pack" }));
 
-  // Rebuild the option rows. The fourth row exists only while a derived record does, so the
+  // Rebuild the option rows. The "your brand" row exists only while a derived record does, so the
   // control offers "your brand" the moment a colour is entered in #beat-brand, with no reload.
   function renderPacks() {
     const hadFocus = fieldset.contains(document.activeElement);
