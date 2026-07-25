@@ -143,6 +143,7 @@ file the shell swaps in its one `<head>` line to re-skin the whole site:
 ```
 node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> --page Color
 node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> --offline   # free re-run
+node tooling/figma/figma-pull.mjs --slug <slug> --map tooling/figma/maps/<slug>.json
 ```
 
 It targets a pack and never the contract. The repo splits contract tokens (semantic,
@@ -151,11 +152,25 @@ holds brand values, so a pack is where they belong — and it keeps the importer
 the drift check that polices `tokens.contract.css` / `tokens.neutral.css` as generated
 from `tokens.source.json`.
 
-**Mapped by role, not by name.** Design systems publish colours as `<hue>/<step>` ramps
-(`gray/900`, `indigo/600`) which share no vocabulary with the contract's semantic names,
-so name matching would import nothing at all. Each contract token instead claims a
-nominal rung of the neutral or accent ramp — and every value emitted is a real value from
-the file.
+**Mapped by role, not by name.** A design system's colour names share no vocabulary with
+the contract's semantic names, so name matching would import nothing at all. Each contract
+token instead claims a nominal rung of the neutral or accent ramp, takes the nearest rung
+that ramp actually has — and every value emitted is a real value from the file.
+
+**Rungs are read where a file numbers them, derived where it doesn't.** `<hue>/<step>`
+(`gray/900`, `indigo/600`) is read as written. Otherwise colours are grouped by name
+prefix, each group is ordered by OKLCH lightness, and rungs are numbered from that order:
+`Blue/Light, Blue/Base, Blue/Dark` is a 3-rung ramp. Those numbers are the importer's and
+the pack header names every one of them against the style it came from. Auto-detection
+still requires 5 rungs, so a shorter ramp has to be named (`--accent marine`); used as it
+is, it may leave contrast negotiation with nowhere to move or a state colour repeating its
+rest colour, and the header states that rather than hiding it.
+
+**Where inference can't read a design, `--map <file>` pins tokens explicitly** — a small
+committed `tooling/figma/maps/<slug>.json` of contract token → Figma style name, for a
+palette named `Primary` / `Surface` / `Text` that has no groups to order. An explicit entry
+always beats inference and is never moved for contrast, so a pinned colour that fails a
+pair ships reported as a failure; a style name the file doesn't publish stops the run.
 
 **Contrast is then negotiated inside the file's own ramps.** A nominal rung is not
 automatically accessible: a yellow accent at `/600` fails as text on white. Where a pair
