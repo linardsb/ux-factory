@@ -246,6 +246,43 @@ function renderCandidates(body, slug) {
   );
 }
 
+// Scale — spacing, radius, the type ramp, shadows — is all-or-nothing per family: a design that
+// offers fewer values than a family has slots imports NOTHING for it, because a half-imported ramp
+// is neither the design's nor this repo's. The drawer has to say which families came across and
+// which fell short, or the claim above the drop zone is the only account the operator gets.
+const FAMILY_LABEL = { spacing: 'spacing', radius: 'radius', type: 'type ramp', shadow: 'shadows' };
+
+function renderScales(scales) {
+  if (!scales) return '';
+  if (!scales.offered)
+    return `<h3 class="h3">Scale</h3>
+      <p class="muted">This read offered no dimension or shadow values, so spacing, radius, the
+      type ramp and shadows are all this repo's contract defaults. (Only a plugin export carries
+      scale — an API styles read names text and effect styles without ever valuing them.)</p>`;
+
+  const imported = Object.entries(scales.imported || {});
+  return `
+    <h3 class="h3">Scale from the design</h3>
+    ${imported.length ? imported.map(([family, rec]) => `
+      <p class="muted"><strong>${esc(FAMILY_LABEL[family] || family)}</strong> — imported ${rec.slots} of
+      ${rec.offered} value(s), ${esc(rec.rule)}${rec.dropped?.length ? ` · dropped ${rec.dropped.map((d) => esc(d)).join(', ')}` : ''}</p>
+      <div class="portal-table-scroll">
+        <table class="portal-wcag">
+          <thead><tr><th>Token</th><th>Value</th><th>From the design</th></tr></thead>
+          <tbody>
+            ${rec.taken.map((t) => `<tr><td><code>${esc(t.token)}</code></td><td><code>${esc(t.value)}</code></td><td>${esc(t.name)}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`).join('') : '<p class="muted">No family had enough values to import.</p>'}
+    ${scales.short?.length ? `
+      <p class="muted"><strong>Not imported</strong> — stayed on this repo's contract defaults because
+      the design offered fewer values than the family has slots:
+      ${scales.short.map((s) => `${esc(FAMILY_LABEL[s.family] || s.family)} (offered ${s.offered}, needs ${s.needs})`).join(' · ')}</p>` : ''}
+    ${scales.unclassified?.length ? `
+      <p class="muted">Read but not classified into a family, so not imported:
+      ${scales.unclassified.map((u) => `<code>${esc(u)}</code>`).join(' ')}</p>` : ''}`;
+}
+
 function renderReport(pack) {
   const failing = pack.failures.length;
   $('#figma-status').textContent = `Wrote ${pack.dest} — ${pack.tokenCount} tokens, ${pack.checks.length - failing}/${pack.checks.length} WCAG pairs pass.`;
@@ -299,6 +336,8 @@ function renderReport(pack) {
     ${pack.collapsed.length ? `
       <h3 class="h3">Too few rungs for a distinct state colour</h3>
       <ul class="muted">${pack.collapsed.map((c) => `<li><code>${esc(c.token)}</code> repeats <code>${esc(c.twin)}</code> — the ramp holds nothing else to move to.</li>`).join('')}</ul>` : ''}
+
+    ${renderScales(pack.scales)}
 
     <h3 class="h3">Auto-filled from contract defaults — ${pack.filled.length} tokens</h3>
     <p class="muted">Not read from the design. These are the repo's own values, and this is the full list:</p>
