@@ -20,7 +20,7 @@ Two new modules and the page sections that mount them:
 
 ## Decisions taken before writing (assumptions, stated)
 
-1. **Eight questions, not ten.** The ticket's scope line says "ten method-faithful questions" but
+1. **Eight questions, not ten.** ~~SUPERSEDED, see AMENDMENTS.~~ The ticket's scope line says "ten method-faithful questions" but
    its own enumeration is 6 (Act 1) + 2 (Act 2). AC4 says "ten questions **max**". Eight is the
    honest count; padding to ten would add ceremony the method does not ask for.
 
@@ -31,7 +31,7 @@ Two new modules and the page sections that mount them:
    quadrant renders as a verdict panel. Mirroring `renderEthics` here would ship a two-column
    compare device with nothing in the right-hand column.
 
-3. **The frequency filter is not asked.** The ticket's Act 1 is exactly six questions: the four
+3. **The frequency filter is not asked.** ~~SUPERSEDED, see AMENDMENTS.~~ The ticket's Act 1 is exactly six questions: the four
    loop stages plus the ethics pair. `derive()`'s other ethics gate (frequency → habit-justified /
    utility) needs a seventh question and belongs to the intake wizard, which already asks it. This
    act produces the **quadrant**, computed from `RULESET.ethics.matrix` — the same canon
@@ -87,7 +87,7 @@ Two new modules and the page sections that mount them:
    measured rects. If measurement is unavailable the page loses nothing but the lines — which is
    also the epic's named circuit breaker (risk register #2: cut the lines, never the verbs).
 
-9. **`#act-shape` is removed as an anchor.** Acts 1 and 2 are one stepped wizard — splitting eight
+9. **`#act-shape` is removed as an anchor.** ~~SUPERSEDED, see AMENDMENTS.~~ Acts 1 and 2 are one stepped wizard — splitting eight
    questions across two scroll destinations adds ceremony and breaks the "accept-and-advance in
    seconds" target. The page is deep-link-only and unlinked from the IA (#135 decision 5), so no
    link anywhere resolves to `#act-shape` (grepped across `*.html`, `*.mjs`, `*.js` and `*.md`: the
@@ -340,3 +340,59 @@ architecture-map entry for /build and its modules (Phase 1.5's task, deferred by
 - L4: the headless act-1b script ×3 engines (keyboard pass · verdict · four verbs round-trip ·
   50-edit listener/dom check · zero console errors)
 - L5: `npm run update:docker` in `tooling/visual-regression` → the two approach baselines only
+
+---
+
+## AMENDMENTS
+
+**2026-07-26, after PR #142 merged.** The owner reviewed the three judgment calls the slice was
+shipped on and reversed two of them. Both reversals are implemented in the follow-up PR; the third
+call (leaving the approach VR baselines alone) stands, settled by CI going green.
+
+### A1 — ten questions, not eight (supersedes decisions 1 and 3)
+
+The ticket's prose said ten, its enumeration said 6 + 2, and the slice took the enumeration. The
+owner took the prose. Act 1 gains a seventh question and Act 2 a third, so the split is **7 + 3**.
+
+Both additions are canon this repo already carries rather than filler bought to hit a number, and
+both are **consumed** — the standard applied when choosing them was that a question nothing reads is
+worse than a missing question:
+
+- **`frequency` (Act 1)** — the Hooked frequency filter. Values come from
+  `RULESET.ethics.frequencyFilter`, the gate's own key set, and the labels match
+  `factory-intake.mjs:145` word for word, because a reader who meets both wizards should not be
+  asked the same question in two different voices. It upgrades the verdict panel from
+  quadrant-only to **both** ethics gates: `frequencyVerdictFor()` computes pass/fail exactly as
+  `derive.mjs:126,136` does and renders `RULESET.ethics.verdicts`' own sentence verbatim. The two
+  gates rule independently, which is the point — a product can sit in the facilitator quadrant and
+  still fail the frequency filter, and for most tools the honest answer is a utility.
+- **`nogos` (Act 2)** — Shape Up's no-gos, "things you explicitly declare out of scope in writing".
+  It is the one answer that **subtracts**: `NOGO_RULE` in `breadboard.mjs` removes the place it
+  rules out, before the appetite truncates what is left (declared out of scope, then scope
+  hammered — the method's own order). The board states what was ruled out in its count line, so a
+  missing place never reads as something the drafter forgot.
+
+Decision 4 is extended: the frequency set is now a second ruleset-owned enum. No-gos is this page's
+own.
+
+### A2 — `#act-shape` restored as a real section (supersedes decision 9)
+
+Not as a bare anchor, which would have been a destination with nothing at it. The two acts are now
+**two sections with two wizards over one shared answer set**: `#act-hooked` runs the seven Hooked
+questions with the verdict panel beside it, `#act-shape` runs the three Shaping ones, and the
+breadboard moves to beat 03.
+
+What this cost in the module: `answers` moved from mount scope to module scope, `mount()` split
+into `mountWizard(root)` (reads its act from `data-act`, filters `QUESTIONS`, keeps its own step
+counter) and `mountVerdict(el)`, and the verdict panel now **subscribes to `BUILD_CHANGE`** rather
+than being called directly, because two wizards in two sections change the answers it reads. Prompt
+ids are per-act (`bx-q-prompt-hooked` / `bx-q-prompt-shaping`) so each radiogroup's
+`aria-labelledby` points at its own heading, and each act's last step offers the next act instead of
+a dead disabled button (`ACTS[key].done` / `.target`).
+
+### Validation of the amendment
+
+255/255 headless checks across Chromium, Firefox and WebKit, including the new cases: two mounts
+with per-act prompt ids, a keyboard walk through each act separately, both ethics gates ruling
+independently, the no-go subtracting and restoring a place with no dangling connections, and the
+appetite still binding after the no-go has been applied.

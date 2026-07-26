@@ -35,7 +35,7 @@
 
     /* 96px ≈ the sticky site header plus a little air, so a deep-linked act never lands under it. */
     html { scroll-padding-top: 96px; }
-    #act-import, #act-hooked, #act-breadboard { scroll-margin-top: 96px; }
+    #act-import, #act-hooked, #act-shape, #act-breadboard { scroll-margin-top: 96px; }
 
     /* ── The capability strip. Chips state what runs; the line under them names the files that do
        the running, and links to them. A claim about readable rules is only worth making if the
@@ -182,6 +182,9 @@
     .bx-q-radio input { accent-color: var(--color-accent); width: 18px; height: 18px; flex: none; }
     .bx-q-radio-label { line-height: 1.4; }
     .bx-q-footer { display: flex; gap: var(--spacing-sm); }
+    /* Act 2 has no panel beside it, so its card holds the same measure the Act 1 card gets inside
+       the split rather than stretching to the full container. */
+    .bx-shaping { max-width: 560px; }
 
     /* The verdict. Quiet by design: emphasis is size and weight, never colour alone, and the
        quadrant is the visitor's reading of their own product rather than a score. */
@@ -202,12 +205,23 @@
     }
     .bx-verdict-meaning { margin: 0; color: var(--color-fg); }
     .bx-verdict-note {
-      margin: var(--spacing-sm) 0 var(--spacing-xl);
+      margin: var(--spacing-sm) 0 var(--spacing-lg);
       max-width: 60ch;
       color: var(--color-fg-muted);
       font-size: var(--type-caption);
       line-height: 1.6;
     }
+    /* The second gate. It carries its own verdict sentence from the ruleset, and the pass or fail
+       is in that sentence's words, so the rule below adds weight and a border rather than making
+       colour or a glyph do the work. */
+    .bx-verdict-gate {
+      margin: 0 0 var(--spacing-xl);
+      max-width: 60ch;
+      padding-left: var(--spacing-md);
+      border-left: 3px solid var(--color-border);
+      line-height: 1.55;
+    }
+    .bx-verdict-gate[data-passes="true"] { border-left-color: var(--color-accent); }
     .bx-summary-title {
       margin: 0 0 var(--spacing-sm);
       font-size: var(--type-eyebrow);
@@ -530,12 +544,11 @@
       </div>
     </section>
 
-    <!-- ACTS 1 AND 2 · the questions. system/build-questions.mjs mounts on [data-build-questions]
-         and runs both acts as ONE stepped wizard: six Hooked questions, then two Shaping ones.
-         Splitting them across two scroll destinations would add ceremony to a flow whose whole
-         point is that it can be accepted and advanced in seconds, so there is one section and the
-         act is named on each step. Every question carries a recommended default, so the answers are
-         complete before the first click and the breadboard below already has something to draw.
+    <!-- ACT 1 · Hooked. system/build-questions.mjs mounts a stepped wizard on each
+         [data-build-questions] and reads the act from data-act. The two acts are two sections with
+         two wizards over ONE shared answer set, so each act is its own destination and each keeps
+         its own progress. Every question carries a recommended default, so the answers are complete
+         before the first click and the breadboard below already has something to draw.
          The markup inside the mounts is the no-JS state: copy that says what the feature does,
          never a control that does nothing. -->
     <section class="band" id="act-hooked">
@@ -544,28 +557,57 @@
           <span class="beat-numeral">01</span>
           <div class="beat-head-text">
             <p class="beat-kicker">Your product</p>
-            <h2 class="beat-title">Eight questions, asked the way the method asks them.</h2>
+            <h2 class="beat-title">Seven questions about the behaviour you are designing for.</h2>
           </div>
         </div>
         <p class="beat-lead">
-          Six from Nir Eyal's Hooked model: the feeling that brings someone back, the smallest thing
-          they do, what they get back, what they put in, and the two ethics questions behind the
-          Manipulation Matrix. Two from Shape Up (Ryan Singer / Basecamp): how much time this is
-          worth, and the rough shape of the solution. Every one arrives already answered with a
-          recommended default and the reasoning behind it, so you can accept and move.
+          From Nir Eyal's Hooked model: the feeling that brings someone back, the smallest thing
+          they do, what they get back, what they put in, how often they would really do it, and the
+          two questions behind the Manipulation Matrix. Every one arrives already answered with a
+          recommended default and the reasoning behind it, so you can accept and move. Both ethics
+          gates run beside the questions and update as you answer.
         </p>
 
-        <div class="bx-split" data-build-questions>
-          <div class="bx-source">
+        <div class="bx-split">
+          <div class="bx-source" data-build-questions data-act="hooked">
             <div data-build-wizard>
               <p class="muted">
-                The eight questions run in your browser. With JavaScript blocked they do not run,
-                and this page will not pretend otherwise.
+                These questions run in your browser. With JavaScript blocked they do not run, and
+                this page will not pretend otherwise.
               </p>
             </div>
           </div>
           <div class="bx-stage-col">
             <div data-build-verdict></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 2 · Shaping. Its own section and its own wizard, over the same answer set. The
+         questions here decide the size of the thing rather than the behaviour inside it, which is
+         why they are a separate beat and not three more steps in the act above. -->
+    <section class="band" id="act-shape">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">02</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your shaping</p>
+            <h2 class="beat-title">Three questions about how big this is allowed to be.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          From Shape Up (Ryan Singer / Basecamp): how much time the work is worth, the rough shape
+          the solution takes, and what you are declaring out of scope. Appetite is a budget rather
+          than an estimate, so it caps the board below; the no-go removes a place from it outright.
+        </p>
+
+        <div class="bx-source bx-shaping" data-build-questions data-act="shaping">
+          <div data-build-wizard>
+            <p class="muted">
+              These questions run in your browser. With JavaScript blocked they do not run, and this
+              page will not pretend otherwise.
+            </p>
           </div>
         </div>
       </div>
@@ -577,7 +619,7 @@
     <section class="band band--interstitial" id="act-breadboard">
       <div class="container">
         <div class="beat-head">
-          <span class="beat-numeral">02</span>
+          <span class="beat-numeral">03</span>
           <div class="beat-head-text">
             <p class="beat-kicker">Your breadboard</p>
             <h2 class="beat-title">Places, affordances, and the lines between them.</h2>
@@ -587,7 +629,7 @@
           Shape Up's breadboard is the lowest-fidelity design tool there is: places are the things
           you can navigate to, affordances are the things the user can act on, and connection lines
           show how the affordances take the user from place to place. No layout, no pixels. This one
-          is drafted from your eight answers, and then it is yours to change: rename anything, add
+          is drafted from your ten answers, and then it is yours to change: rename anything, add
           and remove places and affordances, and re-point any connection.
         </p>
 

@@ -73,12 +73,23 @@ const INVESTMENT_PLACE = {
   "track-record": { place: "Profile", own: "Edit profile" },
 };
 
+// A no-go is Shape Up's "thing you explicitly declare out of scope in writing". It is the one
+// answer that SUBTRACTS: scoping by subtraction is what keeps a fixed appetite honest, so a no-go
+// removes the place it rules out before the appetite gets to truncate what is left.
+const NOGO_RULE = {
+  none: [],
+  social: ["People", "Connections"],
+  settings: ["Settings"],
+  history: ["Profile", "Library"],
+};
+
 // draftBoard(answers) — pure. The rules, in order:
 //   1. The entry place comes from `shape`.
 //   2. `action`, `rewardType` and `investment` each want a place; an action of "check" wants none.
 //   3. Two rules that name the same place produce one place, not two (find + hunt both want a
 //      results place, and a breadboard with two identical places is a modelling error).
-//   4. `appetite` truncates: small batch keeps three places, big batch up to six.
+//   3b. `nogos` removes the places it rules out. Declared out of scope means not drawn.
+//   4. `appetite` truncates what survives: small batch keeps three places, big batch up to six.
 //   5. The entry place gets one affordance per surviving place, and that affordance is what the
 //      connection runs from. An action with no place of its own still gets its affordance, with
 //      nothing to connect to, because plenty of real affordances act in place.
@@ -96,8 +107,10 @@ export function draftBoard(answers) {
 
   const seen = new Set();
   const unique = wanted.filter((w) => !seen.has(w.place) && seen.add(w.place));
+  const ruledOut = NOGO_RULE[a.nogos] || [];
+  const kept = unique.filter((w) => !ruledOut.includes(w.place));
   const cap = APPETITE_CAP[a.appetite] || MAX_PLACES;
-  const survivors = unique.slice(0, Math.max(0, cap - 1));
+  const survivors = kept.slice(0, Math.max(0, cap - 1));
 
   const places = [{ id: "p1", label: SHAPE_PLACE[a.shape] || SHAPE_PLACE.overview, affordances: [] }];
   const connections = [];
@@ -326,8 +339,12 @@ function mount(root) {
       bar.append(again);
     }
 
+    // The no-go is stated on the board, not just in the answers: a place that is missing because it
+    // was ruled out should say so, or its absence reads as something the drafter forgot.
+    const ruledOut = NOGO_RULE[answers.nogos] || [];
     bar.append(el("p", { class: "bx-bb-count", text:
-      `${board.places.length} of ${MAX_PLACES} places · ${affCount()} affordances` }));
+      `${board.places.length} of ${MAX_PLACES} places · ${affCount()} affordances`
+      + (ruledOut.length ? ` · ruled out by your no-go: ${ruledOut.join(", ")}` : "") }));
 
     if (connectFrom) {
       const cancel = el("button", { type: "button", class: "btn btn-ghost bx-bb-btn", text: "Cancel" });
