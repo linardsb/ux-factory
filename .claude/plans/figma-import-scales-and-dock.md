@@ -883,3 +883,14 @@ PR #120's body now closes it. Nothing in the implementation changed. The reason 
 merged PR that closes nothing leaves the work looking unplanned, which cost a wasted planning pass
 once already (#78), and CLAUDE.md makes the trailer mandatory — a one-off exemption is a worse
 precedent than a five-minute retroactive ticket.
+
+## AMENDMENTS
+
+- **2026-07-26 (owner decision, issue #127):** the rank-fill rule is amended for over-offered
+  families. AC1/AC2's extreme-N fill was designed against curated exports (offered ≈ slots); the
+  first real full-scale dump (Plus UI via variables2json — 35 spacing values, 13 font sizes)
+  produced a degenerate pack (spacing capped at 12px, 96px body text). When offered > slots the
+  fill now takes an EVEN SPREAD across the sorted range (direction per family unchanged); offered
+  == slots keeps the exact fill. The header/report name the spread rule wherever it applied.
+  Companion fix, same issue: `classifyDimension` excludes weight/letter-spacing/tracking names
+  from the type family — a font-weight of 700 is not a 700px size.

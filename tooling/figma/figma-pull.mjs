@@ -144,7 +144,13 @@ const FAMILY_KEYWORDS = [
   { family: "shadow", re: /(^|[/\s_-])(shadow|elevation|depth)/i },
   { family: "spacing", re: /(^|[/\s_-])(spacing|space|gap|inset|padding|margin)/i },
 ];
+// Type-adjacent names that are NOT sizes: a font weight (700) or a tracking value that reaches
+// the type pool ranks as a jumbo pixel size (#127 — a real dump filled type-display from
+// font-weight/bold). Excluded by NAME, the way line-height already stays out by never matching
+// a family keyword; the excluded names are reported as unclassified, not dropped silently.
+const NOT_A_SIZE = /(^|[/\s_-])(weights?|letter-?spacings?|trackings?)([/\s_-]|$)/i;
 export function classifyDimension(name) {
+  if (NOT_A_SIZE.test(String(name))) return null;
   for (const { family, re } of FAMILY_KEYWORDS) if (re.test(String(name))) return family;
   return null;
 }
@@ -276,12 +282,20 @@ export function fillScales({ dims, shadows }, defaults, pinnedScales = {}) {
       short.push({ family, offered: uniq.length, needs: slots.length });
       continue;
     }
-    const taken = uniq.slice(0, slots.length);
-    const dropped = uniq.slice(slots.length);
+    // Owner decision 2026-07-26 (#127, amends the scales plan's extreme-N rule): a design offering
+    // MORE distinct values than the family has slots fills them by an EVEN SPREAD across the
+    // sorted range, not the N extremes — a 35-step spacing scale must not produce a pack whose
+    // largest spacing is 12px. offered == slots keeps the exact fill either way.
+    const spread = uniq.length > slots.length;
+    const idx = slots.map((_, i) => (spread ? Math.round((i * (uniq.length - 1)) / (slots.length - 1)) : i));
+    const takenSet = new Set(idx);
+    const taken = idx.map((j) => uniq[j]);
+    const dropped = uniq.filter((_, j) => !takenSet.has(j));
+    const ruleText = FAMILY_RULE[family] + (spread ? ", even spread across the offered range" : "");
     imported[family] = {
       slots: slots.length,
       offered: uniq.length,
-      rule: FAMILY_RULE[family],
+      rule: ruleText,
       taken: [],
       dropped: dropped.map((d) => (family === "shadow" ? d.css : `${d.num}px`)),
     };
@@ -290,7 +304,7 @@ export function fillScales({ dims, shadows }, defaults, pinnedScales = {}) {
       const { css, note } = formatScale(role, item, defaults);
       if (note) plainPx.push(role.token);
       values[role.token] = css;
-      placed.push({ token: role.token, source: `${FAMILY_LABEL[family]} rank ${role.rank} of ${slots.length} (${FAMILY_RULE[family]}) = "${item.name}"${note}` });
+      placed.push({ token: role.token, source: `${FAMILY_LABEL[family]} rank ${role.rank} of ${slots.length} (${ruleText}) = "${item.name}"${note}` });
       imported[family].taken.push({ token: role.token, name: item.name, value: css });
     });
   }
