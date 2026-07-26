@@ -7,6 +7,13 @@
     "trace": "/traces/oversell-exposure.jsonl"
   },
   {
+    "slug": "sku-attention-list",
+    "question": "Which specific SKUs need a buyer's attention first, and where does each one stand?",
+    "slot": "insight-panel",
+    "proposal": "/proto/compositions/northwind/sku-attention-list.json",
+    "trace": "/traces/sku-attention-list.jsonl"
+  },
+  {
     "slug": "stock-risk-state",
     "question": "What is the overall stock-risk state across the warehouses right now?",
     "slot": "summary-strip",

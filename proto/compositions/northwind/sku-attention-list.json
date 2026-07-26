@@ -1,0 +1,64 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Oversold SKUs",
+      "value": "3",
+      "unit": "SKUs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Pallet wrap, 23 micron",
+      "value": "85",
+      "unit": "units short",
+      "meta": "east • updated today",
+      "status": "OVERSOLD",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Wooden pallet, EUR",
+      "value": "70",
+      "unit": "units short",
+      "meta": "west • updated today",
+      "status": "OVERSOLD",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Stretch film, hand 400%",
+      "value": "40",
+      "unit": "units short",
+      "meta": "east • updated today",
+      "status": "OVERSOLD",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Low-cover SKUs",
+      "value": "5",
+      "unit": "SKUs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Bubble wrap roll, 750mm",
+      "value": "12",
+      "unit": "units left",
+      "meta": "south • updated yesterday",
+      "status": "LOW",
+      "tone": "warn"
+    }
+  }
+]

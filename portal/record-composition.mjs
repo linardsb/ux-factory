@@ -112,14 +112,19 @@ vocabulary — and NOTHING else. Hard rules:
   enum value outside its list, will be REFUSED — do not attempt it.
 • You NEVER emit raw HTML or CSS. Your entire output artifact is the {name, props, children}
   JSON array; the platform renders it into real components.
-• Every value you put in a tile MUST be computed from the provided fixtures — never
+• Every value you put in a node MUST be computed from the provided fixtures — never
   an invented or remembered number. Compute it yourself from the raw records.
 • A label must read the state without its tone (e.g. "Overdue" + "4", not a bare "4"); tone is
   redundant emphasis, never the sole signal.
-• Each tile's value is a NUMBER (or a ≤2-word phrase) — it renders LARGE, like a headline
-  figure. Put entity names, region names, and any qualifier in the LABEL, never in the value:
-  e.g. label "Busiest technician — Priya Nair", value "5", unit "jobs" (NOT value "Priya Nair —
-  5 open jobs"). A sentence in the value slot breaks the tile.
+• Each node's value is a NUMBER (or a ≤2-word phrase) — it renders LARGE, like a headline
+  figure. Put entity names, region names, and any qualifier in the label, or in whatever
+  secondary field the component you chose declares — never in the value: e.g. label "Busiest
+  technician — Priya Nair", value "5", unit "jobs" (NOT value "Priya Nair — 5 open jobs").
+  A sentence in the value slot breaks the node.
+• Choose the node shape that fits the answer. A component that reports ONE aggregate reading
+  over the whole dataset and a component that reports ONE NAMED ENTITY are different entries in
+  the vocabulary — read each one's usage guidance and pick per answer, not per habit. When you
+  report named entities, report only the few that carry the answer; never one node per record.
 
 Everything you do is recorded as a four-act engineering trace with these phases, in this
 exact order: plan, gate, implement, validate. Emit four phase markers, each ALONE on the

@@ -1,0 +1,60 @@
+{
+  "$description": "SYNTHETIC fixture — not a real design. A DTCG plugin export shaped like the ones tooling/figma/figma-pull.mjs imports, carrying a complete set of all four scale families (8 spacing, 3 radii, 8 type sizes, 3 shadows) plus one grey and one saturated ramp so the colour path can auto-detect and complete. Used by the fixture round-trips in .claude/plans/figma-import-scales-and-dock.md; no network, no Figma request spend.",
+  "gray": {
+    "50": { "$value": "#f9fafb", "$type": "color" },
+    "200": { "$value": "#e5e7eb", "$type": "color" },
+    "400": { "$value": "#9ca3af", "$type": "color" },
+    "600": { "$value": "#4b5563", "$type": "color" },
+    "800": { "$value": "#1f2937", "$type": "color" },
+    "900": { "$value": "#111827", "$type": "color" }
+  },
+  "indigo": {
+    "50": { "$value": "#eef2ff", "$type": "color" },
+    "200": { "$value": "#c7d2fe", "$type": "color" },
+    "400": { "$value": "#818cf8", "$type": "color" },
+    "600": { "$value": "#4f46e5", "$type": "color" },
+    "800": { "$value": "#3730a3", "$type": "color" }
+  },
+  "base": {
+    "white": { "$value": "#ffffff", "$type": "color" }
+  },
+  "spacing": {
+    "1": { "$value": "4px", "$type": "dimension" },
+    "2": { "$value": "8px", "$type": "dimension" },
+    "3": { "$value": "16px", "$type": "dimension" },
+    "4": { "$value": "24px", "$type": "dimension" },
+    "5": { "$value": "32px", "$type": "dimension" },
+    "6": { "$value": "48px", "$type": "dimension" },
+    "7": { "$value": "64px", "$type": "dimension" },
+    "8": { "$value": "96px", "$type": "dimension" }
+  },
+  "radius": {
+    "sm": { "$value": "4px", "$type": "dimension" },
+    "md": { "$value": "8px", "$type": "dimension" },
+    "lg": { "$value": "16px", "$type": "dimension" }
+  },
+  "text": {
+    "eyebrow": { "$value": "12px", "$type": "dimension" },
+    "caption": { "$value": "13px", "$type": "dimension" },
+    "body": { "$value": "16px", "$type": "dimension" },
+    "lead": { "$value": "18px", "$type": "dimension" },
+    "subhead": { "$value": "20px", "$type": "dimension" },
+    "title": { "$value": "24px", "$type": "dimension" },
+    "headline": { "$value": "32px", "$type": "dimension" },
+    "display": { "$value": "40px", "$type": "dimension" }
+  },
+  "shadow": {
+    "sm": {
+      "$type": "shadow",
+      "$value": { "color": "#0000000f", "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px" }
+    },
+    "md": {
+      "$type": "shadow",
+      "$value": { "color": "#00000014", "offsetX": "0px", "offsetY": "4px", "blur": "8px", "spread": "0px" }
+    },
+    "lg": {
+      "$type": "shadow",
+      "$value": { "color": "#0000001a", "offsetX": "0px", "offsetY": "12px", "blur": "24px", "spread": "-4px" }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$description": "SYNTHETIC fixture — not a real design. The PARTIAL case: a design that offers 5 spacing values (fewer than the contract's 8 slots, so spacing must import NOTHING), 12 type sizes (more than 8, so the ramp fills by rank largest→smallest and the rest are dropped and listed), one shadow (short of 3, pinnable by --map), no radii at all, and one dimension that matches no family keyword. Colours are here only so the run can complete.",
+  "gray": {
+    "50": { "$value": "#f9fafb", "$type": "color" },
+    "200": { "$value": "#e5e7eb", "$type": "color" },
+    "400": { "$value": "#9ca3af", "$type": "color" },
+    "600": { "$value": "#4b5563", "$type": "color" },
+    "800": { "$value": "#1f2937", "$type": "color" },
+    "900": { "$value": "#111827", "$type": "color" }
+  },
+  "indigo": {
+    "50": { "$value": "#eef2ff", "$type": "color" },
+    "200": { "$value": "#c7d2fe", "$type": "color" },
+    "400": { "$value": "#818cf8", "$type": "color" },
+    "600": { "$value": "#4f46e5", "$type": "color" },
+    "800": { "$value": "#3730a3", "$type": "color" }
+  },
+  "base": {
+    "white": { "$value": "#ffffff", "$type": "color" }
+  },
+  "Spacing": {
+    "1": { "$value": "6px", "$type": "dimension" },
+    "2": { "$value": "10px", "$type": "dimension" },
+    "4": { "$value": "20px", "$type": "dimension" },
+    "6": { "$value": "30px", "$type": "dimension" },
+    "8": { "$value": "40px", "$type": "dimension" }
+  },
+  "text": {
+    "10": { "$value": "10px", "$type": "dimension" },
+    "11": { "$value": "11px", "$type": "dimension" },
+    "12": { "$value": "12px", "$type": "dimension" },
+    "13": { "$value": "13px", "$type": "dimension" },
+    "14": { "$value": "14px", "$type": "dimension" },
+    "16": { "$value": "16px", "$type": "dimension" },
+    "18": { "$value": "18px", "$type": "dimension" },
+    "20": { "$value": "20px", "$type": "dimension" },
+    "24": { "$value": "24px", "$type": "dimension" },
+    "32": { "$value": "32px", "$type": "dimension" },
+    "48": { "$value": "48px", "$type": "dimension" },
+    "60": { "$value": "60px", "$type": "dimension" }
+  },
+  "Elevation": {
+    "High": {
+      "$type": "shadow",
+      "$value": { "color": "#00000026", "offsetX": "0px", "offsetY": "16px", "blur": "32px", "spread": "-8px" }
+    }
+  },
+  "opacity": {
+    "subtle": { "$value": 0.5 }
+  }
+}

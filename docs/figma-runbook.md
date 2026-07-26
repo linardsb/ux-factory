@@ -75,14 +75,22 @@ node tooling/figma/figma-pull.mjs --slug <company> --map tooling/figma/maps/<com
 **3. Commit** `system/tokens.<company>.css` (with the same two regenerations as above).
 
 That's the whole job. The run picks the palette pages, works out which ramp is the greys and
-which is the brand, maps them onto the contract, fixes any contrast failures by moving within the
-design's own ramps, and prints a WCAG table.
+which is the brand, maps them onto the contract, brings across the design's spacing, radius, type
+ramp and shadows where the export carries them, fixes any contrast failures by moving within the
+design's own ramps, and prints a WCAG table. **Read that table** — anything still failing is a
+fact about the design, and the pack ships saying so. **Read the pack header too**: it names every
+family that came from the design and every one that fell back to this repo's defaults.
 
-`--map` stays a CLI job — the drawer exposes slug plus optional accent/neutral only.
+`--map` and `--out` stay CLI jobs — the drawer exposes slug plus optional accent/neutral only.
 
 To use the pack: pass it to a company instance
 (`build-instance.mjs … --pack tokens.<company>.css`). Putting it in the site's appearance dock is
-a separate change (`dock.mjs` + `pack-boot.js` + new VR baselines).
+a separate change (a row in `dock.mjs`'s `PACKS` + its `PACK_RE`, the allowlist in `pack-boot.js`,
+and `COMMITTED` in `pack-derived.mjs` — all three, or the pack is selectable but not restorable).
+`plusui` is the worked example.
+
+`--out <path.css>` writes somewhere other than `system/`, which is how the committed fixtures under
+`tooling/figma/fixtures/` are exercised without adding a pack to the shipped system.
 
 ---
 
@@ -105,8 +113,8 @@ also sees variables Figma's API refuses outside Enterprise.
 node tooling/figma/figma-parity.mjs --from ~/Downloads/export.json --land
 ```
 
-**4. Check the numbers, then commit the three files it names**, and `node tooling/drift-check.mjs`
-should print ✓.
+**4. Check the numbers, then commit the three files it names.** No gate watches this artifact —
+`drift-check` does not read it — so your reading of the numbers is the only check there is.
 
 **If the numbers look wrong, don't commit** — `git checkout -- handoff/ && rm -f
 handoff/verdant/figma-parity.json` puts it back, and nothing was lost. This artifact ships as
@@ -181,12 +189,37 @@ and every one of those is stated in the pack header rather than papered over.
 beats inference, is pinned exactly (never moved for contrast, so its failures are reported as
 failures), and a name the file doesn't publish stops the run instead of falling back to a default.
 Map `color-accent-hover`/`-active` too if you map `color-accent`: a state colour is a decision, and
-the run won't guess one.
+the run won't guess one. A map can pin **any** contract token, not only a colour —
+`{"spacing-md": "Spacing/4", "shadow-lg": "Elevation/High"}` fills those two slots even where their
+family is too short to import on its own.
 
-**Colours are the only thing imported.** 16 contract tokens are mapped from the design. The other
-48 — spacing, radius, the type ramp, shadows, motion, and the `color-mix()` inverse tokens —
-are filled from this repo's contract defaults, and every run reports them as auto-filled. So an
-imported pack carries the design's *colour*, on this repo's *scale*. Don't claim otherwise.
+**Scale comes across too — but only from `--from`, and only all-or-nothing.** Spacing (8 slots),
+radius (3), the type ramp (8) and shadows (3) are read from a plugin export's dimension and shadow
+values, sorted, and filled **by rank**: spacing and radius smallest→largest, shadows
+subtlest→heaviest (blur + spread), the type ramp **largest→smallest** (its first slot is a display
+size). A family fills only if the design offers at least as many distinct values as the family has
+slots — 7 spacing values for 8 slots imports *nothing* and the family stays on this repo's
+defaults, because a half-imported ramp is neither the design's nor this repo's and no reader could
+tell which slot was which. Extra values are dropped and listed. A dimension whose name matches no
+family keyword (`spacing|space|gap|inset|padding|margin`, `radius|corner|round`,
+`shadow|elevation|depth`, `text|font|type|typography|heading|body`) is reported as unclassified
+rather than guessed into a family. Every one of those facts is written into the pack header.
+
+Two details worth knowing. A type slot keeps the **contract's `clamp()` shape** with the imported
+size as its max, the `vw` term copied verbatim and the min scaled by the same ratio: the responsive
+*behaviour* stays this repo's, the *number* becomes the design's, and the header says exactly that.
+And a multi-layer shadow imports its first layer only.
+
+**The styles fallback brings no scale at all.** It names text and effect styles without ever
+valuing them (only *fills* are harvested off the node walk) — so on that path every spacing,
+radius, type and shadow token is this repo's default. The run says so on stdout; it does not fake
+them. The variables endpoint *does* return numbers and they import exactly like an export's, but
+it is Enterprise-gated, which is why this repo has never seen it answer. Export from Figma.
+
+**Fonts and the rest never come across.** A Figma file gives a font *name*, not a file, and
+shipping a face is a licence-bound step — so `font-display/body/mono` stay this repo's stack.
+Motion, layout and the `color-mix()` inverse tokens are relative or this repo's own by design.
+Everything not imported is filled from the contract defaults and named in the pack header as such.
 
 **Components never come across.** Figma's API returns a description of a drawing — fills and
 coordinates — not a Button's hover state, focus ring or markup. No plan changes that. Components

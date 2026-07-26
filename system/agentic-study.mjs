@@ -19,7 +19,7 @@
 
 import { renderComposition, validateComposition } from "./agentic-renderer.mjs";
 
-const TONES = ["neutral", "warn", "critical"]; // metric-tile.tone enum (the vocabulary owns the truth)
+const TONES = ["neutral", "warn", "critical"]; // the shared tone enum — metric-tile and list-row both declare it (the vocabulary owns the truth)
 const PROBE = "urgent"; // deliberately OUT of vocabulary — the boundary the probe reaches past
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -72,7 +72,7 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
   const refusalPanel = el("div", { class: "study-refusal", hidden: true });
   root.appendChild(el("div", { class: "study-block" },
     el("p", { class: "study-eyebrow", text: "Adjust" }),
-    el("p", { class: "study-hint", text: "Change a tile's emphasis, drop or reorder tiles; everything re-validates and re-renders live. Then pick the “not in vocabulary” option to push past the boundary and watch the system refuse it, naming the exact path." }),
+    el("p", { class: "study-hint", text: "Change a component's emphasis, drop or reorder components; everything re-validates and re-renders live. Then pick the “not in vocabulary” option to push past the boundary and watch the system refuse it, naming the exact path." }),
     controls,
     refusalPanel));
 
@@ -80,7 +80,7 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
   // typed message; on("*") is the contract's documented log tap (action-bus.mjs header). An
   // agent or a voice layer would emit the SAME ui.* types — a new `source`, not a new bus.
   const busList = el("div", { class: "study-bus-list" });
-  const busEmpty = el("p", { class: "study-empty", text: "No messages yet — adjust a tile above and its intents appear here." });
+  const busEmpty = el("p", { class: "study-empty", text: "No messages yet — adjust a component above and its intents appear here." });
   root.appendChild(el("details", { class: "study-bus" },
     el("summary", { class: "study-bus-summary", text: "Messages on the bus" }),
     el("p", { class: "study-hint", text: "The raw action contract, live: type (ui.* = UI → agent) · source modality · target · params. These are the same messages an agent or a voice layer would carry." }),
@@ -137,7 +137,7 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
   function probe(i) {
     const probed = clone(working);
     probed[i].props = { ...probed[i].props, tone: PROBE };
-    bus.emit({ type: "ui.intent", source: "pointer", target: { component: "metric-tile", id: String(i) }, params: { intent: "probe-out-of-vocabulary", tone: PROBE } });
+    bus.emit({ type: "ui.intent", source: "pointer", target: { component: working[i].name, id: String(i) }, params: { intent: "probe-out-of-vocabulary", tone: PROBE } });
     try {
       validateComposition(vocab, probed);
       setRefusal(`(the probe was accepted — unexpected; "${PROBE}" should not be in the tone enum)`);
@@ -146,21 +146,26 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
     }
   }
 
+  // The bus target names the node's OWN component — never a hardcoded one. A composition may mix
+  // primitives (northwind's sku-attention-list interleaves list-row with metric-tile), and the bus
+  // pane's stated job is to show the true target. Read the name BEFORE any mutation that moves it.
   function setTone(i, tone) {
     working[i].props = { ...working[i].props, tone };
-    bus.emit({ type: "ui.intent", source: "pointer", target: { component: "metric-tile", id: String(i) }, params: { intent: "set-tone", tone } });
+    bus.emit({ type: "ui.intent", source: "pointer", target: { component: working[i].name, id: String(i) }, params: { intent: "set-tone", tone } });
     renderPreview(); renderControls();
   }
   function removeTile(i) {
+    const { name } = working[i];
     working.splice(i, 1);
-    bus.emit({ type: "ui.intent", source: "pointer", target: { component: "metric-tile", id: String(i) }, params: { intent: "remove" } });
+    bus.emit({ type: "ui.intent", source: "pointer", target: { component: name, id: String(i) }, params: { intent: "remove" } });
     renderPreview(); renderControls();
   }
   function moveTile(i, dir) {
     const j = i + dir;
     if (j < 0 || j >= working.length) return;
+    const { name } = working[i];
     [working[i], working[j]] = [working[j], working[i]];
-    bus.emit({ type: "ui.intent", source: "pointer", target: { component: "metric-tile", id: String(i) }, params: { intent: "reorder", dir } });
+    bus.emit({ type: "ui.intent", source: "pointer", target: { component: name, id: String(i) }, params: { intent: "reorder", dir } });
     renderPreview(); renderControls();
   }
   function resetWorking() {
@@ -189,7 +194,7 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
 
       row.appendChild(el("button", { type: "button", class: "study-btn", title: "Move up", "aria-label": "Move up", onclick: () => moveTile(i, -1) }, "↑"));
       row.appendChild(el("button", { type: "button", class: "study-btn", title: "Move down", "aria-label": "Move down", onclick: () => moveTile(i, 1) }, "↓"));
-      row.appendChild(el("button", { type: "button", class: "study-btn", title: "Remove tile", "aria-label": "Remove", onclick: () => removeTile(i) }, "✕"));
+      row.appendChild(el("button", { type: "button", class: "study-btn", title: "Remove component", "aria-label": "Remove", onclick: () => removeTile(i) }, "✕"));
       controls.appendChild(row);
     });
     controls.appendChild(el("button", { type: "button", class: "study-btn study-btn--reset", onclick: resetWorking }, "Reset to the agent's proposal"));

@@ -159,7 +159,16 @@
     .fw-reveal-quadrant { font-size: var(--type-h3); font-weight: 700; color: var(--color-accent); margin: 0 0 var(--spacing-sm); }
     .fw-reveal-meaning { margin: 0 0 var(--spacing-md); }
     .fw-reveal-narrative { margin: 0; }
-    @media (max-width: 640px) { .fw-reveal-cols { grid-template-columns: 1fr; } }
+    /* Narrow: `max-content 1fr 1fr` can't fit 360px — the rowhead eats the row and the quadrants
+       were clipped 65px past the viewport. Two columns, each rowhead a full-width section label,
+       so the grid still reads as yes/no × yes/no. (#82 craft sweep) */
+    @media (max-width: 640px) {
+      .fw-reveal-cols { grid-template-columns: 1fr; }
+      .fw-matrix { grid-template-columns: 1fr 1fr; }
+      .fw-matrix-corner { display: none; }
+      .fw-matrix-rowhead { grid-column: 1 / -1; padding-right: 0; }
+      .fw-quadrant { min-width: 0; }
+    }
 
     /* trace player (ported verbatim from factory.html:177–220 — the player injects no <style>; the
        page styles the trace-* classes it emits, token-only). */
@@ -339,6 +348,10 @@
     .study-preview--summary-strip > * { flex: 1 1 0; min-width: 120px; }
     .study-preview--insight-panel { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
     .study-preview--insight-panel > * { flex: 1 1 220px; min-width: 200px; }
+    /* A list-row reports one named entity across the full width — it must never sit two-across
+       next to another row the way the 220px-basis tiles do (ds-list-row, #101). */
+    .study-preview--insight-panel > .ds-list-row,
+    .study-preview--summary-strip > .ds-list-row { flex: 1 1 100%; }
     .study-dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: var(--spacing-sm) 0 0; color: var(--color-fg); }
 
     .study-controls { display: flex; flex-direction: column; gap: var(--spacing-sm); }

@@ -24,7 +24,7 @@
 
 import { registerBeat } from "./spine.mjs";
 import { encodeShareState, hasSharedBrand } from "./share-state.mjs";
-import { readRecord } from "./pack-derived.mjs";
+import { readRecord, readDisplacedRecord, BRAND_CHANGE_EVENT } from "./pack-derived.mjs";
 import { getHomeAnswers } from "./intake-beat.mjs";
 import { trackFactoryShared } from "./analytics.mjs";
 
@@ -40,6 +40,12 @@ const RESET_MS = 1600; // how long a copy button holds its confirmation (dock.mj
 const HAS_LOCATION = typeof location !== "undefined";
 const PAGE_URL = HAS_LOCATION ? location.origin + location.pathname : "";
 const ARRIVED_SHARED = HAS_LOCATION && hasSharedBrand(location.search);
+
+// The arrival notice, split so the restore clause can be taken back off once the backup is spent
+// (see closeEffect). The first sentence is true for as long as the page is open; the second is only
+// true while there is something to restore.
+const ARRIVAL_NOTE = "You opened a shared link. The colour and the answers came from the link, and this browser derived the palette again from them.";
+const RESTORE_CLAUSE = " The colour you entered before is still here. The appearance control can put it back.";
 
 // Element builder — never innerHTML from data, so visitor-supplied strings stay inert text
 // (mirrors peak.mjs:89-99). `text` sets textContent; onclick wires a handler.
@@ -106,10 +112,29 @@ function closeEffect({ el: beatEl }) {
   // Reads the URL captured at module evaluation, so it is true even for a reader who opened the
   // appearance dock on the way down and no longer has the share params in the address bar.
   if (ARRIVED_SHARED) {
-    mount.appendChild(el("p", {
+    // The appearance dock is the only surface that can hand the displaced colour back, and
+    // portfolio.css hides the whole rail below 1100px. So ask the CSS whether the control is
+    // actually rendered instead of copying the breakpoint into JS or promising a control this
+    // reader has not got (index.html sets the same honesty precedent for #beat-wear).
+    // getComputedStyle, not offsetParent: .dock is position:fixed, so offsetParent is null either way.
+    const dock = document.querySelector(".dock");
+    const canRestore = Boolean(readDisplacedRecord()) && Boolean(dock) &&
+      getComputedStyle(dock).display !== "none";
+    const note = el("p", {
       class: "close-shared-note",
-      text: "You opened a shared link. The colour and the answers came from the link, and this browser derived the palette again from them.",
-    }));
+      text: ARRIVAL_NOTE + (canRestore ? RESTORE_CLAUSE : ""),
+    });
+    mount.appendChild(note);
+    // The clause points at a control the reader is being sent to use, so it has to stop pointing once
+    // they have used it. Without this the sentence still reads "is still here" over a spent backup —
+    // the label-outlives-the-state failure #103 was about, and the one this ticket's own provenance
+    // move exists to prevent. BRAND_CHANGE_EVENT already fires on both spend paths (the dock's restore
+    // and an own colour entry), so the note follows state instead of a snapshot taken once.
+    if (canRestore) {
+      window.addEventListener(BRAND_CHANGE_EVENT, () => {
+        if (!readDisplacedRecord()) note.textContent = ARRIVAL_NOTE;
+      });
+    }
   }
 
   // --- the share control ------------------------------------------------------------------
