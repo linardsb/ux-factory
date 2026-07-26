@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The builder · your design · Linards Berzins</title>
+  <meta name="description" content="Bring your own design tokens and build a UI pattern with them. The mapping runs in your browser from committed rules, nothing is uploaded, and no model is called." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- build.html — the pattern builder (epic #134, ticket #135;
+       .claude/plans/hooked-shapeup-pattern-builder.md Phase 1.2, .claude/plans/build-page-import-act.md).
+       A sixth public surface where a visitor imports their design tokens, answers the product
+       questions this portfolio works by, and watches a real UI pattern assemble under their brand.
+       This slice ships ACT 0 only: the import. The remaining three acts are bare mounts that later
+       slices fill, and the page is deliberately NOT linked from the IA yet.
+       Honesty contract: everything here is committed rules running in the visitor's browser. No file
+       is uploaded, because the shipped site is static and has nowhere to upload to; no model is
+       called at view time. What the import produces is the VISITOR's design work mapped onto this
+       repo's token contract, and the report says so before it says anything else. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+  <script src="/system/pack-boot.js"></script>
+
+  <style>
+    /* Builder layout — page-unique, styled from tokens alone (colour / space / radius / type via
+       var(--…)); grid tracks and % are inherently structural literals. One page, not a reused
+       organism, so deliberately not promoted to components.css. The drop zone, the mapping report
+       and the swatch grid all reuse the committed .brand-* classes from portfolio.css: the public
+       import surface has one visual grammar, on home and here. */
+
+    /* 96px ≈ the sticky site header plus a little air, so a deep-linked act never lands under it. */
+    html { scroll-padding-top: 96px; }
+    #act-import, #act-hooked, #act-shape, #act-breadboard { scroll-margin-top: 96px; }
+
+    /* ── The capability strip. Chips state what runs; the line under them names the files that do
+       the running, and links to them. A claim about readable rules is only worth making if the
+       rules are one click away. ── */
+    .bx-caps { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); margin: var(--spacing-lg) 0 0; }
+    .bx-caps .capability { margin-left: 0; }
+    .bx-caps-note {
+      margin: var(--spacing-sm) 0 0;
+      max-width: 68ch;
+      color: var(--color-fg-muted);
+      font-size: var(--type-caption);
+      line-height: 1.55;
+    }
+
+    /* ── Act 0. The drop control and the stage sit side by side so the re-skin happens in the same
+       glance as the drop. Below 900px they stack, drop first: the control has to come before the
+       thing it changes when they can't be seen together. ── */
+    .bx-split {
+      display: grid;
+      gap: var(--spacing-xl);
+      margin-top: var(--spacing-xl);
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      .bx-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: var(--spacing-2xl); }
+    }
+    /* min-width: 0 on both tracks — the report tables and the pack header <pre> are wide content,
+       and a grid item defaults to min-content width (recorded Safari/Chrome blowout, PR #54). */
+    .bx-source, .bx-stage-col { min-width: 0; }
+    .bx-source { display: grid; gap: var(--spacing-md); }
+
+    .bx-or {
+      margin: 0;
+      color: var(--color-fg-muted);
+      font-size: var(--type-caption);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .bx-fallback { display: grid; gap: var(--spacing-sm); }
+    .bx-fallback-row { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; }
+
+    /* ── THE SIGNATURE. Real components on a panel that wears the visitor's imported values as
+       inline custom properties, while every pixel outside it stays on the neutral pack. The scope
+       IS the point: this page never takes the chrome hostage, and the reader can see where the
+       boundary is. ── */
+    .bx-stage {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-bg);
+      padding: var(--spacing-lg);
+      display: grid;
+      gap: var(--spacing-lg);
+      min-width: 0;
+    }
+    .bx-stage-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-xs);
+      align-items: baseline;
+      justify-content: space-between;
+      padding-bottom: var(--spacing-sm);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .bx-stage-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--type-caption);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+    .bx-stage-label { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
+    /* One column, at every width, on purpose. The cards inherit the IMPORTED spacing scale, and a
+       design whose --spacing-xl is generous turns a two-up grid into one word per line. The stage
+       has to stay readable under any pack it is handed, so the cards get the full width and the
+       imported padding, radius and type ramp show up as depth rather than as damage. */
+    .bx-stage-grid { display: grid; gap: var(--spacing-md); }
+    .bx-stage-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+
+    /* ── Keep. Empty until there is something to keep, and it says so in the interface's voice
+       rather than sitting blank. ── */
+    .bx-keep {
+      margin-top: var(--spacing-xl);
+      padding-top: var(--spacing-lg);
+      border-top: 1px solid var(--color-border);
+      display: grid;
+      gap: var(--spacing-sm);
+      min-width: 0;
+    }
+    .bx-keep-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    .bx-report { margin-top: var(--spacing-xl); min-width: 0; }
+
+    /* ── The three acts this slice does not build. Bare mounts, and one sentence of truth above
+       them, so a deep link lands on an honest half-built page instead of a broken-looking one. ── */
+    .bx-todo-note {
+      margin: 0;
+      max-width: 68ch;
+      color: var(--color-fg-muted);
+    }
+  </style>
+</head>
+<body data-page="build">
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">The builder · act 0 of 4</span>
+        </div>
+        <h1 class="text-balance">Bring your design system. <span class="hl">Build a pattern with it.</span></h1>
+        <p class="hero-sub">
+          Drop your design tokens and this page maps them onto the same contract the rest of the
+          site runs on, then puts real components on the stage wearing your values. Later acts ask
+          about your product and assemble a pattern from the answers. Act 0 is built today.
+        </p>
+        <p class="bx-caps">
+          <span class="capability live">Runs now · in your browser</span>
+          <span class="capability">Nothing is uploaded</span>
+          <span class="capability">No model is called</span>
+        </p>
+        <p class="bx-caps-note">
+          The rules are readable, so read them:
+          <a href="/system/pack-import.mjs"><code>system/pack-import.mjs</code></a> maps an export
+          onto the token contract and is the same engine the command-line importer runs, and
+          <a href="/system/derive.mjs"><code>system/derive.mjs</code></a> derives a full palette from
+          one colour. Your file is read here in your browser. The shipped site is static and has no
+          server, so there is nowhere for it to be uploaded to.
+        </p>
+      </div>
+    </section>
+
+    <!-- ACT 0 · the import. system/build-import.mjs mounts on [data-build-import], runs the real
+         mapping engine on whatever is dropped, and writes the result as inline custom properties on
+         #build-stage ONLY. Site-wide wear belongs to the home drop surface and the appearance dock;
+         this page stays scoped. The markup below is the no-JS / fail-closed state: inert copy that
+         names what the feature does, never a control that does nothing. -->
+    <section class="band" id="act-import">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">00</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your design</p>
+            <h2 class="beat-title">Drop your tokens. The stage wears them.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          A DTCG or Tokens Studio export, a Figma variables dump, or any nested JSON of names and
+          values. Colour, spacing, radius, the type ramp and shadows come across. Components and
+          fonts never do.
+        </p>
+
+        <div class="bx-split">
+          <div class="bx-source brand-import" data-build-import>
+            <label class="brand-drop" data-build-drop>
+              <input type="file" accept="application/json,.json" class="brand-drop-input" data-build-file />
+              <span class="brand-drop-title">Drop your design tokens</span>
+              <span class="brand-drop-formats">A .json export. Read here in your browser, never uploaded.</span>
+              <span class="brand-drop-privacy">Up to 32 MB.</span>
+            </label>
+
+            <p class="bx-or">or</p>
+
+            <div class="bx-fallback">
+              <p class="brand-import-note">
+                No export to hand? Give the stage one brand colour and the contrast engine derives
+                the rest of the palette from it.
+              </p>
+              <div class="bx-fallback-row">
+                <label class="brand-field">
+                  <span class="brand-field-label">Brand colour</span>
+                  <input type="color" class="brand-color" data-build-color value="#2563eb" />
+                </label>
+                <button type="button" class="btn btn-secondary" data-build-derive>Derive a palette</button>
+                <!-- "Clear the stage", not "back to neutral": it takes off whatever this page put
+                     on the stage, and what shows through is the pack the site is wearing, which is
+                     not always neutral. -->
+                <button type="button" class="btn btn-ghost" data-build-reset>Clear the stage</button>
+              </div>
+            </div>
+
+            <p class="brand-import-status" data-build-status role="status" data-state="idle"></p>
+          </div>
+
+          <div class="bx-stage-col">
+            <div class="bx-stage" id="build-stage">
+              <div class="bx-stage-head">
+                <h3 class="bx-stage-title">The stage</h3>
+                <!-- Deliberately makes no claim about which pack is on. pack-boot.js is a classic
+                     script, so a design imported on home can already be worn here even with modules
+                     blocked; build-import.mjs replaces this with the precise statement on mount. -->
+                <p class="bx-stage-label" data-build-stage-label>Real components from this site's system.</p>
+              </div>
+              <div class="bx-stage-grid">
+                <article class="card"><div class="card-body">
+                  <div class="card-kicker">Card</div>
+                  <h3 class="h3 mb-md">Text on a surface</h3>
+                  <p class="muted">Muted body text on the card surface, one of the pairs the engine checks.</p>
+                </div></article>
+                <article class="card"><div class="card-body">
+                  <div class="card-kicker">Accent</div>
+                  <h3 class="h3 mb-md"><span class="hl">Accent as text</span></h3>
+                  <p class="muted">An accent has to survive as text, not only as a fill.</p>
+                </div></article>
+              </div>
+              <div class="bx-stage-actions">
+                <button type="button" class="btn btn-primary">Primary</button>
+                <button type="button" class="btn btn-secondary">Secondary</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bx-report brand-import-report" data-build-report hidden></div>
+
+        <!-- Keep. Act 0 hands back one thing: the pack, built in the browser from the reader's own
+             export. The build card, the breadboard and the share link join it in a later slice. -->
+        <div class="bx-keep" id="build-keep">
+          <p class="muted" data-build-keep-empty>
+            Nothing to keep yet. Import a design and the stylesheet it produces appears here.
+          </p>
+          <div class="bx-keep-actions" data-build-keep-actions hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- The three acts this slice does not build. Bare mounts by design: a later slice fills them,
+         and four "coming soon" cards would be worse than one true sentence. -->
+    <section class="band band--interstitial">
+      <div class="container">
+        <p class="beat-kicker">What comes next</p>
+        <p class="bx-todo-note">
+          Act 0 is the only act built so far. The product questions, the breadboard you can edit,
+          and the pattern that renders from them are being built next.
+        </p>
+        <div id="act-hooked"></div>
+        <div id="act-shape"></div>
+        <div id="act-breadboard"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
+  <script src="/system/portfolio.js"></script>
+  <script type="module" src="/system/analytics.mjs"></script>
+  <script type="module" src="/system/dock.mjs"></script>
+  <script type="module" src="/system/build-import.mjs"></script>
+</body>
+</html>

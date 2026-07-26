@@ -27,8 +27,8 @@ import {
 import { PACK_REQUEST_EVENT } from "./pack-derived.mjs";
 import { trackFactoryDriven } from "./analytics.mjs";
 
-// Mirrors portal/lib/figma.mjs and portal/public/portal.js — THREE files now carry this number;
-// if it moves, move all three. Chosen, not measured: comfortably above any believable token
+// Mirrors portal/lib/figma.mjs, portal/public/portal.js and system/build-import.mjs — FOUR files
+// now carry this number; if it moves, move all four. Chosen, not measured: comfortably above any believable token
 // export, far below figma-read's 128 MB parse ceiling.
 const MAX_EXPORT_BYTES = 32 * 1024 * 1024;
 
