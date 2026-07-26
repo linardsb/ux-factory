@@ -209,7 +209,7 @@ $('#figma-form').addEventListener('submit', async (e) => {
   try {
     const body = await postPull(params, { body: figma.file });
     if (body.ok) renderReport(body.pack);
-    else renderCandidates(body, slug);
+    else renderCandidates(body, params);
   } catch (err) {
     // A refusal with no candidates lands here too — no usable ramp at all, no grey ramp, an empty
     // read. Show it verbatim with no affordance: the tool is saying this design can't be imported
@@ -218,7 +218,7 @@ $('#figma-form').addEventListener('submit', async (e) => {
   }
 });
 
-function renderCandidates(body, slug) {
+function renderCandidates(body, params) {
   $('#figma-status').textContent = body.message;
   $('#figma-report').innerHTML = `
     <p class="muted">The importer won't pick a brand colour for you. Choose the ramp it should use as the accent:</p>
@@ -235,11 +235,13 @@ function renderCandidates(body, slug) {
       $('#figma-status').textContent = `Re-running with ${el.dataset.hue} as the accent…`;
       try {
         // The retry re-reads the export already on disk — no re-upload, and it exercises the
-        // very path the pack header names as the run's source.
-        const body2 = await postPull({ slug, accent: el.dataset.hue }, { headers: { 'x-figma-retry': '1' } });
+        // very path the pack header names as the run's source. The clicked swatch replaces only
+        // the accent; a typed neutral override still applies to the re-run.
+        const body2 = await postPull({ ...params, accent: el.dataset.hue }, { headers: { 'x-figma-retry': '1' } });
         if (body2.ok) renderReport(body2.pack);
-        else renderCandidates(body2, slug);
+        else renderCandidates(body2, params);
       } catch (err) {
+        $('#figma-report').innerHTML = '';
         $('#figma-status').textContent = err.message;
       }
     })
