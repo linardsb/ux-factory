@@ -900,3 +900,9 @@ precedent than a five-minute retroactive ticket.
   Tailwind's `rounded-full` 9999px) — a shape utility, not a surface radius; under the spread
   rule it would have landed on `radius-lg` and pilled every panel. Excluded values are named in
   the header's unclassified list, same treatment as the weight exclusion.
+  Recorded trade-off (PR #132 review): regenerating the committed plusui pack from the plugin
+  export replaced the header's specific file identity — previously `"Plus UI -  FREE Figma UI
+  Kit and Design System (2026) v2.0 (Community)" (key 1h9hLlYs6S9CO1xGyBcBVX)` — with the local
+  export's name, because a plugin export carries no file metadata the generated header could
+  read. The kit's identity stays on record here and in the dock's attribution note
+  (`system/dock.mjs`), which names the design work a reader actually sees.
