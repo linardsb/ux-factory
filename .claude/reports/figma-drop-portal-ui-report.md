@@ -124,10 +124,20 @@ Edge cases exercised end to end:
 
 7. **File-size display uses KB under 1 MB.** `mb()` rendered a 1 KB fixture as "0.0 MB".
 
-8. **The plan and design note are not in this PR.** Both are committed on
-   `chore/v3-merge-vr-reblock` and the plan explicitly forbids cherry-picking them (a second copy
-   would conflict when that branch merges). They reach `main` by that route. This report and the
-   review are in this PR. Noted so the AC10 check reads as intentional, not missing.
+8. **The plan and design note arrived via `main`, not this branch.** They were committed on
+   `chore/v3-merge-vr-reblock`, which the plan forbade cherry-picking. That branch has since merged
+   to `main` (v3 epic #70 complete), so merging `main` in brought
+   `.claude/plans/figma-drop-portal-ui{,-implementation}.md` onto this branch naturally. AC10 is
+   satisfied without a duplicate.
+
+9. **Post-merge: the drawer now accounts for imported scale.** `main` gained the scale import
+   (#121 / PR #120) while this was in flight — spacing, radius, the type ramp and shadows now come
+   across where a plugin export carries a whole family's worth of values. That falsified the
+   drawer's standing "colour only" copy, so the copy and the report were extended: which families
+   came across (rank rule, values taken, anything dropped), which fell short and by how much, and
+   anything read but unclassified. `main` had already added `scales` to `runPull`'s return
+   *"for the portal drop-UI"* — this is the UI it was left for. Verified against all three
+   committed fixtures (`scales-dtcg`, `scales-partial`, colour-only).
 
 ## Issues encountered
 
@@ -137,9 +147,13 @@ Edge cases exercised end to end:
   fetched them. Copied from `ux-factory-wt-figma` (including `.last-response.json`, which
   `--offline` needs and which the plan's setup notes don't mention) — no Figma request budget was
   spent, the plusui regression ran for free.
-- **Merge note for whoever lands this second:** the `runPull` return-shape and header-label edits
-  sit in the same regions `fe0a662` touches on the still-unmerged `feature/figma-any-naming`
-  branch. That merge will need a conflict resolution there. Not pre-empted here.
+- **The predicted conflict happened, and is resolved.** The report originally flagged that the
+  `runPull` return-shape and header-label edits sat in the same regions as `fe0a662` on the then-
+  unmerged naming branch. That branch landed on `main` (PR #120) and the merge conflicted in
+  exactly those two places plus the runbook. Resolved by keeping **both** sides: the header takes
+  this branch's repo-relative `fromLabel` **with** `main`'s explanatory comment, and the return
+  carries this branch's report fields **and** `main`'s `scales` block. Gates re-run green after
+  the merge, including plusui byte-identity against the post-merge engine.
 - No VR run was needed or done: `portal/**` matches none of `gen-loc-summary`'s group regexes, no
   shipped page changed, and `PACK_FILES` is a hardcoded three-pack list. Only a *committed*
   `system/tokens.<slug>.css` would churn baselines — hence the cleanup step, which is verified.
