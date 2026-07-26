@@ -35,7 +35,7 @@
 
     /* 96px ≈ the sticky site header plus a little air, so a deep-linked act never lands under it. */
     html { scroll-padding-top: 96px; }
-    #act-import, #act-hooked, #act-shape, #act-breadboard { scroll-margin-top: 96px; }
+    #act-import, #act-hooked, #act-breadboard { scroll-margin-top: 96px; }
 
     /* ── The capability strip. Chips state what runs; the line under them names the files that do
        the running, and links to them. A claim about readable rules is only worth making if the
@@ -128,12 +128,276 @@
     .bx-keep-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
     .bx-report { margin-top: var(--spacing-xl); min-width: 0; }
 
-    /* ── The three acts this slice does not build. Bare mounts, and one sentence of truth above
-       them, so a deep link lands on an honest half-built page instead of a broken-looking one. ── */
+    /* ── One sentence of truth about what is still missing, so a deep link lands on an honest
+       half-built page instead of a broken-looking one. ── */
     .bx-todo-note {
       margin: 0;
       max-width: 68ch;
       color: var(--color-fg-muted);
+    }
+
+    /* ── ACTS 1 and 2 · the questions. One stepped card, one question at a time, with the verdict
+       and the running summary beside it so the reader always sees what their answers add up to.
+       Reuses .bx-split from act 0, so the two acts share one column grammar. ── */
+    .bx-q-card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-bg-surface);
+      padding: var(--spacing-lg);
+    }
+    .bx-q-act {
+      margin: 0;
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+    }
+    .bx-q-progress {
+      margin: var(--spacing-xs) 0 var(--spacing-md);
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.1em;
+      color: var(--color-fg-muted);
+    }
+    .bx-q-prompt { margin: 0 0 var(--spacing-sm); font-size: var(--type-h3); }
+    .bx-q-prompt:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
+    .bx-q-reasoning {
+      margin: 0 0 var(--spacing-lg);
+      max-width: 54ch;
+      color: var(--color-fg-muted);
+      line-height: 1.6;
+    }
+    .bx-q-radios { display: flex; flex-direction: column; gap: var(--spacing-xs); margin-bottom: var(--spacing-lg); }
+    /* 44px minimum row, so the whole label is a comfortable target and not just the 18px dot. */
+    .bx-q-radio {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      min-height: 44px;
+      padding: 0 var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+    }
+    .bx-q-radio:hover { background: var(--color-bg); }
+    .bx-q-radio:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+    .bx-q-radio input { accent-color: var(--color-accent); width: 18px; height: 18px; flex: none; }
+    .bx-q-radio-label { line-height: 1.4; }
+    .bx-q-footer { display: flex; gap: var(--spacing-sm); }
+
+    /* The verdict. Quiet by design: emphasis is size and weight, never colour alone, and the
+       quadrant is the visitor's reading of their own product rather than a score. */
+    .bx-verdict { display: grid; gap: var(--spacing-xs); }
+    .bx-verdict-eyebrow {
+      margin: 0;
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+    .bx-verdict-quadrant {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--type-h2);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .bx-verdict-meaning { margin: 0; color: var(--color-fg); }
+    .bx-verdict-note {
+      margin: var(--spacing-sm) 0 var(--spacing-xl);
+      max-width: 60ch;
+      color: var(--color-fg-muted);
+      font-size: var(--type-caption);
+      line-height: 1.6;
+    }
+    .bx-summary-title {
+      margin: 0 0 var(--spacing-sm);
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+    /* The eight answers as a definition list, because that is what they are: the method's term on
+       the left, the visitor's answer on the right. */
+    .bx-summary {
+      margin: 0;
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: var(--spacing-xs) var(--spacing-md);
+      font-size: var(--type-caption);
+      border-top: 1px solid var(--color-border);
+      padding-top: var(--spacing-sm);
+    }
+    .bx-summary dt { color: var(--color-fg-muted); }
+    .bx-summary dd { margin: 0; }
+
+    /* ── ACT 3 · the breadboard. The signature of this page: places you can rename, affordances you
+       can add and remove, and connection lines that redraw as you edit. Everything else on the page
+       stays quiet so this can be the loud thing. ── */
+    .bx-bb-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+      align-items: center;
+      margin-bottom: var(--spacing-lg);
+    }
+    .bx-bb-count { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
+    .bx-bb-connecting {
+      margin: 0;
+      flex-basis: 100%;
+      color: var(--color-accent);
+      font-size: var(--type-caption);
+    }
+
+    .bx-bb-canvas { position: relative; min-width: 0; }
+    /* Decoration only. Every connected affordance also names its target in text on the chip, so a
+       failed measurement costs the lines and nothing a reader or a screen reader needs. */
+    .bx-bb-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .bx-bb-line { fill: none; stroke: var(--color-border-strong); stroke-width: 1.5; }
+    .bx-bb-dot { fill: var(--color-border-strong); }
+
+    .bx-bb-places { display: grid; gap: var(--spacing-md); min-width: 0; }
+    /* The entry place holds the left column and every other place stacks in the right, so the gutter
+       between them is where the connection lines run. Below 820px they stack in source order, entry
+       first, and the lines run down the page instead of across it. */
+    @media (min-width: 820px) {
+      .bx-bb-places {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: var(--spacing-md) var(--spacing-4xl);
+        align-items: start;
+      }
+      .bx-bb-place.is-entry { grid-column: 1; }
+      .bx-bb-place:not(.is-entry) { grid-column: 2; }
+    }
+
+    .bx-bb-place {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+      min-width: 0;
+    }
+    .bx-bb-place.is-entry { border-color: var(--color-border-strong); }
+    .bx-bb-place-head { display: flex; align-items: center; gap: var(--spacing-sm); }
+    /* The numeral encodes running order, which is true of a breadboard and not decoration. Muted
+       rather than full foreground: it is a structure marker, and the place's name should win the
+       glance. It is also a text token with a checked 4.5 pair, which a border token is not. */
+    .bx-bb-numeral {
+      font-family: var(--font-display);
+      font-size: var(--type-h3);
+      font-weight: 700;
+      color: var(--color-fg-muted);
+      line-height: 1;
+      flex: none;
+    }
+    /* A seamless field: it reads as the place's name until you hover or focus it, and then it reads
+       as the input it always was. One control, no rename mode to discover. */
+    .bx-bb-name {
+      flex: 1 1 auto;
+      min-width: 0;
+      font: inherit;
+      font-weight: 600;
+      color: inherit;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      min-height: 32px;
+    }
+    .bx-bb-name:hover { border-color: var(--color-border); }
+    .bx-bb-name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; border-color: transparent; }
+    .bx-bb-tag {
+      flex: none;
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+    }
+
+    .bx-bb-chips { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); margin: var(--spacing-sm) 0; }
+    .bx-bb-none { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
+    .bx-bb-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-surface);
+      padding: 2px 2px 2px var(--spacing-xs);
+      max-width: 100%;
+    }
+    .bx-bb-chip-name {
+      font: inherit;
+      font-size: var(--type-caption);
+      color: inherit;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: var(--spacing-xs);
+      min-width: 0;
+      min-height: 28px;
+    }
+    .bx-bb-chip-name:hover { border-color: var(--color-border); }
+    .bx-bb-chip-name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+    .bx-bb-connect,
+    .bx-bb-remove,
+    .bx-bb-add-aff {
+      font: inherit;
+      font-size: var(--type-caption);
+      color: var(--color-fg-muted);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      min-height: 28px;
+      padding: 0 var(--spacing-xs);
+    }
+    /* 24px is the floor for any target anywhere, and the × buttons are the smallest thing here. */
+    .bx-bb-remove { min-width: 28px; }
+    .bx-bb-connect:hover,
+    .bx-bb-remove:hover,
+    .bx-bb-add-aff:hover { color: var(--color-fg); border-color: var(--color-border); }
+    .bx-bb-connect:focus-visible,
+    .bx-bb-remove:focus-visible,
+    .bx-bb-add-aff:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+    .bx-bb-connect:disabled,
+    .bx-bb-add-aff:disabled { opacity: 0.5; cursor: not-allowed; }
+    .bx-bb-connect.is-connected { color: var(--color-accent); border-color: var(--color-border); }
+    .bx-bb-place-foot { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; }
+    .bx-bb-add-aff { border-color: var(--color-border); padding: 0 var(--spacing-sm); }
+    .bx-bb-target { min-height: 32px; padding: 0 var(--spacing-md); font-size: var(--type-caption); }
+
+    .bx-bb-empty {
+      border: 1px dashed var(--color-border-strong);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-xl);
+      text-align: center;
+    }
+    .bx-bb-empty-title { margin: 0 0 var(--spacing-xs); font-weight: 600; }
+    .bx-bb-empty-note { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
+
+    /* The live region announces every edit. It sits OUTSIDE the tree the board re-renders, because a
+       live region destroyed and rebuilt by replaceChildren does not reliably announce. */
+    .bx-bb-live {
+      margin: var(--spacing-md) 0 0;
+      min-height: 1.4em;
+      color: var(--color-fg-muted);
+      font-size: var(--type-caption);
+    }
+
+    /* Press feedback on the board's own controls. Transform and opacity only, listed explicitly,
+       and off entirely under reduced motion. No entrance animations anywhere on this page: the
+       board rebuilds on every edit, and an entrance on a rebuilt node restarts and blanks. */
+    @media (prefers-reduced-motion: no-preference) {
+      .bx-bb-connect, .bx-bb-remove, .bx-bb-add-aff { transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease); }
+      .bx-bb-name, .bx-bb-chip-name { transition: border-color var(--motion-fast) var(--motion-ease); }
+      .bx-bb-connect:active, .bx-bb-remove:active, .bx-bb-add-aff:active { transform: scale(0.94); }
     }
   </style>
 </head>
@@ -144,13 +408,14 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">The builder · act 0 of 4</span>
+          <span class="stamp">The builder · the four acts</span>
         </div>
         <h1 class="text-balance">Bring your design system. <span class="hl">Build a pattern with it.</span></h1>
         <p class="hero-sub">
           Drop your design tokens and this page maps them onto the same contract the rest of the
-          site runs on, then puts real components on the stage wearing your values. Later acts ask
-          about your product and assemble a pattern from the answers. Act 0 is built today.
+          site runs on, then puts real components on the stage wearing your values. Answer eight
+          questions about your product and it drafts a breadboard you can edit. The pattern that
+          renders from all of it is being built next.
         </p>
         <p class="bx-caps">
           <span class="capability live">Runs now · in your browser</span>
@@ -160,10 +425,13 @@
         <p class="bx-caps-note">
           The rules are readable, so read them:
           <a href="/system/pack-import.mjs"><code>system/pack-import.mjs</code></a> maps an export
-          onto the token contract and is the same engine the command-line importer runs, and
+          onto the token contract and is the same engine the command-line importer runs,
           <a href="/system/derive.mjs"><code>system/derive.mjs</code></a> derives a full palette from
-          one colour. Your file is read here in your browser. The shipped site is static and has no
-          server, so there is nowhere for it to be uploaded to.
+          one colour, <a href="/system/build-questions.mjs"><code>system/build-questions.mjs</code></a>
+          holds the eight questions and the ethics verdict, and
+          <a href="/system/breadboard.mjs"><code>system/breadboard.mjs</code></a> holds every rule
+          that turns your answers into a breadboard. Your file is read here in your browser. The
+          shipped site is static and has no server, so there is nowhere for it to be uploaded to.
         </p>
       </div>
     </section>
@@ -262,18 +530,86 @@
       </div>
     </section>
 
-    <!-- The three acts this slice does not build. Bare mounts by design: a later slice fills them,
-         and four "coming soon" cards would be worse than one true sentence. -->
-    <section class="band band--interstitial">
+    <!-- ACTS 1 AND 2 · the questions. system/build-questions.mjs mounts on [data-build-questions]
+         and runs both acts as ONE stepped wizard: six Hooked questions, then two Shaping ones.
+         Splitting them across two scroll destinations would add ceremony to a flow whose whole
+         point is that it can be accepted and advanced in seconds, so there is one section and the
+         act is named on each step. Every question carries a recommended default, so the answers are
+         complete before the first click and the breadboard below already has something to draw.
+         The markup inside the mounts is the no-JS state: copy that says what the feature does,
+         never a control that does nothing. -->
+    <section class="band" id="act-hooked">
       <div class="container">
-        <p class="beat-kicker">What comes next</p>
-        <p class="bx-todo-note">
-          Act 0 is the only act built so far. The product questions, the breadboard you can edit,
-          and the pattern that renders from them are being built next.
+        <div class="beat-head">
+          <span class="beat-numeral">01</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your product</p>
+            <h2 class="beat-title">Eight questions, asked the way the method asks them.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Six from Nir Eyal's Hooked model: the feeling that brings someone back, the smallest thing
+          they do, what they get back, what they put in, and the two ethics questions behind the
+          Manipulation Matrix. Two from Shape Up (Ryan Singer / Basecamp): how much time this is
+          worth, and the rough shape of the solution. Every one arrives already answered with a
+          recommended default and the reasoning behind it, so you can accept and move.
         </p>
-        <div id="act-hooked"></div>
-        <div id="act-shape"></div>
-        <div id="act-breadboard"></div>
+
+        <div class="bx-split" data-build-questions>
+          <div class="bx-source">
+            <div data-build-wizard>
+              <p class="muted">
+                The eight questions run in your browser. With JavaScript blocked they do not run,
+                and this page will not pretend otherwise.
+              </p>
+            </div>
+          </div>
+          <div class="bx-stage-col">
+            <div data-build-verdict></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 3 · the breadboard. system/breadboard.mjs mounts on [data-breadboard]. The definitions
+         in the lead are Shape Up's own, quoted, because a wrong definition here would be an honesty
+         bug on a page whose subject is working from the method faithfully. -->
+    <section class="band band--interstitial" id="act-breadboard">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">02</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your breadboard</p>
+            <h2 class="beat-title">Places, affordances, and the lines between them.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Shape Up's breadboard is the lowest-fidelity design tool there is: places are the things
+          you can navigate to, affordances are the things the user can act on, and connection lines
+          show how the affordances take the user from place to place. No layout, no pixels. This one
+          is drafted from your eight answers, and then it is yours to change: rename anything, add
+          and remove places and affordances, and re-point any connection.
+        </p>
+
+        <div data-breadboard>
+          <div data-bb-toolbar></div>
+          <div class="bx-bb-canvas" data-bb-canvas>
+            <svg class="bx-bb-lines" data-bb-lines aria-hidden="true"></svg>
+            <div class="bx-bb-places" data-bb-places>
+              <p class="muted">
+                The breadboard is drafted in your browser from your answers. With JavaScript blocked
+                there is nothing to draft it from and nothing to edit.
+              </p>
+            </div>
+          </div>
+          <p class="bx-bb-live" data-bb-live role="status" aria-live="polite"></p>
+        </div>
+
+        <p class="bx-todo-note mt-xl">
+          What is still missing: the pattern that renders from this board using the site's own
+          components, the downloads, and a share link that rebuilds the whole thing in someone
+          else's browser. Those are next.
+        </p>
       </div>
     </section>
 
@@ -285,5 +621,9 @@
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
   <script type="module" src="/system/build-import.mjs"></script>
+  <!-- breadboard.mjs imports the BUILD_CHANGE store from build-questions.mjs and also pulls the
+       current state on its own mount, so it renders correctly whichever of the two boots first. -->
+  <script type="module" src="/system/build-questions.mjs"></script>
+  <script type="module" src="/system/breadboard.mjs"></script>
 </body>
 </html>
