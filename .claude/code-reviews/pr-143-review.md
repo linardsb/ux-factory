@@ -170,14 +170,19 @@ honesty contract rather than polish.
 
 I ruled out the two easy explanations: `still()` (`system/motion.mjs:15-17`) returns true under
 `navigator.webdriver`, so the countUp is a no-op in the gate and the final string is captured deterministically; and
-the D11 VR-freeze does not apply to this branch. The likely remaining mechanism is that three changed glyphs
-("49"→"51", "14,200"→"15,200") fall inside `maxDiffPixels: 100` — **that part is inference, not measured.** What is
-certain is the consequence: the gate is not verifying that number, and the committed baselines disagree with the page.
+the D11 VR-freeze does not apply to this branch. The remaining mechanism is that the changed glyphs ("49"→"51",
+"14,200"→"15,200") are full-contrast but tiny in *area*, so they fall inside `maxDiffPixels: 100`. **This is not
+speculation — it is a documented prior occurrence in this repo:** #108 hit the identical case, where `loc-summary`'s
+runtime count flipped 11,600 → 11,800, changed one glyph in an `approach.html` caption, and `update:docker` rewrote
+nothing because the capture never failed. The consequence is that this gate cannot detect a change of this size at
+all, so the loc numbers are **not** gate-protected and the cascade rule is not self-enforcing.
 
 The drift **starts at #142**, not here; #143 adds 100 lines to an already-stale baseline. The fix is one regen
-covering both (`cd tooling/visual-regression && npm run update:docker`). Worth noting that the 100-pixel budget is
-documented as "~4 orders of magnitude below any real regression" — if real content drift is now consuming it, that
-claim is weaker for this region than the comment says.
+covering both — and per #108's lesson it must be `rm tooling/visual-regression/baselines/approach-{neutral,saulera}.png`
+*before* `npm run update:docker`, because `update:docker` updates on failure rather than on difference and will
+otherwise rewrite nothing. Worth noting that the 100-pixel budget is documented as "~4 orders of magnitude below any
+real regression" — if real content drift is now consuming it, that claim is weaker for this region than the comment
+says.
 
 ### 5 · A malformed `data-act` is a silent no-op that also withholds the VR ready handle
 
