@@ -168,6 +168,21 @@ function leafEntry(name, value, declaredType) {
 
 export function entriesFromExport(json) {
   if (json?.meta?.variables) return entriesFromVariables(json); // a raw REST variables dump
+  if (Array.isArray(json?.collections)) {
+    // A plugin variables dump (variables2json et al.): collections → modes → variables, all in
+    // arrays the generic walker below deliberately skips. The first mode is the collection's
+    // default set — a pack holds one value per token, so other modes (dark, compact) cannot come
+    // across. Alias entries point at another variable instead of holding a literal; the ramp they
+    // point into is already in the list, so they are skipped.
+    const fromCollections = [];
+    for (const col of json.collections) {
+      for (const v of col?.modes?.[0]?.variables ?? []) {
+        if (!v?.name || v.isAlias || v.value == null || typeof v.value === "object") continue;
+        fromCollections.push(leafEntry(String(v.name), v.value, v.type ?? null));
+      }
+    }
+    if (fromCollections.length) return fromCollections;
+  }
   const out = [];
   (function walk(node, path) {
     if (node === null || typeof node !== "object") {
