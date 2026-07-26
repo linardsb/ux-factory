@@ -460,7 +460,9 @@ from the repo root.
   # 12 type sizes ≥ 8 slots → type imports; 5 spacing values < 8 slots → spacing auto-fills
   grep -E "type-display|type-eyebrow|spacing-md" "$SCRATCH/fixt2.css"
   ```
-  `type-display` **must** carry the LARGEST imported size and `type-eyebrow` the 8th-largest;
+  `type-display` **must** carry the LARGEST imported size; `type-eyebrow` carried the 8th-largest
+  until the 2026-07-26 amendment (see AMENDMENTS) — under the even-spread rule an over-offered
+  type family gives it the SMALLEST imported size (scales-partial: `10px`);
   `spacing-md` must still be the contract default `16px`.
 - **SATISFIES**: AC #1, #2, #3
 

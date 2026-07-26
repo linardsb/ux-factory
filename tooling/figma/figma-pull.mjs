@@ -146,11 +146,18 @@ const FAMILY_KEYWORDS = [
 ];
 // Type-adjacent names that are NOT sizes: a font weight (700) or a tracking value that reaches
 // the type pool ranks as a jumbo pixel size (#127 — a real dump filled type-display from
-// font-weight/bold). Excluded by NAME, the way line-height already stays out by never matching
-// a family keyword; the excluded names are reported as unclassified, not dropped silently.
-const NOT_A_SIZE = /(^|[/\s_-])(weights?|letter-?spacings?|trackings?)([/\s_-]|$)/i;
+// font-weight/bold). Excluded by NAME SEGMENT so every naming convention is caught (font-weight,
+// fontWeight, font.weight); "letter-spacing" collapses to one segment first, or its "spacing"
+// half would land the name in the spacing family. Excluded names are reported as unclassified.
+function isNotASize(name) {
+  const s = String(name)
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase()
+    .replace(/letter[\s_.-]?spacings?/g, "letterspacing");
+  return s.split(/[/\s_.-]+/).some((seg) => /^(weights?|letterspacings?|trackings?)$/.test(seg));
+}
 export function classifyDimension(name) {
-  if (NOT_A_SIZE.test(String(name))) return null;
+  if (isNotASize(name)) return null;
   for (const { family, re } of FAMILY_KEYWORDS) if (re.test(String(name))) return family;
   return null;
 }
