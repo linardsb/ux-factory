@@ -158,6 +158,18 @@ function collectStyleFills(node, out) {
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const expandHex = (v) => (v.length === 4 ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}` : v).toLowerCase();
 
+// variables2json writes an effect variable as { effects: [{ type, color: {r,g,b,a} 0–1 floats,
+// offset: {x,y}, radius, spread }] }. The first drop-shadow layer becomes the composite shape
+// collectScales already consumes; a variable with no drop shadow (inner shadows, blurs) returns
+// null and falls back to a name-parity entry.
+function pluginShadow(value) {
+  const fx = Array.isArray(value?.effects) ? value.effects.find((e) => e?.type === "DROP_SHADOW") : null;
+  if (!fx?.color) return null;
+  const c = fx.color;
+  const rgba = `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${+(c.a ?? 1).toFixed(3)})`;
+  return { color: rgba, offsetX: fx.offset?.x ?? 0, offsetY: fx.offset?.y ?? 0, blur: fx.radius ?? 0, spread: fx.spread ?? 0 };
+}
+
 function leafEntry(name, value, declaredType) {
   if (typeof value === "string" && HEX.test(value.trim())) return { name, type: "color", value: expandHex(value.trim()) };
   if (typeof value === "number") return { name, type: "dimension", value };
@@ -170,14 +182,27 @@ export function entriesFromExport(json) {
   if (json?.meta?.variables) return entriesFromVariables(json); // a raw REST variables dump
   if (Array.isArray(json?.collections)) {
     // A plugin variables dump (variables2json et al.): collections → modes → variables, all in
-    // arrays the generic walker below deliberately skips. The first mode is the collection's
-    // default set — a pack holds one value per token, so other modes (dark, compact) cannot come
-    // across. Alias entries point at another variable instead of holding a literal; the ramp they
-    // point into is already in the list, so they are skipped.
+    // arrays the generic walker below deliberately skips. A pack holds one value per token, so one
+    // mode per collection comes across; the envelope declares no default, so index 0 is a CHOICE —
+    // a multi-mode collection names the mode it was read from rather than pretending there was
+    // only one. Alias entries point at another variable instead of holding a literal; the ramp
+    // they point into is already in the list, so they are skipped.
     const fromCollections = [];
     for (const col of json.collections) {
-      for (const v of col?.modes?.[0]?.variables ?? []) {
-        if (!v?.name || v.isAlias || v.value == null || typeof v.value === "object") continue;
+      const mode = col?.modes?.[0];
+      if (!mode) continue;
+      if (col.modes.length > 1) console.log(`  export: "${col.name}" — reading mode "${mode.name}" of ${col.modes.map((m) => m.name).join(" / ")}`);
+      for (const v of mode.variables ?? []) {
+        if (!v?.name || v.isAlias || v.value == null) continue;
+        if (typeof v.value === "object") {
+          // An effect variable's drop shadow converts to the DTCG composite shape collectScales
+          // already reads (first layer only, the documented truncation). Any other composite —
+          // grids, typography objects — keeps NAME parity like an unvalued REST style, so the
+          // count and --map still see it and nothing is silently unnameable.
+          const shadow = pluginShadow(v.value);
+          fromCollections.push(shadow ? { name: String(v.name), type: "shadow", value: shadow } : leafEntry(String(v.name), null, v.type ?? null));
+          continue;
+        }
         fromCollections.push(leafEntry(String(v.name), v.value, v.type ?? null));
       }
     }
