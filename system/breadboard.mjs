@@ -21,7 +21,7 @@
 // as well, because two places to write the same fact is two places for them to disagree.
 //
 // The draft rules below are committed and commented, the way system/derive.rules.mjs is: a reader
-// can open this file and see every rule that turned their eight answers into a board. Nothing here
+// can open this file and see every rule that turned their ten answers into a board. Nothing here
 // calls a model, at view time or any other time.
 //
 // Node-import-safe: draftBoard is pure and exported for that reason (slice 1c's pattern rules read
@@ -225,9 +225,11 @@ function mount(root) {
     place.label = label;
     // No full re-render: that would replace the input the caret is sitting in. The label is already
     // on screen (the visitor typed it), so the rest of the job is the toolbar (a rename is the edit
-    // that puts the Re-draft button on screen), the lines, and the publish.
+    // that puts the Re-draft button on screen), every other label this name was painted into, the
+    // lines, and the publish.
     edited = true;
     renderToolbar();
+    refreshLabels();
     publish();
     drawLines();
     announce(`Place renamed to "${label}".`);
@@ -264,6 +266,7 @@ function mount(root) {
       aff.label = label;
       edited = true;
       renderToolbar();
+      refreshLabels();
       publish();
       drawLines();
       announce(`Affordance renamed to "${label}".`);
@@ -457,6 +460,38 @@ function mount(root) {
     section.append(foot);
 
     return section;
+  }
+
+  // The other half of the rename verbs' refusal to re-render. Skipping render() protects the caret,
+  // but it also leaves the old label standing everywhere else it was already painted: the chip that
+  // connects to a renamed place still reads "→ Progress", and three accessible names still say
+  // "Progress" — the place's own section, its remove button, and the connecting chip's. Plan
+  // decision 8 stakes the lines' aria-hidden on the chip's text being the truth, so a screen-reader
+  // user is the one this costs most. Repaints only label-derived attributes and button text; never
+  // an input's value, so the caret stays where the visitor is typing.
+  function refreshLabels() {
+    board.places.forEach((place, index) => {
+      const section = placesEl.querySelector(`[data-place="${place.id}"]`);
+      if (!section) return;
+      section.setAttribute("aria-label", `Place ${index + 1}: ${place.label}`);
+      section.querySelector(".bx-bb-place-head .bx-bb-remove")
+        ?.setAttribute("aria-label", `Remove the place "${place.label}"`);
+      section.querySelector("[data-bb-target]")?.setAttribute("aria-label", `Connect to ${place.label}`);
+
+      for (const aff of place.affordances) {
+        const chip = section.querySelector(`[data-aff="${aff.id}"]`);
+        if (!chip) continue;
+        chip.querySelector(".bx-bb-chip-name")?.setAttribute("aria-label", `Affordance in ${place.label}`);
+        chip.querySelector(".bx-bb-remove")?.setAttribute("aria-label", `Remove the affordance "${aff.label}"`);
+        const connect = chip.querySelector(".bx-bb-connect");
+        if (!connect) continue;
+        const target = placeById(targetOf(aff.id));
+        connect.textContent = target ? `→ ${target.label}` : "Connect";
+        connect.setAttribute("aria-label", target
+          ? `Connected to ${target.label}. Change or clear this connection.`
+          : `Connect "${aff.label}" to a place`);
+      }
+    });
   }
 
   function render() {

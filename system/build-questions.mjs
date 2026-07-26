@@ -40,6 +40,15 @@ import { RULESET } from "./derive.rules.mjs";
 //     board: { places: [{ id, label, affordances: [{ id, label }] }], connections: [[affId, placeId]] },
 //     boardIsEdited: boolean }
 //
+// Every field is populated from the moment this module loads — the store is seeded with the default
+// answers below rather than starting at null — so a consumer never reads a drafted board beside a
+// null quadrant, whichever mounts are on the page.
+//
+// TWO write paths, and they are not interchangeable: `setAnswers` owns `answers`, `publishBuild`
+// owns everything else and REFUSES an answers patch. Answers have a module-scope object behind them
+// that both wizards and the verdict panel render from, so a patch that set `state.answers` without
+// going through it would show on the breadboard and nowhere else. That is the seam the share codec
+// arrives at, which is why it is closed now rather than after there is something to migrate.
 // Act 0's imported token values are NOT in here yet. system/build-import.mjs holds its record in
 // module state and publishes nothing; the first consumer that actually needs those values is the
 // share codec, so that slice wires the seam rather than this one guessing at its shape.
@@ -78,13 +87,23 @@ export function readBuild() {
   return structuredClone(state);
 }
 
-export function publishBuild(patch) {
+function publishState(patch) {
   Object.assign(state, patch);
   if (state.answers) {
     state.quadrant = quadrantFor(state.answers);
     state.frequencyVerdict = frequencyVerdictFor(state.answers);
   }
   document.dispatchEvent(new CustomEvent(BUILD_CHANGE, { detail: readBuild() }));
+}
+
+// The public publish, for everything that is not an answer (today: the board and its edited flag).
+// The refusal is the point: assigning answers here would move the store without moving the object
+// the wizards and the verdict panel actually render from, and the page would disagree with itself.
+export function publishBuild(patch) {
+  if (patch && "answers" in patch) {
+    throw new Error("build-questions: answers are written through setAnswers(), never publishBuild()");
+  }
+  publishState(patch);
 }
 
 // --- the questions -----------------------------------------------------------------------------
@@ -319,9 +338,19 @@ function el(tag, attrs, ...children) {
 // everyone else (the other wizard's verdict panel, the breadboard) that it moved.
 const answers = { ...DEFAULT_ANSWERS };
 
-function setAnswer(id, value) {
-  answers[id] = value;
-  publishBuild({ source: "questions", answers: { ...answers } });
+// The one write path for answers, and the one every consumer of BUILD_CHANGE can trust: it moves the
+// module-scope object FIRST, then publishes the whole set. A share-link restore in a later slice is
+// one call to this, not a new mechanism. Not a dispatch, so this module stays Node-import-safe: the
+// store is seeded here at load and the first event is the one a mount or a restore causes.
+Object.assign(state, {
+  answers: { ...answers },
+  quadrant: quadrantFor(answers),
+  frequencyVerdict: frequencyVerdictFor(answers),
+});
+
+export function setAnswers(patch) {
+  Object.assign(answers, patch);
+  publishState({ source: "questions", answers: { ...answers } });
 }
 
 // --- one act's stepped wizard --------------------------------------------------------------
@@ -333,7 +362,12 @@ function mountWizard(root) {
   const actKey = root.dataset.act;
   const act = ACTS[actKey];
   const questions = QUESTIONS.filter((q) => q.act === actKey);
-  if (!wizardEl || !act || !questions.length) return;
+  // The mirror of the load-time assert above: a QUESTION naming a missing act throws, so a SECTION
+  // naming a missing act throws too. The markup is committed, so a bad data-act is an authoring bug,
+  // and failing silently would leave the no-JS fallback copy on screen while JS is running fine —
+  // and would withhold the "ready" handle the visual-regression run waits on, hanging it to timeout.
+  if (!act) throw new Error(`build-questions: a mount names an act "${actKey}" that does not exist`);
+  if (!wizardEl || !questions.length) return;
 
   // Ids have to be unique per mount, because two wizards are on the page at once and each
   // radiogroup points at its OWN prompt.
@@ -359,7 +393,7 @@ function mountWizard(root) {
       const row = el("label", { class: "bx-q-radio" });
       const input = el("input", { type: "radio", name: `bx-q-${q.id}`, value: opt.value });
       input.checked = answers[q.id] === opt.value;
-      input.addEventListener("change", () => setAnswer(q.id, opt.value));
+      input.addEventListener("change", () => setAnswers({ [q.id]: opt.value }));
       row.append(input, el("span", { class: "bx-q-radio-label", text: opt.label }));
       group.append(row);
     }
@@ -389,6 +423,20 @@ function mountWizard(root) {
   }
 
   renderStep();
+
+  // Answers can move without this wizard's radios moving — a share-link restore in a later slice is
+  // the case this exists for. The comparison is what keeps it safe: a radio the visitor just clicked
+  // already agrees with the store, so their own change returns here and stops, and never destroys
+  // the input the browser is still dispatching the change event for. Registered once on `document`,
+  // outside renderStep, so replaceChildren cannot leak it.
+  document.addEventListener(BUILD_CHANGE, (e) => {
+    const next = e.detail && e.detail.answers;
+    if (!next) return;
+    const shown = wizardEl.querySelector(`input[name="bx-q-${questions[step].id}"]:checked`);
+    if (shown && shown.value === next[questions[step].id]) return;
+    renderStep(false); // never focus: this change did not come from an interaction with this wizard
+  });
+
   // The settled-state handle the visual-regression gate waits on in Phase 1.5 (memory: a mount with
   // no handle either deadlocks the wait or baselines an empty surface).
   root.dataset.buildQuestions = "ready";
@@ -400,9 +448,12 @@ function mountWizard(root) {
 // BUILD_CHANGE rather than being called directly, because the answers it reads are changed by TWO
 // wizards in two different sections.
 function mountVerdict(verdictEl) {
-  function render() {
-    const quadrant = quadrantFor(answers);
-    const frequency = frequencyVerdictFor(answers);
+  // Renders the answer set it is HANDED, not a module global it happens to share with the wizards.
+  // The two are the same object's contents today; they would not be if a later slice published a
+  // restored set, and a panel that reads around the payload is how that gets found on stage.
+  function render(current) {
+    const quadrant = quadrantFor(current);
+    const frequency = frequencyVerdictFor(current);
     const panel = el("div", { class: "bx-verdict" });
 
     panel.append(
@@ -427,10 +478,10 @@ function mountVerdict(verdictEl) {
 
     const dl = el("dl", { class: "bx-summary" });
     for (const q of QUESTIONS) {
-      const opt = q.options.find((o) => o.value === answers[q.id]);
+      const opt = q.options.find((o) => o.value === current[q.id]);
       dl.append(
         el("dt", { text: SUMMARY_TERM[q.id] }),
-        el("dd", { text: opt ? opt.short : answers[q.id] }),
+        el("dd", { text: opt ? opt.short : current[q.id] }),
       );
     }
     panel.append(el("h3", { class: "bx-summary-title", text: "Your product so far" }), dl);
@@ -439,9 +490,9 @@ function mountVerdict(verdictEl) {
   }
 
   document.addEventListener(BUILD_CHANGE, (e) => {
-    if (e.detail && e.detail.source === "questions") render();
+    if (e.detail && e.detail.source === "questions") render(e.detail.answers);
   });
-  render();
+  render(readBuild().answers);
   verdictEl.dataset.buildVerdict = "ready";
 }
 
@@ -451,8 +502,8 @@ if (typeof document !== "undefined") {
   for (const root of roots) mountWizard(root);
   const verdictEl = document.querySelector("[data-build-verdict]");
   if (verdictEl) mountVerdict(verdictEl);
-  // Publish the seeded defaults once both acts are mounted, so a consumer that boots after this
-  // module still starts from a complete answer set. system/breadboard.mjs also pulls readBuild() on
-  // its own mount, so the two modules work in either script order.
-  if (roots.length) publishBuild({ source: "questions", answers: { ...answers } });
+  // No boot publish: the store carries the seeded defaults from module load, and every consumer
+  // either pulls readBuild() on its own mount (system/breadboard.mjs does) or is mounted here. The
+  // publish this replaces re-rendered the verdict panel a second time before a visitor touched
+  // anything, and made the breadboard draft its board twice.
 }
