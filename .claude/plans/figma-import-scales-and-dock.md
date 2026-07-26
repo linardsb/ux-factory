@@ -896,3 +896,7 @@ precedent than a five-minute retroactive ticket.
   == slots keeps the exact fill. The header/report name the spread rule wherever it applied.
   Companion fix, same issue: `classifyDimension` excludes weight/letter-spacing/tracking names
   from the type family — a font-weight of 700 is not a 700px size.
+- **2026-07-26 (#129):** the radius family excludes pill sentinels (values ≥ 999px, e.g.
+  Tailwind's `rounded-full` 9999px) — a shape utility, not a surface radius; under the spread
+  rule it would have landed on `radius-lg` and pilled every panel. Excluded values are named in
+  the header's unclassified list, same treatment as the weight exclusion.

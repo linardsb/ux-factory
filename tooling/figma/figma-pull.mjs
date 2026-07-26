@@ -228,6 +228,10 @@ export function collectScales(entries) {
     const family = classifyDimension(e.name);
     // A number named like a shadow is not a shadow (a shadow needs a colour): say so, don't guess.
     if (family === null || family === "shadow") { unclassified.push(e.name); continue; }
+    // A "rounded-full" pill sentinel (9999px) is a shape utility, not a surface radius — mapping
+    // it onto the contract's largest card radius would pill every panel (#129, same defect class
+    // as weights-in-the-type-pool). Excluded and named, never silently dropped.
+    if (family === "radius" && e.value >= 999) { unclassified.push(`${e.name} (pill sentinel, not a surface radius)`); continue; }
     dims.push({ name: e.name, num: e.value, family });
   }
   return { dims, shadows, unclassified };
