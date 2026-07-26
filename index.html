@@ -173,6 +173,24 @@
             <button type="button" class="btn btn-ghost" data-brand-reset>Reset to neutral</button>
           </div>
           <p class="brand-label" data-brand-label data-state="empty">Pick a colour. The demo derives a full palette and checks every contrast pair. Nothing you enter leaves your browser.</p>
+
+          <!-- #130 · public drop-to-re-skin. system/brand-import.mjs reads a dropped JSON token
+               export in the browser, runs the REAL mapping engine (system/pack-import.mjs — the
+               same one the CLI and the portal run), and renders the mapping report + WCAG
+               receipts below. The file is never uploaded: the shipped site has no server. This
+               block is the no-JS / fail-closed state — with JS off it is inert copy naming what
+               the feature does, never a control that does nothing. -->
+          <div class="brand-import" data-import>
+            <p class="brand-import-or">or</p>
+            <label class="brand-drop" data-import-drop>
+              <input type="file" accept="application/json,.json" class="brand-drop-input" data-import-file />
+              <span class="brand-drop-title">Drop your design tokens</span>
+              <span class="brand-drop-formats">A DTCG or Tokens Studio export, a Figma variables dump, or any nested JSON of names and values.</span>
+              <span class="brand-drop-privacy">Read here in your browser. Never uploaded.</span>
+            </label>
+            <p class="brand-import-status" data-import-status role="status" data-state="idle"></p>
+            <div class="brand-import-report" data-import-report hidden></div>
+          </div>
         </div>
       </div>
     </section>
@@ -375,6 +393,7 @@
   <script type="module" src="/system/spine.mjs"></script>
   <script type="module" src="/system/intake-beat.mjs"></script>
   <script type="module" src="/system/pack-derived.mjs"></script>
+  <script type="module" src="/system/brand-import.mjs"></script>
   <script type="module" src="/system/peak.mjs"></script>
   <!-- Beat 4. Last is fine (it imports spine.mjs), but do NOT move any module above dock.mjs:
        dock imports pack-derived, and that import is what makes the shared-link hydration run

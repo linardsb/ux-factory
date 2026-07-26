@@ -92,6 +92,24 @@ and `COMMITTED` in `pack-derived.mjs` — all three, or the pack is selectable b
 `--out <path.css>` writes somewhere other than `system/`, which is how the committed fixtures under
 `tooling/figma/fixtures/` are exercised without adding a pack to the shipped system.
 
+### A3 · The reader's own path (not an operator path)
+
+Since #130 a reader can do this for themselves, on the public site: home's beat 02 has a drop zone
+that takes a JSON token export, and the whole site re-skins to it for the visit. It is worth knowing
+about because it runs the **same engine** — `system/pack-import.mjs`, extracted from this CLI so the
+two cannot disagree — and hands back a `tokens.<slug>.css` whose `:root` block is byte-identical to
+what the command above writes for the same file. Only the header's `Regenerate:` line differs,
+because a browser drop and a CLI run are different true statements about the same mapping.
+
+What it is not: it writes nothing (the pack arrives as a download, and the site has no server to
+upload to), it is session-scoped rather than committed, and it is **not** how a pack gets into the
+repo — that stays the portal drawer or the CLI above. There is no URL or Figma-API field there and
+there will not be one: Variables REST is Enterprise-only and `FIGMA_TOKEN` is server-side, so a URL
+box would be an affordance that fails on most real designs.
+
+Same limits as every other path: colour, spacing, radius, the type ramp and shadows; components and
+fonts never import.
+
 ---
 
 ## B · Parity round-trip (once)

@@ -1340,6 +1340,167 @@ dfn.term {
 .brand-label[data-state="applied"],
 .brand-label[data-state="error"] { color: var(--color-fg); }
 
+/* ---- the public drop-to-re-skin surface (#130) ---------------------------------------
+   A reader drops their own design system's token export and the site wears it. At rest this
+   is the drop zone and nothing else — no report, no tables — so the page is static when the
+   visual-regression gate captures it and rest == final. Token-only, like everything here. */
+.brand-import { display: grid; gap: var(--spacing-sm); min-width: 0; }
+.brand-import-or {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  text-transform: lowercase;
+}
+.brand-drop {
+  position: relative;   /* contains the visually-hidden file input */
+  display: grid;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-lg);
+  min-width: 0;
+  text-align: center;
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease),
+              background var(--motion-fast) var(--motion-ease);
+}
+.brand-drop:hover, .brand-drop.is-over { border-color: var(--color-accent); background: var(--color-accent-wash); }
+/* The real <input type="file"> stays in the layer and keeps its focus ring via :focus-within,
+   so the zone is fully keyboard-operable — never a click-only affordance. */
+.brand-drop-input {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.brand-drop:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.brand-drop-title {
+  font-family: var(--font-display);
+  font-size: var(--type-body);
+  color: var(--color-fg);
+}
+.brand-drop-formats, .brand-drop-privacy {
+  font-size: var(--type-caption);
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+
+.brand-import-status {
+  margin: 0;
+  font-size: var(--type-caption);
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+.brand-import-status:empty { display: none; }
+.brand-import-status[data-state="error"],
+.brand-import-status[data-state="worn"],
+.brand-import-status[data-state="done"] { color: var(--color-fg); }
+
+.brand-import-report { display: grid; gap: var(--spacing-md); min-width: 0; }
+.brand-import-honesty {
+  margin: 0;
+  padding: var(--spacing-md);
+  font-size: var(--type-caption);
+  line-height: 1.6;
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border-left: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+.brand-import-summary {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--type-body);
+  color: var(--color-fg);
+}
+.brand-import-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.brand-import-h3 {
+  margin: var(--spacing-md) 0 var(--spacing-xs);
+  font-family: var(--font-display);
+  font-size: var(--type-caption);
+  letter-spacing: 0.04em;
+  color: var(--color-fg);
+}
+.brand-import-limits ul { margin: 0; padding-left: var(--spacing-md); display: grid; gap: var(--spacing-xs); }
+.brand-import-limits li, .brand-import-note {
+  font-size: var(--type-caption);
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+.brand-import-note { margin: 0; }
+
+.brand-import-details { min-width: 0; }
+.brand-import-details > summary {
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+  cursor: pointer;
+  padding: var(--spacing-xs) 0;
+}
+/* A wide table must scroll inside its own box — the page body never scrolls sideways.
+   min-width:0 on the item is what actually lets it shrink inside the grid (PR #54). */
+.brand-import-scroll { overflow-x: auto; min-width: 0; max-width: 100%; }
+.brand-import-table {
+  border-collapse: collapse;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.brand-import-table th, .brand-import-table td {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.brand-import-table th { color: var(--color-fg); font-weight: 600; }
+.brand-import-table tr[data-pass="false"] td { color: var(--color-fg); }
+.brand-import-chip {
+  display: inline-block;
+  inline-size: 12px; block-size: 12px;
+  margin-right: var(--spacing-xs);
+  vertical-align: middle;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.brand-import-pre {
+  margin: 0;
+  padding: var(--spacing-sm);
+  overflow-x: auto;
+  min-width: 0;
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-fg-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+/* the candidate swatches — the refusal rendered as a question the reader can answer */
+.brand-import-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+.brand-import-swatch {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--spacing-sm);
+  text-align: left;
+  font: inherit;
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.brand-import-swatch:hover { border-color: var(--color-accent); }
+.brand-import-swatch-hue { font-size: var(--type-caption); }
+
 /* Beat 03 — the peak (the one dark band, the signature). A STILL of the composed
    product screen + illustrative WCAG receipts + the ethics gate as a guess-then-reveal.
    Framed as "this is what it builds", never as a live run: #75 makes it assemble under

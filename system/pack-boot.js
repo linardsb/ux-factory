@@ -12,7 +12,50 @@
 // When the selector is "derived", re-apply that set to :root pre-paint under a hard allowlist
 // (key + hex value) so storage content never reaches the DOM uninspected. Absent / neutral /
 // unknown still returns before touching anything — the no-op default is preserved (VR-critical).
+//
+// A reader's IMPORTED pack (#130) is a THIRD path, and it is checked FIRST, off a DIFFERENT
+// store. It lives in sessionStorage because it is scoped to the visit (per tab, gone on tab
+// close), and it must be read before the localStorage line below — which returns on a throw, so
+// in private mode an imported pack would never be reached if it came second. When one is present
+// this returns immediately: an imported pack SHADOWS the committed/derived pick rather than
+// blending with it, which is also why nothing here writes to the `factory-pack` selector. A new
+// tab has no session record and falls straight through to the paths below, so the guaranteed
+// no-op default survives (VR-critical).
+//
+// LOAD-BEARING, and measured rather than reasoned (2026-07-26): this script's <script> tag is the
+// LAST element in <head> on all seven pages that load it. The <style> appended below and a
+// tokens.<pack>.css <link> are equal-specificity :root rules, so the later one in document order
+// wins — and being parser-blocking, at the moment this runs only the elements ABOVE its own tag
+// exist. A page that ever adds a stylesheet BELOW this tag would half-apply an imported pack on
+// that page alone. Adding a stylesheet? Put it above this line. (The module path,
+// pack-imported.mjs's applyImported, re-appends at call time and does not depend on this.)
 (function () {
+  var raw;
+  try { raw = sessionStorage.getItem("factory-pack-imported"); } catch (e) { raw = null; }
+  if (raw) {
+    var irec = null;
+    try { irec = JSON.parse(raw); } catch (e) { irec = null; }
+    if (irec && irec.v === 1 && irec.source === "imported" && irec.tokens) {
+      // Validated PER ENTRY, mirroring pack-imported.mjs's vetTokens in shape — a stored entry
+      // that would not pass there is dropped here rather than reaching the DOM.
+      var NAME = /^--(color|spacing|radius|type|shadow)-[a-z0-9-]{1,32}$/;
+      var VAL = /^[a-zA-Z0-9 #%(),.\/+-]{1,160}$/;
+      var out = [], ks = Object.keys(irec.tokens);
+      for (var i = 0; i < ks.length; i++) {
+        var k = ks[i], v = irec.tokens[k];
+        if (NAME.test(k) && typeof v === "string" && VAL.test(v)) out.push("  " + k + ": " + v + ";");
+      }
+      if (out.length) {
+        var st = document.createElement("style");
+        st.id = "factory-pack-imported-style";
+        st.setAttribute("data-ts", String(irec.ts));
+        st.textContent = ":root {\n" + out.join("\n") + "\n}\n";
+        document.head.appendChild(st);
+        return; // an imported pack shadows the committed/derived pick; it is never blended with it
+      }
+    }
+  }
+
   var pack;
   try { pack = localStorage.getItem("factory-pack"); } catch (e) { return; }
   // Committed pack (saulera/verdant/plusui): re-point the ONE stylesheet line. UNCHANGED path.

@@ -19,6 +19,10 @@
 import { derive } from "./derive.mjs";
 import { decodeShareState } from "./share-state.mjs";
 import { trackFactoryArrived } from "./analytics.mjs";
+// #130: an IMPORTED pack shadows the derived one. Imported STRICTLY ONE WAY — pack-imported.mjs
+// imports nothing back, so dock.mjs → pack-derived.mjs → pack-imported.mjs stays acyclic and the
+// self-boot at the bottom of this file cannot be caught mid-graph.
+import { IMPORT_CHANGE_EVENT, importedOnPage, readImported } from "./pack-imported.mjs";
 
 // ---------------------------------------------------------------- contract (shared with #76)
 // factory-pack        — the SELECTOR, shared with dock.mjs / pack-boot.js. A new "derived"
@@ -315,6 +319,17 @@ function wireBeatBrand(sharedRec = null) {
   // selector alone: the selector can say "derived" while the dock's clearRoot has already stripped
   // the props, and the label must follow the pixels.
   function syncFromRoot({ apply = false } = {}) {
+    // An imported pack (#130) is what the page is WEARING, so the beat must not claim the
+    // visitor's colour is on the stage — same invariant as #103, honoured the same way: read
+    // ground truth, take the empty branch, add no flag. The record is untouched, so picking
+    // "your brand" in the dock brings the colour straight back.
+    const importedRec = readImported();
+    if (importedRec && importedOnPage(importedRec)) {
+      current = null;
+      if (wearToggle) wearToggle.checked = false;
+      setLabel(label, "empty", emptyLabel());
+      return;
+    }
     const stored = readRecord();
     // On the load call a shared record stands in for storage: hydration applied it to :root a moment
     // ago, so it IS what the page wears even where localStorage refused the write (#77). Without
@@ -362,6 +377,9 @@ function wireBeatBrand(sharedRec = null) {
   // The dock changed the pack (or cleared our colours) — re-read ground truth. REFLECT ONLY: this
   // never requests a pack back, so the two listeners cannot ping-pong.
   window.addEventListener(PACK_CHANGE_EVENT, () => syncFromRoot());
+  // An import was worn, replaced or cleared in this same tab (#130). Same rule, same reflection:
+  // storage events do not fire in the same tab, so this CustomEvent is the only way to hear it.
+  window.addEventListener(IMPORT_CHANGE_EVENT, () => syncFromRoot());
 
   // The #72 hero re-skins :root then REVERTS (~1.2s in) by removeProperty()-ing the same --color-*
   // keys — so a colour entered during that window gets stripped when the hero finishes. The hero
