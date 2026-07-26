@@ -200,10 +200,13 @@ subtlest→heaviest (blur + spread), the type ramp **largest→smallest** (its f
 size). A family fills only if the design offers at least as many distinct values as the family has
 slots — 7 spacing values for 8 slots imports *nothing* and the family stays on this repo's
 defaults, because a half-imported ramp is neither the design's nor this repo's and no reader could
-tell which slot was which. Extra values are dropped and listed. A dimension whose name matches no
-family keyword (`spacing|space|gap|inset|padding|margin`, `radius|corner|round`,
-`shadow|elevation|depth`, `text|font|type|typography|heading|body`) is reported as unclassified
-rather than guessed into a family. Every one of those facts is written into the pack header.
+tell which slot was which. A family offering **more** distinct values than it has slots fills them
+by an even spread across the sorted range, so the pack covers the design's real range (the header
+names the rule wherever it applied); the values between the picks are dropped and listed. A
+dimension whose name matches no family keyword (`spacing|space|gap|inset|padding|margin`,
+`radius|corner|round`, `shadow|elevation|depth`, `text|font|type|typography|heading|body`) — or
+named as a `weight`, `letter-spacing` or `tracking`, which are never sizes — is reported as
+unclassified rather than guessed into a family. Every one of those facts is written into the pack header.
 
 Two details worth knowing. A type slot keeps the **contract's `clamp()` shape** with the imported
 size as its max, the `vw` term copied verbatim and the min scaled by the same ratio: the responsive

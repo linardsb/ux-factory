@@ -189,9 +189,11 @@ dimension and shadow values, classified into a family by name keyword, and fille
 spacing and radius smallest→largest, shadows subtlest→heaviest, the type ramp
 **largest→smallest**. A family fills only if the design offers at least as many distinct
 values as it has slots; short of that it imports *nothing* and stays on this repo's
-defaults, because a half-imported ramp is neither the design's nor this repo's. Extra
-values are dropped and listed, and a dimension matching no family keyword is reported as
-unclassified rather than guessed. A type slot keeps the contract's `clamp()` shape with the
+defaults, because a half-imported ramp is neither the design's nor this repo's. A family
+offering more values than it has slots fills them by an even spread across the sorted
+range; the values between the picks are dropped and listed. A dimension matching no
+family keyword — or named as a weight, letter-spacing or tracking, which are never
+sizes — is reported as unclassified rather than guessed. A type slot keeps the contract's `clamp()` shape with the
 imported size as its max and the `vw` term verbatim: the responsive behaviour is this
 repo's, the number is the design's. `--map` pins any contract token, not only a colour.
 
