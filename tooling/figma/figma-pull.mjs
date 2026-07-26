@@ -65,7 +65,9 @@ import { ROOT, readFigma, readFlags } from "./figma-read.mjs";
 // negotiation — lives in system/pack-import.mjs (#130), so the CLI, the portal drawer and the
 // public drop zone all map a design through one implementation. This file keeps what that engine
 // must never touch: the disk, the network, --map, and everything it prints.
-// Re-exported below for callers that reach for them through this module's long-standing surface.
+// Re-exported below purely so an ad-hoc import path does not break: these names were exported
+// here for years. Nothing in the repo imports them from this module (grepped at the extraction),
+// so the list is a courtesy, not a contract — new code should import them from the engine.
 export {
   classifyDimension, collectScales, fillScales, toRamps, deriveRamps, classifyRamps,
 } from "../../system/pack-import.mjs";
