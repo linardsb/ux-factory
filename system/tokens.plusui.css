@@ -1,8 +1,10 @@
 /* GENERATED — the "plusui" token pack. Do not edit by hand.
  * Emitted by agent-layer/gen-pack-css.mjs from a DTCG seed / token map, reusing the
  * gen-token-css cssValue emission — so this pack renders identically to contract/neutral.
- * IMPORTED, NOT DESIGNED — every colour below is a real value read from the Figma file "Plus UI -  FREE Figma UI Kit and Design System (2026) v2.0 (Community)" (key 1h9hLlYs6S9CO1xGyBcBVX) by tooling/figma/figma-pull.mjs. It is that file's design work, not this repo's; the pack only maps its gray/indigo ramps onto contract roles.
- * Regenerate: node tooling/figma/figma-pull.mjs --slug plusui --neutral gray --accent indigo
+ * IMPORTED, NOT DESIGNED — every colour below is a real value read from the Figma file "plusui.json" (key tooling/figma/exports/plusui.json) by tooling/figma/figma-pull.mjs. It is that file's design work, not this repo's; the pack only maps its gray/indigo ramps onto contract roles.
+ * Regenerate: node tooling/figma/figma-pull.mjs --slug plusui --neutral gray --accent indigo --from tooling/figma/exports/plusui.json
+ * Scale imported from this file: spacing (8 of 35 value(s), smallest→largest, even spread across the offered range — dropped: 1px, 2px, 4px, 6px, 10px, 12px, 14px, 16px, 24px, 28px, 32px, 36px, 44px, 48px, 56px, 80px, 96px, 112px, 128px, 160px, 176px, 192px, 208px, 240px, 256px, 288px, 320px), radius (3 of 8 value(s), smallest→largest, even spread across the offered range — dropped: 2px, 4px, 6px, 12px, 16px), type ramp (8 of 13 value(s), largest→smallest, even spread across the offered range — dropped: 96px, 48px, 30px, 20px, 14px), shadows (3 of 6 value(s), subtlest→heaviest (blur + spread), even spread across the offered range — dropped: 0px 4px 4px -2px rgba(0, 0, 0, 0.1), 0px 1px 3px rgba(0, 0, 0, 0.1), 0px 20px 25px -5px rgba(0, 0, 0, 0.1)). The fluid clamp() shape and its vw term are this repo's contract; the numbers are the design's. A multi-layer shadow imports its first layer only.
+ * Read but not classified into a family, so not imported: width/border-0, width/border-1, width/border-2, width/border-4, width/border-8, radius/rounded-full (pill sentinel, not a surface radius), sm, md, lg, xl, 2xl, opacity-0, opacity-5, opacity-10, opacity-20, opacity-25, opacity-30, opacity-40, opacity-50, opacity-60, opacity-70, opacity-75, opacity-80, opacity-90, opacity-95, opacity-100, font-weight/regular, font-weight/medium, font-weight/semi-bold, font-weight/bold, line-height/xs, line-height/sm, line-height/md, line-height/lg, line-height/xl, line-height/2xl, line-height/3xl, line-height/4xl, line-height/5xl, line-height/6xl, line-height/7xl, line-height/8xl, line-height/9xl, size-0, size-px, size-0-5, size-1, size-1-5, size-2, size-2-5, size-3, size-3-5, size-4, size-5, size-6, size-7, size-8, size-9, size-10, size-11, size-12, size-14, size-16, size-20, size-24, size-28, size-32, size-36, size-40, size-44, size-48, size-52, size-56, size-60, size-64, size-72, size-80, size-96.
  * WCAG (RULESET.wcagPairs, the same list derive() is held to): 12/12 pairs pass
  * No contrast negotiation was needed — every nominal rung passed as mapped.
  * Loads AFTER system/tokens.contract.css, in place of tokens.neutral.css (one <head> line).
@@ -43,24 +45,24 @@
   --font-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ---- Spacing (generic 4px scale) ---- */
-  --spacing-xs:  4px;
+  --spacing-xs:  0px;
   --spacing-sm:  8px;
-  --spacing-md:  16px;
-  --spacing-lg:  24px;
-  --spacing-xl:  32px;
-  --spacing-2xl: 48px;
-  --spacing-3xl: 64px;
-  --spacing-4xl: 96px;
+  --spacing-md:  20px;
+  --spacing-lg:  40px;
+  --spacing-xl:  64px;
+  --spacing-2xl: 144px;
+  --spacing-3xl: 224px;
+  --spacing-4xl: 384px;
 
   /* ---- Radius (non-zero default: radius is a brand choice, not a base rule) ---- */
-  --radius-sm: 4px;
+  --radius-sm: 0px;
   --radius-md: 8px;
-  --radius-lg: 16px;
+  --radius-lg: 24px;
 
   /* ---- Shadows (neutral, black-tinted) ---- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.10);
+  --shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0px 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0px 25px 50px -12px rgba(0, 0, 0, 0.25);
 
   /* ---- Motion: durations + easings — how the system moves; a pack retunes pace and character like any other token ---- */
   --motion-fast:                160ms;
@@ -84,12 +86,12 @@
   --gutter: 24px;
 
   /* ---- Type ramp (generic modular scale) ---- */
-  --type-display: clamp(40px, 6vw, 76px);
-  --type-h1:      clamp(32px, 4vw, 56px);
-  --type-h2:      clamp(24px, 2.5vw, 34px);
-  --type-h3:      20px;
-  --type-lead:    clamp(18px, 1.5vw, 22px);
-  --type-body:    16px;
-  --type-caption: 13px;
+  --type-display: clamp(67px, 6vw, 128px);
+  --type-h1:      clamp(41px, 4vw, 72px);
+  --type-h2:      clamp(42px, 2.5vw, 60px);
+  --type-h3:      24px;
+  --type-lead:    clamp(29px, 1.5vw, 36px);
+  --type-body:    18px;
+  --type-caption: 16px;
   --type-eyebrow: 12px;
 }
