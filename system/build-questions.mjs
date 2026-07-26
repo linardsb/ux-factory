@@ -2,22 +2,21 @@
 // own product through the two methods this portfolio works by (epic #134, ticket #136;
 // .claude/plans/hooked-shapeup-pattern-builder.md Phase 1.3, .claude/plans/build-questions-breadboard.md).
 //
-// Eight questions, not ten. The ticket's scope line says ten; its own enumeration is six (Hooked)
-// plus two (Shaping), and AC4 caps the flow at ten rather than requiring them. Padding to the cap
-// would add ceremony the method does not ask for.
+// Ten questions across two acts: seven from Hooked, three from Shaping. The flow shipped at eight
+// first (the ticket's enumeration was 6 + 2 while its prose said ten); the owner called it the
+// other way, so Act 1 gained the frequency filter and Act 2 gained no-gos. Both are canon the repo
+// already carries rather than invented filler, and both are CONSUMED: the frequency answer drives
+// the second ethics gate in the verdict panel, and the no-go subtracts a place in breadboard.mjs.
 //
-// Two things this module deliberately does NOT do:
+// One thing this module deliberately does NOT do: run the guess-then-reveal.
+// system/factory-intake.mjs puts the reader's Manipulation-Matrix placement beside THE MAKER's
+// authored verdict, which works because Verdant and Fieldwork have an author. Here the product is
+// the visitor's own, so there is no second judgment to sit beside theirs. The ethics pair is two
+// ordinary questions in the flow and the quadrant renders as a verdict. Mirroring renderEthics
+// would ship a compare device with an empty right-hand column.
 //
-//   1. It does not run the guess-then-reveal. system/factory-intake.mjs puts the reader's
-//      Manipulation-Matrix placement beside THE MAKER's authored verdict, which works because
-//      Verdant and Fieldwork have an author. Here the product is the visitor's own, so there is no
-//      second judgment to sit beside theirs. The ethics pair is two ordinary questions in the flow
-//      and the quadrant renders as a verdict. Mirroring renderEthics would ship a compare device
-//      with an empty right-hand column.
-//   2. It does not ask the frequency question. derive()'s other ethics gate (habit-justified vs
-//      utility) needs a seventh Act 1 question, and the intake wizard on the home spine already
-//      asks it. This act produces the QUADRANT, read from RULESET.ethics.matrix — the same canon
-//      factory-intake.mjs:165 reads, so the two surfaces can never disagree about a quadrant.
+// Both ethics gates read RULESET directly, the way system/derive.mjs:126-141 computes them, so this
+// page and the intake wizard can never disagree about a verdict.
 //
 // This module also owns the BUILD_CHANGE store the whole page publishes into (see below). That is
 // twenty-five lines shared by three consumers, which does not earn a file of its own under this
@@ -34,11 +33,22 @@ import { RULESET } from "./derive.rules.mjs";
 // a consumer that mounts late (or re-mounts) never has to reconstruct history:
 //
 //   { source: "questions" | "breadboard",
-//     answers: { trigger, action, rewardType, investment, improvesLives, wouldUseIt, appetite, shape },
+//     answers: { trigger, action, rewardType, investment, frequency, improvesLives, wouldUseIt,
+//                appetite, shape, nogos },
 //     quadrant: "facilitator" | "peddler" | "entertainer" | "dealer",
+//     frequencyVerdict: { passes, verdict },
 //     board: { places: [{ id, label, affordances: [{ id, label }] }], connections: [[affId, placeId]] },
 //     boardIsEdited: boolean }
 //
+// Every field is populated from the moment this module loads — the store is seeded with the default
+// answers below rather than starting at null — so a consumer never reads a drafted board beside a
+// null quadrant, whichever mounts are on the page.
+//
+// TWO write paths, and they are not interchangeable: `setAnswers` owns `answers`, `publishBuild`
+// owns everything else and REFUSES an answers patch. Answers have a module-scope object behind them
+// that both wizards and the verdict panel render from, so a patch that set `state.answers` without
+// going through it would show on the breadboard and nowhere else. That is the seam the share codec
+// arrives at, which is why it is closed now rather than after there is something to migrate.
 // Act 0's imported token values are NOT in here yet. system/build-import.mjs holds its record in
 // module state and publishes nothing; the first consumer that actually needs those values is the
 // share codec, so that slice wires the seam rather than this one guessing at its shape.
@@ -51,6 +61,7 @@ const state = {
   source: null,
   answers: null,
   quadrant: null,
+  frequencyVerdict: null,
   board: null,
   boardIsEdited: false,
 };
@@ -63,14 +74,36 @@ export function quadrantFor(answers) {
   return RULESET.ethics.matrix[bool(answers.improvesLives)][bool(answers.wouldUseIt)];
 }
 
+// The Hooked frequency filter, computed exactly as system/derive.mjs:126,136 computes it: habit
+// design is only legitimate for a behaviour frequent enough to become a habit, and below that the
+// honest verdict is a utility. Returned as {passes, verdict} so the panel can show the gate's own
+// sentence verbatim rather than a paraphrase of it.
+export function frequencyVerdictFor(answers) {
+  const passes = Boolean(RULESET.ethics.frequencyFilter[answers.frequency]);
+  return { passes, verdict: RULESET.ethics.verdicts[passes ? "pass" : "fail"] };
+}
+
 export function readBuild() {
   return structuredClone(state);
 }
 
-export function publishBuild(patch) {
+function publishState(patch) {
   Object.assign(state, patch);
-  if (state.answers) state.quadrant = quadrantFor(state.answers);
+  if (state.answers) {
+    state.quadrant = quadrantFor(state.answers);
+    state.frequencyVerdict = frequencyVerdictFor(state.answers);
+  }
   document.dispatchEvent(new CustomEvent(BUILD_CHANGE, { detail: readBuild() }));
+}
+
+// The public publish, for everything that is not an answer (today: the board and its edited flag).
+// The refusal is the point: assigning answers here would move the store without moving the object
+// the wizards and the verdict panel actually render from, and the page would disagree with itself.
+export function publishBuild(patch) {
+  if (patch && "answers" in patch) {
+    throw new Error("build-questions: answers are written through setAnswers(), never publishBuild()");
+  }
+  publishState(patch);
 }
 
 // --- the questions -----------------------------------------------------------------------------
@@ -92,8 +125,21 @@ export function publishBuild(patch) {
 //     (Shape Up, Ryan Singer / Basecamp, basecamp.com/shapeup/1.2-chapter-03). Small batch is one
 //     designer and one or two programmers for one or two weeks; big batch is the same size team
 //     for a full six week cycle.
-// Only trigger, action, investment, appetite and shape are this page's own enums. The reward type
-// belongs to the ruleset, and the ethics pair belongs to the Manipulation Matrix.
+//   frequency — the Hooked frequency filter: habit design is only legitimate for a behaviour
+//     frequent enough to become a habit, which the method puts at weekly or better. Values come
+//     from RULESET.ethics.frequencyFilter, the gate's own key set.
+//   no-gos — "things you explicitly declare out of scope in writing" (Shape Up). Scope by
+//     subtraction, which is why the answer REMOVES a place in breadboard.mjs rather than adding one.
+// Only trigger, action, investment, appetite, shape and no-gos are this page's own enums. The
+// reward type and the frequency set belong to the ruleset, and the ethics pair belongs to the
+// Manipulation Matrix.
+
+// The two acts, each its own section on the page and its own stepped wizard over a SHARED answer
+// set. `done` is what the last step of that act offers instead of a dead disabled button.
+export const ACTS = Object.freeze({
+  hooked: { label: "Act 1 · Hooked", done: "Go to shaping", target: "act-shape" },
+  shaping: { label: "Act 2 · Shaping", done: "See the breadboard", target: "act-breadboard" },
+});
 
 const REWARD_LABELS = {
   self: { label: "Their own progress, made visible", short: "own progress" },
@@ -103,7 +149,7 @@ const REWARD_LABELS = {
 
 export const QUESTIONS = Object.freeze([
   {
-    act: "Act 1 · Hooked",
+    act: "hooked",
     id: "trigger",
     prompt: "What feeling brings someone back to your product?",
     reasoning: "Most products start with an external cue like a notification. The ones that last attach to a feeling the person already has. Name the feeling, not the notification.",
@@ -116,7 +162,7 @@ export const QUESTIONS = Object.freeze([
     ],
   },
   {
-    act: "Act 1 · Hooked",
+    act: "hooked",
     id: "action",
     prompt: "What is the smallest thing they do when that feeling hits?",
     reasoning: "The lever here is ability, not motivation. Name the simplest behaviour and the design's job becomes making it easier, rather than pushing harder.",
@@ -129,7 +175,7 @@ export const QUESTIONS = Object.freeze([
     ],
   },
   {
-    act: "Act 1 · Hooked",
+    act: "hooked",
     id: "rewardType",
     prompt: "What do they get back, and why does it keep varying?",
     reasoning: "A reward that is always the same stops pulling. Naming which of the three kinds it is tells you what the screen has to be good at.",
@@ -139,7 +185,7 @@ export const QUESTIONS = Object.freeze([
     options: Object.keys(RULESET.patterns).map((value) => ({ value, ...REWARD_LABELS[value] })),
   },
   {
-    act: "Act 1 · Hooked",
+    act: "hooked",
     id: "investment",
     prompt: "What do they put in that makes it better next time?",
     reasoning: "A bit of the user's own work, stored in the product, loads the next trigger. It is what separates a tool people try once from one they stay in.",
@@ -152,7 +198,24 @@ export const QUESTIONS = Object.freeze([
     ],
   },
   {
-    act: "Act 1 · Hooked",
+    act: "hooked",
+    id: "frequency",
+    prompt: "How often would someone realistically do the core thing?",
+    reasoning: "The method's own gate: habit design is only legitimate for a behaviour frequent enough to become a habit, which it puts at weekly or better. Answer for the behaviour, not for how often you would like them to visit.",
+    // Values from the ruleset's own filter, so this question can never offer a frequency the gate
+    // has no ruling for. Labels match factory-intake.mjs:145 word for word, because a reader who
+    // meets both wizards should not be asked the same question in two different voices.
+    default: "daily",
+    options: [
+      { value: "multiple-daily", label: "Several times a day", short: "several times a day" },
+      { value: "daily", label: "About daily", short: "about daily" },
+      { value: "weekly", label: "Weekly", short: "weekly" },
+      { value: "monthly", label: "Monthly", short: "monthly" },
+      { value: "rarely", label: "Rarely", short: "rarely" },
+    ].filter((o) => o.value in RULESET.ethics.frequencyFilter),
+  },
+  {
+    act: "hooked",
     id: "improvesLives",
     prompt: "Does this materially improve the user's life?",
     reasoning: "The first of the two ethics questions. Answer it about the product you would actually ship, not the one in the pitch.",
@@ -163,7 +226,7 @@ export const QUESTIONS = Object.freeze([
     ],
   },
   {
-    act: "Act 1 · Hooked",
+    act: "hooked",
     id: "wouldUseIt",
     prompt: "Would you use it yourself?",
     reasoning: "The second ethics question, and the harder one. A no here is not a failure. It is the signal the matrix exists to give you.",
@@ -174,7 +237,7 @@ export const QUESTIONS = Object.freeze([
     ],
   },
   {
-    act: "Act 2 · Shaping",
+    act: "shaping",
     id: "appetite",
     prompt: "How much time is this worth?",
     reasoning: "Appetite is a budget, not an estimate. You fix the time and shape the solution to fit it, instead of estimating a scope you already decided on.",
@@ -185,7 +248,7 @@ export const QUESTIONS = Object.freeze([
     ],
   },
   {
-    act: "Act 2 · Shaping",
+    act: "shaping",
     id: "shape",
     prompt: "What rough shape does the solution take?",
     reasoning: "Still no pixels. This is the arrangement the flow wants, and it decides which places your breadboard starts with.",
@@ -197,6 +260,19 @@ export const QUESTIONS = Object.freeze([
       { value: "steps", label: "A short series of steps, start to finish", short: "a series of steps" },
     ],
   },
+  {
+    act: "shaping",
+    id: "nogos",
+    prompt: "What is explicitly out of scope?",
+    reasoning: "Shape Up calls these no-gos: things you declare out of scope in writing so they cannot creep back in later. Scoping by subtraction is what keeps a fixed appetite honest, so this answer removes a place from your board.",
+    default: "none",
+    options: [
+      { value: "none", label: "Nothing yet, keep it all in", short: "nothing ruled out" },
+      { value: "social", label: "No social features in the first version", short: "no social features" },
+      { value: "settings", label: "No configuration in the first version", short: "no configuration" },
+      { value: "history", label: "No history or archive in the first version", short: "no history or archive" },
+    ],
+  },
 ]);
 
 // The label shown in the running summary, per question — the method's own term for what was asked.
@@ -205,10 +281,12 @@ const SUMMARY_TERM = {
   action: "Action",
   rewardType: "Variable reward",
   investment: "Investment",
+  frequency: "Frequency",
   improvesLives: "Improves lives",
   wouldUseIt: "You would use it",
   appetite: "Appetite",
   shape: "Shape",
+  nogos: "No-gos",
 };
 
 // Manipulation Matrix quadrant meanings, the four strings lifted VERBATIM from
@@ -232,6 +310,7 @@ export const DEFAULT_ANSWERS = Object.freeze(
 // Fail loudly at load, the way factory-intake.mjs:172-180 does: every question needs options, and
 // every default has to be one of them. A ruleset edit that empties RULESET.patterns breaks here.
 for (const q of QUESTIONS) {
+  if (!ACTS[q.act]) throw new Error(`build-questions: "${q.id}" names an act "${q.act}" that has no section`);
   if (!q.options.length) throw new Error(`build-questions: "${q.id}" has no options`);
   if (!q.options.some((o) => o.value === q.default)) {
     throw new Error(`build-questions: "${q.id}" default "${q.default}" is not one of its options`);
@@ -254,43 +333,67 @@ function el(tag, attrs, ...children) {
   return node;
 }
 
-function mount(root) {
-  const wizardEl = root.querySelector("[data-build-wizard]");
-  const verdictEl = root.querySelector("[data-build-verdict]");
-  if (!wizardEl || !verdictEl) return;
+// The answer set is MODULE scope, not mount scope: the two acts are two sections with two wizards,
+// and they describe one product. Each mount reads and writes this, and publishBuild is what tells
+// everyone else (the other wizard's verdict panel, the breadboard) that it moved.
+const answers = { ...DEFAULT_ANSWERS };
 
-  const answers = { ...DEFAULT_ANSWERS };
+// The one write path for answers, and the one every consumer of BUILD_CHANGE can trust: it moves the
+// module-scope object FIRST, then publishes the whole set. A share-link restore in a later slice is
+// one call to this, not a new mechanism. Not a dispatch, so this module stays Node-import-safe: the
+// store is seeded here at load and the first event is the one a mount or a restore causes.
+Object.assign(state, {
+  answers: { ...answers },
+  quadrant: quadrantFor(answers),
+  frequencyVerdict: frequencyVerdictFor(answers),
+});
+
+export function setAnswers(patch) {
+  Object.assign(answers, patch);
+  publishState({ source: "questions", answers: { ...answers } });
+}
+
+// --- one act's stepped wizard --------------------------------------------------------------
+// One question at a time, the factory-intake.mjs:414-459 shape: progress, prompt as a focusable
+// heading, reasoning, a native radiogroup named by the prompt, Back / Next. Mounted once per act,
+// over the shared answers above.
+function mountWizard(root) {
+  const wizardEl = root.querySelector("[data-build-wizard]");
+  const actKey = root.dataset.act;
+  const act = ACTS[actKey];
+  const questions = QUESTIONS.filter((q) => q.act === actKey);
+  // The mirror of the load-time assert above: a QUESTION naming a missing act throws, so a SECTION
+  // naming a missing act throws too. The markup is committed, so a bad data-act is an authoring bug,
+  // and failing silently would leave the no-JS fallback copy on screen while JS is running fine —
+  // and would withhold the "ready" handle the visual-regression run waits on, hanging it to timeout.
+  if (!act) throw new Error(`build-questions: a mount names an act "${actKey}" that does not exist`);
+  if (!wizardEl || !questions.length) return;
+
+  // Ids have to be unique per mount, because two wizards are on the page at once and each
+  // radiogroup points at its OWN prompt.
+  const promptId = `bx-q-prompt-${actKey}`;
   let step = 0;
 
-  function setAnswer(id, value) {
-    answers[id] = value;
-    publishBuild({ source: "questions", answers: { ...answers } });
-    renderVerdict();
-  }
-
-  // --- the stepped wizard ---------------------------------------------------------------------
-  // One question at a time, the factory-intake.mjs:414-459 shape: progress, prompt as a focusable
-  // heading, reasoning, a native radiogroup named by the prompt, Back / Next.
   function renderStep(focusOnRender) {
-    const q = QUESTIONS[step];
+    const q = questions[step];
     const card = el("div", { class: "bx-q-card" });
 
     card.append(
-      el("p", { class: "bx-q-act", text: q.act }),
-      el("p", { class: "bx-q-progress", text: `${step + 1} / ${QUESTIONS.length}` }),
+      el("p", { class: "bx-q-act", text: act.label }),
+      el("p", { class: "bx-q-progress", text: `${step + 1} / ${questions.length}` }),
     );
 
-    const promptEl = el("h3", { class: "bx-q-prompt", id: "bx-q-prompt", tabindex: "-1", text: q.prompt });
+    const promptEl = el("h3", { class: "bx-q-prompt", id: promptId, tabindex: "-1", text: q.prompt });
     card.append(promptEl, el("p", { class: "bx-q-reasoning", text: q.reasoning }));
 
     // Native radios, so ←/→ navigate the group for free. No trace player runs on this page, so the
     // guardArrows workaround factory-intake.mjs:197 needs is not needed here.
-    const group = el("div", { class: "bx-q-radios", role: "radiogroup", "aria-labelledby": "bx-q-prompt" });
+    const group = el("div", { class: "bx-q-radios", role: "radiogroup", "aria-labelledby": promptId });
     for (const opt of q.options) {
       const row = el("label", { class: "bx-q-radio" });
       const input = el("input", { type: "radio", name: `bx-q-${q.id}`, value: opt.value });
       input.checked = answers[q.id] === opt.value;
-      input.addEventListener("change", () => setAnswer(q.id, opt.value));
+      input.addEventListener("change", () => setAnswers({ [q.id]: opt.value }));
       row.append(input, el("span", { class: "bx-q-radio-label", text: opt.label }));
       group.append(row);
     }
@@ -300,16 +403,13 @@ function mount(root) {
     const back = el("button", { type: "button", class: "btn btn-secondary", text: "Back" });
     back.disabled = step === 0;
     back.addEventListener("click", () => { if (step > 0) { step -= 1; renderStep(true); } });
-    const last = step === QUESTIONS.length - 1;
-    const next = el("button", {
-      type: "button",
-      class: "btn btn-primary",
-      text: last ? "See the breadboard" : "Next",
-    });
+    const last = step === questions.length - 1;
+    const next = el("button", { type: "button", class: "btn btn-primary", text: last ? act.done : "Next" });
     next.addEventListener("click", () => {
-      // Nothing is submitted: the answers are live and the board below is already drafted from
-      // them, so the last step goes to the board instead of dead-ending on a disabled button.
-      if (last) document.getElementById("act-breadboard")?.scrollIntoView({ block: "start" });
+      // Nothing is submitted: the answers are live and everything downstream is already drawn from
+      // them, so the last step of an act moves to the next act instead of dead-ending on a disabled
+      // button.
+      if (last) document.getElementById(act.target)?.scrollIntoView({ block: "start" });
       else { step += 1; renderStep(true); }
     });
     footer.append(back, next);
@@ -322,11 +422,38 @@ function mount(root) {
     if (focusOnRender) promptEl.focus();
   }
 
-  // --- the verdict beside the wizard ----------------------------------------------------------
-  // The quadrant and the running summary, both live. Not gated behind a reveal, and never graded:
-  // it is the visitor's own placement of their own product.
-  function renderVerdict() {
-    const quadrant = quadrantFor(answers);
+  renderStep();
+
+  // Answers can move without this wizard's radios moving — a share-link restore in a later slice is
+  // the case this exists for. The comparison is what keeps it safe: a radio the visitor just clicked
+  // already agrees with the store, so their own change returns here and stops, and never destroys
+  // the input the browser is still dispatching the change event for. Registered once on `document`,
+  // outside renderStep, so replaceChildren cannot leak it.
+  document.addEventListener(BUILD_CHANGE, (e) => {
+    const next = e.detail && e.detail.answers;
+    if (!next) return;
+    const shown = wizardEl.querySelector(`input[name="bx-q-${questions[step].id}"]:checked`);
+    if (shown && shown.value === next[questions[step].id]) return;
+    renderStep(false); // never focus: this change did not come from an interaction with this wizard
+  });
+
+  // The settled-state handle the visual-regression gate waits on in Phase 1.5 (memory: a mount with
+  // no handle either deadlocks the wait or baselines an empty surface).
+  root.dataset.buildQuestions = "ready";
+}
+
+// --- the verdict panel ------------------------------------------------------------------------
+// Both ethics gates, and the running summary of all ten answers. Live, never gated behind a reveal,
+// and never graded: it is the visitor's own reading of their own product. It subscribes to
+// BUILD_CHANGE rather than being called directly, because the answers it reads are changed by TWO
+// wizards in two different sections.
+function mountVerdict(verdictEl) {
+  // Renders the answer set it is HANDED, not a module global it happens to share with the wizards.
+  // The two are the same object's contents today; they would not be if a later slice published a
+  // restored set, and a panel that reads around the payload is how that gets found on stage.
+  function render(current) {
+    const quadrant = quadrantFor(current);
+    const frequency = frequencyVerdictFor(current);
     const panel = el("div", { class: "bx-verdict" });
 
     panel.append(
@@ -337,12 +464,24 @@ function mount(root) {
         "Two questions decide the quadrant: does the product materially improve users' lives, and would you use it yourself. This is your reading of your own product, not a score." }),
     );
 
+    // The second gate, and it rules independently of the first. A product can sit in the
+    // facilitator quadrant and still fail the frequency filter, which is the whole point of running
+    // both: the honest answer for most tools is a utility.
+    panel.append(
+      el("p", { class: "bx-verdict-eyebrow", text: "The frequency filter" }),
+      el("p", {
+        class: "bx-verdict-gate",
+        "data-passes": String(frequency.passes),
+        text: frequency.verdict,
+      }),
+    );
+
     const dl = el("dl", { class: "bx-summary" });
     for (const q of QUESTIONS) {
-      const opt = q.options.find((o) => o.value === answers[q.id]);
+      const opt = q.options.find((o) => o.value === current[q.id]);
       dl.append(
         el("dt", { text: SUMMARY_TERM[q.id] }),
-        el("dd", { text: opt ? opt.short : answers[q.id] }),
+        el("dd", { text: opt ? opt.short : current[q.id] }),
       );
     }
     panel.append(el("h3", { class: "bx-summary-title", text: "Your product so far" }), dl);
@@ -350,20 +489,21 @@ function mount(root) {
     verdictEl.replaceChildren(panel);
   }
 
-  renderStep();
-  renderVerdict();
-  // Publish the seeded defaults so a consumer that mounts after this one still starts from a
-  // complete answer set. system/breadboard.mjs also pulls readBuild() on its own mount, so the two
-  // modules work in either script order.
-  publishBuild({ source: "questions", answers: { ...answers } });
-
-  // The settled-state handle the visual-regression gate waits on in Phase 1.5 (memory: a mount with
-  // no handle either deadlocks the wait or baselines an empty surface).
-  root.dataset.buildQuestions = "ready";
+  document.addEventListener(BUILD_CHANGE, (e) => {
+    if (e.detail && e.detail.source === "questions") render(e.detail.answers);
+  });
+  render(readBuild().answers);
+  verdictEl.dataset.buildVerdict = "ready";
 }
 
-// Self-boot behind a DOM guard so a Node import stays clean; inert on every page without the mount.
+// Self-boot behind a DOM guard so a Node import stays clean; inert on every page without the mounts.
 if (typeof document !== "undefined") {
-  const root = document.querySelector("[data-build-questions]");
-  if (root) mount(root);
+  const roots = document.querySelectorAll("[data-build-questions]");
+  for (const root of roots) mountWizard(root);
+  const verdictEl = document.querySelector("[data-build-verdict]");
+  if (verdictEl) mountVerdict(verdictEl);
+  // No boot publish: the store carries the seeded defaults from module load, and every consumer
+  // either pulls readBuild() on its own mount (system/breadboard.mjs does) or is mounted here. The
+  // publish this replaces re-rendered the verdict panel a second time before a visitor touched
+  // anything, and made the breadboard draft its board twice.
 }

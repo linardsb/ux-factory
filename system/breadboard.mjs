@@ -21,7 +21,7 @@
 // as well, because two places to write the same fact is two places for them to disagree.
 //
 // The draft rules below are committed and commented, the way system/derive.rules.mjs is: a reader
-// can open this file and see every rule that turned their eight answers into a board. Nothing here
+// can open this file and see every rule that turned their ten answers into a board. Nothing here
 // calls a model, at view time or any other time.
 //
 // Node-import-safe: draftBoard is pure and exported for that reason (slice 1c's pattern rules read
@@ -73,12 +73,23 @@ const INVESTMENT_PLACE = {
   "track-record": { place: "Profile", own: "Edit profile" },
 };
 
+// A no-go is Shape Up's "thing you explicitly declare out of scope in writing". It is the one
+// answer that SUBTRACTS: scoping by subtraction is what keeps a fixed appetite honest, so a no-go
+// removes the place it rules out before the appetite gets to truncate what is left.
+const NOGO_RULE = {
+  none: [],
+  social: ["People", "Connections"],
+  settings: ["Settings"],
+  history: ["Profile", "Library"],
+};
+
 // draftBoard(answers) — pure. The rules, in order:
 //   1. The entry place comes from `shape`.
 //   2. `action`, `rewardType` and `investment` each want a place; an action of "check" wants none.
 //   3. Two rules that name the same place produce one place, not two (find + hunt both want a
 //      results place, and a breadboard with two identical places is a modelling error).
-//   4. `appetite` truncates: small batch keeps three places, big batch up to six.
+//   3b. `nogos` removes the places it rules out. Declared out of scope means not drawn.
+//   4. `appetite` truncates what survives: small batch keeps three places, big batch up to six.
 //   5. The entry place gets one affordance per surviving place, and that affordance is what the
 //      connection runs from. An action with no place of its own still gets its affordance, with
 //      nothing to connect to, because plenty of real affordances act in place.
@@ -96,8 +107,10 @@ export function draftBoard(answers) {
 
   const seen = new Set();
   const unique = wanted.filter((w) => !seen.has(w.place) && seen.add(w.place));
+  const ruledOut = NOGO_RULE[a.nogos] || [];
+  const kept = unique.filter((w) => !ruledOut.includes(w.place));
   const cap = APPETITE_CAP[a.appetite] || MAX_PLACES;
-  const survivors = unique.slice(0, Math.max(0, cap - 1));
+  const survivors = kept.slice(0, Math.max(0, cap - 1));
 
   const places = [{ id: "p1", label: SHAPE_PLACE[a.shape] || SHAPE_PLACE.overview, affordances: [] }];
   const connections = [];
@@ -212,9 +225,11 @@ function mount(root) {
     place.label = label;
     // No full re-render: that would replace the input the caret is sitting in. The label is already
     // on screen (the visitor typed it), so the rest of the job is the toolbar (a rename is the edit
-    // that puts the Re-draft button on screen), the lines, and the publish.
+    // that puts the Re-draft button on screen), every other label this name was painted into, the
+    // lines, and the publish.
     edited = true;
     renderToolbar();
+    refreshLabels();
     publish();
     drawLines();
     announce(`Place renamed to "${label}".`);
@@ -251,6 +266,7 @@ function mount(root) {
       aff.label = label;
       edited = true;
       renderToolbar();
+      refreshLabels();
       publish();
       drawLines();
       announce(`Affordance renamed to "${label}".`);
@@ -326,8 +342,12 @@ function mount(root) {
       bar.append(again);
     }
 
+    // The no-go is stated on the board, not just in the answers: a place that is missing because it
+    // was ruled out should say so, or its absence reads as something the drafter forgot.
+    const ruledOut = NOGO_RULE[answers.nogos] || [];
     bar.append(el("p", { class: "bx-bb-count", text:
-      `${board.places.length} of ${MAX_PLACES} places · ${affCount()} affordances` }));
+      `${board.places.length} of ${MAX_PLACES} places · ${affCount()} affordances`
+      + (ruledOut.length ? ` · ruled out by your no-go: ${ruledOut.join(", ")}` : "") }));
 
     if (connectFrom) {
       const cancel = el("button", { type: "button", class: "btn btn-ghost bx-bb-btn", text: "Cancel" });
@@ -440,6 +460,38 @@ function mount(root) {
     section.append(foot);
 
     return section;
+  }
+
+  // The other half of the rename verbs' refusal to re-render. Skipping render() protects the caret,
+  // but it also leaves the old label standing everywhere else it was already painted: the chip that
+  // connects to a renamed place still reads "→ Progress", and three accessible names still say
+  // "Progress" — the place's own section, its remove button, and the connecting chip's. Plan
+  // decision 8 stakes the lines' aria-hidden on the chip's text being the truth, so a screen-reader
+  // user is the one this costs most. Repaints only label-derived attributes and button text; never
+  // an input's value, so the caret stays where the visitor is typing.
+  function refreshLabels() {
+    board.places.forEach((place, index) => {
+      const section = placesEl.querySelector(`[data-place="${place.id}"]`);
+      if (!section) return;
+      section.setAttribute("aria-label", `Place ${index + 1}: ${place.label}`);
+      section.querySelector(".bx-bb-place-head .bx-bb-remove")
+        ?.setAttribute("aria-label", `Remove the place "${place.label}"`);
+      section.querySelector("[data-bb-target]")?.setAttribute("aria-label", `Connect to ${place.label}`);
+
+      for (const aff of place.affordances) {
+        const chip = section.querySelector(`[data-aff="${aff.id}"]`);
+        if (!chip) continue;
+        chip.querySelector(".bx-bb-chip-name")?.setAttribute("aria-label", `Affordance in ${place.label}`);
+        chip.querySelector(".bx-bb-remove")?.setAttribute("aria-label", `Remove the affordance "${aff.label}"`);
+        const connect = chip.querySelector(".bx-bb-connect");
+        if (!connect) continue;
+        const target = placeById(targetOf(aff.id));
+        connect.textContent = target ? `→ ${target.label}` : "Connect";
+        connect.setAttribute("aria-label", target
+          ? `Connected to ${target.label}. Change or clear this connection.`
+          : `Connect "${aff.label}" to a place`);
+      }
+    });
   }
 
   function render() {
