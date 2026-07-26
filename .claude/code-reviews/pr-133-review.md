@@ -77,6 +77,22 @@ guard at `:432` short-circuits any inherited name first — but it is worth a on
 so, or the next reader will either "fix" it too or assume from its absence that the other two were
 already safe.
 
+**I applied the fix and held it to the same bar as the extraction — it is provably invisible.**
+Nothing downstream depends on the inherited methods (`grep` for `hasOwnProperty` / `in groups` /
+`in ramps` / `in loose` in `pack-import.mjs` finds nothing; both consumers use
+`Object.entries(groups)` at `:277` and `:438`, which is unaffected). With all five `{}` containers in
+`collectScales` / `toRamps` / `deriveRamps` switched to `Object.create(null)`:
+
+- the pollution PoC is **blocked** — `({}).color` stays `undefined`
+- `figma-pull --from` on all three scale fixtures emits **byte-identical CSS and byte-identical
+  stdout** (once my own `--out` path is normalised) versus pristine `origin/main`
+- the `ambiguous-brand.json` refusal message is **byte-identical**
+- `gen-token-css` + `gen-pack-css --plusui` still reproduce `tokens.contract/neutral/plusui.css`
+  unchanged
+
+So the security fix costs nothing in behaviour, and the three-line minimum is a subset of what I
+tested.
+
 **On severity.** The `code-reviewer` agent rated this Critical; I am rating it High, and I want to
 be straight about why rather than split the difference silently. There is no cross-user delivery
 path here: nothing is uploaded, the record is session-scoped, and an imported pack is deliberately
@@ -237,6 +253,7 @@ session's uncommitted `index.html` / `derive.html` / `instance.html` / `roundtri
 | Functional: drop → report → wear → carry → dock switch → navigate | ✗ **1 failure** — High issue #2 |
 | The same run with the proposed `worn`-flag fix applied | ✓ passes, both directions |
 | Untrusted-input probes (`__proto__` name, 360 KB deep nesting) | ✗ **2 failures** — High issue #1, Medium |
+| The `Object.create(null)` fix applied: pollution blocked, and all parity gates above re-run | ✓ byte-identical — the fix is behaviour-preserving |
 
 The report's stated headline risk was the extraction. I re-ran it independently on both the generator
 and the CLI side rather than trusting the byte-parity claim, and **it holds completely**. Note 4's
