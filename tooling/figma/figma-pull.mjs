@@ -55,7 +55,7 @@
 //     — write somewhere other than system/tokens.<slug>.css (a fixture run, a scratch check).
 
 import { readFileSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { genPackCss, loadContract } from "../../agent-layer/gen-pack-css.mjs";
 import { RULESET } from "../../system/derive.rules.mjs";
@@ -418,7 +418,9 @@ export function classifyRamps(ramps) {
   return Object.entries(ramps).map(([hue, rungs]) => {
     const steps = Object.keys(rungs).map(Number);
     const mid = rungs[steps.reduce((best, s) => (Math.abs(s - 500) < Math.abs(best - 500) ? s : best))];
-    return { hue, rungs: steps.length, chroma: hexToOklch(mid).c };
+    // `swatch` is the mid-rung hex the chroma was measured from — kept rather than discarded so a
+    // caller that has to ASK which ramp is the brand can show the colour, not just its name.
+    return { hue, rungs: steps.length, chroma: hexToOklch(mid).c, swatch: mid };
   });
 }
 
@@ -440,11 +442,20 @@ function pickRamps(ramps, { neutral, accent, need = { neutral: true, accent: tru
     const candidates = usable.filter((r) => r.chroma > NEUTRAL_MAX_CHROMA && r.hue !== pickedNeutral && !STATE_RAMP.test(r.hue));
     if (candidates.length === 1) pickedAccent = candidates[0].hue;
     else {
-      throw new Error(
+      const err = new Error(
         candidates.length
           ? `figma-pull: ${candidates.length} ramps could be the brand colour, so this file has no single one to detect — pick with --accent <hue>.\n  candidates: ${candidates.sort((a, b) => b.chroma - a.chroma).map((r) => r.hue).join(", ")}`
           : `figma-pull: no non-grey, non-state ramp to use as the accent — name one with --accent <hue>. Ramps: ${classified.map((r) => r.hue).join(", ")}`,
       );
+      // The refusal stays a refusal — the tool still declines to pick. Carrying the candidates as
+      // DATA lets a caller ask the question in a medium that can answer it (a UI shows swatches);
+      // the CLI ignores the property and dies with the message above, byte for byte as before.
+      // The message already sorted `candidates` in place by descending chroma, so this is the same
+      // order the text lists — the swatches and the sentence can never disagree.
+      if (candidates.length) {
+        err.candidates = candidates.map((r) => ({ hue: r.hue, chroma: r.chroma, rungs: r.rungs, swatch: r.swatch }));
+      }
+      throw err;
     }
   }
   return { neutral: pickedNeutral ?? null, accent: pickedAccent ?? null, classified };
@@ -624,9 +635,25 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
     .map((token, i) => ({ token, twin: [...states.slice(0, i), ROLES.find((r) => r.token === token).follows].find((t) => values[t] === values[token]) }))
     .filter((c) => c.twin);
 
+  // How the source file is NAMED in a committed pack. On the --from path the "key" is just the
+  // path we were handed, and the portal hands over an absolute one — so a pack imported through
+  // the workbench would otherwise bake a home directory into a file the repo ships. The header's
+  // Regenerate line is a promise that the run can be reproduced: name the file the way any
+  // checkout can see it. An export from OUTSIDE the repo keeps its verbatim path, because
+  // relative() would emit ../../Users/… , which reproduces nothing and reads worse.
+  const fromResolved = readOptions.from ? resolve(process.cwd(), readOptions.from) : null;
+  const fromLabel = !fromResolved
+    ? null
+    : fromResolved.startsWith(ROOT + sep)
+      ? relative(ROOT, fromResolved)
+      : readOptions.from;
+  // On the API path fileKey is a real Figma key and stays untouched; on the --from path it is the
+  // same path as above, so it gets the same treatment rather than a second, absolute copy of it.
+  const sourceKey = fromLabel ?? fileKey;
+
   const label =
     `IMPORTED, NOT DESIGNED — every colour below is a real value read from the Figma file ` +
-    `"${fileName ?? fileKey}" (key ${fileKey}) by tooling/figma/figma-pull.mjs. It is that file's ` +
+    `"${fileName ?? sourceKey}" (key ${sourceKey}) by tooling/figma/figma-pull.mjs. It is that file's ` +
     `design work, not this repo's; the pack only maps its ` +
     (usedRamps.length ? `${usedRamps.join("/")} ramps onto contract roles.` : `own colour styles onto contract roles.`) +
     `\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug}` +
@@ -636,7 +663,7 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
     // Name the source this run actually read. A pack imported from an export must not tell the
     // next reader to regenerate it through the API, which needs a token, spends the file's
     // ~6-a-month budget, and cannot see variables outside an Enterprise plan.
-    (readOptions.from ? ` --from ${readOptions.from}` : "") +
+    (fromLabel ? ` --from ${fromLabel}` : "") +
     (derivedUsed.length
       ? `\n * Rung numbers DERIVED, not read: this file does not number these colours, so each ramp ` +
         `was ordered by OKLCH lightness and numbered from that order — ` +
@@ -690,6 +717,14 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
 
   return {
     slug, dest, values, checks, stepped, failures,
+    // Additive: everything above is printed to stdout and then thrown away, which is fine for a
+    // terminal and useless to anything else. Returned, the same facts can be RENDERED — and a
+    // surface that shows an imported pack is held to the honesty the pack header already carries:
+    // which ramps were leaned on, which rungs this importer synthesised, which states collapsed,
+    // and — the one the CLI only ever counted — WHICH tokens were auto-filled from contract
+    // defaults rather than read from the design. `note` is the pack header verbatim.
+    fileName, fileKey: sourceKey, available, placed, pages, derivedUsed, collapsed,
+    filled: r.filled, tokenCount: r.tokenCount, note: label,
     // Additive: the portal drop-UI renders this rather than re-deriving it from the header prose.
     scales: {
       offered: scaleOffered,

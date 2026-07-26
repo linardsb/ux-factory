@@ -18,6 +18,7 @@
     <span class="portal-health" id="health">…</span>
     <span class="portal-bar-spacer"></span>
     <button class="btn btn-secondary" id="btn-chat" type="button">Chat</button>
+    <button class="btn btn-secondary" id="btn-figma" type="button">Figma → pack</button>
     <button class="btn btn-primary" id="btn-intake" type="button">New intake</button>
   </header>
 
@@ -46,6 +47,46 @@
         <button class="btn btn-secondary" type="button" id="intake-cancel">Cancel</button>
       </div>
       <p class="muted portal-form-status" id="intake-status"></p>
+    </form>
+  </div>
+
+  <!-- Figma import panel -->
+  <div class="portal-drawer" id="figma-drawer" hidden>
+    <form class="portal-form portal-form-wide" id="figma-form">
+      <h2 class="h3">Figma → pack</h2>
+      <p class="muted">
+        Drop a Figma <strong>export</strong> (Tokens Studio, a variables dump, any nested
+        name→value JSON). No URL or file link: Figma's variables API is Enterprise-only and the
+        file-read budget is ~6/month, so an export is the only input that works on a normal design.
+      </p>
+      <p class="muted">
+        What comes across is the design's <strong>colour</strong>, plus its <strong>spacing,
+        radius, type ramp and shadows</strong> where the export carries enough values to fill a
+        whole family. A family that falls short imports nothing and stays on this repo's contract
+        defaults — every run names which came across and which didn't. Motion, fonts and
+        components never import.
+      </p>
+      <div class="portal-drop" id="figma-drop">
+        <p>Drop the export here</p>
+        <label class="portal-drop-pick">or choose a file
+          <input type="file" name="export" id="figma-file" accept="application/json,.json" />
+        </label>
+        <p class="muted" id="figma-file-name" aria-live="polite"></p>
+      </div>
+      <!-- the hyphen is escaped: `pattern` compiles with the `v` flag, where a trailing bare "-"
+           in a character class is a syntax error and silently voids the whole attribute -->
+      <label>Pack slug * <input name="slug" id="figma-slug" required pattern="[a-z0-9\-]{1,40}"
+        placeholder="acme" autocomplete="off" /></label>
+      <div class="portal-form-row">
+        <label>Accent ramp (optional)<input name="accent" autocomplete="off" /></label>
+        <label>Neutral ramp (optional)<input name="neutral" autocomplete="off" /></label>
+      </div>
+      <div class="portal-form-actions">
+        <button class="btn btn-primary" type="submit">Import</button>
+        <button class="btn btn-secondary" type="button" id="figma-cancel">Cancel</button>
+      </div>
+      <p class="muted portal-form-status" id="figma-status" aria-live="polite"></p>
+      <div id="figma-report"></div>
     </form>
   </div>
 

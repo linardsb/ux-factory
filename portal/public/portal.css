@@ -49,7 +49,7 @@
   color: var(--color-fg-muted); cursor: pointer;
 }
 .portal-tab[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-accent); }
-.portal-pane pre { white-space: pre-wrap; font-size: var(--type-caption); background: var(--color-bg-surface); padding: var(--spacing-md); border-radius: var(--radius-sm); overflow-x: auto; }
+.portal-pane pre, #figma-report pre { white-space: pre-wrap; font-size: var(--type-caption); background: var(--color-bg-surface); padding: var(--spacing-md); border-radius: var(--radius-sm); overflow-x: auto; }
 
 .portal-proto-frame { width: 100%; height: 70vh; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); }
 .portal-proto-picker { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; margin-bottom: var(--spacing-md); }
@@ -60,6 +60,9 @@
   background: color-mix(in srgb, var(--color-bg-inverse) 40%, transparent);
   display: flex; justify-content: flex-end;
 }
+/* An author `display` beats the UA's [hidden] rule, so the line above was leaving every drawer
+   on screen — inset:0 and z-index:40 — however its `hidden` property was set. */
+.portal-drawer[hidden] { display: none; }
 .portal-form {
   background: var(--color-bg); width: min(480px, 100%); height: 100%; overflow-y: auto;
   padding: var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-md);
@@ -74,12 +77,56 @@
 .portal-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); }
 .portal-form-actions { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm); }
 
+/* figma → pack drawer: a drop zone, candidate swatches, and the run's report */
+.portal-form-wide { width: min(720px, 100%); }
+
+.portal-drop {
+  border: 1px dashed var(--color-border); border-radius: var(--radius-md);
+  padding: var(--spacing-lg); min-height: 140px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--spacing-sm); text-align: center;
+}
+.portal-drop.is-over { border-color: var(--color-accent); background: var(--color-bg-surface); }
+/* The file input stays a real, tabbable control: a drop target alone is unreachable by keyboard. */
+.portal-drop-pick { flex-direction: row !important; align-items: center; gap: var(--spacing-sm) !important; }
+
+.portal-swatches { display: flex; flex-wrap: wrap; gap: var(--spacing-md); }
+.portal-swatch {
+  display: flex; flex-direction: column; align-items: center; gap: var(--spacing-xs);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-bg); color: var(--color-fg);
+  padding: var(--spacing-sm) var(--spacing-md); font-size: var(--type-caption); cursor: pointer;
+}
+.portal-swatch:hover, .portal-swatch:focus-visible { border-color: var(--color-accent); }
+.portal-swatch-chip {
+  display: inline-block; width: 28px; height: 28px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.portal-swatch-chip-sm { width: 14px; height: 14px; vertical-align: middle; }
+
+/* min-width:0 so a wide table scrolls inside the drawer instead of blowing its column out */
+.portal-table-scroll { overflow-x: auto; min-width: 0; }
+.portal-wcag { width: 100%; border-collapse: collapse; font-size: var(--type-caption); }
+.portal-wcag th, .portal-wcag td {
+  text-align: left; padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border); vertical-align: top;
+}
+.portal-wcag th { color: var(--color-fg-muted); font-weight: 400; }
+/* A failure is carried by the ✗ glyph in the first cell; weight is reinforcement, never the signal. */
+.portal-wcag tr[data-pass="false"] { font-weight: 600; }
+.portal-wcag tr[data-pass="false"] td:first-child { color: var(--color-accent-secondary); }
+
+.portal-filled { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); font-size: var(--type-caption); }
+
 /* chat dock */
 .portal-chat {
   position: fixed; right: 0; top: 0; bottom: 0; z-index: 30;
   width: min(420px, 100vw); display: flex; flex-direction: column;
   background: var(--color-bg); border-left: 1px solid var(--color-border); box-shadow: var(--shadow-lg);
 }
+/* Same trap as the drawer: without this the dock sat over the header's right-hand buttons whether
+   or not it was `hidden`. */
+.portal-chat[hidden] { display: none; }
 .portal-chat-head { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-md); border-bottom: 1px solid var(--color-border); }
 .portal-chat-close { background: none; border: none; font-size: var(--type-h3); color: var(--color-fg-muted); cursor: pointer; }
 .portal-chat-log { flex: 1; overflow-y: auto; padding: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
