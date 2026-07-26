@@ -27,6 +27,12 @@ import {
   readDisplacedRecord, restoreDisplacedRecord,
   SELECTOR_KEY, PREWEAR_KEY, BRAND_CHANGE_EVENT, PACK_REQUEST_EVENT, PACK_CHANGE_EVENT,
 } from "./pack-derived.mjs";
+// The fifth mode (#130): a design system the READER dropped on the home page, mapped by the same
+// engine the CLI runs. Session-scoped, so the row exists only while the import does.
+import {
+  readImported, importedOnPage, applyImported, removeImportedStyle, clearInlineTokens,
+  IMPORT_CHANGE_EVENT,
+} from "./pack-imported.mjs";
 
 const PACKS = [
   { id: "neutral", name: "neutral", note: "the no-brand default (generated)" },
@@ -40,6 +46,7 @@ const PACKS = [
 const PACK_IDS = PACKS.map((p) => p.id);
 const PACK_RE = /\/system\/tokens\.(neutral|saulera|verdant|plusui)\.css$/;
 const DERIVED_ID = "derived";
+const IMPORTED_ID = "imported";
 const SVGNS = "http://www.w3.org/2000/svg";
 
 // --- DOM builder (handoff-viewer.mjs shape) — text via textContent, attrs via setAttribute.
@@ -89,6 +96,11 @@ const selectorIsDerived = () => {
 // and clicking it (no change event) could never move the reader onto the honest neutral base.
 // Without the :root check, a page that never applied the record would claim to wear it.
 function groundTruth() {
+  // Imported first: it shadows the committed/derived pick (pack-boot.js reads it first too), so
+  // whenever its <style> is on the page it IS what the reader is wearing, whatever the selector
+  // still says. No selector check here — an imported pack deliberately never writes one.
+  const imported = readImported();
+  if (imported && importedOnPage(imported)) return IMPORTED_ID;
   const rec = readRecord();
   return rec && selectorIsDerived() && derivedOnRoot(rec) ? DERIVED_ID : activePack();
 }
@@ -139,9 +151,15 @@ function buildDock() {
     const hadFocus = fieldset.contains(document.activeElement);
     for (const row of fieldset.querySelectorAll(".dock-pack-row")) row.remove();
     const rec = readRecord(); // null for a missing/malformed/foreign record → no row, no re-validation here
-    const options = rec
-      ? [...PACKS, { id: DERIVED_ID, name: "your brand", note: derivedNote(rec.label) }]
-      : PACKS;
+    const imported = readImported();
+    const options = [
+      ...PACKS,
+      ...(rec ? [{ id: DERIVED_ID, name: "your brand", note: derivedNote(rec.label) }] : []),
+      // The reader's own design work. The label is visitor-supplied and renders as textContent
+      // only, exactly as the derived row's note already does; the note carries the attribution,
+      // because the beat's honesty statement is below the fold from here.
+      ...(imported ? [{ id: IMPORTED_ID, name: imported.label, note: "their design work, imported in your browser" }] : []),
+    ];
     for (const o of options) {
       const input = el("input", { type: "radio", name: "pack", value: o.id, id: "dock-pack-" + o.id });
       fieldset.appendChild(el("div", { class: "dock-pack-row" },
@@ -176,10 +194,16 @@ function buildDock() {
   //      are "before" and "after" — mutating first would show a neutral flash mid-crossfade.
   function selectPack(target) {
     const derived = target === DERIVED_ID;
+    const imported = target === IMPORTED_ID;
     const rec = readRecord();
-    if (derived ? !rec : !PACK_IDS.includes(target)) return; // hard allowlist — junk never reaches an href
+    const impRec = imported ? readImported() : null;
+    // Hard allowlist — junk never reaches an href. Each of the three kinds is gated on the thing
+    // it actually needs: a committed id, a derived record, an imported record.
+    if (imported ? !impRec : derived ? !rec : !PACK_IDS.includes(target)) return;
     const link = packLink();
-    const href = "/system/tokens." + (derived ? "neutral" : target) + ".css";
+    // Rule 2, for an imported pack: it is a COMPLETE pack (colour AND scale), so the base beneath
+    // it is irrelevant — and neutral is the honest one to sit on, exactly as "your brand" does.
+    const href = "/system/tokens." + (derived || imported ? "neutral" : target) + ".css";
 
     const swap = () => {
       // Claim the swap. Taken HERE, not in selectPack(): on the view-transition path the callback
@@ -190,8 +214,19 @@ function buildDock() {
       // Gated on the record, not on the selector: a colour entered in #beat-brand WITHOUT "wear"
       // is on :root while the selector still says saulera, and those props must go too.
       if (rec) clearRoot(rec.tokens); // removeProperty on an unset key is a no-op
+      // Rule 1 for the imported layer: moving OFF an import drops its <style> first, or it would
+      // ghost over whatever pack just loaded (it is a :root rule later in <head> than any sheet).
+      // Moving ONTO one, the derived props above have just been cleared — which matters, because
+      // inline props on :root outrank a <style> rule and would win over the imported pack.
+      if (!imported) removeImportedStyle();
+      // An imported pack is a COMPLETE pack, and an inline :root property outranks the <style>
+      // that carries it. clearRoot above only knows the derived record's keys; this also takes
+      // the hero's canned re-skin (spine.mjs), which may still be mid-hold when a reader wears
+      // an import — without it their design is masked by the demo brand until the hero reverts.
+      if (imported) clearInlineTokens();
       if (!link || link.getAttribute("href") === href) {
         if (derived) applyToRoot(rec.tokens);
+        if (imported) applyImported(impRec);
         return Promise.resolve(); // same sheet — re-assigning href never re-fires load, so never await one
       }
       return new Promise((resolve) => {
@@ -202,6 +237,9 @@ function buildDock() {
         const done = () => {
           const live = derived ? readRecord() : null;
           if (gen === swapGen && live) applyToRoot(live.tokens);
+          // Re-read for the same reason the derived path does: a second drop can land while a
+          // sheet is still loading, and the record is the truth about which one to wear.
+          if (gen === swapGen && imported) applyImported(readImported() || impRec);
           resolve();
         };
         link.addEventListener("load", done, { once: true });
@@ -229,7 +267,13 @@ function buildDock() {
     } else settled = Promise.resolve(swap()).catch(() => {});
 
     selection = target;
-    if (derived) {
+    if (imported) {
+      // No selector write, on purpose (#130). The imported record IS the memory, it lives in
+      // sessionStorage, and pack-boot.js reads it before the selector — so the reader's committed
+      // or derived pick underneath is shadowed rather than overwritten, and comes back untouched
+      // the moment they pick another row (or open a new tab). Nothing to back up, nothing to
+      // restore: that is why this mode needs none of #108's displacement machinery.
+    } else if (derived) {
       selfEmit = true;
       wear(); // owns the derived selector AND backs up the pack it displaces, so unwear() hands it back
       selfEmit = false;
@@ -326,6 +370,14 @@ function buildDock() {
     renderRestore(); // the same two keys renderPacks reads — the offer and the row can never disagree
   });
 
+  // An import was worn, replaced or cleared (#130) — the beat is the only other writer. Same
+  // contract as BRAND_CHANGE_EVENT: REFLECT ONLY, and the same selfEmit guard, because the beat
+  // asks for the pack through PACK_REQUEST_EVENT and selectPack's own writes re-enter here.
+  window.addEventListener(IMPORT_CHANGE_EVENT, () => {
+    if (!selfEmit) selection = groundTruth();
+    renderPacks();
+  });
+
   // Copy what is skinning the page RIGHT NOW. For a committed pack that is the artifact itself
   // (fetch the live href, so the paste is verbatim); for "your brand" the committed sheet is only
   // the neutral base, so copying it would hand over the wrong thing — the derived custom
@@ -337,6 +389,19 @@ function buildDock() {
       copyBtn.textContent = label;
       copyTimer = setTimeout(() => { copyBtn.textContent = "Copy tokens"; copyTimer = null; }, 1600);
     };
+    // The imported pack: copying the committed sheet would hand over the neutral base it rides,
+    // which is the wrong thing. The reader's own mapped tokens are what re-skins the page.
+    if (selection === IMPORTED_ID) {
+      const rec = readImported();
+      if (!rec) { done("Copy failed"); return; }
+      const body = Object.entries(rec.tokens).map(([k, v]) => "  " + k + ": " + v + ";").join("\n");
+      const text = "/* " + rec.label + " — imported in your browser from " + rec.fileName + ", mapped onto\n" +
+        "   this repo's token contract. Their design work, not this repo's. Colour, spacing,\n" +
+        "   radius, type and shadows; components and fonts never import. */\n" +
+        ":root {\n" + body + "\n}\n";
+      navigator.clipboard.writeText(text).then(() => done("Copied ✓")).catch(() => done("Copy failed"));
+      return;
+    }
     if (selection === DERIVED_ID) {
       const rec = readRecord();
       if (!rec) { done("Copy failed"); return; }

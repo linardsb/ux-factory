@@ -1,0 +1,28 @@
+{
+  "$description": "SYNTHETIC fixture — not a real design. A DTCG plugin export carrying one grey ramp and TWO saturated non-state ramps of 5+ rungs each (indigo, teal), so pickRamps finds more than one brand candidate and REFUSES rather than picking. Exists so the refusal-with-candidates path — the CLI's message, and the swatch affordance the portal drawer and the public drop zone build from err.candidates — is testable with no network, no Figma request spend, and no real design. Hues chosen outside STATE_RAMP (figma-pull's red/green/yellow/orange/amber/lime/success/error/warning/danger/info/destructive/positive/negative/neutral/grey/gray list) or they would be classified as UI states and never counted as candidates.",
+  "gray": {
+    "50": { "$value": "#f9fafb", "$type": "color" },
+    "200": { "$value": "#e5e7eb", "$type": "color" },
+    "400": { "$value": "#9ca3af", "$type": "color" },
+    "600": { "$value": "#4b5563", "$type": "color" },
+    "800": { "$value": "#1f2937", "$type": "color" },
+    "900": { "$value": "#111827", "$type": "color" }
+  },
+  "indigo": {
+    "50": { "$value": "#eef2ff", "$type": "color" },
+    "200": { "$value": "#c7d2fe", "$type": "color" },
+    "400": { "$value": "#818cf8", "$type": "color" },
+    "600": { "$value": "#4f46e5", "$type": "color" },
+    "800": { "$value": "#3730a3", "$type": "color" }
+  },
+  "teal": {
+    "50": { "$value": "#f0fdfa", "$type": "color" },
+    "200": { "$value": "#99f6e4", "$type": "color" },
+    "400": { "$value": "#2dd4bf", "$type": "color" },
+    "600": { "$value": "#0d9488", "$type": "color" },
+    "800": { "$value": "#115e59", "$type": "color" }
+  },
+  "base": {
+    "white": { "$value": "#ffffff", "$type": "color" }
+  }
+}

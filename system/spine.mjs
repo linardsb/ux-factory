@@ -24,12 +24,18 @@ const OBSERVE_THRESHOLD = 0.35; // a beat activates once it is ~a third in view
 const prefersReduce = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// A worn "your brand" derived pack (#74, D5b) lives as inline --color-* props on :root that
-// pack-boot.js applies pre-paint — NOT a stylesheet. The hero re-skin below reverts by
-// removeProperty()-ing those exact keys, so on home it would STRIP a worn brand ~1.2s in
-// (every other page keeps it — the worst page to lose it). Skip the re-skin when derived is
-// worn; the CSS entrances (hero-rise/hl-draw) still play. Storage-safe (Node/no-storage → false).
-const isWearingDerived = () => {
+// A pack the VISITOR brought is not this demo's to overwrite. Two kinds qualify:
+//   - a worn "your brand" derived pack (#74, D5b): inline --color-* props on :root that
+//     pack-boot.js applies pre-paint — NOT a stylesheet. The hero re-skin below reverts by
+//     removeProperty()-ing those exact keys, so on home it would STRIP a worn brand ~1.2s in
+//     (every other page keeps it — the worst page to lose it).
+//   - an IMPORTED pack (#130): the reader dropped their own design system's token export on this
+//     very page. The hero's canned re-skin would paint the demo brand over it and then strip it
+//     on revert, which is the same defect against a far more expensive thing to lose.
+// Skip the re-skin for either; the CSS entrances (hero-rise/hl-draw) still play.
+// Storage-safe both ways (Node / no storage / private mode → false).
+const isWearingVisitorPack = () => {
+  try { if (sessionStorage.getItem("factory-pack-imported")) return true; } catch { /* private mode */ }
   try { return localStorage.getItem("factory-pack") === "derived"; } catch { return false; }
 };
 
@@ -134,7 +140,7 @@ async function heroBeat({ el, reduce }) {
   try {
     // reduced motion, OR a worn brand already on :root pre-paint → skip the re-skin. In both
     // cases the current :root IS the intended final state; re-skinning would revert-strip a worn brand.
-    if (reduce || isWearingDerived()) return;
+    if (reduce || isWearingVisitorPack()) return;
     await assemblySettled(el); // let hero-rise + hl-draw land first, so the re-skin reads as a second act
     const { tokens } = derive(CANNED_AXES); // the real derivation, live in the browser
     applied = Object.entries(tokens).filter(isColorToken);
