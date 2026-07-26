@@ -9,6 +9,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+// cssValue/aliasPath are pure and are what a browser needs to emit a pack, so they live in the
+// view-time-safe engine (#130). Re-exported here so this module's own callers are untouched.
+import { aliasPath, cssValue } from "../system/pack-import.mjs";
+
+export { cssValue };
 
 const SYSTEM = resolve(dirname(fileURLToPath(import.meta.url)), "../system");
 const SOURCE = join(SYSTEM, "tokens.source.json");
@@ -19,7 +24,6 @@ const OUTPUTS = {
 };
 
 const isToken = (node) => node && typeof node === "object" && "$value" in node;
-const aliasPath = (v) => (typeof v === "string" && /^\{([^{}]+)\}$/.test(v) ? v.slice(1, -1) : null);
 const sections = (group) => Object.entries(group).filter(([k]) => !k.startsWith("$"));
 const tokens = sections; // same filter one level down
 
@@ -54,18 +58,6 @@ export function loadSource() {
     }
   }
   return src;
-}
-
-// One token value → its CSS text. Aliases become var(--leaf); arrays re-join as a
-// font stack (quoting entries with spaces); everything else passes through verbatim.
-// Exported for gen-pack-css.mjs (the sibling pack emitter) — same emission path, so a
-// derived pack renders identically to a contract/neutral one. The drift-checked default
-// path (loadSource/genTokenCss/emitCss) is untouched.
-export function cssValue($value) {
-  const alias = aliasPath($value);
-  if (alias) return `var(--${alias.split(".").pop()})`;
-  if (Array.isArray($value)) return $value.map((f) => (/\s/.test(f) ? `"${f}"` : f)).join(", ");
-  return String($value);
 }
 
 const GENERATED_HEADER = `/* GENERATED from system/tokens.source.json — do not edit by hand.

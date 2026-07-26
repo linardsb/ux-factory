@@ -25,116 +25,36 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { cssValue } from "./gen-token-css.mjs";
+// The parse, the validation, the auto-fill and the emission live in the view-time-safe engine
+// (#130), so a pack emitted in a reader's browser is byte-identical to one emitted here. This
+// file keeps the two things that engine must never do: read a path, and write one.
+import { emitPackCss, parseContract } from "../system/pack-import.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SYSTEM = join(ROOT, "system");
 const SOURCE = join(SYSTEM, "tokens.source.json");
 
 // The contract group of tokens.source.json is the completion source + the name whitelist.
-// Returns the sections (for grouped emission), a name→token lookup, and the ordered names.
 // Exported because figma-pull reads the same defaults to keep a design's imported type size
 // inside the contract's own clamp() shape — one source of truth, never a second copy.
+// The parse itself is parseContract in system/pack-import.mjs; this is its file-reading shell.
 export function loadContract(sourceJson) {
-  const src = JSON.parse(readFileSync(sourceJson, "utf8"));
-  if (!src.contract) throw new Error(`gen-pack-css: ${sourceJson} has no "contract" group`);
-  const sections = [];
-  const byName = {};
-  const order = [];
-  for (const [secKey, sec] of Object.entries(src.contract)) {
-    if (secKey.startsWith("$")) continue;
-    const toks = [];
-    for (const [name, tok] of Object.entries(sec)) {
-      if (name.startsWith("$")) continue;
-      if (!tok || typeof tok !== "object" || !("$value" in tok))
-        throw new Error(`gen-pack-css: ${sourceJson}: contract.${secKey}.${name} has no $value`);
-      toks.push(name);
-      byName[name] = tok;
-      order.push(name);
-    }
-    sections.push({ label: sec.$description || secKey, tokens: toks });
-  }
-  return { sections, byName, order };
-}
-
-// A DTCG token node carries a $value; a flat value is a bare string or a font-stack array.
-const isDtcgNode = (v) => v && typeof v === "object" && !Array.isArray(v) && "$value" in v;
-// A usable pack value is a non-empty string, or a non-empty array of strings (a font stack).
-const isUsableValue = (v) =>
-  (typeof v === "string" && v.trim() !== "") ||
-  (Array.isArray(v) && v.length > 0 && v.every((s) => typeof s === "string" && s.trim() !== ""));
-
-// Emit a token pack. `values` maps every contract token → its raw $value (string or array);
-// cssValue turns each into CSS text (exactly as gen-token-css calls it — the raw value, never
-// the wrapping node). Grouped + aligned to read like the neutral pack.
-function emitPack(slug, note, sections, values) {
-  const header =
-    `/* GENERATED — the "${slug}" token pack. Do not edit by hand.\n` +
-    ` * Emitted by agent-layer/gen-pack-css.mjs from a DTCG seed / token map, reusing the\n` +
-    ` * gen-token-css cssValue emission — so this pack renders identically to contract/neutral.\n` +
-    (note ? ` * ${note}\n` : "") +
-    ` * Loads AFTER system/tokens.contract.css, in place of tokens.neutral.css (one <head> line).\n` +
-    ` */`;
-  const lines = [header, "", ":root {"];
-  sections.forEach(({ label, tokens }, i) => {
-    if (i > 0) lines.push("");
-    lines.push(`  /* ---- ${label} ---- */`);
-    const width = Math.max(...tokens.map((n) => n.length));
-    for (const name of tokens) {
-      const pad = " ".repeat(width - name.length + 1);
-      lines.push(`  --${name}:${pad}${cssValue(values[name])};`);
-    }
-  });
-  lines.push("}", "");
-  return lines.join("\n");
+  return parseContract(JSON.parse(readFileSync(sourceJson, "utf8")), { label: sourceJson });
 }
 
 // input: a DTCG seed { tokens: { name: { $value, $type } }, review? } OR a flat { name: value } map.
 // Returns { slug, dest, tokenCount, filled: [names], css }. Throws (naming the token) on an
 // unknown name or a malformed value; writes `dest` when given.
 export function genPackCss(input, { slug, dest, sourceJson = SOURCE, note } = {}) {
-  if (!slug || typeof slug !== "string")
-    throw new Error("gen-pack-css: a string `slug` is required (it names the pack in the header)");
-  const { sections, byName, order } = loadContract(sourceJson);
-  const contractNames = new Set(order);
-
-  // Normalise DTCG (input.tokens) vs a flat map (derive().tokens) to { name: rawValue }.
-  const rawTokens =
-    input && typeof input === "object" && input.tokens && typeof input.tokens === "object"
-      ? input.tokens
-      : input;
-  if (!rawTokens || typeof rawTokens !== "object")
-    throw new Error("gen-pack-css: input must be a DTCG seed { tokens: {…} } or a flat { name: value } map");
-
-  const provided = {};
-  for (const [name, entry] of Object.entries(rawTokens)) {
-    if (name.startsWith("$") || name === "review") continue; // DTCG meta + the human-gate block
-    if (!contractNames.has(name))
-      throw new Error(`gen-pack-css: "${name}" is not one of the ${order.length} contract leaf tokens (${relative(ROOT, sourceJson)} contract group)`);
-    const value = isDtcgNode(entry) ? entry.$value : entry;
-    if (!isUsableValue(value))
-      throw new Error(`gen-pack-css: token "${name}" has an unusable value ${JSON.stringify(value)} (expected a non-empty string or font-stack array)`);
-    provided[name] = value;
-  }
-
-  // Auto-fill any contract token the input omitted, from the contract default (raw $value).
-  const filled = [];
-  const values = {};
-  for (const name of order) {
-    if (name in provided) values[name] = provided[name];
-    else {
-      values[name] = byName[name].$value;
-      filled.push(name);
-    }
-  }
-  // Defensive: filling from the contract guarantees completeness, but name it if ever not.
-  const missing = order.filter((n) => !(n in values));
-  if (missing.length)
-    throw new Error(`gen-pack-css: incomplete pack "${slug}" — missing ${missing.join(", ")}`);
-
-  const css = emitPack(slug, note, sections, values);
+  const contract = loadContract(sourceJson);
+  const { tokenCount, filled, css } = emitPackCss(input, {
+    slug, note, contract,
+    // The unknown-token message has always named the source repo-relatively; the engine has no
+    // notion of ROOT, so the label is supplied from here.
+    sourceLabel: relative(ROOT, sourceJson),
+  });
   if (dest) writeFileSync(dest, css);
-  return { slug, dest: dest || null, tokenCount: order.length, filled, css };
+  return { slug, dest: dest || null, tokenCount, filled, css };
 }
 
 // pathToFileURL, not `file://${argv[1]}`: this repo's path contains a space (gen-token-css L148).

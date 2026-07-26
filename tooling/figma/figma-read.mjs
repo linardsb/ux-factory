@@ -24,6 +24,12 @@ import { basename, dirname, join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+// The export PARSERS live in the view-time-safe engine (#130) so the browser runs the same ones.
+// This file keeps everything they cannot: auth, the rate budget, the cache and the network.
+import { entriesFromExport, entriesFromVariables, rgbaToHex } from "../../system/pack-import.mjs";
+
+// Re-exported for this module's existing callers — the parsers moved, the import path did not.
+export { entriesFromExport, rgbaToHex };
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const ENV_FILE = join(ROOT, "portal/.env");
@@ -43,12 +49,6 @@ function loadEnv() {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
     if (m && !line.trim().startsWith("#") && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
-}
-
-// Figma {r,g,b,a} floats → #rrggbb(aa) hex.
-export function rgbaToHex({ r, g, b, a = 1 }) {
-  const hex = (v) => Math.round(v * 255).toString(16).padStart(2, "0");
-  return `#${hex(r)}${hex(g)}${hex(b)}${a < 1 ? hex(a) : ""}`;
 }
 
 // ── the request layer: every response is banked to disk before anything reads it ──────────
@@ -119,22 +119,7 @@ const rateLimitNote = (rec) =>
 
 // ── entry extraction ──────────────────────────────────────────────────────────────────────
 
-// Variables response → [{ name, type: "color"|"dimension"|other, value }].
-// Values come from each variable's collection default mode; aliases stay unresolved
-// (name parity is what matters for a chained variable).
-function entriesFromVariables(data) {
-  const collections = data.meta?.variableCollections ?? {};
-  return Object.values(data.meta?.variables ?? {}).map((v) => {
-    const mode = collections[v.variableCollectionId]?.defaultModeId;
-    const raw = v.valuesByMode?.[mode];
-    let type = null, value = null;
-    if (raw && typeof raw === "object" && raw.type === "VARIABLE_ALIAS") type = "alias";
-    else if (v.resolvedType === "COLOR" && raw) { type = "color"; value = rgbaToHex(raw); }
-    else if (v.resolvedType === "FLOAT" && typeof raw === "number") { type = "dimension"; value = raw; }
-    else value = raw ?? null;
-    return { name: v.name, type, value };
-  });
-}
+// entriesFromVariables moved to system/pack-import.mjs (#130) and is imported above.
 
 // Local styles are NAMED in a response's top-level `styles` map but only VALUED on the document
 // nodes that reference them, so walk each returned subtree and read the first solid fill per id.
@@ -150,80 +135,8 @@ function collectStyleFills(node, out) {
   (node.children ?? []).forEach((child) => collectStyleFills(child, out));
 }
 
-// A plugin export (Tokens Studio, a variables dump, anything that walks the document in-app) is
-// the way past BOTH walls at once: it reads variables the REST API gates behind Enterprise, and
-// it costs no request. Rather than guess which tool wrote the file, flatten ANY nested JSON to
-// path → value: DTCG `$value`/`$type` nodes, Tokens Studio's `{value,type}`, or bare strings.
-// The REST variables envelope is delegated, so a raw API dump works too.
-const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const expandHex = (v) => (v.length === 4 ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}` : v).toLowerCase();
-
-// variables2json writes an effect variable as { effects: [{ type, color: {r,g,b,a} 0–1 floats,
-// offset: {x,y}, radius, spread }] }. The first drop-shadow layer becomes the composite shape
-// collectScales already consumes; a variable with no drop shadow (inner shadows, blurs) returns
-// null and falls back to a name-parity entry.
-function pluginShadow(value) {
-  const fx = Array.isArray(value?.effects) ? value.effects.find((e) => e?.type === "DROP_SHADOW") : null;
-  if (!fx?.color) return null;
-  const c = fx.color;
-  const rgba = `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${+(c.a ?? 1).toFixed(3)})`;
-  return { color: rgba, offsetX: fx.offset?.x ?? 0, offsetY: fx.offset?.y ?? 0, blur: fx.radius ?? 0, spread: fx.spread ?? 0 };
-}
-
-function leafEntry(name, value, declaredType) {
-  if (typeof value === "string" && HEX.test(value.trim())) return { name, type: "color", value: expandHex(value.trim()) };
-  if (typeof value === "number") return { name, type: "dimension", value };
-  if (typeof value === "string" && /^-?\d+(\.\d+)?px$/.test(value.trim())) return { name, type: "dimension", value: parseFloat(value) };
-  // Anything else (clamp(), a font stack, a shadow string) still counts for NAME parity.
-  return { name, type: declaredType ?? null, value: value ?? null };
-}
-
-export function entriesFromExport(json) {
-  if (json?.meta?.variables) return entriesFromVariables(json); // a raw REST variables dump
-  if (Array.isArray(json?.collections)) {
-    // A plugin variables dump (variables2json et al.): collections → modes → variables, all in
-    // arrays the generic walker below deliberately skips. A pack holds one value per token, so one
-    // mode per collection comes across; the envelope declares no default, so index 0 is a CHOICE —
-    // a multi-mode collection names the mode it was read from rather than pretending there was
-    // only one. Alias entries point at another variable instead of holding a literal; the ramp
-    // they point into is already in the list, so they are skipped.
-    const fromCollections = [];
-    for (const col of json.collections) {
-      const mode = col?.modes?.[0];
-      if (!mode) continue;
-      if (col.modes.length > 1) console.log(`  export: "${col.name}" — reading mode "${mode.name}" of ${col.modes.map((m) => m.name).join(" / ")}`);
-      for (const v of mode.variables ?? []) {
-        if (!v?.name || v.isAlias || v.value == null) continue;
-        if (typeof v.value === "object") {
-          // An effect variable's drop shadow converts to the DTCG composite shape collectScales
-          // already reads (first layer only, the documented truncation). Any other composite —
-          // grids, typography objects — keeps NAME parity like an unvalued REST style, so the
-          // count and --map still see it and nothing is silently unnameable.
-          const shadow = pluginShadow(v.value);
-          fromCollections.push(shadow ? { name: String(v.name), type: "shadow", value: shadow } : leafEntry(String(v.name), null, v.type ?? null));
-          continue;
-        }
-        fromCollections.push(leafEntry(String(v.name), v.value, v.type ?? null));
-      }
-    }
-    if (fromCollections.length) return fromCollections;
-  }
-  const out = [];
-  (function walk(node, path) {
-    if (node === null || typeof node !== "object") {
-      if (path.length) out.push(leafEntry(path.join("/"), node));
-      return;
-    }
-    if (Array.isArray(node)) return; // font stacks etc. — no token name of their own
-    if ("$value" in node) return void out.push(leafEntry(path.join("/"), node.$value, node.$type));
-    if ("value" in node && typeof node.value !== "object") return void out.push(leafEntry(path.join("/"), node.value, node.type));
-    for (const [key, child] of Object.entries(node)) {
-      if (key.startsWith("$") || key === "extensions") continue;
-      walk(child, [...path, key]);
-    }
-  })(json, []);
-  return out;
-}
+// The export parsers — HEX/expandHex, pluginShadow, leafEntry, entriesFromExport — moved to
+// system/pack-import.mjs (#130) so the browser drop zone runs the same ones. Imported above.
 
 const entriesFromStyles = ({ styles, values }) =>
   Object.entries(styles).map(([id, s]) => ({
@@ -322,7 +235,11 @@ export async function readFigma({ from = null, offline: replay = false, refresh:
   // A file on disk short-circuits the network entirely: no token, no quota, no Enterprise gate.
   if (from) {
     const path = resolve(process.cwd(), from);
-    const entries = entriesFromExport(JSON.parse(readFileSync(path, "utf8")));
+    // The parser is silent now (#130), so its notes are printed HERE — and printed before the
+    // refusal and the count below, which is exactly where they appeared when it logged them
+    // itself. The .out parity diff is what holds this ordering.
+    const { entries, notes } = entriesFromExport(JSON.parse(readFileSync(path, "utf8")));
+    for (const n of notes) console.log(`  ${n}`);
     if (!entries.length) throw new Error(`${from}: no tokens found — expected DTCG ($value/$type), Tokens Studio ({value,type}), or a nested name→value map.`);
     console.log(`  export  ${from}  ${entries.length} tokens`);
     return { fileKey: from, fileName: basename(path), endpoint: "export-file", gate: null, entries, pages: null };

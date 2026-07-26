@@ -54,340 +54,21 @@
 //   node tooling/figma/figma-pull.mjs --slug <company> --from <export.json> --out <path.css>
 //     — write somewhere other than system/tokens.<slug>.css (a fixture run, a scratch check).
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { genPackCss, loadContract } from "../../agent-layer/gen-pack-css.mjs";
-import { RULESET } from "../../system/derive.rules.mjs";
-import { hexToOklch } from "../../system/oklch.mjs";
-import { checkPairs } from "../../system/wcag.mjs";
+import { loadContract } from "../../agent-layer/gen-pack-css.mjs";
+import { ROLES, FAMILY_LABEL, scaleRole, formatScale, collectScales, mapPack } from "../../system/pack-import.mjs";
 import { ROOT, readFigma, readFlags } from "./figma-read.mjs";
 
-// Which rung of which ramp each contract token claims. Steps follow the near-universal
-// 50…950 convention (light → dark). `white` resolves to the file's own white if it publishes one.
-// The contract tokens no colour role and no SCALE_ROLE claims — motion, layout, fonts, and the
-// color-mix() inverse tokens that stay relative and re-derive from the imported accent — are
-// auto-filled from contract defaults by gen-pack-css and reported as such.
-const ROLES = [
-  { token: "color-fg", ramp: "neutral", step: 900 },
-  { token: "color-fg-muted", ramp: "neutral", step: 500 },
-  { token: "color-bg", white: true },
-  { token: "color-bg-surface", ramp: "neutral", step: 50 },
-  { token: "color-border", ramp: "neutral", step: 200 },
-  { token: "color-border-strong", ramp: "neutral", step: 900 },
-  { token: "color-white", white: true },
-  { token: "color-accent", ramp: "accent", step: 600 },
-  // Resolved AFTER contrast negotiation, as offsets from wherever color-accent ended up: pinned
-  // to absolute rungs they would collide with a negotiated accent (a yellow accent darkens to
-  // /700, and a hover state the same colour as its rest state is no hover state at all).
-  { token: "color-accent-hover", ramp: "accent", follows: "color-accent", offset: 100 },
-  { token: "color-accent-active", ramp: "accent", follows: "color-accent", offset: 200 },
-  { token: "color-accent-fg", white: true },
-  { token: "color-accent-secondary", ramp: "neutral", step: 600 },
-  { token: "color-accent-on-inverse", ramp: "accent", step: 400 },
-  { token: "color-bg-inverse", ramp: "neutral", step: 900 },
-  { token: "color-fg-on-inverse", ramp: "neutral", step: 100 },
-  { token: "color-fg-on-inverse-strong", white: true },
-];
-
-// ── Scale: the design's spacing, radius, type ramp and shadows ────────────────────────────
-// Colour alone makes a pack "the design's palette on THIS repo's scale" — its spacing-md is 16px
-// because that is this repo's default, not because the design said so. These four families come
-// across too, and by the same discipline as the colours: mapped by ORDER, not by name (a design's
-// "Spacing/4" shares no vocabulary with "spacing-md"), all-or-nothing per family, and every value
-// imported, dropped or auto-filled is named in the pack header.
-//
-// Rank is the family's OWN slot order, not a global "smallest first": spacing/radius/shadow run
-// small → large, the type ramp runs large → small (its first slot is a display size). Rank 1
-// therefore takes the smallest imported spacing and the LARGEST imported type size.
-const SCALE_ROLES = [
-  { token: "spacing-xs", family: "spacing", rank: 1 },
-  { token: "spacing-sm", family: "spacing", rank: 2 },
-  { token: "spacing-md", family: "spacing", rank: 3 },
-  { token: "spacing-lg", family: "spacing", rank: 4 },
-  { token: "spacing-xl", family: "spacing", rank: 5 },
-  { token: "spacing-2xl", family: "spacing", rank: 6 },
-  { token: "spacing-3xl", family: "spacing", rank: 7 },
-  { token: "spacing-4xl", family: "spacing", rank: 8 },
-  { token: "radius-sm", family: "radius", rank: 1 },
-  { token: "radius-md", family: "radius", rank: 2 },
-  { token: "radius-lg", family: "radius", rank: 3 },
-  // Descending size, which is NOT tokens.source.json's declaration order: type-h3 (20px) sits
-  // BELOW type-lead (clamp max 22px), so reading the contract's order would invert the ramp.
-  { token: "type-display", family: "type", rank: 1 },
-  { token: "type-h1", family: "type", rank: 2 },
-  { token: "type-h2", family: "type", rank: 3 },
-  { token: "type-lead", family: "type", rank: 4 },
-  { token: "type-h3", family: "type", rank: 5 },
-  { token: "type-body", family: "type", rank: 6 },
-  { token: "type-caption", family: "type", rank: 7 },
-  { token: "type-eyebrow", family: "type", rank: 8 },
-  { token: "shadow-sm", family: "shadow", rank: 1 },
-  { token: "shadow-md", family: "shadow", rank: 2 },
-  { token: "shadow-lg", family: "shadow", rank: 3 },
-];
-const FAMILY_ORDER = { spacing: "asc", radius: "asc", shadow: "asc", type: "desc" };
-const FAMILY_LABEL = { spacing: "spacing", radius: "radius", type: "type ramp", shadow: "shadows" };
-const FAMILY_RULE = {
-  spacing: "smallest→largest", radius: "smallest→largest",
-  type: "largest→smallest", shadow: "subtlest→heaviest (blur + spread)",
-};
-const scaleRole = (token) => SCALE_ROLES.find((r) => r.token === token);
-
-// Which family a dimension belongs to. TYPE IS TESTED FIRST on purpose: a design that names its
-// text styles "Regular/size 5" would have its font sizes swallowed by a spacing keyword, so bare
-// "size" is deliberately not one. A name matching nothing returns null and is reported as
-// unclassified in the pack header — never guessed into a family.
-const FAMILY_KEYWORDS = [
-  { family: "type", re: /(^|[/\s_-])(text|font|type|typography|heading|body)/i },
-  { family: "radius", re: /(^|[/\s_-])(radius|corner|rounded|round)/i },
-  { family: "shadow", re: /(^|[/\s_-])(shadow|elevation|depth)/i },
-  { family: "spacing", re: /(^|[/\s_-])(spacing|space|gap|inset|padding|margin)/i },
-];
-// Type-adjacent names that are NOT sizes: a font weight (700) or a tracking value that reaches
-// the type pool ranks as a jumbo pixel size (#127 — a real dump filled type-display from
-// font-weight/bold). Excluded by NAME SEGMENT so every naming convention is caught (font-weight,
-// fontWeight, font.weight); "letter-spacing" collapses to one segment first, or its "spacing"
-// half would land the name in the spacing family. Excluded names are reported as unclassified.
-function isNotASize(name) {
-  const s = String(name)
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .toLowerCase()
-    .replace(/letter[\s_.-]?spacings?/g, "letterspacing");
-  return s.split(/[/\s_.-]+/).some((seg) => /^(weights?|letterspacings?|trackings?)$/.test(seg));
-}
-export function classifyDimension(name) {
-  if (isNotASize(name)) return null;
-  for (const { family, re } of FAMILY_KEYWORDS) if (re.test(String(name))) return family;
-  return null;
-}
-
-// Tokens Studio writes a shadow as { value: { x, y, blur, spread, color, type } }, which the read
-// SHATTERS into one leaf entry per member (entriesFromExport never emits an object). Reassemble by
-// the shared name prefix; DTCG's composite shadow arrives whole instead, under its own $type.
-const TS_SHADOW_PART = /^(.+)\/value\/(x|y|blur|spread|color|type)$/i;
-
-const px = (v) =>
-  typeof v === "number" ? `${v}px`
-    : typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? `${Number(v.trim())}px`
-      : typeof v === "string" && v.trim() ? v.trim() : null;
-const numOf = (v) => (Number.isFinite(parseFloat(v)) ? parseFloat(v) : 0);
-
-// One CSS shadow from either shape. A group with no colour or no blur is not half-composed — it is
-// skipped and named. An 8-digit hex is a legal CSS colour, so it passes through as the design wrote it.
-function composeShadow(name, parts) {
-  const blur = px(parts.blur);
-  const color = typeof parts.color === "string" && parts.color.trim() ? parts.color.trim() : null;
-  if (blur === null || !color) return null;
-  const x = px(parts.x ?? 0) ?? "0px";
-  const y = px(parts.y ?? 0) ?? "0px";
-  const spread = parts.spread == null ? null : px(parts.spread);
-  const hasSpread = spread !== null && numOf(spread) !== 0;
-  return {
-    name,
-    css: `${x} ${y} ${blur}${hasSpread ? ` ${spread}` : ""} ${color}`,
-    weight: numOf(blur) + (spread === null ? 0 : numOf(spread)),
-    tie: Math.abs(numOf(y)),
-  };
-}
-
-// Everything the read offers that could fill a scale slot. `value == null` entries are dropped
-// first: the REST path names text and effect styles without ever valuing them (collectStyleFills
-// harvests fills only), so a styles read contributes nothing here and the run says so.
-export function collectScales(entries) {
-  const consumed = new Set();
-  const groups = {};
-  for (const e of entries) {
-    const m = TS_SHADOW_PART.exec(e.name);
-    if (!m) continue;
-    consumed.add(e.name);
-    (groups[m[1]] ??= {})[m[2].toLowerCase()] = e.value;
-  }
-
-  const shadows = [];
-  const unclassified = [];
-  for (const [base, parts] of Object.entries(groups)) {
-    const s = composeShadow(base, parts);
-    if (s) shadows.push(s);
-    else unclassified.push(`${base} (shadow group missing its colour or blur — not half-composed)`);
-  }
-
-  const dims = [];
-  for (const e of entries) {
-    if (e.value == null || consumed.has(e.name)) continue;
-    if (e.type === "shadow" && typeof e.value === "object" && !Array.isArray(e.value)) {
-      // DTCG composite: { color, offsetX, offsetY, blur, spread }. A multi-layer shadow arrives as
-      // its first layer only (the read emits no arrays) — the truncation is named in the header.
-      const v = e.value;
-      const s = composeShadow(e.name, { x: v.offsetX, y: v.offsetY, blur: v.blur, spread: v.spread, color: v.color });
-      if (s) shadows.push(s);
-      else unclassified.push(`${e.name} (shadow missing its colour or blur)`);
-      continue;
-    }
-    if (e.type !== "dimension" || typeof e.value !== "number") continue;
-    const family = classifyDimension(e.name);
-    // A number named like a shadow is not a shadow (a shadow needs a colour): say so, don't guess.
-    if (family === null || family === "shadow") { unclassified.push(e.name); continue; }
-    // A "rounded-full" pill sentinel (9999px) is a shape utility, not a surface radius — mapping
-    // it onto the contract's largest card radius would pill every panel (#129, same defect class
-    // as weights-in-the-type-pool). Excluded and named, never silently dropped.
-    if (family === "radius" && e.value >= 999) { unclassified.push(`${e.name} (pill sentinel, not a surface radius)`); continue; }
-    dims.push({ name: e.name, num: e.value, family });
-  }
-  return { dims, shadows, unclassified };
-}
-
-// The contract's own clamp: the RESPONSIVE BEHAVIOUR stays this repo's (the vw term is copied
-// verbatim), the NUMBER becomes the design's, and the min scales by the same ratio so the ramp
-// keeps its shape. Rounded to whole px — a committed pack carrying clamp(36.571428571px, …) is
-// what a reviewer flags, and the fraction buys nothing.
-const CLAMP = /^clamp\(\s*([\d.]+)px\s*,\s*([^,]+?)\s*,\s*([\d.]+)px\s*\)$/;
-
-function formatScale(role, item, defaults) {
-  if (role.family === "shadow") return { css: item.css, note: "" };
-  const def = defaults[role.token];
-  if (role.family === "type" && typeof def === "string" && def.startsWith("clamp(")) {
-    const m = CLAMP.exec(def);
-    if (m) {
-      const [, min, vw, max] = m;
-      return {
-        css: `clamp(${Math.round((Number(min) * item.num) / Number(max))}px, ${vw}, ${item.num}px)`,
-        note: "",
-      };
-    }
-    return { css: `${item.num}px`, note: " (plain px: the contract default is a clamp() this importer could not parse)" };
-  }
-  return { css: `${item.num}px`, note: "" };
-}
-
-// Fill each family BY RANK, and only if the design offers at least as many distinct values as the
-// family has slots. Fewer and the family is left entirely alone: a half-imported ramp would be
-// neither the design's nor this repo's, and no reader could tell which slots were which. Extra
-// values are dropped and listed. Pinned slots (--map) are set afterwards and always win.
-export function fillScales({ dims, shadows }, defaults, pinnedScales = {}) {
-  const values = {};
-  const placed = [];
-  const imported = {};
-  const short = [];
-  const plainPx = [];
-
-  for (const family of ["spacing", "radius", "type", "shadow"]) {
-    const slots = SCALE_ROLES.filter((r) => r.family === family).sort((a, b) => a.rank - b.rank);
-    const pool = family === "shadow"
-      ? shadows.map((s) => ({ name: s.name, css: s.css, key: s.weight, tie: s.tie }))
-      : dims.filter((d) => d.family === family).map((d) => ({ name: d.name, num: d.num, key: d.num, tie: 0 }));
-
-    // A design that publishes 4px twice offers ONE value, not two — dedupe before counting.
-    const seen = new Set();
-    const uniq = [];
-    for (const item of pool) {
-      const k = family === "shadow" ? item.css : item.num;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      uniq.push(item);
-    }
-    const dir = FAMILY_ORDER[family];
-    uniq.sort((a, b) => (dir === "asc" ? a.key - b.key : b.key - a.key) || a.tie - b.tie);
-
-    if (uniq.length < slots.length) {
-      short.push({ family, offered: uniq.length, needs: slots.length });
-      continue;
-    }
-    // Owner decision 2026-07-26 (#127, amends the scales plan's extreme-N rule): a design offering
-    // MORE distinct values than the family has slots fills them by an EVEN SPREAD across the
-    // sorted range, not the N extremes — a 35-step spacing scale must not produce a pack whose
-    // largest spacing is 12px. offered == slots keeps the exact fill either way.
-    const spread = uniq.length > slots.length;
-    const idx = slots.map((_, i) => (spread ? Math.round((i * (uniq.length - 1)) / (slots.length - 1)) : i));
-    const takenSet = new Set(idx);
-    const taken = idx.map((j) => uniq[j]);
-    const dropped = uniq.filter((_, j) => !takenSet.has(j));
-    const ruleText = FAMILY_RULE[family] + (spread ? ", even spread across the offered range" : "");
-    imported[family] = {
-      slots: slots.length,
-      offered: uniq.length,
-      rule: ruleText,
-      taken: [],
-      dropped: dropped.map((d) => (family === "shadow" ? d.css : `${d.num}px`)),
-    };
-    slots.forEach((role, i) => {
-      const item = taken[i];
-      const { css, note } = formatScale(role, item, defaults);
-      if (note) plainPx.push(role.token);
-      values[role.token] = css;
-      placed.push({ token: role.token, source: `${FAMILY_LABEL[family]} rank ${role.rank} of ${slots.length} (${ruleText}) = "${item.name}"${note}` });
-      imported[family].taken.push({ token: role.token, name: item.name, value: css });
-    });
-  }
-
-  // Explicit beats inference, exactly as it does for a colour: a pinned slot takes its value even
-  // where its family is short, and it is never moved by the ranking.
-  for (const [token, p] of Object.entries(pinnedScales)) {
-    values[token] = p.value;
-    const existing = placed.find((x) => x.token === token);
-    if (existing) existing.source = `pinned by --map to "${p.name}" (overrides ${existing.source})`;
-    else placed.push({ token, source: `pinned by --map to "${p.name}"` });
-    const fam = scaleRole(token)?.family;
-    const rec = imported[fam]?.taken.find((t) => t.token === token);
-    if (rec) { rec.name = p.name; rec.value = p.value; rec.pinned = true; }
-  }
-  return { values, placed, imported, short, plainPx };
-}
-
-// Colour entries named "<hue>/<step>" → { hue: { step: hex } }. Everything else (a kit's
-// "base/white", a one-off brand colour) is kept flat under `loose` for the white lookup.
-export function toRamps(entries) {
-  const ramps = {};
-  const loose = {};
-  for (const e of entries) {
-    if (e.type !== "color" || typeof e.value !== "string" || !/^#[0-9a-f]{6}$/i.test(e.value)) continue;
-    const m = e.name.match(/^(.*)\/(\d{2,3})$/);
-    if (m) (ramps[m[1].trim().toLowerCase()] ??= {})[Number(m[2])] = e.value.toLowerCase();
-    else loose[e.name.trim().toLowerCase()] = e.value.toLowerCase();
-  }
-  return { ramps, loose };
-}
-
-// Ramps DERIVED from arbitrary names, for the designs that don't number their colours.
-// "Blue/Light, Blue/Base, Blue/Dark" is a ramp too — it states its order in words instead of
-// digits. Group the leftover colours by name prefix (everything before the last "/", or the
-// leading word), order each group by OKLCH lightness the way the numeric convention runs
-// (light → dark), and synthesise rungs from that ORDER, spread across the same 50…950 scale.
-// The numbers are this importer's and every report says so; the colours stay the designer's.
-// A prefix that already names a numbered ramp is left alone — a real ramp is never widened with
-// a guessed rung. Nothing is removed from `loose`: the white lookup still reads it.
-export function deriveRamps(loose, numbered = {}) {
-  const groups = {};
-  for (const [name, hex] of Object.entries(loose)) {
-    const cut = name.lastIndexOf("/");
-    const prefix = (cut === -1 ? name.split(/[\s_-]+/)[0] : name.slice(0, cut)).trim();
-    if (!prefix || prefix in numbered) continue;
-    (groups[prefix] ??= []).push({ name, hex });
-  }
-
-  const ramps = {};
-  const derived = {};
-  for (const [prefix, members] of Object.entries(groups)) {
-    const ordered = members
-      .map((m, i) => ({ ...m, l: hexToOklch(m.hex).l, i }))
-      .sort((a, b) => b.l - a.l || a.i - b.i); // lightest first, declaration order breaks ties
-    const n = ordered.length;
-    ramps[prefix] = {};
-    derived[prefix] = {};
-    ordered.forEach((m, i) => {
-      // Multiples of 50 read like the convention, but that grid holds only 19 rungs — past that
-      // two colours would snap to one number and one of them would vanish from the ramp with
-      // nothing said. A wide group gets exact numbers instead; the invariant below is the guard.
-      const raw = 50 + (i * 900) / (n - 1);
-      const step = n === 1 ? 500 : n <= 19 ? Math.round(raw / 50) * 50 : Math.round(raw);
-      ramps[prefix][step] = m.hex;
-      derived[prefix][step] = { name: m.name, rung: i + 1, of: n };
-    });
-    if (Object.keys(ramps[prefix]).length !== n)
-      throw new Error(`figma-pull: the "${prefix}" group holds ${n} colours but only ${Object.keys(ramps[prefix]).length} rungs came out of numbering them — refusing to drop a colour the design contains.`);
-  }
-  return { ramps, derived };
-}
+// The MAPPING ENGINE — the role table, the scale families, ramp derivation, contrast
+// negotiation — lives in system/pack-import.mjs (#130), so the CLI, the portal drawer and the
+// public drop zone all map a design through one implementation. This file keeps what that engine
+// must never touch: the disk, the network, --map, and everything it prints.
+// Re-exported below for callers that reach for them through this module's long-standing surface.
+export {
+  classifyDimension, collectScales, fillScales, toRamps, deriveRamps, classifyRamps,
+} from "../../system/pack-import.mjs";
 
 // --map <file>: { "color-accent": "Brand/Primary", "spacing-md": "Spacing/4" } — the explicit
 // answer for a design inference can't read, committed beside the pack it produces. Explicit ALWAYS
@@ -427,238 +108,17 @@ function readMap(path, entries, scaleSource, defaults) {
   return { pinned, scales };
 }
 
-// The nearest rung a ramp actually has. A derived ramp — or a small file — has no /900, so a role
-// takes the closest thing to its nominal rung instead of the run refusing over a missing number.
-const nearestRung = (rungs, target) => rungs.reduce((best, s) => (Math.abs(s - target) < Math.abs(best - target) ? s : best));
-
-// Which ramp is the greys and which is the brand, decided from the colours themselves rather
-// than from the reader. Chroma (OKLCH, the repo's own converter) separates a grey ramp from a
-// coloured one; a ramp NAMED for a UI state is a state, not a brand, however saturated it is.
-// If more than one candidate survives, the file genuinely has no single brand colour — a palette
-// library like Plus UI carries 20+ — so the run asks instead of picking one arbitrarily.
-const NEUTRAL_MAX_CHROMA = 0.03;
-const STATE_RAMP = /^(red|green|yellow|orange|amber|lime|success|error|warning|danger|info|destructive|positive|negative|neutral|grey|gray)$/i;
-
-export function classifyRamps(ramps) {
-  return Object.entries(ramps).map(([hue, rungs]) => {
-    const steps = Object.keys(rungs).map(Number);
-    const mid = rungs[steps.reduce((best, s) => (Math.abs(s - 500) < Math.abs(best - 500) ? s : best))];
-    // `swatch` is the mid-rung hex the chroma was measured from — kept rather than discarded so a
-    // caller that has to ASK which ramp is the brand can show the colour, not just its name.
-    return { hue, rungs: steps.length, chroma: hexToOklch(mid).c, swatch: mid };
-  });
-}
-
-// `need` says which ramps still have unmapped roles to fill: a --map that pins every accent role
-// leaves nothing for an accent ramp to answer, so the run must not refuse over one being absent.
-function pickRamps(ramps, { neutral, accent, need = { neutral: true, accent: true } }) {
-  const classified = classifyRamps(ramps);
-  const usable = classified.filter((r) => r.rungs >= 5); // a 2-rung ramp can't carry the roles
-
-  let pickedNeutral = neutral;
-  if (!pickedNeutral && need.neutral) {
-    const greys = usable.filter((r) => r.chroma <= NEUTRAL_MAX_CHROMA).sort((a, b) => a.chroma - b.chroma);
-    if (!greys.length) throw new Error(`figma-pull: no near-grey ramp found for the neutral role — name one with --neutral <hue>. Ramps: ${classified.map((r) => `${r.hue}(chroma ${r.chroma.toFixed(3)})`).join(", ")}`);
-    pickedNeutral = greys[0].hue;
-  }
-
-  let pickedAccent = accent;
-  if (!pickedAccent && need.accent) {
-    const candidates = usable.filter((r) => r.chroma > NEUTRAL_MAX_CHROMA && r.hue !== pickedNeutral && !STATE_RAMP.test(r.hue));
-    if (candidates.length === 1) pickedAccent = candidates[0].hue;
-    else {
-      const err = new Error(
-        candidates.length
-          ? `figma-pull: ${candidates.length} ramps could be the brand colour, so this file has no single one to detect — pick with --accent <hue>.\n  candidates: ${candidates.sort((a, b) => b.chroma - a.chroma).map((r) => r.hue).join(", ")}`
-          : `figma-pull: no non-grey, non-state ramp to use as the accent — name one with --accent <hue>. Ramps: ${classified.map((r) => r.hue).join(", ")}`,
-      );
-      // The refusal stays a refusal — the tool still declines to pick. Carrying the candidates as
-      // DATA lets a caller ask the question in a medium that can answer it (a UI shows swatches);
-      // the CLI ignores the property and dies with the message above, byte for byte as before.
-      // The message already sorted `candidates` in place by descending chroma, so this is the same
-      // order the text lists — the swatches and the sentence can never disagree.
-      if (candidates.length) {
-        err.candidates = candidates.map((r) => ({ hue: r.hue, chroma: r.chroma, rungs: r.rungs, swatch: r.swatch }));
-      }
-      throw err;
-    }
-  }
-  return { neutral: pickedNeutral ?? null, accent: pickedAccent ?? null, classified };
-}
-
-// Every WCAG pair this token takes part in, on either side.
-const pairsFor = (token) => RULESET.wcagPairs.filter((p) => p.fg === token || p.bg === token);
-
-// Where a pair fails, walk the token's OWN ramp to the nearest rung that satisfies every pair it
-// takes part in. Values stay the designer's; only the choice of rung is ours, and it is reported.
-function negotiate(values, placed, ramps, derived = {}) {
-  const steps = [];
-  for (const entry of placed) {
-    const { token, ramp, step } = entry;
-    const involved = pairsFor(token);
-    if (!involved.length || !ramp) continue;
-    if (checkPairs(values, involved).every((c) => c.pass)) continue;
-
-    const candidates = Object.keys(ramps[ramp])
-      .map(Number)
-      .sort((a, b) => Math.abs(a - step) - Math.abs(b - step));
-    const won = candidates.find((s) => checkPairs({ ...values, [token]: ramps[ramp][s] }, involved).every((c) => c.pass));
-    if (won === undefined) continue; // no rung works — the final report names the failure
-    steps.push({ token, ramp, from: step, to: won, fromValue: values[token], toValue: ramps[ramp][won] });
-    values[token] = ramps[ramp][won];
-    entry.step = won; // so the mapping report shows the rung actually emitted, not the nominal one
-    const d = derived[ramp]?.[won];
-    entry.source = `${ramp}/${won}${d ? ` = "${d.name}"` : ""} (negotiated from /${step} for contrast)`;
-  }
-  return steps;
-}
-
 export async function runPull({ slug, accent = null, neutral = null, map = null, out = null, ...readOptions } = {}) {
   if (!slug) throw new Error("figma-pull: --slug <name> is required (it names system/tokens.<slug>.css)");
   const { fileKey, fileName, entries, pages } = await readFigma(readOptions);
-  const { ramps: numbered, loose } = toRamps(entries);
-  const { ramps: inferred, derived } = deriveRamps(loose, numbered);
-  const ramps = { ...numbered, ...inferred };
-  // The contract's own defaults, read from the file that generates the contract — the clamp shapes
-  // a type import has to keep are not restated here.
-  const { byName } = loadContract(`${ROOT}/system/tokens.source.json`);
-  const defaults = Object.fromEntries(Object.entries(byName).map(([n, t]) => [n, t.$value]));
+  // The contract's own defaults, read from the file that generates the contract. mapPack takes
+  // the contract as DATA — reading it from a path is this file's job, fetching it is the
+  // browser's, and that split is the whole reason the engine is runnable at view time.
+  const contract = loadContract(`${ROOT}/system/tokens.source.json`);
+  const defaults = Object.fromEntries(Object.entries(contract.byName).map(([n, t]) => [n, t.$value]));
+  // --map is resolved HERE: readMap reads a path off disk, which the engine must never do.
   const scaleSource = collectScales(entries);
-  const scaleOffered = scaleSource.dims.length > 0 || scaleSource.shadows.length > 0;
   const { pinned, scales: pinnedScales } = map ? readMap(map, entries, scaleSource, defaults) : { pinned: {}, scales: {} };
-
-  const available = Object.keys(ramps).sort();
-  if (!available.length) {
-    throw new Error(
-      `figma-pull: none of the ${entries.length} styles read is a colour, so there is no ramp to map ` +
-      `roles onto. Read a page that carries the palette — --page Color — or pin the roles by hand ` +
-      `with --map <file>.`,
-    );
-  }
-  for (const [role, hue] of Object.entries({ neutral, accent })) {
-    if (hue && !ramps[hue]) throw new Error(`figma-pull: no "${hue}" ramp in this file for the ${role} role. Available: ${available.join(", ")}`);
-  }
-  // A ramp is only needed where a role is left for it to answer — see pickRamps.
-  const need = { neutral: false, accent: false };
-  for (const role of ROLES) if (role.ramp && !role.white && !pinned[role.token]) need[role.ramp] = true;
-  const pick = pickRamps(ramps, { neutral, accent, need });
-  if ((need.neutral && !neutral) || (need.accent && !accent)) {
-    console.log(`  detected ramps: neutral=${pick.neutral ?? "(not needed)"} accent=${pick.accent ?? "(not needed)"}  (override with --neutral / --accent)`);
-  }
-
-  // The file's own white if it publishes one, so even the plain grounds are the designer's value.
-  const whiteKey = Object.keys(loose).find((n) => /(^|\/)white$/.test(n));
-  const white = whiteKey ? loose[whiteKey] : "#ffffff";
-
-  // How a rung reads in the report: a derived rung names the style it actually came from, so
-  // nobody mistakes a number this importer synthesised for one the designer wrote.
-  const rungSource = (hue, step, nominal) => {
-    const d = derived[hue]?.[step];
-    return (
-      `${hue}/${step}` +
-      (d ? ` = "${d.name}" (derived: rung ${d.rung} of ${d.of}, ordered by OKLCH lightness)` : "") +
-      (nominal !== undefined && step !== nominal ? ` (nearest rung to nominal /${nominal})` : "")
-    );
-  };
-
-  const values = {};
-  const placed = [];
-  for (const role of ROLES) {
-    if (role.follows) continue; // resolved below, once the anchor has settled
-    if (pinned[role.token]) {
-      values[role.token] = pinned[role.token].hex;
-      placed.push({ token: role.token, source: `pinned by --map to "${pinned[role.token].name}"` });
-      continue;
-    }
-    if (role.white) {
-      values[role.token] = white;
-      placed.push({ token: role.token, source: whiteKey ?? "(no white style in the file — #ffffff)" });
-      continue;
-    }
-    const hue = pick[role.ramp];
-    const step = nearestRung(Object.keys(ramps[hue]).map(Number), role.step);
-    values[role.token] = ramps[hue][step];
-    placed.push({ token: role.token, ramp: hue, step, source: rungSource(hue, step, role.step) });
-  }
-
-  const stepped = negotiate(values, placed, ramps, derived);
-
-  // Interaction states, offset from the accent's FINAL rung so they stay visibly distinct from it.
-  for (const role of ROLES.filter((r) => r.follows)) {
-    if (pinned[role.token]) {
-      values[role.token] = pinned[role.token].hex;
-      placed.push({ token: role.token, source: `pinned by --map to "${pinned[role.token].name}"` });
-      continue;
-    }
-    const hue = pick[role.ramp];
-    const anchor = placed.find((p) => p.token === role.follows);
-    if (anchor.step === undefined) {
-      throw new Error(
-        `figma-pull: ${role.follows} is pinned by --map, so it has no rung for ${role.token} to offset from. ` +
-        `Add "${role.token}" to the map too — a state colour is a design decision, not something to guess.`,
-      );
-    }
-    const anchorStep = stepped.find((s) => s.token === role.follows)?.to ?? anchor.step;
-    // Exclude the anchor's own rung where the ramp has another: a hover the same colour as its
-    // rest state is no hover state at all. A one-rung ramp has nothing else, and says so below.
-    const rungs = Object.keys(ramps[hue]).map(Number);
-    const distinct = rungs.filter((s) => s !== anchorStep);
-    const rung = nearestRung(distinct.length ? distinct : rungs, anchorStep + role.offset);
-    values[role.token] = ramps[hue][rung];
-    placed.push({ token: role.token, ramp: hue, step: rung, source: `${rungSource(hue, rung)} (${role.follows} ${anchorStep} + ${role.offset})` });
-  }
-  // A map may pin a contract token that has no ROLE of its own (a wash, an inverse line). Honour
-  // it here; gen-pack-css is what rejects a name that is not a contract token at all.
-  for (const [token, p] of Object.entries(pinned)) {
-    if (token in values) continue;
-    values[token] = p.hex;
-    placed.push({ token, source: `pinned by --map to "${p.name}"` });
-  }
-
-  // The four non-colour families, filled by rank from whatever the read offered.
-  const scale = fillScales(scaleSource, defaults, pinnedScales);
-  Object.assign(values, scale.values);
-  placed.push(...scale.placed);
-
-  const checks = checkPairs(values, RULESET.wcagPairs);
-  const failures = checks.filter((c) => !c.pass);
-
-  // Which ramps the run actually leaned on, and which of their rungs this importer synthesised.
-  const usedRamps = [pick.neutral, pick.accent].filter(Boolean);
-  const derivedUsed = usedRamps.filter((hue) => derived[hue]);
-  const mappedTokens = [...Object.entries(pinned), ...Object.entries(pinnedScales)];
-
-  // What the scale import did, in the pack itself. Written ONLY when the read actually offered a
-  // dimension or a shadow: a styles read (the REST path) names text and effect styles without
-  // valuing them, so it contributes nothing here and the pack stays silent about a family it never
-  // saw rather than carrying a line about an absence. The run says so on stdout instead.
-  const importedFamilies = Object.entries(scale.imported);
-  const scaleNote = !scaleOffered
-    ? ""
-    : (importedFamilies.length
-      ? `\n * Scale imported from this file: ` +
-        importedFamilies.map(([f, r]) =>
-          `${FAMILY_LABEL[f]} (${r.slots} of ${r.offered} value(s), ${r.rule}` +
-          (r.dropped.length ? ` — dropped: ${r.dropped.join(", ")}` : "") + `)`).join(", ") +
-        `.` +
-        (scale.imported.type ? ` The fluid clamp() shape and its vw term are this repo's contract; the numbers are the design's.` : "") +
-        (scale.plainPx.length ? ` Emitted as plain px because the contract default did not parse as a clamp(): ${scale.plainPx.join(", ")}.` : "") +
-        (scale.imported.shadow ? ` A multi-layer shadow imports its first layer only.` : "")
-      : "") +
-      (scale.short.length
-        ? `\n * Scale NOT imported, auto-filled from this repo's contract defaults: ` +
-          scale.short.map((s) => `${FAMILY_LABEL[s.family]} (the design offered ${s.offered}, the contract has ${s.needs} slots)`).join(", ") +
-          `. These values are NOT the design's.`
-        : "") +
-      (scaleSource.unclassified.length
-        ? `\n * Read but not classified into a family, so not imported: ` + scaleSource.unclassified.join(", ") + `.`
-        : "");
-  // A ramp with too few rungs runs out of distinct state colours: whichever states ended up
-  // wearing a colour another state already wears is a fact the pack has to carry, not hide.
-  const states = ROLES.filter((r) => r.follows).map((r) => r.token);
-  const collapsed = states
-    .map((token, i) => ({ token, twin: [...states.slice(0, i), ROLES.find((r) => r.token === token).follows].find((t) => values[t] === values[token]) }))
-    .filter((c) => c.twin);
 
   // How the source file is NAMED in a committed pack. On the --from path the "key" is just the
   // path we were handed, and the portal hands over an absolute one — so a pack imported through
@@ -676,50 +136,31 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
   // same path as above, so it gets the same treatment rather than a second, absolute copy of it.
   const sourceKey = fromLabel ?? fileKey;
 
-  const label =
-    `IMPORTED, NOT DESIGNED — every colour below is a real value read from the Figma file ` +
-    `"${fileName ?? sourceKey}" (key ${sourceKey}) by tooling/figma/figma-pull.mjs. It is that file's ` +
-    `design work, not this repo's; the pack only maps its ` +
-    (usedRamps.length ? `${usedRamps.join("/")} ramps onto contract roles.` : `own colour styles onto contract roles.`) +
-    `\n * Regenerate: node tooling/figma/figma-pull.mjs --slug ${slug}` +
-    (pick.neutral ? ` --neutral ${pick.neutral}` : "") +
-    (pick.accent ? ` --accent ${pick.accent}` : "") +
-    (map ? ` --map ${map}` : "") +
-    // Name the source this run actually read. A pack imported from an export must not tell the
-    // next reader to regenerate it through the API, which needs a token, spends the file's
-    // ~6-a-month budget, and cannot see variables outside an Enterprise plan.
-    (fromLabel ? ` --from ${fromLabel}` : "") +
-    (derivedUsed.length
-      ? `\n * Rung numbers DERIVED, not read: this file does not number these colours, so each ramp ` +
-        `was ordered by OKLCH lightness and numbered from that order — ` +
-        derivedUsed.map((hue) => `${hue}: ${Object.entries(derived[hue]).sort((a, b) => a[0] - b[0]).map(([step, d]) => `/${step} = "${d.name}"`).join(", ")}`).join(" · ") +
-        `. The numbers are this importer's; the colours are the file's.`
-      : "") +
-    (mappedTokens.length
-      ? `\n * Pinned explicitly by ${map} (an operator's map beats inference, and a pinned value is never moved for contrast): ` +
-        mappedTokens.map(([token, p]) => `${token} ← "${p.name}"`).join(", ")
-      : "") +
-    scaleNote +
-    (collapsed.length
-      ? `\n * Too few rungs for a distinct state colour: ` +
-        collapsed.map((c) => `${c.token} repeats ${c.twin} (${values[c.token]})`).join(", ") +
-        ` — the ramp holds nothing else to move to.`
-      : "") +
-    `\n * WCAG (RULESET.wcagPairs, the same list derive() is held to): ${checks.length - failures.length}/${checks.length} pairs pass` +
-    (stepped.length
-      ? `\n * Contrast negotiated within the file's own ramps: ` +
-        stepped.map((s) => `${s.token} ${s.ramp}/${s.from}→${s.ramp}/${s.to}`).join(", ")
-      : usedRamps.length
-        ? `\n * No contrast negotiation was needed — every nominal rung passed as mapped.`
-        : `\n * No contrast negotiation was needed — every value passed as pinned.`) +
-    (failures.length
-      ? `\n * STILL FAILING (no value the design offers satisfies these — the pack ships saying so): ` +
-        failures.map((f) => `${f.fg} on ${f.bg} ${f.ratio}:1 < ${f.min}`).join(", ")
-      : "");
+  // The engine. Everything from the ramps to the emitted CSS happens in system/pack-import.mjs,
+  // so this CLI and the public drop zone cannot disagree about what a design maps to.
+  const mapped = mapPack({
+    entries, contract, slug, accent, neutral, pinned, pinnedScales,
+    fileName, sourceKey, mapPath: map,
+    // The reproduce-this command names the source THIS run actually read, and the ramps that
+    // were actually DETECTED — so an auto-detected run still prints a command that reproduces it.
+    regenerate: (pick) => `node tooling/figma/figma-pull.mjs --slug ${slug}` +
+      (pick.neutral ? ` --neutral ${pick.neutral}` : "") +
+      (pick.accent ? ` --accent ${pick.accent}` : "") +
+      (map ? ` --map ${map}` : "") +
+      (fromLabel ? ` --from ${fromLabel}` : ""),
+  });
+  const {
+    values, checks, failures, stepped, placed, available, derivedUsed, collapsed, scales,
+    note: label, notes, css, filled, tokenCount,
+  } = mapped;
+  // The engine is silent; its notes print here, in the position they printed from inside it.
+  for (const n of notes) console.log(`  ${n}`);
 
   // --out keeps a fixture run out of system/, which gen-loc-summary counts as shipped source.
+  // mapPack has already EMITTED the pack (through the same emitter gen-pack-css uses), so this
+  // writes those bytes rather than emitting a second time — one emission, one set of bytes.
   const dest = out ? resolve(process.cwd(), out) : `${ROOT}/system/tokens.${slug}.css`;
-  const r = genPackCss(values, { slug, dest, note: label });
+  writeFileSync(dest, css);
 
   const roleOrder = [...ROLES.map((r) => r.token), ...placed.map((p) => p.token).filter((t) => !ROLES.some((r) => r.token === t))];
   for (const p of roleOrder.map((t) => placed.find((x) => x.token === t))) {
@@ -727,17 +168,17 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
   }
   if (pages) console.log(`\npages read: ${pages.read.map((p) => p.name).join(", ") || "none"} · skipped: ${pages.skipped.length}`);
   console.log(`ramps found: ${available.join(", ")}`);
-  if (!scaleOffered) {
+  if (!scales.offered) {
     console.log(`scale: this read offered no dimension or shadow VALUES (a styles read names text and effect styles without valuing them) — spacing, radius, the type ramp and shadows are all this repo's contract defaults.`);
   } else {
-    for (const [f, rec] of importedFamilies) console.log(`scale: ${FAMILY_LABEL[f]} imported — ${rec.slots} of ${rec.offered} value(s), ${rec.rule}${rec.dropped.length ? ` · dropped ${rec.dropped.join(", ")}` : ""}`);
-    for (const s of scale.short) console.log(`scale: ${FAMILY_LABEL[s.family]} NOT imported — the design offered ${s.offered}, the contract has ${s.needs} slots (auto-filled from contract defaults)`);
-    if (scaleSource.unclassified.length) console.log(`scale: not classified into a family — ${scaleSource.unclassified.join(", ")}`);
+    for (const [f, rec] of Object.entries(scales.imported)) console.log(`scale: ${FAMILY_LABEL[f]} imported — ${rec.slots} of ${rec.offered} value(s), ${rec.rule}${rec.dropped.length ? ` · dropped ${rec.dropped.join(", ")}` : ""}`);
+    for (const s of scales.short) console.log(`scale: ${FAMILY_LABEL[s.family]} NOT imported — the design offered ${s.offered}, the contract has ${s.needs} slots (auto-filled from contract defaults)`);
+    if (scales.unclassified.length) console.log(`scale: not classified into a family — ${scales.unclassified.join(", ")}`);
   }
-  console.log(`roles mapped: ${placed.length} · auto-filled from contract defaults: ${r.filled.length}`);
+  console.log(`roles mapped: ${placed.length} · auto-filled from contract defaults: ${filled.length}`);
   for (const s of stepped) console.log(`negotiated: ${s.token} ${s.ramp}/${s.from} (${s.fromValue}) → ${s.ramp}/${s.to} (${s.toValue}) for contrast`);
   for (const c of checks) console.log(`  ${c.pass ? "✓" : "✗"} ${String(c.ratio).padStart(6)} / ${c.min}  ${c.fg} on ${c.bg}`);
-  console.log(`figma pull      ${failures.length ? "⚠" : "✓"}  ${slug} — ${r.tokenCount} tokens → ${relative(ROOT, dest)}` +
+  console.log(`figma pull      ${failures.length ? "⚠" : "✓"}  ${slug} — ${tokenCount} tokens → ${relative(ROOT, dest)}` +
     (failures.length ? `  (${failures.length} WCAG pair(s) still failing — named in the pack header)` : ""));
 
   return {
@@ -749,15 +190,9 @@ export async function runPull({ slug, accent = null, neutral = null, map = null,
     // and — the one the CLI only ever counted — WHICH tokens were auto-filled from contract
     // defaults rather than read from the design. `note` is the pack header verbatim.
     fileName, fileKey: sourceKey, available, placed, pages, derivedUsed, collapsed,
-    filled: r.filled, tokenCount: r.tokenCount, note: label,
+    filled, tokenCount, note: label,
     // Additive: the portal drop-UI renders this rather than re-deriving it from the header prose.
-    scales: {
-      offered: scaleOffered,
-      imported: scale.imported,
-      short: scale.short,
-      autoFilled: r.filled,
-      unclassified: scaleSource.unclassified,
-    },
+    scales,
   };
 }
 
