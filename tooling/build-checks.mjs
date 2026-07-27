@@ -247,6 +247,9 @@ function pack(obj) {
     ["a C0 control in a label", clone({ b: { p: [["p1", "a\u0001b", []]], c: [] } })],
     ["a lone high surrogate in a label", clone({ b: { p: [["p1", "a\ud800b", []]], c: [] } })],
     ["a lone low surrogate in a label", clone({ b: { p: [["p1", "a\udc00b", []]], c: [] } })],
+    ["a bidi override in a label", clone({ b: { p: [["p1", "a\u202Eb", []]], c: [] } })],
+    ["a bidi isolate in a label", clone({ b: { p: [["p1", "a\u2066b", []]], c: [] } })],
+    ["an invisible directional mark in a label", clone({ b: { p: [["p1", "a\u200Fb", []]], c: [] } })],
     // Type confusion, not just value-domain violations.
     ["v as a string", clone({ v: "1" })],
     ["a as an array", clone({ a: [] })],
@@ -487,7 +490,7 @@ function scanSvg(svg, label) {
     const m = src.match(new RegExp(`(?:const|var)\\s+${name}\\s*=\\s*(/.*/[a-z]*)\\s*;`));
     return m ? m[1] : null;
   };
-  for (const [a, b, what] of [["KEY_NAME", "NAME", "the key allowlist"], ["VALUE_OK", "VAL", "the value charset"], ["VALUE_BAD", "BAD", "the url()/protocol-relative guard"]]) {
+  for (const [a, b, what] of [["KEY_NAME", "NAME", "the key allowlist"], ["VALUE_OK", "VAL", "the value charset"], ["VALUE_BAD", "BAD", "the url()/protocol-relative guard"], ["VALUE_HUGE", "HUGE", "the magnitude guard"]]) {
     const left = literal(vetted, a);
     const right = literal(boot, b);
     ok(left !== null, `pack-imported.mjs no longer declares ${a}`);
@@ -496,20 +499,22 @@ function scanSvg(svg, label) {
   }
 
   // 2. ...and each one is actually USED, in the condition that decides whether a value is applied.
-  ok(vetted.includes("!VALUE_OK.test(value) || VALUE_BAD.test(value)"),
-    "pack-imported.mjs declares VALUE_BAD but vetTokens no longer tests it — the guard is dead");
-  ok(boot.includes("VAL.test(v) && !BAD.test(v)"),
-    "pack-boot.js declares BAD but the pre-paint loop no longer tests it — the guard is dead");
+  ok(vetted.includes("!VALUE_OK.test(value) || VALUE_BAD.test(value) || VALUE_HUGE.test(value)"),
+    "pack-imported.mjs declares its guards but vetTokens no longer tests one of them — a guard is dead");
+  ok(boot.includes("VAL.test(v) && !BAD.test(v) && !HUGE.test(v)"),
+    "pack-boot.js declares its guards but the pre-paint loop no longer tests one — a guard is dead");
 
   // 3. the guard still refuses what it was written for, and still admits what the packs really use.
   //    A source-text check cannot prove behaviour; this runs the shipped function.
-  for (const bad of ["url(//h/x.png)", "URL(//h/x.png)", "url (//h/x.png)", "image-set(//h/x.png)", "//h/x.png"]) {
+  for (const bad of ["url(//h/x.png)", "URL(//h/x.png)", "url (//h/x.png)", "image-set(//h/x.png)", "//h/x.png",
+    "99999999px", "10000px", "0px 4px 99999px", "50000%"]) {
     const r = vetTokens({ "--color-bg": bad });
     ok(Object.keys(r.tokens).length === 0 && r.rejected.length === 1, `vetTokens accepted ${bad}`);
   }
   for (const [key, good] of [["--color-accent", "#2563eb"], ["--color-bg", "rgb(0 0 0 / 10%)"],
     ["--color-fg", "color-mix(in srgb, black 50%, transparent)"], ["--color-bg", "var(--color-white)"],
-    ["--spacing-md", "16px"], ["--type-h1", "clamp(28px, 4vw, 44px)"], ["--shadow-md", "0px 4px 8px #00000014"]]) {
+    ["--spacing-md", "16px"], ["--type-h1", "clamp(28px, 4vw, 44px)"], ["--shadow-md", "0px 4px 8px #00000014"],
+    ["--spacing-lg", "9999px"], ["--type-h2", "100%"], ["--radius-md", "1.5rem"]]) {
     const r = vetTokens({ [key]: good });
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }

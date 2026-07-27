@@ -44,10 +44,13 @@
       // passes VAL character by character, and would reach :root SITE-WIDE from here, before paint.
       // If that file's guard moves, move this one (see its comment for the full argument).
       var BAD = /url\s*\(|\/\//i;
+      // Mirrors pack-imported.mjs's VALUE_HUGE: a unit-suffixed run of 5+ digits is a layout bomb,
+      // and this path reaches :root site-wide before paint, where it would be worse.
+      var HUGE = /\d{5,}\s*(px|rem|em|ch|ex|vw|vh|vmin|vmax|pt|pc|cm|mm|in|%)/i;
       var out = [], ks = Object.keys(irec.tokens);
       for (var i = 0; i < ks.length; i++) {
         var k = ks[i], v = irec.tokens[k];
-        if (NAME.test(k) && typeof v === "string" && VAL.test(v) && !BAD.test(v)) out.push("  " + k + ": " + v + ";");
+        if (NAME.test(k) && typeof v === "string" && VAL.test(v) && !BAD.test(v) && !HUGE.test(v)) out.push("  " + k + ": " + v + ";");
       }
       if (out.length) {
         var st = document.createElement("style");
