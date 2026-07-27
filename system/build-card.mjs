@@ -168,7 +168,10 @@ const ROW_H = 44;
 const ROW_GAP = 8;
 const ROW_MAX = 5;
 
-function queueBody(slots, t) {
+// The row body for the three patterns that render list-rows — queue, feed and settings. Named for
+// its SHAPE rather than for one of its three callers: it was `queueBody` while queue was the only
+// list-row pattern, and a name that says "queue" on a card drawing a feed is a name that lies.
+function rowsBody(slots, t) {
   const shown = slots.slice(0, ROW_MAX);
   const blockH = shown.length * ROW_H + (shown.length - 1) * ROW_GAP;
   const top = CONTENT_TOP + Math.round((CONTENT_H - blockH) / 2); // centred, same reason as above
@@ -188,11 +191,68 @@ function queueBody(slots, t) {
   }).join("");
 }
 
+// The onboarding body: the same row geometry as rowsBody, with the ordinal drawn as the pill
+// .ds-sequence-step-position renders. It carries BOTH numbers ("2/3") rather than just the
+// position, for the reason the spec gives — a step that does not know its total is not a sequence,
+// and a card is exactly where a reader would otherwise have to count the rows to find out.
+const BADGE_W = 34;
+const BADGE_H = 20;
+
+function stepsBody(slots, t) {
+  const shown = slots.slice(0, ROW_MAX);
+  const blockH = shown.length * ROW_H + (shown.length - 1) * ROW_GAP;
+  const top = CONTENT_TOP + Math.round((CONTENT_H - blockH) / 2); // centred, same reason as above
+  const labelX = LEFT + 16 + BADGE_W + 12;
+  return shown.map((slot, i) => {
+    const y = top + i * (ROW_H + ROW_GAP);
+    const mid = y + 27; // baseline-centred in a 44px row at 14px
+    return [
+      `<rect x="${LEFT}" y="${y}" width="${RIGHT - LEFT}" height="${ROW_H}" rx="8" fill="${esc(t.surfaceSubtle)}"/>`,
+      `<rect x="${LEFT + 16}" y="${y + (ROW_H - BADGE_H) / 2}" width="${BADGE_W}" height="${BADGE_H}" rx="${BADGE_H / 2}" fill="none" stroke="${esc(t.accent)}"/>`,
+      `<text x="${LEFT + 16 + BADGE_W / 2}" y="${y + ROW_H / 2 + 4}" font-size="11" text-anchor="middle" fill="${esc(t.accent)}">${esc(clip(slot.position, 2))}/${esc(clip(slot.total, 2))}</text>`,
+      `<text x="${labelX}" y="${mid}" font-size="14" fill="${esc(t.fg)}">${esc(clip(slot.label, 28))}</text>`,
+      slot.detail
+        ? `<text x="${RIGHT - 16}" y="${mid}" font-size="13" text-anchor="end" fill="${esc(t.fgMuted)}">${esc(clip(slot.detail, 24))}</text>`
+        : "",
+    ].join("");
+  }).join("");
+}
+
+// Which body draws which pattern. Onboarding is the one with an ordinal; dashboard is the one with
+// a tile grid; the other three are rows.
+function bodyFor(patternId, rows, t) {
+  if (patternId === "dashboard") return dashboardBody(rows, t);
+  if (patternId === "onboarding") return stepsBody(rows, t);
+  return rowsBody(rows, t);
+}
+
+// The three non-pattern bodies all show the same thing: the visitor's breadboard, nested and
+// scaled into the content area, because in every one of those states the board is the part that IS
+// real. preserveAspectRatio lets it scale into the slot whatever its natural height is.
+//
+// Extracted rather than written three times — what differs between the three is the SENTENCE above
+// it, and those three sentences are the whole point of the split below. They must never be able to
+// drift into each other by someone editing one frame and not the others.
+const boardInFrame = (board, tokens) =>
+  boardSvg(board, { x: LEFT, y: CONTENT_TOP, width: RIGHT - LEFT, height: 256, tokens });
+
+// "A onboarding" shipped in the <desc> of every onboarding card the moment #139 made that pattern
+// renderable — four of the five labels start with a consonant, which is why the hard-coded "a" had
+// been correct until it wasn't. The <desc> is what a screen reader announces for the whole image
+// and what a downloaded file carries into any viewer, so it gets read aloud more carefully than it
+// is looked at.
+const Article = (word) => (/^[aeiou]/i.test(word) ? "An" : "A");
+
 // cardSvg({ patternId, slots, board, tokens }) → the SVG string.
 //
-// The out-of-library body is the same designed object as the other two, showing the part that IS
-// real: the visitor's breadboard, nested and scaled into the content area. A card that rendered a
-// mock-up of a feed would be the one dishonest thing on this page.
+// FOUR outcomes, and the split between the middle two is the fix for a bug that was live on main
+// until #139. The condition used to be `pattern && pattern.inLibrary && rows.length`, with a single
+// `else` that hard-coded "is not in the library yet" — so an IN-LIBRARY pattern whose board gave it
+// no slots downloaded an SVG asserting something false. It took two clicks to reach: remove the
+// affordances, keep two places, and the board is not `bare`, so build-keep.mjs still renders the
+// card. "Nothing to draw" and "not in the library" are different facts and now have different
+// bodies. system/build-keep.mjs:137-145 makes the same split in markdown; the two must stay
+// parallel, because they state the same fact in two media and a reader may hold both files.
 export function cardSvg({ patternId, slots, board, tokens } = {}) {
   const t = resolveTokens(tokens);
   const pattern = patternId && Object.hasOwn(PATTERNS, patternId) ? PATTERNS[patternId] : null;
@@ -200,26 +260,50 @@ export function cardSvg({ patternId, slots, board, tokens } = {}) {
   const entry = board && Array.isArray(board.places) && board.places.length ? board.places[0].label : null;
   const rows = Array.isArray(slots) ? slots : [];
 
+  // 1 · the pattern, assembled.
   if (pattern && pattern.inLibrary && rows.length) {
     return frame({
       t, title: `${label} built on a breadboard`,
-      desc: `A ${label.toLowerCase()} assembled from ${rows.length} slot(s) derived from the breadboard, wearing the imported design tokens.`,
+      desc: `${Article(label)} ${label.toLowerCase()} assembled from ${rows.length} slot(s) derived from the breadboard, wearing the imported design tokens.`,
       header: entry || label,
       captionRight: label,
-      body: patternId === "queue" ? queueBody(rows, t) : dashboardBody(rows, t),
+      body: bodyFor(patternId, rows, t),
     });
   }
 
+  // 2 · in the library, and this board gave it nothing to arrange.
+  if (pattern && pattern.inLibrary) {
+    return frame({
+      t,
+      title: `A breadboard with nothing for the ${label.toLowerCase()} pattern to show`,
+      desc: `The breadboard this build produced. The ${label.toLowerCase()} pattern is in this library, but this board carries nothing for it to arrange yet, so nothing is drawn in its place.`,
+      header: `Your breadboard · nothing for ${label} to show yet`,
+      captionRight: label,
+      body: boardInFrame(board, tokens),
+    });
+  }
+
+  // 3 · named, and genuinely not in the library. No pattern reaches this today — it is the body a
+  // SIXTH pattern gets, the card half of the guardrail pattern-rules.mjs's PATTERNS comment keeps.
+  if (pattern) {
+    return frame({
+      t,
+      title: `A breadboard shaped like the ${label.toLowerCase()} pattern`,
+      desc: `The breadboard this build produced. The ${label.toLowerCase()} pattern has no components in this library yet, so nothing is mocked up in its place.`,
+      header: `Your breadboard · ${label} is not in the library yet`,
+      captionRight: label,
+      body: boardInFrame(board, tokens),
+    });
+  }
+
+  // 4 · no pattern named at all.
   return frame({
     t,
-    title: pattern ? `A breadboard shaped like a ${label.toLowerCase()}` : "A breadboard",
-    desc: pattern
-      ? `The breadboard this build produced. The ${label.toLowerCase()} pattern has no components in this library yet, so nothing is mocked up in its place.`
-      : "The breadboard this build produced. No pattern is named yet.",
-    header: pattern ? `Your breadboard · ${label} is not in the library yet` : "Your breadboard",
+    title: "A breadboard",
+    desc: "The breadboard this build produced. No pattern is named yet.",
+    header: "Your breadboard",
     captionRight: label,
-    // preserveAspectRatio lets the nested board scale into the slot whatever its natural height is.
-    body: boardSvg(board, { x: LEFT, y: CONTENT_TOP, width: RIGHT - LEFT, height: 256, tokens }),
+    body: boardInFrame(board, tokens),
   });
 }
 

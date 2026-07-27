@@ -15,7 +15,9 @@
 //                     check that catches a vocabulary regeneration breaking the builder
 //   4 codec           round-trip through BOTH the deflate and the uncompressed branch
 //   5 tamper          29 hostile payloads, each of which must reject the WHOLE payload
-//   6 SVG             well-formed, escaped, and no hostile token or label reaching markup
+//   6 artifacts       every card SVG + the downloaded pattern-spec.md: well-formed, escaped, no
+//                     hostile token or label reaching markup, and no in-library pattern ever
+//                     claiming "not in the library" (the bug #139 fixed)
 //   7 vetting         the one-application-point invariant, across ALL the /build modules
 //
 //   node tooling/build-checks.mjs
@@ -24,14 +26,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { validateComposition } from "../system/agentic-renderer.mjs";
+import { hasTemplate, validateComposition } from "../system/agentic-renderer.mjs";
 import { vetTokens } from "../system/pack-imported.mjs";
 import { boardSvg, cardSvg } from "../system/build-card.mjs";
-import { DEFAULT_ANSWERS, QUESTIONS } from "../system/build-questions.mjs";
+import { specMarkdown } from "../system/build-keep.mjs";
+import { DEFAULT_ANSWERS, frequencyVerdictFor, quadrantFor, QUESTIONS } from "../system/build-questions.mjs";
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
-import { compose } from "../system/pattern-render.mjs";
-import { PATTERNS, patternFor, slotsFor } from "../system/pattern-rules.mjs";
+import { compose, streamNote } from "../system/pattern-render.mjs";
+import { affordanceCount, PATTERNS, patternFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -56,6 +59,53 @@ function group(name, detail) {
 
 const answersWith = (patch) => ({ ...DEFAULT_ANSWERS, ...patch });
 
+// --- shared fixtures ------------------------------------------------------------------------------
+// Hoisted out of the groups that first wrote them: #139 put all five patterns in the library, so
+// four groups now need the same boards, and a second copy of a fixture is a second answer waiting
+// to disagree with the first.
+
+// A board no draft can produce: four connected affordances on the entry place and none anywhere
+// else. Rule 2's hub override is the ONLY way `settings` is ever named, so this is the only board
+// that reaches it.
+const HUB_BOARD = {
+  places: [
+    { id: "p1", label: "Menu", affordances: [1, 2, 3, 4].map((n) => ({ id: `p1a${n}`, label: `Go ${n}` })) },
+    ...[2, 3, 4, 5].map((n) => ({ id: `p${n}`, label: `Place ${n}`, affordances: [] })),
+  ],
+  connections: [1, 2, 3, 4].map((n) => [`p1a${n}`, `p${n + 1}`]),
+};
+
+// One board per pattern, each of which genuinely NAMES that pattern. Keyed by pattern id so the
+// groups below can iterate PATTERNS rather than carry a hand-list that has to be edited whenever
+// the library grows — the roster-shaped assertion this ticket is replacing everywhere.
+const BOARD_FOR = {
+  dashboard: draftBoard(answersWith({ shape: "overview" })),
+  queue: draftBoard(answersWith({ shape: "worklist" })),
+  feed: draftBoard(answersWith({ shape: "stream" })),
+  onboarding: draftBoard(answersWith({ shape: "steps" })),
+  settings: HUB_BOARD,
+};
+
+// Both caps at once: MAX_PLACES places each carrying MAX_AFFORDANCES affordances. 36 affordances,
+// and the only board on which SLOT_MAX actually truncates anything (it truncates feed, and only
+// feed — pattern-rules.mjs:61-72 says why).
+const FULL_BOARD = {
+  places: Array.from({ length: MAX_PLACES }, (_, i) => ({
+    id: `p${i + 1}`,
+    label: `P${i + 1}`,
+    affordances: Array.from({ length: MAX_AFFORDANCES }, (_, j) => ({ id: `p${i + 1}a${j + 1}`, label: `A${j + 1}` })),
+  })),
+  connections: [],
+};
+
+// An in-library pattern with NOTHING to arrange: two places, every affordance removed. The board is
+// not bare, so build-keep.mjs still renders the card — which is what made the bug #139 fixes
+// reachable in two clicks rather than theoretical.
+const BARE_BOARD = {
+  places: [{ id: "p1", label: "Worklist", affordances: [] }, { id: "p2", label: "Progress", affordances: [] }],
+  connections: [],
+};
+
 // --- 1 · pattern ids ------------------------------------------------------------------------------
 
 {
@@ -64,23 +114,31 @@ const answersWith = (patch) => ({ ...DEFAULT_ANSWERS, ...patch });
     const { id } = patternFor({ answers, board: draftBoard(answers) });
     ok(id === expected, `shape "${shape}" named "${id}", expected "${expected}"`);
   }
-  ok(PATTERNS.dashboard.inLibrary === true, "dashboard should be in the library");
-  ok(PATTERNS.queue.inLibrary === true, "queue should be in the library");
-  for (const id of ["feed", "onboarding", "settings"]) {
-    ok(PATTERNS[id].inLibrary === false, `${id} should NOT be in the library in this slice`);
-    ok(typeof PATTERNS[id].needs === "string" && PATTERNS[id].needs.length > 20, `${id} should say what it would need`);
+  // The library claim as an INVARIANT over PATTERNS, not as a roster of five ids. A roster has to
+  // be re-typed every time the library grows — which is exactly what happened to this check in
+  // #139 — and an assertion that has to be edited is an assertion that eventually gets deleted.
+  for (const p of Object.values(PATTERNS)) {
+    if (p.inLibrary) {
+      ok(p.needs === null, `${p.id} is in the library but still states what it needs`);
+    } else {
+      // VACUOUS TODAY, and kept deliberately: #139 put all five patterns in the library, so no
+      // entry takes this branch. It is pattern SIX's contract — whoever adds one either has
+      // components for it or writes down what it would take — and a later reader should not read a
+      // vacuous clause as an oversight and delete it.
+      ok(typeof p.needs === "string" && p.needs.length > 20, `${p.id} should say what it would need`);
+    }
   }
 
-  // The hub override, on a board no draft can produce: four connected affordances on the entry
-  // place and none anywhere else.
-  const hub = {
-    places: [
-      { id: "p1", label: "Menu", affordances: [1, 2, 3, 4].map((n) => ({ id: `p1a${n}`, label: `Go ${n}` })) },
-      ...[2, 3, 4, 5].map((n) => ({ id: `p${n}`, label: `Place ${n}`, affordances: [] })),
-    ],
-    connections: [1, 2, 3, 4].map((n) => [`p1a${n}`, `p${n + 1}`]),
-  };
-  const hubbed = patternFor({ answers: answersWith({ shape: "overview" }), board: hub });
+  // THE PAGE COPY. build.html's prose has no other gate: the VR baseline's 100-pixel tolerance
+  // swallows a handful of changed words, so a sentence that went false when the library completed
+  // would have shipped unnoticed. Crude string matching, deliberately — it is the only thing
+  // standing between a stale sentence and a reader. Watch it go red by reverting the copy.
+  const buildHtml = readFileSync(join(ROOT, "build.html"), "utf8");
+  for (const stale of ["Two of the five", "other three", "not in the library"]) {
+    ok(!buildHtml.includes(stale), `build.html still says "${stale}", which the completed library made false`);
+  }
+
+  const hubbed = patternFor({ answers: answersWith({ shape: "overview" }), board: HUB_BOARD });
   ok(hubbed.id === "settings", `a hub board named "${hubbed.id}", expected "settings"`);
   ok(/Rule 2/.test(hubbed.reason), "the hub reason should quote rule 2");
 
@@ -99,7 +157,7 @@ const answersWith = (patch) => ({ ...DEFAULT_ANSWERS, ...patch });
   const lone = patternFor({ answers: DEFAULT_ANSWERS, board: { places: [{ id: "p1", label: "One", affordances: [] }], connections: [] } });
   ok(lone.id === null, "one place with no affordances should name no pattern");
 
-  group("pattern-ids", "4 shapes · hub override · never on a draft · 2 empty cases");
+  group("pattern-ids", "4 shapes · hub override · never on a draft · 2 empty cases · library claim + page copy");
 }
 
 // --- 2 · slots ------------------------------------------------------------------------------------
@@ -134,40 +192,160 @@ const answersWith = (patch) => ({ ...DEFAULT_ANSWERS, ...patch });
     ok(typeof row.value === "string", `row ${i} value is not a string`);
   });
 
-  for (const id of ["feed", "onboarding", "settings", null, "nonsense"]) {
+  // --- the three #139 derivations -------------------------------------------------------------
+  //
+  // The STRUCTURAL invariant first, over all five: a board with something on it derives a non-empty
+  // array, and every value of every slot is a STRING. That is the counted-not-invented rule checked
+  // by shape rather than pattern by pattern — the validator refuses a number, correctly, and the
+  // fix is String() in the rules.
+  for (const p of Object.values(PATTERNS)) {
+    const slots = slotsFor(p.id, BOARD_FOR[p.id]);
+    ok(Array.isArray(slots) && slots.length > 0, `${p.id} derived nothing from a board that names it`);
+    for (const [i, slot] of (slots || []).entries()) {
+      for (const [key, value] of Object.entries(slot)) {
+        ok(typeof value === "string", `${p.id} slot ${i} prop "${key}" is a ${typeof value}, not a string`);
+      }
+    }
+  }
+  // The negatives that survive the flip: an unknown id and null still derive nothing.
+  for (const id of [null, "nonsense", undefined]) {
     ok(slotsFor(id, qBoard) === null, `slotsFor("${id}") should derive nothing`);
   }
 
-  group("slots", "counted from the board · capped · out-of-library derives nothing");
+  // ONBOARDING — one step per place in board order, positions 1..n against a total that is what
+  // was DRAWN.
+  const oBoard = BOARD_FOR.onboarding;
+  const steps = slotsFor("onboarding", oBoard);
+  const stepCount = Math.min(oBoard.places.length, SLOT_MAX);
+  ok(steps.length === stepCount, `${steps.length} steps for ${oBoard.places.length} places`);
+  steps.forEach((step, i) => {
+    ok(step.position === String(i + 1), `step ${i} position is "${step.position}", expected "${i + 1}"`);
+    ok(step.total === String(stepCount), `step ${i} total is "${step.total}", expected the DRAWN count "${stepCount}"`);
+    ok(step.label === oBoard.places[i].label, `step ${i} is not its place's label — board order is the sequence`);
+    const affs = oBoard.places[i].affordances;
+    ok(affs.length ? step.detail === affs[0].label : true, `step ${i} detail is not its first affordance`);
+    ok(step.tone === (affs.length ? "neutral" : "warn"), `step ${i} tone does not read the place's emptiness`);
+  });
+  // A place with nothing on it gets the warn tone AND says so in words.
+  const holed = structuredClone(oBoard);
+  holed.places[1].affordances = [];
+  const holedSteps = slotsFor("onboarding", holed);
+  ok(holedSteps[1].tone === "warn", "a place with nothing to act on should give its step the warn tone");
+  ok(typeof holedSteps[1].detail === "string" && holedSteps[1].detail.length > 0,
+    "a warn step carries no detail, so its tone is the only thing distinguishing it — the spec forbids exactly that");
+
+  // TONE IS NEVER THE SOLE SIGNAL — the promise all three ds- specs make, checked as an invariant
+  // over every tone-bearing slot rather than trusted per pattern. A slot that reads identically to a
+  // neutral one once its tone is stripped hands a screen reader byte-identical output for two
+  // different states. This shipped broken in #139's first pass: the onboarding branch omitted
+  // `detail` on empty places, so "Step 3 of 3, Settings" was both the warning and the all-clear.
+  for (const p of Object.values(PATTERNS)) {
+    for (const fixture of [BOARD_FOR[p.id], holed, BARE_BOARD]) {
+      for (const [i, slot] of (slotsFor(p.id, fixture) || []).entries()) {
+        if (!slot.tone || slot.tone === "neutral") continue;
+        const spoken = Object.entries(slot).filter(([k]) => k !== "tone").map(([, v]) => v).join(" ");
+        ok(/\b0\b|nothing|none|no /i.test(spoken),
+          `${p.id} slot ${i} is "${slot.tone}" but reads "${spoken}" — strip the colour and it is indistinguishable from neutral`);
+      }
+    }
+  }
+
+  // FEED — every affordance on the WHOLE board, in the board's own order, each row naming the place
+  // it came from. The meta assertion is what proves it reads the whole board rather than one place.
+  const fBoard = BOARD_FOR.feed;
+  const stream = slotsFor("feed", fBoard);
+  ok(stream.length === Math.min(SLOT_MAX, affordanceCount(fBoard)),
+    `the feed showed ${stream.length} of ${affordanceCount(fBoard)} affordances`);
+  const flat = fBoard.places.flatMap((p) => p.affordances.map((a) => [p, a]));
+  stream.forEach((row, i) => {
+    ok(row.label === flat[i][1].label, `feed row ${i} is not the ${i}th affordance in board order`);
+    ok(row.meta === `in ${flat[i][0].label}`, `feed row ${i} meta does not name its OWN place`);
+  });
+  ok(new Set(stream.map((r) => r.meta)).size > 1,
+    "every feed row came from the same place; feed must read the whole board, not the busiest place");
+
+  // SETTINGS — the entry place's affordances and where each leads, and NO meta: every row is in the
+  // same place, so a field that says the same thing on every row says nothing.
+  const menu = slotsFor("settings", HUB_BOARD);
+  const entry = HUB_BOARD.places[0];
+  ok(menu.length === Math.min(SLOT_MAX, entry.affordances.length), `${menu.length} rows for ${entry.affordances.length} entry affordances`);
+  menu.forEach((row, i) => {
+    const aff = entry.affordances[i];
+    ok(row.label === aff.label, `settings row ${i} is not the entry affordance's label`);
+    ok(!Object.hasOwn(row, "meta"), `settings row ${i} carries a meta; every row is in the same place`);
+    const to = (HUB_BOARD.connections.find(([from]) => from === aff.id) || [])[1];
+    const target = to ? HUB_BOARD.places.find((p) => p.id === to) : null;
+    ok(row.value === (target ? target.label : "acts here"), `settings row ${i} value is not its destination`);
+  });
+
+  // THE CAP, on a board at both ceilings. Four patterns cannot reach it; feed can, and does.
+  ok(affordanceCount(FULL_BOARD) === MAX_PLACES * MAX_AFFORDANCES, "the full-board fixture is not at both caps");
+  for (const p of Object.values(PATTERNS)) {
+    ok(slotsFor(p.id, FULL_BOARD).length <= SLOT_MAX, `${p.id} exceeded SLOT_MAX on a full board`);
+  }
+  ok(slotsFor("feed", FULL_BOARD).length === SLOT_MAX, "feed should fill the cap on a 36-affordance board");
+  // ...and the surface states the drop rather than making it silently. This is the sentence that
+  // stops SLOT_MAX becoming a working truncation nobody is told about.
+  const note = streamNote(SLOT_MAX, affordanceCount(FULL_BOARD));
+  ok(note.includes(`${SLOT_MAX} of the ${MAX_PLACES * MAX_AFFORDANCES}`), `the feed's note does not state what it dropped: ${note}`);
+  ok(/order the board draws them/.test(note), "the feed's note does not say the order is the board's own");
+  ok(!/recent|newest first/i.test(note.replace(/ordered by recency/, "")), "the feed's note claims a recency the board cannot record");
+
+  group("slots", "5 patterns counted from the board · every value a string · capped · feed states its truncation");
 }
 
 // --- 3 · composition validity against the REAL vocabulary -------------------------------------------
 
 {
-  for (const [shape, name] of [["overview", "metric-tile"], ["worklist", "list-row"]]) {
-    const answers = answersWith({ shape });
-    const board = draftBoard(answers);
-    const { id } = patternFor({ answers, board });
-    const composition = compose(id, slotsFor(id, board));
-    ok(Array.isArray(composition) && composition.length > 0, `${id} composed nothing`);
-    ok(composition.every((n) => n.name === name), `${id} did not compose ${name}s`);
+  // Driven off PATTERNS, not off a hand-list of [shape, component-name] pairs. The old version had
+  // to be re-typed the day the library grew, and the component names in it were a SECOND source of
+  // truth about what compose emits — so the assertion below derives them from compose instead.
+  const emitted = [];
+  for (const p of Object.values(PATTERNS)) {
+    if (!p.inLibrary) continue; // vacuous today; see group 1
+    const board = BOARD_FOR[p.id];
+    ok(board, `${p.id} has no fixture in BOARD_FOR — a pattern was added and this gate was not told which board names it`);
+    if (!board) continue;
+    // The hub fixture must actually fire rule 2, or every settings assertion in this file is about
+    // a pattern no visitor can reach. The other four are named by their shape answer, which group 1
+    // already proves shape by shape.
+    if (board === HUB_BOARD) {
+      const named = patternFor({ answers: answersWith({ shape: "overview" }), board });
+      ok(named.id === "settings", `the hub fixture names "${named.id}", not settings`);
+    }
+    const composition = compose(p.id, slotsFor(p.id, board));
+    ok(Array.isArray(composition) && composition.length > 0, `${p.id} composed nothing`);
+    if (!composition) continue;
+    emitted.push(...composition);
     try {
       validateComposition(VOCAB, composition);
     } catch (err) {
-      ok(false, `${id} failed the real vocabulary: ${err.message}`);
+      ok(false, `${p.id} failed the real vocabulary: ${err.message}`);
     }
   }
-  for (const id of ["feed", "onboarding", "settings", null]) {
+
+  // Every component name the page can emit, DERIVED from compose rather than retyped, must be both
+  // a generated-vocabulary entry and a template this renderer actually has. The second half is the
+  // drift error agentic-renderer.mjs:360-363 throws — caught here under Node instead of by a
+  // visitor watching the stage refuse itself.
+  //
+  // Scoped to what compose EMITS, deliberately not to every vocabulary key: the vocabulary carries
+  // 10 components and the renderer 9 templates, because demo-notice has a spec and no template on
+  // purpose. "Every vocabulary entry has a template" would be red on a correct tree.
+  const names = new Set(emitted.map((n) => n.name));
+  ok(names.size >= 3, `only ${names.size} distinct component(s) across all five patterns`);
+  for (const name of names) {
+    ok(Object.hasOwn(VOCAB.components, name), `${name} is not in the generated vocabulary`);
+    ok(hasTemplate(name), `${name} is in the vocabulary but agentic-renderer.mjs has no template for it — renderer and vocabulary have drifted`);
+  }
+
+  for (const id of [null, "nonsense", undefined]) {
     ok(compose(id, [{ label: "x", value: "1" }]) === null, `compose("${id}") should refuse to compose`);
   }
   ok(compose("dashboard", null) === null, "compose with no slots should return null");
-  // The two components this slice uses must actually exist, and the renderer must have templates
-  // for them — a vocabulary entry with no template is a drift bug the page would meet on stage.
-  for (const name of ["metric-tile", "list-row"]) {
-    ok(Object.hasOwn(VOCAB.components, name), `${name} is not in the generated vocabulary`);
-  }
+  ok(compose("dashboard", []) === null, "compose with an empty slot array should return null");
 
-  group("composition", "both in-library patterns validate against handoff/verdant/vocabulary.json");
+  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components, each with a template`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
@@ -367,14 +545,15 @@ function scanSvg(svg, label) {
   };
   const HOSTILE_LABEL = "</text><script>alert(1)</script>";
 
-  const answers = answersWith({ shape: "overview" });
-  const board = draftBoard(answers);
-  const qBoard = draftBoard(answersWith({ shape: "worklist" }));
+  const board = BOARD_FOR.dashboard;
 
   const svgs = [
-    ["dashboard card", cardSvg({ patternId: "dashboard", slots: slotsFor("dashboard", board), board, tokens: HOSTILE_TOKENS })],
-    ["queue card", cardSvg({ patternId: "queue", slots: slotsFor("queue", qBoard), board: qBoard, tokens: HOSTILE_TOKENS })],
-    ["out-of-library card", cardSvg({ patternId: "feed", slots: null, board, tokens: HOSTILE_TOKENS })],
+    // One card per pattern, each on the board that names it — five now, not two.
+    ...Object.values(PATTERNS).map((p) => [`${p.id} card`, cardSvg({
+      patternId: p.id, slots: slotsFor(p.id, BOARD_FOR[p.id]), board: BOARD_FOR[p.id], tokens: HOSTILE_TOKENS,
+    })]),
+    // The two bodies that draw the board instead of the pattern.
+    ["nothing-to-arrange card", cardSvg({ patternId: "queue", slots: slotsFor("queue", BARE_BOARD), board: BARE_BOARD, tokens: HOSTILE_TOKENS })],
     ["empty card", cardSvg({ patternId: null, slots: null, board: { places: [], connections: [] }, tokens: HOSTILE_TOKENS })],
     ["board", boardSvg(board, { tokens: HOSTILE_TOKENS })],
     ["empty board", boardSvg({ places: [], connections: [] })],
@@ -389,11 +568,44 @@ function scanSvg(svg, label) {
     ok(!svg.includes("var(--color-accent)"), `${label}: a var() token value reached an SVG attribute`);
   }
 
+  // THE REGRESSION FOR THE BUG #139 FIXED, in both media a reader can walk away holding.
+  //
+  // cardSvg used to gate on `pattern && pattern.inLibrary && rows.length` with a single `else` that
+  // hard-coded "is not in the library yet" — so an IN-LIBRARY pattern whose board gave it no slots
+  // downloaded an SVG asserting something false, two clicks from the default build. specMarkdown
+  // had the same shape at its `## Components used` fallback, where `pattern.needs` (null for every
+  // in-library pattern) interpolated as the literal string "null".
+  //
+  // Which cases carry the proof, stated because it is not obvious: dashboard and onboarding derive
+  // one slot per place, so they CANNOT be empty while places exist; queue, feed and settings can,
+  // and those three are the ones that used to fall through. All five are swept for symmetry.
+  const mdState = (board) => {
+    const answers = answersWith({ shape: "worklist" });
+    return { answers, quadrant: quadrantFor(answers), frequencyVerdict: frequencyVerdictFor(answers), board, pack: null };
+  };
+  for (const p of Object.values(PATTERNS)) {
+    for (const [what, fixture] of [["a full board", BOARD_FOR[p.id]], ["a board with no affordances", BARE_BOARD]]) {
+      const slots = slotsFor(p.id, fixture);
+      const svg = cardSvg({ patternId: p.id, slots, board: fixture, tokens: {} });
+      ok(!svg.includes("not in the library"),
+        `the ${p.id} card on ${what} says "not in the library" — that is false for an in-library pattern`);
+      scanSvg(svg, `${p.id} on ${what}`);
+
+      const md = specMarkdown(mdState(fixture), patternFor({ answers: answersWith({ shape: "worklist" }), board: fixture }), compose(p.id, slots));
+      const used = md.split("## Components used")[1].split("\n##")[0];
+      ok(!/\bnull\b/.test(used), `the ${p.id} spec's "Components used" on ${what} interpolated a null: ${used.trim().slice(0, 90)}`);
+      ok(!used.includes("not in the library"), `the ${p.id} spec's "Components used" on ${what} claims the pattern is not in the library`);
+    }
+  }
+
   // The clip boundary, which needs no attacker at all. clip() counts CODE POINTS, so an astral
   // character sitting exactly on a budget's cut must not be split into a lone surrogate — a lone
   // surrogate makes the whole document XML-invalid, which surfaces as a build card that silently
   // disappears and a downloaded file no viewer will open. One case per budget that can cut one:
-  // the chip (20), the dashboard slot label (22) and the place label (26).
+  // the chip (20), the dashboard slot label (22), the place label (26), and #139's step body — its
+  // label (28) and its detail (20, already swept). The step's position/total budgets (2) take
+  // digits derived by the rules and can never carry an astral character, so they are swept anyway
+  // rather than argued about.
   const hasLoneSurrogate = (s) => {
     for (let i = 0; i < s.length; i += 1) {
       const c = s.charCodeAt(i);
@@ -405,13 +617,14 @@ function scanSvg(svg, label) {
     }
     return false;
   };
-  for (const at of [18, 19, 20, 21, 22, 25, 26]) {
+  for (const at of [1, 2, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]) {
     const label = `${"x".repeat(at)}\u{1F4CA} tail that runs past every budget`;
     const astral = { places: [{ id: "p1", label, affordances: [{ id: "p1a1", label }] }], connections: [] };
     const built = [
       boardSvg(astral),
-      cardSvg({ patternId: "dashboard", slots: slotsFor("dashboard", astral), board: astral, tokens: {} }),
-      cardSvg({ patternId: "feed", slots: null, board: astral, tokens: {} }),
+      // Every card body, not a sample of them: each one has its own budgets, and #139 added two.
+      ...Object.values(PATTERNS).map((p) => cardSvg({ patternId: p.id, slots: slotsFor(p.id, astral), board: astral, tokens: {} })),
+      cardSvg({ patternId: null, slots: null, board: astral, tokens: {} }),
     ];
     for (const svg of built) {
       ok(!hasLoneSurrogate(svg), `an emoji at index ${at} was split into a lone surrogate`);
@@ -421,7 +634,7 @@ function scanSvg(svg, label) {
 
   // The label path. A hostile place name appears exactly once, escaped, as text — once, because
   // boardSvg's <title> summarises the board rather than repeating a visitor string into it.
-  const evil = structuredClone(board);
+  const evil = structuredClone(BOARD_FOR.dashboard);
   evil.places[0].label = HOSTILE_LABEL;
   const evilSvg = boardSvg(evil);
   scanSvg(evilSvg, "hostile label");
@@ -432,7 +645,7 @@ function scanSvg(svg, label) {
   ok(!evilSvg.includes("</text><script"), "a hostile label closed the text element it was inside");
   ok((evilSvg.match(/&lt;script&gt;/g) || []).length === 1, "the hostile label should appear escaped exactly once");
 
-  group("svg", `${svgs.length} templates well-formed · hostile tokens fall back · hostile label escaped once`);
+  group("artifacts", `${svgs.length} SVG templates well-formed · hostile tokens fall back · label escaped once · no card or spec claims "not in the library"`);
 }
 
 // --- 7 · the vetting invariant ----------------------------------------------------------------------

@@ -67,7 +67,10 @@ function svgNode(svg) {
 // project, so the three-column device would be two empty columns. Every value below comes from the
 // state. Not one number in it is hand-written.
 
-function specMarkdown(state, named, composition) {
+// Exported for the committed gate, not for another surface: tooling/build-checks.mjs runs it under
+// Node over real states so the "## Components used" sentences are asserted by RUNNING the function
+// rather than by grepping for them. It is pure apart from the build date.
+export function specMarkdown(state, named, composition) {
   const { answers, quadrant, frequencyVerdict, board, pack } = state;
   const pattern = named.id && Object.hasOwn(PATTERNS, named.id) ? PATTERNS[named.id] : null;
   const label = pattern ? pattern.label : "No pattern";
@@ -134,10 +137,22 @@ function specMarkdown(state, named, composition) {
     for (const [name, entry] of used) {
       lines.push(`- \`${name}\` × ${entry.count} with props: ${[...entry.props].join(", ")}`);
     }
+  } else if (pattern && typeof pattern.needs === "string") {
+    // Named, and genuinely not in the library: what it would take, in the reader's terms. No
+    // pattern reaches this today (#139 completed the five) — it is the sentence a SIXTH pattern
+    // gets, and it is guarded on `needs` being a STRING rather than on a pattern id, so whoever
+    // adds that pattern needs no edit here.
+    lines.push(`None. ${pattern.needs}, so nothing was rendered rather than something being mocked up.`);
+  } else if (pattern) {
+    // In the library, and this board gave it nothing to arrange. Split out of the branch above for
+    // exactly the reason build-card.mjs's cardSvg splits its bodies, and it is the same bug: this
+    // line interpolated `pattern.needs` unconditionally, which is null for every in-library
+    // pattern, so a visitor who emptied their board downloaded "None. null, so nothing was
+    // rendered…". The card and this file state the same fact in two media and a reader may keep
+    // both, so the two splits must stay parallel.
+    lines.push(`None. There is nothing on this board for the ${pattern.label.toLowerCase()} pattern to build from yet.`);
   } else {
-    lines.push(pattern
-      ? `None. ${pattern.needs}, so nothing was rendered rather than something being mocked up.`
-      : "None. There is no pattern to build components for yet.");
+    lines.push("None. There is no pattern to build components for yet.");
   }
   lines.push("");
 

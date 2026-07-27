@@ -339,7 +339,27 @@ const TEMPLATES = {
         el("span", { class: "ds-row-value", text: String(props.value) }),
         props.unit != null ? el("span", { class: "ds-row-unit", text: props.unit }) : null),
       props.status != null ? el("span", { class: "ds-row-status", text: props.status }) : null)),
+
+  // Library-generic primitive (ds-, cross-scenario) — one position in a sequence, the third of the
+  // three (ticket #139). Non-interactive like its two siblings (no bus); DOM order IS reading order
+  // (position → label → detail) so the step is heard as one sentence; the ordinal is REAL TEXT
+  // rather than a CSS counter, so it reaches the accessibility tree (spec's Accessibility note);
+  // `tone` rides an is-* class for the warn/critical fill-inversion. It carries no done/current/todo
+  // — a step that claimed progress its source does not record would be an invented fact, which is
+  // the whole argument of the spec.
+  "sequence-step": (props) => el("div", { class: `ds-sequence-step${props.tone && props.tone !== "neutral" ? " is-" + props.tone : ""}` },
+    el("p", {},
+      el("span", { class: "ds-sequence-step-position", text: `Step ${props.position} of ${props.total}` }),
+      el("span", { class: "ds-sequence-step-label", text: props.label }),
+      props.detail != null ? el("span", { class: "ds-sequence-step-detail", text: props.detail }) : null)),
 };
+
+// Does this renderer know how to build that component? The drift `build()` refuses below, asked as
+// a question rather than met on stage: tooling/build-checks.mjs runs it over every name /build's
+// compose() emits, so a vocabulary entry with no template fails a committed gate under Node instead
+// of a visitor's render. Exported rather than exporting TEMPLATES itself — the map is the renderer's
+// own business, and "is there a template" is the only thing a caller needs to know.
+export const hasTemplate = (name) => Object.hasOwn(TEMPLATES, String(name));
 
 // ---------------------------------------------------------------------------
 // renderComposition — validate, then build DOM. A vocabulary entry with no template

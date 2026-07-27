@@ -438,8 +438,10 @@
       margin-top: var(--spacing-xl);
     }
     /* One card grammar across all four states — rendered, named-not-rendered, empty, refused. The
-       out-of-library card is the majority path in this slice, so it gets the same chrome and the
-       same weight as a rendered pattern rather than looking like a failure. */
+       named-not-rendered card carries the same chrome and the same weight as a rendered pattern
+       rather than looking like a failure. No pattern reaches it since #139 completed the five, and
+       that is exactly why it keeps its design: the next pattern added to the library is the one
+       that will meet it, and it must not read as a bug when it does. */
     .bx-pat-card { display: grid; gap: var(--spacing-sm); min-width: 0; }
     .bx-pat-eyebrow {
       margin: 0;
@@ -488,6 +490,15 @@
        actually gets — the same reasoning .bx-stage-grid's single column is built on. */
     .bx-pat-slots { display: grid; gap: var(--spacing-md); margin: var(--spacing-md) 0; min-width: 0; }
     .bx-pat-slots.is-dashboard { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    /* One arrangement per pattern, and it is the whole reason feed and settings needed no
+       components of their own: their derived slot IS list-row's contract, so what distinguishes
+       the three list-row patterns on screen is tracks and gaps, not markup (pattern-render.mjs's
+       compose argues it). Nothing here reaches inside a component — queue keeps the base rule,
+       which is why there are four of these and not five. */
+    .bx-pat-slots.is-onboarding { gap: var(--spacing-xs); }   /* a sequence reads DOWN, and tight: the steps are one thing */
+    .bx-pat-slots.is-feed { gap: var(--spacing-lg); }         /* a stream gives each item its own moment, so it gets air */
+    /* a menu of destinations reads across as well as down, once there is room for it */
+    .bx-pat-slots.is-settings { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--spacing-sm); }
     .bx-pat-boardwrap {
       margin-top: var(--spacing-sm);
       padding: var(--spacing-md);
@@ -550,6 +561,23 @@
       .bx-bb-connect, .bx-bb-remove, .bx-bb-add-aff { transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease); }
       .bx-bb-name, .bx-bb-chip-name { transition: border-color var(--motion-fast) var(--motion-ease); }
       .bx-bb-connect:active, .bx-bb-remove:active, .bx-bb-add-aff:active { transform: scale(0.94); }
+
+      /* #139 · the two touchables on this page that still snapped. Everything wearing .btn — both
+         wizards' Back/Next, the keep rail's four downloads and its copy-link, Act 0's derive and
+         clear — already presses and releases through components.css:168-173, so it is deliberately
+         not repeated here; these two are what was actually missing.
+
+         The radio row is the most-touched control on the page: a visitor presses it ten times, once
+         per method question, and its hover background arrived instantly. Same grammar as .btn —
+         colour on the fast curve, transform released through the bounce spring, because this is a
+         thing you TOUCH and not a thing that arrives. */
+      .bx-q-radio { transition: background-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce); }
+      .bx-q-radio:active { transform: scale(0.99); transition-duration: var(--motion-fast), var(--motion-fast); }
+      /* The hue swatches: picked rather than pressed, so the hover ADDS a border weight it did not
+         have (never removes information — the label and the colour are unchanged), and the press
+         squishes like everything else. */
+      .brand-import-swatch { transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce); }
+      .brand-import-swatch:active { transform: scale(0.96); transition-duration: var(--motion-fast), var(--motion-fast); }
     }
   </style>
 </head>
@@ -801,9 +829,10 @@
     <!-- ACT 4 · the pattern. system/pattern-render.mjs mounts on [data-pattern-stage], names the
          pattern from system/pattern-rules.mjs, and renders it through the SAME
          vocabulary-validated renderer the build-time agent runs use (system/agentic-renderer.mjs
-         against handoff/verdant/vocabulary.json). Two of the five patterns have components in this
-         library; the other three get a designed card that says so and shows the breadboard, never
-         a mock-up. The mount carries data-build-stage as well, so build-import.mjs dresses it in
+         against handoff/verdant/vocabulary.json). All five patterns have components in this library
+         as of #139, assembled from three ds- primitives; a SIXTH would not, and it would get a
+         designed card that says so and shows the breadboard, never a mock-up. The refusal path is
+         kept for exactly that. The mount carries data-build-stage as well, so build-import.mjs dresses it in
          the visitor's imported values exactly as it dresses Act 0's stage. -->
     <section class="band" id="act-pattern">
       <div class="container">
@@ -819,8 +848,10 @@
           <a href="/system/pattern-rules.mjs"><code>system/pattern-rules.mjs</code></a>
           read your answers and your board and name one pattern. What assembles below goes through
           the same renderer and the same generated component vocabulary that this site's build-time
-          agent runs go through, so it can only ever use components that really exist. Two of the
-          five patterns have components here. The other three say so instead of mocking one up.
+          agent runs go through, so it can only ever use components that really exist. All five
+          patterns have components here, built out of three library primitives. A pattern that did
+          not would say so instead of mocking one up, which is why the vocabulary is generated
+          rather than asserted.
         </p>
 
         <div class="bx-pat-stage" data-pattern-stage data-build-stage>

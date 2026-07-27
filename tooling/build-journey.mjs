@@ -135,15 +135,130 @@ async function journey(engineName, results, held) {
   t("list-rows rendered", rows > 0, `got ${rows}`);
   t("no metric-tiles left", (await page.$$("[data-pattern-stage] .ds-metric-tile")).length === 0);
 
-  console.log("\n[4] shape → stream lands on the honest out-of-library card");
+  console.log("\n[4] shape → stream renders a feed, and states its one truncation");
+  // Was the out-of-library card until #139 completed the library. It now renders — and the check
+  // that replaced it asserts the thing the old card used to make unnecessary: that the ONE pattern
+  // reading the whole board says how much of it reached the stage.
   await page.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "stream" })));
-  await page.waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("not in the library") ||
-    document.querySelector("[data-pattern-stage]").textContent.includes("doesn't have its components"));
-  const outText = await page.textContent("[data-pattern-stage]");
-  t("names the pattern", outText.includes("Feed"));
-  t("says what it would need", outText.includes("post component"));
-  t("renders no fake components", (await page.$$("[data-pattern-stage] .ds-metric-tile, [data-pattern-stage] .ds-list-row")).length === 0);
-  t("shows the breadboard instead", (await page.$$("[data-pattern-stage] svg")).length === 1);
+  await page.waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Feed"));
+  const feedRows = await page.$$eval("[data-pattern-stage] .ds-list-row", (n) => n.length);
+  t("the feed renders list-rows", feedRows > 0, `got ${feedRows}`);
+  t("no metric-tiles left", (await page.$$("[data-pattern-stage] .ds-metric-tile")).length === 0);
+  const feedText = await page.textContent("[data-pattern-stage]");
+  t("counted-not-invented line on stage", feedText.includes("counted from your breadboard"));
+  t("nothing on the stage claims the pattern is missing", !feedText.includes("not in the library"), feedText.slice(0, 140));
+  // Both numbers read from the RUNNING page — the rendered row count and the board's own affordance
+  // count — never from a literal, so a derivation that quietly showed a different number fails here.
+  const affTotal = await page.evaluate(() => import("/system/build-questions.mjs").then((m) =>
+    m.readBuild().board.places.reduce((n, p) => n + p.affordances.length, 0)));
+  t(`the feed states what it showed of what the board holds (${feedRows} of ${affTotal})`,
+    feedText.includes(`shows ${feedRows} of the ${affTotal}`), feedText.slice(0, 220));
+  t("the feed refuses to claim a recency the board cannot record", feedText.includes("records no time"));
+
+  console.log("\n[4b] shape → steps renders the sequence-step primitive");
+  await page.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "steps" })));
+  await page.waitForSelector("[data-pattern-stage] .ds-sequence-step", { timeout: 15000 });
+  const stepCount = await page.$$eval("[data-pattern-stage] .ds-sequence-step", (n) => n.length);
+  t("sequence-steps rendered", stepCount > 0, `got ${stepCount}`);
+  t("no list-rows left", (await page.$$("[data-pattern-stage] .ds-list-row")).length === 0);
+  // Asserted against the DOM's own count, not a literal: the ordinal's total has to agree with the
+  // number of steps actually on screen, which is the whole content of the spec's `total` prop.
+  const firstOrdinal = (await page.textContent("[data-pattern-stage] .ds-sequence-step .ds-sequence-step-position")).trim();
+  t(`the first step reads "Step 1 of ${stepCount}"`, firstOrdinal === `Step 1 of ${stepCount}`, firstOrdinal);
+  const lastOrdinal = (await page.locator("[data-pattern-stage] .ds-sequence-step .ds-sequence-step-position").last().textContent()).trim();
+  t(`the last step reads "Step ${stepCount} of ${stepCount}"`, lastOrdinal === `Step ${stepCount} of ${stepCount}`, lastOrdinal);
+  // The ordinal must be real text, not a CSS counter — the spec's Accessibility note turns on it.
+  // Asserted on GENERATED CONTENT, which is the only thing the two assertions above structurally
+  // cannot see: `.textContent` never includes ::before/::after, so a check phrased over textContent
+  // could only ever go red for a reason the exact-string assertion above had already caught. That
+  // first version of this check was redundant rather than wrong — the same "cannot fail" shape this
+  // driver's header warns about, and it was caught in review of #139 rather than by the gate.
+  const generated = await page.evaluate(() => {
+    const el = document.querySelector("[data-pattern-stage] .ds-sequence-step-position");
+    return ["::before", "::after"].map((p) => getComputedStyle(el, p).content);
+  });
+  t(`the ordinal is real text, not generated content (::before/::after = ${generated.join(", ")})`,
+    generated.every((c) => c === "none" || c === "normal"), generated.join(", "));
+  // ...and the step's own accessible text carries it, so it reaches the tree as one sentence.
+  const stepText = (await page.textContent("[data-pattern-stage] .ds-sequence-step")).replace(/\s+/g, " ").trim();
+  t(`the step is heard as one sentence ("${stepText.slice(0, 60)}")`,
+    /^Step 1 of \d+\s*\S/.test(stepText), stepText);
+
+  console.log("\n[4c] a share link over a steps build restores the same sequence");
+  // The codec is covered by build-checks; this is the PAGE-level proof that a restore reaches the
+  // new render path rather than a generic one.
+  //
+  // On a page of ITS OWN, and that is load-bearing rather than tidiness. Copying a link sets
+  // build-keep.mjs's `linkLive`, after which every later state change rewrites the URL on a 400ms
+  // trailing edge — so a second copy on the same page has no reliable "the URL changed" edge to
+  // wait on, and check [6]'s wait below is exactly that. The first version of this check shared
+  // `page` and silently turned [6]'s wait into a no-op. One page, one first copy.
+  const stepsCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const stepsPage = await newPage(stepsCtx);
+  await stepsPage.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(stepsPage);
+  await stepsPage.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "steps" })));
+  await stepsPage.waitForSelector("[data-pattern-stage] .ds-sequence-step", { timeout: 15000 });
+  const sentSteps = await stepsPage.$$eval("[data-pattern-stage] .ds-sequence-step", (n) => n.length);
+  await stepsPage.getByRole("button", { name: /Copy the link/ }).click();
+  await stepsPage.waitForFunction(() => location.search.includes("b="));
+  const stepsLink = stepsPage.url();
+  const stepsBack = await newPage(stepsCtx);
+  await stepsBack.goto(stepsLink, { waitUntil: "load" });
+  await settle(stepsBack);
+  await stepsBack.waitForSelector("[data-pattern-stage] .ds-sequence-step", { timeout: 15000 });
+  const restoredSteps = await stepsBack.$$eval("[data-pattern-stage] .ds-sequence-step", (n) => n.length);
+  t(`the restored build renders the same ${sentSteps} steps`, restoredSteps === sentSteps, `got ${restoredSteps}`);
+  t("the restored ordinals agree with the restored count", (await stepsBack
+    .textContent("[data-pattern-stage] .ds-sequence-step .ds-sequence-step-position")).trim() === `Step 1 of ${restoredSteps}`);
+  await stepsCtx.close();
+
+  console.log("\n[4d] a hub built through the REAL editor names settings by rule 2");
+  // The fifth pattern has NO answer that produces it: rule 2 reads a board no draft can make, so the
+  // only route to it is the editor. Driven on a page of its own — the hub edits leave a board that
+  // outranks every later shape answer, which would strand the checks below it.
+  const hubPage = await newPage(ctx);
+  await hubPage.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(hubPage);
+  // 1 · every affordance off the non-entry places.
+  for (let guard = 0; guard < 12; guard += 1) {
+    const strip = hubPage.locator("[data-breadboard] .bx-bb-place:not(.is-entry) .bx-bb-chips .bx-bb-remove").first();
+    if (!(await strip.count())) break;
+    await strip.click();
+    await hubPage.waitForTimeout(120);
+  }
+  // 2 · four affordances on the entry place (HUB_MIN_AFFORDANCES; the draft gives it three).
+  for (let guard = 0; guard < 6 && (await hubPage.locator("[data-breadboard] .bx-bb-place.is-entry .bx-bb-chip").count()) < 4; guard += 1) {
+    await hubPage.locator("[data-breadboard] .bx-bb-place.is-entry .bx-bb-add-aff").click();
+    await hubPage.waitForTimeout(150);
+  }
+  // 3 · every one of them connected somewhere. Two picks per connection, exactly as a visitor makes
+  // them: the affordance, then the place. [data-bb-target] only exists while connecting, and never
+  // on the place the affordance sits in, so the first one is always a legal destination.
+  for (let guard = 0; guard < 8; guard += 1) {
+    const loose = hubPage.locator("[data-breadboard] .bx-bb-place.is-entry .bx-bb-chip")
+      .filter({ has: hubPage.locator(".bx-bb-connect:not(.is-connected)") }).first();
+    if (!(await loose.count())) break;
+    await loose.locator(".bx-bb-connect").click();
+    await hubPage.waitForTimeout(120);
+    await hubPage.locator("[data-breadboard] [data-bb-target]").first().click();
+    await hubPage.waitForTimeout(150);
+  }
+  const hubReached = await hubPage
+    .waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Rule 2"), null, { timeout: 10000 })
+    .then(() => true, () => false);
+  t("editing a board into a hub fires rule 2", hubReached);
+  const hubText = await hubPage.textContent("[data-pattern-stage]");
+  t("the stage names Settings", hubText.includes("Settings"), hubText.slice(0, 140));
+  t("the stage quotes the rule that fired, verbatim", /Rule 2, the hub override/.test(hubText));
+  const hubRows = await hubPage.$$eval("[data-pattern-stage] .ds-list-row", (n) => n.length);
+  t("settings renders list-rows from the entry place", hubRows >= 4, `got ${hubRows}`);
+  t("no sequence-steps on a settings stage", (await hubPage.$$("[data-pattern-stage] .ds-sequence-step")).length === 0);
+  await hubPage.close();
+
+  // Back to a dashboard for the checks below, which build on the drafted board.
+  await page.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "overview" })));
+  await page.waitForSelector("[data-pattern-stage] .ds-metric-tile", { timeout: 15000 });
 
   console.log("\n[5] editing the board re-renders the stage");
   await page.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "overview" })));
@@ -169,6 +284,11 @@ async function journey(engineName, results, held) {
   t("the derive dressed BOTH stages", await page.evaluate(() =>
     document.querySelectorAll("[data-build-stage]").length === 2 &&
     [...document.querySelectorAll("[data-build-stage]")].every((n) => n.style.length > 0)));
+  // This is `page`'s FIRST copy — [4c] deliberately runs on a context of its own so it stays that
+  // way — which is what makes waiting for `?b=` to appear a real wait rather than a condition that
+  // is already true on entry. #139 briefly broke that by sharing the page, and the fix is the
+  // isolation up at [4c], not a cleverer predicate here: once `linkLive` is set, later state
+  // changes rewrite the URL on a 400ms trailing edge and there is no reliable edge left to wait on.
   await page.getByRole("button", { name: /Copy the link/ }).click();
   await page.waitForFunction(() => location.search.includes("b="));
   const shared = page.url();
@@ -279,6 +399,14 @@ async function journey(engineName, results, held) {
       t("  spec carries both ethics gates", md.includes("Manipulation Matrix") && md.includes("Frequency filter"));
       t("  spec quotes the rule that fired", md.includes("named by this rule"));
       t("  spec names the components used", md.includes("`metric-tile`"));
+      // #139's regression, on the file a reader keeps. The fallback sentence used to interpolate
+      // `pattern.needs` unconditionally, which is null for every in-library pattern — so an emptied
+      // board downloaded "None. null, so nothing was rendered…". build-checks proves the sentence
+      // under Node; this proves the DOWNLOAD carries it.
+      const used = md.split("## Components used")[1].split("\n## ")[0];
+      t("  spec's components section names a real component", /`[a-z-]+` × \d+/.test(used), used.trim().slice(0, 90));
+      t("  spec's components section interpolates no null", !/\bnull\b/.test(used), used.trim().slice(0, 90));
+      t("  spec claims nothing about a missing library", !md.includes("not in the library"));
       t("  spec separates the two claims", md.includes("are not the same claim"));
     }
   }

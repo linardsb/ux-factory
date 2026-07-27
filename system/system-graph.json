@@ -951,6 +951,27 @@
       ]
     },
     {
+      "id": "ds-sequence-step-cross-scenario-library-primitive",
+      "label": "ds-sequence-step — cross-scenario library primitive",
+      "spec": "system/specs/sequence-step.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-md",
+        "--color-bg-surface",
+        "--color-border",
+        "--radius-md",
+        "--spacing-xs",
+        "--color-accent",
+        "--radius-lg",
+        "--type-eyebrow",
+        "--type-body",
+        "--color-fg",
+        "--type-caption",
+        "--color-fg-muted",
+        "--color-accent-fg"
+      ]
+    },
+    {
       "id": "vd-screen-header",
       "label": "vd-screen-header",
       "spec": "system/specs/screen-header.md",
@@ -1087,7 +1108,7 @@
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 28,
-    "edges": 309
+    "consumers": 29,
+    "edges": 323
   }
 }

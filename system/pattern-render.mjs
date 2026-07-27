@@ -11,14 +11,20 @@
 // nothing.
 //
 // Four states, and three of them are designed rather than degraded:
-//   1. rendered            — dashboard (metric-tile) or queue (list-row), from board-counted slots.
-//   2. not in the library  — feed / onboarding / settings. The rules named it, the library has no
-//                            components for it, and a mock-up would be the one dishonest thing on
-//                            this page. The breadboard is the artifact, and it is shown.
+//   1. rendered            — all five patterns, from board-counted slots: dashboard (metric-tile),
+//                            queue / feed / settings (list-row), onboarding (sequence-step).
+//   2. not in the library  — no pattern reaches this today (#139 completed the five). It is kept as
+//                            the contract a SIXTH pattern gets: the rules name it, the library has
+//                            no components for it, and a mock-up would be the one dishonest thing
+//                            on this page, so the breadboard is shown as the artifact instead.
+//                            An unexercised guardrail is still the difference between the next
+//                            pattern refusing honestly and shipping a fake before anyone notices.
 //   3. empty board         — nothing to arrange yet, one sentence, a way back to Act 3.
 //   4. refusal             — the validator threw. Its message renders VERBATIM, the way
 //                            agentic-study.mjs treats the boundary probe: naming the offending
-//                            path IS the feature.
+//                            path IS the feature. This one IS reachable, and it is the guardrail
+//                            the committed gate exercises: a component name outside the generated
+//                            vocabulary is refused whatever named it.
 //
 // Node-import-safe: `compose` is pure and exported for the committed unit gate, every DOM
 // reference lives inside a function body, and the mount self-boots behind a `typeof document`
@@ -27,7 +33,7 @@
 import { renderComposition } from "./agentic-renderer.mjs";
 import { createBus } from "./action-bus.mjs";
 import { BUILD_CHANGE, readBuild } from "./build-questions.mjs";
-import { PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
+import { affordanceCount, PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
 import { boardSvg } from "./build-card.mjs";
 
 // The one place a pattern id becomes components. PURE — the committed gate runs it under Node and
@@ -41,7 +47,29 @@ export function compose(patternId, slots) {
   if (!Array.isArray(slots) || !slots.length) return null;
   if (patternId === "dashboard") return slots.map((props) => ({ name: "metric-tile", props: { ...props } }));
   if (patternId === "queue") return slots.map((props) => ({ name: "list-row", props: { ...props } }));
+  if (patternId === "onboarding") return slots.map((props) => ({ name: "sequence-step", props: { ...props } }));
+  // WHY QUEUE, FEED AND SETTINGS SHARE A PRIMITIVE. Their derived slot is list-row's contract
+  // verbatim — a named thing, one computed reading about it, an optional qualifier — so a
+  // `feed-item` and a `settings-row` would be two components with list-row's props and a pattern's
+  // name. That is naming a component after where it is used instead of after what it does, the
+  // exact mistake metric-tile vs stat-tile was drawn to avoid (list-row.md:23-25 argues it).
+  // What actually differs between the three is arrangement, and arrangement is CSS: build.html's
+  // .bx-pat-slots.is-queue / .is-feed / .is-settings.
+  if (patternId === "feed" || patternId === "settings") return slots.map((props) => ({ name: "list-row", props: { ...props } }));
   return null;
+}
+
+// The feed's own honesty line, and the only per-pattern one on this stage. Feed is the one pattern
+// SLOT_MAX actually truncates (pattern-rules.mjs:61-72), so it says what it showed of what the
+// board holds.
+//
+// Stated ALWAYS, not only when the two numbers differ. A sentence that appears only when something
+// was dropped is a sentence a reader learns to distrust the absence of — and "5 of 5" is the same
+// true statement about a board that lost nothing. Pure and exported so the committed gate asserts
+// the wording rather than a browser being asked about it.
+export function streamNote(shown, counted) {
+  const n = counted === 1 ? "affordance" : "affordances";
+  return `This stream shows ${shown} of the ${counted} ${n} on your board, in the order the board draws them. A breadboard records no time, so nothing here is ordered by recency: that would be a fact your board does not carry.`;
 }
 
 // The honesty line under a rendered pattern. Stated on the stage, at rest, outside any disclosure.
@@ -150,7 +178,7 @@ function mount(root) {
     ));
   }
 
-  function renderPattern(pattern, reason, composition) {
+  function renderPattern(pattern, reason, composition, board) {
     const body = card(
       el("p", { class: "bx-pat-eyebrow", text: "Rendered from your build" }),
       el("h3", { class: "bx-pat-title", text: pattern.label }),
@@ -159,6 +187,11 @@ function mount(root) {
     const slotHost = el("div", { class: `bx-pat-slots is-${pattern.id}` });
     slotHost.append(renderComposition(vocab, composition, bus));
     body.append(slotHost, el("p", { class: "bx-pat-note", text: COUNTED }));
+    // Beside COUNTED and in the same register — at rest, outside any disclosure — because it is
+    // the same kind of statement: what this stage did with the board it was given.
+    if (pattern.id === "feed") {
+      body.append(el("p", { class: "bx-pat-note", text: streamNote(composition.length, affordanceCount(board)) }));
+    }
     root.replaceChildren(body);
   }
 
@@ -185,7 +218,7 @@ function mount(root) {
         return; // still loading; the committed fallback copy holds the section until it lands
       } else {
         try {
-          renderPattern(pattern, reason, composition);
+          renderPattern(pattern, reason, composition, state.board);
         } catch (err) {
           renderRefusal(err, reason);
         }
