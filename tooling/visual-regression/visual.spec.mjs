@@ -1,5 +1,6 @@
 // tooling/visual-regression/visual.spec.mjs — CI visual-regression gate (epic #1, ticket #9, gate 3/3).
-// Screenshots nine shipped pages — the six IA pages, the /roundtrip deep viewer, and the two
+// Screenshots ten shipped pages — the six IA pages, the /roundtrip deep viewer, /build (the
+// off-nav pattern builder, linked in by #138), and the two
 // data-connected proto pages (verdant, fieldwork) — under the neutral pack + one client pack
 // (saulera, applied by swapping the single
 // tokens.neutral.css link), pixel-diffed vs committed baselines. Proto pages render from the mock
@@ -50,6 +51,18 @@ const PAGES = [
   { name: 'work',            url: '/work.html',            kind: 'ia', mask: '.factory-embed-figure:not([hidden]) .factory-embed' },
   { name: 'contact',         url: '/contact.html',         kind: 'ia' },
   { name: '404',             url: '/404.html',             kind: 'ia' },
+  // /build (#138): ten view-time modules, five of which set a settled-state handle at load — the
+  // import, the two wizard mounts (listed once; the loop below takes .first(), and a one-mount
+  // regression is build-checks' job, not this gate's), the verdict panel, the breadboard and the
+  // keep rail. [data-pattern-stage="ready"] is deliberately NOT among them: pattern-render.mjs:185
+  // returns before setting the handle while the vocabulary is still loading, and loadVocab() sits
+  // behind an IntersectionObserver (rootMargin: 800px) that cannot fire until the final resize
+  // reveals the page — put it in waitReady and the gate deadlocks to timeout. It is waitVisible,
+  // the same shape #105 needed for the home peak.
+  { name: 'build',           url: '/build.html',           kind: 'ia',
+    waitReady: ['[data-build-import="ready"]', '[data-build-questions="ready"]', '[data-build-verdict="ready"]',
+                '[data-breadboard="ready"]', '[data-build-keep="ready"]'],
+    waitVisible: '[data-pattern-stage="ready"]' },
   { name: 'proto-verdant',   url: '/proto/verdant.html',   kind: 'proto', rows: '.vd-plant-card' },
   { name: 'proto-fieldwork', url: '/proto/fieldwork.html', kind: 'proto', rows: '.fw-lane' },
 ];
@@ -112,12 +125,34 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
       // Capture the whole page as ONE frame at an exact integer viewport = content height, rather than
       // Playwright's fullPage auto-resize stitching — which wobbles ±2px on the ~8000px page and can't
       // take "two consecutive stable screenshots". A fixed integer viewport removes that nondeterminism.
-      const h = await page.evaluate(() => Math.ceil(document.documentElement.getBoundingClientRect().height));
+      const measure = () => page.evaluate(() => Math.ceil(document.documentElement.getBoundingClientRect().height));
+      let h = await measure();
       await page.setViewportSize({ width: 1280, height: h });
-      // waitVisible (index only, #105): the resize above is what first reveals the whole page, so any
+      // waitVisible (index + build, #105): the resize above is what first reveals the whole page, so any
       // activateOn:'visible' beat starts its work HERE. Wait for its settled handle before capturing,
       // or the shot races the assembly. Deliberately after the resize — see the PAGES note.
-      if (p.waitVisible) await page.locator(p.waitVisible).first().waitFor({ state: 'attached' });
+      if (p.waitVisible) {
+        await page.locator(p.waitVisible).first().waitFor({ state: 'attached' });
+        // ...and then MEASURE AGAIN (#138). The height above was taken before that beat rendered its
+        // content, and toHaveScreenshot without fullPage captures the VIEWPORT — so everything the
+        // beat adds after the resize falls outside the frame and is silently dropped. This was live:
+        // the site footer had never been inside index-{neutral,saulera}.png since #105 introduced
+        // waitVisible, and nothing caught it because a baseline shorter than its page still compares
+        // cleanly against itself. Measured while planning #138 on macOS Chromium 149: index grew
+        // ~585px and build ~257px after their beats settled. Those are evidence of the CLASS of
+        // defect, NOT expected dimensions — this pinned Linux container renders different absolute
+        // heights, so a future reader must not read a different number here as a regression.
+        // Bounded loop, not one pass: a resize re-triggers layout, so the second measurement is only
+        // correct if it is a fixpoint, and three passes is far more than any page here needs.
+        // Guarded by `if (p.waitVisible)` so the eight pages without a visible-activated beat keep a
+        // byte-identical flow and cannot churn.
+        for (let i = 0; i < 3; i += 1) {
+          const settled = await measure();
+          if (settled === h) break;
+          h = settled;
+          await page.setViewportSize({ width: 1280, height: h });
+        }
+      }
       // p.mask (factory only): paint a solid box over the embed iframes so their async content can't
       // move the baseline. A locator matching multiple elements masks them all. (#10, slice 10.1)
       const shotOpts = p.mask ? { mask: [page.locator(p.mask)] } : {};
