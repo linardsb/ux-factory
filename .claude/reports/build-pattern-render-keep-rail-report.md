@@ -186,6 +186,36 @@ Those describe the SENDER's browser, and replaying them would have the receiving
 that it read a file it never saw. Token values and slug travel; provenance does not. Stated in
 `build-share.mjs`'s header so a reviewer reads it as a decision rather than an omission.
 
+## Found by the independent review (fixed in `1cf3036`)
+
+The fresh-eyes pass — the `code-reviewer` agent plus an adversarial agent driving real Chromium with
+hand-built payloads — found **four defects this report's author missed**. Full detail in
+`.claude/code-reviews/pr-145-review.md` (Round 2). Summary:
+
+1. **A shared link could make third-party network requests.** `VALUE_OK` excludes `:`, so
+   `url(javascript:x)` was rejected — which is what hid it. `url(//host/x.png)` is protocol-relative,
+   needs no colon, passes character by character, and reaches the network through
+   `background: var(--color-bg)`. It re-fired on reload, survived re-sharing, and reached the
+   downloaded `pattern-spec.md`. Fixed with a `VALUE_BAD` guard in `pack-imported.mjs`, mirrored into
+   `pack-boot.js`. **Scope amendment**: both files were on the plan's "Not changing" list; changed on
+   the owner's explicit call, because the hole predates #137 (it is live on `main` via home's drop
+   surface) and a share link is what made it remotely triggerable.
+2. **`k: {}` was accepted** and then described in three places as a design that had arrived, while
+   zero styles were applied. Same class as `f5550c2`, in a third direction.
+3. **`clip()` split surrogate pairs** — no attacker needed. One emoji on a budget's cut silently
+   emptied the build card and shipped a corrupt download.
+4. **`decodeBuild` validated label length only** — NUL, C0 controls and lone surrogates passed.
+
+**The lesson, and it is the same one twice.** Both the `f5550c2` bug and R2-1 survived a green gate
+for the same reason: *the test exercised the case that could not fail.* The journey shared a build
+with no pack, so the pack path was invisible; the tamper battery's only `url()` case rejected on the
+colon, so `url()` itself was never tested. A passing check is evidence about what it checks, and
+nothing else.
+
+The gate grew to match: **14 tamper payloads → 29**, an astral clip-boundary sweep, and group 7
+widened from one file to all eight `/build` modules — it was file-scoped while the invariant it
+tested was repo-wide.
+
 ## Explicitly not done (per the plan's scope)
 
 - Slice 1d (#138): linking /build from home's close beat and work.html, the /build VR baselines, the
