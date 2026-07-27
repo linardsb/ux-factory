@@ -143,14 +143,30 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
         // defect, NOT expected dimensions — this pinned Linux container renders different absolute
         // heights, so a future reader must not read a different number here as a regression.
         // Bounded loop, not one pass: a resize re-triggers layout, so the second measurement is only
-        // correct if it is a fixpoint, and three passes is far more than any page here needs.
-        // Guarded by `if (p.waitVisible)` so the eight pages without a visible-activated beat keep a
-        // byte-identical flow and cannot churn.
-        for (let i = 0; i < 3; i += 1) {
+        // correct if it is a fixpoint. Exhausting the loop THROWS rather than capturing anyway —
+        // exiting without a fixpoint means the viewport was last sized from a stale measurement,
+        // which is the same silent truncation this block exists to remove, and it would truncate
+        // identically on the capture and the comparison run, so the gate would stay green while
+        // hiding the page's tail. Measured in the pinned container: both waitVisible pages reach the
+        // fixpoint on the SECOND measurement (index 7569→8136, build 7251→7508 under neutral), so
+        // the bound of 6 leaves four spare passes — a throw means something structural, not a page
+        // one pass short of the margin. Guarded by `if (p.waitVisible)` so the eight pages without a
+        // visible-activated beat keep a byte-identical flow and cannot churn.
+        const PASSES = 6;
+        let converged = false;
+        for (let i = 0; i < PASSES; i += 1) {
           const settled = await measure();
-          if (settled === h) break;
+          if (settled === h) { converged = true; break; }
           h = settled;
           await page.setViewportSize({ width: 1280, height: h });
+        }
+        if (!converged) {
+          // Both numbers, and no claim about which way they differ: the loop exits having just
+          // resized, so a re-measure can read equal (one pass short) or larger (still growing), and
+          // the fix differs. Only a fixpoint makes the capture safe, so neither reading is green.
+          throw new Error(`${p.name}-${pack}: page height reached no fixpoint within ${PASSES} passes `
+            + `— viewport ${h}px, document ${await measure()}px. Capturing outside a fixpoint truncates `
+            + `the page silently, and identically on the capture and comparison runs.`);
         }
       }
       // p.mask (factory only): paint a solid box over the embed iframes so their async content can't

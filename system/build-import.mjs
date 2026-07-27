@@ -49,8 +49,9 @@ import { BUILD_CHANGE, publishBuild, readBuild } from "./build-questions.mjs";
 
 // Mirrors portal/lib/figma.mjs, portal/public/portal.js and system/brand-import.mjs — FOUR files
 // now carry this number; if it moves, move all four. Chosen, not measured: comfortably above any
-// believable token export, far below figma-read's 128 MB parse ceiling.
-const MAX_EXPORT_BYTES = 32 * 1024 * 1024;
+// believable token export, far below figma-read's 128 MB parse ceiling. Exported so tooling asserts
+// against the real cap rather than retyping it as a fifth copy (tooling/build-journey.mjs).
+export const MAX_EXPORT_BYTES = 32 * 1024 * 1024;
 
 const mb = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 

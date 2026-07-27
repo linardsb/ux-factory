@@ -285,3 +285,43 @@ is green on both jobs, and the journey is green when run independently.
 
 *Reviewed with fresh eyes per `piv-review-pr`; deep pass dispatched to the `code-reviewer` agent.
 Posted as a comment rather than a formal approval — GitHub does not allow self-approval on this repo.*
+
+---
+
+## Resolution — all six fixed on this PR
+
+Triaged as one set: every finding is on code this PR introduces, none is larger than a few lines, and
+the PR was still open. Fixed in `ccaf6e7`. Each was proven by **mutating the source and running it**,
+never by reading the diff — this ticket's own thesis, and the repo's documented recurring defect.
+
+| # | fix | the mutation that proved it |
+| --- | --- | --- |
+| 1 | throws on exhaustion; bound 3 → 6; both heights named | `PASSES` forced to 1 → `index · neutral` goes **red** with the new error instead of capturing |
+| 2 | `NetworkError\|Load failed` dropped; comment relabelled defensive | the two engine-generic messages go from forgiven to reported; the journey's `[18]` still green on firefox **and** webkit |
+| 3 | `results` owned by the caller, browser parked in `held` | injected mid-run throw → `76 passed · 1 failed · threw` (was `0 passed`), no leaked browser |
+| 4 | count dropped from `CLAUDE.md:80` | n/a — the driver's own output is the number now |
+| 5 | timeout caught **into** the condition | broken re-render label → named `✗`, and the run continues through `[17]`/`[18]` (was: engine throws, both steps never run) |
+| 6 | `MAX_EXPORT_BYTES` exported and imported | `[15]` still asserts the refusal's wording against the shipped cap |
+
+Two departures from the review's suggested fixes:
+
+- **Finding 1 got a bigger bound, a measured margin, and a re-worded diagnostic.** The fix converts an
+  unmeasured assumption into a **blocking** gate, so the assumption had to be measured: in the pinned
+  container both `waitVisible` pages reach their fixpoint on the *second* measurement (`index`
+  7569 → 8136, `build` 7251 → 7508 under neutral), leaving four spare passes at a bound of 6. The
+  first draft of the error message was itself wrong — the forced-failure run printed
+  `viewport 8136px vs document 8136px ... would truncate the difference`, because the final re-measure
+  happens *after* the last resize. It now reports both numbers and claims nothing about their
+  direction, since "one pass short" and "still growing" are different bugs with different fixes.
+- **Finding 5's literal suggested fix is still tautological** — the `waitForFunction` above it
+  guarantees the text before the assertion reads it, so `.textContent(...).includes(...)` can only
+  fail on a race. Catching the timeout into the condition is what makes it an assertion, and is what
+  makes finding 3's fix visible rather than theoretical.
+- **Finding 6 took the export route, so the comment needed no edit** — four files still carry the
+  literal, which is what `build-import.mjs:50` already says.
+
+**Re-validated after the fixes**: `build-checks` 7/7 · `token-lint` ✓ · `drift-check` ✓ all 8 ·
+`gen-loc-summary --check` ✓ no drift · `build-journey all` **85/85 × 3 engines** ·
+pixel gate in the pinned Linux container **20/20**, run from a clean detached worktree so the parallel
+session's unstaged edits could not reach it. No baseline changed — the loop already converged, so no
+captured pixel moved.

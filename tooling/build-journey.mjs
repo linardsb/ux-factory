@@ -53,17 +53,25 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 // process needs the real question list. Resolved from THIS file, never an absolute path.
 const { QUESTIONS } = await import(new URL("../system/build-questions.mjs", import.meta.url));
 const { LABEL_MAX } = await import(new URL("../system/breadboard.mjs", import.meta.url));
-const MAX_EXPORT_MB = 32; // system/build-import.mjs:53 — asserted against the refusal's own wording
+// Imported, not retyped — the refusal's own wording is asserted against the SHIPPED cap, so moving
+// the cap fails this driver instead of drifting past it. build-import.mjs is Node-import-safe (its
+// mount self-boots behind a `typeof document` guard), and this keeps the count of files carrying
+// the literal at four, which is what build-import.mjs:50 says.
+const { MAX_EXPORT_BYTES } = await import(new URL("../system/build-import.mjs", import.meta.url));
+const MAX_EXPORT_MB = MAX_EXPORT_BYTES / 1024 / 1024;
 
-async function journey(engineName) {
-  const results = { engine: engineName, fails: 0, passes: 0, skips: [] };
+// `results` is OWNED BY THE CALLER, not created here: a mid-run throw (a timed-out waitForSelector
+// twenty checks in) must not discard the checks that already ran. `held` is where the launched
+// browser is parked so that same throw can still close it, without wrapping 450 lines of body in a
+// try/finally purely to reach one variable.
+async function journey(engineName, results, held) {
   const t = (name, cond, extra = "") => {
     if (cond) { results.passes += 1; console.log(`  ✓ ${name}`); }
     else { results.fails += 1; console.log(`  ✗ ${name} ${extra}`); }
   };
   const skip = (name, why) => { results.skips.push(`${name} — ${why}`); console.log(`  ~ SKIPPED ${name} — ${why}`); };
 
-  const browser = await pw[engineName].launch();
+  const browser = held.browser = await pw[engineName].launch();
   const errors = [];
   async function newPage(ctx) {
     const p = await ctx.newPage();
@@ -449,8 +457,15 @@ async function journey(engineName) {
     (await rmPage.$$("[data-pattern-stage] .ds-metric-tile")).length === 3);
   await rmPage.locator("[data-place='p1'] .bx-bb-name").fill("Quiet motion");
   await rmPage.locator("[data-place='p1'] .bx-bb-name").blur();
-  await rmPage.waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Quiet motion"));
-  t("reduced-motion: an edit still re-renders the stage", true);
+  // NOT an unguarded waitForFunction followed by `t(…, true)`: the wait already guarantees the text
+  // by the time the assertion runs, so the literal is a check that cannot fail, and a real
+  // regression surfaces as the whole engine throwing rather than as a named ✗. Catching the timeout
+  // INTO the condition is what makes it an assertion.
+  const reRendered = await rmPage
+    .waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Quiet motion"),
+      null, { timeout: 10000 })
+    .then(() => true, () => false);
+  t("reduced-motion: an edit still re-renders the stage", reRendered);
   await rmPage.locator("[data-build-color]").fill("#7c3aed");
   await rmPage.locator("[data-build-derive]").click();
   await rmPage.waitForFunction(() => document.getElementById("build-stage").style.length > 0);
@@ -500,24 +515,36 @@ async function journey(engineName) {
   await noJs.close();
 
   console.log("\n[18] console cleanliness");
-  // The mock Worker is not running for this driver and the site is designed to degrade to committed
-  // fixtures when it is down, so its refusal is the EXPECTED path, not an error (memory:
-  // headless-render-data-pages-worker-refused). Nothing else is forgiven.
-  const real = errors.filter((e) => !/ERR_CONNECTION_REFUSED|NetworkError|favicon|Load failed|8787/.test(e));
+  // Narrow on purpose, and narrower than it was. The Worker's own refusal is exempt DEFENSIVELY,
+  // not because this driver exercises it: none of build.html, index.html or work.html loads
+  // system/scenario-data.mjs, so the mock API is never probed here at all. Firefox's `NetworkError`
+  // and WebKit's `Load failed` used to be exempt too — but those are those engines' generic message
+  // for ANY failed fetch, so on two of the three engines the filter forgave every network failure on
+  // the page. /handoff/verdant/vocabulary.json failing to load is caught in-app and still sets the
+  // stage to "ready", so this line is the only one that would say why the pattern went empty.
+  const real = errors.filter((e) => !/ERR_CONNECTION_REFUSED|favicon|8787/.test(e));
   t("no console or page errors", real.length === 0, real.join(" | "));
 
   await browser.close();
+  held.browser = null;
   return results;
 }
 
 const all = [];
 for (const engine of toRun) {
   console.log(`\n${"═".repeat(72)}\n  ${engine} — ${pw[engine].name()} · /build full journey\n${"═".repeat(72)}`);
+  const results = { engine, fails: 0, passes: 0, skips: [] };
+  const held = {};
+  all.push(results);
   try {
-    all.push(await journey(engine));
+    await journey(engine, results, held);
   } catch (err) {
-    console.log(`\n  ✗ ${engine} threw before finishing: ${err.message}`);
-    all.push({ engine, fails: 1, passes: 0, skips: [], threw: err.message });
+    // The counts survive the throw — an operator needs to see WHICH check the run died after, not a
+    // wiped-out `0 passed` that reads as total failure and has to be bisected by hand.
+    console.log(`\n  ✗ ${engine} threw after ${results.passes} passed: ${err.message}`);
+    results.fails += 1;
+    results.threw = err.message;
+    if (held.browser) await held.browser.close().catch(() => {});
   }
 }
 
