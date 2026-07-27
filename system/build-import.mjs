@@ -491,7 +491,12 @@ function mount(root) {
   // coming back around, so they are ignored.
   function adoptPack(pack) {
     clearStage();
-    if (!pack || !pack.tokens) {
+    // A pack with an EMPTY token map is not a design, and this is the function that makes the
+    // claim — three sentences here say a design is on the stage. The codec already refuses an
+    // empty map, so this is the second producer's case: succeed() hands over r.record.tokens,
+    // which is empty when an import mapped nothing applyable, and would otherwise label the stage
+    // "Wearing acme.json" over a stage wearing nothing.
+    if (!pack || !pack.tokens || !Object.keys(pack.tokens).length) {
       labelStage(restingLabel());
       clearKeep();
       return;

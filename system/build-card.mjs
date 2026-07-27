@@ -74,9 +74,16 @@ const esc = (s) => String(s ?? "")
 
 // SVG text does NOT wrap, so the character budgets below are structural, not advisory. Clip the
 // RAW string, then escape: escaping expands length, and clipping after it could cut an entity.
+//
+// Counted in CODE POINTS, not UTF-16 units. `slice()` cuts between the halves of a surrogate pair,
+// and a lone surrogate makes the whole SVG XML-invalid — DOMParser refuses it, svgNode returns
+// null, and the build card silently disappears. That needs no attacker: a place named
+// "Overview dashboard 1📊 weekly" is 29 units, nowhere near LABEL_MAX, and the emoji lands exactly
+// on the 22-character slot budget's cut. The downloaded file is worse, because it has no parser to
+// refuse it and ships the broken bytes. Found by an adversarial review of #137 (PR #145).
 const clip = (s, n) => {
-  const t = String(s ?? "");
-  return t.length <= n ? t : `${t.slice(0, Math.max(0, n - 1))}…`;
+  const points = [...String(s ?? "")];
+  return points.length <= n ? points.join("") : `${points.slice(0, Math.max(0, n - 1)).join("")}…`;
 };
 
 // No external font: a downloaded file cannot reach the page's stylesheet, and a missing family

@@ -58,6 +58,26 @@ const KEY_NAME = /^--(color|spacing|radius|type|shadow)-[a-z0-9-]{1,32}$/;
 // rather than a type check. Everything that could break out of a declaration is excluded:
 // ; { } @ \ < > : ' " * &  — and with `*` excluded, `/` cannot open a comment either.
 const VALUE_OK = /^[a-zA-Z0-9 #%(),.\/+-]{1,160}$/;
+// ...and one negative guard the charset alone cannot express, because `url(` needs no colon to
+// reach the network. `url(//host/x.png)` is protocol-relative: every character in it is in the
+// class above, so VALUE_OK passes it, and a --color-* value lands in a `background: var(--color-bg)`
+// shorthand that expands it into a real third-party GET. Nothing executes and no page content
+// leaves (`?` and `&` are excluded, so there is no query string) — but the request happens, and
+// /build states at rest that nothing is uploaded. A false sentence rendered on the one page whose
+// argument is that its claims are checkable is the bug, whatever the CVSS says.
+//
+// `url(javascript:x)` was already rejected — on the COLON, which is what hid this: the tamper
+// battery's only url() case was the one that could never have got through, so a green gate was
+// manufacturing confidence about a function it had never actually tested.
+//
+// Rejecting `url(` also kills image-set() and cross-fade(), which need a url() inside (their
+// string forms need quotes, already excluded). `//` goes too, so a protocol-relative host cannot
+// arrive through some other function. Nothing real regresses: no committed pack carries `url(` in
+// a token VALUE (the only one in the CSS is saulera's @import header, and `@` is excluded anyway),
+// and none of the five families — colour, spacing, radius, type, shadow — is an image property.
+// Found by an adversarial review of #137's share link (PR #145); the hole predates it, on home's
+// drop surface, and a link is what made it remotely triggerable.
+const VALUE_BAD = /url\s*\(|\/\//i;
 
 // vetTokens(map) → { tokens, rejected, skipped }.
 //
@@ -78,8 +98,8 @@ export function vetTokens(map) {
       skipped.push(key);
       continue;
     }
-    if (typeof value !== "string" || !VALUE_OK.test(value)) {
-      rejected.push({ key, value: String(value), why: "the value uses characters a token value never needs, so it is not applied" });
+    if (typeof value !== "string" || !VALUE_OK.test(value) || VALUE_BAD.test(value)) {
+      rejected.push({ key, value: String(value), why: "the value uses characters or functions a token value never needs, so it is not applied" });
       continue;
     }
     tokens[key] = value;

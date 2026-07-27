@@ -262,8 +262,13 @@ function mount(root) {
     shareEl.hidden = bare;
     if (bare) return;
 
+    // If the card cannot be parsed, say so. It replaced an empty div with no message, which is the
+    // worst version of this: the reader sees a blank panel and has nothing to act on. Reachable
+    // before PR #145 through a single emoji landing on a text budget's cut; the fix is upstream in
+    // build-card.mjs's clip(), and this is what the surface does if anything gets past it.
     const svg = svgNode(cardSvg({ patternId: named.id, slots, board: state.board, tokens }));
-    cardEl.replaceChildren(...(svg ? [svg] : []));
+    cardEl.replaceChildren(svg || el("p", { class: "bx-keep-note", text:
+      "The card could not be drawn from this build, so nothing is shown rather than something broken. The downloads below still work." }));
 
     artifactsEl.replaceChildren(
       artifactButton("Download build-card.svg", "build-card.svg",

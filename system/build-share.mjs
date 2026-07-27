@@ -57,6 +57,33 @@ const SLUG_OK = /^[a-z0-9-]{1,40}$/;
 const PLACE_ID = /^p[0-9]{1,2}$/;
 const AFF_ID = /^p[0-9]{1,2}a[0-9]{1,2}$/;
 
+// A label out of a URL is arbitrary text, and its LENGTH is not the only thing that matters about
+// it. A NUL, a C0 control or a lone surrogate makes any SVG built from it XML-invalid — which
+// surfaces two modules downstream as a build card that silently disappears, and as a downloaded
+// file carrying raw 0x00 bytes that no viewer will open. Refused here, where a bad payload is
+// already being refused whole, rather than debugged there.
+//
+// Written as a loop rather than a regex on purpose: detecting a lone surrogate in one pattern needs
+// a lookbehind, and lookbehind is a PARSE error on Safari before 16.4 — which would take this whole
+// module down on exactly the browsers the codec's CompressionStream fallback exists to serve.
+const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+
+function labelOk(s) {
+  if (typeof s !== "string" || !s.length || s.length > LABEL_MAX) return false;
+  if (CONTROL.test(s)) return false;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const next = s.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false; // a high surrogate with no low
+      i += 1;
+    } else if (c >= 0xdc00 && c <= 0xdfff) {
+      return false; // a low surrogate with no high
+    }
+  }
+  return true;
+}
+
 // The wire shape, PINNED — encode and decode both read this table, so they cannot drift:
 //
 //   v    format version, 1                          → === 1, else reject the whole payload
@@ -258,8 +285,8 @@ export async function decodeBuild(param) {
     const [id, label, affs] = entry;
     if (typeof id !== "string" || !PLACE_ID.test(id)) return fail(`"${String(id)}" is not a place id`);
     if (placeIds.has(id)) return fail(`the place id "${id}" appears twice`);
-    if (typeof label !== "string" || !label.length || label.length > LABEL_MAX) {
-      return fail(`a place name is empty or over ${LABEL_MAX} characters`);
+    if (!labelOk(label)) {
+      return fail(`a place name is empty, over ${LABEL_MAX} characters, or carries a character that cannot be rendered`);
     }
     if (!Array.isArray(affs) || affs.length > MAX_AFFORDANCES) {
       return fail(`"${label}" carries more than ${MAX_AFFORDANCES} affordances`);
@@ -270,8 +297,8 @@ export async function decodeBuild(param) {
       const [affId, affLabel] = aff;
       if (typeof affId !== "string" || !AFF_ID.test(affId)) return fail(`"${String(affId)}" is not an affordance id`);
       if (affOwner.has(affId)) return fail(`the affordance id "${affId}" appears twice`);
-      if (typeof affLabel !== "string" || !affLabel.length || affLabel.length > LABEL_MAX) {
-        return fail(`an affordance name is empty or over ${LABEL_MAX} characters`);
+      if (!labelOk(affLabel)) {
+        return fail(`an affordance name is empty, over ${LABEL_MAX} characters, or carries a character that cannot be rendered`);
       }
       affOwner.set(affId, id);
       affordances.push({ id: affId, label: affLabel });
@@ -306,6 +333,12 @@ export async function decodeBuild(param) {
     const { tokens, rejected, skipped } = vetTokens(k);
     if (rejected.length) return fail(`a design value could not be applied safely: ${rejected[0].key}`);
     if (skipped.length) return fail(`"${skipped[0]}" is not a token this builder imports`);
+    // An empty map is not a design, and building a pack out of it would hand every consumer a
+    // truthy object with nothing in it — which build-import then states, at rest, as "the design
+    // values came with it". Fixed at the boundary rather than in one consumer's guard, so all
+    // three (the stage, the pattern stage, the spec) read the same true thing. `encodeBuild` never
+    // emits an empty `k`, so this shape only ever arrives hand-built.
+    if (!keys.length) return { state: null, reason: "the link carries an empty set of design values" };
     let slug = "shared";
     if (has("s")) {
       if (typeof data.s !== "string" || !SLUG_OK.test(data.s)) return fail(`"${String(data.s)}" is not a usable pack name`);

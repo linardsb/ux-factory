@@ -40,10 +40,14 @@
       // that would not pass there is dropped here rather than reaching the DOM.
       var NAME = /^--(color|spacing|radius|type|shadow)-[a-z0-9-]{1,32}$/;
       var VAL = /^[a-zA-Z0-9 #%(),.\/+-]{1,160}$/;
+      // Mirrors pack-imported.mjs's VALUE_BAD, and it has to: `url(//host/x.png)` needs no colon,
+      // passes VAL character by character, and would reach :root SITE-WIDE from here, before paint.
+      // If that file's guard moves, move this one (see its comment for the full argument).
+      var BAD = /url\s*\(|\/\//i;
       var out = [], ks = Object.keys(irec.tokens);
       for (var i = 0; i < ks.length; i++) {
         var k = ks[i], v = irec.tokens[k];
-        if (NAME.test(k) && typeof v === "string" && VAL.test(v)) out.push("  " + k + ": " + v + ";");
+        if (NAME.test(k) && typeof v === "string" && VAL.test(v) && !BAD.test(v)) out.push("  " + k + ": " + v + ";");
       }
       if (out.length) {
         var st = document.createElement("style");
