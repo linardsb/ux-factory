@@ -29,6 +29,13 @@
 // THE PAYLOAD CARRIES NO PATTERN ID. patternFor() recomputes it from the restored answers and
 // board, for the same reason publishState recomputes the quadrant: a link must not be able to claim
 // a pattern its own board does not produce. There is no enum to validate because there is no field.
+//
+// IT ALSO CARRIES NO `label` AND NO `note`, and that is the same rule applied to provenance. Those
+// two fields describe what happened in the SENDER's browser — the file that was dropped, and the
+// pack header naming it and the command that reproduces the mapping. Replaying them on a browser
+// that imported nothing would have the receiving page state, at rest, that it read a file it never
+// saw. The build travels (answers, board, edited flag, token values, slug); the story of how the
+// sender got there does not, and the receiving page says "the design in this link" instead.
 
 import { DEFAULT_ANSWERS, QUESTIONS } from "./build-questions.mjs";
 import { LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "./breadboard.mjs";

@@ -333,12 +333,22 @@ function mount(root) {
     keepActions.append(btn);
   }
 
-  function clearKeep() {
+  // The markup's own sentence, captured before anything rewrites it. It is about ACT 0's stylesheet
+  // and only that, which is why a restore cannot leave it standing: a shared link puts a design on
+  // the stage without producing a stylesheet, and "No design imported yet" printed beside a stage
+  // that is visibly wearing one is the same false-sentence class as finding 12, in the other
+  // direction. One row, one owner, and the owner has to say the true thing in every state it has.
+  const keepEmptyDefault = keepEmpty ? keepEmpty.textContent.trim() : "";
+
+  function clearKeep(message) {
     if (keepActions) {
       keepActions.textContent = "";
       keepActions.hidden = true;
     }
-    if (keepEmpty) keepEmpty.hidden = false;
+    if (keepEmpty) {
+      keepEmpty.textContent = message || keepEmptyDefault;
+      keepEmpty.hidden = false;
+    }
   }
 
   function download(r) {
@@ -483,9 +493,15 @@ function mount(root) {
     clearStage();
     if (!pack || !pack.tokens) {
       labelStage(restingLabel());
+      clearKeep();
       return;
     }
     applyToStage(pack.tokens);
+    // The VALUES travelled in the link; the stylesheet did not, and could not — emitPackCss needs
+    // the engine's full mapped values and the export they came from, and neither is in a URL. So
+    // the keep row says what is true here rather than repeating a sentence about an import that
+    // did not happen on this browser.
+    clearKeep("The design in this link is on the stage. The stylesheet itself is not in the link, so drop the export in Act 0 to download it.");
     labelStage(pack.fileName
       ? `Wearing ${pack.fileName}, from the shared link. The stage only.`
       : `Wearing the design in the shared link. The stage only.`);
