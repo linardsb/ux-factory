@@ -5,7 +5,105 @@
 
 ---
 
-# ROUND 2 — the independent pass (this is the real review)
+# ROUND 3 — reviewing the fixes, and the blast radius
+
+Round 2 found four defects and they were fixed in `1cf3036` — **but round 2 reviewed the tree
+*before* those fixes existed.** Nobody independent had read the fixes, and one of them changed
+`vetTokens`, a predicate that `brand-import.mjs`, `dock.mjs`, `pack-derived.mjs`, `spine.mjs` and
+`pack-boot.js` all sit downstream of. Round 3 is two passes over exactly that: the `code-reviewer`
+agent on `f075d59..HEAD`, and an adversarial agent on the blast radius, driving real Chromium.
+
+Two findings. Both fixed in `95bdb9a`. Both verified by me before acting.
+
+## R3-1 · MEDIUM — my own comment asserted a protection that did not exist
+
+`system/build-import.mjs` · The R2-2 fix added an empty-tokens guard to `adoptPack`, and the comment
+(and commit message) justified it as also covering `succeed()`. **It does not.** Traced and
+confirmed: `succeed()` never calls `adoptPack`, and this module's `BUILD_CHANGE` listener
+deliberately filters out its own `source: "import"` publish — by design, and documented as such. So
+`succeed()`'s `labelStage(\`Wearing ${r.fileName}. The stage only.\`)` was unconditional, with
+nothing in its path.
+
+Not exploitable today: `mapPack` throws before it can return with no placeable values, so
+`record.tokens` from a genuine import is never empty. But that is an **upstream invariant, not a
+check** — and the comment claimed a guard that was not there, which is worse than no comment,
+because it tells the next reader the case is handled.
+
+**Fixed** by guarding `succeed()`'s own label and correcting the comment to say what is true,
+including that the earlier version was wrong.
+
+## R3-2 · MEDIUM — group 7 pinned the guard's declaration, not its use
+
+`tooling/build-checks.mjs` · The R2-1 mirror check asserted that `VALUE_BAD` and `BAD` were
+*declared*. A mutation sweep proved **four ways past it while the guard was entirely dead**, gate
+green every time:
+
+| mutation | before |
+|---|---|
+| delete `\|\| VALUE_BAD.test(value)` from `vetTokens` | **MISSED** |
+| delete `&& !BAD.test(v)` from the pre-paint loop | **MISSED** |
+| comment the `VALUE_BAD` literal out | **MISSED** |
+| widen `VALUE_OK` on one side only (mirror drift) | **MISSED** |
+
+**Pinning a constant is not pinning a behaviour** — and this is the *third* time this branch has met
+that same mistake, after the journey that shared a build with no pack and the tamper battery whose
+only `url()` case rejected on the colon.
+
+**Fixed**, checked three ways: the mirrored literals must be byte-identical (`KEY_NAME`↔`NAME`,
+`VALUE_OK`↔`VAL`, `VALUE_BAD`↔`BAD`), both **use-sites** must be present in the conditions that
+decide whether a value is applied, and the shipped `vetTokens` is **run** against five beacon shapes
+and seven real value shapes. Re-ran the sweep afterwards: **6/6 mutations now caught**, working tree
+restored clean.
+
+## Blast radius — verified end to end, not by reading
+
+The `vetTokens` change was the risk in this PR, and only one of its consumers had been checked.
+
+| path | result |
+|---|---|
+| home's drop surface, 4 real fixtures | **PASS** — 64 mapped, 44 placed, **0 lost** vs the pre-fix predicate |
+| wear-across-the-site → `pack-boot.js` on all 7 other pages | **PASS** — 44 applied everywhere, mirror partition **identical** to `vetTokens` |
+| the appearance dock, 4 packs × 8 pages | **PASS** — 32/32 persist across navigation |
+| `pack-derived` + the spine hero re-skin | **PASS** — 21 live inline props including 5 `color-mix(...)`, all still pass |
+| `?brand=` share links | **PASS** |
+| `/build` drop, derive, and share round trip | **PASS** — byte-identical token round trip |
+| `instance.html`, proto pages | **N/A** — carry no `pack-boot` tag, verified in-page |
+
+**No legitimate token value containing `url(` or `//` exists anywhere in the repo** — enumerated, not
+grepped: all 361 custom-property declarations across six pack files, `tokens.source.json`, and 4×64
+mapped fixture values. The two `url(` hits are `@import` at-rules at brace-depth 0, not token values.
+Structurally, none of the five importable families is an image property.
+
+**One behaviour change worth naming rather than folding into "clean":** a hand-built link carrying
+`url(//host)` now fails the **entire** build, not just that token — the decoder's existing
+zero-rejected rule doing its job. Only hostile links are affected; a single-slash
+`rgb(0 0 0 / 10%)` link still decodes fine.
+
+**Claim calibration**, in the adversarial agent's own terms: *"there is no regression"* is claimed
+for the enumerated inputs above; *"I could not find a regression"* is the honest ceiling for
+arbitrary unseen third-party exports, where a value containing `//` would now be reported as not
+applied rather than placed. Not reached: Firefox/WebKit, and the portal drawer.
+
+## Round 3 validation
+
+`build-checks` ✓ (7 groups, 29 tamper payloads) · mutation sweep ✓ 6/6 caught · beacon proof ✓ zero
+foreign requests · home's real drop ✓ zero new rejections · journey ✓ 43 assertions · `token-lint` ✓
+· `drift-check` ✓ · `loc-summary --check` ✓ · CI `verify` + `visual` ✓.
+
+## Round 3 verdict
+
+The fixes hold, and the blast radius is clean across everything enumerable. What round 3 actually
+caught was not a broken fix but **two false claims of safety** — a comment asserting a guard that
+wasn't in the path, and a check asserting a constant instead of a behaviour. Both are the same
+failure mode as the two defects before them, which is now the most useful thing this branch has
+produced.
+
+Still **Comment, not Approve**: solo repo, and a human should read R2-1's scope amendment
+(`pack-imported.mjs` + `pack-boot.js` sit outside the plan's fence) before merging.
+
+---
+
+# ROUND 2 — the independent pass on the original code
 
 Round 1 (kept below, unedited) was written by the session that wrote the code, and its own caveat
 said it was not to be trusted as independent. That caveat turned out to be load-bearing: an
