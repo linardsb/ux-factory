@@ -19,6 +19,19 @@
 //      a write here would make the import site-wide on the reader's next navigation, which is the
 //      opposite of what this page promises. When a later slice adds "wear it site-wide", it calls
 //      writeImported() from a control the reader pressed, not from the drop.
+//   3. It IS published, into the page's own in-memory BUILD_CHANGE store (build-questions.mjs), as
+//      `pack: { slug, label, fileName, tokens, note }`. That is memory for the length of this page
+//      view and nothing else — no storage, no server — and it exists because the share codec has to
+//      carry the token VALUES: an imported export cannot be re-run from a URL. The same module then
+//      ADOPTS a restored pack off that store, which is how a shared link dresses the stage.
+//
+// One application point, and it is this module's invariant: applyToStage is the only place a
+// /build token value reaches style.setProperty, and it calls vetTokens on its own argument rather
+// than trusting its four callers (drop · candidate retry · derive · restore). The choke point is
+// enforced where the values land, not by four correct call sites — one of which is now a URL a
+// stranger wrote. tooling/build-checks.mjs reads this file as text and asserts that the inline-style
+// write below occurs exactly ONCE in it (it greps for the call, which is why this sentence describes
+// it rather than spelling it) — crude on purpose, and loud the day someone adds a second.
 //
 // This module deliberately does NOT import from system/brand-import.mjs. That module exports
 // nothing and self-boots on [data-import]; it owns home's beat, and reaching into it to serve
@@ -32,6 +45,7 @@
 import { emitPackCss, entriesFromExport, mapPack, parseContract } from "./pack-import.mjs";
 import { buildImportedRecord, readImported, vetTokens } from "./pack-imported.mjs";
 import { deriveBrandTokens } from "./pack-derived.mjs";
+import { BUILD_CHANGE, publishBuild, readBuild } from "./build-questions.mjs";
 
 // Mirrors portal/lib/figma.mjs, portal/public/portal.js and system/brand-import.mjs — FOUR files
 // now carry this number; if it moves, move all four. Chosen, not measured: comfortably above any
@@ -83,6 +97,10 @@ function mount(root) {
   const resetBtn = root.querySelector("[data-build-reset]");
   const reportEl = document.querySelector("[data-build-report]");
   const stage = document.getElementById("build-stage");
+  // Every stage on the page, not just Act 0's: the pattern that renders in Act 4 wears the
+  // visitor's design too, and both stages are dressed and undressed together. #build-stage stays
+  // the guard, because it is what says "this page has an Act 0 at all".
+  const stages = [...document.querySelectorAll("[data-build-stage]")];
   const stageLabel = document.querySelector("[data-build-stage-label]");
   const keepEmpty = document.querySelector("[data-build-keep-empty]");
   const keepActions = document.querySelector("[data-build-keep-actions]");
@@ -114,15 +132,26 @@ function mount(root) {
 
   // ---------------------------------------------------------------- the stage
 
-  // Inline custom properties on the stage element outrank the contract and pack layers for
-  // everything inside it, and reach nothing outside it.
+  // Inline custom properties on the stage elements outrank the contract and pack layers for
+  // everything inside them, and reach nothing outside them.
+  //
+  // THE CHOKE POINT. vetTokens runs HERE, on whatever it is handed, even where the caller already
+  // vetted (the import record) or the codec already validated (a restore). One of the four callers
+  // now carries values a stranger put in a URL, and an invariant enforced at four call sites is an
+  // invariant one refactor away from a hole. VALUE_OK excludes : ; { } < > " ' \ * and &, so a
+  // value cannot break out of its own declaration and url(javascript:x) is rejected, not escaped.
   function applyToStage(tokens) {
-    for (const [k, v] of Object.entries(tokens || {})) stage.style.setProperty(k, v);
+    const vetted = vetTokens(tokens || {}).tokens;
+    for (const [k, v] of Object.entries(vetted)) {
+      for (const el of stages) el.style.setProperty(k, v);
+    }
   }
   function clearStage() {
-    // Iterate a copy: removeProperty mutates the live list underneath the index.
-    for (const name of [...stage.style]) {
-      if (STAGE_KEY.test(name)) stage.style.removeProperty(name);
+    for (const el of stages) {
+      // Iterate a copy: removeProperty mutates the live list underneath the index.
+      for (const name of [...el.style]) {
+        if (STAGE_KEY.test(name)) el.style.removeProperty(name);
+      }
     }
   }
   function labelStage(text) {
@@ -333,6 +362,12 @@ function mount(root) {
     applyToStage(r.record.tokens);
     labelStage(`Wearing ${r.fileName}. The stage only.`);
     offerDownload(r);
+    // The vetted subset, which is what the stage actually wears and therefore the only honest
+    // thing to put in a share link. The full mapped values stay in `last` for the download.
+    publishBuild({ source: "import", pack: {
+      slug: r.slug, label: r.fileName, fileName: r.fileName,
+      tokens: r.record.tokens, note: r.mapped.note,
+    } });
   }
 
   async function retry(fileName, accent) {
@@ -409,6 +444,11 @@ function mount(root) {
     applyToStage(tokens);
     labelStage(`Derived from ${hex}. The stage only.`);
     status(`Derived a full palette from ${hex} and checked every contrast pair. The stage is wearing it.`, "done");
+    // fileName is null and stays null: nothing was imported, so there is no file to name. The hex
+    // is the label, which is the whole provenance a derived palette has.
+    publishBuild({ source: "import", pack: {
+      slug: "derived", label: hex, fileName: null, tokens, note: null,
+    } });
   }
 
   function resetToNeutral() {
@@ -420,6 +460,7 @@ function mount(root) {
     reportEl.textContent = "";
     labelStage(restingLabel());
     status("", "idle");
+    publishBuild({ source: "import", pack: null });
   }
 
   fileInput.addEventListener("change", (e) => pickFile(e.target.files[0]));
@@ -434,6 +475,32 @@ function mount(root) {
   if (deriveBtn) deriveBtn.addEventListener("click", deriveFromColour);
   if (resetBtn) resetBtn.addEventListener("click", resetToNeutral);
 
+  // A shared link arrives with the whole build in it, including the token values, and this module
+  // is what puts them on the stages. Registered once, outside any render, and filtered by source —
+  // the discipline breadboard.mjs:601 already uses. `import` events are this module's own publish
+  // coming back around, so they are ignored.
+  function adoptPack(pack) {
+    clearStage();
+    if (!pack || !pack.tokens) {
+      labelStage(restingLabel());
+      return;
+    }
+    applyToStage(pack.tokens);
+    labelStage(pack.fileName
+      ? `Wearing ${pack.fileName}, from the shared link. The stage only.`
+      : `Wearing the design in the shared link. The stage only.`);
+    status(
+      `This build arrived in a link. The design values came with it and were re-checked here before ` +
+      `anything was applied. Nothing was uploaded and nothing was stored. Drop your own export to replace it.`,
+      "worn",
+    );
+  }
+
+  document.addEventListener(BUILD_CHANGE, (e) => {
+    if (!e.detail || e.detail.source !== "restore") return;
+    adoptPack(e.detail.pack);
+  });
+
   // Say what the page is actually wearing on arrival. A design imported on home in this visit is
   // already on :root via pack-boot.js, and the markup's default label cannot know that.
   labelStage(restingLabel());
@@ -441,6 +508,12 @@ function mount(root) {
   if (existing) {
     status(`This site is wearing ${existing.label}, imported from ${existing.fileName} on the home page. Drop an export here to put a design on the stage on its own.`, "worn");
   }
+
+  // Pulled as well as listened for (breadboard.mjs:169-171's discipline). A restore that published
+  // BEFORE this mount ran left its pack in the store, and reading it here is what makes the restore
+  // order-independent: correctness stops resting on one script tag's position.
+  const seeded = readBuild();
+  if (seeded.pack) adoptPack(seeded.pack);
 
   // The settled-state handle the visual-regression gate waits on when a later slice baselines this
   // page (memory: a mount with no handle either deadlocks the wait or baselines an empty surface).

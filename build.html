@@ -10,13 +10,14 @@
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- build.html — the pattern builder (epic #134, tickets #135 and #136;
+  <!-- build.html — the pattern builder (epic #134, tickets #135, #136 and #137;
        .claude/plans/hooked-shapeup-pattern-builder.md Phase 1.2, .claude/plans/build-page-import-act.md,
-       .claude/plans/build-questions-breadboard.md).
+       .claude/plans/build-questions-breadboard.md, .claude/plans/build-pattern-render-keep-rail.md).
        A sixth public surface where a visitor imports their design tokens, answers the product
        questions this portfolio works by, and watches a real UI pattern assemble under their brand.
-       All four acts ship: the import, the two question acts, and the editable breadboard. The
-       pattern that renders from the board is a later slice, and the page is NOT linked from the IA yet.
+       All six beats ship: the import, the two question acts, the editable breadboard, the pattern
+       that renders from it through the site's own vocabulary-validated renderer, and the keep rail
+       whose share link rebuilds the whole build from the URL. The page is NOT linked from the IA yet.
        Honesty contract: everything here is committed rules running in the visitor's browser. No file
        is uploaded, because the shipped site is static and has nowhere to upload to; no model is
        called at view time. What the import produces is the VISITOR's design work mapped onto this
@@ -36,7 +37,7 @@
 
     /* 96px ≈ the sticky site header plus a little air, so a deep-linked act never lands under it. */
     html { scroll-padding-top: 96px; }
-    #act-import, #act-hooked, #act-shape, #act-breadboard { scroll-margin-top: 96px; }
+    #act-import, #act-hooked, #act-shape, #act-breadboard, #act-pattern, #act-keep { scroll-margin-top: 96px; }
 
     /* ── The capability strip. Chips state what runs; the line under them names the files that do
        the running, and links to them. A claim about readable rules is only worth making if the
@@ -117,16 +118,15 @@
     .bx-stage-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
 
     /* ── Keep. Empty until there is something to keep, and it says so in the interface's voice
-       rather than sitting blank. ── */
-    .bx-keep {
-      margin-top: var(--spacing-xl);
-      padding-top: var(--spacing-lg);
-      border-top: 1px solid var(--color-border);
-      display: grid;
-      gap: var(--spacing-sm);
-      min-width: 0;
-    }
+       rather than sitting blank. The rail itself lives in Act 5; this is the button row inside it. ── */
     .bx-keep-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+    /* The build's four downloads are a set of equals, so they get equal tracks rather than a
+       flex-wrap that leaves a ragged 2-1-1. auto-fit keeps them stacked at narrow widths. */
+    [data-keep-artifacts] {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--spacing-sm);
+    }
     .bx-report { margin-top: var(--spacing-xl); min-width: 0; }
 
     /* ── One sentence of truth about what is still missing, so a deep link lands on an honest
@@ -406,9 +406,127 @@
       font-size: var(--type-caption);
     }
 
+    /* ── ACT 4 · the pattern. The second stage on this page, and it wears the visitor's imported
+       values exactly the way Act 0's does: build-import.mjs dresses every [data-build-stage], so
+       the components that assemble here are this site's, and the values on them are theirs. Same
+       panel grammar as .bx-stage so the two read as one surface at two moments. ── */
+    .bx-pat-stage {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-bg);
+      padding: var(--spacing-lg);
+      min-width: 0;
+      margin-top: var(--spacing-xl);
+    }
+    /* One card grammar across all four states — rendered, named-not-rendered, empty, refused. The
+       out-of-library card is the majority path in this slice, so it gets the same chrome and the
+       same weight as a rendered pattern rather than looking like a failure. */
+    .bx-pat-card { display: grid; gap: var(--spacing-sm); min-width: 0; }
+    .bx-pat-eyebrow {
+      margin: 0;
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+    .bx-pat-title { margin: 0; font-family: var(--font-display); font-size: var(--type-h2); letter-spacing: -0.02em; }
+    .bx-pat-definition { margin: 0; max-width: 62ch; }
+    /* The rule that fired, quoted. It is bordered rather than coloured, the same device the
+       frequency gate uses, because the sentence carries its own emphasis. */
+    .bx-pat-reason {
+      margin: 0;
+      max-width: 68ch;
+      padding-left: var(--spacing-md);
+      border-left: 3px solid var(--color-accent);
+      color: var(--color-fg);
+      line-height: 1.55;
+    }
+    .bx-pat-needs { margin: 0; max-width: 68ch; color: var(--color-fg-muted); }
+    .bx-pat-note {
+      margin: 0;
+      max-width: 68ch;
+      color: var(--color-fg-muted);
+      font-size: var(--type-caption);
+      line-height: 1.6;
+    }
+    /* The refusal is a primary affordance, not a swallowed error: the validator's own message,
+       verbatim, in the one monospace block on the page. */
+    .bx-pat-refusal {
+      margin: 0;
+      padding: var(--spacing-md);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-surface);
+      overflow-x: auto;
+      min-width: 0;
+      font-size: var(--type-caption);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    /* The slots themselves. The components are the site's (.ds-metric-tile / .ds-list-row from
+       components.css); this only arranges them, and only in tracks and gaps. auto-fit rather than
+       a fixed column count, because the visitor's imported spacing scale decides how wide a tile
+       actually gets — the same reasoning .bx-stage-grid's single column is built on. */
+    .bx-pat-slots { display: grid; gap: var(--spacing-md); margin: var(--spacing-md) 0; min-width: 0; }
+    .bx-pat-slots.is-dashboard { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .bx-pat-boardwrap {
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-md);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-surface);
+      min-width: 0;
+    }
+    .bx-pat-board { display: block; width: 100%; height: auto; }
+
+    /* ── ACT 5 · Keep. Two rows, one owner each: Act 0's stylesheet, and this build's artifacts.
+       Structural, never sticky — body { overflow-x: clip } on shipped pages makes position:sticky
+       a no-op for every descendant. ── */
+    .bx-keep-rows { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-xl); min-width: 0; }
+    @media (min-width: 900px) {
+      .bx-keep-rows { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: var(--spacing-2xl); }
+    }
+    .bx-keep-row { display: grid; gap: var(--spacing-sm); align-content: start; min-width: 0; }
+    .bx-keep-title {
+      margin: 0;
+      font-size: var(--type-eyebrow);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+    .bx-keep-card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-surface);
+      padding: var(--spacing-sm);
+      min-width: 0;
+    }
+    .bx-keep-card svg { display: block; width: 100%; height: auto; }
+    .bx-keep-share { display: grid; gap: var(--spacing-sm); }
+    .bx-keep-link {
+      width: 100%;
+      min-width: 0;
+      font: inherit;
+      font-size: var(--type-caption);
+      color: var(--color-fg-muted);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      min-height: 36px;
+    }
+    .bx-keep-note {
+      margin: 0;
+      max-width: 68ch;
+      color: var(--color-fg-muted);
+      font-size: var(--type-caption);
+      line-height: 1.6;
+    }
+
     /* Press feedback on the board's own controls. Transform and opacity only, listed explicitly,
        and off entirely under reduced motion. No entrance animations anywhere on this page: the
-       board rebuilds on every edit, and an entrance on a rebuilt node restarts and blanks. */
+       board rebuilds on every edit, and an entrance on a rebuilt node restarts and blanks. The
+       pattern stage re-renders on every breadboard keystroke, so it gets none either. */
     @media (prefers-reduced-motion: no-preference) {
       .bx-bb-connect, .bx-bb-remove, .bx-bb-add-aff { transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease); }
       .bx-bb-name, .bx-bb-chip-name { transition: border-color var(--motion-fast) var(--motion-ease); }
@@ -429,8 +547,9 @@
         <p class="hero-sub">
           Drop your design tokens and this page maps them onto the same contract the rest of the
           site runs on, then puts real components on the stage wearing your values. Answer ten
-          questions about your product and it drafts a breadboard you can edit. The pattern that
-          renders from all of it is being built next.
+          questions about your product and it drafts a breadboard you can edit. Committed rules
+          read that board, name a UI pattern, and build it from this site's own components. You
+          leave with the files and a link that rebuilds all of it in a colleague's browser.
         </p>
         <p class="bx-caps">
           <span class="capability live">Runs now · in your browser</span>
@@ -445,8 +564,11 @@
           one colour, <a href="/system/build-questions.mjs"><code>system/build-questions.mjs</code></a>
           holds the ten questions and both ethics gates, and
           <a href="/system/breadboard.mjs"><code>system/breadboard.mjs</code></a> holds every rule
-          that turns your answers into a breadboard. Your file is read here in your browser. The
-          shipped site is static and has no server, so there is nowhere for it to be uploaded to.
+          that turns your answers into a breadboard, and
+          <a href="/system/pattern-rules.mjs"><code>system/pattern-rules.mjs</code></a> holds the
+          five rules that name the pattern your board builds. Your file is read here in your
+          browser. The shipped site is static and has no server, so there is nowhere for it to be
+          uploaded to.
         </p>
       </div>
     </section>
@@ -504,7 +626,10 @@
           </div>
 
           <div class="bx-stage-col">
-            <div class="bx-stage" id="build-stage">
+            <!-- data-build-stage is what build-import.mjs dresses; the id stays as the "this page
+                 has an Act 0 at all" guard. Act 4's pattern stage carries the same attribute, so
+                 both wear the visitor's values and both come clean together. -->
+            <div class="bx-stage" id="build-stage" data-build-stage>
               <div class="bx-stage-head">
                 <h3 class="bx-stage-title">The stage</h3>
                 <!-- Deliberately makes no claim about which pack is on. pack-boot.js is a classic
@@ -534,14 +659,13 @@
 
         <div class="bx-report brand-import-report" data-build-report hidden></div>
 
-        <!-- Keep. Act 0 hands back one thing: the pack, built in the browser from the reader's own
-             export. The build card, the breadboard and the share link join it in a later slice. -->
-        <div class="bx-keep" id="build-keep">
-          <p class="muted" data-build-keep-empty>
-            Nothing to keep yet. Import a design and the stylesheet it produces appears here.
-          </p>
-          <div class="bx-keep-actions" data-build-keep-actions hidden></div>
-        </div>
+        <!-- The stylesheet this import produces is handed back in Act 5 with everything else, so
+             the reader collects the whole build in one place rather than in two. build-import.mjs
+             queries its two keep nodes on `document`, so they moved without a JS change. -->
+        <p class="bx-todo-note mt-xl">
+          The stylesheet this produces is waiting for you in
+          <a href="#act-keep">what you keep</a>, with the rest of the build.
+        </p>
       </div>
     </section>
 
@@ -649,10 +773,89 @@
         </div>
 
         <p class="bx-todo-note mt-xl">
-          What is still missing: the pattern that renders from this board using the site's own
-          components, the downloads, and a share link that rebuilds the whole thing in someone
-          else's browser. Those are next.
+          When the board is the shape you want,
+          <a href="#act-pattern">see the pattern it names</a>.
         </p>
+      </div>
+    </section>
+
+    <!-- ACT 4 · the pattern. system/pattern-render.mjs mounts on [data-pattern-stage], names the
+         pattern from system/pattern-rules.mjs, and renders it through the SAME
+         vocabulary-validated renderer the build-time agent runs use (system/agentic-renderer.mjs
+         against handoff/verdant/vocabulary.json). Two of the five patterns have components in this
+         library; the other three get a designed card that says so and shows the breadboard, never
+         a mock-up. The mount carries data-build-stage as well, so build-import.mjs dresses it in
+         the visitor's imported values exactly as it dresses Act 0's stage. -->
+    <section class="band" id="act-pattern">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">04</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your pattern</p>
+            <h2 class="beat-title">The board names a pattern. The system builds it.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Five rules in
+          <a href="/system/pattern-rules.mjs"><code>system/pattern-rules.mjs</code></a>
+          read your answers and your board and name one pattern. What assembles below goes through
+          the same renderer and the same generated component vocabulary that this site's build-time
+          agent runs go through, so it can only ever use components that really exist. Two of the
+          five patterns have components here. The other three say so instead of mocking one up.
+        </p>
+
+        <div class="bx-pat-stage" data-pattern-stage data-build-stage>
+          <p class="muted">
+            The pattern is assembled in your browser from committed rules. With JavaScript blocked
+            there is nothing to assemble it, and this page will not pretend otherwise.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 5 · Keep. system/build-keep.mjs owns the right-hand row (the build card, the four
+         downloads and the share link); system/build-import.mjs still owns the left-hand row, and
+         still finds its two nodes by attribute on `document`, so moving them here needed no JS
+         change. Two rows, one owner each, in both directions: build-import's empty copy talks about
+         the stylesheet only, because clearing the stage must never render "nothing to keep" above
+         four live build downloads. -->
+    <section class="band band--interstitial" id="act-keep">
+      <div class="container">
+        <div class="beat-head">
+          <span class="beat-numeral">05</span>
+          <div class="beat-head-text">
+            <p class="beat-kicker">Keep</p>
+            <h2 class="beat-title">Take the build with you.</h2>
+          </div>
+        </div>
+        <p class="beat-lead">
+          Every file below is generated in your browser from what you did on this page. Nothing was
+          uploaded, because the shipped site is static and has nowhere to upload to, and nothing was
+          stored. The share link carries the whole build in the URL itself, so a colleague opening
+          it rebuilds your answers, your board and your design values with no server in between.
+        </p>
+
+        <div class="bx-keep-rows">
+          <div class="bx-keep-row" id="build-keep">
+            <h3 class="bx-keep-title">Your design</h3>
+            <p class="muted" data-build-keep-empty>
+              No design imported yet. Import one in Act 0 and the stylesheet it produces appears here.
+            </p>
+            <div class="bx-keep-actions" data-build-keep-actions hidden></div>
+          </div>
+
+          <div class="bx-keep-row">
+            <h3 class="bx-keep-title">Your build</h3>
+            <!-- build-keep.mjs owns everything inside this node and replaces it on mount, so the
+                 heading stays outside it: one copy of the row's name, in the markup. -->
+            <div class="bx-keep-row" data-build-keep>
+              <p class="muted">
+                The build card, the breadboard and the pattern spec are generated in your browser.
+                With JavaScript blocked there is nothing to generate them from.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -668,5 +871,11 @@
        current state on its own mount, so it renders correctly whichever of the two boots first. -->
   <script type="module" src="/system/build-questions.mjs"></script>
   <script type="module" src="/system/breadboard.mjs"></script>
+  <script type="module" src="/system/pattern-render.mjs"></script>
+  <!-- Last as a courtesy to the reader, not as a correctness dependency: build-keep.mjs runs the
+       ?b= restore, and every consumer both listens for BUILD_CHANGE and seeds from readBuild() at
+       its own mount, so a restore that lands before or after any given mount is adopted either
+       way. Reordering these tags changes nothing. -->
+  <script type="module" src="/system/build-keep.mjs"></script>
 </body>
 </html>

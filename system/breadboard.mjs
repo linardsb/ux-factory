@@ -32,9 +32,18 @@ import { BUILD_CHANGE, DEFAULT_ANSWERS, publishBuild, readBuild } from "./build-
 
 // The appetite, in Shape Up's sense of a budget rather than an estimate, is enforced as a cap on
 // the drafted board. Six is the hard ceiling either way; small batch hammers scope down to three.
-const MAX_PLACES = 6;
-const MAX_AFFORDANCES = 6;
+// Exported because system/build-share.mjs validates a board arriving from a URL against exactly
+// these numbers: a second literal 6 in the codec is a cap that drifts the day this one moves.
+export const MAX_PLACES = 6;
+export const MAX_AFFORDANCES = 6;
 const APPETITE_CAP = { small: 3, big: MAX_PLACES };
+
+// The cap on anything a visitor types into a place or affordance name (issue #144 finding 13). One
+// number in three places — the input's maxlength, the model on adopt, and the share codec's decode
+// check — exported for the same reason share-state.mjs:38 exports NAME_MAX: a mirrored cap is a cap
+// that disagrees with itself eventually. 60 characters is well past any real place name and well
+// short of a paste that would blow the share URL's budget.
+export const LABEL_MAX = 60;
 
 // --- the draft rules ---------------------------------------------------------------------------
 
@@ -135,6 +144,13 @@ export function draftBoard(answers) {
   return { places, connections };
 }
 
+// Is this the board shape at all? A shallow structural check, not a validation: the share codec
+// (system/build-share.mjs) hand-validates every id, label and cap before a board ever gets here, and
+// this only decides "adopt it or draft a fresh one" for a payload that arrived some other way.
+export function isBoard(board) {
+  return Boolean(board) && Array.isArray(board.places) && Array.isArray(board.connections);
+}
+
 // --- DOM helper (build-import.mjs:46 shape; duplicated per module by the same decision) --------
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
@@ -168,12 +184,16 @@ function mount(root) {
 
   // Pulled, not awaited: build-questions.mjs publishes on its own mount, and this module may load
   // before or after it. Reading the store here means the two work in either script order.
+  // ...and a board ALREADY in the store — a shared link that restored before this mount ran — is
+  // adopted rather than redrafted, which is the other half of what makes the restore
+  // order-independent. Nothing else on the page publishes a board, so this is null on a cold load.
   const seed = readBuild();
   let answers = seed.answers || { ...DEFAULT_ANSWERS };
-  let board = draftBoard(answers);
+  const restored = isBoard(seed.board);
+  let board = restored ? structuredClone(seed.board) : draftBoard(answers);
   // Latches on the first edit. After that an answer change no longer redrafts, because a silent
   // redraft would delete the visitor's work; a "Re-draft from answers" button appears instead.
-  let edited = false;
+  let edited = restored ? Boolean(seed.boardIsEdited) : false;
   let connectFrom = null; // the affordance id waiting for a target, while connect mode is on
   let pendingFocus = null; // a selector, applied after the next render puts the new tree in the DOM
 
@@ -219,8 +239,14 @@ function mount(root) {
     commit(`Removed the place "${place.label}". ${board.places.length} of ${MAX_PLACES}.`, "[data-bb-add-place]");
   }
 
-  function renamePlace(id, label) {
+  // The model-side half of the LABEL_MAX cap. The input's maxlength stops typing and pasting; this
+  // stops everything else that can put a string in a name — and it is the same constant, not a
+  // second number that agrees with it today.
+  const capLabel = (s) => String(s).slice(0, LABEL_MAX);
+
+  function renamePlace(id, raw) {
     const place = placeById(id);
+    const label = capLabel(raw);
     if (!place || place.label === label) return;
     place.label = label;
     // No full re-render: that would replace the input the caret is sitting in. The label is already
@@ -259,7 +285,8 @@ function mount(root) {
     commit(`Removed the affordance "${aff.label}" from "${place.label}".`, `[data-place="${placeId}"] .bx-bb-add-aff`);
   }
 
-  function renameAffordance(affId, label) {
+  function renameAffordance(affId, raw) {
+    const label = capLabel(raw);
     for (const place of board.places) {
       const aff = place.affordances.find((f) => f.id === affId);
       if (!aff || aff.label === label) continue;
@@ -366,6 +393,7 @@ function mount(root) {
       class: "bx-bb-chip-name",
       value: aff.label,
       "aria-label": `Affordance in ${place.label}`,
+      maxlength: String(LABEL_MAX),
       size: Math.max(8, Math.min(28, aff.label.length + 1)),
     });
     name.addEventListener("change", () => renameAffordance(aff.id, name.value.trim() || aff.label));
@@ -411,6 +439,7 @@ function mount(root) {
       class: "bx-bb-name",
       value: place.label,
       "aria-label": `Name of place ${index + 1}`,
+      maxlength: String(LABEL_MAX),
     });
     name.addEventListener("change", () => renamePlace(place.id, name.value.trim() || place.label));
     head.append(name);
@@ -600,7 +629,31 @@ function mount(root) {
   // the same once-at-mount discipline).
   document.addEventListener(BUILD_CHANGE, (e) => {
     const detail = e.detail;
-    if (!detail || detail.source !== "questions" || !detail.answers) return;
+    if (!detail) return;
+    // A shared link rebuilt the whole state at once, and the board that came with it is the one
+    // the sender edited. Adopt it verbatim: redrafting here would silently replace the artifact
+    // the link exists to carry. And do NOT publish — the store already holds this board, so a
+    // publish would only bounce the event back around the page.
+    if (detail.source === "restore") {
+      answers = detail.answers || answers;
+      connectFrom = null;
+      if (isBoard(detail.board)) {
+        // structuredClone even though readBuild() already cloned: the event detail is one object
+        // shared by every listener, and this module mutates its board in place on every edit.
+        board = structuredClone(detail.board);
+        edited = Boolean(detail.boardIsEdited);
+        render();
+        return;
+      }
+      // No board in the payload — fall through to the draft, and publish, because in that case the
+      // store genuinely has nothing for the consumers downstream to read.
+      board = draftBoard(answers);
+      edited = false;
+      render();
+      publish();
+      return;
+    }
+    if (detail.source !== "questions" || !detail.answers) return;
     answers = detail.answers;
     if (edited) { renderToolbar(); return; } // their edits stand; the re-draft button is the way back
     board = draftBoard(answers);

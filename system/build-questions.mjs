@@ -32,26 +32,30 @@ import { RULESET } from "./derive.rules.mjs";
 // pack-derived.mjs's BRAND_CHANGE_EVENT. The payload is the FULL state every time, not a delta, so
 // a consumer that mounts late (or re-mounts) never has to reconstruct history:
 //
-//   { source: "questions" | "breadboard",
+//   { source: "questions" | "breadboard" | "import" | "restore",
 //     answers: { trigger, action, rewardType, investment, frequency, improvesLives, wouldUseIt,
 //                appetite, shape, nogos },
 //     quadrant: "facilitator" | "peddler" | "entertainer" | "dealer",
 //     frequencyVerdict: { passes, verdict },
 //     board: { places: [{ id, label, affordances: [{ id, label }] }], connections: [[affId, placeId]] },
-//     boardIsEdited: boolean }
+//     boardIsEdited: boolean,
+//     pack: { slug, label, fileName, tokens, note } | null }
 //
 // Every field is populated from the moment this module loads — the store is seeded with the default
 // answers below rather than starting at null — so a consumer never reads a drafted board beside a
 // null quadrant, whichever mounts are on the page.
 //
-// TWO write paths, and they are not interchangeable: `setAnswers` owns `answers`, `publishBuild`
-// owns everything else and REFUSES an answers patch. Answers have a module-scope object behind them
+// THREE write paths, and they are not interchangeable: `setAnswers` owns `answers`, `publishBuild`
+// owns everything else and REFUSES an answers patch, `restoreBuild` writes ALL of it exactly once
+// from a payload the share codec already validated. Answers have a module-scope object behind them
 // that both wizards and the verdict panel render from, so a patch that set `state.answers` without
-// going through it would show on the breadboard and nowhere else. That is the seam the share codec
-// arrives at, which is why it is closed now rather than after there is something to migrate.
-// Act 0's imported token values are NOT in here yet. system/build-import.mjs holds its record in
-// module state and publishes nothing; the first consumer that actually needs those values is the
-// share codec, so that slice wires the seam rather than this one guessing at its shape.
+// going through it would show on the breadboard and nowhere else. A fourth path would be the smell.
+//
+// `pack` is what Act 0 imported, and it is here because the share codec is the consumer that
+// needed it: an imported export cannot be re-run from a URL (the file is not in it), so the token
+// VALUES have to travel. system/build-import.mjs publishes the record it already builds; nothing
+// is stored anywhere (build-import.mjs:16-21 argues why), and every value is re-vetted at the one
+// point it reaches the DOM.
 export const BUILD_CHANGE = "factory:build-change";
 
 // Every answer is a STRING, including the two ethics booleans ("yes"/"no"). One type for the whole
@@ -64,6 +68,7 @@ const state = {
   frequencyVerdict: null,
   board: null,
   boardIsEdited: false,
+  pack: null,
 };
 
 const bool = (v) => v === "yes";
@@ -276,7 +281,10 @@ export const QUESTIONS = Object.freeze([
 ]);
 
 // The label shown in the running summary, per question — the method's own term for what was asked.
-const SUMMARY_TERM = {
+// Exported because system/build-keep.mjs writes the same terms into the downloadable pattern spec,
+// and a second copy of "Internal trigger / Variable reward / Appetite" is a method-fidelity bug
+// waiting to drift.
+export const SUMMARY_TERM = {
   trigger: "Internal trigger",
   action: "Action",
   rewardType: "Variable reward",
@@ -294,7 +302,10 @@ const SUMMARY_TERM = {
 // Duplicated rather than imported: that constant is module-private, and exporting from a shared
 // module to serve a new page is the coupling build-import.mjs already refused (build-import.mjs:23).
 // The quadrant NAME still comes from RULESET.ethics.matrix, so the two surfaces cannot disagree.
-const QUADRANT_MEANINGS = {
+// Exported from HERE, though, for the same reason SUMMARY_TERM is: system/build-keep.mjs writes
+// these sentences verbatim into the downloadable spec, and that is a consumer on this same page
+// rather than another surface reaching across — a third hand-copy is what would drift.
+export const QUADRANT_MEANINGS = {
   facilitator: "improves life ✓ / you'd use it ✓ — the goal.",
   peddler: "improves life ✓ / you wouldn't use it ✗ — warning: you may be overselling.",
   entertainer: "improves life ✗ / you'd use it ✓ — fine in moderation.",
@@ -351,6 +362,25 @@ Object.assign(state, {
 export function setAnswers(patch) {
   Object.assign(answers, patch);
   publishState({ source: "questions", answers: { ...answers } });
+}
+
+// The THIRD write path, and the only one that moves everything at once: a shared link arriving
+// with a whole build in it (system/build-share.mjs decoded and hand-validated it — nothing is
+// re-validated here, and nothing may be validated ONLY here). It goes through the same module-scope
+// `answers` object setAnswers writes, so the wizards and the verdict panel move with it, and it
+// publishes ONCE: one event, one atomic restore, no half-restored frame on screen.
+//
+// It deliberately accepts no quadrant and no frequency verdict. publishState recomputes both from
+// the answers it just set, so a link can never claim a verdict its own answers do not produce.
+export function restoreBuild({ answers: restored, board, boardIsEdited, pack } = {}) {
+  if (restored) Object.assign(answers, restored);
+  publishState({
+    source: "restore",
+    answers: { ...answers },
+    board: board || null,
+    boardIsEdited: Boolean(boardIsEdited),
+    pack: pack || null,
+  });
 }
 
 // --- one act's stepped wizard --------------------------------------------------------------

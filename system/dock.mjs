@@ -440,7 +440,11 @@ function buildDock() {
   };
   const sync = () => setOpen(location.hash === "#appearance");
   // pushState (not `location.hash = ""`) so closing neither scroll-jumps nor leaves a bare #.
-  const stripHash = () => { history.pushState(null, "", location.pathname); sync(); };
+  // location.search is carried through: opening and closing this panel must not eat the query
+  // string. /build's whole build travels in ?b=, and home's share links travel in ?brand= — a
+  // pathname-only pushState silently dropped both, which turned a shared link into a fresh page
+  // the moment a reader opened the appearance panel.
+  const stripHash = () => { history.pushState(null, "", location.pathname + location.search); sync(); };
 
   toggle.addEventListener("click", () => {
     if (location.hash === "#appearance") stripHash();
