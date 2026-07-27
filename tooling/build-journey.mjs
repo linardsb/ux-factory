@@ -167,24 +167,48 @@ async function journey(engineName, results, held) {
   t(`the first step reads "Step 1 of ${stepCount}"`, firstOrdinal === `Step 1 of ${stepCount}`, firstOrdinal);
   const lastOrdinal = (await page.locator("[data-pattern-stage] .ds-sequence-step .ds-sequence-step-position").last().textContent()).trim();
   t(`the last step reads "Step ${stepCount} of ${stepCount}"`, lastOrdinal === `Step ${stepCount} of ${stepCount}`, lastOrdinal);
-  // The ordinal must be real text, not a CSS counter — the spec's Accessibility note turns on it,
-  // and a counter would leave the accessibility tree with an unnumbered step.
-  t("the ordinal is real text in the accessibility tree", await page.evaluate(() =>
-    (document.querySelector("[data-pattern-stage] .ds-sequence-step").textContent || "").includes("Step 1 of")));
+  // The ordinal must be real text, not a CSS counter — the spec's Accessibility note turns on it.
+  // Asserted on GENERATED CONTENT, which is the only thing the two assertions above structurally
+  // cannot see: `.textContent` never includes ::before/::after, so a check phrased over textContent
+  // could only ever go red for a reason the exact-string assertion above had already caught. That
+  // first version of this check was redundant rather than wrong — the same "cannot fail" shape this
+  // driver's header warns about, and it was caught in review of #139 rather than by the gate.
+  const generated = await page.evaluate(() => {
+    const el = document.querySelector("[data-pattern-stage] .ds-sequence-step-position");
+    return ["::before", "::after"].map((p) => getComputedStyle(el, p).content);
+  });
+  t(`the ordinal is real text, not generated content (::before/::after = ${generated.join(", ")})`,
+    generated.every((c) => c === "none" || c === "normal"), generated.join(", "));
+  // ...and the step's own accessible text carries it, so it reaches the tree as one sentence.
+  const stepText = (await page.textContent("[data-pattern-stage] .ds-sequence-step")).replace(/\s+/g, " ").trim();
+  t(`the step is heard as one sentence ("${stepText.slice(0, 60)}")`,
+    /^Step 1 of \d+\s*\S/.test(stepText), stepText);
 
   console.log("\n[4c] a share link over a steps build restores the same sequence");
   // The codec is covered by build-checks; this is the PAGE-level proof that a restore reaches the
   // new render path rather than a generic one.
-  await page.getByRole("button", { name: /Copy the link/ }).click();
-  await page.waitForFunction(() => location.search.includes("b="));
-  const stepsLink = page.url();
+  //
+  // On a page of ITS OWN, and that is load-bearing rather than tidiness. Copying a link sets
+  // build-keep.mjs's `linkLive`, after which every later state change rewrites the URL on a 400ms
+  // trailing edge — so a second copy on the same page has no reliable "the URL changed" edge to
+  // wait on, and check [6]'s wait below is exactly that. The first version of this check shared
+  // `page` and silently turned [6]'s wait into a no-op. One page, one first copy.
   const stepsCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const stepsPage = await newPage(stepsCtx);
+  await stepsPage.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(stepsPage);
+  await stepsPage.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "steps" })));
+  await stepsPage.waitForSelector("[data-pattern-stage] .ds-sequence-step", { timeout: 15000 });
+  const sentSteps = await stepsPage.$$eval("[data-pattern-stage] .ds-sequence-step", (n) => n.length);
+  await stepsPage.getByRole("button", { name: /Copy the link/ }).click();
+  await stepsPage.waitForFunction(() => location.search.includes("b="));
+  const stepsLink = stepsPage.url();
   const stepsBack = await newPage(stepsCtx);
   await stepsBack.goto(stepsLink, { waitUntil: "load" });
   await settle(stepsBack);
   await stepsBack.waitForSelector("[data-pattern-stage] .ds-sequence-step", { timeout: 15000 });
   const restoredSteps = await stepsBack.$$eval("[data-pattern-stage] .ds-sequence-step", (n) => n.length);
-  t(`the restored build renders the same ${stepCount} steps`, restoredSteps === stepCount, `got ${restoredSteps}`);
+  t(`the restored build renders the same ${sentSteps} steps`, restoredSteps === sentSteps, `got ${restoredSteps}`);
   t("the restored ordinals agree with the restored count", (await stepsBack
     .textContent("[data-pattern-stage] .ds-sequence-step .ds-sequence-step-position")).trim() === `Step 1 of ${restoredSteps}`);
   await stepsCtx.close();
@@ -260,15 +284,13 @@ async function journey(engineName, results, held) {
   t("the derive dressed BOTH stages", await page.evaluate(() =>
     document.querySelectorAll("[data-build-stage]").length === 2 &&
     [...document.querySelectorAll("[data-build-stage]")].every((n) => n.style.length > 0)));
-  // Waits for the URL to CHANGE, not for `?b=` to be present. #139's check [4c] copies a link on
-  // this same page first, so `?b=` is already in the address bar by the time this runs and a
-  // presence check would resolve instantly — `await click()` returns when the handler is dispatched,
-  // not when its async body has replaced the URL, so `shared` could be read one tick early. The
-  // presence form was a real wait only while this was the page's first copy; it silently stopped
-  // being one, which is the failure mode this driver's header warns about.
-  const priorUrl = page.url();
+  // This is `page`'s FIRST copy — [4c] deliberately runs on a context of its own so it stays that
+  // way — which is what makes waiting for `?b=` to appear a real wait rather than a condition that
+  // is already true on entry. #139 briefly broke that by sharing the page, and the fix is the
+  // isolation up at [4c], not a cleverer predicate here: once `linkLive` is set, later state
+  // changes rewrite the URL on a 400ms trailing edge and there is no reliable edge left to wait on.
   await page.getByRole("button", { name: /Copy the link/ }).click();
-  await page.waitForFunction((prev) => location.href !== prev, priorUrl);
+  await page.waitForFunction(() => location.search.includes("b="));
   const shared = page.url();
   t("the link is in the address bar", shared.includes("?b=") || shared.includes("&b="));
   t("the link is a sane length", shared.length < 4000, `${shared.length} chars`);

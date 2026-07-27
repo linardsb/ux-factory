@@ -226,13 +226,29 @@ const BARE_BOARD = {
     ok(affs.length ? step.detail === affs[0].label : true, `step ${i} detail is not its first affordance`);
     ok(step.tone === (affs.length ? "neutral" : "warn"), `step ${i} tone does not read the place's emptiness`);
   });
-  // A place with nothing on it carries NO detail key at all — absent, not empty. An empty string is
-  // a detail the board does not have, and the spec renders nothing for an absent optional.
+  // A place with nothing on it gets the warn tone AND says so in words.
   const holed = structuredClone(oBoard);
   holed.places[1].affordances = [];
   const holedSteps = slotsFor("onboarding", holed);
   ok(holedSteps[1].tone === "warn", "a place with nothing to act on should give its step the warn tone");
-  ok(!Object.hasOwn(holedSteps[1], "detail"), "an empty place's step carries a detail key; it must be absent, not empty");
+  ok(typeof holedSteps[1].detail === "string" && holedSteps[1].detail.length > 0,
+    "a warn step carries no detail, so its tone is the only thing distinguishing it — the spec forbids exactly that");
+
+  // TONE IS NEVER THE SOLE SIGNAL — the promise all three ds- specs make, checked as an invariant
+  // over every tone-bearing slot rather than trusted per pattern. A slot that reads identically to a
+  // neutral one once its tone is stripped hands a screen reader byte-identical output for two
+  // different states. This shipped broken in #139's first pass: the onboarding branch omitted
+  // `detail` on empty places, so "Step 3 of 3, Settings" was both the warning and the all-clear.
+  for (const p of Object.values(PATTERNS)) {
+    for (const fixture of [BOARD_FOR[p.id], holed, BARE_BOARD]) {
+      for (const [i, slot] of (slotsFor(p.id, fixture) || []).entries()) {
+        if (!slot.tone || slot.tone === "neutral") continue;
+        const spoken = Object.entries(slot).filter(([k]) => k !== "tone").map(([, v]) => v).join(" ");
+        ok(/\b0\b|nothing|none|no /i.test(spoken),
+          `${p.id} slot ${i} is "${slot.tone}" but reads "${spoken}" — strip the colour and it is indistinguishable from neutral`);
+      }
+    }
+  }
 
   // FEED — every affordance on the WHOLE board, in the board's own order, each row naming the place
   // it came from. The meta assertion is what proves it reads the whole board rather than one place.
@@ -601,7 +617,7 @@ function scanSvg(svg, label) {
     }
     return false;
   };
-  for (const at of [1, 2, 18, 19, 20, 21, 22, 25, 26, 27, 28]) {
+  for (const at of [1, 2, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]) {
     const label = `${"x".repeat(at)}\u{1F4CA} tail that runs past every budget`;
     const astral = { places: [{ id: "p1", label, affordances: [{ id: "p1a1", label }] }], connections: [] };
     const built = [

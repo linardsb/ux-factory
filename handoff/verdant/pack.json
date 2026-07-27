@@ -487,7 +487,7 @@
         "detail": {
           "type": "string",
           "required": false,
-          "description": "one short qualifier: what advances this step, or where it leads; ≤ 6 words, never a sentence"
+          "description": "one short qualifier: what advances this step, where it leads, or — when nothing does — that fact, because tone alone may never carry it; ≤ 6 words, never a sentence"
         },
         "tone": {
           "type": "string",

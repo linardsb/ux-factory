@@ -239,9 +239,17 @@ export function slotsFor(patternId, board) {
         position: String(i + 1),
         total: String(shown.length),
         label: String(place.label ?? ""),
-        // ABSENT, not empty: a place with nothing on it has no detail, and an empty string is a
-        // detail the board does not have. The spec renders nothing for an absent optional.
-        ...(affs.length ? { detail: String(affs[0].label ?? "") } : {}),
+        // What advances this step — or, when nothing does, THAT, in words.
+        //
+        // The empty case used to omit the key entirely, which left `tone` as the only difference
+        // between "this step is a hole in the board" and "this step is fine": both rendered as
+        // "Step 3 of 3, Settings", and a screen reader got byte-identical output. sequence-step.md's
+        // Accessibility section forbids exactly that ("colour is never the sole signal") and even
+        // gives this sentence as its example, so the spec was right and the derivation was not.
+        //
+        // Still counted, not invented: it is a branch on a counted zero, the same shape as the
+        // dashboard's `unit` a few lines up, which picks between two fixed words on a counted n.
+        detail: affs.length ? String(affs[0].label ?? "") : "nothing to act on here",
         // Same reading as the dashboard's: a place with nothing to act on is a hole in the board,
         // not a decoration.
         tone: affs.length === 0 ? "warn" : "neutral",

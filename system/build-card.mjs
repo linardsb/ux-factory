@@ -212,7 +212,7 @@ function stepsBody(slots, t) {
       `<text x="${LEFT + 16 + BADGE_W / 2}" y="${y + ROW_H / 2 + 4}" font-size="11" text-anchor="middle" fill="${esc(t.accent)}">${esc(clip(slot.position, 2))}/${esc(clip(slot.total, 2))}</text>`,
       `<text x="${labelX}" y="${mid}" font-size="14" fill="${esc(t.fg)}">${esc(clip(slot.label, 28))}</text>`,
       slot.detail
-        ? `<text x="${RIGHT - 16}" y="${mid}" font-size="13" text-anchor="end" fill="${esc(t.fgMuted)}">${esc(clip(slot.detail, 20))}</text>`
+        ? `<text x="${RIGHT - 16}" y="${mid}" font-size="13" text-anchor="end" fill="${esc(t.fgMuted)}">${esc(clip(slot.detail, 24))}</text>`
         : "",
     ].join("");
   }).join("");

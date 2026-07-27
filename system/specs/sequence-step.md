@@ -8,7 +8,7 @@
     "position": { "type": "string", "required": true,  "description": "this step's 1-based place in the sequence as a display string, e.g. \"2\" — counted, never assigned" },
     "total":    { "type": "string", "required": true,  "description": "how many steps the sequence has, as a display string — a step that does not know the total is not a sequence" },
     "label":    { "type": "string", "required": true,  "description": "what this step is, one line — truncates with an ellipsis" },
-    "detail":   { "type": "string", "required": false, "description": "one short qualifier: what advances this step, or where it leads; ≤ 6 words, never a sentence" },
+    "detail":   { "type": "string", "required": false, "description": "one short qualifier: what advances this step, where it leads, or — when nothing does — that fact, because tone alone may never carry it; ≤ 6 words, never a sentence" },
     "tone":     { "type": "string", "required": false, "enum": ["neutral", "warn", "critical"], "description": "optional emphasis — redundant weight, never the sole signal (position + label + detail must already read the state)" }
   },
   "tokens": ["--color-bg-surface", "--color-fg", "--color-fg-muted", "--color-border", "--color-accent", "--color-accent-fg", "--radius-md", "--radius-lg", "--spacing-xs", "--spacing-sm", "--spacing-md", "--type-body", "--type-caption", "--type-eyebrow"],
