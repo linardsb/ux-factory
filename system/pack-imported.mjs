@@ -79,6 +79,24 @@ const VALUE_OK = /^[a-zA-Z0-9 #%(),.\/+-]{1,160}$/;
 // drop surface, and a link is what made it remotely triggerable.
 const VALUE_BAD = /url\s*\(|\/\//i;
 
+// A second negative guard, for magnitude rather than for characters. `--spacing-md: 99999999px`
+// passes every check above — it is only digits and a unit — and pushes the document to Chromium's
+// 33,554,432px ceiling, which puts /build's own downloads at a scroll position the browser cannot
+// reach. A link that makes the page's artifacts unclickable is a denial of the one thing the page
+// is for.
+//
+// Anchored on a UNIT so it cannot touch a colour: `#00000014` is eight digits with nothing after
+// it and is untouched, which is what a naive digit-run cap would have broken (composeShadow emits
+// exactly that shape). Five digits means ≥ 10000 of any length unit — three orders of magnitude
+// past the largest value in any committed pack.
+//
+// RESIDUAL, stated rather than papered over: this does not catch scientific notation (`1e30px`),
+// because the only pattern that would is `e` followed by digits, and that is a substring of every
+// hex value like `#1e40af`. Scientific notation degrades the layout without reaching the same
+// ceiling, and it is self-evident to the reader. Named here so the next person does not assume the
+// vector is closed.
+const VALUE_HUGE = /\d{5,}\s*(px|rem|em|ch|ex|vw|vh|vmin|vmax|pt|pc|cm|mm|in|%)/i;
+
 // vetTokens(map) → { tokens, rejected, skipped }.
 //
 // The two outcomes are kept APART on purpose, and the distinction is an honesty one:
@@ -98,7 +116,7 @@ export function vetTokens(map) {
       skipped.push(key);
       continue;
     }
-    if (typeof value !== "string" || !VALUE_OK.test(value) || VALUE_BAD.test(value)) {
+    if (typeof value !== "string" || !VALUE_OK.test(value) || VALUE_BAD.test(value) || VALUE_HUGE.test(value)) {
       rejected.push({ key, value: String(value), why: "the value uses characters or functions a token value never needs, so it is not applied" });
       continue;
     }

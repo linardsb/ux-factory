@@ -66,7 +66,14 @@ const AFF_ID = /^p[0-9]{1,2}a[0-9]{1,2}$/;
 // Written as a loop rather than a regex on purpose: detecting a lone surrogate in one pattern needs
 // a lookbehind, and lookbehind is a PARSE error on Safari before 16.4 — which would take this whole
 // module down on exactly the browsers the codec's CompressionStream fallback exists to serve.
-const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+//
+// The second range below is the bidi FORMATTING controls (embeddings, overrides, isolates) and
+// the invisible directional marks. A U+202E in a place name reverses everything after it, in the
+// card and in the downloaded SVG, so a link can make a board read as something it is not.
+// Blocking these does NOT block right-to-left languages: Arabic and Hebrew letters carry their
+// own direction and render correctly without a single one of these characters. Nobody names a
+// place with a directional override.
+const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200E\u200F\u202A-\u202E\u2066-\u2069]/;
 
 function labelOk(s) {
   if (typeof s !== "string" || !s.length || s.length > LABEL_MAX) return false;

@@ -100,6 +100,12 @@ function mount(root) {
   // Every stage on the page, not just Act 0's: the pattern that renders in Act 4 wears the
   // visitor's design too, and both stages are dressed and undressed together. #build-stage stays
   // the guard, because it is what says "this page has an Act 0 at all".
+  //
+  // Captured ONCE, which is a real coupling and not an oversight: it requires that every
+  // [data-build-stage] element PERSISTS for the life of the page. pattern-render.mjs holds up its
+  // end by only ever replaceChildren-ing inside its root — if it ever recreated that node, this
+  // list would go stale and the pattern would silently revert to neutral on the next edit. Named
+  // here so the constraint is visible from the side that depends on it.
   const stages = [...document.querySelectorAll("[data-build-stage]")];
   const stageLabel = document.querySelector("[data-build-stage-label]");
   const keepEmpty = document.querySelector("[data-build-keep-empty]");

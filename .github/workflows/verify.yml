@@ -1,7 +1,9 @@
 # verify.yml — CI verification gates (epic #1, ticket #9).
-# Runs three gates on push to main + every PR:
+# Runs four gates on push to main + every PR:
 #   drift-check  — regenerates the committed generators/artifacts, fails on any divergence.
 #   token-lint   — undeclared / orphan / DTCG-valid contract checks.
+#   build-checks — /build's pattern chain: rules, slots, compositions against the real vocabulary,
+#                  the share codec + its tamper battery, SVG escaping, the vetting invariant.
 #   visual       — Playwright screenshots of the shipped pages (6 IA + 2 data-connected proto)
 #                  under the neutral pack + one client pack (saulera, applied by swapping the one
 #                  tokens.neutral.css link), pixel-diffed vs committed baselines. Runs in the
@@ -37,6 +39,13 @@ jobs:
         run: node tooling/drift-check.mjs
       - name: Token lint
         run: node tooling/token-lint.mjs
+      # /build's chain: the pattern rules, the slot derivations, both compositions against the REAL
+      # generated vocabulary, the share codec's round trip and its 29-payload tamper battery, SVG
+      # escaping, and the one-application-point invariant. Registered here because check 3's whole
+      # job is to fail when a vocabulary regeneration breaks the builder — a guarantee that only
+      # holds if something runs it without being asked (epic #134, tickets #137 and #138).
+      - name: Build checks
+        run: node tooling/build-checks.mjs
 
   visual:
     runs-on: ubuntu-latest
