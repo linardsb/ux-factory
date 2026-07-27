@@ -234,9 +234,21 @@ function mount(root) {
     const gone = new Set(place.affordances.map((f) => f.id));
     board.places = board.places.filter((p) => p.id !== id);
     // A connection is dead if its target went, or if the affordance it ran from went with the place.
+    // Count what dies BEFORE the filter runs, or there is nothing left to count.
+    const had = board.connections.length;
     board.connections = board.connections.filter(([from, to]) => to !== id && !gone.has(from));
+    const lost = had - board.connections.length;
     if (connectFrom && gone.has(connectFrom)) connectFrom = null;
-    commit(`Removed the place "${place.label}". ${board.places.length} of ${MAX_PLACES}.`, "[data-bb-add-place]");
+    // A sighted visitor watches the lines vanish; without this clause a screen-reader user hears only
+    // the place count change and loses the board's connective structure in silence. Removing the ENTRY
+    // place takes every connection with it — by construction they all start there — so the "and the
+    // board has none left" case is the common one, not an edge (#144 finding 7). The recovery,
+    // "Re-draft from answers", is already on screen because this edit is what puts it there.
+    const connectionNote = lost
+      ? ` ${lost} connection${lost === 1 ? "" : "s"} went with it${board.connections.length ? "" : ", and the board has none left"}.`
+      : "";
+    commit(`Removed the place "${place.label}". ${board.places.length} of ${MAX_PLACES}.${connectionNote}`,
+      "[data-bb-add-place]");
   }
 
   // The model-side half of the LABEL_MAX cap. The input's maxlength stops typing and pasting; this

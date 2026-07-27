@@ -22,6 +22,12 @@ function serveFile(res, base, rel) {
   if (!target.startsWith(base + path.sep) && target !== base) { res.writeHead(404); return res.end('not found'); }
   let file = target;
   if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
+  // Extensionless → .html, the way Cloudflare Pages serves this site (#138). Every in-page link the
+  // shipped pages carry is extensionless (/work, /handoff, /agentic-ui-study, /build), so without
+  // this a driver that CLICKS a real link lands on 404 for a reason that has nothing to do with the
+  // site — which would make tooling/build-journey.mjs's "the link resolves" assertion unfalsifiable.
+  // No-op for the gate itself: visual.spec.mjs requests every page by its explicit .html URL.
+  if (!existsSync(file) && !path.extname(file) && existsSync(`${file}.html`)) file = `${file}.html`;
   if (!existsSync(file)) { res.writeHead(404); return res.end('not found'); }
   res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' });
   res.end(readFileSync(file));

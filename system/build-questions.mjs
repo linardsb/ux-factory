@@ -383,6 +383,23 @@ export function restoreBuild({ answers: restored, board, boardIsEdited, pack } =
   });
 }
 
+// Advancing an act moves the page AND the keyboard. Scrolling alone leaves focus on the button in the
+// act the visitor just left, so their next Tab resumes behind them, walking back through questions
+// they have already answered (#144 finding 8). Prefer the destination's own prompt heading — the
+// wizard below already makes those focusable — and fall back to the section's beat title, which needs
+// tabindex added because only wizard prompts carry it. `act-breadboard` is the fallback case: it is
+// the one target with no wizard in it. preventScroll, so focusing cannot fight the scroll we just
+// asked for; the ids carry scroll-margin-top in build.html, so "start" clears the sticky header.
+function advanceTo(targetId) {
+  const section = document.getElementById(targetId);
+  if (!section) return;
+  section.scrollIntoView({ block: "start" });
+  const heading = section.querySelector(".bx-q-prompt") || section.querySelector(".beat-title");
+  if (!heading) return;
+  if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
+  heading.focus({ preventScroll: true });
+}
+
 // --- one act's stepped wizard --------------------------------------------------------------
 // One question at a time, the factory-intake.mjs:414-459 shape: progress, prompt as a focusable
 // heading, reasoning, a native radiogroup named by the prompt, Back / Next. Mounted once per act,
@@ -439,7 +456,7 @@ function mountWizard(root) {
       // Nothing is submitted: the answers are live and everything downstream is already drawn from
       // them, so the last step of an act moves to the next act instead of dead-ending on a disabled
       // button.
-      if (last) document.getElementById(act.target)?.scrollIntoView({ block: "start" });
+      if (last) advanceTo(act.target);
       else { step += 1; renderStep(true); }
     });
     footer.append(back, next);
