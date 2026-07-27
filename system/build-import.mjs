@@ -370,7 +370,13 @@ function mount(root) {
     renderReport(r);
     clearStage();
     applyToStage(r.record.tokens);
-    labelStage(`Wearing ${r.fileName}. The stage only.`);
+    // Guarded HERE, not by adoptPack: succeed() never routes through it (the listener below
+    // filters out this module's own "import" publish by design), so a guard there does nothing for
+    // this path. mapPack throws before it can return an empty set today, which is the only reason
+    // this has never been wrong — an upstream invariant, not a check. This makes it a check.
+    labelStage(Object.keys(r.record.tokens).length
+      ? `Wearing ${r.fileName}. The stage only.`
+      : `${r.fileName} mapped, but none of its values could be applied. The stage is unchanged.`);
     offerDownload(r);
     // The vetted subset, which is what the stage actually wears and therefore the only honest
     // thing to put in a share link. The full mapped values stay in `last` for the download.
@@ -492,10 +498,11 @@ function mount(root) {
   function adoptPack(pack) {
     clearStage();
     // A pack with an EMPTY token map is not a design, and this is the function that makes the
-    // claim — three sentences here say a design is on the stage. The codec already refuses an
-    // empty map, so this is the second producer's case: succeed() hands over r.record.tokens,
-    // which is empty when an import mapped nothing applyable, and would otherwise label the stage
-    // "Wearing acme.json" over a stage wearing nothing.
+    // claim — three sentences here say a design is on the stage. The codec refuses an empty map
+    // before restoreBuild is ever called, so this guard is belt to that brace rather than the only
+    // thing standing between a link and a false sentence. (An earlier version of this comment said
+    // it also covered succeed(); it does not — succeed() never calls this function, and it is
+    // guarded on its own line instead. Caught in review.)
     if (!pack || !pack.tokens || !Object.keys(pack.tokens).length) {
       labelStage(restingLabel());
       clearKeep();

@@ -25,6 +25,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { validateComposition } from "../system/agentic-renderer.mjs";
+import { vetTokens } from "../system/pack-imported.mjs";
 import { boardSvg, cardSvg } from "../system/build-card.mjs";
 import { DEFAULT_ANSWERS, QUESTIONS } from "../system/build-questions.mjs";
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
@@ -469,12 +470,49 @@ function scanSvg(svg, label) {
     "applyToStage no longer vets its own argument at the choke point");
 
   // pack-boot.js is a classic script and cannot import, so its value predicate is mirrored BY HAND
-  // from pack-imported.mjs. The two must carry the same negative guard, or a value refused on the
-  // scoped stage still reaches :root site-wide before paint.
+  // from pack-imported.mjs. The two must agree exactly, or a value refused on the scoped stage
+  // still reaches :root site-wide before paint.
+  //
+  // Checked THREE ways, because the first version of this check only pinned the regex declarations
+  // — and a mutation sweep proved that deleting the guard's USE (`|| VALUE_BAD.test(value)`) left
+  // it green while the guard was entirely dead. Pinning a constant is not pinning a behaviour. The
+  // same family of mistake as the tamper battery's colon-only url() case: a check that could not
+  // fail for the reason it existed.
   const vetted = readFileSync(join(ROOT, "system/pack-imported.mjs"), "utf8");
   const boot = readFileSync(join(ROOT, "system/pack-boot.js"), "utf8");
-  ok(/VALUE_BAD\s*=\s*\/url\\s\*\\\(\|\\\/\\\//.test(vetted), "pack-imported.mjs lost its url()/protocol-relative guard");
-  ok(/BAD\s*=\s*\/url\\s\*\\\(\|\\\/\\\//.test(boot), "pack-boot.js's mirrored guard has drifted from pack-imported.mjs");
+
+  // 1. the literals exist, and the mirrored pair is byte-identical (not merely "both present" —
+  //    widening one side only was the other mutation that slipped through).
+  const literal = (src, name) => {
+    const m = src.match(new RegExp(`(?:const|var)\\s+${name}\\s*=\\s*(/.*/[a-z]*)\\s*;`));
+    return m ? m[1] : null;
+  };
+  for (const [a, b, what] of [["KEY_NAME", "NAME", "the key allowlist"], ["VALUE_OK", "VAL", "the value charset"], ["VALUE_BAD", "BAD", "the url()/protocol-relative guard"]]) {
+    const left = literal(vetted, a);
+    const right = literal(boot, b);
+    ok(left !== null, `pack-imported.mjs no longer declares ${a}`);
+    ok(right !== null, `pack-boot.js no longer declares ${b}`);
+    ok(left !== null && left === right, `${what} has drifted: pack-imported.mjs ${a} is ${left}, pack-boot.js ${b} is ${right}`);
+  }
+
+  // 2. ...and each one is actually USED, in the condition that decides whether a value is applied.
+  ok(vetted.includes("!VALUE_OK.test(value) || VALUE_BAD.test(value)"),
+    "pack-imported.mjs declares VALUE_BAD but vetTokens no longer tests it — the guard is dead");
+  ok(boot.includes("VAL.test(v) && !BAD.test(v)"),
+    "pack-boot.js declares BAD but the pre-paint loop no longer tests it — the guard is dead");
+
+  // 3. the guard still refuses what it was written for, and still admits what the packs really use.
+  //    A source-text check cannot prove behaviour; this runs the shipped function.
+  for (const bad of ["url(//h/x.png)", "URL(//h/x.png)", "url (//h/x.png)", "image-set(//h/x.png)", "//h/x.png"]) {
+    const r = vetTokens({ "--color-bg": bad });
+    ok(Object.keys(r.tokens).length === 0 && r.rejected.length === 1, `vetTokens accepted ${bad}`);
+  }
+  for (const [key, good] of [["--color-accent", "#2563eb"], ["--color-bg", "rgb(0 0 0 / 10%)"],
+    ["--color-fg", "color-mix(in srgb, black 50%, transparent)"], ["--color-bg", "var(--color-white)"],
+    ["--spacing-md", "16px"], ["--type-h1", "clamp(28px, 4vw, 44px)"], ["--shadow-md", "0px 4px 8px #00000014"]]) {
+    const r = vetTokens({ [key]: good });
+    ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
+  }
 
   group("vetting", `${writes} inline-style write across ${MODULES.length} modules · no markup-from-string · pack-boot mirror intact`);
 }
