@@ -3,7 +3,11 @@
 **Plan**: `.claude/plans/build-full-pattern-library.md`
 **Branch**: `feature/build-full-pattern-library`
 **Ticket**: #139 (epic #134) — PR body must carry `Closes #139`
-**Status**: COMPLETE
+**Status**: COMPLETE — AC1–AC10 met and verified. **AC11 is pending by design**: no PR exists yet,
+so no body carries `Closes #139` and `.claude/code-reviews/pr-<N>-review.md` cannot exist. The plan
+and this report are committed on the branch; the review file must be committed into the SAME PR
+(CLAUDE.md records four artifacts lost to worktree removal on #97–#100). Next: `piv-create-pr` →
+`piv-review-pr`.
 
 ## Summary
 
@@ -103,6 +107,19 @@ applied to the shipped source, the gate run, the source restored:
 at both widths, all five arrangements read as distinct, and every one collapses to a single column at
 390 with no overflow.
 
+**Blast radius, checked rather than asserted.** `agentic-renderer.mjs` is shared canon. The two
+Fieldwork slots are covered by the `proto-verdant` / `proto-fieldwork` baselines, which did **not**
+churn. The two surfaces with no pixel coverage at all were driven headless: `/agentic.html`
+(5 components) and `/agentic-ui-study.html` (6 components) both render with zero page/console errors
+and zero renderer-drift refusals, filtering the absent mock Worker the way `build-journey` [18] does.
+
+**VR baselines** — six re-captured in Docker from a clean detached worktree, and no others:
+`build` ×2 (Act 4's copy + the arrangements), `approach` ×2 (`linesApprox` 17,100 → 17,400),
+`factory` ×2 (one new consumer node). `approach`/`factory` needed forcing: their diffs sit under
+`maxDiffPixels: 100`, so `update:docker` declined to rewrite them — the underlying data was verified
+to have moved *before* the PNGs were removed, not assumed. Verified afterwards with a plain
+`npx playwright test` (no `--update-snapshots`): **20 passed**.
+
 ## Deviations from the plan
 
 1. **`head.component` is `"sequence-step"`, not `"step"`.** The plan contradicted itself (its "New
@@ -150,7 +167,15 @@ at both widths, all five arrangements read as distinct, and every one collapses 
    titles were reworded to name the pattern ("nothing for the settings pattern to show") rather than
    article it.
 
-9. **Three shared fixtures hoisted in `build-checks.mjs`** (`HUB_BOARD`, `BOARD_FOR`, `FULL_BOARD`,
+9. **The feed's truncation is stated on the STAGE, not in the two downloaded artifacts.** The build
+   card's `<desc>` and `pattern-spec.md` say what was *drawn* ("6 slot(s)", "`list-row` × 6") and do
+   not restate the 30 affordances the cap dropped. Deliberate, and scoped that way by the plan
+   (Tasks 6(ii) and 10 both put the sentence on the page): neither artifact says anything false, and
+   both are thumbnails of a build the reader just watched assemble. Flagged here so the silence
+   reads as a decision rather than a miss — if a reviewer wants it in the downloads too, it is one
+   interpolation in each of `cardSvg` and `specMarkdown`.
+
+10. **Three shared fixtures hoisted in `build-checks.mjs`** (`HUB_BOARD`, `BOARD_FOR`, `FULL_BOARD`,
    `BARE_BOARD`). Four groups now need the same boards; a second copy is a second answer waiting to
    disagree. `BOARD_FOR` also makes a new `PATTERNS` entry fail loudly rather than be skipped.
 

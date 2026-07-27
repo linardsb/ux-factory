@@ -260,8 +260,15 @@ async function journey(engineName, results, held) {
   t("the derive dressed BOTH stages", await page.evaluate(() =>
     document.querySelectorAll("[data-build-stage]").length === 2 &&
     [...document.querySelectorAll("[data-build-stage]")].every((n) => n.style.length > 0)));
+  // Waits for the URL to CHANGE, not for `?b=` to be present. #139's check [4c] copies a link on
+  // this same page first, so `?b=` is already in the address bar by the time this runs and a
+  // presence check would resolve instantly — `await click()` returns when the handler is dispatched,
+  // not when its async body has replaced the URL, so `shared` could be read one tick early. The
+  // presence form was a real wait only while this was the page's first copy; it silently stopped
+  // being one, which is the failure mode this driver's header warns about.
+  const priorUrl = page.url();
   await page.getByRole("button", { name: /Copy the link/ }).click();
-  await page.waitForFunction(() => location.search.includes("b="));
+  await page.waitForFunction((prev) => location.href !== prev, priorUrl);
   const shared = page.url();
   t("the link is in the address bar", shared.includes("?b=") || shared.includes("&b="));
   t("the link is a sane length", shared.length < 4000, `${shared.length} chars`);

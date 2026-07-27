@@ -290,10 +290,13 @@ const BARE_BOARD = {
     const board = BOARD_FOR[p.id];
     ok(board, `${p.id} has no fixture in BOARD_FOR — a pattern was added and this gate was not told which board names it`);
     if (!board) continue;
-    // The board must actually name the pattern it is the fixture for, or every assertion below is
-    // about a pattern nobody can reach.
-    const named = patternFor({ answers: answersWith({ shape: board === HUB_BOARD ? "overview" : undefined }), board });
-    if (board === HUB_BOARD) ok(named.id === "settings", `the hub fixture names "${named.id}", not settings`);
+    // The hub fixture must actually fire rule 2, or every settings assertion in this file is about
+    // a pattern no visitor can reach. The other four are named by their shape answer, which group 1
+    // already proves shape by shape.
+    if (board === HUB_BOARD) {
+      const named = patternFor({ answers: answersWith({ shape: "overview" }), board });
+      ok(named.id === "settings", `the hub fixture names "${named.id}", not settings`);
+    }
     const composition = compose(p.id, slotsFor(p.id, board));
     ok(Array.isArray(composition) && composition.length > 0, `${p.id} composed nothing`);
     if (!composition) continue;
