@@ -162,6 +162,30 @@ Nine, all deliberate.
   `[data-pattern-stage="ready"]` is set only after the section is near the viewport, so its VR
   baseline needs `waitVisible`, not `waitReady` (memory: vr-visible-beats-need-post-resize-wait).
 
+## Found after this report was first written (fixed in `f5550c2`)
+
+**A shared design printed "No design imported yet" beside a stage visibly wearing it.**
+`build-import.adoptPack()` applied the restored tokens but never touched
+`[data-build-keep-empty]`, which starts visible in the markup. Caught by review, not by the journey —
+because the journey only ever shared a build with **no** imported pack, so the whole
+restore-with-a-design path was unexercised on the page. The unit gate covered the codec with a pack;
+the page never saw one.
+
+That is the finding-12 class the plan legislated against in the other direction: a sentence true
+about one thing, read as a claim about everything. `clearKeep()` now takes its message and captures
+the markup's own sentence as its default; `adoptPack` states the true thing (the values travelled,
+the stylesheet could not — `emitPackCss` needs the engine's full mapped values and the export they
+came from, and neither is in a URL). The journey now derives a palette before sharing and asserts
+both stages, the token round-trip and the row's copy: **43 assertions, up from 37.**
+
+The testing lesson, worth more than the bug: **the happy path was tested with the one input that
+skipped the feature under test.**
+
+Also documented while fixing it: the codec deliberately carries no `pack.label` and no `pack.note`.
+Those describe the SENDER's browser, and replaying them would have the receiving page state, at rest,
+that it read a file it never saw. Token values and slug travel; provenance does not. Stated in
+`build-share.mjs`'s header so a reviewer reads it as a decision rather than an omission.
+
 ## Explicitly not done (per the plan's scope)
 
 - Slice 1d (#138): linking /build from home's close beat and work.html, the /build VR baselines, the
