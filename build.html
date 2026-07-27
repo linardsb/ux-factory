@@ -41,6 +41,19 @@
        and the swatch grid all reuse the committed .brand-* classes from portfolio.css: the public
        import surface has one visual grammar, on home and here. */
 
+    /* `hidden` wins, everywhere on this page. It is only a UA rule (`[hidden] { display: none }`),
+       so ANY author rule that sets `display` on the same element beats it on specificity and the
+       attribute silently stops doing anything — including rules this page merely reuses from
+       portfolio.css and never wrote. That was live until #138: build-keep.mjs:259-262 hides the
+       card, the downloads and the share control when the board has no places, and two of the three
+       carried on rendering, so a visitor who emptied their board read "Nothing to keep from the
+       build yet" directly above four live download buttons and a "Copy the link that rebuilds
+       this" — every one of them still wired to the last build that existed. One page-wide rule
+       rather than a :not([hidden]) on each display rule below, because the per-rule version has to
+       be remembered by every future edit and this one cannot be forgotten. It is the invariant
+       tooling/build-journey.mjs asserts on the real page: nothing carrying [hidden] renders. */
+    [hidden] { display: none !important; }
+
     /* 96px ≈ the sticky site header plus a little air, so a deep-linked act never lands under it. */
     html { scroll-padding-top: 96px; }
     #act-import, #act-hooked, #act-shape, #act-breadboard, #act-pattern, #act-keep { scroll-margin-top: 96px; }
