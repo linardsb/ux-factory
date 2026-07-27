@@ -60,9 +60,31 @@ employer sources (manual, MVP):  tokens · 1–2 screenshots · brief
 
 ## Missing pieces
 
-1. **Parameterized composition runner** — generalize `record-composition.mjs` inputs (scenario/vocabulary/questions/bounds) without weakening its fence. *(Floor)*
+**Status amendment (2026-07-27).** Epic #86's **floor path has landed**, absorbed into epic
+[#134](https://github.com/linardsb/ux-factory/issues/134) as slice 3,
+[#140](https://github.com/linardsb/ux-factory/issues/140). The floor is now operable end to end
+without a terminal: /build's ten method questions draft the composition question through three
+committed rules (`portal/lib/builder.mjs`), a portal drawer previews and streams the real run, and
+the composed view lands in the instance prototype slot. Nothing in the decisions below was
+re-decided; the honesty firewall is untouched, and the answers reach the agent only as the question
+text — see that ticket's plan for why appending them as prose would have falsified
+`record-composition.mjs`'s load-bearing header claim.
+
+What remains open, and why: the **ceiling engine** (#2 below, issue
+[#90](https://github.com/linardsb/ux-factory/issues/90)), and **running against a real,
+out-of-repo company package**. The second is a boundary, not an oversight —
+`loadComposeConfig`, `refsFor`, the `readOk` fence set, `compDir`, `rawOut` and `curatedOut` are all
+`REPO_DIR`-anchored, so a real-provenance run would write employer material inside this public repo.
+#140 ships the **refusal** instead (`assertFictional`, which demands `fictional === true`); giving
+the runner a `--root`/`--out` seam means re-siting the privacy guard and is a ticket of its own.
+
+1. ~~**Parameterized composition runner**~~ — **DONE (#88)**: generalized via
+   `scenarios/<slug>/compose.json` without weakening the fence. *(Floor)*
 2. **The ceiling engine** — screenshots → bespoke component specs → composed views, with its own honesty label and its own validation (a composed view must still pass `agentic-renderer`'s vocabulary/refusal check against the *extended* vocabulary). *(Ceiling — the genuinely-new work.)*
-3. **`build-instance.mjs` bespoke step** — insert composition between pack derivation and shell assembly; wire the composed views into the `instance.html` prototype slot + `instance.mjs` config.
+3. ~~**`build-instance.mjs` bespoke step**~~ — **DONE (#89)**: `--compositions` copies a composed
+   set into the deploy dir and `instance.mjs`'s `renderPrototype` mounts it in the prototype slot.
+   The **operator UI** for producing those compositions landed with it in #140 (portal drawer →
+   `/api/build/{config,draft,run}`); deploy itself stays a printed human step, unchanged.
 4. **Brief format extension (maybe)** — whether the company-brief record must carry per-screen fixtures/questions for the bespoke step, or whether those are separate inputs. **RESOLVED (#88): a separate input.** The runner reads a new optional per-scenario file `scenarios/<slug>/compose.json` — it does NOT extend `brief.md`'s parsed head or `proto.config.json`'s consumed shape (both have fixed-shape parsers that new keys would trip; the scenario validator ignores unknown top-level files). See the resolved shape under §Open questions.
 5. **Reader-adjustability wiring** — which pre-wired `ui.*`→`agent.*` actions the instance exposes (pack swap exists via the dock; view-level adjust needs explicit action mappings).
 

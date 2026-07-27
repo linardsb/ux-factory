@@ -357,6 +357,249 @@ function renderReport(pack) {
     </p>`;
 }
 
+/* ---------- compose a view: /build's ten answers brief a real composition run (#140) ---------- */
+// Everything the surface says about the rules is driven by what /api/build/config serves —
+// the questions, their reasoning, the quadrant meanings and, critically, WHICH answers reach the
+// agent. A hardcoded pair here would be a claim the gate cannot keep true.
+const builder = { config: null, answers: null, draft: null, running: false, seq: 0 };
+
+$('#btn-builder').addEventListener('click', async () => {
+  $('#builder-drawer').hidden = false;
+  $('#builder-scenario').focus(); // the drawer's first control, same reasoning as the figma drawer
+  if (!builder.config) await loadBuilderConfig();
+});
+$('#builder-cancel').addEventListener('click', () => { $('#builder-drawer').hidden = true; });
+
+async function loadBuilderConfig() {
+  $('#builder-status').textContent = 'Loading the question config…';
+  try {
+    builder.config = await api('/api/build/config');
+  } catch (err) {
+    $('#builder-status').textContent = `Could not load the questions: ${err.message}`;
+    return;
+  }
+  const c = builder.config;
+  builder.answers = { ...c.defaults };
+  const inputTerms = c.questionInputs.map((id) => esc(c.summaryTerms[id]));
+  $('#builder-inputs-note').innerHTML =
+    `<strong>${inputTerms.join('</strong> and <strong>')}</strong> are the only two answers that ` +
+    `reach the agent. The other ${c.questions.length - c.questionInputs.length} enter no prompt — ` +
+    `they are the ethics record shown beside the run.`;
+  $('#builder-scenario').innerHTML = c.scenarios
+    .map((s) => `<option value="${esc(s.slug)}"${s.composable ? '' : ' data-refused="1"'}>${esc(s.name)}${s.composable ? '' : ' — not composable'}</option>`)
+    .join('');
+  renderBuilderQuestions();
+  $('#builder-status').textContent = c.hasToken
+    ? 'Auth: token from portal/.env.'
+    : 'Auth: the Claude CLI login on this Mac (no token in portal/.env).';
+  await refreshDraft();
+}
+
+function renderBuilderQuestions() {
+  const c = builder.config;
+  const isInput = (id) => c.questionInputs.includes(id);
+  let act = null;
+  const parts = [];
+  for (const q of c.questions) {
+    if (q.act !== act) {
+      act = q.act;
+      parts.push(`<p class="card-kicker builder-act">${esc(c.acts[act]?.label || act)}</p>`);
+    }
+    parts.push(`
+      <fieldset class="builder-q${isInput(q.id) ? ' is-input' : ''}">
+        <legend>${esc(q.prompt)}${isInput(q.id) ? ' <span class="portal-chip builder-chip">reaches the agent</span>' : ''}</legend>
+        <p class="muted builder-reasoning">${esc(q.reasoning)}</p>
+        ${q.options.map((o) => `
+          <label class="builder-opt">
+            <input type="radio" name="q-${esc(q.id)}" value="${esc(o.value)}"${builder.answers[q.id] === o.value ? ' checked' : ''} />
+            ${esc(o.label)}
+          </label>`).join('')}
+      </fieldset>`);
+  }
+  $('#builder-questions').innerHTML = parts.join('');
+  $('#builder-questions').querySelectorAll('input[type=radio]').forEach((el) =>
+    el.addEventListener('change', () => {
+      builder.answers[el.name.slice(2)] = el.value;
+      refreshDraft();
+    })
+  );
+}
+
+$('#builder-scenario').addEventListener('change', () => { $('#builder-slot').innerHTML = ''; refreshDraft(); });
+$('#builder-slot').addEventListener('change', () => refreshDraft());
+
+// A capability the operator cannot exercise is not offered at all — no Run button that fails on
+// click. The same rule system/instance.mjs:360 follows for the prototype slot.
+function setBuilderComposable(yes) {
+  $('#builder-run').hidden = !yes;
+  for (const sel of ['#builder-slot', '#builder-question', '#builder-slug', '#builder-dry']) $(sel).disabled = !yes;
+  if (yes) return;
+  $('#builder-bounds').textContent = '';
+  $('#builder-verdict').innerHTML = '';
+  $('#builder-question').value = '';
+  $('#builder-slug').value = '';
+}
+
+async function refreshDraft() {
+  if (!builder.config || builder.running) return;
+  const scenario = $('#builder-scenario').value;
+  const entry = builder.config.scenarios.find((s) => s.slug === scenario);
+  // The refusal verbatim: loadComposeConfig's message is the only spec for compose.json the
+  // operator gets at this moment, so it is shown as written rather than paraphrased.
+  if (entry && !entry.composable) {
+    builder.draft = null;
+    $('#builder-scenario-note').textContent = entry.reason;
+    return setBuilderComposable(false);
+  }
+  const seq = ++builder.seq;
+  try {
+    const d = await api('/api/build/draft', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scenario, answers: builder.answers, slot: $('#builder-slot').value || undefined }),
+    });
+    if (seq !== builder.seq) return; // a later answer change already won the race
+    builder.draft = d;
+    $('#builder-scenario-note').textContent = '';
+    setBuilderComposable(true);
+    renderDraft(d);
+  } catch (err) {
+    if (seq !== builder.seq) return;
+    builder.draft = null;
+    $('#builder-scenario-note').textContent = err.message;
+    setBuilderComposable(false);
+  }
+}
+
+function renderDraft(d) {
+  $('#builder-slot').innerHTML = d.slots
+    .map((s) => `<option value="${esc(s)}"${s === d.slot ? ' selected' : ''}>${esc(s)}</option>`).join('');
+  // The slot's bounds VERBATIM from the scenario's compose.json — this is what the agent is held
+  // to, so a paraphrase here would be the surface disagreeing with the prompt.
+  $('#builder-bounds').textContent = d.bounds;
+  $('#builder-question').value = d.question;
+  $('#builder-slug').value = d.defaultSlug;
+  const inputs = builder.config.questionInputs;
+  $('#builder-verdict').innerHTML = `
+    <h3 class="h3">The ethics record — shown, never blocking</h3>
+    <p class="muted"><strong>${esc(d.verdict.quadrant)}</strong> — ${esc(d.verdict.meaning)}</p>
+    <p class="muted">Frequency gate ${d.verdict.frequency.passes ? '✓' : '✗'} — ${esc(d.verdict.frequency.verdict)}</p>
+    <div class="portal-table-scroll">
+      <table class="portal-wcag">
+        <thead><tr><th>Answer</th><th>Value</th><th>Reaches the agent</th></tr></thead>
+        <tbody>
+          ${d.verdict.summary.map((s) => `
+            <tr><td>${esc(s.term)}</td><td>${esc(s.value)}</td><td>${inputs.includes(s.id) ? 'yes' : '—'}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Reading <code>${esc(d.subject)}</code> · fixed today <code>${esc(d.today)}</code> ·
+      fixtures ${d.fixtures.map((f) => `<code>${esc(f.name)}</code>`).join(' ')}</p>`;
+}
+
+// textContent, not innerHTML: every line here comes from a model or from disk, and a log is the
+// one place a stray tag would be easiest to miss.
+function builderLog(cls, text) {
+  const li = document.createElement('li');
+  li.className = `builder-log-line is-${cls}`;
+  li.textContent = text;
+  $('#builder-log').appendChild(li);
+  $('#builder-log').scrollTop = $('#builder-log').scrollHeight;
+}
+
+function setBuilderRunning(running) {
+  builder.running = running;
+  $('#builder-run').disabled = running;
+  $('#builder-run').textContent = running ? 'Recording…' : 'Run';
+}
+
+$('#builder-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (builder.running || !builder.draft) return;
+  const dry = $('#builder-dry').checked;
+  const body = {
+    scenario: $('#builder-scenario').value,
+    answers: builder.answers,
+    question: $('#builder-question').value,
+    slot: $('#builder-slot').value,
+    slug: $('#builder-slug').value.trim(),
+    dry,
+  };
+  setBuilderRunning(true);
+  $('#builder-log').innerHTML = '';
+  $('#builder-report').innerHTML = '';
+  // No client timeout: a real run is 2–5 minutes and the stream ends on `done` or `error`.
+  $('#builder-status').textContent = dry
+    ? 'Recording a dry run — a full agent run over the real fixtures that writes nothing to traces/. A few minutes, and it spends real tokens.'
+    : 'Recording the real run — a few minutes, and it spends real tokens.';
+  try {
+    const res = await fetch('/api/build/run', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(res.statusText);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    let phase = null;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        if (!chunk.startsWith('data: ')) continue;
+        const ev = JSON.parse(chunk.slice(6));
+        if (ev.type === 'error') { $('#builder-status').textContent = ev.message; continue; }
+        if (ev.type === 'done') { renderBuilderResult(ev.result); continue; }
+        if (ev.phase && ev.phase !== phase) { phase = ev.phase; builderLog('phase', `— ${phase} —`); }
+        if (ev.kind !== 'tool') continue;
+        const bits = [ev.tool || 'tool'];
+        if (ev.denied) bits.push('denied by the fence');
+        else if (ev.ok === false) bits.push('failed');
+        if (ev.artifact) bits.push(`→ ${ev.artifact}`);
+        builderLog(ev.denied ? 'denied' : 'tool', bits.join(' · '));
+      }
+    }
+  } catch (err) {
+    $('#builder-status').textContent = `Failed: ${err.message}`;
+  } finally {
+    setBuilderRunning(false);
+  }
+});
+
+function renderBuilderResult(r) {
+  const cost = `~$${Number(r.stats?.costUsd ?? 0).toFixed(4)}`;
+  const paths = Object.entries(r.paths || {}).filter(([, v]) => v);
+  $('#builder-status').textContent = r.ok
+    ? (r.dry
+      ? `Dry run clean — the drafted question is answerable from these fixtures. Nothing was written to traces/. ${cost}`
+      : `Shipped ${r.slug} — ${cost}`)
+    : `Refused (${r.reason}) — nothing shippable was kept. ${cost}`;
+  const stats = r.stats || {};
+  $('#builder-report').innerHTML = `
+    <h3 class="h3">${r.ok ? 'The run' : 'The run was refused'}</h3>
+    <p class="muted">
+      ${esc(r.scenario)} · slot <code>${esc(r.slot)}</code>${r.dry ? ' · <strong>DRY (not shipped)</strong>' : ''}<br />
+      ${stats.steps} steps · phases ${esc((stats.phases || []).join(' → ') || '(none)')} ·
+      ${stats.nullPhaseSteps} null-phase · ${stats.artifacts} artifact(s) · ${stats.denials} denied by the fence
+      ${stats.nodes ? ` · ${stats.nodes} node(s)` : ''}${stats.entries ? ` · manifest: ${stats.entries} entries` : ''}
+    </p>
+    <p class="muted">The question that was answered:</p>
+    <pre>${esc(r.question)}</pre>
+    ${paths.length ? `<h3 class="h3">On disk</h3><p class="muted">${paths.map(([k, v]) => `${esc(k)}: <code>${esc(v)}</code>`).join('<br />')}</p>` : ''}
+    ${!r.ok ? `<p class="muted">The runner dropped the shippable artifacts and kept the raw trace to read.
+      A weak run is fixed by rewording the question and re-running — <strong>never</strong> by editing a
+      composition or a JSONL (the honesty contract).</p>` : ''}
+    ${r.ok && !r.dry ? `
+      <h3 class="h3">To keep it</h3>
+      <p class="muted">Commit the four generated paths above, unedited. Then, from the jobs folder, the
+      instance build picks the new view up through the scenario's manifest:</p>
+      <pre>node ../ux-factory/agent-layer/build-instance.mjs &lt;brief.md&gt; --out &lt;dir&gt; \\
+  --pack &lt;tokens.&lt;slug&gt;.css&gt; --trace &lt;derivation.jsonl&gt; \\
+  --compositions proto/compositions/${esc(r.scenario)}</pre>
+      <p class="muted">Deploy stays a human step — this drawer prints the command, it does not run it.</p>` : ''}`;
+}
+
 /* ---------- chat ---------- */
 $('#btn-chat').addEventListener('click', () => { $('#chat').hidden = false; $('#chat-input').focus(); });
 $('#chat-close').addEventListener('click', () => { $('#chat').hidden = true; });

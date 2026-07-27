@@ -1,0 +1,71 @@
+[
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Updated today",
+      "value": "6",
+      "unit": "SKUs",
+      "tone": "neutral"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Oversold as of today",
+      "value": "3",
+      "unit": "SKUs",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Thin cover as of today",
+      "value": "3",
+      "unit": "SKUs",
+      "tone": "warn"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Pallet wrap, 23 micron",
+      "value": "85",
+      "unit": "units short",
+      "meta": "east warehouse",
+      "status": "OVERSOLD",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Wooden pallet, EUR",
+      "value": "70",
+      "unit": "units short",
+      "meta": "west warehouse",
+      "status": "OVERSOLD",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "list-row",
+    "props": {
+      "label": "Stretch film, hand 400%",
+      "value": "40",
+      "unit": "units short",
+      "meta": "east warehouse",
+      "status": "OVERSOLD",
+      "tone": "critical"
+    }
+  },
+  {
+    "name": "metric-tile",
+    "props": {
+      "label": "Total oversold shortfall",
+      "value": "195",
+      "unit": "units",
+      "tone": "critical"
+    }
+  }
+]
