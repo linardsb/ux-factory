@@ -175,7 +175,13 @@ to have moved *before* the PNGs were removed, not assumed. Verified afterwards w
    reads as a decision rather than a miss — if a reviewer wants it in the downloads too, it is one
    interpolation in each of `cardSvg` and `specMarkdown`.
 
-10. **Three shared fixtures hoisted in `build-checks.mjs`** (`HUB_BOARD`, `BOARD_FOR`, `FULL_BOARD`,
+10. **`.bx-pat-slots.is-settings` is a multi-column grid, not the plan's "single column,
+    hairline-separated" sketch.** A menu of destinations reads across as well as down once there is
+    room for it, and hairline separation would have meant overriding `.ds-list-row`'s own border and
+    radius from the page — restyling a component rather than arranging it. `repeat(auto-fit,
+    minmax(240px, 1fr))` collapses to one column at 390 with no overflow (verified by screenshot).
+
+11. **Three shared fixtures hoisted in `build-checks.mjs`** (`HUB_BOARD`, `BOARD_FOR`, `FULL_BOARD`,
    `BARE_BOARD`). Four groups now need the same boards; a second copy is a second answer waiting to
    disagree. `BOARD_FOR` also makes a new `PATTERNS` entry fail loudly rather than be skipped.
 
