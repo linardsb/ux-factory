@@ -147,10 +147,12 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
         // exiting without a fixpoint means the viewport was last sized from a stale measurement,
         // which is the same silent truncation this block exists to remove, and it would truncate
         // identically on the capture and the comparison run, so the gate would stay green while
-        // hiding the page's tail. Measured in the pinned container: both waitVisible pages reach the
-        // fixpoint on the SECOND measurement (index 7569→8136, build 7251→7508 under neutral), so
-        // the bound of 6 leaves four spare passes — a throw means something structural, not a page
-        // one pass short of the margin. Guarded by `if (p.waitVisible)` so the eight pages without a
+        // hiding the page's tail. Measured in the pinned container while writing this: both
+        // waitVisible pages reach the fixpoint on the SECOND measurement, so a bound of 6 leaves
+        // four spare passes — a throw means something structural, not a page one pass short of the
+        // margin. The absolute heights are deliberately NOT recorded here: they move with any
+        // content edit to either page, nothing would enforce them, and the run that produced them is
+        // in this commit. Guarded by `if (p.waitVisible)` so the eight pages without a
         // visible-activated beat keep a byte-identical flow and cannot churn.
         const PASSES = 6;
         let converged = false;
