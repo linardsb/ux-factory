@@ -9,12 +9,12 @@
 // inside function bodies, self-boot behind a `typeof document` guard), so if an import here starts
 // pulling `document`, the module has a bug and the module is what gets fixed.
 //
-//   1 pattern ids     the five rules, including the hub override and the empty board
+//   1 pattern ids     the three rules, including the hub override and the empty board
 //   2 slots           counted from the board, never invented; every value a string
 //   3 composition     validated against the REAL handoff/verdant/vocabulary.json — this is the
 //                     check that catches a vocabulary regeneration breaking the builder
 //   4 codec           round-trip through BOTH the deflate and the uncompressed branch
-//   5 tamper          29 hostile payloads, each of which must reject the WHOLE payload
+//   5 tamper          32 hostile payloads, each of which must reject the WHOLE payload
 //   6 artifacts       every card SVG + the downloaded pattern-spec.md: well-formed, escaped, no
 //                     hostile token or label reaching markup, and no in-library pattern ever
 //                     claiming "not in the library" (the bug #139 fixed)
