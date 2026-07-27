@@ -219,6 +219,26 @@ async function journey(engineName) {
   await page2.waitForTimeout(250);
   await page2.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   await page2.waitForTimeout(250);
+  // The dock must actually PAINT here, not merely leave the query string alone. build.html carries a
+  // page-wide `[hidden] { display: none !important }` (#138), which outranks every author rule on the
+  // page including shared chrome's — so the un-hide direction of that rule is asserted on the one
+  // surface most likely to be caught by it, rather than assumed from the fact that nothing hidden
+  // renders. dock.mjs's own [hidden] element (the restore row) is checked at the same time: it is
+  // correctly hidden with no displaced pack, and hiding it is what it wants.
+  const packRows = await page2.locator(".dock-pack-row").count();
+  const packsShut = await page2.locator(".dock-pack-row:visible").count();
+  await page2.evaluate(() => { location.hash = "appearance"; });
+  await page2.waitForTimeout(250);
+  // Both directions, and counted rather than pinned to a number: the pack list grows, and an
+  // assertion that has to be edited every time a pack is added is one that will be deleted instead.
+  t(`the dock is genuinely shut before it is opened (0 of ${packRows} pack rows showing)`, packsShut === 0);
+  t(`the appearance dock paints on /build (all ${packRows} pack rows + the actions row)`,
+    packRows > 0 && (await page2.locator(".dock-pack-row:visible").count()) === packRows
+    && await page2.locator(".dock-actions").first().isVisible());
+  t("the dock's own hidden element stays hidden", await page2.locator(".dock-restore-row").first()
+    .evaluate((e) => e.hidden && getComputedStyle(e).display === "none"));
+  await page2.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await page2.waitForTimeout(250);
   t("?b= survives opening and closing #appearance", page2.url().includes("b="), page2.url());
   // EDGE (#138) · the dock opened MID-FLOW, not after the build settled. dock.mjs:447 carries
   // location.search through pushState; WebKit's history behaviour is the likeliest place that
@@ -328,6 +348,33 @@ async function journey(engineName) {
   await noFile.waitForFunction(() => document.getElementById("build-stage").style.length === 0);
   t("clear the stage undresses both stages", await noFile.evaluate(() =>
     [...document.querySelectorAll("[data-build-stage]")].every((n) => n.style.length === 0)));
+
+  console.log("\n[12b] EDGE · a real token export imports, and everything it un-hides actually appears");
+  // The other direction of the [hidden] invariant, and the reason it is here rather than in a probe:
+  // "nothing hidden renders" is only half a proof. Act 0's mapping report and the tokens download row
+  // are BOTH `hidden` in the markup and un-hidden by build-import.mjs on success, so a page-wide
+  // display rule that went too far would show up as a successful import with an invisible report.
+  // The fixture is committed (tooling/figma/fixtures/), so this stays self-contained.
+  const imported = await newPage(ctx2);
+  await imported.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await imported.waitForSelector("[data-build-import='ready']");
+  await imported.locator("[data-build-file]")
+    .setInputFiles(new URL("../tooling/figma/fixtures/scales-dtcg.json", import.meta.url).pathname);
+  await imported.waitForFunction(() => document.querySelector("[data-build-status]").dataset.state === "done",
+    null, { timeout: 20000 });
+  t("the import reports success and says nothing was uploaded",
+    (await imported.textContent("[data-build-status]")).includes("Nothing was uploaded"));
+  t("the un-hidden mapping report is actually visible", await imported.locator("[data-build-report]").isVisible());
+  t("the un-hidden tokens download row is actually visible and carries its button",
+    await imported.locator("[data-build-keep-actions]").isVisible()
+    && (await imported.locator("[data-build-keep-actions] button").count()) === 1);
+  t("the report names the file and whose design work it is",
+    (await imported.textContent("[data-build-report]")).includes("never uploaded"));
+  t("the stage wears the imported design",
+    await imported.evaluate(() => document.getElementById("build-stage").style.length > 0));
+  const hiddenAfterImport = await renderedButHidden(imported);
+  t("after an import, nothing carrying [hidden] is rendering", hiddenAfterImport.length === 0, hiddenAfterImport.join(" | "));
+  await imported.close();
 
   console.log("\n[13] EDGE · the 'dealer' quadrant renders the matrix copy verbatim");
   // improvesLives:no + wouldUseIt:no is the one quadrant the matrix exists to warn about. Asserted

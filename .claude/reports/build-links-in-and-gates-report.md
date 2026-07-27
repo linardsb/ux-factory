@@ -40,7 +40,7 @@ the map.
 
 ## Tests added
 
-**`tooling/build-journey.mjs`** — 76 assertions, committed and re-runnable, seeded from #137's
+**`tooling/build-journey.mjs`** — 85 assertions, committed and re-runnable, seeded from #137's
 deleted scratch script (43 assertions, Chromium-only) and rewritten to run on all three engines.
 Playwright is resolved out of `tooling/visual-regression/node_modules` at 1.61.1 — the version CI's
 `visual` job pins — so the driver and the pixel gate always mean the same browser build. It is
@@ -63,7 +63,8 @@ Added for #138 — the eight edge cases the ticket named, plus one invariant the
 | reduced-motion | `reducedMotion: 'reduce'` — pattern renders, edits re-render, the share link still round-trips |
 | dock mid-flow | `?b=` **and** the whole build state survive opening/closing `#appearance`; `?brand=` on home too |
 | the links in | both links **clicked**, landing on the real builder, with JS on and with JS off |
-| `[hidden]` invariant | every element carrying `hidden` is checked for `display: none`, in two page states |
+| `[hidden]` invariant | every element carrying `hidden` is checked for `display: none`, in **three** page states |
+| the un-hide direction | a real committed token export imports, and the mapping report + tokens download row that `hidden` was hiding actually **appear**; the appearance dock is shut before opening and paints every pack row after |
 
 **Engine differences are asserted, never skipped.** Clipboard-write is permissioned and the three
 engines answer differently; `build-keep.mjs:231-238` promises exactly two outcomes and puts the URL
@@ -81,7 +82,7 @@ engine.
 | `node tooling/drift-check.mjs` | ✓ all 8 checks |
 | `node agent-layer/gen-loc-summary.mjs --check` | ✓ no drift |
 | visual gate, pinned container (`v1.61.1-jammy`) | **20/20**, twice — capture run then comparison run |
-| `node tooling/build-journey.mjs all` | **76/76 × chromium + firefox + webkit × 3 consecutive runs = 9/9 green, 0 flakes** |
+| `node tooling/build-journey.mjs all` | **85/85 × chromium + firefox + webkit × 3 consecutive runs = 9/9 green, 0 flakes** |
 | links, JS on and JS off | both land on `/build`, title `The builder · your design · Linards Berzins` |
 | work.html layout | 1 row at 1280px, stacked at 640 and 380, no horizontal overflow at any width |
 
@@ -165,7 +166,19 @@ No unfixed keyboard defect was found on /build.
    this page reuses and never wrote, which was defeating `hidden` on Act 0's mapping report the same
    way. Cost: 32px of phantom layout removed, so /build's two baselines were re-captured (`694f66c`).
 
-3. **`serve.mjs` now resolves extensionless paths to `.html`.** Not in the plan, but the plan's own
+3. **The `!important` was checked in the direction it could break, not just the one it fixes.** "Nothing
+   carrying `hidden` renders" is only half a proof; a page-wide `!important` outranks every author rule
+   on the page, including shared chrome nobody audited. So the journey now also asserts the un-hide
+   direction: a real committed token export imports and the mapping report and tokens download row —
+   both `hidden` in the markup, both un-hidden by `build-import.mjs` — actually appear; and the
+   appearance dock is confirmed shut before opening and painting all four pack rows plus its actions
+   row after, with `dock.mjs`'s own `hidden` element still correctly hidden. Two probes on the way
+   there failed for reasons that were **my fixtures, not the page**: a four-token JSON and a
+   hand-built ramp were both refused by the import engine for having no near-grey ramp, which is the
+   engine working as designed. The committed `tooling/figma/fixtures/scales-dtcg.json` imports
+   cleanly, so the assertion uses that and the journey stays self-contained.
+
+4. **`serve.mjs` now resolves extensionless paths to `.html`.** Not in the plan, but the plan's own
    "the links in" edge case says the link must **resolve**, and the journey serves through this file.
    Every in-page link on this site is extensionless (`/work`, `/handoff`, `/agentic-ui-study`, and now
    `/build`), and `serve.mjs` 404'd on all of them — so a driver that clicked a real link landed on a
@@ -173,25 +186,25 @@ No unfixed keyboard defect was found on /build.
    server now matches its deploy target. No-op for the gate itself: `visual.spec.mjs` requests every
    page by its explicit `.html` URL, and all 18 unrelated baselines are byte-identical.
 
-4. **The re-measure fix is a bounded loop, not a single extra pass.** The plan specified "re-measure
+5. **The re-measure fix is a bounded loop, not a single extra pass.** The plan specified "re-measure
    once and resize if it changed". A resize re-triggers layout, so one extra measurement is only
    correct if it happens to be a fixpoint — true on the machine the planning probe ran on, not
    guaranteed in a container that renders different heights. Three passes, still guarded by
    `if (p.waitVisible)`.
 
-5. **The gate commit was moved before the baseline capture.** The plan's task order was commit code →
+6. **The gate commit was moved before the baseline capture.** The plan's task order was commit code →
    edit the spec → create the worktree. The worktree is created at `HEAD`, so the spec edit would
    still have been uncommitted in the working tree and the capture would have run the old nine-page
    spec — producing no `build` baselines and rewriting nothing. `tooling/` matches no loc-summary
    group regex, so a separate spec commit moves no count.
 
-6. **One extra stale comment corrected**: `verify.yml`'s "29-payload tamper battery" (it is 32;
+7. **One extra stale comment corrected**: `verify.yml`'s "29-payload tamper battery" (it is 32;
    `5f610e0` says so in its own commit message and missed the comment three lines away). It was in a
    file this ticket already edits. `tooling/build-checks.mjs:17` carries the same stale number and was
    **left alone** — that file is otherwise untouched here, and an unexplained one-file edit in the
    diff costs a reviewer more than the number is worth. Filed as a follow-up.
 
-7. **`index.html` was staged by synthesized blob, not `git add`.** The working tree carries five
+8. **`index.html` was staged by synthesized blob, not `git add`.** The working tree carries five
    unrelated in-progress HTML copy edits from a parallel session, and `index.html` is one of them, so
    `git add index.html` would have swept another session's work into this commit. The commit's
    `index.html` was built as `HEAD:index.html` + this ticket's block only, hashed with
@@ -225,4 +238,7 @@ No unfixed keyboard defect was found on /build.
 - Should /build fire an analytics virtual-route pageview, the way the peak fires `/factory/built`?
   A measurement decision, not an integration one.
 - `tooling/build-checks.mjs:17`'s stale "29 hostile payloads" (it is 32).
+- CLAUDE.md's dock line said "the three committed packs"; `tokens.plusui.css` (#129) makes it four. Corrected
+  in this PR (the map is what this ticket is fixing), and rewritten to name `dock.mjs`'s `PACKS`
+  allowlist so it states the mechanism rather than a count that goes stale again.
 - #144 keeps findings 9, 10 and 12 — none is reachable on the shipped page.
