@@ -17,9 +17,15 @@
 // tooling/build-checks.mjs is the committed gate that does.
 
 // The five patterns. `inLibrary` is a claim about THIS repo's component vocabulary
-// (handoff/verdant/vocabulary.json), not about the pattern — and it is why the page can render two
-// of them and must honestly refuse to fake the other three. `needs` says what it would take, in
-// the reader's terms rather than in component names they have no reason to know.
+// (handoff/verdant/vocabulary.json), not about the pattern. All five are true as of #139: the
+// library carries metric-tile, list-row and sequence-step, and every one of the five assembles from
+// those three.
+//
+// The field pair STAYS, and it is not a slice marker left behind. It is the contract a SIXTH
+// pattern gets: whoever adds one either has components for it or writes down, in the reader's terms
+// rather than in component names they have no reason to know, what it would take — and the page
+// renders that refusal beside the breadboard instead of mocking a screen up. The refusal is the
+// guardrail, and a guardrail is worth keeping when nothing is currently hitting it.
 export const PATTERNS = Object.freeze({
   dashboard: Object.freeze({
     id: "dashboard",
@@ -39,28 +45,37 @@ export const PATTERNS = Object.freeze({
     id: "feed",
     label: "Feed",
     definition: "A stream of what is new, newest first, which is never finished and never has to be.",
-    inLibrary: false,
-    needs: "a feed needs a post component with an author, a timestamp and a body. This library has none yet",
+    inLibrary: true,
+    needs: null,
   }),
   onboarding: Object.freeze({
     id: "onboarding",
     label: "Onboarding",
     definition: "A short series of steps with a start and an end, where progress through it is the point.",
-    inLibrary: false,
-    needs: "onboarding needs a step component that carries its position in a sequence and whether it is done. This library has none yet",
+    inLibrary: true,
+    needs: null,
   }),
   settings: Object.freeze({
     id: "settings",
     label: "Settings",
     definition: "A menu of destinations: a place whose whole job is taking the user somewhere else.",
-    inLibrary: false,
-    needs: "settings needs a row component that pairs a label with a control and its current value. This library has none yet",
+    inLibrary: true,
+    needs: null,
   }),
 });
 
 // The most slots any pattern renders. The same ceiling breadboard.mjs puts on places and on
-// affordances per place (MAX_PLACES / MAX_AFFORDANCES, both 6), so nothing can ever be dropped for
-// being over budget — the cap is here as the stated bound, not as a working truncation.
+// affordances per place (MAX_PLACES / MAX_AFFORDANCES, both 6).
+//
+// For four of the five it is the stated bound and not a working truncation: dashboard reads one
+// place at a time (≤ 6), onboarding the same, queue and settings read the affordances of ONE place
+// (≤ 6). Nothing can be dropped for being over budget.
+//
+// FEED IS THE EXCEPTION, and it is why this comment no longer claims otherwise. Feed reads every
+// affordance on the whole board, so a full board offers MAX_PLACES × MAX_AFFORDANCES = 36
+// candidates and six are shown. That is a real truncation, and a page that promises it counts
+// everything cannot drop thirty of them quietly — so the feed derivation is the one that must say
+// how many it showed of how many the board holds. `affordanceCount` below is what it says it with.
 export const SLOT_MAX = 6;
 
 // Rule 1's table: each `shape` option names one candidate pattern. Four options, four patterns —
@@ -170,6 +185,15 @@ export function slotsFor(patternId, board) {
   const connections = (board && Array.isArray(board.connections)) ? board.connections : [];
   if (!places.length) return null;
 
+  // Where an affordance leads, and what that place is called. Hoisted out of the queue branch,
+  // where they were written: three of the five derivations now read the same two facts off the
+  // same board, and a second copy is a second answer waiting to disagree with the first.
+  const targetOf = (affId) => (connections.find(([from]) => from === affId) || [])[1] || null;
+  const labelOf = (placeId) => {
+    const found = places.find((p) => p.id === placeId);
+    return found ? String(found.label ?? "") : null;
+  };
+
   if (patternId === "dashboard") {
     // One tile per place. `value` is a STRING because metric-tile's spec says so — the validator
     // refuses a number, correctly, and the fix is String() here rather than a looser spec.
@@ -192,11 +216,6 @@ export function slotsFor(patternId, board) {
     for (const place of places) {
       if (affordancesOf(place).length > affordancesOf(busiest).length) busiest = place;
     }
-    const targetOf = (affId) => (connections.find(([from]) => from === affId) || [])[1] || null;
-    const labelOf = (placeId) => {
-      const found = places.find((p) => p.id === placeId);
-      return found ? String(found.label ?? "") : null;
-    };
     return affordancesOf(busiest).slice(0, SLOT_MAX).map((aff) => ({
       label: String(aff.label ?? ""),
       value: labelOf(targetOf(aff.id)) ?? "acts here",
@@ -204,8 +223,73 @@ export function slotsFor(patternId, board) {
     }));
   }
 
-  // feed / onboarding / settings / null / anything unknown. There is nothing to derive until the
-  // library has components to derive it into (slice 2, #139), and deriving slots for a pattern
-  // that cannot render them would be inventing the half of the work that is missing.
+  if (patternId === "onboarding") {
+    // One step per place, in BOARD ORDER, because board order is the sequence. Nothing else on a
+    // breadboard says what comes first, and ordering the steps any other way would be a claim about
+    // a flow the visitor did not draw.
+    //
+    // `total` is what is DRAWN, not what exists: a step that reads "3 of 7" inside a sequence of
+    // three is a number this page did not count. MAX_PLACES === SLOT_MAX === 6, so the two can
+    // never differ today — it is written correctly anyway, because the day one of those caps moves
+    // is not the day anyone re-reads this line.
+    const shown = places.slice(0, SLOT_MAX);
+    return shown.map((place, i) => {
+      const affs = affordancesOf(place);
+      return {
+        position: String(i + 1),
+        total: String(shown.length),
+        label: String(place.label ?? ""),
+        // ABSENT, not empty: a place with nothing on it has no detail, and an empty string is a
+        // detail the board does not have. The spec renders nothing for an absent optional.
+        ...(affs.length ? { detail: String(affs[0].label ?? "") } : {}),
+        // Same reading as the dashboard's: a place with nothing to act on is a hole in the board,
+        // not a decoration.
+        tone: affs.length === 0 ? "warn" : "neutral",
+      };
+    });
+  }
+
+  if (patternId === "feed") {
+    // EVERY affordance on the board, each carrying where it leads and which place it came from —
+    // the only derivation that reads the whole board rather than one place of it.
+    //
+    // ORDER. A breadboard records no time, so this stream is in the order the board draws it. "New
+    // first" is the pattern's own definition, not a claim this board can support, and reversing the
+    // array to gesture at recency would invent the one fact a breadboard most conspicuously lacks.
+    //
+    // TRUNCATION. This is the pattern SLOT_MAX actually truncates (see its comment above): a full
+    // board offers 36 candidates and six are shown. The slice is deliberately AFTER the flatMap, so
+    // the cap lands on the stream rather than on each place's share of it — and the surface renders
+    // `affordanceCount` beside the slots so the drop is stated rather than silent.
+    return places.flatMap((place) => affordancesOf(place).map((aff) => ({
+      label: String(aff.label ?? ""),
+      value: labelOf(targetOf(aff.id)) ?? "acts here",
+      meta: `in ${String(place.label ?? "")}`,
+    }))).slice(0, SLOT_MAX);
+  }
+
+  if (patternId === "settings") {
+    // The ENTRY place's affordances and where each one leads. Rule 2's hub override is the only way
+    // this pattern is ever named, and what that rule reads — an entry place whose affordances all
+    // lead somewhere else — is exactly this shape.
+    //
+    // No `meta`: every row is in the same place, so "in <entry>" repeated down the list is noise
+    // rather than a fact. A field that says the same thing on every row says nothing.
+    return affordancesOf(places[0]).slice(0, SLOT_MAX).map((aff) => ({
+      label: String(aff.label ?? ""),
+      value: labelOf(targetOf(aff.id)) ?? "acts here",
+    }));
+  }
+
+  // null / anything unknown. A pattern this file does not know is a pattern it will not derive
+  // slots for, and the surface renders nothing rather than arranging something around the gap.
   return null;
+}
+
+// How many affordances the whole board holds. Counted, like everything else here, and exported for
+// one reason: feed shows at most SLOT_MAX of them, so the surface has to be able to say six OF WHAT
+// (see SLOT_MAX's comment). It is the denominator of the only truncation on this page.
+export function affordanceCount(board) {
+  const places = (board && Array.isArray(board.places)) ? board.places : [];
+  return places.reduce((n, place) => n + affordancesOf(place).length, 0);
 }

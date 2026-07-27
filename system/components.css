@@ -1620,6 +1620,78 @@ p, .body {
 }
 .ds-list-row.is-critical .ds-row-status { border-color: var(--color-accent-fg); }
 
+/* ---------- ds-sequence-step (system/specs/sequence-step.md) — cross-scenario library primitive ---------- */
+
+.ds-sequence-step {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+/* DOM order is position → label → detail (screen readers hear "Step 2 of 4, Add something,
+   Save"); the step lays that out horizontally — ordinal leading, detail trailing. */
+.ds-sequence-step p {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+/* The ordinal is REAL TEXT in a pill, never a CSS counter — a generated content value is not
+   reliably in the accessibility tree, and the position is the one fact this primitive exists to
+   state (spec's Accessibility note). No background of its own: the step is already
+   --color-bg-surface, so the pill inherits it, and critical's fill-inversion below needs no reset. */
+.ds-sequence-step-position {
+  flex: 0 0 auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  color: var(--color-accent);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ds-sequence-step-label {
+  /* The label is the step's subject, so it gets the flex basis: where the detail would squeeze it
+     below ~14ch the detail wraps to its own line instead. min-width:0 keeps a long label
+     ellipsising rather than blowing the step out once wrapping has run out of room. */
+  flex: 1 1 14ch;
+  min-width: 0;
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-sequence-step-detail {
+  flex: 0 0 auto;
+  min-width: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+/* Tone = emphasis via fill-inversion on the accent family — the identical mechanic to
+   .ds-metric-tile and .ds-list-row. warn adds border and tint only: the ordinal is in the accent
+   at every tone, so there is nothing neutral left for warn to re-colour. Colour is never the sole
+   signal; the position, label and detail carry the state (spec's Accessibility note). */
+.ds-sequence-step.is-warn {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%);
+}
+.ds-sequence-step.is-critical {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+.ds-sequence-step.is-critical .ds-sequence-step-position,
+.ds-sequence-step.is-critical .ds-sequence-step-label,
+.ds-sequence-step.is-critical .ds-sequence-step-detail {
+  color: var(--color-accent-fg);
+}
+/* The pill inverts its border too, or an accent hairline on the accent fill disappears — the bug
+   list-row.md:47 records. */
+.ds-sequence-step.is-critical .ds-sequence-step-position { border-color: var(--color-accent-fg); }
+
 /* ---------- vd-screen-header (system/specs/screen-header.md) ---------- */
 
 .vd-screen-header {
