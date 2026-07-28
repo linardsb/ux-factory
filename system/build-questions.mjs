@@ -152,6 +152,18 @@ const REWARD_LABELS = {
   hunt: { label: "Something found: results, information, a match", short: "something found" },
 };
 
+// The frequency set is the ruleset's too (RULESET.ethics.frequencyFilter is the gate's own key
+// set), so the same rule applies: values from the ruleset, labels local. Labels match
+// factory-intake.mjs:145 word for word — a reader who meets both wizards should not be asked the
+// same question in two different voices.
+const FREQUENCY_LABELS = {
+  "multiple-daily": { label: "Several times a day", short: "several times a day" },
+  daily: { label: "About daily", short: "about daily" },
+  weekly: { label: "Weekly", short: "weekly" },
+  monthly: { label: "Monthly", short: "monthly" },
+  rarely: { label: "Rarely", short: "rarely" },
+};
+
 export const QUESTIONS = Object.freeze([
   {
     act: "hooked",
@@ -207,17 +219,13 @@ export const QUESTIONS = Object.freeze([
     id: "frequency",
     prompt: "How often would someone realistically do the core thing?",
     reasoning: "The method's own gate: habit design is only legitimate for a behaviour frequent enough to become a habit, which it puts at weekly or better. Answer for the behaviour, not for how often you would like them to visit.",
-    // Values from the ruleset's own filter, so this question can never offer a frequency the gate
-    // has no ruling for. Labels match factory-intake.mjs:145 word for word, because a reader who
-    // meets both wizards should not be asked the same question in two different voices.
+    // Values from the ruleset's own filter and labels local, exactly as rewardType above — the
+    // direction matters in BOTH senses (#144 finding 9). This question can never offer a frequency
+    // the gate has no ruling for, AND a frequency the gate rules on can never go quietly unoffered:
+    // a new key with no FREQUENCY_LABELS entry has no label, so the assert below throws at load.
+    // The old form filtered a hardcoded list against the ruleset, which guarded only the first.
     default: "daily",
-    options: [
-      { value: "multiple-daily", label: "Several times a day", short: "several times a day" },
-      { value: "daily", label: "About daily", short: "about daily" },
-      { value: "weekly", label: "Weekly", short: "weekly" },
-      { value: "monthly", label: "Monthly", short: "monthly" },
-      { value: "rarely", label: "Rarely", short: "rarely" },
-    ].filter((o) => o.value in RULESET.ethics.frequencyFilter),
+    options: Object.keys(RULESET.ethics.frequencyFilter).map((value) => ({ value, ...FREQUENCY_LABELS[value] })),
   },
   {
     act: "hooked",
@@ -416,8 +424,15 @@ function mountWizard(root) {
   if (!act) throw new Error(`build-questions: a mount names an act "${actKey}" that does not exist`);
   if (!wizardEl || !questions.length) return;
 
-  // Ids have to be unique per mount, because two wizards are on the page at once and each
-  // radiogroup points at its OWN prompt.
+  // Ids and radio `name`s are keyed per ACT, not per mount (#144 finding 10 — the comment here used
+  // to claim per mount, which is more than this code does). Per act is enough for the page that
+  // exists: build.html mounts each act exactly once, no question id appears in two acts, so every
+  // prompt id and every radiogroup `name` is unique in the document and each radiogroup's
+  // aria-labelledby resolves to its OWN prompt. A page mounting the SAME act twice would break both
+  // — duplicate ids, and two radiogroups sharing a `name` with no <form> between them, which
+  // browsers treat as one mutually exclusive group. That page does not exist and nothing wants it;
+  // whoever builds it keys these off a per-mount counter, and updates the two selectors that read
+  // the `name` back (the one below in this file, and tooling/build-journey.mjs's shape check).
   const promptId = `bx-q-prompt-${actKey}`;
   let step = 0;
 

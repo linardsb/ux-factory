@@ -383,7 +383,14 @@ function mount(root) {
 
     // The no-go is stated on the board, not just in the answers: a place that is missing because it
     // was ruled out should say so, or its absence reads as something the drafter forgot.
-    const ruledOut = NOGO_RULE[answers.nogos] || [];
+    //
+    // ...but only while it IS missing (#144 finding 12). A visitor can add a place back and name it
+    // "People", and the unfiltered line went on asserting that People was ruled out while People sat
+    // on the board — a claim about the board that the board contradicts. The comparison is EXACT,
+    // matching renamePlace's own `place.label === label`: a visitor who types "people" meaning
+    // something else of their own keeps the honest record of what their no-go subtracted.
+    const onBoard = new Set(board.places.map((p) => p.label));
+    const ruledOut = (NOGO_RULE[answers.nogos] || []).filter((name) => !onBoard.has(name));
     bar.append(el("p", { class: "bx-bb-count", text:
       `${board.places.length} of ${MAX_PLACES} places · ${affCount()} affordances`
       + (ruledOut.length ? ` · ruled out by your no-go: ${ruledOut.join(", ")}` : "") }));
