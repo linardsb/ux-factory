@@ -2,10 +2,11 @@
 
 **Plan**: `.claude/plans/build-questions-breadboard-deferred-findings.md`
 **Branch**: `fix/build-deferred-findings-144` (off `main` at `428b482`)
-**Status**: COMPLETE for AC #1–#8 · **AC #9 pending the PR** — `Closes #144` is in the commit message,
-but AC #9's own check reads the *PR body* (`gh pr view --json body`), and memory
-`prs-dont-auto-close-tickets` is specifically about the body being the half that reliably closes a
-ticket. Committed and validated; the push and `piv-create-pr` are the one remaining task.
+**PR**: [#158](https://github.com/linardsb/ux-factory/pull/158)
+**Status**: COMPLETE — AC #1–#8 met and evidenced below; **AC #9's first half is met** (`gh pr view
+--json body | grep -c 'Closes #144'` → 1, checked on the open PR, since the trailer has to be in the
+*body* and not merely the commit message — memory `prs-dont-auto-close-tickets`). Its second half,
+#144 reaching CLOSED, lands on merge.
 
 ## Summary
 
