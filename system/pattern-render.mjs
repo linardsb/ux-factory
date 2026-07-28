@@ -32,6 +32,7 @@
 
 import { renderComposition } from "./agentic-renderer.mjs";
 import { createBus } from "./action-bus.mjs";
+import { trackBuildPattern } from "./analytics.mjs";
 import { BUILD_CHANGE, readBuild } from "./build-questions.mjs";
 import { affordanceCount, PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
 import { boardSvg } from "./build-card.mjs";
@@ -193,6 +194,14 @@ function mount(root) {
       body.append(el("p", { class: "bx-pat-note", text: streamNote(composition.length, affordanceCount(board)) }));
     }
     root.replaceChildren(body);
+    // The pattern is on stage — THIS is "a pattern rendered", so the event fires here and not at
+    // render()'s `root.dataset.patternStage = "ready"` below, which also runs for the empty,
+    // out-of-library, refused and vocabulary-unavailable branches. Same lesson as peak.mjs:240.
+    // Last line on purpose: renderComposition can throw above, and a pattern that never reached the
+    // DOM must not be counted. Safe inside render()'s try only because the tracker swallows a
+    // refused pushState — without that, a file:// load would render "the renderer refused this
+    // composition" about a composition the renderer never saw.
+    trackBuildPattern();
   }
 
   // Reads the store on EVERY call rather than closing over a snapshot: the vocabulary fetch is

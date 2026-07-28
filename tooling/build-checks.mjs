@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Nine groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Ten groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -33,6 +33,10 @@
 //                     ten answers, their guards, and the SSE projection's whitelist (#140)
 //   9 origin          the portal's CSRF predicate: both loopback origins accepted, an absent
 //                     Origin allowed, every near-miss of an allowed origin refused (#157)
+//  10 analytics       /build's two virtual-route events: the module imports node-safe with the
+//                     token FILLED (the launch break this job would otherwise take), both paths are
+//                     bare static literals carrying none of the visitor's ?b= build, each fires
+//                     once, and the URL comes back verbatim (#149)
 //
 //   node tooling/build-checks.mjs
 
@@ -1061,6 +1065,163 @@ function scanSvg(svg, label) {
   group("origin", `${allowed.length} loopback origins accepted · 3 absent forms pass · ${hostile.length} hostile origins refused · port is a parameter`);
 }
 
+// --- 10 · /build's two virtual-route analytics events -------------------------------------------
+// Same split as group 9, and stated for the same reason: this proves the PREDICATE, not the WIRING.
+// Nothing here can observe that trackBuildPattern() sits on renderPattern's success path rather
+// than on the settled-state flag four non-rendering branches also set — that needs a running page,
+// and it is tooling/build-journey.mjs check [17b], on all three engines.
+//
+// What this group is for is the pair of traps the ticket names. First, the LAUNCH trap: this very
+// file imports build-keep.mjs and pattern-render.mjs, both of which import analytics.mjs (#149), so
+// CI's verify job evaluates it under Node — where it survives today only because BEACON_TOKEN is ""
+// and && short-circuits before `location`. Filling the token would break this job on launch day, so
+// the module is imported here with BOTH constants filled, which is the only way that failure is
+// visible before it happens. Second, the PAYLOAD trap: a virtual route IS the whole payload, and
+// /build's promise is that nothing about the visitor's build leaves the browser — so the pushed
+// paths are asserted against a location.search that is carrying a real ?b= payload.
+{
+  // 1 · the launch mutation, asserted before anything is concluded from it. Without this the group
+  //     would silently be re-testing the empty-token file the other nine groups already import.
+  const src = readFileSync(join(ROOT, "system/analytics.mjs"), "utf8");
+  const mutated = src
+    .replace('const BEACON_TOKEN = "";', 'const BEACON_TOKEN = "g10-public-token";')
+    .replace('const PRODUCTION_HOST = "";', 'const PRODUCTION_HOST = "example.com";');
+  ok(mutated !== src && !mutated.includes('BEACON_TOKEN = ""') && !mutated.includes('PRODUCTION_HOST = ""'),
+    "the filled-token mutation did not land — the constants were renamed or reformatted, so this group is testing nothing");
+
+  // 2 · imported while globalThis.location is STILL UNDEFINED. Order is load-bearing: defining the
+  //     stubs first would mask a missing guard, because location.hostname would resolve.
+  let bootErr = null;
+  try { await import(`data:text/javascript,${encodeURIComponent(mutated)}`); } catch (err) { bootErr = err; }
+  ok(!bootErr, `analytics.mjs throws under Node once the token is filled (${bootErr && bootErr.message}) — filling BEACON_TOKEN at launch would break this job at import, because build-keep.mjs and pattern-render.mjs import that module and this file imports both`);
+
+  // 3 · the stubs. This location MOVES when history does, which is the whole reason the hash cases
+  //     below say anything: the flip's window exists precisely because pushState replaces the
+  //     pathname, query AND hash, and a stub that only recorded would make every one of them
+  //     vacuous — the URL would never leave the state the assertion is checking for.
+  const PAYLOAD = "eNqrVkrOL0pVslJQMlTSUcpMUbIy1FFKzs8rSc0rUdJRykxRsjLSUUrOzytJzStR0lHKTFGyMtZRAgArEw0k";
+  const REAL = `/build.html?b=${PAYLOAD}`;
+  let pushes = [];
+  let restores = [];
+  const moveTo = (url) => {
+    const parsed = new URL(String(url), "https://build.test");
+    globalThis.location.pathname = parsed.pathname;
+    globalThis.location.search = parsed.search;
+    globalThis.location.hash = parsed.hash;
+  };
+  const stub = (start) => {
+    pushes = [];
+    restores = [];
+    globalThis.location = { ...start };
+    globalThis.history = {
+      state: null,
+      pushState: (s, t, url) => { pushes.push(String(url)); moveTo(url); },
+      replaceState: (s, t, url) => { restores.push(String(url)); moveTo(url); },
+    };
+  };
+  // Comfortably past RESTORE_DELAY_MS rather than at it, so none of this is a timing race.
+  const pastWindow = () => new Promise((r) => setTimeout(r, 200));
+  const ANA = pathToFileURL(join(ROOT, "system/analytics.mjs")).href;
+
+  // 4 · A · the ordinary contract, on a URL carrying a real ?b= build. The `?g10a` is not
+  //     decoration: this file's own imports already pulled analytics.mjs in transitively, so
+  //     without a fresh key this would inherit whatever fire-once state the process had spent.
+  //     Each event gets its OWN window here, so that this case stays about the ordinary contract.
+  //     The overlap is not hypothetical and is no longer waved off — this comment used to call it
+  //     "an ordering no page produces", and a real drive falsified that (a copy click DOES land
+  //     within 50ms of Act 4 rendering, because the click's own scroll is what starts the
+  //     vocabulary fetch). It has its own scenario, case D.
+  stub({ pathname: "/build.html", search: `?b=${PAYLOAD}`, hash: "" });
+  const anaA = await import(`${ANA}?g10a`);
+  ok(typeof anaA.trackBuildPattern === "function" && typeof anaA.trackBuildShared === "function",
+    "analytics.mjs does not export both /build trackers — pattern-render.mjs and build-keep.mjs import them by name");
+
+  if (typeof anaA.trackBuildPattern === "function" && typeof anaA.trackBuildShared === "function") {
+    anaA.trackBuildPattern(); // twice each: a shared flag would let whichever fired first suppress
+    anaA.trackBuildPattern(); // the other, which is why every event owns its guard
+    await pastWindow();
+    anaA.trackBuildShared();
+    anaA.trackBuildShared();
+    await pastWindow();
+    ok(pushes.length === 2, `${pushes.length} virtual routes pushed, expected exactly 2 — a fire-once guard is missing or shared between the two events`);
+    ok(pushes[0] === "/build/pattern", `the pattern event pushed "${pushes[0]}", not the literal /build/pattern`);
+    ok(pushes[1] === "/build/shared", `the share event pushed "${pushes[1]}", not the literal /build/shared`);
+    for (const p of pushes) {
+      ok(/^\/build\/[a-z]+$/.test(p), `"${p}" is not a bare static path — a virtual route is the entire payload, so it carries no query, hash or id`);
+      ok(!p.includes(PAYLOAD), `"${p}" carries the visitor's ?b= build payload into the analytics path`);
+    }
+    ok(restores.length === 2, `${restores.length} restores, expected 2 — a virtual path left in the address bar breaks refresh and bookmarking`);
+    ok(restores.every((u) => u === REAL), `the URL was not restored verbatim: ${JSON.stringify(restores)} — the ?b= build must survive the flip`);
+  }
+
+  // 5 · B · the reader who ARRIVED with a hash and touched nothing. The snapshot is what has to come
+  //     back here, and it is the case flipTo's live-hash fallback could regress, so it gets its own
+  //     scenario rather than being assumed from A.
+  stub({ pathname: "/build.html", search: `?b=${PAYLOAD}`, hash: "#appearance" });
+  const anaB = await import(`${ANA}?g10b`);
+  anaB.trackBuildPattern();
+  await pastWindow();
+  ok(restores.length === 1 && restores[0] === `${REAL}#appearance`,
+    `a hash the reader arrived with was not restored: ${JSON.stringify(restores)} — they land somewhere they never navigated to`);
+
+  // 6 · C · the collision itself: the appearance dock opened INSIDE the window. pushState carries no
+  //     hash, so for RESTORE_DELAY_MS location.hash is "" — and restoring the snapshot over an
+  //     #appearance written in that window leaves the dock open with nothing for its Escape handler
+  //     to match (dock.mjs:455). Reproduced on all three engines before flipTo took the hash live;
+  //     build-journey [17b] drives the same collision against a real dock.
+  stub({ pathname: "/build.html", search: `?b=${PAYLOAD}`, hash: "" });
+  const anaC = await import(`${ANA}?g10c`);
+  anaC.trackBuildPattern();
+  ok(globalThis.location.pathname === "/build/pattern" && globalThis.location.search === "" && globalThis.location.hash === "",
+    "the stub did not follow the push, so the window this case is about does not exist in it — the assertion below would pass on any implementation");
+  globalThis.location.hash = "#appearance"; // the dock toggle, inside the window
+  await pastWindow();
+  ok(restores.length === 1 && restores[0] === `${REAL}#appearance`,
+    `a hash written inside the flip window was dropped by the restore: ${JSON.stringify(restores)} — the appearance dock is left open with no way to close it from the keyboard`);
+
+  // 7 · D · two flips OVERLAPPING, which is the case A comment's claim turned into a scenario. The
+  //     second flip reads location to snapshot it and finds the FIRST one's virtual path; restoring
+  //     THAT is the page's last write, so the reader keeps /build/shared in the address bar and it
+  //     404s on reload, bookmark and forward. Reproduced on the real page before the shared snapshot
+  //     existed — 4 of 4 chromium runs — and driven there by build-journey [17c].
+  stub({ pathname: "/build.html", search: `?b=${PAYLOAD}`, hash: "" });
+  const anaD = await import(`${ANA}?g10d`);
+  anaD.trackBuildPattern();
+  ok(globalThis.location.pathname === "/build/pattern",
+    "the stub did not follow the first push, so the overlap this case is about does not exist in it — the assertions below would pass on any implementation");
+  anaD.trackBuildShared(); // inside the first window, by construction
+  ok(globalThis.location.pathname === "/build/shared",
+    "the stub did not follow the second push, so the two windows are not actually overlapping here");
+  await pastWindow();
+  ok(restores.length === 2 && restores.every((u) => u === REAL),
+    `an overlapping flip restored to a VIRTUAL path: ${JSON.stringify(restores)} — whichever restore lands last is where the reader is left, and /build/shared 404s`);
+  ok(globalThis.location.pathname === "/build.html" && globalThis.location.search === `?b=${PAYLOAD}`,
+    `the page settled on ${globalThis.location.pathname}${globalThis.location.search} instead of the real URL — a reload from here is a 404 and the ?b= build is gone`);
+
+  // 8 · E · the OTHER ordering, and the one that makes case D's rule a path test rather than an
+  //     "is a window open" test. build-keep's copy handler writes the REAL link from inside the
+  //     window — it owns its base, so what it writes is correct — and firefox and webkit sequence
+  //     the copy click and the pattern render the opposite way from chromium. A flip that refused
+  //     that write and reused the older snapshot would restore the reader to the URL from BEFORE
+  //     the copy, wiping the ?b= out of the address bar on the click that promises it is there.
+  stub({ pathname: "/build.html", search: "", hash: "" });
+  const anaE = await import(`${ANA}?g10e`);
+  anaE.trackBuildPattern(); // window opens over a URL with no ?b= yet
+  moveTo(REAL);             // the copy handler's replaceUrl, landing inside that window
+  ok(globalThis.location.search === `?b=${PAYLOAD}`,
+    "the stub did not take the mid-window write, so this case cannot tell the two rules apart");
+  anaE.trackBuildShared();  // must snapshot the REAL url just written, not reuse the stale one
+  await pastWindow();
+  ok(restores.length === 2 && restores[restores.length - 1] === REAL,
+    `a real URL written inside the window was discarded: ${JSON.stringify(restores)} — the visitor is left without the ?b= the copy button just promised was in their address bar`);
+
+  // 9 · every other group runs without these; leaving them defined would change what "Node" means.
+  delete globalThis.location;
+  delete globalThis.history;
+
+  group("analytics", "imports node-safe with a filled token · 2 static /build paths · no ?b= payload in either · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL, in both orderings");
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1068,5 +1229,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 9 groups pass");
+  console.log("\nbuild ✓  all 10 groups pass");
 }

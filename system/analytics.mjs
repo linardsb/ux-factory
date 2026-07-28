@@ -20,13 +20,23 @@
 // not a local-host deny-list — so CF Pages `*.pages.dev` branch previews and local dev
 // never record traffic once the token lands. Fill it alongside BEACON_TOKEN at launch;
 // empty host = beacon not injected anywhere (fail-closed).
+//
+// The `typeof document` guard below is not defensive tidiness. tooling/build-checks.mjs imports
+// build-keep.mjs and pattern-render.mjs, both of which import this module (#149), so CI's `verify`
+// job evaluates this file under Node — where it survives today only because BEACON_TOKEN is "" and
+// `&&` short-circuits before `location` is ever read. Filling the token at launch would turn that
+// into `ReferenceError: location is not defined` and take the job down on launch day. Guard on
+// `document` rather than `location`: the injected branch touches document.createElement and
+// document.head, so a location-only guard still throws once PRODUCTION_HOST is filled too.
+// build-checks group 10 imports this module with BOTH constants filled, which is the only way that
+// failure is visible before it happens.
 
 const BEACON_TOKEN = ""; // filled at launch
 const PRODUCTION_HOST = ""; // filled at launch — canonical prod hostname (e.g. "linardsberzins.com")
 const VIRTUAL_EVENT_PATH = "/factory/driven";
 const RESTORE_DELAY_MS = 50; // lets the beacon's pushState hook read the virtual path
 
-if (BEACON_TOKEN && location.hostname === PRODUCTION_HOST) {
+if (typeof document !== "undefined" && BEACON_TOKEN && location.hostname === PRODUCTION_HOST) {
   const s = document.createElement("script");
   s.defer = true;
   s.src = "https://static.cloudflareinsights.com/beacon.min.js";
@@ -114,4 +124,121 @@ export function trackFactoryArrived() {
   };
   if (document.readyState === "complete") flip();
   else window.addEventListener("load", flip, { once: true });
+}
+
+// ------------------------------------------------------------------ /build (epic #134, #149)
+// Two events for the sixth public surface. Like /factory/shared above, this EXTENDS the epic's
+// analytics call rather than executing it: docs/epics/portfolio-v3-experience.architecture.md:25
+// names only /factory/built, so a reviewer should read this as a scope decision — delete these two
+// functions and their two call sites and nothing else changes.
+//
+// Both paths are module-level literals and stay that way. A virtual route IS the entire payload,
+// and /build's promise is that nothing about the visitor's tokens, answers or board leaves the
+// browser — so no id, no slug, no pattern name is ever appended. build-checks group 10 asserts the
+// pushed path against a location.search that is carrying a real ?b= payload.
+
+// Unlike the four above, these two are called from INSIDE catch blocks — pattern-render.mjs's catch
+// renders "the renderer refused this composition", build-keep.mjs's says "the link could not be
+// built". A browser refusing pushState (file://, sandboxed) must not be reported as either, so the
+// flip is guarded here rather than at each call site; build-keep.mjs:206 guards its own
+// replaceState the same way. The four trackers above keep their own bodies: none of them is called
+// from a catch, trackFactoryArrived's `load` deferral cannot share this shape at all, and their
+// comments carry decisions from #6, #75 and #77 that a refactor would strand or paraphrase.
+// (`flipTo`, not `flip`: trackFactoryArrived already has a local `flip` of its own.)
+//
+// A flip that opens while another one's window is still open must NOT snapshot what it finds in
+// location, and that is the difference between a restore and a trap: what it finds is the first
+// flip's VIRTUAL path, and restoring that is the last write the page makes, so the address bar keeps
+// "/build/shared" for good — which 404s on reload, bookmark and forward. Driven, not theorised: a
+// copy click landing as the vocabulary fetch resolves does exactly this on 4 of 4 chromium runs.
+// So the real URL is recorded once and every restore still in flight targets that one.
+//
+// The test is "are we SITTING on a path this module pushed", NOT "is a window open", and the
+// difference is what a REAL url written mid-window gets treated as. Today nothing writes one:
+// build-keep waits the window out (settledUrl), and dock.mjs's only path/query write is gated on
+// location.hash === "#appearance", which is false for the whole window. But that is a property of
+// two other modules, not of this one, and the blunter rule has already been caught once — with the
+// first version of build-keep's fix, which DID write mid-window, firefox and webkit sequence the
+// copy click and the pattern render the other way round from chromium, and "reuse whenever a window
+// is open" handed the restore a URL from before the copy and wiped the visitor's whole ?b= out of
+// the address bar, on the very click whose message promises "it is in your address bar too".
+// Keying on the path costs nothing and refuses only what is actually virtual. build-checks group 10
+// cases D and E are the predicate; build-journey [17d] drives both orderings on all three engines.
+// (Found while gating this PR's review finding 1; the four /factory trackers have the same shape
+// and are out of #149's scope.)
+let realUrl = null;
+const pushedPaths = new Set(); // every virtual path this module has put in the address bar
+
+// True while location is showing one of those virtual paths instead of the reader's real URL.
+// Exported because build-keep.mjs builds the share link out of location and must not do it mid-flip:
+// shareUrl only overwrites ?b=, so the virtual PATHNAME would survive into the link and the visitor
+// would be handed a /build/pattern?b=… that 404s. The alternative — build-keep snapshotting its own
+// base at mount — was implemented first and is wrong: the base freezes the HASH, so the next
+// debounced write strips the appearance dock's "#appearance" and closes the dock mid-edit (firefox
+// and webkit both, [17b] going red). The dock owns the hash and location is the only place it lives,
+// so the link has to keep reading location — it just has to wait for location to be the reader's
+// again. (PR #162 review, High 1, the "if yes" branch of its own discriminating question.)
+export function onVirtualRoute() {
+  return pushedPaths.has(location.pathname);
+}
+
+function flipTo(path) {
+  const snap = onVirtualRoute() && realUrl
+    ? realUrl
+    : { pathname: location.pathname, search: location.search, hash: location.hash };
+  try {
+    history.pushState(history.state, "", path);
+  } catch {
+    return; // no session history to push — nothing recorded, nothing broken
+  }
+  pushedPaths.add(path);
+  realUrl = snap;
+  setTimeout(() => {
+    // The pathname and the query come from the SNAPSHOT — the virtual path carries neither, so
+    // reading them live would restore "/build/pattern" and drop the visitor's whole ?b= build.
+    // The HASH is taken live when there is one, and that is not symmetry-for-its-own-sake: the
+    // virtual path carries no hash either, so a hash present NOW was written during the window, and
+    // the appearance dock is the reachable writer (a toggle sets location.hash). Restoring the
+    // snapshot over it drops the "#appearance" that dock.mjs:455's Escape handler matches on, which
+    // leaves the panel open with no keyboard way to shut it. Measured, not theorised: reproduced on
+    // chromium, firefox and webkit, and it made build-journey's dock check [7] fail 1 run in 9
+    // before this line existed (#149). Falling back to the snapshot keeps the ordinary case — a
+    // reader who arrived at /build#something and touched nothing — landing back where they were.
+    // What the fallback CANNOT tell apart is "no hash was written in the window" from "a hash was
+    // deliberately CLEARED in the window" — both read as "". That is safe only because of an
+    // invariant it does not own: all three of dock.mjs's close paths (Escape :455, click-outside
+    // :458, toggle :450) gate on location.hash === "#appearance", which is false for the entire
+    // window, so none of them can clear the hash inside it. Code that clears location.hash
+    // unconditionally would be silently undone here. (PR #162 review, Low 4)
+    try { history.replaceState(history.state, "", snap.pathname + snap.search + (location.hash || snap.hash)); }
+    catch { /* nothing to restore */ }
+  }, RESTORE_DELAY_MS);
+}
+
+const BUILD_PATTERN_PATH = "/build/pattern";
+let buildPatternFired = false;
+
+// Fired when a pattern is actually ON STAGE — from the last line of pattern-render.mjs's
+// renderPattern, the one branch that means it. NOT from the data-pattern-stage="ready" flag, which
+// is also set for the empty, out-of-library, refused and vocabulary-unavailable branches: that flag
+// means "this stage has settled", not "a pattern rendered". /build pageviews vs this path is the
+// funnel-completion ratio. Own fire-once guard, for the reason trackFactoryBuilt's has one.
+export function trackBuildPattern() {
+  if (buildPatternFired) return;
+  buildPatternFired = true;
+  flipTo(BUILD_PATTERN_PATH);
+}
+
+const BUILD_SHARED_PATH = "/build/shared";
+let buildSharedFired = false;
+
+// The /build half of /factory/shared: fired once when the visitor HAS a link — clipboard granted or
+// the select-the-field fallback, since both leave them holding it. It measures link production, not
+// forwarding, for the same reason trackFactoryShared does. Same caller contract too: build the URL
+// and put it in the address bar BEFORE calling this, or the RESTORE_DELAY_MS flip window rewrites
+// location out from under the code that is still assembling it.
+export function trackBuildShared() {
+  if (buildSharedFired) return;
+  buildSharedFired = true;
+  flipTo(BUILD_SHARED_PATH);
 }
