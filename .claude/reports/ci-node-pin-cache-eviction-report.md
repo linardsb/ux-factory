@@ -118,5 +118,5 @@ None blocking. Two observations, both out of scope and flagged rather than fixed
 | #5 — gates pass on the runner; report quotes verbatim | ✓ | above |
 | #6 — only `verify.yml` changed; no job/step/trigger/permission/action moved | ✓ | `git diff --numstat` → 1 file |
 | #7 — PR #153's warning survives | ✓ | final paragraph of the block, kept and extended |
-| #8 — `Closes #154` in the PR body | ✓ | `gh pr view 163 --json body \| grep -c` → 1 |
+| #8 — `Closes #154`; plan + report + review ship in the PR | **partial** | `Closes #154` ✓ (`gh pr view 163 --json body \| grep -c` → 1); plan ✓ (`03c95f0`); report ✓ (`4ee95fc`); **review pending** — `.claude/code-reviews/pr-163-review.md` is `/piv-review-pr`'s artifact and does not exist yet. Not marked ✓ until it lands on this branch |
 | #9 — no VR baselines regenerated, `visual` untouched | ✓ | no `setup-node` in that job; `visual` green |
