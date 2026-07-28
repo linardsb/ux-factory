@@ -1,5 +1,6 @@
 // ux-factory portal — local-first workbench (strategy §13, RUNBOOK P11).
-// Zero-dep HTTP core; the Claude Agent SDK powers /api/chat only.
+// Zero-dep HTTP core; the Claude Agent SDK powers /api/chat and /api/build/run (#140) — and in
+// both cases it is reached through a lib module, never from here.
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -8,6 +9,8 @@ import { listCards, cardFor } from './lib/kb.mjs';
 import { createIntake } from './lib/intake.mjs';
 import { streamChat } from './lib/chat.mjs';
 import { receiveExport, runFigmaPull } from './lib/figma.mjs';
+import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from './lib/builder.mjs';
+import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -68,6 +71,59 @@ const server = createServer(async (req, res) => {
       if (req.headers['x-figma-retry'] === '1') req.resume(); // nothing to read; don't stall the socket
       else await receiveExport(req, slug);
       return json(res, 200, await runFigmaPull({ slug, accent, neutral }));
+    }
+    // --- the operator path: /build's ten answers brief a real composition run (#140) ---
+    // ONE route serves the SHIPPED question config, so the drawer cannot fork it — a second copy of
+    // the ten questions, their reasoning or the quadrant meanings is exactly the drift
+    // build-questions.mjs:283-313 already warns about.
+    if (p === '/api/build/config' && req.method === 'GET') {
+      return json(res, 200, {
+        questions: QUESTIONS, acts: ACTS, defaults: DEFAULT_ANSWERS, summaryTerms: SUMMARY_TERM,
+        quadrantMeanings: QUADRANT_MEANINGS, questionInputs: QUESTION_INPUTS,
+        scenarios: listScenarios(), hasToken: HAS_TOKEN,
+      });
+    }
+    // Pure and instant: the three committed rules over the ten answers. Spends nothing.
+    if (p === '/api/build/draft' && req.method === 'POST') {
+      return json(res, 200, draftRun(await readBody(req)));
+    }
+    if (p === '/api/build/run' && req.method === 'POST') {
+      const body = await readBody(req);
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+      // A closed socket stops the WRITES, not the run. Unlike /api/chat there is no interrupt
+      // handle here — runComposition owns its query internally — and that is the right outcome
+      // anyway: the tokens are already spent, so the run should finish and keep its artifacts.
+      // withRunLock releases through its finally either way, so a disconnect cannot wedge the next.
+      let open = true;
+      res.on('close', () => { open = false; });
+      const send = (o) => { if (open && !res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); };
+      try {
+        // EVERY PARAMETER NAMED, never `{ ...body }`. A spread makes each of runBuild's parameters
+        // — including any added later — settable by whatever JSON reached this socket, and this is
+        // a route a cross-origin page can POST to (readBody JSON.parses regardless of
+        // content-type, so a text/plain POST is a simple request: no preflight, opaque response,
+        // side effect delivered). runOptions is the other half and the provable one: `force` is
+        // not a parameter there at all, so the runner's overwrite path is unreachable from HTTP
+        // even if this list drifts. Whitelist, never blacklist — the same reasoning stepEvent
+        // applies one module over. What remains is that such a POST can still START a run (fresh
+        // slug, no overwrite): #157 closes that portal-wide, for /api/chat and /api/figma/pull too.
+        //
+        // stepEvent is builder.mjs's exported whitelist and this route holds NO shape opinion of
+        // its own: a projection written inline here is one build-checks group 8 cannot reach, and
+        // it would drift from the one group 8 does check. It returns null for the meta and result
+        // lines (the meta carries an absolute home-dir cwd), so the send is skipped for those.
+        const result = await runBuild({
+          scenario: body.scenario, answers: body.answers, question: body.question,
+          slot: body.slot, slug: body.slug, dry: body.dry,
+          onStep: (line) => { const ev = stepEvent(line); if (ev) send(ev); },
+        });
+        send({ type: 'done', result });
+      } catch (e) {
+        // Not the catch-all's { error } body: SSE headers are already written, so a refusal is an
+        // event on the stream.
+        send({ type: 'error', message: e.message });
+      }
+      return res.end();
     }
     if (p === '/api/chat' && req.method === 'POST') {
       const body = await readBody(req);

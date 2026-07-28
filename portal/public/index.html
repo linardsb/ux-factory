@@ -19,6 +19,7 @@
     <span class="portal-bar-spacer"></span>
     <button class="btn btn-secondary" id="btn-chat" type="button">Chat</button>
     <button class="btn btn-secondary" id="btn-figma" type="button">Figma → pack</button>
+    <button class="btn btn-secondary" id="btn-builder" type="button">Compose a view</button>
     <button class="btn btn-primary" id="btn-intake" type="button">New intake</button>
   </header>
 
@@ -87,6 +88,55 @@
       </div>
       <p class="muted portal-form-status" id="figma-status" aria-live="polite"></p>
       <div id="figma-report"></div>
+    </form>
+  </div>
+
+  <!-- Compose-a-view panel: /build's ten answers brief a real composition run (#140) -->
+  <div class="portal-drawer" id="builder-drawer" hidden>
+    <form class="portal-form portal-form-wide" id="builder-form">
+      <h2 class="h3">Compose a view</h2>
+      <p class="muted">
+        The same ten questions /build asks a visitor, answered here for a scenario package. Committed
+        rules draft the <strong>question a real Agent SDK run answers</strong> about that scenario's
+        own fixtures, and the run's composition ships into the private instance's prototype slot.
+      </p>
+      <p class="muted" id="builder-inputs-note"></p>
+      <label>Scenario
+        <select name="scenario" id="builder-scenario"></select>
+      </label>
+      <p class="muted portal-form-status" id="builder-scenario-note" aria-live="polite"></p>
+
+      <div id="builder-questions"></div>
+
+      <label>Slot
+        <select name="slot" id="builder-slot"></select>
+      </label>
+      <p class="muted" id="builder-bounds"></p>
+
+      <label>The drafted question — edit it before you spend a run
+        <textarea name="question" id="builder-question" rows="3"></textarea>
+      </label>
+
+      <div class="portal-form-row">
+        <!-- the hyphen is escaped: `pattern` compiles with the `v` flag, where a trailing bare "-"
+             in a character class is a syntax error and silently voids the whole attribute -->
+        <label>Run slug <input name="slug" id="builder-slug" required pattern="[a-z0-9\-]{1,48}"
+          autocomplete="off" /></label>
+        <label class="portal-check">
+          <input type="checkbox" name="dry" id="builder-dry" checked />
+          Dry run — a full agent run over the real data, but writes nothing to traces/
+        </label>
+      </div>
+
+      <div id="builder-verdict"></div>
+
+      <div class="portal-form-actions">
+        <button class="btn btn-primary" type="submit" id="builder-run">Run</button>
+        <button class="btn btn-secondary" type="button" id="builder-cancel">Cancel</button>
+      </div>
+      <p class="muted portal-form-status" id="builder-status" aria-live="polite"></p>
+      <ol class="portal-phase-log" id="builder-log"></ol>
+      <div id="builder-report"></div>
     </form>
   </div>
 

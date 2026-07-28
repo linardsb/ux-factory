@@ -143,6 +143,51 @@ fictional `today`, coherence-proven by the validator:
 - Fieldwork `jobs`: at least one job has `techId: null` — the dispatch board's
   "Needs assignment" panel must never be able to go silently empty.
 
+### `compose.json` (optional — the composition config)
+
+Present only when the package can be **composed**: when a real Agent SDK run
+(`portal/record-composition.mjs`, or the portal's "Compose a view" drawer) may propose a dashboard
+view over this package's fixtures. `fieldwork` and `northwind` carry one; `verdant` does not, and
+the runner refuses it by name. Shape, verbatim from
+`docs/epics/generative-prototyper.architecture.md` §Open questions (resolved, #88) — the two must
+not drift:
+
+```json
+{
+  "subject": "the Northwind wholesale-stock dashboard",
+  "today": "2026-07-19",
+  "fixtures": [{ "name": "items", "hint": "one row per SKU: id, name, warehouse, onHand, …" }],
+  "copy": "prefer any display labels it carries for tile labels",
+  "slots": { "insight-panel": "a VERTICAL column answering one analytical question, … AT MOST 8 nodes" },
+  "computeRules": "The dashboard's fixed fictional \"today\" is 2026-07-19. A SKU is OVERSOLD when …",
+  "questions": [{ "slug": "oversell-exposure", "slot": "insight-panel", "question": "Where is …?" }]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `subject` | Names the domain in the prompt ("compose a view that answers this question about …"). Non-empty string. |
+| `today` | The package's fixed fictional date. Must also appear inside `computeRules`, so the declared date and the prompt cannot drift. |
+| `fixtures` | `[{ name, hint }]`, non-empty. Rebuilds the Read fence **and** the numbered file list the agent is given; every `name` needs a real `fixtures/<name>.json`. |
+| `copy` | `true` \| `false` \| a hint string. Truthy adds `copy.json` to the fence; a string replaces the default hint. |
+| `slots` | `{ <slot>: <bound string> }`, non-empty. The bound is handed to the agent verbatim and is what the gate phase holds it to. |
+| `computeRules` | **DEFINITIONS ONLY** — what a field or state *means*, and the fixed `today`. Non-empty. |
+| `questions` | `[{ slug, slot, question }]`, non-empty; every `slot` must exist in `slots`. The package's own authored questions. |
+
+**`computeRules` is the honesty firewall.** It may define what `oversold` means; it may **never**
+name which tiles or metrics answer a question. That selection is the agent's job, and naming it here
+would make the output half-hand-authored and break the no-example contract the whole floor path
+rests on. For the same reason there is no generator for this file: a `compose.json` drafted from
+brief prose is exactly the mechanism that would launder "which metrics answer this" into the prompt.
+Write it by hand.
+
+**One parser, on purpose.** `scenarios/validate.mjs` **ignores `compose.json` by design** (#88's
+resolution — it is a runner input, not part of the package contract the validator enforces). The
+only parser is `loadComposeConfig` in `portal/record-composition.mjs`, which hand-validates every
+field above and throws a message naming the offending one. A package without the file simply cannot
+be composed, and the refusal names the file — that message is the spec an operator meets first, so
+it is surfaced verbatim by the portal drawer rather than paraphrased.
+
 ### `rubric.json` (optional)
 
 Present only when the package's prototype includes a real AI feature — today, Fieldwork's agentic
@@ -179,6 +224,7 @@ of the two (`.claude/references/kb-format.md` §ComponentSpec). Format set by #4
 | #8 prototypes | `proto.config.json` + fixtures via `system/scenario-data.mjs` + `copy.json` notices |
 | #10 Factory page | `index.json` (toggle) · `intake.defaults.json` (wizard) · `copy.json` |
 | #13 agentic study | `fieldwork/fixtures/*` (the heavy-ops data) |
+| #88/#140 composition runner | `compose.json` (the whole floor contract) + the fixtures it declares + `brief.md`'s `fictional` flag |
 | `worker/` mock API | fixtures, via `worker/fixtures.mjs` static imports |
 
 ## Serving

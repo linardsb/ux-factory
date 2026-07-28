@@ -54,7 +54,14 @@ function capResponse(resp) {
 // the runner's ✓ line. `taskSummary` is the short human label stored in the meta;
 // `task` is the full prompt handed to the agent. `cwd` defaults to the repo — a
 // --dry run passes its scratch dir (query cwd, meta, artifact paths all follow it).
-export async function recordRun({ slug, task, taskSummary, systemPrompt, model, maxTurns, allowedTools, tools, canUseTool, outFile, cwd = REPO_DIR }) {
+//
+// `onStep` (optional) is the live-progress hook a caller passes to watch the run as it
+// records — the portal drawer's SSE stream (epic #134, ticket #140). It fires from inside
+// write(), so it sees exactly what lands on disk: the meta line, then every step, then the
+// result. That placement is load-bearing in one more way — redaction happens BEFORE write is
+// called, so an SSE consumer can never see an unredacted string. Like the recording hooks
+// above, a failure in it is non-fatal: a watcher must never alter the run it observes.
+export async function recordRun({ slug, task, taskSummary, systemPrompt, model, maxTurns, allowedTools, tools, canUseTool, outFile, cwd = REPO_DIR, onStep = null }) {
   mkdirSync(path.dirname(outFile), { recursive: true });
   writeFileSync(outFile, ''); // start fresh; appendFileSync builds it up line by line
 
@@ -66,7 +73,13 @@ export async function recordRun({ slug, task, taskSummary, systemPrompt, model, 
   let denials = 0;
 
   const now = () => new Date().toISOString();
-  const write = (obj) => appendFileSync(outFile, JSON.stringify(obj) + '\n');
+  const write = (obj) => {
+    appendFileSync(outFile, JSON.stringify(obj) + '\n');
+    if (onStep) {
+      try { onStep(obj); }
+      catch (e) { process.stderr.write(`trace-recorder: onStep error (non-fatal): ${e.message}\n`); }
+    }
+  };
 
   // A tool step from a hook payload. ok=false carries the failure error; a successful
   // Write/Edit pairs the artifact it produced (relative to the run's cwd — the repo in

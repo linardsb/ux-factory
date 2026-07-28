@@ -1,5 +1,12 @@
 [
   {
+    "slug": "northwind-stream-insight-panel",
+    "question": "What has changed most recently in the Northwind wholesale-stock dashboard, and what does it mean? Answer it for someone who needs to see where things stand.",
+    "slot": "insight-panel",
+    "proposal": "/proto/compositions/northwind/northwind-stream-insight-panel.json",
+    "trace": "/traces/northwind-stream-insight-panel.jsonl"
+  },
+  {
     "slug": "oversell-exposure",
     "question": "Where is oversell exposure concentrated, and how deep is it?",
     "slot": "insight-panel",

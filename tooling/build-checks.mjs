@@ -1,13 +1,20 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Seven groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Eight groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
 // It imports the SHIPPED modules directly. They are Node-import-safe by design (DOM references
 // inside function bodies, self-boot behind a `typeof document` guard), so if an import here starts
 // pulling `document`, the module has a bug and the module is what gets fixed.
+//
+// ONE NAMED EXCEPTION, added by #140: group 8 imports portal/lib/builder.mjs, which is build-time
+// code rather than shipped code. It is here because it answers the SAME ten questions — a second
+// gate file would be a gate nobody runs — and because CI is the only place its central invariant
+// can be proven: CI has no portal/node_modules, so an SDK import anywhere in that module's graph
+// fails this job. The invariant is proven by an ABSENCE, which is why it cannot be checked by
+// adding something (see group 8's own comment before "fixing" it by installing portal deps in CI).
 //
 //   1 pattern ids     the three rules, including the hub override and the empty board
 //   2 slots           counted from the board, never invented; every value a string
@@ -19,6 +26,8 @@
 //                     hostile token or label reaching markup, and no in-library pattern ever
 //                     claiming "not in the library" (the bug #139 fixed)
 //   7 vetting         the one-application-point invariant, across ALL the /build modules
+//   8 operator path   the three committed rules that draft a composition question from the same
+//                     ten answers, their guards, and the SSE projection's whitelist (#140)
 //
 //   node tooling/build-checks.mjs
 
@@ -35,6 +44,11 @@ import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "..
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { affordanceCount, PATTERNS, patternFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
+import {
+  ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
+  listScenarios, QUESTION_INPUTS, runBuild, runOptions, SHAPE_QUESTION, slugFor, STEP_EVENT_TEXT_MAX,
+  stepEvent, validateAnswers, withRunLock,
+} from "../portal/lib/builder.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -735,6 +749,256 @@ function scanSvg(svg, label) {
   group("vetting", `${writes} inline-style write across ${MODULES.length} modules · no markup-from-string · pack-boot mirror intact`);
 }
 
+// --- 8 · the operator path's committed rules --------------------------------------------------------
+//
+// The same ten answers, a second committed rule set: in the browser they name a pattern
+// (pattern-rules.mjs), and at build time they draft the QUESTION a real agent answers
+// (portal/lib/builder.mjs). Everything below CALLS the function — several mutate an input first,
+// because a check that cannot fail is the failure mode this file has met repeatedly.
+//
+// DEP-FREEDOM. The import of portal/lib/builder.mjs at the top of this file IS an assertion, and it
+// is the one that can only pass in CI: there is no portal/node_modules there, so a static
+// @anthropic-ai/claude-agent-sdk import anywhere in that module's graph fails this job outright.
+// Do not "fix" a red job by installing portal deps in CI — that deletes the check. Locally the deps
+// exist, so prove it the only way that works on your machine:
+//   mv portal/node_modules portal/node_modules.off && node tooling/build-checks.mjs; \
+//     mv portal/node_modules.off portal/node_modules
+
+{
+  const SUBJECT = "the Northwind wholesale-stock dashboard";
+  const questionById = (id) => QUESTIONS.find((q) => q.id === id);
+  const valuesOf = (id) => questionById(id).options.map((o) => o.value);
+
+  // Coverage, DRIVEN BY THE SHIPPED CONFIG rather than a hand-list: a fifth `shape` option added in
+  // build-questions.mjs fails here loudly, exactly as a new PATTERNS entry without a BOARD_FOR
+  // fixture does. That is the property that keeps the two rule sets in step as the config grows.
+  for (const value of valuesOf("shape")) {
+    ok(Object.hasOwn(SHAPE_QUESTION, value), `rule 1 has no question for the shipped shape "${value}"`);
+  }
+  for (const value of valuesOf("action")) {
+    ok(Object.hasOwn(ACTION_STANCE, value), `rule 2 has no stance for the shipped action "${value}"`);
+  }
+
+  // Four distinct, non-empty questions, each naming the subject and ending with the stance clause.
+  // Drafted only over the shapes the coverage loop above just confirmed, so an uncovered option
+  // reports as that one clean failure rather than crashing this group mid-way and taking every
+  // assertion after it down with it — a gate that dies is a gate that stops checking.
+  const covered = (id, table) => valuesOf(id).filter((v) => Object.hasOwn(table, v));
+  const byShape = covered("shape", SHAPE_QUESTION).map((shape) => draftQuestion(answersWith({ shape, action: "check" }), SUBJECT));
+  ok(new Set(byShape).size === byShape.length, `rule 1 drafted ${new Set(byShape).size} distinct questions for ${byShape.length} shapes`);
+  for (const q of byShape) {
+    ok(typeof q === "string" && q.trim().length > 0, "a drafted question is empty");
+    ok(q.includes(SUBJECT), `a drafted question does not name the subject: ${q}`);
+    ok(q.endsWith(`Answer it for someone who ${ACTION_STANCE.check}.`), `a drafted question does not end with rule 2's clause: ${q}`);
+  }
+
+  // Rule 2 is LOAD-BEARING: changing only `action` changes the drafted question.
+  const byAction = covered("action", ACTION_STANCE).map((action) => draftQuestion(answersWith({ shape: "overview", action }), SUBJECT));
+  ok(new Set(byAction).size === byAction.length, `rule 2 drafted ${new Set(byAction).size} distinct questions for ${byAction.length} actions`);
+
+  // RULE 3 IS TRUE, and this is the assertion that keeps the drawer's claim honest: change each of
+  // the OTHER EIGHT answers, one at a time, and the drafted question is byte-identical. A surface
+  // implying all ten answers reach the agent would be the kind of sentence #139 deleted.
+  const baseline = draftQuestion(DEFAULT_ANSWERS, SUBJECT);
+  const others = QUESTIONS.map((q) => q.id).filter((id) => !QUESTION_INPUTS.includes(id));
+  ok(others.length === 8, `expected 8 non-input answers, found ${others.length}`);
+  for (const id of others) {
+    for (const value of valuesOf(id)) {
+      const drafted = draftQuestion(answersWith({ [id]: value }), SUBJECT);
+      ok(drafted === baseline, `changing "${id}" to "${value}" changed the drafted question — rule 3 is false`);
+    }
+  }
+
+  // ...and QUESTION_INPUTS names real ids, and exactly the ids proven load-bearing above.
+  for (const id of QUESTION_INPUTS) ok(questionById(id) !== undefined, `QUESTION_INPUTS names "${id}", which is not one of the ten questions`);
+  ok(QUESTION_INPUTS.length === 2 && QUESTION_INPUTS.includes("shape") && QUESTION_INPUTS.includes("action"),
+    `QUESTION_INPUTS is ${QUESTION_INPUTS.join(",")}, but shape + action are the two the rules read`);
+
+  // validateAnswers refuses, each message naming the offender. An unknown key is REFUSED rather
+  // than ignored: it means the caller and build-questions.mjs disagree about the ten questions.
+  const throws = (fn, needle, what) => {
+    try { fn(); ok(false, `${what} was accepted`); }
+    catch (e) { ok(e.message.includes(needle), `${what} threw "${e.message}", which does not name ${needle}`); }
+  };
+  const { nogos: _dropped, ...missingOne } = DEFAULT_ANSWERS;
+  throws(() => validateAnswers(missingOne), "nogos", "a missing answer");
+  throws(() => validateAnswers(answersWith({ shape: "nonsense" })), "shape", "an out-of-enum value");
+  throws(() => validateAnswers({ ...DEFAULT_ANSWERS, surprise: "x" }), "surprise", "an unknown key");
+  // Built through JSON.parse, not an object literal: `__proto__:` in a literal is the
+  // prototype-setting SYNTAX and creates no own key at all, so a literal-based fixture here passes
+  // whatever the code does — a check that cannot fail. JSON.parse defines a real own property, and
+  // JSON.parse is also exactly what server.mjs's readBody hands this function.
+  const protoBody = JSON.parse(`{"__proto__":"x",${JSON.stringify(DEFAULT_ANSWERS).slice(1)}`);
+  ok(Object.hasOwn(protoBody, "__proto__"), "the __proto__ fixture carries no own key — it proves nothing");
+  throws(() => validateAnswers(protoBody), "questions", "a __proto__ key");
+  // ...and an id that is only INHERITED is still missing. No own "__proto__" key here, so the
+  // unknown-key branch above cannot answer this one for it: the object carries nine own answers and
+  // gets the tenth from its prototype. It fails only if the read is Object.hasOwn(raw, id) rather
+  // than `raw[id] !== undefined`, which is the distinction being checked.
+  throws(() => validateAnswers(Object.assign(Object.create({ nogos: "none" }), missingOne)), "is missing", "an inherited answer");
+  throws(() => validateAnswers("not an object"), "object", "a non-object");
+  throws(() => validateAnswers(null), "object", "null");
+  throws(() => validateAnswers([]), "object", "an array");
+
+  // THE PRIVACY REFUSAL, at the function level with an IN-MEMORY head — no fake package is ever
+  // written to disk. It demands `fictional === true`, so a head with the key missing refuses too.
+  throws(() => assertFictional({ fictional: false }, "acme"), "scenarios/README.md", "a fictional:false head");
+  throws(() => assertFictional({ name: "Acme" }, "acme"), "scenarios/README.md", "a head with no fictional key");
+  throws(() => assertFictional(null, "acme"), "scenarios/README.md", "a missing head");
+  ok(assertFictional({ fictional: true }, "northwind").fictional === true, "a fictional:true head was refused");
+
+  // ...and the same refusal ON THE RUN PATH, not only the preview. /api/build/draft and
+  // /api/build/run are separate routes, so a guard proven only on draftRun is a claim about a
+  // function nobody has to call. No package in this repo says fictional:false (and writing one
+  // would be a fake), so the run-path property is proven with the other refusal readScenario
+  // raises — verdant, which has no compose.json. The DISCRIMINATOR is the message: it must name
+  // the boundary, NOT "Cannot find package '@anthropic-ai/claude-agent-sdk'". That is what proves
+  // the guard fired BEFORE the SDK was ever reached, and it is only meaningful in the dep-free
+  // environment above — i.e. in CI, or under the node_modules.off dance.
+  ok(listScenarios().some((s) => s.slug === "verdant" && !s.composable && s.reason.includes("compose.json")),
+    "listScenarios no longer reports verdant as non-composable with its own refusal message");
+  ok(listScenarios().every((s) => typeof s.name === "string" && s.name.length > 0),
+    "a scenario was listed with no name");
+  let runRefusal = null;
+  try {
+    await runBuild({ scenario: "verdant", answers: DEFAULT_ANSWERS, question: "x", slot: "summary-strip", slug: "gate-probe", dry: true });
+  } catch (e) { runRefusal = e.message; }
+  ok(runRefusal !== null, "runBuild started a run for a package with no compose.json");
+  ok(runRefusal?.includes("compose.json"), `runBuild's refusal was "${runRefusal}", which does not name compose.json`);
+  ok(isRunInFlight() === false, "a refused run left the run lock held");
+
+  // `force` CANNOT BE SET FROM A CALLER, and this is the assertion that keeps it that way. In the
+  // runner, force skips the "traces/<slug>.raw.jsonl exists" throw; past that throw a committed
+  // proposal is rmSync'd and the committed raw trace is truncated to zero bytes BEFORE the SDK
+  // query, so it lands even if the run then dies on auth. server.mjs POSTs into runBuild, so a
+  // `{ ...body }` spread there — or a `force` back in the destructure here — would put that path
+  // one HTTP body away. runOptions is checked rather than runBuild because it is PURE: calling
+  // runBuild with force:true to watch it get dropped would be safe only while green, and on a
+  // regression the gate itself would delete the committed proposal and start a paid run.
+  const RUN_INPUT = {
+    scenario: "northwind", answers: DEFAULT_ANSWERS, question: "What is the state of things?",
+    slot: "insight-panel", slug: "gate-probe-options", dry: true,
+  };
+  ok(runOptions(RUN_INPUT).force === false, "runOptions did not pin force to false");
+  for (const hostile of [true, 1, "yes", "false", {}]) {
+    const opts = runOptions({ ...RUN_INPUT, force: hostile });
+    ok(opts.force === false, `a caller-supplied force ${JSON.stringify(hostile)} survived into the run options`);
+  }
+  // ...and the option set is EXACTLY what the runner takes, so a parameter added to runComposition
+  // later cannot start being caller-settable by being quietly forwarded. onStep is excluded on
+  // purpose: runBuild adds the hook, and a hook is not data an HTTP body supplies.
+  const RUN_OPTION_KEYS = ["scenario", "question", "slot", "slug", "isDry", "force"];
+  ok(JSON.stringify(Object.keys(runOptions(RUN_INPUT)).sort()) === JSON.stringify([...RUN_OPTION_KEYS].sort()),
+    `runOptions returned keys [${Object.keys(runOptions(RUN_INPUT)).join(",")}], expected [${RUN_OPTION_KEYS.join(",")}]`);
+  // Every guard runs INSIDE runOptions, so the split did not leave runBuild guarding a path
+  // runOptions has already returned from.
+  throws(() => runOptions({ ...RUN_INPUT, slug: "../escape" }), "slug", "runOptions with a traversing slug");
+  throws(() => runOptions({ ...RUN_INPUT, slot: "nonsense" }), "slot", "runOptions with an unknown slot");
+  throws(() => runOptions({ ...RUN_INPUT, question: "   " }), "question", "runOptions with a blank question");
+  throws(() => runOptions({ ...RUN_INPUT, answers: { ...DEFAULT_ANSWERS, shape: "nonsense" } }), "shape", "runOptions with an out-of-enum answer");
+  ok(runOptions({ ...RUN_INPUT, dry: false }).isDry === false && runOptions(RUN_INPUT).isDry === true,
+    "runOptions did not carry `dry` through to isDry");
+  // ...and runBuild STILL ROUTES THROUGH IT. Every assertion above is about runOptions, and all of
+  // them stay green if someone re-adds a `force` parameter to runBuild and hands it to
+  // runComposition directly — the check would be testing the seam and not the caller, which is the
+  // exact failure mode being fixed here. runBuild's whole body is runOptions + the lock + the run,
+  // so `force` has no business appearing anywhere in it, param or not. Read off the LIVE function
+  // object rather than the file: this is the function the route actually calls, and the repo has no
+  // build step, so the source is the source. `runBuild.length` would be the tempting check and it
+  // is a vacuous one — a destructured object parameter counts as 1 however many keys it names.
+  ok(!/force/.test(runBuild.toString()),
+    `runBuild names \`force\` in its own body — it must reach runComposition only through runOptions:\n${runBuild.toString()}`);
+  ok(/runOptions\(/.test(runBuild.toString()), "runBuild no longer calls runOptions — its guards may have been inlined past the force pin");
+
+  // The contract guards. Both values reach a filesystem path and both now arrive from an HTTP body.
+  for (const bad of ["../escape", "/etc/passwd", "a/b", "", "Northwind", "a".repeat(41), null, undefined, 7]) {
+    throws(() => assertScenarioSlug(bad), "scenario", `scenario slug ${JSON.stringify(bad)}`);
+  }
+  ok(assertScenarioSlug("northwind") === "northwind", "a legitimate scenario slug was refused");
+  for (const bad of ["../escape", "a/b", "", "A-Slug", "a".repeat(49), null, undefined, 7]) {
+    throws(() => assertRunSlug(bad), "slug", `run slug ${JSON.stringify(bad)}`);
+  }
+  ok(assertRunSlug("a".repeat(48)) !== undefined, "a 48-character run slug was refused");
+
+  // SLUGS CANNOT COLLIDE ACROSS SCENARIOS. The drafted question is deterministic from ten enum
+  // answers, so two scenarios sharing a `shape` produce byte-identical question text — and
+  // slugify() alone would map them to ONE file in the FLAT traces/ namespace. The cross product is
+  // what actually closes that, so the cross product is what is checked.
+  const slugs = [];
+  for (const s of listScenarios()) {
+    for (const shape of valuesOf("shape")) {
+      const slug = slugFor(s.slug, answersWith({ shape }), "insight-panel");
+      ok(slug.startsWith(s.slug), `slugFor("${s.slug}", …) produced "${slug}", which is not scenario-prefixed`);
+      assertRunSlug(slug); // throws (naming the offender) if the composed slug is not path-safe
+      slugs.push(slug);
+    }
+  }
+  ok(new Set(slugs).size === slugs.length, `slugFor produced ${new Set(slugs).size} distinct slugs across ${slugs.length} scenario × shape pairs`);
+
+  // stepEvent is a WHITELIST, asserted as an exact key set so a field added to the recorder later
+  // cannot start streaming by default. The fixture carries everything a real step line can carry.
+  const fatStep = {
+    type: "step", seq: 12, ts: "2026-07-27T00:00:00.000Z", phase: "implement", kind: "tool",
+    tool: "Write", ok: true, denied: false, artifact: { path: "proto/compositions/northwind/x.json" },
+    response: "R".repeat(5000), input: { file_path: "/Users/someone/.env", content: "sk-ant-SECRET" },
+    toolUseId: "toolu_01ABC", responseTruncated: true, someFutureField: "must not stream",
+  };
+  const projected = stepEvent(fatStep);
+  const EXPECTED_KEYS = ["type", "phase", "kind", "tool", "ok", "denied", "artifact", "text"];
+  ok(JSON.stringify(Object.keys(projected).sort()) === JSON.stringify([...EXPECTED_KEYS].sort()),
+    `stepEvent returned keys [${Object.keys(projected).join(",")}], expected [${EXPECTED_KEYS.join(",")}]`);
+  const serialised = JSON.stringify(projected);
+  for (const leak of ["RRRR", "sk-ant-SECRET", ".env", "toolu_01ABC", "must not stream"]) {
+    ok(!serialised.includes(leak), `stepEvent leaked ${leak} into the SSE payload`);
+  }
+  ok(projected.artifact === "proto/compositions/northwind/x.json", "stepEvent dropped the artifact path");
+
+  // ...and text is truncated to exactly STEP_EVENT_TEXT_MAX.
+  const long = stepEvent({ type: "step", kind: "text", text: "t".repeat(STEP_EVENT_TEXT_MAX + 500) });
+  ok(long.text.length === STEP_EVENT_TEXT_MAX, `stepEvent returned ${long.text.length} chars of text, expected ${STEP_EVENT_TEXT_MAX}`);
+  ok(stepEvent({ type: "step", kind: "tool", tool: "Read" }).text === null, "stepEvent invented text for a step that carries none");
+
+  // The NON-STEP lines are dropped. The meta line is the first thing write() emits and it carries
+  // `cwd` — an absolute home-dir path — so returning it would put the operator's home directory on
+  // the wire on every single run.
+  ok(stepEvent({ type: "meta", version: 1, slug: "x", cwd: "/Users/someone/repo", sessionId: "abc" }) === null,
+    "stepEvent did not drop the meta line (it carries cwd + sessionId)");
+  ok(stepEvent({ type: "result", ok: true, totalCostUsd: 0.9 }) === null, "stepEvent did not drop the result line");
+  ok(stepEvent(null) === null && stepEvent(undefined) === null, "stepEvent did not drop an empty line");
+
+  // withRunLock REFUSES the second caller rather than queueing it: a queued run would spend real
+  // tokens the operator did not knowingly ask for twice. This runs with no SDK, which is exactly
+  // why the lock is exported rather than inline inside runBuild.
+  let release;
+  const held = new Promise((r) => { release = r; });
+  const first = withRunLock(() => held);
+  ok(isRunInFlight() === true, "withRunLock did not report the first run as in flight");
+  let second = null;
+  try { await withRunLock(async () => "second"); } catch (e) { second = e.message; }
+  ok(second?.includes("already in flight"), `the second caller got "${second}", expected an "already in flight" refusal`);
+  release("first");
+  ok((await first) === "first", "withRunLock did not return the first call's value");
+  ok(isRunInFlight() === false, "the lock stayed held after the first run resolved");
+  // Each subsequent acquire is CAUGHT rather than awaited bare: a lock that failed to release
+  // rejects here, and an uncaught rejection would kill this group before group() reports — the
+  // gate would go red with a stack trace instead of naming which invariant broke.
+  const acquire = async (label) => {
+    try { return await withRunLock(async () => label); }
+    catch (e) { return `refused: ${e.message}`; }
+  };
+  ok((await acquire("third")) === "third", "a third run was refused after the lock released");
+
+  // ...INCLUDING the finally path: a run that THROWS must still release, or one failed run wedges
+  // the portal until it is restarted.
+  let threw = false;
+  try { await withRunLock(async () => { throw new Error("boom"); }); } catch { threw = true; }
+  ok(threw, "withRunLock swallowed the callback's throw");
+  ok(isRunInFlight() === false, "the lock stayed held after the callback threw — the finally path is broken");
+  ok((await acquire("fourth")) === "fourth", "a run was refused after a throwing run should have released the lock");
+
+  group("operator-path", `3 rules over ${QUESTIONS.length} answers · 8 non-inputs inert · ${slugs.length} slugs distinct · stepEvent whitelist · run lock`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -742,5 +1006,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 7 groups pass");
+  console.log("\nbuild ✓  all 8 groups pass");
 }

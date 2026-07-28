@@ -34,7 +34,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { recordRun } from './lib/trace-recorder.mjs';
+// lib/trace-recorder.mjs is the ONE import in this file's graph that reaches
+// @anthropic-ai/claude-agent-sdk, and it is loaded LAZILY inside runComposition (below) rather than
+// here. That is what lets portal/lib/builder.mjs import loadComposeConfig — and lets
+// tooling/build-checks.mjs gate the operator path in CI, where portal/node_modules does not exist —
+// without the SDK. The rule it buys: the SDK loads only when a run actually starts (#140).
 import { REPO_DIR, HAS_TOKEN } from './lib/env.mjs';
 import { validateComposition } from '../system/agentic-renderer.mjs';
 import { curateTrace } from '../tooling/curate-trace.mjs';
@@ -63,7 +67,7 @@ const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 // (project rule): validate at the boundary and throw, every message naming the offending field.
 // compose.json externalizes everything domain-specific so the runner has NO baked-in scenario;
 // its computeRules carries DEFINITIONS ONLY — it must never name which tiles answer a question.
-function loadComposeConfig(scenario) {
+export function loadComposeConfig(scenario) {
   if (!nonEmpty(scenario))
     throw new Error('a scenario is required (first arg): node portal/record-composition.mjs <scenario> "<question>" <slot> [--slug <slug>] [--dry]');
   const dir = path.join(REPO_DIR, 'scenarios', scenario);
@@ -259,6 +263,11 @@ function printAuth() {
 
 // Same clean-PIV signal record-trace uses: a missing/misordered phase or a null-phase step
 // is a bad run, visible before curation — the tighten-and-re-run trigger.
+//
+// It PRINTS and RETURNS `clean`; it does not set process.exitCode. Since #140 this file is a
+// library as well as a CLI (runComposition), and a library that writes the host process's exit
+// code reports failure by side effect — a server would have rendered success over a dropped
+// artifact. The caller decides: the CLI guard at the bottom turns !ok into exit 1.
 function summarize(slug, r, extra) {
   const phasesOk = r.phases.join('→') === PIV_ORDER.join('→');
   const clean = phasesOk && r.nullPhaseSteps === 0;
@@ -275,8 +284,8 @@ function summarize(slug, r, extra) {
       `${r.nullPhaseSteps ? ` ${r.nullPhaseSteps} step(s) before the first [[piv:plan]] marker;` : ''}\n` +
       '  Fix by tightening PIV_COMPOSE_SYSTEM / the prompt and re-running with --force. Never hand-edit the JSONL or the composition (honesty contract).\n'
     );
-    process.exitCode = 1;
   }
+  return clean;
 }
 
 // In-process acceptance: refuse to KEEP an invalid composition (belt-and-suspenders over the
@@ -319,11 +328,38 @@ function upsertIndex(indexPath, entry) {
 
 const slugify = (q) => q.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'composition';
 
-async function main({ scenario, question, slot, slug, isDry, force }) {
+// The slug names files in a FLAT namespace (traces/<slug>.{raw.,}jsonl) and one inside
+// proto/compositions/<scenario>/. slugify() can only produce this shape, but since #140 the slug
+// also arrives from an HTTP body, and an exported library function cannot assume a caller checked.
+// portal/lib/builder.mjs checks it first for the better message, not instead of this — the same
+// belt-and-braces figma.mjs uses (assertSlug fires in receiveExport AND again in runFigmaPull).
+const RUN_SLUG_RE = /^[a-z0-9-]{1,48}$/;
+
+// One return shape for every outcome, dry or real — figma.mjs's "one shape for BOTH outcomes",
+// and the reason this file stopped writing process.exitCode. `ok` means the composition validated
+// AND (on a real run) the curated trace passed the keep-gate; `reason` names which one did not.
+// Paths are repo-relative, and a path is null when that artifact does not exist: --dry ships
+// nothing, and a dropped run keeps only the raw trace for inspection.
+const outcome = ({ ok, reason, scenario, question, slot, slug, dry, r, paths, nodes = null, entries = null }) => ({
+  ok, reason, slug, dry, question, slot, scenario,
+  paths: { proposal: null, rawTrace: null, curatedTrace: null, index: null, ...(paths || {}) },
+  stats: {
+    steps: r.steps, phases: r.phases, nullPhaseSteps: r.nullPhaseSteps,
+    artifacts: r.artifacts, denials: r.denials, costUsd: r.totalCostUsd ?? 0, nodes, entries,
+  },
+});
+
+export async function runComposition({ scenario, question, slot, slug, isDry, force, onStep }) {
   const config = loadComposeConfig(scenario); // throws (path-naming) on a missing/malformed compose.json
   if (!question) throw new Error(`a question is required: node portal/record-composition.mjs ${scenario} "<question>" <slot> [--slug <slug>] [--dry]`);
   if (!Object.hasOwn(config.slots, slot)) throw new Error(`slot must be one of: ${Object.keys(config.slots).join(' | ')} (got "${slot}")`);
+  if (typeof slug !== 'string' || !RUN_SLUG_RE.test(slug))
+    throw new Error(`"${slug ?? ''}" is not a usable run slug — lowercase letters, digits and hyphens only, 1–48 characters (it names traces/<slug>.raw.jsonl and proto/compositions/${scenario}/<slug>.json)`);
   if (!existsSync(VOCAB_PATH)) throw new Error(`${path.relative(REPO_DIR, VOCAB_PATH)} is missing — run: node agent-layer/gen-vocabulary.mjs`);
+
+  // The SDK enters HERE and nowhere earlier — after every guard above has passed. See the import
+  // block at the top for what that buys.
+  const { recordRun } = await import('./lib/trace-recorder.mjs');
 
   // The Read fence, rebuilt per-scenario: the vocabulary + this scenario's declared fixtures
   // (+ its copy.json when declared), absolute REPO_DIR-anchored so a --dry run still reads REAL
@@ -344,13 +380,19 @@ async function main({ scenario, question, slot, slug, isDry, force }) {
     const r = await recordRun({
       slug, task: buildTask(question, slot, refsFor(scenario, config, { absolute: true, out: outAbs }), config), taskSummary: `DRY — compose "${slot}" for ${scenario}: ${question}`,
       systemPrompt: PIV_COMPOSE_SYSTEM, model: MODEL, maxTurns: 40,
-      tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir, outAbs, readOk), outFile, cwd: dryDir,
+      tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir, outAbs, readOk), outFile, cwd: dryDir, onStep,
     });
+    let valid = true;
     let validNote = ' · NOT VALIDATED';
     try { assertValid(VOCAB_PATH, outAbs); validNote = ' · in-process validateComposition ✓'; }
-    catch (e) { validNote = ` · ✗ invalid: ${e.message}`; process.exitCode = 1; }
-    summarize(slug, r, ` · DRY (not shipped)${validNote}`);
-    return;
+    catch (e) { valid = false; validNote = ` · ✗ invalid: ${e.message}`; }
+    const clean = summarize(slug, r, ` · DRY (not shipped)${validNote}`);
+    // A dry run is the answerability check, so it reports the same two failures a real one does —
+    // and the CLI's exit code stays what it was, because ok is exactly the old exitCode condition.
+    return outcome({
+      ok: valid && clean, reason: !valid ? 'invalid-composition' : clean ? null : 'not-clean',
+      scenario, question, slot, slug, dry: true, r,
+    });
   }
 
   // Real run: cwd = REPO_DIR, write the agent's relative path so the trace artifact is repo-relative.
@@ -377,8 +419,14 @@ async function main({ scenario, question, slot, slug, isDry, force }) {
   const r = await recordRun({
     slug, task: buildTask(question, slot, refsFor(scenario, config, { absolute: false, out: outRel }), config), taskSummary: `Compose "${slot}" for ${scenario}: ${question}`,
     systemPrompt: PIV_COMPOSE_SYSTEM, model: MODEL, maxTurns: 40,
-    tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(REPO_DIR, outAbs, readOk), outFile: rawOut,
+    tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(REPO_DIR, outAbs, readOk), outFile: rawOut, onStep,
   });
+
+  // Repo-relative, for the structured return: what a caller (the portal drawer, or a reader of
+  // the CLI's own output) has to commit, or has to go and read when a run is dropped.
+  const rawRel = path.relative(REPO_DIR, rawOut);
+  const curatedRel = path.relative(REPO_DIR, curatedOut);
+  const indexRel = path.relative(REPO_DIR, indexPath);
 
   // A proposal SHIPS only if BOTH hold: the composition validates AND the CURATED trace passes
   // the EXACT drift guard the ticket ships under (validate-trace.mjs: four phases as distinct
@@ -394,8 +442,12 @@ async function main({ scenario, question, slot, slug, isDry, force }) {
     dropShipped(slug, indexPath);
     process.stderr.write('  Not shipping (invalid composition). Tighten the prompt/vocabulary and re-run with --force — never hand-edit.\n');
     process.stderr.write(`  composition ${slug} ✗  ~$${(r.totalCostUsd ?? 0).toFixed(4)} · INVALID (not shipped)\n`);
-    process.exitCode = 1;
-    return;
+    // The raw trace and the invalid proposal stay on disk to be read; the curated trace and the
+    // manifest entry are what dropShipped just took away, so they are null.
+    return outcome({
+      ok: false, reason: 'invalid-composition', scenario, question, slot, slug, dry: false, r,
+      paths: { proposal: outRel, rawTrace: rawRel },
+    });
   }
 
   curateTrace(rawOut, curatedOut);
@@ -406,8 +458,10 @@ async function main({ scenario, question, slot, slug, isDry, force }) {
     process.stderr.write(`  ✗ the trace is not a clean PIV run — ${e.message}\n`);
     process.stderr.write('  Not shipping it. Each PIV marker must be ALONE in its own text block; tighten the prompt and re-run with --force — never hand-edit.\n');
     process.stderr.write(`  composition ${slug} ✗  phases: ${r.phases.join('→') || '(none)'} · ~$${(r.totalCostUsd ?? 0).toFixed(4)} · PIV-incomplete (not shipped)\n`);
-    process.exitCode = 1;
-    return;
+    return outcome({
+      ok: false, reason: 'piv-incomplete', scenario, question, slot, slug, dry: false, r,
+      paths: { proposal: outRel, rawTrace: rawRel },
+    });
   }
 
   const total = upsertIndex(indexPath, {
@@ -415,8 +469,15 @@ async function main({ scenario, question, slot, slug, isDry, force }) {
     proposal: `/proto/compositions/${scenario}/${slug}.json`,
     trace: `/traces/${slug}.jsonl`,
   });
-  summarize(slug, r, ` · ${composition.length ?? 1} node(s) · valid ✓ · trace ✓ · manifest: ${total} entr${total === 1 ? 'y' : 'ies'}`);
+  const clean = summarize(slug, r, ` · ${composition.length ?? 1} node(s) · valid ✓ · trace ✓ · manifest: ${total} entr${total === 1 ? 'y' : 'ies'}`);
   process.stderr.write(`  proposal: ${outRel}\n  trace:    traces/${slug}.jsonl (curated) + traces/${slug}.raw.jsonl (raw)\n`);
+  // Shipped, but `clean` can still be false: validateTrace passed while the recorder's own
+  // marker-scan saw a null-phase step. That was exit 1 before and it is ok:false now.
+  return outcome({
+    ok: clean, reason: clean ? null : 'not-clean', scenario, question, slot, slug, dry: false, r,
+    paths: { proposal: outRel, rawTrace: rawRel, curatedTrace: curatedRel, index: indexRel },
+    nodes: composition.length ?? 1, entries: total,
+  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -429,6 +490,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const question = positional[1];
   const slot = positional[2];
   const slug = explicitSlug || slugify(question || '');
-  main({ scenario, question, slot, slug, isDry: flags.has('--dry'), force: flags.has('--force') })
+  // `process.exitCode`, not `process.exit(1)`: summarize() has just console.log'd, and on a pipe
+  // that write is still queued — process.exit() would drop it. Setting the code and letting the
+  // process end on its own is what keeps the CLI's printed output byte-identical to before #140.
+  runComposition({ scenario, question, slot, slug, isDry: flags.has('--dry'), force: flags.has('--force') })
+    .then((r) => { if (!r.ok) process.exitCode = 1; })
     .catch((err) => { console.error(`composition ✗  ${err.message}`); process.exit(1); });
 }

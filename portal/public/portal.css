@@ -54,6 +54,12 @@
 .portal-proto-frame { width: 100%; height: 70vh; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); }
 .portal-proto-picker { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; margin-bottom: var(--spacing-md); }
 
+/* Any author `display` beats the UA's [hidden] rule, and this page hides things that carry one —
+   `.btn` is display:inline-flex, so `el.hidden = true` on a button is a silent no-op. The two
+   scoped rules below (drawer, chat) are the same bug caught twice; this generalises them so the
+   third case cannot ship broken. */
+[hidden] { display: none !important; }
+
 /* drawer (intake) */
 .portal-drawer {
   position: fixed; inset: 0; z-index: 40;
@@ -140,6 +146,34 @@
   padding: var(--spacing-sm); font-size: var(--type-body); font-family: var(--font-body); resize: none;
   background: var(--color-bg); color: var(--color-fg);
 }
+
+/* compose-a-view drawer: the ten questions, and the run's phase log */
+.portal-check { flex-direction: row !important; align-items: flex-start; gap: var(--spacing-sm) !important; }
+.portal-check input { margin-top: 3px; }
+
+.builder-act { margin-top: var(--spacing-md); }
+.builder-q {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+/* The two answers the rules actually read are marked on the surface, and the mark is driven by the
+   served questionInputs — never a hardcoded pair. */
+.builder-q.is-input { border-color: var(--color-accent); }
+.builder-q legend { font-size: var(--type-body); color: var(--color-fg); padding: 0 var(--spacing-xs); }
+.builder-chip { font-size: var(--type-caption); vertical-align: middle; }
+.builder-reasoning { font-size: var(--type-caption); margin-bottom: var(--spacing-xs); }
+.builder-opt { flex-direction: row !important; align-items: center; gap: var(--spacing-sm) !important; color: var(--color-fg) !important; }
+
+#builder-question { font-family: var(--font-body); resize: vertical; }
+
+.portal-phase-log {
+  list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto;
+  font-size: var(--type-caption); font-family: var(--font-mono, monospace);
+}
+.builder-log-line { padding: 2px 0; color: var(--color-fg-muted); }
+.builder-log-line.is-phase { color: var(--color-fg); font-weight: 600; margin-top: var(--spacing-xs); }
+.builder-log-line.is-denied { color: var(--color-warn, var(--color-fg)); }
 
 @media (max-width: 720px) {
   .portal-search { margin-left: 0; width: 100%; }
