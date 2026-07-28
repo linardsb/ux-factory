@@ -2,7 +2,10 @@
 
 **Plan**: `.claude/plans/build-questions-breadboard-deferred-findings.md`
 **Branch**: `fix/build-deferred-findings-144` (off `main` at `428b482`)
-**Status**: COMPLETE
+**Status**: COMPLETE for AC #1–#8 · **AC #9 pending the PR** — `Closes #144` is in the commit message,
+but AC #9's own check reads the *PR body* (`gh pr view --json body`), and memory
+`prs-dont-auto-close-tickets` is specifically about the body being the half that reliably closes a
+ticket. Committed and validated; the push and `piv-create-pr` are the one remaining task.
 
 ## Summary
 
@@ -79,6 +82,20 @@ mutation run before the fix would have proven nothing. The ruleset edit was reve
 `git checkout --`; `git status --porcelain system/derive.rules.mjs` → 0 changes, and `build-checks`
 returned to 8/8.
 
+**The false-valued keys survive, and that matters.** `frequencyFilter` is
+`{ …, monthly: false, rarely: false }`. `Object.keys` carries those two through exactly as the old
+`o.value in RULESET.ethics.frequencyFilter` did — an `Object.entries(...).filter(([,v]) => v)` would
+have looked tidier and silently dropped them, killing the verdict panel's whole fail path.
+`frequencyVerdictFor()` re-run against the real tree over all five derived values:
+
+```
+multiple-daily  {"passes":true,  "verdict":"Habit-forming candidate — …"}
+daily           {"passes":true,  "verdict":"Habit-forming candidate — …"}
+weekly          {"passes":true,  "verdict":"Habit-forming candidate — …"}
+monthly         {"passes":false, "verdict":"Utility — design for get in, do the job, leave. …"}
+rarely          {"passes":false, "verdict":"Utility — design for get in, do the job, leave. …"}
+```
+
 **Free propagation, worth stating.** `system/build-share.mjs:266-277` validates every restored answer
 against `q.options` from `QUESTIONS`. Deriving the frequency options therefore propagates the ruleset
 into the share codec's accepted enum with no codec change at all.
@@ -137,6 +154,24 @@ be a new rule invented for one line.
 No new call sites, and adding one would have been wrong: `render()` calls `renderToolbar()` first, so
 every `commit()` verb recomputes it, and `renamePlace`/`renameAffordance` call it directly on the
 no-full-re-render path. **That rename path is finding 12's actual repro and it was already correct.**
+
+**AC #4's "every edit path" was audited rather than inherited from the plan's argument.** Every site
+that mutates `board` or `answers`, and how each reaches `renderToolbar`:
+
+| Path | Route | ✓ |
+|---|---|---|
+| add place · remove place · add/remove affordance · connect | `commit()` → `render()` → `renderToolbar()` | ✓ |
+| rename place · rename affordance | `renderToolbar()` directly (no full re-render — the caret) | ✓ |
+| redraft | `render()` | ✓ |
+| share restore, board adopted verbatim | `render()` | ✓ |
+| share restore, no board in payload → draft | `render()` | ✓ |
+| answers change while **not** edited → redraft | `render()` | ✓ |
+| answers change while **edited** (board is the visitor's) | `renderToolbar()` directly | ✓ |
+
+The last row is the one worth naming: it is the path where `nogos` itself changes while the visitor's
+edited board stands, so the clause *must* recompute against a board the answer did not draft — and it
+does. The share-restore row matters for the same reason, since a restored board can arrive already
+`edited`.
 
 **Mutation proof — the check goes red, on exactly one assertion.** With the filter hand-reverted to
 `const ruledOut = NOGO_RULE[answers.nogos] || [];` (hand-edited, never `git stash` — parallel sessions
