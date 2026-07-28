@@ -54,11 +54,27 @@ paid run.
 - every guard re-asserted through `runOptions` (traversing slug, unknown slot, blank question,
   out-of-enum answer, `dry`→`isDry`), so the split did not leave `runBuild` guarding a path
   `runOptions` has already returned from
+- **…and that `runBuild` still routes through it.** Every assertion above is about `runOptions`, and
+  all of them stay green if someone re-adds `force` to `runBuild` and hands it to `runComposition`
+  directly — the check would be testing the seam and not the caller, which is the exact failure mode
+  being fixed. So `runBuild.toString()` (the **live** function object, off which the route actually
+  runs; the repo has no build step, so the source is the source) must not name `force` anywhere in
+  its body, and must still call `runOptions(`. `runBuild.length` is the tempting check here and it is
+  vacuous — a destructured object parameter counts as 1 however many keys it names.
 
-**Mutation-proved.** Restoring `force` to `runOptions`' destructure → **5 failures**. Restoring the
-`{...body}` spread in `server.mjs` changes nothing, which is the point: with `force` gone from
-`runOptions`, a full spread of a hostile body still yields `force: false` — verified directly by
-calling `runOptions({...hostileBody, force: true})`.
+**Mutation-proved, four ways.**
+
+| Mutation | Result |
+| --- | --- |
+| `force` back in `runOptions`' destructure | ✗ 5 failures |
+| `force` back as a `runBuild` param, forwarded to `runComposition` | ✗ caught — "runBuild names \`force\` in its own body" |
+| `force` forwarded **without** being named a param (`opts.force`) | ✗ caught — same assertion |
+| the guards inlined into `runBuild`, bypassing `runOptions` | ✗ caught — "runBuild no longer calls runOptions" |
+
+Restoring the `{...body}` spread in `server.mjs` no longer reaches the *destructive* path — verified
+by calling `runOptions({...hostileBody, force: true})` directly, which still yields `force: false`.
+The spread is fixed anyway, because it would still let a caller set any parameter `runBuild` gains
+later; that is what the explicit list at the route is for.
 
 ## High 1b — the comment
 
@@ -144,7 +160,7 @@ stale counts in this same header one PR ago — same class.
 | `node scenarios/validate.mjs` | ✓ 3 scenarios · verdicts differ |
 | portal boots · `/api/health` answers | ✓ |
 | the drawer driven in real Chromium | ✓ 15 assertions |
-| mutation: `force` back in `runOptions` | ✗ 5 failures — **the gate catches it** |
+| 4 mutations of the `force` path (see the table above) | ✗ each caught — **the gate is not grep-shaped** |
 | mutation: unconditional `renderDraft` assignments | ✗ 5 failures — **the drawer check catches it** |
 
 **No visual baselines move.** Nothing under `system/`, `agent-layer/` or the ten gated pages changed

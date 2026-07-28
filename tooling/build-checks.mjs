@@ -898,6 +898,17 @@ function scanSvg(svg, label) {
   throws(() => runOptions({ ...RUN_INPUT, answers: { ...DEFAULT_ANSWERS, shape: "nonsense" } }), "shape", "runOptions with an out-of-enum answer");
   ok(runOptions({ ...RUN_INPUT, dry: false }).isDry === false && runOptions(RUN_INPUT).isDry === true,
     "runOptions did not carry `dry` through to isDry");
+  // ...and runBuild STILL ROUTES THROUGH IT. Every assertion above is about runOptions, and all of
+  // them stay green if someone re-adds a `force` parameter to runBuild and hands it to
+  // runComposition directly — the check would be testing the seam and not the caller, which is the
+  // exact failure mode being fixed here. runBuild's whole body is runOptions + the lock + the run,
+  // so `force` has no business appearing anywhere in it, param or not. Read off the LIVE function
+  // object rather than the file: this is the function the route actually calls, and the repo has no
+  // build step, so the source is the source. `runBuild.length` would be the tempting check and it
+  // is a vacuous one — a destructured object parameter counts as 1 however many keys it names.
+  ok(!/force/.test(runBuild.toString()),
+    `runBuild names \`force\` in its own body — it must reach runComposition only through runOptions:\n${runBuild.toString()}`);
+  ok(/runOptions\(/.test(runBuild.toString()), "runBuild no longer calls runOptions — its guards may have been inlined past the force pin");
 
   // The contract guards. Both values reach a filesystem path and both now arrive from an HTTP body.
   for (const bad of ["../escape", "/etc/passwd", "a/b", "", "Northwind", "a".repeat(41), null, undefined, 7]) {
