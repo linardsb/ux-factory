@@ -276,6 +276,67 @@ async function journey(engineName, results, held) {
   t(`rename input is capped at LABEL_MAX (${LABEL_MAX})`,
     (await firstName.getAttribute("maxlength")) === String(LABEL_MAX));
 
+  console.log("\n[5b] the no-go line stops naming a place the visitor put back (#144 finding 12)");
+  // On a page of its own: this check ADDS a place, and `edited` latches for the life of the page —
+  // every check below [5] builds on the drafted board. Same reason [4d] runs on its own page.
+  //
+  // Every name here is read off the RUNNING page, never typed: breadboard.mjs keeps NOGO_RULE
+  // private, and a literal "People" in this driver would be a second copy of that list waiting to
+  // disagree with the first.
+  const nogoPage = await newPage(ctx);
+  await nogoPage.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(nogoPage);
+  // settle() waits on the keep rail and the pattern stage, NOT on the breadboard — check [1] waits for
+  // that handle separately, and this page never goes through [1]. Every assertion below reads the
+  // breadboard's toolbar, so wait for it explicitly rather than relying on the mount having won a race
+  // it usually wins.
+  await nogoPage.waitForSelector("[data-breadboard='ready']");
+  // These three answers are chosen, not arbitrary (measured against the real draftBoard, with the
+  // page's own DEFAULT_ANSWERS.shape). `social` rules out TWO places, so the clause has something
+  // left to name after one is put back — which is what proves the fix FILTERS rather than drops the
+  // clause. And with investment=content + reward=tribe the draft genuinely wanted "People", so the
+  // no-go really did subtract it: the check exercises a place that was removed, not one that was
+  // never coming. Board with the no-go: [Overview · Library]; without it: [Overview · People · Library].
+  await nogoPage.evaluate(() => import("/system/build-questions.mjs").then((m) =>
+    m.setAnswers({ nogos: "social", investment: "content", rewardType: "tribe" })));
+  const countLine = nogoPage.locator("[data-breadboard] .bx-bb-count");
+  await nogoPage.waitForFunction(() =>
+    (document.querySelector("[data-breadboard] .bx-bb-count")?.textContent || "").includes("ruled out by your no-go"));
+  const ruledLine = await countLine.textContent();
+  const named = ruledLine.split("ruled out by your no-go:")[1].split(",").map((s) => s.trim()).filter(Boolean);
+  t(`the no-go states what it ruled out (${named.join(", ")})`, named.length === 2, ruledLine);
+
+  // Put the first one back, by hand, exactly as a visitor would: add a place, rename it to that name.
+  const putBack = named[0];
+  // The before half of a before/after. Without this the "stops naming it" assertion below could pass
+  // on a page where the name was never there to begin with.
+  const boardBefore = await nogoPage.$$eval("[data-breadboard] .bx-bb-place .bx-bb-name", (n) => n.map((i) => i.value));
+  t(`"${putBack}" is absent before the edit (${boardBefore.join(" · ")})`, !boardBefore.includes(putBack), boardBefore.join(" · "));
+  await nogoPage.locator("[data-breadboard] [data-bb-add-place]").click();
+  const newName = nogoPage.locator("[data-breadboard] .bx-bb-place .bx-bb-name").last();
+  await newName.fill(putBack);
+  await newName.blur();
+  await nogoPage.waitForFunction((n) => {
+    const line = document.querySelector("[data-breadboard] .bx-bb-count")?.textContent || "";
+    return !line.includes(`no-go: ${n}`) && !line.includes(`, ${n}`);
+  }, putBack, { timeout: 5000 }).catch(() => {});
+  const after = await countLine.textContent();
+  t(`the line stops naming "${putBack}" once it is on the board`,
+    !new RegExp(`\\b${putBack}\\b`).test(after.split("ruled out by your no-go:")[1] || ""), after);
+  // ...and the place really is there, so the check cannot pass by the clause vanishing for some
+  // other reason (a thrown render would also remove the name).
+  const labels = await nogoPage.$$eval("[data-breadboard] .bx-bb-place .bx-bb-name", (n) => n.map((i) => i.value));
+  t(`"${putBack}" is on the board (${labels.join(" · ")})`, labels.includes(putBack), labels.join(" · "));
+  // The remaining name must survive: the fix FILTERS the clause, it does not drop it. `social` rules
+  // out exactly two places, so this list always holds one — asserted unconditionally rather than
+  // behind an `if (stillNamed.length)` that could never be false. (The first draft of this check had
+  // that branch with a `skip` in the else, which is the "check that cannot fail" shape this driver's
+  // own header warns about, one level up: dead code that reads as coverage.)
+  const stillNamed = named.slice(1);
+  t(`the no-go still names what is still absent (${stillNamed.join(", ")})`,
+    stillNamed.length > 0 && stillNamed.every((n) => after.includes(n)), after);
+  await nogoPage.close();
+
   console.log("\n[6] the share link, opened in a fresh context");
   // Give the build a real design first, so the link carries token VALUES and not just a board.
   await page.locator("[data-build-color]").fill("#c2410c");
