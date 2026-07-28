@@ -98,11 +98,25 @@ const server = createServer(async (req, res) => {
       res.on('close', () => { open = false; });
       const send = (o) => { if (open && !res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); };
       try {
+        // EVERY PARAMETER NAMED, never `{ ...body }`. A spread makes each of runBuild's parameters
+        // — including any added later — settable by whatever JSON reached this socket, and this is
+        // a route a cross-origin page can POST to (readBody JSON.parses regardless of
+        // content-type, so a text/plain POST is a simple request: no preflight, opaque response,
+        // side effect delivered). runOptions is the other half and the provable one: `force` is
+        // not a parameter there at all, so the runner's overwrite path is unreachable from HTTP
+        // even if this list drifts. Whitelist, never blacklist — the same reasoning stepEvent
+        // applies one module over. What remains is that such a POST can still START a run (fresh
+        // slug, no overwrite): #157 closes that portal-wide, for /api/chat and /api/figma/pull too.
+        //
         // stepEvent is builder.mjs's exported whitelist and this route holds NO shape opinion of
         // its own: a projection written inline here is one build-checks group 8 cannot reach, and
         // it would drift from the one group 8 does check. It returns null for the meta and result
         // lines (the meta carries an absolute home-dir cwd), so the send is skipped for those.
-        const result = await runBuild({ ...body, onStep: (line) => { const ev = stepEvent(line); if (ev) send(ev); } });
+        const result = await runBuild({
+          scenario: body.scenario, answers: body.answers, question: body.question,
+          slot: body.slot, slug: body.slug, dry: body.dry,
+          onStep: (line) => { const ev = stepEvent(line); if (ev) send(ev); },
+        });
         send({ type: 'done', result });
       } catch (e) {
         // Not the catch-all's { error } body: SSE headers are already written, so a refusal is an

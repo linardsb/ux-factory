@@ -425,19 +425,45 @@ function renderBuilderQuestions() {
   );
 }
 
-$('#builder-scenario').addEventListener('change', () => { $('#builder-slot').innerHTML = ''; refreshDraft(); });
+$('#builder-scenario').addEventListener('change', () => {
+  $('#builder-slot').innerHTML = '';
+  resetBuilderEdits(); // a different scenario means a different subject — the old edit is about nothing
+  refreshDraft();
+});
 $('#builder-slot').addEventListener('change', () => refreshDraft());
+
+// AN EDIT IS NOT OVERWRITTEN BY A DRAFT THAT CANNOT HAVE CHANGED. draftQuestion reads only `shape`
+// and `action` (rule 3, gated byte-for-byte in build-checks group 8), and the slot is not a
+// parameter at all — so for eight of the ten answers and for every slot switch, refreshDraft
+// re-fetches a question that is provably identical and would clobber the operator's edit with it.
+// The textarea's own label invites that edit ("edit it before you spend a run"), and the plan's
+// stated check is the operator reading it before spending a real run; resetting it under them
+// defeats the check with the code that renders it.
+//
+// TWO flags, not one: the slug is derived (scenario-shape-slot), so a slot switch SHOULD refresh it
+// while the edited question survives the same switch. Both fields are static markup in index.html —
+// only #builder-questions is re-rendered — so these listeners attach once and stay attached.
+let questionTouched = false;
+let slugTouched = false;
+$('#builder-question').addEventListener('input', () => { questionTouched = true; });
+$('#builder-slug').addEventListener('input', () => { slugTouched = true; });
+function resetBuilderEdits() { questionTouched = false; slugTouched = false; }
 
 // A capability the operator cannot exercise is not offered at all — no Run button that fails on
 // click. The same rule system/instance.mjs:360 follows for the prototype slot.
-function setBuilderComposable(yes) {
+//
+// `clear` is false on the TRANSIENT-failure path. Emptying both fields is right for a scenario that
+// is not composable — there is no question to draft for it — but a /api/build/draft blip (a server
+// restart mid-session) hitting the same code would destroy typed input recoverable from nowhere.
+function setBuilderComposable(yes, { clear = true } = {}) {
   $('#builder-run').hidden = !yes;
   for (const sel of ['#builder-slot', '#builder-question', '#builder-slug', '#builder-dry']) $(sel).disabled = !yes;
-  if (yes) return;
+  if (yes || !clear) return;
   $('#builder-bounds').textContent = '';
   $('#builder-verdict').innerHTML = '';
   $('#builder-question').value = '';
   $('#builder-slug').value = '';
+  resetBuilderEdits(); // the fields are empty now, so nothing is "touched"
 }
 
 async function refreshDraft() {
@@ -466,7 +492,7 @@ async function refreshDraft() {
     if (seq !== builder.seq) return;
     builder.draft = null;
     $('#builder-scenario-note').textContent = err.message;
-    setBuilderComposable(false);
+    setBuilderComposable(false, { clear: false }); // a blip must not eat the operator's typing
   }
 }
 
@@ -476,8 +502,8 @@ function renderDraft(d) {
   // The slot's bounds VERBATIM from the scenario's compose.json — this is what the agent is held
   // to, so a paraphrase here would be the surface disagreeing with the prompt.
   $('#builder-bounds').textContent = d.bounds;
-  $('#builder-question').value = d.question;
-  $('#builder-slug').value = d.defaultSlug;
+  if (!questionTouched) $('#builder-question').value = d.question;
+  if (!slugTouched) $('#builder-slug').value = d.defaultSlug;
   const inputs = builder.config.questionInputs;
   $('#builder-verdict').innerHTML = `
     <h3 class="h3">The ethics record — shown, never blocking</h3>

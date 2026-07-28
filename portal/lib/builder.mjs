@@ -116,11 +116,16 @@ export function validateAnswers(raw) {
 
 // --- the contract guards --------------------------------------------------------------------------
 // Both values reach a filesystem path — loadComposeConfig builds scenarios/<scenario>/, and the
-// runner builds traces/<slug>.raw.jsonl — and since #140 both arrive from an HTTP body. These are
-// CONTRACT guards, not trust boundaries (the portal binds 127.0.0.1 only), framed the way
-// agent-layer/build-instance.mjs:184 frames compositionRef. Each is an exported named function so
-// tooling/build-checks.mjs can call it: a guard reachable only by starting a real agent run is a
-// guard nobody tests.
+// runner builds traces/<slug>.raw.jsonl — and since #140 both arrive from an HTTP body, so be exact
+// about what that body is. Binding 127.0.0.1 stops a REMOTE client; it does nothing about a page
+// open in the operator's own browser, which can POST here cross-origin (no preflight — readBody
+// JSON.parses regardless of content-type). So these are contract guards AND the route's parameter
+// whitelist is load-bearing: runOptions below is why no HTTP body can reach the runner's
+// destructive `force` path. (The remaining, non-destructive half of that gap — a cross-origin POST
+// can still START a token-spending run on a fresh slug — is #157, and it is a portal-wide fix.)
+// Framed the way agent-layer/build-instance.mjs:184 frames compositionRef.
+// Each is an exported named function so tooling/build-checks.mjs can call it: a guard reachable only
+// by starting a real agent run is a guard nobody tests.
 const SCENARIO_RE = /^[a-z0-9-]{1,40}$/;
 const RUN_SLUG_RE = /^[a-z0-9-]{1,48}$/;
 
@@ -308,18 +313,33 @@ export function draftRun({ scenario, answers, slot }) {
   };
 }
 
-// The run. It re-runs EVERY guard itself, because /api/build/run is a separate route from
-// /api/build/draft and a POST can reach it having never touched the preview. The question is passed
-// through AS GIVEN, so an operator's edit is honoured verbatim — the breadboard's "drafted then
-// editable" contract, and the check the rules cannot perform (they cannot know whether a drafted
-// question is answerable from a given scenario's fixtures).
-export async function runBuild({ scenario, answers, question, slot, slug, dry, force, onStep }) {
+// Every guard, plus the exact parameter object runComposition is handed (minus onStep, which is a
+// hook rather than data). Split out of runBuild and exported for the same reason withRunLock and
+// stepEvent are: a rule that lives inline inside runBuild is one tooling/build-checks.mjs cannot
+// reach, because reaching it means starting a real agent run.
+//
+// `force` IS NOT A PARAMETER, and its absence is the security boundary. runComposition's `force`
+// skips the "traces/<slug>.raw.jsonl exists" throw, and past that throw the runner rmSync's the
+// committed proposal and recordRun truncates the committed raw trace to zero bytes — before the SDK
+// query, so it lands even if the run then dies on auth. Destructuring it here would make an HTTP
+// body the only thing standing between a page in the operator's browser and a committed honesty
+// artifact. The CLI keeps its --force: record-composition.mjs:496 calls runComposition directly.
+export function runOptions({ scenario, answers, question, slot, slug, dry }) {
   assertScenarioSlug(scenario);
   const config = readScenario(scenario);   // ← the fictional:false + no-compose.json refusals
   validateAnswers(answers);                // the answers are the run's record
   if (!Object.hasOwn(config.slots, slot)) bad(`slot must be one of: ${Object.keys(config.slots).join(' | ')} (got "${slot}")`);
   assertRunSlug(slug);
   if (typeof question !== 'string' || !question.trim()) bad('a question is required');
-  return withRunLock(() =>
-    runComposition({ scenario, question, slot, slug, isDry: Boolean(dry), force: Boolean(force), onStep }));
+  return { scenario, question, slot, slug, isDry: Boolean(dry), force: false };
+}
+
+// The run. It re-runs EVERY guard itself, because /api/build/run is a separate route from
+// /api/build/draft and a POST can reach it having never touched the preview. The question is passed
+// through AS GIVEN, so an operator's edit is honoured verbatim — the breadboard's "drafted then
+// editable" contract, and the check the rules cannot perform (they cannot know whether a drafted
+// question is answerable from a given scenario's fixtures).
+export async function runBuild({ scenario, answers, question, slot, slug, dry, onStep }) {
+  const options = runOptions({ scenario, answers, question, slot, slug, dry });
+  return withRunLock(() => runComposition({ ...options, onStep }));
 }

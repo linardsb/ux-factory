@@ -3,7 +3,10 @@
 #   drift-check  — regenerates the committed generators/artifacts, fails on any divergence.
 #   token-lint   — undeclared / orphan / DTCG-valid contract checks.
 #   build-checks — /build's pattern chain: rules, slots, compositions against the real vocabulary,
-#                  the share codec + its tamper battery, SVG escaping, the vetting invariant.
+#                  the share codec + its tamper battery, SVG escaping, the vetting invariant, and
+#                  group 8 the OPERATOR PATH (portal/lib/builder.mjs) — whose central invariant this
+#                  job proves BY AN ABSENCE. See the warning on the Build checks step below before
+#                  touching that step: portal/ must never get an npm ci here.
 #   visual       — Playwright screenshots of the shipped pages (6 IA + /roundtrip + /build + 2
 #                  data-connected proto = 10 pages, 20 PNGs) under the neutral pack + one client
 #                  pack (saulera, applied by swapping the one tokens.neutral.css link), pixel-diffed
@@ -50,6 +53,16 @@ jobs:
       # escaping, and the one-application-point invariant. Registered here because check 3's whole
       # job is to fail when a vocabulary regeneration breaks the builder — a guarantee that only
       # holds if something runs it without being asked (epic #134, tickets #137 and #138).
+      #
+      # ⚠ DO NOT ADD AN `npm ci` FOR portal/ TO THIS JOB. Group 8 imports portal/lib/builder.mjs,
+      # and its central invariant — nothing in that module's graph reaches
+      # @anthropic-ai/claude-agent-sdk, so the SDK loads only when a real run actually starts — is
+      # proven by the ABSENCE of portal/node_modules here. Installing portal deps to turn a red job
+      # green does not fix the failure; it DELETES the check, and this step keeps printing
+      # "all 8 groups pass" afterwards. A red group 8 with "Cannot find package
+      # '@anthropic-ai/claude-agent-sdk'" means someone added a static SDK import under portal/lib/
+      # — that import is the bug (epic #134, ticket #140). The npm ci steps above are deliberately
+      # scoped to tooling/style-dictionary and tooling/visual-regression only.
       - name: Build checks
         run: node tooling/build-checks.mjs
 

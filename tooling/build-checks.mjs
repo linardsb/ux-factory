@@ -46,8 +46,8 @@ import { compose, streamNote } from "../system/pattern-render.mjs";
 import { affordanceCount, PATTERNS, patternFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
   ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
-  listScenarios, QUESTION_INPUTS, runBuild, SHAPE_QUESTION, slugFor, STEP_EVENT_TEXT_MAX, stepEvent,
-  validateAnswers, withRunLock,
+  listScenarios, QUESTION_INPUTS, runBuild, runOptions, SHAPE_QUESTION, slugFor, STEP_EVENT_TEXT_MAX,
+  stepEvent, validateAnswers, withRunLock,
 } from "../portal/lib/builder.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -866,6 +866,38 @@ function scanSvg(svg, label) {
   ok(runRefusal !== null, "runBuild started a run for a package with no compose.json");
   ok(runRefusal?.includes("compose.json"), `runBuild's refusal was "${runRefusal}", which does not name compose.json`);
   ok(isRunInFlight() === false, "a refused run left the run lock held");
+
+  // `force` CANNOT BE SET FROM A CALLER, and this is the assertion that keeps it that way. In the
+  // runner, force skips the "traces/<slug>.raw.jsonl exists" throw; past that throw a committed
+  // proposal is rmSync'd and the committed raw trace is truncated to zero bytes BEFORE the SDK
+  // query, so it lands even if the run then dies on auth. server.mjs POSTs into runBuild, so a
+  // `{ ...body }` spread there — or a `force` back in the destructure here — would put that path
+  // one HTTP body away. runOptions is checked rather than runBuild because it is PURE: calling
+  // runBuild with force:true to watch it get dropped would be safe only while green, and on a
+  // regression the gate itself would delete the committed proposal and start a paid run.
+  const RUN_INPUT = {
+    scenario: "northwind", answers: DEFAULT_ANSWERS, question: "What is the state of things?",
+    slot: "insight-panel", slug: "gate-probe-options", dry: true,
+  };
+  ok(runOptions(RUN_INPUT).force === false, "runOptions did not pin force to false");
+  for (const hostile of [true, 1, "yes", "false", {}]) {
+    const opts = runOptions({ ...RUN_INPUT, force: hostile });
+    ok(opts.force === false, `a caller-supplied force ${JSON.stringify(hostile)} survived into the run options`);
+  }
+  // ...and the option set is EXACTLY what the runner takes, so a parameter added to runComposition
+  // later cannot start being caller-settable by being quietly forwarded. onStep is excluded on
+  // purpose: runBuild adds the hook, and a hook is not data an HTTP body supplies.
+  const RUN_OPTION_KEYS = ["scenario", "question", "slot", "slug", "isDry", "force"];
+  ok(JSON.stringify(Object.keys(runOptions(RUN_INPUT)).sort()) === JSON.stringify([...RUN_OPTION_KEYS].sort()),
+    `runOptions returned keys [${Object.keys(runOptions(RUN_INPUT)).join(",")}], expected [${RUN_OPTION_KEYS.join(",")}]`);
+  // Every guard runs INSIDE runOptions, so the split did not leave runBuild guarding a path
+  // runOptions has already returned from.
+  throws(() => runOptions({ ...RUN_INPUT, slug: "../escape" }), "slug", "runOptions with a traversing slug");
+  throws(() => runOptions({ ...RUN_INPUT, slot: "nonsense" }), "slot", "runOptions with an unknown slot");
+  throws(() => runOptions({ ...RUN_INPUT, question: "   " }), "question", "runOptions with a blank question");
+  throws(() => runOptions({ ...RUN_INPUT, answers: { ...DEFAULT_ANSWERS, shape: "nonsense" } }), "shape", "runOptions with an out-of-enum answer");
+  ok(runOptions({ ...RUN_INPUT, dry: false }).isDry === false && runOptions(RUN_INPUT).isDry === true,
+    "runOptions did not carry `dry` through to isDry");
 
   // The contract guards. Both values reach a filesystem path and both now arrive from an HTTP body.
   for (const bad of ["../escape", "/etc/passwd", "a/b", "", "Northwind", "a".repeat(41), null, undefined, 7]) {
