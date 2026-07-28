@@ -69,8 +69,9 @@ from inside the page on a second page of its own.
 | `node --check` × 5 changed JS files | ✓ |
 | `node tooling/build-checks.mjs` | ✓ **all 10 groups pass** |
 | …with `portal/node_modules` moved aside (SDK-free invariant) | ✓ all 10 groups pass |
-| `node tooling/build-journey.mjs all` | ✓ **121 passed · 0 failed** on chromium, firefox, webkit |
-| …repeated ×3 (9 engine-runs total) | ✓ **0 failures across all 9** |
+| `node tooling/build-journey.mjs all` — **post-fix** code (121 assertions) | ✓ **121 passed · 0 failed** on chromium, firefox, webkit |
+| …repeated ×3 (9 post-fix engine-runs) | ✓ **0 failures across all 9** |
+| (for contrast: **pre-fix** code, 118 assertions, 3 × 3 engine-runs) | 1 failure — firefox, run 3, check [7]. That run is what found the dock collision. |
 | `node agent-layer/gen-loc-summary.mjs --check` (after staging) | ✓ no drift |
 | `node tooling/drift-check.mjs` | ✓ syntax · token-css · annotated-source · loc-summary · system-graph · handoff · scenarios · traces |
 | `node tooling/token-lint.mjs` | ✓ 64 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
@@ -91,7 +92,7 @@ than a restatement of the code.
 
 ### Regression surface — observed, not assumed
 
-Quoted from the 3 × 3-engine runs (the plan asks for [9] three times; it ran nine):
+Quoted from the three post-fix `all` runs — the plan asks for [9] three times, and it ran nine:
 
 ```
 9   ✓ the dock is genuinely shut before it is opened (0 of 4 pack rows showing)   [7]
@@ -166,7 +167,14 @@ flip **agree**, and prints which case the engine gave (`pattern on stage before 
 **5 · `built` is a boolean, not the URL string.** The plan sketched `let built = null; … built = url`.
 Nothing downstream uses the URL, so it holds a boolean.
 
-**6 · Task 5's falsifiability command was not run as written.** The plan's
+**6 · The plan's Level 5 manual browser pass was not run by hand, deliberately.** All six of its
+steps — no flip before Act 4, one flip on render, no second flip on re-render, one `/build/shared` on
+copy, the address bar settling back on `?b=`, and `#appearance` opening and closing without eating
+the query — are each driven as an assertion in [17b] or [7] across chromium, firefox and webkit, and
+[18] asserts zero console errors on all three. That is strictly stronger than one hand pass in one
+browser, so the checklist item is met by the driven gate rather than duplicated by hand.
+
+**7 · Task 5's falsifiability command was not run as written.** The plan's
 `git checkout system/analytics.mjs` restores from the **index**, which at that point still held HEAD
 — it would have silently reverted Phases 1–2. A scratchpad `cp` was used instead.
 
