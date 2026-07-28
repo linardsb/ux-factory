@@ -88,7 +88,8 @@ legitimate consumer to break.
 **6 · The socket check.** An 8 MB `text/plain` body with `Origin: http://evil.com` to
 `/api/figma/pull?slug=hangtest` → prompt `403`, no hang, and neither `system/tokens.hangtest.css`
 nor `tooling/figma/exports/hangtest.json` was created. This is the path that would have surfaced a
-403-before-read wedging the socket, because `receiveExport` streams outside `readBody`'s 1 MB cap.
+403-before-read wedging the socket, because `receiveExport` streams outside `readBody`'s 1 MB cap
+(it has its own 32 MB one — see the withdrawn finding below).
 
 **7 · Repo gates** — `drift-check ✓` (syntax · token-css · annotated-source · loc-summary ·
 system-graph · handoff · scenarios · traces), `token-lint ✓`, `gen-loc-summary --check ✓ no drift`
@@ -99,8 +100,27 @@ file changed, so no visual baseline churn.
 
 - **CORS response headers.** Nothing legitimately reads this server cross-origin; `Access-Control-*`
   would only widen it.
-- **`receiveExport` bypasses `readBody`'s 1 MB cap** (`portal/server.mjs:72` streams to disk). Real,
-  pre-existing, and now unreachable cross-origin — but an unbounded local write is still there.
-  **Flagged here only — no follow-up issue filed**, and #157 closes with this PR, so it needs its
-  own ticket if it is to survive. Not fixed here: it is a different failure and a different fix.
 - **Any authn.** This is a CSRF guard on a loopback-bound local workbench, not a login.
+
+## A finding I raised and then withdrew
+
+Recorded rather than quietly dropped, because the claim reached this PR's body before it was checked.
+
+I flagged that `receiveExport` (`portal/server.mjs:72`) streams to disk *outside* `readBody`'s 1 MB
+cap and called it an unbounded local write. **That was wrong.** The route carries its OWN,
+deliberately larger cap — `MAX_EXPORT_BYTES`, 32 MB (`portal/lib/figma.mjs:18`): a `content-length`
+pre-check before a byte is written, a streaming byte counter that `req.destroy()`s on overflow
+(destroying the request rather than throwing from a `data` handler is what makes the pipeline
+promise reject instead of leaving a hung socket), and `rmSync` of the partial file on every error
+path.
+
+Driven both ways against a running portal:
+
+| request | result |
+| --- | --- |
+| 33 MB with a real `content-length` | refused by name — `export is 33.0 MB, over the 32 MB cap` |
+| the same 33 MB sent chunked, no `content-length` | socket destroyed by the streaming counter |
+
+Neither left an export file or a pack file on disk. **No follow-up issue filed, because there is no
+defect.** The mistake was reasoning from `readBody`'s cap while reading the route, instead of running
+the path that actually guards it — the same lesson as the `perl` mutation above, one layer up.
