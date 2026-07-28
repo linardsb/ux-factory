@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { PORT, REPO_DIR, JOBS_DIR, PORTAL_DIR, HAS_TOKEN } from './lib/env.mjs';
+import { allowedOrigins, originAllowed } from './lib/origin.mjs';
 import { listCards, cardFor } from './lib/kb.mjs';
 import { createIntake } from './lib/intake.mjs';
 import { streamChat } from './lib/chat.mjs';
@@ -47,6 +48,14 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
   try {
+    // Before ANY routing, and for every method rather than a list of the state-changing ones: a
+    // same-origin fetch GET sends no Origin at all, so this is a no-op on the portal's own reads,
+    // and a method whitelist is one more thing to remember when a route is added. Why it exists
+    // and why it accepts two origins → portal/lib/origin.mjs. Returned before readBody, which is
+    // what keeps a hostile POST from spending a token or streaming a file to disk.
+    if (!originAllowed(req.headers.origin, PORT))
+      return json(res, 403, { error: `cross-origin request refused — the portal answers ${allowedOrigins(PORT).join(' and ')} only` });
+
     // --- API ---
     if (p === '/api/health') return json(res, 200, { ok: true, hasToken: HAS_TOKEN, jobsDir: JOBS_DIR, cards: listCards().length });
     if (p === '/api/cards' && req.method === 'GET') return json(res, 200, listCards());
@@ -105,8 +114,8 @@ const server = createServer(async (req, res) => {
         // side effect delivered). runOptions is the other half and the provable one: `force` is
         // not a parameter there at all, so the runner's overwrite path is unreachable from HTTP
         // even if this list drifts. Whitelist, never blacklist — the same reasoning stepEvent
-        // applies one module over. What remains is that such a POST can still START a run (fresh
-        // slug, no overwrite): #157 closes that portal-wide, for /api/chat and /api/figma/pull too.
+        // applies one module over. The origin guard at the top of this handler now refuses that
+        // POST outright (#157), portal-wide; this list is the second line, not the only one.
         //
         // stepEvent is builder.mjs's exported whitelist and this route holds NO shape opinion of
         // its own: a projection written inline here is one build-checks group 8 cannot reach, and

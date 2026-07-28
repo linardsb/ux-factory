@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Eight groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Nine groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -9,12 +9,15 @@
 // inside function bodies, self-boot behind a `typeof document` guard), so if an import here starts
 // pulling `document`, the module has a bug and the module is what gets fixed.
 //
-// ONE NAMED EXCEPTION, added by #140: group 8 imports portal/lib/builder.mjs, which is build-time
-// code rather than shipped code. It is here because it answers the SAME ten questions — a second
-// gate file would be a gate nobody runs — and because CI is the only place its central invariant
-// can be proven: CI has no portal/node_modules, so an SDK import anywhere in that module's graph
-// fails this job. The invariant is proven by an ABSENCE, which is why it cannot be checked by
+// TWO NAMED EXCEPTIONS import portal/ code, which is build-time rather than shipped. Both are here
+// because a second gate file would be a gate nobody runs, and both are SDK-free for the same
+// reason: CI has no portal/node_modules, so an SDK import anywhere in either module's graph fails
+// this job. Group 8's invariant is proven by that ABSENCE, which is why it cannot be checked by
 // adding something (see group 8's own comment before "fixing" it by installing portal deps in CI).
+//   · group 8 (#140) imports portal/lib/builder.mjs — it answers the SAME ten questions.
+//   · group 9 (#157) imports portal/lib/origin.mjs — and see its own comment for what that does
+//     NOT cover: the predicate is gated here, the WIRING is only ever proven against a running
+//     portal, because server.mjs reaches the SDK and so can never be imported in this job.
 //
 //   1 pattern ids     the three rules, including the hub override and the empty board
 //   2 slots           counted from the board, never invented; every value a string
@@ -28,6 +31,8 @@
 //   7 vetting         the one-application-point invariant, across ALL the /build modules
 //   8 operator path   the three committed rules that draft a composition question from the same
 //                     ten answers, their guards, and the SSE projection's whitelist (#140)
+//   9 origin          the portal's CSRF predicate: both loopback origins accepted, an absent
+//                     Origin allowed, every near-miss of an allowed origin refused (#157)
 //
 //   node tooling/build-checks.mjs
 
@@ -49,6 +54,7 @@ import {
   listScenarios, QUESTION_INPUTS, runBuild, runOptions, SHAPE_QUESTION, slugFor, STEP_EVENT_TEXT_MAX,
   stepEvent, validateAnswers, withRunLock,
 } from "../portal/lib/builder.mjs";
+import { allowedOrigins, originAllowed } from "../portal/lib/origin.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -999,6 +1005,62 @@ function scanSvg(svg, label) {
   group("operator-path", `3 rules over ${QUESTIONS.length} answers · 8 non-inputs inert · ${slugs.length} slugs distinct · stepEvent whitelist · run lock`);
 }
 
+// --- 9 · the portal's origin guard --------------------------------------------------------------
+// SCOPE, stated plainly because the alternative is a check that cannot fail: this proves the
+// PREDICATE, not the WIRING. server.mjs imports chat.mjs → the Agent SDK, so CI (no
+// portal/node_modules, group 8's whole point) can never boot the server; nothing here can observe
+// that the guard is CALLED. That is proven by driving the running portal, recorded in
+// .claude/reports/portal-origin-guard-report.md, and it has to be re-driven if the handler is
+// restructured.
+//
+// What this group is for is the trap the ticket names: the guard has to accept BOTH loopback
+// origins, and it has to reject the near-misses of the ones it accepts. Both halves are string
+// matching, which is exactly what rots when a port or a host is added.
+{
+  const PORT = 4747;
+  const allowed = allowedOrigins(PORT);
+  ok(allowed.length === 2, `allowedOrigins returned ${allowed.length} origins, expected localhost and 127.0.0.1`);
+
+  // Both, or the drawer breaks for whichever host the operator typed.
+  for (const origin of [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`])
+    ok(originAllowed(origin, PORT), `${origin} was refused — the portal's own pages cannot POST`);
+
+  // No Origin is not a browser cross-origin request: curl, the runbook's commands, every
+  // same-origin GET.
+  for (const absent of [undefined, null, ""])
+    ok(originAllowed(absent, PORT), `an absent Origin (${JSON.stringify(absent)}) was refused — the runbook's curl commands would break`);
+
+  // Every one of these reaches the handler in a real browser. Prefix and suffix cases are why the
+  // match is ===: three of them START with an allowed origin.
+  const hostile = [
+    "null",                                  // sandboxed iframe, file:// page
+    "http://evil.com",
+    "https://evil.com",
+    `http://localhost:${PORT}.evil.com`,     // suffix — starts with an allowed origin
+    `http://localhost:${PORT}0`,             // port 47470 — also a prefix match
+    `http://localhost:${PORT}/`,             // trailing slash — a real Origin never has one
+    `http://localhost:${PORT}#`,
+    `https://localhost:${PORT}`,             // scheme: the portal is http only
+    `http://LOCALHOST:${PORT}`,              // case: browsers send the host lowercased
+    `http://127.0.0.2:${PORT}`,
+    `http://localhost:${PORT + 1}`,
+    "http://localhost",                      // port 80
+    `http://user@localhost:${PORT}`,
+    `http://localhost:${PORT}, http://evil.com`, // duplicate header, joined by node
+    ` http://localhost:${PORT}`,
+    `http://localhost:${PORT} `,
+  ];
+  for (const origin of hostile)
+    ok(!originAllowed(origin, PORT), `"${origin}" was ALLOWED — a page at that origin can drive the portal`);
+
+  // The port is a parameter, not a baked constant: PORT is settable from portal/.env, and a guard
+  // that only knows 4747 refuses the operator's own pages on any other port.
+  ok(originAllowed("http://localhost:8080", 8080), "the guard ignored a non-default PORT — the portal's own pages break when PORT is set");
+  ok(!originAllowed(`http://localhost:${PORT}`, 8080), "the guard allowed the default port while running on another");
+
+  group("origin", `${allowed.length} loopback origins accepted · 3 absent forms pass · ${hostile.length} hostile origins refused · port is a parameter`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1006,5 +1068,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 8 groups pass");
+  console.log("\nbuild ✓  all 9 groups pass");
 }
