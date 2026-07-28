@@ -84,10 +84,11 @@ No stale-clause path found. The claim holds.
 The PR argues no baseline regeneration is needed. Verified three ways. `DEFAULT_ANSWERS.nogos` is `"none"` and `NOGO_RULE.none` is `[]` (`breadboard.mjs:89`), so at rest the clause is absent and filtering an empty array is a pixel-for-pixel no-op. Measured on a live page, the at-rest toolbar reads `3 of 6 places · 5 affordances` with no no-go clause, and the Act 1 question rendered at rest is the **trigger** question ("What feeling brings someone back to your product?", step 1) — frequency lives at step 5 and never renders at rest, so the changed enum cannot reach a baseline. And CI agrees:
 
 ```
-verify   pass   17s
-visual   pass   51s
-mergeStateStatus: CLEAN
+verify   pass   17s        visual   pass   51s        mergeStateStatus: CLEAN     ← at 008bd3b (code head)
+verify   pass   15s        visual   pass   48s        mergeStateStatus: CLEAN     ← at 93466ef (this review commit)
 ```
+
+Captured at both heads. Anything pushed after `93466ef` is documentation-only and touches no file in any gate's input set — `gen-loc-summary`'s three groups match `system/*.{css,mjs,js}`, root/`proto/*.html` and `agent-layer/*.mjs`, so a `.claude/` markdown file cannot move it.
 
 This matters because this repo's memory (`visual-regression-baseline-trap`, `vr-tolerance-hides-text-changes`) records that local gates cannot catch baseline churn. Here the real gate ran and is green.
 
@@ -126,7 +127,7 @@ The ticket is about comments over-claiming, so the replacement comment deserves 
 | `node tooling/drift-check.mjs` | ✓ syntax · token-css · annotated-source · loc-summary · system-graph · handoff · scenarios · traces |
 | `node agent-layer/gen-loc-summary.mjs --check` | ✓ 3 groups — no drift |
 | `node --check` × 3 | ✓ |
-| CI `verify` / `visual` | ✓ pass / ✓ pass · mergeState **CLEAN** |
+| CI `verify` / `visual` | ✓ pass / ✓ pass · mergeState **CLEAN** — at `008bd3b` and again at `93466ef` |
 
 Everything in the PR's own table reproduced. Nothing red.
 
