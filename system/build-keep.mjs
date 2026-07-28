@@ -347,8 +347,10 @@ function mount(root) {
     const { state, reason } = await decodeBuild(param);
     if (!state) {
       // Scrub the param, so a reader who reloads after a bad link does not meet the same failure a
-      // second time, and the builder they are looking at is genuinely the clean one.
-      const url = new URL(location.href);
+      // second time, and the builder they are looking at is genuinely the clean one. settledUrl for
+      // the same reason as the field seed below — this is past the same await, so the same
+      // #act-pattern arrival can have a flip open here, and scrubbing a virtual URL would write one.
+      const url = new URL(await settledUrl());
       url.searchParams.delete(SHARE_PARAM);
       replaceUrl(url.toString());
       say(`${REFUSED} ${reason}`);
