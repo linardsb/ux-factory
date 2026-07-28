@@ -672,9 +672,12 @@ async function journey(engineName, results, held) {
   // The ticket's reason to exist. Asserted by CLICKING, not by reading the href: the links are
   // extensionless (/build), the way every in-page link on this site is, so "the href is right" and
   // "the link resolves" are two different claims and only the second one matters to a visitor.
+  // Three links now (#148 added the footer one). /approach.html is the page #148 names as having no
+  // route to /build at all, and it carries no other /build link, so the selector is unambiguous.
   for (const [from, sel, where] of [
     ["/index.html", '.close-card a[href="/build"]', "the home close card"],
     ["/work.html", '#run a[href="/build"]', "the work proof index"],
+    ["/approach.html", '.site-footer a[href="/build"]', "the footer site index"],
   ]) {
     const linkPage = await newPage(ctx2);
     await linkPage.goto(BASE + from, { waitUntil: "load" });
@@ -689,6 +692,10 @@ async function journey(engineName, results, held) {
     await linkPage.close();
   }
   // JS-off is the documented floor for both: close.mjs is additive, and neither link is JS-built.
+  // TWO rows here, not three, and deliberately: the footer is injected by site.js, so with
+  // JavaScript off there is no footer — and no header or nav either, on any page. That is the
+  // site-wide chrome floor, not a regression the #148 link introduced; the footer link is exactly
+  // as available as the nav is. The two static links in remain the documented JS-off route.
   const noJs = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
   for (const [from, sel, where] of [
     ["/index.html", '.close-card a[href="/build"]', "home"],

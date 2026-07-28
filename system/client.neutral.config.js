@@ -22,6 +22,8 @@ window.CLIENT_CONFIG = {
   // v3 IA (#71): top nav shrinks to Home · Approach · Work + the Contact CTA. Factory
   // drops from the nav (D6: it becomes the evidence layer) and is reached from the Home
   // #verify row-list + the footer, which stays the full site index. Every route resolves.
+  // /build joins that index (#148) but stays out of the nav: the three-item set below is the
+  // D6 decision, not an accident of when the page shipped.
   nav: [
     { label: "Home",     href: "/",         key: "home" },
     { label: "Approach", href: "/approach", key: "approach" },
@@ -43,6 +45,7 @@ window.CLIENT_CONFIG = {
           { label: "Approach", href: "/approach" },
           { label: "Factory",  href: "/factory" },
           { label: "Work",     href: "/work" },
+          { label: "Build",    href: "/build" },
           { label: "Contact",  href: "/contact" },
         ],
       },

@@ -778,4 +778,13 @@ bottom of the page is worse than no gate.
 
 ## AMENDMENTS
 
-- (none yet — created 2026-07-27)
+- **2026-07-28 (#148)** — the non-goal at `:70-71` ("Not adding /build to the nav or the footer
+  index") is **half reversed**. The footer index gained `{ label: "Build", href: "/build" }` between
+  `Work` and `Contact`; the nav did **not**, and the reason it did not is the v3 IA decision #71/D6
+  (three items + the Contact CTA), not baseline cost. The deferral itself was correct for #138 — it
+  kept this ticket's "nothing else churned" requirement honest by keeping a 16-PNG chrome diff out
+  of a links-in PR. Two corrections to the text above, both measured in
+  `.claude/plans/build-footer-site-index.md`: the churn is **16 baselines, not 20** (the two proto
+  pages load neither `site.js` nor a client config, so they carry no chrome and their four PNGs must
+  not move), and the nav was never "a five-item set" — it is three items; the five-item set was the
+  footer's `Site` column.

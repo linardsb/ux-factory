@@ -10,18 +10,21 @@
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- build.html — the pattern builder (epic #134, tickets #135, #136, #137 and #138;
+  <!-- build.html — the pattern builder (epic #134, tickets #135, #136, #137, #138 and #148;
        .claude/plans/hooked-shapeup-pattern-builder.md Phase 1.2, .claude/plans/build-page-import-act.md,
        .claude/plans/build-questions-breadboard.md, .claude/plans/build-pattern-render-keep-rail.md,
-       .claude/plans/build-links-in-and-gates.md).
+       .claude/plans/build-links-in-and-gates.md, .claude/plans/build-footer-site-index.md).
        A sixth public surface where a visitor imports their design tokens, answers the product
        questions this portfolio works by, and watches a real UI pattern assemble under their brand.
        All six beats ship: the import, the two question acts, the editable breadboard, the pattern
        that renders from it through the site's own vocabulary-validated renderer, and the keep rail
        whose share link rebuilds the whole build from the URL. Linked in by #138: a static action in
-       the home close card and the third "Runs now" exhibit on work.html. It stays OFF the nav and the
-       footer index (one chrome item churns every visual baseline) and it stays `noindex` — reachable
-       for a reader who is already here, not a search result. Screenshotted under both packs by the
+       the home close card and the third "Runs now" exhibit on work.html. It is in the footer site index
+       as of #148 — the footer calls itself the full site index, so it had to be — but it stays OFF
+       the nav (three items, the #71/D6 set) and it stays `noindex`: reachable for a reader who is
+       already here, not a search result. The footer is chrome, so that one item moved all 16
+       chrome-bearing baselines; the two proto pages load no config and no site.js, so their four
+       stayed put. Screenshotted under both packs by the
        visual-regression gate (tooling/visual-regression/visual.spec.mjs) and driven end to end across
        three engines by tooling/build-journey.mjs.
        Honesty contract: everything here is committed rules running in the visitor's browser. No file
