@@ -26,8 +26,9 @@ The nav is untouched — three items plus the Contact CTA, the v3 IA decision #7
 - **3. Head comment** → `build.html` (UPDATE) — now says it is in the footer index as of #148, still
   off-nav, still `noindex`; carries the churn reason forward with the corrected count; #148 and this
   plan added to the ticket/plan lists
-- **4. Architecture map** → `CLAUDE.md` (UPDATE) — same two clauses, one line, corrected count,
-  `#148` appended to the trailing ticket list
+- **4. Architecture map** → `CLAUDE.md` (UPDATE) — `:49`, same two clauses, corrected count, `#148`
+  appended to the trailing ticket list. `:80` followed in review (see AFTER REVIEW below): the
+  `build-journey` entry's own "both links in resolve" was made false by Task 5
 - **5. Third link-in** → `tooling/build-journey.mjs` (UPDATE) — `["/approach.html",
   '.site-footer a[href="/build"]', "the footer site index"]` in the **first** loop only, plus the
   written reason it is absent from the JS-off loop
@@ -44,7 +45,7 @@ The nav is untouched — three items plus the Contact CTA, the v3 IA decision #7
 
 No test files — per CLAUDE.md this repo has no suite. The proof is in the repo's own gates:
 
-- **`tooling/build-journey.mjs` block [17]** gained a third row, taking the block from 11 to 14
+- **`tooling/build-journey.mjs` block [17]** gained a third row, taking the block from 8 to 11
   assertions. Three claims per link (visible → lands on `/build` → lands on the real page, not a
   404), driven across chromium + firefox + webkit.
 - **A one-off manual-walk script** (scratchpad, not committed) drove /approach, /contact and /404 at
@@ -127,3 +128,34 @@ with a different cost on the #43/#44 surface and two of the three changing what 
 That is an architecture call for its own epic, not a footer ticket.
 
 Nothing else. No gate went red, no flake was hit, and the regen converged on the first run.
+
+## AFTER REVIEW
+
+The [PR #161 review](../code-reviews/pr-161-review.md) raised two findings, both prose, neither
+touching a gate. Both applied.
+
+1. **Medium — `CLAUDE.md:80` still said "both links in resolve".** Task 5 made that false in the same
+   pass that corrected `:49`, so this PR was one line away from shipping the exact copy-contradicts-
+   state defect it exists to fix. Verified by counting `t()` calls in block [17] rather than trusting
+   the finding: the first loop asserts 3 per row over 3 rows, the JS-off loop 1 per row over 2 rows.
+   Now reads `all three links in resolve`, and `#148` joins the trailing ticket list.
+   **Why the plan's sweep missed it:** the sweep grepped for *"footer index"* and *"20 baselines"*.
+   This line contains neither phrase — it describes the same fact in the gate's vocabulary.
+2. **Low — the assertion count above was off by 3 at both ends.** Same count proves it: 2×3 + 2 = **8**
+   before, 3×3 + 2 = **11** after. The delta of 3 was right; both absolutes were high. Fixed at `:47`.
+
+**Swept for siblings rather than fixing only the line the review found** — that narrow-sweep failure is
+what produced finding 1 in the first place. `both links` · `two links` · `links in resolve` · `11 to 14`
+across the repo returns only historical docs: #138's plan and report describe the two links-in that
+existed *at their time of writing* and are correct as history, which is the same boundary this PR
+already applied to the AMENDMENTS entry. No live claim site remains stale.
+
+**Merge-order note — `CLAUDE.md:80` collides with the unmerged #157.** That branch rewrites the same
+line's *other* clauses (8 groups → 9, plus the `origin.mjs` entry on `:59`); this branch rewrites the
+link-in clause and the ticket list. Deliberately **not** pre-resolved here — `8 groups` is correct for
+this tree. Whichever PR lands second takes the other's clause by hand; the edits do not overlap.
+
+**Validation** — scoped to what changed, which is two markdown files. No shipped page renders either,
+so no baseline can move and the VR gate was deliberately not re-run. `gen-loc-summary.mjs --check` and
+`drift-check.mjs` both run post-commit (the former reads git-tracked content, so a dirty run passes
+vacuously — the trap recorded at divergence 2 above).
