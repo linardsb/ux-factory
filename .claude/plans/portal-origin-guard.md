@@ -91,6 +91,13 @@ the same reasoning `stepEvent` applies one module over.
 - CORS response headers. Nothing legitimately reads this server cross-origin; adding
   `Access-Control-*` would only widen it.
 - Any authn. This is a CSRF guard on a loopback-bound local workbench, not a login.
+- Host-header / DNS-rebinding read exposure on the GET routes — pre-existing, read-only, and not
+  this ticket's named class. A rebound page's POST now carries an unlisted `Origin` and gets `403`,
+  so the token- and quota-spending half closes with this guard; the read half does not.
+  *(Added after the PR #159 review, which named it as the one reachable gap the plan never did.)*
 - The `receiveExport` 1 MB-cap bypass noted above: real, but not destructive and not this ticket.
+  **Withdrawn during implementation** — the route has its own, deliberately larger cap
+  (`MAX_EXPORT_BYTES`, 32 MB, `portal/lib/figma.mjs:18`), so there is no bypass to scope out. Driven
+  both ways against a running portal; see the report.
 
 Refs: `.claude/code-reviews/pr-156-review.md` High 1 · issue #157 · epic #134 ticket #140.

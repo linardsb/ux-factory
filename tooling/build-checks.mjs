@@ -1010,7 +1010,8 @@ function scanSvg(svg, label) {
 // PREDICATE, not the WIRING. server.mjs imports chat.mjs → the Agent SDK, so CI (no
 // portal/node_modules, group 8's whole point) can never boot the server; nothing here can observe
 // that the guard is CALLED. That is proven by driving the running portal, recorded in
-// .claude/reports/portal-origin-guard.md, and it has to be re-driven if the handler is restructured.
+// .claude/reports/portal-origin-guard-report.md, and it has to be re-driven if the handler is
+// restructured.
 //
 // What this group is for is the trap the ticket names: the guard has to accept BOTH loopback
 // origins, and it has to reject the near-misses of the ones it accepts. Both halves are string
