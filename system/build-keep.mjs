@@ -19,7 +19,7 @@
 // Node-import-safe: every DOM reference lives inside a function body, and the mount self-boots
 // behind a `typeof document` guard at the very bottom.
 
-import { trackBuildShared } from "./analytics.mjs";
+import { onVirtualRoute, trackBuildShared } from "./analytics.mjs";
 import { boardSvg, cardSvg } from "./build-card.mjs";
 import { decodeBuild, encodeBuild, SHARE_PARAM, shareUrl } from "./build-share.mjs";
 import {
@@ -231,8 +231,27 @@ function mount(root) {
     "The whole build travels in the link itself: your answers, your board and your design values. There is no server in this, and nothing is saved anywhere." });
   shareEl.append(copyBtn, linkInput, shareNote);
 
+  // location, once it is the READER'S again. analytics.mjs's virtual-route flip owns it for
+  // RESTORE_DELAY_MS at a time, and shareUrl only overwrites ?b= — so a link built inside that
+  // window keeps the virtual pathname and hands the visitor a /build/pattern?b=… that 404s (there is
+  // no _redirects; Pages serves the repo as-is). Both readers below can land in a window: the 400ms
+  // debounce, and the boot restore's field seed, which sits after `await decodeBuild` and so can be
+  // beaten by a /build.html?b=…#act-pattern arrival, where the fragment scroll starts the vocabulary
+  // fetch at parse time. Waiting the window out in ONE place beats every caller knowing about it,
+  // and it is why the link still reads location rather than a base snapshotted at mount: the
+  // appearance dock owns the hash, location is the only place it lives, and a frozen base strips it
+  // on the next write and closes the dock mid-edit. Bounded rather than a bare `while`: 120ms is
+  // well past the 50ms window, and if location is still virtual after that, something upstream is
+  // broken and a wrong link beats a hung rail. (PR #162 review, High 1.)
+  async function settledUrl() {
+    for (let i = 0; i < 12 && onVirtualRoute(); i += 1) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    return location.href;
+  }
+
   async function currentUrl() {
-    return shareUrl(location.href, await encodeBuild(latest.state));
+    return shareUrl(await settledUrl(), await encodeBuild(latest.state));
   }
 
   copyBtn.addEventListener("click", async () => {
@@ -338,7 +357,7 @@ function mount(root) {
     linkLive = true;
     restoreBuild(state); // ONE publish; every consumer moves together
     say(RESTORED);
-    linkInput.value = location.href;
+    linkInput.value = await settledUrl();
     linkInput.hidden = false;
   }
 

@@ -1126,9 +1126,11 @@ function scanSvg(svg, label) {
   // 4 · A · the ordinary contract, on a URL carrying a real ?b= build. The `?g10a` is not
   //     decoration: this file's own imports already pulled analytics.mjs in transitively, so
   //     without a fresh key this would inherit whatever fire-once state the process had spent.
-  //     Each event gets its OWN window — firing both inside one would have the second snapshot the
-  //     first's virtual URL, which is an ordering no page produces (a copy click cannot land within
-  //     50ms of Act 4 rendering) and would only obscure what this case is for.
+  //     Each event gets its OWN window here, so that this case stays about the ordinary contract.
+  //     The overlap is not hypothetical and is no longer waved off — this comment used to call it
+  //     "an ordering no page produces", and a real drive falsified that (a copy click DOES land
+  //     within 50ms of Act 4 rendering, because the click's own scroll is what starts the
+  //     vocabulary fetch). It has its own scenario, case D.
   stub({ pathname: "/build.html", search: `?b=${PAYLOAD}`, hash: "" });
   const anaA = await import(`${ANA}?g10a`);
   ok(typeof anaA.trackBuildPattern === "function" && typeof anaA.trackBuildShared === "function",
@@ -1177,11 +1179,47 @@ function scanSvg(svg, label) {
   ok(restores.length === 1 && restores[0] === `${REAL}#appearance`,
     `a hash written inside the flip window was dropped by the restore: ${JSON.stringify(restores)} — the appearance dock is left open with no way to close it from the keyboard`);
 
-  // 7 · every other group runs without these; leaving them defined would change what "Node" means.
+  // 7 · D · two flips OVERLAPPING, which is the case A comment's claim turned into a scenario. The
+  //     second flip reads location to snapshot it and finds the FIRST one's virtual path; restoring
+  //     THAT is the page's last write, so the reader keeps /build/shared in the address bar and it
+  //     404s on reload, bookmark and forward. Reproduced on the real page before the shared snapshot
+  //     existed — 4 of 4 chromium runs — and driven there by build-journey [17c].
+  stub({ pathname: "/build.html", search: `?b=${PAYLOAD}`, hash: "" });
+  const anaD = await import(`${ANA}?g10d`);
+  anaD.trackBuildPattern();
+  ok(globalThis.location.pathname === "/build/pattern",
+    "the stub did not follow the first push, so the overlap this case is about does not exist in it — the assertions below would pass on any implementation");
+  anaD.trackBuildShared(); // inside the first window, by construction
+  ok(globalThis.location.pathname === "/build/shared",
+    "the stub did not follow the second push, so the two windows are not actually overlapping here");
+  await pastWindow();
+  ok(restores.length === 2 && restores.every((u) => u === REAL),
+    `an overlapping flip restored to a VIRTUAL path: ${JSON.stringify(restores)} — whichever restore lands last is where the reader is left, and /build/shared 404s`);
+  ok(globalThis.location.pathname === "/build.html" && globalThis.location.search === `?b=${PAYLOAD}`,
+    `the page settled on ${globalThis.location.pathname}${globalThis.location.search} instead of the real URL — a reload from here is a 404 and the ?b= build is gone`);
+
+  // 8 · E · the OTHER ordering, and the one that makes case D's rule a path test rather than an
+  //     "is a window open" test. build-keep's copy handler writes the REAL link from inside the
+  //     window — it owns its base, so what it writes is correct — and firefox and webkit sequence
+  //     the copy click and the pattern render the opposite way from chromium. A flip that refused
+  //     that write and reused the older snapshot would restore the reader to the URL from BEFORE
+  //     the copy, wiping the ?b= out of the address bar on the click that promises it is there.
+  stub({ pathname: "/build.html", search: "", hash: "" });
+  const anaE = await import(`${ANA}?g10e`);
+  anaE.trackBuildPattern(); // window opens over a URL with no ?b= yet
+  moveTo(REAL);             // the copy handler's replaceUrl, landing inside that window
+  ok(globalThis.location.search === `?b=${PAYLOAD}`,
+    "the stub did not take the mid-window write, so this case cannot tell the two rules apart");
+  anaE.trackBuildShared();  // must snapshot the REAL url just written, not reuse the stale one
+  await pastWindow();
+  ok(restores.length === 2 && restores[restores.length - 1] === REAL,
+    `a real URL written inside the window was discarded: ${JSON.stringify(restores)} — the visitor is left without the ?b= the copy button just promised was in their address bar`);
+
+  // 9 · every other group runs without these; leaving them defined would change what "Node" means.
   delete globalThis.location;
   delete globalThis.history;
 
-  group("analytics", "imports node-safe with a filled token · 2 static /build paths · no ?b= payload in either · fires once each · URL restored verbatim, hash included (arrived-with and written-inside-the-window)");
+  group("analytics", "imports node-safe with a filled token · 2 static /build paths · no ?b= payload in either · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL, in both orderings");
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

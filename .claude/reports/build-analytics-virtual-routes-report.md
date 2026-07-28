@@ -205,3 +205,105 @@ corrections to the plan's own instructions, not departures from its intent.
 *completion* ratio, not a conversion rate — a reader who opens the page and scrolls to Act 4 without
 answering anything still renders the default dashboard and counts. `/build/shared` is link
 *production*, not forwarding. The receiving half stays deliberately unmeasured (plan Non-Goals).
+
+---
+
+# Review round — PR #162 (`piv-fix-review-findings`)
+
+The review requested changes on one High and listed three Lows as optional polish. Triaged with the
+owner: **fix High 1 + its regression gate, take Lows 3 and 4 (comment-only), won't-fix Low 2.**
+
+## Fixed
+
+### High 1 · a share link built inside the flip window carried the virtual path
+
+`currentUrl()` re-read `location.href`, so a debounced URL write landing inside `flipTo`'s 50 ms
+window built the link on `/build/pattern` — `shareUrl` only overwrites `?b=`, so the pathname
+survived into the field and the address bar, and Pages 404s it.
+
+The review posed the fix as a discriminating question: *does the share link need anything from
+`location` besides the pathname?* Its "if no" branch (build-keep snapshots its own base at mount) was
+implemented first, and **the answer turned out to be yes** — measured, not argued. A base snapshotted
+at mount freezes the HASH, so the next debounced write stripped the appearance dock's `#appearance`
+and closed the dock mid-edit: `[17b]`'s dock collision check went red on **firefox and webkit**, with
+a HEAD baseline confirming both engines were green before the change. The dock owns the hash and
+`location` is the only place it lives.
+
+So the shipped fix is the review's **"if yes"** branch: `analytics.mjs` exports `onVirtualRoute()`,
+and `build-keep`'s new `settledUrl()` waits the window out (bounded at 120 ms) in **one** place that
+both readers go through — the 400 ms debounce and the boot restore's field seed. The second reader is
+the one the review's reachability analysis did not clear: it sits after `await decodeBuild`, and
+`pattern-render`'s mount is not gated on this rail's ready flag, so a `/build.html?b=…#act-pattern`
+arrival — a link this very field produces — can fire `trackBuildPattern` while `decodeBuild` is still
+awaiting.
+
+### Also found, and fixed: two overlapping flips left the reader on a virtual path *permanently*
+
+Not a review finding — hit while building the gate. A flip opening inside another flip's window
+snapshotted the FIRST one's virtual path and restored to it; that restore is the page's last write,
+so the address bar kept `/build/shared` for good, 404-ing on reload, bookmark and forward.
+**Reproduced 4 of 4 on chromium with zero instrumentation.** The trigger is ordinary: the Copy click's
+own scroll is what starts the vocabulary fetch, so the two events can fire within 50 ms of each other
+— which falsifies group 10 case A's comment that this was "an ordering no page produces". That
+comment is corrected in place.
+
+`flipTo` now records the real URL once and every restore in flight targets it. The rule is **"are we
+sitting on a path this module pushed"**, not "is a window open" — the blunter version was written
+first and firefox/webkit caught it: they sequence the copy click and the pattern render the opposite
+way from chromium, so reusing the snapshot merely because a window was open discarded the copy's own
+real URL and wiped `?b=` out of the address bar, on the very click whose message promises it is there.
+
+### Lows 3 and 4 — comments only
+
+`[17b]`'s pre-scroll IFF only ever runs its negative branch (verified: Act 4 sits at 4972 px, outside
+the 800 px margin at 1440×900), and `flipTo`'s `(location.hash || hash)` fallback leans on a dock
+invariant it does not own. Both now say so.
+
+## Won't-fix
+
+**Low 2 · the fire-once flag latches before `pushState` is known to have succeeded.** The review
+itself notes nothing is lost: where `pushState` throws, no analytics is possible at all. A retry path
+that no gate can drive is net-negative. Recorded rather than logged as an issue.
+
+## Gates
+
+| Gate | Result |
+| --- | --- |
+| `node tooling/build-checks.mjs` | ✓ all 10 groups — group 10 gains cases **D** and **E** |
+| …with `portal/node_modules` moved aside | ✓ all 10 — SDK-free invariant holds |
+| `node tooling/build-journey.mjs all` | ✓ **125 passed · 0 failed × 3 engines** (was 121) — new `[17c]`, `[17d]` |
+| `drift-check` · `token-lint` · `gen-loc-summary --check` | ✓ ✓ ✓ |
+| Visual gate (Docker) | ✓ 20/20; the 2 approach baselines re-captured (17,500 → 17,600) |
+
+**Where the gate lives, and why not where the review asked.** The review asked for build-checks group
+10 case D. build-checks is **pure by contract** and this debounce lives inside `build-keep`'s
+`mount()`, behind `DOMParser` and `createObjectURL` — anything writable there would test a
+reconstruction of the composition rather than the shipped code, which is the *check that cannot fail*
+shape. So it lands the way the PR already splits group 9/10: **predicate in build-checks (cases D and
+E), wiring in build-journey (`[17c]`, `[17d]`)**.
+
+**Proven falsifiable, not just run green** — every new check mutated back and confirmed to name its
+failure:
+
+| Mutation | Named failure |
+| --- | --- |
+| `settledUrl` stops waiting | `[17c]`: field holds `http://…/build/pattern?b=…` |
+| per-flip snapshot instead of shared | group 10 D: "an overlapping flip restored to a VIRTUAL path…" + "the page settled on /build/pattern" |
+| same, on the real page | `[17d]`: `href:"…/build/shared"`, `overlapped:true` |
+| reuse-whenever-a-window-is-open | `[17d]` on firefox/webkit: `?b=` gone from the address bar |
+| base snapshotted at mount | `[17b]` dock check red on firefox + webkit: `hash:""`, `showing:4` |
+
+`[17c]`'s setup proof **calibrates the debounce empirically** (measured 403–410 ms across the three
+engines) and asserts the debounce fell *due* inside the flip window — a claim about two clocks the
+check owns, not about what the code under test chose to do. Without that, "the fix works" and "the
+check never drove the collision" are the same green.
+
+## Residual, disclosed
+
+With the flip window waited out, the address bar can still settle one edit behind — the flip's
+restore puts back the snapshot it took, which may predate the newest keystroke. That is a **valid**
+`/build.html?b=…` link, never a virtual path, and the next edit catches it up. Same class the copy
+handler's `clearTimeout` already acknowledges; not fixed, named here so it is not mistaken for a miss.
+
+The four `/factory` trackers share `flipTo`'s old per-flip shape and are **out of #149's scope**,
+unchanged and still stated as such in CLAUDE.md.
