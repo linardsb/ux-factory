@@ -19,6 +19,7 @@
 // Node-import-safe: every DOM reference lives inside a function body, and the mount self-boots
 // behind a `typeof document` guard at the very bottom.
 
+import { trackBuildShared } from "./analytics.mjs";
 import { boardSvg, cardSvg } from "./build-card.mjs";
 import { decodeBuild, encodeBuild, SHARE_PARAM, shareUrl } from "./build-share.mjs";
 import {
@@ -237,12 +238,14 @@ function mount(root) {
   copyBtn.addEventListener("click", async () => {
     if (!latest) return;
     copyBtn.disabled = true;
+    let built = false; // did the link get as far as the address bar and the field?
     try {
       const url = await currentUrl();
       linkLive = true;
       replaceUrl(url);
       linkInput.value = url;
       linkInput.hidden = false;
+      built = true;
       try {
         await navigator.clipboard.writeText(url);
         say("Link copied. It is in your address bar too, and it rebuilds this whole build in any browser.");
@@ -256,6 +259,17 @@ function mount(root) {
     } finally {
       copyBtn.disabled = false;
     }
+    if (!built) return;
+    // A pending debounce is stale by definition here: the URL just written IS the current one. It
+    // also must not run inside the tracker's RESTORE_DELAY_MS window, where currentUrl() would read
+    // location.href as the virtual path and write a search-less link that the restore then reverts
+    // to the pre-copy URL — leaving the field and the address bar quietly one edit behind.
+    clearTimeout(urlTimer);
+    // Both outcomes above leave the visitor holding the link — the clipboard one and the
+    // select-the-field one — which is what this event counts. Outside the try on purpose: a browser
+    // refusing pushState must not be reported as "the link could not be built", because it was
+    // built. And after the URL is written, per the tracker's caller contract.
+    trackBuildShared();
   });
 
   // --- render ------------------------------------------------------------------------------------

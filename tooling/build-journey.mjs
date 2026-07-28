@@ -710,6 +710,124 @@ async function journey(engineName, results, held) {
   }
   await noJs.close();
 
+  console.log("\n[17b] the two virtual-route events fire on the success paths, once, and restore the URL");
+  // build-checks group 10 proves the HELPER in isolation — static paths, fire-once, restore. Only a
+  // running page can prove the WIRING: that the calls sit where their names claim. pushState fires
+  // no event a listener could catch, so the recorder wraps it and CALLS THROUGH — swallow the call
+  // and the restore never happens, and every assertion below would be reading a virtual URL.
+  // Its own context, for [4c]'s reason: this page's copy has to be its FIRST copy.
+  const anaCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const anaPage = await newPage(anaCtx);
+  await anaPage.addInitScript(() => {
+    window.__flips = [];
+    const push = history.pushState.bind(history);
+    history.pushState = function (state, title, url) { window.__flips.push(String(url)); return push(state, title, url); };
+  });
+  await anaPage.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await anaPage.waitForSelector("[data-build-keep='ready']");
+  // Act 4 sits behind an IntersectionObserver (rootMargin 800px), so an unscrolled 1440×900 page has
+  // not rendered a pattern yet. Written as an IFF rather than a bare "it has not fired": on its own
+  // the negative also passes when the stage failed to render for any reason at all — a broken
+  // vocabulary fetch, a JS error, a future layout change — which is the check-that-cannot-fail shape
+  // this repo keeps re-learning. This way the render state and the flip have to AGREE, whichever of
+  // the two states the engine hands us, and the "exactly one" below is its positive twin.
+  const preRendered = (await anaPage.$$("[data-pattern-stage] .ds-metric-tile")).length > 0;
+  const preFlips = await anaPage.evaluate(() => window.__flips);
+  t(`/build/pattern tracks a RENDER, not a page load (pattern on stage before scrolling: ${preRendered ? "yes" : "no"})`,
+    preFlips.includes("/build/pattern") === preRendered, JSON.stringify(preFlips));
+
+  await anaPage.evaluate(() => document.getElementById("act-pattern").scrollIntoView());
+  await anaPage.waitForSelector("[data-pattern-stage='ready']", { timeout: 15000 });
+  await anaPage.waitForSelector("[data-pattern-stage] .ds-metric-tile", { timeout: 15000 });
+  const patternFlips = () => anaPage.evaluate(() => window.__flips.filter((u) => u === "/build/pattern").length);
+  t("exactly one /build/pattern once a pattern is on stage", (await patternFlips()) === 1, `got ${await patternFlips()}`);
+
+  // The stage re-renders on every BUILD_CHANGE. The event must not — the fire-once guard is the
+  // difference between "readers who reached a pattern" and "keystrokes typed into a breadboard".
+  const anaName = anaPage.locator("[data-place='p1'] .bx-bb-name");
+  await anaName.fill("Mission control");
+  await anaName.blur();
+  await anaPage.waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Mission control"));
+  t("a board edit re-renders the stage without re-firing", (await patternFlips()) === 1, `got ${await patternFlips()}`);
+
+  // The copy handler writes the URL BEFORE it reaches for the clipboard, so `?b=` appearing is the
+  // proof the handler ran; the flip comes after. Both outcomes fire it — clipboard granted and the
+  // select-the-field fallback — which is exactly why this runs on three engines: [6] shows they
+  // answer the permission differently, and the event counts "the visitor has a link" either way.
+  await anaPage.getByRole("button", { name: /Copy the link/ }).click();
+  await anaPage.waitForFunction(() => location.search.includes("b="), null, { timeout: 15000 });
+  let sawShare = true;
+  try {
+    await anaPage.waitForFunction(() => window.__flips.includes("/build/shared"), null, { timeout: 5000 });
+  } catch { sawShare = false; } // a named failure, not a thrown run that discards the checks above
+  const shareFlips = await anaPage.evaluate(() => window.__flips.filter((u) => u === "/build/shared").length);
+  t("exactly one /build/shared once the visitor has the link", sawShare && shareFlips === 1, `got ${shareFlips}`);
+  const anaProv = (await anaPage.textContent("[data-build-keep]")) || "";
+  const anaCopied = anaProv.includes("Link copied");
+  t(`it fired on the outcome this engine actually gave (${anaCopied ? "clipboard granted" : "clipboard refused → field fallback"})`,
+    anaCopied || anaProv.includes("did not allow the copy"), anaProv.slice(0, 120));
+
+  const flips = await anaPage.evaluate(() => window.__flips);
+  t("every pushed route is a bare static /build path — no ?b=, no id, no pattern name",
+    flips.length > 0 && flips.every((u) => /^\/build\/(pattern|shared)$/.test(u)), JSON.stringify(flips));
+
+  // Read only AFTER the flip is known to have happened, then waited past the restore. The `?b=` wait
+  // is self-healing across a flip — it polls, misses during the window, sees it after — so a URL
+  // asserted before the flip would be a different claim that happened to pass.
+  await anaPage.waitForFunction(() => location.search.includes("b="), null, { timeout: 15000 });
+  const anaUrl = anaPage.url();
+  t("the address bar comes back — real path, ?b= intact",
+    new URL(anaUrl).pathname === "/build.html" && anaUrl.includes("b="), anaUrl);
+
+  // The collision, driven rather than reasoned about. pushState carries no hash, so for
+  // RESTORE_DELAY_MS location.hash is "" — and a restore that put the snapshot back would drop an
+  // #appearance opened inside that window, leaving the dock open with nothing for its Escape
+  // handler (dock.mjs:455) to match. That is not hypothetical: it made check [7] fail 1 run in 9 on
+  // firefox before analytics.mjs took the hash live, and it reproduces on all three engines.
+  //
+  // ON ITS OWN PAGE, and deliberately AFTER the strict path assertion above: closing the dock calls
+  // dock.mjs's own pushState, which would show up in this page's recorder and read as a duplicate
+  // fire. A fresh page also resets the fire-once guards, which is the only way to get a second flip
+  // to collide with. Driven from INSIDE the page because the window is 50ms — no Playwright
+  // round-trip lands in it reliably.
+  const dockPage = await newPage(anaCtx);
+  await dockPage.addInitScript(() => {
+    window.__flips = [];
+    const push = history.pushState.bind(history);
+    history.pushState = function (state, title, url) { window.__flips.push(String(url)); return push(state, title, url); };
+  });
+  await dockPage.goto(shared, { waitUntil: "load" }); // the ?b= link from [6], so the query is real
+  await dockPage.waitForSelector("[data-build-keep='ready']");
+  await dockPage.evaluate(() => document.getElementById("act-pattern").scrollIntoView());
+  const dockRes = await dockPage.evaluate(async () => {
+    const deadline = Date.now() + 15000;
+    let fired = false;
+    while (Date.now() < deadline) {
+      if (window.__flips.includes("/build/pattern")) { fired = true; break; }
+      await new Promise((r) => setTimeout(r, 1));
+    }
+    if (!fired) return { fired };
+    location.hash = "appearance";                       // inside the window, by construction
+    await new Promise((r) => setTimeout(r, 300));       // past the restore
+    const hash = location.hash;
+    const search = location.search;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 250));
+    // Measured by box, not by the element's own `display`: the dock hides by an ancestor, so a
+    // computed-style check on the row itself reports 4 rows showing in both directions and the
+    // assertion silently stops meaning anything (it did, on the first pass at this probe).
+    const showing = [...document.querySelectorAll(".dock-pack-row")]
+      .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length;
+    return { fired, hash, search, showing };
+  });
+  t("the dock collision is genuinely set up (a flip was open when the hash was written)", dockRes.fired === true);
+  t("a dock opened INSIDE the flip window keeps its #appearance through the restore",
+    dockRes.hash === "#appearance", JSON.stringify(dockRes));
+  t("…so Escape still closes it, and ?b= survived the collision too",
+    dockRes.showing === 0 && String(dockRes.search).includes("b="), JSON.stringify(dockRes));
+  await dockPage.close();
+  await anaCtx.close();
+
   console.log("\n[18] console cleanliness");
   // Narrow on purpose, and narrower than it was. The Worker's own refusal is exempt DEFENSIVELY,
   // not because this driver exercises it: none of build.html, index.html or work.html loads

@@ -20,13 +20,23 @@
 // not a local-host deny-list — so CF Pages `*.pages.dev` branch previews and local dev
 // never record traffic once the token lands. Fill it alongside BEACON_TOKEN at launch;
 // empty host = beacon not injected anywhere (fail-closed).
+//
+// The `typeof document` guard below is not defensive tidiness. tooling/build-checks.mjs imports
+// build-keep.mjs and pattern-render.mjs, both of which import this module (#149), so CI's `verify`
+// job evaluates this file under Node — where it survives today only because BEACON_TOKEN is "" and
+// `&&` short-circuits before `location` is ever read. Filling the token at launch would turn that
+// into `ReferenceError: location is not defined` and take the job down on launch day. Guard on
+// `document` rather than `location`: the injected branch touches document.createElement and
+// document.head, so a location-only guard still throws once PRODUCTION_HOST is filled too.
+// build-checks group 10 imports this module with BOTH constants filled, which is the only way that
+// failure is visible before it happens.
 
 const BEACON_TOKEN = ""; // filled at launch
 const PRODUCTION_HOST = ""; // filled at launch — canonical prod hostname (e.g. "linardsberzins.com")
 const VIRTUAL_EVENT_PATH = "/factory/driven";
 const RESTORE_DELAY_MS = 50; // lets the beacon's pushState hook read the virtual path
 
-if (BEACON_TOKEN && location.hostname === PRODUCTION_HOST) {
+if (typeof document !== "undefined" && BEACON_TOKEN && location.hostname === PRODUCTION_HOST) {
   const s = document.createElement("script");
   s.defer = true;
   s.src = "https://static.cloudflareinsights.com/beacon.min.js";
@@ -114,4 +124,74 @@ export function trackFactoryArrived() {
   };
   if (document.readyState === "complete") flip();
   else window.addEventListener("load", flip, { once: true });
+}
+
+// ------------------------------------------------------------------ /build (epic #134, #149)
+// Two events for the sixth public surface. Like /factory/shared above, this EXTENDS the epic's
+// analytics call rather than executing it: docs/epics/portfolio-v3-experience.architecture.md:25
+// names only /factory/built, so a reviewer should read this as a scope decision — delete these two
+// functions and their two call sites and nothing else changes.
+//
+// Both paths are module-level literals and stay that way. A virtual route IS the entire payload,
+// and /build's promise is that nothing about the visitor's tokens, answers or board leaves the
+// browser — so no id, no slug, no pattern name is ever appended. build-checks group 10 asserts the
+// pushed path against a location.search that is carrying a real ?b= payload.
+
+// Unlike the four above, these two are called from INSIDE catch blocks — pattern-render.mjs's catch
+// renders "the renderer refused this composition", build-keep.mjs's says "the link could not be
+// built". A browser refusing pushState (file://, sandboxed) must not be reported as either, so the
+// flip is guarded here rather than at each call site; build-keep.mjs:206 guards its own
+// replaceState the same way. The four trackers above keep their own bodies: none of them is called
+// from a catch, trackFactoryArrived's `load` deferral cannot share this shape at all, and their
+// comments carry decisions from #6, #75 and #77 that a refactor would strand or paraphrase.
+// (`flipTo`, not `flip`: trackFactoryArrived already has a local `flip` of its own.)
+function flipTo(path) {
+  const { pathname, search, hash } = location;
+  try {
+    history.pushState(history.state, "", path);
+  } catch {
+    return; // no session history to push — nothing recorded, nothing broken
+  }
+  setTimeout(() => {
+    // The pathname and the query come from the SNAPSHOT — the virtual path carries neither, so
+    // reading them live would restore "/build/pattern" and drop the visitor's whole ?b= build.
+    // The HASH is taken live when there is one, and that is not symmetry-for-its-own-sake: the
+    // virtual path carries no hash either, so a hash present NOW was written during the window, and
+    // the appearance dock is the reachable writer (a toggle sets location.hash). Restoring the
+    // snapshot over it drops the "#appearance" that dock.mjs:455's Escape handler matches on, which
+    // leaves the panel open with no keyboard way to shut it. Measured, not theorised: reproduced on
+    // chromium, firefox and webkit, and it made build-journey's dock check [7] fail 1 run in 9
+    // before this line existed (#149). Falling back to the snapshot keeps the ordinary case — a
+    // reader who arrived at /build#something and touched nothing — landing back where they were.
+    try { history.replaceState(history.state, "", pathname + search + (location.hash || hash)); }
+    catch { /* nothing to restore */ }
+  }, RESTORE_DELAY_MS);
+}
+
+const BUILD_PATTERN_PATH = "/build/pattern";
+let buildPatternFired = false;
+
+// Fired when a pattern is actually ON STAGE — from the last line of pattern-render.mjs's
+// renderPattern, the one branch that means it. NOT from the data-pattern-stage="ready" flag, which
+// is also set for the empty, out-of-library, refused and vocabulary-unavailable branches: that flag
+// means "this stage has settled", not "a pattern rendered". /build pageviews vs this path is the
+// funnel-completion ratio. Own fire-once guard, for the reason trackFactoryBuilt's has one.
+export function trackBuildPattern() {
+  if (buildPatternFired) return;
+  buildPatternFired = true;
+  flipTo(BUILD_PATTERN_PATH);
+}
+
+const BUILD_SHARED_PATH = "/build/shared";
+let buildSharedFired = false;
+
+// The /build half of /factory/shared: fired once when the visitor HAS a link — clipboard granted or
+// the select-the-field fallback, since both leave them holding it. It measures link production, not
+// forwarding, for the same reason trackFactoryShared does. Same caller contract too: build the URL
+// and put it in the address bar BEFORE calling this, or the RESTORE_DELAY_MS flip window rewrites
+// location out from under the code that is still assembling it.
+export function trackBuildShared() {
+  if (buildSharedFired) return;
+  buildSharedFired = true;
+  flipTo(BUILD_SHARED_PATH);
 }
