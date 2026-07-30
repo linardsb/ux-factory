@@ -43,7 +43,7 @@ No suite exists (repo convention). Verification:
 - Level 2: build-checks 10/10 groups. PASS.
 - Level 3: cross-engine script 24/24 across 3 engines. PASS (AC #2, AC #4).
 - Level 4 (manual eyeball): covered functionally by the script + build-journey; no OS-level manual pass performed in this autonomous run.
-- Level 5 (CI, the arbiter for AC #1): pending on the PR — `verify` + `visual` must be green with zero baseline files in the diff.
+- Level 5 (CI, the arbiter for AC #1): **PASS** — `verify` and `visual` both green on `f6e35c6`, and the PR's file list carries zero baseline files (AC #1 proven).
 
 ## Deviations from the plan
 
@@ -67,6 +67,12 @@ No suite exists (repo convention). Verification:
 
 ## Issues encountered
 
+- **CI drift-check caught a stale `system/system-graph.json`** on the first push — the sweep changed
+  which motion tokens components.css consumer blocks reference, and the graph is measured from that.
+  Regenerated and committed (`f6e35c6`). Counts (64 tokens · 29 consumers) unchanged, so the at-rest
+  #shape legend and the factory VR baseline were untouched; only hover-drawn edge sets moved. The
+  plan's Level-1 validation only watched `system/tokens.*.css` + `handoff/` — a plan gap worth
+  noting for the wave's remaining tickets: a components.css edit also implicates gen-system-graph.
 - Fresh worktree needed `npm ci` in `tooling/style-dictionary` and `tooling/visual-regression`
   (known from repo memory) before `gen-handoff.mjs` would run.
 - Open Question 2 (untracked epic docs): committed with this PR as the plan assumed —
