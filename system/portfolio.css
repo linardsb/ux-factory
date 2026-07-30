@@ -920,10 +920,13 @@ dfn.term {
    the exit. Engines without @starting-style/allow-discrete get an instant open/close.
    The reduced-motion kill-switch (portfolio.css:16-23) makes both truly instant.
    NOTE: the base rule carries opacity:0 + the exit offset — invisible while display:none,
-   but any future style that shows the panel without .is-open would show it transparent. */
+   but any future style that shows the panel without .is-open would show it transparent.
+   pointer-events is NOT in the transition list, so it flips instantly: during the exit the
+   panel is still a laid-out fixed box for --motion-base, and must not eat clicks. */
 .dock-panel {
   display: none;
   opacity: 0;
+  pointer-events: none;
   position: fixed;
   right: calc(var(--spacing-md) + 44px + var(--spacing-sm));
   top: 50%;
@@ -944,6 +947,7 @@ dfn.term {
 .dock-panel.is-open {
   display: block;
   opacity: 1;
+  pointer-events: auto;
   transform: translateY(-50%);
 }
 @starting-style {
@@ -1004,8 +1008,10 @@ dfn.term {
 
 /* The restore offer (#108) — shown only to a visitor whose own colour a shared link displaced, so
    it sits between the choice and the standing actions rather than becoming a third one. */
-/* Entrance-only settle when the offer appears ([hidden] removal — a discrete flip; dock.mjs
-   re-assigns hidden=false on every render, which is not a display change, so no re-entrance).
+/* Entrance-only settle with TWO triggers: [hidden] removal (a discrete flip; dock.mjs
+   re-assigns hidden=false on every render, which is not a display change, so no re-entrance),
+   AND the panel's own display flip when the row is already un-hidden at first open — there the
+   row's settle deliberately stacks on the panel's spring entrance.
    Exit stays instant: no display leg here — [hidden] must win immediately. */
 .dock-restore-row {
   margin: 0 0 var(--spacing-md);
