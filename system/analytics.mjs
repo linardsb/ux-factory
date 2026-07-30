@@ -242,3 +242,30 @@ export function trackBuildShared() {
   buildSharedFired = true;
   flipTo(BUILD_SHARED_PATH);
 }
+
+// ------------------------------------------------------------------ /tool (epic #164, #166)
+const TOOL_INSPECT_PATH = "/tool/inspect";
+let toolInspectFired = false;
+
+// The inspect-engine event (#166): fired once per page visit by system/inspect.mjs's show(), the
+// one path that means a bubble is actually on screen — never from the toggle or a settled-state
+// flag. The static literal is the entire payload (same discipline as every path above). Simple
+// trackFactoryBuilt shape, not flipTo: per the epic architecture §Analytics milestones these
+// events don't navigate, so it inherits the same theoretical 50 ms collision window the four
+// /factory trackers accept (#149 left them unchanged deliberately). The pushState is guarded like
+// flipTo's because inspect.mjs may run where pushState refuses (file:// during dev) — a refusal
+// must not throw out of the bubble's show path. Own fire-once guard, for the reason
+// trackFactoryBuilt has one.
+export function trackToolInspect() {
+  if (toolInspectFired) return;
+  toolInspectFired = true;
+  const real = location.pathname + location.search + location.hash;
+  try {
+    history.pushState(history.state, "", TOOL_INSPECT_PATH);
+  } catch {
+    return; // no session history to push — nothing recorded, nothing broken
+  }
+  setTimeout(() => {
+    try { history.replaceState(history.state, "", real); } catch { /* nothing to restore */ }
+  }, RESTORE_DELAY_MS);
+}

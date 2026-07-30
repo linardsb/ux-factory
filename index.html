@@ -120,12 +120,15 @@
                   </div></article>
                   <article class="card"><div class="card-body">
                     <div class="card-kicker">Buttons</div>
-                    <p class="mb-md"><a class="btn btn-primary" href="#beat-intake">Primary</a></p>
+                    <p class="mb-md"><a class="btn btn-primary" href="#beat-intake" data-inspect="buttons">Primary</a></p>
                     <p><a class="btn btn-secondary" href="#beat-intake">Secondary</a></p>
                   </div></article>
                 </div>
               </div>
             </div>
+            <!-- Inspect toggle (#166): static markup so it renders with JS blocked (degrades to an
+                 inert button, same licence as the static sample above). inspect.mjs wires it. -->
+            <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
           </div>
         </div>
         <!-- Staged "how it's generated" narrative, full-width below the ask|stage row and visible (no
@@ -404,6 +407,7 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
+  <script type="module" src="/system/inspect.mjs"></script>
   <script type="module" src="/system/spine.mjs"></script>
   <script type="module" src="/system/intake-beat.mjs"></script>
   <script type="module" src="/system/pack-derived.mjs"></script>
