@@ -52,3 +52,41 @@ The pattern is inherited from `glossary.mjs` (same latent bug there — its `[da
 ## Recommendation
 
 Fix H1 (regen + approach ×2 re-churn) and H2 before merge. M1/M2 may land here or as an immediate follow-up — but should land before the mount tickets build on the engine. Then re-run: `drift-check` · `update:docker` (expect approach ×2 only) · the Esc sequence from H2 on at least chromium.
+
+---
+
+# Re-review — head `7d55317` (fixes `4741418` + main merge `a552468` + regen)
+
+**Verdict: APPROVE** (posted as a comment — GitHub blocks formal approve on one's own PR). All four round-1 findings verified resolved on the head tree; one new Medium (latent, unreachable on this tree) and one Low. Reviewed from a clean detached worktree with a fresh code-reviewer pass + independent validation.
+
+## Validation (re-run on head)
+
+| Gate | Result |
+|---|---|
+| `drift-check` (11 gates incl. the two new inspect gates) | ✓ |
+| `gen-inspect-data.mjs --check` | ✓ 11 components · 9 with spec, no drift |
+| `token-lint` | ✓ 64 tokens · 0 undeclared · 0 orphan |
+| `build-checks` | ✓ all 10 groups |
+| Mutation test: `data-inspect="totally-bogus-id"` planted in index.html | gate RED naming file + id ✓ (restored) |
+| CI on the PR head | `verify` ✓ · `visual` ✓ · mergeState CLEAN |
+
+## Round-1 findings
+
+- **H1 (stale loc-summary) — FIXED.** Drift-clean on the merged tree; approach ×2 baselines re-churned in both `4741418` and `7d55317`; CI `verify` green confirms independently.
+- **H2 (Esc-dismissed bubble reappears) — FIXED for the shipped tree.** The `dismissed` flag traces clean through the reported sequence (Esc → mouseleave → timer → `hide()`), and Esc-then-Tab-back still reshows via `focusin` clearing it. See M3 below for the multi-trigger caveat.
+- **M1 (unknown-id not CI-red) — FIXED.** `checkInspectMounts` (`tooling/drift-check.mjs:100`) resolves every `data-inspect` id in git-tracked HTML (subdirectories included — a mount in a brand-new page is covered) against `inspect-data.json`; mutation-tested red twice; the inspect.mjs header now correctly attributes the CI guarantee to this gate.
+- **M2 (mouse-only link in `role="tooltip"`) — FIXED.** Spec line is plain `textContent` (`system/inspect.mjs:119`); the `.inspect-spec a` rule is gone from portfolio.css.
+
+Merge-regen sanity also checked: `inspect-data.json`'s `buttons` tokens are byte-identical to the post-#165/#167 `system-graph.json` consumer (including the new `--motion-ease-spring`), and the #165 motion sweep adds no transition/@starting-style to the bubble or trigger CSS — no VR or timer interaction.
+
+## New findings
+
+### M3 — `dismissed` is a global flag, so a second mount reintroduces the 1.4.13 defect (latent; unreachable on this tree)
+`system/inspect.mjs:77,188` — `dismissed` and `focusTrigger` are single scalars not tied to *which* trigger was dismissed. With two mounts: Tab to A → Esc (dismissed) → hover B (`mouseenter` resets `dismissed=false` globally) → leave B → timer: `focusTrigger` is still A, `dismissed` now false → **A's Esc-dismissed bubble reshows from an unrelated hover on B**. Verified by tracing the closures (state machine reproduces `SHOW A · HIDE · SHOW B · SHOW A`). Unreachable today — index.html carries exactly one mount — but #168/#169/#171/#173–#175 all add mounts to this engine. **Fix (before or in the first multi-mount ticket): replace the boolean with a `dismissedTrigger` reference; `armHide` rearms only when `focusTrigger !== dismissedTrigger`; clear it only on a genuine `mouseenter`/`focusin` of that same trigger.** Not blocking this PR; must not survive into the first two-trigger page.
+
+### L1 — `7d55317`'s commit message overclaims
+It says loc-summary was regenerated there, but that commit touches only `inspect-data.json` + two baselines — loc-summary arrived correct via the merge. Cosmetic; the tree is right.
+
+## Recommendation
+
+Merge. Carry M3 as a named check item into the first mount ticket that adds a second `data-inspect` trigger (#168 is the likely first).
