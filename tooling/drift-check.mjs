@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { genTokenCss } from "../agent-layer/gen-token-css.mjs";
 import { genAnnotatedSource } from "../agent-layer/gen-annotated-source.mjs";
 import { genLocSummary } from "../agent-layer/gen-loc-summary.mjs";
+import { genParamCount } from "../agent-layer/gen-param-count.mjs";
 import { genSystemGraph } from "../agent-layer/gen-system-graph.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
@@ -64,6 +65,15 @@ function checkLocSummary() {
     );
 }
 
+// 2c2. Param-count drift — check mode writes nothing; compares in-memory regen vs disk.
+function checkParamCount() {
+  const r = genParamCount({ check: true });
+  if (r.drifted.length)
+    throw new Error(
+      `param-count drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-param-count.mjs`
+    );
+}
+
 // 2d. System-graph drift — check mode writes nothing; compares in-memory regen vs disk.
 function checkSystemGraph() {
   const r = genSystemGraph({ check: true });
@@ -108,11 +118,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkTokenCss();
     checkAnnotatedSource();
     checkLocSummary();
+    checkParamCount();
     checkSystemGraph();
     checkHandoff();
     checkScenarios();
     checkTraces();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · system-graph · handoff · scenarios · traces");
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · handoff · scenarios · traces");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);
