@@ -2,7 +2,7 @@
 // (epic #164 — docs/epics/prototyping-feel-uplift.architecture.md §New pieces "Inspect engine";
 // ticket #166): toggle inspect mode on, and hovering or focusing any element carrying
 // data-inspect="<consumer-id>" opens an anchored bubble with four layers — the component's role
-// (copy), its spec line + the handoff link, the tokens it consumes with the CURRENT pack's
+// (copy), its spec line, the tokens it consumes with the CURRENT pack's
 // resolved values (getComputedStyle at open time — the only honest source under derived and
 // imported packs; system/inspect-data.json ships names only), and live measurements.
 //
@@ -24,7 +24,10 @@
 // Toggle state persists like the dock's pack choice (localStorage, try/catch both directions,
 // restored on load). While off the engine is inert: trigger listeners live in a per-activation
 // AbortController, so off means NO listeners, not guarded ones. An unknown data-inspect id
-// throws before any trigger is wired — loud in dev, red in CI.
+// throws before any trigger is wired (console.error + toggle-off at runtime — the engine backs
+// off, it doesn't break the page); the RED-IN-CI guarantee is tooling/drift-check.mjs's
+// inspect-mounts gate, which statically resolves every tracked data-inspect id against
+// system/inspect-data.json.
 //
 // Self-initializes when loaded as a page script; Node-import safe (no top-level DOM access).
 // #168's palette drives it via the exported initInspect handle ({ setInspect, toggleInspect }).
@@ -71,6 +74,8 @@ export function initInspect(root = document) {
   let hideTimer = 0;
   let hovered = false;
   let focusTrigger = null;
+  let dismissed = false; // Esc pressed while the trigger still holds hover/focus — armHide must
+  // not re-show for focusTrigger until the NEXT genuine mouseenter/focusin act (1.4.13 dismissible).
 
   // Popover show/hide with a plain-hidden fallback for engines without the Popover API
   // (baseline since Chrome 114/Safari 17/Firefox 125 — belt-and-braces only). The page-scoped
@@ -108,12 +113,10 @@ export function initInspect(root = document) {
       : `styled token-only in components.css · ${entry.label}`;
     bubble.replaceChildren(
       el("p", { class: "inspect-role", text: entry.role }),
-      el(
-        "p",
-        { class: "inspect-spec" },
-        el("span", { text: specLine + " · " }),
-        el("a", { href: "/handoff.html", text: "handoff pack" })
-      ),
+      // Plain text only — the bubble is role="tooltip" (a flattened description string) with no
+      // keyboard path into a manual popover, so an <a> here would be mouse-only. The handoff
+      // pack stays one click away in the site IA (/handoff.html).
+      el("p", { class: "inspect-spec", text: specLine }),
       el(
         "dl",
         { class: "inspect-tokens" },
@@ -168,7 +171,7 @@ export function initInspect(root = document) {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       if (hovered) return;
-      if (focusTrigger) rearm(focusTrigger);
+      if (focusTrigger && !dismissed) rearm(focusTrigger);
       else hide();
     }, 120);
   }
@@ -182,15 +185,15 @@ export function initInspect(root = document) {
         throw new Error(`inspect: unknown data-inspect id "${t.dataset.inspect}" on ${location.pathname}`);
     const reshow = (t) => show(t, entries.get(t.dataset.inspect), anchorOk);
     for (const t of triggers) {
-      t.addEventListener("mouseenter", () => { hovered = true; reshow(t); }, { signal });
-      t.addEventListener("focusin", () => { focusTrigger = t; reshow(t); }, { signal });
+      t.addEventListener("mouseenter", () => { hovered = true; dismissed = false; reshow(t); }, { signal });
+      t.addEventListener("focusin", () => { focusTrigger = t; dismissed = false; reshow(t); }, { signal });
       t.addEventListener("mouseleave", () => { hovered = false; armHide(reshow); }, { signal });
       t.addEventListener("focusout", () => { focusTrigger = null; armHide(reshow); }, { signal });
     }
     bubble.addEventListener("mouseenter", () => { hovered = true; clearTimeout(hideTimer); }, { signal });
     bubble.addEventListener("mouseleave", () => { hovered = false; armHide(reshow); }, { signal });
     // 1.4.13 dismissible: Esc, only while open — the toggle state stays on. Scroll hides too.
-    document.addEventListener("keydown", (e) => { if (open && e.key === "Escape") hide(); }, { signal });
+    document.addEventListener("keydown", (e) => { if (open && e.key === "Escape") { dismissed = true; hide(); } }, { signal });
     window.addEventListener("scroll", () => { if (open) hide(); }, { passive: true, signal });
   }
 
@@ -225,6 +228,7 @@ export function initInspect(root = document) {
       hide();
       hovered = false;
       focusTrigger = null;
+      dismissed = false;
       if (activation) { activation.abort(); activation = null; }
       return;
     }

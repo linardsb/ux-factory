@@ -770,7 +770,6 @@ dfn.term {
 }
 .inspect-role { margin: 0 0 var(--spacing-sm); }
 .inspect-spec { margin: 0 0 var(--spacing-sm); color: var(--color-fg-on-inverse-muted); }
-.inspect-spec a { color: var(--color-accent-on-inverse); }
 .inspect-tokens {
   margin: 0 0 var(--spacing-sm);
   display: grid;
