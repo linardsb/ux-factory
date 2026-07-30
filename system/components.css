@@ -227,7 +227,7 @@ p, .body {
   content: "→";
   display: inline-block;
   transform: translateX(0);
-  transition: transform var(--motion-base) var(--motion-ease);
+  transition: transform var(--motion-base) var(--motion-ease-spring);
 }
 .btn-arrow:hover::after { transform: translateX(4px); }
 
@@ -281,7 +281,7 @@ p, .body {
   height: 2px;
   background: currentColor;
   transform-origin: center;
-  transition: transform var(--motion-base) var(--motion-ease), opacity var(--motion-fast) var(--motion-ease);
+  transition: transform var(--motion-bounce) var(--motion-ease-bounce), opacity var(--motion-fast) var(--motion-ease);
 }
 .nav-toggle .bar:nth-child(1) { top: 7px; }
 .nav-toggle .bar:nth-child(2) { top: 13px; }
@@ -383,13 +383,13 @@ p, .body {
     transform: translateY(-12px);
     opacity: 0;
     visibility: hidden;
-    transition: opacity var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease), visibility 0ms linear var(--motion-base);
+    transition: opacity var(--motion-base) var(--motion-ease-settle), transform var(--motion-base) var(--motion-ease-settle), visibility 0ms linear var(--motion-base);
   }
   .nav-panel.open {
     transform: translateY(0);
     opacity: 1;
     visibility: visible;
-    transition: opacity var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease), visibility 0ms linear 0ms;
+    transition: opacity var(--motion-base) var(--motion-ease-settle), transform var(--motion-base) var(--motion-ease-settle), visibility 0ms linear 0ms;
   }
 
   .nav-panel .nav-links {
@@ -816,7 +816,7 @@ p, .body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 24px;
-  transition: transform var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease);
+  transition: transform var(--motion-base) var(--motion-ease-spring), border-color var(--motion-base) var(--motion-ease);
 }
 .lp-proof:hover { transform: translateY(-2px); border-color: var(--color-border-strong); }
 .lp-proof .tag {
@@ -900,7 +900,7 @@ p, .body {
   content: "";
   position: absolute;
   background: var(--color-accent);
-  transition: transform var(--motion-base) var(--motion-ease);
+  transition: transform var(--motion-icon-morph) var(--motion-ease-bounce);
 }
 .lp-faq .faq-mark::before { top: 7px; left: 0; width: 16px; height: 2px; }
 .lp-faq .faq-mark::after  { top: 0; left: 7px; width: 2px; height: 16px; }

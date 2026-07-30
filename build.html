@@ -536,6 +536,21 @@
     }
     .bx-keep-card svg { display: block; width: 100%; height: auto; }
     .bx-keep-share { display: grid; gap: var(--spacing-sm); }
+    /* Keep-rail tiers rise in when build-keep.mjs un-hides them ([hidden] removal — a discrete
+       flip; hidden=false is re-assigned every update, which is not a display change, so no
+       re-entrance). Attribute selectors because the artifacts tier carries no class. Entrance
+       ONLY: no display leg here — the [hidden] guard above must win instantly on exit (#138). */
+    [data-keep-card], [data-keep-artifacts], [data-keep-share] {
+      transition: opacity var(--motion-base) var(--motion-ease-settle),
+                  transform var(--motion-base) var(--motion-ease-settle);
+    }
+    @starting-style {
+      [data-keep-card]:not([hidden]), [data-keep-artifacts]:not([hidden]),
+      [data-keep-share]:not([hidden]) {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+    }
     .bx-keep-link {
       width: 100%;
       min-width: 0;

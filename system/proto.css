@@ -252,7 +252,7 @@ body {
     max-height: 70dvh;
     overflow-y: auto;
     transform: translateY(105%);
-    transition: transform 0.25s ease;
+    transition: transform var(--motion-tab-glide) var(--motion-ease-settle);
     z-index: 55;
     box-shadow: 0 -12px 40px rgba(38, 70, 83, 0.25);
   }
@@ -387,7 +387,7 @@ body {
   font-family: inherit;
   padding: 16px;
   cursor: pointer;
-  transition: transform 0.08s ease, background 0.15s ease;
+  transition: transform var(--motion-fast) var(--motion-ease-bounce), background var(--motion-fast) var(--motion-ease);
 }
 .ot-btn:active { transform: scale(0.985); }
 .ot-btn.dark { background: #0B0E16; }
@@ -536,7 +536,7 @@ body {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-  transition: transform 0.15s ease;
+  transition: transform var(--motion-fast) var(--motion-ease-bounce);
 }
 .ot-switch.on { background: var(--t-good); }
 .ot-switch.on::after { transform: translateX(20px); }
@@ -599,7 +599,7 @@ body {
   padding: 20px 20px 28px;
   width: 100%;
   transform: translateY(30px);
-  transition: transform 0.22s ease;
+  transition: transform var(--motion-base) var(--motion-ease-settle);
 }
 .ot-sheet-wrap.open .ot-sheet { transform: translateY(0); }
 .ot-sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--t-line); margin: 0 auto 14px; }
@@ -618,7 +618,7 @@ body {
   padding: 10px 16px;
   border-radius: 999px;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--motion-base) var(--motion-ease-settle), transform var(--motion-base) var(--motion-ease-settle);
   pointer-events: none;
   z-index: 30;
   white-space: nowrap;
