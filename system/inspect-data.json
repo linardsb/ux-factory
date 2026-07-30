@@ -22,7 +22,8 @@
         "--color-bg-inverse",
         "--color-fg-on-inverse-strong",
         "--color-on-dark-border",
-        "--color-accent-on-inverse"
+        "--color-accent-on-inverse",
+        "--motion-ease-spring"
       ],
       "spec": null
     },
