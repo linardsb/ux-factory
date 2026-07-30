@@ -321,7 +321,7 @@ a.lineup-item { color: inherit; }
   font-size: 18px;
   color: var(--color-fg-muted);
   transform: translateX(0);
-  transition: transform var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+  transition: transform var(--motion-base) var(--motion-ease-spring), color var(--motion-base) var(--motion-ease);
   align-self: center;
 }
 a.lineup-item:hover .lineup-title,
@@ -449,7 +449,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   content: "";
   position: absolute;
   background: var(--color-accent);
-  transition: transform var(--motion-base) var(--motion-ease);
+  transition: transform var(--motion-icon-morph) var(--motion-ease-bounce);
 }
 .cs-acc .mark::before { top: 6px; left: 0; width: 14px; height: 2px; }
 .cs-acc .mark::after  { top: 0; left: 6px; width: 2px; height: 14px; }
@@ -573,7 +573,7 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+  transition: opacity var(--motion-fast) var(--motion-ease-settle), transform var(--motion-fast) var(--motion-ease-settle), background var(--motion-fast) var(--motion-ease);
   z-index: 40;
 }
 .to-top.show {
@@ -968,15 +968,23 @@ dfn.term {
 }
 .dock-toggle[aria-expanded="true"] .dock-glyph-half { transform: rotate(180deg); }
 
-/* Non-modal disclosure (hash-routed by dock.mjs). Hidden = display:none, entrance = a
-   keyframe on the DISCRETE .is-open toggle (no continuous rebuild — the PR-#55 trap) so
-   the reduced-motion kill-switch (portfolio.css:16-23) makes open/close truly instant. */
+/* Non-modal disclosure (hash-routed by dock.mjs). Hidden = display:none; entrance/exit are
+   transitions keyed on the DISCRETE .is-open toggle (no continuous rebuild — the PR-#55 trap),
+   with @starting-style supplying the entry frame and allow-discrete holding display through
+   the exit. Engines without @starting-style/allow-discrete get an instant open/close.
+   The reduced-motion kill-switch (portfolio.css:16-23) makes both truly instant.
+   NOTE: the base rule carries opacity:0 + the exit offset — invisible while display:none,
+   but any future style that shows the panel without .is-open would show it transparent.
+   pointer-events is NOT in the transition list, so it flips instantly: during the exit the
+   panel is still a laid-out fixed box for --motion-base, and must not eat clicks. */
 .dock-panel {
   display: none;
+  opacity: 0;
+  pointer-events: none;
   position: fixed;
   right: calc(var(--spacing-md) + 44px + var(--spacing-sm));
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) translateX(8px);
   z-index: 95;
   width: min(340px, calc(100vw - 120px));
   max-height: calc(100vh - var(--spacing-2xl) * 2);
@@ -986,13 +994,18 @@ dfn.term {
   border-radius: var(--radius-lg); /* the .close-card vocabulary — parent radius, rows step down */
   box-shadow: var(--shadow-lg);
   padding: var(--spacing-xl);
+  transition: opacity var(--motion-base) var(--motion-ease),
+              transform var(--motion-base) var(--motion-ease-spring),
+              display var(--motion-base) allow-discrete;
 }
 .dock-panel.is-open {
   display: block;
-  animation: dock-panel-in var(--motion-base) var(--motion-ease-spring);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%);
 }
-@keyframes dock-panel-in {
-  from { opacity: 0; transform: translateY(-50%) translateX(8px); }
+@starting-style {
+  .dock-panel.is-open { opacity: 0; transform: translateY(-50%) translateX(8px); }
 }
 
 /* The panel states its purpose in its first two lines — the v2 verdict was a control with no
@@ -1049,7 +1062,19 @@ dfn.term {
 
 /* The restore offer (#108) — shown only to a visitor whose own colour a shared link displaced, so
    it sits between the choice and the standing actions rather than becoming a third one. */
-.dock-restore-row { margin: 0 0 var(--spacing-md); }
+/* Entrance-only settle with TWO triggers: [hidden] removal (a discrete flip; dock.mjs
+   re-assigns hidden=false on every render, which is not a display change, so no re-entrance),
+   AND the panel's own display flip when the row is already un-hidden at first open — there the
+   row's settle deliberately stacks on the panel's spring entrance.
+   Exit stays instant: no display leg here — [hidden] must win immediately. */
+.dock-restore-row {
+  margin: 0 0 var(--spacing-md);
+  transition: opacity var(--motion-base) var(--motion-ease-settle),
+              transform var(--motion-base) var(--motion-ease-settle);
+}
+@starting-style {
+  .dock-restore-row:not([hidden]) { opacity: 0; transform: translateY(4px); }
+}
 .dock-restore-note {
   margin: 0 0 var(--spacing-sm);
   font-size: var(--type-caption);
@@ -1736,7 +1761,7 @@ dfn.term {
   min-height: 44px; padding: 0 var(--spacing-md); border-radius: var(--radius-lg);
   border: 1px solid var(--color-on-dark-border); background: transparent;
   color: var(--color-fg-on-inverse); font: inherit; font-size: var(--type-caption); cursor: pointer;
-  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+  transition: transform var(--motion-bounce) var(--motion-ease-bounce), border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .peak-ethics-choice:hover { border-color: var(--color-fg-on-inverse-soft); }
 .peak-ethics-choice:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 2px; }
@@ -1904,12 +1929,9 @@ dfn.term {
   transform: translateX(4px);
 }
 
-/* I7 — arrow-glyph refinement over the base .btn-arrow (components.css). Hover +
-   transition ONLY (compositor transform) → zero at-rest change, so the pages that
-   carry an arrow button (factory/approach/work/contact) keep their baselines. The
-   base ease becomes the subtle spring, matching the .row-item arrows: one arrow
-   language across the site (Q5). */
-.btn-arrow::after { transition: transform var(--motion-base) var(--motion-ease-spring); }
+/* I7 — arrow-glyph refinement over the base .btn-arrow (components.css): a longer 6px
+   nudge, matching the .row-item arrows — one arrow language across the site (Q5). The
+   spring easing itself now lives on the base rule in components.css (#165). */
 .btn-arrow:hover::after { transform: translateX(6px); }
 
 /* Spine responsive compaction (bands reflow to 360px without horizontal scroll) */

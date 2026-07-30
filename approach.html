@@ -168,6 +168,10 @@
         <!-- Measured size of the shipped system, from the drift-checked artifact
              (system/loc-summary.json, agent-layer/gen-loc-summary.mjs) — never a hand-written number. -->
         <p class="loc-proof" id="loc-proof" hidden></p>
+        <!-- Measured count of live-manipulable controls, from the drift-checked artifact
+             (system/param-count.json, agent-layer/gen-param-count.mjs, counted from the committed
+             system/param-manifest.json) — never a hand-written number. -->
+        <p class="loc-proof" id="param-proof" hidden></p>
       </div>
     </section>
 
@@ -227,8 +231,8 @@
 
     const wrap = document.getElementById("asrc");
     const grab = (path) => fetch(path).then((r) => { if (!r.ok) throw new Error(`${path} → ${r.status}`); return r.json(); });
-    Promise.all([grab("/system/annotated-source.json"), grab("/system/loc-summary.json")])
-      .then(([data, loc]) => {
+    Promise.all([grab("/system/annotated-source.json"), grab("/system/loc-summary.json"), grab("/system/param-count.json")])
+      .then(([data, loc, params]) => {
         const model = prepareAnnotatedSource(data);
         for (const mount of wrap.querySelectorAll("[data-snippet]"))
           renderAnnotatedSource(mount, model, mount.dataset.snippet);
@@ -249,6 +253,16 @@
         line.hidden = false;
         countUpOnVisible(filesN);
         countUpOnVisible(linesN);
+
+        const paramLine = document.getElementById("param-proof");
+        const paramN = document.createElement("span");
+        paramN.textContent = String(params.total);
+        paramLine.append(
+          paramN, " of the things on these pages are live controls you can operate — inputs, switches ",
+          "and editable surfaces, counted from a committed manifest and checked in CI.",
+        );
+        paramLine.hidden = false;
+        countUpOnVisible(paramN);
 
         wrap.hidden = false;
         wrap.dataset.asrc = "ready";   // VR waits on this — set ONLY on full success

@@ -634,7 +634,8 @@
         "--color-bg-inverse",
         "--color-fg-on-inverse-strong",
         "--color-on-dark-border",
-        "--color-accent-on-inverse"
+        "--color-accent-on-inverse",
+        "--motion-ease-spring"
       ]
     },
     {
@@ -647,13 +648,16 @@
         "--color-bg-inverse",
         "--color-inverse-line",
         "--color-fg-on-inverse",
-        "--motion-base",
-        "--motion-ease",
+        "--motion-bounce",
+        "--motion-ease-bounce",
         "--motion-fast",
+        "--motion-ease",
         "--color-accent",
         "--font-display",
         "--font-body",
         "--radius-sm",
+        "--motion-base",
+        "--motion-ease-settle",
         "--gutter",
         "--color-bg-surface",
         "--color-inverse-wash",
@@ -779,13 +783,16 @@
         "--color-border",
         "--radius-md",
         "--motion-base",
+        "--motion-ease-spring",
         "--color-border-strong",
         "--radius-sm",
         "--color-bg-inverse",
         "--color-fg-on-inverse",
         "--spacing-xl",
         "--color-fg-on-inverse-soft",
-        "--color-accent-secondary"
+        "--color-accent-secondary",
+        "--motion-icon-morph",
+        "--motion-ease-bounce"
       ]
     },
     {
@@ -1109,6 +1116,6 @@
   "counts": {
     "tokens": 64,
     "consumers": 29,
-    "edges": 323
+    "edges": 330
   }
 }
