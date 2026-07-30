@@ -749,6 +749,60 @@ dfn.term {
   box-shadow: var(--shadow-md);
 }
 
+/* ---------- Inspect bubble + toggle (#166, epic #164) ----------
+   The glossary bubble's visual model, wider for its four layers. A [popover] is top-layer, so
+   no z-index; margin/border reset the popover UA defaults (margin:auto + border). Positioned by
+   CSS anchor where supported (the @supports block), else by inline left/top from inspect.mjs's
+   fixed-position fallback math. */
+.inspect-bubble {
+  margin: 0;
+  border: 0;
+  max-width: 44ch;
+  max-height: calc(100vh - 16px);        /* never taller than the viewport (8px margins) */
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  background: var(--color-bg-inverse);
+  color: var(--color-fg-on-inverse-strong);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.inspect-role { margin: 0 0 var(--spacing-sm); }
+.inspect-spec { margin: 0 0 var(--spacing-sm); color: var(--color-fg-on-inverse-muted); }
+.inspect-tokens {
+  margin: 0 0 var(--spacing-sm);
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--spacing-md);
+  font-family: var(--font-mono);
+  max-height: 32vh;                      /* buttons consumes 17 tokens — the list scrolls, the bubble stays in the viewport */
+  overflow-y: auto;
+}
+.inspect-tokens dt { color: var(--color-fg-on-inverse-muted); }
+.inspect-tokens dd { margin: 0; overflow-wrap: anywhere; }
+.inspect-meas { margin: 0; font-family: var(--font-mono); color: var(--color-fg-on-inverse-muted); }
+/* Anchor declarations apply only when inspect.mjs took the anchor branch (data-inspect-pos —
+   the JS decides once per activation, so a forced/stubbed fallback never runs a hybrid where
+   position-area points at an anchor-name nothing carries). */
+@supports (anchor-name: --a) {
+  .inspect-bubble[data-inspect-pos="anchor"] {
+    position-anchor: --inspect-target;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block;
+    margin-block-start: var(--spacing-sm);
+  }
+}
+/* Trigger affordance + pressed toggle — visible only while inspect is ON (empty localStorage in
+   VR gate contexts keeps all of this out of the baselines). */
+:root[data-inspect-mode="on"] [data-inspect] {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: 2px;
+  cursor: help;
+}
+.inspect-toggle-row { margin: var(--spacing-md) 0 0; }
+.inspect-toggle[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-accent); }
+
 /* ---------- Derivation round-trip exhibit (#42) — fidelity diff display + trace player ----------
    Token-only (colour / space / radius / type via var(--…); grid / flex / px are structural literals,
    same licence as the factory <style> block and the .fw-*/.cs-* classes). Calm by the calm-colour

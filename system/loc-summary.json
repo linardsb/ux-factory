@@ -4,8 +4,8 @@
     {
       "id": "runtime",
       "label": "design system (system/ — tokens, components, view-time modules)",
-      "files": 56,
-      "linesApprox": 17600
+      "files": 57,
+      "linesApprox": 17900
     },
     {
       "id": "pages",
@@ -16,12 +16,12 @@
     {
       "id": "generators",
       "label": "build-time generators (agent-layer/)",
-      "files": 18,
-      "linesApprox": 2100
+      "files": 19,
+      "linesApprox": 2200
     }
   ],
   "total": {
-    "files": 90,
-    "linesApprox": 24800
+    "files": 92,
+    "linesApprox": 25300
   }
 }

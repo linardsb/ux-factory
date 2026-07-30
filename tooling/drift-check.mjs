@@ -6,7 +6,7 @@
 // covered here. Standalone:  node tooling/drift-check.mjs
 // Requires tooling/style-dictionary/node_modules (gen-handoff child-process-invokes SD).
 
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -15,6 +15,7 @@ import { genAnnotatedSource } from "../agent-layer/gen-annotated-source.mjs";
 import { genLocSummary } from "../agent-layer/gen-loc-summary.mjs";
 import { genParamCount } from "../agent-layer/gen-param-count.mjs";
 import { genSystemGraph } from "../agent-layer/gen-system-graph.mjs";
+import { genInspectData } from "../agent-layer/gen-inspect-data.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
 import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
@@ -83,6 +84,38 @@ function checkSystemGraph() {
     );
 }
 
+// 2e. Inspect-data drift — check mode writes nothing; compares in-memory regen vs disk.
+function checkInspectData() {
+  const r = genInspectData({ check: true });
+  if (r.drifted.length)
+    throw new Error(
+      `inspect-data drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-inspect-data.mjs`
+    );
+}
+
+// 2f. Inspect mounts — every data-inspect="<id>" in tracked HTML must resolve in
+// system/inspect-data.json. inspect.mjs's own unknown-id throw only fires when a reader
+// toggles inspect on, so without this a future mount ticket shipping a typo'd id would
+// pass CI green and break only for readers with inspect persisted on.
+function checkInspectMounts() {
+  const ids = new Set(
+    JSON.parse(readFileSync(join(ROOT, "system/inspect-data.json"), "utf8")).components.map(
+      (c) => c.id
+    )
+  );
+  const pages = execFileSync("git", ["ls-files", "*.html"], { cwd: ROOT, encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean);
+  for (const page of pages) {
+    const html = readFileSync(join(ROOT, page), "utf8");
+    for (const [, id] of html.matchAll(/data-inspect="([^"]*)"/g))
+      if (!ids.has(id))
+        throw new Error(
+          `inspect mount drift: ${page} carries data-inspect="${id}" but system/inspect-data.json has no such component`
+        );
+  }
+}
+
 // 3. Handoff/vocabulary drift — these generators WRITE under handoff/ (deterministic), then
 // git porcelain (not `git diff`: porcelain also lists a newly-emitted untracked file). Scoped
 // to handoff/ — the only tree these three generators write.
@@ -120,10 +153,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkLocSummary();
     checkParamCount();
     checkSystemGraph();
+    checkInspectData();
+    checkInspectMounts();
     checkHandoff();
     checkScenarios();
     checkTraces();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · handoff · scenarios · traces");
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);
