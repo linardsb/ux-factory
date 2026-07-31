@@ -55,7 +55,10 @@ reader's pack.
 | `gen-system-graph` / `gen-inspect-data` / `gen-param-count` / `gen-loc-summary` | ✓ each prints its line |
 | Cross-engine functional (chromium + firefox + webkit) | 42/42 |
 | VR `npm run update:docker` (pinned Linux container, clean tree) | 20 passed; 4 baselines rewritten |
+| VR re-run in **compare** mode after the final iframe fix | 20 passed against the committed baselines; zero further churn |
 | Reduced-motion rule proven by running it, not grepping | dock transitions = `1e-05s` under `reduce` on `/proto/verdant.html` (no portfolio.css) and on `/index.html`; full durations under no-preference on both |
+| **Cascade: `proto.css` loads AFTER `components.css` on exactly these two pages** | `proto.css` contains one element/universal rule in the whole file — `* { box-sizing: border-box }` — and `components.css:18` already declares it identically. No other bare element, `::`-pseudo or universal selector, so nothing in it can reach the dock panel's or the bubble's new DOM (`fieldset`, `legend`, `input`, `label`, `dl`, `dt`, `dd`, `a`, `p`, `h2`) |
+| **Dock panel + bubble RENDERED and measured, proto vs home** | panel `340×758`, padding `32px`, radius `16px`, toggle `44×44`, 4 pack rows — **identical on both**. Bubble `371px` wide, padding `16px`, background `rgb(26,26,26)` on both (height differs only by token count: 11 for `vd-plant-card` vs 18 for `buttons`) |
 
 **VR churn set: `proto-{verdant,fieldwork}-{neutral,saulera}.png` — 4 PNGs. Every other baseline
 byte-unchanged.**
@@ -99,7 +102,20 @@ byte-unchanged.**
    silently. Each page now calls `import("/system/inspect.mjs").then((m) => m.initInspect())` right
    after its `innerHTML` lands. The assertion in `proto-check.mjs` touches no toggle and hovers all six
    mounts; it passes on all three engines.
-7. **Comment cross-references repaired**, since the move made them false: two
+7. **The inspect layer is gated to the top window too, not just the dock.** The plan gated only
+   `dock.mjs`. Rendering `work.html`'s embeds **unmasked** (the VR spec masks them, so the green gate
+   says nothing about their contents) showed each thumbnail carrying a second "Inspect this surface"
+   button at rest, and — for any reader with `factory-inspect` persisted on, which is shared
+   same-origin — dashed outlines over all 42 Verdant mounts plus a 44ch bubble clipped by the embed's
+   fixed height. The plan's own justification for the dock gate ("chrome about the frame, not about
+   the work") applies verbatim. Both the script tag and the post-render re-init are now gated, and the
+   toggle is *removed* in an embed rather than left inert, because a control with no engine behind it
+   is worse than no control. Measured after: `{dock: 0, inspectToggle: 0, inspectMode: "off",
+   outlined: "none"}` in both frames, while both still wear the reader's pack. Deliberately still
+   reachable: a reader who drives the ⌘K palette inside a frame gets the layer — the rule is about
+   at-rest chrome, not about withholding a deliberate action. No baseline churn (re-verified by a
+   compare-mode gate run).
+8. **Comment cross-references repaired**, since the move made them false: two
    `portfolio.css:16-23` kill-switch references, one `.close-tokens .btn-ghost … below`, and
    `portfolio.css`'s own "same licence as `.bento` and `.dock` above". Rule bodies moved
    **byte-identical** (verified by diffing the moved ranges against `git show HEAD:` — zero value edits).

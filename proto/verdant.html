@@ -157,7 +157,8 @@
       // so a reader arriving with inspect persisted on would get the screen wired to nothing.
       // Re-init once the screen exists; the module is already evaluated, so this rescans rather
       // than standing up a second engine, and it re-reads the persisted flag on the way through.
-      import("/system/inspect.mjs").then((m) => m.initInspect());
+      // Top-window only, for the same reason the script tag below is — see its comment.
+      if (window.self === window.top) import("/system/inspect.mjs").then((m) => m.initInspect());
 
       // Session-only interaction: check rows → the button enables → commit clears
       // them from the list. Nothing persists (read-only API; the caption says so).
@@ -187,14 +188,22 @@
       app.innerHTML = `<p class="vd-allclear">Could not load the scenario data: ${esc(e.message)}</p>`;
     }
   </script>
-  <!-- Script order mirrors index.html: dock → inspect → palette. The dock is TOP-WINDOW ONLY —
-       work.html embeds this page in an iframe, and a nested appearance rail inside a figure would
-       be chrome about the frame, not about the work. pack-boot.js still runs in that embed, so the
-       thumbnail follows the reader's pack pick. -->
+  <!-- Script order mirrors index.html: dock → inspect → palette. Both the appearance rail and the
+       inspect layer are TOP-WINDOW ONLY: work.html embeds this page in a figure, and chrome about
+       the FRAME is not chrome about the work — an embedded copy would otherwise carry a second
+       "Inspect this surface" button, dashed outlines over every mount, and a bubble clipped to the
+       embed's fixed height. pack-boot.js still runs in that embed, so the thumbnail follows the
+       reader's pack pick. The toggle is markup, so it is removed rather than left inert: a control
+       with no engine behind it is worse than no control. A reader who deliberately drives the ⌘K
+       palette inside the frame still gets the layer — the rule is about at-rest chrome, not consent. -->
   <script type="module">
-    if (window.self === window.top) import("/system/dock.mjs");
+    if (window.self === window.top) {
+      import("/system/dock.mjs");
+      import("/system/inspect.mjs");
+    } else {
+      document.querySelector(".inspect-toggle")?.remove();
+    }
   </script>
-  <script type="module" src="/system/inspect.mjs"></script>
   <script type="module" src="/system/palette.mjs"></script>
 </body>
 </html>
