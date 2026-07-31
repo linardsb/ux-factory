@@ -50,7 +50,7 @@
          ============================================================================ -->
 
     <!-- Beat 1 · instant proof — the billboard cover (I1). #72 animates TO this state. -->
-    <section class="page-hero" id="beat-hero">
+    <section class="page-hero" id="beat-hero" data-inspect="page-hero">
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
@@ -64,8 +64,8 @@
           built in your browser. Every step is inspectable.
         </p>
         <div class="hero-cta-row">
-          <a class="btn btn-primary btn-arrow" href="#beat-intake">Start the brief</a>
-          <a class="btn btn-secondary" href="/approach">How I work</a>
+          <a class="btn btn-primary btn-arrow" href="#beat-intake" data-inspect="buttons">Start the brief</a>
+          <a class="btn btn-secondary" href="/approach" data-inspect="buttons">How I work</a>
         </div>
       </div>
     </section>
@@ -108,20 +108,20 @@
             <div id="reskin-preview">
               <div class="fw-preview-pad">
                 <div class="grid grid-3">
-                  <article class="card"><div class="card-body">
+                  <article class="card" data-inspect="cards"><div class="card-body">
                     <div class="card-kicker">Card</div>
                     <h3 class="h3 mb-md">Text on a surface</h3>
                     <p class="muted">Muted body text on the derived card surface, one of the checked pairs.</p>
                   </div></article>
-                  <article class="card"><div class="card-body">
+                  <article class="card" data-inspect="cards"><div class="card-body">
                     <div class="card-kicker">Accent</div>
                     <h3 class="h3 mb-md"><span class="amber">Accent as text</span></h3>
                     <p class="muted">The accent must survive as text, not just as a fill.</p>
                   </div></article>
-                  <article class="card"><div class="card-body">
+                  <article class="card" data-inspect="cards"><div class="card-body">
                     <div class="card-kicker">Buttons</div>
                     <p class="mb-md"><a class="btn btn-primary" href="#beat-intake" data-inspect="buttons">Primary</a></p>
-                    <p><a class="btn btn-secondary" href="#beat-intake">Secondary</a></p>
+                    <p><a class="btn btn-secondary" href="#beat-intake" data-inspect="buttons">Secondary</a></p>
                   </div></article>
                 </div>
               </div>
@@ -129,6 +129,9 @@
             <!-- Inspect toggle (#166): static markup so it renders with JS blocked (degrades to an
                  inert button, same licence as the static sample above). inspect.mjs wires it. -->
             <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
+            <!-- Scrub row (#169): rendered by system/scrub.mjs. Empty on purpose — with JS off no
+                 dead controls appear (brand-import fail-closed posture). -->
+            <div class="stage-scrub" data-stage-scrub></div>
           </div>
         </div>
         <!-- Staged "how it's generated" narrative, full-width below the ask|stage row and visible (no
@@ -211,8 +214,8 @@
           <p class="beat-lead">
             On a desktop screen an appearance control sits on the right edge of every page. It holds
             the three committed packs, plus your own derived one once you have entered a colour above.
-            Your pick follows you from page to page, so each page becomes another test of the same
-            token contract.
+            Every page reads its colours and sizes from the same named list (the token contract),
+            and your pick follows you from page to page, so each page becomes another test of it.
           </p>
           <p class="wear-cue"><a class="btn btn-secondary" href="#appearance">Open the appearance control</a></p>
         </div>
@@ -266,10 +269,11 @@
               </div>
             </div>
             <p class="peak-note">
-              A committed example screen, built from the same design system and re-skinned to your
-              brand. With JavaScript on, the real contrast engine measures every pair live and the
-              screen enforces its own contract when you adjust it. On a private instance a build-time
-              agent composes this per employer; here it is a committed example.
+              A real example screen, saved into the site and rebuilt here in your brand from the
+              same design system. The code that checks every colour pair for readable contrast
+              (the contrast engine) measures this screen live, and the screen enforces its own
+              rules when you adjust it. On a private instance an agent composes this screen per
+              employer before the site ships; here it is a committed example.
             </p>
             <details class="peak-ethics">
               <summary>Does this screen manipulate the user? Guess, then reveal the engine's read.</summary>
@@ -308,9 +312,9 @@
           </div>
           <div class="close-takeaway">
             <p class="close-takeaway-line">
-              Take the handoff pack with you. It is the pack an engineer receives for Verdant, the
-              fictional product this demo builds: component specs, data contracts, tokens, and the
-              agent vocabulary.
+              Take the handoff pack with you. It holds everything an engineer needs to build
+              Verdant, the fictional product this demo designs: component specs, data contracts,
+              tokens, and the agent vocabulary.
             </p>
             <div class="close-takeaway-row">
               <a class="btn btn-secondary" href="/handoff.html">See the handoff pack</a>
@@ -322,8 +326,9 @@
                only, so an action this central cannot depend on JavaScript being on. -->
           <div class="close-takeaway">
             <p class="close-takeaway-line">
-              Or run the method on your own product. Bring your design tokens, answer the ten
-              questions this portfolio works by, and a UI pattern assembles under your brand. The
+              Or run the method on your own product. Bring the colour-and-size values your design
+              already uses (its design tokens), answer the ten questions this portfolio works by,
+              and a UI pattern assembles under your brand. The
               rules run in your browser — nothing is uploaded and no model is called — and the link
               at the end rebuilds the whole build for whoever you send it to.
             </p>
@@ -413,6 +418,7 @@
   <script type="module" src="/system/pack-derived.mjs"></script>
   <script type="module" src="/system/brand-import.mjs"></script>
   <script type="module" src="/system/peak.mjs"></script>
+  <script type="module" src="/system/scrub.mjs"></script>
   <!-- Beat 4. Last is fine (it imports spine.mjs), but do NOT move any module above dock.mjs:
        dock imports pack-derived, and that import is what makes the shared-link hydration run
        before spine's hero registers. Reordering these tags breaks the arrival path (#77). -->

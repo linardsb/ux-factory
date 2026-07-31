@@ -37,6 +37,10 @@
   // ------- HEADER -------
   const headerEl = document.createElement("header");
   headerEl.className = "site-header" + (onOcean ? " on-ocean" : "");
+  // #169: inspect-engine mount. Inert on pages without inspect.mjs and invisible at rest
+  // (affordance gated on :root[data-inspect-mode="on"]). JS-injected, so drift-check's static
+  // gate never sees it — the id lives in gen-inspect-data.mjs's ROLES (same-commit rule).
+  headerEl.setAttribute("data-inspect", "header");
   headerEl.innerHTML = `
     <div class="container nav-row">
       <a class="nav-logo brand-lockup" href="${esc(home)}" aria-label="${esc(brand.name)} home">
@@ -119,6 +123,7 @@
 
   const footerEl = document.createElement("footer");
   footerEl.className = "site-footer";
+  footerEl.setAttribute("data-inspect", "footer"); // #169 — same licence as the header's mount above
   footerEl.innerHTML = `
     <div class="container">
       <div class="footer-grid">
