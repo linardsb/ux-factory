@@ -1111,11 +1111,35 @@
         "--color-accent-fg",
         "--radius-sm"
       ]
+    },
+    {
+      "id": "command-palette-k-ctrl-k-system-palette-mjs-epic-164-ticket-168",
+      "label": "Command palette (⌘K / Ctrl-K) — system/palette.mjs (epic #164, ticket #168)",
+      "spec": null,
+      "tokens": [
+        "--spacing-lg",
+        "--color-bg-surface",
+        "--color-fg",
+        "--color-border",
+        "--radius-lg",
+        "--shadow-lg",
+        "--motion-base",
+        "--motion-ease",
+        "--motion-ease-spring",
+        "--font-body",
+        "--type-body",
+        "--spacing-md",
+        "--color-fg-muted",
+        "--spacing-sm",
+        "--type-caption",
+        "--radius-sm",
+        "--color-bg"
+      ]
     }
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 29,
-    "edges": 330
+    "consumers": 30,
+    "edges": 347
   }
 }

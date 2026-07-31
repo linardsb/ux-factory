@@ -54,6 +54,7 @@ function el(tag, attrs, ...children) {
 const supportsAnchor = () => typeof CSS !== "undefined" && CSS.supports("anchor-name: --a");
 
 let current = null; // the live init handle — initInspect() is idempotent-safe
+export const getInspect = () => current; // #168's palette reads the live handle, never rebuilds it
 
 export function initInspect(root = document) {
   if (current) current.destroy();
