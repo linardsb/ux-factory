@@ -55,6 +55,10 @@ const supportsAnchor = () => typeof CSS !== "undefined" && CSS.supports("anchor-
 
 let current = null; // the live init handle — initInspect() is idempotent-safe
 export const getInspect = () => current; // #168's palette reads the live handle, never rebuilds it
+// Re-wire the live session over the mounts on the page NOW. Module-level so a page that renders
+// components late can reach it with a lazy import() and pay nothing while inspect is off
+// (system/pattern-render.mjs). Safe before init and while off: both are no-ops.
+export const refreshInspect = () => current?.refreshInspect();
 
 export function initInspect(root = document) {
   if (current) current.destroy();
@@ -75,8 +79,15 @@ export function initInspect(root = document) {
   let hideTimer = 0;
   let hovered = false;
   let focusTrigger = null;
-  let dismissed = false; // Esc pressed while the trigger still holds hover/focus — armHide must
-  // not re-show for focusTrigger until the NEXT genuine mouseenter/focusin act (1.4.13 dismissible).
+  // The trigger Esc dismissed, or null. armHide must not re-show THAT trigger's bubble until the
+  // next genuine mouseenter/focusin act on it (1.4.13 dismissible).
+  //
+  // A reference and not a flag (pr-180-review.md M3). As a boolean this said "something was
+  // dismissed", which any other trigger's mouseenter then cleared — so on a page with two mounts,
+  // dismissing a focused trigger's bubble and then grazing a different one re-armed the first, and
+  // the bubble the reader had just dismissed came back on mouseleave. /build is the first page with
+  // enough triggers for that to be ordinary rather than contrived.
+  let dismissedTrigger = null;
 
   // Popover show/hide with a plain-hidden fallback for engines without the Popover API
   // (baseline since Chrome 114/Safari 17/Firefox 125 — belt-and-braces only). The page-scoped
@@ -172,7 +183,7 @@ export function initInspect(root = document) {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       if (hovered) return;
-      if (focusTrigger && !dismissed) rearm(focusTrigger);
+      if (focusTrigger && focusTrigger !== dismissedTrigger) rearm(focusTrigger);
       else hide();
     }, 120);
   }
@@ -190,16 +201,25 @@ export function initInspect(root = document) {
     // same event and overwrites the inner mount's bubble. Each mount acts only when the focused
     // element's NEAREST mount is itself.
     const ownEvent = (t, e) => e.target.closest("[data-inspect]") === t;
+    // Entering a trigger clears the dismissal only if THIS is the trigger that was dismissed —
+    // arriving at some other mount says nothing about the one the reader pressed Esc on.
+    const rearrive = (t) => { if (dismissedTrigger === t) dismissedTrigger = null; };
     for (const t of triggers) {
-      t.addEventListener("mouseenter", () => { hovered = true; dismissed = false; reshow(t); }, { signal });
-      t.addEventListener("focusin", (e) => { if (!ownEvent(t, e)) return; focusTrigger = t; dismissed = false; reshow(t); }, { signal });
+      t.addEventListener("mouseenter", () => { hovered = true; rearrive(t); reshow(t); }, { signal });
+      t.addEventListener("focusin", (e) => { if (!ownEvent(t, e)) return; focusTrigger = t; rearrive(t); reshow(t); }, { signal });
       t.addEventListener("mouseleave", () => { hovered = false; armHide(reshow); }, { signal });
       t.addEventListener("focusout", (e) => { if (!ownEvent(t, e)) return; focusTrigger = null; armHide(reshow); }, { signal });
     }
     bubble.addEventListener("mouseenter", () => { hovered = true; clearTimeout(hideTimer); }, { signal });
     bubble.addEventListener("mouseleave", () => { hovered = false; armHide(reshow); }, { signal });
     // 1.4.13 dismissible: Esc, only while open — the toggle state stays on. Scroll hides too.
-    document.addEventListener("keydown", (e) => { if (open && e.key === "Escape") { dismissed = true; hide(); } }, { signal });
+    // `open` is read BEFORE hide(), which nulls it: a pointer-only reader has no focusTrigger, so
+    // the trigger being described is the only record of what they just dismissed.
+    document.addEventListener("keydown", (e) => {
+      if (!open || e.key !== "Escape") return;
+      dismissedTrigger = focusTrigger || open;
+      hide();
+    }, { signal });
     window.addEventListener("scroll", () => { if (open) hide(); }, { passive: true, signal });
   }
 
@@ -234,10 +254,17 @@ export function initInspect(root = document) {
       hide();
       hovered = false;
       focusTrigger = null;
-      dismissed = false;
+      dismissedTrigger = null;
       if (activation) { activation.abort(); activation = null; }
       return;
     }
+    activate();
+  }
+
+  // One activation is one AbortController holding every trigger listener. Extracted so that
+  // refreshInspect re-runs EXACTLY what toggling on runs, rather than a second copy of it that is
+  // free to drift.
+  function activate() {
     const mine = (activation = new AbortController());
     fetchData()
       .then((entries) => {
@@ -248,6 +275,23 @@ export function initInspect(root = document) {
         dataPromise = null; // a failed fetch may be transient — retry on the next toggle
         if (activation === mine) { console.error(e); setInspect(false); }
       });
+  }
+
+  // Re-scan the page for mounts (#171). wireTriggers runs once per activation over the mounts that
+  // existed then, so a page that BUILDS components later — /build's pattern stage rebuilds its
+  // primitives on every board change — leaves inspect wired to nodes that are gone and silent on
+  // the ones now on screen.
+  //
+  // The destructive way to fix that is initInspect(), which tears down the handle #168's palette
+  // holds a reference to (palette.mjs:118 warns about exactly this). This is the narrow
+  // alternative: same activation path, same cached data, nothing else disturbed — not the toggle
+  // state, not the persisted choice, not the handle. A no-op while inspect is off, which is when
+  // there are no listeners to be stale in the first place, and is every visual-regression capture.
+  function refreshInspect() {
+    if (!on) return;
+    if (activation) activation.abort();
+    hide(); // the open bubble may be describing a node the render that called this just removed
+    activate();
   }
 
   const toggleWiring = new AbortController();
@@ -262,6 +306,7 @@ export function initInspect(root = document) {
   const handle = {
     setInspect,
     toggleInspect: () => setInspect(!on),
+    refreshInspect,
     destroy: () => {
       setInspect(false, { persist: false });
       toggleWiring.abort();

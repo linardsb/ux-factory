@@ -668,6 +668,123 @@ async function journey(engineName, results, held) {
   t("reduced-motion: the share link still round-trips the whole build", (await snapshot(rmBack)) === rmSent);
   await rm.close();
 
+  console.log("\n[16b] inspect mode wires the rendered primitives, and re-wires them after a re-render");
+  // #171 mounts the inspect engine here, and the components most worth inspecting on this page are
+  // the ones the board just built — nodes that did not exist when inspect was switched on.
+  // wireTriggers runs once per activation, so without pattern-render's refreshInspect() call the
+  // engine stays wired to the previous render's nodes and goes silent on what is actually on
+  // screen. DRIVEN, never grepped: a re-scan that never runs reads identically in the source to one
+  // that does. Its own context, so the persisted toggle cannot leak into the checks below.
+  const insCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const ins = await newPage(insCtx);
+  await ins.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(ins);
+  const bubble = ins.locator("#inspect-bubble");
+  // Every wait below is caught INTO its assertion (the [16] discipline above): a timeout must
+  // surface as a named ✗, not as the whole engine throwing.
+  const bubbleGoes = (state) => bubble.waitFor({ state, timeout: 5000 }).then(() => true, () => false);
+  // Scroll FIRST, settle, and only then point at the thing. Playwright's hover()/focus() scroll the
+  // element into view themselves, and scrolling is one of the three ways 1.4.13 says a bubble must
+  // dismiss — so an auto-scrolling hover opens the bubble and the scroll event it queued closes it
+  // again a frame later. That is the engine behaving correctly; doing it in one call is the test
+  // being wrong. Cost one ✗ on the first run of this check.
+  const settleOn = async (loc) => { await loc.scrollIntoViewIfNeeded(); await ins.waitForTimeout(200); };
+  const openByHover = async (loc) => { await settleOn(loc); await loc.hover(); return bubbleGoes("visible"); };
+  // Park the pointer on something that is NOT a mount and is already on screen, then wait out
+  // armHide's 120ms window. Moving to a corner is not safe: site.js tags the header as a mount and
+  // body{overflow-x:clip} means the header is not sticky, so whether (2,2) is a trigger depends on
+  // scroll position. When it IS one, `hovered` stays true, armHide bails, and every "the bubble did
+  // not come back" assertion below passes without ever running the path it exists to test — this
+  // check was mutation-tested green in exactly that state before this helper replaced the corner.
+  //
+  // It picks the point by asking the PAGE what is actually under each candidate coordinate, not by
+  // taking some element's box: the first version of this helper aimed at a heading whose box sat at
+  // y≈43, under the overlaying header, so it parked on a mount while a DOM-level closest() check
+  // said it had not. It then returns whether anything carrying a mount is still :hover — so the
+  // helper proves its own postcondition instead of assuming it.
+  const park = async () => {
+    const pt = await ins.evaluate(() => {
+      for (let y = 140; y < innerHeight - 20; y += 20)
+        for (let x = 40; x < innerWidth - 40; x += 60) {
+          const e = document.elementFromPoint(x, y);
+          if (e && !e.closest("[data-inspect]")) return { x, y };
+        }
+      return null;
+    });
+    if (!pt) return false;
+    await ins.mouse.move(pt.x, pt.y);
+    await ins.waitForTimeout(400); // past armHide's 120ms window
+    return ins.evaluate(() => document.querySelectorAll("[data-inspect]:hover").length === 0);
+  };
+
+  t("inspect starts off", (await ins.evaluate(() => document.documentElement.dataset.inspectMode)) === undefined);
+  await ins.locator("[data-inspect-toggle]").click();
+  const modeOn = await ins.waitForFunction(() => document.documentElement.dataset.inspectMode === "on",
+    null, { timeout: 5000 }).then(() => true, () => false);
+  t("the toggle turns inspect mode on", modeOn);
+  t("the toggle reports its state", (await ins.getAttribute("[data-inspect-toggle]", "aria-pressed")) === "true");
+
+  const tile = () => ins.locator("[data-pattern-stage] .ds-metric-tile").first();
+  t("the rendered primitives carry their inspect id",
+    (await tile().getAttribute("data-inspect")) === "ds-metric-tile-cross-scenario-library-primitive");
+  t("hovering a rendered tile opens the bubble", await openByHover(tile()));
+  const tokenRows = await ins.locator("#inspect-bubble .inspect-tokens dt").count();
+  t(`the open bubble carries the tile's token rows (${tokenRows})`,
+    tokenRows > 0 && (await bubble.isVisible()));
+
+  // Now rebuild the stage under it. A rename re-renders the pattern (the listener is unfiltered by
+  // design) WITHOUT changing the identity key, so this is also the no-morph path: every tile below
+  // is a new node that inspect has never seen.
+  await ins.locator("[data-place='p1'] .bx-bb-name").fill("Rewired");
+  await ins.locator("[data-place='p1'] .bx-bb-name").blur();
+  const reRendered2 = await ins
+    .waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Rewired"),
+      null, { timeout: 10000 })
+    .then(() => true, () => false);
+  t("the rename re-rendered the stage", reRendered2);
+  // Leave the tile and prove the bubble actually closed first, or "it is open" below would just be
+  // the previous hover still showing — a check that cannot fail.
+  // Asserted through aria-describedby, which is the engine's own record of WHICH trigger it is
+  // describing, rather than through "is the bubble visible". Bubble visibility is a page-global
+  // fact and the chrome is a mount too (site.js tags the header), so parking the pointer anywhere
+  // can leave some other trigger's bubble open and make a global check say the wrong thing. Note
+  // body{overflow-x:clip} means the header is NOT sticky here, so where it lands depends on scroll
+  // position — exactly the kind of test that passes for the wrong reason.
+  t("the pointer parks clear of every mount (stage)", await park());
+  const freshTile = tile();
+  t("after the re-render the new tile is not described yet",
+    (await freshTile.getAttribute("aria-describedby")) === null);
+  await settleOn(freshTile);
+  await freshTile.hover();
+  const described = await freshTile
+    .waitFor({ state: "visible", timeout: 2000 })
+    .then(async () => (await freshTile.getAttribute("aria-describedby")) === "inspect-bubble", () => false);
+  t("a freshly built tile still opens the bubble — refreshInspect re-wired the new nodes", described);
+
+  // M3 (pr-180-review.md:84-85), fixed in #171. Esc must dismiss the bubble for the trigger it was
+  // dismissed ON. While this was one boolean, grazing ANY other mount cleared it, so the dismissed
+  // trigger was re-armed and its bubble came back on the graze's mouseleave. /build is the first
+  // page carrying enough mounts for that to be an ordinary gesture rather than a contrived one.
+  const primary = ins.locator(".bx-stage-actions .btn-primary");
+  await settleOn(primary);
+  await primary.focus();
+  t("focusing a button opens its bubble", await bubbleGoes("visible"));
+  await ins.keyboard.press("Escape");
+  t("Escape dismisses it", await bubbleGoes("hidden"));
+  // Focus stays on the button throughout: hovering never moves it, so focusTrigger is still the
+  // dismissed one when the graze below ends — which is the whole defect scenario.
+  t("grazing a different mount opens that mount's bubble",
+    await openByHover(ins.locator("#build-stage .card").first()));
+  t("the pointer parks clear of every mount (act 0)", await park());
+  t("…and leaving it does NOT bring the Esc-dismissed button's bubble back (M3)",
+    (await primary.getAttribute("aria-describedby")) === null);
+
+  await ins.locator("[data-inspect-toggle]").click();
+  const modeOff = await ins.waitForFunction(() => !document.documentElement.dataset.inspectMode,
+    null, { timeout: 5000 }).then(() => true, () => false);
+  t("toggling off leaves the engine inert", modeOff && !(await bubble.isVisible()));
+  await insCtx.close();
+
   console.log("\n[17] EDGE · the links in — /build is reachable from the shipped IA");
   // The ticket's reason to exist. Asserted by CLICKING, not by reading the href: the links are
   // extensionless (/build), the way every in-page link on this site is, so "the href is right" and

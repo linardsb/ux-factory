@@ -227,10 +227,73 @@ function mount(root) {
   // vocabulary-loading branch below, which is load-bearing.
   let prevKey = null;
 
+  // What this stage should draw RIGHT NOW: an identity key, and the call that draws it.
+  //
   // Reads the store on EVERY call rather than closing over a snapshot: the vocabulary fetch is
   // async, and a restore or an answer change landing while it was in flight would otherwise render
-  // a state the page has already moved past.
+  // a state the page has already moved past. #171 gave that rule a second, sharper reason — see
+  // paint() below.
+  function plan() {
+    const state = readBuild();
+    const { id, reason } = patternFor(state);
+    const pattern = id && Object.hasOwn(PATTERNS, id) ? PATTERNS[id] : null;
+    const tokens = state.pack ? state.pack.tokens : null;
+
+    if (!pattern) return { key: "empty", draw: () => renderEmpty(reason) };
+    if (!pattern.inLibrary) {
+      return { key: `out:${id}`, draw: () => renderOutOfLibrary(pattern, reason, state.board, tokens) };
+    }
+    const composition = compose(id, slotsFor(id, state.board));
+    if (!composition) {
+      return { key: "empty", draw: () => renderEmpty(`${reason} There is nothing on the board for it to show yet.`) };
+    }
+    if (vocabError) return { key: "unavailable", draw: renderUnavailable };
+    // Still loading; the committed fallback copy holds the section until it lands.
+    //
+    // A NULL KEY HERE IS WHAT KEEPS BOOT INSTANT. This is the branch every load takes first (the
+    // vocabulary fetch is IntersectionObserver-gated), so prevKey is still null when the fetch
+    // resolves, and the first render that actually paints is therefore never a morph — including a
+    // ?b= share-link restore, which lands while this branch is still being taken. The
+    // visual-regression gate captures a page that has done no interaction, so "boot never morphs"
+    // is what makes the pixel gate safe. Do not "tidy" this into returning a key.
+    if (!vocab) return { key: null, draw: null };
+    // The refusal path shares this key on purpose: whether renderComposition throws is decided by
+    // the vocabulary and the composition's shape, both of which this key already names, so a
+    // separate refusal key would only ever agree with it.
+    return {
+      key: `pat:${id}:${composition.length}`,
+      draw: () => {
+        try {
+          renderPattern(pattern, reason, composition, state.board);
+        } catch (err) {
+          renderRefusal(err, reason);
+        }
+      },
+    };
+  }
+
+  // Draws whatever the store says NOW — never what it said when the paint was requested.
   //
+  // That distinction is the whole reason plan() is re-run here. morph() hands this function to
+  // startViewTransition, which calls it a frame LATER, and in that gap a second render can paint a
+  // newer state synchronously (morph's re-entrancy guard and the unchanged-key path both paint
+  // straight through). A closure captured at request time would then repaint the older state over
+  // the newer one — observed as the journey's feed check flaking back to a queue. Re-planning makes
+  // every paint idempotent and self-healing instead.
+  function paint() {
+    const { key, draw } = plan();
+    if (key === null) return; // the vocabulary went away again; nothing honest left to draw
+    draw();
+    root.dataset.patternStage = "ready";
+    // The primitives this paint just built are new nodes, so an inspect session that is already on
+    // has no listeners on them. Lazy on purpose (palette.mjs:118's idiom): while inspect is off —
+    // the default, and every visual-regression capture — this import never happens and the engine
+    // costs nothing. Last, and after the ready handle, so a rejected import cannot cost the stage
+    // its settled state.
+    if (document.documentElement.dataset.inspectMode === "on")
+      import("./inspect.mjs").then((m) => m.refreshInspect?.()).catch(() => {});
+  }
+
   // WHY THE IDENTITY KEY (#171). This listener is deliberately unfiltered (build.html's motion
   // block says why): it re-renders on EVERY publish, which includes one per keystroke while a
   // visitor renames a place. Morphing all of those would animate typing. The key names what the
@@ -238,67 +301,11 @@ function mount(root) {
   // the board naming a different pattern, or a different number of slots — and a rename repaints
   // instantly, as it does today.
   function render() {
-    const state = readBuild();
-    const { id, reason } = patternFor(state);
-    const pattern = id && Object.hasOwn(PATTERNS, id) ? PATTERNS[id] : null;
-    const tokens = state.pack ? state.pack.tokens : null;
-
-    let key;
-    let paint;
-    if (!pattern) {
-      key = "empty";
-      paint = () => renderEmpty(reason);
-    } else if (!pattern.inLibrary) {
-      key = `out:${id}`;
-      paint = () => renderOutOfLibrary(pattern, reason, state.board, tokens);
-    } else {
-      const composition = compose(id, slotsFor(id, state.board));
-      if (!composition) {
-        key = "empty";
-        paint = () => renderEmpty(`${reason} There is nothing on the board for it to show yet.`);
-      } else if (vocabError) {
-        key = "unavailable";
-        paint = () => renderUnavailable();
-      } else if (!vocab) {
-        // Still loading; the committed fallback copy holds the section until it lands.
-        //
-        // WRITING NO KEY HERE IS WHAT KEEPS BOOT INSTANT. This branch is the one every load takes
-        // first (the vocabulary fetch is IntersectionObserver-gated), so prevKey is still null when
-        // the fetch resolves and the FIRST render that actually paints is therefore never a morph
-        // — including a ?b= share-link restore, which lands while this branch is still being
-        // taken. The visual-regression gate captures a page that has done no interaction, so "boot
-        // never morphs" is what makes the pixel gate safe. Do not "tidy" this into writing a key.
-        return;
-      } else {
-        // The refusal path shares this key on purpose: whether renderComposition throws is decided
-        // by the vocabulary and the composition's shape, both of which this key already names, so a
-        // separate refusal key would only ever agree with it.
-        key = `pat:${id}:${composition.length}`;
-        paint = () => {
-          try {
-            renderPattern(pattern, reason, composition, state.board);
-          } catch (err) {
-            renderRefusal(err, reason);
-          }
-        };
-      }
-    }
-
-    const mutate = () => {
-      paint();
-      root.dataset.patternStage = "ready";
-      // The primitives this render just built are new nodes, so an inspect session that is already
-      // on has no listeners on them. Lazy on purpose (palette.mjs:118's idiom): while inspect is
-      // off — the default, and every visual-regression capture — this import never happens and the
-      // engine costs nothing. Last, and after the ready handle, so a rejected import cannot cost
-      // the stage its settled state.
-      if (document.documentElement.dataset.inspectMode === "on")
-        import("./inspect.mjs").then((m) => m.refreshInspect?.()).catch(() => {});
-    };
-
+    const { key } = plan();
+    if (key === null) return; // vocabulary still loading — writes no key, so boot cannot morph
     // First paint, or nothing about the stage's identity moved (the rename case): straight through.
-    if (prevKey === null || key === prevKey) mutate();
-    else morph(mutate);
+    if (prevKey === null || key === prevKey) paint();
+    else morph(paint);
     prevKey = key;
   }
 
