@@ -15,11 +15,17 @@
        proto-slot regions, summary-strip + insight-panel; human-fixed = toolbar, the Attention
        and Needs-assignment panels, and the technician lanes. #13 (agentic-UI study) composes
        into the two slots only. Data: worker/api.mjs, degrading to committed static fixtures
-       via system/scenario-data.mjs. Fieldwork is a fictional scenario; notice from copy.json. -->
+       via system/scenario-data.mjs. Fieldwork is a fictional scenario; notice from copy.json.
+       #175: this page joins the site's pack skin. pack-boot.js below restores the reader's pick
+       pre-paint and dock.mjs (body end, top-window only) lets them change it here — the fw-*
+       board chrome is token-only, so the whole board re-skins with the one stylesheet line. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/proto.css" />
+  <!-- LAST in <head>, load-bearing — see the header comment in pack-boot.js. Any stylesheet
+       added to this page goes ABOVE this line. -->
+  <script src="/system/pack-boot.js"></script>
 </head>
 <body data-page="proto-fieldwork">
 
@@ -28,11 +34,14 @@
   <header class="proto-head">
     <div>
       <h1>Fieldwork — Dispatch board</h1>
-      <p class="sub">A hybrid canvas: human-designed board chrome, with two designated agentic
-        slots the agentic-UI study will compose into. Renders from the mock API; stop the Worker
-        and the same board renders from the committed static fixtures.</p>
+      <p class="sub">A dispatch board I designed, with two regions left for an agent to fill: a
+        hybrid canvas. Switch the mock API off and it keeps working from sample data committed in
+        this repo; the badge says which one answered.</p>
     </div>
-    <span class="proto-source" id="source">checking data source…</span>
+    <div class="proto-head-tools">
+      <span class="proto-source" id="source">checking data source…</span>
+      <button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button>
+    </div>
   </header>
 
   <main class="proto-stage-center">
@@ -44,9 +53,9 @@
   </main>
 
   <footer class="proto-legal">
-    Part of the ux-factory pipeline demonstration. All data on this page is fictional fixture
-    data served by a mock API (or its committed static fallback) — no real company, customers,
-    or technicians are involved. The board shows the scenario's fixed fictional day.
+    Part of the ux-factory pipeline demonstration. Every name and number here is made up:
+    fictional fixture data, served by the mock API or by its committed static fallback. No real
+    company, customers, or technicians are involved, and the board always shows one fixed day.
   </footer>
 
   <script type="module">
@@ -135,31 +144,39 @@
         </section>`;
 
       board.innerHTML = `
-        <div class="fw-toolbar">
+        <div class="fw-toolbar" data-inspect="fw-fieldwork-dispatch-board-chrome-human-fixed-canvas">
           <h2 class="fw-toolbar-title">${esc(c.screenTitle)}</h2>
           <span class="fw-toolbar-date">Board day: ${esc(TODAY)} — the scenario's fixed fictional today</span>
           ${Object.values(c.regionLabels).map((r) => `<span class="fw-region-chip">${esc(r)}</span>`).join("")}
         </div>
-        ${slot("summary-strip", "Reserved for a precomputed operational summary from the agentic-UI study — adjustable on the study page.")}
+        ${slot("summary-strip", "Held for a summary of the day. An agent composes it ahead of time, and you can adjust it on the study page.")}
         <div class="fw-board-main">
           <div class="vd-stack">
-            <section class="fw-panel">
+            <section class="fw-panel" data-inspect="fw-fieldwork-dispatch-board-chrome-human-fixed-canvas">
               <header class="fw-panel-head"><h3 class="fw-panel-title">Attention — SLA &amp; overdue</h3><span>${attention.length}</span></header>
               ${attention.map(jobRow).join("")}
             </section>
-            <section class="fw-panel">
+            <section class="fw-panel" data-inspect="fw-fieldwork-dispatch-board-chrome-human-fixed-canvas">
               <header class="fw-panel-head"><h3 class="fw-panel-title">Today's schedule</h3><span>${technicians.data.length} technicians</span></header>
               ${technicians.data.map(lane).join("")}
             </section>
           </div>
           <div class="vd-stack">
-            <section class="fw-panel">
+            <section class="fw-panel" data-inspect="fw-fieldwork-dispatch-board-chrome-human-fixed-canvas">
               <header class="fw-panel-head"><h3 class="fw-panel-title">${esc(c.unassignedHeading)}</h3><span>${unassigned.length}</span></header>
               ${unassigned.map(jobRow).join("")}
             </section>
-            ${slot("insight-panel", "Reserved for a precomputed breach-risk & load insight from the agentic-UI study — adjustable on the study page.")}
+            ${slot("insight-panel", "Held for a read on breach risk and technician load. An agent composes it ahead of time, and you can adjust it on the study page.")}
           </div>
         </div>`;
+
+      // The data-inspect mounts above only exist NOW. inspect.mjs wires its triggers once, at
+      // activation, and its script tag self-inits while this module is still awaiting the data —
+      // so a reader arriving with inspect persisted on would get the board wired to nothing.
+      // Re-init once the board exists; the module is already evaluated, so this rescans rather
+      // than standing up a second engine, and it re-reads the persisted flag on the way through.
+      // Top-window only, for the same reason the script tag below is — see its comment.
+      if (window.self === window.top) import("/system/inspect.mjs").then((m) => m.initInspect());
 
       // Fill the two designated agentic slots with the canonical composition proposals from the
       // agentic-UI study (#13): precomputed real build-time runs, rendered live here via the same
@@ -174,7 +191,7 @@
           fill.className = `proto-slot-fill proto-slot-fill--${id}`;
           fill.appendChild(renderComposition(vocab, composition, bus));
           const noteEl = region.querySelector(".proto-slot-note");
-          if (noteEl) noteEl.textContent = "A precomputed proposal from the agentic-UI study — a real build-time agent run, adjustable on the study page.";
+          if (noteEl) noteEl.textContent = "An agent composed this at build time, not live in your browser. You can adjust it on the study page.";
           region.appendChild(fill);
         } catch { /* leave the labeled placeholder — never a broken region */ }
       };
@@ -186,6 +203,22 @@
       } catch { /* vocabulary load failed — leave both labeled placeholders */ }
     } catch (e) {
       board.innerHTML = `<p class="fw-job-meta">Could not load the scenario data: ${esc(e.message)}</p>`;
+    }
+  </script>
+  <!-- Script order mirrors index.html: dock → inspect → palette. Both the appearance rail and the
+       inspect layer are TOP-WINDOW ONLY: work.html embeds this page in a figure, and chrome about
+       the FRAME is not chrome about the work — an embedded copy would otherwise carry a second
+       "Inspect this surface" button, dashed outlines over every mount, and a bubble clipped to the
+       embed's fixed height. pack-boot.js still runs in that embed, so the thumbnail follows the
+       reader's pack pick. The toggle is markup, so it is removed rather than left inert: a control
+       with no engine behind it is worse than no control. A reader who deliberately drives the ⌘K
+       palette inside the frame still gets the layer — the rule is about at-rest chrome, not consent. -->
+  <script type="module">
+    if (window.self === window.top) {
+      import("/system/dock.mjs");
+      import("/system/inspect.mjs");
+    } else {
+      document.querySelector(".inspect-toggle")?.remove();
     }
   </script>
   <script type="module" src="/system/palette.mjs"></script>

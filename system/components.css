@@ -2200,3 +2200,312 @@ p, .body {
 @media (prefers-reduced-motion: reduce) {
   .cmdk, .cmdk::backdrop { transition-duration: 0.01ms; }
 }
+
+/* ---------- Appearance dock + scroll ruler — site chrome (system/dock.mjs) ---------- */
+/* Moved out of portfolio.css by #175 so the two proto pages — which load components.css but not
+   portfolio.css — wear the same chrome; the .cmdk block above set the precedent (#168).
+   The one persistent utility of the v3 site: the control the reader picks a design system from and
+   then carries across every page that loads it. index.html's #beat-wear interstitial introduces it, so the
+   rail is never an unexplained widget (PRD §2 "weird colour selectors, for what").
+   Monochrome chrome by the calm-colour bar (fg-muted / border / bg-surface only — the packs
+   themselves provide the colour). Fixed-chrome z-index ladder: header 50 · to-top 90 ·
+   skip-link 100 → rails 40 (under header), open panel 95 (over to-top, under skip-link).
+   Colour/space/duration from tokens; px widths and offsets are structural literals (file norm).
+   Both rails are ≥1100px-only desktop chrome and never print. */
+
+.dock {
+  position: fixed;
+  right: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+}
+.dock-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px; /* CHECKLIST: the visible control IS the ≥44px hit target */
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  /* press-squish: the release travels back through the bounce spring */
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce);
+}
+.dock-toggle:active { transform: scale(0.92); transition-duration: var(--motion-fast); }
+.dock-toggle:hover,
+.dock-toggle[aria-expanded="true"] {
+  color: var(--color-fg);
+  border-color: var(--color-border-strong);
+}
+
+/* The morph the --motion-icon-morph token exists for: the filled half of the glyph sweeps to the
+   other side of the circle as the panel opens. Keyed on the DISCRETE aria-expanded attribute, not
+   a per-render keyframe (the PR-#55 restart-and-blank trap), and transform-only, so the
+   reduced-motion kill-switch at the end of this block makes it land instantly. transform-box:view-box
+   puts the rotation origin in the glyph's own 24×24 coordinate space in every engine. */
+.dock-glyph-half {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  transition: transform var(--motion-icon-morph) var(--motion-ease-bounce);
+}
+.dock-toggle[aria-expanded="true"] .dock-glyph-half { transform: rotate(180deg); }
+
+/* Non-modal disclosure (hash-routed by dock.mjs). Hidden = display:none; entrance/exit are
+   transitions keyed on the DISCRETE .is-open toggle (no continuous rebuild — the PR-#55 trap),
+   with @starting-style supplying the entry frame and allow-discrete holding display through
+   the exit. Engines without @starting-style/allow-discrete get an instant open/close.
+   The reduced-motion kill-switch at the end of this block makes both truly instant.
+   NOTE: the base rule carries opacity:0 + the exit offset — invisible while display:none,
+   but any future style that shows the panel without .is-open would show it transparent.
+   pointer-events is NOT in the transition list, so it flips instantly: during the exit the
+   panel is still a laid-out fixed box for --motion-base, and must not eat clicks. */
+.dock-panel {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  right: calc(var(--spacing-md) + 44px + var(--spacing-sm));
+  top: 50%;
+  transform: translateY(-50%) translateX(8px);
+  z-index: 95;
+  width: min(340px, calc(100vw - 120px));
+  max-height: calc(100vh - var(--spacing-2xl) * 2);
+  overflow-y: auto;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); /* the .close-card vocabulary — parent radius, rows step down */
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-xl);
+  transition: opacity var(--motion-base) var(--motion-ease),
+              transform var(--motion-base) var(--motion-ease-spring),
+              display var(--motion-base) allow-discrete;
+}
+.dock-panel.is-open {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%);
+}
+@starting-style {
+  .dock-panel.is-open { opacity: 0; transform: translateY(-50%) translateX(8px); }
+}
+
+/* The panel states its purpose in its first two lines — the v2 verdict was a control with no
+   stated one. Eyebrow + one plain sentence, then the choices. */
+.dock-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  margin: 0 0 var(--spacing-xs);
+}
+.dock-title {
+  font-family: var(--font-display);
+  font-size: var(--type-h3);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--color-fg);
+  margin: 0 0 var(--spacing-lg);
+  text-wrap: balance;
+}
+
+.dock-packs { border: 0; margin: 0 0 var(--spacing-lg); padding: 0; }
+.dock-legend {
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-fg-muted);
+  padding: 0;
+  margin: 0 0 var(--spacing-sm);
+}
+/* One choice per row, the whole row a ≥44px target. The checked row is marked by border weight
+   AND the native radio, never by colour alone (CHECKLIST). :has() is progressive: without it the
+   radio still carries the state. */
+.dock-pack-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  padding: var(--spacing-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.dock-pack-row + .dock-pack-row { margin-top: var(--spacing-xs); }
+.dock-pack-row:hover { background: var(--color-bg); border-color: var(--color-border); }
+.dock-pack-row:has(input:checked) { background: var(--color-bg); border-color: var(--color-border-strong); }
+.dock-pack-row:has(input:focus-visible) { border-color: var(--color-accent); }
+.dock-pack-row input { margin-top: 3px; accent-color: var(--color-accent); }
+.dock-pack-label { cursor: pointer; display: block; flex: 1 1 auto; min-width: 0; }
+.dock-pack-name { display: block; font-weight: 600; font-size: var(--type-caption); color: var(--color-fg); }
+.dock-pack-note { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); line-height: 1.5; }
+
+/* The restore offer (#108) — shown only to a visitor whose own colour a shared link displaced, so
+   it sits between the choice and the standing actions rather than becoming a third one. */
+/* Entrance-only settle with TWO triggers: [hidden] removal (a discrete flip; dock.mjs
+   re-assigns hidden=false on every render, which is not a display change, so no re-entrance),
+   AND the panel's own display flip when the row is already un-hidden at first open — there the
+   row's settle deliberately stacks on the panel's spring entrance.
+   Exit stays instant: no display leg here — [hidden] must win immediately. */
+.dock-restore-row {
+  margin: 0 0 var(--spacing-md);
+  transition: opacity var(--motion-base) var(--motion-ease-settle),
+              transform var(--motion-base) var(--motion-ease-settle);
+}
+@starting-style {
+  .dock-restore-row:not([hidden]) { opacity: 0; transform: translateY(4px); }
+}
+.dock-restore-note {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  line-height: 1.5;
+}
+/* .btn-ghost is a text-height control, so lift it to the 44px target on its own (the same fix
+   .close-tokens .btn-ghost takes in portfolio.css). */
+.dock-restore {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: var(--type-caption);
+  text-align: center;
+}
+
+/* Both actions are secondary to the choice above, so they stack full width rather than competing
+   for one row (at 340px a two-up row wraps mid-label). */
+.dock-actions { display: grid; gap: var(--spacing-sm); justify-items: stretch; }
+.dock-reset, .dock-copy { padding: 10px 14px; font-size: var(--type-caption); text-align: center; }
+.dock-dtcg { display: inline-block; margin-top: var(--spacing-md); font-size: var(--type-caption); }
+.dock-caption {
+  margin: var(--spacing-md) 0 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  line-height: 1.5;
+}
+
+/* Scroll ruler — a decorative minimap: one hairline tick per main>section (placed by
+   dock.mjs), a fill bar tracking scroll position. The fill is a POSITION indicator, not
+   autonomous motion, so it correctly survives reduced-motion (scroll-driven animations
+   ignore the kill-switch's duration override). Outside @supports: ticks alone. */
+.ruler {
+  position: fixed;
+  left: var(--spacing-md);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 40;
+  pointer-events: none;
+}
+.ruler-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--color-fg-muted);
+  transform: scaleY(0); /* at rest / unsupported: no fill — ticks alone */
+  transform-origin: top;
+}
+@supports (animation-timeline: scroll()) {
+  .ruler-fill {
+    animation: ruler-fill linear both;
+    animation-timeline: scroll();
+  }
+  @keyframes ruler-fill {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+}
+.ruler-tick {
+  position: absolute;
+  left: -3px;
+  width: 8px;
+  height: 1px;
+  background: var(--color-border);
+}
+
+@media (max-width: 1099px) {
+  .dock, .ruler { display: none; }
+}
+@media print {
+  .dock, .ruler { display: none; }
+}
+
+/* portfolio.css's global reduced-motion kill-switch is not on the proto pages, so the dock carries
+   its own — same declarations, scoped to the rail. A no-op wherever portfolio.css loads (identical
+   values). The ruler is deliberately excluded: its fill is a scroll-driven POSITION indicator, and
+   the comment above records why that correctly survives the preference. */
+@media (prefers-reduced-motion: reduce) {
+  .dock, .dock *, .dock *::before, .dock *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Inspect bubble + toggle — system/inspect.mjs (epic #164, ticket #166) ---------- */
+/* The glossary bubble's visual model, wider for its four layers. A [popover] is top-layer, so
+   no z-index; margin/border reset the popover UA defaults (margin:auto + border). Positioned by
+   CSS anchor where supported (the @supports block), else by inline left/top from inspect.mjs's
+   fixed-position fallback math. */
+.inspect-bubble {
+  margin: 0;
+  border: 0;
+  max-width: 44ch;
+  max-height: calc(100vh - 16px);        /* never taller than the viewport (8px margins) */
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  background: var(--color-bg-inverse);
+  color: var(--color-fg-on-inverse-strong);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.inspect-role { margin: 0 0 var(--spacing-sm); }
+.inspect-spec { margin: 0 0 var(--spacing-sm); color: var(--color-fg-on-inverse-muted); }
+.inspect-tokens {
+  margin: 0 0 var(--spacing-sm);
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--spacing-md);
+  font-family: var(--font-mono);
+  max-height: 32vh;                      /* buttons consumes 17 tokens — the list scrolls, the bubble stays in the viewport */
+  overflow-y: auto;
+}
+.inspect-tokens dt { color: var(--color-fg-on-inverse-muted); }
+.inspect-tokens dd { margin: 0; overflow-wrap: anywhere; }
+.inspect-meas { margin: 0; font-family: var(--font-mono); color: var(--color-fg-on-inverse-muted); }
+/* Anchor declarations apply only when inspect.mjs took the anchor branch (data-inspect-pos —
+   the JS decides once per activation, so a forced/stubbed fallback never runs a hybrid where
+   position-area points at an anchor-name nothing carries). */
+@supports (anchor-name: --a) {
+  .inspect-bubble[data-inspect-pos="anchor"] {
+    position-anchor: --inspect-target;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block;
+    margin-block-start: var(--spacing-sm);
+  }
+}
+/* Trigger affordance + pressed toggle — visible only while inspect is ON (empty localStorage in
+   VR gate contexts keeps all of this out of the baselines). */
+:root[data-inspect-mode="on"] [data-inspect] {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: 2px;
+  cursor: help;
+}
+/* Bubble entrance (#169, deferred from #166): a small spring rise on open. @starting-style is
+   the engine gate — without support the bubble simply appears, fully functional (same fallback
+   posture as the dock panel above). VR-safe: the bubble is never open at rest. */
+@media (prefers-reduced-motion: no-preference) {
+  .inspect-bubble:popover-open {
+    transition: opacity var(--motion-base) var(--motion-ease),
+                transform var(--motion-base) var(--motion-ease-spring);
+  }
+  @starting-style {
+    .inspect-bubble:popover-open { opacity: 0; transform: translateY(4px); }
+  }
+}
+.inspect-toggle-row { margin: var(--spacing-md) 0 0; }
+.inspect-toggle[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-accent); }
