@@ -1580,6 +1580,129 @@ dfn.term {
 .brand-import-swatch:hover { border-color: var(--color-accent); }
 .brand-import-swatch-hue { font-size: var(--type-caption); }
 
+/* ── #170 · compare slider — two overlaid layers + a clip-path divider (compare-slider.mjs).
+   The whole position state is one custom property, --cmp-pos: the overlay's clip and the
+   divider's left both derive from it, so they cannot desync mid-drag. Shared by the home
+   brand-import mount (.cmp-sample specimen) and the round-trip mount (.cmp-strip). ── */
+.cmp-block { display: grid; gap: var(--spacing-sm); min-width: 0; }
+.cmp {
+  --cmp-pos: 50%;
+  position: relative;
+  min-width: 0;
+  touch-action: none;    /* the root is the drag surface — no scroll stealing mid-drag */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: col-resize;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.cmp-layer { display: grid; min-width: 0; }
+.cmp-base { position: relative; }   /* normal flow — the base defines the height */
+.cmp-over {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--cmp-pos)) 0 0);   /* visible left of the divider */
+}
+.cmp-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--cmp-pos);
+  width: 0;
+  border-left: 2px solid var(--color-fg);
+  box-shadow: 0 0 0 1px var(--color-bg);   /* a contrast halo, so the rule reads on any surface */
+}
+.cmp-handle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+  width: 44px;    /* ≥44px hit target */
+  height: 44px;
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+}
+.cmp-handle::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+.cmp-handle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.cmp-tag {
+  position: absolute;
+  top: var(--spacing-sm);
+  padding: 2px 8px;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.cmp-tag-over { left: var(--spacing-sm); }   /* the overlay shows left of the divider */
+.cmp-tag-base { right: var(--spacing-sm); }
+/* Keyboard steps glide (#165 vocabulary); direct manipulation tracks the pointer 1:1.
+   No autonomous motion anywhere — at rest the slider is a static split. */
+@media (prefers-reduced-motion: no-preference) {
+  .cmp-over { transition: clip-path var(--motion-base) var(--motion-ease-settle); }
+  .cmp-divider { transition: left var(--motion-base) var(--motion-ease-settle); }
+  .cmp.is-dragging .cmp-over,
+  .cmp.is-dragging .cmp-divider { transition: none; }
+}
+
+/* the home specimen — identical markup on both layers; each layer pins its own token values,
+   so the one difference between the sides is the pack (brand-import.mjs buildSample) */
+.cmp-sample {
+  display: grid;
+  gap: var(--spacing-sm);
+  justify-items: start;
+  padding: var(--spacing-2xl) var(--spacing-lg) var(--spacing-lg);   /* top clears the corner tags */
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-body);
+}
+.cmp-sample-head { margin: 0; font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg); }
+.cmp-sample-body { margin: 0; font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-muted); }
+.cmp-sample-btn {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.cmp-sample-swatches { display: flex; flex-wrap: wrap; gap: var(--spacing-md); min-width: 0; }
+.cmp-sample-sw { display: inline-flex; align-items: center; gap: var(--spacing-xs); min-width: 0; }
+.cmp-sample-sw code { font-family: var(--font-mono); font-size: var(--type-caption); color: var(--color-fg-muted); }
+.cmp-sample-chip {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+/* the round-trip swatch strip — the same 6 verdict-scored tokens on both layers (proposed vs
+   truth); an identical grid on an identical width keeps the two strips cell-aligned */
+.cmp-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--spacing-sm);
+  padding: var(--spacing-2xl) var(--spacing-md) var(--spacing-md);   /* top clears the corner tags */
+  background: var(--color-bg-surface);
+}
+/* wrap the hex as a whole unit (token names break at their hyphens; a hex split mid-value is
+   unreadable), so narrow columns drop the hex to its own line instead of shearing it */
+.cmp-strip-cell { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); min-width: 0; }
+
 /* Beat 03 — the peak (the one dark band, the signature). A STILL of the composed
    product screen + illustrative WCAG receipts + the ethics gate as a guess-then-reveal.
    Framed as "this is what it builds", never as a live run: #75 makes it assemble under
@@ -1940,4 +2063,51 @@ dfn.term {
   .beat-head { flex-direction: column; gap: var(--spacing-sm); margin-bottom: var(--spacing-xl); }
   .beat-numeral { line-height: 1; }
   .close-card { padding: var(--spacing-xl); }
+}
+
+/* ---------- ⌘K palette hint (#168, epic #164) ----------
+   Rendered hidden by site.js ([data-palette-open] hidden) and revealed + wired by palette.mjs —
+   instance.html and per-company builds load site.js without palette.mjs, so the button never
+   shows there. The BASE rule is display-free (the `hidden`-defeated-by-author-display trap):
+   display lives only under :not([hidden]), so the UA's [hidden]{display:none} always wins. */
+.nav-palette-hint:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-palette-hint {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--spacing-sm);
+  margin: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--color-fg-muted);
+  flex-shrink: 0;
+}
+.nav-palette-hint kbd {
+  font-family: var(--font-mono);
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.04em;
+  padding: 4px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.nav-palette-hint:hover kbd,
+.nav-palette-hint:focus-visible kbd {
+  color: var(--color-fg);
+  border-color: var(--color-border-strong);
+}
+.site-header.on-ocean .nav-palette-hint { color: var(--color-fg-on-inverse-muted); }
+.site-header.on-ocean .nav-palette-hint kbd { border-color: var(--color-inverse-line); }
+.site-header.on-ocean .nav-palette-hint:hover kbd,
+.site-header.on-ocean .nav-palette-hint:focus-visible kbd {
+  color: var(--color-fg-on-inverse-strong);
+  border-color: var(--color-on-dark-border);
+}
+/* Keyboard affordance — pointless inside the mobile menu; the palette itself stays keyboard-reachable. */
+@media (max-width: 640px) {
+  .nav-palette-hint:not([hidden]) { display: none; }
 }

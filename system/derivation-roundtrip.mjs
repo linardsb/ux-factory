@@ -12,6 +12,7 @@
 
 import { parseTrace, renderTracePlayer } from "./trace-player.mjs";
 import { countUp } from "./motion.mjs";
+import { createCompareSlider } from "./compare-slider.mjs";
 
 // --- prepareDiff: pure boundary validation (no document, no fetch — runs under Node) -------------
 // The committed diff is the single source of truth for every number on the exhibit; this only reads
@@ -133,6 +134,30 @@ export function renderRoundTrip(container, model) {
   delta.append(el("span", "rt-delta-note", `${model.accent.within ? "within" : "outside"} the ${model.accent.threshold} accent threshold`));
   metric.append(delta);
   root.append(metric);
+
+  // (1b) The compare slider (#170) — the verdict-scored palette (accent + family, 6 tokens) as two
+  // identical swatch strips: the base layer paints ground truth, the overlay paints the agent's
+  // proposal, so dragging right reveals what the agent proposed over what was true. Reads ONLY the
+  // committed diff already in `model` — no new fetch, and the neutrals stay in their
+  // excluded-from-the-verdict accordion below.
+  const cells = [model.accent, ...model.accentFamily];
+  const paletteStrip = (which) => {
+    const strip = el("div", "cmp-strip");
+    cells.forEach((t) => {
+      const cell = el("span", "cmp-strip-cell");
+      cell.append(swatch(t[which]), el("code", "rt-token", t.token), el("code", "rt-hex", t[which]));
+      strip.append(cell);
+    });
+    return strip;
+  };
+  const compare = el("div", "cmp-block");
+  compare.append(el("p", "rt-note", "Drag the divider, or focus it and use the arrow keys: what the agent proposed on the left, ground truth on the right."));
+  compare.append(createCompareSlider({
+    base: paletteStrip("truth"), overlay: paletteStrip("proposed"),
+    baseLabel: "ground truth", overlayLabel: "agent proposed",
+    label: "Compare: the agent's proposed palette versus ground truth",
+  }));
+  root.append(compare);
 
   // (2) The human gate — agent proposes, human decides (rendered as an action, not a name; the
   // reviewer identity stays in the inspectable JSON — memory: Site identity calls).

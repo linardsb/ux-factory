@@ -7,7 +7,7 @@
     },
     {
       "page": "/",
-      "controls": 16
+      "controls": 17
     },
     {
       "page": "/approach",
@@ -19,7 +19,7 @@
     },
     {
       "page": "/factory",
-      "controls": 3
+      "controls": 4
     },
     {
       "page": "/proto/verdant",
@@ -27,12 +27,12 @@
     },
     {
       "page": "/roundtrip",
-      "controls": 1
+      "controls": 2
     },
     {
       "page": "/work",
       "controls": 1
     }
   ],
-  "total": 62
+  "total": 65
 }
