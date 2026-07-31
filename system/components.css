@@ -2432,12 +2432,17 @@ p, .body {
   .dock, .ruler { display: none; }
 }
 
-/* portfolio.css's global reduced-motion kill-switch is not on the proto pages, so the dock carries
-   its own — same declarations, scoped to the rail. A no-op wherever portfolio.css loads (identical
-   values). The ruler is deliberately excluded: its fill is a scroll-driven POSITION indicator, and
-   the comment above records why that correctly survives the preference. */
+/* portfolio.css's global reduced-motion kill-switch is not on the proto pages, so the chrome this
+   sheet delivers carries its own — same declarations, scoped. A no-op wherever portfolio.css loads
+   (identical values). The ruler is deliberately excluded: its fill is a scroll-driven POSITION
+   indicator, and the comment above records why that correctly survives the preference.
+   .inspect-toggle is in this list because it is a .btn (transition + a scale(0.96) :active bounce)
+   sitting in .proto-head-tools — a SIBLING of .dock, not a descendant, so the rail's own selectors
+   never reached it. Measured before the fix: 0.2s/0.2s/0.3s under `reduce` on all three engines,
+   identical to no-preference (PR #188 review, finding 2). */
 @media (prefers-reduced-motion: reduce) {
-  .dock, .dock *, .dock *::before, .dock *::after {
+  .dock, .dock *, .dock *::before, .dock *::after,
+  .inspect-toggle, .inspect-toggle::before, .inspect-toggle::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

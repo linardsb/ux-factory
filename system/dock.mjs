@@ -492,5 +492,14 @@ function buildRuler() {
   place();
 }
 
-buildDock();
-buildRuler();
+// Top-window only. The gate lives HERE rather than at the import site so the two proto pages can
+// load this module from a STATIC tag: palette.mjs memoizes its command list on first ⌘K, and a
+// dynamic import() is only discovered at evaluation time, so the palette could go live before
+// .dock-copy existed and drop "Copy tokens" for the rest of the page view (PR #188 review,
+// finding 1 — measured 17-134ms on all three engines, vs 0ms on every statically-loaded page).
+// A no-op on the eight chrome pages, which are never framed. inspect.mjs deliberately does NOT
+// get the same treatment: palette.mjs's in-frame path calls initInspect() inside the embed.
+if (window.self === window.top) {
+  buildDock();
+  buildRuler();
+}

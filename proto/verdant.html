@@ -196,9 +196,9 @@
        reader's pack pick. The toggle is markup, so it is removed rather than left inert: a control
        with no engine behind it is worse than no control. A reader who deliberately drives the ⌘K
        palette inside the frame still gets the layer — the rule is about at-rest chrome, not consent. -->
+  <script type="module" src="/system/dock.mjs"></script>
   <script type="module">
     if (window.self === window.top) {
-      import("/system/dock.mjs");
       import("/system/inspect.mjs");
     } else {
       document.querySelector(".inspect-toggle")?.remove();

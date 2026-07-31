@@ -186,3 +186,40 @@ known count-up flake (memory `vr-gate-approach-countup-flake`) rather than a reg
 
 **Request changes** — fix #1 and #2 (both small), then this is ready. #3–#5 are judgement calls the
 author is better placed to make than the reviewer; none should block.
+
+---
+
+## Resolution — findings 1 and 2 fixed
+
+Both Mediums are fixed on this branch. #3–#5 are left as the author's call.
+
+**Finding 2** — `.inspect-toggle` added to the kill-switch (`system/components.css:2440-2441`).
+Measured after: `1e-05s` under `reduce`, full duration under `no-preference`, all three engines.
+
+**Finding 1** — both candidate fixes were implemented and measured against the same probe rather
+than argued about. Gap between the palette going live and the dock mounting:
+
+| | chromium fw / vd | firefox fw / vd | webkit fw / vd | commands lost |
+|---|---|---|---|---|
+| before | 29 / 17ms | 134 / 100ms | 50 / 21ms | 3 of 6 runs |
+| A · `modulepreload` | 17 / 16ms | 67 / 35ms | 43 / **0**ms | 0 of 6 |
+| **B · static tag + gate inside `dock.mjs`** | **0 / 0ms** | **0 / 0ms** | **0 / 0ms** | **0 of 6** |
+
+**Fix B shipped.** A only warms the fetch — it narrows the window and happened to clear the losses
+in these runs, but the gap survives and would reopen on a slower connection. B restores the
+document-order guarantee outright, matching the control pages exactly.
+
+`dock.mjs` now carries the top-window check itself (`buildDock()`/`buildRuler()` early-return), so
+the protos can load it from a static tag. `inspect.mjs` was deliberately left dynamic and gated at
+the call site, because `palette.mjs`'s in-frame path calls `initInspect()` inside the embed.
+
+**The `pack-derived.mjs` side effect I flagged is benign — verified, not assumed.** With
+`factory-pack=saulera` *and* `factory-inspect=on` persisted (worst case), both `work.html` embeds
+report `dock=0 ruler=0 toggle=0 inspectMode=off outline=none` while wearing the reader's pack
+(`accent=#F59E0B`), on all three engines. The dock still mounts on 8/8 chrome pages.
+
+| Post-fix validation | Result |
+|---|---|
+| `drift-check` — clean tree **and** staged tree | ✓ all 11 groups |
+| VR gate, Docker, **compare** mode (not `--update-snapshots`) | ✓ 20 passed, zero baseline churn |
+| Cross-engine regression probe | ✓ 3 engines: chrome pages, embeds, reduced motion |
