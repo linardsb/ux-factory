@@ -54,6 +54,7 @@ function el(tag, attrs, ...children) {
 const supportsAnchor = () => typeof CSS !== "undefined" && CSS.supports("anchor-name: --a");
 
 let current = null; // the live init handle — initInspect() is idempotent-safe
+export const getInspect = () => current; // #168's palette reads the live handle, never rebuilds it
 
 export function initInspect(root = document) {
   if (current) current.destroy();
@@ -184,11 +185,16 @@ export function initInspect(root = document) {
       if (!entries.has(t.dataset.inspect))
         throw new Error(`inspect: unknown data-inspect id "${t.dataset.inspect}" on ${location.pathname}`);
     const reshow = (t) => show(t, entries.get(t.dataset.inspect), anchorOk);
+    // focusin/focusout BUBBLE (mouseenter/mouseleave don't): mounts can nest (a buttons CTA
+    // inside the page-hero section), and without a guard the ancestor's listener re-fires on the
+    // same event and overwrites the inner mount's bubble. Each mount acts only when the focused
+    // element's NEAREST mount is itself.
+    const ownEvent = (t, e) => e.target.closest("[data-inspect]") === t;
     for (const t of triggers) {
       t.addEventListener("mouseenter", () => { hovered = true; dismissed = false; reshow(t); }, { signal });
-      t.addEventListener("focusin", () => { focusTrigger = t; dismissed = false; reshow(t); }, { signal });
+      t.addEventListener("focusin", (e) => { if (!ownEvent(t, e)) return; focusTrigger = t; dismissed = false; reshow(t); }, { signal });
       t.addEventListener("mouseleave", () => { hovered = false; armHide(reshow); }, { signal });
-      t.addEventListener("focusout", () => { focusTrigger = null; armHide(reshow); }, { signal });
+      t.addEventListener("focusout", (e) => { if (!ownEvent(t, e)) return; focusTrigger = null; armHide(reshow); }, { signal });
     }
     bubble.addEventListener("mouseenter", () => { hovered = true; clearTimeout(hideTimer); }, { signal });
     bubble.addEventListener("mouseleave", () => { hovered = false; armHide(reshow); }, { signal });

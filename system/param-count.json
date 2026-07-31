@@ -3,11 +3,11 @@
   "pages": [
     {
       "page": "chrome",
-      "controls": 5
+      "controls": 8
     },
     {
       "page": "/",
-      "controls": 17
+      "controls": 20
     },
     {
       "page": "/approach",
@@ -19,7 +19,7 @@
     },
     {
       "page": "/factory",
-      "controls": 4
+      "controls": 3
     },
     {
       "page": "/proto/verdant",
@@ -27,12 +27,12 @@
     },
     {
       "page": "/roundtrip",
-      "controls": 2
+      "controls": 1
     },
     {
       "page": "/work",
       "controls": 1
     }
   ],
-  "total": 65
+  "total": 69
 }

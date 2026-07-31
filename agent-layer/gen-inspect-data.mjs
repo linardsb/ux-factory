@@ -24,6 +24,12 @@ const GRAPH = "system/system-graph.json";
 // throws (the drift guard for a renamed components.css block); a consumer with no key here is
 // simply not inspectable yet (later mount tickets add lines as they instrument surfaces).
 const ROLES = {
+  "page-hero":
+    "The site's cover: one claim and two actions. Every colour and size on it resolves through the token contract, so a different pack redresses the whole band without touching its markup.",
+  header:
+    "The site chrome's top bar: one configuration, injected on every page by the same script. Whatever pack the site is wearing restyles it — the nav never carries a brand value of its own.",
+  footer:
+    "The site chrome's other half: the site index and the contact line, injected on every page from the same configuration as the header, and restyled by whichever pack is worn.",
   buttons:
     "The site's buttons. One component, three emphasis levels. Every colour comes from the token contract, so a brand pack restyles them without touching this code.",
   cards:
