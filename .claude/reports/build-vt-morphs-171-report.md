@@ -30,6 +30,8 @@ the breadboard's SVG connection lines were re-stacked behind the place cards. Se
 | vetting invariant extended to direct `.style.x =` writes | `tooling/build-checks.mjs` | UPDATE |
 | journey check [16b] — inspect wiring, re-wiring, and M3 | `tooling/build-journey.mjs` | UPDATE |
 | cross-engine proof the morphs actually open | `tooling/vt-verify.mjs` | CREATE |
+| the stacking-hazard audit (written for #172) | `tooling/vt-stack-audit.mjs` | CREATE |
+| the breadboard overlay's z-index — the spike fix | `build.html` | UPDATE |
 | architecture-map entry for the new driver | `CLAUDE.md` | UPDATE |
 | the 4 churned baselines | `tooling/visual-regression/baselines/` | UPDATE |
 
@@ -60,6 +62,7 @@ and the M3 Esc semantics hold. 141 assertions/engine (was 125).
 | `viewTransitionName` write outside breadboard | ✗ fires |
 | drop the `refreshInspect()` call | ✗ fires |
 | revert the M3 fix | ✗ fires — **only after two false greens**, see below |
+| remove the breadboard overlay's z-index | ✗ `vt-stack-audit` reports 4 unresolved overlaps |
 
 ## Validation results
 
@@ -73,6 +76,7 @@ and the M3 Esc semantics hold. 141 assertions/engine (was 125).
 | VR Stage A (`update:docker`) | ✓ 20 passed, **exactly 4** PNGs changed |
 | VR Stage B (plain gated run) | ✓ 20 passed |
 | VR isolation run (VT layer stripped, old baselines) | ✓ 20 passed — the real zero-pixel proof |
+| `node tooling/vt-stack-audit.mjs` | ✓ 6 states, no layout shift, every overlap z-indexed |
 
 ## SPIKE — findings for #172
 
@@ -90,7 +94,22 @@ canvas while the places are static grid items — so the lines and their dots dr
 Naming each place promoted it into the same paint step, and the places come *after* the overlay in
 source order, so every connection line was covered and clipped to the gutter. Fix: one explicit
 `z-index: 1` on the overlay, a no-op wherever no name is applied.
-**#172 must audit every element it names for an overlapping positioned sibling or descendant.**
+**#172 must audit every element it names for an overlapping positioned sibling or descendant** — and
+`tooling/vt-stack-audit.mjs` is that audit, committed here so #172 can point it at any page.
+
+**The audit's result on /build, across six states the pixel gate never captures** (default board ·
+feed · onboarding · connect mode · a derived pack on the stage · a board emptied to zero places):
+
+- *Hazard A (containing block)* — **clean in every state.** Nothing moves when every name is removed,
+  so no named element became the containing block for a positioned descendant. The tool asks the
+  engine which elements are animating rather than re-sampling, because the hero's `breathe` pill is on
+  a 3s loop and a sample-based calibration called it a layout shift in 2 of 6 states.
+- *Hazard B (paint order)* — **clean after the fix.** At most 7 overlaps in any state, every one of
+  them decided by an explicit z-index (`skip-link` 100 · `site-header` 50 · dock `ruler` 40 ·
+  `bx-bb-lines` 1). Removing the z-index again makes the audit report 4 unresolved `z-index: auto`
+  overlaps — so the check provably fires on the bug it was written for.
+- **`bx-pattern` and both `bx-q-*` names appear in ZERO overlaps in every state**, so the two names
+  besides the places are genuinely inert here.
 
 **(c) The mechanism finding still holds, and is the reason the gate is safe.** The VR gate performs
 zero interactions (load → resize fixpoint → screenshot), and `vt-verify` proves empirically on all
@@ -129,7 +148,9 @@ approach ×2 (it is the only consumer of `param-count.json` and `loc-summary.jso
 6. **`tooling/vt-verify.mjs` added** (not in the plan). The plan called for a manual cross-engine pass;
    a manual pass is not repeatable evidence, and #172 consumes this spike's findings. Costs no
    baseline churn.
-7. **`z-index: 1` on `.bx-bb-lines`** (not in the plan) — the spike finding above.
+7. **`z-index: 1` on `.bx-bb-lines`** (not in the plan) — the spike finding above, plus
+   **`tooling/vt-stack-audit.mjs`** (not in the plan) to prove the finding is the only instance on
+   this page and to hand #172 the check rather than only the warning.
 8. **Act 03's heading changed** ("Places, affordances, and the lines between them." → "The screens,
    what you can do on each, and where they lead."). The plan asked for the plain sentence to come
    first; the heading was the jargon. Shape Up's three definitions are quoted verbatim, as that

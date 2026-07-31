@@ -716,6 +716,11 @@ async function journey(engineName, results, held) {
   // y≈43, under the overlaying header, so it parked on a mount while a DOM-level closest() check
   // said it had not. It then returns whether anything carrying a mount is still :hover — so the
   // helper proves its own postcondition instead of assuming it.
+  //
+  // The y=140 start is only a heuristic for skipping the header, and it is NOT what makes this
+  // correct — body{overflow-x:clip} kills sticky here, so where the header sits depends on scroll.
+  // The `:hover` postcondition below is the actual guarantee: if the scan ever picks a bad point,
+  // park() returns false and its assertion fails loudly instead of quietly passing.
   const park = async () => {
     const pt = await ins.evaluate(() => {
       for (let y = 140; y < innerHeight - 20; y += 20)
