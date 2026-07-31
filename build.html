@@ -650,7 +650,7 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">The builder · the four acts</span>
+          <span class="stamp">The builder · six acts</span>
         </div>
         <h1 class="text-balance">Bring your design system. <span class="hl">Build a pattern with it.</span></h1>
         <p class="hero-sub">
@@ -697,9 +697,9 @@
           </div>
         </div>
         <p class="beat-lead">
-          A DTCG or Tokens Studio export, a Figma variables dump, or any nested JSON of names and
-          values. Colour, spacing, radius, the type ramp and shadows come across. Components and
-          fonts never do.
+          Whatever your design tool already exports will do: a DTCG or Tokens Studio export, a Figma
+          variables dump, or any nested JSON of names and values. Colour, spacing, radius, the type
+          ramp and shadows come across. Components and fonts never do.
         </p>
 
         <div class="bx-split">
@@ -801,11 +801,13 @@
           </div>
         </div>
         <p class="beat-lead">
-          From Nir Eyal's Hooked model: the feeling that brings someone back, the smallest thing
-          they do, what they get back, what they put in, how often they would really do it, and the
-          two questions behind the Manipulation Matrix. Every one arrives already answered with a
-          recommended default and the reasoning behind it, so you can accept and move. Both ethics
-          gates run beside the questions and update as you answer.
+          They ask what your product wants someone to do, and whether you should be asking at all.
+          Five come from Nir Eyal's Hooked model: the feeling that brings someone back, the
+          smallest thing they do, what they get back, what they put in, and how often they would
+          really do it. The last two are his Manipulation Matrix, which asks whether you would use
+          this yourself and whether it materially improves the user's life. Every question arrives
+          already answered with a recommended default and the reasoning behind it, so you can accept
+          and move. Both ethics gates run beside the questions and update as you answer.
         </p>
 
         <div class="bx-split">
@@ -837,9 +839,11 @@
           </div>
         </div>
         <p class="beat-lead">
-          From Shape Up (Ryan Singer / Basecamp): how much time the work is worth, the rough shape
-          the solution takes, and what you are declaring out of scope. Appetite is a budget rather
-          than an estimate, so it caps the board below; the no-go removes a place from it outright.
+          How much time the work is worth, the rough shape the solution takes, and what you are
+          declaring out of scope. They come from
+          Shape Up (Ryan Singer / Basecamp), where that time budget is called the appetite: a number
+          you set and design within, not an estimate you arrive at. It caps the board below, and the
+          thing you rule out, the no-go, removes a place from it outright.
         </p>
 
         <div class="bx-source bx-shaping" data-build-questions data-act="shaping">
@@ -862,13 +866,14 @@
           <span class="beat-numeral">03</span>
           <div class="beat-head-text">
             <p class="beat-kicker">Your breadboard</p>
-            <h2 class="beat-title">Places, affordances, and the lines between them.</h2>
+            <h2 class="beat-title">The screens, what you can do on each, and where they lead.</h2>
           </div>
         </div>
         <p class="beat-lead">
-          Shape Up's breadboard is the lowest-fidelity design tool there is: places are the things
-          you can navigate to, affordances are the things the user can act on, and connection lines
-          show how the affordances take the user from place to place. No layout, no pixels. This one
+          Your whole product sketched at its lowest fidelity. No layout and no pixels, just what is
+          there and what it does. Shape Up calls this a breadboard, and names its three parts:
+          places are the things you can navigate to, affordances are the things the user can act on,
+          and connection lines show how the affordances take the user from place to place. This one
           is drafted from your ten answers, and then it is yours to change: rename anything, add
           and remove places and affordances, and re-point any connection.
         </p>
@@ -914,12 +919,12 @@
         <p class="beat-lead">
           Five rules in
           <a href="/system/pattern-rules.mjs"><code>system/pattern-rules.mjs</code></a>
-          read your answers and your board and name one pattern. What assembles below goes through
-          the same renderer and the same generated component vocabulary that this site's build-time
-          agent runs go through, so it can only ever use components that really exist. All five
-          patterns have components here, built out of three library primitives. A pattern that did
-          not would say so instead of mocking one up, which is why the vocabulary is generated
-          rather than asserted.
+          read your answers and your board and name one pattern, then build it here out of real
+          components. Nothing below is drawn for the occasion. It goes through the same renderer this
+          site's build-time agent runs use, and that renderer checks every component against a list
+          generated from the components that actually exist, so a name the library does not have is
+          refused rather than mocked up. All five patterns are in the library, built out of three
+          primitives.
         </p>
 
         <div class="bx-pat-stage" data-pattern-stage data-build-stage>
