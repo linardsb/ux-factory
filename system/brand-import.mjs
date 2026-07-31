@@ -177,10 +177,18 @@ function mount(root) {
       if (!path) break;
       let node = src;
       for (const seg of path.split(".")) node = node ? node[seg] : undefined;
-      v = node && typeof node === "object" && "$value" in node ? node.$value : undefined;
+      // An alias chain that bottoms out on a non-$value node surfaces the unresolved alias
+      // verbatim rather than a silent "" — visible in the swatch text, so it names itself.
+      if (!(node && typeof node === "object" && "$value" in node)) return cssValue(v);
+      v = node.$value;
     }
     return v == null ? "" : cssValue(v);
   }
+
+  // The four tokens the specimen renders as swatches. Both layers pin every one of them
+  // (neutral-literal fallback), so a chip can never follow the live dock pack while its
+  // printed value says otherwise.
+  const SPECIMEN_TOKENS = ["color-bg", "color-bg-surface", "color-fg", "color-accent"];
 
   // The specimen both layers render — identical markup, styled only by tokens (portfolio.css
   // .cmp-sample-*), so the one difference between the two sides is the values pinned on each
@@ -195,7 +203,7 @@ function mount(root) {
       el("p", { class: "cmp-sample-body", text: "Identical markup on both sides. Only the token values differ." }),
       el("span", { class: "cmp-sample-btn", text: "Primary action" }),
       el("div", { class: "cmp-sample-swatches" },
-        sw("color-bg"), sw("color-bg-surface"), sw("color-fg"), sw("color-accent")));
+        ...SPECIMEN_TOKENS.map(sw)));
   }
 
   function pinTokens(layerEl, entries) {
@@ -212,8 +220,12 @@ function mount(root) {
     for (const [name, value] of Object.entries(r.mapped.values)) prefixed["--" + name] = value;
     const { tokens: vetted } = vetTokens(prefixed);
     if (!Object.keys(vetted).length) return null;
+    // Pin maps cover the union of vetted keys + the specimen's own swatch tokens: an import
+    // missing a specimen token gets the neutral literal pinned on BOTH layers, so chip colour
+    // and printed value always agree even after "Wear it" or a dock pack switch.
     const neutral = {};
-    for (const key of Object.keys(vetted)) {
+    const pinKeys = new Set([...Object.keys(vetted), ...SPECIMEN_TOKENS.map((t) => "--" + t)]);
+    for (const key of pinKeys) {
       const node = r.contract.byName[key.slice(2)];
       if (node) neutral[key] = concreteValue(node.$value, r.contract.src);
     }
@@ -223,7 +235,7 @@ function mount(root) {
     };
     const importedSample = buildSample((t) => vetted["--" + t] ?? neutralOf(t));
     const neutralSample = buildSample(neutralOf);
-    pinTokens(importedSample, vetted);
+    pinTokens(importedSample, { ...neutral, ...vetted });
     pinTokens(neutralSample, neutral);
     const slider = createCompareSlider({
       base: neutralSample, overlay: importedSample,

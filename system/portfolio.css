@@ -1646,6 +1646,7 @@ dfn.term {
 .cmp {
   --cmp-pos: 50%;
   position: relative;
+  display: grid;
   min-width: 0;
   touch-action: none;    /* the root is the drag surface — no scroll stealing mid-drag */
   user-select: none;
@@ -1655,11 +1656,10 @@ dfn.term {
   border-radius: var(--radius-md);
   overflow: hidden;
 }
-.cmp-layer { display: grid; min-width: 0; }
-.cmp-base { position: relative; }   /* normal flow — the base defines the height */
+/* Both layers stack in the same grid cell, so the TALLER of the two defines the box —
+   an import with a bigger type/spacing scale can't silently clip under overflow:hidden. */
+.cmp-layer { display: grid; min-width: 0; position: relative; grid-area: 1 / 1; }
 .cmp-over {
-  position: absolute;
-  inset: 0;
   clip-path: inset(0 calc(100% - var(--cmp-pos)) 0 0);   /* visible left of the divider */
 }
 .cmp-divider {

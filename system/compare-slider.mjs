@@ -25,18 +25,17 @@ export function createCompareSlider({ base, overlay, baseLabel, overlayLabel, la
   const root = div("cmp");
   const baseLayer = div("cmp-layer cmp-base");
   const overLayer = div("cmp-layer cmp-over");
-  baseLayer.append(base);
-  overLayer.append(overlay);
 
   // Corner tags: the overlay is clipped from the RIGHT (visible left of the divider), so its tag
   // sits top-left; the base shows right of the divider, tag top-right. Labels are host-supplied
-  // display text and land via textContent only.
+  // display text and land via textContent only. Tags come FIRST in DOM order — clip-path leaves
+  // content in the accessibility tree, so AT hears each layer's label before its content.
   const overTag = div("cmp-tag cmp-tag-over");
   overTag.textContent = overlayLabel;
   const baseTag = div("cmp-tag cmp-tag-base");
   baseTag.textContent = baseLabel;
-  overLayer.append(overTag);
-  baseLayer.append(baseTag);
+  baseLayer.append(baseTag, base);
+  overLayer.append(overTag, overlay);
 
   const divider = div("cmp-divider");
   const handle = div("cmp-handle");
@@ -71,8 +70,12 @@ export function createCompareSlider({ base, overlay, baseLabel, overlayLabel, la
     if (e.button !== 0) return;
     root.setPointerCapture(e.pointerId);
     root.classList.add("is-dragging");
+    handle.focus();   // a drag anywhere hands the handle keyboard fine-tuning immediately
     setPos(pctFromX(e.clientX));
   });
+  // mousedown's default action would move focus off the handle right after the line above —
+  // preventing it is what makes the focus stick (pointerdown's preventDefault can't).
+  root.addEventListener("mousedown", (e) => e.preventDefault());
   root.addEventListener("pointermove", (e) => {
     if (root.classList.contains("is-dragging")) setPos(pctFromX(e.clientX));
   });
