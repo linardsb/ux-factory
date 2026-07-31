@@ -13,11 +13,17 @@
        PRD §6.3: components render from the real mock-API data source (worker/api.mjs), degrading
        to the committed static fixtures via system/scenario-data.mjs. Every component below is a
        vd-* class implemented to its system/specs/*.md spec — the handoff pack describes exactly
-       what this page runs. Verdant is a fictional scenario; the notice renders from copy.json. -->
+       what this page runs. Verdant is a fictional scenario; the notice renders from copy.json.
+       #175: this page joins the site's pack skin. pack-boot.js below restores the reader's pick
+       pre-paint and dock.mjs (body end, top-window only) lets them change it here — the vd-*
+       components are token-only, so the whole screen re-skins with the one stylesheet line. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/proto.css" />
+  <!-- LAST in <head>, load-bearing — see the header comment in pack-boot.js. Any stylesheet
+       added to this page goes ABOVE this line. -->
+  <script src="/system/pack-boot.js"></script>
 </head>
 <body data-page="proto-verdant">
 
@@ -26,17 +32,20 @@
   <header class="proto-head">
     <div>
       <h1>Verdant — Plant overview</h1>
-      <p class="sub">A hand-crafted prototype screen whose components render from the mock API.
-        Stop the Worker and reload: the same screen renders from the committed static fixtures,
-        and the indicator says so.</p>
+      <p class="sub">A phone screen I built by hand, which fetches its data as you load it.
+        Switch the mock API off and it keeps working from sample data committed in this repo;
+        the badge says which one answered.</p>
     </div>
-    <span class="proto-source" id="source">checking data source…</span>
+    <div class="proto-head-tools">
+      <span class="proto-source" id="source">checking data source…</span>
+      <button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button>
+    </div>
   </header>
 
   <main class="proto-stage-center">
     <div class="proto-frame-phone">
       <div class="proto-screen">
-        <header class="vd-screen-header" id="screen-header">
+        <header class="vd-screen-header" id="screen-header" data-inspect="vd-screen-header">
           <span></span>
           <h2 class="vd-screen-title" id="screen-title">Plant overview</h2>
           <button class="vd-header-affordance" type="button" aria-label="Settings (decorative in this prototype)">⚙</button>
@@ -46,14 +55,14 @@
         </div>
       </div>
     </div>
-    <p class="proto-slot-note">Prototype interaction only — checking rows and logging care changes
-      nothing anywhere: the mock API is read-only.</p>
+    <p class="proto-slot-note">You can tick rows and press Log care. Nothing is saved: this is a
+      prototype, and the mock API only ever reads.</p>
   </main>
 
   <footer class="proto-legal">
-    Part of the ux-factory pipeline demonstration. All data on this page is fictional fixture
-    data served by a mock API (or its committed static fallback) — no real company, users, or
-    plants are involved.
+    Part of the ux-factory pipeline demonstration. Every name and number here is made up:
+    fictional fixture data, served by the mock API or by its committed static fallback. No real
+    company, users, or plants are involved.
   </footer>
 
   <script type="module">
@@ -87,12 +96,12 @@
 
       const chip = (status) => {
         const label = status === "overdue" ? c.overdueLabel : status === "due" ? c.dueTodayLabel : c.okLabel;
-        return `<span class="vd-status-chip is-${esc(status)}" aria-hidden="true">${esc(label)}</span>`;
+        return `<span class="vd-status-chip is-${esc(status)}" aria-hidden="true" data-inspect="vd-status-chip">${esc(label)}</span>`;
       };
 
       const plantCard = (p) => `
         <a class="vd-plant-card${p.status === "overdue" ? " is-overdue" : ""}" href="#plant-${esc(p.id)}"
-           data-plant-id="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(p.status)}">
+           data-plant-id="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(p.status)}" data-inspect="vd-plant-card">
           <span class="vd-plant-thumb" aria-hidden="true">${esc(p.name[0])}</span>
           <span class="vd-plant-text">
             <span class="vd-plant-name">${esc(p.name)}</span>
@@ -113,7 +122,7 @@
 
       const taskRow = (t) => `
         <button class="vd-care-task-row is-${esc(t.status)}" type="button" role="checkbox"
-                aria-checked="false" data-task-id="${esc(t.id)}"
+                aria-checked="false" data-task-id="${esc(t.id)}" data-inspect="vd-care-task-row"
                 aria-label="${esc(verb(t.type))} ${esc(t.plantName)}, ${esc(t.status)}">
           <span class="vd-task-check" aria-hidden="true"></span>
           <span class="vd-task-label">${esc(verb(t.type))} ${esc(t.plantName)}</span>
@@ -121,7 +130,7 @@
         </button>`;
 
       const tile = (r) => `
-        <div class="vd-stat-tile">
+        <div class="vd-stat-tile" data-inspect="vd-stat-tile">
           <p>
             <span class="vd-stat-label">${esc(r.label)}</span>
             <span class="vd-stat-reading">
@@ -139,9 +148,17 @@
         <div class="vd-stack" id="today-list">
           ${todayTasks.length ? todayTasks.map(taskRow).join("") : `<p class="vd-allclear">${esc(c.allClearMessage)}</p>`}
         </div>
-        <button class="vd-primary-button" id="log-care" type="button" disabled>Log care</button>
+        <button class="vd-primary-button" id="log-care" type="button" disabled data-inspect="vd-primary-button">Log care</button>
         <h3 class="vd-section-heading">All plants</h3>
         <div class="vd-stack">${rest.map(plantCard).join("")}</div>`;
+
+      // The data-inspect mounts above only exist NOW. inspect.mjs wires its triggers once, at
+      // activation, and its script tag self-inits while this module is still awaiting the data —
+      // so a reader arriving with inspect persisted on would get the screen wired to nothing.
+      // Re-init once the screen exists; the module is already evaluated, so this rescans rather
+      // than standing up a second engine, and it re-reads the persisted flag on the way through.
+      // Top-window only, for the same reason the script tag below is — see its comment.
+      if (window.self === window.top) import("/system/inspect.mjs").then((m) => m.initInspect());
 
       // Session-only interaction: check rows → the button enables → commit clears
       // them from the list. Nothing persists (read-only API; the caption says so).
@@ -169,6 +186,22 @@
       }, { passive: true });
     } catch (e) {
       app.innerHTML = `<p class="vd-allclear">Could not load the scenario data: ${esc(e.message)}</p>`;
+    }
+  </script>
+  <!-- Script order mirrors index.html: dock → inspect → palette. Both the appearance rail and the
+       inspect layer are TOP-WINDOW ONLY: work.html embeds this page in a figure, and chrome about
+       the FRAME is not chrome about the work — an embedded copy would otherwise carry a second
+       "Inspect this surface" button, dashed outlines over every mount, and a bubble clipped to the
+       embed's fixed height. pack-boot.js still runs in that embed, so the thumbnail follows the
+       reader's pack pick. The toggle is markup, so it is removed rather than left inert: a control
+       with no engine behind it is worse than no control. A reader who deliberately drives the ⌘K
+       palette inside the frame still gets the layer — the rule is about at-rest chrome, not consent. -->
+  <script type="module">
+    if (window.self === window.top) {
+      import("/system/dock.mjs");
+      import("/system/inspect.mjs");
+    } else {
+      document.querySelector(".inspect-toggle")?.remove();
     }
   </script>
   <script type="module" src="/system/palette.mjs"></script>

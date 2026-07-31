@@ -4,7 +4,9 @@
 // The control performs the platform's core claim on the page the reader is looking at: picking a
 // pack re-points the ONE tokens.<pack>.css line in this page's head — the same swap a company
 // build ships and the CI gate performs (visual.spec.mjs:58). It is fixed side chrome on every page
-// that loads it (the five-page IA + 404 + roundtrip; the off-nav deep-link surfaces opt out —
+// that loads it (since #175 all ten shipped pages — the five-page IA + 404 + roundtrip + /build +
+// the two proto pages, where the import is gated to the top window so work.html's iframe embeds
+// carry no nested rail; the off-nav deep-link surfaces opt out —
 // instance.html's head comment records why: a private instance PINS its pack, and #81 gives it its
 // own two-option control instead, system/instance-pack.mjs) on purpose: the pick follows the reader,
 // so every page is another test of the
@@ -467,7 +469,7 @@ function buildDock() {
 
 function buildRuler() {
   const sections = document.querySelectorAll("main > section");
-  if (sections.length < 3) return; // short pages (contact, 404) carry no ruler
+  if (sections.length < 3) return; // short pages (contact, 404) and the proto pages (one frame div under <main>) carry no ruler
   const ruler = el("aside", { class: "ruler", "aria-hidden": "true" }, el("div", { class: "ruler-fill" }));
   const ticks = [...sections].map(() => {
     const t = el("div", { class: "ruler-tick" });
