@@ -55,6 +55,7 @@
         </nav>
         ${cta ? `<a class="nav-cta" href="${esc(cta.href)}">${esc(cta.label)}</a>` : ""}
       </div>
+      <button class="nav-palette-hint" type="button" data-palette-open hidden aria-label="Open the command palette (Ctrl+K / ⌘K)"><kbd>⌘K</kbd></button>
     </div>
   `;
 

@@ -1109,13 +1109,20 @@
         "--color-accent",
         "--color-bg-surface",
         "--color-accent-fg",
-        "--radius-sm"
+        "--radius-sm",
+        "--spacing-lg",
+        "--shadow-lg",
+        "--motion-base",
+        "--motion-ease",
+        "--motion-ease-spring",
+        "--font-body",
+        "--type-body"
       ]
     }
   ],
   "counts": {
     "tokens": 64,
     "consumers": 29,
-    "edges": 330
+    "edges": 337
   }
 }

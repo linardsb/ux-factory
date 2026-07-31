@@ -2117,3 +2117,86 @@ p, .body {
   border-style: dashed;
   color: var(--color-fg-muted);
 }
+
+/* ---------- Command palette (⌘K / Ctrl-K) — system/palette.mjs (epic #164, ticket #168) ----------
+   Lives HERE, not portfolio.css: the palette mounts on all 10 shipped pages and the proto pages
+   load only contract/neutral/components/proto sheets. Token-only, like everything above.
+   Entrance mirrors portfolio.css's .dock-panel: keyed on the DISCRETE [open] attribute (the
+   PR-#55 restart-and-blank trap), @starting-style supplies the entry frame, allow-discrete holds
+   display (and the top-layer overlay) through the exit. Engines without @starting-style get an
+   instant open/close. components.css has no global reduced-motion kill-switch (portfolio.css's
+   doesn't reach the proto pages), so the palette carries its own scoped off-ramp. */
+.cmdk {
+  width: min(560px, calc(100vw - 2 * var(--spacing-lg)));
+  margin: 15vh auto auto;
+  padding: 0;
+  background: var(--color-bg-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition: opacity var(--motion-base) var(--motion-ease),
+              transform var(--motion-base) var(--motion-ease-spring),
+              overlay var(--motion-base) allow-discrete,
+              display var(--motion-base) allow-discrete;
+}
+.cmdk[open] {
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  .cmdk[open] { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+.cmdk::backdrop {
+  /* Raw rgba by necessity: ::backdrop cannot see :root custom properties in Firefox ≤147
+     (the portfolio.css ::backdrop licence). A translucent scrim, pack-agnostic. */
+  background: rgba(0, 0, 0, 0.35);
+  transition: opacity var(--motion-base) var(--motion-ease);
+}
+.cmdk-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: transparent;
+  color: var(--color-fg);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  padding: var(--spacing-md) var(--spacing-lg);
+  outline: none;
+}
+.cmdk-input::placeholder { color: var(--color-fg-muted); }
+.cmdk-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--spacing-sm);
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+}
+.cmdk-item {
+  font-family: var(--font-body);
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+/* Active option marked by background + border, never colour alone (non-colour cue). */
+.cmdk-item[aria-selected="true"] {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+.cmdk-item:hover { background: var(--color-bg); }
+.cmdk-empty {
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-family: var(--font-body);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmdk, .cmdk::backdrop { transition-duration: 0.01ms; }
+}

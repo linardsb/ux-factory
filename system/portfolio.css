@@ -1941,3 +1941,50 @@ dfn.term {
   .beat-numeral { line-height: 1; }
   .close-card { padding: var(--spacing-xl); }
 }
+
+/* ---------- ⌘K palette hint (#168, epic #164) ----------
+   Rendered hidden by site.js ([data-palette-open] hidden) and revealed + wired by palette.mjs —
+   instance.html and per-company builds load site.js without palette.mjs, so the button never
+   shows there. The BASE rule is display-free (the `hidden`-defeated-by-author-display trap):
+   display lives only under :not([hidden]), so the UA's [hidden]{display:none} always wins. */
+.nav-palette-hint:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-palette-hint {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--spacing-sm);
+  margin: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--color-fg-muted);
+  flex-shrink: 0;
+}
+.nav-palette-hint kbd {
+  font-family: var(--font-mono);
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.04em;
+  padding: 4px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.nav-palette-hint:hover kbd,
+.nav-palette-hint:focus-visible kbd {
+  color: var(--color-fg);
+  border-color: var(--color-border-strong);
+}
+.site-header.on-ocean .nav-palette-hint { color: var(--color-fg-on-inverse-muted); }
+.site-header.on-ocean .nav-palette-hint kbd { border-color: var(--color-inverse-line); }
+.site-header.on-ocean .nav-palette-hint:hover kbd,
+.site-header.on-ocean .nav-palette-hint:focus-visible kbd {
+  color: var(--color-fg-on-inverse-strong);
+  border-color: var(--color-on-dark-border);
+}
+/* Keyboard affordance — pointless inside the mobile menu; the palette itself stays keyboard-reachable. */
+@media (max-width: 640px) {
+  .nav-palette-hint:not([hidden]) { display: none; }
+}
