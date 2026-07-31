@@ -1288,6 +1288,30 @@ dfn.term {
 }
 .stage-scrub-handle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
+/* @property registrations (#169): typing the five scrubbed length tokens lets keyboard steps
+   GLIDE (a registered property interpolates; an unregistered one snaps). Engine fallback: no
+   @property support → values snap per change, everything still works. syntax is
+   <length-percentage>, not <length>, on purpose — an IMPORTED pack's spacing/radius values
+   pass through pack-import.mjs verbatim (px/rem/%…), and <length-percentage> is exactly the
+   grammar the consuming properties (padding, gap, border-radius) accept, so registration
+   rejects only values that were already invalid at their point of use. NEVER register
+   color-* — packs and derived packs set colours in formats a registered syntax could reject.
+   initial-value = the neutral pack's values (must be a var()-free literal). */
+@property --radius-md { syntax: "<length-percentage>"; inherits: true; initial-value: 8px; }
+@property --radius-lg { syntax: "<length-percentage>"; inherits: true; initial-value: 16px; }
+@property --spacing-sm { syntax: "<length-percentage>"; inherits: true; initial-value: 8px; }
+@property --spacing-md { syntax: "<length-percentage>"; inherits: true; initial-value: 16px; }
+@property --spacing-lg { syntax: "<length-percentage>"; inherits: true; initial-value: 24px; }
+@media (prefers-reduced-motion: no-preference) {
+  #beat-intake #reskin-preview {
+    transition: --radius-md var(--motion-base) var(--motion-ease-spring),
+                --radius-lg var(--motion-base) var(--motion-ease-spring),
+                --spacing-sm var(--motion-base) var(--motion-ease-spring),
+                --spacing-md var(--motion-base) var(--motion-ease-spring),
+                --spacing-lg var(--motion-base) var(--motion-ease-spring);
+  }
+}
+
 /* wizard card — one decision at a time */
 #beat-intake .fw-card {
   background: var(--color-bg-surface); border: 1px solid var(--color-border);
