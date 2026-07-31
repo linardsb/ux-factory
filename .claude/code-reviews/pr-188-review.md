@@ -41,16 +41,39 @@ on fieldwork that is a vocabulary fetch plus two *sequential* `await fillSlot(..
 | `/work.html` (control) | dock ready first (0ms) | 0ms | 0ms |
 
 **Failure scenario** — reader presses ⌘K while the page is still settling. Opening the palette
-inside that window memoizes a list with commands missing, permanently for that page view.
-Reproduced directly: on fieldwork (chromium + firefox) the palette came up with **both**
-`"Copy tokens"` *and* `"Turn inspect mode on"` absent, while `.dock` was already in the DOM
-milliseconds later. On verdant (firefox) `"Copy tokens"` was absent.
+inside that window memoizes a list with `"Copy tokens"` missing, permanently for that page view.
+Reproduced against a settled-page control on the same page (settled: present everywhere):
 
-**Minimal fix:** restore the ordering guarantee the other eight pages rely on — move the gate
-*inside* `dock.mjs`/`inspect.mjs` (early-return when `window.self !== window.top`) and load them
-from static `<script type="module" src>` tags like every other page. Failing that, drop the two
-`await`s on `fillSlot(...)` (the inspect re-init two lines above is already fire-and-forget), which
-narrows but does not close the window.
+| | chromium | firefox | webkit |
+|---|---|---|---|
+| fieldwork, palette opened immediately | present | **missing** | present |
+| verdant, palette opened immediately | present | **missing** | **missing** |
+
+Firefox loses it on both pages, matching its widest window; chromium is intermittent at 17–29ms.
+Only `"Copy tokens"` is affected — `"Turn inspect mode on"` keys off `[data-inspect]`
+(`system/palette.mjs:119`), which the page's own `innerHTML` has already landed by then, and it was
+present in every controlled run.
+
+**The mechanism matters for the fix:** the gap is the time to fetch *and* evaluate `dock.mjs`'s
+module graph, which cannot start until the body-end module runs, because a dynamic `import()` is
+only discovered at evaluation. A static tag is fetched at parse time and evaluated in document
+order — which is exactly why the control pages measure 0ms.
+
+**Suggested fix (needs your design call, so treat this as the measurement plus an option, not a
+prescription):** give `dock.mjs` a static `<script type="module" src>` tag like the other eight
+pages and move the top-window check inside it — `buildDock()`/`buildRuler()` early-return when
+`window.self !== window.top`. Two caveats I could not resolve from the outside:
+
+- **Leave `inspect.mjs` exactly as the PR has it.** An early return inside `inspect.mjs` would break
+  the in-frame path this PR deliberately preserves and I agree with: `palette.mjs:126-127` lazily
+  imports it and calls `getInspect() ?? initInspect()`, so a reader driving ⌘K inside a frame still
+  gets the layer. Gating the module itself kills that.
+- **`dock.mjs` imports `pack-derived.mjs`,** whose module tail honours `?brand=`. That already runs
+  on these pages today via the dynamic import — a static tag makes it run *earlier*, not newly — but
+  it is worth confirming it does not race `pack-boot.js`'s pre-paint restore before you commit to it.
+
+Note that dropping the two `await fillSlot(...)` calls does **not** fix this: it shifts the dock and
+the palette earlier by the same amount, leaving the gap unchanged.
 
 Related: the comment "Script order mirrors index.html: dock → inspect → palette"
 (`proto/verdant.html:191`, `proto/fieldwork.html:208`) is demonstrably false as written — the
@@ -133,7 +156,12 @@ own change with #175's. Your call whether to force the re-capture here or leave 
 | `param-manifest` → `param-count` | ✓ reconciles to 74 |
 | Ruler does **not** leak onto the protos | ✓ sections land in `main > div > div`; confirmed in the baselines |
 | Dock genuinely present in the 4 new baselines | ✓ capture width 1280 > the 1100px hide threshold |
-| Cross-engine probes run for this review | 4 probes × chromium/firefox/webkit |
+| Cross-engine probes run for this review | 5 probes × chromium/firefox/webkit |
+
+**Note on this commit:** the review file itself is committed to the PR branch per the CLAUDE.md
+artifact rule, which moves the head off `eee4de9` and re-triggers CI. It is a markdown-only change;
+confirm both jobs are green at the new head before merging, and read any `approach` failure as the
+known count-up flake (memory `vr-gate-approach-countup-flake`) rather than a regression.
 
 ## What's good
 
