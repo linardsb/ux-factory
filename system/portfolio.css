@@ -800,6 +800,18 @@ dfn.term {
   outline-offset: 2px;
   cursor: help;
 }
+/* Bubble entrance (#169, deferred from #166): a small spring rise on open. @starting-style is
+   the engine gate — without support the bubble simply appears, fully functional (same fallback
+   posture as the dock panel above). VR-safe: the bubble is never open at rest. */
+@media (prefers-reduced-motion: no-preference) {
+  .inspect-bubble:popover-open {
+    transition: opacity var(--motion-base) var(--motion-ease),
+                transform var(--motion-base) var(--motion-ease-spring);
+  }
+  @starting-style {
+    .inspect-bubble:popover-open { opacity: 0; transform: translateY(4px); }
+  }
+}
 .inspect-toggle-row { margin: var(--spacing-md) 0 0; }
 .inspect-toggle[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-accent); }
 
@@ -1254,6 +1266,28 @@ dfn.term {
   margin: 0;
 }
 
+/* ---------- Stage scrub row (#169, epic #164) ----------
+   Three draggable numbers under the intake stage, rendered by system/scrub.mjs into the
+   empty [data-stage-scrub] container (fail-closed: no JS, no controls). Token-only. */
+.stage-scrub { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm) var(--spacing-lg); }
+.stage-scrub:empty { display: none; }
+.stage-scrub-cap { flex: 1 0 100%; margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 62ch; }
+.stage-scrub-field { display: inline-flex; align-items: baseline; gap: var(--spacing-xs); }
+.stage-scrub-label { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stage-scrub-handle {
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+  color: var(--color-accent);
+  border-bottom: 1px dashed var(--color-accent);
+  padding: var(--spacing-xs) 2px;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  min-width: 4ch;
+  text-align: center;
+}
+.stage-scrub-handle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
 /* wizard card — one decision at a time */
 #beat-intake .fw-card {
   background: var(--color-bg-surface); border: 1px solid var(--color-border);
@@ -1321,7 +1355,7 @@ dfn.term {
                 border-color var(--motion-slow) var(--motion-ease);
   }
   #beat-intake .fw-card { animation: fw-step-in var(--motion-slow) var(--motion-ease-spring) both; }
-  #beat-intake .fw-checks.fw-animate tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+  #beat-intake .fw-checks.fw-animate tbody tr { animation: fw-row-in var(--motion-base) var(--motion-ease-spring) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
   #beat-intake .fw-checks.fw-animate .check-draw path {
     stroke-dasharray: 1; stroke-dashoffset: 1;
     animation: check-draw var(--motion-base) var(--motion-ease-settle) forwards;

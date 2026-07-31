@@ -28,6 +28,54 @@
       "spec": null
     },
     {
+      "id": "header",
+      "label": "Header",
+      "role": "The site chrome's top bar: one configuration, injected on every page by the same script. Whatever pack the site is wearing restyles it — the nav never carries a brand value of its own.",
+      "tokens": [
+        "--color-bg",
+        "--color-border",
+        "--color-bg-inverse",
+        "--color-inverse-line",
+        "--color-fg-on-inverse",
+        "--motion-bounce",
+        "--motion-ease-bounce",
+        "--motion-fast",
+        "--motion-ease",
+        "--color-accent",
+        "--font-display",
+        "--font-body",
+        "--radius-sm",
+        "--motion-base",
+        "--motion-ease-settle",
+        "--gutter",
+        "--color-bg-surface",
+        "--color-inverse-wash",
+        "--color-fg-on-inverse-strong",
+        "--color-accent-fg"
+      ],
+      "spec": null
+    },
+    {
+      "id": "footer",
+      "label": "Footer",
+      "role": "The site chrome's other half: the site index and the contact line, injected on every page from the same configuration as the header, and restyled by whichever pack is worn.",
+      "tokens": [
+        "--color-bg-inverse",
+        "--color-fg-on-inverse",
+        "--spacing-4xl",
+        "--spacing-2xl",
+        "--font-display",
+        "--color-accent",
+        "--font-body",
+        "--color-fg-on-inverse-muted",
+        "--motion-fast",
+        "--motion-ease",
+        "--color-accent-on-inverse",
+        "--color-inverse-line"
+      ],
+      "spec": null
+    },
+    {
       "id": "cards",
       "label": "Cards",
       "role": "The site's surface cards. Background, border, text and spacing all resolve through named tokens, so the same card looks native under any brand pack.",
@@ -41,6 +89,32 @@
         "--motion-ease",
         "--shadow-md",
         "--color-border-strong"
+      ],
+      "spec": null
+    },
+    {
+      "id": "page-hero",
+      "label": "Page hero",
+      "role": "The site's cover: one claim and two actions. Every colour and size on it resolves through the token contract, so a different pack redresses the whole band without touching its markup.",
+      "tokens": [
+        "--spacing-4xl",
+        "--spacing-3xl",
+        "--spacing-xl",
+        "--font-body",
+        "--type-eyebrow",
+        "--color-fg-muted",
+        "--color-accent",
+        "--motion-ambient",
+        "--color-border",
+        "--font-display",
+        "--color-fg",
+        "--type-display",
+        "--type-lead",
+        "--motion-slow",
+        "--motion-ease-spring",
+        "--motion-stagger",
+        "--motion-rise",
+        "--font-mono"
       ],
       "spec": null
     },
@@ -264,7 +338,7 @@
     }
   ],
   "counts": {
-    "components": 11,
+    "components": 14,
     "withSpec": 9
   }
 }
