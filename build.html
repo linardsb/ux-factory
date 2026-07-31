@@ -597,6 +597,50 @@
       .brand-import-swatch { transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce); }
       .brand-import-swatch:active { transform: scale(0.96); transition-duration: var(--motion-fast), var(--motion-fast); }
     }
+
+    /* ---- View-transition morphs (#171) --------------------------------------------------------
+       The rule above says this page has no entrance animations, and it still does not. These are
+       not entrances: a same-document view transition animates BETWEEN two states of an element
+       that already existed, so a rebuilt node cannot restart-and-blank the way an entrance on it
+       would. That is exactly why the three state changes worth watching on this page — the two
+       wizards' Back/Next, the breadboard's edit verbs, and the pattern stage when the board names
+       a different pattern — morph through system/morph.mjs instead of getting entrances.
+
+       EVERYTHING HERE IS RENDER-INERT AT REST. view-transition-name and view-transition-class paint
+       nothing until startViewTransition captures a snapshot, and the ::view-transition-* pseudos do
+       not exist outside one. The visual-regression gate performs no interactions, so it never opens
+       a transition, and this whole block adds zero pixels to a baseline (#171's spike question).
+
+       Names must be unique across the WHOLE document in a capture — a duplicate aborts the entire
+       transition — so the two wizards, which are both mounted at once, are named per act. The
+       per-place names are the one thing that genuinely has to be dynamic (one per board id) and
+       breadboard.mjs writes them; the class they share is a constant, so it lives here. */
+    [data-pattern-stage] { view-transition-name: bx-pattern; }
+    [data-act="hooked"] .bx-q-card { view-transition-name: bx-q-hooked; }
+    [data-act="shaping"] .bx-q-card { view-transition-name: bx-q-shaping; }
+    .bx-bb-place { view-transition-class: bb-place; }
+
+    /* Belt and braces: system/morph.mjs already refuses to open a transition under reduced motion,
+       and portfolio.css kills these pseudos there as well. This gate matches the page's own motion
+       block above, so all of this page's motion is readable in one grammar. */
+    @media (prefers-reduced-motion: no-preference) {
+      /* Two surfaces where the new state ARRIVES — the next question, the newly named pattern — so
+         the settle curve, no overshoot, matching everything else on this site that arrives. */
+      ::view-transition-group(bx-pattern),
+      ::view-transition-group(bx-q-hooked),
+      ::view-transition-group(bx-q-shaping) {
+        animation-duration: var(--motion-base);
+        animation-timing-function: var(--motion-ease-settle);
+      }
+      /* The places are the one thing here under direct manipulation: the visitor added or removed
+         one and the rest re-arrange around it. Spring's ~1.9% overshoot is the site's vocabulary
+         for a thing you touched, and one rule styles every place however many there are. Engines
+         without view-transition-class (Safari 18.0-18.1) simply take the default easing. */
+      ::view-transition-group(*.bb-place) {
+        animation-duration: var(--motion-base);
+        animation-timing-function: var(--motion-ease-spring);
+      }
+    }
   </style>
 </head>
 <body data-page="build">

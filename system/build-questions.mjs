@@ -26,6 +26,7 @@
 // `typeof document` guard at the very bottom.
 
 import { RULESET } from "./derive.rules.mjs";
+import { morph } from "./morph.mjs";
 
 // --- the BUILD_CHANGE contract ---------------------------------------------------------------
 // One event on `document`, one state object, published by both acts. Naming and dispatch follow
@@ -438,6 +439,13 @@ function mountWizard(root) {
 
   function renderStep(focusOnRender) {
     const q = questions[step];
+    // The step card is its own view-transition group, so a Back/Next morph moves and resizes THIS
+    // card instead of crossfading the whole viewport under it (#171). The name is assigned in
+    // build.html's stylesheet, keyed off the mount's data-act, rather than here: both wizards are
+    // in the document at once and a duplicate view-transition-name aborts the entire transition, so
+    // the name has to be per-act — and a per-act constant is a stylesheet's job, not JS's. Writing
+    // it here would also be a second inline-style write on this page, which build-checks group 7
+    // refuses on purpose.
     const card = el("div", { class: "bx-q-card" });
 
     card.append(
@@ -464,7 +472,10 @@ function mountWizard(root) {
     const footer = el("div", { class: "bx-q-footer" });
     const back = el("button", { type: "button", class: "btn btn-secondary", text: "Back" });
     back.disabled = step === 0;
-    back.addEventListener("click", () => { if (step > 0) { step -= 1; renderStep(true); } });
+    // Both nav verbs morph (#171). renderStep already focuses the new prompt AFTER replaceChildren,
+    // so wrapping the whole call keeps focus inside the update callback and in its existing order —
+    // the callback runs a frame later, and focusing a not-yet-inserted node is a no-op.
+    back.addEventListener("click", () => { if (step > 0) { step -= 1; morph(() => renderStep(true)); } });
     const last = step === questions.length - 1;
     const next = el("button", { type: "button", class: "btn btn-primary", text: last ? act.done : "Next" });
     next.addEventListener("click", () => {
@@ -472,7 +483,7 @@ function mountWizard(root) {
       // them, so the last step of an act moves to the next act instead of dead-ending on a disabled
       // button.
       if (last) advanceTo(act.target);
-      else { step += 1; renderStep(true); }
+      else { step += 1; morph(() => renderStep(true)); }
     });
     footer.append(back, next);
     card.append(footer);

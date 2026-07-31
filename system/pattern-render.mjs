@@ -36,6 +36,7 @@ import { trackBuildPattern } from "./analytics.mjs";
 import { BUILD_CHANGE, readBuild } from "./build-questions.mjs";
 import { affordanceCount, PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
 import { boardSvg } from "./build-card.mjs";
+import { morph } from "./morph.mjs";
 
 // The one place a pattern id becomes components. PURE — the committed gate runs it under Node and
 // feeds the result straight to validateComposition against the real vocabulary, which is what
@@ -79,6 +80,16 @@ const COUNTED = "Every number on this stage is counted from your breadboard. No 
 const OUT_OF_LIBRARY = "The rules named your pattern. The library doesn't have its components yet, so nothing is rendered here. A mock-up would be the one dishonest thing on this page. Your breadboard is the artifact, and it downloads below.";
 
 const REFUSED = "The renderer refused this composition. That refusal is the guardrail working. It accepts only components from the generated vocabulary, and it names exactly what failed:";
+
+// The three primitives agentic-renderer.mjs can emit here, paired with their inspect ids (#171).
+// Selectors match a toned primitive too — the renderer appends " is-<tone>" to the same class.
+// The ids are system-graph consumer ids and are LONG on purpose; they are copied verbatim from
+// system/inspect-data.json, never shortened to the component's name.
+const INSPECT_IDS = [
+  [".ds-metric-tile", "ds-metric-tile-cross-scenario-library-primitive"],
+  [".ds-list-row", "ds-list-row-cross-scenario-library-primitive"],
+  [".ds-sequence-step", "ds-sequence-step-cross-scenario-library-primitive"],
+];
 
 // --- DOM helper (build-import.mjs:46 shape; duplicated per module by the same decision) --------
 function el(tag, attrs, ...children) {
@@ -194,6 +205,14 @@ function mount(root) {
       body.append(el("p", { class: "bx-pat-note", text: streamNote(composition.length, affordanceCount(board)) }));
     }
     root.replaceChildren(body);
+    // Inspect mounts on the primitives this stage just built (#171). Static data-inspect attributes
+    // are impossible here — these nodes do not exist until a board names a pattern — so they are
+    // applied in JS, which also means tooling/drift-check.mjs's inspect-mounts gate cannot see
+    // them: it resolves ids in tracked HTML only. That is why the ids are COPIED from
+    // system/inspect-data.json rather than retyped. An id that is not in that file aborts the whole
+    // inspect activation at runtime (inspect.mjs:184-186), for every mount on the page.
+    for (const [sel, inspectId] of INSPECT_IDS)
+      for (const node of root.querySelectorAll(sel)) node.setAttribute("data-inspect", inspectId);
     // The pattern is on stage — THIS is "a pattern rendered", so the event fires here and not at
     // render()'s `root.dataset.patternStage = "ready"` below, which also runs for the empty,
     // out-of-library, refused and vocabulary-unavailable branches. Same lesson as peak.mjs:240.
@@ -204,36 +223,83 @@ function mount(root) {
     trackBuildPattern();
   }
 
+  // What the stage last painted, as one string. null until the first COMPLETED render — see the
+  // vocabulary-loading branch below, which is load-bearing.
+  let prevKey = null;
+
   // Reads the store on EVERY call rather than closing over a snapshot: the vocabulary fetch is
   // async, and a restore or an answer change landing while it was in flight would otherwise render
   // a state the page has already moved past.
+  //
+  // WHY THE IDENTITY KEY (#171). This listener is deliberately unfiltered (build.html's motion
+  // block says why): it re-renders on EVERY publish, which includes one per keystroke while a
+  // visitor renames a place. Morphing all of those would animate typing. The key names what the
+  // stage IS rather than what it holds, so family 3 morphs on exactly the change worth watching —
+  // the board naming a different pattern, or a different number of slots — and a rename repaints
+  // instantly, as it does today.
   function render() {
     const state = readBuild();
     const { id, reason } = patternFor(state);
     const pattern = id && Object.hasOwn(PATTERNS, id) ? PATTERNS[id] : null;
     const tokens = state.pack ? state.pack.tokens : null;
 
+    let key;
+    let paint;
     if (!pattern) {
-      renderEmpty(reason);
+      key = "empty";
+      paint = () => renderEmpty(reason);
     } else if (!pattern.inLibrary) {
-      renderOutOfLibrary(pattern, reason, state.board, tokens);
+      key = `out:${id}`;
+      paint = () => renderOutOfLibrary(pattern, reason, state.board, tokens);
     } else {
       const composition = compose(id, slotsFor(id, state.board));
       if (!composition) {
-        renderEmpty(`${reason} There is nothing on the board for it to show yet.`);
+        key = "empty";
+        paint = () => renderEmpty(`${reason} There is nothing on the board for it to show yet.`);
       } else if (vocabError) {
-        renderUnavailable();
+        key = "unavailable";
+        paint = () => renderUnavailable();
       } else if (!vocab) {
-        return; // still loading; the committed fallback copy holds the section until it lands
+        // Still loading; the committed fallback copy holds the section until it lands.
+        //
+        // WRITING NO KEY HERE IS WHAT KEEPS BOOT INSTANT. This branch is the one every load takes
+        // first (the vocabulary fetch is IntersectionObserver-gated), so prevKey is still null when
+        // the fetch resolves and the FIRST render that actually paints is therefore never a morph
+        // — including a ?b= share-link restore, which lands while this branch is still being
+        // taken. The visual-regression gate captures a page that has done no interaction, so "boot
+        // never morphs" is what makes the pixel gate safe. Do not "tidy" this into writing a key.
+        return;
       } else {
-        try {
-          renderPattern(pattern, reason, composition, state.board);
-        } catch (err) {
-          renderRefusal(err, reason);
-        }
+        // The refusal path shares this key on purpose: whether renderComposition throws is decided
+        // by the vocabulary and the composition's shape, both of which this key already names, so a
+        // separate refusal key would only ever agree with it.
+        key = `pat:${id}:${composition.length}`;
+        paint = () => {
+          try {
+            renderPattern(pattern, reason, composition, state.board);
+          } catch (err) {
+            renderRefusal(err, reason);
+          }
+        };
       }
     }
-    root.dataset.patternStage = "ready";
+
+    const mutate = () => {
+      paint();
+      root.dataset.patternStage = "ready";
+      // The primitives this render just built are new nodes, so an inspect session that is already
+      // on has no listeners on them. Lazy on purpose (palette.mjs:118's idiom): while inspect is
+      // off — the default, and every visual-regression capture — this import never happens and the
+      // engine costs nothing. Last, and after the ready handle, so a rejected import cannot cost
+      // the stage its settled state.
+      if (document.documentElement.dataset.inspectMode === "on")
+        import("./inspect.mjs").then((m) => m.refreshInspect?.()).catch(() => {});
+    };
+
+    // First paint, or nothing about the stage's identity moved (the rename case): straight through.
+    if (prevKey === null || key === prevKey) mutate();
+    else morph(mutate);
+    prevKey = key;
   }
 
   // Listen AND seed, the discipline breadboard.mjs:169-171 documents: a consumer that mounts before
