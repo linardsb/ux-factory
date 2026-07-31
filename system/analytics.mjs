@@ -269,3 +269,27 @@ export function trackToolInspect() {
     try { history.replaceState(history.state, "", real); } catch { /* nothing to restore */ }
   }, RESTORE_DELAY_MS);
 }
+
+const TOOL_PALETTE_PATH = "/tool/palette";
+let toolPaletteFired = false;
+
+// The command-palette event (#168): fired once per page visit by system/palette.mjs's open path,
+// AFTER showModal() returns — the one line that means the palette is really on screen — never
+// from the keydown alone. The static literal is the entire payload. Simple trackFactoryBuilt
+// shape, not flipTo: opening the palette does not navigate and builds no URLs, so per the epic
+// architecture §Analytics milestones it inherits the same theoretical 50 ms collision window the
+// four /factory trackers accept. Guarded pushState for the same reason trackToolInspect's is —
+// a refusal (file:// during dev) must not throw out of the palette's open path.
+export function trackToolPalette() {
+  if (toolPaletteFired) return;
+  toolPaletteFired = true;
+  const real = location.pathname + location.search + location.hash;
+  try {
+    history.pushState(history.state, "", TOOL_PALETTE_PATH);
+  } catch {
+    return; // no session history to push — nothing recorded, nothing broken
+  }
+  setTimeout(() => {
+    try { history.replaceState(history.state, "", real); } catch { /* nothing to restore */ }
+  }, RESTORE_DELAY_MS);
+}

@@ -3,7 +3,7 @@
   "pages": [
     {
       "page": "chrome",
-      "controls": 5
+      "controls": 8
     },
     {
       "page": "/",
@@ -34,5 +34,5 @@
       "controls": 1
     }
   ],
-  "total": 66
+  "total": 69
 }
