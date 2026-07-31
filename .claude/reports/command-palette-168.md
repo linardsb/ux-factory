@@ -22,8 +22,11 @@ once from the open success path. No pack-switch command (owner decision, epic ro
 - `.nav-palette-hint` chrome styles → `system/portfolio.css` (UPDATE)
 - `<script type="module" src="/system/palette.mjs">` → all 10 shipped pages (UPDATE; **not** instance.html)
 - 3 chrome entries → `system/param-manifest.json` + regen: `param-count.json` (65 controls),
-  `loc-summary.json`, `system-graph.json` (29 consumers — `.cmdk` is a new components.css
-  consumer block), handoff pack + bundle re-run (byte-identical, see deviations)
+  `loc-summary.json`, `system-graph.json` (30 consumers — `.cmdk` is a new components.css
+  consumer block; the review's H1 caught that the original multi-line `.cmdk` header defeated
+  the generator's one-line regex, leaving 29 consumers and the palette's tokens misattributed
+  to the fw-* block — header reshaped + regenerated), handoff pack + bundle re-run
+  (byte-identical, see deviations)
 - cross-engine journey script → scratchpad `palette-journey.mjs` (NOT committed, #166 precedent)
 - VR baselines ×16 regenerated via `update:docker` from a clean `/Users` worktree
 

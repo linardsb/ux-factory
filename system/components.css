@@ -2118,8 +2118,8 @@ p, .body {
   color: var(--color-fg-muted);
 }
 
-/* ---------- Command palette (⌘K / Ctrl-K) — system/palette.mjs (epic #164, ticket #168) ----------
-   Lives HERE, not portfolio.css: the palette mounts on all 10 shipped pages and the proto pages
+/* ---------- Command palette (⌘K / Ctrl-K) — system/palette.mjs (epic #164, ticket #168) ---------- */
+/* Lives HERE, not portfolio.css: the palette mounts on all 10 shipped pages and the proto pages
    load only contract/neutral/components/proto sheets. Token-only, like everything above.
    Entrance mirrors portfolio.css's .dock-panel: keyed on the DISCRETE [open] attribute (the
    PR-#55 restart-and-blank trap), @starting-style supplies the entry frame, allow-discrete holds
