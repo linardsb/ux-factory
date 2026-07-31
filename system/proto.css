@@ -704,6 +704,15 @@ body {
   max-width: 60ch;
 }
 
+/* The head's right-hand group (#175): the data-source indicator and the inspect toggle travel
+   together, so .proto-head's space-between keeps two columns rather than spreading three. */
+.proto-head-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+
 /* capability indicator — honesty surface #3: states exactly what answered.
    JS sets data-source; the TEXT carries the state (colour never alone). */
 .proto-source {

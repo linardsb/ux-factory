@@ -113,7 +113,7 @@ function buildCommands() {
     }
   }
 
-  // Toggle inspect — only where a mount exists (today: home). Lazy import: on pages without the
+  // Toggle inspect — only where a mount exists (home, and both proto pages since #175). Lazy import: on pages without the
   // inspect script tag the module self-inits at import time, so getInspect() is already live;
   // the ?? initInspect() is belt-and-braces. Never call initInspect() unconditionally — it
   // destroys and rebuilds the page's live handle (and hides an open bubble).
@@ -134,7 +134,7 @@ function buildCommands() {
     commands.push({ label: "Start a build", run: () => location.assign("/build") });
   }
 
-  // Copy tokens — delegate to the dock's pack-aware button (the 8 chrome pages).
+  // Copy tokens — delegate to the dock's pack-aware button (every page carrying the dock).
   const dockCopy = document.querySelector(".dock-copy");
   if (dockCopy) {
     commands.push({ label: "Copy tokens", run: () => dockCopy.click(), samePage: true });

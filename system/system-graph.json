@@ -1135,11 +1135,66 @@
         "--radius-sm",
         "--color-bg"
       ]
+    },
+    {
+      "id": "appearance-dock-scroll-ruler-site-chrome-system-dock-mjs",
+      "label": "Appearance dock + scroll ruler — site chrome (system/dock.mjs)",
+      "spec": null,
+      "tokens": [
+        "--spacing-md",
+        "--color-bg-surface",
+        "--color-fg-muted",
+        "--color-border",
+        "--radius-sm",
+        "--motion-fast",
+        "--motion-ease",
+        "--motion-bounce",
+        "--motion-ease-bounce",
+        "--color-fg",
+        "--color-border-strong",
+        "--motion-icon-morph",
+        "--spacing-sm",
+        "--spacing-2xl",
+        "--radius-lg",
+        "--shadow-lg",
+        "--spacing-xl",
+        "--motion-base",
+        "--motion-ease-spring",
+        "--font-display",
+        "--type-eyebrow",
+        "--spacing-xs",
+        "--type-h3",
+        "--spacing-lg",
+        "--color-bg",
+        "--color-accent",
+        "--type-caption",
+        "--motion-ease-settle"
+      ]
+    },
+    {
+      "id": "inspect-bubble-toggle-system-inspect-mjs-epic-164-ticket-166",
+      "label": "Inspect bubble + toggle — system/inspect.mjs (epic #164, ticket #166)",
+      "spec": null,
+      "tokens": [
+        "--spacing-md",
+        "--color-bg-inverse",
+        "--color-fg-on-inverse-strong",
+        "--type-caption",
+        "--radius-sm",
+        "--shadow-md",
+        "--spacing-sm",
+        "--color-fg-on-inverse-muted",
+        "--font-mono",
+        "--color-accent",
+        "--motion-base",
+        "--motion-ease",
+        "--motion-ease-spring"
+      ]
     }
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 30,
-    "edges": 347
+    "consumers": 32,
+    "edges": 388
   }
 }

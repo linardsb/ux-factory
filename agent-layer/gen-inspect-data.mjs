@@ -52,6 +52,8 @@ const ROLES = {
     "One scheduled care action in Verdant's \"Today\" list: a check circle, the action, a status chip. One action per row.",
   "vd-primary-button":
     "The Verdant screen's one committing action: a full-width accent button, always last in reading order. On the today screen it logs the checked care tasks.",
+  "fw-fieldwork-dispatch-board-chrome-human-fixed-canvas":
+    "The dispatch board's human-designed chrome in the fictional Fieldwork demo: the toolbar, the job panels, the technician lanes. It is the fixed half of a hybrid canvas; the two agentic slots compose inside it, never over it.",
 };
 
 // Emit the artifact (or, with {check: true}, compare against disk and report drift).

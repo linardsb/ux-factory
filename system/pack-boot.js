@@ -23,7 +23,8 @@
 // no-op default survives (VR-critical).
 //
 // LOAD-BEARING, and measured rather than reasoned (2026-07-26): this script's <script> tag is the
-// LAST element in <head> on all eight pages that load it (build.html joined them, #135). The <style> appended below and a
+// LAST element in <head> on all ten pages that load it (build.html joined them at #135, the two
+// proto pages at #175). The <style> appended below and a
 // tokens.<pack>.css <link> are equal-specificity :root rules, so the later one in document order
 // wins — and being parser-blocking, at the moment this runs only the elements ABOVE its own tag
 // exist. A page that ever adds a stylesheet BELOW this tag would half-apply an imported pack on

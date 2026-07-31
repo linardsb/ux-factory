@@ -335,10 +335,35 @@
         "states": 4,
         "line": "primary-button · shipped · 2 props · 4 states"
       }
+    },
+    {
+      "id": "fw-fieldwork-dispatch-board-chrome-human-fixed-canvas",
+      "label": "fw-* — Fieldwork dispatch-board chrome (human-fixed canvas)",
+      "role": "The dispatch board's human-designed chrome in the fictional Fieldwork demo: the toolbar, the job panels, the technician lanes. It is the fixed half of a hybrid canvas; the two agentic slots compose inside it, never over it.",
+      "tokens": [
+        "--spacing-md",
+        "--spacing-sm",
+        "--color-border-strong",
+        "--type-h3",
+        "--color-fg",
+        "--type-caption",
+        "--color-fg-muted",
+        "--spacing-xs",
+        "--color-border",
+        "--radius-lg",
+        "--type-eyebrow",
+        "--radius-md",
+        "--color-bg",
+        "--color-accent",
+        "--color-bg-surface",
+        "--color-accent-fg",
+        "--radius-sm"
+      ],
+      "spec": null
     }
   ],
   "counts": {
-    "components": 14,
+    "components": 15,
     "withSpec": 9
   }
 }
