@@ -50,6 +50,9 @@ export function makeScrubbable(handle, { min, max, step, read, unit = "", label,
   const { signal } = wiring;
 
   handle.addEventListener("pointerdown", (e) => {
+    // A frame still pending from the previous drag would apply that drag's stale value on top
+    // of this one's fresh read.
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
     base = clamp(read());
     startX = e.clientX;
     dragging = true;
@@ -136,6 +139,8 @@ function mountStageScrub() {
   host.appendChild(el("p", { class: "stage-scrub-cap",
     text: "Or drag the numbers. Hue re-runs the live derivation engine; radius and spacing set the system's tokens directly. Running the brief again takes the stage back." }));
 
+  // Deliberately a plain BOUNDED slider, no 0/360 wrap: all three rows share one keyboard
+  // model (Home/End are real endpoints), and aria-valuemin/max stay honest.
   makeScrubbable(row("Brand hue", { "data-scrub": "hue" }), {
     min: 0, max: 360, step: 2, unit: "°", label: "brand hue", read: readHue,
     onChange: (h) => {
