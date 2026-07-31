@@ -689,7 +689,21 @@ async function journey(engineName, results, held) {
   // again a frame later. That is the engine behaving correctly; doing it in one call is the test
   // being wrong. Cost one ✗ on the first run of this check.
   const settleOn = async (loc) => { await loc.scrollIntoViewIfNeeded(); await ins.waitForTimeout(200); };
-  const openByHover = async (loc) => { await settleOn(loc); await loc.hover(); return bubbleGoes("visible"); };
+  // Open a mount's bubble and confirm BOTH halves: the engine records this element as the one it
+  // is describing, and the bubble is actually on screen. Retried, because the scroll a hover queues
+  // can still land after the bubble opens and dismiss it — chromium and webkit tolerated one
+  // attempt, firefox did not, and its failure looked like "the bubble has 11 token rows but is not
+  // visible", which is precisely a dismissed-after-populating bubble.
+  const opensOn = async (loc) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await settleOn(loc);
+      await loc.hover();
+      await ins.waitForTimeout(300);
+      if ((await loc.getAttribute("aria-describedby")) === "inspect-bubble" && (await bubble.isVisible())) return true;
+      await park();
+    }
+    return false;
+  };
   // Park the pointer on something that is NOT a mount and is already on screen, then wait out
   // armHide's 120ms window. Moving to a corner is not safe: site.js tags the header as a mount and
   // body{overflow-x:clip} means the header is not sticky, so whether (2,2) is a trigger depends on
@@ -727,7 +741,7 @@ async function journey(engineName, results, held) {
   const tile = () => ins.locator("[data-pattern-stage] .ds-metric-tile").first();
   t("the rendered primitives carry their inspect id",
     (await tile().getAttribute("data-inspect")) === "ds-metric-tile-cross-scenario-library-primitive");
-  t("hovering a rendered tile opens the bubble", await openByHover(tile()));
+  t("hovering a rendered tile opens the bubble", await opensOn(tile()));
   const tokenRows = await ins.locator("#inspect-bubble .inspect-tokens dt").count();
   t(`the open bubble carries the tile's token rows (${tokenRows})`,
     tokenRows > 0 && (await bubble.isVisible()));
@@ -754,12 +768,8 @@ async function journey(engineName, results, held) {
   const freshTile = tile();
   t("after the re-render the new tile is not described yet",
     (await freshTile.getAttribute("aria-describedby")) === null);
-  await settleOn(freshTile);
-  await freshTile.hover();
-  const described = await freshTile
-    .waitFor({ state: "visible", timeout: 2000 })
-    .then(async () => (await freshTile.getAttribute("aria-describedby")) === "inspect-bubble", () => false);
-  t("a freshly built tile still opens the bubble — refreshInspect re-wired the new nodes", described);
+  t("a freshly built tile still opens the bubble — refreshInspect re-wired the new nodes",
+    await opensOn(freshTile));
 
   // M3 (pr-180-review.md:84-85), fixed in #171. Esc must dismiss the bubble for the trigger it was
   // dismissed ON. While this was one boolean, grazing ANY other mount cleared it, so the dismissed
@@ -768,13 +778,15 @@ async function journey(engineName, results, held) {
   const primary = ins.locator(".bx-stage-actions .btn-primary");
   await settleOn(primary);
   await primary.focus();
-  t("focusing a button opens its bubble", await bubbleGoes("visible"));
+  await ins.waitForTimeout(300);
+  t("focusing a button opens its bubble",
+    (await primary.getAttribute("aria-describedby")) === "inspect-bubble" && (await bubble.isVisible()));
   await ins.keyboard.press("Escape");
   t("Escape dismisses it", await bubbleGoes("hidden"));
   // Focus stays on the button throughout: hovering never moves it, so focusTrigger is still the
   // dismissed one when the graze below ends — which is the whole defect scenario.
   t("grazing a different mount opens that mount's bubble",
-    await openByHover(ins.locator("#build-stage .card").first()));
+    await opensOn(ins.locator("#build-stage .card").first()));
   t("the pointer parks clear of every mount (act 0)", await park());
   t("…and leaving it does NOT bring the Esc-dismissed button's bubble back (M3)",
     (await primary.getAttribute("aria-describedby")) === null);
