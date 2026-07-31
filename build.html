@@ -294,6 +294,17 @@
       height: 100%;
       pointer-events: none;
       overflow: visible;
+      /* z-index, and it is load-bearing since #171 — the one at-rest cost of naming the places for
+         view transitions, found by the VR gate and not by reading the spec. This overlay used to
+         win on being the only POSITIONED element here: the places are static grid items, so they
+         painted in an earlier step and the lines and their dots drew over the cards. Giving each
+         place a view-transition-name makes it a STACKING CONTEXT, which promotes it into the same
+         paint step as this overlay — and the places come after it in source order, so they started
+         covering it and every line was clipped to the gutter. view-transition-name is inert at rest
+         in what it PAINTS, not in how it STACKS. One explicit z-index restores the old order, and
+         it changes nothing where no name is applied (#171; #172 must check every named element
+         for this). */
+      z-index: 1;
     }
     .bx-bb-line { fill: none; stroke: var(--color-border-strong); stroke-width: 1.5; }
     .bx-bb-dot { fill: var(--color-border-strong); }
