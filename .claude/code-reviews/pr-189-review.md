@@ -196,6 +196,12 @@ false-positive, the other 5 are clean:**
 
 Hazard B is clean on all seven. So the tool is usable, but not yet as an unattended gate.
 
+*Hypothesis, not a claim, offered because #172 will want it:* `roundtrip.html` is one of the four pages
+carrying `transition: … content-visibility … allow-discrete`, and home's flagged node sits inside a
+`<details>` disclosure. An element inside a `content-visibility`-transitioning subtree plausibly has no
+measurable box at some phases, which would explain both hits and make the zero-area filter the general
+fix. I did not verify this — causation is already settled by the no-op control without it.
+
 Fix — one line, and it is the tool's own stated intent:
 
 ```js
