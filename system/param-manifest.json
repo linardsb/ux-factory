@@ -17,6 +17,7 @@
     { "page": "/", "selector": "[data-import-report] .btn-primary", "label": "mapping report: wear it across the site", "note": "conditional — after a successful import" },
     { "page": "/", "selector": "[data-import-report] .btn-secondary", "label": "mapping report: download the pack", "note": "conditional — after a successful import" },
     { "page": "/", "selector": ".brand-import-swatch", "label": "accent-swatch picker", "note": "conditional — the importer found no unambiguous accent" },
+    { "page": "/", "selector": "[data-import-report] .cmp-handle", "label": "pack compare slider divider", "note": "conditional — after a successful import" },
     { "page": "/", "selector": ".peak-ethics-choice", "label": "Manipulation Matrix quadrant guess (4 buttons = one group)" },
     { "page": "/", "selector": ".peak-adjust-select", "label": "peak status select" },
     { "page": "/", "selector": "input[name=\"fw-density\"]", "label": "intake wizard: density radiogroup" },
@@ -66,8 +67,10 @@
     { "page": "/factory", "selector": ".ev-tab", "label": "evidence tab switcher (3 tabs = one control)" },
     { "page": "/factory", "selector": "#agents-player .trace-controls button", "label": "trace player (prev / next / show all / play = one player)" },
     { "page": "/factory", "selector": "#system-graph .sg-node", "label": "system-graph focusable nodes (one control)" },
+    { "page": "/factory", "selector": "#roundtrip-diff .cmp-handle", "label": "proposed-vs-truth compare slider" },
     { "page": "/proto/verdant", "selector": ".vd-care-task-row[data-task-id]", "label": "care-task checkboxes (one group)" },
     { "page": "/proto/verdant", "selector": "#log-care", "label": "log care button" },
+    { "page": "/roundtrip", "selector": "#roundtrip-diff .cmp-handle", "label": "proposed-vs-truth compare slider" },
     { "page": "/roundtrip", "selector": "#roundtrip-player .trace-controls button", "label": "trace player (one player)" },
     { "page": "/work", "selector": "[data-lib] vd-care-task-row", "label": "care-task-row specimens (real role=checkbox, one group)" }
   ]

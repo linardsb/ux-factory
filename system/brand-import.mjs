@@ -20,10 +20,11 @@
 // Node-import-safe: document/DOM references live inside function bodies, and the mount self-boots
 // behind a `typeof document` guard at the very bottom.
 
-import { emitPackCss, entriesFromExport, mapPack, parseContract } from "./pack-import.mjs";
+import { aliasPath, cssValue, emitPackCss, entriesFromExport, mapPack, parseContract } from "./pack-import.mjs";
 import {
-  applyImported, buildImportedRecord, clearInlineTokens, readImported, writeImported,
+  applyImported, buildImportedRecord, clearInlineTokens, readImported, vetTokens, writeImported,
 } from "./pack-imported.mjs";
+import { createCompareSlider } from "./compare-slider.mjs";
 import { PACK_REQUEST_EVENT } from "./pack-derived.mjs";
 import { trackFactoryDriven } from "./analytics.mjs";
 
@@ -91,7 +92,11 @@ function mount(root) {
     if (contract) return contract;
     const res = await fetch("/system/tokens.source.json");
     if (!res.ok) throw new Error(`could not read this site's token contract (HTTP ${res.status})`);
-    contract = parseContract(await res.json(), { label: "system/tokens.source.json" });
+    const json = await res.json();
+    contract = parseContract(json, { label: "system/tokens.source.json" });
+    // The raw source rides along for the compare slider: a contract $value can be an alias
+    // ({neutral.primitives.color-ink}) that only the full source can resolve to a literal.
+    contract.src = json;
     return contract;
   }
 
@@ -159,6 +164,90 @@ function mount(root) {
       el("ul", {}, ...items.map((t) => el("li", { text: t }))));
   }
 
+  // ---------------------------------------------------------------- the compare slider (#170)
+
+  // A contract $value resolved to a CONCRETE css value against the raw token source: an alias like
+  // {neutral.primitives.color-ink} is followed until a literal. Pinning literals (never var()
+  // references) is what keeps the "neutral" layer neutral after "Wear it" or a dock pack switch —
+  // saulera does not even define the neutral primitives an unresolved var() would lean on.
+  function concreteValue($value, src) {
+    let v = $value;
+    for (let hops = 0; v != null && hops < 8; hops++) {
+      const path = aliasPath(v);
+      if (!path) break;
+      let node = src;
+      for (const seg of path.split(".")) node = node ? node[seg] : undefined;
+      // An alias chain that bottoms out on a non-$value node surfaces the unresolved alias
+      // verbatim rather than a silent "" — visible in the swatch text, so it names itself.
+      if (!(node && typeof node === "object" && "$value" in node)) return cssValue(v);
+      v = node.$value;
+    }
+    return v == null ? "" : cssValue(v);
+  }
+
+  // The four tokens the specimen renders as swatches. Both layers pin every one of them
+  // (neutral-literal fallback), so a chip can never follow the live dock pack while its
+  // printed value says otherwise.
+  const SPECIMEN_TOKENS = ["color-bg", "color-bg-surface", "color-fg", "color-accent"];
+
+  // The specimen both layers render — identical markup, styled only by tokens (portfolio.css
+  // .cmp-sample-*), so the one difference between the two sides is the values pinned on each
+  // layer's subtree. `valueOf(token)` supplies the display text beside each swatch.
+  function buildSample(valueOf) {
+    const sw = (token) =>
+      el("span", { class: "cmp-sample-sw" },
+        el("span", { class: "cmp-sample-chip", style: `background: var(--${token})` }),
+        el("code", { text: String(valueOf(token)) }));
+    return el("div", { class: "cmp-sample" },
+      el("p", { class: "cmp-sample-head", text: "The same card" }),
+      el("p", { class: "cmp-sample-body", text: "Identical markup on both sides. Only the token values differ." }),
+      el("span", { class: "cmp-sample-btn", text: "Primary action" }),
+      el("div", { class: "cmp-sample-swatches" },
+        ...SPECIMEN_TOKENS.map(sw)));
+  }
+
+  function pinTokens(layerEl, entries) {
+    for (const [key, value] of Object.entries(entries)) layerEl.style.setProperty(key, value);
+  }
+
+  // Neutral pack vs the reader's imported pack, on one specimen. BOTH layers pin their values on
+  // their own subtree (never :root): the overlay pins the vetted import, the base pins the
+  // contract's neutral literals for exactly those keys — so the comparison stays neutral-vs-import
+  // even after "Wear it" re-skins the page underneath it. Only vetTokens-passed values are ever
+  // applied (the beat already reports what the vet dropped).
+  function compareSection(r) {
+    const prefixed = {};
+    for (const [name, value] of Object.entries(r.mapped.values)) prefixed["--" + name] = value;
+    const { tokens: vetted } = vetTokens(prefixed);
+    if (!Object.keys(vetted).length) return null;
+    // Pin maps cover the union of vetted keys + the specimen's own swatch tokens: an import
+    // missing a specimen token gets the neutral literal pinned on BOTH layers, so chip colour
+    // and printed value always agree even after "Wear it" or a dock pack switch.
+    const neutral = {};
+    const pinKeys = new Set([...Object.keys(vetted), ...SPECIMEN_TOKENS.map((t) => "--" + t)]);
+    for (const key of pinKeys) {
+      const node = r.contract.byName[key.slice(2)];
+      if (node) neutral[key] = concreteValue(node.$value, r.contract.src);
+    }
+    const neutralOf = (t) => {
+      const node = r.contract.byName[t];
+      return node ? concreteValue(node.$value, r.contract.src) : "";
+    };
+    const importedSample = buildSample((t) => vetted["--" + t] ?? neutralOf(t));
+    const neutralSample = buildSample(neutralOf);
+    pinTokens(importedSample, { ...neutral, ...vetted });
+    pinTokens(neutralSample, neutral);
+    const slider = createCompareSlider({
+      base: neutralSample, overlay: importedSample,
+      baseLabel: "this site's neutral", overlayLabel: r.label,
+      label: "Compare: this site's neutral pack versus your imported pack",
+    });
+    return el("div", { class: "cmp-block" },
+      el("p", { class: "brand-import-note", text:
+        `Drag the divider, or focus it and use the arrow keys: ${r.label} on the left, this site's neutral on the right.` }),
+      slider);
+  }
+
   function renderReport(r) {
     const { mapped } = r;
     reportEl.textContent = "";
@@ -179,6 +268,9 @@ function mount(root) {
         `Your file was read here in your browser and never uploaded. What came out is your design work, mapped onto this site's token contract. It is not authored by me, and it is not your official design system — it is your values on this system's roles.` }),
       el("p", { class: "brand-import-summary", text: summaryBits.join(" · ") }),
     );
+
+    const compare = compareSection(r);
+    if (compare) reportEl.appendChild(compare);
 
     const actions = el("div", { class: "brand-import-actions" });
     const wearBtn = el("button", { type: "button", class: "btn btn-primary", text: "Wear it across the site" });
