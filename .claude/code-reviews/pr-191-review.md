@@ -7,6 +7,10 @@
 **Recommendation: REQUEST CHANGES** — one High correctness regression, reproduced on all three engines.
 Everything else in the PR is disciplined work that does what it says.
 
+*A `code-reviewer` deep pass ran in parallel and reached the High finding independently, by reading rather
+than running. Its two additional findings are folded in below — both re-verified by measurement before
+inclusion: the first confirmed as stated, the second confirmed but far narrower than first characterized.*
+
 ---
 
 ## Summary
@@ -63,8 +67,11 @@ the PR's stated contract ("zero behaviour change") and is undocumented in the re
 
 **Why no gate caught it.** The pixel gate never interacts. `vt-verify`'s trace assertions check
 `calls === 1` and that `.trace-progress` text moved — both stay green with the scroll dead. I ran
-`vt-verify all` against this tree: **108/108 pass while the regression is live.** That is the repo's own
-`check-that-cannot-fail` shape (`.claude/` memory; CLAUDE.md "run the surface you touched").
+`vt-verify all` against this tree: **108/108 pass while the regression is live.** To be precise about the
+characterization: these assertions are *not* the repo's `check-that-cannot-fail` shape — they test what they
+claim and they can fail (the report's mutation table shows all three doing so). The scroll is simply untested
+surface. The genuine `check-that-cannot-fail` in this diff is the Medium below, where the assertion would stay
+green even for the thing it exists to prove.
 
 **This is an inherited plan defect, not an implementer slip.** The plan prescribes this exact shape —
 `.claude/plans/view-transitions-sitewide-172.md:283-290` says *"the `scrollIntoView` call runs AFTER the
@@ -145,6 +152,54 @@ always builds a root group; an aborted one builds none), and correct the header 
 
 ---
 
+### 🟡 Medium — `.claude/reports/…-172-report.md:144-148` · the shared-`active`-flag justification is factually wrong
+
+The report says the now-shared `morph.mjs` `active` flag is benign because *"no #172 wrap site can be
+re-entered from inside another's update callback (**they are separate pages**…)"*. They are not separate pages:
+
+- `index.html:417` loads `intake-beat.mjs` → `factory-intake.mjs` → `morph.mjs`; `index.html:419` loads
+  `brand-import.mjs` → `morph.mjs`. Same page, same module instance (ES modules are per-page singletons).
+- `instance.mjs:58,60` imports both `initIntake` and `renderStudy`, mounting them at `:188` and `:382`.
+
+And the flag is not released when the DOM settles — `morph.mjs:41` clears it on `.finished`, i.e. after the
+whole crossfade. Measured on the PR tree (home wizard, two `Next` clicks at varying gaps):
+
+| gap between verbs | 0 ms | 60 ms | 150 ms | 250 ms | 400 ms | 600 ms |
+|---|---|---|---|---|---|---|
+| morphs opened | 1/2 | 1/2 | 1/2 | 1/2 | **2/2** | **2/2** |
+
+So the flag is held ~250–400 ms. Any second morph verb inside that window — including one on a *different*
+feature that merely shares the page — silently falls through to a plain snap.
+
+**The behavioural impact is cosmetic** (a missed crossfade, never a wrong state), and holding through
+`.finished` is defensible: releasing early would let the new transition skip the running one. The finding is
+that the *committed justification is wrong*, so the next person reasoning about this flag starts from a false
+premise. Correct the report; if the cross-feature coupling is unwanted, scope the flag per call-site the way
+`trace-player`'s inlined copy already does by construction.
+
+### 🔵 Low — `system/agentic-study.mjs:165` · deferring `renderControls()` opens a ~1–2 frame stale-index window
+
+`renderControls()` binds each row's buttons to the index captured at render time
+(`agentic-study.mjs:202-204`, `onclick: () => removeTile(i)`). Before this PR that render ran synchronously,
+so the stale row was gone before the handler returned and the window was **zero**. Now it runs inside the
+morph callback, so the old row stays clickable for a frame or two.
+
+Measured — second `Remove` click on the **last** row, querying the DOM fresh each time (a real click can only
+hit what is attached):
+
+| gap | 0 ms | 8 ms | 16 ms | 32 ms | 60 ms |
+|---|---|---|---|---|---|
+| stale row still attached | yes | yes | yes | no | no |
+| uncaught `TypeError` | **yes** | **yes** | **yes** | none | none |
+
+`Cannot destructure property 'name' of 'working[i]' as it is undefined` — `removeTile`'s first line
+(`agentic-study.mjs:165`) reads `working[i]` for an index the splice already removed.
+
+**Bounded and minor**: the throw happens *before* the splice, so nothing is corrupted — one console error and
+the second removal is dropped. A ~16–30 ms double-hit is out of reach for mouse double-clicks (~80–150 ms) and
+only borderline reachable via key auto-repeat. Reporting it because the PR widened a zero-width window, not
+because it is likely. A guard clause (`if (!working[i]) return;`) closes it in one line.
+
 ### 🔵 Low — `system/trace-player.mjs:189-197` · the inlined replica diverges from the canon it cites
 
 The copy cites `morph.mjs:37-41` and reproduces the two `.catch` handles faithfully, but drops
@@ -203,9 +258,12 @@ are the load-bearing ones and both are argued correctly.
 ## Recommendation
 
 **Request changes.** One High finding: fix the scroll ordering in `trace-player.mjs:211`, correct the plan doc
-at `:283-290` that prescribed it, and add the assertion that would have caught it. The Medium (one
-`groups.includes("root")` per site-wide surface + correcting the "no names anywhere" premise) is small and
-worth doing in the same pass. The Low follows from the High's fix.
+at `:283-290` that prescribed it, and add the assertion that would have caught it.
+
+The two Mediums are both small and worth the same pass — one `groups.includes("root")` per site-wide surface
+plus correcting the "no names anywhere" premise, and correcting the report's "separate pages" claim about the
+shared `active` flag. The two Lows are one line each (`return` the settle promise; guard `working[i]`) and
+neither would block on its own.
 
 Scope was checked against the plan and nothing was silently dropped: the four wrap sites, the `dock.mjs`
 verify-only and the `handoff-viewer` no-op all match, and the deliberately-excluded continuous-input paths
