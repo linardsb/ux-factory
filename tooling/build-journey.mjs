@@ -668,6 +668,246 @@ async function journey(engineName, results, held) {
   t("reduced-motion: the share link still round-trips the whole build", (await snapshot(rmBack)) === rmSent);
   await rm.close();
 
+  console.log("\n[16b] inspect mode wires the rendered primitives, and re-wires them after a re-render");
+  // #171 mounts the inspect engine here, and the components most worth inspecting on this page are
+  // the ones the board just built — nodes that did not exist when inspect was switched on.
+  // wireTriggers runs once per activation, so without pattern-render's refreshInspect() call the
+  // engine stays wired to the previous render's nodes and goes silent on what is actually on
+  // screen. DRIVEN, never grepped: a re-scan that never runs reads identically in the source to one
+  // that does. Its own context, so the persisted toggle cannot leak into the checks below.
+  const insCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const ins = await newPage(insCtx);
+  await ins.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(ins);
+  const bubble = ins.locator("#inspect-bubble");
+  // Every wait below is caught INTO its assertion (the [16] discipline above): a timeout must
+  // surface as a named ✗, not as the whole engine throwing.
+  const bubbleGoes = (state) => bubble.waitFor({ state, timeout: 5000 }).then(() => true, () => false);
+  // Scroll FIRST, settle, and only then point at the thing. Playwright's hover()/focus() scroll the
+  // element into view themselves, and scrolling is one of the three ways 1.4.13 says a bubble must
+  // dismiss — so an auto-scrolling hover opens the bubble and the scroll event it queued closes it
+  // again a frame later. That is the engine behaving correctly; doing it in one call is the test
+  // being wrong. Cost one ✗ on the first run of this check.
+  const settleOn = async (loc) => { await loc.scrollIntoViewIfNeeded(); await ins.waitForTimeout(200); };
+  // Open a mount's bubble and confirm BOTH halves: the engine records this element as the one it
+  // is describing, and the bubble is actually on screen. Retried, because the scroll a hover queues
+  // can still land after the bubble opens and dismiss it — chromium and webkit tolerated one
+  // attempt, firefox did not, and its failure looked like "the bubble has 11 token rows but is not
+  // visible", which is precisely a dismissed-after-populating bubble.
+  const opensOn = async (loc) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await settleOn(loc);
+      await loc.hover();
+      await ins.waitForTimeout(300);
+      if ((await loc.getAttribute("aria-describedby")) === "inspect-bubble" && (await bubble.isVisible())) return true;
+      await park();
+    }
+    return false;
+  };
+  // Park the pointer on something that is NOT a mount and is already on screen, then wait out
+  // armHide's 120ms window. Moving to a corner is not safe: site.js tags the header as a mount and
+  // body{overflow-x:clip} means the header is not sticky, so whether (2,2) is a trigger depends on
+  // scroll position. When it IS one, `hovered` stays true, armHide bails, and every "the bubble did
+  // not come back" assertion below passes without ever running the path it exists to test — this
+  // check was mutation-tested green in exactly that state before this helper replaced the corner.
+  //
+  // It picks the point by asking the PAGE what is actually under each candidate coordinate, not by
+  // taking some element's box: the first version of this helper aimed at a heading whose box sat at
+  // y≈43, under the overlaying header, so it parked on a mount while a DOM-level closest() check
+  // said it had not. It then returns whether anything carrying a mount is still :hover — so the
+  // helper proves its own postcondition instead of assuming it.
+  //
+  // The y=140 start is only a heuristic for skipping the header, and it is NOT what makes this
+  // correct — body{overflow-x:clip} kills sticky here, so where the header sits depends on scroll.
+  // The `:hover` postcondition below is the actual guarantee: if the scan ever picks a bad point,
+  // park() returns false and its assertion fails loudly instead of quietly passing.
+  const park = async () => {
+    const pt = await ins.evaluate(() => {
+      for (let y = 140; y < innerHeight - 20; y += 20)
+        for (let x = 40; x < innerWidth - 40; x += 60) {
+          const e = document.elementFromPoint(x, y);
+          if (e && !e.closest("[data-inspect]")) return { x, y };
+        }
+      return null;
+    });
+    if (!pt) return false;
+    await ins.mouse.move(pt.x, pt.y);
+    await ins.waitForTimeout(400); // past armHide's 120ms window
+    return ins.evaluate(() => document.querySelectorAll("[data-inspect]:hover").length === 0);
+  };
+
+  t("inspect starts off", (await ins.evaluate(() => document.documentElement.dataset.inspectMode)) === undefined);
+  await ins.locator("[data-inspect-toggle]").click();
+  const modeOn = await ins.waitForFunction(() => document.documentElement.dataset.inspectMode === "on",
+    null, { timeout: 5000 }).then(() => true, () => false);
+  t("the toggle turns inspect mode on", modeOn);
+  t("the toggle reports its state", (await ins.getAttribute("[data-inspect-toggle]", "aria-pressed")) === "true");
+
+  const tile = () => ins.locator("[data-pattern-stage] .ds-metric-tile").first();
+  t("the rendered primitives carry their inspect id",
+    (await tile().getAttribute("data-inspect")) === "ds-metric-tile-cross-scenario-library-primitive");
+  t("hovering a rendered tile opens the bubble", await opensOn(tile()));
+  const tokenRows = await ins.locator("#inspect-bubble .inspect-tokens dt").count();
+  t(`the open bubble carries the tile's token rows (${tokenRows})`,
+    tokenRows > 0 && (await bubble.isVisible()));
+
+  // Now rebuild the stage under it. A rename re-renders the pattern (the listener is unfiltered by
+  // design) WITHOUT changing the identity key, so this is also the no-morph path: every tile below
+  // is a new node that inspect has never seen.
+  await ins.locator("[data-place='p1'] .bx-bb-name").fill("Rewired");
+  await ins.locator("[data-place='p1'] .bx-bb-name").blur();
+  const reRendered2 = await ins
+    .waitForFunction(() => document.querySelector("[data-pattern-stage]").textContent.includes("Rewired"),
+      null, { timeout: 10000 })
+    .then(() => true, () => false);
+  t("the rename re-rendered the stage", reRendered2);
+  // Leave the tile and prove the bubble actually closed first, or "it is open" below would just be
+  // the previous hover still showing — a check that cannot fail.
+  // Asserted through aria-describedby, which is the engine's own record of WHICH trigger it is
+  // describing, rather than through "is the bubble visible". Bubble visibility is a page-global
+  // fact and the chrome is a mount too (site.js tags the header), so parking the pointer anywhere
+  // can leave some other trigger's bubble open and make a global check say the wrong thing. Note
+  // body{overflow-x:clip} means the header is NOT sticky here, so where it lands depends on scroll
+  // position — exactly the kind of test that passes for the wrong reason.
+  t("the pointer parks clear of every mount (stage)", await park());
+  const freshTile = tile();
+  t("after the re-render the new tile is not described yet",
+    (await freshTile.getAttribute("aria-describedby")) === null);
+  t("a freshly built tile still opens the bubble — refreshInspect re-wired the new nodes",
+    await opensOn(freshTile));
+
+  // M3 (pr-180-review.md:84-85), fixed in #171. Esc must dismiss the bubble for the trigger it was
+  // dismissed ON. While this was one boolean, grazing ANY other mount cleared it, so the dismissed
+  // trigger was re-armed and its bubble came back on the graze's mouseleave. /build is the first
+  // page carrying enough mounts for that to be an ordinary gesture rather than a contrived one.
+  const primary = ins.locator(".bx-stage-actions .btn-primary");
+  await settleOn(primary);
+  await primary.focus();
+  await ins.waitForTimeout(300);
+  t("focusing a button opens its bubble",
+    (await primary.getAttribute("aria-describedby")) === "inspect-bubble" && (await bubble.isVisible()));
+  await ins.keyboard.press("Escape");
+  t("Escape dismisses it", await bubbleGoes("hidden"));
+  // Focus stays on the button throughout: hovering never moves it, so focusTrigger is still the
+  // dismissed one when the graze below ends — which is the whole defect scenario.
+  t("grazing a different mount opens that mount's bubble",
+    await opensOn(ins.locator("#build-stage .card").first()));
+  t("the pointer parks clear of every mount (act 0)", await park());
+  t("…and leaving it does NOT bring the Esc-dismissed button's bubble back (M3)",
+    (await primary.getAttribute("aria-describedby")) === null);
+
+  await ins.locator("[data-inspect-toggle]").click();
+  const modeOff = await ins.waitForFunction(() => !document.documentElement.dataset.inspectMode,
+    null, { timeout: 5000 }).then(() => true, () => false);
+  t("toggling off leaves the engine inert", modeOff && !(await bubble.isVisible()));
+  await insCtx.close();
+
+  console.log("\n[16c] a stage rebuilt UNDER A RESTING POINTER still lets the bubble hide afterwards");
+  // H1 (pr-189-review.md), fixed in #171. The one gesture [16b] structurally cannot reach: hover a
+  // mount, then rebuild the stage WITHOUT MOVING THE POINTER. Destroying a hovered node can deliver
+  // no pointer-exit event at all, so nothing clears inspect's `hovered` flag — and armHide's timer
+  // body opens `if (hovered) return`, so a stuck flag means no subsequent hide can EVER fire and the
+  // bubble stops auto-hiding (1.4.13 PERSISTENT, broken, with no gesture left that recovers it for a
+  // reader who has stopped touching the mouse). Every [16b] scenario moves the pointer away BEFORE
+  // its re-render, which clears the flag legitimately, so they all stay green with the bug present.
+  //
+  // ITS OWN CONTEXT, and that is load-bearing rather than tidiness. Run as a continuation of [16b]
+  // this check was green with the bug in place, twice over: [16b] leaves the act-0 button already
+  // focused (so focus() fires no focusin and there is no open to hide), and its rename shifts the
+  // steps list enough that chromium and firefox DO deliver the exit event. A fresh page has neither.
+  //
+  // WHY THIS GESTURE, and not the obvious one. Emptying the board reads as the natural setup and is
+  // a CHECK THAT CANNOT FAIL: every board verb places focus and the page loses ~950px of height, so
+  // it scrolls ~1,400px, drags real mounts under the resting pointer and delivers a genuine
+  // mouseleave — `hovered` is cleared for a legitimate reason and the assertion passes with the bug
+  // in place. Measured, then discarded. Each candidate was measured for the same three side effects
+  // (scroll · pointer exit on any mount · a new mount left under the pointer) and this is the one
+  // with none of them on all three engines: rest on the LAST step of the tall `steps` list, then
+  // switch to the SHORT `overview` grid, which leaves the pointer's y below the card on section
+  // background. setAnswers changes the pattern without touching the board, so nothing takes focus
+  // and the page does not scroll at all.
+  const h1Ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const h1 = await newPage(h1Ctx);
+  await h1.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await settle(h1);
+  const h1Bubble = h1.locator("#inspect-bubble");
+  const h1Primary = h1.locator(".bx-stage-actions .btn-primary");
+  await h1.locator("[data-inspect-toggle]").click();
+  t("inspect is on for the H1 gesture",
+    await h1.waitForFunction(() => document.documentElement.dataset.inspectMode === "on",
+      null, { timeout: 5000 }).then(() => true, () => false));
+
+  await h1.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "steps" })));
+  await h1.waitForTimeout(700);
+  const lastStep = h1.locator("[data-pattern-stage] .ds-sequence-step").last();
+  let restingOpen = false;
+  for (let attempt = 0; attempt < 3 && !restingOpen; attempt += 1) {
+    await lastStep.scrollIntoViewIfNeeded();
+    await h1.waitForTimeout(250);
+    await lastStep.hover();
+    await h1.waitForTimeout(350);
+    restingOpen = (await lastStep.getAttribute("aria-describedby")) === "inspect-bubble" && (await h1Bubble.isVisible());
+  }
+  t("the pointer rests on the last step with its bubble open", restingOpen);
+
+  // Instrumented at the document CAPTURE level so nodes the rebuild creates are covered too:
+  // mouseenter/mouseleave do not bubble, but they still propagate down through the capture phase.
+  const watch = () => h1.evaluate(() => {
+    window.__h1 = { touched: [], scrolled: 0 };
+    for (const ev of ["mouseenter", "mouseleave"])
+      document.addEventListener(ev, (e) => {
+        const m = e.target.closest && e.target.closest("[data-inspect]");
+        if (m) window.__h1.touched.push(`${ev}:${m.dataset.inspect}`);
+      }, true);
+    window.addEventListener("scroll", () => { window.__h1.scrolled += 1; }, true);
+  });
+  const readWatch = () => h1.evaluate(() => ({
+    ...window.__h1,
+    under: [...document.querySelectorAll("[data-inspect]:hover")].map((e) => e.dataset.inspect),
+  }));
+
+  await watch();
+  await h1.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "overview" })));
+  await h1.waitForTimeout(700);
+  const rebuilt = await readWatch();
+  // The precondition, PROVEN rather than assumed — the discipline park() enforces in [16b]. Any of
+  // these three failing means the setup cleared `hovered` itself, and the assertion below would then
+  // pass without ever running the path it exists to test.
+  t("the rebuild does not scroll the page under the resting pointer", rebuilt.scrolled === 0);
+  t("no mount received a pointer exit — nothing cleared `hovered` for us",
+    rebuilt.touched.length === 0, rebuilt.touched.join(" "));
+  t("the rebuild leaves the resting pointer over no mount at all",
+    rebuilt.under.length === 0, rebuilt.under.join(" "));
+
+  // Keyboard-only from here, on the one focusable mount no board change can remove (act 0's sample
+  // stage is static markup). It is ~3,000px above the pattern stage and has to be SCROLLED INTO VIEW
+  // FIRST rather than focused where it lies: focus({preventScroll:true}) stops the focus call itself
+  // from scrolling, but chromium still scrolled the off-screen element a frame later — the bubble
+  // opened, the queued scroll event fired, and the engine's own 1.4.13 scroll-dismiss hid it again.
+  // That is the engine being right and the check being wrong (the trap opensOn() documents for
+  // hover), and it cost this assertion its first run. The move is instrumented for the same reason.
+  await watch();
+  await h1.evaluate(() => document.querySelector(".bx-stage-actions").scrollIntoView({ block: "center", behavior: "instant" }));
+  await h1.waitForTimeout(500);
+  const movedTo = await readWatch();
+  t("the scroll to act 0 drags no mount under the resting pointer either",
+    movedTo.touched.length === 0 && movedTo.under.length === 0, [...movedTo.touched, ...movedTo.under].join(" "));
+
+  await h1.evaluate(() => document.querySelector(".bx-stage-actions .btn-primary").focus({ preventScroll: true }));
+  await h1.waitForTimeout(400);
+  const kbOpened = (await h1Primary.getAttribute("aria-describedby")) === "inspect-bubble";
+  t("a keyboard-only open still works after the rebuild", kbOpened);
+  await h1.evaluate(() => document.activeElement.blur());
+  await h1.waitForTimeout(500); // past armHide's 120ms window
+  // THE ASSERTION. With `hovered` left stuck true by the rebuild, armHide's timer returns before it
+  // reaches either branch and this stays "inspect-bubble" forever. Mutation-proved: reverting the
+  // three-line reset in system/inspect.mjs turns it red on chromium, firefox AND webkit — the review
+  // had webkit down as inconclusive because its own probe could not open the bubble there, and this
+  // gesture can. Guarded on kbOpened so a non-open cannot read as a successful hide.
+  t("…and blurring it HIDES the bubble — refreshInspect cleared the stale hover (H1)",
+    kbOpened && (await h1Primary.getAttribute("aria-describedby")) === null && !(await h1Bubble.isVisible()));
+  await h1Ctx.close();
+
   console.log("\n[17] EDGE · the links in — /build is reachable from the shipped IA");
   // The ticket's reason to exist. Asserted by CLICKING, not by reading the href: the links are
   // extensionless (/build), the way every in-page link on this site is, so "the href is right" and

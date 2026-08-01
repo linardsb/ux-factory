@@ -294,6 +294,17 @@
       height: 100%;
       pointer-events: none;
       overflow: visible;
+      /* z-index, and it is load-bearing since #171 — the one at-rest cost of naming the places for
+         view transitions, found by the VR gate and not by reading the spec. This overlay used to
+         win on being the only POSITIONED element here: the places are static grid items, so they
+         painted in an earlier step and the lines and their dots drew over the cards. Giving each
+         place a view-transition-name makes it a STACKING CONTEXT, which promotes it into the same
+         paint step as this overlay — and the places come after it in source order, so they started
+         covering it and every line was clipped to the gutter. view-transition-name is inert at rest
+         in what it PAINTS, not in how it STACKS. One explicit z-index restores the old order, and
+         it changes nothing where no name is applied (#171; #172 must check every named element
+         for this). */
+      z-index: 1;
     }
     .bx-bb-line { fill: none; stroke: var(--color-border-strong); stroke-width: 1.5; }
     .bx-bb-dot { fill: var(--color-border-strong); }
@@ -597,16 +608,60 @@
       .brand-import-swatch { transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-bounce) var(--motion-ease-bounce); }
       .brand-import-swatch:active { transform: scale(0.96); transition-duration: var(--motion-fast), var(--motion-fast); }
     }
+
+    /* ---- View-transition morphs (#171) --------------------------------------------------------
+       The rule above says this page has no entrance animations, and it still does not. These are
+       not entrances: a same-document view transition animates BETWEEN two states of an element
+       that already existed, so a rebuilt node cannot restart-and-blank the way an entrance on it
+       would. That is exactly why the three state changes worth watching on this page — the two
+       wizards' Back/Next, the breadboard's edit verbs, and the pattern stage when the board names
+       a different pattern — morph through system/morph.mjs instead of getting entrances.
+
+       EVERYTHING HERE IS RENDER-INERT AT REST. view-transition-name and view-transition-class paint
+       nothing until startViewTransition captures a snapshot, and the ::view-transition-* pseudos do
+       not exist outside one. The visual-regression gate performs no interactions, so it never opens
+       a transition, and this whole block adds zero pixels to a baseline (#171's spike question).
+
+       Names must be unique across the WHOLE document in a capture — a duplicate aborts the entire
+       transition — so the two wizards, which are both mounted at once, are named per act. The
+       per-place names are the one thing that genuinely has to be dynamic (one per board id) and
+       breadboard.mjs writes them; the class they share is a constant, so it lives here. */
+    [data-pattern-stage] { view-transition-name: bx-pattern; }
+    [data-act="hooked"] .bx-q-card { view-transition-name: bx-q-hooked; }
+    [data-act="shaping"] .bx-q-card { view-transition-name: bx-q-shaping; }
+    .bx-bb-place { view-transition-class: bb-place; }
+
+    /* Belt and braces: system/morph.mjs already refuses to open a transition under reduced motion,
+       and portfolio.css kills these pseudos there as well. This gate matches the page's own motion
+       block above, so all of this page's motion is readable in one grammar. */
+    @media (prefers-reduced-motion: no-preference) {
+      /* Two surfaces where the new state ARRIVES — the next question, the newly named pattern — so
+         the settle curve, no overshoot, matching everything else on this site that arrives. */
+      ::view-transition-group(bx-pattern),
+      ::view-transition-group(bx-q-hooked),
+      ::view-transition-group(bx-q-shaping) {
+        animation-duration: var(--motion-base);
+        animation-timing-function: var(--motion-ease-settle);
+      }
+      /* The places are the one thing here under direct manipulation: the visitor added or removed
+         one and the rest re-arrange around it. Spring's ~1.9% overshoot is the site's vocabulary
+         for a thing you touched, and one rule styles every place however many there are. Engines
+         without view-transition-class (Safari 18.0-18.1) simply take the default easing. */
+      ::view-transition-group(*.bb-place) {
+        animation-duration: var(--motion-base);
+        animation-timing-function: var(--motion-ease-spring);
+      }
+    }
   </style>
 </head>
 <body data-page="build">
 
   <main>
-    <section class="page-hero">
+    <section class="page-hero" data-inspect="page-hero">
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">The builder · the four acts</span>
+          <span class="stamp">The builder · six acts</span>
         </div>
         <h1 class="text-balance">Bring your design system. <span class="hl">Build a pattern with it.</span></h1>
         <p class="hero-sub">
@@ -653,9 +708,9 @@
           </div>
         </div>
         <p class="beat-lead">
-          A DTCG or Tokens Studio export, a Figma variables dump, or any nested JSON of names and
-          values. Colour, spacing, radius, the type ramp and shadows come across. Components and
-          fonts never do.
+          Whatever your design tool already exports will do: a DTCG or Tokens Studio export, a Figma
+          variables dump, or any nested JSON of names and values. Colour, spacing, radius, the type
+          ramp and shadows come across. Components and fonts never do.
         </p>
 
         <div class="bx-split">
@@ -679,11 +734,11 @@
                   <span class="brand-field-label">Brand colour</span>
                   <input type="color" class="brand-color" data-build-color value="#2563eb" />
                 </label>
-                <button type="button" class="btn btn-secondary" data-build-derive>Derive a palette</button>
+                <button type="button" class="btn btn-secondary" data-build-derive data-inspect="buttons">Derive a palette</button>
                 <!-- "Clear the stage", not "back to neutral": it takes off whatever this page put
                      on the stage, and what shows through is the pack the site is wearing, which is
                      not always neutral. -->
-                <button type="button" class="btn btn-ghost" data-build-reset>Clear the stage</button>
+                <button type="button" class="btn btn-ghost" data-build-reset data-inspect="buttons">Clear the stage</button>
               </div>
             </div>
 
@@ -702,21 +757,27 @@
                      blocked; build-import.mjs replaces this with the precise statement on mount. -->
                 <p class="bx-stage-label" data-build-stage-label>Real components from this site's system.</p>
               </div>
+              <!-- Inspect mounts (#171): only where the id genuinely names what styles the element.
+                   These are real .card / .btn components out of components.css, which is what
+                   system/inspect-data.json is generated from. The bx- surfaces around them (wizard
+                   cards, board places) carry NO mounts on purpose — they are styled by this page's
+                   own <style> block, so they are not consumer blocks in the system graph and
+                   inventing entries for them would make the bubble claim something untrue. -->
               <div class="bx-stage-grid">
-                <article class="card"><div class="card-body">
+                <article class="card" data-inspect="cards"><div class="card-body">
                   <div class="card-kicker">Card</div>
                   <h3 class="h3 mb-md">Text on a surface</h3>
                   <p class="muted">Muted body text on the card surface, one of the pairs the engine checks.</p>
                 </div></article>
-                <article class="card"><div class="card-body">
+                <article class="card" data-inspect="cards"><div class="card-body">
                   <div class="card-kicker">Accent</div>
                   <h3 class="h3 mb-md"><span class="hl">Accent as text</span></h3>
                   <p class="muted">An accent has to survive as text, not only as a fill.</p>
                 </div></article>
               </div>
               <div class="bx-stage-actions">
-                <button type="button" class="btn btn-primary">Primary</button>
-                <button type="button" class="btn btn-secondary">Secondary</button>
+                <button type="button" class="btn btn-primary" data-inspect="buttons">Primary</button>
+                <button type="button" class="btn btn-secondary" data-inspect="buttons">Secondary</button>
               </div>
             </div>
           </div>
@@ -751,11 +812,13 @@
           </div>
         </div>
         <p class="beat-lead">
-          From Nir Eyal's Hooked model: the feeling that brings someone back, the smallest thing
-          they do, what they get back, what they put in, how often they would really do it, and the
-          two questions behind the Manipulation Matrix. Every one arrives already answered with a
-          recommended default and the reasoning behind it, so you can accept and move. Both ethics
-          gates run beside the questions and update as you answer.
+          They ask what your product wants someone to do, and whether you should be asking at all.
+          Five come from Nir Eyal's Hooked model: the feeling that brings someone back, the
+          smallest thing they do, what they get back, what they put in, and how often they would
+          really do it. The last two are his Manipulation Matrix, which asks whether you would use
+          this yourself and whether it materially improves the user's life. Every question arrives
+          already answered with a recommended default and the reasoning behind it, so you can accept
+          and move. Both ethics gates run beside the questions and update as you answer.
         </p>
 
         <div class="bx-split">
@@ -787,9 +850,11 @@
           </div>
         </div>
         <p class="beat-lead">
-          From Shape Up (Ryan Singer / Basecamp): how much time the work is worth, the rough shape
-          the solution takes, and what you are declaring out of scope. Appetite is a budget rather
-          than an estimate, so it caps the board below; the no-go removes a place from it outright.
+          How much time the work is worth, the rough shape the solution takes, and what you are
+          declaring out of scope. They come from
+          Shape Up (Ryan Singer / Basecamp), where that time budget is called the appetite: a number
+          you set and design within, not an estimate you arrive at. It caps the board below, and the
+          thing you rule out, the no-go, removes a place from it outright.
         </p>
 
         <div class="bx-source bx-shaping" data-build-questions data-act="shaping">
@@ -812,13 +877,14 @@
           <span class="beat-numeral">03</span>
           <div class="beat-head-text">
             <p class="beat-kicker">Your breadboard</p>
-            <h2 class="beat-title">Places, affordances, and the lines between them.</h2>
+            <h2 class="beat-title">The screens, what you can do on each, and where they lead.</h2>
           </div>
         </div>
         <p class="beat-lead">
-          Shape Up's breadboard is the lowest-fidelity design tool there is: places are the things
-          you can navigate to, affordances are the things the user can act on, and connection lines
-          show how the affordances take the user from place to place. No layout, no pixels. This one
+          Your whole product sketched at its lowest fidelity. No layout and no pixels, just what is
+          there and what it does. Shape Up calls this a breadboard, and names its three parts:
+          places are the things you can navigate to, affordances are the things the user can act on,
+          and connection lines show how the affordances take the user from place to place. This one
           is drafted from your ten answers, and then it is yours to change: rename anything, add
           and remove places and affordances, and re-point any connection.
         </p>
@@ -864,12 +930,12 @@
         <p class="beat-lead">
           Five rules in
           <a href="/system/pattern-rules.mjs"><code>system/pattern-rules.mjs</code></a>
-          read your answers and your board and name one pattern. What assembles below goes through
-          the same renderer and the same generated component vocabulary that this site's build-time
-          agent runs go through, so it can only ever use components that really exist. All five
-          patterns have components here, built out of three library primitives. A pattern that did
-          not would say so instead of mocking one up, which is why the vocabulary is generated
-          rather than asserted.
+          read your answers and your board and name one pattern, then build it here out of real
+          components. Nothing below is drawn for the occasion. It goes through the same renderer this
+          site's build-time agent runs use, and that renderer checks every component against a list
+          generated from the components that actually exist, so a name the library does not have is
+          refused rather than mocked up. All five patterns are in the library, built out of three
+          primitives.
         </p>
 
         <div class="bx-pat-stage" data-pattern-stage data-build-stage>
@@ -878,6 +944,13 @@
             there is nothing to assemble it, and this page will not pretend otherwise.
           </p>
         </div>
+
+        <!-- Inspect toggle (#166/#171): static markup so it renders with JS blocked (degrades to an
+             inert button, the same licence the no-JS copy above takes). inspect.mjs wires it. It
+             sits here because this is where inspect pays off — the components above were assembled
+             from the reader's own board, and the bubble reports the tokens they are actually
+             wearing. system/pattern-render.mjs re-wires the engine each time the stage rebuilds. -->
+        <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
       </div>
     </section>
 
@@ -934,6 +1007,7 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
+  <script type="module" src="/system/inspect.mjs"></script>
   <script type="module" src="/system/build-import.mjs"></script>
   <!-- breadboard.mjs imports the BUILD_CHANGE store from build-questions.mjs and also pulls the
        current state on its own mount, so it renders correctly whichever of the two boots first. -->

@@ -15,7 +15,7 @@
     },
     {
       "page": "/build",
-      "controls": 33
+      "controls": 34
     },
     {
       "page": "/factory",
@@ -38,5 +38,5 @@
       "controls": 1
     }
   ],
-  "total": 74
+  "total": 75
 }

@@ -64,6 +64,7 @@
     { "page": "/build", "selector": "[data-keep-artifacts] button:nth-of-type(3)", "label": "keep rail: download breadboard.json" },
     { "page": "/build", "selector": "[data-keep-artifacts] button:nth-of-type(4)", "label": "keep rail: download pattern-spec.md" },
     { "page": "/build", "selector": ".bx-keep-share .btn-primary", "label": "keep rail: copy the link that rebuilds this" },
+    { "page": "/build", "selector": "[data-inspect-toggle]", "label": "inspect-mode toggle", "note": "added by #166, counted here" },
     { "page": "/factory", "selector": ".ev-tab", "label": "evidence tab switcher (3 tabs = one control)" },
     { "page": "/factory", "selector": "#agents-player .trace-controls button", "label": "trace player (prev / next / show all / play = one player)" },
     { "page": "/factory", "selector": "#system-graph .sg-node", "label": "system-graph focusable nodes (one control)" },

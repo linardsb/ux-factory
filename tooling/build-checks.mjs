@@ -687,11 +687,34 @@ function scanSvg(svg, label) {
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
   ];
+  // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
+  // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
+  // never checked at all — the same shape of gap the paragraph above describes, in the check that
+  // exists to close it.
+  //
+  // What it does NOT count, stated rather than implied (pr-189-review.md L2), because the next
+  // person reading this has to know where the line is: a computed key (`el.style[k] = x`),
+  // `Object.assign(el.style, o)`, `el.setAttribute("style", s)`, a compound assignment
+  // (`.style.color += x` — the `[^=]` cannot reach past the `+`), and aliasing
+  // (`const s = el.style; s.color = x`), which is out of reach for any regex-based check at all.
+  // None of those forms occur in the eight modules below; this is a tripwire for the ordinary
+  // shapes, not a proof of absence, and the vetting invariant it guards is argued in prose above.
+  //
+  // `view-transition-name` is the one documented exception, and it is not a value: breadboard.mjs
+  // writes a transition GROUP IDENTITY built from a place id, which is /^p[0-9]{1,2}$/ coming out
+  // of nextId and re-validated by build-share.mjs's PLACE_ID on any restored board, so no
+  // visitor-supplied string can reach it. It also paints nothing at rest. Every other
+  // view-transition name and class on the page is a constant in build.html's stylesheet.
+  const STYLE_WRITE = /\.setProperty\(|\.style\.[A-Za-z]\w*\s*=[^=]/g;
+  const ALLOWED_DIRECT = /\.style\.viewTransitionName\s*=[^=]/g;
   let writes = 0;
   for (const file of MODULES) {
     const src = readFileSync(join(ROOT, "system", file), "utf8");
-    const calls = (src.match(/\.setProperty\(/g) || []).length;
+    const allowed = (src.match(ALLOWED_DIRECT) || []).length;
+    const calls = (src.match(STYLE_WRITE) || []).length - allowed;
     if (calls) ok(file === "build-import.mjs", `system/${file} writes an inline style; applyToStage is meant to be the only one`);
+    ok(allowed === 0 || file === "breadboard.mjs",
+      `system/${file} writes an inline view-transition-name; breadboard.mjs's per-place group id is meant to be the only one`);
     writes += calls;
     // No markup ever gets built from a string on this page: every node is created element by
     // element, and the two SVG paths go through DOMParser + importNode instead.
