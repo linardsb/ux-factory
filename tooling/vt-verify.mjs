@@ -18,7 +18,9 @@
 //                                              is the property that makes the pixel gate safe (#171
 //                                              spike finding; #172 must preserve it site-wide)
 //   · each of the three families opens one   — wizard step · board verb · pattern identity change
-//   · the named groups are the ones we wrote — bx-q-<act> · bb-place-<id> · bx-pattern
+//   · the names we wrote all RESOLVE          — bx-q-<act> · bb-place-<id> (one per place on the
+//                                              board) · bx-pattern; resolving is the claim, not
+//                                              attribution to a family — see HOOK below
 //   · a rename opens NONE                    — the identity key holds, so typing never animates
 //   · reduced motion opens NONE, and the interaction still completes
 //
@@ -51,9 +53,22 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 // Recording the group names from getAnimations() rather than asserting on a screenshot: the names
 // are what the CSS targets, so a typo'd or duplicated name shows up here as a MISSING group, which
 // is the failure mode worth catching (a duplicate name aborts the whole transition silently).
+//
+// WHAT A RECORDED NAME PROVES, AND WHAT IT DOES NOT (pr-189-review.md L1). getAnimations() returns
+// the pseudo animations for EVERY named element the transition captured, not the ones the
+// interaction was about — a wizard step's transition also reports bx-pattern, site-header and the
+// rest, because they were all captured. So a name appearing here proves it RESOLVED — spelled as
+// written, unique, and not silently aborted — and says nothing about which interaction caused it.
+// The per-family claim is carried by `calls === 1`, which genuinely is per-interaction. The labels
+// below say "resolves", not "is its own group", because that is the claim the data supports.
+//
+// Only ::view-transition-group( is collected. The first version stripped the pseudo KIND along with
+// the parens (/^::view-transition-\w+\(/), so `old`, `new` and `image-pair` collapsed into the same
+// name set and "a group ran" was never actually what was asserted.
 const HOOK = () => {
   window.__vt = { calls: 0, groups: [], supported: typeof document.startViewTransition === "function" };
   if (!window.__vt.supported) return;
+  const PREFIX = "::view-transition-group(";
   const orig = document.startViewTransition.bind(document);
   document.startViewTransition = (cb) => {
     window.__vt.calls += 1;
@@ -61,8 +76,8 @@ const HOOK = () => {
     tr.ready.then(() => {
       const names = document.getAnimations()
         .map((a) => a.effect && a.effect.pseudoElement)
-        .filter((p) => p && p.startsWith("::view-transition"))
-        .map((p) => p.replace(/^::view-transition-\w+\(/, "").replace(/\)$/, ""));
+        .filter((p) => p && p.startsWith(PREFIX))
+        .map((p) => p.slice(PREFIX.length).replace(/\)$/, ""));
       window.__vt.groups.push(...new Set(names));
     }).catch(() => {});
     return tr;
@@ -110,22 +125,33 @@ for (const name of toRun) {
     await page.waitForTimeout(700);
     const f1 = await read(page);
     t("family 1 · a wizard step opens one transition", f1.calls === 1, `calls=${f1.calls}`);
-    t("family 1 · the step card is its own group", f1.groups.includes("bx-q-hooked"), f1.groups.join(" "));
+    t("family 1 · the step card's group name resolves", f1.groups.includes("bx-q-hooked"), f1.groups.join(" "));
 
     await reset(page);
+    // Counted against the BOARD, not against `> 1` (pr-189-review.md L1): with four places on the
+    // board, a partial naming failure that left two named still satisfied the old bound while the
+    // label claimed "every place". Read BEFORE the verb, because "before" is the set that can
+    // actually run a group animation — a place that exists only in the NEW state has nothing to
+    // interpolate from, so no ::view-transition-group runs for it, and all three engines agree
+    // (adding a 4th place reports p1·p2·p3; the next transition reports all four). Asserted as an
+    // exact SET, so a renamed or dropped group fails even though the count would still match.
+    const before = await page.evaluate(() =>
+      [...document.querySelectorAll("[data-bb-places] .bx-bb-place")].map((p) => `bb-place-${p.dataset.place}`).sort());
     await clickAfterScroll(page.locator("[data-bb-add-place]"));
     await page.waitForTimeout(700);
     const f2 = await read(page);
     t("family 2 · a board verb opens one transition", f2.calls === 1, `calls=${f2.calls}`);
-    const places = f2.groups.filter((g) => g.startsWith("bb-place-"));
-    t(`family 2 · every place is its own group (${places.length})`, places.length > 1, places.join(" "));
+    const places = [...new Set(f2.groups.filter((g) => g.startsWith("bb-place-")))].sort();
+    t(`family 2 · each of the ${before.length} places already on the board is its own group`,
+      places.length === before.length && places.every((p, i) => p === before[i]),
+      `named [${places.join(" ")}] vs on-board-before [${before.join(" ")}]`);
 
     await reset(page);
     await page.evaluate(() => import("/system/build-questions.mjs").then((m) => m.setAnswers({ shape: "stream" })));
     await page.waitForTimeout(900);
     const f3 = await read(page);
     t("family 3 · a pattern identity change opens one transition", f3.calls === 1, `calls=${f3.calls}`);
-    t("family 3 · the pattern stage is its own group", f3.groups.includes("bx-pattern"), f3.groups.join(" "));
+    t("family 3 · the pattern stage's group name resolves", f3.groups.includes("bx-pattern"), f3.groups.join(" "));
 
     // The negative half of family 3, and the reason the identity key exists at all.
     await reset(page);
