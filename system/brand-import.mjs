@@ -27,6 +27,7 @@ import {
 import { createCompareSlider } from "./compare-slider.mjs";
 import { PACK_REQUEST_EVENT } from "./pack-derived.mjs";
 import { trackFactoryDriven } from "./analytics.mjs";
+import { morph } from "./morph.mjs";
 
 // Mirrors portal/lib/figma.mjs, portal/public/portal.js and system/build-import.mjs — FOUR files
 // now carry this number; if it moves, move all four. Chosen, not measured: comfortably above any believable token
@@ -377,10 +378,10 @@ function mount(root) {
     // worn on THIS page and simply will not follow the reader, which the status below says out
     // loud rather than letting them discover it on the next page.
     const stored = Boolean(readImported());
-    if (!claimed || !stored) {
-      clearInlineTokens();
-      applyImported(rec);
-    }
+    // Only this fallback morphs (#172) — on the claimed path the dock owns the transition, and
+    // wrapping here too would start a second one that skips the dock's. Both statements share the
+    // one callback so the cleared-token state in between is never a painted frame.
+    if (!claimed || !stored) morph(() => { clearInlineTokens(); applyImported(rec); });
     const dropped = rec.report.rejected.length;
     status(
       (stored

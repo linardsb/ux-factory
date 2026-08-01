@@ -18,6 +18,7 @@
 // element (never innerHTML from data) so agent-supplied strings cannot inject markup.
 
 import { renderComposition, validateComposition } from "./agentic-renderer.mjs";
+import { morph } from "./morph.mjs";
 
 const TONES = ["neutral", "warn", "critical"]; // the shared tone enum — metric-tile and list-row both declare it (the vocabulary owns the truth)
 const PROBE = "urgent"; // deliberately OUT of vocabulary — the boundary the probe reaches past
@@ -149,16 +150,22 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
   // The bus target names the node's OWN component — never a hardcoded one. A composition may mix
   // primitives (northwind's sku-attention-list interleaves list-row with metric-tile), and the bus
   // pane's stated job is to show the true target. Read the name BEFORE any mutation that moves it.
+  //
+  // Each verb's RE-RENDER morphs (#172); the working-copy mutation and the bus.emit stay outside it,
+  // in their existing order. A view transition only ever snapshots the DOM, so moving pure data into
+  // the callback would buy nothing — and it would put the emit a frame late, changing the bus log's
+  // order against the mutation the comment above pins. Both renders read `working` live, so they are
+  // idempotent if a second verb lands in the frame before this callback runs.
   function setTone(i, tone) {
     working[i].props = { ...working[i].props, tone };
     bus.emit({ type: "ui.intent", source: "pointer", target: { component: working[i].name, id: String(i) }, params: { intent: "set-tone", tone } });
-    renderPreview(); renderControls();
+    morph(() => { renderPreview(); renderControls(); });
   }
   function removeTile(i) {
     const { name } = working[i];
     working.splice(i, 1);
     bus.emit({ type: "ui.intent", source: "pointer", target: { component: name, id: String(i) }, params: { intent: "remove" } });
-    renderPreview(); renderControls();
+    morph(() => { renderPreview(); renderControls(); });
   }
   function moveTile(i, dir) {
     const j = i + dir;
@@ -166,12 +173,12 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
     const { name } = working[i];
     [working[i], working[j]] = [working[j], working[i]];
     bus.emit({ type: "ui.intent", source: "pointer", target: { component: name, id: String(i) }, params: { intent: "reorder", dir } });
-    renderPreview(); renderControls();
+    morph(() => { renderPreview(); renderControls(); });
   }
   function resetWorking() {
     working = clone(picked.composition);
     bus.emit({ type: "ui.intent", source: "pointer", params: { intent: "reset" } });
-    renderPreview(); renderControls();
+    morph(() => { renderPreview(); renderControls(); });
   }
 
   function renderControls() {
@@ -207,17 +214,25 @@ export function renderStudy(container, { vocab, entries, bus, subject } = {}) {
     if (picked.trace) provenance.appendChild(el("a", { class: "study-prov-link", href: picked.trace }, "View the committed trace"));
   }
 
-  function pick(entry, tab) {
+  // `animate` is passed only by the tab listener, never by the mount below: a transition at load
+  // would flash, and the visual-regression gate captures at load (#172).
+  function pick(entry, tab, animate) {
     picked = entry;
     working = clone(entry.composition);
+    // The selected tab flips synchronously — it is the feedback for the click that asked for it,
+    // and it should not wait out the panel's crossfade.
     for (const t of ask.children) t.setAttribute("aria-selected", String(t === tab));
-    renderPreview(); renderControls(); renderProvenance();
+    // The three renders read `picked`/`working` live rather than closing over this call's `entry`,
+    // so a second tab clicked before the callback runs paints the newer question instead of being
+    // reverted by this one (#171's stale-paint bug, deviation 3).
+    const paint = () => { renderPreview(); renderControls(); renderProvenance(); };
+    if (animate) morph(paint); else paint();
   }
 
   // build the ask tabs
   entries.forEach((entry, i) => {
     const tab = el("button", { type: "button", class: "study-tab", role: "tab", text: entry.question });
-    tab.addEventListener("click", () => pick(entry, tab));
+    tab.addEventListener("click", () => pick(entry, tab, true));
     ask.appendChild(tab);
   });
 

@@ -175,19 +175,45 @@ export function renderTracePlayer(container, trace) {
   // Stepping: cards 0..current visible, current highlighted; > current hidden. Manual by
   // default; the optional Play timer (below) drives the same `next` under no-preference.
   let current = -1;
+
+  // Stepping morphs (#172). system/morph.mjs is the shared wrapper everywhere else on the site, but
+  // this module's header contract is "No imports, no fetch" (line 14) — keeping #10 free to inline
+  // or preload the player — so the six lines are replicated here instead. Consequences of that copy,
+  // both benign: the in-flight flag is per player rather than site-wide, and two players on
+  // factory.html can still only run one transition between them (a second startViewTransition skips
+  // the first, and the skipped one's mutation has already been applied).
+  //
+  // `live` is the initial-mount exclusion: reveal(0, false) below seeds the first step at load, and
+  // the visual-regression gate captures at load — so nothing may morph until that seed has run.
+  let live = false, morphing = false;
+  const morph = (mutate) => {
+    if (!live || morphing || reduceMotion.matches || !document.startViewTransition) { mutate(); return; }
+    morphing = true;
+    const vt = document.startViewTransition(mutate);
+    // A skipped transition rejects both handles (firefox rejects .ready); the mutation ran regardless,
+    // so swallow them rather than leave unhandled rejections in the console (morph.mjs:37-41).
+    vt.ready.catch(() => {});
+    vt.finished.catch(() => {}).finally(() => { morphing = false; });
+  };
+
   function apply(scroll, block = 'center') {
-    cards.forEach((c, i) => {
-      c.classList.toggle('trace-step-hidden', i > current);
-      c.classList.toggle('trace-step-current', i === current);
+    // The callback reads `current` live, so a step landing in the frame before it runs paints the
+    // newer position instead of being reverted by this closure (#171 report, deviation 3). The
+    // scroll stays OUTSIDE it: smooth scrolling is async and has no business in a snapshot callback.
+    morph(() => {
+      cards.forEach((c, i) => {
+        c.classList.toggle('trace-step-hidden', i > current);
+        c.classList.toggle('trace-step-current', i === current);
+      });
+      progress.textContent = `${Math.max(0, current + 1)} / ${cards.length}`;
+      if (fill) fill.style.width = `${cards.length ? ((current + 1) / cards.length) * 100 : 0}%`;
     });
-    progress.textContent = `${Math.max(0, current + 1)} / ${cards.length}`;
-    if (fill) fill.style.width = `${cards.length ? ((current + 1) / cards.length) * 100 : 0}%`;
     if (scroll && current >= 0 && cards[current]) cards[current].scrollIntoView({ block, behavior: 'smooth' });
   }
   const next = () => { if (current < cards.length - 1) { current++; apply(true); } };
   const prev = () => { if (current > -1) { current--; apply(true); } };
   const reveal = (i, scroll = true) => { current = Math.max(-1, Math.min(cards.length - 1, i)); apply(scroll); };
-  const revealAll = () => { current = cards.length - 1; cards.forEach((c) => { c.classList.remove('trace-step-hidden'); c.classList.remove('trace-step-current'); }); progress.textContent = `${cards.length} / ${cards.length}`; if (fill) fill.style.width = cards.length ? '100%' : '0%'; };
+  const revealAll = () => { current = cards.length - 1; morph(() => { cards.forEach((c) => { c.classList.remove('trace-step-hidden'); c.classList.remove('trace-step-current'); }); progress.textContent = `${cards.length} / ${cards.length}`; if (fill) fill.style.width = cards.length ? '100%' : '0%'; }); };
 
   // Autoplay (Phase 3, item 2): pausable, never auto-starts (WCAG 2.2.2 — user-initiated).
   // Advances one step / 1400ms, scrolling block:'nearest' so a card already on screen isn't
@@ -219,5 +245,6 @@ export function renderTracePlayer(container, trace) {
   const destroy = () => { if (timer) clearInterval(timer); root.removeEventListener('keydown', onKey); container.textContent = ''; };
 
   reveal(0, false); // start on the first step (skeleton + step 1), no jump-scroll on load
+  live = true;      // everything from here is reader-driven, so everything from here may morph (#172)
   return { next, prev, reveal, revealAll, destroy };
 }

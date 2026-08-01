@@ -38,6 +38,7 @@ import { derive } from "./derive.mjs";
 import { RULESET } from "./derive.rules.mjs";
 import { trackFactoryDriven } from "./analytics.mjs";
 import { countUp } from "./motion.mjs";
+import { morph } from "./morph.mjs";
 
 // Untrusted-value escape — verbatim from derive.html:165. Used for the few strings assembled
 // into markup (the WCAG rows / notes / patterns lists, as derive.html does); structural nodes
@@ -436,7 +437,12 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
     const back = el("button", "btn btn-secondary", "Back");
     back.type = "button";
     back.disabled = step === 0;
-    back.addEventListener("click", () => { if (step > 0) { step -= 1; renderWizard(true); } });
+    // Both nav verbs morph (#172), mirroring build-questions.mjs:475. `step` moves OUTSIDE the
+    // callback and renderWizard reads it live, so a second click landing in the frame before the
+    // update callback runs repaints the NEWER step rather than being overwritten by this closure
+    // (the stale-paint bug #171 hit — build-vt-morphs-171 report, deviation 3). Wrapping the whole
+    // call also keeps promptEl.focus() inside the callback and in its existing order.
+    back.addEventListener("click", () => { if (step > 0) { step -= 1; morph(() => renderWizard(true)); } });
     const last = step === wiz.length - 1;
     const next = el("button", "btn btn-primary", last ? "Review" : "Next");
     next.type = "button";
@@ -444,7 +450,7 @@ export function initIntake({ scenarios = SCENARIOS, defaultScenario = DEFAULT_SC
     // generated result (instant scroll — reduced-motion-safe) rather than dead-ending disabled.
     next.addEventListener("click", () => {
       if (last) previewRoot.scrollIntoView({ block: "start" });
-      else { step += 1; renderWizard(true); }
+      else { step += 1; morph(() => renderWizard(true)); }
     });
     footer.appendChild(back);
     footer.appendChild(next);
