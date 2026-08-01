@@ -66,6 +66,23 @@ the PR's stated contract ("zero behaviour change") and is undocumented in the re
 `vt-verify all` against this tree: **108/108 pass while the regression is live.** That is the repo's own
 `check-that-cannot-fail` shape (`.claude/` memory; CLAUDE.md "run the surface you touched").
 
+**This is an inherited plan defect, not an implementer slip.** The plan prescribes this exact shape —
+`.claude/plans/view-transitions-sitewide-172.md:283-290` says *"the `scrollIntoView` call runs AFTER the
+mutation callback (immediately after the `morph()` call is fine — smooth scroll is async and must not sit
+inside the snapshot callback)"* and gives the code verbatim. The first half of that reasoning is right
+(the scroll must not be inside the callback); the second half assumes "after the call" means "after the
+mutation", which is precisely what `startViewTransition` does not guarantee. **Fix the plan doc in the same
+pass** — it is committed in this PR and will be copied by the next ticket that reaches for the pattern.
+
+Two process notes, offered as such rather than as findings. The plan's own VALIDATE step for this task
+(*"`/trace.html`: Next/Prev/arrows/Show-all/Play all work"*) would have surfaced it by eye, and the report's
+validation table records no manual browser pass of the trace surface — only `vt-verify` and the Node gates.
+And this is the second consecutive ticket in this epic where the frame-gap between `morph()` and its callback
+produced a defect (#171's deviation 3 was the stale paint; this is the stale read). The PR states the rule
+for writes — *state outside, paint inside, paint reads live state* — but not the symmetric one for reads:
+**anything after a `morph()` call sees the old DOM.** Worth adding to `system/morph.mjs`'s header, where the
+next caller will actually read it.
+
 **Fix.** Scroll *after* the mutation. The clean version needs the inlined helper to return what the canon
 returns (see Low below):
 
@@ -185,9 +202,14 @@ are the load-bearing ones and both are argued correctly.
 
 ## Recommendation
 
-**Request changes.** One High finding: fix the scroll ordering in `trace-player.mjs:211` and add the assertion
-that would have caught it. The Medium (one `groups.includes("root")` per site-wide surface + correcting the
-"no names anywhere" premise) is small and worth doing in the same pass. The Low follows from the High's fix.
+**Request changes.** One High finding: fix the scroll ordering in `trace-player.mjs:211`, correct the plan doc
+at `:283-290` that prescribed it, and add the assertion that would have caught it. The Medium (one
+`groups.includes("root")` per site-wide surface + correcting the "no names anywhere" premise) is small and
+worth doing in the same pass. The Low follows from the High's fix.
+
+Scope was checked against the plan and nothing was silently dropped: the four wrap sites, the `dock.mjs`
+verify-only and the `handoff-viewer` no-op all match, and the deliberately-excluded continuous-input paths
+(`factory-intake`'s `setAnswer()`/`run()`) are correctly left alone.
 
 Everything else — the four wrap sites, the gates, AC2, the deviations — is sound and independently reproduced.
 
