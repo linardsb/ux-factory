@@ -1,5 +1,6 @@
-// tooling/vt-verify.mjs — the committed cross-engine proof that /build's view-transition morphs
-// are REAL (epic #164, ticket #171; .claude/plans/build-vt-morphs-171.md).
+// tooling/vt-verify.mjs — the committed cross-engine proof that the site's view-transition morphs
+// are REAL (epic #164, ticket #171 for /build; extended site-wide by ticket #172 —
+// .claude/plans/build-vt-morphs-171.md, .claude/plans/view-transitions-sitewide-172.md).
 //
 // tooling/build-journey.mjs drives /build end to end, but every one of its assertions is about an
 // END STATE: the right pattern rendered, the right focus, the right URL. A morph that silently
@@ -83,6 +84,64 @@ const HOOK = () => {
     return tr;
   };
 };
+
+// ---- #172 · the surfaces the REST of the site wrapped -------------------------------------------
+// /build names its groups; these do not. #172 ships the default root crossfade only, so there is no
+// group name to resolve and the claim reduces to three things: the wrap adds nothing at load, the
+// reader's verb opens exactly one transition, and the reduced-motion off-ramp opens none while
+// still reaching the SAME end state.
+//
+// `boot` is an EXPECTED COUNT, not an assumed zero. On /build it is zero; on home it is TWO, and
+// they are not #172's: spine.mjs's heroBeat derives the canned brand and reverts it through its own
+// crossfade() (spine.mjs:147,149 — #72), which is a load-time transition that predates this ticket.
+// The pixel gate is safe there for a different reason than on /build — the beat sets
+// data-spine="ready" only AFTER the revert, and the gate waits on that handle — so this driver
+// waits for the same handle, then resets the counter, and the per-verb claim below is measured
+// against a settled page rather than folded in with someone else's animation.
+const SITEWIDE = [
+  {
+    page: "/index.html", label: "home · intake wizard step", boot: 2,
+    bootWhy: "spine heroBeat re-skin + revert (#72), both settled before data-spine=ready",
+    ready: async (p) => {
+      await p.waitForSelector('[data-spine="ready"]', { timeout: 20000 });
+      await p.waitForSelector("#factory-wizard .fw-card", { timeout: 20000 });
+      await p.locator("#beat-intake").scrollIntoViewIfNeeded();
+    },
+    act: (p) => p.locator("#factory-wizard").getByRole("button", { name: "Next" }).click(),
+    state: (p) => p.locator("#factory-wizard .fw-progress").textContent().then((s) => s.trim()),
+  },
+  {
+    // The SECOND mount of the same wizard, through instance.mjs's initIntake(config) seam — full
+    // axes rather than home's three, and no spine heroBeat, so its load count is its own number.
+    // The absent Worker logs ERR_CONNECTION_REFUSED here; that is fixture degradation, not a
+    // failure, and it cannot open a transition either way.
+    page: "/instance.html", label: "instance · intake wizard step", boot: 0,
+    ready: async (p) => {
+      await p.waitForSelector("#factory-wizard .fw-card", { timeout: 30000 });
+      await p.locator("#factory-wizard").scrollIntoViewIfNeeded();
+    },
+    act: (p) => p.locator("#factory-wizard").getByRole("button", { name: "Next" }).click(),
+    state: (p) => p.locator("#factory-wizard .fw-progress").textContent().then((s) => s.trim()),
+  },
+  {
+    page: "/agentic-ui-study.html", label: "study · question tab", boot: 0,
+    ready: (p) => p.waitForSelector("#study .study-tab", { timeout: 20000 }),
+    act: async (p) => { const tab = p.locator("#study .study-tab").nth(1); await tab.scrollIntoViewIfNeeded(); await tab.click(); },
+    state: (p) => p.locator("#study .study-tab[aria-selected='true']").first().textContent().then((s) => s.trim()),
+  },
+  {
+    page: "/agentic-ui-study.html", label: "study · remove a tile", boot: 0,
+    ready: (p) => p.waitForSelector("#study .study-control-row", { timeout: 20000 }),
+    act: async (p) => { const b = p.locator("#study .study-control-row button[aria-label='Remove']").first(); await b.scrollIntoViewIfNeeded(); await b.click(); },
+    state: (p) => p.locator("#study .study-control-row").count().then(String),
+  },
+  {
+    page: "/trace.html", label: "trace · step forward", boot: 0,
+    ready: (p) => p.waitForSelector("#player .trace-controls", { timeout: 20000 }),
+    act: async (p) => { const b = p.locator("#player").getByRole("button", { name: /Next/ }); await b.scrollIntoViewIfNeeded(); await b.click(); },
+    state: (p) => p.locator("#player .trace-progress").textContent().then((s) => s.trim()),
+  },
+];
 
 let failed = 0;
 const t = (label, cond, detail = "") => {
@@ -179,6 +238,43 @@ for (const name of toRun) {
     t("reduced motion · the wizard still advanced",
       (await rp.locator("[data-act='hooked'] .bx-q-progress").textContent()).trim() === "2 / 7");
     await rctx.close();
+
+    // ---- #172 · the same claims, on the rest of the site ------------------------------------
+    for (const s of SITEWIDE) {
+      const sctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await sctx.addInitScript(HOOK);
+      const sp = await sctx.newPage();
+      await sp.goto(`${BASE}${s.page}`, { waitUntil: "load" });
+      await s.ready(sp);
+      const sboot = await read(sp);
+      t(`${s.label} · load opens ${s.boot} transition(s)${s.bootWhy ? ` — ${s.bootWhy}` : ", none of them this ticket's"}`,
+        sboot.calls === s.boot, `calls=${sboot.calls}`);
+
+      const from = await s.state(sp);
+      await reset(sp);
+      await s.act(sp);
+      await sp.waitForTimeout(700);
+      const acted = await read(sp);
+      const to = await s.state(sp);
+      t(`${s.label} · the reader's verb opens one transition`, acted.calls === 1, `calls=${acted.calls}`);
+      // A morph that opened but mutated nothing would pass the line above; this is what makes it mean something.
+      t(`${s.label} · and the surface actually changed`, to !== from, `${from} → ${to}`);
+      await sctx.close();
+
+      const rc = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+      await rc.addInitScript(HOOK);
+      const rpg = await rc.newPage();
+      await rpg.goto(`${BASE}${s.page}`, { waitUntil: "load" });
+      await s.ready(rpg);
+      await reset(rpg);
+      await s.act(rpg);
+      await rpg.waitForTimeout(700);
+      const rmm = await read(rpg);
+      t(`${s.label} · reduced motion opens none`, rmm.calls === 0, `calls=${rmm.calls}`);
+      // The off-ramp has to leave the feature WORKING, not just quiet — same end state, no animation.
+      t(`${s.label} · reduced motion reaches the same end state`, (await s.state(rpg)) === to, `reduce=${await s.state(rpg)} vs normal=${to}`);
+      await rc.close();
+    }
   } finally {
     await browser.close();
   }
@@ -186,5 +282,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · boot clean · renames instant · reduced motion off (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);
