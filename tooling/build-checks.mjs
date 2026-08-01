@@ -687,9 +687,18 @@ function scanSvg(svg, label) {
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
   ];
-  // Counted BOTH ways a value can reach an inline style. Until #171 this only matched
-  // `.setProperty(`, which meant a direct `el.style.color = untrusted` was never checked at all —
-  // the same shape of gap the paragraph above describes, in the check that exists to close it.
+  // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
+  // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
+  // never checked at all — the same shape of gap the paragraph above describes, in the check that
+  // exists to close it.
+  //
+  // What it does NOT count, stated rather than implied (pr-189-review.md L2), because the next
+  // person reading this has to know where the line is: a computed key (`el.style[k] = x`),
+  // `Object.assign(el.style, o)`, `el.setAttribute("style", s)`, a compound assignment
+  // (`.style.color += x` — the `[^=]` cannot reach past the `+`), and aliasing
+  // (`const s = el.style; s.color = x`), which is out of reach for any regex-based check at all.
+  // None of those forms occur in the eight modules below; this is a tripwire for the ordinary
+  // shapes, not a proof of absence, and the vetting invariant it guards is argued in prose above.
   //
   // `view-transition-name` is the one documented exception, and it is not a value: breadboard.mjs
   // writes a transition GROUP IDENTITY built from a place id, which is /^p[0-9]{1,2}$/ coming out

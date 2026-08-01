@@ -379,3 +379,64 @@ library" claim is gated by build-checks group 1.
 **Process compliance is clean.** `Closes #171` is in the PR body; the plan and report are committed in
 the PR; the `param-manifest` entry, the regenerated `param-count.json` / `loc-summary.json`, and the four
 churned baselines are all in the same PR, which is exactly the cascade `CLAUDE.md` requires.
+
+---
+
+## Resolution (fixes applied on this branch)
+
+`origin/main` merged first — the branch was `DIRTY` after PR #188 (#175) landed. `system/loc-summary.json`
+and `system/param-count.json` conflicted and were resolved by **regeneration**, never by hand. The merge
+moves `param-count` 73 → **75**, and `approach.html` renders that total; the runtime `loc-summary` group
+approach also renders (61 files / 19,200 lines) is unchanged.
+
+| finding | outcome | proof |
+|---|---|---|
+| **H1** `refreshInspect()` leaves `hovered` stuck | **fixed** | `inspect.mjs` resets all three pieces; new journey block `[16c]`, mutation-red on chromium + firefox + webkit |
+| **L1** `vt-verify` group labels / `places.length > 1` | **fixed** | only `::view-transition-group(` collected; places asserted as an exact SET; mutation-red on a single dropped name |
+| **L2** `STYLE_WRITE` comment overclaims | **fixed** | comment now names the four counted forms and the five it cannot reach, verified absent from all eight modules |
+| **L3** `CLAUDE.md` "9 groups" | **fixed** | now 10, with group 10 (build analytics) named |
+| **M1** `vt-stack-audit` hazard A false positives | **deferred → #190** | cross-linked from #172 and #164; `CLAUDE.md`'s entry now carries the caveat |
+
+### H1 — the fix, and why the obvious test for it was a check that cannot fail
+
+The one-line prescription was applied verbatim, `focusTrigger` and `dismissedTrigger` included. The
+assertion took three attempts, and the two discarded ones are the point:
+
+1. **Emptying the board** is the natural setup and is a false green. Every board verb places focus and the
+   page loses ~950px of height, so it scrolls ~1,400px, drags real mounts under the resting pointer and
+   delivers a genuine `mouseleave` — measured: `scroll/height 5538/7795 → 4143/6852`, with
+   `mouseleave<DIV.ds-metric-tile>` in the capture log. `hovered` is cleared for a legitimate reason and
+   the assertion passes with the bug in place. It did: **the first version was green under the mutation.**
+2. **Focusing the act-0 button where it lies** opens the bubble and then loses it — chromium scrolls the
+   off-screen element a frame later despite `focus({preventScroll:true})`, and the engine's own 1.4.13
+   scroll-dismiss hides it. Measured as `attr:aria-describedby=inspect-bubble → SCROLL → aria-describedby=null`.
+3. Run as a continuation of `[16b]` it was green under the mutation for two further reasons: `[16b]` leaves
+   the act-0 button already focused (so `focus()` fires no `focusin`, and there is no open to hide), and
+   its rename shifts the steps list enough that chromium and firefox **do** deliver the exit event.
+
+`[16c]` therefore gets its own context and a gesture measured clean on all three engines: rest on the last
+step of the tall `steps` list, switch to the short `overview` grid. Its three preconditions are asserted,
+not assumed — no scroll, no pointer exit on any mount, nothing left under the pointer — so a setup that
+rescues `hovered` itself fails loudly instead of passing quietly.
+
+**Mutation proof.** With the three-line reset reverted, `build-journey all` reports **148 passed · 1 failed
+on each of chromium, firefox and webkit** — only the H1 assertion, so every precondition still held and the
+defect was genuinely exercised. Restored: **149 · 0 on all three.** The review had webkit down as
+inconclusive (`kb-opened=false`); that was an artifact of the probe's gesture, not an engine limit.
+
+### L1 — one correction to the prescription
+
+`places.length` equal to the board's place count fails 3-vs-4 on all three engines, and correctly so: the
+verb ADDS a place, and a name that exists only in the new state has nothing to interpolate from, so no
+`::view-transition-group` runs for it. The exact claim is the set of places present **before** the verb,
+and it is asserted as a set rather than a count — a mutation dropping `p2`'s name alone turns it red, which
+`> 1` would have passed.
+
+### Gates on the merged tree
+
+`build-checks` ✓ all 10 groups · `drift-check` ✓ all 11 · `gen-param-count --check` ✓ 75 · `gen-loc-summary
+--check` ✓ · `vt-verify all` ✓ 11/11 × 3 engines · `build-journey all` ✓ 149 · 0 × 3 engines.
+
+**Open item pending CI:** `approach.html` now renders 75 where the committed approach baselines were
+regenerated at 73. One digit; `maxDiffPixels: 100` may or may not swallow it. CI's `visual` job is the
+authority — if it goes red on approach, the two baselines get regenerated from a clean Docker run.
