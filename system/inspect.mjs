@@ -287,8 +287,21 @@ export function initInspect(root = document) {
   // alternative: same activation path, same cached data, nothing else disturbed — not the toggle
   // state, not the persisted choice, not the handle. A no-op while inspect is off, which is when
   // there are no listeners to be stale in the first place, and is every visual-regression capture.
+  // The three-piece interaction reset is the same one setInspect(false) does (:253-259), and it is
+  // load-bearing here for a reason the toggle path never meets (pr-189-review.md H1): destroying a
+  // HOVERED node delivers no pointer-exit event at all — measured on all three engines, listening
+  // for mouseout/mouseleave/pointerout/pointerleave in the capture phase and getting an empty list.
+  // So nothing clears `hovered` when the stage rebuilds under a resting pointer, and the abort below
+  // then removes the very mouseleave listener that otherwise would. armHide's timer body opens
+  // `if (hovered) return` (:185), so a stuck flag means NO subsequent hide can ever fire and the
+  // bubble stops auto-hiding — 1.4.13 PERSISTENT, broken, with no gesture left that recovers it for
+  // a reader who has stopped touching the mouse. The other two are the same line: focusTrigger and
+  // dismissedTrigger also point at nodes the render that called this may have just removed.
   function refreshInspect() {
     if (!on) return;
+    hovered = false;
+    focusTrigger = null;
+    dismissedTrigger = null;
     if (activation) activation.abort();
     hide(); // the open bubble may be describing a node the render that called this just removed
     activate();
