@@ -23,11 +23,11 @@
     },
     {
       "page": "/proto/fieldwork",
-      "controls": 1
+      "controls": 4
     },
     {
       "page": "/proto/verdant",
-      "controls": 3
+      "controls": 4
     },
     {
       "page": "/roundtrip",
@@ -38,5 +38,5 @@
       "controls": 1
     }
   ],
-  "total": 75
+  "total": 79
 }
