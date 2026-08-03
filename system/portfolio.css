@@ -741,7 +741,19 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 .asrc-probe-field { display: inline-flex; align-items: baseline; gap: var(--spacing-xs); }
 .asrc-probe-slabel { font-size: var(--type-caption); color: var(--color-fg-muted); }
 
+/* Probe-private typed property (#174): the swatch GLIDES between derived accents instead of
+   snapping. This is NOT a contract token, so the "NEVER register color-*" warning further down
+   (at .stage-scrub's @property block) does not apply — that warning is about --color-* tokens,
+   whose values arrive from packs, derived packs and imported designs in formats a registered
+   syntax could reject, silently reverting the token and breaking the re-skin. This property is
+   written from exactly one place, derive-probe.mjs's run(), with derive()'s emitted 7-char hex,
+   so <color> can never reject it. initial-value is the measured at-rest derived accent — a
+   pre-JS value only (the swatch lives inside #asrc, hidden until the render succeeds). */
+@property --asrc-probe-accent { syntax: "<color>"; inherits: false; initial-value: #417e0f; }
 .asrc-probe-swatch { background: var(--asrc-probe-accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .asrc-probe-swatch { transition: --asrc-probe-accent var(--motion-base) var(--motion-ease-spring); }
+}
 
 /* Measured-size line under the annotated source (system/loc-summary.json — the number is the
    artifact's, never hand-written). */
