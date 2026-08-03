@@ -207,7 +207,7 @@
 <body data-page="factory">
 
   <main>
-    <section class="page-hero">
+    <section class="page-hero" data-inspect="page-hero">
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
@@ -248,6 +248,11 @@
             <button type="button" class="ev-tab" role="tab" id="ev-tab-shape" aria-controls="shape" aria-selected="false">Graph</button>
           </div>
 
+          <!-- Inspect toggle (#173): static markup so it renders with JS blocked (degrades to an
+               inert button, the licence index.html:129-131 takes). Sits under the tablist so it
+               reads as "inspect this surface" for whichever panel is open. inspect.mjs wires it. -->
+          <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
+
           <div class="ev-panels">
             <!-- Traces (default) -->
             <div class="ev-panel" id="agents" role="tabpanel" aria-labelledby="ev-tab-agents" tabindex="0">
@@ -282,7 +287,7 @@
               </p>
               <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
               <div class="factory-actions">
-                <a class="btn btn-secondary btn-arrow" href="/roundtrip">The full exhibit: what was read, the caveat, the recorded run</a>
+                <a class="btn btn-secondary btn-arrow" href="/roundtrip" data-inspect="buttons">The full exhibit: what was read, the caveat, the recorded run</a>
               </div>
             </div>
 
@@ -361,8 +366,8 @@
     <section class="section">
       <div class="container">
         <div class="hero-cta-row">
-          <a class="btn btn-secondary" href="/approach">How I work</a>
-          <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
+          <a class="btn btn-secondary" href="/approach" data-inspect="buttons">How I work</a>
+          <a class="btn btn-primary btn-arrow" href="/contact" data-inspect="buttons">Get in touch</a>
         </div>
       </div>
     </section>
@@ -375,6 +380,10 @@
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
   <script type="module" src="/system/derivation-roundtrip.mjs"></script>
+  <!-- #173: the inspect engine. Nothing moves above dock.mjs (index.html:422-424's ordering rule)
+       and palette.mjs stays last. Self-inits at import and restores the persisted choice, so a
+       reader who turned inspect on elsewhere finds the hero, buttons and chrome already live. -->
+  <script type="module" src="/system/inspect.mjs"></script>
 
   <!-- Evidence-viewer tab controller (replaces the pre-v3 rail scroll-spy + hash-opens-details
        inline scripts). Progressive enhancement: with no JS all three panels stay visible; JS hides
@@ -457,7 +466,24 @@
       const path = "/traces/demo-notice.jsonl";
       fetch(path)
         .then((res) => { if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`); return res.text(); })
-        .then((text) => { renderTracePlayer(mount, parseTrace(text)); mount.dataset.trace = "ready"; })
+        .then((text) => {
+          renderTracePlayer(mount, parseTrace(text));
+          // Inspect mounts on the exhibit's own components (#173). Applied here rather than in
+          // trace-player.mjs because that module also drives /roundtrip and /trace.html. The ids
+          // are COPIED from system/inspect-data.json; drift-check's inspect-mounts gate reads
+          // tracked HTML only, so it cannot see these (the site.js:40-42 rule). An id absent from
+          // that file aborts the whole inspect activation at runtime, for every mount on the page.
+          for (const c of mount.querySelectorAll(".trace-step")) c.setAttribute("data-inspect", "cards");
+          for (const b of mount.querySelectorAll(".trace-controls .btn")) b.setAttribute("data-inspect", "buttons");
+          mount.dataset.trace = "ready";
+          // refreshInspect, never initInspect: this page imports inspect.mjs statically, so
+          // initInspect() would tear down the live handle palette.mjs holds (palette.mjs:118).
+          // Lazy + gated (pattern-render.mjs:293-294's idiom) and LAST, after the ready handle, so
+          // a rejected import cannot cost the VR gate its wait handle — this is the one panel the
+          // pixel gate actually captures.
+          if (document.documentElement.dataset.inspectMode === "on")
+            import("/system/inspect.mjs").then((m) => m.refreshInspect?.()).catch(() => {});
+        })
         .catch((err) => errorCard(`Could not load ${path} — ${err.message}`));
     }
   </script>
