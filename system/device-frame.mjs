@@ -141,8 +141,8 @@ export function initDeviceFrame(root = document) {
       //   1. Firefox, once a CAPTURED pointer leaves the window, keeps delivering pointermove —
       //      with clientX 0 and buttons 0. Applied literally that is a huge negative delta, so
       //      dragging the handle off the right edge SNAPPED THE FRAME TO ITS MINIMUM, the exact
-      //      opposite of what the reader asked for. Measured on firefox 1.61.1; chromium and
-      //      webkit deliver the true coordinate and a pointerup instead.
+      //      opposite of what the reader asked for. Measured on the firefox build Playwright
+      //      1.61.1 pins; chromium and webkit deliver the true coordinate and a pointerup instead.
       //   2. A button released outside the window delivers no pointerup to the page at all, on
       //      any engine — so without this the drag would stick and every later move would resize.
       // Reading `buttons` rather than testing for the magic 0 coordinate keeps the fix about what
