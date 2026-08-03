@@ -16,7 +16,10 @@
 // glossary.mjs's fixed-position flip/clamp math as the un-anchored fallback (Firefox ≤146).
 // supportsAnchor() is resolved at ACTIVATION time, not module eval, so a test can stub
 // CSS.supports before load and the engine honestly takes its fallback path; the bubble reports
-// which branch positioned it via data-inspect-pos="anchor|fallback".
+// which branch positioned it via data-inspect-pos="anchor|fallback". A per-open geometry guard
+// re-positions an anchored bubble that still overflows the viewport — declared anchor support
+// does not guarantee the applied flip (#197: webkit 26 claims position-try-fallbacks and then
+// doesn't flip a tall bubble).
 //
 // The bubble is popover="manual" (top-layer — no ancestor overflow can clip it, no z-index
 // management; manual because light-dismiss would fight the 1.4.13 hover timer).
@@ -157,6 +160,18 @@ export function initInspect(root = document) {
       trigger.style.setProperty("anchor-name", ANCHOR_NAME);
       bubble.dataset.inspectPos = "anchor";
       popShow();
+      // Anchor positioning is DECLARED by every current engine, but APPLYING the flip that keeps
+      // a tall bubble on-screen is not: webkit 26 passes every CSS.supports probe this file could
+      // ask (anchor-name, position-try-fallbacks) yet left this bubble 241px past the viewport
+      // bottom, while firefox/chromium clamp the same geometry to fit (#197). supports() cannot
+      // discriminate, so trust the geometry instead: read the anchored result, and if it
+      // overflows the viewport, re-position THIS open with the fallback math. data-inspect-pos
+      // keeps its meaning — the branch that actually positioned the bubble.
+      const r = bubble.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) {
+        bubble.dataset.inspectPos = "fallback";
+        position(trigger);
+      }
     } else {
       bubble.dataset.inspectPos = "fallback";
       popShow();
