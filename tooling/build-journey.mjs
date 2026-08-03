@@ -211,6 +211,14 @@ async function journey(engineName, results, held) {
   t(`the restored build renders the same ${sentSteps} steps`, restoredSteps === sentSteps, `got ${restoredSteps}`);
   t("the restored ordinals agree with the restored count", (await stepsBack
     .textContent("[data-pattern-stage] .ds-sequence-step .ds-sequence-step-position")).trim() === `Step 1 of ${restoredSteps}`);
+  // The verdict panel is the one consumer that reads answers off the EVENT rather than the DOM,
+  // and filtering it to source "questions" left a restore printing the default summary (#193).
+  // Asserted against the module's own option label, never a literal.
+  const stepsShort = await stepsBack.evaluate(() => import("/system/build-questions.mjs").then((m) =>
+    m.QUESTIONS.find((q) => q.id === "shape").options.find((o) => o.value === "steps").short));
+  const restoredVerdict = await stepsBack.textContent("[data-build-verdict]");
+  t(`the restored verdict summary names the steps shape ("${stepsShort}")`,
+    restoredVerdict.includes(stepsShort), restoredVerdict.replace(/\s+/g, " ").slice(0, 200));
   await stepsCtx.close();
 
   console.log("\n[4d] a hub built through the REAL editor names settings by rule 2");
