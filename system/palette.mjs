@@ -144,7 +144,11 @@ function buildCommands() {
   commands.push({
     label: "Download the pack",
     run: () => {
-      el("a", { href: "/handoff/verdant/pack.bundle.json", download: "pack.bundle.json" }).click();
+      // In the DOM for the click — a detached anchor's download is a historical Safari footgun.
+      const a = el("a", { href: "/handoff/verdant/pack.bundle.json", download: "pack.bundle.json" });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     },
     samePage: true,
   });
@@ -157,7 +161,8 @@ export function initPalette() {
     class: "cmdk-input",
     type: "text",
     role: "combobox",
-    "aria-expanded": "true",
+    "aria-haspopup": "listbox",
+    "aria-expanded": "false",
     "aria-controls": "cmdk-list",
     "aria-autocomplete": "list",
     "aria-label": "Search commands",
@@ -217,6 +222,8 @@ export function initPalette() {
     input.value = "";
     render("");
     dialog.showModal();
+    input.focus(); // explicit, not just dialog autofocus semantics
+    input.setAttribute("aria-expanded", "true");
     // Success path only — the palette is really on screen. The tracker's own guard makes it
     // once-per-visit; a keydown that never got this far records nothing.
     trackToolPalette();
@@ -249,6 +256,8 @@ export function initPalette() {
   dialog.addEventListener("keydown", (e) => {
     if (e.key === "Escape") e.stopPropagation();
   });
+
+  dialog.addEventListener("close", () => input.setAttribute("aria-expanded", "false"));
 
   // Chrome hint: site.js renders it hidden; this module claims it. Proto pages have no chrome —
   // hint is null there, keyboard-only.
