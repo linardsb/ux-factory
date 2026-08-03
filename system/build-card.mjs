@@ -262,9 +262,15 @@ export function cardSvg({ patternId, slots, board, tokens } = {}) {
 
   // 1 · the pattern, assembled.
   if (pattern && pattern.inLibrary && rows.length) {
+    // The list bodies draw at most ROW_MAX rows while SLOT_MAX admits six, and the <desc> must say
+    // so when that bites: it is what a screen reader announces for the whole image and what the
+    // downloaded file carries into any viewer, so "6 slot(s)" over a five-row drawing is the same
+    // quiet overstatement streamNote exists to prevent on the stage (#194). Dashboard's grid draws
+    // every slot SLOT_MAX admits (TILE_COLS * 2), so its drawn count always equals rows.length.
+    const drawn = patternId === "dashboard" ? rows.length : Math.min(rows.length, ROW_MAX);
     return frame({
       t, title: `${label} built on a breadboard`,
-      desc: `${Article(label)} ${label.toLowerCase()} assembled from ${rows.length} slot(s) derived from the breadboard, wearing the imported design tokens.`,
+      desc: `${Article(label)} ${label.toLowerCase()} assembled from ${rows.length} slot(s) derived from the breadboard, wearing the imported design tokens.${drawn < rows.length ? ` The card draws the first ${drawn}.` : ""}`,
       header: entry || label,
       captionRight: label,
       body: bodyFor(patternId, rows, t),

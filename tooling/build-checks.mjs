@@ -622,6 +622,28 @@ function scanSvg(svg, label) {
     }
   }
 
+  // THE REGRESSION FOR #194: the <desc> may not claim more slots than the card draws. The list
+  // bodies cap at ROW_MAX = 5 while SLOT_MAX admits 6, so a six-affordance place is one visitor
+  // edit past every BOARD_FOR fixture — and the desc is the one line of the file a screen reader
+  // is guaranteed to meet. Six slots: the desc states both numbers. Five: no drop note, because a
+  // sentence that also appears when nothing was dropped teaches readers to ignore it.
+  const placeWith = (n) => ({
+    places: [{ id: "p1", label: "Entry", affordances: Array.from({ length: n }, (_, i) => ({ id: `p1a${i + 1}`, label: `act ${i + 1}` })) }],
+    connections: [],
+  });
+  {
+    const six = placeWith(6);
+    const sixSlots = slotsFor("queue", six);
+    ok(sixSlots.length === 6, `the six-affordance fixture derives ${sixSlots.length} queue slots, not 6`);
+    const svg = cardSvg({ patternId: "queue", slots: sixSlots, board: six, tokens: {} });
+    ok(svg.includes("assembled from 6 slot(s)"), "the six-slot desc lost the derived count");
+    ok(svg.includes("The card draws the first 5."), "the desc claims six slots over a five-row drawing (#194)");
+    scanSvg(svg, "six-slot queue card");
+    const five = placeWith(5);
+    const svg5 = cardSvg({ patternId: "queue", slots: slotsFor("queue", five), board: five, tokens: {} });
+    ok(!svg5.includes("The card draws the first"), "a card that draws everything claims a drop anyway");
+  }
+
   // The clip boundary, which needs no attacker at all. clip() counts CODE POINTS, so an astral
   // character sitting exactly on a budget's cut must not be split into a lone surrogate — a lone
   // surrogate makes the whole document XML-invalid, which surfaces as a build card that silently

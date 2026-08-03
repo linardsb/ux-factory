@@ -84,7 +84,15 @@ export function makeScrubbable(handle, { min, max, step, read, unit = "", label,
   handle.addEventListener("focusin", () => reflect(clamp(read())), { signal });
 
   reflect(clamp(read()));
-  return { set: (v) => apply(clamp(v)), destroy: () => { wiring.abort(); cancelAnimationFrame(raf); } };
+  // reflect() is exposed (not just set()) for a call site whose value can change from OUTSIDE the
+  // handle — approach's probe, where the colour picker writes the same brand the handles read.
+  // set() would fire onChange and round-trip the reader's picked colour through OKLCH, perturbing
+  // it; reflect() re-reads and re-displays only. The home mount below ignores the return value.
+  return {
+    set: (v) => apply(clamp(v)),
+    reflect: () => reflect(clamp(read())),
+    destroy: () => { wiring.abort(); cancelAnimationFrame(raf); },
+  };
 }
 
 // --- the home stage mount --------------------------------------------------------------------

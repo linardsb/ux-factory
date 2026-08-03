@@ -100,7 +100,7 @@ The reader's answers parameterize the generated output (bounded); the ethics gat
 
 - **Not a SaaS product** — no accounts, no multi-tenancy, no paying users; it's a portfolio artifact with product-grade craft.
 - **No live LLM calls at view time** — agents work at build time; readers replay and steer within bounds.
-- **No Figma-like canvas** — an in-browser design surface is a different product.
+- **No Figma-like canvas** — an in-browser design surface is a different product. *(Amended 2026-08-03 by [prototype-studio.prd.md](./prototype-studio.prd.md) §Amendments: a method-bound composition studio is in scope; the general-purpose boundary survives.)*
 - **No real-company demo subject** — the featured brief is fictional (clearly labeled); no reimagining of an employer's product.
 - **No habit mechanics on the portfolio itself** — visit-once utility by its own frequency filter.
 - **Not optimized for the 90-second recruiter scan** — recruiters get a gate, not the product.
