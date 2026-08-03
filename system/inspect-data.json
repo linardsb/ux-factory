@@ -93,6 +93,26 @@
       "spec": null
     },
     {
+      "id": "decision-card-organism",
+      "label": "Decision card (organism)",
+      "role": "One decision from a real project write-up: the call, and the reasoning under it. An accented left edge and a surface that both come from the token contract, so the card reads native under any brand pack.",
+      "tokens": [
+        "--color-bg-surface",
+        "--color-border",
+        "--color-accent",
+        "--radius-md",
+        "--spacing-lg",
+        "--font-display",
+        "--type-h3",
+        "--spacing-md",
+        "--spacing-sm",
+        "--type-eyebrow",
+        "--color-fg-muted",
+        "--spacing-xs"
+      ],
+      "spec": null
+    },
+    {
       "id": "page-hero",
       "label": "Page hero",
       "role": "The site's cover: one claim and two actions. Every colour and size on it resolves through the token contract, so a different pack redresses the whole band without touching its markup.",
@@ -363,7 +383,7 @@
     }
   ],
   "counts": {
-    "components": 15,
+    "components": 16,
     "withSpec": 9
   }
 }
