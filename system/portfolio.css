@@ -721,6 +721,28 @@ a.lineup-item:focus-visible .go { color: var(--color-accent); transform: transla
 }
 .asrc-probe-fixed { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
 
+/* The probe's two scrub handles (#174) — brand hue + brand lightness, rendered by
+   derive-probe.mjs. Layout mirrors .stage-scrub below; the HANDLE itself reuses
+   .stage-scrub-handle, so both surfaces share one recipe and one focus ring. */
+.asrc-probe-scrub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-sm) var(--spacing-lg);
+  margin: 0 0 var(--spacing-md);
+}
+.asrc-probe-cap {
+  flex: 1 0 100%;
+  margin: 0 0 var(--spacing-xs);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  max-width: 62ch;
+}
+.asrc-probe-field { display: inline-flex; align-items: baseline; gap: var(--spacing-xs); }
+.asrc-probe-slabel { font-size: var(--type-caption); color: var(--color-fg-muted); }
+
+.asrc-probe-swatch { background: var(--asrc-probe-accent); }
+
 /* Measured-size line under the annotated source (system/loc-summary.json — the number is the
    artifact's, never hand-written). */
 .loc-proof {
@@ -973,7 +995,9 @@ dfn.term {
 
 /* ---------- Stage scrub row (#169, epic #164) ----------
    Three draggable numbers under the intake stage, rendered by system/scrub.mjs into the
-   empty [data-stage-scrub] container (fail-closed: no JS, no controls). Token-only. */
+   empty [data-stage-scrub] container (fail-closed: no JS, no controls). Token-only.
+   .stage-scrub-handle is shared with approach's derive probe (#174) — one recipe, one
+   focus ring, one keyboard model across both surfaces. */
 .stage-scrub { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm) var(--spacing-lg); }
 .stage-scrub:empty { display: none; }
 .stage-scrub-cap { flex: 1 0 100%; margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 62ch; }

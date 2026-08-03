@@ -200,7 +200,13 @@ export function initInspect(root = document) {
     // inside the page-hero section), and without a guard the ancestor's listener re-fires on the
     // same event and overwrites the inner mount's bubble. Each mount acts only when the focused
     // element's NEAREST mount is itself.
-    const ownEvent = (t, e) => e.target.closest("[data-inspect]") === t;
+    // …and a nested element that already provides its OWN description owns it: approach.html
+    // (#174) is the first page where glossary <dfn data-term tabindex="0"> marks sit inside
+    // mounts, and focusin bubbles, so without the second clause tabbing to a term would open
+    // BOTH bubbles — two fixed-position tooltips on one rect, keyboard-only, which no gate sees.
+    // Hover needs no guard (mouseenter doesn't bubble). Inert on every page without [data-term].
+    const ownEvent = (t, e) =>
+      e.target.closest("[data-inspect]") === t && !e.target.closest("[data-term]");
     // Entering a trigger clears the dismissal only if THIS is the trigger that was dismissed —
     // arriving at some other mount says nothing about the one the reader pressed Esc on.
     const rearrive = (t) => { if (dismissedTrigger === t) dismissedTrigger = null; };

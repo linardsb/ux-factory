@@ -33,6 +33,8 @@ function el(tag, attrs, ...children) {
 // The v1 term map (author's voice). Superset-ready: keys unused on a given page cost nothing,
 // so other pages can mark terms later without touching this module.
 const TERMS = {
+  "design-token":
+    "A named colour, size or timing value that components ask for by name instead of writing it out. Change the value in one place and everything that asks for it follows.",
   "semantic-token":
     "A named design value that describes its role — --color-accent, --spacing-md — rather than a literal colour or size. Components reference the name; whichever brand pack is loaded supplies the value.",
   "token-contract":
