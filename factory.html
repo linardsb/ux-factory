@@ -217,9 +217,11 @@
         <h1 class="text-balance">Verify the demo, <span class="hl">claim by claim</span>.</h1>
         <p class="hero-sub">
           The home page builds a design system in front of you. This page holds the receipts:
-          the real agent runs recorded step by step, the round-trip that turns screenshots back
-          into tokens with its contrast pairs, and the measured map of every token and the
-          components that use it. Nothing runs live here. Every number comes from a committed file.
+          the real agent runs recorded step by step, the round-trip that works backwards from
+          screenshots to the values that would rebuild them, with every
+          <dfn class="term" data-term="contrast-pair" tabindex="0">contrast pair</dfn> measured,
+          and a map of every named value the site runs on beside the components that read it.
+          Nothing runs live here. Every number comes from a committed file.
         </p>
       </div>
     </section>
@@ -236,8 +238,10 @@
           </div>
         </div>
         <p class="beat-lead">
-          Pick a tab. Each one replays a committed artifact from building this site, not a live
-          run. The label on each says exactly what you are looking at.
+          Pick a tab. Each one plays back a file saved while this site was built and checked in
+          with the code — a
+          <dfn class="term" data-term="committed-artifact" tabindex="0">committed artifact</dfn>,
+          not a live run. The label on each says exactly what you are looking at.
         </p>
 
         <div class="ev-viewer">
@@ -261,9 +265,11 @@
                 <span class="capability">Real run · replayed</span>
               </div>
               <p class="ev-panel-lead max-prose">
-                A real Claude Agent SDK run from building this factory, recorded step by step. It
-                planned, passed a gate, implemented, and validated a component spec. The player
-                replays the committed file. Nothing runs live.
+                An AI agent did real work on this project, and every step it took was recorded as it
+                happened: it planned, passed a gate, implemented, and validated a component spec.
+                That record is an
+                <dfn class="term" data-term="agent-trace" tabindex="0">agent trace</dfn>, this one
+                from a Claude Agent SDK run. The player replays the committed file. Nothing runs live.
               </p>
               <div id="agents-player"><p class="muted">Loading the recorded run…</p></div>
             </div>
@@ -280,10 +286,13 @@
                 company, users, or data are involved.</span>
               </p>
               <p class="ev-panel-lead max-prose">
-                The factory can also run in reverse: screenshots in, proposed tokens out. Here it
-                ran on Verdant's own prototype, where the right answer is known, so the proposal is
+                The factory can also work backwards, from a picture of a finished screen to the
+                values that would rebuild it. Screenshots in, proposed tokens out. Here it ran on
+                Verdant's own prototype, where the right answer is known, so the proposal is
                 measured against ground truth instead of trusted. It is a controlled, favourable
-                case, and the verdict says so. The twelve contrast pairs below are the WCAG evidence.
+                case, and the verdict says so. The twelve
+                <dfn class="term" data-term="contrast-pair" tabindex="0">contrast pairs</dfn> below
+                are the WCAG evidence.
               </p>
               <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
               <div class="factory-actions">
@@ -298,9 +307,12 @@
                 <span class="capability">Measured · generated</span>
               </div>
               <p class="ev-panel-lead max-prose">
-                Every design token this site uses, the components that consume it, and the value
-                each committed pack binds it to. Drawn from measurement, never by hand. Hover or
-                focus a token to see everything it touches.
+                A map of every named value this site's styling runs on, each one a
+                <dfn class="term" data-term="semantic-token" tabindex="0">design token</dfn>, beside
+                the components that read it and what each committed
+                <dfn class="term" data-term="brand-pack" tabindex="0">pack</dfn> sets it to. Drawn
+                from measurement, never by hand. Hover or focus a token to see everything it
+                touches. Drag the map to move it, and zoom in to read the labels.
               </p>
               <div id="system-graph"><p class="muted">Loading the measured graph…</p></div>
               <p class="muted ev-panel-pointer">
@@ -327,7 +339,7 @@
             <a class="row-item" href="/work#screens">
               <span class="row-item-text">
                 <span class="row-item-title">The prototypes, on Work</span>
-                <span class="row-item-desc">Two screens built on the system, rendering from the mock API with a fixture fallback</span>
+                <span class="row-item-desc">Two screens built on the system, fed by a small live API, with saved sample data as the fallback when it is not running</span>
               </span>
               <span class="row-item-arrow" aria-hidden="true">→</span>
             </a>
@@ -336,7 +348,7 @@
             <a class="row-item" href="/work#handoff">
               <span class="row-item-text">
                 <span class="row-item-title">The handoff pack, on Work</span>
-                <span class="row-item-desc">Every component's spec, docs, and agent vocabulary from one source, downloadable as one JSON</span>
+                <span class="row-item-desc">What each component is, how an engineer builds with it, and the machine-readable list an agent picks from, all from one source</span>
               </span>
               <span class="row-item-arrow" aria-hidden="true">→</span>
             </a>
@@ -345,7 +357,7 @@
             <a class="row-item" href="/approach">
               <span class="row-item-text">
                 <span class="row-item-title">How I work, in annotated source</span>
-                <span class="row-item-desc">The method and the token contract, with real code pulled from this repo</span>
+                <span class="row-item-desc">The method, and the one list of named values every component is allowed to use, shown with real code pulled from this repo</span>
               </span>
               <span class="row-item-arrow" aria-hidden="true">→</span>
             </a>
@@ -493,6 +505,14 @@
        success, so a broken artifact fails loud instead of baselining an empty exhibit. -->
   <script type="module">
     import { prepareGraph, renderSystemGraph } from "/system/system-graph.mjs";
+    import { initGlossary } from "/system/glossary.mjs";
+
+    // Glossary marks (#173). Mounted HERE, in the same module as the graph, on purpose: an unknown
+    // data-term key throws before any DOM is touched, so the module aborts and [data-graph="ready"]
+    // is never set — the VR gate hangs and fails LOUD. In its own <script> tag a typo would fail
+    // silently and stay green. approach.html:224-230 is the same arrangement.
+    initGlossary(document);
+
     const mount = document.getElementById("system-graph");
     if (mount) {
       const path = "/system/system-graph.json";
