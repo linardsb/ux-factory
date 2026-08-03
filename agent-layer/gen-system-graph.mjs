@@ -67,6 +67,16 @@ export function genSystemGraph({ check = false } = {}) {
   const headerRe = /^\/\* -{5,} (.+?) -{5,} \*\/$/gm;
   const headers = [...css.matchAll(headerRe)];
   if (!headers.length) throw new Error("system-graph: zero block headers in system/components.css");
+  // A header the one-line regex fails to match (e.g. wrapped across lines) is silently skipped,
+  // and its block's tokens land on the PRECEDING consumer — deterministically wrong output the
+  // drift-check then reproduces (PR #183 H1). Any comment that OPENS like a header must match.
+  const headerStarts = new Set(headers.map((h) => h.index));
+  for (const open of css.matchAll(/^\/\* -{5,}/gm))
+    if (!headerStarts.has(open.index))
+      throw new Error(
+        `system-graph: malformed block header at system/components.css:${css.slice(0, open.index).split("\n").length}` +
+          ' — a "/* ----------" comment must be one line ending "---------- */"'
+      );
   const consumers = [];
   const seenIds = new Set();
   headers.forEach((h, i) => {
