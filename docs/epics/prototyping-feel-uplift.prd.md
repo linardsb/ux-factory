@@ -86,7 +86,7 @@ Every rewritten line passes the `/no-ai-slop` and `/humanizer` skills before com
 
 ## Non-goals
 
-- **No rebuild.** Page structure, IA, honesty contract, and evidence artifacts stay.
+- **No rebuild.** Page structure, IA, honesty contract, and evidence artifacts stay. *(Superseded 2026-08-03 by [prototype-studio.prd.md](./prototype-studio.prd.md) — epic #164 closes; unshipped scope folds into the studio epic.)*
 - **No framework, no bundler, no runtime npm deps** — unchanged hard constraint. No vendored
   heavy libraries (tldraw, Excalidraw, CodeMirror, ninja-keys, interact.js all evaluated and
   rejected; patterns hand-written instead).

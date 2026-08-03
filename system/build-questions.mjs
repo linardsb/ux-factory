@@ -562,8 +562,14 @@ function mountVerdict(verdictEl) {
     verdictEl.replaceChildren(panel);
   }
 
+  // Two sources change answers — setAnswers ("questions") and restoreBuild ("restore") — and both
+  // must reach this panel. The filter exists for the OTHER sources: a breadboard rename publishes
+  // per keystroke, and rebuilding the summary on every keypress is churn carrying no new answer.
+  // Filtering to "questions" alone shipped #193: a ?b= restore moved every consumer on the page
+  // except this one, which kept printing the default verdicts until the visitor's first click.
   document.addEventListener(BUILD_CHANGE, (e) => {
-    if (e.detail && e.detail.source === "questions") render(e.detail.answers);
+    const source = e.detail && e.detail.source;
+    if (source === "questions" || source === "restore") render(e.detail.answers);
   });
   render(readBuild().answers);
   verdictEl.dataset.buildVerdict = "ready";

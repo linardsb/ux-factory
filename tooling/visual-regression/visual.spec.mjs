@@ -63,8 +63,22 @@ const PAGES = [
     waitReady: ['[data-build-import="ready"]', '[data-build-questions="ready"]', '[data-build-verdict="ready"]',
                 '[data-breadboard="ready"]', '[data-build-keep="ready"]'],
     waitVisible: '[data-pattern-stage="ready"]' },
-  { name: 'proto-verdant',   url: '/proto/verdant.html',   kind: 'proto', rows: '.vd-plant-card' },
-  { name: 'proto-fieldwork', url: '/proto/fieldwork.html', kind: 'proto', rows: '.fw-lane' },
+  // #176: BOTH proto pages now paint at-rest chrome that arrives after load, and the proto branch
+  // below waits only on DATA (#source, `rows`) — neither of those waits covers it. Verdant's resize
+  // handle and width readout are injected by a dynamic import() of device-frame.mjs, which also
+  // wraps the phone in .proto-device and so reflows the stage; Fieldwork's two slot control rows sit
+  // behind an async vocabulary + composition fetch. Easy to under-fix by only handling Fieldwork:
+  // Verdant's WIDTH is CSS-owned and looks static, but its handle is exactly as late as Fieldwork's
+  // rows. Without these handles the height measured at :129 can be stale and the capture silently
+  // truncates or omits the new chrome — the #138 defect class, and one that compares cleanly against
+  // itself forever. waitReady and deliberately NOT waitVisible: both arrive at load rather than at
+  // the reveal resize, and waitReady is applied at :104, before fonts.ready and before the first
+  // measure, which is where this wait belongs. waitVisible would drag these two into the bounded
+  // re-measure loop and change their capture flow for no reason.
+  { name: 'proto-verdant',   url: '/proto/verdant.html',   kind: 'proto', rows: '.vd-plant-card',
+    waitReady: '[data-device-frame="ready"]' },
+  { name: 'proto-fieldwork', url: '/proto/fieldwork.html', kind: 'proto', rows: '.fw-lane',
+    waitReady: '[data-bus-toggles="ready"]' },
 ];
 const PACKS = { neutral: null, saulera: path.join(REPO, 'system/tokens.saulera.css') };
 

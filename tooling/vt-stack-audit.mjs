@@ -146,7 +146,16 @@ for (const [label, drive] of Object.entries(states)) {
   const c = await page.evaluate(MEASURE);
   const shifted = b
     .filter((row, i) => row !== c[i])
-    .filter((row) => !noise.has(row.split("|")[0]));
+    .filter((row) => !noise.has(row.split("|")[0]))
+    // A row measuring 0,0,0,0 at rest had NO box at the first sample — removing a name cannot
+    // give a boxless element a box, so any delta is the element becoming measurable between the
+    // two samples (lazy render), not a containing-block shift. Proven by the no-op control in
+    // #190: the identical delta appears with the names left intact. Zero-at-rest only — a real
+    // shift that COLLAPSES a box still reports (its rest sample is non-zero).
+    .filter((row) => {
+      const [, , rect] = row.split("|");
+      return rect !== "0,0,0,0";
+    });
 
   console.log(`\n── ${label}  (${names.length} named element(s): ${[...new Set(names)].join(", ") || "none"})`);
   if (shifted.length) {

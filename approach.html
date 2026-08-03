@@ -28,7 +28,7 @@
 <body data-page="approach">
 
   <main>
-    <section class="page-hero">
+    <section class="page-hero" data-inspect="page-hero">
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
@@ -43,8 +43,8 @@
           the code to ship it.
         </p>
         <div class="hero-cta-row">
-          <a class="btn btn-primary btn-arrow" href="#method">The method</a>
-          <a class="btn btn-secondary" href="#case">The case study</a>
+          <a class="btn btn-primary btn-arrow" href="#method" data-inspect="buttons">The method</a>
+          <a class="btn btn-secondary" href="#case" data-inspect="buttons">The case study</a>
         </div>
       </div>
     </section>
@@ -59,7 +59,7 @@
         </div>
         <p class="beat-lead">I run all four on every piece of work, and I go back to check whether the last one actually worked.</p>
         <div class="grid grid-2 mt-2xl stagger">
-          <article class="card">
+          <article class="card" data-inspect="cards">
             <div class="card-body">
               <div class="card-kicker">How I decide and pace work</div>
               <h3 class="h3 mb-md">Shape it</h3>
@@ -70,7 +70,7 @@
               </p>
             </div>
           </article>
-          <article class="card">
+          <article class="card" data-inspect="cards">
             <div class="card-body">
               <div class="card-kicker">How I make it work for real people</div>
               <h3 class="h3 mb-md">Design for behaviour</h3>
@@ -82,7 +82,7 @@
               </p>
             </div>
           </article>
-          <article class="card">
+          <article class="card" data-inspect="cards">
             <div class="card-body">
               <div class="card-kicker">How I know it worked</div>
               <h3 class="h3 mb-md">Prove it</h3>
@@ -94,14 +94,16 @@
               </p>
             </div>
           </article>
-          <article class="card">
+          <article class="card" data-inspect="cards">
             <div class="card-body">
               <div class="card-kicker">How I make it durable</div>
               <h3 class="h3 mb-md">Ship it as a system</h3>
               <p class="muted">
-                Accessible markup, motion with a reason, and components that read shared design
-                tokens. Colour and spacing can't drift, because there is nowhere for them to
-                drift to. This site is built that way (see <a href="#case">the case study</a>).
+                Accessible markup, motion with a reason, and nothing hard-coded: a component asks
+                for a colour or a size by name, and one shared file answers. Those named values are
+                <dfn class="term" data-term="design-token" tabindex="0">design tokens</dfn>. Colour
+                and spacing can't drift, because there is nowhere for them to drift to. This site is
+                built that way (see <a href="#case">the case study</a>).
               </p>
             </div>
           </article>
@@ -119,30 +121,35 @@
         </div>
         <p class="beat-lead">The clearest example of the method is this site itself, because the method was used to build it.</p>
         <div class="grid mt-2xl">
-          <div class="decision-card">
+          <div class="decision-card" data-inspect="decision-card-organism">
             <h3 class="decision-card-title">Problem &amp; budget</h3>
             <p>
               Re-theming the portfolio for each company meant hand-editing CSS on every page:
               slow, and easy to get inconsistent. Worth one focused cycle.
             </p>
           </div>
-          <div class="decision-card">
+          <div class="decision-card" data-inspect="decision-card-organism">
             <h3 class="decision-card-title">The one rule</h3>
             <p>
-              Components may only reference <dfn class="term" data-term="semantic-token" tabindex="0">semantic tokens</dfn>,
-              never raw values. And no framework, no build step: plain HTML and CSS.
+              Nothing in the markup is allowed to name a colour. A component asks for a role — the
+              accent, the page background — and whichever brand file is loaded answers. Those roles
+              are <dfn class="term" data-term="semantic-token" tabindex="0">semantic tokens</dfn>.
+              And no framework, no build step: plain HTML and CSS.
             </p>
           </div>
-          <div class="decision-card">
+          <div class="decision-card" data-inspect="decision-card-organism">
             <h3 class="decision-card-title">Build</h3>
             <p>
-              Three stylesheets load in order: a <dfn class="term" data-term="token-contract" tabindex="0">token contract</dfn> with
-              neutral fallbacks, a swappable <dfn class="term" data-term="brand-pack" tabindex="0">brand pack</dfn>, and
-              components that read only tokens. Accessibility defaults sit in the contract, so
-              every component inherits them.
+              Three stylesheets load in order. One lists every value a component may ask for and
+              gives each a neutral default. One overrides those values for a single brand. One holds
+              the components, which name values but never set them. In that order they are the
+              <dfn class="term" data-term="token-contract" tabindex="0">token contract</dfn>, a
+              swappable <dfn class="term" data-term="brand-pack" tabindex="0">brand pack</dfn>, and
+              the components. Accessibility defaults sit in the contract, so every component
+              inherits them.
             </p>
           </div>
-          <div class="decision-card">
+          <div class="decision-card" data-inspect="decision-card-organism">
             <h3 class="decision-card-title">Outcome</h3>
             <p>
               Re-theming went from edits on every page to one line in each page's
@@ -165,6 +172,9 @@
             <div id="asrc-probe"></div>
           </div>
         </div>
+        <!-- Outside #asrc on purpose: the exhibit above is hidden until its fetch succeeds, and
+             the toggle must stay operable when it doesn't. inspect.mjs wires it. -->
+        <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
         <!-- Measured size of the shipped system, from the drift-checked artifact
              (system/loc-summary.json, agent-layer/gen-loc-summary.mjs) — never a hand-written number. -->
         <p class="loc-proof" id="loc-proof" hidden></p>
@@ -220,6 +230,7 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
+  <script type="module" src="/system/inspect.mjs"></script>
   <script type="module">
     import { initGlossary } from "/system/glossary.mjs";
     import { prepareAnnotatedSource, renderAnnotatedSource } from "/system/annotated-source.mjs";

@@ -34,6 +34,8 @@ const ROLES = {
     "The site's buttons. One component, three emphasis levels. Every colour comes from the token contract, so a brand pack restyles them without touching this code.",
   cards:
     "The site's surface cards. Background, border, text and spacing all resolve through named tokens, so the same card looks native under any brand pack.",
+  "decision-card-organism":
+    "One decision from a real project write-up: the call, and the reasoning under it. An accented left edge and a surface that both come from the token contract, so the card reads native under any brand pack.",
   "ds-metric-tile-cross-scenario-library-primitive":
     "One computed metric: a label, a value, an optional unit. The library's cross-scenario primitive for answering \"how many\". Both demo scenarios and /build's dashboard pattern render through it.",
   "ds-list-row-cross-scenario-library-primitive":

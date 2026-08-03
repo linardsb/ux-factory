@@ -62,6 +62,7 @@
     import { loadCollection } from "/system/scenario-data.mjs";
     import { createBus } from "/system/action-bus.mjs";
     import { renderComposition } from "/system/agentic-renderer.mjs";
+    import { mountSlotToggles } from "/system/bus-toggles.mjs";
 
     const esc = (s) =>
       String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
@@ -193,6 +194,11 @@
           const noteEl = region.querySelector(".proto-slot-note");
           if (noteEl) noteEl.textContent = "An agent composed this at build time, not live in your browser. You can adjust it on the study page.";
           region.appendChild(fill);
+          // Success path ONLY (#176): a slot that fell back to its labeled placeholder gets no
+          // controls, because there is nothing rendered to command. Top-window only, the same rule
+          // and the same reason as the inspect re-init above — work.html embeds this page in a
+          // figure, and a control row is chrome about the frame, not about the work.
+          if (window.self === window.top) mountSlotToggles(region, { vocab, composition, bus, slotId: id });
         } catch { /* leave the labeled placeholder — never a broken region */ }
       };
       try {
@@ -203,6 +209,16 @@
       } catch { /* vocabulary load failed — leave both labeled placeholders */ }
     } catch (e) {
       board.innerHTML = `<p class="fw-job-meta">Could not load the scenario data: ${esc(e.message)}</p>`;
+    } finally {
+      // The visual-regression gate's readiness handle (#176). The control rows are at-rest chrome
+      // that arrives after an async vocabulary + composition fetch, and the proto branch of
+      // visual.spec.mjs waits only on DATA (#source, .fw-lane) — so without this the height
+      // measured at :129 can be stale and the capture silently truncates the rows, producing a
+      // baseline that compares cleanly against itself forever (the #138 defect class).
+      // Set in a finally on EVERY path, including the data failure above: a gate that deadlocks to
+      // timeout tells you less than one that fails loudly on the missing .fw-lane. And set here,
+      // after the fills, rather than earlier — set before them it would buy nothing.
+      board.dataset.busToggles = "ready";
     }
   </script>
   <!-- Script order mirrors index.html: dock → inspect → palette. Both the appearance rail and the
