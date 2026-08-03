@@ -49,6 +49,12 @@ const TERMS = {
     "The moment a new user first gets real value from a product — the early signal that predicts whether they'll stay.",
   "retention":
     "Whether people come back and keep using the thing after the first try — the slower, more honest measure that a feature worked.",
+  "committed-artifact":
+    "A file this site's build produced and then checked into the repository alongside the code. The page reads that file; it does not re-run the work.",
+  "agent-trace":
+    "The step-by-step record of a real AI agent run: what it was asked, which tools it called, what came back, and where a gate stopped it. Recorded as it happened, then replayed here.",
+  "contrast-pair":
+    "Two colours that land on top of each other, like text on its background or a border on its surface, measured against the WCAG minimum for legibility. Each pair passes or fails on its own.",
 };
 
 export function initGlossary(root = document) {
