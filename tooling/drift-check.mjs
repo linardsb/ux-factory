@@ -19,6 +19,7 @@ import { genInspectData } from "../agent-layer/gen-inspect-data.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
 import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
+import { genReplay } from "../agent-layer/gen-replay.mjs";
 import { validateScenarios } from "../scenarios/validate.mjs";
 import { validateTrace } from "./validate-trace.mjs";
 
@@ -145,6 +146,19 @@ function checkTraces() {
     validateTrace(join(dir, f));
 }
 
+// 6. Replay artifacts — check mode writes nothing; compares in-memory regen vs disk. Runs AFTER
+// checkTraces on purpose: a replay artifact projected from a trace that does not validate is
+// meaningless, so the trace gate should be the one that reports first. It also refuses an ORPHANED
+// artifact (a replay/<slug>.json with no board behind it) and re-runs the reproduce check, so a
+// hand-edited board or op lands here as drift rather than as a quiet lie.
+function checkReplay() {
+  const r = genReplay({ check: true });
+  if (r.drifted.length)
+    throw new Error(
+      `replay drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-replay.mjs`
+    );
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     checkSyntax();
@@ -158,7 +172,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkHandoff();
     checkScenarios();
     checkTraces();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces");
+    checkReplay();
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);

@@ -1,0 +1,86 @@
+{
+  "places": [
+    {
+      "id": "p1",
+      "label": "Today Overview",
+      "affordances": [
+        {
+          "id": "p1a1",
+          "label": "Review at-risk jobs"
+        }
+      ]
+    },
+    {
+      "id": "p2",
+      "label": "At-Risk Queue",
+      "affordances": [
+        {
+          "id": "p2a1",
+          "label": "Open next at-risk job"
+        },
+        {
+          "id": "p2a2",
+          "label": "Return to Today Overview"
+        }
+      ]
+    },
+    {
+      "id": "p3",
+      "label": "Job Detail",
+      "affordances": [
+        {
+          "id": "p3a1",
+          "label": "Reassign job to different technician"
+        },
+        {
+          "id": "p3a2",
+          "label": "Back to at-risk queue"
+        }
+      ]
+    },
+    {
+      "id": "p4",
+      "label": "Reassignment Confirmation",
+      "affordances": [
+        {
+          "id": "p4a1",
+          "label": "Continue to next at-risk job"
+        },
+        {
+          "id": "p4a2",
+          "label": "Return to Today Overview"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    [
+      "p1a1",
+      "p2"
+    ],
+    [
+      "p2a1",
+      "p3"
+    ],
+    [
+      "p2a2",
+      "p1"
+    ],
+    [
+      "p3a1",
+      "p4"
+    ],
+    [
+      "p3a2",
+      "p2"
+    ],
+    [
+      "p4a1",
+      "p2"
+    ],
+    [
+      "p4a2",
+      "p1"
+    ]
+  ]
+}
