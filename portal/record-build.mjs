@@ -48,6 +48,13 @@ import { validateTrace } from '../tooling/validate-trace.mjs';
 const MODEL = 'claude-sonnet-5';
 const PIV_ORDER = ['plan', 'gate', 'implement', 'validate'];
 
+// The one build tool, in the two forms the agent is ever told to type — relative on a real run
+// (cwd IS the repo, and that string lands in the committed trace), absolute on --dry (cwd is a
+// scratch dir). ONE definition, because the prompt states it and the fence's identity check
+// resolves against it, and two strings that must agree should be one string.
+const SCRIPT_REL = 'tooling/board-op.mjs';
+const SCRIPT_ABS = path.join(REPO_DIR, SCRIPT_REL);
+
 // `tools` = the base set the agent CAN reach. Write/Edit/Grep/Glob are omitted entirely — the
 // implement act is Bash ops, and a tool the agent cannot reach is a tool it cannot misuse.
 const TOOLS = ['Read', 'Bash'];
@@ -166,17 +173,22 @@ with further ops and re-run until it passes.`;
 // for a real run (the agent's cwd IS the repo, and the typed string is what lands in the committed
 // trace). record-composition.mjs:205–226's split, and both halves matter.
 function refsFor({ absolute, boardPath, briefPath }) {
-  if (absolute) {
-    return { script: path.join(REPO_DIR, 'tooling/board-op.mjs'), board: boardPath, brief: briefPath };
-  }
-  return { script: 'tooling/board-op.mjs', board: boardPath, brief: briefPath };
+  if (absolute) return { script: SCRIPT_ABS, board: boardPath, brief: briefPath };
+  return { script: SCRIPT_REL, board: boardPath, brief: briefPath };
 }
 
-// Fence: Write/Edit → always denied; Read → the brief only; Bash → only an op-CLI call against
-// THIS run's board, read through the same grammar the projection uses; everything else denied.
-// `root` = the run's cwd (REPO_DIR real, scratch dry).
-function makeFence(root, boardAbsPath, briefAbsPath) {
+// Fence: Write/Edit → always denied; Read → the brief only; Bash → only an op-CLI call running THE
+// build tool against THIS run's board, read through the same grammar the projection uses;
+// everything else denied. `root` = the run's cwd (REPO_DIR real, scratch dry).
+//
+// EXPORTED for tooling/build-checks.mjs group 11: the parser is gated over synthetic rows, but the
+// fence is the half of that grammar that decides what a paid run may actually do, and a predicate
+// no gate drives is a check that cannot fail. What CI cannot reach is the SDK WIRING (this
+// function being what canUseTool receives) — that is only ever proven on a real run, the same
+// split portal/lib/origin.mjs and group 9 already live with.
+export function makeFence(root, scriptAbsPath, boardAbsPath, briefAbsPath) {
   const realRoot = realpathSync(root);
+  const script = path.resolve(realRoot, scriptAbsPath);
   const board = path.resolve(realRoot, boardAbsPath);
   const brief = path.resolve(realRoot, briefAbsPath);
   const allow = (input) => ({ behavior: 'allow', updatedInput: input });
@@ -199,6 +211,10 @@ function makeFence(root, boardAbsPath, briefAbsPath) {
       // committed trace as a step gen-replay.mjs would then refuse to project.
       try { parsed = parseOpCommand(command); }
       catch (e) { return deny(`may only run the board tool, one op per call — ${e.message}`); }
+      // IDENTITY, not a filename suffix: a path merely ENDING in /tooling/board-op.mjs is a
+      // different file. Same shape as the board check below, for the same reason.
+      if (path.resolve(realRoot, parsed.scriptPath) !== script)
+        return deny(`may only run the build tool it was given (${path.relative(realRoot, script) || script}) — got ${parsed.scriptPath}`);
       if (path.resolve(realRoot, parsed.boardPath) !== board)
         return deny(`may only touch its own board (${path.relative(realRoot, board)}) — got ${parsed.boardPath}`);
       return allow(input);
@@ -282,7 +298,7 @@ export async function runBuild({ slug, isDry, force, onStep }) {
       slug, task: buildTask(refsFor({ absolute: true, boardPath: boardAbs, briefPath: briefAbs })),
       taskSummary: `DRY — build a breadboard from ${briefRel}`,
       systemPrompt: PIV_BUILD_SYSTEM, model: MODEL, maxTurns: MAX_TURNS,
-      tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir, boardAbs, briefAbs),
+      tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(dryDir, SCRIPT_ABS, boardAbs, briefAbs),
       outFile, cwd: dryDir, onStep,
     });
     let board = null;
@@ -323,7 +339,7 @@ export async function runBuild({ slug, isDry, force, onStep }) {
     slug, task: buildTask(refsFor({ absolute: false, boardPath: boardRel, briefPath: briefRel })),
     taskSummary: `Build a breadboard from ${briefRel}`,
     systemPrompt: PIV_BUILD_SYSTEM, model: MODEL, maxTurns: MAX_TURNS,
-    tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(REPO_DIR, boardAbs, briefAbs),
+    tools: TOOLS, allowedTools: READONLY, canUseTool: makeFence(REPO_DIR, SCRIPT_ABS, boardAbs, briefAbs),
     outFile: rawOut, onStep,
   });
 

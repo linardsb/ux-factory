@@ -32,6 +32,11 @@ import { validateTrace } from "../tooling/validate-trace.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPLAY = join(ROOT, "replay");
+// The one tool an op call may have run. `parseOpCommand` returns the path the agent TYPED and
+// leaves identity to the caller (a suffix match is not an identity), so this is where a projected
+// op is held to having come from the real build tool. Pure path arithmetic — projectTrace touches
+// no filesystem, which is what lets build-checks group 11 drive it over synthetic rows.
+const SCRIPT = join(ROOT, "tooling/board-op.mjs");
 const TRACES = join(ROOT, "traces");
 const VERSION = 1;
 
@@ -61,6 +66,8 @@ export function projectTrace(rows, { slug } = {}) {
     let parsed;
     try { parsed = parseOpCommand(step.input?.command); }
     catch (e) { throw new Error(`${slug}: step ${step.seq} is not a projectable op call — ${e.message}`); }
+    if (resolve(ROOT, parsed.scriptPath) !== SCRIPT)
+      throw new Error(`${slug}: step ${step.seq} ran "${parsed.scriptPath}", which is not ${SCRIPT.slice(ROOT.length + 1)} — an op is only an op if the build tool applied it`);
     // A --validate invocation is the validate phase's real check and changes no state.
     if (parsed.kind === "validate") continue;
 

@@ -232,11 +232,15 @@ export function assertBoard(board) {
 // is denied while the run is still going, and the agent corrects itself inside the implement phase.
 //
 // The grammar is deliberately narrow — exactly what record-build.mjs's task prompt tells the agent
-// to type: `node <…>tooling/board-op.mjs <boardPath> '<op json>'` (or `--validate`). Bare tokens
-// carry no shell metacharacters; a quoted token is single-quoted with nothing appended. Anything
-// else (double quotes, $'…', a heredoc, `&&`, a pipe) throws.
+// to type: `node <…>tooling/board-op.mjs <boardPath> '<op json>'` (or `--validate`). A bare token is
+// an ALLOWLIST of path characters, never a denylist of shell metacharacters: a denylist is
+// permanently incomplete (the first one here missed brace and bracket expansion, which makes one
+// typed token into three argv items), and a fence whose model of the command diverges from the
+// shell's is only ever safe by accident. A quoted token is single-quoted with nothing appended —
+// that is where the op JSON's braces, colons and spaces live. Anything else (double quotes, $'…',
+// a heredoc, `&&`, a pipe, `{a,b}`) throws.
 const SCRIPT = "tooling/board-op.mjs";
-const META = /['"`$\\;|&<>()*?~\n]/;
+const BARE = /^[A-Za-z0-9_./-]+$/;
 
 function tokenize(command) {
   const s = String(command ?? "").trim();
@@ -253,26 +257,33 @@ function tokenize(command) {
       continue;
     }
     const tok = s.slice(i).match(/^[^ \t]+/)[0];
-    if (META.test(tok)) throw new Error(`unsupported shell syntax in "${tok}" — one plain command, no quoting tricks, no chaining`);
+    if (!BARE.test(tok)) throw new Error(`unsupported shell syntax in "${tok}" — one plain command, no quoting tricks, no chaining, no expansion`);
     tokens.push(tok);
     i += tok.length;
   }
   return tokens;
 }
 
-// → { kind: "op", boardPath, op } | { kind: "validate", boardPath }. Throws otherwise.
-// The caller decides whether `boardPath` is the RIGHT board (the fence resolves it against the
-// run's cwd; the generator matches it against the slug's committed board) — this only parses.
+// → { kind: "op", scriptPath, boardPath, op } | { kind: "validate", scriptPath, boardPath }.
+// Throws otherwise.
+//
+// The caller decides whether `scriptPath` is the RIGHT tool and `boardPath` the RIGHT board, by
+// resolving each against its own canonical location — the fence against the run's root, the
+// generator against the repo root. Both are IDENTITY comparisons there, and that is deliberate:
+// the check below is a shape check only (it names the tool the prompt tells the agent to type, so
+// a wrong command is denied with a legible message mid-run), and a suffix match is not an identity
+// — `/tmp/evil/tooling/board-op.mjs` ends with the right characters and is a different file.
 export function parseOpCommand(command) {
   const t = tokenize(command);
   if (t.length !== 4) throw new Error(`expected exactly \`node ${SCRIPT} <board.json> '<op json>'\` (got ${t.length} argument(s))`);
   if (t[0] !== "node") throw new Error(`the command must start with \`node\` (got "${t[0]}")`);
   if (t[1] !== SCRIPT && !t[1].endsWith(`/${SCRIPT}`)) throw new Error(`the only build tool is ${SCRIPT} (got "${t[1]}")`);
+  const scriptPath = t[1];
   const boardPath = t[2];
-  if (t[3] === "--validate") return { kind: "validate", boardPath };
+  if (t[3] === "--validate") return { kind: "validate", scriptPath, boardPath };
   let op;
   try { op = JSON.parse(t[3]); }
   catch (e) { throw new Error(`the op argument is not JSON — ${e.message}`); }
   checkOp(op); // throws naming the op / the offending param
-  return { kind: "op", boardPath, op };
+  return { kind: "op", scriptPath, boardPath, op };
 }

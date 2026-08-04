@@ -45,7 +45,7 @@
 //
 //   node tooling/build-checks.mjs
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -65,8 +65,12 @@ import {
   stepEvent, validateAnswers, withRunLock,
 } from "../portal/lib/builder.mjs";
 import { allowedOrigins, originAllowed } from "../portal/lib/origin.mjs";
-import { applyOps, assertBoard, OPS } from "../system/board-ops.mjs";
+import { applyOps, assertBoard, OPS, parseOpCommand } from "../system/board-ops.mjs";
 import { projectTrace } from "../agent-layer/gen-replay.mjs";
+// The recorder's FENCE — importable here for the same reason group 8 can import the operator path:
+// portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
+// portal/node_modules is what proves that, and this import now rides on it too.
+import { makeFence } from "../portal/record-build.mjs";
 import { curateTrace } from "./curate-trace.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -1279,9 +1283,9 @@ function scanSvg(svg, label) {
 // --- 11 · the replay projection ------------------------------------------------------------------
 // Drives gen-replay.mjs's PURE projectTrace over SYNTHETIC in-memory rows. Hand-built rows are
 // legitimate here in a way a hand-built trace never is: they are test input, and nothing in this
-// file is presented as a run. Nothing under traces/ or replay/ is read, no SDK is loaded, and
-// portal/record-build.mjs is deliberately NOT imported — group 8's SDK-free invariant covers this
-// file as a whole, and the recorder is the one module here that reaches the Agent SDK.
+// file is presented as a run. Nothing under traces/ or replay/ is read and no SDK is loaded —
+// portal/record-build.mjs IS imported (case 8 drives its fence), which is safe only because that
+// module's SDK import is lazy, and group 8's SDK-free invariant is what keeps it so.
 {
   const RUN_START = "2026-08-04T12:00:00.000Z";
   const T0 = Date.parse(RUN_START);
@@ -1437,7 +1441,70 @@ function scanSvg(svg, label) {
     rmSync(dir, { recursive: true, force: true });
   }
 
-  group("replay", "4-op happy path + reproduce · corrupted-label mutation goes red · 5 refusals, each naming its seq · --validate and failed calls are not ops · atMs is real pacing · the honest label · KEEP_WHOLE proven by running curateTrace");
+  // 8 · THE SCRIPT PATH IS AN IDENTITY, ON BOTH SIDES OF THE GRAMMAR. `parseOpCommand` returns the
+  //     path the agent typed and leaves identity to its two callers, exactly as it does for the
+  //     board — so both callers are driven here: the PROJECTION (projectTrace, above) and the
+  //     FENCE (makeFence, the predicate a paid run's canUseTool receives). A decoy ending in
+  //     /tooling/board-op.mjs is the case that made this necessary; it must be refused by both,
+  //     while the two paths a real run legitimately types stay accepted.
+  //
+  //     What CI cannot reach is the WIRING — that this predicate is what the SDK is handed. That
+  //     is only ever proven on a real run, the same split group 9 lives with for origin.mjs.
+  const DECOY = "/tmp/evil/tooling/board-op.mjs";
+  const SCRIPT_ABS = join(ROOT, "tooling/board-op.mjs");
+
+  // Both typed forms parse, and both carry the path back to the caller. If the parser ever
+  // tightened this itself, --dry (absolute paths, scratch cwd) would stop working with no gate red.
+  for (const typed of ["tooling/board-op.mjs", SCRIPT_ABS, DECOY]) {
+    const p = parseOpCommand(`node ${typed} ${BOARD_PATH} --validate`);
+    ok(p.scriptPath === typed, `parseOpCommand returned scriptPath ${JSON.stringify(p.scriptPath)} for "${typed}" — the callers cannot check an identity they are not given`);
+  }
+
+  const decoyProjected = threw(() => projectTrace(traceOf([
+    step(1, cmdFor(OPS_4[0])),
+    step(2, `node ${DECOY} ${BOARD_PATH} '${JSON.stringify(OPS_4[1])}'`),
+  ]), { slug: "g11" }));
+  ok(decoyProjected && /step 2/.test(decoyProjected),
+    `a step running ${DECOY} projected as an op (${decoyProjected}) — a path merely ENDING in the tool's name is a different file, and the artifact would claim the build tool applied it`);
+
+  // Brace expansion: one typed token, three argv items to a real shell. The old denylist let it
+  // through and only a DIFFERENT check happened to catch it; an allowlist makes it false here.
+  for (const bad of [`node tooling/board-op.mjs replay/{a,b}.board.json --validate`,
+    `node tooling/board-op.mjs replay/[ab].board.json --validate`]) {
+    ok(threw(() => parseOpCommand(bad)) !== null,
+      `the grammar accepted "${bad}" — the shell would expand it into more arguments than the parser saw, so the fence's model of the command is not the shell's`);
+  }
+
+  // The fence itself, in both modes. Real: cwd IS the repo and the agent types relative paths.
+  const briefAbs = join(ROOT, "replay/briefs/g11.md");
+  const boardAbs = join(ROOT, BOARD_PATH);
+  const fence = makeFence(ROOT, SCRIPT_ABS, boardAbs, briefAbs);
+  const verdict = async (tool, input) => (await fence(tool, input)).behavior;
+  const bash = (cmd) => verdict("Bash", { command: cmd });
+  ok(await bash(`node tooling/board-op.mjs ${BOARD_PATH} '${JSON.stringify(OPS_4[0])}'`) === "allow",
+    "the fence denied the exact command record-build.mjs's task prompt tells the agent to type — the run could not build anything");
+  ok(await bash(`node tooling/board-op.mjs ${BOARD_PATH} --validate`) === "allow", "the fence denied the validate command the task prompt names");
+  ok(await bash(`node ${DECOY} ${BOARD_PATH} --validate`) === "deny",
+    `the fence allowed ${DECOY} — it verifies a filename suffix, not that the invoked file IS the build tool`);
+  ok(await bash(`node ../tooling/board-op.mjs ${BOARD_PATH} --validate`) === "deny", "the fence allowed a traversal out of the run's root to something named like the tool");
+  ok(await bash(`node tooling/board-op.mjs replay/other.board.json --validate`) === "deny", "the fence allowed a board that is not this run's");
+  ok(await verdict("Write", { file_path: boardAbs }) === "deny", "the fence allowed a Write — the board must only ever be built through op calls");
+
+  // Dry: cwd is a scratch dir and the same prompt hands the agent ABSOLUTE paths. The identity
+  // check must accept those too, or --dry (the cheap proof before a paid run) dies.
+  const dryDir = realpathSync(mkdtempSync(join(tmpdir(), "g11-fence-")));
+  try {
+    const dryBoard = join(dryDir, "board.json");
+    const dryFence = makeFence(dryDir, SCRIPT_ABS, dryBoard, briefAbs);
+    ok((await dryFence("Bash", { command: `node ${SCRIPT_ABS} ${dryBoard} --validate` })).behavior === "allow",
+      "the fence denied the ABSOLUTE tool path --dry hands the agent — the dry smoke test could never reach the op CLI");
+    ok((await dryFence("Bash", { command: `node ${DECOY} ${dryBoard} --validate` })).behavior === "deny",
+      "the fence allowed the decoy in --dry mode");
+  } finally {
+    rmSync(dryDir, { recursive: true, force: true });
+  }
+
+  group("replay", "4-op happy path + reproduce · corrupted-label mutation goes red · 5 refusals, each naming its seq · --validate and failed calls are not ops · atMs is real pacing · the honest label · KEEP_WHOLE proven by running curateTrace · script-path identity refused as a decoy by BOTH callers, both typed forms still accepted · brace/bracket expansion refused by the grammar");
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

@@ -74,9 +74,12 @@ Every `source` value is copied from the curated `meta` — none of it is compute
 - `fromStep` — the `seq` of the trace step this op came from. Every op resolves to one; open
   `traces/<slug>.jsonl` and find it.
 
-Ops come from **successful implement-phase op calls only**. A `--validate` invocation is not an op
-(it changes no state), and a failed or fence-denied call is not an op (it changed nothing) — both
-stay visible in the trace, which is where the governance story belongs.
+Ops come from **successful op calls in any phase** — each op records the phase it ran in, and that
+is not always `implement`: the recorder's own system prompt tells the agent to fix the board with
+further ops inside the validate phase if the validate command fails, so a run that self-corrects
+late projects validate-phase ops. A `--validate` invocation is not an op (it changes no state), and
+a failed or fence-denied call is not an op (it changed nothing) — both stay visible in the trace,
+which is where the governance story belongs.
 
 ## What the generator refuses
 
@@ -86,6 +89,8 @@ stay visible in the trace, which is where the governance story belongs.
   curated trace deriving from its committed raw sibling);
 - every op call parses through the one shared grammar (`parseOpCommand`) — the same parser the
   recorder's fence denies with, so an unreadable command was never allowed into the run;
+- every op call ran **`tooling/board-op.mjs` itself**, resolved and compared as a path identity —
+  a filename suffix is not an identity, and an op is only an op if the build tool applied it;
 - every op resolves to a `fromStep` present in the trace, in strictly increasing `seq` order;
 - the trace projects to at least one op;
 - **the reproduce check**: applying the projected ops from an empty board rebuilds

@@ -169,3 +169,33 @@ same edit. **#4–#6** are fine to defer.
 None of this touches the spike's result, the recorded run, or the generated artifact — the fixes
 are to the parser's strictness and one documentation sentence, so no re-run and no regeneration is
 implied.
+
+## Resolution (triage + fixes, same PR)
+
+| # | Sev | Call | Where |
+|---|---|---|---|
+| 1 · script-path suffix match | High | **Fixed** | `parseOpCommand` returns `scriptPath`; both callers do a `path.resolve` identity check — `makeFence` against the run's root, `gen-replay` against `ROOT/tooling/board-op.mjs` |
+| 2 · metachar denylist | Medium | **Fixed** | bare tokens are now an allowlist (`/^[A-Za-z0-9_./-]+$/`), not a denylist — brace/bracket expansion is false by construction |
+| 3 · README overclaims implement-phase | Medium | **Fixed** | `replay/README.md:77` now says "successful op calls in any phase", and names why (the system prompt's validate-phase self-correction) |
+| 4 · apostrophe labels always denied | Medium | **Deferred** → [#225](https://github.com/linardsb/ux-factory/issues/225) | the fix is a `buildTask` clause, and editing the prompt with no re-run makes the committed trace's recorded `task` diverge from what the code emits |
+| 5 · envelope extra keys ignored | Low | **Deferred** → [#226](https://github.com/linardsb/ux-factory/issues/226) | |
+| 6 · space in a board path breaks the CLI | Low | **Deferred** → [#226](https://github.com/linardsb/ux-factory/issues/226) | the argv round-trip is a deliberate property (one grammar), so it is not a casual change |
+
+The parser tightening changes what the FENCE refuses, not only what the projection refuses — so the
+"What the generator refuses" list in `replay/README.md` and the grammar's own header comment were
+updated with it, rather than left stating the old rule.
+
+**The gate that was missing.** Group 11 drove `projectTrace` only, so `makeFence` — half of finding
+#1 — would have shipped with no coverage at all. Case 8 now drives BOTH callers over the decoy
+(`/tmp/evil/tooling/board-op.mjs`) and asserts the two paths a real run legitimately types still
+parse and are still allowed (relative on a real run, absolute on `--dry`; tightening inside the
+parser instead would have silently killed `--dry`). `portal/record-build.mjs` is imported for this,
+which is safe only because its SDK import is lazy — CI's absence of `portal/node_modules` proves
+it. The SDK **wiring** stays unprovable in CI, the same split group 9 lives with for `origin.mjs`.
+
+Each of the three fixes was mutation-tested: reverting it individually turns group 11 red
+(1 / 3 / 2 failures respectively).
+
+Gates re-run green: `build-checks` (11 groups, and again with `portal/node_modules` moved away) ·
+`gen-replay --check` · `gen-loc-summary --check` · `validate-trace` (22 traces) · `drift-check`
+through `· traces · replay` · the `board-op` CLI end to end.
