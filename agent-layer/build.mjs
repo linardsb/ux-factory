@@ -10,6 +10,7 @@ import { genTokens } from "./gen-tokens.mjs";
 import { genHandoff } from "./gen-handoff.mjs";
 import { genVocabulary } from "./gen-vocabulary.mjs";
 import { genPackBundle } from "./gen-pack-bundle.mjs";
+import { genReplay } from "./gen-replay.mjs";
 import { genLlms } from "./gen-llms.mjs";
 import { genHeaders } from "./gen-headers.mjs";
 import { injectJsonLd } from "./inject-jsonld.mjs";
@@ -38,6 +39,9 @@ console.log(`  vocabulary      ✓  ${v.components} components (handoff/verdant/
 
 const pb = genPackBundle();
 console.log(`  pack bundle     ✓  ${pb.files} files (handoff/verdant/pack.bundle.json)`);
+
+const rp = genReplay();
+console.log(`  replay          ✓  ${rp.runs} run(s) → ${rp.ops} ops (replay/)`);
 
 const l = genLlms(ledger);
 console.log(`  llms.txt        ✓  ${l.prototypes} prototypes`);

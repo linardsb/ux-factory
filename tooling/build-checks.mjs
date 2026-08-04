@@ -37,10 +37,16 @@
 //                     token FILLED (the launch break this job would otherwise take), both paths are
 //                     bare static literals carrying none of the visitor's ?b= build, each fires
 //                     once, and the URL comes back verbatim (#149)
+//  11 replay          the studio's projection: gen-replay's PURE projectTrace driven over synthetic
+//                     in-memory rows — the happy path, the corrupted-label MUTATION that decides
+//                     whether the reproduce check is real, every refusal, real pacing, the honest
+//                     label, and the curate-trace KEEP_WHOLE coupling proven by running curateTrace
+//                     over a >700-char command rather than by grepping for the constant (#203)
 //
 //   node tooling/build-checks.mjs
 
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -59,6 +65,9 @@ import {
   stepEvent, validateAnswers, withRunLock,
 } from "../portal/lib/builder.mjs";
 import { allowedOrigins, originAllowed } from "../portal/lib/origin.mjs";
+import { applyOps, assertBoard, OPS } from "../system/board-ops.mjs";
+import { projectTrace } from "../agent-layer/gen-replay.mjs";
+import { curateTrace } from "./curate-trace.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -1267,6 +1276,170 @@ function scanSvg(svg, label) {
   group("analytics", "imports node-safe with a filled token · 2 static /build paths · no ?b= payload in either · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL, in both orderings");
 }
 
+// --- 11 · the replay projection ------------------------------------------------------------------
+// Drives gen-replay.mjs's PURE projectTrace over SYNTHETIC in-memory rows. Hand-built rows are
+// legitimate here in a way a hand-built trace never is: they are test input, and nothing in this
+// file is presented as a run. Nothing under traces/ or replay/ is read, no SDK is loaded, and
+// portal/record-build.mjs is deliberately NOT imported — group 8's SDK-free invariant covers this
+// file as a whole, and the recorder is the one module here that reaches the Agent SDK.
+{
+  const RUN_START = "2026-08-04T12:00:00.000Z";
+  const T0 = Date.parse(RUN_START);
+  const BOARD_PATH = "replay/g11.board.json";
+  const cmdFor = (op) => `node tooling/board-op.mjs ${BOARD_PATH} '${JSON.stringify(op)}'`;
+
+  // seq is 1-based and shared with the meta/result lines' neighbours the way a real trace's is;
+  // `at` is seconds from the run's start, so a case can state pacing in readable numbers.
+  const step = (seq, cmd, { at = seq, ok = true, phase = "implement", noSeq = false } = {}) => {
+    const s = {
+      type: "step", seq, ts: new Date(T0 + at * 1000).toISOString(), phase, kind: "tool",
+      tool: "Bash", input: { command: cmd }, ok, response: "{}", responseTruncated: false,
+    };
+    if (noSeq) delete s.seq;
+    return s;
+  };
+  const traceOf = (steps) => [
+    { type: "meta", version: 1, slug: "g11", task: "t", label: "Real run, curated for length", model: "claude-sonnet-5", sessionId: "g11-session", startedAt: RUN_START, durationMs: 60000 },
+    ...steps,
+    { type: "result", ok: true, numTurns: 9, durationMs: 60000, totalCostUsd: 0.1, endedAt: new Date(T0 + 60000).toISOString() },
+  ];
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+
+  // The four ops of a minimal but complete build: two places, one affordance, one connection.
+  const OPS_4 = [
+    { op: "place.add", params: { label: "Worklist" } },
+    { op: "place.add", params: { label: "Results" } },
+    { op: "affordance.add", params: { placeId: "p1", label: "Search" } },
+    { op: "connect", params: { affordanceId: "p1a1", placeId: "p2" } },
+  ];
+  const EXPECTED_BOARD = {
+    places: [
+      { id: "p1", label: "Worklist", affordances: [{ id: "p1a1", label: "Search" }] },
+      { id: "p2", label: "Results", affordances: [] },
+    ],
+    connections: [["p1a1", "p2"]],
+  };
+
+  // 1 · the happy path — four op calls project to four ops, in seq order, each carrying the step
+  //     it came from and that step's phase and real offset.
+  const happy = traceOf(OPS_4.map((op, i) => step(i + 1, cmdFor(op))));
+  const { ops } = projectTrace(happy, { slug: "g11" });
+  ok(ops.length === 4, `four op calls projected to ${ops.length} ops — the replay would play a different build from the one that was recorded`);
+  ok(ops.map((o) => o.fromStep).join(",") === "1,2,3,4", `ops carry fromStep ${ops.map((o) => o.fromStep).join(",")}, expected 1,2,3,4 — an op that cannot be traced back to a step is unverifiable`);
+  ok(ops.every((o) => o.phase === "implement"), "an op lost its phase — #209 reads phase as the act boundary");
+  ok(ops.every((o) => OPS.includes(o.op)), "a projected op is not in the vocabulary system/board-ops.mjs defines");
+  ok(ops[0].op === "place.add" && ops[0].params.label === "Worklist" && ops[3].op === "connect",
+    "the projected ops are not the ops the commands carried — the extractor read the wrong argument");
+  const rebuilt = applyOps(ops);
+  ok(JSON.stringify(rebuilt) === JSON.stringify(EXPECTED_BOARD),
+    `applying the projected ops built ${JSON.stringify(rebuilt)} — the replay does not reproduce the board the run built`);
+  ok(threw(() => assertBoard(rebuilt)) === null, "the reproduced board is not well-formed");
+
+  // 2 · ⚠ THE MUTATION THAT MAKES CASE 1 REAL. Corrupt ONE command's label and the reproduce check
+  //     must go red against the CORRECT board. If this ever passes green the check is comparing
+  //     the producer against itself and the whole group is theatre (memory: check-that-cannot-fail).
+  const corrupted = traceOf(OPS_4.map((op, i) =>
+    step(i + 1, cmdFor(i === 0 ? { ...op, params: { label: "TAMPERED" } } : op))));
+  const fromCorrupt = applyOps(projectTrace(corrupted, { slug: "g11" }).ops);
+  ok(JSON.stringify(fromCorrupt) !== JSON.stringify(EXPECTED_BOARD),
+    "a corrupted label still reproduced the correct board — the reproduce check is vacuous, and gen-replay would ship a projection of ops nobody ran");
+  ok(fromCorrupt.places[0].label === "TAMPERED",
+    "the corruption did not reach the projected params, so this case proves nothing about what the extractor reads");
+
+  // 3 · the refusals, one assertion each. Every message must name the offending seq, because
+  //     "which step" is the only useful thing to know when a projection fails.
+  const unparseable = threw(() => projectTrace(traceOf([
+    step(1, cmdFor(OPS_4[0])),
+    step(2, `node tooling/board-op.mjs ${BOARD_PATH} '{"op":"place.add",'`),
+  ]), { slug: "g11" }));
+  ok(unparseable && /step 2/.test(unparseable), `an op call whose JSON does not parse was projected anyway (${unparseable}) — a half-read command becomes a wrong op`);
+
+  const unknownOp = threw(() => projectTrace(traceOf([
+    step(1, cmdFor({ op: "place.teleport", params: { label: "X" } })),
+  ]), { slug: "g11" }));
+  ok(unknownOp && /step 1/.test(unknownOp) && /place\.teleport/.test(unknownOp),
+    `an op outside the vocabulary was projected (${unknownOp}) — the driver would meet a verb it cannot apply`);
+
+  const noSeq = threw(() => projectTrace(traceOf([
+    step(1, cmdFor(OPS_4[0])),
+    step(2, cmdFor(OPS_4[1]), { noSeq: true }),
+  ]), { slug: "g11" }));
+  ok(noSeq && /seq/.test(noSeq), `a step with no seq was projected (${noSeq}) — the op would claim a source step that does not exist`);
+
+  const zeroOps = threw(() => projectTrace(traceOf([
+    step(1, `node tooling/board-op.mjs ${BOARD_PATH} --validate`, { phase: "validate" }),
+  ]), { slug: "g11" }));
+  ok(zeroOps && /zero ops/.test(zeroOps), `a trace with no ops projected to an empty artifact (${zeroOps}) — an empty replay is a page claiming a build that never happened`);
+
+  const outOfOrder = threw(() => projectTrace(traceOf([
+    step(5, cmdFor(OPS_4[0])),
+    step(2, cmdFor(OPS_4[1])),
+  ]), { slug: "g11" }));
+  ok(outOfOrder && /seq order/.test(outOfOrder), `a trace whose seqs run backwards projected anyway (${outOfOrder}) — the trace is true chronology and a replay must not silently reorder it`);
+
+  // 4 · what is NOT an op. A --validate call changes no state; a failed or denied call changed
+  //     nothing at all. Both stay in the trace and neither may become a replay beat.
+  const mixed = projectTrace(traceOf([
+    step(1, cmdFor(OPS_4[0])),
+    step(2, cmdFor(OPS_4[1]), { ok: false }),
+    step(3, `node tooling/board-op.mjs ${BOARD_PATH} --validate`, { phase: "validate" }),
+    step(4, cmdFor(OPS_4[1])),
+  ]), { slug: "g11" }).ops;
+  ok(mixed.length === 2, `${mixed.length} ops came out of one --validate + one failed call + two real ops, expected 2 — a failed op that replays is a build step that never happened`);
+  ok(mixed.map((o) => o.fromStep).join(",") === "1,4", `the wrong steps survived (${mixed.map((o) => o.fromStep).join(",")}) — the failed call or the validate call became an op`);
+
+  // 5 · atMs is REAL PACING, derived from ts − startedAt, not an index. Two steps three seconds
+  //     apart must be three seconds apart in the artifact, or the replay plays at a made-up speed
+  //     while claiming to play the run's own.
+  const paced = projectTrace(traceOf([
+    step(1, cmdFor(OPS_4[0]), { at: 10 }),
+    step(2, cmdFor(OPS_4[1]), { at: 13 }),
+  ]), { slug: "g11" }).ops;
+  ok(paced[0].atMs === 10000 && paced[1].atMs === 13000,
+    `atMs came out ${paced.map((o) => o.atMs).join(",")}, expected 10000,13000 — the offsets are not the run's real timing`);
+  ok(paced[1].atMs - paced[0].atMs === 3000, "two steps 3 000 ms apart are not 3 000 ms apart in the artifact");
+
+  // 6 · the label is the honest one, and the artifact does not dress itself up as the recording.
+  //     Asserted on the KEYS, not by hunting for the word "trace" — source.curatedTrace and
+  //     source.rawTrace contain it by design, and they are the honest part.
+  const artifact = JSON.parse(readFileSync(join(ROOT, "replay/build-fieldwork-dispatch.json"), "utf8"));
+  ok(/^Projection of the real run /.test(artifact.label),
+    `the artifact's label is "${artifact.label}" — the load-bearing sentence is that this is a projection, not a recording`);
+  ok(artifact.type === undefined && artifact.curation === undefined && artifact.steps === undefined,
+    "the artifact carries a trace's own keys (type/curation/steps) — it would read as the recording it is a projection of");
+  ok(artifact.source?.curatedTrace && artifact.source?.rawTrace && artifact.source?.board && artifact.source?.brief,
+    "the artifact does not name the run it projects — the trace pair is what a reader must be sent to");
+  ok(/GENERATED by agent-layer\/gen-replay\.mjs/.test(artifact.$description) && /not a recording/.test(artifact.$description),
+    "the artifact's $description no longer says it is generated and is not a recording");
+
+  // 7 · THE KEEP_WHOLE COUPLING, proven by running the real function. truncateInput and KEEP_WHOLE
+  //     are both module-private in curate-trace.mjs, so there is exactly one honest way to test
+  //     this: curate a raw trace carrying a >700-char command and assert it comes back
+  //     BYTE-IDENTICAL. Do not assert on the constant and do not grep the source — the whole
+  //     projection depends on `command` surviving curation whole, and a check that reads the
+  //     source instead of running it is the failure mode memory `check-that-cannot-fail` names.
+  const dir = mkdtempSync(join(tmpdir(), "g11-curate-"));
+  try {
+    // Long by way of the board path, not the op JSON: the point is only that the VALUE under
+    // `command` exceeds the cap, and asserting that first is what stops this case passing
+    // vacuously on a command curation would never have touched.
+    const padded = `node tooling/board-op.mjs replay/${"x".repeat(760)}.board.json '{"op":"place.add","params":{"label":"Worklist"}}'`;
+    ok(padded.length > 700, `the synthetic command is ${padded.length} chars — under the 700-char cap, so this case would pass even if command WERE truncated`);
+    const raw = join(dir, "g11.raw.jsonl");
+    const out = join(dir, "g11.jsonl");
+    writeFileSync(raw, traceOf([step(1, padded)]).map((r) => JSON.stringify(r)).join("\n") + "\n");
+    curateTrace(raw, out);
+    const curatedRows = readFileSync(out, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const curatedCmd = curatedRows.find((r) => r.type === "step")?.input?.command;
+    ok(curatedCmd === padded,
+      `curation changed a ${padded.length}-char command (came back ${curatedCmd?.length} chars) — "command" left curate-trace.mjs's KEEP_WHOLE set, so every op JSON longer than 700 chars now truncates mid-string and gen-replay's reproduce check goes red with a confusing message`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  group("replay", "4-op happy path + reproduce · corrupted-label mutation goes red · 5 refusals, each naming its seq · --validate and failed calls are not ops · atMs is real pacing · the honest label · KEEP_WHOLE proven by running curateTrace");
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1274,5 +1447,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 10 groups pass");
+  console.log("\nbuild ✓  all 11 groups pass");
 }
