@@ -29,7 +29,7 @@ what #202 needs before #209 is planned. No view-time surface ships here.
 - 9 · registration → `agent-layer/build.mjs` (UPDATE)
 - 10 · the drift gate → `tooling/drift-check.mjs` (UPDATE — `checkReplay`, after `checkTraces`)
 - 11 · group 11 → `tooling/build-checks.mjs` (UPDATE — group + header block + `all 11 groups pass`)
-- 12 · the loc cascade → `system/loc-summary.json` (REGENERATED) + the two approach VR baselines
+- 12 · the loc cascade → `system/loc-summary.json` (REGENERATED) + the two approach VR baselines (twice — main moved mid-ticket)
 - 13 · the architecture map → `CLAUDE.md` (UPDATE)
 - 14 · full validation + PR
 
@@ -64,7 +64,8 @@ rows (no committed trace, no SDK, no browser). Seven cases, 22 assertions:
 | build-checks with `portal/node_modules` moved away | **all 11 groups pass** (SDK-free holds) |
 | `node tooling/drift-check.mjs` | pass — `… · traces · replay` |
 | `node agent-layer/gen-loc-summary.mjs --check` | pass after regen |
-| VR baselines | regenerated (runtime number moved 19,400 → 19,700; 61 → 62 files) |
+| VR baselines | regenerated twice — see "main moved mid-ticket" below |
+| CI on PR #224 | `verify` pass · `visual` pass · mergeStateStatus **CLEAN** |
 
 **Every new check was mutated and watched go red, then restored** — four source mutations, each
 producing a specific failure message, plus three artifact/board tampers:
@@ -109,6 +110,30 @@ producing a specific failure message, plus three artifact/board tampers:
 6. **`git add` by explicit path, not `git add -A`** in Task 12. The working tree carries two
    untracked plan files belonging to other tickets (#173, #176 — the plan's own NOTES flags them);
    `-A` would have scooped them into this PR. They remain untracked and out of scope.
+
+## main moved mid-ticket (and how it was resolved)
+
+PR #201 (`factory-uplift-173`) merged while this branch was open and touched the same two
+generated things: `system/loc-summary.json` (it added `bus-toggles.mjs` and `device-frame.mjs` to
+the runtime group) and both approach VR baselines. The PR went `CONFLICTING`.
+
+Resolved by **regeneration, never by picking a side** (memory:
+`drift-check-mid-merge-false-positive`):
+
+- `CLAUDE.md` — both sides were additive rows in the same block; all three kept.
+- `system/loc-summary.json` — regenerated from the merged index, not hand-resolved. Final:
+  **runtime 64 files / 20,400 lines**, total 28,300 (it was 61/19,400 before this ticket, and
+  19,700 before the merge).
+- the two approach PNGs — regenerated from a clean detached worktree at the merge commit. Both
+  times the PNGs had to be **removed first**: `update:docker` rewrites nothing when the only
+  change is a few digits, which sits inside the gate's 100-pixel tolerance (memory:
+  `vr-update-skips-subperceptual`).
+- The two untracked plans this ticket deliberately left alone (#173/#176) turned out to be
+  **committed by #201** and byte-identical to the local copies, which is what blocked the merge.
+  Verified identical, then removed. They are no longer at risk.
+
+Post-merge, both gates were re-run on the clean tree: `build-checks` all 11 groups, `drift-check`
+through `replay`. CI agrees.
 
 ## Issues encountered
 
