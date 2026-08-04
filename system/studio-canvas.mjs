@@ -251,20 +251,62 @@ export function initStudioCanvas(root = document) {
     // The announcement says PLACED, not moved. At #204 nothing has moved — place() is initial
     // placement and the mover is #205 — so "moved to column 2" would be a claim this ticket cannot
     // make, and #205 would inherit the wrong phrasing rather than writing its own verb.
+    //
+    // THE SLOT IS A WRAPPER, NOT THE COMPONENT (#205). Until then the rendered component WAS the
+    // .stx-slot, and one of the library's shapes renders as a bare <button>
+    // (agentic-renderer.mjs:239-249's primary-button) — so Enter or Space on a slot would be
+    // ambiguous between activating the component and picking it up. The wrapper carries the
+    // arrangement attributes and holds an explicit .stx-grab move button, which gives every
+    // component the same unambiguous keyboard target and satisfies SC 2.5.7's single-pointer
+    // alternative for the drag (system/studio-verbs.mjs's header records which criterion is which).
+    //
+    // IDEMPOTENT: called with a node that already IS a wrapper — or with a component already inside
+    // one — it MOVES that wrapper rather than nesting a second. That is what keeps
+    // tooling/studio-journey.mjs:93-100 and tooling/vt-verify.mjs:303-307 green unedited: both do
+    // querySelector(".stx-slot") → place(node) → read data-col off that same node.
+    let nextId = 0;
     const place = (node, { col, row, name } = {}) => {
       if (!node) throw new Error("studio-canvas: place() was called with no node");
       const slot = clampSlot({ col, row });
-      node.classList.add("stx-slot");
-      node.setAttribute("data-col", String(slot.col));
-      node.setAttribute("data-row", String(slot.row));
-      stage.appendChild(node);
-      say(`${name || node.dataset.stxName || "Component"} in column ${slot.col}, row ${slot.row}`);
+      const existing = node.classList.contains("stx-slot")
+        ? node
+        : (node.parentElement?.classList.contains("stx-slot") ? node.parentElement : null);
+      const wrap = existing || el("div", { class: "stx-slot" });
+      const label = name || node.dataset?.stxName || wrap.dataset.stxName || "Component";
+
+      if (!existing) {
+        nextId += 1;
+        wrap.setAttribute("data-stx-id", `s${nextId}`);
+        // The handle FIRST, so it is the wrapper's first tab stop and a reader meets the move
+        // affordance before the component's own controls.
+        wrap.appendChild(el("button", {
+          type: "button",
+          class: "stx-grab",
+          "aria-label": `Move ${label}`,
+          // The instructions element studio-verbs.mjs's mount adds, so the affordance is
+          // discoverable ON FOCUS rather than only after the reader has guessed that Enter does
+          // something. No aria-pressed: it would describe the button's own toggle state rather than
+          // the component being carried (studio-verbs.mjs's header).
+          "aria-describedby": "stx-move-help",
+        }));
+        wrap.appendChild(node);
+      }
+      wrap.setAttribute("data-stx-name", label);
+      wrap.setAttribute("data-col", String(slot.col));
+      wrap.setAttribute("data-row", String(slot.row));
+      stage.appendChild(wrap);
+      // Still PLACED, not moved. place() is placement; "moved to column X, row Y" is the mover's
+      // sentence and belongs to system/studio-verbs.mjs's one consumer.
+      say(`${label} in column ${slot.col}, row ${slot.row}`);
       return slot;
     };
 
     const handleObj = {
       viewport, scroll, stage, announcer,
       place,
+      // Exposed so #205's mover announces through the canvas's ONE live region rather than
+      // declaring a second one beside it.
+      say,
       fit,
       reset,
       setZoom,

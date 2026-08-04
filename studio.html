@@ -9,9 +9,10 @@
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
 
-  <!-- Internal test harness (epic #202, ticket #204) — drives system/studio-canvas.mjs RAW:
-       real components composed through the vocabulary, placed into grid slots by attribute, panned
-       by native scroll and zoomed through the CSS level table. THIS IS THE WORKBENCH; the designed
+  <!-- Internal test harness (epic #202, tickets #204 + #205) — drives system/studio-canvas.mjs and
+       system/studio-verbs.mjs RAW: real components composed through the vocabulary, placed into grid
+       slots by attribute, panned by native scroll, zoomed through the CSS level table, and MOVED by
+       pointer or keyboard over one action bus with one consumer. THIS IS THE WORKBENCH; the designed
        surface is /factory, and that route surgery is #206's ticket, not this one.
 
        Same posture as agentic.html / trace.html / handoff.html: noindex, no site.js, no chrome, no
@@ -45,7 +46,8 @@
       components from the system's own vocabulary — so the token contract, focus order and the inspect
       bubbles keep working by construction rather than by re-implementation. Pan is native scrolling;
       zoom is a <code>data-zoom</code> attribute against a scale table declared in CSS; arrangement is
-      <code>data-col</code> / <code>data-row</code>. Nothing here writes an inline style.</p>
+      <code>data-col</code> / <code>data-row</code>, and moving something rewrites exactly those two
+      attributes. Nothing here writes an inline style.</p>
 
     <div class="strip" id="capability"><p>Loading the vocabulary…</p></div>
 
@@ -57,18 +59,29 @@
         with the wheel — and a trackpad pinch, which arrives the same way — zooms about the cursor. The four
         buttons are the keyboard path, and the readout announces. A <em>bare</em> wheel is never intercepted:
         it scrolls the stage and then chains to the page.</p>
+      <p><strong>Moving things:</strong> drag a component by its grab handle or by its body. Or click the handle
+        once to pick the component up without dragging at all, move the pointer, and click again to drop it.
+        Or do the whole thing from the keyboard: <code>Tab</code> to a handle, <code>Enter</code> to pick up,
+        arrow keys to move, <code>Enter</code> to drop. <code>Escape</code> cancels either way and puts the
+        component back where it started. An occupied cell is skipped rather than landed on.</p>
+      <p>Every move is announced by the slot it landed in, and every move is undoable — the Undo and Redo
+        buttons, or <code>⌘</code>/<code>Ctrl</code> + <code>Z</code>. Both input paths do the same thing:
+        they emit one action on the site's action bus, and a single consumer applies it. That is why the
+        keyboard path produces the identical result rather than a second implementation that agrees today.</p>
       <p>Tab reaches every component on the stage and the browser scrolls each one into view, because this is
         a real scroll container and not a translated element. That property is the whole reason pan is scroll.</p>
     </div>
 
-    <p class="tail">Placement here is programmatic — <code>place(node, {col, row})</code>. Moving things by
-      pointer is ticket #205; marquee, guides and multi-move are #217. This page exists so the substrate can be
-      driven and gated before anything designed depends on it.</p>
+    <p class="tail">Placement is still programmatic — <code>place(node, {col, row})</code> — but arrangement is
+      now the reader's. Marquee select, alignment guides and multi-move are ticket #217; a layers list is #221.
+      This page exists so the substrate can be driven and gated before anything designed depends on it.</p>
   </div>
 
   <script type="module">
     import { renderComposition } from "/system/agentic-renderer.mjs";
+    import { createBus } from "/system/action-bus.mjs";
     import { initStudioCanvas, MAX_COLS, MAX_ROWS } from "/system/studio-canvas.mjs";
+    import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 
     // ~30 real components across the library's shapes — the token-skinned DOM is the thing under
     // test, so nothing here is a div standing in for one. Each entry is a single-node composition,
@@ -121,6 +134,12 @@
         canvas.place(node, { col, row, name: spec.label });
         placed += 1;
       }
+
+      // ONE bus for the page, handed in — proto/fieldwork.html:200's call. The verbs mount AFTER
+      // the placement loop so the history's initial snapshot is the real arrangement rather than an
+      // empty one, and so every wrapper's aria-describedby has its instructions element to point at.
+      const bus = createBus();
+      mountCanvasVerbs(canvas, { bus });
 
       const p = document.createElement("p");
       p.className = "cap-live";

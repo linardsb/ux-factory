@@ -276,7 +276,7 @@ for (const name of toRun) {
       await rc.close();
     }
 
-    // ---- #204 · the studio canvas names NOTHING ---------------------------------------------
+    // ---- #204 + #205 · the studio canvas names NOTHING ---------------------------------------
     // Written as its own block rather than a SITEWIDE row because the table's per-verb claim is
     // hardcoded to `calls === 1`, and this surface's claim is the opposite number. The structure it
     // does share is the one that matters: PROVE THE MOVEMENT FIRST. "Zero ::view-transition-*
@@ -292,14 +292,35 @@ for (const name of toRun) {
     const cboot = await read(cp);
     t("studio canvas · load opens zero transitions", cboot.calls === 0, `calls=${cboot.calls}`);
 
-    // The canvas's two kinds of movement: a zoom (the whole stage rescales) and a placement (a node
-    // changes grid cell). Both are layout, and both must animate through nothing named.
+    // The canvas's kinds of movement: a zoom (the whole stage rescales), a placement (a node changes
+    // grid cell), and since #205 a MOVE — by pointer, by keyboard, and undone. All of them are
+    // layout, and all must animate through nothing named.
+    //
+    // The undo runs a FLIP through element.animate(). That animation IS in document.getAnimations(),
+    // but its `pseudoElement` is null, so the filter at the end of this block correctly ignores it —
+    // do not "fix" that filter. Nor does it weaken `calls === 0`: that counter records wrapped
+    // startViewTransition() calls, and element.animate() never makes one.
     const canvasState = () => cp.evaluate(() => {
       const vp = document.querySelector("[data-studio-canvas]");
       const node = vp.querySelector(".stx-slot");
       const r = node.getBoundingClientRect();
       return { zoom: vp.getAttribute("data-zoom"), col: node.getAttribute("data-col"), box: `${Math.round(r.width)}x${Math.round(r.left)}` };
     });
+    // The #205 verbs, driven through their exported seam. A keyboard move and an undo, taken as one
+    // step so the precondition below can prove BOTH happened before anything is asserted about
+    // transitions — "zero ::view-transition-* pseudos" is trivially true of a page where nothing
+    // moved, which is the defect class this whole file exists to not have.
+    const moveVerbs = () => cp.evaluate(() => import("/system/studio-verbs.mjs").then(async (m) => {
+      const v = m.getVerbs();
+      if (!v) throw new Error("vt-verify: getVerbs() returned nothing — studio-verbs did not mount");
+      const node = document.querySelector("[data-studio-canvas] .stx-slot");
+      const id = node.getAttribute("data-stx-id");
+      const to = { col: Number(node.getAttribute("data-col")) === 9 ? 10 : 9, row: 7 };
+      v.bus.emit({ type: "ui.move", source: "agent", target: { component: "probe", id }, params: to });
+      const moved = node.getAttribute("data-col");
+      v.bus.emit({ type: "ui.undo", source: "agent" });
+      return { moved, undone: node.getAttribute("data-col") };
+    }));
     const movePlace = () => cp.evaluate(() => import("/system/studio-canvas.mjs").then((m) => {
       const c = m.getCanvas();
       const node = c.stage.querySelector(".stx-slot");
@@ -310,12 +331,15 @@ for (const name of toRun) {
     const cbefore = await canvasState();
     await clickAfterScroll(cp.locator("[data-studio-canvas]").getByRole("button", { name: "Zoom in", exact: true }));
     await movePlace();
+    const verbs = await moveVerbs();
     await cp.waitForTimeout(700);
     const cafter = await canvasState();
     const cmoved = await read(cp);
     t("studio canvas · the zoom and the placement actually changed the surface",
       cafter.zoom !== cbefore.zoom && cafter.col !== cbefore.col && cafter.box !== cbefore.box,
       `${JSON.stringify(cbefore)} → ${JSON.stringify(cafter)}`);
+    t("studio canvas · …and the #205 move verbs moved something and undid it",
+      verbs.moved !== verbs.undone, `${verbs.moved} → ${verbs.undone}`);
     t("studio canvas · …and opened no transition", cmoved.calls === 0, `calls=${cmoved.calls}`);
     const pseudos = await cp.evaluate(() => document.getAnimations()
       .map((a) => a.effect && a.effect.pseudoElement)
@@ -334,15 +358,27 @@ for (const name of toRun) {
     // the lighter-weight version of this sub-case could not fail: the page loads reading "100%", so
     // a regression that made fit() a no-op under reduced motion would still satisfy both a
     // /^\d+%$/ readout test and `calls === 0`.
+    await crp.waitForSelector('[data-canvas-verbs="ready"]', { timeout: 20000 });
     await reset(crp);
     const rbefore = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
     await crp.locator("[data-studio-canvas]").getByRole("button", { name: "Fit", exact: true }).click();
+    const rverbs = await crp.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
+      const v = m.getVerbs();
+      const node = document.querySelector("[data-studio-canvas] .stx-slot");
+      const id = node.getAttribute("data-stx-id");
+      v.bus.emit({ type: "ui.move", source: "agent", target: { component: "probe", id }, params: { col: 9, row: 7 } });
+      const moved = node.getAttribute("data-col");
+      v.bus.emit({ type: "ui.undo", source: "agent" });
+      return { moved, undone: node.getAttribute("data-col") };
+    }));
     await crp.waitForTimeout(400);
     const crm = await read(crp);
     const rafter = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
     // Quiet is not enough — the verb still has to work, and "it worked" has to be a change.
     t("studio canvas · reduced motion · fit actually moved the zoom level",
       rafter !== rbefore, `data-zoom ${rbefore} → ${rafter}`);
+    t("studio canvas · reduced motion · the move verbs still move and still undo",
+      rverbs.moved !== rverbs.undone, `${rverbs.moved} → ${rverbs.undone}`);
     t("studio canvas · reduced motion opens none", crm.calls === 0, `calls=${crm.calls}`);
     await crc.close();
   } finally {
@@ -352,5 +388,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, which names nothing (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);

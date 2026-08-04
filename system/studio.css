@@ -74,7 +74,13 @@
   left: 0;
   display: grid;
   grid-template-columns: repeat(var(--stx-cols), var(--stx-slot-w));
-  grid-auto-rows: var(--stx-slot-h);
+  /* EXPLICIT rows, not grid-auto-rows (#205). An implicit grid only materialises the rows that
+     something occupies, so getComputedStyle(stage).gridTemplateRows reports three tracks on a stage
+     whose bottom five rows are empty — and #205's pointer hit-test, which reads exactly that, could
+     not address them. The keyboard path is bounded by MAX_ROWS and could, so the two paths
+     disagreed about how big the canvas is, which is the one thing AC #1 says they never do. The
+     sizer below already reserves all --stx-rows; this makes the stage agree with it. */
+  grid-template-rows: repeat(var(--stx-rows), var(--stx-slot-h));
   gap: var(--stx-gap);
   transform: scale(var(--stx-scale));
   transform-origin: 0 0;
@@ -110,11 +116,69 @@
 .stx-scroll.is-panning { cursor: grabbing; }
 .stx-scroll.is-panning .stx-slot { pointer-events: none; }
 
+/* ---------- manipulation (#205) ---------- */
+/* The slot is now a BOX holding a move handle and the component, not the component itself — see
+   system/studio-canvas.mjs's place(). Nothing below mirrors a value studio-verbs.mjs exports:
+   build-checks group 12 pins the existing --stx-* mirror exhaustively, and a second mirror with no
+   pin behind it is a thing that drifts silently. */
+.stx-slot { position: relative; display: flex; }
+.stx-slot > :not(.stx-grab) { flex: 1 1 auto; min-width: 0; }
+
+/* Always visible, never hover-revealed: a hover-only handle is unreachable by a keyboard user with
+   sight and by touch alike, which would make the single-pointer alternative conditional on a
+   pointer that hovers.
+
+   24×24 IS WCAG 2.2 SC 2.5.8 Target Size (Minimum), and it is the third criterion this feature
+   answers — studio-verbs.mjs's header records 2.5.7 and 2.1.1, and this is the one belonging to the
+   control itself. The Spacing exception was NOT relied on: `.stx-slot > :not(.stx-grab)` gives the
+   component the rest of the slot, and one library shape renders as a bare <button>, so an adjacent
+   target can sit directly under the handle. place() is the shipped substrate — #206 puts it on a
+   public page — so the size is met rather than argued. */
+.stx-grab {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  /* The TARGET is 24×24; the GRIP painted inside it is 12×12. Growing the dot field with the target
+     turned the handle into a texture square rather than a grip — the padding plus the content-box
+     origin below is what keeps the mark small while the hit area meets 2.5.8. `* { box-sizing:
+     border-box }` (components.css:18) is what makes 24px stay 24px with padding on. */
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  cursor: grab;
+  /* The grip, drawn from the current colour so it re-skins with the pack like everything else. */
+  background-image: radial-gradient(currentColor 1px, transparent 1px);
+  background-size: 4px 4px;
+  background-position: center;
+  background-repeat: repeat;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+.stx-grab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* The ONLY visual carrier of picked-up state. The ARIA half is the live region's pick-up
+   announcement, not an attribute — see studio-verbs.mjs's header on why not aria-pressed. */
+.stx-slot.is-picked { outline: 2px solid var(--color-accent); outline-offset: 2px; z-index: 2; }
+.stx-slot.is-picked .stx-grab { cursor: grabbing; }
+
+.stx-verbs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm, 12px); }
+.stx-verb-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.stx-verb-help { margin: 0; font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); }
+
 /* No transition on --stx-scale anywhere: a transitioned scale would jank every wheel tick. This
    block is the off-ramp for anything a later ticket adds to the stage, declared now so the
-   reduced-motion story is never an afterthought. */
+   reduced-motion story is never an afterthought. The undo/redo travel is an element.animate() and
+   is switched off in JS (studio-verbs.mjs's animateTo), because a Web Animations API animation
+   ignores `animation: none` — this block is the off-ramp for the CSS half only, and naming the new
+   classes here keeps a later CSS transition on them from slipping past reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   .stx-stage,
-  .stx-slot { transition: none !important; animation: none !important; }
+  .stx-slot,
+  .stx-grab { transition: none !important; animation: none !important; }
   .stx-scroll { scroll-behavior: auto; }
 }

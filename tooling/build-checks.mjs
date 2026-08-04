@@ -64,6 +64,7 @@ import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "..
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { clampSlot, fitLevel, MAX_COLS, MAX_ROWS, ZOOM_LEVELS, ZOOM_REST } from "../system/studio-canvas.mjs";
+import { createHistory, DIRS, hitSlot, HISTORY_MAX, occupancyKey, stepSlot } from "../system/studio-verbs.mjs";
 import { affordanceCount, PATTERNS, patternFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
   ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
@@ -730,10 +731,18 @@ function scanSvg(svg, label) {
   // makes zero inline-style writes, so `writes === 1` below stays literally true and the
   // `file === "build-import.mjs"` assertion is never reached for it. Every exception is a sentence
   // a future reader has to trust.
+  //
+  // studio-verbs.mjs (#205) joins on the same terms, and it is the more interesting case because it
+  // MOVES things: a move is two attribute writes, and the undo/redo travel is element.animate(),
+  // which never touches .style at all. Neither form is an exception being argued — the regex below
+  // simply has nothing to count. What this therefore guards for that module is the REPLACEMENT
+  // shape: someone later swapping the FLIP for `node.style.transform = …`. The claim that the
+  // running page carries no inline style is a different check with a different owner
+  // (tooling/studio-journey.mjs's `inlineStyled`, asserted after a drag, an undo and a redo).
   const MODULES = [
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
-    "studio-canvas.mjs",
+    "studio-canvas.mjs", "studio-verbs.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -827,7 +836,7 @@ function scanSvg(svg, label) {
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }
 
-  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, no exception argued) · no markup-from-string · pack-boot mirror intact`);
+  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas and its verbs, no exception argued) · no markup-from-string · pack-boot mirror intact`);
 }
 
 // --- 8 · the operator path's committed rules --------------------------------------------------------
@@ -1617,6 +1626,245 @@ function scanSvg(svg, label) {
   group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 cap tripwire is planted`);
 }
 
+// --- 13 · the canvas verbs ----------------------------------------------------------------------
+
+{
+  // system/studio-verbs.mjs's PURE half: the history stack, the arrow resolver, the hit-test and the
+  // occupancy key. Written in group 12's voice — every check RUNS the function, none greps for a
+  // constant, and anything deliberately vacuous says so.
+  //
+  // THE BOUNDARY THIS GROUP DOES NOT REACH, stated rather than left to be assumed. AC #1 turns on
+  // the SINGLE-CONSUMER invariant: that a pointer gesture, a keyboard gesture and an injected
+  // source:"agent" action all commit through one bus consumer rather than through three code paths
+  // that agree today. That is a running-page fact — it needs a real pointer, real focus and a real
+  // bus — and nothing here can see it. Its owner is tooling/studio-journey.mjs's three-source
+  // deep-equal proof, which runs the injected source on a FRESH page with no gesture performed
+  // first, precisely so a mover that applied moves directly and merely emitted for observers would
+  // fail there and only there. Groups 9 and 11 live with the same split; an unstated absence would
+  // read as CI covering AC #1 when it does not.
+
+  // --- createHistory: AC #3, as a CI gate rather than a driver assertion ---------------------
+  // A canonical stringify — keys sorted RECURSIVELY, then compared. Honest at this shape and said
+  // out loud rather than left implicit: every snapshot is a flat { id: {col, row} } of numbers, so
+  // there is no undefined, no NaN and no cycle for it to be wrong about, and sorting removes the
+  // only remaining variable, key order.
+  //
+  // Written by hand rather than as `JSON.stringify(v, Object.keys(v).sort())`, which is what this
+  // check said first and which COULD NOT FAIL. An array in stringify's second position is a
+  // replacer, and a replacer array filters property names at EVERY level — so `col` and `row` were
+  // stripped and every arrangement compared equal as {"s1":{},"s2":{},"s3":{}}. It was caught by
+  // the mutation duty: deleting push()'s redo-tail truncation left the group green twice.
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : JSON.stringify(v));
+  const arrangement = (n) => Object.fromEntries(
+    Array.from({ length: 3 }, (_, i) => [`s${i + 1}`, { col: i + 1, row: n }]));
+
+  const a1 = arrangement(1);
+  const h = createHistory(a1);
+  ok(deep(h.current()) === deep(a1), "createHistory does not start on the arrangement it was seeded with");
+  ok(h.canUndo() === false && h.canRedo() === false, "a fresh history claims an undo or a redo it cannot do");
+  ok(h.depth() === 1, `a fresh history has depth ${h.depth()}, expected 1 (the seed)`);
+
+  h.push(arrangement(2));
+  h.push(arrangement(3));
+  h.push(arrangement(4));
+  ok(h.canUndo() && !h.canRedo(), "after three pushes the cursor is not at the top of the stack");
+  h.undo();
+  h.undo();
+  ok(deep(h.current()) === deep(arrangement(2)), `undo ×2 from the top gave ${deep(h.current())}, expected the second push`);
+  h.redo();
+  h.redo();
+  ok(deep(h.current()) === deep(arrangement(4)), `redo ×2 came back to ${deep(h.current())}, expected the third push`);
+
+  // The bottom and the top are NO-OPS, never throws — the buttons are disabled there, and a driver
+  // or an agent-sourced ui.undo must not be able to break the page by asking twice.
+  const floorH = createHistory(a1);
+  floorH.undo(); floorH.undo(); floorH.undo();
+  ok(deep(floorH.current()) === deep(a1), "undo at the bottom of the stack moved off the seed");
+  ok(floorH.canUndo() === false, "undo at the bottom left canUndo() true");
+  floorH.redo(); floorH.redo();
+  ok(deep(floorH.current()) === deep(a1), "redo at the top of the stack moved off the seed");
+
+  // The redo tail is DISCARDED by a new move — the standard rule, and the one that makes
+  // "undo, redo, then a new move" behave instead of resurrecting a branch the reader abandoned.
+  const tailH = createHistory(a1);
+  tailH.push(arrangement(2));
+  tailH.push(arrangement(3));
+  tailH.undo();                       // sits on arrangement(2), with arrangement(3) ahead
+  ok(tailH.canRedo(), "the redo tail vanished before a new push was made — the setup is wrong");
+  tailH.push(arrangement(7));
+  ok(tailH.canRedo() === false, "a push after an undo left the redo tail intact; a new move must discard it");
+  // …asserted on UNDO, not on canRedo(), because canRedo() alone CANNOT FAIL here. push() sets the
+  // cursor to the top of the stack either way, so a version that never truncates leaves the
+  // abandoned arrangement(3) BURIED behind the new entry rather than ahead of it — canRedo() is
+  // false in both, and the only visible difference is where undo lands. Proven by mutation: deleting
+  // the truncation left the canRedo() check green and this one red.
+  ok(deep(tailH.undo()) === deep(arrangement(2)),
+    `undo after a push-over-a-tail landed on ${deep(tailH.current())}, expected the arrangement the reader actually came from`);
+  ok(deep(tailH.redo()) === deep(arrangement(7)), "redo after the tail was discarded moved somewhere other than nowhere");
+
+  // The cap, and the index surviving the front-drop. Pushed past HISTORY_MAX, the stack holds the
+  // cap and the cursor still points at the newest entry rather than off the end.
+  const capH = createHistory(a1);
+  for (let i = 2; i <= HISTORY_MAX + 20; i += 1) capH.push(arrangement(i));
+  ok(capH.depth() === HISTORY_MAX, `the stack grew to ${capH.depth()}; HISTORY_MAX is ${HISTORY_MAX}`);
+  ok(deep(capH.current()) === deep(arrangement(HISTORY_MAX + 20)),
+    "after dropping from the front the cursor no longer points at the newest entry");
+  ok(capH.canRedo() === false, "after the front-drop the cursor claims a redo above the newest entry");
+  let walked = 0;
+  while (capH.canUndo()) { capH.undo(); walked += 1; }
+  ok(walked === HISTORY_MAX - 1, `undoing to the bottom of a capped stack took ${walked} steps, expected ${HISTORY_MAX - 1}`);
+
+  // The structuredClone claim, proven by MUTATING a returned snapshot and reading history back —
+  // never by grepping the source for the call. A stack that handed out live references would let a
+  // caller rewrite the past, and every deep-compare above would still pass.
+  const cloneH = createHistory(a1);
+  cloneH.push(arrangement(2));
+  const escaped = cloneH.current();
+  escaped.s1.col = 999;
+  escaped.injected = { col: 1, row: 1 };
+  ok(deep(cloneH.current()) === deep(arrangement(2)),
+    "mutating a snapshot returned by current() reached into history — the stack is handing out live references");
+  const seedMutable = arrangement(5);
+  const seedH = createHistory(seedMutable);
+  seedMutable.s1.col = 999;
+  ok(seedH.current().s1.col === 1, "mutating the object createHistory was seeded with reached into history");
+  const pushedMutable = arrangement(6);
+  seedH.push(pushedMutable);
+  pushedMutable.s1.col = 999;
+  ok(seedH.current().s1.col === 1, "mutating the object handed to push() reached into history");
+
+  // --- stepSlot: one arrow step, occupancy-aware and terminating ------------------------------
+  const occ = (...cells) => new Set(cells.map(([col, row]) => occupancyKey({ col, row })));
+  ok(occupancyKey({ col: 3, row: 4 }) === "3,4", `occupancyKey gave ${occupancyKey({ col: 3, row: 4 })}, expected "3,4"`);
+
+  const STEP_CASES = [
+    [{ col: 2, row: 2 }, "ArrowRight", occ(), { col: 3, row: 2 }, "a plain step moves one cell"],
+    [{ col: 2, row: 2 }, "ArrowLeft", occ(), { col: 1, row: 2 }, "and in the other direction"],
+    [{ col: 2, row: 2 }, "ArrowUp", occ(), { col: 2, row: 1 }, "rows step too"],
+    [{ col: 2, row: 2 }, "ArrowDown", occ(), { col: 2, row: 3 }, "…and down"],
+    [{ col: 2, row: 2 }, "ArrowRight", occ([3, 2]), { col: 4, row: 2 }, "one occupied cell is SKIPPED, not landed on"],
+    [{ col: 2, row: 2 }, "ArrowRight", occ([3, 2], [4, 2], [5, 2]), { col: 6, row: 2 }, "a RUN of occupied cells is skipped whole"],
+    [{ col: 1, row: 1 }, "ArrowLeft", occ(), { col: 1, row: 1 }, "a step into the grid edge returns `from` unchanged"],
+    [{ col: 1, row: 1 }, "ArrowUp", occ(), { col: 1, row: 1 }, "…on the row axis too"],
+    [{ col: MAX_COLS, row: MAX_ROWS }, "ArrowRight", occ(), { col: MAX_COLS, row: MAX_ROWS }, "the far corner is an edge in both axes"],
+    [{ col: MAX_COLS, row: MAX_ROWS }, "ArrowDown", occ(), { col: MAX_COLS, row: MAX_ROWS }, "…likewise downward"],
+    // THE TERMINATION PROOF, run rather than reasoned about: a naive `while (occupied)` walk hangs
+    // here. What it proves is stepSlot's GRID-EDGE return, not its iteration bound — mutating the
+    // bound to Infinity leaves both cases below green, because the edge is what the walk reaches.
+    // Recorded in the module's own comment too, so the backstop is not mistaken for the mechanism.
+    [{ col: 1, row: 3 }, "ArrowRight",
+      occ(...Array.from({ length: MAX_COLS - 1 }, (_, i) => [i + 2, 3])),
+      { col: 1, row: 3 }, "a fully occupied direction returns `from` unchanged instead of hanging"],
+    [{ col: 4, row: 1 }, "ArrowDown",
+      occ(...Array.from({ length: MAX_ROWS - 1 }, (_, i) => [4, i + 2])),
+      { col: 4, row: 1 }, "…and on the row axis, whose bound is MAX_ROWS rather than MAX_COLS"],
+    // THE CLAMP ON THE WAY IN, which nothing above could see: every case up to here hands an
+    // ON-GRID `from`, so deleting stepSlot's `clampSlot(from)` left the whole group green. The
+    // module's stated guarantee is "never returns an occupied or off-grid slot" — for ANY input,
+    // not only for the ones its current callers happen to produce. Clamped first, {99,-3} is the
+    // far-right cell of row 1, and one step left from there is a cell; UNclamped, the step walks
+    // off the grid immediately and answers the off-grid `from` itself.
+    [{ col: 99, row: -3 }, "ArrowLeft", occ(), { col: MAX_COLS - 1, row: 1 },
+      "an off-grid `from` is clamped BEFORE the step, not carried into it"],
+  ];
+  for (const [from, key, taken, want, why] of STEP_CASES) {
+    const got = stepSlot(from, DIRS[key], taken);
+    ok(got.col === want.col && got.row === want.row,
+      `stepSlot(${JSON.stringify(from)}, ${key}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
+    // Every returned slot, in every case above: on the grid, and never a cell someone else holds.
+    ok(got.col >= 1 && got.col <= MAX_COLS && got.row >= 1 && got.row <= MAX_ROWS,
+      `stepSlot(${JSON.stringify(from)}, ${key}) returned ${JSON.stringify(got)}, off the ${MAX_COLS}×${MAX_ROWS} grid`);
+    const landedOnAPeer = taken.has(occupancyKey(got)) && !(got.col === from.col && got.row === from.row);
+    ok(!landedOnAPeer, `stepSlot(${JSON.stringify(from)}, ${key}) landed on the occupied cell ${JSON.stringify(got)}`);
+  }
+  ok(deep(stepSlot({ col: 2, row: 2 }, undefined, occ())) === deep({ col: 2, row: 2 }),
+    "stepSlot with no direction should answer `from`, not throw");
+  // …and the no-direction early return answers the CLAMPED `from` rather than the raw one — the
+  // other half of the clamp, on the one path that never reaches the walk.
+  ok(deep(stepSlot({ col: 99, row: -3 }, undefined, occ())) === deep({ col: MAX_COLS, row: 1 }),
+    "stepSlot with no direction handed an off-grid `from` answered off the grid instead of clamping");
+
+  // The caps come from ONE place, asserted BEHAVIOURALLY rather than by grepping the source for a
+  // literal: a step off the right edge lands exactly on the module's exported MAX_COLS, so raising
+  // the export moves this check with it instead of leaving a stale number to be discovered.
+  const toEdge = stepSlot({ col: MAX_COLS - 1, row: 1 }, DIRS.ArrowRight, occ());
+  ok(toEdge.col === MAX_COLS, `a step to the right edge landed on column ${toEdge.col}, not the exported MAX_COLS ${MAX_COLS}`);
+  const toFloor = stepSlot({ col: 1, row: MAX_ROWS - 1 }, DIRS.ArrowDown, occ());
+  ok(toFloor.row === MAX_ROWS, `a step to the bottom edge landed on row ${toFloor.row}, not the exported MAX_ROWS ${MAX_ROWS}`);
+
+  // --- hitSlot: a point in the stage's unscaled local space → a slot ---------------------------
+  // Synthetic geometry: three 100px tracks with a 20px gap, so every band edge is arithmetic a
+  // reader can check by hand. The REAL geometry is studio-journey's to test — whether the CSS grid
+  // still matches what hitSlot assumes is a layout fact, the same split group 12 carries for
+  // --stx-slot-w. Tracks start at 0, 120, 240.
+  const geom = { cols: [100, 100, 100], rows: [100, 100, 100], colGap: 20, rowGap: 20 };
+  for (const [x, y, want, why] of [
+    [10, 10, { col: 1, row: 1 }, "a point inside track 1"],
+    [99, 99, { col: 1, row: 1 }, "…right up to the end of its 100px track"],
+    // THE BAND BOUNDARY ITSELF, which is 120 and not 99: the gap belongs to the track before it, so
+    // track 2's band starts where track 2 starts. Nothing else in this table sits ON an edge, and
+    // without these two rows `n < edge` → `n <= edge` shifts EVERY track boundary by one pixel and
+    // the group stays green.
+    [119, 119, { col: 1, row: 1 }, "the last pixel before a track start still belongs to the track before"],
+    [120, 120, { col: 2, row: 2 }, "…and the first pixel of a track belongs to that track"],
+    [130, 130, { col: 2, row: 2 }, "a point inside track 2"],
+    [250, 250, { col: 3, row: 3 }, "a point inside track 3"],
+    // THE GAP RULE, decided in the module's doc comment rather than discovered here: a point in the
+    // gap between tracks 2 and 3 (x in 220..239) resolves to the track BEFORE it.
+    [230, 230, { col: 2, row: 2 }, "a point in the gap between tracks 2 and 3 resolves to the track BEFORE it"],
+    [110, 110, { col: 1, row: 1 }, "…and the gap between 1 and 2 likewise"],
+    // Past the last track clamps to the LAST TRACK, which on this synthetic geometry is 3 and not
+    // MAX_COLS. Stated as the real rule rather than as the cap: hitSlot cannot invent tracks the
+    // grid does not have, and a geometry shorter than the cap is exactly what an unoccupied stage
+    // reported before #205 gave studio.css explicit grid-template-rows. The cap is asserted below,
+    // over a geometry wide enough for it to be reachable.
+    [99999, 99999, { col: 3, row: 3 }, "a point past the last track clamps to the last track"],
+    [-500, -500, { col: 1, row: 1 }, "a negative point clamps to the origin"],
+    [NaN, NaN, { col: 1, row: 1 }, "a non-finite point answers the origin rather than NaN — clampSlot's posture"],
+    [Infinity, -Infinity, { col: 1, row: 1 }, "…including the infinities"],
+  ]) {
+    const got = hitSlot(x, y, geom);
+    ok(got.col === want.col && got.row === want.row,
+      `hitSlot(${x}, ${y}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
+  }
+  // A geometry with no tracks at all is a stage measured before layout, not a crash: the honest
+  // reading of "I cannot measure this" is the origin, exactly as fitLevel answers ZOOM_REST.
+  ok(deep(hitSlot(400, 400, {})) === deep({ col: 1, row: 1 }),
+    "hitSlot over an unmeasured geometry should answer the origin, not NaN or a throw");
+  ok(deep(hitSlot(400, 400, { cols: [100], rows: [100], colGap: 0, rowGap: 0 })) === deep({ col: 1, row: 1 }),
+    "hitSlot past the end of a one-track geometry should clamp to that track");
+
+  // Over a geometry the size of the real grid, the far corner IS the cap — and it is read from the
+  // module's exports, so raising a cap moves this check with it rather than leaving a stale number.
+  const full = {
+    cols: Array.from({ length: MAX_COLS }, () => 100),
+    rows: Array.from({ length: MAX_ROWS }, () => 100),
+    colGap: 0, rowGap: 0,
+  };
+  ok(deep(hitSlot(99999, 99999, full)) === deep({ col: MAX_COLS, row: MAX_ROWS }),
+    `hitSlot past the far corner of a full grid gave ${JSON.stringify(hitSlot(99999, 99999, full))}, expected the exported ${MAX_COLS}×${MAX_ROWS}`);
+
+  // …and it NEVER answers off the grid, whatever it is handed. A geometry with MORE tracks than the
+  // cap is what a drifted stylesheet would produce, and the clamp is what keeps it from reaching an
+  // attribute through the preview path.
+  const over = Array.from({ length: MAX_COLS + 40 }, () => 10);
+  const got = hitSlot(99999, 99999, { cols: over, rows: over, colGap: 0, rowGap: 0 });
+  ok(got.col <= MAX_COLS && got.row <= MAX_ROWS,
+    `hitSlot over a geometry with more tracks than the cap gave ${JSON.stringify(got)}, past ${MAX_COLS}×${MAX_ROWS}`);
+
+  // DIRS is the shared arrow vocabulary — four keys, each a unit step on exactly one axis. A
+  // diagonal entry here would silently make stepSlot's single-axis bound the wrong bound.
+  ok(Object.keys(DIRS).length === 4, `DIRS declares ${Object.keys(DIRS).length} directions, expected 4`);
+  for (const [key, [dc, dr]] of Object.entries(DIRS)) {
+    ok(Math.abs(dc) + Math.abs(dr) === 1,
+      `DIRS.${key} is [${dc}, ${dr}] — every direction must be a UNIT step on ONE axis, or stepSlot's per-axis bound is wrong`);
+  }
+
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1624,5 +1872,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 12 groups pass");
+  console.log("\nbuild ✓  all 13 groups pass");
 }
