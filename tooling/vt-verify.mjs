@@ -329,14 +329,21 @@ for (const name of toRun) {
     const crp = await crc.newPage();
     await crp.goto(`${BASE}/studio.html`, { waitUntil: "load" });
     await crp.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
+    // reset() zeroes the TRANSITION COUNTER, not the canvas — so the movement precondition has to be
+    // taken here too, exactly as the block above takes it. Written out rather than inherited because
+    // the lighter-weight version of this sub-case could not fail: the page loads reading "100%", so
+    // a regression that made fit() a no-op under reduced motion would still satisfy both a
+    // /^\d+%$/ readout test and `calls === 0`.
     await reset(crp);
+    const rbefore = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
     await crp.locator("[data-studio-canvas]").getByRole("button", { name: "Fit", exact: true }).click();
     await crp.waitForTimeout(400);
     const crm = await read(crp);
+    const rafter = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
+    // Quiet is not enough — the verb still has to work, and "it worked" has to be a change.
+    t("studio canvas · reduced motion · fit actually moved the zoom level",
+      rafter !== rbefore, `data-zoom ${rbefore} → ${rafter}`);
     t("studio canvas · reduced motion opens none", crm.calls === 0, `calls=${crm.calls}`);
-    // Quiet is not enough — the verb still has to work.
-    t("studio canvas · reduced motion · fit still reached a level",
-      /^\d+%$/.test((await crp.locator("[data-studio-canvas] .stx-zoom-level").textContent()).trim()));
     await crc.close();
   } finally {
     await browser.close();

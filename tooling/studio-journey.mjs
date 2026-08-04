@@ -263,14 +263,26 @@ async function journey(engineName, results, held) {
   const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
   const rp = await open(rctx);
   await btn(rp, "Zoom in").click();
+  const rzoomed = await snapshot(rp);
   await btn(rp, "Fit").click();
   const rfit = await snapshot(rp);
   await btn(rp, "Reset").click();
   const rrest = await snapshot(rp);
   const rdriven = await viaSeam(rp, 2, 2);
-  t("reduced motion · every zoom verb still completes",
-    rfit.readout === pct(Number(rfit.zoom)) && rrest.zoom === String(ZOOM_REST) && rrest.scrollLeft === 0,
-    JSON.stringify({ fit: rfit.zoom, reset: rrest.zoom }));
+  // Each verb asserted against something it could get WRONG. `readout === pct(zoom)` would be
+  // tautological — syncControls derives one from the other, so the two sides are equal whether or
+  // not the verb did anything. Zoom in has to leave rest; fit has to leave where zoom in put it AND
+  // land on a level the measured layout agrees with; reset has to come all the way back.
+  const rfits = (i) => ZOOM_LEVELS[i] * rfit.contentW <= rfit.clientW + 1 && ZOOM_LEVELS[i] * rfit.contentH <= rfit.clientH + 1;
+  const rchosen = Number(rfit.zoom);
+  t("reduced motion · zoom in still moves off the rest level",
+    rzoomed.zoom === String(ZOOM_REST + 1), `data-zoom=${rzoomed.zoom}`);
+  t("reduced motion · fit still recomputes a level the layout agrees with",
+    rfit.zoom !== rzoomed.zoom && (rfits(rchosen) || rchosen === 0) && (rchosen === ZOOM_LEVELS.length - 1 || !rfits(rchosen + 1)),
+    `${rzoomed.zoom} → ${rfit.zoom}; content ${rfit.contentW}×${rfit.contentH} in ${rfit.clientW}×${rfit.clientH}`);
+  t("reduced motion · reset still returns to scale 1 and scroll 0,0",
+    rrest.zoom === String(ZOOM_REST) && rrest.scrollLeft === 0 && rrest.scrollTop === 0,
+    JSON.stringify({ zoom: rrest.zoom, l: rrest.scrollLeft, t: rrest.scrollTop }));
   t("reduced motion · placement still completes", rdriven.col === "2" && rdriven.row === "2", JSON.stringify(rdriven));
   await rctx.close();
 
