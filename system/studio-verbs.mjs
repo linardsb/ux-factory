@@ -340,24 +340,34 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         return; // DOM untouched
       }
       const slot = clampSlot(action?.params); // hostile input never reaches an attribute
-      const before = node.getBoundingClientRect();
+      // NO TRAVEL ANIMATION HERE, and that is the decision rather than an omission: a move the
+      // reader's own hand or keypress tracked does not need to be shown to them again. animateTo()
+      // is undo/redo's alone — the one movement nothing tracked.
+      //
+      // The consumer does NOT consult occupancy. The gesture enforced it during preview, and adding
+      // a refusal here would make an injected source:"agent" move behave differently from a pointer
+      // one, which is precisely the parity AC #1 is about. The consequence, stated rather than
+      // discovered: an injected move CAN stack two components on one cell. That is the caller's
+      // business, and #209's replay only ever plays back slots a real gesture produced.
       applySlot(node, slot);
       history.push(snapshot());
       canvas.say(`${nameOf(node)} moved to column ${slot.col}, row ${slot.row}.`);
       syncControls();
-      // `before` is measured but deliberately NOT animated: a move the reader's own hand or keypress
-      // tracked needs no travel animation. animateTo() is undo/redo's alone. Measuring it here keeps
-      // the read on the same side of the write for the day #217 wants an agent-sourced move to
-      // travel — a decision, not an omission.
-      void before;
     });
 
+    // Bounded at three named components, because a live region is spoken end to end: a restore that
+    // moved twenty of them would otherwise be one sentence a screen-reader user has to sit through
+    // before they can do anything else. Past the bound it says how many, which is the useful part.
+    const SPOKEN_MAX = 3;
     const restoreVerb = (snap, word) => {
       const moved = restore(snap);
       syncControls();
-      canvas.say(moved.length
-        ? `${word}: ${moved.map((m) => `${nameOf(m.node)} in column ${m.want.col}, row ${m.want.row}`).join("; ")}.`
-        : `Nothing to ${word.toLowerCase()}.`);
+      if (!moved.length) { canvas.say(`Nothing to ${word.toLowerCase()}.`); return; }
+      const named = moved.slice(0, SPOKEN_MAX)
+        .map((m) => `${nameOf(m.node)} in column ${m.want.col}, row ${m.want.row}`)
+        .join("; ");
+      const rest = moved.length - SPOKEN_MAX;
+      canvas.say(rest > 0 ? `${word}: ${named}, and ${rest} more.` : `${word}: ${named}.`);
     };
 
     const offUndo = bus.on("ui.undo", () => {
@@ -397,7 +407,15 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         sticky: false,
       };
       node.classList.add("is-picked");
-      canvas.say(`${nameOf(node)} picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`);
+      // ANNOUNCED ONLY WHEN THE PICK-UP IS ITSELF A VERB. Pressing the button down to start a DRAG
+      // is not one — the reader is about to watch their own hand carry the thing, exactly the
+      // argument that keeps slot crossings silent, and announcing it would make one pointer gesture
+      // two announcements. The keyboard pick-up IS a verb (nothing else tells the reader they are
+      // now carrying something), and so is the click-to-pick-up of the single-pointer path, which
+      // announces from its own branch in the pointerup handler.
+      if (source === "keyboard") {
+        canvas.say(`${nameOf(node)} picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`);
+      }
       return gesture;
     };
 
@@ -413,10 +431,29 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       return g;
     };
 
+    // Apply a preview frame that is still queued. The move handler is rAF-throttled, so the LAST
+    // pointermove of a gesture is often still pending when the button comes up — and dropping then
+    // would commit the slot from the frame before it. That is a real bug, not a test artifact: a
+    // quick drag and release lands the component one cell short of where the reader let go. It
+    // surfaced on webkit, whose rAF is the slowest to flush, and would have been an intermittent
+    // wrong answer on every engine.
+    //
+    // CALLED FROM TWO PLACES, and they cover each other rather than each having its own detector:
+    // removing BOTH turns studio-journey's whole pointer section red on webkit, removing EITHER
+    // alone leaves it green because the other still flushes. Stated rather than left implied — the
+    // honest reading is that the pair is proven and neither half is individually.
+    const flushPreview = () => {
+      if (!gesture || !gesture.raf) return;
+      cancelAnimationFrame(gesture.raf);
+      gesture.raf = 0;
+      if (gesture.pending) preview(pointToSlot(gesture.pending, gesture.geom));
+    };
+
     // The drop: exactly ONE ui.move, unless the gesture ended where it began — a click that moved
     // nothing is not a move, so it emits nothing and writes no history entry.
     const drop = (source) => {
       if (!gesture) return;
+      flushPreview();
       const moved = gesture.current.col !== gesture.origin.col || gesture.current.row !== gesture.origin.row;
       if (moved) emitMove(source);
       const g = clearGesture();
@@ -551,6 +588,10 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // "drag does nothing", which nothing else distinguishes from a drag that never started.
     stage.addEventListener("pointerup", (e) => {
       if (!gesture || gesture.sticky || gesture.pointerId !== e.pointerId) return;
+      // Flushed BEFORE the still-there test, not just inside drop(): a quick drag whose last frame
+      // is still queued would otherwise read as a click and become a sticky pick-up instead of a
+      // drop — the same stale-frame bug wearing the other hat.
+      flushPreview();
       const still = gesture.current.col === gesture.origin.col && gesture.current.row === gesture.origin.row;
       if (still && gesture.fromHandle) {
         // A CLICK on the handle, not a drag: stay picked up. This is SC 2.5.7's single-pointer
@@ -613,6 +654,17 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       canvas.say(moved
         ? `Column ${gesture.current.col}, row ${gesture.current.row}.`
         : `Blocked, still in column ${gesture.current.col}, row ${gesture.current.row}.`);
+    }, { signal });
+
+    // ESCAPE REACHES A POINTER DRAG, and that needs a document listener rather than a stage one. A
+    // body-drag focuses nothing — only the handle path calls focus() — so the keydown lands on
+    // <body> and never bubbles through the stage. A drag is a modal state and Escape is the way out
+    // of it, so this is scoped to exactly that: it fires only while a gesture is live, and the stage
+    // handler above runs FIRST on the keyboard path and clears the gesture, so this one finds
+    // nothing left to cancel and never double-fires.
+    document.addEventListener("keydown", (e) => {
+      if (!gesture || e.key !== "Escape") return;
+      cancel();
     }, { signal });
 
     // --- the verb controls' inputs --------------------------------------------------------------
