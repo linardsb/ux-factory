@@ -119,7 +119,7 @@ No test framework (repo has none by rule). What was added:
 |---|---|
 | `node --check` + `node -e "import(...)"` on the module | pass — Node-import safe, no self-boot |
 | `grep -nE '\.setProperty\(\|\.style\.[A-Za-z]'` on the module | **no matches** |
-| `grep -n 'view-transition'` on module + stylesheet | **no matches** |
+| `grep -n 'view-transition'` on module + stylesheet | one match, and it is the module header sentence explaining the absence — **no `view-transition-name` is declared or written anywhere** |
 | `node tooling/build-checks.mjs` | **✓ all 12 groups pass** |
 | `node tooling/token-lint.mjs` | ✓ 64 tokens · 0 undeclared · 0 orphan · DTCG valid |
 | `node agent-layer/gen-system-graph.mjs --check` | ✓ 64 tokens · 32 consumers · 388 edges — **no drift** |
@@ -140,9 +140,19 @@ All three reverted; `build-checks` green afterwards.
 ### Cascade
 
 `system/loc-summary.json`: runtime 64 → **66** files, 20,400 → **20,900** lines; pages 16 → **17**;
-total 100 → **103** files, 28,300 → **28,800** lines. approach.html renders the runtime group's
-numbers, so `approach-neutral` and `approach-saulera` were regenerated. `system-graph.json`,
-`inspect-data.json` and `param-count.json` all confirmed unmoved.
+total 100 → **103** files, 28,300 → **28,800** lines. `system-graph.json`, `inspect-data.json` and
+`param-count.json` all confirmed unmoved.
+
+approach.html renders the runtime group's numbers, so its two baselines were regenerated — from a
+clean detached worktree under `/Users` at the implementation commit, as required (`update:docker`
+screenshots the working tree, and Docker cannot share `/private/tmp`). **The first run rewrote
+nothing**: two changed digits fall under the gate's `maxDiffPixels: 100` tolerance, so all 20 tests
+passed against the pre-change baselines and `--update-snapshots` had nothing to write. The two PNGs
+were therefore deleted and the run repeated, so the committed baselines genuinely match what the page
+renders today rather than what it rendered before. `git status` afterwards showed **exactly**
+`approach-neutral.png` and `approach-saulera.png` and nothing else — a broader regen would silently
+re-baseline anything else that had drifted. Worth stating plainly: **a green `update:docker` is not
+evidence that a page did not change.**
 
 ## Deviations from the plan
 
