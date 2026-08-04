@@ -178,6 +178,28 @@ export function createHistory(initial) {
       if (index < stack.length - 1) index += 1;
       return at();
     },
+    // Teach EVERY entry about ids it has never seen, at the position given — and never touch an id
+    // it already knows (#230).
+    //
+    // The stack is seeded once, at mount, but studio-canvas.mjs's place() is a NORMAL post-mount
+    // call — it is the whole reason the verbs delegate their listeners on `stage`. A component
+    // placed afterwards is in no earlier entry, so restore() skipped it: the undo consumed an entry,
+    // the node did not move, and the reader was left with a greyed-out Undo and a phantom step.
+    //
+    // FILLING EVERY ENTRY IS THE TRUTHFUL ANSWER, not just the one at the cursor. For an arrangement
+    // that predates the node, "where was it then" has exactly one honest value — where it first
+    // appeared — so undoing twice leaves it there rather than somewhere invented. And it is why the
+    // fill is MISSING-IDS-ONLY: overwriting a known id would rewrite the past the reader is
+    // navigating, and it would break the two call sites composing (see the mount).
+    adopt(partial) {
+      const add = structuredClone(partial ?? {});
+      for (const entry of stack) {
+        for (const [id, slot] of Object.entries(add)) {
+          if (!(id in entry)) entry[id] = structuredClone(slot);
+        }
+      }
+      return at();
+    },
     canUndo: () => index > 0,
     canRedo: () => index < stack.length - 1,
     current: at,
@@ -294,6 +316,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       const moving = [];
       for (const node of slots()) {
         const want = snap[idOf(node)];
+        // A node the snapshot does not know is now ONLY a node REMOVED from the stage since — a
+        // post-mount PLACEMENT is adopted into every entry the moment it is first moved (#230), so
+        // this `continue` is no longer the phantom-undo path it used to be. Do not read it as one.
         if (!want) continue;
         const now = slotOf(node);
         if (now.col === want.col && now.row === want.row) continue;
@@ -340,6 +365,15 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         return; // DOM untouched
       }
       const slot = clampSlot(action?.params); // hostile input never reaches an attribute
+      // The OTHER adopt (#230), for the source with no gesture behind it: an injected agent move
+      // previewed nothing, so here — and only here — snapshot() still reports the node's origin.
+      // The two call sites compose precisely BECAUSE adopt fills missing ids only: after a pick-up
+      // has adopted this node, this call finds it present and leaves the recorded origin alone.
+      //
+      // The rejected alternative, which the review named: place() calling getVerbs()?.reseed().
+      // studio-verbs.mjs imports studio-canvas.mjs, so that edge is a circular import — and it
+      // would put the fix in the module that does not own the history.
+      history.adopt(snapshot());
       // NO TRAVEL ANIMATION HERE, and that is the decision rather than an omission: a move the
       // reader's own hand or keypress tracked does not need to be shown to them again. animateTo()
       // is undo/redo's alone — the one movement nothing tracked.
@@ -362,6 +396,11 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // TWO words, not one derived from the other: the success sentence leads with the past participle
     // ("Undone: …") and the nothing-moved sentence names the verb ("Nothing to undo."). Deriving
     // either from the other gave "Nothing to undone."
+    //
+    // The nothing-moved branch is still REACHABLE after #230 closed the phantom undo, so it is not
+    // dead code to delete: a gesture cannot commit a zero-length move (a press that moved nothing
+    // emits no ui.move at all), but an INJECTED agent move to the slot a node already occupies
+    // pushes an entry identical to its predecessor, and undoing across it moves nothing.
     const restoreVerb = (snap, word, verb) => {
       const moved = restore(snap);
       syncControls();
@@ -400,6 +439,12 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
 
     const pickUp = (node, source) => {
       const origin = slotOf(node);
+      // ADOPT AT PICK-UP, NOT ONLY IN THE CONSUMER — because a gesture is a PREVIEW. Both input
+      // paths write slots to the DOM live and emit their one ui.move at the DROP, so by the time
+      // the consumer runs, snapshot() reports a post-mount node's DESTINATION and adopting there
+      // would record it as its own origin. Undo would then "restore" it to where it already sits,
+      // and #230 would survive for the two paths a human actually uses. Here nothing has moved yet.
+      history.adopt(snapshot());
       gesture = {
         id: idOf(node),
         node,

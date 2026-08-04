@@ -486,8 +486,8 @@ async function journey(engineName, results, held) {
   // A click that moved nothing is not a move. Pressed and released at the WRAPPER CENTRE, not on
   // .stx-grab — so `fromHandle` is false, pointerup takes the drop("pointer") branch and the gesture
   // ends here. This case is therefore NOT the pick-up half of the single-pointer path (SC 2.5.7);
-  // it is the body-press no-op, and nothing in this file completes a click-move-click gesture. That
-  // gap is tracked, not hidden — #229 adds the case that completes the gesture.
+  // it is the body-press no-op. The single-pointer path has its own section further down, which
+  // presses the HANDLE and completes the whole click-move-click gesture (#229).
   await busClear(page);
   const depthBefore = await historyDepth(page);
   const hb = await nodeBox(page, TARGET);
@@ -818,6 +818,133 @@ async function journey(engineName, results, held) {
   t("…and its move HANDLE still moves it, so the guard costs no reach",
     linkMoved.row !== linkBefore.row, `${JSON.stringify(linkBefore)} → ${JSON.stringify(linkMoved)}`);
 
+  // ---------------------------------------------------------------- [SC 2.5.7] the single-pointer path, COMPLETED (#229)
+  // THE CRITERION THE MODULE HEADER IS MOST CAREFUL ABOUT, and until #229 the one criterion nothing
+  // ran. WCAG 2.2 SC 2.5.7 Dragging Movements needs a path with NO dragging movement in it: press
+  // and release on the handle to pick up, move the pointer with no button held, press and release
+  // again to drop. The body-press case above is NOT this — it presses at the wrapper centre, so
+  // `fromHandle` is false and pointerup takes the drop branch.
+  //
+  // Driven against the drag path as its control: the same node, the same destination cell, so a
+  // pass means the alternative genuinely reaches what the drag reaches rather than merely not
+  // throwing. Asserted as RESULTING ARRANGEMENT plus exactly one ui.move, matching AC #4's shape.
+  await undoAll(page);
+  const stickyFrom = (await arrangement(page))[TARGET];
+  const stickyGoal = { col: 3, row: 4 };
+  const stickyPoint = await cellPoint(page, stickyGoal.col, stickyGoal.row);
+  await busClear(page);
+  await countLive(page);
+
+  const grab = await page.evaluate((i) => {
+    const g = document.querySelector(`.stx-slot[data-stx-id="${i}"] .stx-grab`).getBoundingClientRect();
+    return { x: (g.left + g.right) / 2, y: (g.top + g.bottom) / 2 };
+  }, TARGET);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.up();                                  // click 1 — PICK UP, no travel
+  await page.waitForTimeout(80);
+  const picked = await page.evaluate(() => import("/system/studio-verbs.mjs")
+    .then((m) => { const g = m.getVerbs().gesture; return g && { sticky: g.sticky, fromHandle: g.fromHandle }; }));
+  t("SC 2.5.7 · a click on the HANDLE picks the component up and LEAVES it up — no button is held down",
+    picked?.sticky === true, JSON.stringify(picked));
+
+  await page.mouse.move(stickyPoint.x, stickyPoint.y, { steps: 18 }); // travel with NO button held
+  await page.waitForTimeout(80);
+  await page.mouse.down();
+  await page.mouse.up();                                  // click 2 — DROP
+  await page.waitForTimeout(150);
+
+  const stickyArr = (await arrangement(page))[TARGET];
+  t(`SC 2.5.7 · …and a second click drops it in column ${stickyGoal.col}, row ${stickyGoal.row} — the drag's destination, reached with no dragging movement`,
+    stickyArr.col === stickyGoal.col && stickyArr.row === stickyGoal.row,
+    `${JSON.stringify(stickyFrom)} → ${JSON.stringify(stickyArr)}`);
+  const stickyMoves = (await busSeen(page)).filter((a) => a.type === "ui.move");
+  t("SC 2.5.7 · …emitting exactly ONE ui.move, like the drag and the keyboard paths",
+    stickyMoves.length === 1, JSON.stringify(await busSeen(page)));
+  t("SC 2.5.7 · …with source \"pointer\" — the same source, because it IS the pointer path",
+    stickyMoves[0]?.source === "pointer", stickyMoves[0]?.source);
+  t("SC 2.5.7 · …and the gesture is over, so the next press starts cleanly",
+    (await page.evaluate(() => import("/system/studio-verbs.mjs").then((m) => m.getVerbs().gesture))) === null, "");
+
+  // ---------------------------------------------------------------- [#230] a component placed AFTER mount
+  // studio-canvas.mjs's place() is a NORMAL post-mount call — it is the stated justification for
+  // the verbs delegating their listeners on `stage`. But the history is seeded ONCE, at mount, so
+  // before #230 a node placed afterwards was in no earlier entry: undo consumed a step, the node
+  // did not move, Undo greyed out and the reader was left with a phantom.
+  //
+  // DRIVEN AS A REAL POINTER DRAG, and that is the whole discriminator. A gesture is a PREVIEW —
+  // both input paths write slots live and emit at the drop — so a fix that adopts the node only in
+  // the bus consumer records its DESTINATION as its origin and the phantom survives for both paths
+  // a human uses. An injected ui.move case passes against that broken design, because nothing
+  // previewed. Both are run below; the pointer one is the one that fails if the pick-up call site
+  // is removed.
+  await undoAll(page);
+  // EMPTY *AND* REACHABLE BY THE POINTER, which are two different constraints. The harness fills
+  // rows 1–2 across all 12 columns and row 3 to column 7, so the empty cells nearest to hand are in
+  // row 3's tail — but at this viewport column 9 sits at x≈2025, well outside the 1440px window,
+  // and the mouse cannot be moved to a point off-screen. Row 4 is empty for its whole width and its
+  // low columns are the ones every other pointer case here has proven reachable.
+  const LATE_FROM = { col: 2, row: 4 };
+  const LATE_TO = { col: 3, row: 4 };
+  const lateId = await page.evaluate(async ([c, r]) => {
+    const canvas = (await import("/system/studio-canvas.mjs")).getCanvas();
+    const node = document.createElement("div");
+    node.className = "card";
+    node.textContent = "Placed after the verbs mounted";
+    canvas.place(node, { col: c, row: r, name: "Late arrival" });
+    return node.closest(".stx-slot")?.getAttribute("data-stx-id") ?? null;
+  }, [LATE_FROM.col, LATE_FROM.row]);
+  t("#230 · the harness can place a component AFTER the verbs mounted — otherwise the case below is untested",
+    lateId !== null && (await arrangement(page))[lateId]?.col === LATE_FROM.col,
+    `${lateId} at ${JSON.stringify((await arrangement(page))[lateId])}`);
+
+  await dragTo(page, lateId, await cellPoint(page, LATE_TO.col, LATE_TO.row));
+  const lateMoved = (await arrangement(page))[lateId];
+  t(`#230 · a POINTER drag moves it to column ${LATE_TO.col}, row ${LATE_TO.row}`,
+    lateMoved.col === LATE_TO.col && lateMoved.row === LATE_TO.row, JSON.stringify(lateMoved));
+
+  await countLive(page);
+  await btn(page, "Undo").click();
+  await page.waitForTimeout(300);
+  const lateUndone = (await arrangement(page))[lateId];
+  t("#230 · …and UNDO puts it back where it was placed, rather than consuming a step and moving nothing",
+    lateUndone.col === LATE_FROM.col && lateUndone.row === LATE_FROM.row,
+    `${JSON.stringify(lateMoved)} → ${JSON.stringify(lateUndone)}`);
+  t("#230 · …announcing the restore by name, never \"Nothing to undo.\" on a step it just consumed",
+    /Late arrival/.test((await liveSeen(page)).last || ""), (await liveSeen(page)).last);
+
+  // THE OTHER CALL SITE, and it needs its OWN node. The consumer's adopt is the one #209's replay
+  // driver depends on — an injected move has no gesture behind it, so nothing picked up and nothing
+  // adopted on the way in. Re-using the node above cannot detect it: by then the pick-up has
+  // already taught the stack that id, and removing the consumer's adopt leaves the whole run green.
+  // Measured, not reasoned about — that mutation passed 88/88 until this case existed.
+  //
+  // Off-screen cells on purpose: injection needs no pointer, so this is free of the reachability
+  // constraint the drag above is bounded by.
+  const INJ_FROM = { col: 9, row: 5 };
+  const INJ_TO = { col: 10, row: 5 };
+  const injId = await page.evaluate(async ([c, r]) => {
+    const canvas = (await import("/system/studio-canvas.mjs")).getCanvas();
+    const node = document.createElement("div");
+    node.className = "card";
+    node.textContent = "Placed after the verbs mounted, moved only by an injected action";
+    canvas.place(node, { col: c, row: r, name: "Late agent arrival" });
+    return node.closest(".stx-slot")?.getAttribute("data-stx-id") ?? null;
+  }, [INJ_FROM.col, INJ_FROM.row]);
+  await inject(page, { type: "ui.move", source: "agent", target: { component: "card", id: injId }, params: INJ_TO });
+  await page.waitForTimeout(150);
+  t("#230 · a post-mount component moved ONLY by an injected action moves — no gesture, no pick-up",
+    (await arrangement(page))[injId]?.col === INJ_TO.col, JSON.stringify((await arrangement(page))[injId]));
+  await btn(page, "Undo").click();
+  await page.waitForTimeout(300);
+  const injUndone = (await arrangement(page))[injId];
+  t("#230 · …and undo returns IT to where it was placed too — the consumer adopts what no pick-up could have",
+    injUndone.col === INJ_FROM.col && injUndone.row === INJ_FROM.row, JSON.stringify(injUndone));
+
+  // Leave the stage as the sections below expect to find it.
+  await page.evaluate((ids) => { for (const i of ids) document.querySelector(`.stx-slot[data-stx-id="${i}"]`)?.remove(); },
+    [lateId, injId]);
+
   // ---------------------------------------------------------------- refusals go to the live region
   await countLive(page);
   const beforeRefusal = await arrangement(page);
@@ -956,5 +1083,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · reduced motion (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

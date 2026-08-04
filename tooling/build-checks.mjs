@@ -1735,6 +1735,52 @@ function scanSvg(svg, label) {
   pushedMutable.s1.col = 999;
   ok(seedH.current().s1.col === 1, "mutating the object handed to push() reached into history");
 
+  // --- adopt: ids the stack has never seen, taught to EVERY entry (#230) -----------------------
+  // The phantom undo, as a pure fact: a component placed after mount is in no earlier entry, so
+  // undo consumed a step and moved nothing. The MOUNT's half of this — that adopt is called at
+  // pick-up and not only in the consumer, because a gesture previews before it commits — is a
+  // running-page fact and belongs to tooling/studio-journey.mjs, which drives a real pointer drag
+  // on a post-mount node. This group can only prove the stack.
+  const adoptH = createHistory(arrangement(1));
+  adoptH.push(arrangement(2));
+  adoptH.push(arrangement(3));
+  adoptH.adopt({ late1: { col: 5, row: 5 } });
+  adoptH.undo(); adoptH.undo();
+  ok(deep(adoptH.current().late1) === deep({ col: 5, row: 5 }),
+    "an adopted id is missing from an entry that predates it — undo lands on an arrangement that cannot place it");
+  ok(deep(adoptH.current().s1) === deep(arrangement(1).s1),
+    "adopt rewrote an entry's EXISTING id — the past the reader is navigating must not move");
+
+  // MISSING IDS ONLY, which is what lets the mount's two call sites compose: the pick-up adopts the
+  // node at its origin, and the consumer's later adopt must find it present and leave it alone.
+  // Mutating this to an unconditional write makes the check above red, which is the point.
+  const keepH = createHistory({ s1: { col: 1, row: 1 } });
+  keepH.adopt({ s1: { col: 9, row: 9 }, late1: { col: 2, row: 2 } });
+  ok(deep(keepH.current()) === deep({ s1: { col: 1, row: 1 }, late1: { col: 2, row: 2 } }),
+    "adopt overwrote a known id instead of filling only the missing one");
+
+  // A no-op for the ordinary case, and it must not disturb the cursor: adopt runs on EVERY move.
+  const quietH = createHistory(arrangement(1));
+  quietH.push(arrangement(2));
+  quietH.undo();
+  const beforeAdopt = { current: deep(quietH.current()), canUndo: quietH.canUndo(), canRedo: quietH.canRedo(), depth: quietH.depth() };
+  quietH.adopt(arrangement(1));
+  ok(deep(quietH.current()) === beforeAdopt.current && quietH.canUndo() === beforeAdopt.canUndo
+    && quietH.canRedo() === beforeAdopt.canRedo && quietH.depth() === beforeAdopt.depth,
+    "adopt with nothing new to teach moved the cursor or the stack — it runs on every move and must be inert");
+
+  // The clone discipline the seed and push already carry, extended to adopt: mutate the object
+  // handed in, then read history back. A stack that stored the live reference would let the caller
+  // rewrite the past, and every deep-compare above would still pass.
+  const adoptMutable = { late2: { col: 3, row: 3 } };
+  const cloneAdoptH = createHistory(arrangement(1));
+  cloneAdoptH.adopt(adoptMutable);
+  adoptMutable.late2.col = 999;
+  ok(cloneAdoptH.current().late2.col === 3, "mutating the object handed to adopt() reached into history");
+  const escapedAdopt = cloneAdoptH.current();
+  escapedAdopt.late2.col = 999;
+  ok(cloneAdoptH.current().late2.col === 3, "an id adopted into history is handed back as a live reference");
+
   // --- stepSlot: one arrow step, occupancy-aware and terminating ------------------------------
   const occ = (...cells) => new Set(cells.map(([col, row]) => occupancyKey({ col, row })));
   ok(occupancyKey({ col: 3, row: 4 }) === "3,4", `occupancyKey gave ${occupancyKey({ col: 3, row: 4 })}, expected "3,4"`);
@@ -1862,7 +1908,7 @@ function scanSvg(svg, label) {
       `DIRS.${key} is [${dc}, ${dr}] — every direction must be a UNIT step on ONE axis, or stepSlot's per-axis bound is wrong`);
   }
 
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------
