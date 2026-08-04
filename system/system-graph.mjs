@@ -13,8 +13,29 @@
 //   renderSystemGraph(container, model) — builds the SVG (createElementNS discipline,
 //                                       agentic-renderer.mjs idiom); returns { destroy }.
 // The module injects no <style> — factory.html owns the sg-* styles (page-owns-exhibit).
+//
+// PAN / ZOOM (#173). The exhibit is a bounded window the reader handles: drag to pan,
+// ⌘/Ctrl-wheel (and trackpad pinch, which arrives as wheel + ctrlKey) to zoom, plus an
+// explicit button row for the keyboard. Zoom writes the SVG's RENDERED width/height against
+// the UNCHANGED viewBox, so strokes, text and drawEdge's user-space coordinates all scale
+// from one property write — no CSS transform, no per-element math. Pan is drag-to-SCROLL on
+// a real scroll container, which is what keeps the 96 tabbable nodes reachable: the browser
+// scrolls a focused node into view and arrow keys scroll the box (2.4.7 / 2.4.11). A clipped
+// transformed layer would have to buy both back with hand-written focus→pan math.
+//
+// EVERY MEASUREMENT HAPPENS INSIDE AN EVENT HANDLER. factory.html mounts this graph into
+// #shape, which the tab controller has already `hidden` — so at mount time every rect in
+// this subtree is 0×0 and stays wrong until the reader opens the tab. Hence: at rest scale 1
+// and scroll 0,0 (no measured fit-to-width default), and nothing reads clientWidth until a
+// pointerdown/wheel/click says the box is real.
 
 const SVGNS = "http://www.w3.org/2000/svg";
+
+// Zoom bounds and the button row's step. Reset returns to exactly 1, so the at-rest geometry
+// is byte-identical to boot (WIDTH * 1 === the width attribute the <svg> already carries).
+const MIN_SCALE = 0.6;
+const MAX_SCALE = 2.5;
+const ZOOM_STEP = 1.25;
 
 // Layout constants (structural literals): row rhythm and the two column x positions.
 const ROW = 17;
@@ -103,7 +124,8 @@ export function renderSystemGraph(container, model) {
   // ----- Static frame: legend (real counts — never hand-written), scrolling SVG, detail line.
   const legend = el("p", { class: "sg-legend", text:
     `${model.counts.tokens} contract tokens · ${model.counts.consumers} consumer blocks · 3 packs — ` +
-    "measured, not drawn. Hover or focus a node to draw its edges; a filled dot is a spec-backed component." });
+    "measured, not drawn. Hover or focus a node to draw its edges; a filled dot is a spec-backed " +
+    "component. Drag the map to move it; ⌘/Ctrl-scroll, pinch, or the buttons to zoom." });
   const root = svg("svg", {
     class: "sg-svg", width: WIDTH, height, viewBox: `0 0 ${WIDTH} ${height}`,
     role: "img", "aria-label":
@@ -111,8 +133,33 @@ export function renderSystemGraph(container, model) {
   });
   const edges = svg("g", { class: "sg-edges" });
   root.appendChild(edges);
+  const scroll = el("div", { class: "sg-scroll" });
+  scroll.appendChild(root);
   const detail = el("p", { class: "sg-detail", "aria-live": "polite", text:
     "Hover or focus a token to see its consumers and its value in each pack." });
+
+  // keepInView(node) — scroll a newly focused node inside the window. MEASURED IN THE HANDLER,
+  // never at mount (#shape is hidden then and every rect is 0×0).
+  //
+  // This is NOT redundant with the browser's own focus scrolling, and #173 shipped without it for
+  // one round: FIREFOX DOES NOT SCROLL A FOCUSED *SVG* ELEMENT INTO VIEW AT ALL — not on Tab, not
+  // on an explicit scrollIntoView({block:"nearest"}); both no-op (chromium and webkit do both).
+  // That only became reachable when the exhibit gained a max-height and turned into a real vertical
+  // scroll container: before, the SVG stood full-height in the page flow and tabbing scrolled the
+  // DOCUMENT, which Firefox handles. Without this, tabbing to node 60 of 96 on Firefox moves focus
+  // to something the reader cannot see — WCAG 2.4.7 Focus Visible / 2.4.11 Focus Not Obscured.
+  // Written to run on every engine rather than sniffing one: where the browser already did the
+  // work the node is inside the box, both branches are false, and this is a no-op.
+  const FOCUS_MARGIN = 12;
+  const keepInView = (node) => {
+    const r = node.getBoundingClientRect();
+    const b = scroll.getBoundingClientRect();
+    if (!r.height && !r.width) return; // panel still hidden — nothing meaningful to measure
+    if (r.top < b.top) scroll.scrollTop -= b.top - r.top + FOCUS_MARGIN;
+    else if (r.bottom > b.bottom) scroll.scrollTop += r.bottom - b.bottom + FOCUS_MARGIN;
+    if (r.left < b.left) scroll.scrollLeft -= b.left - r.left + FOCUS_MARGIN;
+    else if (r.right > b.right) scroll.scrollLeft += r.right - b.right + FOCUS_MARGIN;
+  };
 
   for (const g of groupLabels)
     root.appendChild(svgText(TOKEN_TEXT_X, g.y + 8, g.label, { class: "sg-group-label", "text-anchor": "end" }));
@@ -152,7 +199,7 @@ export function renderSystemGraph(container, model) {
   const wire = (node, activate) => {
     node.addEventListener("mouseenter", activate);
     node.addEventListener("mouseleave", clear);
-    node.addEventListener("focus", activate);
+    node.addEventListener("focus", () => { activate(); keepInView(node); });
     node.addEventListener("blur", clear);
   };
 
@@ -180,9 +227,86 @@ export function renderSystemGraph(container, model) {
     root.appendChild(node);
   }
 
-  const scroll = el("div", { class: "sg-scroll" });
-  scroll.appendChild(root);
-  container.append(legend, scroll, detail);
+  // ----- Zoom controls. Real buttons with visible text — this is the keyboard path, and the
+  // only zoom affordance a reader who never touches a trackpad will find.
+  const level = el("span", { class: "sg-zoom-level", "aria-live": "polite", text: "100%" });
+  const outBtn = el("button", { type: "button", class: "btn btn-secondary sg-zoom-btn", text: "Zoom out" });
+  const inBtn = el("button", { type: "button", class: "btn btn-secondary sg-zoom-btn", text: "Zoom in" });
+  const resetBtn = el("button", { type: "button", class: "btn btn-secondary sg-zoom-btn", text: "Reset" });
+  const zoomRow = el("div", { class: "sg-zoom" }, outBtn, inBtn, resetBtn, level);
+
+  let scale = 1;
+  const syncControls = () => {
+    level.textContent = `${Math.round(scale * 100)}%`;
+    outBtn.disabled = scale <= MIN_SCALE;
+    inBtn.disabled = scale >= MAX_SCALE;
+  };
+
+  // setScale(next, anchorX, anchorY) — anchors are box-relative px; default is the box centre,
+  // measured HERE (call time) and never at mount, because the panel may still be hidden.
+  const setScale = (next, anchorX, anchorY) => {
+    const clamped = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
+    if (clamped === scale) return;
+    const ax = anchorX ?? scroll.clientWidth / 2;
+    const ay = anchorY ?? scroll.clientHeight / 2;
+    // The content point under the anchor, in unscaled viewBox units, read with the OLD scale.
+    const cx = (scroll.scrollLeft + ax) / scale;
+    const cy = (scroll.scrollTop + ay) / scale;
+    scale = clamped;
+    root.style.width = `${WIDTH * scale}px`;
+    root.style.height = `${height * scale}px`;
+    scroll.scrollLeft = cx * scale - ax; // the browser clamps both to the new scroll range
+    scroll.scrollTop = cy * scale - ay;
+    syncControls();
+  };
+
+  outBtn.addEventListener("click", () => setScale(scale / ZOOM_STEP));
+  inBtn.addEventListener("click", () => setScale(scale * ZOOM_STEP));
+  // Reset is both axes: back to the at-rest exhibit, whether the reader zoomed, panned or both.
+  resetBtn.addEventListener("click", () => {
+    setScale(1);
+    scroll.scrollLeft = 0;
+    scroll.scrollTop = 0;
+  });
+
+  // ----- Drag to pan. Pointer capture (not document listeners — destroy()'s contract) so a
+  // drag that leaves the box still tracks. Touch bails out: native touch scrolling already pans.
+  let pan = null;
+  scroll.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType === "touch") return;
+    pan = { id: e.pointerId, x: e.clientX, y: e.clientY, left: scroll.scrollLeft, top: scroll.scrollTop };
+    scroll.setPointerCapture(e.pointerId);
+    scroll.classList.add("is-panning");
+  });
+  scroll.addEventListener("pointermove", (e) => {
+    if (!pan || e.pointerId !== pan.id) return;
+    scroll.scrollLeft = pan.left - (e.clientX - pan.x);
+    scroll.scrollTop = pan.top - (e.clientY - pan.y);
+  });
+  const endPan = (e) => {
+    if (!pan || e.pointerId !== pan.id) return;
+    if (scroll.hasPointerCapture(e.pointerId)) scroll.releasePointerCapture(e.pointerId);
+    pan = null;
+    scroll.classList.remove("is-panning");
+  };
+  scroll.addEventListener("pointerup", endPan);
+  scroll.addEventListener("pointercancel", endPan);
+
+  // ----- Wheel zoom, anchored at the cursor. ONLY with ⌘/Ctrl held (a trackpad pinch arrives
+  // as wheel + ctrlKey, so pinch needs no extra code). Plain wheel is deliberately untouched:
+  // it scrolls the box and then chains to the page, so a mid-page exhibit never traps scroll.
+  scroll.addEventListener("wheel", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const r = scroll.getBoundingClientRect(); // measured in the handler — see the header note
+    setScale(scale * Math.exp(-e.deltaY / 300), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+
+  // Keyboard needs nothing else: the button row is the explicit path, arrow keys scroll a
+  // focused scroll container, and Tab moves through the sg-node elements — each of which the
+  // browser scrolls into view natively, because this is a real scroll container.
+
+  container.append(legend, zoomRow, scroll, detail);
 
   // Parity with trace-player/handoff-viewer: no document-level listeners, so destroy()
   // only clears the container — the embedder contract is kept.

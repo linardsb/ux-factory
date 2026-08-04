@@ -195,11 +195,17 @@
        embed's fixed height. pack-boot.js still runs in that embed, so the thumbnail follows the
        reader's pack pick. The toggle is markup, so it is removed rather than left inert: a control
        with no engine behind it is worse than no control. A reader who deliberately drives the ⌘K
-       palette inside the frame still gets the layer — the rule is about at-rest chrome, not consent. -->
+       palette inside the frame still gets the layer — the rule is about at-rest chrome, not consent.
+       The device frame's grab handle (#176) is frame chrome by exactly the same argument: it resizes
+       the depicted phone, which is a fact about the exhibit and not about the screen inside it, and
+       the embed is a fixed-height box with no room to resize into. So it mounts here, top-window
+       only, and the handle is BUILT BY THE MODULE rather than sitting in the markup — same call as
+       the toggle above, for the same reason: a control with no engine behind it is worse than none. -->
   <script type="module">
     if (window.self === window.top) {
       import("/system/dock.mjs");
       import("/system/inspect.mjs");
+      import("/system/device-frame.mjs").then((m) => m.initDeviceFrame());
     } else {
       document.querySelector(".inspect-toggle")?.remove();
     }

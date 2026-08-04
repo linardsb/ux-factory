@@ -748,9 +748,13 @@ body {
 }
 
 /* phone bezel — hardware depiction like .ot-phone, but token-bound
-   (bg-inverse ≈ device chassis in any pack; shadow from the scale) */
+   (bg-inverse ≈ device chassis in any pack; shadow from the scale).
+   The width is a custom property with the ORIGINAL value as its fallback (#176): with no JS
+   the frame resolves to exactly what it always did, so rest geometry never waits on a module
+   and the pixel gate cannot race the mount. device-frame.mjs sets --frame-w only once the
+   reader drags or keys the handle — nothing writes geometry at load. */
 .proto-frame-phone {
-  width: min(392px, 94vw);
+  width: var(--frame-w, min(392px, 94vw));
   background: var(--color-bg-inverse);
   border-radius: 54px;
   padding: 12px;
@@ -764,6 +768,13 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
+  /* the container context the @container rules at the end of this file key to (#176).
+     It sits on .proto-screen and NOT on .proto-frame-phone deliberately: `container-type`
+     implies `contain: layout style inline-size`, which makes the element a stacking context
+     AND a containing block for abs/fixed descendants (the #171 breadboard mechanism). The
+     screen is already isolated by its own `overflow: hidden`, so containing it adds no new
+     clipping boundary; containing the bezel would wrap the shadow and the padding too. */
+  container-type: inline-size;
 }
 
 /* desktop board frame — the Fieldwork canvas */
@@ -812,3 +823,173 @@ body {
 .proto-slot-fill--summary-strip { flex-wrap: wrap; }
 .proto-slot-fill--summary-strip > * { flex: 1 1 0; min-width: 120px; }
 .proto-slot-fill--insight-panel { flex-direction: column; }
+
+/* ---------------------------------------------------------------- the manipulable protos
+ * epic #164, ticket #176 — the two prototype pages stop being view-only.
+ * Verdant gets a resizable device frame; Fieldwork's agentic slots get a control row that
+ * commands the composed components over the action bus. Token-only, same discipline as
+ * everything above. Reader-facing motion carries its own reduced-motion off-ramp at the end
+ * of this block: portfolio.css's global kill-switch does not reach this sheet.
+ */
+
+/* the frame + its grab handle, side by side. Structural only — deliberately not sticky,
+   because body { overflow-x: clip } on the shipped pages makes position:sticky a no-op for
+   every descendant, so a pinned handle would silently do nothing. */
+.proto-device {
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-sm);
+}
+
+/* the grab bar. touch-action:none or the drag never starts on touch (the pointer events
+   are consumed by the browser's own scroll gesture first). */
+.proto-resize {
+  flex: none;
+  align-self: center;
+  width: 10px;
+  height: var(--spacing-4xl);
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  cursor: ew-resize;
+  touch-action: none;
+  transition: background var(--motion-bounce) var(--motion-ease-bounce),
+              border-color var(--motion-bounce) var(--motion-ease-bounce);
+}
+.proto-resize:hover { background: var(--color-bg-inverse); }
+.proto-resize:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.proto-device[data-dragging] .proto-resize {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+/* while dragging, the pointer owns the gesture — kill text selection across the stage */
+.proto-device[data-dragging] { user-select: none; }
+
+.proto-resize-readout {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Fieldwork's agentic-slot control row (bus-toggles.mjs) ---- */
+.bt-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+.bt-hint {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.bt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.bt-target {
+  font: inherit;
+  font-size: var(--type-caption);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  max-width: 22ch;
+}
+.bt-target:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+/* native radios, the dock's pack-switcher precedent (components.css .dock-pack-row): arrow-key
+   movement and focus management come free, and the manifest counts the group as one control. */
+.bt-tones {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.bt-tones legend {
+  float: left;
+  margin-inline-end: var(--spacing-xs);
+  padding: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.bt-tone-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+  cursor: pointer;
+  /* the pressed-state feedback, and the ONLY motion this ticket adds to an interaction.
+     bounce = "things you touch, never entrances" (#165) — it can only run on a real press,
+     so it never fires on the load-time slot fill (the entrance-on-rebuild trap). */
+  transition: transform var(--motion-bounce) var(--motion-ease-bounce),
+              background var(--motion-bounce) var(--motion-ease-bounce),
+              border-color var(--motion-bounce) var(--motion-ease-bounce);
+}
+.bt-tone-opt:active { transform: scale(0.96); }
+.bt-tone-opt:has(input:checked) { background: var(--color-bg); border-color: var(--color-accent); }
+.bt-tone-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.bt-tone-opt input { accent-color: var(--color-accent); }
+.bt-reset {
+  font: inherit;
+  font-size: var(--type-caption);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  cursor: pointer;
+  transition: transform var(--motion-bounce) var(--motion-ease-bounce);
+}
+.bt-reset:active { transform: scale(0.96); }
+.bt-reset:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+/* the readout — what actually went across the bus, source verbatim. It is the honesty
+   surface, so it is never hidden: it carries its own empty state before the first command. */
+.bt-readout {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+}
+.bt-readout[data-refused] { color: var(--color-fg); font-weight: 600; }
+
+/* The device frame's reflow (#176). These queries only mean anything inside the phone's
+   container context, which `.proto-frame-phone .proto-screen` above establishes — so they
+   live with the frame, not in components.css. Keeping them out of components.css is
+   deliberate and load-bearing: gen-system-graph.mjs parses that file into consumer blocks and
+   records which tokens each consumes, and system-graph.json → inspect-data.json are both
+   drift-checked and rendered, so a rule added there cascades into two generated artifacts and
+   a third page's baseline. Nothing else on this site has a container ancestor, so a
+   @container rule is inert everywhere else by construction.
+   Neither query fires at the frame's rest width: 392px of bezel minus 12px padding each side
+   leaves the screen ≈368px, between the two breakpoints. That is what keeps the at-rest
+   baseline a question of the handle's own pixels and nothing else. */
+@container (max-width: 340px) {
+  .vd-tile-pair { grid-template-columns: 1fr; }
+}
+@container (min-width: 560px) {
+  .vd-screen-body .vd-stack {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+/* reduced motion — this sheet gets no global kill-switch (portfolio.css's does not reach the
+   proto pages), so every transition added above is turned off here by name. The interactions
+   themselves still complete and reach the same end state; only the easing goes. */
+@media (prefers-reduced-motion: reduce) {
+  .proto-resize, .bt-tone-opt, .bt-reset { transition: none; }
+  .bt-tone-opt:active, .bt-reset:active { transform: none; }
+}
