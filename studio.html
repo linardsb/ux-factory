@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · studio canvas harness</title>
+  <meta name="description" content="Internal test harness for the prototype studio's canvas substrate: a DOM stage that pans on a native scroller, zooms through a fixed level table, and holds real token-skinned components in grid slots." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+
+  <!-- Internal test harness (epic #202, ticket #204) — drives system/studio-canvas.mjs RAW:
+       real components composed through the vocabulary, placed into grid slots by attribute, panned
+       by native scroll and zoomed through the CSS level table. THIS IS THE WORKBENCH; the designed
+       surface is /factory, and that route surgery is #206's ticket, not this one.
+
+       Same posture as agentic.html / trace.html / handoff.html: noindex, no site.js, no chrome, no
+       pack-boot, no dock, no palette, not in the footer site index, not in the VR page set. Four
+       stylesheets: contract → neutral pack → components → the studio's surface sheet. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/studio.css" />
+
+  <style>
+    /* Harness chrome only — everything on the stage below is real components from tokens. */
+    body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-sans, system-ui, sans-serif); }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: var(--spacing-lg, 24px) var(--spacing-md, 16px) 64px; }
+    h1 { font-size: var(--type-h2, 1.6rem); margin: 0 0 var(--spacing-xs, 8px); }
+    h2 { font-size: var(--type-h3, 1.2rem); margin: var(--spacing-xl, 40px) 0 var(--spacing-sm, 12px); }
+    .lede { color: var(--color-fg-muted); max-width: 72ch; margin: 0 0 var(--spacing-md, 16px); }
+    .strip { border: 1px solid var(--color-border); border-radius: var(--radius-md, 8px); padding: var(--spacing-md, 16px); margin: var(--spacing-md, 16px) 0; background: var(--color-bg-surface); }
+    .strip p { margin: 0 0 6px; font-size: var(--type-caption, 0.85rem); }
+    .strip p:last-child { margin-bottom: 0; }
+    .strip code { font-size: 12px; }
+    .cap-live { color: var(--color-fg); font-weight: 600; }
+    .cap-bad { color: var(--color-fg); font-weight: 700; }
+    .tail { max-width: 72ch; font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Studio canvas — harness</h1>
+    <p class="lede">The prototype studio's substrate, raw. The stage below is ordinary DOM holding real
+      components from the system's own vocabulary — so the token contract, focus order and the inspect
+      bubbles keep working by construction rather than by re-implementation. Pan is native scrolling;
+      zoom is a <code>data-zoom</code> attribute against a scale table declared in CSS; arrangement is
+      <code>data-col</code> / <code>data-row</code>. Nothing here writes an inline style.</p>
+
+    <div class="strip" id="capability"><p>Loading the vocabulary…</p></div>
+
+    <h2>The stage</h2>
+    <div data-studio-canvas id="canvas"></div>
+
+    <div class="strip">
+      <p><strong>What is live:</strong> drag the background to pan, or scroll it. <code>⌘</code>/<code>Ctrl</code>
+        with the wheel — and a trackpad pinch, which arrives the same way — zooms about the cursor. The four
+        buttons are the keyboard path, and the readout announces. A <em>bare</em> wheel is never intercepted:
+        it scrolls the stage and then chains to the page.</p>
+      <p>Tab reaches every component on the stage and the browser scrolls each one into view, because this is
+        a real scroll container and not a translated element. That property is the whole reason pan is scroll.</p>
+    </div>
+
+    <p class="tail">Placement here is programmatic — <code>place(node, {col, row})</code>. Moving things by
+      pointer is ticket #205; marquee, guides and multi-move are #217. This page exists so the substrate can be
+      driven and gated before anything designed depends on it.</p>
+  </div>
+
+  <script type="module">
+    import { renderComposition } from "/system/agentic-renderer.mjs";
+    import { initStudioCanvas, MAX_COLS, MAX_ROWS } from "/system/studio-canvas.mjs";
+
+    // ~30 real components across the library's shapes — the token-skinned DOM is the thing under
+    // test, so nothing here is a div standing in for one. Each entry is a single-node composition,
+    // rendered on its own so it can own a slot.
+    // An absent optional prop must be ABSENT, not present-and-undefined — the vocabulary validates
+    // the key, so `unit: undefined` is a refusal rather than an omission.
+    const props = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+
+    const TONES = ["neutral", "warn", "critical"];
+    const SPECS = [];
+    for (let i = 0; i < 8; i += 1) {
+      SPECS.push({ name: "metric-tile", label: `Metric ${i + 1}`, node: {
+        name: "metric-tile", props: props({ label: ["Overdue", "Unassigned", "In flight", "Closed"][i % 4], value: String(3 + i * 7), unit: i % 2 ? "jobs" : undefined, tone: TONES[i % 3] }) } });
+    }
+    for (let i = 0; i < 8; i += 1) {
+      SPECS.push({ name: "list-row", label: `Row ${i + 1}`, node: {
+        name: "list-row", props: props({ label: ["North route", "Depot 4", "A. Okonkwo", "SKU-2201"][i % 4], value: String(12 + i * 3), unit: "min", meta: "today", tone: TONES[(i + 1) % 3] }) } });
+    }
+    for (let i = 0; i < 5; i += 1) {
+      SPECS.push({ name: "plant-card", label: `Card ${i + 1}`, node: {
+        name: "plant-card", props: props({ name: ["Monstera", "Calathea", "Snake plant", "Fern", "Aloe"][i], species: i % 2 ? "Monstera deliciosa" : undefined, status: ["ok", "due", "overdue"][i % 3] }) } });
+    }
+    for (let i = 0; i < 4; i += 1) {
+      SPECS.push({ name: "care-task-row", label: `Task ${i + 1}`, node: {
+        name: "care-task-row", props: { type: ["water", "fertilise", "repot", "inspect"][i], plantName: ["Monstera", "Calathea", "Fern", "Aloe"][i], status: ["ok", "due", "overdue"][i % 3] } } });
+    }
+    for (let i = 0; i < 3; i += 1) {
+      SPECS.push({ name: "sequence-step", label: `Step ${i + 1}`, node: {
+        name: "sequence-step", props: { position: String(i + 1), total: "3", label: ["Intake", "Derive", "Hand off"][i], detail: "one beat of the pipeline" } } });
+    }
+    SPECS.push({ name: "stat-tile", label: "Moisture", node: { name: "stat-tile", props: { kind: "moisture", value: 34, unit: "%", label: "Moisture" } } });
+    SPECS.push({ name: "stat-tile", label: "Light", node: { name: "stat-tile", props: { kind: "light", value: 820, unit: "lx", label: "Light" } } });
+    SPECS.push({ name: "primary-button", label: "Log care", node: { name: "primary-button", props: { label: "Log care" } } });
+
+    const capability = document.getElementById("capability");
+
+    try {
+      const vocab = await fetch("/handoff/verdant/vocabulary.json").then((r) => r.json());
+      const canvas = initStudioCanvas();
+      if (!canvas) throw new Error("studio.html: the canvas viewport is missing");
+
+      // Column-major so the far columns are genuinely occupied — the Tab-scrolls-into-view claim is
+      // worth nothing if everything sits in the first screenful.
+      let placed = 0;
+      for (const spec of SPECS) {
+        const node = renderComposition(vocab, spec.node);
+        node.dataset.stxName = spec.label;
+        const col = (placed % MAX_COLS) + 1;
+        const row = (Math.floor(placed / MAX_COLS) % MAX_ROWS) + 1;
+        canvas.place(node, { col, row, name: spec.label });
+        placed += 1;
+      }
+
+      const p = document.createElement("p");
+      p.className = "cap-live";
+      p.textContent = `Live in your browser, right now: ${placed} real components validated against the vocabulary and placed on the stage by attribute — ${MAX_COLS} columns × ${MAX_ROWS} rows, nothing precomputed and no inline style written.`;
+      capability.replaceChildren(p);
+    } catch (e) {
+      const p = document.createElement("p");
+      p.className = "cap-bad";
+      p.textContent = `Refused: ${e.message}`;
+      capability.replaceChildren(p);
+    }
+  </script>
+</body>
+</html>

@@ -275,6 +275,76 @@ for (const name of toRun) {
       t(`${s.label} · reduced motion reaches the same end state`, (await s.state(rpg)) === to, `reduce=${await s.state(rpg)} vs normal=${to}`);
       await rc.close();
     }
+
+    // ---- #204 · the studio canvas names NOTHING ---------------------------------------------
+    // Written as its own block rather than a SITEWIDE row because the table's per-verb claim is
+    // hardcoded to `calls === 1`, and this surface's claim is the opposite number. The structure it
+    // does share is the one that matters: PROVE THE MOVEMENT FIRST. "Zero ::view-transition-*
+    // pseudos" is trivially true of a page where nothing happened, so without the precondition this
+    // check could not fail — the exact defect class #137 paid for twice.
+    const cctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await cctx.addInitScript(HOOK);
+    const cp = await cctx.newPage();
+    await cp.goto(`${BASE}/studio.html`, { waitUntil: "load" });
+    await cp.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
+    await cp.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 20000 });
+
+    const cboot = await read(cp);
+    t("studio canvas · load opens zero transitions", cboot.calls === 0, `calls=${cboot.calls}`);
+
+    // The canvas's two kinds of movement: a zoom (the whole stage rescales) and a placement (a node
+    // changes grid cell). Both are layout, and both must animate through nothing named.
+    const canvasState = () => cp.evaluate(() => {
+      const vp = document.querySelector("[data-studio-canvas]");
+      const node = vp.querySelector(".stx-slot");
+      const r = node.getBoundingClientRect();
+      return { zoom: vp.getAttribute("data-zoom"), col: node.getAttribute("data-col"), box: `${Math.round(r.width)}x${Math.round(r.left)}` };
+    });
+    const movePlace = () => cp.evaluate(() => import("/system/studio-canvas.mjs").then((m) => {
+      const c = m.getCanvas();
+      const node = c.stage.querySelector(".stx-slot");
+      c.place(node, { col: Number(node.getAttribute("data-col")) === 6 ? 2 : 6, row: 4, name: "vt probe" });
+    }));
+
+    await reset(cp);
+    const cbefore = await canvasState();
+    await clickAfterScroll(cp.locator("[data-studio-canvas]").getByRole("button", { name: "Zoom in", exact: true }));
+    await movePlace();
+    await cp.waitForTimeout(700);
+    const cafter = await canvasState();
+    const cmoved = await read(cp);
+    t("studio canvas · the zoom and the placement actually changed the surface",
+      cafter.zoom !== cbefore.zoom && cafter.col !== cbefore.col && cafter.box !== cbefore.box,
+      `${JSON.stringify(cbefore)} → ${JSON.stringify(cafter)}`);
+    t("studio canvas · …and opened no transition", cmoved.calls === 0, `calls=${cmoved.calls}`);
+    const pseudos = await cp.evaluate(() => document.getAnimations()
+      .map((a) => a.effect && a.effect.pseudoElement)
+      .filter((x) => x && x.startsWith("::view-transition")));
+    t("studio canvas · zero ::view-transition-* pseudos are running after the movement",
+      pseudos.length === 0, pseudos.join(" "));
+    await cctx.close();
+
+    const crc = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+    await crc.addInitScript(HOOK);
+    const crp = await crc.newPage();
+    await crp.goto(`${BASE}/studio.html`, { waitUntil: "load" });
+    await crp.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
+    // reset() zeroes the TRANSITION COUNTER, not the canvas — so the movement precondition has to be
+    // taken here too, exactly as the block above takes it. Written out rather than inherited because
+    // the lighter-weight version of this sub-case could not fail: the page loads reading "100%", so
+    // a regression that made fit() a no-op under reduced motion would still satisfy both a
+    // /^\d+%$/ readout test and `calls === 0`.
+    await reset(crp);
+    const rbefore = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
+    await crp.locator("[data-studio-canvas]").getByRole("button", { name: "Fit", exact: true }).click();
+    await crp.waitForTimeout(400);
+    const crm = await read(crp);
+    const rafter = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
+    // Quiet is not enough — the verb still has to work, and "it worked" has to be a change.
+    t("studio canvas · reduced motion · fit actually moved the zoom level",
+      rafter !== rbefore, `data-zoom ${rbefore} → ${rafter}`);
+    t("studio canvas · reduced motion opens none", crm.calls === 0, `calls=${crm.calls}`);
+    await crc.close();
   } finally {
     await browser.close();
   }
@@ -282,5 +352,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, which names nothing (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);

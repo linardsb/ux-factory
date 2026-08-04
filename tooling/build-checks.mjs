@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Ten groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Twelve groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -28,7 +28,8 @@
 //   6 artifacts       every card SVG + the downloaded pattern-spec.md: well-formed, escaped, no
 //                     hostile token or label reaching markup, and no in-library pattern ever
 //                     claiming "not in the library" (the bug #139 fixed)
-//   7 vetting         the one-application-point invariant, across ALL the /build modules
+//   7 vetting         the one-application-point invariant, across ALL the /build modules and
+//                     the studio canvas, which joins it writing zero inline styles
 //   8 operator path   the three committed rules that draft a composition question from the same
 //                     ten answers, their guards, and the SSE projection's whitelist (#140)
 //   9 origin          the portal's CSRF predicate: both loopback origins accepted, an absent
@@ -42,6 +43,10 @@
 //                     whether the reproduce check is real, every refusal, real pacing, the honest
 //                     label, and the curate-trace KEEP_WHOLE coupling proven by running curateTrace
 //                     over a >700-char command rather than by grepping for the constant (#203)
+//  12 canvas         the studio's canvas substrate: studio.css's scale table and slot rules mirror
+//                     studio-canvas.mjs's exported caps EXHAUSTIVELY and in both directions (CSS
+//                     cannot import, so the mirror is by hand and this is what pins it), plus
+//                     clampSlot and fitLevel driven over their real edges (#204)
 //
 //   node tooling/build-checks.mjs
 
@@ -58,6 +63,7 @@ import { DEFAULT_ANSWERS, frequencyVerdictFor, quadrantFor, QUESTIONS } from "..
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
+import { clampSlot, fitLevel, MAX_COLS, MAX_ROWS, ZOOM_LEVELS, ZOOM_REST } from "../system/studio-canvas.mjs";
 import { affordanceCount, PATTERNS, patternFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
   ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
@@ -718,9 +724,16 @@ function scanSvg(svg, label) {
   // ("the only place a /build token value reaches an inline style"), so a check that only counted
   // one file would have stayed green the day a second write appeared in build-keep.mjs or
   // pattern-render.mjs — a gap an adversarial review of PR #145 named explicitly.
+  //
+  // studio-canvas.mjs (#204) joins the list with NO exception argued, which is the whole reason its
+  // zoom is a level table selected by an attribute rather than a scale written to an element: it
+  // makes zero inline-style writes, so `writes === 1` below stays literally true and the
+  // `file === "build-import.mjs"` assertion is never reached for it. Every exception is a sentence
+  // a future reader has to trust.
   const MODULES = [
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
+    "studio-canvas.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -814,7 +827,7 @@ function scanSvg(svg, label) {
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }
 
-  group("vetting", `${writes} inline-style write across ${MODULES.length} modules · no markup-from-string · pack-boot mirror intact`);
+  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, no exception argued) · no markup-from-string · pack-boot mirror intact`);
 }
 
 // --- 8 · the operator path's committed rules --------------------------------------------------------
@@ -1507,6 +1520,103 @@ function scanSvg(svg, label) {
   group("replay", "4-op happy path + reproduce · corrupted-label mutation goes red · 5 refusals, each naming its seq · --validate and failed calls are not ops · atMs is real pacing · the honest label · KEEP_WHOLE proven by running curateTrace · script-path identity refused as a decoy by BOTH callers, both typed forms still accepted · brace/bracket expansion refused by the grammar");
 }
 
+// --- 12 · the studio canvas ---------------------------------------------------------------------
+
+{
+  // system/studio-canvas.mjs owns the caps and the zoom table; system/studio.css restates every one
+  // of them as a literal, because CSS cannot import. That is the same hand-mirror the pack-boot.js ↔
+  // pack-imported.mjs pair carries in group 7, and it gets the same treatment: pinned EXHAUSTIVELY
+  // and IN BOTH DIRECTIONS, never by a count. "There are MAX_COLS [data-col] rules" passes happily
+  // for a set with a duplicate and a gap, which is the check-that-cannot-fail shape this repo has
+  // already paid for twice.
+  //
+  // Every regex below is asserted to have matched SOMETHING before its content is judged. A mirror
+  // check that finds no rules at all and reports green is the same defect wearing a different hat.
+  const css = readFileSync(join(ROOT, "system/studio.css"), "utf8");
+
+  const declared = (name) => {
+    const m = css.match(new RegExp(`--${name}:\\s*([^;]+);`));
+    return m ? m[1].trim() : null;
+  };
+  ok(declared("stx-cols") === String(MAX_COLS),
+    `studio.css declares --stx-cols: ${declared("stx-cols")} but studio-canvas.mjs exports MAX_COLS ${MAX_COLS}`);
+  ok(declared("stx-rows") === String(MAX_ROWS),
+    `studio.css declares --stx-rows: ${declared("stx-rows")} but studio-canvas.mjs exports MAX_ROWS ${MAX_ROWS}`);
+
+  // The slot rules, both directions: every index in range present, none twice, none out of range.
+  const axis = (attr, max) => {
+    const found = [...css.matchAll(new RegExp(`\\.stx-slot\\[${attr}="(\\d+)"\\]`, "g"))].map((m) => Number(m[1]));
+    ok(found.length > 0, `studio.css has no .stx-slot[${attr}] rules at all — the mirror check would pass vacuously`);
+    for (let i = 1; i <= max; i += 1) {
+      ok(found.filter((n) => n === i).length === 1,
+        `studio.css declares ${found.filter((n) => n === i).length} .stx-slot[${attr}="${i}"] rules; every index in 1..${max} needs exactly one`);
+    }
+    for (const n of found) ok(n >= 1 && n <= max, `studio.css declares .stx-slot[${attr}="${n}"], outside the exported cap of ${max}`);
+  };
+  axis("data-col", MAX_COLS);
+  axis("data-row", MAX_ROWS);
+
+  // The scale table: one rule per level, each declaring exactly that level's scale, and no extras.
+  const zoomRules = [...css.matchAll(/\.stx-viewport\[data-zoom="(\d+)"\]\s*\{\s*--stx-scale:\s*([^;]+);/g)]
+    .map((m) => [Number(m[1]), m[2].trim()]);
+  ok(zoomRules.length > 0, "studio.css has no [data-zoom] scale rules at all — the mirror check would pass vacuously");
+  ok(zoomRules.length === ZOOM_LEVELS.length,
+    `studio.css declares ${zoomRules.length} [data-zoom] rules for ${ZOOM_LEVELS.length} exported ZOOM_LEVELS`);
+  for (let i = 0; i < ZOOM_LEVELS.length; i += 1) {
+    const mine = zoomRules.filter(([idx]) => idx === i);
+    ok(mine.length === 1, `studio.css declares ${mine.length} rules for [data-zoom="${i}"]; exactly one is the contract`);
+    if (mine.length === 1) {
+      ok(Number(mine[0][1]) === ZOOM_LEVELS[i],
+        `studio.css sets --stx-scale: ${mine[0][1]} for [data-zoom="${i}"] but ZOOM_LEVELS[${i}] is ${ZOOM_LEVELS[i]}`);
+    }
+  }
+  ok(ZOOM_LEVELS[ZOOM_REST] === 1, `ZOOM_REST points at ${ZOOM_LEVELS[ZOOM_REST]}; the at-rest level must be 1`);
+
+  // clampSlot — the ONE place a slot is validated, so #205's mover and #208's decoder inherit these
+  // answers rather than each clamping in its own way. A decoded "4" is a real input, not a synthetic one.
+  for (const [given, want, why] of [
+    [{ col: 0, row: 0 }, { col: 1, row: 1 }, "zero is off the grid, and the grid is 1-based"],
+    [{ col: MAX_COLS + 5, row: MAX_ROWS + 5 }, { col: MAX_COLS, row: MAX_ROWS }, "past the cap clamps to the cap"],
+    [{ col: -3, row: -3 }, { col: 1, row: 1 }, "negative clamps to 1"],
+    [{ col: 2.7, row: 2.2 }, { col: 3, row: 2 }, "a fraction rounds to a real grid line"],
+    [{ col: "4", row: "6" }, { col: 4, row: 6 }, "a decoded string is coerced, not refused"],
+    [{ col: NaN, row: NaN }, { col: 1, row: 1 }, "NaN never reaches an attribute"],
+    [{ col: Infinity, row: -Infinity }, { col: 1, row: 1 }, "non-finite never reaches an attribute"],
+    [{}, { col: 1, row: 1 }, "an absent slot is the origin"],
+  ]) {
+    const got = clampSlot(given);
+    ok(got.col === want.col && got.row === want.row,
+      `clampSlot(${JSON.stringify(given)}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
+  }
+  ok(clampSlot().col === 1 && clampSlot().row === 1, "clampSlot() with no argument at all should be the origin, not a throw");
+
+  // fitLevel — snapping DOWN is the contract, not an approximation of an exact fit: a level ABOVE
+  // the ratio would not fit at all, it would only be closer.
+  const exact = fitLevel(400, 400, 400 / ZOOM_LEVELS[1], 400 / ZOOM_LEVELS[1]);
+  ok(exact === 1, `fitLevel on an exact ${ZOOM_LEVELS[1]} ratio gave index ${exact}, expected 1`);
+  const between = fitLevel(1400, 1400, 1000, 1000); // ratio 1.4 — between levels 2 (1) and 3 (1.5)
+  ok(between === 2, `fitLevel on a 1.4 ratio gave index ${between}, expected 2 — it must snap DOWN or the content overflows`);
+  ok(fitLevel(100, 100, 10000, 10000) === 0, "fitLevel below the smallest level should floor at index 0");
+  ok(fitLevel(10000, 10000, 100, 100) === ZOOM_LEVELS.length - 1, "fitLevel above the largest level should cap at the last index");
+  for (const [w, h, cw, ch, why] of [
+    [400, 300, 0, 600, "a zero content width is a hidden panel measured at call time, not a division by zero"],
+    [400, 300, 800, 0, "a zero content height, likewise"],
+    [0, 0, 800, 600, "a viewport with no box yet"],
+    [400, 300, NaN, 600, "a non-finite measurement"],
+  ]) {
+    ok(fitLevel(w, h, cw, ch) === ZOOM_REST, `fitLevel(${w}, ${h}, ${cw}, ${ch}) should answer ZOOM_REST — ${why}`);
+  }
+
+  // The tripwire, stated rather than implied. #208's share codec is what will IMPORT these caps
+  // instead of re-typing a bound; until it does, "no second literal" has exactly one importer and
+  // this assertion is planted for that day. Deliberately vacuous, the same posture as group 1's
+  // `inLibrary: false ⇒ needs` clause — an absent check reads as an oversight, a stated one does not.
+  ok(Number.isFinite(MAX_COLS) && Number.isFinite(MAX_ROWS) && MAX_COLS > 0 && MAX_ROWS > 0,
+    "MAX_COLS / MAX_ROWS must stay finite positive exports — #208's codec imports them rather than re-typing a bound");
+
+  group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 cap tripwire is planted`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1514,5 +1624,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 11 groups pass");
+  console.log("\nbuild ✓  all 12 groups pass");
 }

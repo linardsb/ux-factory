@@ -70,6 +70,7 @@ function checkOrphans(declared) {
     "system/components.css",
     "system/portfolio.css",
     "system/proto.css",
+    "system/studio.css",
     "system/tokens.contract.css",
     ...htmlFiles("."),
     ...htmlFiles("proto"),
