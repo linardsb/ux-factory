@@ -359,10 +359,13 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // moved twenty of them would otherwise be one sentence a screen-reader user has to sit through
     // before they can do anything else. Past the bound it says how many, which is the useful part.
     const SPOKEN_MAX = 3;
-    const restoreVerb = (snap, word) => {
+    // TWO words, not one derived from the other: the success sentence leads with the past participle
+    // ("Undone: …") and the nothing-moved sentence names the verb ("Nothing to undo."). Deriving
+    // either from the other gave "Nothing to undone."
+    const restoreVerb = (snap, word, verb) => {
       const moved = restore(snap);
       syncControls();
-      if (!moved.length) { canvas.say(`Nothing to ${word.toLowerCase()}.`); return; }
+      if (!moved.length) { canvas.say(`Nothing to ${verb}.`); return; }
       const named = moved.slice(0, SPOKEN_MAX)
         .map((m) => `${nameOf(m.node)} in column ${m.want.col}, row ${m.want.row}`)
         .join("; ");
@@ -372,11 +375,11 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
 
     const offUndo = bus.on("ui.undo", () => {
       if (!history.canUndo()) { canvas.say("Nothing to undo."); return; }
-      restoreVerb(history.undo(), "Undone");
+      restoreVerb(history.undo(), "Undone", "undo");
     });
     const offRedo = bus.on("ui.redo", () => {
       if (!history.canRedo()) { canvas.say("Nothing to redo."); return; }
-      restoreVerb(history.redo(), "Redone");
+      restoreVerb(history.redo(), "Redone", "redo");
     });
 
     // --- the gesture ----------------------------------------------------------------------------

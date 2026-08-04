@@ -483,8 +483,11 @@ async function journey(engineName, results, held) {
     kbMoves.length === 1, JSON.stringify(await busSeen(page)));
   t("AC #4 · …with source \"keyboard\"", kbMoves[0]?.source === "keyboard", kbMoves[0]?.source);
 
-  // A click that moved nothing is not a move. Pressed and released on the handle without travel, so
-  // this is also the pick-up half of the single-pointer path (SC 2.5.7) starting cleanly.
+  // A click that moved nothing is not a move. Pressed and released at the WRAPPER CENTRE, not on
+  // .stx-grab — so `fromHandle` is false, pointerup takes the drop("pointer") branch and the gesture
+  // ends here. This case is therefore NOT the pick-up half of the single-pointer path (SC 2.5.7);
+  // it is the body-press no-op, and nothing in this file completes a click-move-click gesture. That
+  // gap is tracked, not hidden — #229 adds the case that completes the gesture.
   await busClear(page);
   const depthBefore = await historyDepth(page);
   const hb = await nodeBox(page, TARGET);
@@ -496,7 +499,10 @@ async function journey(engineName, results, held) {
     (await busSeen(page)).filter((a) => a.type === "ui.move").length === 0
       && (await historyDepth(page)) === depthBefore,
     `${JSON.stringify(await busSeen(page))} depth ${depthBefore} → ${await historyDepth(page)}`);
-  await page.keyboard.press("Escape"); // that press left the node picked up (sticky) — put it down
+  // A NO-OP on today's code — the body press above already ended its gesture — and kept as the
+  // cheap guarantee that the next case starts with nothing picked up whichever branch that press
+  // took. Not evidence of a sticky gesture; do not read it as one.
+  await page.keyboard.press("Escape");
 
   // ---------------------------------------------------------------- [AC #2] announcements, counted per path
   // Counted SEPARATELY and EXACTLY, because the two paths announce differently ON PURPOSE. A pointer

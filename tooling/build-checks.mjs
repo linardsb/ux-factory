@@ -1739,7 +1739,7 @@ function scanSvg(svg, label) {
   const occ = (...cells) => new Set(cells.map(([col, row]) => occupancyKey({ col, row })));
   ok(occupancyKey({ col: 3, row: 4 }) === "3,4", `occupancyKey gave ${occupancyKey({ col: 3, row: 4 })}, expected "3,4"`);
 
-  for (const [from, key, taken, want, why] of [
+  const STEP_CASES = [
     [{ col: 2, row: 2 }, "ArrowRight", occ(), { col: 3, row: 2 }, "a plain step moves one cell"],
     [{ col: 2, row: 2 }, "ArrowLeft", occ(), { col: 1, row: 2 }, "and in the other direction"],
     [{ col: 2, row: 2 }, "ArrowUp", occ(), { col: 2, row: 1 }, "rows step too"],
@@ -1760,7 +1760,16 @@ function scanSvg(svg, label) {
     [{ col: 4, row: 1 }, "ArrowDown",
       occ(...Array.from({ length: MAX_ROWS - 1 }, (_, i) => [4, i + 2])),
       { col: 4, row: 1 }, "…and on the row axis, whose bound is MAX_ROWS rather than MAX_COLS"],
-  ]) {
+    // THE CLAMP ON THE WAY IN, which nothing above could see: every case up to here hands an
+    // ON-GRID `from`, so deleting stepSlot's `clampSlot(from)` left the whole group green. The
+    // module's stated guarantee is "never returns an occupied or off-grid slot" — for ANY input,
+    // not only for the ones its current callers happen to produce. Clamped first, {99,-3} is the
+    // far-right cell of row 1, and one step left from there is a cell; UNclamped, the step walks
+    // off the grid immediately and answers the off-grid `from` itself.
+    [{ col: 99, row: -3 }, "ArrowLeft", occ(), { col: MAX_COLS - 1, row: 1 },
+      "an off-grid `from` is clamped BEFORE the step, not carried into it"],
+  ];
+  for (const [from, key, taken, want, why] of STEP_CASES) {
     const got = stepSlot(from, DIRS[key], taken);
     ok(got.col === want.col && got.row === want.row,
       `stepSlot(${JSON.stringify(from)}, ${key}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
@@ -1772,6 +1781,10 @@ function scanSvg(svg, label) {
   }
   ok(deep(stepSlot({ col: 2, row: 2 }, undefined, occ())) === deep({ col: 2, row: 2 }),
     "stepSlot with no direction should answer `from`, not throw");
+  // …and the no-direction early return answers the CLAMPED `from` rather than the raw one — the
+  // other half of the clamp, on the one path that never reaches the walk.
+  ok(deep(stepSlot({ col: 99, row: -3 }, undefined, occ())) === deep({ col: MAX_COLS, row: 1 }),
+    "stepSlot with no direction handed an off-grid `from` answered off the grid instead of clamping");
 
   // The caps come from ONE place, asserted BEHAVIOURALLY rather than by grepping the source for a
   // literal: a step off the right edge lands exactly on the module's exported MAX_COLS, so raising
@@ -1789,7 +1802,13 @@ function scanSvg(svg, label) {
   const geom = { cols: [100, 100, 100], rows: [100, 100, 100], colGap: 20, rowGap: 20 };
   for (const [x, y, want, why] of [
     [10, 10, { col: 1, row: 1 }, "a point inside track 1"],
-    [99, 99, { col: 1, row: 1 }, "…right up to its edge"],
+    [99, 99, { col: 1, row: 1 }, "…right up to the end of its 100px track"],
+    // THE BAND BOUNDARY ITSELF, which is 120 and not 99: the gap belongs to the track before it, so
+    // track 2's band starts where track 2 starts. Nothing else in this table sits ON an edge, and
+    // without these two rows `n < edge` → `n <= edge` shifts EVERY track boundary by one pixel and
+    // the group stays green.
+    [119, 119, { col: 1, row: 1 }, "the last pixel before a track start still belongs to the track before"],
+    [120, 120, { col: 2, row: 2 }, "…and the first pixel of a track belongs to that track"],
     [130, 130, { col: 2, row: 2 }, "a point inside track 2"],
     [250, 250, { col: 3, row: 3 }, "a point inside track 3"],
     // THE GAP RULE, decided in the module's doc comment rather than discovered here: a point in the
@@ -1843,7 +1862,7 @@ function scanSvg(svg, label) {
       `DIRS.${key} is [${dc}, ${dr}] — every direction must be a UNIT step on ONE axis, or stepSlot's per-axis bound is wrong`);
   }
 
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · stepSlot over ${12} cases incl. two termination proofs, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

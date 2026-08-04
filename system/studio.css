@@ -126,14 +126,21 @@
 
 /* Always visible, never hover-revealed: a hover-only handle is unreachable by a keyboard user with
    sight and by touch alike, which would make the single-pointer alternative conditional on a
-   pointer that hovers. */
+   pointer that hovers.
+
+   24×24 IS WCAG 2.2 SC 2.5.8 Target Size (Minimum), and it is the third criterion this feature
+   answers — studio-verbs.mjs's header records 2.5.7 and 2.1.1, and this is the one belonging to the
+   control itself. The Spacing exception was NOT relied on: `.stx-slot > :not(.stx-grab)` gives the
+   component the rest of the slot, and one library shape renders as a bare <button>, so an adjacent
+   target can sit directly under the handle. place() is the shipped substrate — #206 puts it on a
+   public page — so the size is met rather than argued. */
 .stx-grab {
   position: absolute;
   top: 2px;
   right: 2px;
   z-index: 1;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm, 4px);
@@ -143,7 +150,7 @@
   /* The grip, drawn from the current colour so it re-skins with the pack like everything else. */
   background-image: radial-gradient(currentColor 1px, transparent 1px);
   background-size: 4px 4px;
-  background-position: 3px 4px;
+  background-position: center;
   background-repeat: repeat;
 }
 .stx-grab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }

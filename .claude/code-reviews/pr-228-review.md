@@ -205,3 +205,24 @@ the bus `component` reads as the shape (`metric-tile`). Harmless now — the one
 All eleven documented deviations in the report are intentional and reasoned; none is a finding. The
 `param-manifest.json` no-op is correct and consistent with #204's precedent. I found no undocumented
 divergence from the plan's task list.
+
+---
+
+## Resolution — triaged and actioned before merge
+
+| finding | call | evidence |
+|---|---|---|
+| **M1** `stepSlot`'s `clampSlot(from)` undetected | **fixed** | two cases added (a walking `ArrowLeft` from `{99,-3}` + the no-direction early return). Proven by MUTATION: `const start = from` → **3 failures**; reverted → green |
+| **M2** `hitSlot` band boundary unpinned | **fixed** | rows `119→1` / `120→2` added, and the misleading "right up to its edge" comment on `99` corrected. Mutation `n <= edge` → **1 failure** on the `120` row; reverted → green |
+| **L4** hand-written `${12}` | **fixed** | table hoisted to `STEP_CASES`; the summary now reads `.length` (13). Forced by M1 — the literal was false the moment a case landed |
+| **L1** "Nothing to undone." | **fixed** | `restoreVerb` takes both words; deriving one from the other was the bug. Proven by running the review's own repro against both trees: `"Nothing to undone."` → `"Nothing to undo."` |
+| **M5** 18×18 handle | **fixed** | `.stx-grab` is 24×24 (SC 2.5.8), and studio.css's header now records the criterion and states that the Spacing exception was *not* relied on. No group 12 pin covers `.stx-grab`; studio.html is not in the VR page set, so no baseline cascade |
+| **M3** two false driver comments | **fixed** | both corrected in `tooling/studio-journey.mjs` — the body-press case is named as the body-press no-op, and the `Escape` is named as the no-op it is |
+| **M3** the missing SC 2.5.7 driver case | **deferred → #229** | blocks #206 |
+| **M4** history seeded at mount | **deferred → #230** | Medium-latent, unreachable today; blocks #206 |
+| **L2 / L3** `place()`'s cross-module affordance + stale `aria-label` | **deferred → #231** | |
+| **L5** `target.component` carries the label | **deferred → #232** | relates to #209 |
+
+**Re-validation after the fixes** — `build-checks` ✓ all 13 groups · `studio-journey all` ✓ **77/77 on
+chromium, firefox and webkit** · `vt-verify all` ✓ three engines · `token-lint` ✓ · `gen-loc-summary` /
+`gen-param-count` / `gen-system-graph` `--check` ✓ no drift.
