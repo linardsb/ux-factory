@@ -153,6 +153,7 @@ through `replay`. CI agrees.
 
 The plan's NOTES flags two untracked drafted plans that #204 and #219 cite —
 `.claude/plans/factory-copy-inspect-panzoom-173.md` and
-`.claude/plans/protos-bus-toggles-device-frame-176.md` — as one `git clean` from being lost. They
-are still untracked. Committing them is not this ticket's scope and this PR deliberately does not
-sweep them in, but they remain at risk.
+`.claude/plans/protos-bus-toggles-device-frame-176.md` — as one `git clean` from being lost. **This
+is now resolved, but not by this ticket:** PR #201 committed both while this branch was open, which
+is what blocked the merge above. The local untracked copies were verified byte-identical to the
+committed ones before being removed. Nothing was lost and nothing is at risk.
