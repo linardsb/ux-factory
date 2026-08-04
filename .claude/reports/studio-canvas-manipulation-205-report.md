@@ -120,6 +120,12 @@ blind to the other's bug, and a single at-rest run passes with both terms missin
    were empty — the pointer hit-test could not address them while the keyboard path (bounded by
    `MAX_ROWS`) could. The two paths disagreed about how big the canvas is, which is the one thing
    AC #1 says they never do. Caught by running the drag, not by reading.
+   **What else it touches, flagged rather than left for the reviewer to find:** `stage.offsetHeight`
+   is `fit()`'s input, so `fit` now fits the whole canvas rather than only the occupied part. That is
+   the more correct behaviour, but the ticket's non-goals say "not changing … `fitLevel`", so it is a
+   deliberate consequence and not an oversight. `fitLevel` itself is untouched; `studio-journey`'s fit
+   assertions derive from live `contentW`/`contentH` and so self-adjust, and both branches (a genuine
+   fitting level and the floor) are still exercised and green on all three engines.
 2. **No `aria-pressed` anywhere.** The plan's mount task said to set it; its `place()` task and its
    Level 4 pass both say not to, with reasons. Resolved toward "no" — the two reasoned statements
    beat the stray line, and keeping it would have failed the plan's own acceptance check.
