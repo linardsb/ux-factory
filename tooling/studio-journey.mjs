@@ -215,9 +215,30 @@ async function journey(engineName, results, held) {
   await btn(page, "Reset").click();
 
   // ---------------------------------------------------------------- [4] pan by pointer
-  await page.mouse.move(box.x + box.width - 40, box.y + box.height / 2);
+  // The start point is MEASURED, not assumed. Since #205 a press on a component picks it up instead
+  // of panning — correctly — so a hardcoded point drifts into a pass or a fail depending on what the
+  // harness happens to have placed there. This asks the page for a point over the stage with no slot
+  // under it, which is what "dragging the BACKGROUND" has always meant.
+  const bg = await page.evaluate(() => {
+    const scroll = document.querySelector("[data-studio-canvas] .stx-scroll");
+    const r = scroll.getBoundingClientRect();
+    // Clamped to the WINDOW as well as to the scroller: the scroller is taller than the viewport
+    // here, and elementFromPoint answers null off-screen — read as "nothing is there", null is
+    // indistinguishable from empty background, and the scan happily returns an unclickable point.
+    const bottom = Math.min(r.bottom, window.innerHeight) - 20;
+    for (let y = bottom; y > r.top + 20; y -= 20) {
+      for (let x = Math.min(r.right, window.innerWidth) - 40; x > r.left + 40; x -= 40) {
+        const hit = document.elementFromPoint(x, y);
+        if (hit && scroll.contains(hit) && !hit.closest(".stx-slot")) return { x, y };
+      }
+    }
+    return null;
+  });
+  t("the stage has background a drag can grab — a canvas with no empty cell cannot test panning",
+    bg !== null, "every point in the scroller is covered by a slot");
+  await page.mouse.move(bg.x, bg.y);
   await page.mouse.down();
-  await page.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 20 });
+  await page.mouse.move(box.x + 60, bg.y, { steps: 20 });
   await page.mouse.up();
   await page.waitForTimeout(150);
   const panned = await snapshot(page);
@@ -234,7 +255,12 @@ async function journey(engineName, results, held) {
     const scroll = vp.querySelector(".stx-scroll");
     const far = vp.querySelector(`.stx-slot[data-col="${cols}"]`);
     if (!far) return { ok: false, why: `no slot in column ${cols}` };
-    const target = far.matches("button, a, input, [tabindex]") ? far : far.querySelector("button, a, input, [tabindex]");
+    // Scoped PAST the move handle (#205). The slot is now a wrapper whose first child is a
+    // .stx-grab button, so a bare querySelector would return the handle and this check would keep
+    // passing while its stated subject — "a COMPONENT in the far column is focusable" — had quietly
+    // stopped being what it measured.
+    const target = far.matches("button, a, input, [tabindex]") ? far
+      : [...far.querySelectorAll("button, a, input, [tabindex]")].find((n) => !n.classList.contains("stx-grab"));
     (target || far).focus({ preventScroll: false });
     if (!target) far.scrollIntoView({ block: "nearest", inline: "nearest" });
     return { ok: true, scrollLeft: Math.round(scroll.scrollLeft) };
