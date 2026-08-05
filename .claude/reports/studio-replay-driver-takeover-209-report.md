@@ -77,10 +77,10 @@ are arriving" proven first.
 | `node tooling/drift-check.mjs` | ✓ 12 passes incl. loc-summary · param-count · replay |
 | `gen-replay --check` / `gen-param-count --check` / `gen-loc-summary --check` | ✓ no drift |
 | `node tooling/validate-trace.mjs` | ✓ |
-| `node tooling/studio-journey.mjs all` | ✓ 186/186 chromium · 186/186 firefox · webkit (see below) |
-| `node tooling/vt-verify.mjs all` | ✓ |
-| `node tooling/build-journey.mjs all` | ✓ /build unaffected |
-| `npm run test` (pixel gate) | ✓ after regenerating 4 baselines |
+| `node tooling/studio-journey.mjs all` | ✓ **186/186 on chromium, firefox and webkit** |
+| `node tooling/vt-verify.mjs all` | ✓ all three engines, incl. the new mid-playback sample |
+| `node tooling/build-journey.mjs all` | ✓ **157/157 × 3 engines** (see Issues — a first run flaked) |
+| pixel gate, in Docker | ✓ **20/20** against the regenerated baselines |
 
 Manual, in a real browser: the replay runs on arrival with narration and refusal beats appearing; the
 board finishes as 4 places · 7 affordances · 7 connections; Pause / Step / Skip each announce;
@@ -165,3 +165,16 @@ work; no export/keep rail (#210). `system/action-bus.mjs` and `system/board-ops.
 - **`PLAYBACK_MS`'s reversibility branch is built and gated**, per the plan: `null` plays the real
   gaps, `paceBeats` answers `scale === 1` and `describeRun` emits the wall-clock sentence. Switching
   is one constant plus the timeouts that constant's comment names.
+- **A `/build` flake was checked, not assumed.** The first `build-journey all` failed twice — `[4d]`'s
+  connect button on chromium, a `waitForFunction` on firefox — both on a page this ticket does not
+  touch. Per the recorded lesson that a matching flake signature can still be a real regression, the
+  work was stashed and HEAD run (157/0), then the branch re-run (157/0), then all three engines
+  re-run (**157/0 each**). Flakes, confirmed rather than dismissed.
+- **The baselines took three passes, and the second two were the two recorded traps.** `loc-summary`
+  reads git-TRACKED content, so the mid-implementation regeneration measured a tree that then kept
+  growing — caught by `drift-check` only after committing (runtime lines 24200 → 24400). And both
+  approach baselines had to be `rm`d each time: the digit change sits under pixelmatch's threshold,
+  so `update:docker` left them untouched and reported green. **The two factory baselines came back
+  byte-identical on the second capture** — the replay's determinism holding at the pixel layer too.
+- **Local `npm run test` fails all 20 on macOS** against Linux baselines (recorded memory). The real
+  verification is the Docker run, which is what the table above reports.
