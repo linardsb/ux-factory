@@ -352,12 +352,14 @@
 /* The visible mirror of the live region, never a second one (studio-compile.mjs says why).
    Two decisions, both measured rather than eyeballed:
 
-   ITS OWN LINE, AND THE CAP IS IN ch. .stx-viewport is WIDER THAN THE COLUMN IT SITS IN — the
-   scroller's intrinsic width makes the grid item ~2818px inside a 776px track at 1280, which is
-   invisible today only because every other row's content is short and left-aligned. Two consequences
-   that decided this rule: a wrapping row CANNOT wrap (the container has room for anything), and a
-   readout sitting beside the buttons runs under the docked inspector at exactly the width the pixel
-   gate captures. So it starts at the column's own left edge and is capped in ch, which is
+   ITS OWN LINE, AND THE CAP IS IN ch. .stx-viewport is WIDER THAN THE COLUMN IT SITS IN: measured at
+   1280, .stu-canvas-col is 776px and .stx-viewport inside it is ~2818px, which is invisible today
+   only because every other row's content is short and left-aligned. That is an OBSERVATION, taken off
+   the running page; this comment deliberately does not name a cause, because the obvious one is
+   already ruled out — the min-width: 0 above IS applied and the column really is 776px. Two
+   consequences decided this rule: a wrapping row CANNOT wrap (the container has room for anything),
+   and a readout sitting beside the buttons runs under the docked inspector at exactly the width the
+   pixel gate captures. So it starts at the column's own left edge and is capped in ch, which is
    independent of the container. (The overflow itself is #206's and is left alone here: narrowing
    the column is an at-rest change to the canvas with its own baselines and its own gates to argue.)
 

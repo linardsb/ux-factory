@@ -2157,8 +2157,14 @@ function scanSvg(svg, label) {
     "compileSteps paraphrased patternFor's reason instead of carrying it verbatim");
   ok(run.slots.length === slotsFor(run.patternId, drafted).length,
     "compileSteps counted a different number of slots than slotsFor does");
-  ok(run.composition.length === run.slots.length,
-    `${run.composition.length} components composed for ${run.slots.length} slots — the DOM swap aligns them positionally`);
+  // READ THROUGH A DEFAULT, not off `run.composition` directly. A regression that makes the drafted
+  // board compose nothing is exactly what the `ok()` above catches — and dereferencing `null` here
+  // would throw out of module evaluation, so the recorded failure would never be REPORTED and 15.2,
+  // 15.3 and the totality loop would never run at all. Group 14's own comment names this
+  // anti-pattern; a group that aborts on its own failure is a partial gate the moment it goes red.
+  const comp = run.composition || [];
+  ok(comp.length === run.slots.length,
+    `${comp.length} components composed for ${run.slots.length} slots — the DOM swap aligns them positionally`);
   ok(run.counted.places === drafted.places.length && run.counted.affordances === affordanceCount(drafted)
     && run.counted.connections === drafted.connections.length,
     `the counted numbers are not the board's: ${deep(run.counted)}`);
@@ -2273,7 +2279,7 @@ function scanSvg(svg, label) {
   ok(compileSteps(drafted, null).state === "rendered",
     "a board with no answers should still compile — patternFor falls back to dashboard and says so");
 
-  group("compile", `the committed pipeline as data: the REAL drafted board compiles to ${run.patternId} with ${run.composition.length} components for ${run.slots.length} slots, every number counted from the board and the pattern read from patternFor rather than re-derived · all 5 patterns validate against handoff/verdant/vocabulary.json and every one has composition.length === slots.length, so the DOM swap's positional alignment is a gated fact for all of them (measured on the fixtures: slots === places for ${matchesPlaces.join(", ")}, slots !== places for ${differs.join(", ")}) · the out-of-library refusal is DELIBERATELY VACUOUS and guarded · determinism proven by deep-comparing two whole runs, steps included · total over 9 junk boards and 4 junk answer sets, never a throw · the beat itself — the positional in-place swap, the byte-identical re-run, the lazy vocabulary fetch, the zero view transitions and the reduced-motion end state — is studio-journey's and vt-verify's, and says so`);
+  group("compile", `the committed pipeline as data: the REAL drafted board compiles to ${run.patternId} with ${comp.length} components for ${run.slots.length} slots, every number counted from the board and the pattern read from patternFor rather than re-derived · all 5 patterns validate against handoff/verdant/vocabulary.json and every one has composition.length === slots.length, so the DOM swap's positional alignment is a gated fact for all of them (measured on the fixtures: slots === places for ${matchesPlaces.join(", ")}, slots !== places for ${differs.join(", ")}) · the out-of-library refusal is DELIBERATELY VACUOUS and guarded · determinism proven by deep-comparing two whole runs, steps included · total over 9 junk boards and 4 junk answer sets, never a throw · the beat itself — the positional in-place swap, the byte-identical re-run, the lazy vocabulary fetch, the zero view transitions and the reduced-motion end state — is studio-journey's and vt-verify's, and says so`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

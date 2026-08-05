@@ -39,8 +39,12 @@
 // (build-questions.mjs:65-73), so at rest /factory is ALWAYS draftBoard(DEFAULT_ANSWERS) → dashboard
 // → 3 places, 3 slots, 3 metric-tiles, one per wrapper. The swap's 1:1 branch is therefore the only
 // one the shipped page can reach today. The EXTRA branch (more composed components than wrappers)
-// and the SURPLUS branch (fewer) are written, kept exact by revert(), and reachable only once a
-// board can differ from the canvas — which is #212's flows. They are not dead code and they are not
+// and the SURPLUS branch (fewer) are written and reachable only once a board can differ from the
+// canvas — which is #212's flows. The SURPLUS branch reverts EXACTLY (the removed wrappers go back
+// at their stashed indices); the EXTRA branch does NOT and is #212's to close — it re-mints
+// data-stx-id through place()'s counter on every re-compile, and its column choice runs no occupancy
+// scan, so a reader who had moved a block into that column could get two components in one cell,
+// which the canvas otherwise refuses. Neither is dead code and neither is
 // live coverage: tooling/build-checks.mjs group 15 retires the cardinality question for all five
 // patterns under Node, which is where that question can be answered honestly.
 //
@@ -156,9 +160,18 @@ const reduceMotion = () => typeof matchMedia === "function"
   && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // The pause between announced steps. Long enough to be a beat a reader can follow, short enough that
-// the whole thing is over in under two seconds. Zero under reduced motion — the steps still announce
-// in order and the end state is reached immediately.
+// the whole thing is over in under two seconds (four steps, so the walk costs 4 × this).
+//
+// NON-ZERO UNDER REDUCED MOTION, and that is a deliberate correction rather than a leftover.
+// aria-live="polite" announces the FINAL value of the region, not every value written to it: two
+// sentences landing in the same task are one announcement, and the reader hears only the second. A
+// zero pause here therefore did not merely speed the beat up, it DELETED three of its four steps for
+// a screen-reader user — and reduced motion is a preference about motion, not a licence to drop
+// time-sequenced content. Short enough to stay imperceptible as pacing, long enough to be a separate
+// announcement.
 const STEP_MS = 420;
+const STEP_MS_REDUCED = 100;
+const stepGap = () => (reduceMotion() ? STEP_MS_REDUCED : STEP_MS);
 
 const VOCAB_URL = "/handoff/verdant/vocabulary.json";
 
@@ -223,11 +236,30 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
     // --- state ------------------------------------------------------------------------------
     // blocks | compiling | rendered | out-of-library | empty | refused | unavailable.
     let state = "blocks";
+    // FOCUS IS HANDED OVER, NOT DROPPED. Each verb disables the button the reader just activated, and
+    // disabling the active element sends focus to <body> in every engine — so a keyboard reader would
+    // Tab from the top of the document to reach the counterpart, on 100% of uses of the page's
+    // primary control (the breadboard pattern's "every verb placing focus", inherited).
+    //
+    // CARRIED ACROSS THE TRANSITION rather than handed over in one shot: "compiling" disables BOTH
+    // buttons, so at the instant the reader's button goes disabled there is no enabled counterpart to
+    // receive focus. The intent is recorded here and spent at the next setState that enables the
+    // target — which is settle()'s terminal state, by which time activeElement is already <body>.
+    // Nothing is grabbed at mount: setState("blocks") below runs with focus on <body>, so neither
+    // branch arms.
+    let handOver = null;
     const setState = (next) => {
+      const from = document.activeElement;
+      if (from === compileBtn) handOver = revertBtn;
+      else if (from === revertBtn) handOver = compileBtn;
       state = next;
       viewport.setAttribute("data-compile-state", next);
       compileBtn.disabled = next !== "blocks";
       revertBtn.disabled = next === "blocks" || next === "compiling";
+      if (handOver && !handOver.disabled) {
+        handOver.focus();
+        handOver = null;
+      }
     };
     setState("blocks");
 
@@ -406,10 +438,14 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
 
       for (const step of result.steps) {
         announce(step);
-        if (step.id !== "render") {
-          if (!reduceMotion()) await wait(STEP_MS);
-          continue;
-        }
+        // EVERY step waits, the last one included. `render` used to fall straight through to the
+        // settle sentence, whose only spacing from it was `await vocabReady` — a real round trip on
+        // the first compile and a single microtask on every one after (the vocabulary is memoized).
+        // So on a re-run both sentences landed in the same task and "Rendering through the
+        // vocabulary" was never spoken. The gate could not see it either: countLive counts
+        // MutationObserver RECORDS, and coalesced writes still produce one record each.
+        await wait(stepGap());
+        if (step.id !== "render") continue;
         if (result.state === "empty") {
           renderEmpty(result);
           return settle("empty", "No pattern named, so nothing compiled. The blocks are unchanged.");

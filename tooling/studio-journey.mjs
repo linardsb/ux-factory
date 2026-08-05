@@ -176,18 +176,36 @@ async function dragTo(p, id, to) {
 // Records on the live region. textContent ASSIGNMENT replaces the text node, so an identical
 // sentence still produces a childList record — measured on all three engines while writing this,
 // which is what makes the exact counts below safe for a blocked arrow press that repeats itself.
+// Records are stamped ONE BY ONE, inside the callback, not once per callback: two writes coalesced
+// into the same task arrive as two records in ONE callback, and a per-callback stamp would give them
+// two different-looking times. Stamping per record makes a coalesced pair read as a gap of ~0, which
+// is the whole point — an aria-live="polite" region announces only its FINAL value, so two sentences
+// in one task are one announcement and the count alone cannot tell that from two (#207 · M2).
 const countLive = (p) => p.evaluate(() => {
   window.__liveCount = 0;
   window.__liveLast = "";
+  window.__liveAt = [];
   const live = document.querySelector("[data-studio-canvas] .stx-live");
   window.__liveObs?.disconnect();
   window.__liveObs = new MutationObserver((ms) => {
     window.__liveCount += ms.length;
+    for (let i = 0; i < ms.length; i += 1) window.__liveAt.push(performance.now());
     window.__liveLast = live.textContent.trim();
   });
   window.__liveObs.observe(live, { childList: true, characterData: true, subtree: true });
 });
-const liveSeen = (p) => p.evaluate(() => ({ n: window.__liveCount, last: window.__liveLast }));
+// What holds focus, as the text a reader would hear — "BODY" when focus has been dropped to the
+// document, which is what disabling the active element does in every engine.
+const focusedText = (p) => p.evaluate(() => {
+  const a = document.activeElement;
+  if (!a || a === document.body) return "BODY";
+  return (a.textContent || "").trim() || a.tagName;
+});
+const liveSeen = (p) => p.evaluate(() => ({
+  n: window.__liveCount,
+  last: window.__liveLast,
+  gaps: (window.__liveAt || []).slice(1).map((t, i) => Math.round(t - window.__liveAt[i])),
+}));
 
 // Back to the arrangement the page loaded with, by driving the verb the reader has. Written as a
 // loop rather than a fixed number of clicks because the sections below deliberately produce
@@ -1263,12 +1281,21 @@ async function compilePass(browser, t, errors) {
     requests.filter((u) => u.includes("vocabulary")).join(" "));
   t("#207 · the beat's readiness handle resolved", await p.locator('[data-studio-compile="ready"]').count() === 1);
   t("#207 · and 'Back to blocks' is disabled until something has compiled", await revertBtn(p).isDisabled());
+  // The mount must not GRAB focus — a fix for the hand-over below that reached for focus() at mount
+  // would be a worse bug than the one it fixed, and nothing else on this page would notice.
+  t("#207 · the mount takes no focus — at rest the document body still holds it",
+    await focusedText(p) === "BODY", await focusedText(p));
 
   // --- the beat --------------------------------------------------------------------------------
+  // DRIVEN FROM THE KEYBOARD, not by .click(): the focus hand-over below is a keyboard-reader
+  // property, and webkit does not reliably focus a button on a pointer click — a click-driven
+  // assertion would go red there for a reason that is not the bug.
+  //
   // Announcements counted per step, in order. Counted EXACTLY: "at least one" passes for a beat that
   // announces only its end, which is the shape of the regression worth catching.
   await countLive(p);
-  await compileBtn(p).click();
+  await compileBtn(p).focus();
+  await p.keyboard.press("Enter");
   await settled(p, "rendered");
   const said = await liveSeen(p);
   const done = await stageState(p);
@@ -1283,6 +1310,17 @@ async function compilePass(browser, t, errors) {
     JSON.stringify(done.slots.map((s) => [s.id, s.col, s.row])));
   t("#207 · four steps announced, one per step, plus the settled sentence = 5",
     said.n === 5, `${said.n} announcement(s); last: ${said.last}`);
+  // AND SPACED, which the count alone cannot see: an aria-live="polite" region announces only its
+  // FINAL value, so two sentences written in the same task are ONE announcement while still
+  // producing two MutationRecords. The floor is well under the implemented gap — this detects
+  // coalescing, it is not a timing assertion on STEP_MS.
+  t("#207 · …and spaced far enough apart to be five announcements rather than fewer",
+    said.gaps.length === 4 && said.gaps.every((g) => g >= 30), `gaps: ${said.gaps.join(", ")}ms`);
+  // H1: the verb hands focus to its counterpart. Without it, disabling the button the reader just
+  // activated drops focus to <body> and the only way back to "Back to blocks" is Tab from the top of
+  // the document — on every single use of this page's primary control.
+  t("#207 · compiling moves focus to 'Back to blocks' rather than dropping it to the body",
+    await focusedText(p) === "Back to blocks", await focusedText(p));
   t("#207 · …and the vocabulary was fetched exactly once, on the compile",
     requests.filter((u) => u.includes("vocabulary.json")).length === 1,
     requests.filter((u) => u.includes("vocabulary.json")).join(" "));
@@ -1296,13 +1334,26 @@ async function compilePass(browser, t, errors) {
   t("#207 · zero ::view-transition-* pseudos ran during the beat", pseudos.length === 0, pseudos.join(" "));
 
   // --- AC #3, byte-identical -------------------------------------------------------------------
-  await revertBtn(p).click();
+  await revertBtn(p).focus();
+  await p.keyboard.press("Enter");
   await settled(p, "blocks");
   const back = await stageState(p);
   t("#207 · 'Back to blocks' restores the fat-marker blocks in the same slots",
     back.html === rest.html, "the reverted stage is not byte-identical to the at-rest one");
-  await compileBtn(p).click();
+  // The mirror image of the hand-over, and it needs asserting separately: revert() disables the
+  // button it was activated from too.
+  t("#207 · …and hands focus back to 'Compile the board'",
+    await focusedText(p) === "Compile the board", await focusedText(p));
+  // The second compile is the one M2's coalescing bug lived on — the vocabulary is memoized by then,
+  // so `await vocabReady` is a bare microtask and the render step's sentence had nothing between it
+  // and the settled one.
+  await countLive(p);
+  await p.keyboard.press("Enter");
   await settled(p, "rendered");
+  const saidAgain = await liveSeen(p);
+  t("#207 · a SECOND compile still announces five spaced sentences (the vocabulary is memoized by now)",
+    saidAgain.n === 5 && saidAgain.gaps.length === 4 && saidAgain.gaps.every((g) => g >= 30),
+    `${saidAgain.n} announcement(s); gaps: ${saidAgain.gaps.join(", ")}ms`);
   const again = await stageState(p);
   t("#207 · AC #3 · compiling a second time produces a byte-identical stage",
     again.html === done.html, "the second compile differs from the first");
@@ -1322,9 +1373,17 @@ async function compilePass(browser, t, errors) {
   // vt-verify's canvas block names. The end state has to be REACHED, and it has to be the same one.
   const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
   const rp = await open(rctx);
+  await countLive(rp);
   await compileBtn(rp).click();
   await settled(rp, "rendered");
+  const rSaid = await liveSeen(rp);
   const rdone = await stageState(rp);
+  // Reduced motion is a preference about MOTION. Dropping the pause to zero would coalesce the four
+  // step sentences into the settled one and leave a screen-reader user with one announcement out of
+  // five, so the gap is shortened here, never removed — the same assertion, the same floor.
+  t("#207 · AC #5 · reduced motion still announces all five, still spaced",
+    rSaid.n === 5 && rSaid.gaps.length === 4 && rSaid.gaps.every((g) => g >= 30),
+    `${rSaid.n} announcement(s); gaps: ${rSaid.gaps.join(", ")}ms`);
   t("#207 · AC #5 · reduced motion still completes the beat — real components on the stage",
     rdone.slots.length > 0 && rdone.slots.every((s) => /^ds-/.test(s.kind)),
     JSON.stringify(rdone.slots.map((s) => s.kind)));
@@ -1355,5 +1414,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

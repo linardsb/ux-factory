@@ -134,13 +134,19 @@ pre-existing on the local static server — not this ticket's.
   the diagnosis is thin, so the refusal path was additionally verified by direct probe — the result
   is in the mutation table above.
 - **Found and deliberately left alone — worth a follow-up ticket.** `.stx-viewport` on `/factory` is
-  about 2818px wide inside a 776px grid track at 1280 (the scroller's intrinsic width expands the
-  grid item, whose `min-width` is `auto`). Consequences today: the canvas's scroller never actually
-  scrolls on this route, and no row inside it can wrap — the existing `#206` zoom row and verb help
-  already overflow the column at narrow widths, invisibly, because the inspector paints over them.
-  That is #206's surface, and narrowing the column is an at-rest change to the canvas with its own
-  baselines and its own gates to argue, so this ticket works with it rather than around it and says
-  so in `studio.css`. The likely one-line fix is `.stu-canvas-col { min-width: 0 }`.
+  about 2818px wide inside a 776px grid track at 1280. Consequences today: the canvas's scroller
+  never actually scrolls on this route (`.stx-scroll` measures 2818px wide over a 2816px stage), and
+  no row inside it can wrap — the existing `#206` zoom row and verb help already overflow the column
+  at narrow widths, invisibly, because the inspector paints over them. That is #206's surface, and
+  narrowing the column is an at-rest change to the canvas with its own baselines and its own gates to
+  argue, so this ticket works with it rather than around it and says so in `studio.css`.
+  **No cause is named here, because the obvious one is ruled out:** `.stu-canvas-col { min-width: 0 }`
+  already exists (`studio.css:224`, added by #206) and it is applied — the column itself measures
+  776px. Re-measured at 1280 after PR #235's review: `.stu-canvas-col` is 776px with a
+  `grid-template-columns` that resolves to a single **2818px** track, and `.stx-viewport` fills it.
+  So whatever the follow-up ticket does, it is a change *inside* the column, not another `min-width`
+  on it; an unverified candidate is the column's own implicit auto track sizing to the scroller's
+  max-content, which nothing in this PR has tested.
 - The visual-regression baselines were taken **three times**: once for the initial layout, once after
   the readout was moved, once after the copy pass. `approach`'s two PNGs had to be `rm`'d and
   re-taken — the only change on that page is `loc-summary`'s digits, which is sub-perceptual and
