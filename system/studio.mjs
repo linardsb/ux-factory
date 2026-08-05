@@ -8,7 +8,8 @@
 //
 //   · the canvas          system/studio-canvas.mjs   (#204, build-checks group 12)
 //   · its verbs           system/studio-verbs.mjs    (#205, group 13, tooling/studio-journey.mjs)
-//   · the board           system/breadboard.mjs      draftBoard over build-questions.mjs's store
+//   · the compile beat    system/studio-compile.mjs  (#207, group 15)
+//   · the board           system/replay-driver.mjs   (#209) — see below
 //   · the pattern reading system/pattern-rules.mjs   patternFor + affordanceCount
 //   · Act 0               system/build-import.mjs    which SELF-BOOTS on the page's mount attributes
 //
@@ -22,10 +23,18 @@
 // mountCanvasVerbs's single ui.move consumer; #209's replay driver takes the canvas over through
 // getVerbs()'s source:"agent" seam. A direct applySlot from here would give it a seam to fight.
 //
+// THE BOARD IS NO LONGER DRAFTED HERE, AND THAT IS #209. This file used to place
+// draftBoard(DEFAULT_ANSWERS) in one synchronous loop, so /factory showed a board that was simply
+// THERE on arrival. It now mounts the canvas EMPTY and hands it to system/replay-driver.mjs, which
+// assembles it by playing a committed real agent run op by op over the bus's agent.* half. At rest —
+// which is what the pixel gate captures — the canvas is that run's finished board, behind
+// [data-replay="settled"]. `board`, `summary` and `arranged` are therefore MUTABLE here and are
+// updated at settle; tooling/studio-journey.mjs reads all three off the running page.
+//
 // THIS FILE READS THE BUILD STORE AND NEVER WRITES IT. No publishBuild, no setAnswers. Writing it
 // would make /build's state depend on having visited /factory, which no AC asks for and no gate
-// covers. The store is in-memory (build-questions.mjs:65-73), so at rest the board here is always
-// draftBoard(DEFAULT_ANSWERS) — deterministic for the pixel gate by construction.
+// covers. The store is in-memory (build-questions.mjs:65-73) and its board initialises absent, so
+// the replay path is the only one a load reaches — deterministic for the pixel gate by construction.
 //
 // ZERO INLINE STYLES, ZERO MARKUP FROM A STRING. build-checks group 7 includes this file with no
 // exception argued: layout is classes and data-* resolved in system/studio.css, and every node is
@@ -38,8 +47,9 @@
 import { initStudioCanvas, MAX_COLS, clampSlot } from "./studio-canvas.mjs";
 import { mountCanvasVerbs } from "./studio-verbs.mjs";
 import { mountCompile } from "./studio-compile.mjs";
+import { mountReplay } from "./replay-driver.mjs";
 import { createBus } from "./action-bus.mjs";
-import { draftBoard, isBoard } from "./breadboard.mjs";
+import { isBoard } from "./breadboard.mjs";
 import { DEFAULT_ANSWERS, readBuild } from "./build-questions.mjs";
 import { affordanceCount, PATTERNS, patternFor } from "./pattern-rules.mjs";
 import { initGlossary } from "./glossary.mjs";
@@ -265,10 +275,16 @@ function renderSummary(mount, summary, arranged) {
       `The canvas holds the first ${arranged.length} of ${summary.places} places — row 1 is ${MAX_COLS} columns wide.` }));
   }
 
+  // TWO SOURCES, AND THEY ARE NOT THE SAME ONE (#209). The places, affordances and connections were
+  // built by the recorded run; the PATTERN is named from the ten method answers by rule 1, which is
+  // why the link still offers to change them. Saying "these came from the recommended answers"
+  // — which is what this paragraph said when the board was drafted here — would now credit the
+  // answers with work the run did.
   mount.appendChild(el("p", { class: "stu-note" },
-    "These came from the recommended answers to the ten method questions. ",
+    "The board is the recorded run's. The pattern above is named from the ten method questions' "
+    + "recommended answers. ",
     el("a", { href: "/build#act-hooked", text: "Answer them yourself" }),
-    " and the board is drafted from what you said."));
+    " and a board is drafted from what you said instead."));
 }
 
 // The panel switcher: click · APG arrow / Home / End keys · hashchange. Ported from the tab
@@ -369,16 +385,27 @@ export function mountStudio(root = document) {
     // fallback sentence where the reader should see an answered one.
     const stored = readBuild();
     const answers = stored.answers ?? DEFAULT_ANSWERS;
-    const board = isBoard(stored.board) ? stored.board : draftBoard(answers);
+    // THE VISITOR'S OWN BOARD IS NEVER OVERWRITTEN BY A REPLAY. The store is in-memory and nothing
+    // on this page writes it, so `own` is null on every load today and the replay path is the only
+    // one reached — but a future restore (#210's ?b= on this route) must place what the visitor
+    // brought and let the driver mount in a declined state rather than assembling over it. Recorded
+    // rather than hidden: no code path reaches the `own` branch today, so it is untested by
+    // construction.
+    const own = isBoard(stored.board) ? stored.board : null;
+    let board = own || { places: [], connections: [] };
 
-    const arranged = arrangeBoard(board);
+    let arranged = arrangeBoard(board);
     for (const entry of arranged) {
       canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
     }
 
-    // AFTER the placement loop, so createHistory's initial snapshot is the real arrangement rather
-    // than an empty one, and so every wrapper's aria-describedby has its instructions element to
-    // point at (studio.html:138-140's ordering rule, and #230's reason for it).
+    // AFTER the placement loop, which since #209 usually places NOTHING: the canvas starts empty and
+    // system/replay-driver.mjs builds it by playing a real recorded run. So createHistory's initial
+    // snapshot is `{}` and every node the replay places is a POST-MOUNT placement — precisely the
+    // case #230's `adopt` closes, from both of its call sites (studio-verbs.mjs:181-202, :382, :467).
+    // It was the edge case; it is now the normal one, and nothing new is needed for it. The move
+    // handles are fine for the same kind of reason: #231's armMoveHandles is FORWARD-ACTING, so
+    // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :313-315).
     const bus = createBus();
     const verbs = mountCanvasVerbs(canvas, { bus });
 
@@ -388,18 +415,50 @@ export function mountStudio(root = document) {
     // The beat shares this page's ONE bus rather than making a second: the primitives it renders are
     // non-interactive today, but a component that does emit ui.intent should reach the same
     // consumers everything else on this canvas reaches.
-    const compile = mountCompile(canvas, { board, answers, bus, onState: () => syncInspect() });
+    // `getBoard` rather than `board`, which is #209's two-line seam in that file: the beat is
+    // mounted HERE, at load, so its `finally` handle resolves where every gate already waits for it —
+    // and it reads the board at call time, so pressing Compile after the replay settles compiles the
+    // board the run built rather than the empty one this line was reached with.
+    const compile = mountCompile(canvas, { getBoard: () => board, answers, bus, onState: () => syncInspect() });
 
-    const summary = buildSummary(board, answers);
-    renderSummary(document.getElementById("this-build-summary"), summary, arranged);
+    let summary = buildSummary(board, answers);
+    const summaryMount = document.getElementById("this-build-summary");
+    // NOT rendered for an empty board. Every number in this panel is counted from the board, so on
+    // the replay path there is nothing to count yet — and a panel reading "Places 0" for the first
+    // five seconds would be a set of true numbers about nothing. factory.html's own markup says what
+    // is coming instead, and onSettle below replaces it with the counted panel.
+    if (arranged.length) renderSummary(summaryMount, summary, arranged);
 
     const inspector = wireInspector(shell);
+
+    // LAST, so it takes a canvas whose verbs and beat are already mounted. Everything it needs is a
+    // seam something else already exposed: place() from #204, the single ui.move consumer it must
+    // not become a second of from #205, and the board getter above.
+    //
+    // ALL THREE OF board / summary / arranged ARE UPDATED AT SETTLE, and that is not bookkeeping:
+    // tooling/studio-journey.mjs:1218-1226 reads all three off the running page through getStudio()
+    // and asserts slotCount === arranged === places. Leaving them at their mount-time values would
+    // turn that assertion red for a page that is entirely correct.
+    const replay = mountReplay(canvas, {
+      shell,
+      renderPlace: placeBlock,
+      bus,
+      onSettle: (finalBoard) => {
+        if (!isBoard(finalBoard)) return;
+        board = finalBoard;
+        arranged = arrangeBoard(board);
+        summary = buildSummary(board, answers);
+        renderSummary(summaryMount, summary, arranged);
+        if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
+        syncInspect();
+      },
+    });
 
     // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
     // built after inspect.mjs restored, so they need one refresh to be wired.
     syncInspect();
 
-    live = { shell, canvas, bus, verbs, compile, inspector, board, summary, arranged };
+    live = { shell, canvas, bus, verbs, compile, replay, inspector, board, summary, arranged };
     return live;
   } finally {
     // Every path, including both early returns and any throw below the glossary call.

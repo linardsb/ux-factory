@@ -1211,20 +1211,26 @@ async function factoryPass(browser, t, errors) {
   await p.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
   await p.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
   await p.waitForSelector('[data-canvas-verbs="ready"]', { timeout: 20000 });
+  // #209 · EVERY ASSERTION BELOW IS ABOUT THE SETTLED CANVAS. The three handles above all fire at
+  // MOUNT, and since #209 the canvas is EMPTY at mount — system/replay-driver.mjs fills it by
+  // playing a committed real run. 30 s because ~14 s of it is playback (replay-driver.mjs's
+  // PLAYBACK_MS governs both, and says these move together).
+  await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
 
   // The board is read off the RUNNING page through the orchestrator's own seam, then the slot count
-  // is compared to it. Asserting a literal 3 would pass a board that silently stopped being drafted
-  // and started being a fixture.
+  // is compared to it. Asserting a literal 4 would pass a board that silently stopped being the
+  // replay's and started being a fixture — and it is what makes studio.mjs's onSettle updating all
+  // three of board / summary / arranged a gated fact rather than bookkeeping.
   const board = await p.evaluate(() => import("/system/studio.mjs").then((m) => {
     const s = m.getStudio();
     return s ? { places: s.board.places.length, arranged: s.arranged.length, pattern: s.summary.patternId } : null;
   }));
   t("#206 · /factory mounted the studio and exposes it through getStudio()", Boolean(board), JSON.stringify(board));
   const slotCount = await p.locator(`${VIEWPORT} .stx-slot`).count();
-  t("#206 · the canvas holds one slot per place of the DRAFTED board",
+  t("#206 · the canvas holds one slot per place of the board the REPLAY built",
     Boolean(board) && slotCount === board.arranged && board.arranged === board.places,
     `slots=${slotCount} arranged=${board && board.arranged} places=${board && board.places}`);
-  t("#206 · the drafted board is not empty — every assertion here would be vacuous on an empty canvas",
+  t("#206 · the replayed board is not empty — every assertion here would be vacuous on an empty canvas",
     slotCount > 0, `slots=${slotCount}`);
 
   // The deep link had to ACTIVATE and MOUNT. Both halves are asserted: aria-selected alone would
@@ -1274,6 +1280,12 @@ async function factoryPass(browser, t, errors) {
   // A keyboard move on the shipped surface. The counts differ per path on purpose (pointer 1,
   // keyboard N + 2) and the keyboard number is the one asserted here — if it goes red the fix is the
   // count, never deleting the per-step feedback.
+  //
+  // FREE #230 COVERAGE SINCE #209, and worth knowing before anyone "simplifies" it: this node is now
+  // REPLAY-PLACED, i.e. placed after mountCanvasVerbs seeded its history on an empty stage. So this
+  // block is also a regression test for #230's adopt, at no cost. The pointer half of that case is
+  // in the replay pass below, because a gesture PREVIEWS before it commits and an injected move
+  // passes against a design that only adopts in the consumer.
   const first = await p.locator(`${VIEWPORT} .stx-slot`).first().getAttribute("data-stx-id");
   const before = await p.evaluate((i) => {
     const n = document.querySelector(`.stx-slot[data-stx-id="${i}"]`);
@@ -1326,7 +1338,315 @@ async function factoryPass(browser, t, errors) {
 
   await ctx.close();
 
+  await replayPass(browser, t, errors);
   await compilePass(browser, t, errors);
+}
+
+// ---------------------------------------------------------------------------------------------
+// #209 · THE REPLAY DRIVER. The only thing that can see a running page, which is where every claim
+// below lives: build-checks group 16 proves the pure join and the reproduce, and says in its own
+// header that the bus emission, the single consumer, the announcements, the determinism of the
+// settled DOM and the take-over discriminator are this file's.
+//
+// EVERY ASSERTION IS PHRASED AS RESULTING DOM OR A RESULTING URL, never as "an action was emitted" —
+// which would pass with no consumer at all, the lesson #205's three-source proof is built on.
+//
+// THE ARTIFACT FETCH IS DELAYED BY ROUTE in the pass that counts actions, and that is a driver
+// technique rather than a product concession: the driver's first beat fires in the task after its
+// fetches resolve, which on a local server is sooner than a Playwright round trip can attach a bus
+// listener. Delaying the response changes nothing about WHAT is emitted; it only opens a window to
+// start listening in. Without it the count is short by one and the pass is silently weaker.
+async function replayPass(browser, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+  };
+  const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  const replayState = (p) => p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
+    const r = m.getReplay();
+    return r ? { state: r.state, index: r.index, beats: r.beats.length, took: r.tookOver, places: r.board.places.length } : null;
+  }));
+
+  // --- 1 · the settled canvas IS the run's committed board --------------------------------------
+  // Compared against replay/<slug>.board.json FETCHED BY THE PAGE, never against literals: the point
+  // is that what a reader watched assemble is the board the run really built.
+  const p1 = await ctx.newPage();
+  watch(p1, "replay");
+  await p1.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settled(p1);
+  const match = await p1.evaluate(async () => {
+    const want = await (await fetch("/replay/build-fieldwork-dispatch.board.json")).json();
+    const wraps = [...document.querySelectorAll("[data-studio-canvas] .stx-slot")];
+    return {
+      wanted: want.places.map((x) => x.label),
+      got: wraps.map((w) => w.getAttribute("data-stx-name")),
+      cols: wraps.map((w) => w.getAttribute("data-col")),
+      rows: wraps.map((w) => w.getAttribute("data-row")),
+      affordances: want.places.reduce((n, x) => n + x.affordances.length, 0),
+      connections: want.connections.length,
+    };
+  });
+  t("#209 · the settled canvas holds one block per place of the COMMITTED board, in board order",
+    JSON.stringify(match.got) === JSON.stringify(match.wanted), `${JSON.stringify(match.got)} vs ${JSON.stringify(match.wanted)}`);
+  t("#209 · …laid along row 1 in columns 1..n, exactly as arrangeBoard derives them",
+    match.cols.join(",") === match.wanted.map((_, i) => i + 1).join(",") && match.rows.every((r) => r === "1"),
+    `cols=${match.cols.join(",")} rows=${match.rows.join(",")}`);
+  const panel = await p1.locator("#this-build-summary").innerText();
+  t("#209 · …and the This build panel is COUNTED from that board, not from the empty mount-time one",
+    panel.includes(String(match.wanted.length)) && panel.includes(String(match.affordances))
+    && panel.includes(String(match.connections)), panel.replace(/\s+/g, " ").slice(0, 160));
+  const seam = await replayState(p1);
+  t("#209 · getStudio()'s board / arranged / summary were updated at settle, not left at mount",
+    await p1.evaluate(() => import("/system/studio.mjs").then((m) => {
+      const s = m.getStudio();
+      return s && s.board.places.length === s.arranged.length && s.arranged.length > 0;
+    })), JSON.stringify(seam));
+  // The trace link the chrome offers really resolves — the /build journey checks its three the same
+  // way, and a provenance link that 404s is worse than no link.
+  for (const href of await p1.locator(".stu-replay-links a").evaluateAll((as) => as.map((a) => a.getAttribute("href")))) {
+    const status = await p1.evaluate((u) => fetch(u).then((r) => r.status), href);
+    t(`#209 · the chrome's link ${href} resolves`, status === 200, `HTTP ${status}`);
+  }
+  const chrome = await p1.locator(".stu-replay-label").innerText();
+  t("#209 · the chrome renders the trace's label AND the artifact's, verbatim and unparaphrased",
+    chrome.includes("Real run, curated for length")
+    && chrome.includes("Projection of the real run build-fieldwork-dispatch"), chrome);
+  const stage1 = await p1.evaluate(() => document.querySelector("[data-studio-canvas] .stx-stage").outerHTML);
+  await p1.close();
+
+  // --- 2 · determinism (AC #2) --------------------------------------------------------------------
+  // The settled canvas is a pixel baseline, so a second load must produce a byte-identical stage.
+  // #207's compile pass makes this exact assertion for its beat; this is its shape, copied.
+  const p2 = await ctx.newPage();
+  watch(p2, "replay");
+  await p2.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settled(p2);
+  const stage2 = await p2.evaluate(() => document.querySelector("[data-studio-canvas] .stx-stage").outerHTML);
+  t("#209 · a second load produces a BYTE-IDENTICAL settled stage", stage1 === stage2,
+    stage1 === stage2 ? "" : `${stage1.length} vs ${stage2.length} chars`);
+  const styled = await p2.evaluate(() => [...document.querySelectorAll(".stu-replay *, .stx-slot, .stx-stage")]
+    .filter((n) => n.hasAttribute("style")).length);
+  t("#209 · nothing the driver drew carries a style attribute — group 7's claim, on the running page",
+    styled === 0, `${styled} element(s) carry one`);
+  await p2.close();
+
+  // --- 3 · agent.* AND ONLY agent.*, with the single consumer doing the work ----------------------
+  const p3 = await ctx.newPage();
+  watch(p3, "replay");
+  await p3.route("**/replay/*.json", async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await p3.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p3.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+  await busRecord(p3);
+  await busClear(p3);
+  await settled(p3);
+  const acts = await busSeen(p3);
+  const after3 = await replayState(p3);
+  t("#209 · the replay emitted one action per beat and reached every one of them",
+    acts.length === after3.beats && after3.index === after3.beats,
+    `${acts.length} action(s) for ${after3.beats} beats, index=${after3.index}`);
+  t("#209 · …every one of them agent.* with source \"agent\" — the reserved half, exercised for real",
+    acts.length > 0 && acts.every((a) => /^agent\./.test(a.type) && a.source === "agent"),
+    [...new Set(acts.map((a) => `${a.type}/${a.source}`))].join(" "));
+  t("#209 · …and NONE of them carries target.component — a board place has no vocabulary shape (#232)",
+    acts.every((a) => a.hasComponent === false), JSON.stringify(acts.find((a) => a.hasComponent)));
+  t("#209 · …and no ui.move was emitted: the driver is a second AUTHOR, never a second MOVER",
+    acts.every((a) => a.type !== "ui.move"));
+  await p3.close();
+
+  // --- 4 · pause / step / seek by keyboard, each announced (AC #4) --------------------------------
+  // Parked at a KNOWN BEAT with the seek control rather than slept to, so this is about state and
+  // not about timing. Counted PER PATH, the #205 lesson: a naive once-per-gesture count sends an
+  // implementer to delete real feedback.
+  const p4 = await ctx.newPage();
+  watch(p4, "replay");
+  await p4.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settled(p4);
+  const transport = p4.locator(".stu-replay-controls");
+  await transport.getByRole("button", { name: "Step", exact: true }).isVisible();
+  // Seek backwards from the settled end, by keyboard, on the real range input.
+  await p4.locator(".stu-replay-seek").focus();
+  await countLive(p4);
+  for (let i = 0; i < 6; i += 1) await p4.keyboard.press("ArrowLeft");
+  await p4.waitForTimeout(200);
+  const seeked = await replayState(p4);
+  const saidSeek = await liveSeen(p4);
+  t("#209 · seeking backwards by keyboard rebuilds the board from the prefix",
+    seeked.index === seeked.beats - 6 && seeked.state !== "settled", JSON.stringify(seeked));
+  t("#209 · …and every seek is announced", saidSeek.n >= 6 && /Step \d+ of \d+/.test(saidSeek.last), `${saidSeek.n}: ${saidSeek.last}`);
+  const slotsAtSeek = await p4.locator(`${VIEWPORT} .stx-slot`).count();
+  t("#209 · …and the canvas really was rebuilt to match, not left at the settled arrangement",
+    slotsAtSeek > 0 && slotsAtSeek <= seeked.places, `${slotsAtSeek} slot(s) for ${seeked.places} place(s)`);
+  // Step, by keyboard, on the real button.
+  await countLive(p4);
+  await transport.getByRole("button", { name: "Step", exact: true }).focus();
+  await p4.keyboard.press("Enter");
+  await p4.waitForTimeout(200);
+  const stepped = await replayState(p4);
+  const saidStep = await liveSeen(p4);
+  t("#209 · Step by keyboard advances EXACTLY ONE beat", stepped.index === seeked.index + 1,
+    `${seeked.index} → ${stepped.index}`);
+  t("#209 · …announcing that beat — a reader who drove the step hears the step, not the act",
+    saidStep.n >= 1 && saidStep.last.length > 0, `${saidStep.n}: ${saidStep.last}`);
+  // Pause / Resume, by keyboard.
+  await transport.getByRole("button", { name: "Resume", exact: true }).focus();
+  await p4.keyboard.press("Enter");
+  // WAITED FOR RATHER THAN SLEPT PAST, and the reason is the thing this pass is about: the gaps are
+  // the RUN'S OWN, so the next one is whatever the agent's next call cost — around here several
+  // seconds of real time compressed. A fixed sleep tuned to the average silently asserts that the
+  // pacing is uniform, which is the one property paceBeats deliberately does not have.
+  //
+  // Polled through evaluate() rather than waitForFunction(), and that is not a style choice: a
+  // dynamic import() does not resolve inside waitForFunction's injected context, so the predicate
+  // rejected on every poll and the wait timed out silently while the run advanced perfectly. It
+  // read as a product failure ("Resume does not restart the timer") and was a driver bug.
+  let resumed = stepped;
+  for (let i = 0; i < 60 && resumed.index <= stepped.index; i += 1) {
+    await p4.waitForTimeout(250);
+    resumed = await replayState(p4);
+  }
+  t("#209 · Resume by keyboard restarts the timer chain", resumed.index > stepped.index,
+    `${stepped.index} → ${resumed.index}`);
+  await countLive(p4);
+  await transport.getByRole("button", { name: "Pause", exact: true }).focus();
+  await p4.keyboard.press("Enter");
+  const pausedAt = (await replayState(p4)).index;
+  await p4.waitForTimeout(1200);
+  const stillPaused = await replayState(p4);
+  const saidPause = await liveSeen(p4);
+  t("#209 · Pause by keyboard STOPS the run — the beat count does not move over a second",
+    stillPaused.index === pausedAt, `${pausedAt} → ${stillPaused.index}`);
+  t("#209 · …and says so", /paused/i.test(saidPause.last), saidPause.last);
+  await p4.close();
+
+  // --- 5 · the take-over, mid-replay, on a fresh page (AC #3) --------------------------------------
+  // THE ROUTE IS WATCHED THROUGH history.pushState, the way the analytics group's stub does it —
+  // build-checks group 10 proves the predicate and says in its own comment that THIS is where the
+  // call site is proven.
+  const p5 = await ctx.newPage();
+  watch(p5, "replay");
+  await p5.addInitScript(() => {
+    window.__pushed = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, u) => { window.__pushed.push(String(u)); return real(s, ti, u); };
+  });
+  await p5.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p5.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+  const midway = await replayState(p5);
+  t("#209 · the take-over case really is MID-REPLAY — a settled page would prove the wrong thing",
+    midway.state === "ready" && midway.index < midway.beats, JSON.stringify(midway));
+  // A POINTER PRESS ON THE STAGE, which is the load-bearing path: it is the one a visitor performs,
+  // and it must not need the bus's ui.move (a gesture PREVIEWS, and the drop is far too late).
+  await p5.locator(`${VIEWPORT} .stx-slot`).first().click();
+  await p5.waitForTimeout(1200);
+  const took = await replayState(p5);
+  t("#209 · one pointer press on the canvas PAUSES the run — the beat count stops moving",
+    took.took === true && took.index === (await replayState(p5)).index, JSON.stringify(took));
+  t("#209 · …and provenance visibly shifts to name both authors",
+    (await p5.getAttribute("[data-studio]", "data-provenance")) === "visitor"
+    && (await p5.locator(".stu-replay-provenance").innerText()).includes("your edits"),
+    await p5.locator(".stu-replay-provenance").innerText());
+  t("#209 · …and seek is disabled once the visitor has taken over — a rebuild would destroy their work",
+    await p5.locator(".stu-replay-seek").isDisabled());
+  const pushed1 = await p5.evaluate(() => window.__pushed.slice());
+  t("#209 · …firing /factory/took-over exactly once, as a bare static literal",
+    pushed1.filter((u) => u === "/factory/took-over").length === 1
+    && pushed1.every((u) => !/[?#]/.test(u)), JSON.stringify(pushed1));
+  await p5.waitForTimeout(400);
+  t("#209 · …and the reader's real URL comes back",
+    await p5.evaluate(() => location.pathname === "/factory.html" && !location.search), await p5.url());
+  // ONE-SHOT: a second interaction pushes nothing more.
+  await p5.locator(`${VIEWPORT} .stx-slot`).nth(0).click();
+  await p5.keyboard.press("ArrowRight");
+  await p5.waitForTimeout(300);
+  t("#209 · the handover is one-shot — a second interaction pushes no second route",
+    JSON.stringify(await p5.evaluate(() => window.__pushed.slice())) === JSON.stringify(pushed1));
+  await p5.close();
+
+  // --- 6 · Tab alone is NOT take-over -------------------------------------------------------------
+  // The discriminator, and the one judgement in this ticket that is about human intent: a keyboard
+  // reader Tabbing toward the Pause button has not grabbed the wheel, and firing the metric there
+  // would inflate it.
+  const p6 = await ctx.newPage();
+  watch(p6, "replay");
+  await p6.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p6.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+  await p6.locator(`${VIEWPORT} .stx-scroll`).focus();
+  await p6.keyboard.press("Tab");
+  await p6.keyboard.press("Shift+Tab");
+  await p6.waitForTimeout(200);
+  t("#209 · Tab and Shift+Tab on the canvas are NAVIGATION, not take-over",
+    (await replayState(p6)).took === false, JSON.stringify(await replayState(p6)));
+  // …and pressing one of the driver's own controls is not either: they live outside the scroller,
+  // which is what makes that exclusion structural rather than a heuristic filter.
+  await p6.locator(".stu-replay-controls").getByRole("button", { name: "Pause", exact: true }).click();
+  await p6.waitForTimeout(200);
+  t("#209 · …and pressing the driver's own transport is chrome, not canvas interaction",
+    (await replayState(p6)).took === false, JSON.stringify(await replayState(p6)));
+  await p6.close();
+  await ctx.close();
+
+  // --- 7 · reduced motion (AC #5) -----------------------------------------------------------------
+  // Jumps to the end state with NO timer chain, and manual stepping stays available — the branch is
+  // about motion, not about dropping the content.
+  const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const pr = await rctx.newPage();
+  watch(pr, "replay reduced");
+  const t0 = Date.now();
+  await pr.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await pr.waitForSelector('[data-replay="settled"]', { timeout: 20000 });
+  const elapsed = Date.now() - t0;
+  t("#209 · reduced motion reaches the settled board IMMEDIATELY — no fourteen-second timer chain",
+    elapsed < 8000, `${elapsed} ms`);
+  const rstate = await pr.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
+    const r = m.getReplay();
+    return { index: r.index, beats: r.beats.length, places: r.board.places.length };
+  }));
+  t("#209 · …reaching the identical end state", rstate.index === rstate.beats && rstate.places === match.wanted.length,
+    JSON.stringify(rstate));
+  t("#209 · …with the Pause button hidden, because nothing is playing",
+    await pr.locator(".stu-replay-controls button", { hasText: "Pause" }).count() === 0
+    || !(await pr.locator(".stu-replay-controls button").first().isVisible()));
+  // Manual stepping still available: seek back, then Step.
+  await pr.locator(".stu-replay-seek").focus();
+  await pr.keyboard.press("ArrowLeft");
+  await pr.waitForTimeout(150);
+  const rback = await pr.evaluate(() => import("/system/replay-driver.mjs").then((m) => m.getReplay().index));
+  await pr.locator(".stu-replay-controls").getByRole("button", { name: "Step", exact: true }).click();
+  await pr.waitForTimeout(150);
+  const rfwd = await pr.evaluate(() => import("/system/replay-driver.mjs").then((m) => m.getReplay().index));
+  t("#209 · …and manual stepping still works under reduced motion", rfwd === rback + 1, `${rback} → ${rfwd}`);
+  // The route still fires under reduced motion — the handover is not motion.
+  await pr.addInitScript(() => {});
+  await pr.close();
+  await rctx.close();
+
+  // --- 8 · destroy() mid-playback -----------------------------------------------------------------
+  // #236's lesson, applied to this driver: a torn-down replay that keeps writing into the stage
+  // would be a second author on a canvas that no longer belongs to it.
+  const dctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const pd = await dctx.newPage();
+  watch(pd, "replay destroy");
+  await pd.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await pd.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+  const beforeDestroy = await pd.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
+    m.getReplay().destroy();
+    return document.querySelectorAll("[data-studio-canvas] .stx-slot").length;
+  }));
+  await pd.waitForTimeout(2500);
+  const afterDestroy = await pd.locator(`${VIEWPORT} .stx-slot`).count();
+  t("#209 · destroy() mid-playback stops every further DOM write", beforeDestroy === afterDestroy,
+    `${beforeDestroy} → ${afterDestroy} slot(s) two seconds after teardown`);
+  t("#209 · …leaves the shell clean and the seam empty",
+    (await pd.getAttribute("[data-studio]", "data-replay")) === null
+    && (await pd.evaluate(() => import("/system/replay-driver.mjs").then((m) => m.getReplay() === null))));
+  t("#209 · …and removes its chrome rather than leaving a dead transport on the page",
+    (await pd.locator(".stu-replay-controls").count()) === 0);
+  await pd.close();
+  await dctx.close();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1349,7 +1669,13 @@ async function compilePass(browser, t, errors) {
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
-    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 20000 });
+    // #209 · SETTLED FIRST, and this is a real break rather than a tidy-up. Both handles above fire
+    // at MOUNT, and since #209 the canvas is EMPTY at mount — the replay driver fills it over ~14 s.
+    // Without this wait every assertion below runs against a half-built board: the compile's slot
+    // count is nondeterministic, and the byte-identical re-run compares two different arrangements.
+    // 30 s because 14 s of it is playback (replay-driver.mjs's PLAYBACK_MS says these move together).
+    await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
     return page;
   };
   // The stage as data. `kinds` is what each slot HOLDS — the fat-marker block or a library primitive
@@ -1534,7 +1860,12 @@ async function teardownPass(browser, t, errors) {
     if (route) await page.route("**/vocabulary.json", route);
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
-    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 20000 });
+    // #209 · SETTLED FIRST, for a reason sharper than the compile pass's: every assertion in this
+    // section is about what happens to the stage AFTER a teardown, and while the replay is still
+    // playing there is a second author adding slots to it. "Nothing was swapped in afterwards" is
+    // then a claim about a stage that is changing for reasons this section knows nothing about.
+    await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
     return page;
   };
   // What the viewport looks like AFTER a teardown: the two attributes destroy() removes, and what
@@ -1682,5 +2013,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, and destroy() mid-playback writing nothing further · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

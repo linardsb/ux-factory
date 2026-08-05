@@ -405,10 +405,43 @@ for (const name of toRun) {
       await fp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
       await fp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
       await fp.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
-      await fp.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 20000 });
+      // #209 · WAIT FOR THE REPLAY TO SETTLE BEFORE ANY SLOT OR TILE QUERY, and this is a real
+      // break rather than a tidy-up. Both handles above fire at MOUNT, and since #209 the canvas is
+      // EMPTY at mount — the first .stx-slot appears ~4.8 s later and the board is complete at
+      // ~14 s. Without this line the compile click below lands on a half-built canvas and the tile
+      // count is nondeterministic. 30 s rather than 20, because 14 s of it is now playback (the
+      // constant that governs it is replay-driver.mjs's PLAYBACK_MS, which says these move together).
+      await fp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+      await fp.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 30000 });
 
+      // BOOT IS NOW READ AFTER THE WHOLE REPLAY, which makes it a stronger claim than it was: the
+      // driver names nothing and calls no morph(), so a fourteen-second beat chain writing to the
+      // stage must still open zero transitions. A boot that opened zero at rest said nothing about
+      // a chain that runs afterwards, which is why the sample moved here rather than staying above.
       const fboot = await read(fp);
-      if (!reduced) t("factory · load opens zero transitions", fboot.calls === 0, `calls=${fboot.calls}`);
+      if (!reduced) t("factory · load AND the whole replay open zero transitions", fboot.calls === 0, `calls=${fboot.calls}`);
+      // Sampled DURING playback too, on a page of its own: the read above is taken at rest, and a
+      // transition that opened and finished mid-run would be counted by `calls` but is worth
+      // asserting as a running pseudo as well, because that is the form #171's regression took.
+      if (!reduced) {
+        const mctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+        await mctx.addInitScript(HOOK);
+        const mp = await mctx.newPage();
+        await mp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+        await mp.waitForSelector('[data-replay="ready"]', { timeout: 20000 });
+        // PROVE THE REPLAY IS ACTUALLY RUNNING FIRST — "zero pseudos" is trivially true of a page
+        // where nothing happened, the defect class the canvas block above paid for twice.
+        await mp.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 30000 });
+        const midSlots = await mp.locator("[data-studio-canvas] .stx-slot").count();
+        const midCalls = await read(mp);
+        const midPseudos = await mp.evaluate(() => document.getAnimations()
+          .map((a) => a.effect && a.effect.pseudoElement)
+          .filter((x) => x && x.startsWith("::view-transition")));
+        t("factory replay · blocks really are arriving mid-run", midSlots > 0, `${midSlots} slots`);
+        t("factory replay · …and mid-playback opens zero transitions and runs zero pseudos",
+          midCalls.calls === 0 && midPseudos.length === 0, `calls=${midCalls.calls} pseudos=${midPseudos.join(" ")}`);
+        await mctx.close();
+      }
 
       // PROVE THE BEAT HAPPENED FIRST — taken again in the reduced-motion pass rather than inherited
       // from the pass above, exactly as the canvas block explains: the lighter version of this
@@ -440,5 +473,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, and /factory's #207 compile beat, whose crossfade opens no transition at all — under reduced motion too, with the swap proven first in both (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, and its #207 compile beat, whose crossfade opens no transition at all — under reduced motion too, with the movement proven first in every one (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);

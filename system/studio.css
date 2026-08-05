@@ -195,10 +195,18 @@
      in JS (studio-compile.mjs's fade), because a Web Animations animation ignores `animation: none`
      — these names are here so a later CSS transition on the compile row or a card cannot slip past
      the off-ramp, which is the same reason .stu-tab is in this list. */
+  /* #209's replay chrome joins on the same terms. The driver's reduced-motion branch is in JS (it
+     applies every beat synchronously and never starts a timer), so these names are here for the
+     same reason the compile row's are: a later CSS transition on the chrome, the transport or the
+     provenance line cannot slip past the off-ramp. */
   .stu-tab,
   .stu-compile,
   .stu-compile-step,
-  .stu-compile-card { transition: none !important; animation: none !important; }
+  .stu-compile-card,
+  .stu-replay,
+  .stu-replay-step,
+  .stu-replay-provenance,
+  .stu-replay-card { transition: none !important; animation: none !important; }
   .stx-scroll { scroll-behavior: auto; }
 }
 
@@ -416,6 +424,94 @@
    step readout carries the page's own colour instead of the muted one. An attribute selector, so the
    module writes an attribute and this sheet decides what it means (the data-zoom discipline). */
 .stx-viewport[data-compile-state="compiling"] .stu-compile-step { color: var(--color-fg); }
+
+/* ---------- the replay chrome (#209) ---------- */
+/* system/replay-driver.mjs plays a committed real agent run onto the canvas. Everything it draws is
+   dressed here, for the reason every studio class is: that module writes ZERO inline styles and
+   joins build-checks group 7 with no exception argued, so every dimension it needs has to be a class
+   in this sheet.
+
+   NOTHING HERE IS NAMED FOR A VIEW TRANSITION — the same call the compile block above makes, and for
+   the same #171 reason. The only thing that animates is the seek input's own native thumb.
+
+   IT SITS ABOVE THE CANVAS, IN THE COLUMN, not inside .stx-viewport. The viewport is far wider than
+   the column it sits in (see .stu-compile-step's note), so a chrome row placed inside it would run
+   under the docked inspector at exactly the width the pixel gate captures. The markup node in
+   factory.html is inside .stu-canvas-col, which is the column's own width. */
+.stu-replay { display: flex; flex-direction: column; gap: var(--spacing-xs, 8px); margin-bottom: var(--spacing-sm, 12px); }
+/* Empty until the two committed files land, and DISPLAY:NONE while empty rather than merely
+   unpadded: this is a flex column with a gap, so an empty box costs one gap in every capture. */
+.stu-replay:empty { display: none; }
+/* The two labels VERBATIM — meta.label and the artifact's own label, joined by a separator this
+   sheet supplies rather than the module inventing punctuation for them. */
+.stu-replay-label {
+  margin: 0;
+  font-size: var(--type-caption, 0.85rem);
+  color: var(--color-fg-muted);
+}
+/* The run's real meta, as a definition list laid out inline: model · started · took · session. */
+.stu-replay-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--spacing-sm, 12px);
+  margin: 0;
+  font-size: var(--type-caption, 0.85rem);
+}
+.stu-replay-term { margin: 0; color: var(--color-fg-muted); }
+.stu-replay-term::after { content: " "; }
+/* The session id is a uuid — it must be allowed to break rather than widen the column. */
+.stu-replay-value { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.stu-replay-links { margin: 0; font-size: var(--type-caption, 0.85rem); }
+/* The computed compression sentence. Capped in ch like the compile readout, and for the same
+   measured reason: the container has room for anything, so a cap is the only thing that keeps the
+   measure readable. */
+.stu-replay-pacing {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--type-caption, 0.85rem);
+  color: var(--color-fg-muted);
+}
+.stu-replay-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm, 12px); }
+.stu-replay-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* A real range input, so the keyboard path is the platform's (Home/End/arrows) rather than one this
+   module would have to write and announce twice. */
+.stu-replay-seek { flex: 1 1 12rem; min-width: 8rem; max-width: 22rem; }
+.stu-replay-seek[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* The run's own words as they play. RESERVES THREE LINES at this measure — the narration steps are
+   whole sentences, and a row that grew and shrank per beat would make the canvas below jump for
+   fourteen seconds (.stu-compile-step's two-line precedent, taken to the height this needs). */
+.stu-replay-step {
+  margin: 0;
+  max-width: 62ch;
+  min-height: 3.9em;
+  font-size: var(--type-caption, 0.85rem);
+  color: var(--color-fg);
+}
+/* A refusal is the run's fence turning the agent down, and it reads as one rather than as an error
+   the page had: the same quoted register .stu-compile-reason uses for a committed rule. */
+.stu-replay-step[data-beat-kind="refusal"] {
+  padding-left: var(--spacing-sm, 12px);
+  border-left: 2px solid var(--color-border);
+  color: var(--color-fg-muted);
+}
+.stu-replay-provenance { margin: 0; font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); }
+/* THE PROVENANCE SHIFT IS VISIBLE, which is the whole point of the line: while the run owns the
+   canvas the sentence is muted chrome, and the moment the visitor takes over it carries the page's
+   own colour and a marker. An attribute selector, so the module writes an attribute and this sheet
+   decides what it means (the data-zoom discipline). */
+.stu-replay-provenance[data-provenance="visitor"] {
+  color: var(--color-fg);
+  padding-left: var(--spacing-sm, 12px);
+  border-left: 2px solid var(--color-accent);
+}
+.stu-replay-card {
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stu-replay-eyebrow { margin: 0 0 4px; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stu-replay-note { margin: 0; max-width: 62ch; font-size: var(--type-caption); color: var(--color-fg-muted); }
 
 /* ---------- absorbed exhibits (#206) ---------- */
 /* MOVED VERBATIM out of factory.html's <style> block, not rewritten. Both blocks are the ONLY

@@ -55,11 +55,27 @@ const PAGES = [
   // IntersectionObserver gate, so waitVisible would drag it into the bounded re-measure loop below
   // for no reason — the same argument :66-77 makes for the two proto pages.
   //
-  // The baseline captures the at-rest state: the drafted board on the canvas, the "This build"
-  // panel active, the other three panels hidden and unmounted. The board is deterministic by
-  // construction — build-questions.mjs's store is in-memory with answers initialising null, so a
-  // cold load is always draftBoard(DEFAULT_ANSWERS) with no storage state to clear.
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', waitReady: '[data-studio="ready"]' },
+  // TWO HANDLES SINCE #209, and the second is the load-bearing one. [data-studio="ready"] fires at
+  // MOUNT — and the canvas is EMPTY at mount now, because system/replay-driver.mjs fills it by
+  // playing a committed real run over ~14 s. So the at-rest state this page is baselined in is
+  // AUTOPLAY-TO-COMPLETION: the run's finished board (4 places · 7 affordances · 7 connections), its
+  // chrome, and the "This build" panel counted from it. Waiting on the mount handle alone would
+  // screenshot a blank canvas.
+  //
+  // Still waitReady and deliberately NOT waitVisible for BOTH: the studio mounts and the replay
+  // starts at load with no IntersectionObserver gate, so waitVisible would drag them into the
+  // bounded re-measure loop below for nothing.
+  //
+  // Deterministic by construction — build-questions.mjs's store is in-memory with its board
+  // initialising absent, so a cold load always plays the same committed artifact, and the driver's
+  // pure layer is gated for determinism by build-checks group 16.
+  //
+  // `timeout` because the replay costs 14 s of this test's budget on top of load, fonts and two
+  // captures, and Playwright's per-test default is 30 s. It is a PAGE property, not a global one, so
+  // it lives on the page rather than in the config — and it moves with replay-driver.mjs's
+  // PLAYBACK_MS, which says so.
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', timeout: 90_000,
+    waitReady: ['[data-studio="ready"]', '[data-replay="settled"]'] },
   { name: 'roundtrip',       url: '/roundtrip.html',       kind: 'ia', waitReady: ['#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
   // Work (#80) now embeds the two proto pages in iframes (fixed-height boxes). Their content loads
   // async and the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic
@@ -115,6 +131,9 @@ test.beforeEach(async ({ page }) => {
 for (const [pack, packPath] of Object.entries(PACKS)) {
   for (const p of PAGES) {
     test(`${p.name} · ${pack}`, async ({ page }) => {
+      // A page whose at-rest state costs real time to reach says so on its own entry (#209's
+      // /factory replay). Everything else keeps the config's 30 s default.
+      if (p.timeout) test.setTimeout(p.timeout);
       // Registered AFTER beforeEach → runs first for the neutral URL (last-registered-first):
       // the re-skin = swap the one pack file, executed literally. Every other URL falls through
       // to the beforeEach gate (local :4757 → continue, everything else → abort).

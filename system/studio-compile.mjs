@@ -200,7 +200,16 @@ const nameOf = (node) => {
   return typeof label === "string" && label.trim() ? label : String(node && node.name ? node.name : "Component");
 };
 
-export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
+// `getBoard` is #209's seam and the ONLY change that ticket needed here. The beat reads `board` at
+// exactly one line (:471, inside compile()), so a getter costs two lines and lets the replay driver
+// build the board AFTER this mount without the beat compiling a board that no longer exists.
+//
+// THE REJECTED ALTERNATIVE WAS MOUNTING THIS BEAT AFTER THE REPLAY SETTLES, and it is rejected for a
+// measured reason: tooling/vt-verify.mjs:407 waits on [data-studio-compile="ready"] with a 20 s
+// timeout, so deferring that handle behind a 14 s playback leaves a 6 s margin on a gate that runs
+// on three engines. Every mount and every `finally` handle staying at load is what keeps that
+// margin, and it costs two lines.
+export function mountCompile(canvas, { board, getBoard, answers, bus, onState } = {}) {
   const viewport = canvas && canvas.viewport;
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
@@ -468,7 +477,9 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       setState("compiling");
       clearReport();
 
-      const result = compileSteps(board, answers);
+      // READ AT CALL TIME, never at mount — see getBoard on the signature. compileSteps is total
+      // over junk, so a getter that answers nothing yet compiles to "empty" rather than throwing.
+      const result = compileSteps(typeof getBoard === "function" ? getBoard() : board, answers);
 
       // The vocabulary fetch starts NOW and is awaited before the last step only, so the beat begins
       // the moment the reader asks for it rather than after a round trip.

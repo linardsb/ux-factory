@@ -898,6 +898,12 @@ function scanSvg(svg, label) {
   // element.animate() instead — which touches no inline style at all, so the regex below has
   // nothing to count for it either. No exception is argued for it.
   //
+  // replay-driver.mjs (#209) joins on the same terms. It is the module with the most reason to want
+  // an exception — it draws a run in front of the reader over fourteen seconds — and it takes none:
+  // the chrome is classes in system/studio.css, the blocks are studio.mjs's placeBlock, and the one
+  // thing that moves is the seek input's own value. What this guards for it is the same REPLACEMENT
+  // shape: a later implementer reaching for `.style.width` to draw a progress bar.
+  //
   // studio.mjs (#206) joins on the same terms, and it is the module with the most opportunity to
   // break them: it is the one that mounts Act 0's stage on a public route and builds a block per
   // board place from labels the reader can eventually author. It writes zero inline styles (layout
@@ -908,6 +914,7 @@ function scanSvg(svg, label) {
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
+    "replay-driver.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -1001,7 +1008,7 @@ function scanSvg(svg, label) {
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }
 
-  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, its verbs, its orchestrator and its compile beat, no exception argued) · no markup-from-string · pack-boot mirror intact`);
+  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, its verbs, its orchestrator, its compile beat and its replay driver, no exception argued) · no markup-from-string · pack-boot mirror intact`);
 }
 
 // --- 8 · the operator path's committed rules --------------------------------------------------------
@@ -1460,11 +1467,58 @@ function scanSvg(svg, label) {
   ok(restores.length === 2 && restores[restores.length - 1] === REAL,
     `a real URL written inside the window was discarded: ${JSON.stringify(restores)} — the visitor is left without the ?b= the copy button just promised was in their address bar`);
 
-  // 9 · every other group runs without these; leaving them defined would change what "Node" means.
+  // 9 · F · /factory's take-over route (#209), on a URL carrying a hash this page really supports:
+  //     #shape is one of the four inspector panels system/studio.mjs deep-links (:134-139) and
+  //     system/palette.mjs registers a ⌘K command against, so a reader sitting on it is an ordinary
+  //     visitor rather than a contrived one. Same three claims as every path above — static literal,
+  //     no payload, fires once — plus the restore, hash included.
+  //
+  //     THE WIRING IS NOT PROVEN HERE, and this group says so the way groups 9, 11 and 13 do: that
+  //     trackFactoryTookOver() sits on replay-driver.mjs's HANDOVER success path, and never fires on
+  //     a canvas the replay failed to build, is a running-page fact. Its owner is
+  //     tooling/studio-journey.mjs's replay pass, on all three engines.
+  const FACTORY_REAL = "/factory.html#shape";
+  stub({ pathname: "/factory.html", search: "", hash: "#shape" });
+  const anaF = await import(`${ANA}?g10f`);
+  ok(typeof anaF.trackFactoryTookOver === "function",
+    "analytics.mjs does not export trackFactoryTookOver — system/replay-driver.mjs imports it by name");
+  if (typeof anaF.trackFactoryTookOver === "function") {
+    anaF.trackFactoryTookOver(); // twice: a shared flag would let another event suppress this one
+    anaF.trackFactoryTookOver();
+    ok(pushes.length === 1, `${pushes.length} virtual routes pushed for one take-over, expected exactly 1 — the fire-once guard is missing or shared`);
+    ok(pushes[0] === "/factory/took-over", `the take-over event pushed "${pushes[0]}", not the literal /factory/took-over`);
+    ok(/^\/factory\/[a-z-]+$/.test(pushes[0] || ""), `"${pushes[0]}" is not a bare static path — a virtual route is the entire payload, so it carries no slug, seq or board`);
+    ok(!(pushes[0] || "").includes("?") && !(pushes[0] || "").includes("#"), `"${pushes[0]}" carries a query or a hash`);
+    await pastWindow();
+    ok(restores.length === 1 && restores[0] === FACTORY_REAL,
+      `the real URL was not restored verbatim: ${JSON.stringify(restores)} — the reader lands on a path that 404s on reload, and loses the panel they deep-linked to`);
+  }
+
+  // 10 · G · the OVERLAP on /factory, in both orderings. #210 is about to put two more routes on
+  //      this page, so the case flipTo exists for is reachable here for the same reason it is on
+  //      /build: whichever restore lands last is where the reader is left, and /factory/took-over
+  //      404s. Driven against trackBuildPattern because it is the other flipTo caller — the module
+  //      has one window mechanism, not one per page.
+  for (const [first, second, label] of [["took-over", "pattern", "take-over first"], ["pattern", "took-over", "pattern first"]]) {
+    stub({ pathname: "/factory.html", search: "", hash: "" });
+    const g = await import(`${ANA}?g10g-${first}`);
+    const call = (which) => (which === "took-over" ? g.trackFactoryTookOver() : g.trackBuildPattern());
+    call(first);
+    ok(globalThis.location.pathname.startsWith("/factory/") || globalThis.location.pathname === "/build/pattern",
+      `${label}: the stub did not follow the first push, so the overlap this case is about does not exist in it`);
+    call(second); // inside the first window, by construction
+    await pastWindow();
+    ok(restores.length === 2 && restores.every((u) => u === "/factory.html"),
+      `${label}: an overlapping flip restored to a VIRTUAL path: ${JSON.stringify(restores)}`);
+    ok(globalThis.location.pathname === "/factory.html",
+      `${label}: the page settled on ${globalThis.location.pathname} instead of the real URL — a reload from here is a 404`);
+  }
+
+  // 11 · every other group runs without these; leaving them defined would change what "Node" means.
   delete globalThis.location;
   delete globalThis.history;
 
-  group("analytics", "imports node-safe with a filled token · 2 static /build paths · no ?b= payload in either · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL, in both orderings");
+  group("analytics", "imports node-safe with a filled token · 3 static virtual paths (2 /build + /factory/took-over) · no ?b= payload in any · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL, in both orderings, on /build AND across the two pages");
 }
 
 // --- 11 · the replay projection ------------------------------------------------------------------
@@ -2528,6 +2582,196 @@ function scanSvg(svg, label) {
   group("compile", `the committed pipeline as data: the REAL drafted board compiles to ${run.patternId} with ${comp.length} components for ${run.slots.length} slots, every number counted from the board and the pattern read from patternFor rather than re-derived · all 5 patterns validate against handoff/verdant/vocabulary.json and every one has composition.length === slots.length, so the DOM swap's positional alignment is a gated fact for all of them (measured on the fixtures: slots === places for ${matchesPlaces.join(", ")}, slots !== places for ${differs.join(", ")}) · the out-of-library refusal is DELIBERATELY VACUOUS and guarded · determinism proven by deep-comparing two whole runs, steps included · total over 9 junk boards and 4 junk answer sets, never a throw · the beat itself — the positional in-place swap, the byte-identical re-run, the lazy vocabulary fetch, the zero view transitions and the reduced-motion end state — is studio-journey's and vt-verify's, and says so`);
 }
 
+// --- 16 · the replay driver's pure layer ------------------------------------------------------------
+// Group 11 proves the PROJECTION is faithful to the run at build time. This group proves the DRIVER
+// reaches the same board at view time, out of the same two committed files — which is the whole
+// reason a reader can be told that what assembles itself on /factory is the run's own work.
+//
+// Driven over the REAL committed pair, not fixtures: the artifact and the curated trace are the
+// driver's actual inputs and a hand-built stand-in would only ever prove the stand-in.
+//
+// WHAT THIS GROUP CANNOT SEE, stated rather than implied (groups 9, 10, 11, 13, 14 and 15's
+// discipline): the bus emission being agent.*-only, the single consumer, the announcements, the
+// determinism of the SETTLED DOM, the take-over discriminator and the reduced-motion branch are all
+// running-page facts. Their owner is tooling/studio-journey.mjs's replay pass.
+{
+  const { applyBeat, buildBeats, describeBeat, describeRun, paceBeats, PLAYBACK_MS, REPLAY_SLUG }
+    = await import("../system/replay-driver.mjs");
+  const { emptyBoard } = await import("../system/board-ops.mjs");
+
+  // Group 13's hand-written recursive canonical stringify, for the reason it was written there:
+  // `JSON.stringify(v, keys)` puts an array in the REPLACER position, which filters property names
+  // at every level and made every comparison in that group silently vacuous until a mutation sweep
+  // caught it.
+  const deep = (v) => {
+    if (Array.isArray(v)) return `[${v.map(deep).join(",")}]`;
+    if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  };
+
+  const artifactText = readFileSync(join(ROOT, `replay/${REPLAY_SLUG}.json`), "utf8");
+  const traceText = readFileSync(join(ROOT, `traces/${REPLAY_SLUG}.jsonl`), "utf8");
+  const committedBoard = JSON.parse(readFileSync(join(ROOT, `replay/${REPLAY_SLUG}.board.json`), "utf8"));
+  const artifact = JSON.parse(artifactText);
+
+  const traceSteps = traceText.trim().split("\n").map((l) => JSON.parse(l)).filter((r) => r.type === "step");
+  const wantNotes = traceSteps.filter((s) => s.kind === "text" && String(s.text || "").trim()).length;
+  const wantRefusals = traceSteps.filter((s) => s.kind === "tool" && s.denied).length;
+
+  // --- 1 · the join ------------------------------------------------------------------------------
+  // Every count asserted against the FILES, never against a literal: a typed 18 would keep passing
+  // the day the artifact is regenerated from a different run.
+  const built = buildBeats(artifact, traceText);
+  ok(!built.error, `buildBeats refused the committed pair: ${built.error}`);
+  const kinds = (k) => built.beats.filter((b) => b.kind === k).length;
+  ok(kinds("op") === artifact.ops.length,
+    `${kinds("op")} op beats for ${artifact.ops.length} committed ops — the join dropped or invented one`);
+  ok(kinds("note") === wantNotes, `${kinds("note")} note beats for ${wantNotes} narration steps in the trace`);
+  ok(kinds("refusal") === wantRefusals, `${kinds("refusal")} refusal beats for ${wantRefusals} denied steps in the trace`);
+  ok(built.skipped === traceSteps.length - built.beats.length,
+    `${built.skipped} steps reported skipped, but ${traceSteps.length - built.beats.length} of the trace's steps became no beat — the surface would state a number that is not the drop`);
+  ok(built.beats.every((b, i) => i === 0 || b.seq > built.beats[i - 1].seq),
+    "the beats are not in seq order — narration would land away from the ops it explains");
+
+  // --- 2 · the reproduce claim, restated at view time --------------------------------------------
+  // gen-replay proves at BUILD time that applying the projected ops rebuilds the committed board.
+  // This proves the DRIVER'S applier reaches the same board from the same beats, which is what makes
+  // "the finished canvas is the run's real outcome" a checkable sentence rather than a claim.
+  const playAll = (beats) => beats.reduce((b, beat) => applyBeat(b, beat).board, emptyBoard());
+  const reproduced = playAll(built.beats);
+  ok(deep(reproduced) === deep(committedBoard),
+    "playing every op beat does NOT rebuild replay/<slug>.board.json — the canvas would settle on a board the run never built");
+
+  // --- 3 · the mutation that decides whether case 2 is real ---------------------------------------
+  // Without this the deep-compare could be vacuously true (the recorded memory "the check that cannot
+  // fail": every #137 defect survived a green gate the same way). Group 11 case 2 does the same
+  // thing to the same artifact one layer up.
+  const corrupted = JSON.parse(artifactText);
+  const firstAdd = corrupted.ops.find((o) => o.op === "place.add");
+  firstAdd.params.label = `${firstAdd.params.label} (corrupted)`;
+  const mutatedBuilt = buildBeats(corrupted, traceText);
+  ok(!mutatedBuilt.error, `the corrupted-label mutation did not build beats at all (${mutatedBuilt.error}) — it must fail the COMPARE, not the join`);
+  ok(deep(playAll(mutatedBuilt.beats)) !== deep(committedBoard),
+    "a corrupted op label still reproduced the committed board — the comparison in case 2 is vacuous");
+
+  // --- 4 · the pacing is real, not an index ------------------------------------------------------
+  const pacing = paceBeats(built.beats, PLAYBACK_MS);
+  const sum = pacing.beats.reduce((a, b) => a + b.delayMs, 0);
+  ok(Math.abs(sum - PLAYBACK_MS) < 1, `the schedule totals ${sum.toFixed(2)} ms, not the ${PLAYBACK_MS} ms budget`);
+  ok(pacing.beats[0].delayMs === 0, "the first beat waits before it plays — the run starts on arrival");
+  // The RATIOS, which is what "the run's own pacing, proportionally" means. An index-derived
+  // schedule (every gap equal) passes a sum check and fails this one.
+  let ratioBad = 0;
+  for (let i = 2; i < pacing.beats.length; i += 1) {
+    const gapReal = built.beats[i].atMs - built.beats[i - 1].atMs;
+    const gapPrev = built.beats[i - 1].atMs - built.beats[i - 2].atMs;
+    if (!gapPrev) continue;
+    const want = gapReal / gapPrev;
+    const got = pacing.beats[i - 1].delayMs ? pacing.beats[i].delayMs / pacing.beats[i - 1].delayMs : want;
+    if (Math.abs(want - got) > 1e-6) ratioBad += 1;
+  }
+  ok(ratioBad === 0, `${ratioBad} consecutive gaps do not keep the run's own ratio — the pacing is not the run's`);
+  ok(pacing.scale !== 1 && pacing.scale > 0 && pacing.scale < 1,
+    `scale is ${pacing.scale} — the committed run is longer than the playback budget, so it must be compressed and the chrome must have a computed factor to state`);
+  // A RANGE, never the literal factor: the number moves the day the artifact or PLAYBACK_MS does,
+  // and a typed 9.3 would then be a second place to edit that nothing points at.
+  const run = describeRun(artifact, built.meta, pacing, pacing.beats);
+  ok(Math.abs(run.compression - pacing.realMs / PLAYBACK_MS) < 1e-9,
+    "the compression the chrome prints is not realMs / budgetMs — it is the gap multiplier, so the sentence would claim the run played at 0.1×");
+  ok(run.compression > 2 && run.compression < 50,
+    `the stated compression is ${run.compression.toFixed(1)}× — outside any range that reads as honest on the page`);
+
+  // The wall-clock branch, built at the same time as the compressed one so the product call is one
+  // constant rather than a re-plan (replay-driver.mjs's PLAYBACK_MS comment).
+  const wall = paceBeats(built.beats, null);
+  ok(wall.scale === 1, `PLAYBACK_MS = null gave scale ${wall.scale}, not 1 — "play the real gaps" is not reachable`);
+  ok(Math.abs(wall.beats.reduce((a, b) => a + b.delayMs, 0) - wall.realMs) < 1,
+    "the wall-clock schedule does not total the run's real span");
+  ok(describeRun(artifact, built.meta, wall, wall.beats).compression === 1,
+    "the wall-clock branch still states a compression factor");
+
+  // --- 5 · determinism ---------------------------------------------------------------------------
+  // The settled canvas is a pixel baseline (AC #2 and #7), so two independent parses must produce a
+  // byte-identical beat list. A Date.now(), a counter or a random value anywhere in the pure layer
+  // shows up here.
+  ok(JSON.stringify(buildBeats(JSON.parse(artifactText), traceText))
+    === JSON.stringify(buildBeats(JSON.parse(artifactText), traceText)),
+    "two independent parses of the same committed pair produce different beats — something non-deterministic reaches the driver's output");
+
+  // --- 6 · totality by contract ------------------------------------------------------------------
+  // A bad fetch must not crash the page before the canvas exists (studio.mjs:78-88's call,
+  // inherited). Eight junk inputs, each answering { beats: [] } with a NON-EMPTY error, never a
+  // throw — the error is what the honest card prints.
+  const backwards = [traceSteps[0], { ...traceSteps[1], seq: 0 }];
+  const traceLines = traceText.trim().split("\n");
+  const JUNK = [
+    [null, traceText, "a null artifact"],
+    [{}, traceText, "an artifact with no ops"],
+    [{ ops: null }, traceText, "an artifact whose ops are not an array"],
+    [undefined, traceText, "an undefined artifact"],
+    ["not an artifact", traceText, "a string artifact"],
+    [artifact, traceLines.slice(1).join("\n"), "a trace with no meta line"],
+    [{ ...artifact, ops: [{ ...artifact.ops[0], fromStep: 9999 }] }, traceText, "an op whose fromStep matches no step"],
+    [{ ...artifact, ops: [artifact.ops[0], { ...artifact.ops[1], fromStep: artifact.ops[0].fromStep }] }, traceText, "two ops claiming one step"],
+    [artifact, [traceLines[0], JSON.stringify(backwards[1]), JSON.stringify(backwards[0]), traceLines[traceLines.length - 1]].join("\n"), "a trace whose seqs go backwards"],
+    [artifact, "{ not json", "a trace that is not JSON"],
+  ];
+  for (const [a, t, why] of JUNK) {
+    let got;
+    let threw = null;
+    try { got = buildBeats(a, t); } catch (e) { threw = e; }
+    ok(!threw, `buildBeats threw on ${why}: ${threw && threw.message}`);
+    ok(got && Array.isArray(got.beats) && got.beats.length === 0, `buildBeats built beats from ${why}`);
+    ok(got && typeof got.error === "string" && got.error.length > 0,
+      `buildBeats returned no error string for ${why} — the honest card has nothing to print`);
+  }
+  // The one degradation that is NOT an error: the trace fetch failed, the artifact did not. The ops
+  // still play and the surface states that the words are missing.
+  const traceless = buildBeats(artifact, null);
+  ok(!traceless.error && traceless.beats.length === artifact.ops.length && traceless.traceless === true,
+    "a missing trace is treated as a failure instead of an op-only degradation — a readable artifact would show nothing at all");
+  ok(deep(playAll(traceless.beats)) === deep(committedBoard),
+    "the op-only degradation does not reach the committed board — the fallback would draw a different run");
+
+  // applyBeat is total too: a hostile beat answers a refusal change rather than throwing, because
+  // action-bus.mjs:70-77 turns a thrown refusal into a console line the reader never sees.
+  for (const bad of [null, {}, { kind: "op", op: "nope", params: {} }, { kind: "op", op: "place.rename", params: { placeId: "p9", label: "x" } }, { kind: "note" }]) {
+    let threw = null;
+    let got;
+    try { got = applyBeat(committedBoard, bad); } catch (e) { threw = e; }
+    ok(!threw, `applyBeat threw on ${JSON.stringify(bad)}: ${threw && threw.message}`);
+    ok(got && deep(got.board) === deep(committedBoard), `applyBeat changed the board on ${JSON.stringify(bad)}`);
+  }
+  ok(applyBeat(committedBoard, { kind: "op", op: "nope", params: {} }).changes.some((c) => c.kind === "refused"),
+    "a refused op produced no refusal change — the live region would say nothing");
+
+  // --- 7 · the chrome copies, it does not compute ------------------------------------------------
+  // Asserted by IDENTITY against the parsed files, never by re-typing the strings: a paraphrase of
+  // meta.label or of the artifact's label is exactly what replay/README.md forbids.
+  ok(run.label === artifact.label, "the chrome's label is not the artifact's, verbatim");
+  ok(run.traceLabel === built.meta.label, "the chrome's honesty line is not the trace meta's label, verbatim");
+  for (const [key, from] of [["model", "model"], ["sessionId", "sessionId"], ["startedAt", "startedAt"], ["durationMs", "durationMs"], ["tracePath", "curatedTrace"], ["briefPath", "brief"], ["boardPath", "board"]]) {
+    ok(run[key] === artifact.source[from], `describeRun's ${key} is not artifact.source.${from}, verbatim`);
+  }
+  ok(run.opCount === artifact.ops.length && run.noteCount === wantNotes && run.refusalCount === wantRefusals,
+    "the chrome's counts are not the beats' — a number on the page would be a claim rather than a count");
+  // Every beat gets a sentence. A blank one is a beat the live region announces as silence.
+  ok(pacing.beats.every((b) => describeBeat(b).trim().length > 0), "a beat has no announceable sentence");
+
+  // --- 8 · the artifact's op histogram, as a TRIPWIRE ---------------------------------------------
+  // The committed run is ADD-ONLY: 4 place.add, 7 affordance.add, 7 connect. The driver's
+  // place-removed branch and the rename half of place-changed are written, correct and NOT exercised
+  // by it — so this pins what the artifact reaches, and the day a second run carries a rename or a
+  // remove it fails and forces someone to look at that branch instead of shipping it untested.
+  // studio-compile.mjs:38-49 and group 1's vacuous in-library clause make the same move.
+  const histogram = {};
+  for (const op of artifact.ops) histogram[op.op] = (histogram[op.op] || 0) + 1;
+  ok(deep(histogram) === deep({ "place.add": 4, "affordance.add": 7, connect: 7 }),
+    `the committed artifact's op mix changed to ${JSON.stringify(histogram)} — the driver's rename/remove reflection branches were never exercised by the old one, so read them before this line is updated`);
+
+  group("replay driver", `the committed pair joins into ${built.beats.length} beats (${kinds("op")} ops counted from the artifact, ${kinds("note")} narration and ${kinds("refusal")} refusals counted from the trace, ${built.skipped} steps stated as skipped) · playing every op beat REPRODUCES replay/${REPLAY_SLUG}.board.json exactly, and a corrupted-label mutation makes that compare go red · the schedule keeps the run's own gap RATIOS and totals the budget, PLAYBACK_MS = null plays the real gaps · the chrome's label, meta and paths are the committed files' verbatim, by identity · total over 10 junk pairs and 5 hostile beats, never a throw, and a missing trace degrades to ops-only rather than failing · the artifact's ADD-ONLY op mix is pinned as a tripwire over the unexercised rename/remove branches · the bus emission, the single consumer, the announcements and the take-over are studio-journey's, and say so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -2535,5 +2779,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 15 groups pass");
+  console.log("\nbuild ✓  all 16 groups pass");
 }
