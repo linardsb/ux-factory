@@ -54,6 +54,7 @@ import { DEFAULT_ANSWERS, readBuild } from "./build-questions.mjs";
 import { affordanceCount, PATTERNS, patternFor } from "./pattern-rules.mjs";
 import { initGlossary } from "./glossary.mjs";
 import { refreshInspect } from "./inspect.mjs";
+import { mountStudioKeep } from "./studio-keep.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
@@ -451,6 +452,23 @@ export function mountStudio(root = document) {
     // `finalBoard == null` is the driver's UNAVAILABLE path (a 404 artifact): there is no board to
     // publish and this page's own empty one is already correct, but the beat must still come back —
     // a degraded replay may not leave the page's primary control dead.
+    // #210's rail. Declared here so publishBoard can reach it; mounted below, after the driver, for
+    // the same reason the driver is mounted last — everything it needs is a seam something else has
+    // already exposed, and it must take a canvas whose verbs and beat exist.
+    let keep = null;
+
+    // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
+    // studio's standing correspondence: studio-compile.mjs:377's positional swap and
+    // replay-driver.mjs's rename-in-place both rest on it). This is the one thing /build's rail
+    // structurally cannot produce, and it is what #208's `g` field carries. Read live rather than
+    // tracked, for the reason the beat reads the board live: the verbs, the driver and an undo all
+    // write these two attributes, and a mirror here would be a second copy of the arrangement that
+    // could disagree with the canvas the reader is looking at.
+    const arrangementNow = () => [...canvas.stage.querySelectorAll(".stx-slot")].map((w) => ({
+      col: Number(w.getAttribute("data-col")),
+      row: Number(w.getAttribute("data-row")),
+    }));
+
     const publishBoard = (finalBoard) => {
       if (isBoard(finalBoard)) {
         board = finalBoard;
@@ -464,6 +482,11 @@ export function mountStudio(root = document) {
         if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
       }
       compile.setEnabled(true);
+      // THE RAIL REFRESHES WHEREVER THE BOARD IS PUBLISHED, and for the reason this pair exists at
+      // all: settle and take-over are the two states nothing resumes from, so they are the two
+      // moments the artifacts describe a board that has stopped changing. Refreshing it at a pause
+      // the driver can resume from would hand a reader a spec and a link for a half-built board.
+      keep?.update();
       syncInspect();
     };
     // BEFORE the mount, not inside it: mountReplay runs two awaited fetches, and the window between
@@ -489,15 +512,36 @@ export function mountStudio(root = document) {
       throw err;
     }
 
+    // #210's keep rail, LAST — after the driver, so the board it reads is the one the driver is
+    // about to fill, and so its own `finally` handle resolves where the gates already wait. Mounted
+    // from here rather than self-booting on its own script tag: it takes the board, the arrangement,
+    // the beat and the canvas, and all four are this file's, so a tag would have to reach them
+    // through getStudio() and would race the ?b= branch below.
+    keep = mountStudioKeep(root.querySelector("[data-studio-keep]"), {
+      getBoard: () => board,
+      getArrangement: arrangementNow,
+      compile,
+      canvas,
+    });
+
     // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
     // built after inspect.mjs restored, so they need one refresh to be wired.
     syncInspect();
 
-    live = { shell, canvas, bus, verbs, compile, replay, inspector, board, summary, arranged };
+    live = { shell, canvas, bus, verbs, compile, replay, inspector, keep, board, summary, arranged };
     return live;
   } finally {
     // Every path, including both early returns and any throw below the glossary call.
     shell?.setAttribute("data-studio", "ready");
+    // The rail's handle is set by its OWN `finally` on every path it reaches — but the two early
+    // returns above (no shell, no canvas) never reach it at all, and a gate waiting on it would then
+    // deadlock to timeout on a page whose real failure is something else entirely. Same call the
+    // canvas and the beat make: fail on the missing thing, loudly, rather than hang.
+    const keepRoot = root.querySelector?.("[data-studio-keep]");
+    // Tested on the VALUE, not on the attribute: [data-studio-keep] is both the mount hook and the
+    // state, exactly as [data-build-keep] and [data-replay] are, so the attribute is always there
+    // and only its value says whether anything mounted.
+    if (keepRoot && !keepRoot.getAttribute("data-studio-keep")) keepRoot.setAttribute("data-studio-keep", "unavailable");
   }
 }
 

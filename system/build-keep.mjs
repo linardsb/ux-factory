@@ -28,6 +28,24 @@ import {
 import { PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
 import { compose } from "./pattern-render.mjs";
 
+// The two honesty sentences the spec's Provenance section ends on, and the ONE sentence its Tokens
+// section prints when the visitor brought no design. Lifted out of specMarkdown as constants for
+// #210's studio export, which puts the same claims in a downloadable HTML document: the export and
+// the spec must state them in the SAME WORDS or neither of them means anything, and a re-typed copy
+// makes that unassertable. build-checks group 17 asserts the export's provenance block against these
+// by IDENTITY, not by substring — which is only possible because they are exported.
+//
+// The two are a PAIR, not alternatives: TWO_CLAIMS is only true when the token values really ARE
+// the visitor's, so a surface with no imported pack prints NO_DESIGN_IMPORTED instead. specMarkdown
+// already branches exactly that way (:160-167 below), and the export inherits the branch rather
+// than inventing a second rule about when a claim is honest.
+export const TWO_CLAIMS = [
+  "Two claims that are not the same claim: the COMPONENTS above are this site's design system, and",
+  "the TOKEN VALUES above are yours. This is your design work on this system's roles. It is not a",
+  "design system I authored for you, and it is not your official design system either.",
+];
+export const NO_DESIGN_IMPORTED = "No design imported. This used the site's neutral pack.";
+
 const RESTORED = "Built from a shared link. Nothing was stored anywhere; your browser rebuilt it from the URL.";
 const REFUSED = "That shared link could not be read, so this is a fresh builder.";
 const FRESH = "Everything here is generated in your browser. Nothing was uploaded and nothing was stored.";
@@ -68,9 +86,19 @@ function svgNode(svg) {
 // project, so the three-column device would be two empty columns. Every value below comes from the
 // state. Not one number in it is hand-written.
 
-// Exported for the committed gate, not for another surface: tooling/build-checks.mjs runs it under
-// Node over real states so the "## Components used" sentences are asserted by RUNNING the function
-// rather than by grepping for them. It is pure apart from the build date.
+// Exported for the committed gate AND, since #210, for exactly one other surface —
+// system/studio-keep.mjs, the studio's keep rail on /factory, which downloads the same
+// pattern-spec.md from a board the visitor watched a recorded agent run assemble. ONE GENERATOR,
+// TWO SURFACES, NEVER FORKED: the day /build's spec and the studio's spec disagree about what a
+// build is, both of them stop being evidence. The rail assembles this function's `state` argument
+// itself out of build-questions.mjs's own exported quadrantFor/frequencyVerdictFor rather than
+// having this file grow a /factory branch, and it prints beside its button that the answers are the
+// RECOMMENDED ones and not the visitor's — that sentence belongs to the surface, because adding it
+// here would put it in /build's download too, where it would be false.
+//
+// tooling/build-checks.mjs runs it under Node over real states so the "## Components used"
+// sentences are asserted by RUNNING the function rather than by grepping for them. It is pure apart
+// from the build date.
 export function specMarkdown(state, named, composition) {
   const { answers, quadrant, frequencyVerdict, board, pack } = state;
   const pattern = named.id && Object.hasOwn(PATTERNS, named.id) ? PATTERNS[named.id] : null;
@@ -163,7 +191,7 @@ export function specMarkdown(state, named, composition) {
     for (const [key, value] of Object.entries(pack.tokens)) lines.push(`  ${key}: ${value};`);
     lines.push("}", "```");
   } else {
-    lines.push("No design imported. This used the site's neutral pack.");
+    lines.push(NO_DESIGN_IMPORTED);
   }
   lines.push("");
 
@@ -174,9 +202,7 @@ export function specMarkdown(state, named, composition) {
     "time or any other time. The pattern was named by the committed rules in system/pattern-rules.mjs",
     "and built through the same vocabulary-validated renderer this site's build-time agent runs use.",
     "",
-    "Two claims that are not the same claim: the COMPONENTS above are this site's design system, and",
-    "the TOKEN VALUES above are yours. This is your design work on this system's roles. It is not a",
-    "design system I authored for you, and it is not your official design system either.",
+    ...TWO_CLAIMS,
   );
   return lines.join("\n");
 }

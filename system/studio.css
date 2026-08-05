@@ -625,3 +625,49 @@
   font-family: var(--font-mono); font-size: var(--type-caption); color: var(--color-fg-muted);
   min-height: 2.8em; margin: var(--spacing-md) 0 0; overflow-wrap: anywhere;
 }
+
+/* ---- the keep rail (#210) -----------------------------------------------------------------------
+   system/studio-keep.mjs's three tiers, on /factory. Tokens only, no literal, and NO
+   view-transition-name anywhere: #171 shipped a real at-rest regression through naming an element
+   for a transition (it becomes a stacking context AND a containing block), and #190 — the fix that
+   would let tooling/vt-stack-audit.mjs run unattended — has not landed.
+
+   AT REST THIS RAIL IS VISIBLE, because the replay settles to a board with places on it, so every
+   rule here is in the pixel baseline. Nothing below animates, nothing carries a time, and the tiers'
+   only state is `hidden` — which factory.html:79's `[hidden] { display: none !important }` already
+   makes stick, so the author-`display` trap (memory `hidden-defeated-by-author-display`) is closed
+   for the `display: grid` below rather than reopened by it. */
+.stu-keep { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-xl); min-width: 0; }
+@media (min-width: 900px) {
+  .stu-keep { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-2xl); align-items: start; }
+  /* The empty state replaces all three tiers rather than sitting in one of their columns. */
+  .stu-keep > [data-keep-empty] { grid-column: 1 / -1; }
+  .stu-keep > [data-keep-note] { grid-column: 1 / -1; }
+}
+.stu-keep-tier { display: grid; gap: var(--spacing-sm); align-content: start; min-width: 0; }
+.stu-keep-title {
+  margin: 0;
+  font-size: var(--type-h4);
+  font-family: var(--font-display);
+}
+.stu-keep-lead { margin: 0; color: var(--color-fg-muted); font-size: var(--type-small); line-height: 1.6; }
+.stu-keep-row { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.stu-keep-note {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--color-fg-muted);
+  font-size: var(--type-caption);
+  line-height: 1.6;
+}
+.stu-keep-link {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  min-height: 36px;
+}

@@ -335,6 +335,40 @@
       </div>
     </section>
 
+    <!-- The keep rail (#210). system/studio-keep.mjs mounts on [data-studio-keep] — mounted BY
+         system/studio.mjs rather than by a script tag of its own, because the five handles it takes
+         (the board, the arrangement, the compile beat, the canvas) belong to the orchestrator and a
+         self-booting tag would have to reach them through getStudio() and would race the ?b= branch.
+         Empty in the markup for the replay chrome's reason: there is nothing honest to print about a
+         board that has not been built yet. -->
+    <section class="band" id="keep">
+      <div class="container">
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Leave with it</p>
+            <h2 class="beat-title">Take the thing you just watched get built.</h2>
+            <p class="beat-lead">
+              A file that runs on its own, the handoff pack for this board, and a link that rebuilds
+              all of it — including where you put each block. Every one of them is assembled in your
+              browser from the same sources this page renders. Nothing is uploaded, and there is
+              nowhere to upload it to.
+            </p>
+          </div>
+        </div>
+        <div class="stu-keep" data-studio-keep>
+          <noscript>
+            <p class="muted">The three artifacts here are assembled in the browser, so they need
+              scripting. Everything they are made of is committed and readable as it is: the
+              <a href="/replay/build-fieldwork-dispatch.board.json">board the run built</a>, the
+              <a href="/system/tokens.contract.css">token contract</a> and the
+              <a href="/system/components.css">components</a> the file would inline, and the
+              <a href="/handoff/verdant/">generated handoff pack</a> the spec mirrors. The same
+              downloads are on <a href="/build">the pattern builder</a>.</p>
+          </noscript>
+        </div>
+      </div>
+    </section>
+
     <!-- Go deeper — outbound links, including the form path this surface falls back to. -->
     <section class="band" id="verify-further">
       <div class="container">
