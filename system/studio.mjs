@@ -456,7 +456,11 @@ export function mountStudio(root = document) {
         board = finalBoard;
         arranged = arrangeBoard(board);
         summary = buildSummary(board, answers);
-        renderSummary(summaryMount, summary, arranged);
+        // THE SAME GUARD THE MOUNT ABOVE CARRIES, and for the same sentence: a panel reading
+        // "Places 0" is a set of true numbers about nothing. It was unreachable while settle() was
+        // the only publisher — a settled run always has places — and a take-over is reachable from
+        // the moment the driver is `ready`, which is several beats before the first place.add.
+        if (arranged.length) renderSummary(summaryMount, summary, arranged);
         if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
       }
       compile.setEnabled(true);

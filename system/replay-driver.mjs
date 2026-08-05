@@ -897,6 +897,14 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       get index() { return index; },
       get tookOver() { return tookOver; },
       destroy() {
+        // IT DOES NOT RE-ENABLE THE COMPILE BEAT, and that is stated rather than left to be found:
+        // studio.mjs blocks the beat before mounting this driver and unblocks it on settle, on
+        // take-over and on a failed mount — a teardown is none of the three, so a destroyed driver
+        // leaves the page's primary control disabled for the life of the page. Harmless today
+        // because tooling/studio-journey.mjs is the ONLY caller (verified by search, PR #240), and
+        // it tears the page down straight after. The day a shipped path calls this — #206's route
+        // surgery is the candidate — it must publish the board first or re-enable the beat.
+        //
         // THE ORDER IS THE POINT (studio-compile.mjs:565-573): the flag first so a frame parked
         // below an await reads it and stops, the abort second — which detaches every listener AND
         // rejects the in-flight fetches — then the timer, then the DOM.
