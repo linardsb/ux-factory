@@ -123,7 +123,13 @@ const inject = (p, action) => p.evaluate((a) => import("/system/studio-verbs.mjs
 // back with busSeen().
 const busRecord = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
   window.__busLog = [];
-  m.getVerbs().bus.on("*", (a) => window.__busLog.push({ type: a.type, source: a.source, id: a.target?.id, params: a.params }));
+  m.getVerbs().bus.on("*", (a) => window.__busLog.push({
+    type: a.type, source: a.source, id: a.target?.id,
+    // #232's two fields, recorded whole: `hasComponent` distinguishes an ABSENT component (a node
+    // with no vocabulary shape) from one that happens to be empty.
+    component: a.target?.component, hasComponent: a.target ? "component" in a.target : false,
+    label: a.target?.label, params: a.params,
+  }));
 }));
 const busSeen = (p) => p.evaluate(() => (window.__busLog || []).slice());
 const busClear = (p) => p.evaluate(() => { window.__busLog = []; });
@@ -567,6 +573,20 @@ async function journey(engineName, results, held) {
   t("AC #4 · a pointer gesture emits EXACTLY ONE ui.move, however many slots it crossed",
     pointerMoves.length === 1, JSON.stringify(pointerActions));
   t("AC #4 · …with an honest source", pointerMoves[0]?.source === "pointer", pointerMoves[0]?.source);
+  // #232 · the target's two names, read against what the wrapper actually carries. `component` is
+  // the VOCABULARY SHAPE everywhere else on this bus (agentic-renderer, agentic-study, bus-toggles,
+  // peak) and this emitter used to put the display label there. Asserted as "the shape, and NOT the
+  // label" — equality with the wrapper alone would pass for an emitter that sent the label if the
+  // two ever coincided.
+  const moved = await page.evaluate((id) => {
+    const n = document.querySelector(`.stx-slot[data-stx-id="${id}"]`);
+    return { shape: n.getAttribute("data-stx-component"), name: n.getAttribute("data-stx-name") };
+  }, TARGET);
+  t("#232 · ui.move carries the VOCABULARY SHAPE under target.component",
+    moved.shape && pointerMoves[0]?.component === moved.shape && pointerMoves[0]?.component !== moved.name,
+    `${JSON.stringify(pointerMoves[0])} vs wrapper ${JSON.stringify(moved)}`);
+  t("#232 · …and the display label under target.label, its own key",
+    pointerMoves[0]?.label === moved.name, `${JSON.stringify(pointerMoves[0])} vs wrapper ${JSON.stringify(moved)}`);
 
   await undoAll(page);
   await busClear(page);
@@ -1260,6 +1280,8 @@ async function factoryPass(browser, t, errors) {
     return { col: n.getAttribute("data-col"), row: n.getAttribute("data-row") };
   }, first);
   await countLive(p);
+  await busRecord(p);
+  await busClear(p);
   await p.locator(`.stx-slot[data-stx-id="${first}"] .stx-grab`).focus();
   await p.keyboard.press("Enter");
   await p.keyboard.press("ArrowDown");
@@ -1276,6 +1298,15 @@ async function factoryPass(browser, t, errors) {
     said.n === 3, `${said.n} announcement(s); last: ${said.last}`);
   t("#206 · …and the last announcement names the slot it landed in",
     new RegExp(`moved to column ${after.col}, row ${after.row}`).test(said.last), said.last);
+  // #232's other half, and the reason `component` is optional rather than always-present: what this
+  // page moves is a FAT-MARKER BLOCK — the drafted board, not a library component. The action must
+  // carry no shape at all rather than a made-up one, and must still say which thing moved.
+  const factoryMove = (await busSeen(p)).filter((a) => a.type === "ui.move")[0];
+  t("#232 · moving a fat-marker block emits NO target.component — it has no vocabulary shape",
+    factoryMove && factoryMove.hasComponent === false, JSON.stringify(factoryMove));
+  t("#232 · …and still names it under target.label",
+    factoryMove?.label === (await p.getAttribute(`.stx-slot[data-stx-id="${first}"]`, "data-stx-name")),
+    JSON.stringify(factoryMove));
 
   // Group 7's claim, on the running page. The source is grep-clean; this is the half grep cannot
   // make — and it is asserted AFTER a move, which is when a style-writing implementation would show.
@@ -1651,5 +1682,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

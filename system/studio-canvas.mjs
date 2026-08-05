@@ -287,7 +287,13 @@ export function initStudioCanvas(root = document) {
     };
 
     let nextId = 0;
-    const place = (node, { col, row, name } = {}) => {
+    // `component` is the VOCABULARY SHAPE of what is being placed ("metric-tile"), and it is
+    // optional because the canvas holds nodes that genuinely have none — /factory's fat-marker
+    // blocks are the drafted board drawn by system/studio.mjs, not library components. Recorded on
+    // the wrapper so system/studio-verbs.mjs can put the real shape on the bus's `target.component`
+    // instead of the display label (#232); a caller that does not know a shape supplies none, and
+    // the action carries none, which is the honest answer rather than an invented name.
+    const place = (node, { col, row, name, component } = {}) => {
       if (!node) throw new Error("studio-canvas: place() was called with no node");
       const slot = clampSlot({ col, row });
       const existing = node.classList.contains("stx-slot")
@@ -317,6 +323,7 @@ export function initStudioCanvas(root = document) {
       // only on the first, so a re-placed component kept announcing "Move <the old name>".
       const grab = wrap.querySelector(":scope > .stx-grab");
       if (grab) grab.setAttribute("aria-label", `Move ${label}`);
+      if (typeof component === "string" && component) wrap.setAttribute("data-stx-component", component);
       wrap.setAttribute("data-col", String(slot.col));
       wrap.setAttribute("data-row", String(slot.row));
       stage.appendChild(wrap);

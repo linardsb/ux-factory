@@ -434,11 +434,25 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // nothing about the consumer, the history or the announcement vocabulary.
     let gesture = null;
 
+    // `component` IS THE VOCABULARY SHAPE, `label` IS THE DISPLAY NAME (#232). This used to emit
+    // the label under `component` — "Metric 1" where agentic-renderer.mjs:209, agentic-study.mjs,
+    // bus-toggles.mjs and peak.mjs all put the shape — which is a field whose meaning depended on
+    // which module emitted it. Harmless while the one consumer read only `target.id`, and settled
+    // HERE rather than left for #209's replay driver to inherit as the second consumer: a driver
+    // that logs or matches on `component` would have been matching a display string.
+    //
+    // The shape is read from the wrapper, where place()'s caller recorded it, and is OMITTED when
+    // the canvas holds something that has none — /factory's fat-marker blocks are the drafted
+    // board, not library components, and naming one "stu-place" would be inventing a vocabulary
+    // entry. An action with no `component` is the honest shape of "the canvas moved a node".
+    const shapeOf = (node) => node.getAttribute("data-stx-component") || null;
+
     const emitMove = (source) => {
+      const shape = shapeOf(gesture.node);
       bus.emit({
         type: "ui.move",
         source,
-        target: { component: nameOf(gesture.node), id: gesture.id },
+        target: { ...(shape ? { component: shape } : {}), id: gesture.id, label: nameOf(gesture.node) },
         params: { col: gesture.current.col, row: gesture.current.row },
       });
     };

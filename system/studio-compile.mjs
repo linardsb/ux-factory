@@ -378,11 +378,20 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
           block,
           name: wrapper.getAttribute("data-stx-name"),
           label: grab ? grab.getAttribute("aria-label") : null,
+          // The wrapper's vocabulary shape, which the swap is about to change and the revert must
+          // put back exactly — a fat-marker block has none, so `null` is a real stashed value here
+          // and not a missing one (#232).
+          component: wrapper.getAttribute("data-stx-component"),
         });
         const label = nameOf(composition[i]);
         if (block) wrapper.replaceChild(nodes[i], block);
         else wrapper.appendChild(nodes[i]);
         wrapper.setAttribute("data-stx-name", label);
+        // The composed node's REAL vocabulary name, so a move of a compiled component puts the
+        // shape on the bus and the label under `label` (#232). nameOf() above is deliberately the
+        // composed label and not this — three sibling buttons all reading "Move metric-tile" would
+        // be indistinguishable to a screen-reader user.
+        wrapper.setAttribute("data-stx-component", String(composition[i].name));
         // STILL WRITTEN HERE after #231 moved place()'s aria-label out of its create branch, and
         // the reason is that this swap never calls place(): it renames a wrapper IN PLACE, because
         // place() appends to the stage (re-ordering it) and announces a placement the reader did
@@ -397,7 +406,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       for (let i = shared; i < nodes.length; i += 1) {
         const col = i + 1;
         if (col > MAX_COLS) break;
-        canvas.place(nodes[i], { ...clampSlot({ col, row: 1 }), name: nameOf(composition[i]) });
+        canvas.place(nodes[i], { ...clampSlot({ col, row: 1 }), name: nameOf(composition[i]), component: composition[i].name });
         if (nodes[i].parentElement) added.push(nodes[i].parentElement);
         fade(nodes[i]);
       }
@@ -519,6 +528,11 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
           current.remove();
         }
         wrapper.setAttribute("data-stx-name", saved.name ?? "Component");
+        // Put back or REMOVED, because the pre-compile block had no shape at all and leaving the
+        // composed one behind would make the reverted stage differ from the at-rest one — which is
+        // AC #3, asserted byte for byte.
+        if (saved.component == null) wrapper.removeAttribute("data-stx-component");
+        else wrapper.setAttribute("data-stx-component", saved.component);
         const grab = wrapper.querySelector(".stx-grab");
         if (grab && saved.label != null) grab.setAttribute("aria-label", saved.label);
         fade(saved.block);

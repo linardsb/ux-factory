@@ -131,7 +131,9 @@
         node.dataset.stxName = spec.label;
         const col = (placed % MAX_COLS) + 1;
         const row = (Math.floor(placed / MAX_COLS) % MAX_ROWS) + 1;
-        canvas.place(node, { col, row, name: spec.label });
+        // `component` is the vocabulary shape, `name` the display label — the harness knows both,
+        // and the shape is what studio-verbs.mjs puts on the bus (#232).
+        canvas.place(node, { col, row, name: spec.label, component: spec.name });
         placed += 1;
       }
 
