@@ -257,19 +257,32 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
     // Nothing is grabbed at mount: setState("blocks") below runs with focus on <body>, so neither
     // branch arms.
     let handOver = null;
+    // #209's SECOND seam here, and the smaller of the two. `getBoard` let the beat read a board
+    // built after this mount; this lets the orchestrator say WHEN that board is one worth compiling.
+    // It is false only while a replay driver is mid-run — studio.mjs blocks it immediately before
+    // mounting the driver and unblocks it on settle, on the visitor's take-over, and on the driver
+    // failing to mount at all — so on any page with no driver the beat is live from mount, exactly
+    // as before. The alternative, letting the beat compile while the driver is still authoring,
+    // puts two authors on one stage (see replay-driver.mjs's syncControls) (PR #240 review,
+    // finding 1).
+    let blocked = false;
     const setState = (next) => {
       const from = document.activeElement;
       if (from === compileBtn) handOver = revertBtn;
       else if (from === revertBtn) handOver = compileBtn;
       state = next;
       viewport.setAttribute("data-compile-state", next);
-      compileBtn.disabled = next !== "blocks";
+      compileBtn.disabled = next !== "blocks" || blocked;
       revertBtn.disabled = next === "blocks" || next === "compiling";
       if (handOver && !handOver.disabled) {
         handOver.focus();
         handOver = null;
       }
     };
+    // Goes through setState so the disabled computation lives at exactly one line, and re-reads
+    // `state` rather than assuming "blocks": a beat unblocked while it is "rendered" must stay
+    // disabled, which is what "Back to blocks" is for.
+    const setEnabled = (on) => { blocked = !on; setState(state); };
     setState("blocks");
 
     // --- teardown ------------------------------------------------------------------------------
@@ -570,7 +583,9 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
     const handleObj = {
       compile,
       revert,
+      setEnabled,
       get state() { return state; },
+      get enabled() { return !blocked; },
       steps: STEPS,
       destroy() {
         // THE ORDER IS THE POINT. The flag first, so a frame released below reads it and stops; the

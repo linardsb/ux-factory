@@ -288,3 +288,64 @@ argued at the line.
 Re-run after fixing: `build-checks`, `studio-journey all`, and — because finding 1's fix touches what
 Compile reads — `vt-verify all`. The pixel gate is unaffected by all six unless the chrome copy changes
 for finding 4, in which case factory's two baselines move with it.
+
+---
+
+## Resolution — what was fixed, and where this review's own fix was wrong
+
+Findings 1, 2, 3, 4 and 5 are fixed on this branch. Finding 6 is deferred to #210, which owns the
+branch it is about ([issue comment](https://github.com/linardsb/ux-factory/issues/210#issuecomment-5195486113)).
+
+### Finding 1 — the amended fix above was still wrong, in the same way the first one was
+
+The amendment rejected pointing `getBoard` at the driver's live board because Compile would then work
+during autoplay, against wrappers `reflect()` is still authoring, and prescribed instead: *fire the
+board callback on take-over and on Pause as well as on settle, and leave `compileBtn.disabled` while
+`playing`.*
+
+**That re-opens the same collision through a different door.** "Add-only" is about the artifact's op
+verbs, not about which reflection branch they reach: the histogram is 4 `place.add` · 7
+`affordance.add` · 7 `connect`, and only `place.add` calls `place()`. Every one of the seven
+`affordance.add` produces a `place-changed`, which is `wrapper.replaceChild(fresh, old)` on the
+wrapper's first non-`.stx-grab` child — the compiled component. So *pause → Compile → Resume* watches
+compiled primitives replaced by fat markers, and there are seven live opportunities for it, threaded
+through the run.
+
+`playing` is therefore the wrong predicate: it is false in states the driver can resume from. What
+shipped instead:
+
+- **the compile beat is enabled iff the driver has stopped for good** — settle, take-over, or the
+  driver failing to mount at all. `studio-compile.mjs` gains one seam (`setEnabled`, folded into the
+  single line that already computes `compileBtn.disabled`); `studio.mjs` blocks the beat immediately
+  before mounting the driver and publishes the board through one `publishBoard` on those three paths.
+  No new option on `mountReplay`: `onTakeOver` and `get board()` both already existed.
+- **the driver's whole transport dies with the handover, not only seek** (`syncControls`). Seek's
+  recorded reason — a rebuild would destroy the visitor's arrangement — turned out to be the narrower
+  half of a rule that covers all four controls: *the driver does not author onto a canvas it has
+  handed over.* Without this, take-over → Compile → Resume reaches the clobber with no Pause involved.
+- Pause is deliberately **not** a publish point. It is a state the driver resumes from, and the
+  review's failure scenario is a take-over path anyway — the copy says *"the moment you touch the
+  canvas it is yours"*, which is not the transport.
+
+### Finding 3 — the prescribed fix could not have worked
+
+"Announce one summary sentence naming the acts" fails for the identical reason N sentences did:
+`skipToEnd`'s last `advance` calls `settle()`, which says the completion sentence **in the same
+task**, so a summary emitted before it is overwritten and unheard. The acts are folded **into**
+`settle()`'s own sentence instead — one `say`, one task, one value — behind an `instant` flag set only
+around a synchronous run of beats. The same collapse in a **forward seek** was fixed with it rather
+than left as a sibling of the bug, and the autoplay path is unchanged (its acts are heard as they
+happen, so it must not repeat them).
+
+### What proves each fix
+
+| Finding | Proof | Mutation |
+|---|---|---|
+| 1 | `studio-journey` §9 — Compile disabled mid-replay, live on take-over, the whole transport dead, and Compile pressed **mid-replay after a take-over** rendering library primitives for the blocks on the canvas (never the empty card), still un-clobbered two seconds later | removing `setEnabled(false)`, and reverting the transport to seek-only, each go red on their own assertion |
+| 2 | `studio-journey` §10 — a press in a route-widened `loading` window is not a take-over, fires no route, and the run still plays through to its own board | restoring `state === "unavailable"` goes red |
+| 3 | `studio-journey` §11 — the reduced-motion arrival and the Skip-to-end press each announce a sentence naming the acts, with the autoplay path as the control | removing the `instant` branch goes red |
+| 4 | `build-checks` group 16 §7 — the two spans really are different numbers over skipped steps (the sentence is DOM-side; what is pinned is the reason it must name its span) | `source.durationMs = 1` goes red |
+| 5 | `build-checks` group 7 — no raw C0 control byte in any of the 13 modules | re-inlining the literal `NUL` goes red |
+
+Every assertion is phrased as resulting DOM or a resulting URL, and every one of them was run against
+its own defect before being trusted — the file's own rule, applied to the checks written for it.

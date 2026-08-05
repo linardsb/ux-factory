@@ -954,6 +954,16 @@ function scanSvg(svg, label) {
     for (const sink of [".innerHTML", ".outerHTML", ".insertAdjacentHTML(", "document.write("]) {
       ok(!src.includes(sink), `system/${file} uses ${sink}; /build builds every node element by element`);
     }
+    // NO RAW C0 CONTROL BYTE IN THE SOURCE, and this is a check about the REPO's own tooling rather
+    // than about the browser. replay-driver.mjs's place signature separates fields with U+0000 and
+    // U+0001, and they were written as literal bytes: `rg` then reports "binary file matches" and
+    // returns nothing, and plain `grep` matches nothing at all, SILENTLY — on the one file in the
+    // studio whose header is a numbered list of "this file never does X" invariants. Written as
+    // `\u0000` escapes, the runtime behaviour is byte-identical and the file is text again. Tab and
+    // the two newline forms are the only control characters a source file has any business carrying
+    // (PR #240 review, finding 5).
+    const raw = src.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g);
+    ok(!raw, `system/${file} carries ${raw && raw.length} raw control byte(s) — grep and rg go silent on it; write them as \\u escapes`);
   }
   ok(writes === 1, `the /build modules make ${writes} inline-style writes in total; the invariant is exactly 1`);
 
@@ -2757,6 +2767,14 @@ function scanSvg(svg, label) {
     "the chrome's counts are not the beats' — a number on the page would be a claim rather than a count");
   // Every beat gets a sentence. A blank one is a beat the live region announces as silence.
   ok(pacing.beats.every((b) => describeBeat(b).trim().length > 0), "a beat has no announceable sentence");
+  // THE TWO DURATIONS ARE DIFFERENT NUMBERS, and the panel prints both inches apart: `durationMs` is
+  // the run's whole session and `realMs` is first beat to last, shorter by the steps that are not
+  // played. The chrome sentence is DOM-side and out of reach here, so what is pinned is the reason
+  // it has to name its span — the day a run's skipped steps take no measurable time these collapse,
+  // and whoever sees this go red should read renderChrome's `span` before deleting it
+  // (PR #240 review, finding 4).
+  ok(built.skipped > 0 && run.realMs < run.durationMs,
+    `the run's played span (${run.realMs} ms) is no longer shorter than its session (${run.durationMs} ms) over ${built.skipped} skipped steps — the panel's two durations are the same number now, so the "Of that" sentence is misleading rather than clarifying`);
 
   // --- 8 · the artifact's op histogram, as a TRIPWIRE ---------------------------------------------
   // The committed run is ADD-ONLY: 4 place.add, 7 affordance.add, 7 connect. The driver's

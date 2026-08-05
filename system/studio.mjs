@@ -439,20 +439,51 @@ export function mountStudio(root = document) {
     // tooling/studio-journey.mjs:1218-1226 reads all three off the running page through getStudio()
     // and asserts slotCount === arranged === places. Leaving them at their mount-time values would
     // turn that assertion red for a page that is entirely correct.
-    const replay = mountReplay(canvas, {
-      shell,
-      renderPlace: placeBlock,
-      bus,
-      onSettle: (finalBoard) => {
-        if (!isBoard(finalBoard)) return;
+    // THE BOARD IS PUBLISHED WHEREVER THE DRIVER HAS STOPPED FOR GOOD, and "for good" is the whole
+    // point of the pair below rather than a third call on the driver's own Pause. Compile does a
+    // positional in-place swap of every wrapper's contents; the driver's reflection replaces that
+    // same child on every `place-changed` (replay-driver.mjs:499, seven of them in the committed
+    // artifact). So a board published at a pause the driver can resume from would hand Compile a
+    // stage the driver is going to keep authoring. SETTLE and TAKE-OVER are the two states nothing
+    // resumes from — settle is terminal, and take-over kills the transport (PR #240 review,
+    // finding 1).
+    //
+    // `finalBoard == null` is the driver's UNAVAILABLE path (a 404 artifact): there is no board to
+    // publish and this page's own empty one is already correct, but the beat must still come back —
+    // a degraded replay may not leave the page's primary control dead.
+    const publishBoard = (finalBoard) => {
+      if (isBoard(finalBoard)) {
         board = finalBoard;
         arranged = arrangeBoard(board);
         summary = buildSummary(board, answers);
         renderSummary(summaryMount, summary, arranged);
         if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
-        syncInspect();
-      },
-    });
+      }
+      compile.setEnabled(true);
+      syncInspect();
+    };
+    // BEFORE the mount, not inside it: mountReplay runs two awaited fetches, and the window between
+    // this line and the driver's first beat is exactly the one a reader could press Compile in and
+    // be told "No pattern named, so nothing compiled" about a canvas that is visibly filling up.
+    compile.setEnabled(false);
+    let replay = null;
+    try {
+      replay = mountReplay(canvas, {
+        shell,
+        renderPlace: placeBlock,
+        bus,
+        onSettle: publishBoard,
+        // The driver already owns the board it built and already exposes it; there is no third
+        // option to add here. It can only fire after start()'s awaits, so `replay` is bound.
+        onTakeOver: () => publishBoard(replay ? replay.board : null),
+      });
+    } catch (err) {
+      // The driver reports a boundary failure by throwing (replay-driver.mjs:864-869) and leaves
+      // [data-replay="unavailable"] behind, which the gates read. The beat must not go down with it:
+      // re-enable, then re-throw, so the failure stays as loud as it was.
+      compile.setEnabled(true);
+      throw err;
+    }
 
     // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
     // built after inspect.mjs restored, so they need one refresh to be wired.

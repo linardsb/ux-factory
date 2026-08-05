@@ -1748,6 +1748,175 @@ async function replayPass(browser, t, errors) {
     (await pd.locator(".stu-replay-controls").count()) === 0);
   await pd.close();
   await dctx.close();
+
+  // --- 9 · #240/1 · COMPILE AND THE DRIVER NEVER AUTHOR THE SAME STAGE ---------------------------
+  // The review's High, and the only place it can be proven: build-checks sees the pure layer and the
+  // pixel gate never presses anything. Two halves, and the second is the one that matters.
+  //
+  // (a) Compile is DEAD while the run plays. It used to be live from mount over a board variable
+  // only settle() ever wrote, so a reader following factory.html's own lead copy — "the moment you
+  // touch the canvas it is yours… press Compile the board" — got "No pattern named, so nothing
+  // compiled" about four blocks sitting in front of them.
+  //
+  // (b) The transport is DEAD once they have taken over, which is what makes (a)'s fix safe. Every
+  // beat after a block's place.add is a place-changed doing replaceChild on that wrapper's first
+  // non-grab child — the compiled component — and the committed artifact carries seven of them. So
+  // "take over, compile, press Resume" is a live two-authors-one-stage path, and closing it is one
+  // line in syncControls rather than a sentence in a header.
+  const cctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const p9 = await cctx.newPage();
+  watch(p9, "replay compile");
+  await p9.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p9.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
+  // MID-REPLAY, and asserted as such: a settled page would prove the wrong thing here exactly as it
+  // would in section 5. Waiting for four blocks rather than one so the partial board has something
+  // to compile — the claim is "components for the blocks actually on the canvas", and a board of one
+  // bare place answers "empty" honestly, which would make the next assertion a check that passes for
+  // the wrong reason.
+  await p9.waitForFunction(() => document.querySelectorAll("[data-studio-canvas] .stx-slot").length >= 4,
+    null, { timeout: 30000 });
+  const compileBtn = p9.locator(".stu-compile-btn").first();
+  const mid9 = await replayState(p9);
+  t("#240/1 · the compile beat is DISABLED while the replay is still authoring the canvas",
+    (await compileBtn.isDisabled()) && mid9.state !== "settled" && mid9.index < mid9.beats,
+    `disabled=${await compileBtn.isDisabled()} state=${mid9.state} ${mid9.index}/${mid9.beats}`);
+  // The take-over: one pointer press on a block, the visitor path.
+  await p9.locator(`${VIEWPORT} .stx-slot`).first().click();
+  await p9.waitForTimeout(300);
+  const took9 = await replayState(p9);
+  t("#240/1 · …and LIVE the moment the visitor takes over, which is when the copy tells them to use it",
+    !(await compileBtn.isDisabled()) && took9.took === true, `disabled=${await compileBtn.isDisabled()}`);
+  const transport9 = p9.locator(".stu-replay-controls");
+  const deadTransport = await Promise.all([
+    transport9.getByRole("button", { name: "Resume", exact: true }).isDisabled(),
+    transport9.getByRole("button", { name: "Step", exact: true }).isDisabled(),
+    transport9.getByRole("button", { name: "Skip to end", exact: true }).isDisabled(),
+    p9.locator(".stu-replay-seek").isDisabled(),
+  ]);
+  t("#240/1 · …and the driver's WHOLE transport goes dead with the handover, not only seek — Resume after a compile would replace compiled components with fat markers",
+    deadTransport.every(Boolean), `resume/step/skip/seek disabled = ${deadTransport.join(",")}`);
+  // THE FAILURE SCENARIO ITSELF, driven: press the button the page tells them to press, and read
+  // what comes back. "Not the empty card" is the whole finding.
+  const slotsAtCompile = await p9.locator(`${VIEWPORT} .stx-slot`).count();
+  await compileBtn.click();
+  await p9.waitForFunction(() => {
+    const s = document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state");
+    return s && s !== "blocks" && s !== "compiling";
+  }, null, { timeout: 20000 });
+  const state9 = await p9.getAttribute(VIEWPORT, "data-compile-state");
+  const compiled9 = await p9.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
+    .filter((w) => [...w.children].some((c) => !c.classList.contains("stx-grab") && /^ds-/.test(c.className))).length);
+  t("#240/1 · Compile pressed MID-REPLAY after a take-over compiles the blocks that are on the canvas — never the empty board",
+    state9 === "rendered" && compiled9 > 0, `state=${state9}, ${compiled9} of ${slotsAtCompile} slot(s) hold a library primitive`);
+  t("#240/1 · …and the page's own board seam agrees with what it just compiled",
+    await p9.evaluate((n) => import("/system/studio.mjs").then((m) => {
+      const s = m.getStudio();
+      return !!s && s.board.places.length === n && s.arranged.length === n;
+    }), slotsAtCompile), `${slotsAtCompile} slot(s)`);
+  // AND IT STAYS COMPILED. With the transport dead there is no way to ask the driver for another
+  // beat, so this is the residual made checkable rather than asserted away.
+  await p9.waitForTimeout(2000);
+  const stillCompiled = await p9.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
+    .filter((w) => [...w.children].some((c) => !c.classList.contains("stx-grab") && /^ds-/.test(c.className))).length);
+  t("#240/1 · …and two seconds later the driver has replaced none of it — one author, one stage",
+    stillCompiled === compiled9, `${compiled9} → ${stillCompiled}`);
+  await p9.close();
+
+  // --- 10 · #240/2 · the LOADING window is not a take-over ---------------------------------------
+  // The driver mounts, then awaits two fetches. `onTouch` guarded on "unavailable" and not on that
+  // window, so a press against the visible empty canvas fired /factory/took-over, flipped provenance
+  // to the visitor — and then start() played the run anyway, underneath a reader the page had just
+  // told the canvas was theirs. Uncovered by construction until now: every case above enters after
+  // `ready` or `settled`, and the degradation case enters at `unavailable`.
+  //
+  // The window is widened BY ROUTE, section 3's technique: delaying a response changes nothing about
+  // what the driver does in it, it only makes it long enough to click in.
+  const p10 = await cctx.newPage();
+  watch(p10, "replay loading");
+  await p10.addInitScript(() => {
+    window.__pushed = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, u) => { window.__pushed.push(String(u)); return real(s, ti, u); };
+  });
+  await p10.route("**/replay/*.json", async (route) => {
+    await new Promise((r) => setTimeout(r, 2500));
+    await route.continue();
+  });
+  await p10.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p10.waitForSelector('[data-replay="loading"]', { timeout: 20000 });
+  const empty10 = await p10.locator(`${VIEWPORT} .stx-slot`).count();
+  await p10.locator(`${VIEWPORT} .stx-scroll`).click({ position: { x: 40, y: 40 } });
+  await p10.waitForTimeout(200);
+  const during10 = await replayState(p10);
+  t("#240/2 · the canvas really is EMPTY and LOADING when it is pressed — the window this is about",
+    empty10 === 0 && during10 !== null && during10.state === "loading", `${empty10} slot(s), state=${during10 && during10.state}`);
+  t("#240/2 · …a press there is NOT a take-over: there is nothing to take over yet",
+    during10.took === false && (await p10.getAttribute("[data-studio]", "data-provenance")) !== "visitor",
+    JSON.stringify(during10));
+  t("#240/2 · …and no /factory/took-over is fired for a handover that did not happen",
+    (await p10.evaluate(() => window.__pushed.filter((u) => u === "/factory/took-over").length)) === 0,
+    JSON.stringify(await p10.evaluate(() => window.__pushed.slice())));
+  // AND THE RUN STILL RUNS. The other half of the bug: the press must cost the reader nothing.
+  await settled(p10);
+  const after10 = await replayState(p10);
+  t("#240/2 · …and the run plays through to its own board regardless — the press cost the reader nothing",
+    after10.index === after10.beats && after10.places > 0
+    && (await p10.locator(`${VIEWPORT} .stx-slot`).count()) === after10.places, JSON.stringify(after10));
+  // READ OFF THE CHROME'S OWN LINE, not off the shell: the shell carries no data-provenance until a
+  // handover sets one (replay-driver.mjs:744), so asserting "run" there would be asserting on an
+  // attribute that never exists and would pass identically if the press HAD taken over and the
+  // shell had been given "visitor" — the check would fail for the right reason and pass for two.
+  t("#240/2 · …with the provenance line still naming the run as the author",
+    (await p10.getAttribute(".stu-replay-provenance", "data-provenance")) === "run"
+    && (await p10.getAttribute("[data-studio]", "data-provenance")) === null,
+    `${await p10.getAttribute(".stu-replay-provenance", "data-provenance")} / ${await p10.getAttribute("[data-studio]", "data-provenance")}`);
+  await p10.close();
+  await cctx.close();
+
+  // --- 11 · #240/3 · the INSTANT paths announce once, and that once names the acts ----------------
+  // skipToEnd applies every remaining beat synchronously, and the reduced-motion arrival IS that
+  // loop. An aria-live="polite" region speaks its FINAL value per task, so the act sentences written
+  // on the way were overwritten by settle()'s completion sentence and a screen-reader user heard
+  // none of them — studio-compile.mjs:165-174's recorded lesson, in a file that cites it.
+  //
+  // ASSERTED ON THE SENTENCE THAT IS ACTUALLY HEARD, which is the only assertion that can fail here:
+  // "an act sentence was written" passes against the broken version too, because in one task the
+  // writes all happen and none of them are announced.
+  const rmctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const p11 = await rmctx.newPage();
+  watch(p11, "replay announce");
+  await p11.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settled(p11);
+  const heard11 = (await p11.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.trim()));
+  const acts11 = ["Plan", "Gate", "Implement", "Validate"].filter((a) => heard11.includes(a));
+  t("#240/3 · the reduced-motion arrival's ONE announcement names the acts the run moved through",
+    /moving through/.test(heard11) && acts11.length >= 2 && /\d+ places/.test(heard11),
+    `${acts11.length} act(s): ${heard11}`);
+  await p11.close();
+  await rmctx.close();
+  // The same claim for the reader who PRESSES Skip to end, and its control: an autoplayed arrival
+  // announced each act as it happened, in its own task, and so must NOT repeat them at the end.
+  const sctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const p12 = await sctx.newPage();
+  watch(p12, "replay skip");
+  await p12.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p12.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+  await countLive(p12);
+  await p12.locator(".stu-replay-controls").getByRole("button", { name: "Skip to end", exact: true }).click();
+  await settled(p12);
+  const saidSkip = await liveSeen(p12);
+  t("#240/3 · …and Skip to end says the same kind of sentence rather than emitting acts nothing can hear",
+    /moving through/.test(saidSkip.last) && /\d+ places/.test(saidSkip.last), saidSkip.last);
+  await p12.close();
+  const p13 = await sctx.newPage();
+  watch(p13, "replay autoplay");
+  await p13.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settled(p13);
+  const heard13 = await p13.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.trim());
+  t("#240/3 · …while a run that AUTOPLAYED announced its acts as they happened and does not repeat them at the end",
+    /The run finished:/.test(heard13) && !/moving through/.test(heard13), heard13);
+  await p13.close();
+  await sctx.close();
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -278,7 +278,7 @@ export function applyBeat(board, beat) {
   const changes = [];
   const wasById = new Map(before.places.map((p) => [p.id, p]));
   const nowById = new Map(after.places.map((p) => [p.id, p]));
-  const sig = (p) => `${p.label} ${p.affordances.map((f) => `${f.id}:${f.label}`).join("")}`;
+  const sig = (p) => `${p.label}\u0000${p.affordances.map((f) => `${f.id}:${f.label}`).join("\u0001")}`;
 
   for (const p of after.places) {
     const was = wasById.get(p.id);
@@ -548,23 +548,51 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
     // it announces PER BEAT only when the reader drove the step. The rejected alternative, a quiet
     // flag threaded into canvas.say, is an edit to studio-canvas.mjs that #204 deliberately did not
     // make, and it would hand every future caller a way to move something silently.
+    // ACTS TRAVERSED WITHIN ONE TASK ARE NAMED IN ONE SENTENCE, never announced one by one. A polite
+    // region speaks its FINAL value per task, so skipToEnd's synchronous loop — and the whole
+    // reduced-motion path, which IS that loop — used to write N act sentences a screen-reader user
+    // heard none of: settle()'s completion sentence overwrote every one of them in the same task.
+    // This is studio-compile.mjs:165-174's recorded lesson and deliberately NOT its answer —
+    // spacing across tasks is right for a beat meant to play out and wrong for a path whose entire
+    // contract is that it is instant. Folding them into the sentence that ENDS the task is the only
+    // shape that survives: one say, one task, one value. `instant` is set only around a synchronous
+    // run of beats, and whoever ends that run drains the list (PR #240 review, finding 3).
+    let instant = false;
+    const actsPending = [];
+    // "Plan", "Plan and Gate", "Plan, Gate and Implement" — the site's list voice, not a join(", ").
+    const drainActs = () => {
+      const acts = actsPending.splice(0);
+      if (!acts.length) return "";
+      if (acts.length === 1) return acts[0];
+      return `${acts.slice(0, -1).join(", ")} and ${acts[acts.length - 1]}`;
+    };
+
     const announceBeat = (beat, driven) => {
       if (driven) { canvas.say(describeBeat(beat)); return; }
       if (beat.phase && beat.phase !== lastPhase) {
         lastPhase = beat.phase;
-        canvas.say(`${PHASES[beat.phase] || beat.phase}.`);
+        const act = PHASES[beat.phase] || beat.phase;
+        if (instant) { actsPending.push(act); return; }
+        canvas.say(`${act}.`);
       }
     };
 
     const syncControls = () => {
       seek.value = String(index);
       pauseBtn.textContent = playing ? "Pause" : "Resume";
-      pauseBtn.disabled = settled;
-      stepBtn.disabled = index >= beats.length;
-      endBtn.disabled = index >= beats.length;
-      // SEEK IS DISABLED ONCE THE VISITOR HAS TAKEN OVER. Seeking backwards rebuilds the board from
-      // a prefix and rebuilds the canvas to match, which would destroy an arrangement the visitor
-      // made. Preserving their edits across a seek is a merge problem this ticket does not need.
+      // THE WHOLE TRANSPORT GOES DEAD ONCE THE VISITOR HAS TAKEN OVER, not only seek. Seek's own
+      // reason — a rebuild would destroy the arrangement the visitor made — is the narrower half of
+      // a rule that covers all four: THE DRIVER DOES NOT AUTHOR ONTO A CANVAS IT HAS HANDED OVER.
+      // Resume/Step/Skip each apply further beats, and every beat after the first `place.add` for a
+      // block is a `place-changed` that does `wrapper.replaceChild(fresh, old)` on the wrapper's
+      // first non-`.stx-grab` child (:499). The committed artifact carries seven `affordance.add`,
+      // each of which produces exactly that change — so a visitor who takes over, compiles the
+      // board, then presses Resume would watch compiled primitives replaced by fat markers. Two
+      // authors, one stage: the failure this file's headline invariant exists to prevent, reached
+      // through the transport rather than through a mover (PR #240 review, finding 1).
+      pauseBtn.disabled = settled || tookOver;
+      stepBtn.disabled = tookOver || index >= beats.length;
+      endBtn.disabled = tookOver || index >= beats.length;
       seek.disabled = tookOver || !beats.length;
     };
 
@@ -602,7 +630,10 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       playing = false;
       clearTimer();
       setState("settled");
-      canvas.say(`The run finished: ${board.places.length} places, ${run ? run.opCount : beats.length} ops.`);
+      const acts = drainActs();
+      canvas.say(acts
+        ? `The run finished, moving through ${acts}: ${board.places.length} places, ${run ? run.opCount : beats.length} ops.`
+        : `The run finished: ${board.places.length} places, ${run ? run.opCount : beats.length} ops.`);
       readout.textContent = `The run is complete — ${board.places.length} places on the canvas, built by ${run ? run.opCount : beats.length} ops.`;
       readout.removeAttribute("data-beat-kind");
       if (typeof onSettle === "function") onSettle(board);
@@ -634,7 +665,11 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
 
     const skipToEnd = () => {
       pause();
-      while (index < beats.length) advance(false);
+      instant = true;
+      // `finally`, because advance() → settle() → onSettle() runs the orchestrator's callback inside
+      // this loop and a throw there must not leave the driver announcing nothing for the rest of the
+      // page's life.
+      try { while (index < beats.length) advance(false); } finally { instant = false; }
     };
 
     // Backwards is a REBUILD FROM THE PREFIX, never an un-apply: ops have no inverse, applyOp is
@@ -654,9 +689,16 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
         settled = false;
         setState("ready");
       }
-      while (index < target) advance(false);
+      // THE SAME COLLAPSE, and it is fixed here for the same reason rather than left as a sibling of
+      // the bug above: a forward seek applies its whole span in one task too, so its act sentences
+      // were overwritten by the step count below exactly as skipToEnd's were by settle's.
+      instant = true;
+      try { while (index < target) advance(false); } finally { instant = false; }
       if (index < beats.length) { settled = false; }
-      canvas.say(`Step ${index} of ${beats.length}.`);
+      const acts = drainActs();
+      canvas.say(acts
+        ? `Moved through ${acts}. Step ${index} of ${beats.length}.`
+        : `Step ${index} of ${beats.length}.`);
       syncControls();
     };
 
@@ -687,7 +729,15 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       // built has taken nothing over, and firing the route there would make the metric a lie. A
       // COMPLETED run still hands over — grabbing the wheel over the run's finished work is exactly
       // what the metric is about.
-      if (state === "unavailable") return;
+      //
+      // READ OFF `beats` RATHER THAN `state`, which covers one state more than "unavailable" and is
+      // the reason it is written this way: `beats` is empty from mount until :450's assignment, so
+      // this also excludes the "loading" window — two awaited fetches against a visible, empty,
+      // inviting canvas — where the replay has likewise built nothing, and where a press used to
+      // fire the route and then let start() play the run anyway, underneath a reader the provenance
+      // line had just told the canvas was theirs. unavailable() sets `beats = []` (:770), so the
+      // original condition is subsumed rather than dropped (PR #240 review, finding 2).
+      if (!beats.length) return;
       tookOver = true;
       const wasPlaying = playing;
       pause();
@@ -811,10 +861,20 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       facts.after(links);
 
       // THE PACING SENTENCE, from computed numbers. It never claims wall-clock realism — see call 3.
+      // TWO SPANS, NAMED AS TWO. "Took" in the facts list above is the run's whole session
+      // (meta.durationMs); this sentence measures first beat to last, which is shorter by whatever
+      // the run spent on steps that are not played — it read its brief and it validated the board.
+      // Both numbers are honest and they differ, so on a page whose premise is checkable honesty the
+      // sentence has to say which span it is measuring rather than leave two durations sitting
+      // inches apart with nothing distinguishing them (PR #240 review, finding 4).
       const shape = `${run.opCount} ops, ${run.noteCount} narration steps and ${run.refusalCount} refusals its fence turned down`;
+      // "Of that" only where there IS a that: fact("Took", …) renders nothing without a durationMs,
+      // and a sentence referring back to a fact the reader cannot see is worse than the collision it
+      // was written to fix.
+      const span = `${run.durationMs ? "Of that, the" : "The"} played steps span ${formatDuration(run.realMs)}`;
       pacingLine.textContent = run.compression > 1.05
-        ? `The run took ${formatDuration(run.realMs)} — ${shape}. Played here at ${run.compression.toFixed(1)}×, so the gaps between steps stay the run's own, proportionally.`
-        : `The run took ${formatDuration(run.realMs)} — ${shape}. Played here at the run's own pace.`;
+        ? `${span} — ${shape}. Played here at ${run.compression.toFixed(1)}×, so the gaps between steps stay the run's own, proportionally.`
+        : `${span} — ${shape}. Played here at the run's own pace.`;
 
       if (built.traceless) {
         pacingLine.after(el("p", { class: "stu-replay-note", text:
