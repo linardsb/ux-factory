@@ -2120,6 +2120,294 @@ async function compilePass(browser, t, errors) {
   await rctx.close();
 
   await teardownPass(browser, t, errors);
+  await keepPass(browser, t, errors);
+}
+
+// ---------------------------------------------------------------------------------------------
+// #210 · THE KEEP RAIL, THE EXPORT AND THE ?b= RESTORE. Everything here is a running-page fact that
+// tooling/build-checks.mjs group 17 structurally cannot reach, and group 17's own summary says so:
+// that group owns the STRING the exporter produces, and this owns whether a browser really hands a
+// file over, whether the tiers really hide, whether the address bar really carries the arrangement,
+// and whether the declined mount really leaves a live Compile button.
+//
+// THE BARE-BOARD STATE IS BUILT HERE, WITH THE PAGE'S OWN CODEC. /factory has no remove verb
+// (studio-verbs.mjs owns move/undo/redo only) and Act 0's "Clear the canvas" clears the PACK, not
+// the board — so the only reachable bare board on this route is a ?b= link carrying one, and
+// encodeBuild makes it. Going via /build to produce it would make this case a test of that page.
+async function keepPass(browser, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+  };
+  const railReady = (p) => p.waitForSelector('[data-studio-keep="ready"]', { timeout: 20000 });
+  const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  // Read as CLIENT RECTS rather than as the hidden attribute: `hidden` is inert wherever an author
+  // rule sets display, which is the trap factory.html:79's [hidden] rule exists to close — so the
+  // only assertion that proves the tier is really gone is that it occupies no box (memory
+  // `hidden-defeated-by-author-display`; #209's Pause-button case makes the same call).
+  const tiers = (p) => p.evaluate(() => {
+    const rects = (s) => { const n = document.querySelector(s); return n ? n.getClientRects().length : -1; };
+    return {
+      empty: rects("[data-keep-empty]"),
+      exportTier: rects("[data-keep-export]"),
+      artifacts: rects("[data-keep-artifacts]"),
+      share: rects("[data-keep-share]"),
+    };
+  });
+
+  // --- 1 · the rail at rest, on the board the replay built --------------------------------------
+  const p1 = await ctx.newPage();
+  watch(p1, "keep");
+  await p1.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await railReady(p1);
+  await settled(p1);
+  const full = await tiers(p1);
+  t("#210 · AC #6 · with a board on the canvas all three tiers are on the page and the empty state is not",
+    full.empty === 0 && full.exportTier === 1 && full.artifacts === 1 && full.share === 1, JSON.stringify(full));
+  const buttons = await p1.locator("[data-studio-keep] button").evaluateAll((bs) => bs.map((b) => b.textContent));
+  t("#210 · …and it offers the export, the four /build downloads and the share control",
+    buttons.length === 6 && buttons[0].includes("runnable") && buttons[5].includes("Copy"), JSON.stringify(buttons));
+  // NOTHING FETCHED AT REST. #206's lazy-panel property is what the pixel gate depends on, and the
+  // rail must not be what breaks it: the vocabulary and the three stylesheets belong to the export
+  // CLICK. Counted from the moment the rail was ready, so the replay's own two artifact fetches —
+  // which happen before it — are not what this is measuring.
+  const atRest = [];
+  p1.on("request", (r) => atRest.push(r.url()));
+  await p1.waitForTimeout(400);
+  t("#210 · the rail fetches NOTHING at rest — no vocabulary, no stylesheets until the reader asks",
+    atRest.filter((u) => /vocabulary\.json|tokens\.|components\.css/.test(u)).length === 0, JSON.stringify(atRest));
+
+  // --- 2 · the export click really hands a file over ---------------------------------------------
+  const [download] = await Promise.all([
+    p1.waitForEvent("download", { timeout: 30000 }),
+    p1.locator("[data-keep-export] button").click(),
+  ]);
+  const stream = await download.createReadStream();
+  let text = "";
+  for await (const chunk of stream) text += chunk;
+  t("#210 · AC #2 · the export button downloads a file, and it is named for what it is",
+    download.suggestedFilename() === "prototype.html", download.suggestedFilename());
+  // Parsed as HTML BY A BROWSER rather than pattern-matched: group 17 already owns the string, and
+  // what this adds is that a real engine reads it as a document containing the composed components.
+  const parsed = await p1.evaluate((html) => {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return {
+      cells: doc.querySelectorAll(".sx-cell").length,
+      tiles: doc.querySelectorAll(".ds-metric-tile").length,
+      scripts: doc.querySelectorAll("script").length,
+      title: doc.title,
+      slots: [...doc.querySelectorAll(".sx-cell")].map((c) => c.className),
+    };
+  }, text);
+  const onCanvas = await p1.locator(`${VIEWPORT} .stx-slot`).count();
+  t("#210 · AC #3 · the downloaded bytes parse as HTML carrying one composed component per block on the canvas",
+    parsed.cells === onCanvas && parsed.tiles === onCanvas, `${parsed.cells} cells / ${parsed.tiles} tiles for ${onCanvas} blocks`);
+  t("#210 · …and it carries no script at all — nothing in it can run, and nothing needs to",
+    parsed.scripts === 0, `${parsed.scripts} script(s)`);
+  const canvasSlots = await p1.locator(`${VIEWPORT} .stx-slot`).evaluateAll((ws) => ws.map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`));
+  t("#210 · …at the coordinates the blocks are actually at on the canvas, which is the claim its provenance makes",
+    JSON.stringify(parsed.slots.map((c) => c.split(" ")[1])) === JSON.stringify(canvasSlots),
+    `${JSON.stringify(parsed.slots)} vs ${JSON.stringify(canvasSlots)}`);
+
+  // --- 3 · the copy click, the address bar, and the `g` field only this page can produce ---------
+  await p1.locator("[data-keep-share] button").click();
+  await p1.waitForTimeout(400);
+  const shared = p1.url();
+  // NOT VIRTUAL — the settledUrl contract, driven rather than reasoned about. Two routes now fire
+  // from this rail's own adjacent buttons, so a link built inside the other's 50 ms window would
+  // carry /factory/exported as its pathname and 404 on reload.
+  t("#210 · AC #5 · the copied link's pathname is the REAL one, not a virtual route",
+    new URL(shared).pathname === "/factory.html", new URL(shared).pathname);
+  const decoded = await p1.evaluate(async () => {
+    const { decodeBuild, SHARE_PARAM } = await import("/system/build-share.mjs");
+    const param = new URL(location.href).searchParams.get(SHARE_PARAM);
+    if (!param) return { reason: "no ?b= in the address bar at all" };
+    const { state, reason } = await decodeBuild(param);
+    return { reason, places: state && state.board.places.length, arrangement: state && state.arrangement };
+  });
+  t("#210 · …and it decodes back to this board", decoded.places === onCanvas, JSON.stringify(decoded).slice(0, 160));
+  // THE HEADLINE. /build's rail structurally cannot produce a `g` — it has no canvas — so this is
+  // the assertion that distinguishes the two rails, and the codec drops `g` SILENTLY when the
+  // arrangement stops describing the board, which is exactly how this could ship green and wrong.
+  t("#210 · …carrying the ARRANGEMENT, which is the one thing /build's rail cannot express",
+    Array.isArray(decoded.arrangement) && decoded.arrangement.length === onCanvas
+    && JSON.stringify(decoded.arrangement.map((a) => `sx-c${a.col}-r${a.row}`)) === JSON.stringify(canvasSlots),
+    JSON.stringify(decoded.arrangement));
+  await p1.close();
+
+  // --- 4 · both routes fire ONCE each, and the real URL comes back -------------------------------
+  // Observed through history pushes, attached BEFORE the clicks — #209's own race, and the reason
+  // that pass route-delays its artifact fetch: a listener attached after the first push counts short.
+  const p4 = await ctx.newPage();
+  watch(p4, "keep");
+  await p4.addInitScript(() => {
+    window.__pushes = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, url) => { window.__pushes.push(String(url)); return real(s, ti, url); };
+  });
+  await p4.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await railReady(p4);
+  await settled(p4);
+  await Promise.all([
+    p4.waitForEvent("download", { timeout: 30000 }),
+    p4.locator("[data-keep-export] button").click(),
+  ]);
+  await p4.locator("[data-keep-share] button").click();
+  // Twice each: a shared fire-once flag would let whichever fired first suppress the other.
+  await Promise.all([
+    p4.waitForEvent("download", { timeout: 30000 }),
+    p4.locator("[data-keep-export] button").click(),
+  ]);
+  await p4.locator("[data-keep-share] button").click();
+  await p4.waitForTimeout(600);
+  const pushed = await p4.evaluate(() => window.__pushes);
+  t("#210 · AC #5 · /factory/exported fires exactly once across two export clicks",
+    pushed.filter((u) => u === "/factory/exported").length === 1, JSON.stringify(pushed));
+  t("#210 · AC #5 · /factory/link-copied fires exactly once across two copy clicks",
+    pushed.filter((u) => u === "/factory/link-copied").length === 1, JSON.stringify(pushed));
+  t("#210 · …and neither carries the visitor's board into the path",
+    pushed.every((u) => !u.includes("?") && !u.includes("#")), JSON.stringify(pushed));
+  t("#210 · …and the reader is left on the real URL, with the ?b= the copy promised was there",
+    new URL(p4.url()).pathname === "/factory.html" && p4.url().includes("?b="), p4.url());
+  await p4.close();
+
+  // --- 5 · AC #6, THE OTHER DIRECTION: a bare board hides all three tiers ------------------------
+  // The link is built by this driver with the page's own encodeBuild, for the reason in the header.
+  const p5 = await ctx.newPage();
+  watch(p5, "keep");
+  await p5.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await railReady(p5);
+  const bareLink = await p5.evaluate(async () => {
+    const { encodeBuild, shareUrl } = await import("/system/build-share.mjs");
+    const { DEFAULT_ANSWERS } = await import("/system/build-questions.mjs");
+    return shareUrl(location.origin + "/factory.html", await encodeBuild({
+      answers: DEFAULT_ANSWERS, board: { places: [], connections: [] }, pack: null,
+    }));
+  });
+  await p5.close();
+
+  const p6 = await ctx.newPage();
+  watch(p6, "keep");
+  await p6.goto(bareLink, { waitUntil: "load" });
+  await railReady(p6);
+  const bare = await tiers(p6);
+  t("#210 · AC #6 · a bare board hides ALL THREE tiers and shows the empty state instead",
+    bare.empty === 1 && bare.exportTier === 0 && bare.artifacts === 0 && bare.share === 0, JSON.stringify(bare));
+  t("#210 · …and the canvas really is bare, or the case above is vacuous",
+    (await p6.locator(`${VIEWPORT} .stx-slot`).count()) === 0);
+  await p6.close();
+
+  // --- 6 · THE DECLINED MOUNT (#240's carried-over finding 6) ------------------------------------
+  // Reachable for the first time: studio.mjs recorded this branch before any code path led to it.
+  const p7 = await ctx.newPage();
+  watch(p7, "keep");
+  const acts = [];
+  await p7.addInitScript(() => { window.__acts = []; });
+  await p7.goto(shared, { waitUntil: "load" });
+  // The bus is watched from the page's own seam, never a window.__ global on the module side.
+  await p7.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+  await p7.evaluate(async () => {
+    const { getVerbs } = await import("/system/studio-verbs.mjs");
+    const v = getVerbs();
+    if (v) for (const type of ["ui.move", "agent.build-op", "ui.undo", "ui.redo"]) {
+      v.bus.on(type, (a) => window.__acts.push({ type, source: a.source }));
+    }
+  });
+  await p7.waitForFunction(() => {
+    const v = document.querySelector("[data-studio]")?.getAttribute("data-replay");
+    return v && v !== "loading";
+  }, null, { timeout: 30000 });
+  await p7.waitForTimeout(400);
+  const declined = await p7.evaluate(() => ({
+    replay: document.querySelector("[data-studio]").getAttribute("data-replay"),
+    provenance: document.querySelector("[data-studio]").getAttribute("data-provenance"),
+    slots: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
+      .map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`),
+    transport: document.querySelector(".stu-replay-controls")
+      ? getComputedStyle(document.querySelector(".stu-replay-controls")).display : "gone",
+    note: document.querySelector(".stu-replay-provenance")?.textContent || "",
+    acts: window.__acts,
+  }));
+  t("#210 · the driver mounts DECLINED on a ?b= arrival rather than assembling over the visitor's board",
+    declined.replay === "declined", declined.replay);
+  t("#210 · …with the SENDER'S board on the canvas, at the SENDER'S coordinates",
+    JSON.stringify(declined.slots) === JSON.stringify(canvasSlots), `${JSON.stringify(declined.slots)} vs ${JSON.stringify(canvasSlots)}`);
+  t("#210 · …and NOTHING was emitted — a declined driver plays no beat at all",
+    declined.acts.length === 0, JSON.stringify(declined.acts));
+  t("#210 · …the transport is genuinely not painted (COMPUTED display — `hidden` is inert under an author rule)",
+    declined.transport === "none" || declined.transport === "gone", declined.transport);
+  t("#210 · …and the chrome says why, rather than reading as a replay that broke",
+    /came in on the link/.test(declined.note), declined.note.slice(0, 90));
+  // THE ONE THAT WOULD OTHERWISE SHIP A DEAD PRIMARY CONTROL. studio.mjs disables the beat
+  // immediately before mounting the driver and re-enables on settle / take-over / mount failure —
+  // none of which a declined mount reaches. Asserted as the beat actually COMPILING, not as a
+  // disabled attribute: an enabled button wired to nothing passes the narrower check.
+  const compileBtn = p7.locator("button", { hasText: "Compile the board" }).first();
+  t("#210 · …and the Compile button is LIVE, not disabled by a driver that will never settle",
+    !(await compileBtn.isDisabled()));
+  await compileBtn.click();
+  await p7.waitForFunction(() => document.querySelector("[data-studio-canvas]")?.getAttribute("data-compile-state") === "rendered",
+    null, { timeout: 30000 }).catch(() => {});
+  t("#210 · …and it really compiles the visitor's own board, end to end",
+    (await p7.getAttribute(VIEWPORT, "data-compile-state")) === "rendered",
+    await p7.getAttribute(VIEWPORT, "data-compile-state"));
+  t("#210 · …and the rail is ready on this route too", (await p7.getAttribute("[data-studio-keep]", "data-studio-keep")) === "ready");
+  await p7.close();
+
+  // --- 7 · a REFUSED link scrubs the param, keeps its reason, and still plays the run -------------
+  const p8 = await ctx.newPage();
+  watch(p8, "keep");
+  await p8.goto(`${BASE}/factory.html?b=NOTAREALPAYLOAD`, { waitUntil: "load" });
+  await p8.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+  t("#210 · a refused link scrubs its own ?b= — a reader who reloads does not meet the same failure twice",
+    !p8.url().includes("?b="), p8.url());
+  await settled(p8);
+  // AFTER the replay has settled, deliberately: canvas.say's live region is transient and the run
+  // narrates over it within a second, which is the whole reason the notice node exists.
+  const notice = await p8.evaluate(() => {
+    const n = document.querySelector("[data-studio-notice]");
+    return n ? { text: n.textContent, rects: n.getClientRects().length } : null;
+  });
+  t("#210 · …and the reason is still on the page after the run has narrated over the live region",
+    Boolean(notice) && notice.rects === 1 && /could not be read/.test(notice.text), JSON.stringify(notice).slice(0, 140));
+  t("#210 · …while the recorded run still plays, because a bad link is not a reason to withhold it",
+    (await p8.getAttribute("[data-studio]", "data-replay")) === "settled");
+  await p8.close();
+
+  // --- 8 · the no-link page never paints the notice ----------------------------------------------
+  // The other direction, and it is a pixel-baseline claim: the notice must contribute NOTHING at rest
+  // on the page the gate captures.
+  const p9 = await ctx.newPage();
+  watch(p9, "keep");
+  await p9.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await railReady(p9);
+  await settled(p9);
+  t("#210 · a /factory with no link paints no notice at all — the pixel baseline is unaffected",
+    (await p9.evaluate(() => document.querySelector("[data-studio-notice]").getClientRects().length)) === 0);
+  const styled = await p9.evaluate(() => [...document.querySelectorAll("[data-studio-keep] *")]
+    .filter((n) => n.hasAttribute("style")).length);
+  t("#210 · nothing the rail drew carries a style attribute — group 7's claim, on the running page",
+    styled === 0, `${styled} element(s) carry one`);
+  await p9.close();
+
+  // --- 9 · reduced motion ------------------------------------------------------------------------
+  const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true, reducedMotion: "reduce" });
+  const pr = await rctx.newPage();
+  watch(pr, "keep-reduced");
+  await pr.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await railReady(pr);
+  await settled(pr);
+  const rTiers = await tiers(pr);
+  t("#210 · reduced motion reaches the same rail", JSON.stringify(rTiers) === JSON.stringify(full), JSON.stringify(rTiers));
+  const [rdl] = await Promise.all([
+    pr.waitForEvent("download", { timeout: 30000 }),
+    pr.locator("[data-keep-export] button").click(),
+  ]);
+  t("#210 · …and still hands over a file", rdl.suggestedFilename() === "prototype.html");
+  await rctx.close();
+
+  await ctx.close();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2302,5 +2590,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one composed component per block ON THE CANVAS at the canvas's own coordinates with no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
