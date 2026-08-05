@@ -81,6 +81,7 @@ import {
 } from "../portal/lib/builder.mjs";
 import { allowedOrigins, originAllowed } from "../portal/lib/origin.mjs";
 import { applyOps, assertBoard, OPS, parseOpCommand } from "../system/board-ops.mjs";
+import { runBoardOp } from "./board-op.mjs";
 import { projectTrace } from "../agent-layer/gen-replay.mjs";
 // The recorder's FENCE — importable here for the same reason group 8 can import the operator path:
 // portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
@@ -1546,7 +1547,83 @@ function scanSvg(svg, label) {
     rmSync(dryDir, { recursive: true, force: true });
   }
 
-  group("replay", "4-op happy path + reproduce · corrupted-label mutation goes red · 5 refusals, each naming its seq · --validate and failed calls are not ops · atMs is real pacing · the honest label · KEEP_WHOLE proven by running curateTrace · script-path identity refused as a decoy by BOTH callers, both typed forms still accepted · brace/bracket expansion refused by the grammar");
+  // 9 · #225 · THE APOSTROPHE, END TO END. A possessive is ordinary product copy, and the grammar
+  //     could not represent the only way bash writes one inside a single-quoted string, so
+  //     "Manager's Office" was denied on every attempt with nothing in the prompt warning the agent
+  //     off it. Driven through EVERY layer that sees the command — the parser, the projection, the
+  //     applier and the fence — because a fix in one of them alone still leaves the label unbuildable.
+  const APOS = "Manager's Office";
+  const aposOp = { op: "place.add", params: { label: APOS } };
+  // Exactly what a shell hands the agent's own keystrokes: '…'\''…'.
+  const aposCmd = `node tooling/board-op.mjs ${BOARD_PATH} '{"op":"place.add","params":{"label":"Manager'\\''s Office"}}'`;
+  const aposParsed = parseOpCommand(aposCmd);
+  ok(aposParsed.op?.params?.label === APOS,
+    `the grammar read the label as ${JSON.stringify(aposParsed.op?.params?.label)} — bash's '…'\\''…' form is the only way an apostrophe reaches a single-quoted argument, and a label it cannot represent can never be built`);
+  ok(applyOps([aposParsed.op]).places[0].label === APOS,
+    "the apostrophe did not survive into the board the op built");
+  const aposProjected = projectTrace(traceOf([step(1, aposCmd)]), { slug: "g11" }).ops;
+  ok(aposProjected.length === 1 && aposProjected[0].params.label === APOS,
+    `the projection read ${JSON.stringify(aposProjected[0]?.params?.label)} — a command the recorder allowed must be one the projector can read, or the run is paid for and unprojectable`);
+  ok(await bash(aposCmd) === "allow",
+    "the fence denied the escaped apostrophe — the agent would burn a denial and a retry on ordinary product copy");
+  // …and the concatenation opened no hole. A word is still segments of QUOTED text, \' and BARE
+  // characters and nothing else, so everything the allowlist refused before is still refused.
+  for (const bad of [
+    `node tooling/board-op.mjs replay/a'b.board.json --validate`,        // unbalanced
+    `node tooling/board-op.mjs 'replay/a'$b.board.json --validate`,      // expansion glued to a quote
+    `node tooling/board-op.mjs replay/a\\nb.board.json --validate`,      // an escape that is not \'
+    `node tooling/board-op.mjs replay/g11.board.json --validate && rm -rf .`,
+  ]) {
+    ok(threw(() => parseOpCommand(bad)) !== null,
+      `the grammar accepted "${bad}" — segment concatenation must not become a general escape rule, or the fence's model of the command stops being the shell's`);
+  }
+
+  // 10 · #226 · THE TYPED ENVELOPE IS EXACT TOO. `{op, params, extra}` used to parse with `extra`
+  //      silently dropped, which is an op whose recorded text says more than the op that was
+  //      applied. Driven at the GRAMMAR, because that is where the tightening lives and why: every
+  //      envelope a human or an agent authors comes through parseOpCommand, while applyOp is fed
+  //      the PROJECTED record by gen-replay and by #209's driver. Both halves of that split are
+  //      asserted here — the second one is what stopped this fix from making the committed replay
+  //      artifact unapplyable by its own reproduce check.
+  for (const [envelope, why] of [
+    [`{"op":"place.add","params":{"label":"X"},"extra":"anything"}`, "a stray key"],
+    [`{"op":"place.add","params":{"label":"X"},"id":"p9"}`, "an id smuggled onto the envelope"],
+    [`{"op":"place.add","params":{"label":"X"},"__proto__":"x"}`, "a __proto__ key (an inert own property via JSON.parse, still not an op key)"],
+    [`{"op":"place.add","params":{"label":"X"},"atMs":0,"phase":"implement","fromStep":1}`, "the projection's own carrier keys, which a typed command never has"],
+  ]) {
+    const msg = threw(() => parseOpCommand(`node tooling/board-op.mjs ${BOARD_PATH} '${envelope}'`));
+    ok(msg !== null && /unknown key/.test(msg),
+      `${why} was accepted on a typed op envelope (${msg}) — "exact, not minimal" is the rule one level down and the envelope now keeps it`);
+  }
+  ok(threw(() => parseOpCommand(cmdFor(OPS_4[0]))) === null,
+    "the envelope check refused the exact shape every typed op has — { op, params } must stay legal");
+  // The other half of the split, stated as the thing that would break: a projected op still applies.
+  ok(threw(() => applyOps(projectTrace(happy, { slug: "g11" }).ops)) === null,
+    "a projected op no longer applies — the envelope check reached applyOp, and gen-replay's reproduce check feeds it { op, params, atMs, phase, fromStep }");
+
+  // 11 · #226 · A BOARD PATH WITH A SPACE. runBoardOp re-joins its argv and reads it back through
+  //      parseOpCommand on purpose (one grammar, no third opinion), and re-joining bare made a path
+  //      with a space tokenize into two arguments — the CLI refusing its own invocation. Driven as a
+  //      REAL run of the CLI against a REAL file, because the bug was in the round trip and not in
+  //      anything either side of it believes about itself.
+  const spaceDir = mkdtempSync(join(tmpdir(), "g11-cli-"));
+  try {
+    const spaced = join(spaceDir, "a board dir", "g11.board.json");
+    const first = runBoardOp([spaced, JSON.stringify({ op: "place.add", params: { label: APOS } })]);
+    ok(first.board.places[0].label === APOS,
+      `the CLI built ${JSON.stringify(first.board.places[0]?.label)} — argv carries the apostrophe raw, so the re-join must quote it the way the grammar reads it back`);
+    const second = runBoardOp([spaced, JSON.stringify({ op: "affordance.add", params: { placeId: "p1", label: "Open" } })]);
+    ok(second.board.places[0].affordances[0]?.id === "p1a1",
+      "the second op did not read the board the first one wrote — the path with a space did not survive the round trip");
+    ok(runBoardOp([spaced, "--validate"]).counts.places === 1,
+      "--validate could not reach a board under a path containing a space");
+    ok(JSON.parse(readFileSync(spaced, "utf8")).places.length === 1,
+      "the CLI wrote its board somewhere other than the path it was given");
+  } finally {
+    rmSync(spaceDir, { recursive: true, force: true });
+  }
+
+  group("replay", "4-op happy path + reproduce · corrupted-label mutation goes red · 5 refusals, each naming its seq · --validate and failed calls are not ops · atMs is real pacing · the honest label · KEEP_WHOLE proven by running curateTrace · script-path identity refused as a decoy by BOTH callers, both typed forms still accepted · brace/bracket expansion refused by the grammar · an apostrophe in a label parses, projects, applies and passes the fence in bash's own '…'\\''…' form while the allowlist still refuses every other escape · the op envelope is exact, not minimal · the CLI round-trips a board path containing a space");
 }
 
 // --- 12 · the studio canvas ---------------------------------------------------------------------
