@@ -64,10 +64,17 @@ This is the seam working exactly as `studio-compile.mjs:205-206` describes it �
 own claim to *"pressing Compile after the replay settles"*, which reads as the path having been
 considered only in the settled case rather than accepted in the unsettled one.
 
-**Fix:** make the board seam live rather than settle-gated. Cheapest shape consistent with the file's
-own design: `studio.mjs`'s `getBoard` reads the driver handle's live board when the replay has not
-settled (`replay-driver.mjs:835` already exposes `get board()`), falling back to the local `board`
-otherwise. `onSettle` stays as-is — it is what keeps `summary`/`arranged` true for `studio-journey`.
+**Fix:** sync the board on the paths where the driver has **stopped**, and keep Compile out of the ones
+where it has not. Concretely: fire the orchestrator's board callback on take-over and on Pause as well
+as on settle, and leave `compileBtn.disabled` while `playing`.
+
+Do **not** simply point `getBoard` at the driver's live board (`replay-driver.mjs:835`'s `get board()`).
+That makes Compile work during autoplay, and compile's positional in-place DOM swap would then run
+against wrappers `reflect()` is still authoring — `place-added` appending new blocks and
+`place-changed` doing `wrapper.replaceChild(fresh, old)` on the first non-`.stx-grab` child, which is
+the compiled component. Two authors, one stage: precisely the failure this ticket's headline invariant
+exists to prevent, and it would also break the plan's own Non-Goal that the replay does not drive the
+compile beat.
 
 Worth a `studio-journey` case in the same change: Compile pressed **mid-replay** yields components for
 the blocks actually on the canvas. Nothing currently drives Compile before settle.
@@ -97,9 +104,15 @@ against a visible, empty, inviting canvas. A reader who clicks in that window co
 `/factory/took-over` event for a hand-over that did not happen, and then watches the driver move blocks
 around them with `seek` disabled (`syncControls:568` keys off `tookOver`).
 
-**Fix:** two lines — extend the guard to `if (state === "unavailable" || state === "loading") return;`
-(or, equivalently and more directly, `if (!beats.length) return;`), and add `if (tookOver) return;` to
-`play()` so the branch is closed from both ends rather than only at the entry.
+**Fix:** one line — extend the guard to `if (state === "unavailable" || state === "loading") return;`
+(or, equivalently and more directly, `if (!beats.length) return;`).
+
+Explicitly **not** also `if (tookOver) return;` in `play()`, which was this review's first instinct and
+is wrong: applied on its own it is strictly worse than the bug — a take-over in the loading window
+would leave the replay never playing, the canvas empty forever, `This build` never rendered and
+`[data-replay]` never reaching `settled`, which deadlocks the pixel gate. It is only harmless once the
+guard above makes the window unreachable, and a guard that depends on another guard for its safety is
+the wrong thing to leave in the file. One line, at the entry.
 
 Uncovered by construction today: every `studio-journey` take-over case runs after `[data-replay]`
 reaches `ready`/`settled`, and the degradation case runs against `unavailable`. The window between them
@@ -125,11 +138,14 @@ accepted trade.
 Reduced motion is the load-bearing half: it is not an opt-in verb the reader chose, it is the arrival
 path for anyone with the preference set, and it is exactly the audience the announcements are for.
 
-**Fix:** the same shape `studio-compile.mjs` settled on — space the act transitions across tasks on
-these two paths, or (cheaper, and arguably better here) announce **one summary sentence** naming the
-acts traversed rather than emitting sentences that cannot all be heard. Either way it wants a
-`studio-journey` assertion counting announcements on the skip and reduced-motion paths, in the shape
-the existing per-path counts already use.
+**Fix:** announce **one summary sentence** naming the acts traversed, rather than emitting sentences
+that cannot all be heard.
+
+Not `studio-compile.mjs`'s spacing-across-tasks answer, even though this is its lesson: staggering is
+right for a beat that is *meant* to play out, and wrong for the reduced-motion path, whose entire
+contract is that it is instant. One sentence satisfies both paths. It wants a `studio-journey`
+assertion counting announcements on the skip and reduced-motion paths, in the shape the existing
+per-path counts already use.
 
 ---
 
@@ -191,6 +207,24 @@ exact branch, and it will arrive to find the requirement written down and not bu
 option now, even as a one-line early return in `start()`, would cost less than rediscovering it.
 
 ---
+
+## Checked and clean — take-over **after** a backwards seek
+
+`replay-driver.mjs:640-643` justifies re-minting wrapper ids with "fine only because seek is disabled
+once the visitor has taken over", which covers seek-after-takeover and says nothing about the reverse.
+Seek is deliberately not take-over, so the other order looked reachable — and #230 shipped exactly this
+class of bug once. Traced it out rather than assuming:
+
+- to have any history entries at all you must have moved a block, and moving a block **is** take-over,
+  which sets `seek.disabled` (`syncControls:568`). So a backwards seek can only ever run against an
+  empty history — the stale-id state is unreachable, not merely untested;
+- and if it were reached, it degrades rather than breaks: `restore()` (`studio-verbs.mjs:316-331`)
+  iterates the **live** `slots()` and looks a snapshot up by each node's current id, so an id no live
+  node carries is skipped by `:323`'s `continue` — no detached-node access, no phantom move. Worst case
+  is `:413`'s honest "Nothing to undo.", a branch the file already documents as reachable.
+
+No finding. Recording it because the justification comment at `:640-643` is narrower than the property
+that actually holds, and the next person to widen seek will want the real reason.
 
 ## The two product calls the PR asked a second opinion on
 
