@@ -318,7 +318,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       // would still pass — which is why it ships now rather than then. Caught by the same handler
       // that renders the refusal card.
       if (nodes.length !== composition.length) {
-        throw new Error(`the renderer built ${nodes.length} top-level nodes for ${composition.length} composed components — the positional swap cannot align them`);
+        throw new Error(`the renderer built ${nodes.length} top-level nodes for ${composition.length} composed components, so the positional swap cannot align them`);
       }
 
       const shared = Math.min(wrappers.length, nodes.length);
@@ -378,7 +378,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
 
     const announce = (step) => {
       viewport.setAttribute("data-compile-step", step.id);
-      readout.textContent = `${step.label} — ${step.detail}`;
+      readout.textContent = `${step.label}: ${step.detail}.`;
       canvas.say(`${step.label}: ${step.detail}.`);
     };
 
