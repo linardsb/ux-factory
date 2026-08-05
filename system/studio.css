@@ -179,6 +179,262 @@
 @media (prefers-reduced-motion: reduce) {
   .stx-stage,
   .stx-slot,
-  .stx-grab { transition: none !important; animation: none !important; }
+  .stx-grab,
+  /* #206's own surface joins the off-ramp. On /factory portfolio.css's global kill-switch already
+     reaches every element on the page, so this line is redundant THERE — it is here because
+     studio.css is also loaded by studio.html, which carries no portfolio.css, and a rule that is
+     only correct on one of its two hosts is a rule that breaks the day a third arrives. */
+  .stu-tab { transition: none !important; animation: none !important; }
   .stx-scroll { scroll-behavior: auto; }
+}
+
+/* ---------- the studio surface (#206) ---------- */
+/* Everything below dresses /factory, the designed surface the substrate above was built for. The
+   .stx-* block is the CANVAS and is shared with studio.html's raw harness; the .stu-* block is this
+   page's own vocabulary and nothing else uses it. Kept deliberately small: the page is built from
+   portfolio.css's existing organisms (.band, .container, .beat-head, .row-list, .capability,
+   .fw-scenario, .max-prose, the whole brand-* import block), and .stu-* only supplies the two things
+   those do not have — a two-column shell with a docked rail, and a fat-marker place block.
+
+   NOTHING HERE IS NAMED FOR A VIEW TRANSITION either. #171 shipped a real at-rest regression by
+   naming elements that then became containing blocks for a positioned overlay, and the pixel gate
+   re-baselined it. tooling/vt-stack-audit.mjs still false-positives on two shipped pages (#190), so
+   there is no gate to lean on even if this wanted one. It does not. */
+
+/* THE INSPECTOR IS A GRID COLUMN, NEVER position: sticky. Sticky is a no-op for every descendant
+   site-wide, because portfolio.css puts `overflow-x: clip` on the body — a balanced layout has to be
+   structural here, not pinned (recorded on #73). */
+.stu-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: var(--spacing-lg);
+  align-items: start;
+  margin-top: var(--spacing-xl);
+}
+/* NOT OPTIONAL. The canvas column holds a wide scroller, and a grid item without min-width: 0
+   resolves its track from that content rather than from the track definition — the blowout PR #54
+   hit in a real browser while the gate's Chromium stayed green. */
+.stu-canvas-col { min-width: 0; display: grid; gap: var(--spacing-sm); }
+
+/* One column under the site's own 900px step (portfolio.css:237, 298, 1518 all break there), with
+   the inspector below the canvas rather than beside it. */
+@media (max-width: 900px) {
+  .stu-shell { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* PINNED, not min(70vh, 640px) like the shared rule above. The shared value is bounded and so is
+   not a fixpoint hazard for the VR spec's bounded re-measure loop — that was checked before
+   anything here changed. What it IS is a fidelity gap: the gate resizes the viewport to the whole
+   document height before capturing, so 70vh always resolves past the 640px cap and the baseline
+   shows a 640px canvas where a 1280x800 reader sees 560px. A flat height closes the gap and removes
+   the whole CLASS of viewport-height feedback from a captured surface. Scoped to .stu-shell so
+   studio.html's harness keeps the responsive rule. */
+.stu-shell .stx-scroll { height: 640px; }
+
+.stu-canvas-label { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
+
+/* ---------- the docked inspector ---------- */
+.stu-inspector {
+  min-width: 0;
+  display: grid;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+/* Four items in a 22rem rail: a wrapping row of pills rather than a segmented three-up bar, which
+   is what the absorbed viewer used and what a fourth tab breaks. */
+.stu-tablist { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.stu-tab {
+  min-height: 32px;            /* the 24px SC 2.5.8 floor with air; the row is not a touch target grid */
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.stu-tab:hover { color: var(--color-fg); border-color: var(--color-fg-muted); }
+/* The active signal is carried three ways and never by one alone: colour, weight, aria-selected. */
+.stu-tab[aria-selected="true"] { color: var(--color-fg); font-weight: 600; border-color: var(--color-accent); }
+.stu-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* No inter-panel margin rule: .stu-inspector is a grid with its own gap, so the no-JS stacked case
+   (all four visible) and the JS case (exactly one) are already spaced by the same declaration. The
+   absorbed viewer needed a :not([hidden]) sibling rule because its panels sat in flow; this does
+   not, and a second spacing source is a second thing to keep in step. */
+.stu-panel { min-width: 0; }
+.stu-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); margin-bottom: var(--spacing-sm); }
+/* --type-body rather than --type-h3: there is no h4 step in the ramp, and a 20px heading in a
+   22rem rail out-shouts the canvas it is meant to sit beside. The heading LEVEL is still h3 — the
+   size is a rail decision, the level is a document-structure fact. */
+.stu-panel-title { font-size: var(--type-body); margin: 0; }
+.stu-panel-lead { margin: 0 0 var(--spacing-md); font-size: var(--type-caption); color: var(--color-fg-muted); }
+
+/* ---------- the "This build" panel ---------- */
+.stu-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--spacing-sm); margin: 0 0 var(--spacing-md); }
+.stu-fact-term { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stu-fact-value { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* The rule verbatim — see system/studio.mjs's buildSummary. It reads as quoted material, which is
+   what it is. */
+.stu-reason {
+  margin: 0 0 var(--spacing-md);
+  padding-left: var(--spacing-sm);
+  border-left: 2px solid var(--color-border);
+  font-size: var(--type-caption);
+}
+.stu-note { margin: 0 0 var(--spacing-sm); font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stu-note:last-child { margin-bottom: 0; }
+.stu-error-card { border-color: var(--color-fg); padding: var(--spacing-md); }
+
+/* ---------- the place block: fat marker, pre-compile ---------- */
+/* Deliberately drawn as a SKETCH — a dashed edge and a muted fill — because at #206 these are the
+   drafted breadboard's places and not real components. #207 is the compile beat that replaces the
+   contents on the same slots, and a block that already looked like a finished component would be
+   this file making that ticket's claim early. The slot is 220x140 and .stx-slot already clips, so
+   the chip list overflows out of sight rather than resizing anything. */
+.stu-place {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: var(--spacing-sm);
+  padding-right: 32px;         /* clear of .stx-grab's 24px target at top: 2px; right: 2px */
+  background: var(--color-bg-surface);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stu-place-name { margin: 0; font-size: var(--type-body); line-height: 1.25; }
+.stu-place-count { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stu-place-affs { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.stu-place-aff {
+  max-width: 100%;
+  padding: 1px 8px;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- absorbed exhibits (#206) ---------- */
+/* MOVED VERBATIM out of factory.html's <style> block, not rewritten. Both blocks are the ONLY
+   styling their exhibit has — system/trace-player.mjs and system/system-graph.mjs inject no <style>
+   of their own and emit bare classes for the page to style. They moved here rather than being
+   dropped with the tab controller, and the distinction matters: the three exhibits are now mounted
+   lazily, so NOTHING captures them, and a completely unstyled trace player would pass the pixel
+   gate, build-checks and drift-check alike. tooling/studio-journey.mjs's panel-content assertions
+   are what replaced that coverage. */
+
+/* Trace player — the player injects no <style>; the page styles the trace-* classes it emits,
+   token-only. */
+.trace-player { display: flex; flex-direction: column; gap: var(--spacing-lg, 24px); }
+.trace-header { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.trace-task { font-size: var(--type-h3); margin: 0; }
+.trace-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; font-size: var(--type-caption); }
+.trace-label {
+  font-weight: 700; color: var(--color-accent-fg, #fff); background: var(--color-accent);
+  padding: 2px 10px; border-radius: var(--radius-sm); letter-spacing: 0.01em;
+}
+.trace-controls { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; margin-top: var(--spacing-sm); }
+.trace-progress { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.trace-act { border-top: 2px solid var(--color-border); padding-top: var(--spacing-md); }
+.trace-act-head { display: flex; align-items: baseline; gap: var(--spacing-sm); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow); }
+.trace-act-num { color: var(--color-accent); font-weight: 700; }
+.trace-act-name { font-weight: 700; color: var(--color-fg); }
+.trace-act-count { margin-left: auto; text-transform: none; letter-spacing: 0; }
+.trace-act-body { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md); }
+
+.trace-step { padding: var(--spacing-md); transition: box-shadow 0.15s ease; }
+.trace-step-hidden { display: none; }
+.trace-step-current { box-shadow: 0 0 0 2px var(--color-accent); }
+.trace-step--text .trace-step-text { white-space: pre-wrap; font-size: var(--type-body); line-height: 1.55; }
+.trace-step--tool { background: var(--color-bg-surface); }
+.trace-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+.trace-tool { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.trace-hint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); word-break: break-all; }
+.trace-status { margin-left: auto; font-weight: 700; }
+.trace-status.ok { color: var(--color-accent); }
+.trace-status.bad { color: var(--color-fg); text-decoration: underline; }
+.trace-step--fail { border-color: var(--color-fg); }
+.trace-error { margin-top: var(--spacing-sm); color: var(--color-fg); font-size: var(--type-caption); white-space: pre-wrap; }
+.trace-artifact {
+  display: inline-block; margin-top: var(--spacing-sm); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--type-caption); color: var(--color-fg-muted); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); padding: 1px 8px;
+}
+.trace-artifact::before { content: "◇ artifact · "; color: var(--color-accent); }
+.trace-response { margin-top: var(--spacing-sm); font-size: var(--type-caption); }
+.trace-response summary { cursor: pointer; color: var(--color-fg-muted); }
+.trace-response-body {
+  margin-top: var(--spacing-sm); background: var(--color-bg); border: 1px solid var(--color-border);
+  padding: var(--spacing-sm); overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+}
+.trace-error-card { border-color: var(--color-fg); }
+
+.trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+.trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
+@media (prefers-reduced-motion: no-preference) {
+  .trace-step:not(.trace-step-hidden) { animation: trace-step-in var(--motion-base) var(--motion-ease-spring) both; }
+}
+@keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
+
+/* Animated <details> disclosure (the trace player's per-step response) where the platform
+   supports it; degrades to an instant snap everywhere else and under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (interpolate-size: allow-keywords) {
+    .trace-response { interpolate-size: allow-keywords; }
+    .trace-response::details-content {
+      block-size: 0; overflow: hidden;
+      transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
+    }
+    .trace-response[open]::details-content { block-size: auto; }
+  }
+}
+
+/* "Shape of the system" exhibit — the sg-* classes system/system-graph.mjs emits; colour from
+   tokens only, geometry literals structural. At rest no edges are drawn. */
+.sg-legend { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-md); }
+/* #173: the graph is a bounded window the reader pans and zooms. At rest scale 1, scroll 0,0 —
+   the module never measures this box until an event says it is real. min(70vh, …) is safe ONLY
+   because this panel is never captured: it used to be `hidden` at capture, and since #206 it is not
+   MOUNTED at capture, so the premise the unit rests on holds more strongly than before — do not
+   copy the unit onto a captured-at-rest surface (see .stu-shell .stx-scroll above, which is exactly
+   that case and is pinned for it). */
+.sg-scroll {
+  overflow: auto; min-width: 0;
+  max-height: min(70vh, 760px);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  cursor: grab;
+}
+.sg-scroll.is-panning { cursor: grabbing; }
+/* while panning, nodes stop taking pointer events: no edge redraws under a dragging cursor */
+.sg-scroll.is-panning .sg-node { pointer-events: none; }
+/* components.css:39's global `img, svg { max-width: 100% }` would clamp the zoomed width to the
+   container while the height kept growing — the graph stretched instead of scaling. Inside a
+   scroll window, overflowing IS the behaviour, so this one exhibit opts out. */
+.sg-svg { display: block; max-width: none; }
+.sg-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+.sg-zoom-level { font-family: var(--font-mono); font-size: var(--type-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.sg-svg text { font-family: var(--font-mono); font-size: 11px; fill: var(--color-fg-muted); }
+.sg-svg .sg-group-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.sg-node { cursor: pointer; }
+.sg-node circle { fill: var(--color-bg); stroke: var(--color-fg-muted); stroke-width: 1; }
+.sg-node.sg-spec circle { fill: var(--color-fg-muted); }
+.sg-node:hover circle, .sg-node:focus-visible circle, .sg-node.is-hl circle { stroke: var(--color-accent); stroke-width: 1.5; }
+.sg-node.is-hl text { fill: var(--color-fg); }
+.sg-edge { fill: none; stroke: var(--color-accent); stroke-width: 1; opacity: 0.65; }
+.sg-detail {
+  font-family: var(--font-mono); font-size: var(--type-caption); color: var(--color-fg-muted);
+  min-height: 2.8em; margin: var(--spacing-md) 0 0; overflow-wrap: anywhere;
 }
