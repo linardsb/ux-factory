@@ -1,0 +1,394 @@
+{
+  "$description": "FROZEN v1 share links, captured from the SHIPPING v1 encoder at the commit named in `capturedAt` — before system/build-share.mjs learned the v2 arrangement field (epic #202 ticket #208) — and committed as the proof that every link already shared stays byte-identical and still restores byte-identically. PRD §1 guarantees /build survives as the form-mode fallback over the same build data AND share links; #208's unknown-key audit is the change most likely to break that, so the proof is REAL CAPTURED PAYLOADS rather than payloads re-synthesised by the code under test. FROZEN MEANS FROZEN: never regenerate this file, only APPEND to it — a fixture re-captured from the current encoder proves nothing about the past, it is the code under test asserting agreement with itself. ENTRY SHAPE: { label, branch, capturedFrom, param, state } — `param` is the ?b= value, `state` is the v1 decoder's output for that param, taken at the same moment from the same unmodified module. BRANCH: which transport produced it. BYTE-IDENTITY IS ASSERTED ON THE RAW BRANCH ONLY — deflate output is implementation-dependent (Node's CompressionStream and Chrome's need not emit identical streams for the same input), so a deflate entry is a DECODE fixture and its identity claim is made on the inflated JSON instead. Consumed by tooling/build-checks.mjs group 4.",
+  "capturedAt": "f381af79260481b47d6de22194d8822b74c2ac9e",
+  "entries": [
+    {
+      "label": "full build, imported pack",
+      "branch": "raw",
+      "capturedFrom": "node, system/build-share.mjs v1",
+      "param": "AHsidiI6MSwiYSI6eyJ0cmlnZ2VyIjoidW5zdXJlIiwiYWN0aW9uIjoiY2hlY2siLCJyZXdhcmRUeXBlIjoic2VsZiIsImludmVzdG1lbnQiOiJkYXRhIiwiZnJlcXVlbmN5IjoiZGFpbHkiLCJpbXByb3Zlc0xpdmVzIjoieWVzIiwid291bGRVc2VJdCI6InllcyIsImFwcGV0aXRlIjoic21hbGwiLCJzaGFwZSI6IndvcmtsaXN0Iiwibm9nb3MiOiJzb2NpYWwifSwiYiI6eyJwIjpbWyJwMSIsIldvcmtsaXN0IixbWyJwMWExIiwiRmlsdGVyIl0sWyJwMWEyIiwiT3BlbiBQcm9ncmVzcyJdLFsicDFhMyIsIk9wZW4gU2V0dGluZ3MiXV1dLFsicDIiLCJQcm9ncmVzcyIsW1sicDJhMSIsIlNldCBhIHRhcmdldCJdXV0sWyJwMyIsIlNldHRpbmdzIixbWyJwM2ExIiwiU2F2ZSBjaGFuZ2VzIl1dXV0sImMiOltbInAxYTIiLCJwMiJdLFsicDFhMyIsInAzIl1dfSwiZSI6MSwiayI6eyItLWNvbG9yLWFjY2VudCI6IiNmZjY2MDAiLCItLWNvbG9yLWZnIjoiIzEwMTAxMCJ9LCJzIjoiYWNtZSJ9",
+      "state": {
+        "answers": {
+          "trigger": "unsure",
+          "action": "check",
+          "rewardType": "self",
+          "investment": "data",
+          "frequency": "daily",
+          "improvesLives": "yes",
+          "wouldUseIt": "yes",
+          "appetite": "small",
+          "shape": "worklist",
+          "nogos": "social"
+        },
+        "board": {
+          "places": [
+            {
+              "id": "p1",
+              "label": "Worklist",
+              "affordances": [
+                {
+                  "id": "p1a1",
+                  "label": "Filter"
+                },
+                {
+                  "id": "p1a2",
+                  "label": "Open Progress"
+                },
+                {
+                  "id": "p1a3",
+                  "label": "Open Settings"
+                }
+              ]
+            },
+            {
+              "id": "p2",
+              "label": "Progress",
+              "affordances": [
+                {
+                  "id": "p2a1",
+                  "label": "Set a target"
+                }
+              ]
+            },
+            {
+              "id": "p3",
+              "label": "Settings",
+              "affordances": [
+                {
+                  "id": "p3a1",
+                  "label": "Save changes"
+                }
+              ]
+            }
+          ],
+          "connections": [
+            [
+              "p1a2",
+              "p2"
+            ],
+            [
+              "p1a3",
+              "p3"
+            ]
+          ]
+        },
+        "boardIsEdited": true,
+        "pack": {
+          "slug": "acme",
+          "label": "acme",
+          "fileName": null,
+          "tokens": {
+            "--color-accent": "#ff6600",
+            "--color-fg": "#101010"
+          },
+          "note": null
+        }
+      }
+    },
+    {
+      "label": "full build, imported pack",
+      "branch": "deflate",
+      "capturedFrom": "node, system/build-share.mjs v1",
+      "param": "AU2RzWrDMBCEXyVMrwokMeSgBygUCi2kpYfgw1ZZKyKypEqygwl59yK5MUW3b2Znf3TDCLkVIMgbcjRac4TE4NIQGQKksvEOEurM6gKByFeKp48pMCQS2w4Cxo2ccs8uQ-JEmSDQRf4Z2KmpImOn4utD9COnVzNygsTECQJXP9jTZ-KXvCAKgbPJtUVP1kIgnam2vPp4sSZlCDivfYlJXhmyuAt8ly0C5PGIsIXA12KuhAp7NjZzRCsq2UHgLbBbvUevI6f0EJqHcOCcjdMJbVulUrGYa-6u5h44r2iVKWrOD28z87m-epvZSyOv1Jmc5prbCqi_qetEYfd_jNCgbe8CXH_qUnZcr5W3Pq5JqfnqT1233282EIvU6YK3m_LKbcqlSPWM-y8",
+      "state": {
+        "answers": {
+          "trigger": "unsure",
+          "action": "check",
+          "rewardType": "self",
+          "investment": "data",
+          "frequency": "daily",
+          "improvesLives": "yes",
+          "wouldUseIt": "yes",
+          "appetite": "small",
+          "shape": "worklist",
+          "nogos": "social"
+        },
+        "board": {
+          "places": [
+            {
+              "id": "p1",
+              "label": "Worklist",
+              "affordances": [
+                {
+                  "id": "p1a1",
+                  "label": "Filter"
+                },
+                {
+                  "id": "p1a2",
+                  "label": "Open Progress"
+                },
+                {
+                  "id": "p1a3",
+                  "label": "Open Settings"
+                }
+              ]
+            },
+            {
+              "id": "p2",
+              "label": "Progress",
+              "affordances": [
+                {
+                  "id": "p2a1",
+                  "label": "Set a target"
+                }
+              ]
+            },
+            {
+              "id": "p3",
+              "label": "Settings",
+              "affordances": [
+                {
+                  "id": "p3a1",
+                  "label": "Save changes"
+                }
+              ]
+            }
+          ],
+          "connections": [
+            [
+              "p1a2",
+              "p2"
+            ],
+            [
+              "p1a3",
+              "p3"
+            ]
+          ]
+        },
+        "boardIsEdited": true,
+        "pack": {
+          "slug": "acme",
+          "label": "acme",
+          "fileName": null,
+          "tokens": {
+            "--color-accent": "#ff6600",
+            "--color-fg": "#101010"
+          },
+          "note": null
+        }
+      }
+    },
+    {
+      "label": "defaults, no pack",
+      "branch": "raw",
+      "capturedFrom": "node, system/build-share.mjs v1",
+      "param": "AHsidiI6MSwiYSI6eyJ0cmlnZ2VyIjoidW5zdXJlIiwiYWN0aW9uIjoiY2hlY2siLCJyZXdhcmRUeXBlIjoic2VsZiIsImludmVzdG1lbnQiOiJkYXRhIiwiZnJlcXVlbmN5IjoiZGFpbHkiLCJpbXByb3Zlc0xpdmVzIjoieWVzIiwid291bGRVc2VJdCI6InllcyIsImFwcGV0aXRlIjoic21hbGwiLCJzaGFwZSI6Im92ZXJ2aWV3Iiwibm9nb3MiOiJub25lIn0sImIiOnsicCI6W1sicDEiLCJPdmVydmlldyIsW1sicDFhMSIsIkZpbHRlciJdLFsicDFhMiIsIk9wZW4gUHJvZ3Jlc3MiXSxbInAxYTMiLCJPcGVuIFNldHRpbmdzIl1dXSxbInAyIiwiUHJvZ3Jlc3MiLFtbInAyYTEiLCJTZXQgYSB0YXJnZXQiXV1dLFsicDMiLCJTZXR0aW5ncyIsW1sicDNhMSIsIlNhdmUgY2hhbmdlcyJdXV1dLCJjIjpbWyJwMWEyIiwicDIiXSxbInAxYTMiLCJwMyJdXX0sImUiOjB9",
+      "state": {
+        "answers": {
+          "trigger": "unsure",
+          "action": "check",
+          "rewardType": "self",
+          "investment": "data",
+          "frequency": "daily",
+          "improvesLives": "yes",
+          "wouldUseIt": "yes",
+          "appetite": "small",
+          "shape": "overview",
+          "nogos": "none"
+        },
+        "board": {
+          "places": [
+            {
+              "id": "p1",
+              "label": "Overview",
+              "affordances": [
+                {
+                  "id": "p1a1",
+                  "label": "Filter"
+                },
+                {
+                  "id": "p1a2",
+                  "label": "Open Progress"
+                },
+                {
+                  "id": "p1a3",
+                  "label": "Open Settings"
+                }
+              ]
+            },
+            {
+              "id": "p2",
+              "label": "Progress",
+              "affordances": [
+                {
+                  "id": "p2a1",
+                  "label": "Set a target"
+                }
+              ]
+            },
+            {
+              "id": "p3",
+              "label": "Settings",
+              "affordances": [
+                {
+                  "id": "p3a1",
+                  "label": "Save changes"
+                }
+              ]
+            }
+          ],
+          "connections": [
+            [
+              "p1a2",
+              "p2"
+            ],
+            [
+              "p1a3",
+              "p3"
+            ]
+          ]
+        },
+        "boardIsEdited": false,
+        "pack": null
+      }
+    },
+    {
+      "label": "defaults, no pack",
+      "branch": "deflate",
+      "capturedFrom": "node, system/build-share.mjs v1",
+      "param": "AU2PwWrDMBBEf8XMWYcmvukDCoVCC2lPwQfVniiijqRKaxkT_O_FShN6ffN2dveKAr1TMNBXSHLWMkFj8nlKhILpxQUPjf7M_hsKibNJw8cSCY3M8QQF5wuzXOgFGoMRA4VT4s9E3y8VuXHZvEtMoTC_usIMjYUZCnOYxuEz80UeyMRIcVJXXMw4QiGfTV0ZClNxnKHggw1bjQ-eWBW-th8i9PGIuIPC20OtxGzs2Y3ChE5Vst-sSN-8p2ATc74H7T04UMR5m9F1NdomHnLt3dfeA6UxjZhkKXe3vfHbfHXbm2sKm_5svGXt7RT6v6vrRXH__4zYoutWBUI_rb8",
+      "state": {
+        "answers": {
+          "trigger": "unsure",
+          "action": "check",
+          "rewardType": "self",
+          "investment": "data",
+          "frequency": "daily",
+          "improvesLives": "yes",
+          "wouldUseIt": "yes",
+          "appetite": "small",
+          "shape": "overview",
+          "nogos": "none"
+        },
+        "board": {
+          "places": [
+            {
+              "id": "p1",
+              "label": "Overview",
+              "affordances": [
+                {
+                  "id": "p1a1",
+                  "label": "Filter"
+                },
+                {
+                  "id": "p1a2",
+                  "label": "Open Progress"
+                },
+                {
+                  "id": "p1a3",
+                  "label": "Open Settings"
+                }
+              ]
+            },
+            {
+              "id": "p2",
+              "label": "Progress",
+              "affordances": [
+                {
+                  "id": "p2a1",
+                  "label": "Set a target"
+                }
+              ]
+            },
+            {
+              "id": "p3",
+              "label": "Settings",
+              "affordances": [
+                {
+                  "id": "p3a1",
+                  "label": "Save changes"
+                }
+              ]
+            }
+          ],
+          "connections": [
+            [
+              "p1a2",
+              "p2"
+            ],
+            [
+              "p1a3",
+              "p3"
+            ]
+          ]
+        },
+        "boardIsEdited": false,
+        "pack": null
+      }
+    },
+    {
+      "label": "a real browser build, one place renamed, link copied",
+      "branch": "deflate",
+      "capturedFrom": "chromium, /build.html \"Copy the link that rebuilds this\", 2026-08-05",
+      "param": "AU2PwWrDMBBEf8XMeS-Jb_qAQqHQQtJT8EF1JoqoI6nS2sGE_Hux3IQe983s7OwNE8xGYGFu0OydY4bBGMqYCYHt1ccAg_7M_huCzKvNx_2cCIPC4QSBDxOLXhgUBkerFoJT5s_I0M8V-WFefJeU48Ty5icWGMwsEFzjOBw_C1_1iWxKVK_1xMUOAwTlbOvJODFPnlcIQnRxiQkxEHfB1_JDgjkckDYQ7LO3jpA624W8-EGZ0UklWwjeE0PzkaPLLOUhtA9hR1UfXEHXVWnZeJpr7rbm7qiNbdRmR31425Wv-9Xbrl47senPNjjW3E7Q_3WujdL2f43UouvuAsJs7r8",
+      "state": {
+        "answers": {
+          "trigger": "unsure",
+          "action": "check",
+          "rewardType": "self",
+          "investment": "data",
+          "frequency": "daily",
+          "improvesLives": "yes",
+          "wouldUseIt": "yes",
+          "appetite": "small",
+          "shape": "overview",
+          "nogos": "none"
+        },
+        "board": {
+          "places": [
+            {
+              "id": "p1",
+              "label": "Triage",
+              "affordances": [
+                {
+                  "id": "p1a1",
+                  "label": "Filter"
+                },
+                {
+                  "id": "p1a2",
+                  "label": "Open Progress"
+                },
+                {
+                  "id": "p1a3",
+                  "label": "Open Settings"
+                }
+              ]
+            },
+            {
+              "id": "p2",
+              "label": "Progress",
+              "affordances": [
+                {
+                  "id": "p2a1",
+                  "label": "Set a target"
+                }
+              ]
+            },
+            {
+              "id": "p3",
+              "label": "Settings",
+              "affordances": [
+                {
+                  "id": "p3a1",
+                  "label": "Save changes"
+                }
+              ]
+            }
+          ],
+          "connections": [
+            [
+              "p1a2",
+              "p2"
+            ],
+            [
+              "p1a3",
+              "p3"
+            ]
+          ]
+        },
+        "boardIsEdited": true,
+        "pack": null
+      }
+    }
+  ]
+}
