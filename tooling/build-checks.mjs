@@ -66,7 +66,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { hasTemplate, validateComposition } from "../system/agentic-renderer.mjs";
 import { vetTokens } from "../system/pack-imported.mjs";
 import { boardSvg, cardSvg } from "../system/build-card.mjs";
-import { specMarkdown } from "../system/build-keep.mjs";
+import { NO_DESIGN_IMPORTED, specMarkdown, TWO_CLAIMS } from "../system/build-keep.mjs";
+import { exportHtml, stripImports } from "../system/studio-export.mjs";
 import { DEFAULT_ANSWERS, frequencyVerdictFor, quadrantFor, QUESTIONS } from "../system/build-questions.mjs";
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
@@ -864,7 +865,82 @@ function scanSvg(svg, label) {
   ok(!evilSvg.includes("</text><script"), "a hostile label closed the text element it was inside");
   ok((evilSvg.match(/&lt;script&gt;/g) || []).length === 1, "the hostile label should appear escaped exactly once");
 
-  group("artifacts", `${svgs.length} SVG templates well-formed · hostile tokens fall back · label escaped once · no card or spec claims "not in the library"`);
+  // #210's export, over THE SAME hostile fixtures the SVG templates just faced. It is a different
+  // medium with the same rule — escape once, at the template — and the categories are what make it
+  // interesting: `title` and every provenance string are TEXT and must be escaped; `slots[].html` is
+  // already-serialized DOM and must NOT be, because escaping it twice is the exact bug
+  // build-card.mjs's "escaped once" note exists about.
+  {
+    const hostileSlots = [{ col: 2, row: 3, html: "<div class=\"ds-metric-tile\"><p>real &amp; serialized</p></div>" }];
+    const out = exportHtml({
+      title: HOSTILE_LABEL,
+      css: ":root{--x:1}",
+      inlineTokens: { ...HOSTILE_TOKENS, "--color-accent": "#b5179e" },
+      slots: hostileSlots,
+      meta: { patternLabel: HOSTILE_LABEL, places: 1, affordances: 2, connections: 0, packLabel: HOSTILE_LABEL, hasVisitorTokens: true },
+    });
+
+    // 1 · the hostile label reaches nothing executable, in any of the three places it is used.
+    ok(!out.includes("<script"), "a hostile label or token opened a <script> in the export");
+    ok(!out.includes("</text><script>"), "a hostile label survived unescaped into the export");
+    ok(out.includes("&lt;/text&gt;&lt;script&gt;"), "the hostile label's markup is not escaped in the export");
+
+    // 2 · escaped ONCE, not twice. The label carries one `&` per escaped `<`; a double pass turns
+    //     `&lt;` into `&amp;lt;`, which the reader then sees literally in their own file.
+    ok(!out.includes("&amp;lt;"), "the export escaped a text field TWICE — the reader sees &lt; in their document");
+    //     The AMPERSAND gets its own case, and it is not padding: HOSTILE_LABEL carries no `&`, so
+    //     deleting the `&` replacement from esc() left every assertion above green — the mutation
+    //     sweep for this group found exactly that. A raw `&` in a text field is also the ordinary
+    //     case, not the adversarial one: place labels really do read "Jobs & routes".
+    const amp = exportHtml({ title: "Jobs & routes <b>", css: "", slots: hostileSlots, meta: {} });
+    ok(amp.includes("<title>Jobs &amp; routes &lt;b&gt;</title>"),
+      "the export did not escape a bare ampersand in a text field — the entity that follows it in the same string is then broken");
+    //     …and the serialized markup was NOT escaped at all: it is the renderer's own output.
+    ok(out.includes("<div class=\"ds-metric-tile\">"), "the export escaped renderComposition's serialized output, which is already DOM");
+    ok(out.includes("real &amp; serialized"), "the export re-escaped an entity that was already in the serialized markup");
+
+    // 3 · not one value vetTokens rejected reached the document, and the good one did. THIS IS THE
+    //     ONE APPLICATION POINT working: the exporter has no escaping opinion of its own, it relies
+    //     on VALUE_OK excluding `< > : ; { } " '` — which is exactly why a </style> breakout is
+    //     impossible — and this asserts the reliance rather than the regex.
+    const rejected = vetTokens(HOSTILE_TOKENS).rejected;
+    ok(rejected.length > 0, "the hostile token fixture is no longer hostile — this case would pass on any implementation");
+    for (const r of rejected) {
+      ok(!out.includes(r.value), `the export emitted a token value vetTokens rejected: ${r.key}: ${r.value}`);
+    }
+    ok(out.includes("--color-accent:#b5179e;"), "the export dropped a legitimate visitor token value");
+
+    // 4 · no unescaped </style> ANYWHERE except the three the document legitimately closes, and the
+    //     tag counts balance. DOMParser is not available under Node, so this is structural.
+    ok((out.match(/<style>/g) || []).length === 3 && (out.match(/<\/style>/g) || []).length === 3,
+      "the export's <style> blocks do not balance — a value broke out of one, or one was dropped");
+    for (const tag of ["html", "head", "body", "footer", "main"]) {
+      ok((out.match(new RegExp(`<${tag}[ >]`, "g")) || []).length === (out.match(new RegExp(`</${tag}>`, "g")) || []).length,
+        `the export's <${tag}> elements do not balance`);
+    }
+
+    // 5 · an over-long label is carried whole rather than clipped into a lone surrogate. The export
+    //     is HTML with no character budgets — clip() is the SVG templates' problem, not this one —
+    //     so what matters is that the file stays valid text.
+    const longLabel = `${"x".repeat(4000)}\u{1F4CA}`;
+    const long = exportHtml({ title: longLabel, css: "", slots: hostileSlots, meta: { places: 0 } });
+    ok(!hasLoneSurrogate(long), "the export split an astral character into a lone surrogate");
+    ok(long.includes(longLabel), "the export clipped a long title — an HTML document has no such budget");
+
+    // 6 · a token map vetTokens rejects WHOLE still produces a document, with an empty :root block.
+    //     Built by FILTERING the hostile fixture through vetTokens rather than by hand, because
+    //     HOSTILE_TOKENS is not wholly hostile — `var(--color-accent)` is a legitimate value the
+    //     committed packs really use, and group 7 asserts it is accepted. A hand-listed "all bad"
+    //     map would drift away from that the day either list moved.
+    const wholly = Object.fromEntries(vetTokens(HOSTILE_TOKENS).rejected.map((r) => [r.key, r.value]));
+    ok(Object.keys(vetTokens(wholly).tokens).length === 0,
+      "the wholly-rejected fixture is not wholly rejected — this case would pass on any implementation");
+    const allBad = exportHtml({ title: "t", css: "", inlineTokens: wholly, slots: hostileSlots, meta: {} });
+    ok(allBad.includes("<style>:root{}</style>"), "a wholly-rejected token map did not leave the :root block empty");
+    ok(allBad.includes("ds-metric-tile"), "a wholly-rejected token map took the components down with it");
+  }
+
+  group("artifacts", `${svgs.length} SVG templates well-formed · hostile tokens fall back · label escaped once · no card or spec claims "not in the library" · #210's HTML export over the same hostile fixtures: label escaped exactly once in all three uses, the renderer's serialized output NOT re-escaped, no vetTokens-rejected value emitted, <style> and five element pairs balanced, an astral title carried whole, and a wholly-rejected token map leaving an empty :root rather than taking the components with it`);
 }
 
 // --- 7 · the vetting invariant ----------------------------------------------------------------------
@@ -2882,6 +2958,204 @@ function scanSvg(svg, label) {
   group("replay driver", `the committed pair joins into ${built.beats.length} beats (${kinds("op")} ops counted from the artifact, ${kinds("note")} narration and ${kinds("refusal")} refusals counted from the trace, ${built.skipped} steps stated as skipped) · playing every op beat REPRODUCES replay/${REPLAY_SLUG}.board.json exactly, and a corrupted-label mutation makes that compare go red · the schedule keeps the run's own gap RATIOS and totals the budget, PLAYBACK_MS = null plays the real gaps · the chrome's label, meta and paths are the committed files' verbatim, by identity · total over 10 junk pairs and 5 hostile beats, never a throw, and a missing trace degrades to ops-only rather than failing · the artifact's ADD-ONLY op mix is pinned as a tripwire over the unexercised rename/remove branches · the bus emission, the single consumer, the announcements and the take-over are studio-journey's, and say so`);
 }
 
+// --- 17 · the single-file export's pure layer (#210) ---------------------------------------------
+// system/studio-export.mjs, driven under Node over the REAL COMMITTED STYLESHEETS. That is the whole
+// design of this group rather than a detail: a synthetic CSS fixture would make the zero-request
+// assertion a statement about a string this file wrote, and the one thing it has to be is a
+// statement about what the four shipped packs actually contain.
+//
+// AND IT STATES ITS BOUNDARY, the way groups 9, 11, 13 and 16 do. Nothing here can open a file://
+// document, count the requests a browser really makes, watch the rail hide both ways, or see a
+// download happen. Those belong to tooling/studio-journey.mjs's #210 half and to spike 3, whose cold
+// opens on all three engines are recorded in .claude/reports/studio-export-keep-rail-210-spike3.md.
+// What this group owns is the STRING: what is in it, what is not, and that the same input always
+// produces the same bytes.
+{
+  const CSS_DIR = join(ROOT, "system");
+  const contractCss = readFileSync(join(CSS_DIR, "tokens.contract.css"), "utf8");
+  const componentsCss = readFileSync(join(CSS_DIR, "components.css"), "utf8");
+
+  // The shipped packs, taken from system/dock.mjs's HARD ALLOWLIST rather than typed here. dock.mjs
+  // is a DOM module and cannot be imported under Node, so the allowlist is read out of PACK_RE —
+  // which is the same constant the dock's own switcher is gated on, so a pack added to the dock
+  // without being added there fails HERE too rather than silently going ungated.
+  const dockSrc = readFileSync(join(CSS_DIR, "dock.mjs"), "utf8");
+  const packRe = dockSrc.match(/const PACK_RE = \/\\\/system\\\/tokens\\\.\(([a-z0-9|-]+)\)\\\.css\$\/;/);
+  ok(packRe !== null, "system/dock.mjs's PACK_RE could not be read — this group would be testing a hand-typed pack list");
+  const PACK_IDS = packRe ? packRe[1].split("|") : [];
+  ok(PACK_IDS.length >= 4, `only ${PACK_IDS.length} packs read out of PACK_RE — expected the four shipped ones`);
+
+  // Comments are stripped before the @import assertion, and that is the honest predicate rather than
+  // a loosening: the claim is "this document makes no network request", and prose inside a comment
+  // makes none. tokens.neutral.css's header explains why it carries no @import, in a sentence
+  // containing the word — a bare substring test would fail on the pack that is doing it right.
+  const decommented = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  const slotsFixture = [{ col: 4, row: 2, html: "<div class=\"ds-metric-tile\">x</div>" }];
+
+  for (const pack of PACK_IDS) {
+    const packCss = readFileSync(join(CSS_DIR, `tokens.${pack}.css`), "utf8");
+    const out = exportHtml({
+      title: "A prototype from ux factory",
+      css: [contractCss, packCss, componentsCss].join("\n"),
+      slots: slotsFixture,
+      meta: { places: 1, affordances: 0, connections: 0 },
+    });
+    const bare = decommented(out);
+
+    // 1 · THE ZERO-REQUEST CLAIM, asserted on the produced string over real committed input. THIS
+    //     CASE CAN FAIL WITH NO MUTATION AT ALL: system/tokens.saulera.css:19 carries a live
+    //     `@import url("../fonts/fonts.css")` pointing at a directory that does not exist, and the
+    //     dock offers saulera to every reader — so deleting the strip turns this red on committed
+    //     bytes rather than on a fixture invented to catch it.
+    ok(!bare.includes("@import"), `the export under the ${pack} pack emitted an @import — a file that reaches the network is not a file that runs anywhere`);
+    ok(!/url\s*\(/i.test(bare), `the export under the ${pack} pack emitted a url() — same request, different at-rule`);
+    ok(!bare.includes("<script"), `the export under the ${pack} pack emitted a <script>`);
+    ok(!/\bfetch\s*\(/.test(bare) && !/\bhistory\./.test(bare) && !/\bimport\s/.test(bare),
+      `the export under the ${pack} pack emitted a fetch, a history call or a module import — all three fail on file://`);
+
+    // 2 · …AND THE PACK SURVIVED THE STRIP, which is the half that would have caught the real bug.
+    //     The plan's own `/@import[^;]*;/g` matches the word inside saulera's HEADER COMMENT and
+    //     consumes to the at-rule's semicolon three lines later, taking the closing `*/` with it —
+    //     the comment then swallows `:root {` and the whole pack drops out, silently, leaving a
+    //     document that passes case 1 and wears the contract's fallback colours. Measured during
+    //     spike 3: 449 sheet rules → 447. `--color-amber` is saulera's own primitive and appears in
+    //     NO other pack, so this pair is a genuine discriminator rather than a tautology.
+    //     STRUCTURAL, not a substring hunt, and that distinction was earned by a mutation sweep: put
+    //     the plan's regex back and `--color-amber` is STILL IN THE STRING — what it loses is the
+    //     `:root {` that made those lines declarations rather than stray text, and the `*/` that
+    //     kept the comment closed. A string test cannot see either. Comment markers and braces must
+    //     BALANCE, and every `:root` the sources carried must still be there.
+    const source = [contractCss, packCss, componentsCss].join("\n");
+    const stripped = stripImports(source);
+    const count = (s, re) => (s.match(re) || []).length;
+    //     PRESERVED, not balanced. The sources do not balance to begin with — a comment that quotes
+    //     `/*` in its prose adds an opener with no closer — so "equal counts" would be red on
+    //     correct input. What must hold is that the strip removed NEITHER marker: the plan's regex
+    //     eats a closing `*/`, and that is the whole of the bug.
+    ok(count(stripped, /\/\*/g) === count(source, /\/\*/g) && count(stripped, /\*\//g) === count(source, /\*\//g),
+      `the strip removed a comment marker under the ${pack} pack (${count(source, /\/\*/g)}→${count(stripped, /\/\*/g)} openers, ${count(source, /\*\//g)}→${count(stripped, /\*\//g)} closers) — an unclosed comment swallows every rule after it`);
+    ok(count(stripped, /\{/g) === count(source, /\{/g) && count(stripped, /\}/g) === count(source, /\}/g),
+      `the strip changed the brace count under the ${pack} pack — it removed a rule, not an at-rule`);
+    ok(count(stripped, /:root/g) === count(source, /:root/g),
+      `the strip lost a :root block under the ${pack} pack — this is exactly what the plan's own /@import[^;]*;/g did to saulera`);
+    ok(out.includes(":root"), `the export under the ${pack} pack carries no :root block — the strip ate the pack`);
+    if (pack === "saulera") {
+      ok(/--color-amber:\s*#/.test(out),
+        "the export under saulera lost --color-amber — saulera's primitives are the only pack values that prove the pack itself travelled");
+    } else {
+      ok(!/--color-amber:\s*#/.test(out),
+        `--color-amber turned up under the ${pack} pack, so it no longer discriminates and case 2 proves nothing`);
+    }
+  }
+
+  // 3 · stripImports itself, on the two shapes that matter and nothing else. Driven, not grepped.
+  ok(stripImports('/* @import must precede all rules */\n@import url("x.css");\n:root{--a:1}').includes("--a:1"),
+    "stripImports dropped a declaration that followed an @import preceded by a comment mentioning one");
+  ok(!decommented(stripImports('/* @import prose */\n@import url("x.css");\n:root{--a:1}')).includes("@import"),
+    "stripImports left a real @import at-rule behind");
+  ok(stripImports("/* @import prose, never closed\n@import url(\"x.css\");").includes("@import prose"),
+    "stripImports mangled an unterminated comment instead of copying it to the end, which is what a parser does");
+  ok(stripImports(null) === "" && stripImports(undefined) === "" && stripImports(42) === "",
+    "stripImports is not total over a non-string");
+
+  // 4 · THE ARRANGEMENT SURVIVES — the studio's unique artifact, and the reason this export exists
+  //     rather than /build's. A slot at column 4, row 2 must emit grid LINE PLACEMENT for column 4,
+  //     row 2, not source order.
+  const arranged = exportHtml({ title: "t", css: "", slots: [{ col: 4, row: 2, html: "<i>a</i>" }, { col: 1, row: 1, html: "<i>b</i>" }], meta: {} });
+  ok(arranged.includes('class="sx-cell sx-c4-r2"'), "a slot at column 4, row 2 did not get its own placement class");
+  ok(arranged.includes(".sx-c4-r2{grid-column:4;grid-row:2}"), "the placement class for column 4, row 2 carries no grid line placement");
+  // Source order is NOT the arrangement: the 4,2 cell is written first because that is the order the
+  // canvas handed it over, and the grid is what puts it second.
+  const body = arranged.split("<body")[1];
+  ok(body.indexOf("sx-c4-r2") < body.indexOf("sx-c1-r1"), "the fixture no longer exercises out-of-source-order placement");
+
+  // 5 · THE CAPS ARE IMPORTED AND NOT RE-LITERALLED — group 12's discipline, in both directions and
+  //     by RUNNING the generator rather than counting occurrences of "12" in the source.
+  const table = exportHtml({ title: "t", css: "", slots: [], meta: {} });
+  const rules = table.match(/\.sx-c\d+-r\d+\{/g) || [];
+  ok(rules.length === MAX_COLS * MAX_ROWS,
+    `the placement table has ${rules.length} rules for a ${MAX_COLS}×${MAX_ROWS} canvas — it is not generated from the imported caps`);
+  ok(new Set(rules).size === rules.length, "the placement table repeats a cell address");
+  ok(table.includes(`.sx-c${MAX_COLS}-r${MAX_ROWS}{grid-column:${MAX_COLS};grid-row:${MAX_ROWS}}`),
+    "the far corner of the canvas has no placement rule — a component moved there would export unplaced");
+  ok(!table.includes(`.sx-c${MAX_COLS + 1}-`) && !table.includes(`-r${MAX_ROWS + 1}{`),
+    "the placement table extends past the canvas's own caps");
+  const exportSrc = readFileSync(join(CSS_DIR, "studio-export.mjs"), "utf8");
+  ok(/import \{ MAX_COLS, MAX_ROWS \} from "\.\/studio-canvas\.mjs"/.test(exportSrc),
+    "studio-export.mjs no longer imports the caps from studio-canvas.mjs");
+  // An off-grid slot is DROPPED, never clamped: clamping would place a component at a coordinate
+  // nobody chose, and the arrangement is the one thing this file must not invent.
+  const offGrid = exportHtml({ title: "t", css: "", slots: [{ col: MAX_COLS + 1, row: 1, html: "<i>a</i>" }], meta: {} });
+  ok(!offGrid.includes("sx-cell"), "an off-grid slot was placed anyway — the export invented a coordinate");
+  ok(offGrid.includes("did not compile to any components") || offGrid.includes("sx-empty"),
+    "an export with every slot dropped does not say it is empty");
+
+  // 6 · THE HONESTY SENTENCES, BY IDENTITY against build-keep.mjs's exported constants — which is
+  //     only possible because they ARE constants, and is why #210 lifted them out of specMarkdown
+  //     rather than re-typing them here. BOTH DIRECTIONS: the two-claims paragraph says "the TOKEN
+  //     VALUES above are yours", which is FALSE on a /factory at rest where nobody imported
+  //     anything, so the negative half is the one that catches a regression to always-emit.
+  //     The document is HTML and every text field goes through escape-once, so these sentences
+  //     arrive entity-escaped ("site's" → "site&#39;s"). DECODED here rather than re-encoded in the
+  //     assertion: re-encoding would make this a check against a second copy of the escaper, and
+  //     decoding keeps it an identity against build-keep.mjs's own constant.
+  const unesc = (s) => s
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  const claimsOn = unesc(exportHtml({ title: "t", css: "", inlineTokens: { "--color-accent": "#b5179e" }, slots: slotsFixture, meta: { hasVisitorTokens: true, packLabel: "your own derived palette" } }));
+  for (const line of TWO_CLAIMS) {
+    ok(claimsOn.includes(line), `the export's provenance block does not carry build-keep.mjs's line verbatim: "${line.slice(0, 50)}…"`);
+  }
+  ok(claimsOn.includes("Wearing: your own derived palette."), "the export does not name whose design values it is wearing");
+  ok(!claimsOn.includes(NO_DESIGN_IMPORTED), "the export claims BOTH that a design was imported and that none was");
+  const claimsOff = unesc(exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { hasVisitorTokens: false } }));
+  ok(claimsOff.includes(NO_DESIGN_IMPORTED), "an export wearing the site's own pack does not say so");
+  for (const line of TWO_CLAIMS) {
+    ok(!claimsOff.includes(line), "an export with NO visitor tokens still claims \"the TOKEN VALUES above are yours\" — the one dishonest line this artifact could carry");
+  }
+
+  // 7 · TRUNCATION IS STATED. The pattern can name more components than the canvas is holding blocks
+  //     for (slotsFor produces more slots than places for feed and settings — group 16's own
+  //     measurement), and a ?b= link carries the SENDER'S answers, so it is reachable. The rail caps
+  //     at the shorter of the two; this is the sentence that keeps that honest.
+  const cut = exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { omitted: 3 } });
+  ok(cut.includes("3 composed components did not travel"), "the export dropped components without saying so");
+  ok(!exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { omitted: 0 } }).includes("did not travel"),
+    "the export claims a truncation on a document where nothing was cut — a note that also appears when nothing happened teaches readers to ignore it");
+  ok(exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { omitted: 1 } }).includes("1 composed component did not travel"),
+    "the truncation note does not agree in number");
+
+  // 8 · TOTAL BY CONTRACT over junk. Never a throw, always a document.
+  const junk = [
+    undefined, {}, { slots: null }, { slots: "nope" }, { slots: [null, 3, "x"] },
+    { css: 42, slots: [{ col: "a", row: {}, html: 1 }] },
+    { title: {}, meta: "meta", inlineTokens: [1, 2] },
+    { slots: [{ col: 0, row: 0, html: "<i>a</i>" }] },
+    { slots: [{ col: 1.5, row: 1, html: "<i>a</i>" }] },
+    { slots: [{ col: 1, row: 1 }] },
+  ];
+  for (const [i, input] of junk.entries()) {
+    let doc = null;
+    let threw = null;
+    try { doc = exportHtml(input); } catch (err) { threw = err; }
+    ok(!threw, `exportHtml threw on junk input ${i}: ${threw && threw.message}`);
+    ok(typeof doc === "string" && doc.startsWith("<!doctype html>") && doc.includes("</html>"),
+      `exportHtml did not produce a whole document for junk input ${i}`);
+  }
+
+  // 9 · DETERMINISM, and it is a real claim rather than a formality: two exports of the same board
+  //     must be byte-identical, which is what makes the artifact a description of the board rather
+  //     than of the moment it was pressed. specMarkdown interpolates a build date and is allowed to;
+  //     this must not, which is why the drafted `builtOn` field was dropped rather than left unused.
+  const once = exportHtml({ title: "t", css: contractCss, inlineTokens: { "--color-accent": "#b5179e" }, slots: slotsFixture, meta: { places: 1, hasVisitorTokens: true } });
+  const twice = exportHtml({ title: "t", css: contractCss, inlineTokens: { "--color-accent": "#b5179e" }, slots: slotsFixture, meta: { places: 1, hasVisitorTokens: true } });
+  ok(once === twice, "two exports of the same board differ — something in the document carries a time, a counter or an id");
+  ok(!/\b20\d\d-\d\d-\d\d\b/.test(once), "the export carries a date — two exports of the same board would differ across midnight");
+
+  group("export", `the document driven over the REAL committed stylesheets — the contract, components.css and each of the ${PACK_IDS.length} packs dock.mjs's own PACK_RE allowlists — with the zero-request claim asserted on the OUTPUT and the saulera pack proven to SURVIVE the strip, the pair that would have caught the plan's original regex eating :root (and case 1 goes red on committed bytes with no mutation, because tokens.saulera.css carries a live @import) · the arrangement as grid LINE placement, out of source order, with an off-grid slot DROPPED rather than clamped · the placement table generated from the imported ${MAX_COLS}×${MAX_ROWS} caps, exhaustively and in both directions · both honesty branches asserted by IDENTITY against build-keep.mjs's constants, including the negative half — an export with no visitor tokens must NOT claim the token values are theirs · truncation stated and agreeing in number · total over ${junk.length} junk inputs · byte-identical across two runs. The cold file:// render, the ACTUAL request count, the rail's both-ways hide and the download are tooling/studio-journey.mjs's and spike 3's, and say so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -2889,5 +3163,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 16 groups pass");
+  console.log("\nbuild ✓  all 17 groups pass");
 }

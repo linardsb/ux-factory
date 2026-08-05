@@ -175,8 +175,14 @@ const FONT_NOTE = "The type is this pack's own declared families, inlined with t
 //                 under neutral and wrong under everything a visitor brings.
 //   slots         [{ col, row, html }] — html is renderComposition's serialized own output.
 //   meta          { patternLabel, places, affordances, connections, packLabel, hasVisitorTokens,
-//                   builtOn } for the provenance block. Every number COUNTED by the caller from the
+//                   omitted } for the provenance block. Every number COUNTED by the caller from the
 //                 board, none invented (pattern-rules.mjs's honesty rule, inherited).
+//
+// NO TIMESTAMP, NO COUNTER, NO RUN ID anywhere in this document, and that is a contract rather than
+// an omission: two exports of the same board must be byte-identical, which build-checks group 17
+// asserts. specMarkdown interpolates a build date and is allowed to — it is a different artifact
+// with a different claim. A `builtOn` field was drafted for this meta and deliberately dropped: no
+// caller filled it, and a determinism claim with an unfilled escape hatch in it is not one.
 export function exportHtml({ title, css, inlineTokens, slots, meta } = {}) {
   const m = meta && typeof meta === "object" ? meta : {};
   const label = typeof title === "string" && title.trim() ? title.trim() : "A prototype from ux factory";
@@ -253,7 +259,11 @@ ${body}
   + `They are arranged here at the coordinates you left them at on the canvas.`)}</p>
 <p>${claims}</p>
 <p>${esc(FONT_NOTE)}</p>
-${m.builtOn ? `<p>${esc(`Built ${m.builtOn}.`)}</p>` : ""}
+${Number.isFinite(m.omitted) && m.omitted > 0
+  ? `<p>${esc(`${m.omitted} composed component${m.omitted === 1 ? "" : "s"} did not travel: the pattern named more `
+    + "than the canvas was holding blocks for, and a component with no block has no place on the "
+    + "canvas to have been arranged at. Nothing was placed at a coordinate nobody chose.")}</p>`
+  : ""}
 </footer>
 </body>
 </html>

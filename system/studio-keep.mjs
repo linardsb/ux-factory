@@ -146,6 +146,20 @@ function inlineTokensOf(node) {
   return map;
 }
 
+// Whose design values these are, named the way the store names them rather than guessed. The three
+// producers write three different shapes and they matter here: build-import.mjs's drop path fills
+// `fileName` (:391), its derive path sets slug "derived" with fileName null (:473), and a shared
+// link fills a slug and leaves fileName null ON PURPOSE, because no file was imported in the
+// receiving browser and naming one would be a claim about a thing it never saw
+// (build-share.mjs:479-481). Reading only `slug` would print an imported design as a derived
+// palette, which is the wrong sentence in the one artifact whose point is naming whose work this is.
+function packLabelOf(pack, inlineTokens) {
+  if (pack && pack.fileName) return `your imported design, "${pack.fileName}"`;
+  if (pack && pack.slug === "derived") return "your own derived palette";
+  if (pack && pack.slug) return `the design values that travelled in this link, "${pack.slug}"`;
+  return Object.keys(inlineTokens).length ? "your own design values" : null;
+}
+
 export function mountStudioKeep(root, { getBoard, getArrangement, compile, canvas } = {}) {
   try {
     if (!root) return null;
@@ -264,13 +278,25 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
         const nodes = [...frag.children];
 
         // SERIALIZED, never scraped, and never through a markup sink — see the header's call 1.
+        //
+        // CAPPED AT THE SHORTER OF THE TWO, which is applySwap's own line (studio-compile.mjs:395,
+        // `Math.min(wrappers.length, nodes.length)`) and is not defensive padding: slotsFor produces
+        // MORE slots than places for the feed and settings patterns (build-checks group 16 pins
+        // exactly that), and a ?b= link carries the SENDER'S answers, so a restored build can name
+        // one of those on a canvas holding fewer blocks. Inventing a coordinate for the surplus
+        // would fabricate an arrangement — it could land on top of a block the reader moved, and the
+        // provenance block's "arranged here at the coordinates you left them at" would be false for
+        // every fabricated cell. The header's claim that the file and the link can never describe
+        // different arrangements is only true if this agrees with arrangement()'s own refusal to
+        // guess. What is cut is STATED rather than dropped (pattern-rules.mjs's affordanceCount
+        // precedent, inherited).
         const serializer = new XMLSerializer();
         const live = typeof getArrangement === "function" ? getArrangement() : [];
-        const slots = nodes.map((node, i) => ({
-          col: live[i] ? live[i].col : i + 1,
-          row: live[i] ? live[i].row : 1,
-          html: serializer.serializeToString(node),
-        }));
+        const shown = Math.min(nodes.length, live.length);
+        const slots = [];
+        for (let i = 0; i < shown; i += 1) {
+          slots.push({ col: live[i].col, row: live[i].row, html: serializer.serializeToString(nodes[i]) });
+        }
 
         const packHref = [...document.querySelectorAll("link[rel=stylesheet]")]
           .map((l) => l.getAttribute("href"))
@@ -299,10 +325,10 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
             places: result.counted.places,
             affordances: result.counted.affordances,
             connections: result.counted.connections,
-            packLabel: stored.pack && stored.pack.slug
-              ? `your imported design, "${stored.pack.slug}"`
-              : (Object.keys(inlineTokens).length ? "your own derived palette" : null),
+            packLabel: packLabelOf(stored.pack, inlineTokens),
             hasVisitorTokens: Object.keys(inlineTokens).length > 0,
+            // What did not fit, so the document can say so instead of quietly being short.
+            omitted: nodes.length - shown,
           },
         }), "text/html");
         handed = true;
