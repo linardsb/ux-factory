@@ -19,7 +19,11 @@
 //             strong-case bar (architecture line 57). It would emit the SAME ui.* types with
 //             source:"voice"; there is no new integration surface to build for it. That is the
 //             whole point of one contract: adding a modality is a new `source`, not a new bus.
-//   target  — optional { component, id? }: which rendered thing the action concerns.
+//   target  — optional { component?, id?, label? }: which rendered thing the action concerns.
+//             `component` is the VOCABULARY SHAPE ("metric-tile"), never a display string, and it
+//             is absent when the thing has no shape in the library (system/studio-verbs.mjs moves
+//             nodes that are not library components). `label` is the display name, which is what
+//             #232 gave its own key after one emitter had been putting it under `component`.
 //   params  — optional plain object: the user's/agent's payload (agent-supplied strings —
 //             any consumer that renders them must escape).
 //

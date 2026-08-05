@@ -18,7 +18,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { applyOp, assertBoard, emptyBoard, parseOpCommand } from "../system/board-ops.mjs";
+import { applyOp, assertBoard, emptyBoard, parseOpCommand, shellQuote } from "../system/board-ops.mjs";
 
 const readBoard = (file) => {
   if (!existsSync(file)) return emptyBoard();
@@ -34,11 +34,19 @@ const writeBoard = (file, board) => {
 // The argv the agent typed, re-joined and read through the SAME grammar the recorder's fence
 // denies with (system/board-ops.mjs:parseOpCommand). Running the real parser here — rather than
 // trusting argv positionally — means a command this CLI accepts is a command the projection can
-// read, and there is no third opinion about what an op call looks like.
+// read, and there is no third opinion about what an op call looks like. That round trip is a
+// design property and stays.
+//
+// RE-JOINED WITH THE GRAMMAR'S OWN QUOTING (#226). The board path used to be interpolated bare, so
+// a path containing a space tokenized into two arguments and the CLI refused its own invocation
+// with "got 4 arguments" — the "works here, breaks there" trap this repo already documents for
+// pathToFileURL in every generator. shellQuote is board-ops.mjs's inverse of the quoted segment,
+// so what is re-joined here is exactly what that grammar reads back; the op JSON gets the same
+// treatment, which is what carries an apostrophe inside a label through argv intact.
 export function runBoardOp(argv, cwd = process.cwd()) {
   const [boardArg, opArg] = argv;
   if (!boardArg || !opArg) throw new Error("usage: node tooling/board-op.mjs <board.json> '<op json>' | --validate");
-  const parsed = parseOpCommand(`node tooling/board-op.mjs ${boardArg} ${opArg === "--validate" ? "--validate" : `'${opArg}'`}`);
+  const parsed = parseOpCommand(`node tooling/board-op.mjs ${shellQuote(boardArg)} ${opArg === "--validate" ? "--validate" : shellQuote(opArg)}`);
   const file = resolve(cwd, boardArg);
 
   if (parsed.kind === "validate") {

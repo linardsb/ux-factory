@@ -232,13 +232,26 @@ export function assertBoard(board) {
 // is denied while the run is still going, and the agent corrects itself inside the implement phase.
 //
 // The grammar is deliberately narrow — exactly what record-build.mjs's task prompt tells the agent
-// to type: `node <…>tooling/board-op.mjs <boardPath> '<op json>'` (or `--validate`). A bare token is
-// an ALLOWLIST of path characters, never a denylist of shell metacharacters: a denylist is
+// to type: `node <…>tooling/board-op.mjs <boardPath> '<op json>'` (or `--validate`). A bare segment
+// is an ALLOWLIST of path characters, never a denylist of shell metacharacters: a denylist is
 // permanently incomplete (the first one here missed brace and bracket expansion, which makes one
 // typed token into three argv items), and a fence whose model of the command diverges from the
-// shell's is only ever safe by accident. A quoted token is single-quoted with nothing appended —
-// that is where the op JSON's braces, colons and spaces live. Anything else (double quotes, $'…',
-// a heredoc, `&&`, a pipe, `{a,b}`) throws.
+// shell's is only ever safe by accident. Anything outside the three segment kinds below (double
+// quotes, $'…', a heredoc, `&&`, a pipe, `{a,b}`) throws.
+//
+// A WORD IS BUILT FROM SEGMENTS, which is #225. bash concatenates adjacent quoted and unquoted
+// segments with no whitespace between them into ONE argument, and that is the only way a single
+// quote can appear inside a single-quoted string: `'Manager'\''s Office'` is a quoted run, an
+// escaped apostrophe, and a second quoted run — three segments, one argument. The old rule
+// ("nothing may follow a closing quote") could not represent it, so a possessive in a place label
+// — ordinary product copy — was denied on every attempt, with nothing in the prompt telling the
+// agent to avoid one. Modelling the concatenation is what makes the apostrophe buildable; the
+// alternative on the table, a clause in buildTask telling the agent to avoid apostrophes, would
+// have made the committed trace's recorded `task` disagree with the code that emits it and could
+// only land with a paid re-record.
+//
+// The escape is EXACTLY \' and nothing else: a general backslash-escape rule would be a second
+// grammar to keep in step with the shell's, and \' is the one form bash itself produces here.
 const SCRIPT = "tooling/board-op.mjs";
 const BARE = /^[A-Za-z0-9_./-]+$/;
 
@@ -246,23 +259,40 @@ function tokenize(command) {
   const s = String(command ?? "").trim();
   const tokens = [];
   let i = 0;
+  const space = (c) => c === " " || c === "\t";
   while (i < s.length) {
-    if (s[i] === " " || s[i] === "\t") { i += 1; continue; }
-    if (s[i] === "'") {
-      const end = s.indexOf("'", i + 1);
-      if (end === -1) throw new Error("unbalanced single quote");
-      tokens.push(s.slice(i + 1, end));
-      i = end + 1;
-      if (i < s.length && s[i] !== " " && s[i] !== "\t") throw new Error("a quoted argument must stand alone (nothing may follow its closing quote)");
-      continue;
+    if (space(s[i])) { i += 1; continue; }
+    let word = "";
+    while (i < s.length && !space(s[i])) {
+      if (s[i] === "'") {
+        const end = s.indexOf("'", i + 1);
+        if (end === -1) throw new Error("unbalanced single quote");
+        word += s.slice(i + 1, end);
+        i = end + 1;
+        continue;
+      }
+      if (s[i] === "\\") {
+        if (s[i + 1] !== "'") throw new Error(`unsupported escape "\\${s[i + 1] ?? ""}" — the only escape this grammar reads is \\' (bash's '…'\\''…' form for an apostrophe)`);
+        word += "'";
+        i += 2;
+        continue;
+      }
+      const tok = s.slice(i).match(/^[^ \t'\\]+/)[0];
+      if (!BARE.test(tok)) throw new Error(`unsupported shell syntax in "${tok}" — one plain command, no quoting tricks, no chaining, no expansion`);
+      word += tok;
+      i += tok.length;
     }
-    const tok = s.slice(i).match(/^[^ \t]+/)[0];
-    if (!BARE.test(tok)) throw new Error(`unsupported shell syntax in "${tok}" — one plain command, no quoting tricks, no chaining, no expansion`);
-    tokens.push(tok);
-    i += tok.length;
+    tokens.push(word);
   }
   return tokens;
 }
+
+// The inverse of a quoted segment: one argument, quoted the way bash itself quotes it, so a value
+// carrying a space or an apostrophe survives a round trip through this grammar. Exported because
+// tooling/board-op.mjs re-joins its argv and reads it back through parseOpCommand deliberately —
+// one grammar, no third opinion about what an op call looks like — and re-joining without quoting
+// is what made a board path with a space tokenize into two arguments.
+export const shellQuote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
 
 // → { kind: "op", scriptPath, boardPath, op } | { kind: "validate", scriptPath, boardPath }.
 // Throws otherwise.
@@ -284,6 +314,20 @@ export function parseOpCommand(command) {
   let op;
   try { op = JSON.parse(t[3]); }
   catch (e) { throw new Error(`the op argument is not JSON — ${e.message}`); }
+  // THE ENVELOPE IS EXACT, NOT MINIMAL (#226) — and it is checked HERE rather than in checkOp,
+  // which is the part worth recording. `params` has always been exact one level down; the envelope
+  // was never extended to match, so `{op, params, extra}` parsed and `extra` was silently dropped —
+  // an op whose recorded text says more than the op that was applied. Every envelope a HUMAN OR AN
+  // AGENT authors arrives through this function (the fence reads the typed command, the CLI
+  // re-joins its argv through it, gen-replay projects from it), so this is where the tightening
+  // belongs. applyOp stays permissive on purpose: gen-replay's reproduce check and #209's driver
+  // both feed it the PROJECTED record — the same { op, params } core wrapped in atMs, phase and
+  // fromStep — and refusing those there would make the artifact unapplyable by its own consumers.
+  if (op && typeof op === "object" && !Array.isArray(op)) {
+    for (const k of Object.keys(op))
+      if (k !== "op" && k !== "params")
+        throw new Error(`unknown key "${k}" on the op envelope — a typed op is exactly { op, params }`);
+  }
   checkOp(op); // throws naming the op / the offending param
   return { kind: "op", scriptPath, boardPath, op };
 }

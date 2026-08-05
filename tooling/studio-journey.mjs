@@ -123,7 +123,13 @@ const inject = (p, action) => p.evaluate((a) => import("/system/studio-verbs.mjs
 // back with busSeen().
 const busRecord = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
   window.__busLog = [];
-  m.getVerbs().bus.on("*", (a) => window.__busLog.push({ type: a.type, source: a.source, id: a.target?.id, params: a.params }));
+  m.getVerbs().bus.on("*", (a) => window.__busLog.push({
+    type: a.type, source: a.source, id: a.target?.id,
+    // #232's two fields, recorded whole: `hasComponent` distinguishes an ABSENT component (a node
+    // with no vocabulary shape) from one that happens to be empty.
+    component: a.target?.component, hasComponent: a.target ? "component" in a.target : false,
+    label: a.target?.label, params: a.params,
+  }));
 }));
 const busSeen = (p) => p.evaluate(() => (window.__busLog || []).slice());
 const busClear = (p) => p.evaluate(() => { window.__busLog = []; });
@@ -401,9 +407,88 @@ async function journey(engineName, results, held) {
   const announced = (await page.locator(LIVE).textContent()).trim();
   t("…and the live region announced the placement", /column 5, row 3/.test(announced), announced);
 
+  // #231 L3 · the re-place above passed a NEW name, and the handle's ACCESSIBLE name has to follow
+  // it. data-stx-name was written on every call and `aria-label: Move <name>` only on the first, so
+  // a re-placed component announced one name and was labelled with another — the exact desync #206
+  // walks into when it re-labels. Read as the two strings agreeing, not as "the write happened".
+  const relabelled = await page.evaluate(() => {
+    // BY NAME, not "the first slot": place() appends, so the re-placed wrapper is at the END of the
+    // stage — reading the first one would assert against a component this case never touched, and
+    // it passes green whether the fix is there or not.
+    const slot = document.querySelector('[data-studio-canvas] .stx-slot[data-stx-name="Driven tile"]');
+    if (!slot) return { error: "no wrapper carries the re-placed name" };
+    return {
+      name: slot.getAttribute("data-stx-name"),
+      label: slot.querySelector(":scope > .stx-grab")?.getAttribute("aria-label"),
+    };
+  });
+  t("#231 · re-placing under a new name re-labels the move handle to match it",
+    relabelled.name === "Driven tile" && relabelled.label === "Move Driven tile", JSON.stringify(relabelled));
+
   const clamped = await viaSeam(page, MAX_COLS + 9, -4);
   t("an out-of-range slot is clamped by clampSlot, never written raw",
     clamped.col === String(MAX_COLS) && clamped.row === "1", JSON.stringify(clamped));
+
+  // ------------------------------------------------------- [7] #231 L2 · the canvas mounted ALONE
+  // The gate hole this ticket names: build-checks cannot mount a DOM and both existing driver
+  // sections mount the canvas AND its verbs, so nothing could see what a canvas without verbs hands
+  // a reader — one dead tab stop per component, each pointing aria-describedby at an element that
+  // does not exist. Mounted on its OWN page (a second initStudioCanvas takes over the module's
+  // `live`, and nothing after this may inherit that) and asserted as what a keyboard reader meets:
+  // can focus land on it, and does its description resolve.
+  const alone = await ctx.newPage();
+  await alone.goto(`${BASE}/studio.html`, { waitUntil: "load" });
+  await alone.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
+  const lone = await alone.evaluate(() => import("/system/studio-canvas.mjs").then((m) => {
+    // A HOST holding the viewport, because initStudioCanvas queries WITHIN the root it is given —
+    // an element never matches its own querySelector.
+    const host = document.createElement("div");
+    const root = document.createElement("div");
+    root.setAttribute("data-studio-canvas", "");
+    host.appendChild(root);
+    document.body.appendChild(host);
+    const canvas = m.initStudioCanvas(host);
+    canvas.place(document.createElement("p"), { col: 1, row: 1, name: "Lonely" });
+    const grab = root.querySelector(".stx-grab");
+    grab.focus();
+    const describedBy = grab.getAttribute("aria-describedby");
+    return {
+      focused: document.activeElement === grab,
+      describedBy,
+      resolves: describedBy ? Boolean(document.getElementById(describedBy)) : null,
+      label: grab.getAttribute("aria-label"),
+      root: "ok",
+    };
+  }));
+  t("#231 · a canvas mounted WITHOUT the verbs hands out no dead tab stop",
+    lone.focused === false, JSON.stringify(lone));
+  t("#231 · …and no aria-describedby pointing at instructions that were never created",
+    lone.describedBy === null, JSON.stringify(lone));
+  t("#231 · …while still naming the component it would move", lone.label === "Move Lonely", JSON.stringify(lone));
+  // …and mounting the verbs is what arms it. Same page, same canvas: the handle a reader could not
+  // reach a moment ago is now focusable AND described by the element that mount just created.
+  const armedNow = await alone.evaluate(async () => {
+    // Both handles through their own exported seams — the scratch canvas is the module's `live`
+    // because it mounted last, which is exactly what getCanvas() answers with.
+    const [canvasMod, verbs, busMod] = await Promise.all([
+      import("/system/studio-canvas.mjs"), import("/system/studio-verbs.mjs"), import("/system/action-bus.mjs"),
+    ]);
+    const canvas = canvasMod.getCanvas();
+    verbs.mountCanvasVerbs(canvas, { bus: busMod.createBus() });
+    const grab = canvas.stage.querySelector(".stx-grab");
+    grab.focus();
+    const describedBy = grab.getAttribute("aria-describedby");
+    return {
+      focused: document.activeElement === grab,
+      describedBy,
+      resolves: describedBy ? Boolean(document.getElementById(describedBy)) : null,
+    };
+  });
+  t("#231 · mounting the verbs arms every handle already on the stage",
+    armedNow.focused === true, JSON.stringify(armedNow));
+  t("#231 · …and describes it through the instructions element that mount created",
+    armedNow.resolves === true, JSON.stringify(armedNow));
+  await alone.close();
 
   await ctx.close();
 
@@ -488,6 +573,20 @@ async function journey(engineName, results, held) {
   t("AC #4 · a pointer gesture emits EXACTLY ONE ui.move, however many slots it crossed",
     pointerMoves.length === 1, JSON.stringify(pointerActions));
   t("AC #4 · …with an honest source", pointerMoves[0]?.source === "pointer", pointerMoves[0]?.source);
+  // #232 · the target's two names, read against what the wrapper actually carries. `component` is
+  // the VOCABULARY SHAPE everywhere else on this bus (agentic-renderer, agentic-study, bus-toggles,
+  // peak) and this emitter used to put the display label there. Asserted as "the shape, and NOT the
+  // label" — equality with the wrapper alone would pass for an emitter that sent the label if the
+  // two ever coincided.
+  const moved = await page.evaluate((id) => {
+    const n = document.querySelector(`.stx-slot[data-stx-id="${id}"]`);
+    return { shape: n.getAttribute("data-stx-component"), name: n.getAttribute("data-stx-name") };
+  }, TARGET);
+  t("#232 · ui.move carries the VOCABULARY SHAPE under target.component",
+    moved.shape && pointerMoves[0]?.component === moved.shape && pointerMoves[0]?.component !== moved.name,
+    `${JSON.stringify(pointerMoves[0])} vs wrapper ${JSON.stringify(moved)}`);
+  t("#232 · …and the display label under target.label, its own key",
+    pointerMoves[0]?.label === moved.name, `${JSON.stringify(pointerMoves[0])} vs wrapper ${JSON.stringify(moved)}`);
 
   await undoAll(page);
   await busClear(page);
@@ -1181,6 +1280,8 @@ async function factoryPass(browser, t, errors) {
     return { col: n.getAttribute("data-col"), row: n.getAttribute("data-row") };
   }, first);
   await countLive(p);
+  await busRecord(p);
+  await busClear(p);
   await p.locator(`.stx-slot[data-stx-id="${first}"] .stx-grab`).focus();
   await p.keyboard.press("Enter");
   await p.keyboard.press("ArrowDown");
@@ -1197,6 +1298,15 @@ async function factoryPass(browser, t, errors) {
     said.n === 3, `${said.n} announcement(s); last: ${said.last}`);
   t("#206 · …and the last announcement names the slot it landed in",
     new RegExp(`moved to column ${after.col}, row ${after.row}`).test(said.last), said.last);
+  // #232's other half, and the reason `component` is optional rather than always-present: what this
+  // page moves is a FAT-MARKER BLOCK — the drafted board, not a library component. The action must
+  // carry no shape at all rather than a made-up one, and must still say which thing moved.
+  const factoryMove = (await busSeen(p)).filter((a) => a.type === "ui.move")[0];
+  t("#232 · moving a fat-marker block emits NO target.component — it has no vocabulary shape",
+    factoryMove && factoryMove.hasComponent === false, JSON.stringify(factoryMove));
+  t("#232 · …and still names it under target.label",
+    factoryMove?.label === (await p.getAttribute(`.stx-slot[data-stx-id="${first}"]`, "data-stx-name")),
+    JSON.stringify(factoryMove));
 
   // Group 7's claim, on the running page. The source is grep-clean; this is the half grep cannot
   // make — and it is asserted AFTER a move, which is when a style-writing implementation would show.
@@ -1393,6 +1503,164 @@ async function compilePass(browser, t, errors) {
     .reduce((n, el) => n + el.getAnimations().length, 0));
   t("#207 · AC #5 · …with no crossfade running", ranims === 0, `${ranims} animation(s)`);
   await rctx.close();
+
+  await teardownPass(browser, t, errors);
+}
+
+// ---------------------------------------------------------------------------------------------
+// #236 · TEARDOWN AND RETRY. Both halves are about the beat SURVIVING something, and neither is
+// reachable from system/studio.mjs — which never calls destroy() and never sees a failed fetch. The
+// driver reaches them the way #209's replay will: through the exported getCompile() seam, never a
+// window.__ global.
+//
+// EVERY CASE HERE IS PHRASED AS A THING THAT HAPPENED TO THE PAGE, never as a flag being set:
+// "compile() came back", "the stage is still blocks", "the second press fetched again". A destroy
+// that set `destroyed = true` and changed nothing else would pass a flag-shaped assertion, and it is
+// the writing-into-a-torn-down-viewport that is the bug.
+async function teardownPass(browser, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const open = async (route) => {
+    const page = await ctx.newPage();
+    page.on("pageerror", (e) => errors.push(`teardown pageerror: ${e.message}`));
+    // The ONE exemption in this file, and it is narrow on purpose: case 3 serves a 503 deliberately,
+    // and chromium logs every failed resource load as a console error of its own. That line is the
+    // browser reporting the network, not the page reporting itself — the no-console-errors contract
+    // is about the latter, and everything the beat says about the failure goes to its card.
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      if (/Failed to load resource/.test(m.text())) return;
+      errors.push(`teardown console: ${m.text()}`);
+    });
+    if (route) await page.route("**/vocabulary.json", route);
+    await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
+    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 20000 });
+    return page;
+  };
+  // What the viewport looks like AFTER a teardown: the two attributes destroy() removes, and what
+  // each slot holds. A late applySwap shows up here as a slot holding a ds-* primitive.
+  const afterState = (page) => page.evaluate(() => {
+    const vp = document.querySelector("[data-studio-canvas]");
+    return {
+      state: vp.getAttribute("data-compile-state"),
+      step: vp.getAttribute("data-compile-step"),
+      row: vp.querySelectorAll(".stu-compile").length,
+      kinds: [...vp.querySelectorAll(".stx-slot")].map((n) => [...n.children]
+        .filter((c) => !c.classList.contains("stx-grab")).map((c) => c.className.split(" ")[0]).join("+")),
+    };
+  });
+
+  // --- 1 · destroy DURING the step walk ---------------------------------------------------------
+  // The half that hangs. compile() awaits wait() between every step; destroy() used to clearTimeout
+  // and stop there, so the promise it was parked on never settled and the async frame stayed alive
+  // for the life of the page. Asserted as "compile() came back", with a real timeout as the control
+  // — a never-settling promise is invisible to every DOM assertion on this page.
+  const p1 = await open();
+  const walked = await p1.evaluate(() => import("/system/studio-compile.mjs").then(async (m) => {
+    const c = m.getCompile();
+    if (!c) return { error: "getCompile() returned nothing — the module record the page mounted is not this one" };
+    const ran = c.compile().then((s) => ({ settled: s }));
+    c.destroy(); // mid-walk: the first step's wait() is outstanding
+    return Promise.race([ran, new Promise((r) => setTimeout(() => r({ settled: null }), 4000))]);
+  }));
+  t("#236 · destroy() during the beat lets compile() come back rather than parking its frame forever",
+    walked.settled !== null && !walked.error, JSON.stringify(walked));
+  await p1.waitForTimeout(500);
+  const after1 = await afterState(p1);
+  t("#236 · …and the torn-down viewport is left clean — no state, no step, no control row",
+    after1.state === null && after1.step === null && after1.row === 0, JSON.stringify(after1));
+  t("#236 · …and nothing was swapped into it after the teardown",
+    after1.kinds.length > 0 && after1.kinds.every((k) => k === "stu-place"), JSON.stringify(after1.kinds));
+  await p1.close();
+
+  // --- 2 · destroy DURING the vocabulary fetch ---------------------------------------------------
+  // The other await, and the one that writes into the stage. The fetch is held open past the step
+  // walk, so the beat is parked on `await vocabReady` when destroy() runs; without the liveness check
+  // after it, the response lands on a viewport that no longer belongs to this handle and applySwap
+  // puts real components on the stage anyway.
+  // The continue() is caught: destroy() aborts the in-flight request, and a route handler resuming
+  // an already-aborted request throws in the DRIVER rather than on the page.
+  const p2 = await open(async (route) => {
+    await new Promise((r) => setTimeout(r, 3500));
+    await route.continue().catch(() => {});
+  });
+  // The signal's own detector. The liveness check alone already stops the swap, so without this the
+  // `{ signal }` on the fetch could be deleted with every other assertion still green — and a
+  // torn-down beat that keeps a request in flight is exactly what #209's driver must not inherit.
+  const failedReqs = [];
+  p2.on("requestfailed", (r) => { if (r.url().includes("vocabulary.json")) failedReqs.push(r.failure()?.errorText ?? "failed"); });
+  const swapped = await p2.evaluate(() => import("/system/studio-compile.mjs").then(async (m) => {
+    const c = m.getCompile();
+    const ran = c.compile().then((s) => ({ settled: s }));
+    // Wait until the walk has reached the last step, so the beat is genuinely inside `await
+    // vocabReady` — destroying earlier would prove only case 1 again.
+    const vp = document.querySelector("[data-studio-canvas]");
+    for (let i = 0; i < 60 && vp.getAttribute("data-compile-step") !== "render"; i += 1) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    const reached = vp.getAttribute("data-compile-step");
+    // PAST the render step's own wait(), so the frame is parked on `await vocabReady` and nowhere
+    // else. Destroying while the last wait() is still outstanding would re-prove case 1 instead —
+    // measured: with the release removed, both cases went red identically, which is what said this
+    // sleep was load-bearing rather than defensive.
+    await new Promise((r) => setTimeout(r, 900));
+    c.destroy();
+    const raced = await Promise.race([ran, new Promise((r) => setTimeout(() => r({ settled: null }), 6000))]);
+    return { reached, ...raced };
+  }));
+  t("#236 · the beat reached the render step before the teardown (or case 2 proves nothing)",
+    swapped.reached === "render", JSON.stringify(swapped));
+  t("#236 · destroy() during the vocabulary fetch lets compile() come back too",
+    swapped.settled !== null, JSON.stringify(swapped));
+  await p2.waitForTimeout(1500); // past the held response, which lands after the teardown
+  const after2 = await afterState(p2);
+  t("#236 · …and the response landing afterwards swaps NOTHING onto the stage",
+    after2.kinds.length > 0 && after2.kinds.every((k) => k === "stu-place"), JSON.stringify(after2.kinds));
+  t("#236 · …and re-adds neither data-compile-state nor data-compile-step",
+    after2.state === null && after2.step === null, JSON.stringify(after2));
+  t("#236 · …because the teardown ABORTED the request rather than letting it land",
+    failedReqs.length === 1, `${failedReqs.length} aborted: ${failedReqs.join(", ")}`);
+  await p2.close();
+
+  // --- 3 · #237 · a transient failure is not a verdict -------------------------------------------
+  // One 503, then the real file. The reader presses the button again, and the beat must re-issue the
+  // request — memoizing the ERROR disabled it for the life of the page, and the honest card is what
+  // invites the retry that used to do nothing.
+  let served = 0;
+  const p3 = await open(async (route) => {
+    served += 1;
+    if (served === 1) await route.fulfill({ status: 503, contentType: "text/plain", body: "no" }).catch(() => {});
+    else await route.continue().catch(() => {});
+  });
+  const settledAt = (page, want) => page.waitForFunction(
+    (w) => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === w,
+    want, { timeout: 20000 });
+  const compileBtn3 = p3.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true });
+  const revertBtn3 = p3.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true });
+
+  await compileBtn3.click();
+  await settledAt(p3, "unavailable");
+  const failed = await afterState(p3);
+  t("#237 · a failed vocabulary fetch settles as 'unavailable' and leaves every block alone",
+    failed.kinds.every((k) => k === "stu-place"), JSON.stringify(failed.kinds));
+  t("#237 · …and the honest card names the file it could not read",
+    (await p3.locator(`${VIEWPORT} .stu-compile-report`).innerText()).includes("vocabulary.json"));
+
+  await revertBtn3.click();
+  await settledAt(p3, "blocks");
+  await compileBtn3.click();
+  // CAUGHT, and the assertion below reads the state instead. A memoized error settles this press as
+  // "unavailable" again, and a bare wait would throw its timeout out of the whole journey — a
+  // stack trace where a named red line belongs.
+  await settledAt(p3, "rendered").catch(() => {});
+  const retried = await afterState(p3);
+  t("#237 · the NEXT compile re-issues the request and renders — the failure was not memoized",
+    retried.kinds.length > 0 && retried.kinds.every((k) => /^ds-/.test(k)), JSON.stringify(retried.kinds));
+  t("#237 · …and it really was a second request, not a cached verdict",
+    served === 2, `${served} request(s) for vocabulary.json`);
+  await p3.close();
+
+  await ctx.close();
 }
 
 let totalFails = 0;
@@ -1414,5 +1682,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

@@ -263,22 +263,38 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
     };
     setState("blocks");
 
+    // --- teardown ------------------------------------------------------------------------------
+    // Declared HERE, above everything that needs it, because both halves of #236 are about work
+    // already in flight when the handle is destroyed: the listeners go with the signal, the
+    // vocabulary fetch is handed the same signal, and every await in compile() re-reads this flag
+    // before it touches the DOM. Unreachable from system/studio.mjs today — #209's driver takes the
+    // beat over through getCompile(), and a torn-down beat that keeps writing into the stage would
+    // be a second author on a canvas the driver owns.
+    const ac = new AbortController();
+    const { signal } = ac;
+    let destroyed = false;
+
     // --- the vocabulary ---------------------------------------------------------------------
     // FETCHED ON FIRST COMPILE, NEVER AT LOAD. At rest this page must issue no request of its own
     // (#206's lazy-panel property, which the pixel gate depends on and studio-journey asserts by
-    // collecting requests). Memoized, so a second compile does not refetch.
+    // collecting requests). THE SUCCESS IS MEMOIZED AND THE FAILURE IS NOT (#237): a second compile
+    // does not refetch a vocabulary it already has, but a transient failure — one dropped request,
+    // one 503 — is not a verdict about the file, and memoizing it disabled the beat for the life of
+    // the page. The reader pressing the button again IS the retry, and the honest card already told
+    // them what failed.
     let vocab = null;
-    let vocabError = null;
     async function loadVocabulary() {
-      if (vocab || vocabError) return vocab;
+      if (vocab) return vocab;
       try {
-        const res = await fetch(VOCAB_URL);
+        const res = await fetch(VOCAB_URL, { signal });
         if (!res.ok) throw new Error(`${VOCAB_URL} → HTTP ${res.status}`);
         const json = await res.json();
         if (!json || !json.components) throw new Error("vocabulary.json carries no components map");
         vocab = json;
-      } catch (err) {
-        vocabError = err;
+      } catch {
+        // Swallowed rather than logged: the failure is REPORTED, by renderUnavailable's card and by
+        // the settle sentence below. A console.error here would say the same thing to nobody the
+        // reader can see and trip studio-journey's no-page-errors contract on the way.
       }
       return vocab;
     }
@@ -362,13 +378,24 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
           block,
           name: wrapper.getAttribute("data-stx-name"),
           label: grab ? grab.getAttribute("aria-label") : null,
+          // The wrapper's vocabulary shape, which the swap is about to change and the revert must
+          // put back exactly — a fat-marker block has none, so `null` is a real stashed value here
+          // and not a missing one (#232).
+          component: wrapper.getAttribute("data-stx-component"),
         });
         const label = nameOf(composition[i]);
         if (block) wrapper.replaceChild(nodes[i], block);
         else wrapper.appendChild(nodes[i]);
         wrapper.setAttribute("data-stx-name", label);
-        // place() writes this label at CREATION only (studio-canvas.mjs:277-286), so the handle
-        // would otherwise keep naming the block that is no longer there.
+        // The composed node's REAL vocabulary name, so a move of a compiled component puts the
+        // shape on the bus and the label under `label` (#232). nameOf() above is deliberately the
+        // composed label and not this — three sibling buttons all reading "Move metric-tile" would
+        // be indistinguishable to a screen-reader user.
+        wrapper.setAttribute("data-stx-component", String(composition[i].name));
+        // STILL WRITTEN HERE after #231 moved place()'s aria-label out of its create branch, and
+        // the reason is that this swap never calls place(): it renames a wrapper IN PLACE, because
+        // place() appends to the stage (re-ordering it) and announces a placement the reader did
+        // not ask for. So the handle would keep naming the block that is no longer there.
         if (grab) grab.setAttribute("aria-label", `Move ${label}`);
         fade(nodes[i]);
       }
@@ -379,7 +406,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       for (let i = shared; i < nodes.length; i += 1) {
         const col = i + 1;
         if (col > MAX_COLS) break;
-        canvas.place(nodes[i], { ...clampSlot({ col, row: 1 }), name: nameOf(composition[i]) });
+        canvas.place(nodes[i], { ...clampSlot({ col, row: 1 }), name: nameOf(composition[i]), component: composition[i].name });
         if (nodes[i].parentElement) added.push(nodes[i].parentElement);
         fade(nodes[i]);
       }
@@ -404,8 +431,14 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
 
     // --- the beat -------------------------------------------------------------------------------
     let timer = 0;
+    // RESOLVED ON TEARDOWN, not merely cleared (#236). destroy() used to clearTimeout and stop
+    // there, which left compile()'s async frame awaiting a promise nothing would ever settle — the
+    // beat's remaining steps never ran, and neither did anything after them, for the life of the
+    // page. Releasing it hands control back to the loop, whose next line is the liveness check.
+    let release = null;
     const wait = (ms) => new Promise((resolve) => {
-      timer = setTimeout(() => { timer = 0; resolve(); }, ms);
+      release = () => { release = null; timer = 0; resolve(); };
+      timer = setTimeout(() => { if (release) release(); }, ms);
     });
 
     const announce = (step) => {
@@ -425,8 +458,13 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       return next;
     };
 
+    // A LIVENESS CHECK AFTER EVERY AWAIT (#236). `destroyed` can only be set by destroy(), which
+    // has already removed the row, the readout and the report and cleaned the viewport's two
+    // attributes — so every line below an await would otherwise be writing into a surface that no
+    // longer belongs to this handle. Returning the state rather than throwing keeps the click
+    // listener's fire-and-forget call quiet.
     async function compile() {
-      if (state !== "blocks") return state;
+      if (destroyed || state !== "blocks") return state;
       setState("compiling");
       clearReport();
 
@@ -445,6 +483,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
         // vocabulary" was never spoken. The gate could not see it either: countLive counts
         // MutationObserver RECORDS, and coalesced writes still produce one record each.
         await wait(stepGap());
+        if (destroyed) return state;
         if (step.id !== "render") continue;
         if (result.state === "empty") {
           renderEmpty(result);
@@ -455,6 +494,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
           return settle("out-of-library", "The rules named a pattern the library has no components for. The blocks are unchanged.");
         }
         await vocabReady;
+        if (destroyed) return state;
         if (!vocab) {
           renderUnavailable();
           return settle("unavailable", "The component vocabulary could not be read, so nothing was compiled. The blocks are unchanged.");
@@ -477,7 +517,7 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
     // EXACT for the swap, in both directions, because the stash is keyed by wrapper: every branch
     // that changed something recorded what it changed, so nothing here is re-derived from the board.
     function revert() {
-      if (state === "blocks" || state === "compiling") return state;
+      if (destroyed || state === "blocks" || state === "compiling") return state;
 
       for (const [wrapper, saved] of stash) {
         const current = blockOf(wrapper);
@@ -488,6 +528,11 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
           current.remove();
         }
         wrapper.setAttribute("data-stx-name", saved.name ?? "Component");
+        // Put back or REMOVED, because the pre-compile block had no shape at all and leaving the
+        // composed one behind would make the reverted stage differ from the at-rest one — which is
+        // AC #3, asserted byte for byte.
+        if (saved.component == null) wrapper.removeAttribute("data-stx-component");
+        else wrapper.setAttribute("data-stx-component", saved.component);
         const grab = wrapper.querySelector(".stx-grab");
         if (grab && saved.label != null) grab.setAttribute("aria-label", saved.label);
         fade(saved.block);
@@ -508,8 +553,6 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       return settle("blocks", AT_REST, "Back to blocks. The board is on the canvas as it was drafted.");
     }
 
-    const ac = new AbortController();
-    const { signal } = ac;
     compileBtn.addEventListener("click", () => { compile(); }, { signal });
     revertBtn.addEventListener("click", () => { revert(); }, { signal });
 
@@ -519,9 +562,15 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
       get state() { return state; },
       steps: STEPS,
       destroy() {
+        // THE ORDER IS THE POINT. The flag first, so a frame released below reads it and stops; the
+        // abort second, which detaches the listeners AND rejects an in-flight vocabulary fetch;
+        // then the pending wait() is RESOLVED rather than merely cleared, or compile()'s frame
+        // stays parked on a promise nothing settles and never reaches the check.
+        destroyed = true;
         ac.abort();
         if (timer) clearTimeout(timer);
         timer = 0;
+        if (release) release();
         row.remove();
         readout.remove();
         report.remove();
