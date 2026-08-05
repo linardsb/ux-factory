@@ -82,6 +82,7 @@ trackers DRIVEN with its pushed path proven pairwise distinct**.
 | `node tooling/studio-journey.mjs all` | ✓ **242 passed, 0 failed on chromium, firefox AND webkit** |
 | `node tooling/build-journey.mjs all` | ✓ chromium 157/157, firefox 157/157; webkit intermittent — see *Issues* |
 | Cold `file://` open of a REAL shipped export | ✓ chromium, firefox, webkit — 4 cells, correct pack, **zero requests beyond the document**, zero errors |
+| An IMPORTED pack, driven end to end | ✓ a DTCG token export dropped on Act 0 → the export's inline block carries the visitor's own contrast-negotiated accent (`#6425d0`, from their violet ramp) and its provenance reads *Wearing: your imported design, "tokens-fixture.json"* followed by the two-claims paragraph |
 | `npm run update:docker` | ✓ 20 passed; **4 baselines regenerated** (approach ×2 for the loc/param numbers, factory ×2 for the rail), from a clean detached worktree under `/Users` |
 
 ### Every new check proven able to fail
@@ -183,3 +184,16 @@ Each mutation was applied to the shipped source, the gate run, and the source re
 - **The two factory baselines were eyeballed**, not trusted to a green update run (memory
   `vr-tolerance-hides-text-changes`): the rail renders its three tiers, the faithful copy branch, and
   the honesty sentence about the recommended answers. Page height 5076 → 6120 px, which is the rail.
+
+- **The imported-pack branch was driven, not only reasoned about.** `packLabelOf` has three pack
+  branches and everything else this ticket ran — the spike, the rail check, the journey, group 17 —
+  used either no pack or a *derived* one, so `pack.fileName` had never executed. Confirmed twice: by
+  reading (`build-import.mjs:440` passes `file.name`, guarded non-empty at `:417`, so a real drop
+  always fills it, while the derive path sets it null at `:473`), and by driving a DTCG export onto
+  Act 0 and grepping the downloaded file. It reads *Wearing: your imported design,
+  "tokens-fixture.json"* and carries the visitor's own negotiated accent inline.
+- **One copy fix came out of that pass.** `decodeBuild` defaults a link's pack slug to `"shared"` when
+  the payload carries no `s`, so a restored build printed *the design values that travelled in this
+  link, "shared"* — quoting a codec default back at the reader as if it were a name they chose. It now
+  drops the quoted name in that case. The artifact whose stated purpose is naming whose design work
+  this is may not invent an attribution.

@@ -156,7 +156,10 @@ function inlineTokensOf(node) {
 function packLabelOf(pack, inlineTokens) {
   if (pack && pack.fileName) return `your imported design, "${pack.fileName}"`;
   if (pack && pack.slug === "derived") return "your own derived palette";
-  if (pack && pack.slug) return `the design values that travelled in this link, "${pack.slug}"`;
+  // "shared" is the codec's DEFAULT for a payload that carried no `s` (build-share.mjs:475), not a
+  // name anybody chose — quoting it back at the reader as one would be inventing an attribution.
+  if (pack && pack.slug && pack.slug !== "shared") return `the design "${pack.slug}", as it travelled in this link`;
+  if (pack) return "the design values that travelled in this link";
   return Object.keys(inlineTokens).length ? "your own design values" : null;
 }
 
