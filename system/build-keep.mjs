@@ -198,6 +198,11 @@ function mount(root) {
   let linkLive = false;
   let urlTimer = null;
   let latest = null; // { state, named, composition }
+  // The arrangement a link ARRIVED with, if it carried one (#208). It is deliberately NOT in the
+  // BUILD_CHANGE store: restoreBuild's contract is four fields, /build has no canvas, and widening
+  // the store where only a consumer exists and no producer does would be inventing a seam. It lives
+  // here, in the one place that re-encodes.
+  let restoredArrangement = null;
 
   function say(text) {
     provenanceEl.textContent = text;
@@ -250,8 +255,15 @@ function mount(root) {
     return location.href;
   }
 
+  // /build has no canvas, so it can neither show an arrangement nor edit one — but a link that
+  // ARRIVED with one must not be quietly flattened by a visitor who only came here to rename a
+  // place. It rides along untouched, and encodeBuild drops it BY ITSELF the moment the board stops
+  // matching it (build-share.mjs's arrangementSlots), which is the honest outcome for an edit this
+  // page genuinely cannot express: adding a place would need a slot nobody chose. The consistency
+  // rule stays in the codec — testing the board against the arrangement here too would be a second
+  // opinion about when `g` is emitted.
   async function currentUrl() {
-    return shareUrl(await settledUrl(), await encodeBuild(latest.state));
+    return shareUrl(await settledUrl(), await encodeBuild({ ...latest.state, arrangement: restoredArrangement }));
   }
 
   copyBtn.addEventListener("click", async () => {
@@ -357,6 +369,7 @@ function mount(root) {
       return;
     }
     linkLive = true;
+    restoredArrangement = state.arrangement;
     restoreBuild(state); // ONE publish; every consumer moves together
     say(RESTORED);
     linkInput.value = await settledUrl();

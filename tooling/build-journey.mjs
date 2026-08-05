@@ -411,6 +411,76 @@ async function journey(engineName, results, held) {
   t("the design row does not contradict the stage", !designRow.includes("No design imported yet"), designRow.trim().slice(0, 90));
   t("the design row says why there is no stylesheet", designRow.includes("stylesheet itself is not in the link"));
 
+  console.log("\n[6b] a studio arrangement rides through /build untouched (#208)");
+  // The one thing tooling/build-checks.mjs structurally cannot reach. It proves the CODEC carries
+  // `g`; only a browser proves that build-keep's restore → re-encode path actually keeps it, on a
+  // page that has no canvas and cannot show it. The param is built in-page from the page's OWN
+  // modules rather than pasted in, so this asserts today's encoder against today's decoder.
+  const arrCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const arrSeed = await newPage(arrCtx);
+  await arrSeed.goto(`${BASE}/build.html`, { waitUntil: "load" });
+  await arrSeed.waitForSelector("[data-build-keep='ready']");
+  // Deliberately NOT row 1 for every place: arrangeBoard's own draft is a single row, so a
+  // single-row fixture could round-trip through code that quietly re-derived it.
+  const arrParam = await arrSeed.evaluate(async () => {
+    const [S, Q] = await Promise.all([import("/system/build-share.mjs"), import("/system/build-questions.mjs")]);
+    const state = Q.readBuild();
+    const arrangement = state.board.places.map((p, i) => ({ id: p.id, col: i + 2, row: (i % 2) + 1 }));
+    return { param: await S.encodeBuild({ ...state, arrangement }), arrangement: JSON.stringify(arrangement) };
+  });
+  await arrSeed.close();
+
+  const arrPage = await newPage(arrCtx);
+  await arrPage.goto(`${BASE}/build.html?b=${arrParam.param}`, { waitUntil: "load" });
+  await settle(arrPage);
+  t("a link carrying an arrangement restores",
+    (await arrPage.textContent("[data-build-keep]")).includes("rebuilt it from the URL"));
+  // The link FIELD, not merely the click: the copy sits inside analytics.mjs's virtual-route window
+  // (build-keep.mjs's settledUrl), so the click returning is not the link existing.
+  const reshared = async () => {
+    await arrPage.getByRole("button", { name: /Copy the link/ }).click();
+    await arrPage.waitForFunction(() => {
+      const f = document.querySelector(".bx-keep-link");
+      return f && !f.hidden && f.value.includes("b=");
+    });
+    return arrPage.evaluate(async () => {
+      const S = await import("/system/build-share.mjs");
+      const param = new URL(document.querySelector(".bx-keep-link").value).searchParams.get("b");
+      const { state, reason } = await S.decodeBuild(param);
+      return { reason, arrangement: state ? JSON.stringify(state.arrangement) : null, restored: state !== null };
+    });
+  };
+  const asShared = await reshared();
+  t("the re-shared link still decodes", asShared.restored, asShared.reason || "");
+  t("the arrangement survives a copy on a page that cannot show it",
+    asShared.arrangement === arrParam.arrangement, `\n    sent: ${arrParam.arrangement}\n    got:  ${asShared.arrangement}`);
+
+  // A rename leaves the board's LENGTH alone, so the arrangement still describes it.
+  await arrPage.locator("[data-place='p1'] .bx-bb-name").fill("Triage");
+  await arrPage.locator("[data-place='p1'] .bx-bb-name").blur();
+  await arrPage.waitForTimeout(700); // past build-keep's 400ms trailing edge
+  const afterRename = await reshared();
+  t("a rename keeps the arrangement (the board's length did not move)",
+    afterRename.arrangement === arrParam.arrangement, afterRename.arrangement || afterRename.reason);
+
+  // Adding a place DOES move it, and the honest outcome is the whole field being dropped — asserted
+  // rather than assumed. /build cannot ask where the new place goes, so inventing a slot would be
+  // the codec claiming something the sender never did.
+  await arrPage.locator("[data-breadboard] [data-bb-add-place]").click();
+  await arrPage.waitForTimeout(700);
+  const afterAdd = await reshared();
+  t("the re-shared link still carries the whole build after the add", afterAdd.restored, afterAdd.reason || "");
+  t("adding a place drops the arrangement WHOLE rather than realigning it",
+    afterAdd.arrangement === "null", afterAdd.arrangement);
+  // And the fallback is the real v1 param, not a v2 payload that merely omitted `g`.
+  t("the fallback is byte-identical to the param a build with no arrangement produces",
+    await arrPage.evaluate(async () => {
+      const [S, Q] = await Promise.all([import("/system/build-share.mjs"), import("/system/build-questions.mjs")]);
+      const field = new URL(document.querySelector(".bx-keep-link").value).searchParams.get("b");
+      return field === await S.encodeBuild({ ...Q.readBuild(), arrangement: null });
+    }));
+  await arrCtx.close();
+
   console.log("\n[7] the appearance dock no longer eats the query string");
   await page2.evaluate(() => { location.hash = "appearance"; });
   await page2.waitForTimeout(250);
