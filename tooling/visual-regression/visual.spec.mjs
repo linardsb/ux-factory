@@ -33,15 +33,33 @@ const PAGES = [
   // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
   // broken artifact fails loudly instead of baselining an empty exhibit.
   { name: 'approach',        url: '/approach.html',        kind: 'ia', waitReady: '#asrc[data-asrc="ready"]' },
-  // waitReady (v3 evidence home, #78): the live wizard is gone, so #reskin-preview[data-reskin] is
-  // dropped — nothing sets it now and it would hang the gate forever. The three evidence engines each
-  // mount AFTER an async fetch and set their [data-*="ready"] handle on success: the trace player
-  // (#agents-player), the round-trip diff (#roundtrip-diff), the system graph (#system-graph). They
-  // live inside the tabbed viewer's panels, which JS `hidden`s when inactive; the waitFor below uses
-  // state:'attached', which a hidden-but-attached panel satisfies, so readiness is unchanged. The
-  // baseline captures the default (Traces) tab active, the other two panels hidden. (#80 moved the
-  // proto embeds off this page to Work, so factory no longer masks anything.)
-  { name: 'factory',         url: '/factory.html',         kind: 'ia', waitReady: ['#agents-player[data-trace="ready"]', '#roundtrip-diff[data-diff="ready"]', '#system-graph[data-graph="ready"]'] },
+  // waitReady (#206, the studio): the three evidence engines this entry used to wait on — the trace
+  // player, the round-trip diff and the system graph — NO LONGER MOUNT AT LOAD. They are inspector
+  // panels now, imported and rendered on first activation, so at rest none of the three has fetched
+  // or rendered anything and all three of the old handles would hang the gate forever. system/
+  // studio.mjs's own handle replaces them: one selector, set in a `finally` on every path (a missing
+  // shell, a missing canvas, a throw), so a JS context always resolves it and the gate fails on the
+  // missing thing rather than deadlocking to timeout.
+  //
+  // WHAT MOVED WITH IT, stated because it is a real trade and not a free simplification. The old
+  // three-handle wait doubled as a liveness check on the generated artifacts: a broken
+  // system-graph.json hung this gate. It cannot any more, because the graph is not mounted at
+  // capture. Two things replace it, and between them they are arguably stronger — CI `verify`'s
+  // drift-check reads the ARTIFACT rather than its rendering, and tooling/studio-journey.mjs's
+  // /factory pass activates all three panels and asserts each one actually rendered. The remaining
+  // fail-loud property for a broken PAGE rests on initGlossary running before studio.mjs's `try`
+  // (studio.mjs's mountStudio says why): an unknown data-term key throws before the finally, the
+  // handle is never set, and this wait hangs.
+  //
+  // waitReady and deliberately NOT waitVisible: the studio mounts at load with no
+  // IntersectionObserver gate, so waitVisible would drag it into the bounded re-measure loop below
+  // for no reason — the same argument :66-77 makes for the two proto pages.
+  //
+  // The baseline captures the at-rest state: the drafted board on the canvas, the "This build"
+  // panel active, the other three panels hidden and unmounted. The board is deterministic by
+  // construction — build-questions.mjs's store is in-memory with answers initialising null, so a
+  // cold load is always draftBoard(DEFAULT_ANSWERS) with no storage state to clear.
+  { name: 'factory',         url: '/factory.html',         kind: 'ia', waitReady: '[data-studio="ready"]' },
   { name: 'roundtrip',       url: '/roundtrip.html',       kind: 'ia', waitReady: ['#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
   // Work (#80) now embeds the two proto pages in iframes (fixed-height boxes). Their content loads
   // async and the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic

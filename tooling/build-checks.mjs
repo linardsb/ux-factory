@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Twelve groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Fourteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -47,6 +47,11 @@
 //                     studio-canvas.mjs's exported caps EXHAUSTIVELY and in both directions (CSS
 //                     cannot import, so the mirror is by hand and this is what pins it), plus
 //                     clampSlot and fitLevel driven over their real edges (#204)
+//  13 verbs          the canvas's manipulation layer, pure half: the history stack incl. #230's
+//                     adopt, stepSlot and hitSlot (#205)
+//  14 studio         the /factory orchestrator's pure layer: arrangeBoard over the REAL drafted
+//                     board and nine junk ones, buildSummary's counts asserted against
+//                     affordanceCount and patternFor rather than re-derived (#206)
 //
 //   node tooling/build-checks.mjs
 
@@ -739,10 +744,17 @@ function scanSvg(svg, label) {
   // shape: someone later swapping the FLIP for `node.style.transform = …`. The claim that the
   // running page carries no inline style is a different check with a different owner
   // (tooling/studio-journey.mjs's `inlineStyled`, asserted after a drag, an undo and a redo).
+  //
+  // studio.mjs (#206) joins on the same terms, and it is the module with the most opportunity to
+  // break them: it is the one that mounts Act 0's stage on a public route and builds a block per
+  // board place from labels the reader can eventually author. It writes zero inline styles (layout
+  // is classes and data-* resolved in system/studio.css) and builds every node element by element,
+  // so neither assertion below has anything to count for it. No exception is argued, and the phrase
+  // is literal: every exception in this file is a sentence a future reader has to trust.
   const MODULES = [
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
-    "studio-canvas.mjs", "studio-verbs.mjs",
+    "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -836,7 +848,7 @@ function scanSvg(svg, label) {
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }
 
-  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas and its verbs, no exception argued) · no markup-from-string · pack-boot mirror intact`);
+  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, its verbs and its orchestrator, no exception argued) · no markup-from-string · pack-boot mirror intact`);
 }
 
 // --- 8 · the operator path's committed rules --------------------------------------------------------
@@ -1911,6 +1923,192 @@ function scanSvg(svg, label) {
   group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
 }
 
+// --- 14 · the studio orchestrator's pure layer ----------------------------------------------------
+
+{
+  // system/studio.mjs's PURE half — arrangeBoard and buildSummary — driven over synthetic in-memory
+  // boards. Same voice as groups 12 and 13: every check RUNS the function, none greps for a
+  // constant, and anything deliberately vacuous says so out loud.
+  //
+  // Importing this module here is what proves its Node-import safety, which is not a side benefit:
+  // studio.mjs statically imports the canvas, the verbs, the bus, the breadboard, the answer store,
+  // the pattern rules, the glossary AND inspect.mjs, and every one of those has to keep its DOM
+  // behind a `typeof document` guard for this line to work. The day one of them self-boots at
+  // module scope, this group is where it surfaces.
+  //
+  // THE BOUNDARY THIS GROUP DOES NOT REACH, stated as groups 9, 11 and 13 state theirs. Everything
+  // that makes the route real is a running-page fact and none of it is visible from here: that
+  // mountStudio places the arrangement BEFORE mounting the verbs (so the history seeds on the real
+  // stage), that the three exhibits mount on ACTIVATION and on a HASH rather than only on a click,
+  // that the readiness handle resolves in a `finally`, and that initGlossary sitting OUTSIDE that
+  // try is what keeps an unknown data-term key failing loud. Their owners are
+  // tooling/studio-journey.mjs's /factory pass and the visual-regression gate. An unstated absence
+  // would read as CI covering AC #1 when it does not.
+  const { arrangeBoard, buildSummary } = await import("../system/studio.mjs");
+
+  // Group 13's hand-written recursive canonical stringify, for the same reason it was written
+  // there: `JSON.stringify(v, keys)` puts an array in the REPLACER position, which filters property
+  // names at every level and makes every comparison silently vacuous.
+  const deep = (v) => {
+    if (Array.isArray(v)) return `[${v.map(deep).join(",")}]`;
+    if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  };
+
+  // --- arrangeBoard ---------------------------------------------------------------------------
+  // The board the page actually renders at rest: the store is in-memory and its answers initialise
+  // to null, so /factory always draws draftBoard(DEFAULT_ANSWERS) on a cold load. Driving the REAL
+  // drafter rather than a hand-built stand-in is what makes this a claim about the shipped page.
+  const drafted = draftBoard(DEFAULT_ANSWERS);
+  const arranged = arrangeBoard(drafted);
+  ok(arranged.length === drafted.places.length,
+    `arrangeBoard laid out ${arranged.length} of the drafted board's ${drafted.places.length} places`);
+  ok(arranged.length > 0, "the drafted default board arranges to nothing — every later assertion here would be vacuous");
+  // Along ROW 1, one column each, left to right, in board order — which is entry-place-first,
+  // because breadboard.mjs builds the entry place first and every edit verb appends after it.
+  ok(arranged.every((e, i) => e.col === i + 1 && e.row === 1),
+    `arrangeBoard did not lay the board along row 1 in order: ${deep(arranged.map((e) => [e.col, e.row]))}`);
+  ok(arranged[0].id === drafted.places[0].id && arranged[0].label === drafted.places[0].label,
+    `arrangeBoard put ${JSON.stringify(arranged[0].label)} in column 1; the board's entry place is ${JSON.stringify(drafted.places[0].label)}`);
+  // The affordances travel WHOLE. The block prints a count and then lists chips, and a slice here
+  // would make the two disagree — the surface would print "3 affordances" over two chips.
+  ok(arranged.every((e, i) => e.affordances.length === drafted.places[i].affordances.length),
+    "arrangeBoard dropped or added affordances relative to the board it was given");
+  ok(deep(arranged.map((e) => e.affordances.map((a) => a.label)))
+     === deep(drafted.places.map((p) => p.affordances.map((a) => a.label))),
+    "arrangeBoard's affordance labels are not the board's, in the board's order");
+  // Every slot is on the grid, and it is on the grid by the CANVAS's definition — arrangeBoard
+  // routes through clampSlot rather than clamping in its own way (studio-canvas.mjs:50's rule).
+  for (const e of arranged) {
+    ok(deep(clampSlot({ col: e.col, row: e.row })) === deep({ col: e.col, row: e.row }),
+      `arrangeBoard produced ${deep({ col: e.col, row: e.row })}, which clampSlot does not agree is on the grid`);
+  }
+
+  // A board at MAX_PLACES — the widest board the codec will ever hand this function.
+  const maxBoard = {
+    places: Array.from({ length: MAX_PLACES }, (_, i) => ({
+      id: `p${i + 1}`, label: `Place ${i + 1}`,
+      affordances: Array.from({ length: MAX_AFFORDANCES }, (_, j) => ({ id: `p${i + 1}a${j + 1}`, label: `Do ${j + 1}` })),
+    })),
+    connections: [],
+  };
+  const maxArranged = arrangeBoard(maxBoard);
+  ok(maxArranged.length === MAX_PLACES, `a board at MAX_PLACES arranged to ${maxArranged.length} slots, expected ${MAX_PLACES}`);
+  ok(maxArranged.every((e) => e.row === 1 && e.col <= MAX_COLS),
+    "a board at MAX_PLACES left row 1 or overran the column cap");
+
+  // TOTAL, not merely tolerant. mountStudio resolves its readiness handle in a `finally`, but that
+  // is a gate contract and not a licence to let a bad store take the page down before the canvas
+  // exists — so every one of these has to come back with an array rather than a throw.
+  for (const [given, why] of [
+    [null, "null"],
+    [undefined, "undefined"],
+    [{}, "an object with no places"],
+    [{ places: null, connections: null }, "places that are not an array"],
+    [{ places: "nope" }, "places that are a string"],
+    [{ places: [null, 7, "x"] }, "places that are junk entries"],
+    [{ places: [{}] }, "a place with no id, label or affordances"],
+    [{ places: [{ id: "p1", label: "A", affordances: "nope" }] }, "affordances that are not an array"],
+    [{ places: [{ id: "p1", label: "A", affordances: [null, 3] }] }, "affordances that are junk entries"],
+  ]) {
+    let got;
+    let threw = null;
+    try { got = arrangeBoard(given); } catch (e) { threw = e; }
+    ok(!threw, `arrangeBoard threw on ${why}: ${threw && threw.message}`);
+    ok(Array.isArray(got), `arrangeBoard did not return an array for ${why}`);
+  }
+  // Every FOLLOW-UP call goes through this rather than calling arrangeBoard bare. The difference is
+  // not cosmetic: an unguarded call on a hostile input turns a totality regression into an uncaught
+  // TypeError that kills the whole run before group() prints, so the failures the loop above just
+  // recorded are never reported and the operator reads a stack trace instead of the check that
+  // caught it. Proven by mutation — removing arrangeBoard's places guard did exactly that.
+  const arrange = (v) => { try { return arrangeBoard(v); } catch { return null; } };
+  ok(deep(arrange(null)) === "[]", "arrangeBoard(null) should be the empty arrangement");
+  ok(arrange({ places: [null, 7, "x"] })?.length === 0, "junk place entries should be skipped, not rendered");
+  // Junk INSIDE a real place is coerced rather than dropped: the place is real, so the block is
+  // real, and a label that is not a string still has to reach textContent as one.
+  const coerced = arrange({ places: [{ id: 5, label: 7, affordances: [null, 3, { label: 9 }] }] }) || [];
+  ok(coerced.length === 1 && typeof coerced[0].label === "string" && typeof coerced[0].id === "string",
+    `a place with non-string id/label gave ${deep(coerced)}; both must reach the DOM as strings`);
+  ok(coerced[0].affordances.length === 1 && coerced[0].affordances[0].label === "9",
+    `junk affordance entries were not filtered down to the real one: ${deep(coerced[0].affordances)}`);
+
+  // DELIBERATELY VACUOUS, and it says so rather than being left to read as live coverage. MAX_PLACES
+  // is 6 and MAX_COLS is 12, and system/build-share.mjs validates a restored board against
+  // MAX_PLACES — so no reachable board can overflow row 1, and this case is synthetic by
+  // construction. It is kept for the same reason group 1 keeps its `inLibrary: false ⇒ needs`
+  // clause: it is the contract a MAX_PLACES raise inherits, already written and already checked, so
+  // the raise fails here rather than silently stacking places 13+ onto column 12. Truncation and not
+  // a clamp, because a clamp would put two blocks in one cell, which the canvas explicitly refuses.
+  ok(MAX_PLACES < MAX_COLS,
+    `MAX_PLACES ${MAX_PLACES} is no longer below MAX_COLS ${MAX_COLS} — the truncation clause below has stopped being unreachable and now needs a real case`);
+  const wide = arrange({
+    places: Array.from({ length: MAX_COLS + 4 }, (_, i) => ({ id: `p${i + 1}`, label: `P${i + 1}`, affordances: [] })),
+    connections: [],
+  });
+  ok(wide && wide.length === MAX_COLS, `an over-wide board arranged to ${wide.length} slots, expected the cap of ${MAX_COLS}`);
+  ok(wide && wide.every((e) => e.row === 1), "the truncation spilled onto a second row instead of stopping at the cap");
+  ok(deep((wide || []).map((e) => e.col)) === deep(Array.from({ length: MAX_COLS }, (_, i) => i + 1)),
+    "the truncated arrangement is not a contiguous 1..MAX_COLS run — a clamp would stack the overflow on the last column");
+
+  // --- buildSummary ---------------------------------------------------------------------------
+  // EVERY NUMBER COUNTED FROM THE BOARD. The affordance total is asserted against affordanceCount's
+  // own answer rather than against a re-count here: a second count is a second answer waiting to
+  // disagree with the one the rest of /build already renders.
+  const summary = buildSummary(drafted, DEFAULT_ANSWERS);
+  ok(summary.places === drafted.places.length, `buildSummary counted ${summary.places} places, the board has ${drafted.places.length}`);
+  ok(summary.affordances === affordanceCount(drafted),
+    `buildSummary counted ${summary.affordances} affordances; affordanceCount says ${affordanceCount(drafted)}`);
+  ok(summary.connections === drafted.connections.length,
+    `buildSummary counted ${summary.connections} connections, the board has ${drafted.connections.length}`);
+  ok(summary.affordances > 0 && summary.connections > 0,
+    "the drafted default board has no affordances or no connections — the two counts above would be vacuously equal at zero");
+
+  // The pattern reading is patternFor's, not a second opinion, and the label comes out of PATTERNS.
+  const want = patternFor({ answers: DEFAULT_ANSWERS, board: drafted });
+  ok(summary.patternId === want.id, `buildSummary named ${summary.patternId}; patternFor names ${want.id}`);
+  ok(summary.reason === want.reason, "buildSummary paraphrased patternFor's reason instead of carrying it verbatim");
+  ok(summary.patternLabel === PATTERNS[want.id].label,
+    `buildSummary labelled the pattern ${JSON.stringify(summary.patternLabel)}, PATTERNS says ${JSON.stringify(PATTERNS[want.id].label)}`);
+
+  // An empty board names NO pattern (rule 3) and the label has to come back null rather than a
+  // plausible default — the panel prints "None yet" off exactly this.
+  const empty = buildSummary({ places: [], connections: [] }, DEFAULT_ANSWERS);
+  ok(empty.patternId === null && empty.patternLabel === null,
+    `an empty board summarised as ${JSON.stringify(empty.patternId)} / ${JSON.stringify(empty.patternLabel)}, expected null and null`);
+  ok(empty.places === 0 && empty.affordances === 0 && empty.connections === 0,
+    `an empty board gave non-zero counts: ${deep(empty)}`);
+  ok(empty.reason === patternFor({ answers: DEFAULT_ANSWERS, board: { places: [], connections: [] } }).reason,
+    "an empty board's reason is not rule 3's own sentence");
+
+  // Total on the same inputs arrangeBoard is total on, and specifically on the two the page can
+  // genuinely hand it: a null board (nothing drafted yet) and null answers.
+  for (const [board, answers, why] of [
+    [null, DEFAULT_ANSWERS, "a null board"],
+    [undefined, DEFAULT_ANSWERS, "an undefined board"],
+    [{}, DEFAULT_ANSWERS, "a board with no places"],
+    [{ places: "nope", connections: 3 }, DEFAULT_ANSWERS, "a board whose fields are junk"],
+    [drafted, null, "null answers"],
+    [drafted, undefined, "undefined answers"],
+    [null, null, "nothing at all"],
+  ]) {
+    let got;
+    let threw = null;
+    try { got = buildSummary(board, answers); } catch (e) { threw = e; }
+    ok(!threw, `buildSummary threw on ${why}: ${threw && threw.message}`);
+    ok(got && typeof got.reason === "string" && got.reason.length > 0,
+      `buildSummary returned no reason sentence for ${why} — the panel renders that string verbatim`);
+    ok(got && Number.isInteger(got.places) && Number.isInteger(got.affordances) && Number.isInteger(got.connections),
+      `buildSummary returned non-integer counts for ${why}: ${deep(got)}`);
+  }
+  // A board that is not the board SHAPE is treated as no board at all, which is isBoard's answer
+  // and not a second one: places counted off a junk object would be a number with nothing behind it.
+  ok(buildSummary({ places: "nope", connections: 3 }, DEFAULT_ANSWERS).places === 0,
+    "a board whose places are not an array reported a non-zero place count");
+
+  group("studio", `arrangeBoard lays the REAL drafted board along row 1 in board order, entry first, every slot on the grid by clampSlot's own definition · affordances travel whole (the block prints a count over the chips) · total over 9 junk boards, never a throw · the over-wide truncation is DELIBERATELY VACUOUS (MAX_PLACES ${MAX_PLACES} < MAX_COLS ${MAX_COLS}) and guarded by a tripwire that fails the day that stops being true · buildSummary counts places, affordances and connections from the board and asserts the affordance total against affordanceCount rather than re-counting · the pattern id, label and VERBATIM reason are patternFor's and PATTERNS' · an empty board names null · total over 7 shapes incl. null answers · the mount half is studio-journey's, and says so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1918,5 +2116,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 13 groups pass");
+  console.log("\nbuild ✓  all 14 groups pass");
 }

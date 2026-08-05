@@ -3,205 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The factory · evidence · Linards Berzins</title>
-  <meta name="description" content="Verify the demo's claims: the real recorded agent runs, the round-trip that turns screenshots back into tokens with its contrast pairs, and the measured map of every design token. Nothing runs live here; every number comes from a committed file." />
+  <title>The studio · Linards Berzins</title>
+  <meta name="description" content="The prototype studio: a canvas holding the drafted breadboard for a product, wearing whatever design tokens you drop on it, with the recorded agent runs, the round-trip check and the measured token graph docked beside it." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
   <meta name="theme-color" content="#ffffff" />
 
-  <!-- factory.html — the evidence home (epic #70 / tickets #78, #80).
-       In v3 the live product-demo lives on the spine (index.html: hero → intake → your-brand →
-       peak → close). This page sheds that duplicate wizard and becomes the deep layer a technical
-       reader opens to VERIFY the demo's claims: a tabbed evidence viewer over three committed-replay
-       engines — the recorded agent-run traces, the round-trip fidelity diff (which carries the WCAG
-       contrast pairs), and the measured token↔consumer graph — plus outbound links onward to the
-       prototypes and handoff pack (relocated to Work by #80), the annotated source, and the agentic
-       study. Honesty contract: every capability chip states replay-not-live; fictional labels stay
-       visible at rest, outside all disclosures; nothing here is faked. -->
+  <!-- factory.html — THE STUDIO (epic #202, ticket #206;
+       .claude/plans/studio-route-surgery-orchestrator-206.md).
+
+       Route surgery, not a new page. /factory was the deep-linkable route reserved from day one and
+       spent on a tabbed viewer of three read-only exhibits (#78, #80). It is now the surface the
+       whole platform points at: Act 0 (your token export, or one colour), a canvas holding the
+       drafted breadboard as fat-marker blocks you can move, and a DOCKED INSPECTOR whose panel list
+       absorbs all three exhibits — mounted on activation rather than at load.
+
+       system/studio.mjs orchestrates. It invents nothing: the canvas is #204, its verbs are #205,
+       the board is breadboard.mjs's draftBoard over build-questions.mjs's shared answer store, and
+       Act 0 below is system/build-import.mjs SELF-BOOTING on the mount attributes this page carries.
+       /build is not edited and keeps its six acts, which is what makes the form-mode fallback
+       structurally guaranteed rather than promised.
+
+       THE PANEL IDS #agents / #round-trip / #shape ARE FIXED BY FOUR INBOUND ENTRY POINTS —
+       system/palette.mjs:102-104's three memoized ⌘K commands and roundtrip.html's "back to the
+       factory" link. Renaming one breaks all four silently.
+
+       Honesty contract unchanged: capability chips still state replay-not-live, the fictional label
+       stays visible whenever its panel is, and no sentence here claims the canvas composes anything
+       — at #206 the blocks are a drafted breadboard, and the copy says so. #207 is the compile beat.
+
+       The nav and footer label stays "Factory"; the rename to "Studio" belongs to #216, which
+       already rewrites both and already runs alone (that label lives in client.neutral.config.js and
+       churns all 16 chrome-bearing baselines). -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/portfolio.css" />
+  <link rel="stylesheet" href="/system/studio.css" />
   <script src="/system/pack-boot.js"></script>
 
   <style>
-    /* Evidence-home layout — page-unique, styled from tokens alone (colour / space / radius / type
-       via var(--…)); grid / % / fixed heights are inherently structural literals. Single-page
-       layout, not a reused organism → deliberately not promoted to components.css. */
+    /* Page chrome only. The studio shell, the inspector, the place blocks AND the two absorbed
+       exhibits' class blocks (.trace-*, .sg-*) all live in system/studio.css now — those two moved
+       there verbatim rather than being deleted with the tab controller they sat next to, because
+       trace-player.mjs and system-graph.mjs inject no <style> of their own and the page is the only
+       thing that styles them. With the exhibits mounted lazily nothing captures them, so dropping
+       the blocks would have shipped green through every gate in the repo. */
 
     /* 96px ≈ the sticky site header + a little air. scroll-padding on the root covers EVERY
        scroll-into-view — anchors, keyboard focus, assistive tech — so a deep-linked panel never
-       lands hidden under the header. (The old sticky station rail is gone in v3.) */
+       lands hidden under the header. */
     html { scroll-padding-top: 96px; }
-    .ev-viewer { scroll-margin-top: 96px; }
+    .stu-shell { scroll-margin-top: 96px; }
 
-    /* ── The evidence viewer — the page's one signature surface. A segmented tablist with a
-       sliding pill (the --motion-tab-glide token) swapping between three committed-replay engines.
-       The pill's resting position under the default (Traces) tab is its at-rest / VR state. ── */
-    .ev-viewer { margin-top: var(--spacing-2xl); }
-
-    .ev-tablist {
-      --ev-pad: var(--spacing-xs);
-      position: relative;
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
-      padding: var(--ev-pad);
-      max-width: 42rem;
-      background: var(--color-bg-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
+    /* Act 0's two columns, on this page. build.html has its own .bx-split for the same job and this
+       is deliberately not that class: the two pages size the columns differently (the stage here IS
+       the canvas, and it wants the wider track), and sharing a class would couple two surfaces that
+       only happen to look alike. Everything INSIDE the split is portfolio.css's existing brand-*
+       import block, unforked. */
+    .stu-import { display: grid; gap: var(--spacing-lg); margin-top: var(--spacing-lg); }
+    @media (min-width: 900px) { .stu-import { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spacing-2xl); } }
+    .stu-import-col { min-width: 0; display: grid; gap: var(--spacing-md); align-content: start; }
+    .stu-or {
+      margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
     }
-    .ev-tab {
-      position: relative; z-index: 1;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 44px; /* full touch target without a pseudo-element */
-      font-family: var(--font-display); font-size: var(--type-body); letter-spacing: 0.01em;
-      text-align: center; padding: 8px 12px;
-      border: 0; background: transparent; color: var(--color-fg-muted);
-      border-radius: var(--radius-sm); cursor: pointer;
-      transition: color var(--motion-fast) var(--motion-ease);
-    }
-    .ev-tab:hover { color: var(--color-fg); }
-    /* the active signal is carried three ways, never by the pill alone: weight, colour, aria-selected */
-    .ev-tab[aria-selected="true"] { color: var(--color-fg); font-weight: 600; }
-    .ev-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-
-    /* the sliding pill — an inset thumb the exact size of one button column. width + insets map it
-       onto the content box the three buttons span; translateX moves it by its own width per index. */
-    .ev-pill {
-      position: absolute; z-index: 0;
-      top: var(--ev-pad); bottom: var(--ev-pad); left: var(--ev-pad);
-      width: calc((100% - 2 * var(--ev-pad)) / 3);
-      background: var(--color-bg);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      transform: translateX(calc(var(--ev-i, 0) * 100%));
-    }
-    /* Motion lives inside no-preference with rest == final: the pill only GLIDES; its resting
-       position is the static default. Reduced motion → the transform snaps instantly. */
-    @media (prefers-reduced-motion: no-preference) {
-      .ev-pill { transition: transform var(--motion-tab-glide) var(--motion-ease-settle); }
-    }
-
-    /* panels: no-JS leaves them ALL visible (evidence is never hidden without JS); the controller
-       adds [hidden] to the inactive two. The engine mounts inside fetch + set data-*="ready"
-       regardless of visibility, so the VR gate (state:'attached') is satisfied while hidden. */
-    .ev-panels { margin-top: var(--spacing-2xl); }
-    .ev-panel { min-width: 0; }
-    /* Inter-panel spacing applies ONLY to the no-JS stacked case (all panels visible). Under JS
-       exactly one panel is shown, so no :not([hidden]) pair matches → the active panel takes its
-       top gap from .ev-panels alone and never jumps a tier when you switch tabs. */
-    .ev-panel:not([hidden]) + .ev-panel:not([hidden]) { margin-top: var(--spacing-3xl); }
-    .ev-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
-    .ev-panel-title { font-size: var(--type-h3); margin: 0; }
-    .ev-panel-lead { margin: 0 0 var(--spacing-lg); max-width: 68ch; }
-    .ev-panel-pointer { margin: var(--spacing-lg) 0 0; }
+    .stu-fallback { display: grid; gap: var(--spacing-sm); }
+    /* center, not end: .btn-ghost has no border, so an end-aligned row drops its text a border's
+       worth below the two bordered controls beside it (build.html:102 makes the same call). */
+    .stu-fallback-row { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; }
+    .stu-report { margin-top: var(--spacing-xl); min-width: 0; }
+    /* `hidden` is defeated by any author rule that sets display, and build-import.mjs toggles the
+       report with it — recorded trap, live on /build until #138. */
+    [hidden] { display: none !important; }
 
     .factory-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg); }
-
-    /* Trace player — the player injects no <style>; the page styles the trace-* classes it emits,
-       token-only. (Retained from the pre-v3 factory; the Traces tab drives it.) */
-    .trace-player { display: flex; flex-direction: column; gap: var(--spacing-lg, 24px); }
-    .trace-header { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-    .trace-task { font-size: var(--type-h3); margin: 0; }
-    .trace-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; font-size: var(--type-caption); }
-    .trace-label {
-      font-weight: 700; color: var(--color-accent-fg, #fff); background: var(--color-accent);
-      padding: 2px 10px; border-radius: var(--radius-sm); letter-spacing: 0.01em;
-    }
-    .trace-controls { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; margin-top: var(--spacing-sm); }
-    .trace-progress { margin-left: auto; font-variant-numeric: tabular-nums; }
-
-    .trace-act { border-top: 2px solid var(--color-border); padding-top: var(--spacing-md); }
-    .trace-act-head { display: flex; align-items: baseline; gap: var(--spacing-sm); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow); }
-    .trace-act-num { color: var(--color-accent); font-weight: 700; }
-    .trace-act-name { font-weight: 700; color: var(--color-fg); }
-    .trace-act-count { margin-left: auto; text-transform: none; letter-spacing: 0; }
-    .trace-act-body { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md); }
-
-    .trace-step { padding: var(--spacing-md); transition: box-shadow 0.15s ease; }
-    .trace-step-hidden { display: none; }
-    .trace-step-current { box-shadow: 0 0 0 2px var(--color-accent); }
-    .trace-step--text .trace-step-text { white-space: pre-wrap; font-size: var(--type-body); line-height: 1.55; }
-    .trace-step--tool { background: var(--color-bg-surface); }
-    .trace-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
-    .trace-tool { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .trace-hint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption); word-break: break-all; }
-    .trace-status { margin-left: auto; font-weight: 700; }
-    .trace-status.ok { color: var(--color-accent); }
-    .trace-status.bad { color: var(--color-fg); text-decoration: underline; }
-    .trace-step--fail { border-color: var(--color-fg); }
-    .trace-error { margin-top: var(--spacing-sm); color: var(--color-fg); font-size: var(--type-caption); white-space: pre-wrap; }
-    .trace-artifact {
-      display: inline-block; margin-top: var(--spacing-sm); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: var(--type-caption); color: var(--color-fg-muted); border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm); padding: 1px 8px;
-    }
-    .trace-artifact::before { content: "◇ artifact · "; color: var(--color-accent); }
-    .trace-response { margin-top: var(--spacing-sm); font-size: var(--type-caption); }
-    .trace-response summary { cursor: pointer; color: var(--color-fg-muted); }
-    .trace-response-body {
-      margin-top: var(--spacing-sm); background: var(--color-bg); border: 1px solid var(--color-border);
-      padding: var(--spacing-sm); overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
-    }
-    .trace-error-card { border-color: var(--color-fg); }
-
-    .trace-progress-track { flex: 1 1 120px; height: 3px; background: var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
-    .trace-progress-fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width var(--motion-base) var(--motion-ease); }
-    @media (prefers-reduced-motion: no-preference) {
-      .trace-step:not(.trace-step-hidden) { animation: trace-step-in var(--motion-base) var(--motion-ease-spring) both; }
-    }
-    @keyframes trace-step-in { from { opacity: 0; transform: translateY(var(--motion-rise)); } to { opacity: 1; transform: none; } }
-
-    /* Animated <details> disclosure (the trace player's per-step response) where the platform
-       supports it; degrades to an instant snap everywhere else and under reduced motion. Closed
-       state unchanged → no VR churn. */
-    @media (prefers-reduced-motion: no-preference) {
-      @supports (interpolate-size: allow-keywords) {
-        .trace-response { interpolate-size: allow-keywords; }
-        .trace-response::details-content {
-          block-size: 0; overflow: hidden;
-          transition: block-size var(--motion-base) var(--motion-ease), content-visibility var(--motion-base) allow-discrete;
-        }
-        .trace-response[open]::details-content { block-size: auto; }
-      }
-    }
-
-    /* "Shape of the system" exhibit — the sg-* classes system/system-graph.mjs emits; colour from
-       tokens only, geometry literals structural. At rest no edges are drawn. */
-    .sg-legend { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-lg) 0 var(--spacing-md); }
-    /* #173: the graph is a bounded window the reader pans and zooms. At rest scale 1, scroll 0,0 —
-       the module never measures this box until an event says it is real (#shape is `hidden` at
-       mount, so every rect in here is 0×0 until the tab opens). min(70vh, …) is safe ONLY because
-       this panel is hidden during VR capture, where the viewport height IS the page height — do
-       not copy the unit onto a captured-at-rest surface. */
-    .sg-scroll {
-      overflow: auto; min-width: 0;
-      max-height: min(70vh, 760px);
-      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-      cursor: grab;
-    }
-    .sg-scroll.is-panning { cursor: grabbing; }
-    /* while panning, nodes stop taking pointer events: no edge redraws under a dragging cursor */
-    .sg-scroll.is-panning .sg-node { pointer-events: none; }
-    /* components.css:39's global `img, svg { max-width: 100% }` would clamp the zoomed width to the
-       container while the height kept growing — the graph stretched instead of scaling. Inside a
-       scroll window, overflowing IS the behaviour, so this one exhibit opts out. */
-    .sg-svg { display: block; max-width: none; }
-    .sg-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
-    .sg-zoom-level { font-family: var(--font-mono); font-size: var(--type-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
-    .sg-svg text { font-family: var(--font-mono); font-size: 11px; fill: var(--color-fg-muted); }
-    .sg-svg .sg-group-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-    .sg-node { cursor: pointer; }
-    .sg-node circle { fill: var(--color-bg); stroke: var(--color-fg-muted); stroke-width: 1; }
-    .sg-node.sg-spec circle { fill: var(--color-fg-muted); }
-    .sg-node:hover circle, .sg-node:focus-visible circle, .sg-node.is-hl circle { stroke: var(--color-accent); stroke-width: 1.5; }
-    .sg-node.is-hl text { fill: var(--color-fg); }
-    .sg-edge { fill: none; stroke: var(--color-accent); stroke-width: 1; opacity: 0.65; }
-    .sg-detail {
-      font-family: var(--font-mono); font-size: var(--type-caption); color: var(--color-fg-muted);
-      min-height: 2.8em; margin: var(--spacing-md) 0 0; overflow-wrap: anywhere;
-    }
   </style>
 </head>
 <body data-page="factory">
@@ -211,73 +88,186 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="pill"></span>
-          <span class="stamp">The factory · evidence</span>
+          <span class="stamp">The factory · the studio</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">Verify the demo, <span class="hl">claim by claim</span>.</h1>
+        <h1 class="text-balance">This is the studio. <span class="hl">Move something</span>.</h1>
         <p class="hero-sub">
-          The home page builds a design system in front of you. This page holds the receipts:
-          the real agent runs recorded step by step, the round-trip that works backwards from
-          screenshots to the values that would rebuild them, with every
-          <dfn class="term" data-term="contrast-pair" tabindex="0">contrast pair</dfn> measured,
-          and a map of every named value the site runs on beside the components that read it.
-          Nothing runs live here. Every number comes from a committed file.
+          Below is a canvas with a product's shape already drafted on it: one block per place a
+          person can be, and what they can do from each. Move the blocks around. Drop your own
+          design tokens and the whole thing wears them, mapped by role and checked for
+          <dfn class="term" data-term="contrast-pair" tabindex="0">contrast</dfn> in your browser,
+          with nothing uploaded. The evidence for every claim on this site is in the inspector,
+          one panel away.
         </p>
       </div>
     </section>
 
-    <!-- Centerpiece · the tabbed evidence viewer. Three committed-replay engines behind a segmented
-         tablist: Traces (default) · Round-trip · Graph. The panel ids #agents / #round-trip / #shape
-         preserve the pre-v3 handover anchors, so /factory#round-trip (roundtrip.html) still lands. -->
+    <!-- ACT 0 · the import. system/build-import.mjs mounts on [data-build-import] and dresses every
+         [data-build-stage] on the page — here that is the canvas column itself, so an imported
+         design skins the thing being designed rather than a specimen beside it. THE LOOKUP SCOPES
+         SPLIT and the module returns silently if a required node is missing (build-import.mjs:114 —
+         a bare `return`, no console error, and a pixel-identical at-rest capture, so nothing in CI
+         could see it): [data-build-file], [data-build-drop], [data-build-status], [data-build-color],
+         [data-build-derive] and [data-build-reset] are queried on the [data-build-import] element
+         itself; [data-build-report], [data-build-stage] and [data-build-stage-label] are queried on
+         `document`. The keep nodes are deliberately absent — the Act-0 pack download belongs to the
+         studio keep rail, which is #210.
+         The markup is the no-JS / fail-closed state: copy that names what the feature does, never a
+         control that does nothing. -->
+    <section class="band" id="act-import">
+      <div class="container">
+        <div class="beat-head">
+          <div class="beat-head-text">
+            <p class="beat-kicker">Your design</p>
+            <h2 class="beat-title">Drop your tokens. The canvas wears them.</h2>
+          </div>
+        </div>
+        <p class="beat-lead max-prose">
+          Whatever your design tool already exports will do: a DTCG or Tokens Studio export, a Figma
+          variables dump, or any nested JSON of names and values. Colour, spacing, radius, the type
+          ramp and shadows come across. Components and fonts never do. The file is read in your
+          browser and never uploaded, because this site is static and has nowhere to upload it to.
+        </p>
+
+        <div class="stu-import">
+          <div class="stu-import-col brand-import" data-build-import>
+            <label class="brand-drop" data-build-drop>
+              <input type="file" accept="application/json,.json" class="brand-drop-input" data-build-file />
+              <span class="brand-drop-title">Drop your design tokens</span>
+              <span class="brand-drop-formats">A .json export. Read here in your browser, never uploaded.</span>
+              <span class="brand-drop-privacy">Up to 32 MB.</span>
+            </label>
+
+            <p class="stu-or">or</p>
+
+            <div class="stu-fallback">
+              <p class="brand-import-note">
+                No export to hand? Give the canvas one brand colour and the contrast engine derives
+                the rest of the palette from it.
+              </p>
+              <div class="stu-fallback-row">
+                <label class="brand-field">
+                  <span class="brand-field-label">Brand colour</span>
+                  <input type="color" class="brand-color" data-build-color value="#2563eb" />
+                </label>
+                <button type="button" class="btn btn-secondary" data-build-derive data-inspect="buttons">Derive a palette</button>
+                <!-- "Clear the canvas", not "back to neutral": it takes off whatever this page put
+                     on, and what shows through is the pack the site is wearing, which is not always
+                     neutral. -->
+                <button type="button" class="btn btn-ghost" data-build-reset data-inspect="buttons">Clear the canvas</button>
+              </div>
+            </div>
+
+            <p class="brand-import-status" data-build-status role="status" data-state="idle"></p>
+          </div>
+
+          <div class="stu-import-col">
+            <p class="beat-lead">
+              The mapping is by role, never by name: your export's ramps are read for what each one
+              does, then negotiated against the same WCAG pairs the derive engine is held to. The
+              report says which ramps were used, what was changed to pass, and what still fails.
+            </p>
+            <p class="muted">
+              The same engine produced the packs committed in this repo, and the same one runs behind
+              the Figma import command. One mapping engine, three front doors.
+            </p>
+          </div>
+        </div>
+
+        <div class="stu-report brand-import-report" data-build-report hidden></div>
+      </div>
+    </section>
+
+    <!-- THE STUDIO SHELL. system/studio.mjs mounts on [data-studio] and sets data-studio="ready" in
+         a `finally` on every path — that is the visual-regression gate's one wait handle for this
+         page, replacing the three at-load exhibit handles it used to carry.
+
+         The canvas column wrapper is also #build-stage, which is both Act 0's "this page has an
+         import at all" guard and the element it dresses. -->
     <section class="band">
       <div class="container">
         <div class="beat-head">
           <div class="beat-head-text">
-            <p class="beat-kicker">The evidence</p>
-            <h2 class="beat-title">Three ways to check the work.</h2>
+            <p class="beat-kicker">The studio</p>
+            <h2 class="beat-title">A product's shape, on a canvas you can move.</h2>
           </div>
         </div>
-        <p class="beat-lead">
-          Pick a tab. Each one plays back a file saved while this site was built and checked in
-          with the code — a
-          <dfn class="term" data-term="committed-artifact" tabindex="0">committed artifact</dfn>,
-          not a live run. The label on each says exactly what you are looking at.
+        <p class="beat-lead max-prose">
+          Each block is one place a person can be, with what they can do from there listed inside it.
+          The arrangement is yours: drag a block by its handle, or press Enter on it and use the
+          arrow keys. Every move is announced and every move undoes. This is the shape stage, so the
+          blocks are still sketches rather than finished components.
         </p>
 
-        <div class="ev-viewer">
-          <div class="ev-tablist" role="tablist" aria-label="Evidence">
-            <span class="ev-pill" aria-hidden="true"></span>
-            <button type="button" class="ev-tab" role="tab" id="ev-tab-agents" aria-controls="agents" aria-selected="true">Traces</button>
-            <button type="button" class="ev-tab" role="tab" id="ev-tab-round-trip" aria-controls="round-trip" aria-selected="false">Round-trip</button>
-            <button type="button" class="ev-tab" role="tab" id="ev-tab-shape" aria-controls="shape" aria-selected="false">Graph</button>
+        <div class="stu-shell" data-studio>
+          <div class="stu-canvas-col" id="build-stage" data-build-stage>
+            <h3 class="stu-panel-title">The canvas</h3>
+            <!-- Deliberately makes no claim about which pack is on: pack-boot.js is a classic
+                 script, so a design imported on the home page can already be worn here even with
+                 modules blocked. build-import.mjs replaces this with the precise statement on
+                 mount. -->
+            <p class="stu-canvas-label" data-build-stage-label>Wearing this site's own design tokens.</p>
+            <!-- The canvas is empty in the markup on purpose: initStudioCanvas APPENDS its zoom row,
+                 scroller and live region to this element rather than replacing its contents, so a
+                 placeholder inside would survive the mount and sit beside the stage. The no-JS
+                 sentence therefore lives in a <noscript>, which is also the only way to say it
+                 without the JS path paying for a node it immediately has to hide. -->
+            <div data-studio-canvas id="canvas"></div>
+            <noscript>
+              <p class="muted">The canvas needs scripting to draw and to move. The same build runs
+                as a form at <a href="/build">the pattern builder</a>, and the panels beside this one
+                are all readable as they are.</p>
+            </noscript>
           </div>
 
-          <!-- Inspect toggle (#173): static markup so it renders with JS blocked (degrades to an
-               inert button, the licence index.html:129-131 takes). Sits under the tablist so it
-               reads as "inspect this surface" for whichever panel is open. inspect.mjs wires it. -->
-          <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
+          <aside class="stu-inspector" aria-label="Inspector">
+            <div class="stu-tablist" data-studio-tablist role="tablist" aria-label="Inspector panels">
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-this-build" aria-controls="this-build" aria-selected="true">This build</button>
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-agents" aria-controls="agents" aria-selected="false">Traces</button>
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-round-trip" aria-controls="round-trip" aria-selected="false">Round-trip</button>
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-shape" aria-controls="shape" aria-selected="false">Graph</button>
+            </div>
 
-          <div class="ev-panels">
-            <!-- Traces (default) -->
-            <div class="ev-panel" id="agents" role="tabpanel" aria-labelledby="ev-tab-agents" tabindex="0">
-              <div class="ev-panel-head">
-                <h3 class="ev-panel-title">Recorded agent runs</h3>
+            <!-- Inspect toggle (#173): static markup so it renders with JS blocked (degrades to an
+                 inert button, the licence index.html:129-131 takes). inspect.mjs wires it. -->
+            <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
+
+            <!-- No panel carries `hidden` in the markup: with scripting off all four stay visible
+                 and the evidence is never hidden behind a control that cannot run. JS hides the
+                 inactive three on mount. -->
+            <div class="stu-panel" id="this-build" role="tabpanel" aria-labelledby="stu-tab-this-build" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">This build</h3>
+                <span class="capability">Counted · from the board</span>
+              </div>
+              <p class="stu-panel-lead">
+                What is on the canvas, read off the board rather than described. The rule that named
+                the pattern is quoted as it was written.
+              </p>
+              <div id="this-build-summary">
+                <p class="muted">The board is drafted when this page loads.</p>
+              </div>
+            </div>
+
+            <div class="stu-panel" id="agents" role="tabpanel" aria-labelledby="stu-tab-agents" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">Recorded agent runs</h3>
                 <span class="capability">Real run · replayed</span>
               </div>
-              <p class="ev-panel-lead max-prose">
+              <p class="stu-panel-lead">
                 An AI agent did real work on this project, and every step it took was recorded as it
                 happened: it planned, passed a gate, implemented, and validated a component spec.
                 That record is an
                 <dfn class="term" data-term="agent-trace" tabindex="0">agent trace</dfn>, this one
                 from a Claude Agent SDK run. The player replays the committed file. Nothing runs live.
               </p>
-              <div id="agents-player"><p class="muted">Loading the recorded run…</p></div>
+              <div id="agents-player"><p class="muted">Opens when you pick this panel.</p></div>
             </div>
 
-            <!-- Round-trip · carries the WCAG contrast pairs -->
-            <div class="ev-panel" id="round-trip" role="tabpanel" aria-labelledby="ev-tab-round-trip" tabindex="0">
-              <div class="ev-panel-head">
-                <h3 class="ev-panel-title">The round-trip check</h3>
+            <div class="stu-panel" id="round-trip" role="tabpanel" aria-labelledby="stu-tab-round-trip" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">The round-trip check</h3>
                 <span class="capability">Provisional · measured</span>
               </div>
               <p class="fw-scenario">
@@ -285,7 +275,7 @@
                 <span>Verdant is a fictional product, invented for this demonstration. No real
                 company, users, or data are involved.</span>
               </p>
-              <p class="ev-panel-lead max-prose">
+              <p class="stu-panel-lead">
                 The factory can also work backwards, from a picture of a finished screen to the
                 values that would rebuild it. Screenshots in, proposed tokens out. Here it ran on
                 Verdant's own prototype, where the right answer is known, so the proposal is
@@ -294,19 +284,18 @@
                 <dfn class="term" data-term="contrast-pair" tabindex="0">contrast pairs</dfn> below
                 are the WCAG evidence.
               </p>
-              <div id="roundtrip-diff"><p class="muted">Loading the fidelity diff…</p></div>
+              <div id="roundtrip-diff"><p class="muted">Opens when you pick this panel.</p></div>
               <div class="factory-actions">
                 <a class="btn btn-secondary btn-arrow" href="/roundtrip" data-inspect="buttons">The full exhibit: what was read, the caveat, the recorded run</a>
               </div>
             </div>
 
-            <!-- Graph -->
-            <div class="ev-panel" id="shape" role="tabpanel" aria-labelledby="ev-tab-shape" tabindex="0">
-              <div class="ev-panel-head">
-                <h3 class="ev-panel-title">The shape of the system</h3>
+            <div class="stu-panel" id="shape" role="tabpanel" aria-labelledby="stu-tab-shape" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">The shape of the system</h3>
                 <span class="capability">Measured · generated</span>
               </div>
-              <p class="ev-panel-lead max-prose">
+              <p class="stu-panel-lead">
                 A map of every named value this site's styling runs on, each one a
                 <dfn class="term" data-term="semantic-token" tabindex="0">design token</dfn>, beside
                 the components that read it and what each committed
@@ -314,18 +303,17 @@
                 from measurement, never by hand. Hover or focus a token to see everything it
                 touches. Drag the map to move it, and zoom in to read the labels.
               </p>
-              <div id="system-graph"><p class="muted">Loading the measured graph…</p></div>
-              <p class="muted ev-panel-pointer">
+              <div id="system-graph"><p class="muted">Opens when you pick this panel.</p></div>
+              <p class="muted">
                 Full dataset → <a href="/system/system-graph.json">system-graph.json</a>
               </p>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </section>
 
-    <!-- Go deeper — outbound links to the prototypes + handoff pack (now on Work) and the two
-         evidence surfaces that keep their own pages. -->
+    <!-- Go deeper — outbound links, including the form path this surface falls back to. -->
     <section class="band" id="verify-further">
       <div class="container">
         <div class="beat-head">
@@ -335,6 +323,15 @@
           </div>
         </div>
         <ul class="row-list">
+          <li>
+            <a class="row-item" href="/build">
+              <span class="row-item-text">
+                <span class="row-item-title">Answer the ten questions yourself</span>
+                <span class="row-item-desc">The same build as a form: your tokens, ten method questions, an editable board, a real UI pattern under your brand, and a link that rebuilds all of it</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
           <li>
             <a class="row-item" href="/work#screens">
               <span class="row-item-text">
@@ -391,147 +388,20 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <script type="module" src="/system/dock.mjs"></script>
-  <script type="module" src="/system/derivation-roundtrip.mjs"></script>
   <!-- #173: the inspect engine. Nothing moves above dock.mjs (index.html:422-424's ordering rule)
        and palette.mjs stays last. Self-inits at import and restores the persisted choice, so a
-       reader who turned inspect on elsewhere finds the hero, buttons and chrome already live. -->
+       reader who turned inspect on elsewhere finds the hero, buttons and chrome already live.
+       derivation-roundtrip.mjs is deliberately NOT a tag any more: it is dynamically imported by
+       studio.mjs when the Round-trip panel is first opened, which is what makes that exhibit
+       genuinely lazy rather than lazy in name. -->
   <script type="module" src="/system/inspect.mjs"></script>
-
-  <!-- Evidence-viewer tab controller (replaces the pre-v3 rail scroll-spy + hash-opens-details
-       inline scripts). Progressive enhancement: with no JS all three panels stay visible; JS hides
-       the inactive two, drives the pill, wires click + APG arrow-key nav, and activates the tab a
-       matching deep-link (/factory#round-trip) points at. -->
-  <script>
-    (function () {
-      var tablist = document.querySelector(".ev-tablist");
-      if (!tablist) return;
-      var pill = tablist.querySelector(".ev-pill");
-      var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[role="tab"]'));
-      var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute("aria-controls")); });
-
-      function activate(i, moveFocus) {
-        tabs.forEach(function (tab, j) {
-          var on = j === i;
-          tab.setAttribute("aria-selected", on ? "true" : "false");
-          tab.tabIndex = on ? 0 : -1;
-          if (panels[j]) panels[j].hidden = !on;
-        });
-        if (pill) pill.style.setProperty("--ev-i", i);
-        if (moveFocus) tabs[i].focus();
-      }
-
-      // JS is on → collapse to the default (Traces) tab. No-JS never reaches here, so all panels
-      // stay painted for the reader without scripting.
-      activate(0, false);
-
-      tabs.forEach(function (tab, i) {
-        tab.addEventListener("click", function () { activate(i, false); });
-        tab.addEventListener("keydown", function (e) {
-          var n = tabs.length, next = -1;
-          if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % n;
-          else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (i - 1 + n) % n;
-          else if (e.key === "Home") next = 0;
-          else if (e.key === "End") next = n - 1;
-          if (next >= 0) { e.preventDefault(); activate(next, true); }
-        });
-      });
-
-      // Deep link: activate the panel the hash names and bring the whole viewer (tabs + active
-      // panel) into view.
-      function fromHash() {
-        if (!location.hash) return;
-        var id;
-        try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { id = location.hash.slice(1); }
-        var idx = -1;
-        panels.forEach(function (p, j) { if (p && p.id === id) idx = j; });
-        if (idx < 0) return;
-        activate(idx, false);
-        var viewer = document.querySelector(".ev-viewer");
-        if (viewer) viewer.scrollIntoView();
-      }
-      fromHash();
-      addEventListener("hashchange", fromHash);
-    })();
-  </script>
-
-  <!-- Traces mount: fetch the committed, CURATED demo-notice run (a real Agent SDK run) and hand it
-       to the view-time player. [data-trace="ready"] is the visual-regression gate's wait handle —
-       set ONLY on fetch success, so a real failure fails loud (the gate hangs) instead of baking a
-       false-green baseline. The mount sits inside a tab panel that JS may have `hidden`; the module
-       fetches + sets the attribute regardless of visibility, and the gate waits on attachment. -->
-  <script type="module">
-    import { parseTrace, renderTracePlayer } from "/system/trace-player.mjs";
-    const mount = document.getElementById("agents-player");
-    function errorCard(message) {
-      mount.textContent = "";
-      const card = document.createElement("article");
-      card.className = "card trace-error-card";
-      card.style.padding = "var(--spacing-md)";
-      const h = document.createElement("h3");
-      h.className = "h3"; h.textContent = "Trace unavailable";
-      const p = document.createElement("p");
-      p.className = "muted"; p.style.marginTop = "var(--spacing-sm)"; p.textContent = message;
-      card.append(h, p);
-      mount.append(card);
-    }
-    if (mount) {
-      const path = "/traces/demo-notice.jsonl";
-      fetch(path)
-        .then((res) => { if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`); return res.text(); })
-        .then((text) => {
-          renderTracePlayer(mount, parseTrace(text));
-          // Inspect mounts on the exhibit's own components (#173). Applied here rather than in
-          // trace-player.mjs because that module also drives /roundtrip and /trace.html. The ids
-          // are COPIED from system/inspect-data.json; drift-check's inspect-mounts gate reads
-          // tracked HTML only, so it cannot see these (the site.js:40-42 rule). An id absent from
-          // that file aborts the whole inspect activation at runtime, for every mount on the page.
-          for (const c of mount.querySelectorAll(".trace-step")) c.setAttribute("data-inspect", "cards");
-          for (const b of mount.querySelectorAll(".trace-controls .btn")) b.setAttribute("data-inspect", "buttons");
-          mount.dataset.trace = "ready";
-          // refreshInspect, never initInspect: this page imports inspect.mjs statically, so
-          // initInspect() would tear down the live handle palette.mjs holds (palette.mjs:118).
-          // Lazy + gated (pattern-render.mjs:293-294's idiom) and LAST, after the ready handle, so
-          // a rejected import cannot cost the VR gate its wait handle — this is the one panel the
-          // pixel gate actually captures.
-          if (document.documentElement.dataset.inspectMode === "on")
-            import("/system/inspect.mjs").then((m) => m.refreshInspect?.()).catch(() => {});
-        })
-        .catch((err) => errorCard(`Could not load ${path} — ${err.message}`));
-    }
-  </script>
-
-  <!-- Graph mount: fetch the committed, generated graph artifact and hand it to the view-time
-       module. [data-graph="ready"] is the visual-regression gate's wait handle — set ONLY on
-       success, so a broken artifact fails loud instead of baselining an empty exhibit. -->
-  <script type="module">
-    import { prepareGraph, renderSystemGraph } from "/system/system-graph.mjs";
-    import { initGlossary } from "/system/glossary.mjs";
-
-    // Glossary marks (#173). Mounted HERE, in the same module as the graph, on purpose: an unknown
-    // data-term key throws before any DOM is touched, so the module aborts and [data-graph="ready"]
-    // is never set — the VR gate hangs and fails LOUD. In its own <script> tag a typo would fail
-    // silently and stay green. approach.html:224-230 is the same arrangement.
-    initGlossary(document);
-
-    const mount = document.getElementById("system-graph");
-    if (mount) {
-      const path = "/system/system-graph.json";
-      fetch(path)
-        .then((res) => { if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`); return res.json(); })
-        .then((json) => {
-          mount.textContent = "";
-          renderSystemGraph(mount, prepareGraph(json));
-          mount.dataset.graph = "ready";
-        })
-        .catch((err) => {
-          mount.textContent = "";
-          const p = document.createElement("p");
-          p.className = "muted";
-          p.textContent = `Could not load ${path} — ${err.message}`;
-          mount.append(p);
-        });
-    }
-  </script>
+  <!-- Act 0. Self-boots on [data-build-import] above; no mount call, and none available — that
+       property is what lets a second page get the import act for the cost of markup. -->
+  <script type="module" src="/system/build-import.mjs"></script>
+  <!-- The orchestrator. Mounts the canvas, places the drafted board, mounts the verbs after the
+       placement loop, renders "This build", and wires the inspector's four panels with the three
+       exhibits imported on first activation. -->
+  <script type="module" src="/system/studio.mjs"></script>
   <script type="module" src="/system/palette.mjs"></script>
 </body>
 </html>

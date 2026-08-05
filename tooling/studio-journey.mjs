@@ -1060,8 +1060,143 @@ async function journey(engineName, results, held) {
     rAnims === 0, `${rAnims} animation(s) running on the slots straight after the undo`);
   await rctx.close();
 
+  // ---------------------------------------------------------------- [#206] the SHIPPED surface, /factory
+  // Everything above drives studio.html, the raw harness. This section drives the DESIGNED route,
+  // because the two are not the same claim: the harness places ~31 components with its own inline
+  // script, and /factory places the drafted breadboard through system/studio.mjs and docks an
+  // inspector beside it. A regression in the orchestrator — a placement loop that ran after the
+  // verbs mounted, an inspector wired only to its click handler — leaves every assertion above green.
+  //
+  // It also carries the ONLY automated coverage the three absorbed exhibits have left. Until #206
+  // they mounted at load and the pixel gate captured them, so a dropped fetch or a dropped
+  // stylesheet showed up as a diff. They are lazy now and nothing captures them, so the panel-content
+  // assertions below are what replaced that: a completely unstyled, unrendered trace player would
+  // otherwise pass update:docker, build-checks and drift-check alike.
+  await factoryPass(browser, t, errors);
+
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
   return errors;
+}
+
+// The shipped route. Kept as its own function rather than folded into journey(): it opens its own
+// page against a different URL and shares nothing with the harness fixture above except the engine.
+async function factoryPass(browser, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+
+  // A cold load straight onto a panel HASH — the assertion that catches a lazy mount wired only to
+  // the click handler. system/palette.mjs's three ⌘K commands and roundtrip.html's back-link both
+  // arrive exactly this way, and a deep link that lands on an empty panel is the failure mode those
+  // four inbound entry points share.
+  const p = await ctx.newPage();
+  p.on("pageerror", (e) => errors.push(`factory pageerror: ${e.message}`));
+  p.on("console", (m) => { if (m.type() === "error") errors.push(`factory console: ${m.text()}`); });
+  await p.goto(`${BASE}/factory.html#shape`, { waitUntil: "load" });
+  await p.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+  await p.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
+  await p.waitForSelector('[data-canvas-verbs="ready"]', { timeout: 20000 });
+
+  // The board is read off the RUNNING page through the orchestrator's own seam, then the slot count
+  // is compared to it. Asserting a literal 3 would pass a board that silently stopped being drafted
+  // and started being a fixture.
+  const board = await p.evaluate(() => import("/system/studio.mjs").then((m) => {
+    const s = m.getStudio();
+    return s ? { places: s.board.places.length, arranged: s.arranged.length, pattern: s.summary.patternId } : null;
+  }));
+  t("#206 · /factory mounted the studio and exposes it through getStudio()", Boolean(board), JSON.stringify(board));
+  const slotCount = await p.locator(`${VIEWPORT} .stx-slot`).count();
+  t("#206 · the canvas holds one slot per place of the DRAFTED board",
+    Boolean(board) && slotCount === board.arranged && board.arranged === board.places,
+    `slots=${slotCount} arranged=${board && board.arranged} places=${board && board.places}`);
+  t("#206 · the drafted board is not empty — every assertion here would be vacuous on an empty canvas",
+    slotCount > 0, `slots=${slotCount}`);
+
+  // The deep link had to ACTIVATE and MOUNT. Both halves are asserted: aria-selected alone would
+  // pass for a panel that opened onto nothing.
+  t("#206 · a cold /factory#shape deep-link selects the Graph panel",
+    (await p.getAttribute("#stu-tab-shape", "aria-selected")) === "true");
+  await p.waitForSelector("#system-graph .sg-node", { timeout: 20000 });
+  t("#206 · …and the graph is genuinely MOUNTED, not an empty panel with a selected tab",
+    (await p.locator("#system-graph .sg-node").count()) > 0);
+
+  // The other two exhibits, by click. Each asserted as RENDERED CONTENT rather than as a ready flag,
+  // because a flag can be set by a mount that produced nothing.
+  await p.click("#stu-tab-agents");
+  await p.waitForSelector("#agents-player .trace-step", { timeout: 20000 });
+  t("#206 · the Traces panel mounts on activation and renders real steps",
+    (await p.locator("#agents-player .trace-step").count()) > 0);
+  // The stylesheet half of the same assertion. .trace-* and .sg-* moved verbatim from factory.html's
+  // <style> into system/studio.css when the exhibits went lazy; with nothing capturing them, an
+  // unstyled player is invisible to every other gate. A bare <div> would report `display: block`,
+  // so this reads the flex the sheet declares.
+  t("#206 · …and the absorbed .trace-* stylesheet reached the page with it",
+    (await p.evaluate(() => getComputedStyle(document.querySelector(".trace-player")).display)) === "flex");
+
+  await p.click("#stu-tab-round-trip");
+  await p.waitForSelector('#roundtrip-diff[data-diff="ready"]', { timeout: 20000 });
+  t("#206 · the Round-trip panel mounts on activation and renders",
+    (await p.locator("#roundtrip-diff > *").count()) > 0);
+
+  // Arrow-key navigation of the panel list, APG's pattern — the keyboard path to the same four
+  // panels, and the one a mouse-only implementation drops.
+  await p.focus("#stu-tab-round-trip");
+  await p.keyboard.press("ArrowRight");
+  await p.waitForTimeout(150);
+  t("#206 · ArrowRight moves the inspector's selection and takes focus with it",
+    (await p.getAttribute("#stu-tab-shape", "aria-selected")) === "true"
+    && (await p.evaluate(() => document.activeElement?.id)) === "stu-tab-shape");
+  await p.keyboard.press("Home");
+  await p.waitForTimeout(150);
+  t("#206 · Home returns to the at-rest panel",
+    (await p.getAttribute("#stu-tab-this-build", "aria-selected")) === "true"
+    && (await p.isHidden("#shape")));
+
+  // Exactly one panel is shown at a time under JS, and every other one carries `hidden`.
+  const shown = await p.evaluate(() => [...document.querySelectorAll(".stu-panel")].filter((n) => !n.hidden).length);
+  t("#206 · exactly one inspector panel is visible under JS", shown === 1, `${shown} visible`);
+
+  // A keyboard move on the shipped surface. The counts differ per path on purpose (pointer 1,
+  // keyboard N + 2) and the keyboard number is the one asserted here — if it goes red the fix is the
+  // count, never deleting the per-step feedback.
+  const first = await p.locator(`${VIEWPORT} .stx-slot`).first().getAttribute("data-stx-id");
+  const before = await p.evaluate((i) => {
+    const n = document.querySelector(`.stx-slot[data-stx-id="${i}"]`);
+    return { col: n.getAttribute("data-col"), row: n.getAttribute("data-row") };
+  }, first);
+  await countLive(p);
+  await p.locator(`.stx-slot[data-stx-id="${first}"] .stx-grab`).focus();
+  await p.keyboard.press("Enter");
+  await p.keyboard.press("ArrowDown");
+  await p.keyboard.press("Enter");
+  await p.waitForTimeout(150);
+  const said = await liveSeen(p);
+  const after = await p.evaluate((i) => {
+    const n = document.querySelector(`.stx-slot[data-stx-id="${i}"]`);
+    return { col: n.getAttribute("data-col"), row: n.getAttribute("data-row") };
+  }, first);
+  t("#206 · a keyboard move on the shipped surface rewrites data-col / data-row",
+    after.row !== before.row || after.col !== before.col, `${JSON.stringify(before)} → ${JSON.stringify(after)}`);
+  t("#206 · …announcing once per keypress — pick-up + 1 arrow + drop = 3",
+    said.n === 3, `${said.n} announcement(s); last: ${said.last}`);
+  t("#206 · …and the last announcement names the slot it landed in",
+    new RegExp(`moved to column ${after.col}, row ${after.row}`).test(said.last), said.last);
+
+  // Group 7's claim, on the running page. The source is grep-clean; this is the half grep cannot
+  // make — and it is asserted AFTER a move, which is when a style-writing implementation would show.
+  const styled = await p.evaluate(() => [...document.querySelectorAll(".stx-slot, .stx-stage, .stx-scroll")]
+    .filter((n) => n.hasAttribute("style")).length);
+  t("#206 · no `style` attribute on the stage, the scroller or any slot after a move",
+    styled === 0, `${styled} element(s) carry one`);
+
+  // Act 0 mounted here too — the import act reached a second page for the cost of markup, which is
+  // the whole "import, never fork" claim. build-import.mjs returns SILENTLY when a required node is
+  // missing (no throw, no console line, a pixel-identical at-rest capture), so its readiness handle
+  // is the only thing that can tell a mounted act from a dead one.
+  t("#206 · Act 0 self-booted on this page's mount attributes",
+    (await p.getAttribute("[data-build-import]", "data-build-import")) === "ready");
+  t("#206 · …and the canvas column IS the stage it dresses",
+    await p.evaluate(() => document.getElementById("build-stage")?.classList.contains("stu-canvas-col")));
+
+  await ctx.close();
 }
 
 let totalFails = 0;
@@ -1083,5 +1218,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
