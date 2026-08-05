@@ -381,6 +381,58 @@ for (const name of toRun) {
       rverbs.moved !== rverbs.undone, `${rverbs.moved} → ${rverbs.undone}`);
     t("studio canvas · reduced motion opens none", crm.calls === 0, `calls=${crm.calls}`);
     await crc.close();
+
+    // ---- #207 · /factory's COMPILE BEAT names nothing either -----------------------------------
+    // Its OWN block rather than an extension of the one above, for a reason worth writing down: the
+    // canvas block runs against /studio.html, which mounts studio-canvas.mjs and studio-verbs.mjs
+    // RAW and never mounts system/studio.mjs — so it has no compile beat to drive. And not a
+    // SITEWIDE row either: that table's per-verb claim is hardcoded to `calls === 1`, and this
+    // surface's claim is the opposite number.
+    //
+    // The beat is a CROSSFADE through element.animate(), deliberately: naming an element for a view
+    // transition makes it a stacking context and a containing block, which is how #171 shipped a
+    // real at-rest regression that the pixel gate then re-baselined. This is the assertion
+    // getAnimations() alone cannot make — a transition that OPENED and was skipped leaves no running
+    // pseudo, and HOOK's counter is the only thing that sees it. Both nets, deliberately.
+    //
+    // Do NOT relax the pseudo filter to catch the crossfade: element.animate() reports a null
+    // pseudoElement, and that is correct.
+    for (const reduced of [false, true]) {
+      const label = reduced ? "factory compile · reduced motion" : "factory compile";
+      const fctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...(reduced ? { reducedMotion: "reduce" } : {}) });
+      await fctx.addInitScript(HOOK);
+      const fp = await fctx.newPage();
+      await fp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+      await fp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+      await fp.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
+      await fp.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 20000 });
+
+      const fboot = await read(fp);
+      if (!reduced) t("factory · load opens zero transitions", fboot.calls === 0, `calls=${fboot.calls}`);
+
+      // PROVE THE BEAT HAPPENED FIRST — taken again in the reduced-motion pass rather than inherited
+      // from the pass above, exactly as the canvas block explains: the lighter version of this
+      // sub-case could not fail, because a beat that stopped running under reduced motion would
+      // still satisfy `calls === 0`.
+      const tiles = () => fp.locator("[data-studio-canvas] .stx-slot .ds-metric-tile").count();
+      const beforeTiles = await tiles();
+      await reset(fp);
+      await fp.locator("[data-studio-canvas]").getByRole("button", { name: "Compile the board", exact: true }).click();
+      await fp.waitForFunction(() => document.querySelector("[data-studio-canvas]")
+        .getAttribute("data-compile-state") === "rendered", null, { timeout: 20000 });
+      await fp.waitForTimeout(700);
+      const afterTiles = await tiles();
+      const fmoved = await read(fp);
+      t(`${label} · the beat actually replaced the blocks with components`,
+        beforeTiles === 0 && afterTiles > 0, `${beforeTiles} → ${afterTiles} metric tiles`);
+      t(`${label} · …and opened no transition`, fmoved.calls === 0, `calls=${fmoved.calls}`);
+      const fpseudos = await fp.evaluate(() => document.getAnimations()
+        .map((a) => a.effect && a.effect.pseudoElement)
+        .filter((x) => x && x.startsWith("::view-transition")));
+      t(`${label} · zero ::view-transition-* pseudos are running after it`,
+        fpseudos.length === 0, fpseudos.join(" "));
+      await fctx.close();
+    }
   } finally {
     await browser.close();
   }
@@ -388,5 +440,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, and /factory's #207 compile beat, whose crossfade opens no transition at all — under reduced motion too, with the swap proven first in both (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);

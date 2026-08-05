@@ -79,6 +79,7 @@
     { "page": "/factory", "selector": "[data-studio-canvas] .stx-scroll", "label": "canvas pan surface (drag to pan, ⌘/Ctrl-scroll or pinch to zoom)", "note": "added by #206" },
     { "page": "/factory", "selector": "[data-studio-canvas] .stx-grab", "label": "per-block move handle (drag, click-move-click, or Enter + arrows = one per-item verb)", "note": "added by #206" },
     { "page": "/factory", "selector": "[data-studio-canvas] .stx-verbs button", "label": "canvas undo / redo (one row)", "note": "added by #206" },
+    { "page": "/factory", "selector": "[data-studio-canvas] .stu-compile button", "label": "compile beat controls (compile / back to blocks = one row)", "note": "added by #207" },
     { "page": "/factory", "selector": "[data-build-drop]", "label": "token-export drop zone", "note": "added by #206" },
     { "page": "/factory", "selector": "[data-build-color]", "label": "brand colour picker", "note": "added by #206" },
     { "page": "/factory", "selector": "[data-build-derive]", "label": "derive a palette", "note": "added by #206" },
