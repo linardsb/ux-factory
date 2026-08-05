@@ -1541,10 +1541,15 @@ async function replayPass(browser, t, errors) {
   // A POINTER PRESS ON THE STAGE, which is the load-bearing path: it is the one a visitor performs,
   // and it must not need the bus's ui.move (a gesture PREVIEWS, and the drop is far too late).
   await p5.locator(`${VIEWPORT} .stx-slot`).first().click();
-  await p5.waitForTimeout(1200);
+  // READ, WAIT, RE-READ — section 4's shape, and it has to be this way round. Both reads taken
+  // AFTER the wait are one round trip apart, and the gaps here average ~500 ms, so a driver that
+  // never paused at all would report the same index across those few milliseconds and the check
+  // would pass on it.
+  const tookAt = await replayState(p5);
+  await p5.waitForTimeout(1500);
   const took = await replayState(p5);
-  t("#209 · one pointer press on the canvas PAUSES the run — the beat count stops moving",
-    took.took === true && took.index === (await replayState(p5)).index, JSON.stringify(took));
+  t("#209 · one pointer press on the canvas PAUSES the run — the beat count stops moving over a second and a half",
+    took.took === true && took.index === tookAt.index, `${tookAt.index} → ${took.index}`);
   t("#209 · …and provenance visibly shifts to name both authors",
     (await p5.getAttribute("[data-studio]", "data-provenance")) === "visitor"
     && (await p5.locator(".stu-replay-provenance").innerText()).includes("your edits"),
@@ -1595,6 +1600,14 @@ async function replayPass(browser, t, errors) {
   const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
   const pr = await rctx.newPage();
   watch(pr, "replay reduced");
+  // Installed BEFORE the load, because the take-over sub-case at the end of this section needs it —
+  // it used to be an addInitScript AFTER the page had loaded, which is a no-op, sitting under a
+  // comment claiming the route was covered here.
+  await pr.addInitScript(() => {
+    window.__pushed = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, u) => { window.__pushed.push(String(u)); return real(s, ti, u); };
+  });
   const t0 = Date.now();
   await pr.goto(`${BASE}/factory.html`, { waitUntil: "load" });
   await pr.waitForSelector('[data-replay="settled"]', { timeout: 20000 });
@@ -1607,9 +1620,20 @@ async function replayPass(browser, t, errors) {
   }));
   t("#209 · …reaching the identical end state", rstate.index === rstate.beats && rstate.places === match.wanted.length,
     JSON.stringify(rstate));
-  t("#209 · …with the Pause button hidden, because nothing is playing",
-    await pr.locator(".stu-replay-controls button", { hasText: "Pause" }).count() === 0
-    || !(await pr.locator(".stu-replay-controls button").first().isVisible()));
+  // READ AS COMPUTED DISPLAY on the element identified STRUCTURALLY (the transport's first button),
+  // never by its text. The first version matched on hasText: "Pause" and passed the moment the
+  // label swapped to "Resume" — which syncControls does on every settle — so it could not fail and
+  // said nothing about whether the button was hidden. And `hidden` is exactly the write this repo
+  // has been burned by: it is inert wherever an author rule sets display (live on /build's keep rail
+  // until #138). It works here only because factory.html:79 carries a page-scoped
+  // [hidden]{display:none!important}, which is a property of THAT PAGE — so this reads the computed
+  // value rather than trusting the attribute.
+  const pauseBox = await pr.evaluate(() => {
+    const n = document.querySelector(".stu-replay-controls button");
+    return { text: n.textContent, hidden: n.hidden, display: getComputedStyle(n).display };
+  });
+  t("#209 · …with the Pause button genuinely not painted, because nothing is playing",
+    pauseBox.hidden === true && pauseBox.display === "none", JSON.stringify(pauseBox));
   // Manual stepping still available: seek back, then Step.
   await pr.locator(".stu-replay-seek").focus();
   await pr.keyboard.press("ArrowLeft");
@@ -1619,10 +1643,87 @@ async function replayPass(browser, t, errors) {
   await pr.waitForTimeout(150);
   const rfwd = await pr.evaluate(() => import("/system/replay-driver.mjs").then((m) => m.getReplay().index));
   t("#209 · …and manual stepping still works under reduced motion", rfwd === rback + 1, `${rback} → ${rfwd}`);
-  // The route still fires under reduced motion — the handover is not motion.
-  await pr.addInitScript(() => {});
+  // THE HANDOVER IS NOT MOTION, so reduced motion must not cost the visitor the take-over — the
+  // provenance shift or the route. Asserted rather than asserted-about: this used to be a comment
+  // over an addInitScript(() => {}) that did nothing, on a page that had never been given the
+  // pushState hook at all.
+  //
+  // It is also where the announcement trade shows most plainly: `wasPlaying` is always false here
+  // (nothing was ever playing), so the handover is SILENT by design. What shifts is the provenance
+  // line, which is a plain <p> and not a live region — a deliberate trade, and the reason this
+  // asserts the attribute and the text rather than an announcement.
+  await pr.locator(`${VIEWPORT} .stx-slot`).first().click();
+  await pr.waitForTimeout(300);
+  t("#209 · reduced motion still hands over — provenance shifts",
+    (await pr.getAttribute("[data-studio]", "data-provenance")) === "visitor");
+  t("#209 · …and the route still fires exactly once",
+    (await pr.evaluate(() => window.__pushed.filter((u) => u === "/factory/took-over").length)) === 1,
+    JSON.stringify(await pr.evaluate(() => window.__pushed.slice())));
   await pr.close();
   await rctx.close();
+
+  // --- 7b · THE TWO DEGRADATIONS, and the honesty claim inside the first ---------------------------
+  // Both are named edge cases in the plan and neither is reachable from build-checks: group 16 covers
+  // the DATA half of the traceless case and nothing covers either surface.
+  const dgctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+
+  // (a) THE ARTIFACT 404s. The load-bearing clause is the LAST one: the take-over route must never
+  // fire on a canvas the replay failed to build. A visitor moving blocks there has taken nothing
+  // over, and firing would make the metric a lie — replay-driver.mjs's onTouch says exactly that,
+  // and `if (state === "unavailable") return;` is the only thing enforcing it.
+  const pa = await dgctx.newPage();
+  const aErrors = [];
+  pa.on("pageerror", (e) => aErrors.push(`pageerror: ${e.message}`));
+  pa.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) aErrors.push(`console: ${m.text()}`); });
+  await pa.addInitScript(() => {
+    window.__pushed = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, u) => { window.__pushed.push(String(u)); return real(s, ti, u); };
+  });
+  await pa.route("**/replay/*.json", (route) => route.fulfill({ status: 404, body: "gone" }));
+  await pa.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await pa.waitForSelector('[data-replay="unavailable"]', { timeout: 20000 });
+  t("#209 · a missing artifact settles as \"unavailable\" rather than hanging or half-drawing",
+    (await pa.locator(`${VIEWPORT} .stx-slot`).count()) === 0, `${await pa.locator(`${VIEWPORT} .stx-slot`).count()} slot(s)`);
+  const card = await pa.locator(".stu-replay-card").innerText();
+  t("#209 · …saying so in an honest card that names the file, with nothing drawn in its place",
+    card.includes("/replay/") && /could not be read/i.test(card), card.replace(/\s+/g, " ").slice(0, 120));
+  t("#209 · …and the transport is gone — no dead controls over a run that is not there",
+    (await pa.locator(".stu-replay-controls").isVisible()) === false);
+  // The claim itself: interact with the canvas and NOTHING is pushed.
+  await pa.locator(`${VIEWPORT} .stx-scroll`).click();
+  await pa.keyboard.press("ArrowRight");
+  await pa.waitForTimeout(400);
+  t("#209 · …and the take-over route NEVER fires — there was nothing to take over, so the metric stays honest",
+    JSON.stringify(await pa.evaluate(() => window.__pushed.slice())) === "[]",
+    JSON.stringify(await pa.evaluate(() => window.__pushed.slice())));
+  t("#209 · …and none of that reached the console", aErrors.length === 0, aErrors.join(" · "));
+  await pa.close();
+
+  // (b) THE TRACE 404s but the artifact loads. The ops still play, and the surface STATES that the
+  // run's own words are missing rather than showing a shorter run and saying nothing.
+  const pb = await dgctx.newPage();
+  // The same narrow exemption the #236 teardown section argues for its deliberate 503, and case (a)
+  // above already carries: this case SERVES a 404 on purpose, and chromium logs every failed
+  // resource load as a console error of its own. That line is the browser reporting the network, not
+  // the page reporting itself — everything the driver says about the failure goes to its own note.
+  pb.on("pageerror", (e) => errors.push(`replay traceless pageerror: ${e.message}`));
+  pb.on("console", (m) => {
+    if (m.type() !== "error") return;
+    if (/Failed to load resource/.test(m.text())) return;
+    errors.push(`replay traceless console: ${m.text()}`);
+  });
+  await pb.route("**/traces/*.jsonl", (route) => route.fulfill({ status: 404, body: "gone" }));
+  await pb.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await pb.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  t("#209 · a missing trace still plays the ops — the board is the run's, words or no words",
+    (await pb.locator(`${VIEWPORT} .stx-slot`).count()) === match.wanted.length,
+    `${await pb.locator(`${VIEWPORT} .stx-slot`).count()} slot(s)`);
+  const note = await pb.locator(".stu-replay-note").innerText();
+  t("#209 · …and the surface STATES the words are missing rather than silently showing a shorter run",
+    /could not be read/i.test(note) && note.includes("/traces/"), note.replace(/\s+/g, " ").slice(0, 140));
+  await pb.close();
+  await dgctx.close();
 
   // --- 8 · destroy() mid-playback -----------------------------------------------------------------
   // #236's lesson, applied to this driver: a torn-down replay that keeps writing into the stage
@@ -2013,5 +2114,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, and destroy() mid-playback writing nothing further · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since `hidden` is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

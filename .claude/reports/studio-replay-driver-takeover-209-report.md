@@ -58,11 +58,14 @@ OVERLAP against `trackBuildPattern` in both orderings.
 
 **`build-checks` group 7** — `replay-driver.mjs` joins `MODULES`, no exception argued.
 
-**`studio-journey` replay pass** (new, operator-run, 3 engines) — 8 sections: the settled canvas vs
+**`studio-journey` replay pass** (new, operator-run, 3 engines) — 9 sections: the settled canvas vs
 the COMMITTED board file the page fetches itself; byte-identical settled stage across two loads;
 `agent.*`-only emission counted exactly; keyboard pause/step/seek each announced; the take-over on a
 fresh page mid-replay incl. the route and the restore; one-shot-ness; the two NON-take-overs; reduced
-motion; `destroy()` mid-playback.
+motion (incl. that the handover still shifts provenance and still fires the route there); **the two
+degradations** — a 404 artifact settling as an honest card with **no take-over route at all**, and a
+404 trace still playing the ops while the surface states the words are missing; `destroy()`
+mid-playback.
 
 **`vt-verify`** — zero transitions sampled DURING playback on a page of its own, with "blocks really
 are arriving" proven first.
@@ -73,11 +76,11 @@ are arriving" proven first.
 |---|---|
 | `node tooling/build-checks.mjs` | ✓ **all 16 groups pass** |
 | …with `portal/node_modules` moved aside | ✓ 16 groups (SDK-free invariant holds) |
-| **mutation sweep** — 5 against group 16, 2 against group 10 | ✓ every one goes RED, restored green |
+| **mutation sweep** — 5 against group 16, 2 against group 10, 2 against the driver | ✓ every one goes RED, each with the right message, restored green |
 | `node tooling/drift-check.mjs` | ✓ 12 passes incl. loc-summary · param-count · replay |
 | `gen-replay --check` / `gen-param-count --check` / `gen-loc-summary --check` | ✓ no drift |
 | `node tooling/validate-trace.mjs` | ✓ |
-| `node tooling/studio-journey.mjs all` | ✓ **186/186 on chromium, firefox and webkit** |
+| `node tooling/studio-journey.mjs all` | ✓ **195/195 on chromium, firefox and webkit** |
 | `node tooling/vt-verify.mjs all` | ✓ all three engines, incl. the new mid-playback sample |
 | `node tooling/build-journey.mjs all` | ✓ **157/157 × 3 engines** (see Issues — a first run flaked) |
 | pixel gate, in Docker | ✓ **20/20** against the regenerated baselines |
@@ -178,3 +181,34 @@ work; no export/keep rail (#210). `system/action-bus.mjs` and `system/board-ops.
   byte-identical on the second capture** — the replay's determinism holding at the pixel layer too.
 - **Local `npm run test` fails all 20 on macOS** against Linux baselines (recorded memory). The real
   verification is the Docker run, which is what the table above reports.
+
+## Post-review hardening
+
+A review pass found four checks that could not fail or claimed coverage they did not have. All four
+were in the family this report claims to have avoided, so they are recorded rather than quietly
+fixed:
+
+1. **The reduced-motion "Pause is hidden" assertion was vacuous.** It matched on `hasText: "Pause"`,
+   and `syncControls` relabels the button to "Resume" on every settle — so the locator matched
+   nothing and the check passed regardless. It now reads the **computed `display`** on the element
+   identified structurally. The product turned out to be correct: `pauseBtn.hidden = true` works here
+   only because `factory.html:79` already carries a page-scoped `[hidden]{display:none!important}`
+   (the `hidden-defeated-by-author-display` trap, live on /build until #138) — which is a property of
+   that page, so the check reads the computed value rather than trusting the attribute.
+   **Mutation-proven:** removing the `hidden` write turns it red.
+2. **Two plan-named edge cases had no check.** Added as section 7b. The load-bearing one is the
+   artifact-404 case's last clause — the take-over route must **never** fire on a canvas the replay
+   failed to build, which is the honesty claim in `onTouch`'s own comment and which nothing exercised.
+   **Mutation-proven:** deleting `if (state === "unavailable") return;` turns exactly that assertion
+   red, and only that one.
+3. **A comment claimed coverage over a no-op.** `await pr.addInitScript(() => {})` sat under "the
+   route still fires under reduced motion", on a page that had never been given the `pushState` hook.
+   The hook is now installed before the load and the claim is asserted.
+4. **Section 5's pause detector was milliseconds wide** — both index reads happened after the wait,
+   one round trip apart, so an unpaused replay would very likely pass. Now read → wait → re-read,
+   section 4's shape.
+
+Also recorded, because the report should not read as claiming more than it does: on a **settled**
+canvas — the common arrival path, and every reduced-motion path — the handover is **silent** by
+design (deviation 5), and the provenance shift is visual only; `.stu-replay-provenance` is a plain
+`<p>`, not a live region. The trade is deliberate and documented at the line.
