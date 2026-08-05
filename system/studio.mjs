@@ -298,6 +298,12 @@ function wireInspector(shell) {
 
   // JS is on → collapse to the at-rest panel. Without JS all four panels stay painted, which is why
   // none of them carries a `hidden` attribute in the markup.
+  //
+  // Runs unconditionally, so a cold load on a deep-linked hash activates twice — this one, then
+  // fromHash's. Harmless and left that way on purpose: both calls are synchronous, the `mounted`
+  // guard makes the second mount a no-op, and this panel's own mountPanel("this-build") matches no
+  // branch and returns immediately. Making it conditional would mean reading the hash before the
+  // at-rest collapse, i.e. two places deciding which panel is first.
   activate(0, false);
 
   tabs.forEach((tab, i) => {
@@ -343,7 +349,7 @@ export function mountStudio(root = document) {
   //
   // Not at module scope either: that would touch the DOM at import and destroy the Node-import
   // safety build-checks depends on.
-  initGlossary(root === document ? document : root);
+  initGlossary(root);
 
   const shell = root.querySelector("[data-studio]");
   try {
