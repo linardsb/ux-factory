@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Fourteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Fifteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -49,6 +49,9 @@
 //                     clampSlot and fitLevel driven over their real edges (#204)
 //  13 verbs          the canvas's manipulation layer, pure half: the history stack incl. #230's
 //                     adopt, stepSlot and hitSlot (#205)
+//  15 compile        the compile beat's pure pipeline: compileSteps over the REAL drafted board and
+//                     all five patterns' fixtures against the generated vocabulary, determinism by
+//                     deep-comparing two whole runs, totality over junk (#207)
 //  14 studio         the /factory orchestrator's pure layer: arrangeBoard over the REAL drafted
 //                     board and nine junk ones, buildSummary's counts asserted against
 //                     affordanceCount and patternFor rather than re-derived (#206)
@@ -745,6 +748,11 @@ function scanSvg(svg, label) {
   // running page carries no inline style is a different check with a different owner
   // (tooling/studio-journey.mjs's `inlineStyled`, asserted after a drag, an undo and a redo).
   //
+  // studio-compile.mjs (#207) joins on the same terms, and its crossfade is the shape this check is
+  // for: a fade is the one effect an implementer reaches for `.style.opacity` to write, and it uses
+  // element.animate() instead — which touches no inline style at all, so the regex below has
+  // nothing to count for it either. No exception is argued for it.
+  //
   // studio.mjs (#206) joins on the same terms, and it is the module with the most opportunity to
   // break them: it is the one that mounts Act 0's stage on a public route and builds a block per
   // board place from labels the reader can eventually author. It writes zero inline styles (layout
@@ -754,7 +762,7 @@ function scanSvg(svg, label) {
   const MODULES = [
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
-    "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs",
+    "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -848,7 +856,7 @@ function scanSvg(svg, label) {
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }
 
-  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, its verbs and its orchestrator, no exception argued) · no markup-from-string · pack-boot mirror intact`);
+  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, its verbs, its orchestrator and its compile beat, no exception argued) · no markup-from-string · pack-boot mirror intact`);
 }
 
 // --- 8 · the operator path's committed rules --------------------------------------------------------
@@ -2109,6 +2117,165 @@ function scanSvg(svg, label) {
   group("studio", `arrangeBoard lays the REAL drafted board along row 1 in board order, entry first, every slot on the grid by clampSlot's own definition · affordances travel whole (the block prints a count over the chips) · total over 9 junk boards, never a throw · the over-wide truncation is DELIBERATELY VACUOUS (MAX_PLACES ${MAX_PLACES} < MAX_COLS ${MAX_COLS}) and guarded by a tripwire that fails the day that stops being true · buildSummary counts places, affordances and connections from the board and asserts the affordance total against affordanceCount rather than re-counting · the pattern id, label and VERBATIM reason are patternFor's and PATTERNS' · an empty board names null · total over 7 shapes incl. null answers · the mount half is studio-journey's, and says so`);
 }
 
+// --- 15 · the compile beat's pure pipeline ----------------------------------------------------------
+//
+// #207 performs the committed pipeline stepwise on /factory's canvas. Everything about WHICH
+// components a board becomes is decided before any DOM exists, and that is the half driven here:
+// compileSteps over the real drafted board, over all five patterns' fixtures against the real
+// generated vocabulary, twice for determinism, and over the nine junk boards group 14 already uses.
+//
+// THE BOUNDARY THIS GROUP DOES NOT REACH, stated as groups 9, 11, 13 and 14 state theirs. The beat
+// itself is a running-page fact and none of it is visible from here: that the swap is POSITIONAL and
+// IN PLACE (so data-stx-id, data-col and data-row survive it and the undo history stays coherent),
+// that the settled DOM is byte-identical across a compile → revert → compile and across two page
+// loads, that the vocabulary is fetched on FIRST COMPILE and never at load, that the crossfade opens
+// no view transition, and that reduced motion reaches the same end state. Their owners are
+// tooling/studio-journey.mjs's compile pass and tooling/vt-verify.mjs's /factory block. An unstated
+// absence would read as CI covering AC #1 and AC #3 whole, when it covers one side of each.
+{
+  const { STEPS, compileSteps } = await import("../system/studio-compile.mjs");
+
+  // Group 13's hand-written recursive canonical stringify, for the reason it was written there:
+  // `JSON.stringify(v, keys)` puts an array in the REPLACER position, which filters property names
+  // at every level and makes every comparison here silently vacuous.
+  const deep = (v) => {
+    if (Array.isArray(v)) return `[${v.map(deep).join(",")}]`;
+    if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  };
+
+  // --- 15.1 the board the page actually compiles ------------------------------------------------
+  // The store is in-memory (build-questions.mjs:65-73), so at rest /factory is always this board.
+  // Asserted AGAINST THE BOARD, never against the literals 3 and "dashboard": a fixture that
+  // silently stopped being drafted would pass a literal and fail nothing.
+  const drafted = draftBoard(DEFAULT_ANSWERS);
+  const run = compileSteps(drafted, DEFAULT_ANSWERS);
+  ok(run.state === "rendered", `the drafted default board compiles to "${run.state}", not "rendered"`);
+  ok(run.patternId === patternFor({ answers: DEFAULT_ANSWERS, board: drafted }).id,
+    `compileSteps named ${run.patternId}; patternFor names ${patternFor({ answers: DEFAULT_ANSWERS, board: drafted }).id}`);
+  ok(run.reason === patternFor({ answers: DEFAULT_ANSWERS, board: drafted }).reason,
+    "compileSteps paraphrased patternFor's reason instead of carrying it verbatim");
+  ok(run.slots.length === slotsFor(run.patternId, drafted).length,
+    "compileSteps counted a different number of slots than slotsFor does");
+  ok(run.composition.length === run.slots.length,
+    `${run.composition.length} components composed for ${run.slots.length} slots — the DOM swap aligns them positionally`);
+  ok(run.counted.places === drafted.places.length && run.counted.affordances === affordanceCount(drafted)
+    && run.counted.connections === drafted.connections.length,
+    `the counted numbers are not the board's: ${deep(run.counted)}`);
+  // A TRIPWIRE on the measured shape, and it records what it is: dashboard derives ONE SLOT PER
+  // PLACE, so the canvas's wrapper count and the composition length coincide — which is why the
+  // shipped page only ever exercises the swap's 1:1 branch. queue, feed and settings derive from
+  // AFFORDANCES instead and can differ from the place count in either direction; 15.2 is where that
+  // is retired for all five rather than left to run-time discovery.
+  ok(run.slots.length === drafted.places.length,
+    `dashboard is 1:1 with places, so ${run.slots.length} slots for ${drafted.places.length} places means the derivation moved`);
+  // Every step carries a detail sentence, and none of them is empty — the readout renders them.
+  ok(deep(run.steps.map((s) => s.id)) === deep(STEPS.map((s) => s.id)), "the run's steps are not STEPS, in order");
+  ok(run.steps.every((s) => typeof s.detail === "string" && s.detail.length > 0),
+    `a step carries no detail sentence: ${deep(run.steps)}`);
+  // Nothing time-, counter- or run-dependent reaches a string the page settles on (call 4 in the
+  // module header, checked rather than trusted).
+  ok(!/\d{4}-\d{2}-\d{2}|\bT\d{2}:|\d{10,}/.test(deep(run.steps)),
+    `a step string carries something that looks like a timestamp or a run id: ${deep(run.steps)}`);
+
+  // --- 15.2 all five patterns, against the REAL generated vocabulary ----------------------------
+  // Group 3's shape, reused over compileSteps rather than over compose directly — the point is that
+  // the beat's own output is what validates, not a pipeline reassembled for the check.
+  // MEASURED PER FIXTURE, not claimed per derivation. dashboard and onboarding derive one slot per
+  // PLACE by rule; queue, feed and settings derive from AFFORDANCES and can differ from the place
+  // count in either direction — queue happens to coincide on its fixture, which is exactly why this
+  // is recorded as what the fixtures measured rather than as a statement about the rules.
+  const matchesPlaces = [];
+  const differs = [];
+  for (const p of Object.values(PATTERNS)) {
+    const board = BOARD_FOR[p.id];
+    ok(board, `${p.id} has no fixture in BOARD_FOR — a pattern was added and this gate was not told which board names it`);
+    if (!board) continue;
+    // settings is only ever named by rule 2, so the fixture has to actually fire it or every
+    // assertion about that pattern here is about a pattern no visitor can reach.
+    const answers = board === HUB_BOARD ? answersWith({ shape: "overview" }) : answersWith({ shape: { dashboard: "overview", queue: "worklist", feed: "stream", onboarding: "steps" }[p.id] });
+    const r = compileSteps(board, answers);
+    ok(r.patternId === p.id, `the ${p.id} fixture compiles as ${r.patternId}`);
+    if (!p.inLibrary) {
+      // DELIBERATELY VACUOUS TODAY, and it says so rather than being left to read as live coverage —
+      // group 1 keeps its `inLibrary: false ⇒ needs` clause on the same terms. All five patterns are
+      // in the library as of #139, so nothing reaches this branch; it is the contract a SIXTH
+      // pattern gets, already written and already checked, so the day one arrives without components
+      // the beat refuses honestly here instead of shipping a mock-up (AC #6).
+      ok(r.state === "out-of-library", `${p.id} is not in the library but compiles to "${r.state}"`);
+      ok(typeof p.needs === "string" && p.needs.length > 0,
+        `${p.id} claims inLibrary: false and writes no "needs" sentence — the refusal card has nothing honest to say`);
+      continue;
+    }
+    ok(r.state === "rendered", `${p.id} compiles to "${r.state}", not "rendered"`);
+    if (r.state !== "rendered") continue;
+    // THE CARDINALITY QUESTION, RETIRED FOR ALL FIVE rather than for the one the page reaches: the
+    // DOM swap aligns composed nodes to canvas wrappers positionally, so a pattern whose composition
+    // and slots disagreed would misalign silently.
+    ok(r.composition.length === r.slots.length,
+      `${p.id} composed ${r.composition.length} components for ${r.slots.length} slots`);
+    (r.slots.length === board.places.length ? matchesPlaces : differs).push(p.id);
+    try {
+      validateComposition(VOCAB, r.composition);
+    } catch (err) {
+      ok(false, `${p.id} failed the real vocabulary: ${err.message}`);
+    }
+    for (const node of r.composition) {
+      ok(Object.hasOwn(VOCAB.components, node.name), `${node.name} is not in the generated vocabulary`);
+      ok(hasTemplate(node.name), `${node.name} is in the vocabulary but agentic-renderer.mjs has no template for it — renderer and vocabulary have drifted`);
+    }
+  }
+  ok(matchesPlaces.length > 0 && differs.length > 0,
+    `the fixtures no longer cover both cardinalities (slots === places: ${matchesPlaces.join(", ") || "none"}; slots !== places: ${differs.join(", ") || "none"}) — the swap's alignment is only interesting while both are covered`);
+
+  // --- 15.3 determinism, by comparison rather than by inspection --------------------------------
+  // AC #3's pure half. Two runs of the same board must be indistinguishable WHOLE — steps included,
+  // because the steps are what the readout and the live region say and a settled readout is part of
+  // the settled DOM.
+  ok(deep(compileSteps(drafted, DEFAULT_ANSWERS)) === deep(compileSteps(drafted, DEFAULT_ANSWERS)),
+    "two runs of compileSteps over the same board differ — the settled canvas is a baseline");
+  for (const p of Object.values(PATTERNS)) {
+    const board = BOARD_FOR[p.id];
+    if (!board) continue;
+    ok(deep(compileSteps(board, DEFAULT_ANSWERS)) === deep(compileSteps(board, DEFAULT_ANSWERS)),
+      `two runs over the ${p.id} fixture differ`);
+  }
+
+  // --- 15.4 totality ----------------------------------------------------------------------------
+  // The nine junk boards group 14 drives arrangeBoard over. Junk in → "empty", never a throw: the
+  // beat is reader-triggered on a public page and a bad store must refuse, not crash the canvas.
+  for (const [given, why] of [
+    [null, "null"],
+    [undefined, "undefined"],
+    [{}, "an object with no places"],
+    [{ places: null, connections: null }, "places that are not an array"],
+    [{ places: "nope" }, "places that are a string"],
+    [{ places: [null, 7, "x"] }, "places that are junk entries"],
+    [{ places: [{}] }, "a place with no id, label or affordances"],
+    [{ places: [{ id: "p1", label: "A", affordances: "nope" }] }, "affordances that are not an array"],
+    [{ places: [{ id: "p1", label: "A", affordances: [null, 3] }] }, "affordances that are junk entries"],
+  ]) {
+    let got;
+    let threw = null;
+    try { got = compileSteps(given, DEFAULT_ANSWERS); } catch (e) { threw = e; }
+    ok(!threw, `compileSteps threw on ${why}: ${threw && threw.message}`);
+    ok(got && got.state === "empty", `compileSteps returned "${got && got.state}" for ${why}, expected "empty"`);
+    ok(got && got.composition === null, `compileSteps composed something for ${why}`);
+    ok(got && got.steps.length === STEPS.length && got.steps.every((s) => s.detail),
+      `compileSteps dropped its step sentences for ${why} — the readout renders them on every path`);
+  }
+  // ...and on junk ANSWERS, which is the other input the page can genuinely hand it.
+  for (const answers of [null, undefined, { shape: 7 }, "nope"]) {
+    let threw = null;
+    try { compileSteps(drafted, answers); } catch (e) { threw = e; }
+    ok(!threw, `compileSteps threw on answers ${JSON.stringify(answers)}: ${threw && threw.message}`);
+  }
+  ok(compileSteps(drafted, null).state === "rendered",
+    "a board with no answers should still compile — patternFor falls back to dashboard and says so");
+
+  group("compile", `the committed pipeline as data: the REAL drafted board compiles to ${run.patternId} with ${run.composition.length} components for ${run.slots.length} slots, every number counted from the board and the pattern read from patternFor rather than re-derived · all 5 patterns validate against handoff/verdant/vocabulary.json and every one has composition.length === slots.length, so the DOM swap's positional alignment is a gated fact for all of them (measured on the fixtures: slots === places for ${matchesPlaces.join(", ")}, slots !== places for ${differs.join(", ")}) · the out-of-library refusal is DELIBERATELY VACUOUS and guarded · determinism proven by deep-comparing two whole runs, steps included · total over 9 junk boards and 4 junk answer sets, never a throw · the beat itself — the positional in-place swap, the byte-identical re-run, the lazy vocabulary fetch, the zero view transitions and the reduced-motion end state — is studio-journey's and vt-verify's, and says so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -2116,5 +2283,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 14 groups pass");
+  console.log("\nbuild ✓  all 15 groups pass");
 }

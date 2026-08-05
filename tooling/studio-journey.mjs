@@ -1197,6 +1197,143 @@ async function factoryPass(browser, t, errors) {
     await p.evaluate(() => document.getElementById("build-stage")?.classList.contains("stu-canvas-col")));
 
   await ctx.close();
+
+  await compilePass(browser, t, errors);
+}
+
+// ---------------------------------------------------------------------------------------------
+// #207 · THE COMPILE BEAT. Its own context and its own cold load, because every assertion in it is
+// about a page that has done NOTHING yet: the lazy vocabulary fetch is a claim about a request that
+// was not made, and the byte-identical re-run is a claim about a DOM nothing has touched. Running it
+// after the section above — which deep-links, clicks three panels and moves a block — would make
+// both vacuous or worse.
+//
+// PHRASED AS RESULTING DOM THROUGHOUT, never as "an event fired". A beat that emitted perfectly and
+// swapped nothing would pass an event-shaped assertion, and it is the swap that is the feature.
+async function compilePass(browser, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const requests = [];
+  const open = async (context) => {
+    const page = await context.newPage();
+    page.on("pageerror", (e) => errors.push(`compile pageerror: ${e.message}`));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(`compile console: ${m.text()}`); });
+    page.on("request", (r) => requests.push(r.url()));
+    await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+    await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
+    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 20000 });
+    return page;
+  };
+  // The stage as data. `kinds` is what each slot HOLDS — the fat-marker block or a library primitive
+  // — and it is read as a class name rather than as a count, so "the blocks became components" and
+  // "the components stayed put" are two readings of one snapshot.
+  const stageState = (page) => page.evaluate(() => {
+    const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+    return {
+      html: stage.outerHTML,
+      slots: [...stage.querySelectorAll(".stx-slot")].map((n) => ({
+        id: n.getAttribute("data-stx-id"),
+        col: n.getAttribute("data-col"),
+        row: n.getAttribute("data-row"),
+        kind: [...n.children].filter((c) => !c.classList.contains("stx-grab"))
+          .map((c) => c.className.split(" ")[0]).join("+"),
+      })),
+      state: document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state"),
+      styled: [...stage.querySelectorAll(".stx-slot, .stx-slot > *")].filter((n) => n.hasAttribute("style")).length,
+    };
+  });
+  const settled = (page, want) => page.waitForFunction(
+    (w) => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === w,
+    want, { timeout: 20000 });
+  const compileBtn = (page) => page.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true });
+  const revertBtn = (page) => page.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true });
+
+  const p = await open(ctx);
+
+  // --- at rest ---------------------------------------------------------------------------------
+  const rest = await stageState(p);
+  t("#207 · at rest every slot holds a fat-marker block and no library primitive",
+    rest.slots.length > 0 && rest.slots.every((s) => s.kind === "stu-place"),
+    JSON.stringify(rest.slots.map((s) => s.kind)));
+  // The lazy-fetch property, and the reason the pixel gate is safe on this page: at rest the beat has
+  // cost the reader nothing. Asserted against the request log, which is the only thing that can see
+  // a fetch that did not happen.
+  t("#207 · …and the component vocabulary has NOT been fetched",
+    !requests.some((u) => u.includes("vocabulary.json")),
+    requests.filter((u) => u.includes("vocabulary")).join(" "));
+  t("#207 · the beat's readiness handle resolved", await p.locator('[data-studio-compile="ready"]').count() === 1);
+  t("#207 · and 'Back to blocks' is disabled until something has compiled", await revertBtn(p).isDisabled());
+
+  // --- the beat --------------------------------------------------------------------------------
+  // Announcements counted per step, in order. Counted EXACTLY: "at least one" passes for a beat that
+  // announces only its end, which is the shape of the regression worth catching.
+  await countLive(p);
+  await compileBtn(p).click();
+  await settled(p, "rendered");
+  const said = await liveSeen(p);
+  const done = await stageState(p);
+  t("#207 · the beat compiles every slot into a library primitive",
+    done.slots.length === rest.slots.length && done.slots.every((s) => /^ds-/.test(s.kind)),
+    JSON.stringify(done.slots.map((s) => s.kind)));
+  // AC #1: the reader's arrangement survives the swap. This is the assertion that catches a
+  // repopulate-instead-of-swap — a rebuilt stage would keep the same COUNT and hand out new ids.
+  t("#207 · …in the same slots: every data-stx-id, data-col and data-row is unchanged",
+    JSON.stringify(done.slots.map((s) => [s.id, s.col, s.row]))
+      === JSON.stringify(rest.slots.map((s) => [s.id, s.col, s.row])),
+    JSON.stringify(done.slots.map((s) => [s.id, s.col, s.row])));
+  t("#207 · four steps announced, one per step, plus the settled sentence = 5",
+    said.n === 5, `${said.n} announcement(s); last: ${said.last}`);
+  t("#207 · …and the vocabulary was fetched exactly once, on the compile",
+    requests.filter((u) => u.includes("vocabulary.json")).length === 1,
+    requests.filter((u) => u.includes("vocabulary.json")).join(" "));
+  // Group 7's claim on the RUNNING page, taken after the beat — the crossfade is the one effect an
+  // implementer reaches for an inline opacity to write.
+  t("#207 · no `style` attribute on any slot or composed node after the beat", done.styled === 0, `${done.styled}`);
+  // AC #4's first net. The second is tooling/vt-verify.mjs's wrapped startViewTransition counter,
+  // which catches a transition that OPENED and was skipped — this one cannot see that.
+  const pseudos = await p.evaluate(() => document.getAnimations()
+    .map((a) => a.effect && a.effect.pseudoElement).filter((x) => x && x.startsWith("::view-transition")));
+  t("#207 · zero ::view-transition-* pseudos ran during the beat", pseudos.length === 0, pseudos.join(" "));
+
+  // --- AC #3, byte-identical -------------------------------------------------------------------
+  await revertBtn(p).click();
+  await settled(p, "blocks");
+  const back = await stageState(p);
+  t("#207 · 'Back to blocks' restores the fat-marker blocks in the same slots",
+    back.html === rest.html, "the reverted stage is not byte-identical to the at-rest one");
+  await compileBtn(p).click();
+  await settled(p, "rendered");
+  const again = await stageState(p);
+  t("#207 · AC #3 · compiling a second time produces a byte-identical stage",
+    again.html === done.html, "the second compile differs from the first");
+
+  // ...and across LOADS, which is the half a same-page comparison cannot make: place()'s id counter
+  // and any per-run string would agree with themselves and differ from a fresh page.
+  const p2 = await open(ctx);
+  await compileBtn(p2).click();
+  await settled(p2, "rendered");
+  const fresh = await stageState(p2);
+  t("#207 · AC #3 · …and byte-identical across a fresh page load",
+    fresh.html === done.html, "a fresh load compiled to a different stage");
+  await ctx.close();
+
+  // --- AC #5 · reduced motion ------------------------------------------------------------------
+  // Quiet is not enough: a beat that never ran is trivially quiet, which is the defect class
+  // vt-verify's canvas block names. The end state has to be REACHED, and it has to be the same one.
+  const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const rp = await open(rctx);
+  await compileBtn(rp).click();
+  await settled(rp, "rendered");
+  const rdone = await stageState(rp);
+  t("#207 · AC #5 · reduced motion still completes the beat — real components on the stage",
+    rdone.slots.length > 0 && rdone.slots.every((s) => /^ds-/.test(s.kind)),
+    JSON.stringify(rdone.slots.map((s) => s.kind)));
+  t("#207 · AC #5 · …and reaches the IDENTICAL end state",
+    rdone.html === done.html, "the reduced-motion stage differs from the no-preference one");
+  const ranims = await rp.evaluate(() => [...document.querySelectorAll(".stx-slot > *")]
+    .reduce((n, el) => n + el.getAnimations().length, 0));
+  t("#207 · AC #5 · …with no crossfade running", ranims === 0, `${ranims} animation(s)`);
+  await rctx.close();
 }
 
 let totalFails = 0;
@@ -1218,5 +1355,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

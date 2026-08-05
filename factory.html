@@ -196,8 +196,11 @@
         <p class="beat-lead max-prose">
           Each block is one place a person can be, with what they can do from there listed inside it.
           The arrangement is yours: drag a block by its handle, or press Enter on it and use the
-          arrow keys. Every move is announced and every move undoes. This is the shape stage, so the
-          blocks are still sketches rather than finished components.
+          arrow keys. Every move is announced and every move undoes. The blocks are sketches until
+          you compile them: press <em>Compile the board</em> and the same rules that name a pattern
+          on the builder run here, one step at a time, until each block is the real component its
+          slot calls for — in the slot you left it in. <em>Back to blocks</em> plays it again. What
+          compiles is one screen's components, not a flow between screens.
         </p>
 
         <div class="stu-shell" data-studio>
@@ -215,7 +218,7 @@
                  without the JS path paying for a node it immediately has to hide. -->
             <div data-studio-canvas id="canvas"></div>
             <noscript>
-              <p class="muted">The canvas needs scripting to draw and to move. The same build runs
+              <p class="muted">The canvas needs scripting to draw, to move and to compile. The same build runs
                 as a form at <a href="/build">the pattern builder</a>, and the panels beside this one
                 are all readable as they are.</p>
             </noscript>

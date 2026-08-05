@@ -37,6 +37,7 @@
 
 import { initStudioCanvas, MAX_COLS, clampSlot } from "./studio-canvas.mjs";
 import { mountCanvasVerbs } from "./studio-verbs.mjs";
+import { mountCompile } from "./studio-compile.mjs";
 import { createBus } from "./action-bus.mjs";
 import { draftBoard, isBoard } from "./breadboard.mjs";
 import { DEFAULT_ANSWERS, readBuild } from "./build-questions.mjs";
@@ -216,9 +217,12 @@ function syncInspect() {
   if (document.documentElement.dataset.inspectMode === "on") refreshInspect();
 }
 
-// One fat-marker block per place. PRE-COMPILE, and the copy on the page says so: at #206 these are
-// the drafted breadboard's places, not real components. Blocks becoming components is #207 and this
-// file must not write that sentence early.
+// One fat-marker block per place: the drafted breadboard's places, not real components. This is the
+// SHAPE FIDELITY, and since #207 it is a stage rather than the end of the story — the compile beat
+// (system/studio-compile.mjs) swaps each of these blocks for the real component the committed
+// pipeline names for its slot, in the same wrapper, and "Back to blocks" puts them back. This
+// function keeps owning the block itself: what a place looks like before it compiles is this file's
+// sentence, and the beat only ever replaces the node it returns.
 //
 // No affordance is invented and none is silently hidden: the count is the whole place's, and the
 // chips clip in CSS (studio.css's .stu-place-affs) rather than being sliced here — a slice would
@@ -378,6 +382,14 @@ export function mountStudio(root = document) {
     const bus = createBus();
     const verbs = mountCanvasVerbs(canvas, { bus });
 
+    // AFTER the verbs, so createHistory's initial snapshot is still the FAT-MARKER arrangement — the
+    // compile beat swaps a wrapper's contents and never its slot, so the history it inherits stays
+    // true across the beat and an undo after a compile restores the arrangement, not the fidelity.
+    // The beat shares this page's ONE bus rather than making a second: the primitives it renders are
+    // non-interactive today, but a component that does emit ui.intent should reach the same
+    // consumers everything else on this canvas reaches.
+    const compile = mountCompile(canvas, { board, answers, bus, onState: () => syncInspect() });
+
     const summary = buildSummary(board, answers);
     renderSummary(document.getElementById("this-build-summary"), summary, arranged);
 
@@ -387,7 +399,7 @@ export function mountStudio(root = document) {
     // built after inspect.mjs restored, so they need one refresh to be wired.
     syncInspect();
 
-    live = { shell, canvas, bus, verbs, inspector, board, summary, arranged };
+    live = { shell, canvas, bus, verbs, compile, inspector, board, summary, arranged };
     return live;
   } finally {
     // Every path, including both early returns and any throw below the glossary call.

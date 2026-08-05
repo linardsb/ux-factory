@@ -184,7 +184,14 @@
      reaches every element on the page, so this line is redundant THERE — it is here because
      studio.css is also loaded by studio.html, which carries no portfolio.css, and a rule that is
      only correct on one of its two hosts is a rule that breaks the day a third arrives. */
-  .stu-tab { transition: none !important; animation: none !important; }
+  /* #207's beat joins on the same terms. Its crossfade is an element.animate() and is switched off
+     in JS (studio-compile.mjs's fade), because a Web Animations animation ignores `animation: none`
+     — these names are here so a later CSS transition on the compile row or a card cannot slip past
+     the off-ramp, which is the same reason .stu-tab is in this list. */
+  .stu-tab,
+  .stu-compile,
+  .stu-compile-step,
+  .stu-compile-card { transition: none !important; animation: none !important; }
   .stx-scroll { scroll-behavior: auto; }
 }
 
@@ -291,12 +298,13 @@
 .stu-note:last-child { margin-bottom: 0; }
 .stu-error-card { border-color: var(--color-fg); padding: var(--spacing-md); }
 
-/* ---------- the place block: fat marker, pre-compile ---------- */
-/* Deliberately drawn as a SKETCH — a dashed edge and a muted fill — because at #206 these are the
-   drafted breadboard's places and not real components. #207 is the compile beat that replaces the
-   contents on the same slots, and a block that already looked like a finished component would be
-   this file making that ticket's claim early. The slot is 220x140 and .stx-slot already clips, so
-   the chip list overflows out of sight rather than resizing anything. */
+/* ---------- the place block: fat marker, the SHAPE fidelity ---------- */
+/* Deliberately drawn as a SKETCH — a dashed edge and a muted fill — because these are the drafted
+   breadboard's places and not real components. #207's compile beat replaces the contents on the same
+   slots with the real thing, and the two fidelities have to be told apart at a glance for that swap
+   to read as anything: a block that already looked like a finished component would make the beat
+   invisible. The slot is 220x140 and .stx-slot already clips, so the chip list overflows out of
+   sight rather than resizing anything. */
 .stu-place {
   display: flex;
   flex-direction: column;
@@ -325,6 +333,80 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- the compile beat (#207) ---------- */
+/* The control row, its step readout and the three non-rendered cards. system/studio-compile.mjs
+   writes classes and [data-compile-state] / [data-compile-step] and nothing else, so everything the
+   beat looks like is here — the module's inline-style write count stays zero and build-checks group
+   7 includes it with no exception argued.
+
+   NOTHING HERE IS NAMED FOR A VIEW TRANSITION, and that is a decision rather than an omission: the
+   beat is a crossfade through element.animate(). See system/studio-compile.mjs's call 2.
+
+   THE COMPILED COMPONENTS ARE NOT STYLED HERE. They are .ds-* library primitives carrying
+   components.css's token-only rules, which is the entire claim the beat makes — restyling them from
+   this sheet would mean the thing on the canvas is not the thing in the library. The one rule they
+   need, `.stx-slot > :not(.stx-grab)`, already exists above and was written for exactly this. */
+.stu-compile { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm, 12px); }
+.stu-compile-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* The visible mirror of the live region, never a second one (studio-compile.mjs says why).
+   Two decisions, both measured rather than eyeballed:
+
+   ITS OWN LINE, AND THE CAP IS IN ch. .stx-viewport is WIDER THAN THE COLUMN IT SITS IN — the
+   scroller's intrinsic width makes the grid item ~2818px inside a 776px track at 1280, which is
+   invisible today only because every other row's content is short and left-aligned. Two consequences
+   that decided this rule: a wrapping row CANNOT wrap (the container has room for anything), and a
+   readout sitting beside the buttons runs under the docked inspector at exactly the width the pixel
+   gate captures. So it starts at the column's own left edge and is capped in ch, which is
+   independent of the container. (The overflow itself is #206's and is left alone here: narrowing
+   the column is an at-rest change to the canvas with its own baselines and its own gates to argue.)
+
+   AND IT RESERVES TWO LINES. Every sentence the beat writes fits in two at this measure, so the row
+   height is the same for all four steps and the stage below never jumps mid-beat — .stx-live's
+   min-height precedent, taken to the height this readout actually needs. */
+.stu-compile-step {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 46ch;
+  min-height: 2.8em;
+  margin: 0;
+  font-size: var(--type-caption, 0.85rem);
+  color: var(--color-fg-muted);
+}
+/* Empty at rest, and DISPLAY:NONE while empty rather than merely unpadded: .stx-viewport is a flex
+   column with a gap, so an empty box still costs one gap in every at-rest capture. */
+.stu-compile-report:empty { display: none; }
+.stu-compile-card {
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stu-compile-eyebrow { margin: 0 0 4px; font-size: var(--type-caption); color: var(--color-fg-muted); }
+/* The rule verbatim, quoted the way .stu-reason quotes it — same material, same register. */
+.stu-compile-reason {
+  margin: 0 0 var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  border-left: 2px solid var(--color-border);
+  font-size: var(--type-caption);
+}
+.stu-compile-needs { margin: 0 0 var(--spacing-sm); font-size: var(--type-caption); }
+.stu-compile-note { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
+/* The refusal's own words, verbatim and scrollable rather than wrapped into prose — a message that
+   names a path is only useful if the path survives being shown. */
+.stu-compile-refusal {
+  margin: var(--spacing-sm) 0 0;
+  padding: var(--spacing-sm);
+  overflow-x: auto;
+  font-size: var(--type-caption);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+/* The one state hook the surface needs: while the beat is running the canvas is mid-sentence, so the
+   step readout carries the page's own colour instead of the muted one. An attribute selector, so the
+   module writes an attribute and this sheet decides what it means (the data-zoom discipline). */
+.stx-viewport[data-compile-state="compiling"] .stu-compile-step { color: var(--color-fg); }
 
 /* ---------- absorbed exhibits (#206) ---------- */
 /* MOVED VERBATIM out of factory.html's <style> block, not rewritten. Both blocks are the ONLY

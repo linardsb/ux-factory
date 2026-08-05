@@ -77,15 +77,20 @@ export function streamNote(shown, counted) {
 // The honesty line under a rendered pattern. Stated on the stage, at rest, outside any disclosure.
 const COUNTED = "Every number on this stage is counted from your breadboard. No data is invented, and no model was called.";
 
-const OUT_OF_LIBRARY = "The rules named your pattern. The library doesn't have its components yet, so nothing is rendered here. A mock-up would be the one dishonest thing on this page. Your breadboard is the artifact, and it downloads below.";
+// SHARED WITH THE STUDIO (#207), which is why the sentence about where to find the artifact is NOT
+// in it: system/studio-compile.mjs runs this same refusal on /factory's canvas, where nothing
+// downloads below anything. The claim both surfaces make is identical and lives here once; where
+// the board actually is, is the surface's own sentence, added at each call site.
+export const OUT_OF_LIBRARY = "The rules named your pattern. The library doesn't have its components yet, so nothing is rendered here. A mock-up would be the one dishonest thing on this page. Your breadboard is the artifact.";
+const OUT_OF_LIBRARY_HERE = "It downloads below.";
 
-const REFUSED = "The renderer refused this composition. That refusal is the guardrail working. It accepts only components from the generated vocabulary, and it names exactly what failed:";
+export const REFUSED = "The renderer refused this composition. That refusal is the guardrail working. It accepts only components from the generated vocabulary, and it names exactly what failed:";
 
 // The three primitives agentic-renderer.mjs can emit here, paired with their inspect ids (#171).
 // Selectors match a toned primitive too — the renderer appends " is-<tone>" to the same class.
 // The ids are system-graph consumer ids and are LONG on purpose; they are copied verbatim from
 // system/inspect-data.json, never shortened to the component's name.
-const INSPECT_IDS = [
+export const INSPECT_IDS = [
   [".ds-metric-tile", "ds-metric-tile-cross-scenario-library-primitive"],
   [".ds-list-row", "ds-list-row-cross-scenario-library-primitive"],
   [".ds-sequence-step", "ds-sequence-step-cross-scenario-library-primitive"],
@@ -162,7 +167,7 @@ function mount(root) {
       el("p", { class: "bx-pat-definition", text: pattern.definition }),
       el("p", { class: "bx-pat-reason", text: reason }),
       el("p", { class: "bx-pat-needs", text: `What it would take: ${pattern.needs}.` }),
-      el("p", { class: "bx-pat-note", text: OUT_OF_LIBRARY }),
+      el("p", { class: "bx-pat-note", text: `${OUT_OF_LIBRARY} ${OUT_OF_LIBRARY_HERE}` }),
     );
     const svg = svgNode(boardSvg(board, { tokens }));
     if (svg) body.append(el("div", { class: "bx-pat-boardwrap" }, svg));
