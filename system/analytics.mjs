@@ -284,8 +284,10 @@ let tookOverFired = false;
 // flipTo, NOT the simple trackToolInspect shape, and that is a deliberate difference from the two
 // /tool events above. /factory carries the appearance dock (which writes location.hash) and #206's
 // hash-routed inspector panels, so BOTH of flipTo's protections are reachable here: the live-hash
-// restore and the overlapping-flip rule. #210 is about to put two more routes on this same page,
-// which is exactly the overlap case those rules exist for.
+// restore and the overlapping-flip rule. #210 put the two more routes below on this same page,
+// which is exactly the overlap case those rules exist for — and the two of them are the studio keep
+// rail's OWN BUTTONS, 30 ms apart when a reader exports and then copies, so the overlap stopped
+// being theoretical the moment they shipped.
 //
 // The static literal is the entire payload — no slug, no seq, no board. Own fire-once guard, for
 // the reason every event above has one (:64-67: a shared flag lets whichever fires first suppress
@@ -296,6 +298,46 @@ export function trackFactoryTookOver() {
   if (tookOverFired) return;
   tookOverFired = true;
   flipTo(FACTORY_TOOK_OVER_PATH);
+}
+
+// The studio keep rail's two events (#210) — the leave-with-the-artifact half of the epic's MVP,
+// and the only instrumentation the "keep/share above the /build baseline" success metric has on
+// this route. Both are flipTo for the reason stated above, and both are on THE SAME PAGE as the
+// take-over, which is what makes the overlapping-flip rule load-bearing here rather than defensive.
+//
+// THE NAMES ARE NOT THE OBVIOUS ONES, DELIBERATELY. /factory/shared (:76) and /factory/built (:61)
+// already exist and both fire from HOME'S SPINE, not from this page — reusing either would make two
+// different events indistinguishable in CF Web Analytics, where the path is the entire payload, and
+// the metric this ticket exists to produce would be unattributable from day one. build-checks group
+// 10 asserts that every path this module can push is pairwise DISTINCT, which is the check that
+// would have caught it; that a path is merely static never could.
+const FACTORY_LINK_PATH = "/factory/link-copied";
+let linkCopiedFired = false;
+
+// Fired once when the visitor HAS the studio's share link — clipboard granted OR the
+// select-the-field fallback, since both leave them holding it (trackBuildShared's rule, inherited).
+// Same caller contract as every flipTo tracker: build the URL and put it in the address bar BEFORE
+// calling this, or the RESTORE_DELAY_MS window rewrites location out from under the code still
+// assembling it. system/studio-keep.mjs is the only caller.
+export function trackFactoryLinkCopied() {
+  if (linkCopiedFired) return;
+  linkCopiedFired = true;
+  flipTo(FACTORY_LINK_PATH);
+}
+
+const FACTORY_EXPORTED_PATH = "/factory/exported";
+let exportedFired = false;
+
+// Fired once when a runnable single-file export has actually been handed to the browser — from
+// system/studio-keep.mjs's SUCCESS PATH, after the blob click, and from nothing else. Never from a
+// settled-state flag and never from the button's own handler entry: an export that could not be
+// assembled (no composition, no vocabulary) reaches the honest card instead, and counting that as a
+// keep would make the metric a lie in the one direction it must not be wrong (#75's lesson, the
+// same one trackFactoryTookOver's comment records).
+export function trackFactoryExported() {
+  if (exportedFired) return;
+  exportedFired = true;
+  flipTo(FACTORY_EXPORTED_PATH);
 }
 
 const TOOL_PALETTE_PATH = "/tool/palette";

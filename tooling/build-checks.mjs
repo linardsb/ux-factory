@@ -1524,11 +1524,103 @@ function scanSvg(svg, label) {
       `${label}: the page settled on ${globalThis.location.pathname} instead of the real URL — a reload from here is a 404`);
   }
 
-  // 11 · every other group runs without these; leaving them defined would change what "Node" means.
+  // 11 · H · the studio keep rail's two routes (#210), on a /factory URL carrying a real ?b= build —
+  //      which /factory now restores from (system/studio.mjs's ?b= branch), so the payload trap is
+  //      live on this page for the first time and is not borrowed from /build. Same four claims as
+  //      every path above, plus the hash, because this page's dock and inspector both write one.
+  const FACTORY_B_REAL = `/factory.html?b=${PAYLOAD}#shape`;
+  stub({ pathname: "/factory.html", search: `?b=${PAYLOAD}`, hash: "#shape" });
+  const anaH = await import(`${ANA}?g10h`);
+  ok(typeof anaH.trackFactoryExported === "function" && typeof anaH.trackFactoryLinkCopied === "function",
+    "analytics.mjs does not export both studio-rail trackers — system/studio-keep.mjs imports them by name");
+  if (typeof anaH.trackFactoryExported === "function" && typeof anaH.trackFactoryLinkCopied === "function") {
+    anaH.trackFactoryExported(); // twice each: a shared flag would let whichever fired first
+    anaH.trackFactoryExported();  // suppress the other, which is why every event owns its guard
+    await pastWindow();
+    anaH.trackFactoryLinkCopied();
+    anaH.trackFactoryLinkCopied();
+    await pastWindow();
+    ok(pushes.length === 2, `${pushes.length} virtual routes pushed for one export and one copy, expected exactly 2 — a fire-once guard is missing or shared between the two events`);
+    ok(pushes[0] === "/factory/exported", `the export event pushed "${pushes[0]}", not the literal /factory/exported`);
+    ok(pushes[1] === "/factory/link-copied", `the copy event pushed "${pushes[1]}", not the literal /factory/link-copied`);
+    for (const p of pushes) {
+      ok(/^\/factory\/[a-z-]+$/.test(p), `"${p}" is not a bare static path — a virtual route is the entire payload, so it carries no board, arrangement or pattern name`);
+      ok(!p.includes(PAYLOAD) && !p.includes("?") && !p.includes("#"),
+        `"${p}" carries the visitor's ?b= build (or a query or hash) into the analytics path — the studio's promise is that the board never leaves the browser`);
+    }
+    ok(restores.length === 2 && restores.every((u) => u === FACTORY_B_REAL),
+      `the real URL was not restored verbatim: ${JSON.stringify(restores)} — the reader loses the ?b= board the rail just handed them, and the panel they deep-linked to`);
+  }
+
+  // 12 · I · the rail's own two buttons OVERLAPPING, in both orderings. Case G made this argument for
+  //      the take-over against /build's pattern event; this is the one that is genuinely ordinary,
+  //      because both flips here come from BUTTONS SITTING NEXT TO EACH OTHER on the same rail. A
+  //      reader exporting and then copying 30 ms later is not a contrived interleaving.
+  for (const [first, second, label] of [
+    ["exported", "link-copied", "export then copy"],
+    ["link-copied", "exported", "copy then export"],
+  ]) {
+    stub({ pathname: "/factory.html", search: `?b=${PAYLOAD}`, hash: "" });
+    const g = await import(`${ANA}?g10i-${first}`);
+    const call = (which) => (which === "exported" ? g.trackFactoryExported() : g.trackFactoryLinkCopied());
+    call(first);
+    ok(globalThis.location.pathname === `/factory/${first}`,
+      `${label}: the stub did not follow the first push, so the overlap this case is about does not exist in it`);
+    call(second); // inside the first window, by construction
+    ok(globalThis.location.pathname === `/factory/${second}`,
+      `${label}: the stub did not follow the second push, so the two windows are not actually overlapping here`);
+    await pastWindow();
+    ok(restores.length === 2 && restores.every((u) => u === `/factory.html?b=${PAYLOAD}`),
+      `${label}: an overlapping flip restored to a VIRTUAL path: ${JSON.stringify(restores)} — whichever restore lands last is where the reader is left, and /factory/${first} 404s with the board gone`);
+    ok(globalThis.location.search === `?b=${PAYLOAD}`,
+      `${label}: the page settled on ${globalThis.location.pathname}${globalThis.location.search} — the ?b= the rail just wrote is gone from the address bar it promised it was in`);
+  }
+
+  // 13 · J · EVERY path this module can push, pairwise DISTINCT. This is the check that would have
+  //      caught #210's real trap and the only one that could: the obvious names for the rail's two
+  //      events are /factory/shared and /factory/built, both of which ALREADY EXIST here and both of
+  //      which fire from HOME'S SPINE. A virtual route is the entire payload, so a reused literal
+  //      makes two different events one row in CF Web Analytics — and every case above asserts a
+  //      path is STATIC, which a duplicate passes happily.
+  //
+  //      Driven, not grepped (the "check that cannot fail" rule): each tracker is CALLED on a fresh
+  //      module instance and the path it actually pushes is collected. `document` is defined for
+  //      trackFactoryArrived alone, whose flip is held until readyState is "complete" — BEACON_TOKEN
+  //      is "" in this unmutated import, so the beacon branch still short-circuits before it.
+  //      Proven able to fail: pointing FACTORY_EXPORTED_PATH at /factory/shared turns this red while
+  //      every other case in the group stays green.
+  {
+    const TRACKERS = [
+      "trackFactoryDriven", "trackFactoryBuilt", "trackFactoryShared", "trackFactoryArrived",
+      "trackBuildPattern", "trackBuildShared", "trackToolInspect", "trackToolPalette",
+      "trackFactoryTookOver", "trackFactoryLinkCopied", "trackFactoryExported",
+    ];
+    const pushed = new Map(); // path → the tracker that pushed it
+    const dupes = [];
+    for (const name of TRACKERS) {
+      stub({ pathname: "/factory.html", search: "", hash: "" });
+      globalThis.document = { readyState: "complete" };
+      const mod = await import(`${ANA}?g10j-${name}`);
+      ok(typeof mod[name] === "function", `analytics.mjs no longer exports ${name} — this case is silently skipping a path`);
+      if (typeof mod[name] !== "function") continue;
+      mod[name]();
+      await pastWindow();
+      delete globalThis.document;
+      ok(pushes.length === 1, `${name}() pushed ${pushes.length} paths, expected exactly 1 — this case cannot read a path it never saw`);
+      const path = pushes[0];
+      if (pushed.has(path)) dupes.push(`${path} is pushed by BOTH ${pushed.get(path)}() and ${name}()`);
+      else pushed.set(path, name);
+    }
+    ok(pushed.size === TRACKERS.length && !dupes.length,
+      `two virtual routes share a path literal: ${dupes.join("; ")} — CF Web Analytics has no custom events, so the path IS the payload and the two events are one indistinguishable row`);
+  }
+
+  // 14 · every other group runs without these; leaving them defined would change what "Node" means.
   delete globalThis.location;
   delete globalThis.history;
+  delete globalThis.document;
 
-  group("analytics", "imports node-safe with a filled token · 3 static virtual paths (2 /build + /factory/took-over) · no ?b= payload in any · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL, in both orderings, on /build AND across the two pages");
+  group("analytics", "imports node-safe with a filled token · 5 static virtual paths (2 /build + /factory/took-over + #210's exported and link-copied) · no ?b= payload in any, asserted on /factory against a real restorable board · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL in both orderings, on /build, across the two pages, and between the studio rail's own two buttons · all 11 trackers DRIVEN and their pushed paths proven pairwise distinct — the check a merely-static assertion cannot be");
 }
 
 // --- 11 · the replay projection ------------------------------------------------------------------
