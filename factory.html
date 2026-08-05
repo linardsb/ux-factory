@@ -180,8 +180,11 @@
     </section>
 
     <!-- THE STUDIO SHELL. system/studio.mjs mounts on [data-studio] and sets data-studio="ready" in
-         a `finally` on every path — that is the visual-regression gate's one wait handle for this
-         page, replacing the three at-load exhibit handles it used to carry.
+         a `finally` on every path. Since #209 that handle is no longer the gate's only wait: it
+         fires at MOUNT, and the canvas is EMPTY at mount — system/replay-driver.mjs fills it by
+         playing a committed real run, and sets data-replay="settled" on this same element when the
+         run has finished. The visual-regression gate waits on BOTH, because the at-rest state this
+         page is baselined in is the completed replay.
 
          The canvas column wrapper is also #build-stage, which is both Act 0's "this page has an
          import at all" guard and the element it dresses. -->
@@ -194,13 +197,17 @@
           </div>
         </div>
         <p class="beat-lead max-prose">
-          Each block is one place a person can be, with what they can do from there listed inside it.
-          The arrangement is yours: drag a block by its handle, or press Enter on it and use the
-          arrow keys. Every move is announced and every move undoes. The blocks are sketches until
-          you compile them: press <em>Compile the board</em> and the same rules that name a pattern
-          on the builder run here, one step at a time, until each block is the real component its
-          slot calls for, in the slot you left it in. <em>Back to blocks</em> plays it again. What
-          compiles is one screen's components, not a flow between screens.
+          This canvas starts empty. What fills it is a real recorded agent run — one brief about a
+          field-service dispatch tool, read once, and eighteen build ops played back in the order and
+          at the pacing shape the run itself had, narration and refused calls included. Each block it
+          leaves behind is one place a person can be, with what they can do from there listed inside
+          it. <strong>The moment you touch the canvas it is yours</strong>: the run pauses, and you
+          drag a block by its handle or press Enter on it and use the arrow keys. Every move is
+          announced and every move undoes. The blocks are sketches until you compile them: press
+          <em>Compile the board</em> and the same rules that name a pattern on the builder run here,
+          one step at a time, until each block is the real component its slot calls for, in the slot
+          you left it in. <em>Back to blocks</em> plays it again. What compiles is one screen's
+          components, not a flow between screens.
         </p>
 
         <div class="stu-shell" data-studio>
@@ -211,6 +218,13 @@
                  modules blocked. build-import.mjs replaces this with the precise statement on
                  mount. -->
             <p class="stu-canvas-label" data-build-stage-label>Wearing this site's own design tokens.</p>
+            <!-- The replay chrome (#209). Empty in the markup for the same reason the canvas below
+                 is: system/replay-driver.mjs APPENDS its honesty line, the run's real meta, the
+                 transport controls and the provenance line here once the two committed files are
+                 read, and there is nothing honest to print before they land. It is a node in the
+                 markup rather than an insertBefore into the viewport so that the at-rest DOM order
+                 is declared here instead of depending on which of the three mounts ran first. -->
+            <div data-replay-chrome class="stu-replay"></div>
             <!-- The canvas is empty in the markup on purpose: initStudioCanvas APPENDS its zoom row,
                  scroller and live region to this element rather than replacing its contents, so a
                  placeholder inside would survive the mount and sit beside the stage. The no-JS
@@ -218,7 +232,11 @@
                  without the JS path paying for a node it immediately has to hide. -->
             <div data-studio-canvas id="canvas"></div>
             <noscript>
-              <p class="muted">The canvas needs scripting to draw, to move and to compile. The same build runs
+              <p class="muted">The canvas needs scripting to draw, to move and to compile, and to replay the
+                recorded run that builds it. The run itself is committed and readable as it is:
+                <a href="/traces/build-fieldwork-dispatch.jsonl">its curated trace</a>, the
+                <a href="/replay/briefs/build-fieldwork-dispatch.md">brief it was given</a> and the
+                <a href="/replay/build-fieldwork-dispatch.board.json">board it built</a>. The same build runs
                 as a form at <a href="/build">the pattern builder</a>, and the panels beside this one
                 are all readable as they are.</p>
             </noscript>
@@ -249,7 +267,8 @@
                 the pattern is quoted as it was written.
               </p>
               <div id="this-build-summary">
-                <p class="muted">The board is drafted when this page loads.</p>
+                <p class="muted">These numbers are counted from the board once the recorded run has finished
+                  building it.</p>
               </div>
             </div>
 

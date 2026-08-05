@@ -270,6 +270,34 @@ export function trackToolInspect() {
   }, RESTORE_DELAY_MS);
 }
 
+// ------------------------------------------------------------------ /factory, the studio (epic #202)
+const FACTORY_TOOK_OVER_PATH = "/factory/took-over";
+let tookOverFired = false;
+
+// The take-over event (#209): fired once when the visitor grabs the wheel from the replay driver —
+// from system/replay-driver.mjs's HANDOVER SUCCESS PATH and from nothing else. Never from a
+// settled-state flag and never from a slot: the spine's analytics slot fires after its effect
+// whether the effect succeeded or fell through (#75), and a replay that had nothing to take over
+// (the artifact failed to load) never reaches this line, because a visitor moving blocks on a canvas
+// the run never built has taken nothing over and firing there would make the metric a lie.
+//
+// flipTo, NOT the simple trackToolInspect shape, and that is a deliberate difference from the two
+// /tool events above. /factory carries the appearance dock (which writes location.hash) and #206's
+// hash-routed inspector panels, so BOTH of flipTo's protections are reachable here: the live-hash
+// restore and the overlapping-flip rule. #210 is about to put two more routes on this same page,
+// which is exactly the overlap case those rules exist for.
+//
+// The static literal is the entire payload — no slug, no seq, no board. Own fire-once guard, for
+// the reason every event above has one (:64-67: a shared flag lets whichever fires first suppress
+// the other). tooling/build-checks.mjs group 10 proves the path, the payload, the fire-once and the
+// restore; that this sits on the handover's success path is a running-page fact and belongs to
+// tooling/studio-journey.mjs.
+export function trackFactoryTookOver() {
+  if (tookOverFired) return;
+  tookOverFired = true;
+  flipTo(FACTORY_TOOK_OVER_PATH);
+}
+
 const TOOL_PALETTE_PATH = "/tool/palette";
 let toolPaletteFired = false;
 
