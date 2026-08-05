@@ -671,3 +671,17 @@
   padding: var(--spacing-xs) var(--spacing-sm);
   min-height: 36px;
 }
+
+/* The shared-link notice (#210). Empty and `hidden` unless a ?b= arrived, so it paints nothing at
+   rest and is not in the pixel baseline; factory.html:79's `[hidden] { display: none !important }`
+   is what makes that stick over the block below. */
+.stu-notice {
+  margin: 0 0 var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  font-size: var(--type-small);
+  line-height: 1.6;
+  max-width: 68ch;
+}

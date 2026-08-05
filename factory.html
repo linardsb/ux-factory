@@ -224,6 +224,13 @@
                  read, and there is nothing honest to print before they land. It is a node in the
                  markup rather than an insertBefore into the viewport so that the at-rest DOM order
                  is declared here instead of depending on which of the three mounts ran first. -->
+            <!-- The shared-link notice (#210). Hidden and empty at rest — a page reached without a
+                 ?b= never fills it, so it is not in the pixel baseline. It exists because
+                 canvas.say's live region is TRANSIENT by design: on a refused link the replay then
+                 plays and narrates over the sentence within a second, and "that link could not be
+                 read, and here is why" is exactly the sentence a reader must still be able to find
+                 afterwards. -->
+            <p class="stu-notice" data-studio-notice hidden></p>
             <div data-replay-chrome class="stu-replay"></div>
             <!-- The canvas is empty in the markup on purpose: initStudioCanvas APPENDS its zoom row,
                  scroller and live region to this element rather than replacing its contents, so a
