@@ -240,8 +240,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
     // convention (bus-toggles.mjs:73-76). studio.html's try/catch renders these as "Refused: …".
-    if (!canvas || !canvas.stage || !canvas.scroll || typeof canvas.say !== "function") {
-      throw new Error("studio-verbs: a mounted canvas handle { stage, scroll, say } is required");
+    if (!canvas || !canvas.stage || !canvas.scroll || typeof canvas.say !== "function"
+      || typeof canvas.armMoveHandles !== "function") {
+      throw new Error("studio-verbs: a mounted canvas handle { stage, scroll, say, armMoveHandles } is required");
     }
     if (!bus || typeof bus.emit !== "function" || typeof bus.on !== "function") {
       throw new Error("studio-verbs: an action bus { emit, on } is required");
@@ -342,6 +343,11 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     });
     const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, help);
     viewport.insertBefore(verbRow, scroll);
+    // ARM THE MOVE HANDLES (#231 L2). studio-canvas.mjs draws the .stx-grab button but owns none of
+    // its behaviour, so it is born disabled and undescribed; this line is the moment that stops
+    // being true, and it passes the id of the element THIS module just created rather than letting
+    // the canvas literal it a second time. After it, place() arms new handles at creation.
+    canvas.armMoveHandles(help.id);
 
     const history = createHistory(snapshot());
     const syncControls = () => {

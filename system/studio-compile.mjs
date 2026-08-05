@@ -383,8 +383,10 @@ export function mountCompile(canvas, { board, answers, bus, onState } = {}) {
         if (block) wrapper.replaceChild(nodes[i], block);
         else wrapper.appendChild(nodes[i]);
         wrapper.setAttribute("data-stx-name", label);
-        // place() writes this label at CREATION only (studio-canvas.mjs:277-286), so the handle
-        // would otherwise keep naming the block that is no longer there.
+        // STILL WRITTEN HERE after #231 moved place()'s aria-label out of its create branch, and
+        // the reason is that this swap never calls place(): it renames a wrapper IN PLACE, because
+        // place() appends to the stage (re-ordering it) and announces a placement the reader did
+        // not ask for. So the handle would keep naming the block that is no longer there.
         if (grab) grab.setAttribute("aria-label", `Move ${label}`);
         fade(nodes[i]);
       }

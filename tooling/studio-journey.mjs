@@ -401,9 +401,88 @@ async function journey(engineName, results, held) {
   const announced = (await page.locator(LIVE).textContent()).trim();
   t("…and the live region announced the placement", /column 5, row 3/.test(announced), announced);
 
+  // #231 L3 · the re-place above passed a NEW name, and the handle's ACCESSIBLE name has to follow
+  // it. data-stx-name was written on every call and `aria-label: Move <name>` only on the first, so
+  // a re-placed component announced one name and was labelled with another — the exact desync #206
+  // walks into when it re-labels. Read as the two strings agreeing, not as "the write happened".
+  const relabelled = await page.evaluate(() => {
+    // BY NAME, not "the first slot": place() appends, so the re-placed wrapper is at the END of the
+    // stage — reading the first one would assert against a component this case never touched, and
+    // it passes green whether the fix is there or not.
+    const slot = document.querySelector('[data-studio-canvas] .stx-slot[data-stx-name="Driven tile"]');
+    if (!slot) return { error: "no wrapper carries the re-placed name" };
+    return {
+      name: slot.getAttribute("data-stx-name"),
+      label: slot.querySelector(":scope > .stx-grab")?.getAttribute("aria-label"),
+    };
+  });
+  t("#231 · re-placing under a new name re-labels the move handle to match it",
+    relabelled.name === "Driven tile" && relabelled.label === "Move Driven tile", JSON.stringify(relabelled));
+
   const clamped = await viaSeam(page, MAX_COLS + 9, -4);
   t("an out-of-range slot is clamped by clampSlot, never written raw",
     clamped.col === String(MAX_COLS) && clamped.row === "1", JSON.stringify(clamped));
+
+  // ------------------------------------------------------- [7] #231 L2 · the canvas mounted ALONE
+  // The gate hole this ticket names: build-checks cannot mount a DOM and both existing driver
+  // sections mount the canvas AND its verbs, so nothing could see what a canvas without verbs hands
+  // a reader — one dead tab stop per component, each pointing aria-describedby at an element that
+  // does not exist. Mounted on its OWN page (a second initStudioCanvas takes over the module's
+  // `live`, and nothing after this may inherit that) and asserted as what a keyboard reader meets:
+  // can focus land on it, and does its description resolve.
+  const alone = await ctx.newPage();
+  await alone.goto(`${BASE}/studio.html`, { waitUntil: "load" });
+  await alone.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
+  const lone = await alone.evaluate(() => import("/system/studio-canvas.mjs").then((m) => {
+    // A HOST holding the viewport, because initStudioCanvas queries WITHIN the root it is given —
+    // an element never matches its own querySelector.
+    const host = document.createElement("div");
+    const root = document.createElement("div");
+    root.setAttribute("data-studio-canvas", "");
+    host.appendChild(root);
+    document.body.appendChild(host);
+    const canvas = m.initStudioCanvas(host);
+    canvas.place(document.createElement("p"), { col: 1, row: 1, name: "Lonely" });
+    const grab = root.querySelector(".stx-grab");
+    grab.focus();
+    const describedBy = grab.getAttribute("aria-describedby");
+    return {
+      focused: document.activeElement === grab,
+      describedBy,
+      resolves: describedBy ? Boolean(document.getElementById(describedBy)) : null,
+      label: grab.getAttribute("aria-label"),
+      root: "ok",
+    };
+  }));
+  t("#231 · a canvas mounted WITHOUT the verbs hands out no dead tab stop",
+    lone.focused === false, JSON.stringify(lone));
+  t("#231 · …and no aria-describedby pointing at instructions that were never created",
+    lone.describedBy === null, JSON.stringify(lone));
+  t("#231 · …while still naming the component it would move", lone.label === "Move Lonely", JSON.stringify(lone));
+  // …and mounting the verbs is what arms it. Same page, same canvas: the handle a reader could not
+  // reach a moment ago is now focusable AND described by the element that mount just created.
+  const armedNow = await alone.evaluate(async () => {
+    // Both handles through their own exported seams — the scratch canvas is the module's `live`
+    // because it mounted last, which is exactly what getCanvas() answers with.
+    const [canvasMod, verbs, busMod] = await Promise.all([
+      import("/system/studio-canvas.mjs"), import("/system/studio-verbs.mjs"), import("/system/action-bus.mjs"),
+    ]);
+    const canvas = canvasMod.getCanvas();
+    verbs.mountCanvasVerbs(canvas, { bus: busMod.createBus() });
+    const grab = canvas.stage.querySelector(".stx-grab");
+    grab.focus();
+    const describedBy = grab.getAttribute("aria-describedby");
+    return {
+      focused: document.activeElement === grab,
+      describedBy,
+      resolves: describedBy ? Boolean(document.getElementById(describedBy)) : null,
+    };
+  });
+  t("#231 · mounting the verbs arms every handle already on the stage",
+    armedNow.focused === true, JSON.stringify(armedNow));
+  t("#231 · …and describes it through the instructions element that mount created",
+    armedNow.resolves === true, JSON.stringify(armedNow));
+  await alone.close();
 
   await ctx.close();
 
@@ -1572,5 +1651,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND THE SHIPPED /factory: the drafted board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

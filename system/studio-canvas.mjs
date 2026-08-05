@@ -264,6 +264,28 @@ export function initStudioCanvas(root = document) {
     // one — it MOVES that wrapper rather than nesting a second. That is what keeps
     // tooling/studio-journey.mjs:93-100 and tooling/vt-verify.mjs:303-307 green unedited: both do
     // querySelector(".stx-slot") → place(node) → read data-col off that same node.
+    // THE HANDLE IS THIS MODULE'S STRUCTURE AND ANOTHER MODULE'S BEHAVIOUR (#231 L2). place() draws
+    // the .stx-grab button, but every listener that makes it do anything — and the #stx-move-help
+    // element its aria-describedby points at — are created by studio-verbs.mjs's mountCanvasVerbs.
+    // A canvas mounted ALONE therefore used to hand a keyboard reader one dead tab stop per
+    // component, each describing itself through an IDREF that resolves to nothing. Neither existing
+    // gate could see it, because both mount both.
+    //
+    // So the handle is born DISABLED and undescribed, and arming it is the verbs' mount announcing
+    // itself. The id comes from the module that OWNS the instructions element rather than being
+    // literalled twice, and arming is idempotent and forward-acting: a component placed after the
+    // verbs mounted is armed at creation.
+    let armed = false;
+    let helpId = null;
+    const armMoveHandles = (describedBy) => {
+      armed = true;
+      helpId = typeof describedBy === "string" && describedBy ? describedBy : null;
+      for (const grab of stage.querySelectorAll(".stx-grab")) {
+        grab.disabled = false;
+        if (helpId) grab.setAttribute("aria-describedby", helpId);
+      }
+    };
+
     let nextId = 0;
     const place = (node, { col, row, name } = {}) => {
       if (!node) throw new Error("studio-canvas: place() was called with no node");
@@ -278,20 +300,23 @@ export function initStudioCanvas(root = document) {
         nextId += 1;
         wrap.setAttribute("data-stx-id", `s${nextId}`);
         // The handle FIRST, so it is the wrapper's first tab stop and a reader meets the move
-        // affordance before the component's own controls.
-        wrap.appendChild(el("button", {
-          type: "button",
-          class: "stx-grab",
-          "aria-label": `Move ${label}`,
-          // The instructions element studio-verbs.mjs's mount adds, so the affordance is
-          // discoverable ON FOCUS rather than only after the reader has guessed that Enter does
-          // something. No aria-pressed: it would describe the button's own toggle state rather than
-          // the component being carried (studio-verbs.mjs's header).
-          "aria-describedby": "stx-move-help",
-        }));
+        // affordance before the component's own controls. Its behaviour and its instructions
+        // element both belong to system/studio-verbs.mjs, which is why it is born INERT and armed
+        // by that module's mount — see armMoveHandles() below. No aria-pressed: it would describe
+        // the button's own toggle state rather than the component being carried (that header).
+        const born = el("button", { type: "button", class: "stx-grab" });
+        if (!armed) born.disabled = true;
+        else if (helpId) born.setAttribute("aria-describedby", helpId);
+        wrap.appendChild(born);
         wrap.appendChild(node);
       }
       wrap.setAttribute("data-stx-name", label);
+      // OUT OF THE CREATE BRANCH (#231 L3). place(node, { name }) on an existing wrapper is a
+      // RE-LABEL — #206 does exactly that — and the announced name and the handle's accessible name
+      // must not be allowed to disagree: data-stx-name was written on every call and the aria-label
+      // only on the first, so a re-placed component kept announcing "Move <the old name>".
+      const grab = wrap.querySelector(":scope > .stx-grab");
+      if (grab) grab.setAttribute("aria-label", `Move ${label}`);
       wrap.setAttribute("data-col", String(slot.col));
       wrap.setAttribute("data-row", String(slot.row));
       stage.appendChild(wrap);
@@ -304,6 +329,8 @@ export function initStudioCanvas(root = document) {
     const handleObj = {
       viewport, scroll, stage, announcer,
       place,
+      // Called by studio-verbs.mjs's mount, and by nothing else — see armMoveHandles above.
+      armMoveHandles,
       // Exposed so #205's mover announces through the canvas's ONE live region rather than
       // declaring a second one beside it.
       say,
