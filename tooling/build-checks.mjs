@@ -432,7 +432,80 @@ const sample = {
   const noPack = await decodeBuild(await encodeBuild({ ...sample, pack: null }));
   ok(noPack.state && noPack.state.pack === null, "a build with no imported design should restore with no pack");
 
-  group("codec", "both branches round-trip · the pattern recomputes to the sender's");
+  // --- the FROZEN v1 proof (#208) --------------------------------------------------------------
+  // The codec grew a version, and PRD §1 guarantees /build survives as the form-mode fallback over
+  // the same build data AND share links. These payloads were captured from the shipping v1 encoder
+  // BEFORE this file's module learned v2 (tooling/share-v1-links.json states the commit), which is
+  // the whole point: a fixture re-synthesised by the code under test is that code agreeing with
+  // itself. The four build fields must restore identically, and no v1 link may acquire an
+  // arrangement it never carried.
+  const V1 = JSON.parse(readFileSync(join(ROOT, "tooling/share-v1-links.json"), "utf8"));
+  const v1Fixtures = V1.entries;
+  // A fixture file quietly reduced to one entry would leave every assertion below true and the
+  // coverage claim in the group line false, so the coverage itself is asserted.
+  ok(v1Fixtures.length >= 5, `share-v1-links.json carries ${v1Fixtures.length} entries, expected at least the 5 captured`);
+  ok(v1Fixtures.some((e) => e.branch === "raw"), "the frozen v1 fixtures cover no raw-transport link");
+  ok(v1Fixtures.some((e) => e.branch === "deflate"), "the frozen v1 fixtures cover no deflate-transport link");
+  ok(v1Fixtures.some((e) => /chromium|firefox|webkit/i.test(e.capturedFrom)),
+    "the frozen v1 fixtures carry no link captured from a real browser — a synthesised-only proof is the code agreeing with itself");
+  const buildFields = (s) => JSON.stringify({ answers: s.answers, board: s.board, boardIsEdited: s.boardIsEdited, pack: s.pack });
+  // The deflate branch's BYTES are implementation-dependent — Node's CompressionStream and Chrome's
+  // need not emit identical streams for the same input — so byte-identity is claimed on the raw
+  // branch and JSON-identity on deflate. Asserting bytes on a deflate fixture would be a check that
+  // passes on one machine and, worse, could silently agree on another.
+  const inflate = async (param) => {
+    const { state } = await decodeBuild(param);
+    return state;
+  };
+  for (const entry of v1Fixtures) {
+    const { state, reason } = await decodeBuild(entry.param);
+    ok(state !== null, `the frozen v1 link "${entry.label}" (${entry.branch}) no longer decodes: ${reason}`);
+    if (!state) continue;
+    ok(buildFields(state) === buildFields(entry.state),
+      `the frozen v1 link "${entry.label}" (${entry.branch}) restores to a DIFFERENT build than it did under v1`);
+    ok(state.arrangement === null,
+      `the frozen v1 link "${entry.label}" acquired an arrangement (${JSON.stringify(state.arrangement)}) — a v1 payload carries none, not an empty one and not a default`);
+    if (entry.branch === "raw") {
+      ok(await encodeBuild(state, { compress: false }) === entry.param,
+        `re-encoding the frozen v1 link "${entry.label}" is no longer byte-identical to the param v1 emitted`);
+    } else {
+      const again = await encodeBuild(state, { compress: true });
+      const round = await inflate(again);
+      ok(round !== null && buildFields(round) === buildFields(entry.state),
+        `the deflate branch's re-encode of "${entry.label}" no longer carries the same build`);
+    }
+  }
+
+  // --- the arrangement round-trip (#208) ---------------------------------------------------------
+  // Slots chosen so the case is not accidentally the encoder's own default: two rows, not row 1.
+  const arranged = {
+    ...sample,
+    arrangement: sample.board.places.map((place, i) => ({ id: place.id, col: i + 2, row: (i % 2) + 1 })),
+  };
+  {
+    const param = await encodeBuild(arranged, { compress: false });
+    const { state, reason } = await decodeBuild(param);
+    ok(state !== null, `a build with an arrangement failed to decode: ${reason}`);
+    if (state) {
+      ok(JSON.stringify(state.arrangement) === JSON.stringify(arranged.arrangement),
+        `the arrangement did not round-trip value-for-value: ${JSON.stringify(state.arrangement)}`);
+      ok(await encodeBuild(state, { compress: false }) === param,
+        "decoding and re-encoding an arrangement did not produce the identical param");
+      // `g` in the payload must not disturb what the receiver RECOMPUTES.
+      ok(patternFor(state).id === patternFor(arranged).id, "a payload carrying an arrangement recomputed a different pattern");
+    }
+    // The consistency rule, from the encoder's side: an arrangement for a board that is no longer
+    // this board is DROPPED rather than realigned, and dropping it takes the payload back to v1.
+    const shorter = { ...arranged, arrangement: arranged.arrangement.slice(0, 1) };
+    const dropped = await encodeBuild(shorter, { compress: false });
+    ok(dropped === await encodeBuild(sample, { compress: false }),
+      "an arrangement whose length disagrees with the board must be omitted, leaving the byte-identical v1 param");
+    const offGrid = { ...arranged, arrangement: arranged.arrangement.map((s, i) => (i ? s : { ...s, col: MAX_COLS + 1 })) };
+    ok(await encodeBuild(offGrid, { compress: false }) === await encodeBuild(sample, { compress: false }),
+      "an off-grid slot must make the encoder omit the whole arrangement — it repairs nothing");
+  }
+
+  group("codec", `both branches round-trip · the pattern recomputes to the sender's · ${v1Fixtures.length} frozen v1 links (both branches + a real browser capture) restore byte-identically and gain no arrangement · the arrangement round-trips, re-encodes identically, and is DROPPED whole when it stops describing the board`);
 }
 
 // --- 5 · the tamper battery ---------------------------------------------------------------------------
@@ -499,23 +572,87 @@ function pack(obj) {
     ["an affordance leading to its own place", clone({ b: { p: good.b.p, c: [["p1a1", "p1"]] } })],
     ["a malformed place id", clone({ b: { p: [["place-one", "P", []]], c: [] } })],
     ["a malformed edited flag", clone({ e: 2 })],
-    ["v: 2", clone({ v: 2 })],
+    // v2 is REAL now (#208), so the hostile version moves up one. The accept side is asserted below
+    // — a version family that only ever rejects would pass with a decoder that rejects everything.
+    ["v: 3", clone({ v: 3 })],
+    // The envelope audit (#208). v1 validated every field it knew about and ignored every field it
+    // did not, which decoded a payload carrying anything extra as a build without it.
+    ["an unknown top-level key", clone({ zz: 1 })],
+    // The near-miss a future editor would actually type — the field is `g`, not its English name.
+    ["the arrangement spelled out as a key", clone({ v: 2, arrangement: [[1, 1], [2, 1]] })],
   ];
-  for (const [label, payload] of cases) {
+
+  // --- the coordinate family (#208) ----------------------------------------------------------------
+  // EVERY case here gets the same two-place `b` and a two-entry `g`, varying only the thing under
+  // test — a `g` whose length disagrees with `b.p` rejects for the LENGTH reason and would prove
+  // nothing about coordinates at all, which is the "check that cannot fail" shape one level down.
+  const twoPlaces = { p: [["p1", "Overview", []], ["p2", "Progress", []]], c: [] };
+  const g2 = (g) => clone({ v: 2, b: structuredClone(twoPlaces), g });
+  const coordinateCases = [
+    // magnitude
+    ["a column of 1e9", g2([[1e9, 1], [2, 1]])],
+    ["a row at MAX_SAFE_INTEGER", g2([[1, Number.MAX_SAFE_INTEGER], [2, 1]])],
+    ["a zero column (the grid is 1-based)", g2([[0, 1], [2, 1]])],
+    ["a negative column", g2([[-1, 1], [2, 1]])],
+    // type — every one of these is a value clampSlot would happily COERCE, and this codec must not
+    ["a string coordinate", g2([["1", "1"], [2, 1]])],
+    ["a fractional coordinate", g2([[1.5, 1], [2, 1]])],
+    ["a null coordinate", g2([[null, 1], [2, 1]])],
+    ["a boolean coordinate", g2([[true, 1], [2, 1]])],
+    ["an object where a pair belongs", g2([[{ col: 1, row: 1 }], [2, 1]])],
+    ["a pair of length 3", g2([[1, 1, 1], [2, 1]])],
+    ["g as an object", g2({ p1: [1, 1], p2: [2, 1] })],
+    ["g as a string", g2("1,1 2,1")],
+    // duplicate — two places in one cell is a stacking claim the canvas itself refuses
+    ["two places in one cell", g2([[1, 1], [1, 1]])],
+    // off-board, by exactly one on each axis
+    [`a column of ${MAX_COLS + 1}`, g2([[MAX_COLS + 1, 1], [2, 1]])],
+    [`a row of ${MAX_ROWS + 1}`, g2([[1, MAX_ROWS + 1], [2, 1]])],
+    // length — an arrangement for a different board, in both directions, plus a flood
+    ["g longer than b.p", g2([[1, 1], [2, 1], [3, 1]])],
+    ["g shorter than b.p", g2([[1, 1]])],
+    ["g of 1000 entries", g2(Array.from({ length: 1000 }, (_, i) => [(i % MAX_COLS) + 1, (i % MAX_ROWS) + 1]))],
+    ["an empty g", g2([])],
+    // envelope — a v1 link cannot carry a v2 field
+    ["g on a v: 1 envelope", clone({ v: 1, b: structuredClone(twoPlaces), g: [[1, 1], [2, 1]] })],
+  ];
+
+  for (const [label, payload] of [...cases, ...coordinateCases]) {
     const { state, reason } = await decodeBuild(pack(payload));
     ok(state === null, `${label} was ACCEPTED — it must reject the whole payload`);
     ok(typeof reason === "string" && reason.length > 0, `${label} rejected with no reason`);
   }
 
-  // A `__proto__` key at the TOP level, and inside `b`, decodes fine and changes nothing. That is
-  // accepted-but-inert, not a hole, so the honest assertion is non-pollution rather than a
-  // rejection the decoder does not owe: every lookup is Object.hasOwn or a key-by-key build from
-  // the trusted QUESTIONS list, there is no recursive merge, and vetTokens cannot write __proto__
-  // because KEY_NAME demands a `--family-` prefix. Asserting a reject here would have been a test
-  // asserting a behaviour the code correctly does not have.
+  // The ACCEPT side of v2, without which the family above could pass on a decoder that refuses
+  // everything: a well-formed arrangement decodes, and it decodes to the slots that were sent.
+  const goodG = await decodeBuild(pack(g2([[1, 1], [2, 1]])));
+  ok(goodG.state !== null, `a valid v: 2 arrangement should decode: ${goodG.reason}`);
+  ok(goodG.state && JSON.stringify(goodG.state.arrangement) === JSON.stringify([{ id: "p1", col: 1, row: 1 }, { id: "p2", col: 2, row: 1 }]),
+    `a valid arrangement decoded to ${JSON.stringify(goodG.state && goodG.state.arrangement)}`);
+  // The ids come from the VALIDATED places, never from the payload — there is nowhere in `g` to put
+  // one, which is the point of the positional shape.
+  ok(goodG.state && goodG.state.arrangement.every((s, i) => s.id === goodG.state.board.places[i].id),
+    "a decoded arrangement's ids must be the board's own, at the same index");
+
+  // The grid boundary itself, both sides — the LABEL_MAX pair below, applied to coordinates.
+  ok((await decodeBuild(pack(g2([[MAX_COLS, MAX_ROWS], [1, 1]])))).state !== null,
+    `the far corner [${MAX_COLS}, ${MAX_ROWS}] should be accepted — it is on the grid`);
+  ok((await decodeBuild(pack(g2([[MAX_COLS + 1, MAX_ROWS], [1, 1]])))).state === null,
+    `[${MAX_COLS + 1}, ${MAX_ROWS}] should be rejected — one column past the grid`);
+
+  // A `__proto__` key at the TOP level is now REFUSED, and this expectation FLIPPED in #208 — the
+  // block used to argue, correctly, that asserting a rejection here would be "a test asserting a
+  // behaviour the code correctly does not have". That was true of v1, which validated every field
+  // it knew about and ignored the rest. It is false of v2: the envelope audit enumerates
+  // Object.keys, JSON.parse creates `__proto__` as an own DATA property rather than invoking the
+  // setter, so the audit sees it and refuses it as the unknown key it is.
+  //
+  // Both pollution assertions STAY, because they assert the thing that actually matters and it is
+  // no less at stake on this path: a REJECTING decoder must not pollute on its way out either.
   const polluting = JSON.parse(`{"__proto__":{"polluted":1},${JSON.stringify(good).slice(1)}`);
   const inert = await decodeBuild(pack(polluting));
-  ok(inert.state !== null, "a top-level __proto__ key should be inert, not a rejection");
+  ok(inert.state === null, "a top-level __proto__ key should be refused by the envelope audit");
+  ok(typeof inert.reason === "string" && inert.reason.length > 0, "the __proto__ refusal carried no reason");
   ok({}.polluted === undefined, "a top-level __proto__ key polluted Object.prototype");
   ok(Object.prototype.polluted === undefined, "Object.prototype was polluted by a decoded payload");
 
@@ -547,12 +684,19 @@ function pack(obj) {
     for (const b of bytes) binary += String.fromCharCode(b);
     const bomb = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     ok(bomb.length < MAX_PARAM_CHARS, "the bomb fixture should be small on the wire");
-    ok((await decodeBuild(bomb)).state === null, "an over-cap decompressed payload was accepted");
+    const bombed = await decodeBuild(bomb);
+    ok(bombed.state === null, "an over-cap decompressed payload was accepted");
+    // The REASON is asserted, not merely the rejection. The bomb's padding rides in a top-level
+    // `pad` key, which #208's envelope audit would also refuse — so a size cap deleted from
+    // inflateRaw would leave this case green for the wrong reason. The cap has to be what caught it,
+    // and it has to catch it before the payload is in memory at all.
+    ok(/size cap/.test(bombed.reason || ""),
+      `the bomb was refused for "${bombed.reason}" rather than the size cap — the cap is what must catch it, before it is in memory`);
   } else {
     console.log("build tamper         ·  CompressionStream is absent here, so the bomb case was skipped");
   }
 
-  group("tamper", `${cases.length} hostile payloads + caps + transport, all rejected whole`);
+  group("tamper", `${cases.length + coordinateCases.length} hostile payloads (incl. ${coordinateCases.length} coordinate cases — magnitude, type, duplicate cell, off-board by one on each axis, a length for a different board, and g on a v1 envelope) + caps + transport, all rejected whole · v2 asserted on the ACCEPT side too, ids taken from the board and not the payload · the ${MAX_COLS}×${MAX_ROWS} boundary itself, both sides`);
 }
 
 // --- 6 · SVG well-formedness and escaping --------------------------------------------------------------
@@ -1713,14 +1857,39 @@ function scanSvg(svg, label) {
     ok(fitLevel(w, h, cw, ch) === ZOOM_REST, `fitLevel(${w}, ${h}, ${cw}, ${ch}) should answer ZOOM_REST — ${why}`);
   }
 
-  // The tripwire, stated rather than implied. #208's share codec is what will IMPORT these caps
-  // instead of re-typing a bound; until it does, "no second literal" has exactly one importer and
-  // this assertion is planted for that day. Deliberately vacuous, the same posture as group 1's
-  // `inLibrary: false ⇒ needs` clause — an absent check reads as an oversight, a stated one does not.
-  ok(Number.isFinite(MAX_COLS) && Number.isFinite(MAX_ROWS) && MAX_COLS > 0 && MAX_ROWS > 0,
-    "MAX_COLS / MAX_ROWS must stay finite positive exports — #208's codec imports them rather than re-typing a bound");
+  // The tripwire, DISCHARGED (#208). It was planted deliberately vacuous — "these caps stay finite
+  // because one day a second module will import them rather than re-type a bound". That day is
+  // here: system/build-share.mjs's decoder rejects an off-grid slot against these two exports. So
+  // the assertion becomes the COUPLING rather than the constants' finiteness, and it greps by
+  // design — a mirror check, the pack-boot.js idiom, with the regex asserted to have matched
+  // something first so a renamed import cannot pass as an absent one.
+  //
+  // What it is really guarding is the tempting shortcut: a codec that wrote `col <= 12` inline
+  // would pass every coordinate case in group 5 and drift silently the day the canvas widens.
+  const codecSrc = readFileSync(join(ROOT, "system/build-share.mjs"), "utf8");
+  const capImport = codecSrc.match(/import\s*\{([^}]*)\}\s*from\s*["']\.\/studio-canvas\.mjs["']/);
+  ok(capImport !== null, "system/build-share.mjs no longer imports from ./studio-canvas.mjs — the grid bounds must come from the canvas, not a re-typed literal");
+  if (capImport) {
+    const named = capImport[1].split(",").map((s) => s.trim());
+    ok(named.includes("MAX_COLS"), `system/build-share.mjs imports {${capImport[1].trim()}} from the canvas but not MAX_COLS`);
+    ok(named.includes("MAX_ROWS"), `system/build-share.mjs imports {${capImport[1].trim()}} from the canvas but not MAX_ROWS`);
+  }
+  // No SECOND literal CAP for a grid axis anywhere in the codec. The 1-based ORIGIN is deliberately
+  // not caught: `col >= 1` is a property of the grid's numbering, not of its size, and it does not
+  // move when the canvas widens — so the filter keeps only comparisons against a number above 1,
+  // which is exactly the shape a re-typed `col <= 12` would take. The regex is asserted to have run
+  // over a file it actually found (the import check above), so an empty match is a real absence.
+  const axisLiterals = (codecSrc.match(/\b(?:col|row)\b\s*(?:<=|>=|<|>|===|!==)\s*(\d+)/g) || [])
+    .filter((m) => Number(m.match(/(\d+)$/)[1]) > 1);
+  ok(axisLiterals.length === 0,
+    `system/build-share.mjs compares a grid axis against a literal cap (${axisLiterals.join(", ")}) — the bound is ${MAX_COLS}×${MAX_ROWS} and it is IMPORTED, so a literal here is a second copy that will drift`);
+  // The divergence, asserted rather than assumed: clampSlot still COERCES "4" (the loop above pins
+  // that), and the codec REJECTS it (group 5 pins that). Both are correct for their caller — a
+  // reader's own gesture versus a stranger's payload — and both files carry a sentence saying so.
+  ok(clampSlot({ col: "4", row: "2" }).col === 4,
+    "clampSlot must keep coercing a string — the codec's rejection of the same value is a different caller's rule, not a bug in this one");
 
-  group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 cap tripwire is planted`);
+  group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 tripwire is DISCHARGED: build-share.mjs imports both caps and re-types neither, while clampSlot keeps coercing what the codec refuses`);
 }
 
 // --- 13 · the canvas verbs ----------------------------------------------------------------------
