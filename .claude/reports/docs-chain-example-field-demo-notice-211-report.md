@@ -53,6 +53,12 @@ No test suite by design (`CLAUDE.md` → Testing). Every new invariant landed as
 - **`build-checks` group 18B** — `prepareHandoff`'s join over the real `pack.json` +
   `vocabulary.json` + `system-graph.json`, every count derived from the files; the two-arg
   compatibility claim; totality over 7 junk graphs.
+- **`build-checks` group 18C** — the four **parser** refusals this ticket added
+  (`parseComponentSpec`), driven over real fixture files in a tmpdir, each asserted to throw **and**
+  to name its spec path, behind a positive control and a bare-fixture optionality check. Added after
+  review: 18A/18B drive `validateComposition`'s branches, so without 18C the parser's four new throws
+  were written, plausible and never once observed failing — the exact shape 18B's own vacuous case
+  had to be rewritten to escape. Covers the plan's TESTING STRATEGY edge cases 6 and 7.
 - **`drift-check` → `checkHandoff` → `genVocabulary` → `validateExamples`** — a bad example is a red
   CI `verify` with no extra wiring.
 
@@ -64,6 +70,7 @@ No test suite by design (`CLAUDE.md` → Testing). Every new invariant landed as
 | 2 | Group 18A's four broken examples | Permanent committed cases — each throws **and** names its spec path |
 | 3 | `stat-tile`'s example value → `"34"` (string) | `gen-vocabulary` **and** `drift-check` both red: *"system/specs/stat-tile.md: head "example" does not render — stat-tile.example.props.value: expected number, got string"* |
 | 4 | Remove the `vd-demo-notice` CSS block + regen the graph | `build docs chain ✗` — *"demo-notice: no components.css block consuming contract tokens…"*. **This also proved the anti-lockstep anchoring**: the graph regenerated to 32 consumers, and the check still went red *because the expected set comes from the pack*. |
+| 5 | Replace `parseComponentSpec`'s `min > max` condition with `false` | `build docs chain ✗ 3 failures`, all three naming that branch — 18C is real |
 
 ## Validation results
 
@@ -73,14 +80,21 @@ No test suite by design (`CLAUDE.md` → Testing). Every new invariant landed as
 | `node tooling/token-lint.mjs` | ✓ 64 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
 | `node tooling/build-checks.mjs` | ✓ **all 18 groups pass** |
 | `node scenarios/validate.mjs` | ✓ |
-| `update:docker` (Linux, CI-equivalent) | ✓ 20/20 passed |
-| `npx playwright test` (local macOS) | 20 failed — **platform artefact**, Linux baselines vs the macOS renderer; the Docker run is the authoritative one |
+| VR **verify** run — `playwright test` in the Linux container, no `--update-snapshots` | ✓ **20/20 passed** against the committed baselines |
+| `npx playwright test` (local macOS) | 20 failed — **platform artefact**, Linux baselines vs the macOS renderer; discarded per the known note |
 | `/handoff.html` headless render | 0 page errors · no `spec` badge · `"example"` in the head `<pre>` · no stale ticket-#8 prose |
 
 **Artifact cascade** (all committed): `system-graph.json` 32→33 consumers, edges 388→393 ·
 `pack.json` + `pack.bundle.json` (the ten examples, `stat-tile`'s bounds, `demo-notice`'s
 status/prose) · `vocabulary.json` (`demo-notice` status + bounds **only** — no `example`) ·
 `loc-summary.json` runtime 25,700→25,800, **file count unchanged at 72**.
+
+**Baseline churn is approach's two PNGs and nothing else — verified, not assumed.** `demo-notice`
+was `status: spec` with no CSS, and this ticket gave `.vd-demo-notice` padding, a background and a
+border — so the obvious risk was some captured page painting it. A repo-wide search for
+`demo-notice` outside the spec, renderer, stylesheet and generated pack returns **nothing**: no page
+in or out of the VR set renders that class today. (`handoff.html` shows the *spec*, not the
+component, and is not in the VR page set regardless.)
 
 `inspect-data.json` unchanged as predicted (`--check` green, no `ROLES` key added).
 `param-manifest.json` / `param-count.json` **untouched** — no live control ships here.
@@ -142,8 +156,21 @@ Task 13's grep for `#hex` / `oklch(` / `rgb(` in the staged artifact diff return
   below pixelmatch's per-pixel threshold, so the two PNGs had to be removed to force the capture.
   A green update run is not proof a page didn't change.
 
+## Post-review additions
+
+Three gaps found in review after the first pass was called complete, all now closed:
+
+1. **The four new parser refusals were exercised by nothing** → group **18C** (commit `b67c437`),
+   plus mutation proof 5. This was the plan's own edge cases 6 and 7, and the report had claimed
+   COMPLETE without them.
+2. **The VR evidence was an `update:docker` run**, which rewrites and then passes — it cannot fail,
+   so "20/20" from it was not a gate result. Re-ran the same container **without**
+   `--update-snapshots`: 20/20 against the committed baselines. Report row corrected.
+3. **Nothing had confirmed no captured page paints the newly-styled `.vd-demo-notice`.** Verified by
+   search; "expected no churn" is now a checked fact rather than a prediction.
+
 ## Ready for the next step
 
-All changes committed on `feat/211-docs-chain` (6 commits), tree clean, every gate green.
+All changes committed on `feat/211-docs-chain` (7 commits), tree clean, every gate green.
 Next: `piv-create-pr` — the PR body **must** carry `Closes #211` (a title mentioning `(#211)` closes
 nothing), and the plan, this report and the review belong in the same PR.
