@@ -1905,6 +1905,23 @@ p, .body {
   cursor: not-allowed;
 }
 
+/* ---------- vd-demo-notice (system/specs/demo-notice.md) ---------- */
+
+/* Honesty surface #1 (epic #202 ticket #211). Quiet, secondary emphasis — deliberately NOT a
+   warning: the spec's Accessibility prose is explicit that muted-on-surface reads as an aside,
+   not an alert, so there is no accent fill, no icon and no colour-only signal. Never truncated,
+   never collapsed — the disclosure reaches assistive tech on the same terms as sighted readers,
+   which is why nothing here clips, hides or line-clamps. Exactly the five tokens the spec head
+   declares and no others. */
+.vd-demo-notice {
+  padding: var(--spacing-sm);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-fg-muted);
+  font-size: var(--type-caption);
+  line-height: 1.5;
+}
+
 /* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
 
 .vd-screen-body {

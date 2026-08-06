@@ -10,7 +10,8 @@
   },
   "tokens": ["--color-accent", "--color-accent-hover", "--color-accent-active", "--color-accent-fg", "--color-bg-surface", "--color-fg-muted", "--radius-md", "--spacing-md", "--type-body"],
   "states": ["default", "hover", "pressed", "disabled"],
-  "children": []
+  "children": [],
+  "example": { "label": "Log care" }
 }
 ```
 

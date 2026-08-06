@@ -10,7 +10,8 @@
   },
   "tokens": ["--color-bg-surface", "--color-fg-muted", "--color-border", "--color-accent", "--color-accent-fg", "--radius-lg", "--spacing-xs", "--spacing-sm", "--type-eyebrow"],
   "states": ["ok", "due", "overdue"],
-  "children": []
+  "children": [],
+  "example": { "value": "due", "label": "DUE" }
 }
 ```
 

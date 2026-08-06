@@ -12,7 +12,8 @@
   },
   "tokens": ["--color-bg-surface", "--color-fg", "--color-fg-muted", "--color-border", "--color-accent", "--radius-md", "--spacing-sm", "--spacing-md", "--type-body", "--type-caption", "--shadow-sm"],
   "states": ["default", "due", "overdue", "pressed"],
-  "children": ["status-chip"]
+  "children": ["status-chip"],
+  "example": { "name": "Monstera", "species": "Monstera deliciosa", "status": "due" }
 }
 ```
 

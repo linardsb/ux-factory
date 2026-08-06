@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The seven templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The ten templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -212,7 +212,8 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the seven specs. Classes match
+// Templates — the canonical DOM realization of the ten specs, one per vocabulary
+// entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
 // ---------------------------------------------------------------------------
@@ -352,12 +353,21 @@ const TEMPLATES = {
       el("span", { class: "ds-sequence-step-position", text: `Step ${props.position} of ${props.total}` }),
       el("span", { class: "ds-sequence-step-label", text: props.label }),
       props.detail != null ? el("span", { class: "ds-sequence-step-detail", text: props.detail }) : null)),
+
+  // Honesty surface #1, and the component that closes this map's one gap (epic #202 ticket #211): it
+  // had a spec and a vocabulary entry and no template, which is "documented but not composable" — the
+  // exact hole the ten new components must never repeat, and what build-checks group 3 now asserts
+  // over the WHOLE vocabulary rather than over the names compose() happens to emit. Non-interactive
+  // (no bus). role="note" and plain text content, never aria-hidden, never truncated: the disclosure
+  // must reach assistive tech on the same terms as sighted readers (spec's Accessibility prose).
+  "demo-notice": (props) => el("p", { class: "vd-demo-notice", role: "note", text: props.text }),
 };
 
 // Does this renderer know how to build that component? The drift `build()` refuses below, asked as
-// a question rather than met on stage: tooling/build-checks.mjs runs it over every name /build's
-// compose() emits, so a vocabulary entry with no template fails a committed gate under Node instead
-// of a visitor's render. Exported rather than exporting TEMPLATES itself — the map is the renderer's
+// a question rather than met on stage: tooling/build-checks.mjs group 3 runs it over EVERY generated
+// vocabulary entry — widened from "every name /build's compose() emits" by #211, once demo-notice
+// stopped being the written-down exception — so a spec with no template fails a committed gate under
+// Node instead of a visitor's render. Exported rather than exporting TEMPLATES itself — the map is the renderer's
 // own business, and "is there a template" is the only thing a caller needs to know.
 export const hasTemplate = (name) => Object.hasOwn(TEMPLATES, String(name));
 
