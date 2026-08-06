@@ -194,7 +194,16 @@ iterate `graph.consumers` directly.
 | **Low 3** | **Won't-fix**, for the reason the review itself established: `drift-check.mjs`'s `checkHandoff()` regenerates `pack.json` from the specs on every CI run, and anchoring on a committed drift-checked artifact is the same pattern groups 16 and 18B use deliberately. |
 | **Low 4** | **Fixed.** The ✓ line no longer interpolates `GRAPH.counts.tokens` (64 — a true number about a different thing). It now prints `joinedTokens`, the sum the per-component loop actually asserts (97 across 10 components). The refusal *list* beside `parserRefusals` was hand-written next to a derived count — the same shape — so it is now derived from the array too. |
 
-Gates after the fixes: `build-checks` **all 18 groups pass** · `drift-check` all 12 steps, no drift, clean tree · `token-lint` ✓ · `scenarios` ✓ · `gen-loc-summary --check` no drift.
+Gates after the fixes: `build-checks` **all 18 groups pass** · `drift-check` all 12 steps, no drift, clean tree · `token-lint` ✓ · `scenarios` ✓ · CI `verify` ✓ · CI `visual` ✓ **20/20**.
+
+`/handoff.html` — the one surface in the set no gate renders — was driven headless with a positive
+control (filter absent → present) and comes back **byte-identical**, 87902 DOM / 62897 text chars,
+0 console errors. Low 2 is behaviour-neutral as a measured fact, not an argument.
+
+One follow-up commit was needed: `gen-loc-summary --check` reads git-**tracked** content, so running
+it before staging returned a false "no drift" and CI `verify` went red on the real boundary crossing
+(generators 2500 → 2600). Regenerated in `3cfde86`. `approach.html:252` reads the *runtime* group,
+which did not move — so no baseline churned, which is why `visual` had already passed on the stale tree.
 
 ---
 *Reviewed via `/piv-review-pr` — validation re-run locally against the merge-ready tree, deep pass by the
