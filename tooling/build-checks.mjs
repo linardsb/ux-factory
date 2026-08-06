@@ -1665,12 +1665,23 @@ function scanSvg(svg, label) {
   //      is "" in this unmutated import, so the beacon branch still short-circuits before it.
   //      Proven able to fail: pointing FACTORY_EXPORTED_PATH at /factory/shared turns this red while
   //      every other case in the group stays green.
+  //
+  //      DERIVED FROM THE MODULE, not hand-listed, and that distinction is the gap this case was
+  //      written to close rather than to re-open one step later: a typed array cannot see a TWELFTH
+  //      tracker — exactly the thing #210 just did twice — so a new path could collide with an
+  //      existing one and fall outside the only check that looks. The pinned minimum stays, because
+  //      derivation alone is satisfied by an empty module: a rename that DROPS a tracker must be as
+  //      red as a duplicate one. (PR #241 review, Low 5.)
   {
-    const TRACKERS = [
+    const MIN = [
       "trackFactoryDriven", "trackFactoryBuilt", "trackFactoryShared", "trackFactoryArrived",
       "trackBuildPattern", "trackBuildShared", "trackToolInspect", "trackToolPalette",
       "trackFactoryTookOver", "trackFactoryLinkCopied", "trackFactoryExported",
     ];
+    const roster = await import(`${ANA}?g10j-roster`);
+    const TRACKERS = Object.keys(roster).filter((k) => k.startsWith("track"));
+    ok(TRACKERS.length >= MIN.length && MIN.every((n) => TRACKERS.includes(n)),
+      `analytics.mjs exports ${TRACKERS.length} track* functions (${TRACKERS.join(", ")}) — the pinned minimum ${MIN.join(", ")} is not a subset, so a tracker was renamed or dropped and this case would silently stop driving it`);
     const pushed = new Map(); // path → the tracker that pushed it
     const dupes = [];
     for (const name of TRACKERS) {
@@ -1696,7 +1707,7 @@ function scanSvg(svg, label) {
   delete globalThis.history;
   delete globalThis.document;
 
-  group("analytics", "imports node-safe with a filled token · 5 static virtual paths (2 /build + /factory/took-over + #210's exported and link-copied) · no ?b= payload in any, asserted on /factory against a real restorable board · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL in both orderings, on /build, across the two pages, and between the studio rail's own two buttons · all 11 trackers DRIVEN and their pushed paths proven pairwise distinct — the check a merely-static assertion cannot be");
+  group("analytics", "imports node-safe with a filled token · 5 static virtual paths (2 /build + /factory/took-over + #210's exported and link-copied) · no ?b= payload in any, asserted on /factory against a real restorable board · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL in both orderings, on /build, across the two pages, and between the studio rail's own two buttons · every track* export DRIVEN — the roster DERIVED from the module over a pinned minimum, so a twelfth one cannot fall outside it — and their pushed paths proven pairwise distinct, the check a merely-static assertion cannot be");
 }
 
 // --- 11 · the replay projection ------------------------------------------------------------------
@@ -3039,7 +3050,10 @@ function scanSvg(svg, label) {
       `the strip changed the brace count under the ${pack} pack — it removed a rule, not an at-rule`);
     ok(count(stripped, /:root/g) === count(source, /:root/g),
       `the strip lost a :root block under the ${pack} pack — this is exactly what the plan's own /@import[^;]*;/g did to saulera`);
-    ok(out.includes(":root"), `the export under the ${pack} pack carries no :root block — the strip ate the pack`);
+    //     (A fourth assertion stood here — `out.includes(":root")` — and was removed as vacuous by
+    //     PR #241's review, Low 4: exportHtml emits `<style>:root{…}</style>` unconditionally
+    //     (studio-export.mjs:246), so it was true for every input including `css: ""` and could not
+    //     go red under any mutation. The :root COUNT above is the check it was pretending to be.)
     if (pack === "saulera") {
       ok(/--color-amber:\s*#/.test(out),
         "the export under saulera lost --color-amber — saulera's primitives are the only pack values that prove the pack itself travelled");

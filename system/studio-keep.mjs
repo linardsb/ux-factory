@@ -36,6 +36,10 @@
 //     that validates it, and rendering THAT into a detached container is literally what AC #3 asks
 //     for. The arrangement is read separately, off the live wrappers — the same two sources the
 //     share link uses, which is why the file and the link can never describe different arrangements.
+//     They can describe DIFFERENT AMOUNTS of one, and each says which: when the wrapper count and
+//     the place count disagree the file carries what it could and states the omission, while the
+//     link carries none at all, because a `g` shorter than the board is not a partial arrangement —
+//     it is an unreadable one. Both outcomes are announced; neither is silent (PR #241 review, M2).
 //
 //  3. THE STUDIO HAS NO ANSWERS OF ITS OWN, and the downloaded spec must say so. specMarkdown
 //     destructures { answers, quadrant, frequencyVerdict, board, pack } unguarded and would THROW on
@@ -68,6 +72,8 @@ import {
   DEFAULT_ANSWERS, frequencyVerdictFor, quadrantFor, readBuild,
 } from "./build-questions.mjs";
 import { specMarkdown } from "./build-keep.mjs";
+import { importedOnPage, readImported } from "./pack-imported.mjs";
+import { derivedOnRoot, readRecord as readDerived } from "./pack-derived.mjs";
 import { PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
 import { compose } from "./pattern-render.mjs";
 import { renderComposition } from "./agentic-renderer.mjs";
@@ -106,6 +112,13 @@ const ANSWERS_NOTE = "The spec carries the ten method answers this page runs on,
 const SHARE_NOTE = "The whole build travels in the link itself: the board, the design values, and — "
   + "because this page has a canvas and the builder does not — where each block sits on it. There is "
   + "no server in this, and nothing is saved anywhere.";
+
+// The caveat a link that carries no `g` owes the reader, and it rides BOTH copy outcomes — the
+// clipboard one and the select-the-field one. Not because the second is likely, but because the
+// reader walks away holding the same link either way, and a caveat that only appears on the happy
+// path is a caveat that is missing exactly when something already went differently than expected.
+const NO_ARRANGEMENT = " Where the blocks sit did not travel: the canvas is holding a different "
+  + "number of pieces than the board has places, and a guessed arrangement is worse than none.";
 
 const EMPTY = "Nothing to keep yet. This board has no places on it, so there is no product to export, "
   + "no spec to write and no arrangement to share. A board with something on it brings all three back.";
@@ -146,6 +159,33 @@ function inlineTokensOf(node) {
   return map;
 }
 
+// The design the page is WEARING when it did not come from this page — #130's "wear it across the
+// visit", which is a shipped, promoted feature on HOME and travels here with the reader. It reaches
+// the DOM by neither of the two paths inlineTokensOf and the <link> scan cover: an IMPORTED record
+// is a <style> element appended to <head> (pack-imported.mjs:186 / pack-boot.js:56-62) and a DERIVED
+// one is inline custom properties on :root (pack-derived.mjs:136 / pack-boot.js:84-87). Without this
+// the export wears neutral and its provenance block STATES that nothing was imported, on a page the
+// reader is looking at in their own colours which says so in Act 0 — a false claim rendered into the
+// one artifact whose whole purpose is naming whose design work this is (build-import.mjs:167-171's
+// standard, verbatim, for this exact reader). PR #241 review, High 1.
+//
+// Read through the modules that OWN the records, and through THEIR OWN ground-truth checks rather
+// than the raw records: unwearImported keeps the record and removes the style (pack-imported.mjs:239)
+// and pack-derived's unwear does the same with the selector, so "stored" and "worn" are different
+// questions and only the second one may reach an artifact that makes a claim about the reader. One
+// record reader each, never a second parse here — importedOnPage/derivedOnRoot are the same two calls
+// the dock's groundTruth() makes, so the export and the dock can never disagree about what is on.
+//
+// Imported first, matching pack-boot.js:56-62's own order: an import SHADOWS a derived pick there
+// rather than blending with it, and a second opinion about that precedence would be the bug.
+function wornPack() {
+  const imported = readImported();
+  if (imported && importedOnPage(imported)) return imported;
+  const derived = readDerived();
+  if (derived && derivedOnRoot(derived)) return derived;
+  return null;
+}
+
 // Whose design values these are, named the way the store names them rather than guessed. The three
 // producers write three different shapes and they matter here: build-import.mjs's drop path fills
 // `fileName` (:391), its derive path sets slug "derived" with fileName null (:473), and a shared
@@ -153,13 +193,23 @@ function inlineTokensOf(node) {
 // receiving browser and naming one would be a claim about a thing it never saw
 // (build-share.mjs:479-481). Reading only `slug` would print an imported design as a derived
 // palette, which is the wrong sentence in the one artifact whose point is naming whose work this is.
-function packLabelOf(pack, inlineTokens) {
+function packLabelOf(pack, worn, inlineTokens) {
   if (pack && pack.fileName) return `your imported design, "${pack.fileName}"`;
   if (pack && pack.slug === "derived") return "your own derived palette";
   // "shared" is the codec's DEFAULT for a payload that carried no `s` (build-share.mjs:475), not a
   // name anybody chose — quoting it back at the reader as one would be inventing an attribution.
   if (pack && pack.slug && pack.slug !== "shared") return `the design "${pack.slug}", as it travelled in this link`;
   if (pack) return "the design values that travelled in this link";
+  // Worn in from home, and named the way ITS record names itself — the same rule the branches above
+  // follow. The two producers differ in exactly the way that matters here: an import knows the FILE
+  // it was read from, a derived palette knows only that the reader picked a colour. Where the
+  // record came from is part of the claim, so it is said rather than flattened into "yours".
+  if (worn && worn.source === "imported") {
+    return worn.fileName
+      ? `your imported design, "${worn.fileName}", worn in from the home page`
+      : "the design you imported on the home page";
+  }
+  if (worn) return "your own derived palette, worn in from the home page";
   return Object.keys(inlineTokens).length ? "your own design values" : null;
 }
 
@@ -312,7 +362,14 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
           })));
 
         const stage = document.querySelector("[data-build-stage]");
-        const inlineTokens = inlineTokensOf(stage);
+        // MERGED, WITH THE STAGE ON TOP, which is the order the cascade already gives these two: a
+        // design dropped into Act 0 on THIS page writes the stage's inline props, and those outrank
+        // both of the worn paths for everything inside the stage. Merged rather than either-or for
+        // the same reason — a role Act 0's export did not fill must still come from the design the
+        // reader is wearing, not fall back to neutral. vetTokens inside exportHtml stays the ONE
+        // application point over the result; nothing here judges a value.
+        const worn = wornPack();
+        const inlineTokens = { ...(worn ? worn.tokens : {}), ...inlineTokensOf(stage) };
         const stored = readBuild();
         const board = getBoard() || { places: [], connections: [] };
         const result = composedNow.result;
@@ -328,7 +385,7 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
             places: result.counted.places,
             affordances: result.counted.affordances,
             connections: result.counted.connections,
-            packLabel: packLabelOf(stored.pack, inlineTokens),
+            packLabel: packLabelOf(stored.pack, worn, inlineTokens),
             hasVisitorTokens: Object.keys(inlineTokens).length > 0,
             // What did not fit, so the document can say so instead of quietly being short.
             omitted: nodes.length - shown,
@@ -367,27 +424,49 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
       el("p", { class: "stu-keep-note", text: SHARE_NOTE }),
     );
 
+    // Returns the arrangement ALONGSIDE the url, because the caller has a sentence to say about it
+    // and arrangement() legitimately answers null: build-share.mjs's arrangementSlots then emits no
+    // `g` and the link rebuilds the board with the default row-1 layout. That divergence is
+    // reachable rather than theoretical — applySwap place()s surplus components and removes surplus
+    // wrappers (studio-compile.mjs:433-448), and a ?b= link carries the SENDER'S answers, so a
+    // visitor who arrives on a `shape: feed` link and presses Compile is holding 6 wrappers against
+    // 4 places. Computing it once here is what keeps the announcement and the payload the same fact
+    // rather than two reads that can disagree. (PR #241 review, Medium 2.)
     async function currentUrl() {
-      return shareUrl(await settledUrl(), await encodeBuild({ ...specState(), arrangement: arrangement() }));
+      const arrangement_ = arrangement();
+      const url = shareUrl(await settledUrl(), await encodeBuild({ ...specState(), arrangement: arrangement_ }));
+      return { url, arrangement: arrangement_ };
     }
 
     copyBtn.addEventListener("click", async () => {
       copyBtn.disabled = true;
       let built = false; // did the link get as far as the address bar and the field?
       try {
-        const url = await currentUrl();
+        const { url, arrangement: sent } = await currentUrl();
         linkLive = true;
         replaceUrl(url);
         linkInput.value = url;
+        // The field's own label makes the same claim as the sentence below, on the same link, so it
+        // branches with it rather than being written once and left true only sometimes.
+        linkInput.setAttribute("aria-label", sent
+          ? "The link that rebuilds this build, arrangement included"
+          : "The link that rebuilds this build, without the arrangement");
         linkInput.hidden = false;
         built = true;
         try {
           await navigator.clipboard.writeText(url);
-          say("Link copied. It is in your address bar too, and it rebuilds this board — arrangement included — in any browser.");
+          // NAMED, not softened: a reader who is told the arrangement travelled and finds it did
+          // not has been handed the one thing this rail exists to add. The refusal's reason is the
+          // reader's own state — more blocks on the canvas than the board has places — so it is said
+          // in those terms rather than as an error.
+          say(sent
+            ? "Link copied. It is in your address bar too, and it rebuilds this board — arrangement included — in any browser."
+            : "Link copied. It is in your address bar too, and it rebuilds this board in any browser." + NO_ARRANGEMENT);
         } catch {
           // Clipboard access is permissioned and can be refused; the link is still right there.
           linkInput.select();
-          say("Your browser did not allow the copy. The link is selected in the field above, so copy it from there.");
+          say("Your browser did not allow the copy. The link is selected in the field above, so copy it "
+            + "from there." + (sent ? "" : NO_ARRANGEMENT));
         }
       } catch (err) {
         say(`The link could not be built. ${err.message}`);
@@ -437,7 +516,7 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
       // clean. No debounce: unlike /build's rail nothing on this page fires per keystroke — the
       // board changes at settle, at take-over and on a restore, which is three times a load.
       if (!linkLive) return;
-      currentUrl().then((url) => {
+      currentUrl().then(({ url }) => {
         replaceUrl(url);
         linkInput.value = url;
       }).catch(() => { /* the note already carries the last thing that happened */ });
