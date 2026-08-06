@@ -11,7 +11,8 @@
   },
   "tokens": ["--color-bg", "--color-fg", "--color-border", "--spacing-sm", "--spacing-md", "--type-h3"],
   "states": ["default", "scrolled"],
-  "children": []
+  "children": [],
+  "example": { "title": "My plants", "showSettings": true }
 }
 ```
 

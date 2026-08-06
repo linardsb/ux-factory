@@ -89,6 +89,13 @@ const num = (v, max) => {
 // outside one it drops from "@import" to the terminating semicolon. A comment that is never closed
 // runs to the end of the string, which is what the browser's own parser does with it too.
 //
+// IT IS STRING-BLIND, and that is a limit rather than parser-equivalence: `/*`, `@import` and `;`
+// are treated as structural wherever they appear, including inside a CSS string literal or a
+// `url()`, so `@import url("a;b.css")` would stop at the quoted semicolon. Unreachable on this
+// page's inputs — three fixed literals plus a href matched against studio-keep.mjs's PACK_LINK_RE,
+// and all six committed sheets are clean — and the fix if it ever is reachable is to teach this
+// scanner about quote spans, not to reach for a regex again (PR #241 review, Low 6).
+//
 // TOTAL: a non-string answers "".
 export function stripImports(css) {
   if (typeof css !== "string" || !css) return "";

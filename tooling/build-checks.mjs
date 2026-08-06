@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Fifteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Eighteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -49,12 +49,24 @@
 //                     clampSlot and fitLevel driven over their real edges (#204)
 //  13 verbs          the canvas's manipulation layer, pure half: the history stack incl. #230's
 //                     adopt, stepSlot and hitSlot (#205)
-//  15 compile        the compile beat's pure pipeline: compileSteps over the REAL drafted board and
-//                     all five patterns' fixtures against the generated vocabulary, determinism by
-//                     deep-comparing two whole runs, totality over junk (#207)
 //  14 studio         the /factory orchestrator's pure layer: arrangeBoard over the REAL drafted
 //                     board and nine junk ones, buildSummary's counts asserted against
 //                     affordanceCount and patternFor rather than re-derived (#206)
+//  15 compile        the compile beat's pure pipeline: compileSteps over the REAL drafted board and
+//                     all five patterns' fixtures against the generated vocabulary, determinism by
+//                     deep-comparing two whole runs, totality over junk (#207)
+//  16 replay driver  the studio's replay driver, pure half: the committed artifact + trace joined,
+//                     the reproduce claim restated at view time with the corrupted-label MUTATION
+//                     that decides whether that compare is real, the schedule's gap RATIOS, and the
+//                     ADD-ONLY op histogram pinned over the unexercised branches (#209)
+//  17 export         the single-file export's pure layer: the document driven over the REAL
+//                     committed stylesheets, the zero-request claim asserted on the OUTPUT, both
+//                     honesty branches by IDENTITY, byte-identical across two runs (#210)
+//  18 docs chain     the docs chain's two pure functions: validateExamples over every committed
+//                     spec's example, plus the four-branch MUTATION that decides whether it can
+//                     fail at all, and prepareHandoff's view-time join over the real pack,
+//                     vocabulary and system-graph — the consumer set anchored on the PACK, since a
+//                     graph-derived one moves in lockstep with the thing under test (#211)
 //
 //   node tooling/build-checks.mjs
 
@@ -84,6 +96,13 @@ import { allowedOrigins, originAllowed } from "../portal/lib/origin.mjs";
 import { applyOps, assertBoard, OPS, parseOpCommand } from "../system/board-ops.mjs";
 import { runBoardOp } from "./board-op.mjs";
 import { projectTrace } from "../agent-layer/gen-replay.mjs";
+// #211's two pure functions. gen-vocabulary.mjs is zero-dep and its standalone-run guard means
+// importing it writes nothing — but do NOT call genVocabulary() from a check, which writes to disk.
+// handoff-viewer.mjs's top level is Node-safe (every DOM reference sits inside a function body);
+// prepareHandoff is the pure half and is the only thing called here — never renderHandoffViewer.
+import { validateExamples } from "../agent-layer/gen-vocabulary.mjs";
+import { parseComponentSpec } from "../agent-layer/lib.mjs";
+import { prepareHandoff } from "../system/handoff-viewer.mjs";
 // The recorder's FENCE — importable here for the same reason group 8 can import the operator path:
 // portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
 // portal/node_modules is what proves that, and this import now rides on it too.
@@ -380,17 +399,25 @@ const BARE_BOARD = {
 
   // Every component name the page can emit, DERIVED from compose rather than retyped, must be both
   // a generated-vocabulary entry and a template this renderer actually has. The second half is the
-  // drift error agentic-renderer.mjs:360-363 throws — caught here under Node instead of by a
-  // visitor watching the stage refuse itself.
-  //
-  // Scoped to what compose EMITS, deliberately not to every vocabulary key: the vocabulary carries
-  // 10 components and the renderer 9 templates, because demo-notice has a spec and no template on
-  // purpose. "Every vocabulary entry has a template" would be red on a correct tree.
+  // drift error agentic-renderer.mjs throws — caught here under Node instead of by a visitor
+  // watching the stage refuse itself. Kept alongside the wider loop below, which does NOT subsume
+  // it: this one asserts that compose() emits only vocabulary names, which is a claim about the
+  // builder rather than about the vocabulary.
   const names = new Set(emitted.map((n) => n.name));
   ok(names.size >= 3, `only ${names.size} distinct component(s) across all five patterns`);
   for (const name of names) {
     ok(Object.hasOwn(VOCAB.components, name), `${name} is not in the generated vocabulary`);
     ok(hasTemplate(name), `${name} is in the vocabulary but agentic-renderer.mjs has no template for it — renderer and vocabulary have drifted`);
+  }
+
+  // Every vocabulary entry has a render path — WIDER than the emitted set on purpose (#211). A spec
+  // and a vocabulary entry with no components.css block and no template is "documented but not
+  // composable", which was demo-notice's state until #211 closed it. Asserting over the emitted names
+  // alone let that hole sit behind a green gate — worse, the gate WROTE THE HOLE DOWN as intentional,
+  // in a comment paragraph nobody re-read. Asserting over the whole vocabulary makes a render path a
+  // precondition of being documented at all, which is the constraint #220's ten components inherit.
+  for (const name of Object.keys(VOCAB.components)) {
+    ok(hasTemplate(name), `${name} is in the generated vocabulary but agentic-renderer.mjs has no template for it — a spec without a render path is documented but not composable (#211)`);
   }
 
   for (const id of [null, "nonsense", undefined]) {
@@ -399,7 +426,7 @@ const BARE_BOARD = {
   ok(compose("dashboard", null) === null, "compose with no slots should return null");
   ok(compose("dashboard", []) === null, "compose with an empty slot array should return null");
 
-  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components, each with a template`);
+  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
@@ -1665,12 +1692,27 @@ function scanSvg(svg, label) {
   //      is "" in this unmutated import, so the beacon branch still short-circuits before it.
   //      Proven able to fail: pointing FACTORY_EXPORTED_PATH at /factory/shared turns this red while
   //      every other case in the group stays green.
+  //
+  //      DERIVED FROM THE MODULE, not hand-listed, and that distinction is the gap this case was
+  //      written to close rather than to re-open one step later: a typed array cannot see a TWELFTH
+  //      tracker — exactly the thing #210 just did twice — so a new path could collide with an
+  //      existing one and fall outside the only check that looks. The pinned minimum stays, because
+  //      derivation alone is satisfied by an empty module: a rename that DROPS a tracker must be as
+  //      red as a duplicate one. (PR #241 review, Low 5.)
   {
-    const TRACKERS = [
+    const MIN = [
       "trackFactoryDriven", "trackFactoryBuilt", "trackFactoryShared", "trackFactoryArrived",
       "trackBuildPattern", "trackBuildShared", "trackToolInspect", "trackToolPalette",
       "trackFactoryTookOver", "trackFactoryLinkCopied", "trackFactoryExported",
     ];
+    // Imported before the loop's first stub(), which is safe only because case 12 left `location`
+    // and `history` defined and analytics.mjs is node-safe regardless — stated because it is an
+    // ordering dependency this group did not have before, and reordering group 10 would fail here
+    // confusingly rather than loudly.
+    const roster = await import(`${ANA}?g10j-roster`);
+    const TRACKERS = Object.keys(roster).filter((k) => k.startsWith("track"));
+    ok(TRACKERS.length >= MIN.length && MIN.every((n) => TRACKERS.includes(n)),
+      `analytics.mjs exports ${TRACKERS.length} track* functions (${TRACKERS.join(", ")}) — the pinned minimum ${MIN.join(", ")} is not a subset, so a tracker was renamed or dropped and this case would silently stop driving it`);
     const pushed = new Map(); // path → the tracker that pushed it
     const dupes = [];
     for (const name of TRACKERS) {
@@ -1696,7 +1738,7 @@ function scanSvg(svg, label) {
   delete globalThis.history;
   delete globalThis.document;
 
-  group("analytics", "imports node-safe with a filled token · 5 static virtual paths (2 /build + /factory/took-over + #210's exported and link-copied) · no ?b= payload in any, asserted on /factory against a real restorable board · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL in both orderings, on /build, across the two pages, and between the studio rail's own two buttons · all 11 trackers DRIVEN and their pushed paths proven pairwise distinct — the check a merely-static assertion cannot be");
+  group("analytics", "imports node-safe with a filled token · 5 static virtual paths (2 /build + /factory/took-over + #210's exported and link-copied) · no ?b= payload in any, asserted on /factory against a real restorable board · fires once each · URL restored verbatim, hash included (arrived-with, written-inside-the-window) · two OVERLAPPING flips restore the real URL in both orderings, on /build, across the two pages, and between the studio rail's own two buttons · every track* export DRIVEN — the roster DERIVED from the module over a pinned minimum, so a twelfth one cannot fall outside it — and their pushed paths proven pairwise distinct, the check a merely-static assertion cannot be");
 }
 
 // --- 11 · the replay projection ------------------------------------------------------------------
@@ -3039,7 +3081,10 @@ function scanSvg(svg, label) {
       `the strip changed the brace count under the ${pack} pack — it removed a rule, not an at-rule`);
     ok(count(stripped, /:root/g) === count(source, /:root/g),
       `the strip lost a :root block under the ${pack} pack — this is exactly what the plan's own /@import[^;]*;/g did to saulera`);
-    ok(out.includes(":root"), `the export under the ${pack} pack carries no :root block — the strip ate the pack`);
+    //     (A fourth assertion stood here — `out.includes(":root")` — and was removed as vacuous by
+    //     PR #241's review, Low 4: exportHtml emits `<style>:root{…}</style>` unconditionally
+    //     (studio-export.mjs:246), so it was true for every input including `css: ""` and could not
+    //     go red under any mutation. The :root COUNT above is the check it was pretending to be.)
     if (pack === "saulera") {
       ok(/--color-amber:\s*#/.test(out),
         "the export under saulera lost --color-amber — saulera's primitives are the only pack values that prove the pack itself travelled");
@@ -3156,6 +3201,251 @@ function scanSvg(svg, label) {
   group("export", `the document driven over the REAL committed stylesheets — the contract, components.css and each of the ${PACK_IDS.length} packs dock.mjs's own PACK_RE allowlists — with the zero-request claim asserted on the OUTPUT and the saulera pack proven to SURVIVE the strip, the pair that would have caught the plan's original regex eating :root (and case 1 goes red on committed bytes with no mutation, because tokens.saulera.css carries a live @import) · the arrangement as grid LINE placement, out of source order, with an off-grid slot DROPPED rather than clamped · the placement table generated from the imported ${MAX_COLS}×${MAX_ROWS} caps, exhaustively and in both directions · both honesty branches asserted by IDENTITY against build-keep.mjs's constants, including the negative half — an export with no visitor tokens must NOT claim the token values are theirs · truncation stated and agreeing in number · total over ${junk.length} junk inputs · byte-identical across two runs. The cold file:// render, the ACTUAL request count, the rail's both-ways hide and the download are tooling/studio-journey.mjs's and spike 3's, and say so`);
 }
 
+// --- 18 · the docs chain ----------------------------------------------------------------------------
+//
+// #211's two pure functions, driven the way groups 11 and 16 drive theirs: over the REAL committed
+// artifacts, with every count derived from the files rather than typed, and with the MUTATION that
+// decides whether each compare is real rather than decorative.
+//
+// What this group does NOT reach: that the catalog RENDERS any of this. There is no catalog yet
+// (#215) and this ticket deliberately adds no viewer block, so the join is gated as a pure function
+// and its presentation is #215's — the same boundary statement groups 9, 11, 13 and 16 make about
+// the running-page facts they cannot touch.
+{
+  const PACK = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/pack.json"), "utf8"));
+  const GRAPH = JSON.parse(readFileSync(join(ROOT, "system/system-graph.json"), "utf8"));
+  let parserRefusals = 0;
+  // The ✓ line names the refusals as well as counting them. DERIVED from the same array, never
+  // re-typed beside it: a hand-listed set next to a computed count is the Low 4 shape one line down.
+  let parserRefusalNames = "";
+
+  // --- A · validateExamples -------------------------------------------------------------------
+  //
+  // The happy path first: every real spec's real example must pass against the real vocabulary.
+  // `checked` is asserted against the count read from the PACK — not from vocabulary.json, which
+  // deliberately carries no `example` at all (gen-vocabulary.mjs's comment says why), and not typed.
+  const realSpecs = PACK.components.map((c) => ({ head: c, path: `system/specs/${c.component}.md` }));
+  const packExamples = PACK.components.filter((c) => c.example).length;
+  ok(packExamples > 0, "the pack carries no `example` at all — this whole group would be vacuous");
+  let happy = null;
+  try { happy = validateExamples(realSpecs, VOCAB); } catch (err) {
+    ok(false, `every committed example should render, but validateExamples threw: ${err.message}`);
+  }
+  ok(happy && happy.checked === packExamples,
+    `validateExamples checked ${happy && happy.checked} examples but the pack carries ${packExamples}`);
+
+  // The MUTATION, and it is what decides whether this gate can fail at all. Four synthetic specs,
+  // one per refusal branch of validateComposition, each asserted BOTH to throw AND to name its own
+  // spec path — because a gate that throws the right number of times with the wrong messages is a
+  // gate nobody can debug. AC #7 as a committed tripwire rather than an operator's one-time
+  // observation (the `check-that-cannot-fail` lesson: every #137 defect survived a green gate the
+  // same way — the check skipped the thing it tested).
+  const broken = [
+    { branch: "unknown prop", head: { component: "metric-tile", example: { label: "x", value: "1", nonsense: true } } },
+    { branch: "missing required prop", head: { component: "metric-tile", example: { label: "x" } } },
+    { branch: "wrong type", head: { component: "stat-tile", example: { kind: "moisture", value: "34", unit: "%", label: "Moisture" } } },
+    { branch: "enum violation", head: { component: "status-chip", example: { value: "nonsense", label: "X" } } },
+  ];
+  for (const { branch, head } of broken) {
+    const path = `system/specs/SYNTHETIC-${branch.replace(/ /g, "-")}.md`;
+    let threw = null;
+    try { validateExamples([{ head, path }], VOCAB); } catch (err) { threw = err; }
+    ok(threw !== null, `validateExamples accepted a broken example (${branch}) — the gate cannot fail`);
+    ok(threw && threw.message.includes(path),
+      `the ${branch} refusal does not name its spec path — got: ${threw && threw.message}`);
+    ok(threw && /does not render/.test(threw.message),
+      `the ${branch} refusal does not say the example does not render — got: ${threw && threw.message}`);
+  }
+
+  // A spec with NO example is SKIPPED, not failed — the field is optional (AC #1). Asserted as a
+  // `checked` count of zero rather than as "it did not throw", which an empty list also satisfies.
+  const skipped = validateExamples([{ head: { component: "metric-tile" }, path: "system/specs/NO-EXAMPLE.md" }], VOCAB);
+  ok(skipped.checked === 0, `a spec with no example was checked ${skipped.checked} times — the field is optional`);
+
+  // Totality: a junk `example` value must produce a clean refusal or a clean skip, never an
+  // uncaught crash — validateComposition's own guards are what make this true, and this is what
+  // notices the day one of them stops holding.
+  const junkExamples = [null, [], "x", 0, true, undefined];
+  for (const [i, ex] of junkExamples.entries()) {
+    let crashed = null;
+    try { validateExamples([{ head: { component: "metric-tile", example: ex }, path: `system/specs/JUNK-${i}.md` }], VOCAB); }
+    catch (err) { if (!/does not render/.test(err.message)) crashed = err; }
+    ok(crashed === null, `a junk example (${JSON.stringify(ex)}) crashed the checker uncaught: ${crashed && crashed.message}`);
+  }
+
+  // --- B · prepareHandoff's join over the REAL committed files ---------------------------------
+  const joined = prepareHandoff(PACK, VOCAB, GRAPH);
+  ok(joined.components.length === PACK.components.length,
+    `the join returned ${joined.components.length} components for a pack of ${PACK.components.length}`);
+
+  for (const c of joined.components) {
+    const spec = PACK.components.find((p) => p.component === c.name);
+    // Every declared token resolved. A null `group` means a spec declares a token the contract does
+    // not have — the join keeps it visible rather than dropping it, so this is the assertion that
+    // sees it.
+    ok(Array.isArray(c.tokens) && c.tokens.length === spec.tokens.length,
+      `${c.name}: joined ${c.tokens && c.tokens.length} tokens for a spec declaring ${spec.tokens.length}`);
+    const unresolved = (c.tokens || []).filter((t) => t.group === null).map((t) => t.name);
+    ok(unresolved.length === 0, `${c.name}: declares token(s) the contract does not have — ${unresolved.join(", ")}`);
+    // example: present exactly when the pack carries one.
+    ok(Boolean(c.example) === Boolean(spec.example), `${c.name}: example presence disagrees with the pack`);
+    // wrapper: derived from the pack's OWN portability list, never typed.
+    const expected = PACK.portability.webComponents.files.includes(`wc/${spec.class}.mjs`) ? `wc/${spec.class}.mjs` : null;
+    ok(c.wrapper === expected, `${c.name}: wrapper is ${c.wrapper}, expected ${expected}`);
+    // consumer: EVERY pack component must have a components.css block that consumes contract tokens.
+    //
+    // Derived from the PACK, checked against the GRAPH — and this is the one place where the
+    // house rule "derive the expected set from the file" is exactly WRONG. Deriving the expected
+    // set from system-graph.json's own consumers[].spec produces a check that cannot fail: delete
+    // demo-notice's CSS block, regenerate the graph, and the component leaves the join AND the
+    // expectation together, both sides moving in lockstep, assertion green on a broken tree.
+    // Anchoring on the pack means a deleted or suffix-less block goes red, and #220's ten additions
+    // are covered here with no edit. The rule generalises: derive the expected set from a source
+    // that does not move when the thing under test breaks.
+    //
+    // If a future component's block legitimately consumes NO contract token
+    // (gen-system-graph.mjs drops zero-token blocks) or carries no `(system/specs/….md)` suffix,
+    // name it as an explicit commented exception here — never widen back to a graph-derived set.
+    ok(c.consumer !== null,
+      `${c.name}: no components.css block consuming contract tokens for system/specs/${c.name}.md — a spec with no CSS block is documented but not styled (#211)`);
+  }
+
+  // What the per-component loop above actually asserted, summed — NOT GRAPH.counts.tokens, which is
+  // the contract's 64 and a true number about a different thing (PR #242 review, Low 4).
+  const joinedTokens = joined.components.reduce((n, c) => n + c.tokens.length, 0);
+  const joinedWrappers = joined.components.filter((c) => c.wrapper).length;
+  ok(joinedWrappers === PACK.portability.webComponents.files.length,
+    `the join found ${joinedWrappers} wrappers but the pack ships ${PACK.portability.webComponents.files.length}`);
+  ok(joined.components.filter((c) => c.example).length === packExamples,
+    "the join's example count disagrees with the pack's");
+
+  // The `head` projection is an explicit field PICK, not a spread — so an added optional key is
+  // silently dropped unless it is named there. This is the assertion that catches that, and it is
+  // the trap the five-pillar rubric ticket paid a review round for.
+  const withExample = joined.components.find((c) => c.example);
+  ok(withExample && withExample.head.example, "`example` reached the component but NOT the head projection — it was dropped by the explicit pick");
+  // The negative half of the same claim: a spec with NO example must get NO `example` key in its
+  // head projection — an injected `null` would make "Source (spec head)" a picture of a head that
+  // does not exist. All ten committed specs carry an example (#211 authored them deliberately
+  // totally), so this is driven over a SYNTHETIC pack rather than left as a vacuous `if` that
+  // silently tests nothing the day it stops finding one.
+  const strippedPack = { ...PACK, components: PACK.components.map(({ example, ...rest }) => rest) };
+  const strippedJoin = prepareHandoff(strippedPack, VOCAB, GRAPH);
+  ok(strippedJoin.components.every((c) => !("example" in c.head)),
+    'the head projection injected an "example" key for a spec that carries none');
+  ok(strippedJoin.components.every((c) => c.example === null),
+    "a spec with no example should join as null, not undefined");
+  ok(strippedJoin.components.every((c) => c.consumer !== null && c.tokens.length > 0),
+    "stripping `example` disturbed the rest of the join");
+
+  // The TWO-ARG call — the compatibility claim handoff.html:196 rests on. Full shape, joined graph
+  // fields null, and `example` still present because it rides the pack rather than the graph.
+  const twoArg = prepareHandoff(PACK, VOCAB);
+  ok(twoArg.components.length === PACK.components.length && twoArg.composition !== null,
+    "the two-arg call no longer returns the full { components, composition } shape");
+  ok(twoArg.components.every((c) => c.tokens === null && c.consumer === null),
+    "the two-arg call resolved graph fields it was given no graph for");
+  ok(twoArg.components.filter((c) => c.example).length === packExamples,
+    "the two-arg call lost `example`, which comes from the pack and not the graph");
+
+  // Totality over junk graphs — degrade to null, never throw. The optionality is the whole reason
+  // the shipped call site keeps working.
+  const junkGraphs = [null, undefined, {}, { tokens: [] }, { consumers: "x" }, { tokens: "x", consumers: 7 }, []];
+  for (const [i, g] of junkGraphs.entries()) {
+    let threw = null;
+    let out = null;
+    try { out = prepareHandoff(PACK, VOCAB, g); } catch (err) { threw = err; }
+    ok(threw === null, `prepareHandoff threw on junk graph ${i}: ${threw && threw.message}`);
+    ok(out && out.components.length === PACK.components.length, `junk graph ${i} changed the component count`);
+  }
+
+  // --- C · the PARSER's own refusals ------------------------------------------------------------
+  //
+  // #211 added four throws to parseComponentSpec, and 18A/18B drive validateComposition's branches
+  // rather than these — so without this half the parser's refusals would be exactly the shape 18B's
+  // stripped-pack case had to be rewritten to escape: written, plausible, and never once observed
+  // failing. The plan asks for them by name (TESTING STRATEGY edge cases 6 and 7).
+  //
+  // Driven over REAL FILES in a tmpdir, because parseComponentSpec takes a path and derives the
+  // component name from the filename stem — there is no in-memory seam, and inventing one would be
+  // a second parser. Each fixture must satisfy the WHOLE parser (stem === head.component, non-empty
+  // --prefixed tokens, non-empty states, a children array, contract null, and the four `## `
+  // sections IN ORDER), so the positive control below is also the proof that the fixture shape is
+  // right — without it a typo'd fixture would make all four refusals pass for the wrong reason.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "g18-spec-"));
+    const SECTIONS = "\n\n## Usage\n\nu\n\n## States\n\ns\n\n## Data binding\n\nd\n\n## Accessibility\n\na\n";
+    const write = (stem, head) => {
+      const p = join(dir, `${stem}.md`);
+      writeFileSync(p, "```json\n" + JSON.stringify({ ...head, component: stem }, null, 2) + "\n```" + SECTIONS);
+      return p;
+    };
+    const BASE = {
+      status: "spec", class: "x-thing", contract: null,
+      tokens: ["--color-fg"], states: ["default"], children: [],
+      props: { n: { type: "number", required: true }, s: { type: "string", required: true } },
+    };
+
+    // Positive control — a valid example AND valid bounds must PARSE, or the refusals below are
+    // meaningless (anything throws if the fixture is malformed). Its `step: 1` and its in-range
+    // `n: 1` are also what keep the two #242 rules from being satisfiable by refusing everything.
+    let control = null;
+    try {
+      control = parseComponentSpec(write("ok-thing", {
+        ...BASE,
+        props: { n: { type: "number", required: true, min: 0, max: 100, step: 1 }, s: { type: "string", required: true } },
+        example: { n: 1, s: "x" },
+      }));
+    } catch (err) { ok(false, `the positive-control fixture does not parse — the refusal cases below prove nothing: ${err.message}`); }
+    ok(control && control.head.example.n === 1, "the control's example did not survive parsing");
+    ok(control && control.head.props.n.min === 0 && control.head.props.n.step === 1, "the control's bounds did not survive parsing");
+
+    // A spec with NO example and NO bounds must parse too — both keys are optional (AC #1).
+    let bare = null;
+    try { bare = parseComponentSpec(write("bare-thing", BASE)); } catch (err) { ok(false, `an optional key was made mandatory: ${err.message}`); }
+    ok(bare && bare.head.example === undefined, "a spec with no example did not parse as undefined");
+
+    // The four refusals, each asserted to throw AND to name its own path — same discipline as 18A.
+    const refusals = [
+      { why: "a bound on a non-numeric prop", stem: "bound-on-string",
+        head: { ...BASE, props: { n: { type: "number", required: true }, s: { type: "string", required: true, min: 0 } } },
+        expect: /min\/max\/step are numeric-control bounds/ },
+      { why: "a non-finite bound", stem: "bound-not-finite",
+        head: { ...BASE, props: { n: { type: "number", required: true, max: "100" }, s: { type: "string", required: true } } },
+        expect: /must be a finite number/ },
+      { why: "min > max", stem: "bound-inverted",
+        head: { ...BASE, props: { n: { type: "number", required: true, min: 100, max: 0 }, s: { type: "string", required: true } } },
+        expect: /min 100 > max 0/ },
+      { why: "a non-object example", stem: "example-not-object",
+        head: { ...BASE, example: ["n", 1] },
+        expect: /must be an object of props/ },
+      // The two the PR #242 review found accepted. `step: 0` is the numeric-only rule applied one
+      // step further; the range case is the ONLY view of bounds anything has — validateComposition
+      // checks type · enum · required and never range, so without this a spec could declare 0–100
+      // and seed the playground at 500 with every gate green.
+      { why: "a zero step", stem: "step-zero",
+        head: { ...BASE, props: { n: { type: "number", required: true, step: 0 }, s: { type: "string", required: true } } },
+        expect: /must be greater than 0/ },
+      { why: "an example outside its prop's declared bounds", stem: "example-out-of-range",
+        head: { ...BASE, props: { n: { type: "number", required: true, min: 0, max: 100 }, s: { type: "string", required: true } }, example: { n: 500, s: "x" } },
+        expect: /outside its declared range 0–100/ },
+    ];
+    for (const { why, stem, head, expect } of refusals) {
+      const p = write(stem, head);
+      let threw = null;
+      try { parseComponentSpec(p); } catch (err) { threw = err; }
+      ok(threw !== null, `parseComponentSpec accepted ${why} — the refusal cannot fire`);
+      ok(threw && threw.message.includes(p), `the "${why}" refusal does not name its spec path — got: ${threw && threw.message}`);
+      ok(threw && expect.test(threw.message), `the "${why}" refusal does not say why — got: ${threw && threw.message}`);
+    }
+    rmSync(dir, { recursive: true, force: true });
+    parserRefusals = refusals.length;
+    parserRefusalNames = refusals.map((r) => r.why).join(" · ");
+  }
+
+  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -3163,5 +3453,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 17 groups pass");
+  console.log("\nbuild ✓  all 18 groups pass");
 }

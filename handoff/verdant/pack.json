@@ -61,6 +61,11 @@
       "children": [
         "status-chip"
       ],
+      "example": {
+        "type": "water",
+        "plantName": "Monstera",
+        "status": "overdue"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -82,7 +87,7 @@
     },
     {
       "component": "demo-notice",
-      "status": "spec",
+      "status": "shipped",
       "class": "vd-demo-notice",
       "contract": null,
       "props": {
@@ -103,6 +108,9 @@
         "default"
       ],
       "children": [],
+      "example": {
+        "text": "Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved."
+      },
       "aiPatterns": [
         {
           "pillar": "transparency",
@@ -117,7 +125,7 @@
         },
         {
           "title": "States",
-          "body": "- **default** — the only state: the notice text, always visible, never dismissed or collapsed. `status: spec` — no CSS ships with this record; today it renders as plain semantic markup with no visual treatment. Ticket #8 lands the styling (the token list above) and flips `status` to `shipped`."
+          "body": "- **default** — the only state: the notice text, always visible, never dismissed or collapsed. It has no hover, focus, pressed or dismissed variant, because it is not a control — a notice with a way to make it go away is a notice that can be made to go away. The styling (the token list above) ships in `system/components.css` as `.vd-demo-notice`, and `system/agentic-renderer.mjs` renders it as a `role=\"note\"` paragraph."
         },
         {
           "title": "Data binding",
@@ -125,7 +133,7 @@
         },
         {
           "title": "Accessibility",
-          "body": "A plain text element (e.g. a `<p>` or an element with `role=\"note\"`) — always present in the accessibility tree, never visually hidden, truncated, or collapsed behind an interaction. The disclosure has to reach assistive-tech users on the same terms as sighted ones, so no `aria-hidden`, no icon-only rendering, no relying on color alone. `--color-fg-muted` on `--color-bg-surface` reads as secondary, quiet emphasis, not as a warning — but still needs to clear text contrast at `--type-caption` size once ticket #8 ships the CSS."
+          "body": "A plain text element (e.g. a `<p>` or an element with `role=\"note\"`) — always present in the accessibility tree, never visually hidden, truncated, or collapsed behind an interaction. The disclosure has to reach assistive-tech users on the same terms as sighted ones, so no `aria-hidden`, no icon-only rendering, no relying on color alone. `--color-fg-muted` on `--color-bg-surface` reads as secondary, quiet emphasis, not as a warning — and that exact pair is a declared contrast pair in `system/derive.rules.mjs` (`wcagPairs`, \"captions on cards\", AA 4.5), so a derived pack that could not clear text contrast behind this notice at `--type-caption` size fails its own check rather than shipping quietly."
         }
       ]
     },
@@ -193,6 +201,13 @@
         "critical"
       ],
       "children": [],
+      "example": {
+        "label": "Ana Ruiz",
+        "value": "7",
+        "unit": "jobs",
+        "meta": "North sector",
+        "status": "OVERSOLD"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -263,6 +278,11 @@
         "critical"
       ],
       "children": [],
+      "example": {
+        "label": "Overdue",
+        "value": "4",
+        "tone": "warn"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -336,6 +356,11 @@
       "children": [
         "status-chip"
       ],
+      "example": {
+        "name": "Monstera",
+        "species": "Monstera deliciosa",
+        "status": "due"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -390,6 +415,9 @@
         "disabled"
       ],
       "children": [],
+      "example": {
+        "label": "Log care"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -444,6 +472,10 @@
         "scrolled"
       ],
       "children": [],
+      "example": {
+        "title": "My plants",
+        "showSettings": true
+      },
       "sections": [
         {
           "title": "Usage",
@@ -522,6 +554,11 @@
         "critical"
       ],
       "children": [],
+      "example": {
+        "position": "2",
+        "total": "4",
+        "label": "Confirm the address"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -559,6 +596,9 @@
         "value": {
           "type": "number",
           "required": true,
+          "min": 0,
+          "max": 100,
+          "step": 1,
           "description": "the reading, rendered as-is — the tile does no rounding or conversion"
         },
         "unit": {
@@ -587,6 +627,12 @@
         "default"
       ],
       "children": [],
+      "example": {
+        "kind": "moisture",
+        "value": 34,
+        "unit": "%",
+        "label": "Moisture"
+      },
       "sections": [
         {
           "title": "Usage",
@@ -645,6 +691,10 @@
         "overdue"
       ],
       "children": [],
+      "example": {
+        "value": "due",
+        "label": "DUE"
+      },
       "sections": [
         {
           "title": "Usage",

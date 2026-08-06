@@ -12,7 +12,8 @@
   },
   "tokens": ["--color-bg-surface", "--color-fg", "--color-fg-muted", "--color-border", "--radius-md", "--spacing-sm", "--spacing-md", "--type-h3", "--type-caption", "--color-accent", "--color-accent-fg"],
   "states": ["neutral", "warn", "critical"],
-  "children": []
+  "children": [],
+  "example": { "label": "Overdue", "value": "4", "tone": "warn" }
 }
 ```
 

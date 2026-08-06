@@ -13,7 +13,8 @@
   },
   "tokens": ["--color-bg-surface", "--color-fg", "--color-fg-muted", "--color-border", "--color-accent", "--color-accent-fg", "--radius-md", "--radius-lg", "--spacing-xs", "--spacing-sm", "--spacing-md", "--type-body", "--type-caption", "--type-eyebrow"],
   "states": ["neutral", "warn", "critical"],
-  "children": []
+  "children": [],
+  "example": { "position": "2", "total": "4", "label": "Confirm the address" }
 }
 ```
 

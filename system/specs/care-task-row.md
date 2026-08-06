@@ -12,7 +12,8 @@
   },
   "tokens": ["--color-bg-surface", "--color-fg", "--color-fg-muted", "--color-border", "--color-accent", "--radius-md", "--spacing-sm", "--spacing-md", "--type-body"],
   "states": ["default", "due", "overdue", "checked"],
-  "children": ["status-chip"]
+  "children": ["status-chip"],
+  "example": { "type": "water", "plantName": "Monstera", "status": "overdue" }
 }
 ```
 

@@ -214,3 +214,41 @@ L4–L6 are polish and can ride along or wait.
 
 Nothing here is a security or data-loss issue, and the merged state is not broken — it is *less honest than
 it claims to be* in two places, on a site whose entire argument is that its claims are checkable.
+
+---
+
+## Resolution — all six fixed on `main`
+
+Triaged by the owner as **fix all six now**, and with H1 widened: the finding names the imported
+record, but #130 wears a design by TWO paths and the derived one has the same bug, so both are
+covered and both are gated.
+
+| # | Fixed in | Gated by | Proven able to fail |
+|---|---|---|---|
+| H1 | `system/studio-keep.mjs` — `wornPack()` + the merge + `packLabelOf`'s worn branch | `studio-journey` keepPass §9, both paths, seeded through storage before `goto` | reverting the merge turns 4 assertions red with `<style>:root{}</style>` and no `Wearing` line — the review's own reproduction |
+| M2 | `studio-keep.mjs` — `currentUrl()` returns the arrangement, both copy outcomes branch, the field's `aria-label` with them | keepPass §10 — a `shape: stream` link compiling 6 wrappers onto a 4-place board | the case asserts the sentence UNCONDITIONALLY, which is only possible because the caveat rides the clipboard-refused branch too |
+| M3 | `tooling/studio-journey.mjs` keepPass §3 — one injected move off row 1 before the copy | itself | deleting `studio.mjs:396-399`'s restore turns exactly that assertion red (`…-r1` everywhere vs `sx-c2-r3`) — it could not before |
+| L4 | `tooling/build-checks.mjs` — the vacuous `out.includes(":root")` removed, with a note saying why | — | — |
+| L5 | `build-checks.mjs` group 10 J — the roster derived from the module over a pinned minimum | — | — |
+| L6 | `system/studio-export.mjs` — `stripImports`'s string-blindness stated as a limit | — | — |
+
+Two things the fixes did NOT change, deliberately:
+
+- **`SHARE_NOTE` and `EXPORT_COPY` stay as written.** Both are at-rest sentences in the pixel
+  baseline, and both are true at rest — the divergence M2 names is a state a reader reaches by
+  compiling a `?b=` link, and it is now announced when it happens rather than pre-emptively hedged
+  in copy the other 99% of readers see.
+- **`studio-keep.mjs`'s header claim** that the file and the link cannot describe different
+  arrangements is amended rather than deleted: they can describe different AMOUNTS of one, and each
+  says which.
+
+One thing the fixes ADDED, from a second pass over M2: the address bar, the field's value and the
+field's `aria-label` now have ONE writer (`publishLink`), because `update()` re-runs the link on
+every board publish and would otherwise leave a stale label beside a fresh value. No reachable
+sequence produces that today — `update()` fires only at settle and take-over, and neither can
+follow the surplus compile that makes the arrangement stop travelling — so this is structural
+rather than a second defect, and it is written down as such instead of being claimed as a bug fixed.
+
+**Gates**: `build-checks` 17/17 · `drift-check` clean · `token-lint` clean · both modules still
+node-import safe · `studio-journey all` green on chromium, firefox and webkit. No at-rest change on
+any shipped page, so no baseline regeneration.

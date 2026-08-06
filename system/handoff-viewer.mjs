@@ -3,10 +3,12 @@
 // architecture §Data model line 39, PRD §6.4).
 //
 // Two exports mirroring trace-player.mjs's pure/DOM split:
-//   prepareHandoff(pack, vocab) — PURE and DOM-free (so #10 and Node checks can call it):
+//   prepareHandoff(pack, vocab, graph?) — PURE and DOM-free (so #10 and Node checks can call it):
 //     joins the pack's components to the vocabulary by component name, returns
 //     { components, composition }. No fetch — the page fetches and hands the pair here
-//     (keeps #10 free to inline or preload).
+//     (keeps #10 free to inline or preload). The optional third argument (system-graph.json) adds
+//     the docs join #215/#218 consume — example · wrapper · tokens · consumer — at view time and
+//     with no new generated artifact (#211); omit it and those fields degrade to null.
 //   renderHandoffViewer(container, model) — builds the DOM: per component, three projections
 //     of one source side by side — the spec head (source) · the engineer prose · the agent
 //     vocabulary entry generated from that same head. Adjacency is the argument (PRD §6:
@@ -33,15 +35,39 @@ function el(tag, attrs, ...children) {
   return node;
 }
 
-// prepareHandoff(pack, vocab) → { components, composition }. Pure (no DOM) so it runs under
-// Node. Throws a plain Error if the pack is corrupt (it is generated, not user input).
-export function prepareHandoff(pack, vocab) {
+// prepareHandoff(pack, vocab, graph = null) → { components, composition }. Pure (no DOM) so it runs
+// under Node. Throws a plain Error if the pack is corrupt (it is generated, not user input).
+//
+// The third argument is system/system-graph.json, and it is OPTIONAL by design: handoff.html's
+// shipped two-arg call keeps working byte-for-byte, and a caller that wants the fuller picture
+// passes the graph. What the join adds per component — `example`, `wrapper`, `tokens`, `consumer` —
+// is what the component catalog (#215) and the studio inspector (#218) need, and it is computed HERE,
+// AT VIEW TIME, from three artifacts that already exist. There is deliberately NO generated
+// catalog.json: a fourth artifact joining three others is a fourth thing that can drift, and the
+// join is cheap and pure (epic #202; architecture §Data model, "Docs catalog carries no new
+// generated artifact").
+//
+// No token VALUE is computed or carried anywhere in here. The `packs` values that ride along on a
+// token entry are system-graph.json's own committed text — the packs' RAW declared bindings, aliases
+// unresolved — and a consumer wanting a real resolved colour asks getComputedStyle at view time, the
+// rule inspect.mjs already obeys.
+export function prepareHandoff(pack, vocab, graph = null) {
   // Shallow on purpose: pack.json is a trusted, CI-drift-checked generated artifact, not user
   // input — a top-level shape check is enough. (Deeper than trace-player's parseTrace, which
   // guards an externally-recorded file.)
   if (!pack || !Array.isArray(pack.components) || !pack.components.length)
     throw new Error("handoff: pack.components missing or empty");
   const vocabComponents = (vocab && vocab.components) || {};
+  // Same shallow-trust posture as the pack check above: these are generated, CI-drift-checked
+  // artifacts, so an absent or malformed graph degrades every joined field to null rather than
+  // throwing — which is exactly what makes the two-arg call site work unchanged.
+  const wrapperFiles = new Set(pack.portability?.webComponents?.files ?? []);
+  const graphTokens = Array.isArray(graph?.tokens) ? new Map(graph.tokens.map((t) => [t.name, t])) : null;
+  // Filtered before the Map: 23 of the graph's 33 consumers are structural blocks carrying
+  // `spec: ""`, which would all collapse onto the key "" and silently leave the last one winning.
+  // The sole lookup below never asks for "", so this costs nothing today — it is here so a future
+  // caller iterating .values() (#215/#218) does not inherit a wrong consumer (PR #242 review, Low 2).
+  const graphConsumers = Array.isArray(graph?.consumers) ? new Map(graph.consumers.filter((k) => k.spec).map((k) => [k.spec, k])) : null;
   const components = pack.components.map((c) => {
     // Only the machine-head fields — explicitly picked, NOT `...c`: the pack component also
     // carries `contract` (a path string) and `sections` (prose), which render elsewhere.
@@ -58,6 +84,11 @@ export function prepareHandoff(pack, vocab) {
       // picture of its real head (no injected `null` key). The dedicated block below is the
       // legible projection of the same array.
       ...(c.aiPatterns ? { aiPatterns: c.aiPatterns } : {}),
+      // example is optional too (#211) — same conditional-spread reason as aiPatterns: this object
+      // is an explicit field PICK, not `...c`, so an added head key is silently dropped unless it is
+      // named here, and injecting a `null` key would make the "Source (spec head)" JSON a picture of
+      // a head that does not exist.
+      ...(c.example ? { example: c.example } : {}),
     };
     return {
       name: c.component,
@@ -70,6 +101,25 @@ export function prepareHandoff(pack, vocab) {
       // vocab entry's own `.contract` is the full INLINED DataContract object (or null) —
       // a different shape from contractPath; the vocab <pre> shows it, that's the point.
       vocab: vocabComponents[c.component] ?? null,
+      // The live playground's starting props (#211), or null. Read off the PACK, never the
+      // vocabulary: `example` is deliberately not projected into vocabulary.json, which is a prompt
+      // input the composition and build recorders are fenced against being fed (gen-vocabulary.mjs).
+      example: c.example ?? null,
+      // Wrapper presence — read off the pack's OWN portability block; no new input, no fs. Joined on
+      // the component's CLASS, not its name: wrappers are wc/vd-plant-card.mjs, and library
+      // primitives like metric-tile (class ds-metric-tile) correctly have none. 3 of 10 today; the 7
+      // missing wrappers are riding debt the architecture records, and the catalog's vd-* code tab
+      // stays presence-gated on this rather than promising a file that is not in the pack.
+      wrapper: wrapperFiles.has(`wc/${c.class}.mjs`) ? `wc/${c.class}.mjs` : null,
+      // Token bindings — resolved against the ALREADY-COMMITTED system-graph. An unresolved name
+      // degrades to a null `group` rather than being dropped, so a spec declaring a token the
+      // contract does not have stays VISIBLE to a caller instead of silently shortening the array.
+      tokens: graphTokens && Array.isArray(c.tokens)
+        ? c.tokens.map((t) => graphTokens.get(t) ?? { name: t, group: null, packs: {} })
+        : null,
+      // The components.css block that MEASURABLY consumes tokens for this spec, or null when the
+      // block is structural-only (gen-system-graph.mjs drops zero-token blocks) or absent entirely.
+      consumer: graphConsumers ? graphConsumers.get(`system/specs/${c.component}.md`) ?? null : null,
     };
   });
   return { components, composition: (vocab && vocab.composition) ?? null };
