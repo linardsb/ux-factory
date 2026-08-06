@@ -63,7 +63,11 @@ export function prepareHandoff(pack, vocab, graph = null) {
   // throwing — which is exactly what makes the two-arg call site work unchanged.
   const wrapperFiles = new Set(pack.portability?.webComponents?.files ?? []);
   const graphTokens = Array.isArray(graph?.tokens) ? new Map(graph.tokens.map((t) => [t.name, t])) : null;
-  const graphConsumers = Array.isArray(graph?.consumers) ? new Map(graph.consumers.map((k) => [k.spec, k])) : null;
+  // Filtered before the Map: 23 of the graph's 33 consumers are structural blocks carrying
+  // `spec: ""`, which would all collapse onto the key "" and silently leave the last one winning.
+  // The sole lookup below never asks for "", so this costs nothing today — it is here so a future
+  // caller iterating .values() (#215/#218) does not inherit a wrong consumer (PR #242 review, Low 2).
+  const graphConsumers = Array.isArray(graph?.consumers) ? new Map(graph.consumers.filter((k) => k.spec).map((k) => [k.spec, k])) : null;
   const components = pack.components.map((c) => {
     // Only the machine-head fields — explicitly picked, NOT `...c`: the pack component also
     // carries `contract` (a path string) and `sections` (prose), which render elsewhere.

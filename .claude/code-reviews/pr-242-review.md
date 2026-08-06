@@ -184,5 +184,18 @@ out-of-range seed or a `step: 0` visible. Low 2 is a one-line preempt, and only 
 iterate `graph.consumers` directly.
 
 ---
+
+## Resolution (post-review, same branch)
+
+| Finding | Outcome |
+|---|---|
+| **Low 1** | **Fixed.** `agent-layer/lib.mjs` — `step` must be `> 0` (the numeric-only rule applied one step further), and a numeric `example` value is range-checked against its prop's `min`/`max`. The "no second opinion about `head.props`" comment now carries the discriminator: `validateComposition` checks type · enum · required and never range, so bounds are a dimension **no** validator saw — this is the only one, not a second one. Unknown prop names and wrong-typed values are still skipped deliberately (those are `validateExamples`'s). Two cases added to group 18C's existing tmpdir harness, both asserted to throw AND to name their spec path. **Proven by mutation**: neutering either guard turns group 18 red with 3 failures. Measured before the edit — `stat-tile` is the only spec carrying bounds, 2 checks, 0 violations — so no committed spec content, artifact or baseline moved. |
+| **Low 2** | **Fixed.** `system/handoff-viewer.mjs:66` — `graph.consumers.filter((k) => k.spec)` before the Map, with the reason recorded in place. Group 18B's consumer assertion still runs over all 10 pack components unchanged. |
+| **Low 3** | **Won't-fix**, for the reason the review itself established: `drift-check.mjs`'s `checkHandoff()` regenerates `pack.json` from the specs on every CI run, and anchoring on a committed drift-checked artifact is the same pattern groups 16 and 18B use deliberately. |
+| **Low 4** | **Fixed.** The ✓ line no longer interpolates `GRAPH.counts.tokens` (64 — a true number about a different thing). It now prints `joinedTokens`, the sum the per-component loop actually asserts (97 across 10 components). The refusal *list* beside `parserRefusals` was hand-written next to a derived count — the same shape — so it is now derived from the array too. |
+
+Gates after the fixes: `build-checks` **all 18 groups pass** · `drift-check` all 12 steps, no drift, clean tree · `token-lint` ✓ · `scenarios` ✓ · `gen-loc-summary --check` no drift.
+
+---
 *Reviewed via `/piv-review-pr` — validation re-run locally against the merge-ready tree, deep pass by the
-`code-reviewer` agent in a clean context.*
+`code-reviewer` agent in a clean context. Findings triaged and fixed via `/piv-fix-review-findings`.*

@@ -90,6 +90,11 @@ export function parseComponentSpec(specPath) {
         throw new Error(`${specPath}: prop "${name}" declares "${k}" but its type is "${prop.type}" — min/max/step are numeric-control bounds`);
       if (typeof prop[k] !== "number" || !Number.isFinite(prop[k]))
         throw new Error(`${specPath}: prop "${name}" head "${k}" must be a finite number`);
+      // Same reasoning as the type check above, applied one step further: a zero or negative step
+      // is a control that cannot exist, so it is a parse error rather than a playground that
+      // renders a dead slider (PR #242 review, Low 1).
+      if (k === "step" && prop[k] <= 0)
+        throw new Error(`${specPath}: prop "${name}" head "step" (${prop[k]}) must be greater than 0 — a zero or negative step is a control that cannot exist`);
     }
     if (prop.min !== undefined && prop.max !== undefined && prop.min > prop.max)
       throw new Error(`${specPath}: prop "${name}" has min ${prop.min} > max ${prop.max}`);
@@ -119,9 +124,22 @@ export function parseComponentSpec(specPath) {
   // gen-vocabulary.mjs, which needs the built vocabulary this parser does not have. Deliberately
   // NOT cross-checked against head.props here — that would be a second, weaker opinion about what
   // a valid props object is, and it would drift from validateComposition. One validator.
+  //
+  // The numeric RANGE below is the one exception, and it is not a second opinion: it is the only
+  // one. validateComposition validates type · enum · required and never numeric range, so bounds
+  // are a dimension NO validator sees — a spec could declare 0–100 and seed the playground at 500
+  // with every gate green (PR #242 review, Low 1). Unknown prop names and wrong-typed values are
+  // skipped deliberately: those ARE validateExamples's refusals, and taking them here is what
+  // would make this a second opinion. One validator per dimension.
   if (head.example !== undefined) {
     if (!head.example || typeof head.example !== "object" || Array.isArray(head.example))
       throw new Error(`${specPath}: head "example", when present, must be an object of props`);
+    for (const [name, value] of Object.entries(head.example)) {
+      const prop = head.props[name];
+      if (!prop || typeof value !== "number") continue;
+      if ((prop.min !== undefined && value < prop.min) || (prop.max !== undefined && value > prop.max))
+        throw new Error(`${specPath}: example "${name}" is ${value}, outside its declared range ${prop.min ?? "-∞"}–${prop.max ?? "∞"}`);
+    }
   }
   if (head.contract !== null) {
     if (typeof head.contract !== "string" || !head.contract) throw new Error(`${specPath}: head "contract" must be a sibling-relative path or null`);

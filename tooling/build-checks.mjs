@@ -3215,6 +3215,9 @@ function scanSvg(svg, label) {
   const PACK = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/pack.json"), "utf8"));
   const GRAPH = JSON.parse(readFileSync(join(ROOT, "system/system-graph.json"), "utf8"));
   let parserRefusals = 0;
+  // The ✓ line names the refusals as well as counting them. DERIVED from the same array, never
+  // re-typed beside it: a hand-listed set next to a computed count is the Low 4 shape one line down.
+  let parserRefusalNames = "";
 
   // --- A · validateExamples -------------------------------------------------------------------
   //
@@ -3307,6 +3310,9 @@ function scanSvg(svg, label) {
       `${c.name}: no components.css block consuming contract tokens for system/specs/${c.name}.md — a spec with no CSS block is documented but not styled (#211)`);
   }
 
+  // What the per-component loop above actually asserted, summed — NOT GRAPH.counts.tokens, which is
+  // the contract's 64 and a true number about a different thing (PR #242 review, Low 4).
+  const joinedTokens = joined.components.reduce((n, c) => n + c.tokens.length, 0);
   const joinedWrappers = joined.components.filter((c) => c.wrapper).length;
   ok(joinedWrappers === PACK.portability.webComponents.files.length,
     `the join found ${joinedWrappers} wrappers but the pack ships ${PACK.portability.webComponents.files.length}`);
@@ -3380,8 +3386,9 @@ function scanSvg(svg, label) {
       props: { n: { type: "number", required: true }, s: { type: "string", required: true } },
     };
 
-    // Positive control — a valid example AND valid bounds must PARSE, or the four refusals below
-    // are meaningless (anything throws if the fixture is malformed).
+    // Positive control — a valid example AND valid bounds must PARSE, or the refusals below are
+    // meaningless (anything throws if the fixture is malformed). Its `step: 1` and its in-range
+    // `n: 1` are also what keep the two #242 rules from being satisfiable by refusing everything.
     let control = null;
     try {
       control = parseComponentSpec(write("ok-thing", {
@@ -3412,6 +3419,16 @@ function scanSvg(svg, label) {
       { why: "a non-object example", stem: "example-not-object",
         head: { ...BASE, example: ["n", 1] },
         expect: /must be an object of props/ },
+      // The two the PR #242 review found accepted. `step: 0` is the numeric-only rule applied one
+      // step further; the range case is the ONLY view of bounds anything has — validateComposition
+      // checks type · enum · required and never range, so without this a spec could declare 0–100
+      // and seed the playground at 500 with every gate green.
+      { why: "a zero step", stem: "step-zero",
+        head: { ...BASE, props: { n: { type: "number", required: true, step: 0 }, s: { type: "string", required: true } } },
+        expect: /must be greater than 0/ },
+      { why: "an example outside its prop's declared bounds", stem: "example-out-of-range",
+        head: { ...BASE, props: { n: { type: "number", required: true, min: 0, max: 100 }, s: { type: "string", required: true } }, example: { n: 500, s: "x" } },
+        expect: /outside its declared range 0–100/ },
     ];
     for (const { why, stem, head, expect } of refusals) {
       const p = write(stem, head);
@@ -3423,9 +3440,10 @@ function scanSvg(svg, label) {
     }
     rmSync(dir, { recursive: true, force: true });
     parserRefusals = refusals.length;
+    parserRefusalNames = refusals.map((r) => r.why).join(" · ");
   }
 
-  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — a bound on a non-numeric prop · a non-finite bound · min > max · a non-object example — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: all ${GRAPH.counts.tokens} contract tokens resolving for every spec (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
+  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------
