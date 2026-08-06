@@ -13,10 +13,41 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseComponentSpec } from "./lib.mjs";
+// The agent-layer/ → system/ import direction is established (build-instance.mjs:32 does the same),
+// and agentic-renderer.mjs's top level is Node-safe by design — every DOM reference sits inside a
+// function body, which its own header states.
+import { validateComposition } from "../system/agentic-renderer.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SPECS = join(ROOT, "system/specs");
 const DEST = join(ROOT, "handoff/verdant");
+
+// validateExamples(specs, vocab) — PURE. Every spec carrying an `example` must have props that
+// actually RENDER: the example is fed to the shipped validateComposition as the node it will one
+// day be, so a playground that could not mount is a red build naming the spec path, not a defect a
+// visitor finds (epic #202 ticket #211 AC #2).
+//
+// Validated against the WHOLE built vocabulary, deliberately, and only AFTER the map is complete —
+// not against the component's own single entry. validateComposition recurses into children and
+// resolves each child from vocab.components, so a one-entry vocabulary throws a spurious "unknown
+// component" for any spec that declares children, and per-spec validation inside the build loop
+// fails whenever a child sorts alphabetically after its parent. Do not "tighten" this back.
+//
+// Exported so tooling/build-checks.mjs can drive it — including over a deliberately broken example,
+// which is the only thing that proves this gate can fail at all (group 18A).
+export function validateExamples(specs, vocab) {
+  let checked = 0;
+  for (const { head, path } of specs) {
+    if (head.example === undefined) continue;
+    try {
+      validateComposition(vocab, { name: head.component, props: head.example }, `${head.component}.example`);
+    } catch (e) {
+      throw new Error(`${path}: head "example" does not render — ${e.message}`);
+    }
+    checked++;
+  }
+  return { checked };
+}
 
 export function genVocabulary() {
   const files = readdirSync(SPECS).filter((f) => f.endsWith(".md")).sort();
@@ -29,6 +60,16 @@ export function genVocabulary() {
       ? JSON.parse(readFileSync(join(dirname(path), head.contract), "utf8"))
       : null;
     const usage = sections.find((s) => s.title === "Usage")?.body ?? "";
+    // `example` is DELIBERATELY not projected here, and adding it as an obvious convenience would
+    // be a real regression with nothing in CI to catch it. vocabulary.json is a PROMPT INPUT, not
+    // just data: portal/record-composition.mjs builds its prompt from "vocabulary + the scenario's
+    // declared fixtures + question + slot bounds (no example)", and record-build.mjs's fence says
+    // no example anywhere. Ten worked examples living here means every future composition and build
+    // run is fed them, every artifact still regenerates cleanly, every gate still passes — and the
+    // honesty claim on the traces is quietly false. `example` lives on the PACK side instead
+    // (gen-handoff.mjs's `...s.head` spread), which is what the docs read and no recorder does.
+    // `props` passes through unmodified, so #211's min/max/step DO ride along — a bound is a
+    // constraint, which makes an agent's output more bounded, never more copied.
     components[head.component] = {
       class: head.class,
       status: head.status,
@@ -54,6 +95,11 @@ export function genVocabulary() {
     },
     components,
   };
+
+  // The semantic example gate, BEFORE writeFileSync on purpose — a bad example that still wrote a
+  // vocabulary would surface one artifact too late. drift-check.mjs's checkHandoff runs
+  // genVocabulary(), so this is a red CI `verify` job with no extra wiring (#211 AC #2).
+  validateExamples(specs, vocab);
 
   // mkdir so a standalone run works on a fresh clone even before gen-handoff has populated the pack.
   mkdirSync(DEST, { recursive: true });

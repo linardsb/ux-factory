@@ -81,6 +81,18 @@ export function parseComponentSpec(specPath) {
   for (const [name, prop] of Object.entries(head.props)) {
     if (!prop || typeof prop.type !== "string" || typeof prop.required !== "boolean")
       throw new Error(`${specPath}: prop "${name}" needs { type, required }`);
+    // min/max/step (optional): the live playground's control bounds for a numeric prop
+    // (epic #202 ticket #211). Numeric-only by construction — a bound on a string or boolean
+    // prop is a control that cannot exist, so it is a parse error rather than a silent no-op.
+    for (const k of ["min", "max", "step"]) {
+      if (prop[k] === undefined) continue;
+      if (prop.type !== "number")
+        throw new Error(`${specPath}: prop "${name}" declares "${k}" but its type is "${prop.type}" — min/max/step are numeric-control bounds`);
+      if (typeof prop[k] !== "number" || !Number.isFinite(prop[k]))
+        throw new Error(`${specPath}: prop "${name}" head "${k}" must be a finite number`);
+    }
+    if (prop.min !== undefined && prop.max !== undefined && prop.min > prop.max)
+      throw new Error(`${specPath}: prop "${name}" has min ${prop.min} > max ${prop.max}`);
   }
   if (!Array.isArray(head.tokens) || !head.tokens.length || !head.tokens.every((t) => typeof t === "string" && t.startsWith("--")))
     throw new Error(`${specPath}: head "tokens" must be a non-empty array of ---prefixed names`);
@@ -100,6 +112,16 @@ export function parseComponentSpec(specPath) {
       if (typeof p.pattern !== "string" || !p.pattern.trim() || typeof p.how !== "string" || !p.how.trim())
         throw new Error(`${specPath}: aiPatterns[] needs non-empty "pattern" and "how" strings`);
     }
+  }
+  // example (optional): the live playground's starting props — the component's own props object,
+  // authored where the component is authored (epic #202 ticket #211; architecture §Data model).
+  // SHAPE only here: whether the props actually RENDER is decided by validateExamples() in
+  // gen-vocabulary.mjs, which needs the built vocabulary this parser does not have. Deliberately
+  // NOT cross-checked against head.props here — that would be a second, weaker opinion about what
+  // a valid props object is, and it would drift from validateComposition. One validator.
+  if (head.example !== undefined) {
+    if (!head.example || typeof head.example !== "object" || Array.isArray(head.example))
+      throw new Error(`${specPath}: head "example", when present, must be an object of props`);
   }
   if (head.contract !== null) {
     if (typeof head.contract !== "string" || !head.contract) throw new Error(`${specPath}: head "contract" must be a sibling-relative path or null`);
