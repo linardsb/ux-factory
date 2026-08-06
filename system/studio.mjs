@@ -31,10 +31,14 @@
 // [data-replay="settled"]. `board`, `summary` and `arranged` are therefore MUTABLE here and are
 // updated at settle; tooling/studio-journey.mjs reads all three off the running page.
 //
-// THIS FILE READS THE BUILD STORE AND NEVER WRITES IT. No publishBuild, no setAnswers. Writing it
-// would make /build's state depend on having visited /factory, which no AC asks for and no gate
-// covers. The store is in-memory (build-questions.mjs:65-73) and its board initialises absent, so
-// the replay path is the only one a load reaches — deterministic for the pixel gate by construction.
+// THIS FILE READS THE BUILD STORE AND WRITES IT IN EXACTLY ONE PLACE — restoreShared, on a ?b=
+// arrival (#210). No publishBuild, no setAnswers, and nothing at all on an ordinary load. The rule
+// the exception respects is the one it was written for: /build's state must not depend on having
+// visited /factory. A shared link is the opposite case — the link IS the state, the visitor asked
+// for it by following it, and every consumer on this page has to move together or they describe
+// different builds. The store is in-memory (build-questions.mjs:65-73) and its board initialises
+// absent, so a load with no link still reaches only the replay path — deterministic for the pixel
+// gate by construction, which is what that gate depends on and what the restore must not disturb.
 //
 // ZERO INLINE STYLES, ZERO MARKUP FROM A STRING. build-checks group 7 includes this file with no
 // exception argued: layout is classes and data-* resolved in system/studio.css, and every node is
@@ -50,10 +54,12 @@ import { mountCompile } from "./studio-compile.mjs";
 import { mountReplay } from "./replay-driver.mjs";
 import { createBus } from "./action-bus.mjs";
 import { isBoard } from "./breadboard.mjs";
-import { DEFAULT_ANSWERS, readBuild } from "./build-questions.mjs";
+import { decodeBuild, SHARE_PARAM } from "./build-share.mjs";
+import { DEFAULT_ANSWERS, readBuild, restoreBuild } from "./build-questions.mjs";
 import { affordanceCount, PATTERNS, patternFor } from "./pattern-rules.mjs";
 import { initGlossary } from "./glossary.mjs";
 import { refreshInspect } from "./inspect.mjs";
+import { mountStudioKeep } from "./studio-keep.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
@@ -354,6 +360,245 @@ function wireInspector(shell) {
   return { activate, tabs, mounted };
 }
 
+// The SYNCHRONOUS core: everything this page does once the board it starts from is known. Split out
+// of mountStudio by #210 so that the ?b= restore — which must await a decode — can run in front of
+// it without putting an await on the path a plain /factory load takes. Everything below this line is
+// exactly what it was; what changed is who calls it and with what.
+//
+// `restored` is null on every ordinary load and is decodeBuild's validated state on a shared link.
+function mountStudioCore(root, shell, restored) {
+  const canvas = initStudioCanvas(root);
+  if (!canvas) return null;
+
+  // The store is in-memory and `state.answers` initialises to null (build-questions.mjs:67) —
+  // only setAnswers/restoreBuild fill it, and neither runs on this page unless a link brought a
+  // build (see restoreShared). The `??` is therefore not defensive padding: patternFor TOLERATES
+  // null (pattern-rules.mjs:167 guards with `answers &&`) and silently falls through to dashboard
+  // with named:false, which renders a fallback sentence where the reader should see an answered one.
+  const stored = readBuild();
+  const answers = stored.answers ?? DEFAULT_ANSWERS;
+  // THE VISITOR'S OWN BOARD IS NEVER OVERWRITTEN BY A REPLAY, and since #210 that branch is LIVE
+  // rather than recorded: restoreShared publishes a decoded board into the store before this runs,
+  // so `own` is the sender's board on a ?b= arrival and null on every other load. What follows is
+  // the requirement this file wrote down before anything reached it — place what the visitor
+  // brought, and let the driver mount DECLINED rather than assembling over it.
+  const own = isBoard(stored.board) ? stored.board : null;
+  const declined = !!own;
+  let board = own || { places: [], connections: [] };
+
+  // THE SENDER'S ARRANGEMENT, WHEN THE LINK CARRIED ONE. decodeBuild returns [{ id, col, row }] in
+  // board order with every id taken from the validated place at that index and never from the
+  // payload (build-share.mjs:452), and every pair already inside the grid — so this is a lookup, not
+  // a second validation. clampSlot all the same, because "on the grid" has ONE definition
+  // (studio-canvas.mjs:50) and the day the caps move it is the only line that must be right.
+  // Without a `g` the link still restores the board, laid out along row 1 like any other.
+  let arranged = arrangeBoard(board);
+  const sent = restored && Array.isArray(restored.arrangement) ? restored.arrangement : null;
+  if (sent && sent.length === arranged.length) {
+    arranged = arranged.map((entry, i) => ({ ...entry, ...clampSlot({ col: sent[i].col, row: sent[i].row }) }));
+  }
+  for (const entry of arranged) {
+    canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
+  }
+
+  // AFTER the placement loop, which since #209 usually places NOTHING: the canvas starts empty and
+  // system/replay-driver.mjs builds it by playing a real recorded run. So createHistory's initial
+  // snapshot is `{}` and every node the replay places is a POST-MOUNT placement — precisely the
+  // case #230's `adopt` closes, from both of its call sites (studio-verbs.mjs:181-202, :382, :467).
+  // It was the edge case; it is now the normal one, and nothing new is needed for it. The move
+  // handles are fine for the same kind of reason: #231's armMoveHandles is FORWARD-ACTING, so
+  // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :313-315).
+  const bus = createBus();
+  const verbs = mountCanvasVerbs(canvas, { bus });
+
+  // AFTER the verbs, so createHistory's initial snapshot is still the FAT-MARKER arrangement — the
+  // compile beat swaps a wrapper's contents and never its slot, so the history it inherits stays
+  // true across the beat and an undo after a compile restores the arrangement, not the fidelity.
+  // The beat shares this page's ONE bus rather than making a second: the primitives it renders are
+  // non-interactive today, but a component that does emit ui.intent should reach the same
+  // consumers everything else on this canvas reaches.
+  // `getBoard` rather than `board`, which is #209's two-line seam in that file: the beat is
+  // mounted HERE, at load, so its `finally` handle resolves where every gate already waits for it —
+  // and it reads the board at call time, so pressing Compile after the replay settles compiles the
+  // board the run built rather than the empty one this line was reached with.
+  const compile = mountCompile(canvas, { getBoard: () => board, answers, bus, onState: () => syncInspect() });
+
+  let summary = buildSummary(board, answers);
+  const summaryMount = document.getElementById("this-build-summary");
+  // NOT rendered for an empty board. Every number in this panel is counted from the board, so on
+  // the replay path there is nothing to count yet — and a panel reading "Places 0" for the first
+  // five seconds would be a set of true numbers about nothing. factory.html's own markup says what
+  // is coming instead, and onSettle below replaces it with the counted panel.
+  if (arranged.length) renderSummary(summaryMount, summary, arranged);
+
+  const inspector = wireInspector(shell);
+
+  // LAST, so it takes a canvas whose verbs and beat are already mounted. Everything it needs is a
+  // seam something else already exposed: place() from #204, the single ui.move consumer it must
+  // not become a second of from #205, and the board getter above.
+  //
+  // ALL THREE OF board / summary / arranged ARE UPDATED AT SETTLE, and that is not bookkeeping:
+  // tooling/studio-journey.mjs:1218-1226 reads all three off the running page through getStudio()
+  // and asserts slotCount === arranged === places. Leaving them at their mount-time values would
+  // turn that assertion red for a page that is entirely correct.
+  // THE BOARD IS PUBLISHED WHEREVER THE DRIVER HAS STOPPED FOR GOOD, and "for good" is the whole
+  // point of the pair below rather than a third call on the driver's own Pause. Compile does a
+  // positional in-place swap of every wrapper's contents; the driver's reflection replaces that
+  // same child on every `place-changed` (replay-driver.mjs:499, seven of them in the committed
+  // artifact). So a board published at a pause the driver can resume from would hand Compile a
+  // stage the driver is going to keep authoring. SETTLE and TAKE-OVER are the two states nothing
+  // resumes from — settle is terminal, and take-over kills the transport (PR #240 review,
+  // finding 1).
+  //
+  // `finalBoard == null` is the driver's UNAVAILABLE path (a 404 artifact): there is no board to
+  // publish and this page's own empty one is already correct, but the beat must still come back —
+  // a degraded replay may not leave the page's primary control dead.
+  // #210's rail. Declared here so publishBoard can reach it; mounted below, after the driver, for
+  // the same reason the driver is mounted last — everything it needs is a seam something else has
+  // already exposed, and it must take a canvas whose verbs and beat exist.
+  let keep = null;
+
+  // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
+  // studio's standing correspondence: studio-compile.mjs:377's positional swap and
+  // replay-driver.mjs's rename-in-place both rest on it). This is the one thing /build's rail
+  // structurally cannot produce, and it is what #208's `g` field carries. Read live rather than
+  // tracked, for the reason the beat reads the board live: the verbs, the driver and an undo all
+  // write these two attributes, and a mirror here would be a second copy of the arrangement that
+  // could disagree with the canvas the reader is looking at.
+  const arrangementNow = () => [...canvas.stage.querySelectorAll(".stx-slot")].map((w) => ({
+    col: Number(w.getAttribute("data-col")),
+    row: Number(w.getAttribute("data-row")),
+  }));
+
+  const publishBoard = (finalBoard) => {
+    if (isBoard(finalBoard)) {
+      board = finalBoard;
+      arranged = arrangeBoard(board);
+      summary = buildSummary(board, answers);
+      // THE SAME GUARD THE MOUNT ABOVE CARRIES, and for the same sentence: a panel reading
+      // "Places 0" is a set of true numbers about nothing. It was unreachable while settle() was
+      // the only publisher — a settled run always has places — and a take-over is reachable from
+      // the moment the driver is `ready`, which is several beats before the first place.add.
+      if (arranged.length) renderSummary(summaryMount, summary, arranged);
+      if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
+    }
+    compile.setEnabled(true);
+    // THE RAIL REFRESHES WHEREVER THE BOARD IS PUBLISHED, and for the reason this pair exists at
+    // all: settle and take-over are the two states nothing resumes from, so they are the two
+    // moments the artifacts describe a board that has stopped changing. Refreshing it at a pause
+    // the driver can resume from would hand a reader a spec and a link for a half-built board.
+    keep?.update();
+    syncInspect();
+  };
+  // BEFORE the mount, not inside it: mountReplay runs two awaited fetches, and the window between
+  // this line and the driver's first beat is exactly the one a reader could press Compile in and
+  // be told "No pattern named, so nothing compiled" about a canvas that is visibly filling up.
+  //
+  // NOT ON THE DECLINED PATH, and this is #240's first constraint on that branch rather than a
+  // tidying. The disable exists for a window that only opens if the driver is going to PLAY; a
+  // declined mount never reaches a first beat, and it never settles or hands over either — so the
+  // three paths that re-enable the beat are all unreachable, and disabling here would leave the
+  // page's PRIMARY CONTROL DEAD on the one route whose whole point is that the visitor brought a
+  // board worth compiling. Not re-enabled after the fact: never disabled at all is one state fewer.
+  if (!declined) compile.setEnabled(false);
+  let replay = null;
+  try {
+    replay = mountReplay(canvas, {
+      shell,
+      renderPlace: placeBlock,
+      bus,
+      onSettle: publishBoard,
+      // The driver already owns the board it built and already exposes it; there is no third
+      // option to add here. It can only fire after start()'s awaits, so `replay` is bound.
+      onTakeOver: () => publishBoard(replay ? replay.board : null),
+      declined,
+    });
+  } catch (err) {
+    // The driver reports a boundary failure by throwing (replay-driver.mjs:864-869) and leaves
+    // [data-replay="unavailable"] behind, which the gates read. The beat must not go down with it:
+    // re-enable, then re-throw, so the failure stays as loud as it was.
+    compile.setEnabled(true);
+    throw err;
+  }
+
+  // #210's keep rail, LAST — after the driver, so the board it reads is the one the driver is
+  // about to fill, and so its own `finally` handle resolves where the gates already wait. Mounted
+  // from here rather than self-booting on its own script tag: it takes the board, the arrangement,
+  // the beat and the canvas, and all four are this file's, so a tag would have to reach them
+  // through getStudio() and would race the ?b= branch below.
+  keep = mountStudioKeep(root.querySelector("[data-studio-keep]"), {
+    getBoard: () => board,
+    getArrangement: arrangementNow,
+    compile,
+    canvas,
+  });
+
+  // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
+  // built after inspect.mjs restored, so they need one refresh to be wired.
+  syncInspect();
+
+  live = { shell, canvas, bus, verbs, compile, replay, inspector, keep, board, summary, arranged };
+  return live;
+}
+
+// The ?b= restore (#210), and the whole of the async half. It decodes, publishes ONCE through
+// build-questions.mjs's own restoreBuild — one event, one atomic restore, exactly the contract
+// build-keep.mjs:373 relies on — and then hands the core a board that is already in the store.
+//
+// PUBLISHING IS A DELIBERATE EXCEPTION to this file's "reads the store and never writes it" rule,
+// and it is the only one. That rule exists so /build's state cannot depend on having visited
+// /factory; a shared link is the opposite case — the link IS the state, the visitor asked for it by
+// following it, and every consumer on this page has to move together or they describe different
+// builds. It also buys the pack for the cost of nothing: system/build-import.mjs already listens for
+// a `restore`-sourced BUILD_CHANGE and adopts the design onto the stage (:534-536), so Act 0's label,
+// the canvas's skin and the keep rail's spec all agree without this file knowing how a pack is
+// applied. IMPORT, NEVER FORK, working exactly as this file's header promises.
+//
+// A REFUSAL SCRUBS THE PARAM and says why — build-keep.mjs:356-377's pattern, refusal sentence
+// included — so a reader who reloads after a bad link does not meet the same failure twice and the
+// studio they are looking at is genuinely the clean one. No settledUrl wait here, and that is a
+// stated absence rather than an omission: all three of this page's virtual routes fire from a
+// visitor action (the take-over from a canvas touch, the other two from the keep rail's buttons), so
+// at boot nothing has flipped location and there is no window to wait out.
+const RESTORED = "This board came in on the link you followed. Nothing was stored anywhere; your browser rebuilt it from the URL.";
+const REFUSED = "That shared link could not be read, so this is the studio as it comes.";
+
+async function restoreShared(param, root, shell) {
+  let restored = null;
+  let refusal = null;
+  try {
+    const { state, reason } = await decodeBuild(param);
+    if (state) restored = state;
+    else refusal = reason;
+  } catch (err) {
+    refusal = err.message;
+  }
+
+  if (restored) {
+    restoreBuild(restored); // ONE publish; every consumer on this page moves together
+  } else {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete(SHARE_PARAM);
+      history.replaceState(null, "", url.toString());
+    } catch { /* file:// has no entry to replace, and no address bar to mislead */ }
+  }
+
+  const handle = mountStudioCore(root, shell, restored);
+  const sentence = restored ? RESTORED : `${REFUSED} ${refusal}`;
+  // TWO PLACES, and they are not redundant. canvas.say is the studio's ONE live region, so a screen
+  // reader hears it — but that region is transient by design, and on the refused path the replay
+  // then plays and narrates over it within a second. The notice node is where the sentence stays
+  // put. Never a throw and never console.error — studio-journey's no-page-errors contract.
+  if (handle) handle.canvas.say(sentence);
+  const notice = root.querySelector?.("[data-studio-notice]");
+  if (notice) {
+    notice.textContent = sentence;
+    notice.hidden = false;
+  }
+  return handle;
+}
+
 export function mountStudio(root = document) {
   // OUTSIDE THE try/finally, DELIBERATELY — and a future reader's instinct will be to tidy it
   // inward, which is why this paragraph is here. Two repo rules meet at this line. #173's
@@ -372,133 +617,46 @@ export function mountStudio(root = document) {
   initGlossary(root);
 
   const shell = root.querySelector("[data-studio]");
-  try {
-    if (!shell) return null;
 
-    const canvas = initStudioCanvas(root);
-    if (!canvas) return null;
+  // THE NO-LINK PATH STAYS SYNCHRONOUS, AND THAT IS A HARD CONSTRAINT RATHER THAN A PREFERENCE.
+  // `data-studio="ready"` resolves at mount today and `[data-replay="settled"]` is the late handle;
+  // the pixel gate and tooling/studio-journey.mjs both wait on them in that order. An await on the
+  // common path would shift every gate's timing on a page where nothing actually changed — and the
+  // pixel gate RE-BASELINES that class of drift rather than catching it. So the parameter is read
+  // synchronously, before anything can await, and only its presence opens the async branch.
+  let shared = null;
+  try { shared = new URLSearchParams(location.search).get(SHARE_PARAM); } catch { shared = null; }
 
-    // The store is in-memory and `state.answers` initialises to null (build-questions.mjs:67) —
-    // only setAnswers/restoreBuild fill it, and neither runs on this page. The `??` is therefore
-    // not defensive padding: patternFor TOLERATES null (pattern-rules.mjs:167 guards with
-    // `answers &&`) and silently falls through to dashboard with named:false, which renders a
-    // fallback sentence where the reader should see an answered one.
-    const stored = readBuild();
-    const answers = stored.answers ?? DEFAULT_ANSWERS;
-    // THE VISITOR'S OWN BOARD IS NEVER OVERWRITTEN BY A REPLAY. The store is in-memory and nothing
-    // on this page writes it, so `own` is null on every load today and the replay path is the only
-    // one reached — but a future restore (#210's ?b= on this route) must place what the visitor
-    // brought and let the driver mount in a declined state rather than assembling over it. Recorded
-    // rather than hidden: no code path reaches the `own` branch today, so it is untested by
-    // construction.
-    const own = isBoard(stored.board) ? stored.board : null;
-    let board = own || { places: [], connections: [] };
-
-    let arranged = arrangeBoard(board);
-    for (const entry of arranged) {
-      canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
-    }
-
-    // AFTER the placement loop, which since #209 usually places NOTHING: the canvas starts empty and
-    // system/replay-driver.mjs builds it by playing a real recorded run. So createHistory's initial
-    // snapshot is `{}` and every node the replay places is a POST-MOUNT placement — precisely the
-    // case #230's `adopt` closes, from both of its call sites (studio-verbs.mjs:181-202, :382, :467).
-    // It was the edge case; it is now the normal one, and nothing new is needed for it. The move
-    // handles are fine for the same kind of reason: #231's armMoveHandles is FORWARD-ACTING, so
-    // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :313-315).
-    const bus = createBus();
-    const verbs = mountCanvasVerbs(canvas, { bus });
-
-    // AFTER the verbs, so createHistory's initial snapshot is still the FAT-MARKER arrangement — the
-    // compile beat swaps a wrapper's contents and never its slot, so the history it inherits stays
-    // true across the beat and an undo after a compile restores the arrangement, not the fidelity.
-    // The beat shares this page's ONE bus rather than making a second: the primitives it renders are
-    // non-interactive today, but a component that does emit ui.intent should reach the same
-    // consumers everything else on this canvas reaches.
-    // `getBoard` rather than `board`, which is #209's two-line seam in that file: the beat is
-    // mounted HERE, at load, so its `finally` handle resolves where every gate already waits for it —
-    // and it reads the board at call time, so pressing Compile after the replay settles compiles the
-    // board the run built rather than the empty one this line was reached with.
-    const compile = mountCompile(canvas, { getBoard: () => board, answers, bus, onState: () => syncInspect() });
-
-    let summary = buildSummary(board, answers);
-    const summaryMount = document.getElementById("this-build-summary");
-    // NOT rendered for an empty board. Every number in this panel is counted from the board, so on
-    // the replay path there is nothing to count yet — and a panel reading "Places 0" for the first
-    // five seconds would be a set of true numbers about nothing. factory.html's own markup says what
-    // is coming instead, and onSettle below replaces it with the counted panel.
-    if (arranged.length) renderSummary(summaryMount, summary, arranged);
-
-    const inspector = wireInspector(shell);
-
-    // LAST, so it takes a canvas whose verbs and beat are already mounted. Everything it needs is a
-    // seam something else already exposed: place() from #204, the single ui.move consumer it must
-    // not become a second of from #205, and the board getter above.
-    //
-    // ALL THREE OF board / summary / arranged ARE UPDATED AT SETTLE, and that is not bookkeeping:
-    // tooling/studio-journey.mjs:1218-1226 reads all three off the running page through getStudio()
-    // and asserts slotCount === arranged === places. Leaving them at their mount-time values would
-    // turn that assertion red for a page that is entirely correct.
-    // THE BOARD IS PUBLISHED WHEREVER THE DRIVER HAS STOPPED FOR GOOD, and "for good" is the whole
-    // point of the pair below rather than a third call on the driver's own Pause. Compile does a
-    // positional in-place swap of every wrapper's contents; the driver's reflection replaces that
-    // same child on every `place-changed` (replay-driver.mjs:499, seven of them in the committed
-    // artifact). So a board published at a pause the driver can resume from would hand Compile a
-    // stage the driver is going to keep authoring. SETTLE and TAKE-OVER are the two states nothing
-    // resumes from — settle is terminal, and take-over kills the transport (PR #240 review,
-    // finding 1).
-    //
-    // `finalBoard == null` is the driver's UNAVAILABLE path (a 404 artifact): there is no board to
-    // publish and this page's own empty one is already correct, but the beat must still come back —
-    // a degraded replay may not leave the page's primary control dead.
-    const publishBoard = (finalBoard) => {
-      if (isBoard(finalBoard)) {
-        board = finalBoard;
-        arranged = arrangeBoard(board);
-        summary = buildSummary(board, answers);
-        // THE SAME GUARD THE MOUNT ABOVE CARRIES, and for the same sentence: a panel reading
-        // "Places 0" is a set of true numbers about nothing. It was unreachable while settle() was
-        // the only publisher — a settled run always has places — and a take-over is reachable from
-        // the moment the driver is `ready`, which is several beats before the first place.add.
-        if (arranged.length) renderSummary(summaryMount, summary, arranged);
-        if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
-      }
-      compile.setEnabled(true);
-      syncInspect();
-    };
-    // BEFORE the mount, not inside it: mountReplay runs two awaited fetches, and the window between
-    // this line and the driver's first beat is exactly the one a reader could press Compile in and
-    // be told "No pattern named, so nothing compiled" about a canvas that is visibly filling up.
-    compile.setEnabled(false);
-    let replay = null;
+  if (!shared) {
     try {
-      replay = mountReplay(canvas, {
-        shell,
-        renderPlace: placeBlock,
-        bus,
-        onSettle: publishBoard,
-        // The driver already owns the board it built and already exposes it; there is no third
-        // option to add here. It can only fire after start()'s awaits, so `replay` is bound.
-        onTakeOver: () => publishBoard(replay ? replay.board : null),
-      });
-    } catch (err) {
-      // The driver reports a boundary failure by throwing (replay-driver.mjs:864-869) and leaves
-      // [data-replay="unavailable"] behind, which the gates read. The beat must not go down with it:
-      // re-enable, then re-throw, so the failure stays as loud as it was.
-      compile.setEnabled(true);
-      throw err;
+      if (!shell) return null;
+      return mountStudioCore(root, shell, null);
+    } finally {
+      settleHandles(root, shell);
     }
-
-    // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
-    // built after inspect.mjs restored, so they need one refresh to be wired.
-    syncInspect();
-
-    live = { shell, canvas, bus, verbs, compile, replay, inspector, board, summary, arranged };
-    return live;
-  } finally {
-    // Every path, including both early returns and any throw below the glossary call.
-    shell?.setAttribute("data-studio", "ready");
   }
+
+  if (!shell) { settleHandles(root, shell); return null; }
+  // The handles are withheld until the restore has settled — a gate that read them earlier would
+  // capture and assert a page mid-restore (build-keep.mjs:382-384 makes the same call for the same
+  // reason). `.finally` rather than a try/finally: the work is a promise now, and the handles must
+  // resolve on the rejected path too.
+  return restoreShared(shared, root, shell).finally(() => settleHandles(root, shell));
+}
+
+// Both readiness handles, in one place because both are now set from two call sites.
+function settleHandles(root, shell) {
+  // Every path, including both early returns and any throw below the glossary call.
+  shell?.setAttribute("data-studio", "ready");
+  // The rail's handle is set by its OWN `finally` on every path it reaches — but the early returns
+  // above (no shell, no canvas) never reach it at all, and a gate waiting on it would then deadlock
+  // to timeout on a page whose real failure is something else entirely. Same call the canvas and the
+  // beat make: fail on the missing thing, loudly, rather than hang.
+  const keepRoot = root.querySelector?.("[data-studio-keep]");
+  // Tested on the VALUE, not on the attribute: [data-studio-keep] is both the mount hook and the
+  // state, exactly as [data-build-keep] and [data-replay] are, so the attribute is always there
+  // and only its value says whether anything mounted.
+  if (keepRoot && !keepRoot.getAttribute("data-studio-keep")) keepRoot.setAttribute("data-studio-keep", "unavailable");
 }
 
 // Self-boot behind a DOM guard so a Node import stays clean; inert on every page without the shell.

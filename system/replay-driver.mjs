@@ -97,6 +97,16 @@ const PHASES = { plan: "Plan", gate: "Gate", implement: "Implement", validate: "
 // The two provenance sentences, module-level so the take-over path and the chrome cannot drift.
 const PROVENANCE_RUN = "Everything on this canvas is the run's work.";
 const PROVENANCE_VISITOR = "The run's work, with your edits on top.";
+// The third provenance, and #210's (`declined`). A visitor who arrived on a shared link brought
+// their OWN board, and this driver's whole rule is that it never authors over one — so it mounts,
+// reads the same two committed files, shows what the run was, and does not play. The sentence has to
+// say that plainly, because a transport sitting dead beside a canvas full of blocks otherwise reads
+// as a replay that broke.
+const PROVENANCE_DECLINED = "Everything on this canvas came in on the link you followed — it is the sender's board, not this run's.";
+const DECLINED_NOTE = "The recorded run below did not play here, and that is deliberate: you arrived "
+  + "with a board already on the link, and the run would have had to build over it. The run is still "
+  + "readable as it is — its trace and its brief are linked above — and opening /factory without a "
+  + "link plays it from the start.";
 
 const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -391,7 +401,13 @@ export const getReplay = () => live;
 // `renderPlace` is system/studio.mjs's placeBlock, PASSED IN rather than imported: studio.mjs already
 // imports this file, so importing back would be a cycle, and "what a place looks like before it
 // compiles is that file's sentence" (studio.mjs:220-225) stays true either way.
-export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver } = {}) {
+// `declined` is #210's option and the smallest one this file could grow. It was RECORDED as a
+// requirement by studio.mjs before any code path reached it ("must place what the visitor brought and
+// let the driver mount in a declined state rather than assembling over it"), and #210's ?b= restore
+// is what makes it reachable. It is one early return in start(), and it adopts `tookOver` rather
+// than `ready` — a declined mount is closer to "already handed over" than to "about to play", and
+// tookOver is what makes the whole transport dead (see syncControls). (PR #240 review, finding 6.)
+export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver, declined } = {}) {
   const host = shell || null;
   let state = "loading";
   try {
@@ -804,6 +820,32 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       run = describeRun(artifact, built.meta, pacing, beats);
       renderChrome(built);
       seek.setAttribute("max", String(beats.length));
+
+      // DECLINED — the visitor brought their own board, so nothing is played and nothing is
+      // authored. The chrome above still says what the run WAS and still links its trace and its
+      // brief, because that exhibit is true whether or not it ran here; what changes is that the
+      // transport goes away and the provenance line says whose canvas this is. `tookOver` is set
+      // rather than a fourth flag: it is exactly the state "this driver will not write to the stage
+      // again", it makes syncControls kill all four controls for the reason that comment gives, and
+      // it makes onTouch inert — a visitor who then moves their own block has taken nothing over,
+      // and firing /factory/took-over there would make that metric a lie.
+      //
+      // NO onSettle, and no take-over route. The board on the canvas is the ORCHESTRATOR'S — it
+      // placed it before this mount — so publishing one from here would hand studio.mjs a board this
+      // driver never built. studio.mjs re-enables the compile beat itself on this path, which is the
+      // constraint that matters: a declined mount must not leave the page's primary control dead.
+      if (declined) {
+        tookOver = true;
+        setState("declined");
+        controls.hidden = true;
+        pacingLine.after(el("p", { class: "stu-replay-note", text: DECLINED_NOTE }));
+        provenance.setAttribute("data-provenance", "visitor");
+        provenance.textContent = PROVENANCE_DECLINED;
+        host.setAttribute("data-provenance", "visitor");
+        readout.textContent = "";
+        return;
+      }
+
       setState("ready");
       syncControls();
 
