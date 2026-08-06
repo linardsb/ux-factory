@@ -1678,6 +1678,10 @@ function scanSvg(svg, label) {
       "trackBuildPattern", "trackBuildShared", "trackToolInspect", "trackToolPalette",
       "trackFactoryTookOver", "trackFactoryLinkCopied", "trackFactoryExported",
     ];
+    // Imported before the loop's first stub(), which is safe only because case 12 left `location`
+    // and `history` defined and analytics.mjs is node-safe regardless — stated because it is an
+    // ordering dependency this group did not have before, and reordering group 10 would fail here
+    // confusingly rather than loudly.
     const roster = await import(`${ANA}?g10j-roster`);
     const TRACKERS = Object.keys(roster).filter((k) => k.startsWith("track"));
     ok(TRACKERS.length >= MIN.length && MIN.every((n) => TRACKERS.includes(n)),

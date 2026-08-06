@@ -438,19 +438,27 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
       return { url, arrangement: arrangement_ };
     }
 
+    // ONE writer for the address bar, the field and the field's LABEL, because the label is a claim
+    // about the link and the two must never be written apart. update() re-runs this on every board
+    // change once the link is live — and the arrangement can stop travelling between the copy and
+    // that re-run (a take-over, then a compile into the surplus state), which is exactly M2's false
+    // claim reached by a second path. Setting the label only at the click would leave "arrangement
+    // included" on a field whose value no longer carries one.
+    const publishLink = (url, sent) => {
+      replaceUrl(url);
+      linkInput.value = url;
+      linkInput.setAttribute("aria-label", sent
+        ? "The link that rebuilds this build, arrangement included"
+        : "The link that rebuilds this build, without the arrangement");
+    };
+
     copyBtn.addEventListener("click", async () => {
       copyBtn.disabled = true;
       let built = false; // did the link get as far as the address bar and the field?
       try {
         const { url, arrangement: sent } = await currentUrl();
         linkLive = true;
-        replaceUrl(url);
-        linkInput.value = url;
-        // The field's own label makes the same claim as the sentence below, on the same link, so it
-        // branches with it rather than being written once and left true only sometimes.
-        linkInput.setAttribute("aria-label", sent
-          ? "The link that rebuilds this build, arrangement included"
-          : "The link that rebuilds this build, without the arrangement");
+        publishLink(url, sent);
         linkInput.hidden = false;
         built = true;
         try {
@@ -516,10 +524,8 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
       // clean. No debounce: unlike /build's rail nothing on this page fires per keystroke — the
       // board changes at settle, at take-over and on a restore, which is three times a load.
       if (!linkLive) return;
-      currentUrl().then(({ url }) => {
-        replaceUrl(url);
-        linkInput.value = url;
-      }).catch(() => { /* the note already carries the last thing that happened */ });
+      currentUrl().then(({ url, arrangement: sent }) => publishLink(url, sent))
+        .catch(() => { /* the note already carries the last thing that happened */ });
     }
 
     update();

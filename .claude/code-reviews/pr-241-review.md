@@ -242,6 +242,13 @@ Two things the fixes did NOT change, deliberately:
   arrangements is amended rather than deleted: they can describe different AMOUNTS of one, and each
   says which.
 
+One thing the fixes ADDED, from a second pass over M2: the address bar, the field's value and the
+field's `aria-label` now have ONE writer (`publishLink`), because `update()` re-runs the link on
+every board publish and would otherwise leave a stale label beside a fresh value. No reachable
+sequence produces that today — `update()` fires only at settle and take-over, and neither can
+follow the surplus compile that makes the arrangement stop travelling — so this is structural
+rather than a second defect, and it is written down as such instead of being claimed as a bug fixed.
+
 **Gates**: `build-checks` 17/17 · `drift-check` clean · `token-lint` clean · both modules still
 node-import safe · `studio-journey all` green on chromium, firefox and webkit. No at-rest change on
 any shipped page, so no baseline regeneration.
