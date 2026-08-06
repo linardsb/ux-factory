@@ -115,7 +115,7 @@
     },
     "demo-notice": {
       "class": "vd-demo-notice",
-      "status": "spec",
+      "status": "shipped",
       "props": {
         "text": {
           "type": "string",
@@ -453,6 +453,9 @@
         "value": {
           "type": "number",
           "required": true,
+          "min": 0,
+          "max": 100,
+          "step": 1,
           "description": "the reading, rendered as-is — the tile does no rounding or conversion"
         },
         "unit": {

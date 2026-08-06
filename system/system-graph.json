@@ -1074,6 +1074,18 @@
       ]
     },
     {
+      "id": "vd-demo-notice",
+      "label": "vd-demo-notice",
+      "spec": "system/specs/demo-notice.md",
+      "tokens": [
+        "--spacing-sm",
+        "--color-bg-surface",
+        "--color-border",
+        "--color-fg-muted",
+        "--type-caption"
+      ]
+    },
+    {
       "id": "verdant-screen-scaffolding-layout-not-spec-d-components",
       "label": "Verdant screen scaffolding (layout, not spec'd components)",
       "spec": null,
@@ -1194,7 +1206,7 @@
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 32,
-    "edges": 388
+    "consumers": 33,
+    "edges": 393
   }
 }
