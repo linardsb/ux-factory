@@ -19,10 +19,19 @@
   <style>
     /* Deep links + the hero CTA land below the sticky header. scroll-padding on the root
        covers every scroll-into-view (anchors, keyboard focus, assistive tech); the per-target
-       scroll-margin is the same 96px idiom the sibling factory.html uses. No at-rest visual
-       effect, so the VR baselines don't churn. */
+       scroll-margin is the same 96px idiom the sibling factory.html uses. These two rules have
+       no at-rest visual effect, so they don't churn the VR baselines. */
     html { scroll-padding-top: 96px; }
     #method, #case, #sources { scroll-margin-top: 96px; }
+
+    /* Five clusters in the two-column sources grid: the fifth spans the full row rather than
+       sitting as an orphan beside an empty cell. It is also the longest list, so it gets the
+       widest measure — but the span removes the measure the column was supplying structurally
+       (~56ch), so the cap is restated here rather than left at the container's full width.
+       76ch is the repo's widest existing per-component cap; .max-prose is 65ch. Still a no-op
+       at the mobile breakpoint, where .grid-2 is already 1fr and the column is far narrower
+       than the cap (components.css). Layout call recorded in the PR — st-ux-fusion T1. */
+    #sources .sources-wide { grid-column: 1 / -1; max-width: 76ch; }
   </style>
 </head>
 <body data-page="approach">
@@ -66,7 +75,8 @@
               <p class="muted">
                 A vague ask becomes a scoped bet with a time budget. I design the solution to
                 fit that budget, name the risks, and say what's out of scope before anyone
-                writes code.
+                writes code. The outcome: bad bets die on paper, where they cost a
+                conversation instead of a build cycle.
               </p>
             </div>
           </article>
@@ -77,7 +87,8 @@
               <p class="muted">
                 A feature only matters if someone actually uses it. I find the real trigger,
                 cut the friction between the person and the payoff, and make the behaviour
-                easier before trying to make it more motivating. If a pattern lifts a metric
+                easier before trying to make it more motivating. The outcome is a feature
+                people come back to without being nudged. If a pattern lifts a metric
                 by making someone feel worse, it doesn't ship.
               </p>
             </div>
@@ -87,7 +98,8 @@
               <div class="card-kicker">How I know it worked</div>
               <h3 class="h3 mb-md">Prove it</h3>
               <p class="muted">
-                Before building, I write down what would show it worked: an early signal like
+                The outcome I'm after is what changed for the person using it, so before building
+                I write down what would show it worked: an early signal like
                 <dfn class="term" data-term="activation" tabindex="0">activation</dfn>, and the slower outcome
                 behind it like <dfn class="term" data-term="retention" tabindex="0">retention</dfn>. After it
                 ships, I go back and check. Most work never gets that second look. I make it a step.
@@ -102,7 +114,8 @@
                 Accessible markup, motion with a reason, and nothing hard-coded: a component asks
                 for a colour or a size by name, and one shared file answers. Those named values are
                 <dfn class="term" data-term="design-token" tabindex="0">design tokens</dfn>. Colour
-                and spacing can't drift, because there is nowhere for them to drift to. This site is
+                and spacing can't drift, because there is nowhere for them to drift to. The outcome:
+                change stays cheap — a rebrand is one file. This site is
                 built that way (see <a href="#case">the case study</a>).
               </p>
             </div>
@@ -134,7 +147,10 @@
               Nothing in the markup is allowed to name a colour. A component asks for a role — the
               accent, the page background — and whichever brand file is loaded answers. Those roles
               are <dfn class="term" data-term="semantic-token" tabindex="0">semantic tokens</dfn>.
-              And no framework, no build step: plain HTML and CSS.
+              The industry name for encoding intent this way is a
+              <dfn class="term" data-term="steering-layer" tabindex="0">steering layer</dfn>: design
+              intent encoded where neither a person nor an AI agent can drift from it.
+              No framework, no build step either: plain HTML and CSS.
             </p>
           </div>
           <div class="decision-card" data-inspect="decision-card-organism">
@@ -209,6 +225,10 @@
           <div>
             <h3 class="caption">Design systems &amp; tokens</h3>
             <p class="muted">the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.</p>
+          </div>
+          <div class="sources-wide">
+            <h3 class="caption">Strategy &amp; systems</h3>
+            <p class="muted">Jared Spool and Center Centre on outcomes over outputs, Leslie Jensen-Inman on "Yes, And", Luke Wroblewski on AI product UX, Donella Meadows' Thinking in Systems, Daniel Kim's systems-thinking tools, John Morecroft on strategic modelling, Gothelf &amp; Seiden's Lean UX, Hartson &amp; Pyla's The UX Book.</p>
           </div>
         </div>
       </div>

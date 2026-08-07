@@ -55,6 +55,12 @@ const TERMS = {
     "The step-by-step record of a real AI agent run: what it was asked, which tools it called, what came back, and where a gate stopped it. Recorded as it happened, then replayed here.",
   "contrast-pair":
     "Two colours that land on top of each other, like text on its background or a border on its surface, measured against the WCAG minimum for legibility. Each pair passes or fails on its own.",
+  "declarative-generative-ui":
+    "An interface an agent proposes as data rather than writes as code: which component, what it holds, what sits inside it. A renderer checks each proposal against the components it may use, so nothing outside that list can render.",
+  "steering-layer":
+    "Design intent encoded where the work happens — the token contract, the component rules, the checks — so anyone contributing, person or agent, stays on brand without asking. It steers as work is made, rather than reviewing it afterwards.",
+  "management-flight-simulator":
+    "A model you operate rather than read: make a decision, run it, watch the consequences land, try again. The ones on this site are illustrative — they run the method on fictional products, not a real business.",
 };
 
 export function initGlossary(root = document) {
