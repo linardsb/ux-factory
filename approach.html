@@ -26,9 +26,12 @@
 
     /* Five clusters in the two-column sources grid: the fifth spans the full row rather than
        sitting as an orphan beside an empty cell. It is also the longest list, so it gets the
-       widest measure. A no-op at the mobile breakpoint, where .grid-2 is already 1fr
-       (components.css). Layout call recorded in the PR — st-ux-fusion T1. */
-    #sources .sources-wide { grid-column: 1 / -1; }
+       widest measure — but the span removes the measure the column was supplying structurally
+       (~56ch), so the cap is restated here rather than left at the container's full width.
+       76ch is the repo's widest existing per-component cap; .max-prose is 65ch. Still a no-op
+       at the mobile breakpoint, where .grid-2 is already 1fr and the column is far narrower
+       than the cap (components.css). Layout call recorded in the PR — st-ux-fusion T1. */
+    #sources .sources-wide { grid-column: 1 / -1; max-width: 76ch; }
   </style>
 </head>
 <body data-page="approach">
@@ -144,10 +147,10 @@
               Nothing in the markup is allowed to name a colour. A component asks for a role — the
               accent, the page background — and whichever brand file is loaded answers. Those roles
               are <dfn class="term" data-term="semantic-token" tabindex="0">semantic tokens</dfn>.
-              The industry name for a rule like this is a
+              The industry name for encoding intent this way is a
               <dfn class="term" data-term="steering-layer" tabindex="0">steering layer</dfn>: design
               intent encoded where neither a person nor an AI agent can drift from it.
-              And no framework, no build step: plain HTML and CSS.
+              No framework, no build step either: plain HTML and CSS.
             </p>
           </div>
           <div class="decision-card" data-inspect="decision-card-organism">
