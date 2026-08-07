@@ -26,7 +26,9 @@ screens are 1:1 with wrappers by construction, and a count mismatch refuses loud
 - group 19 "flow" + groups 6/7/15/17 reshaped → `tooling/build-checks.mjs` (UPDATE)
 - flow pass + compilePass/take-over/keepPass/#237/shape-stream reshaping → `tooling/studio-journey.mjs` (UPDATE)
 - `.stf-go` manifest entry → `system/param-manifest.json` + regen `system/param-count.json` (24→25, 102→103)
-- regen `system/loc-summary.json` (runtime 72→73 files, ~25.8k→~25.9k)
+- regen `system/loc-summary.json` (runtime 72→73 files, ~25.8k→~26.1k — the first regen ran before
+  the whole tree was staged and under-counted by 200; caught by `--check` on the committed tree,
+  corrected, and the two approach baselines re-captured at the right numbers)
 - `studio-flow.mjs` map entry + 19-groups build-checks line → `CLAUDE.md`
 - baselines: factory ×2 + approach ×2 regenerated in Docker from a clean detached worktree (same PR)
 
