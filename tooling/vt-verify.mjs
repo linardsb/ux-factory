@@ -399,7 +399,9 @@ for (const name of toRun) {
     // pseudoElement, and that is correct.
     for (const reduced of [false, true]) {
       const label = reduced ? "factory compile · reduced motion" : "factory compile";
-      const fctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...(reduced ? { reducedMotion: "reduce" } : {}) });
+      // acceptDownloads is #213's: the keep-rail sample below proves the export click by the
+      // download event genuinely firing, and a context that refuses downloads cannot see it.
+      const fctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, ...(reduced ? { reducedMotion: "reduce" } : {}) });
       await fctx.addInitScript(HOOK);
       const fp = await fctx.newPage();
       await fp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
@@ -464,6 +466,55 @@ for (const name of toRun) {
         .filter((x) => x && x.startsWith("::view-transition")));
       t(`${label} · zero ::view-transition-* pseudos are running after it`,
         fpseudos.length === 0, fpseudos.join(" "));
+
+      // #213 · the interactions ADDED AFTER this block was written, sampled the same way. "Zero
+      // at rest said nothing about a chain that runs afterwards" — the block's own words, now
+      // extended from the replay to the reader's interactions: the #209/#240 take-over handover
+      // (provenance swap, transport death, a route fired) and #210's keep-rail copy + export
+      // clicks all postdate the samples above and were never sampled. Movement proven first in
+      // each, as ever — "zero transitions" is trivially true of a click that did nothing.
+      //
+      // The studio deliberately names NOTHING for view transitions (#171's lesson), so the honest
+      // expected count here is zero everywhere and there are no group names to assert missing —
+      // that half of the machinery is exercised by the /build entries above, which have names.
+      if (!reduced) {
+        // (a) the take-over, on a fresh hooked page mid-replay.
+        const tpg = await fctx.newPage();
+        await tpg.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+        await tpg.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 30000 });
+        await reset(tpg);
+        await tpg.locator("[data-studio-canvas] .stx-slot").first().click();
+        await tpg.waitForTimeout(700);
+        const tookState = await tpg.evaluate(() => import("/system/replay-driver.mjs").then((m) => m.getReplay().tookOver));
+        const tookRead = await read(tpg);
+        const tookPseudos = await tpg.evaluate(() => document.getAnimations()
+          .map((a) => a.effect && a.effect.pseudoElement)
+          .filter((x) => x && x.startsWith("::view-transition")));
+        t("factory take-over · the handover genuinely happened", tookState === true, `tookOver=${tookState}`);
+        t("factory take-over · …and opened no transition and left no pseudo running",
+          tookRead.calls === 0 && tookPseudos.length === 0, `calls=${tookRead.calls} pseudos=${tookPseudos.join(" ")}`);
+        await tpg.close();
+
+        // (b) the keep rail's two clicks, on the settled page above — copy proven by the ?b=
+        // genuinely landing in the address bar, export by the download event genuinely firing.
+        await reset(fp);
+        await fp.locator("[data-keep-share] button").click();
+        await fp.waitForTimeout(700);
+        t("factory keep · the copy click genuinely armed the URL with ?b=", fp.url().includes("?b="), fp.url());
+        const [dl] = await Promise.all([
+          fp.waitForEvent("download", { timeout: 30000 }),
+          fp.locator("[data-keep-export] button").click(),
+        ]);
+        t("factory keep · the export click genuinely handed a file over",
+          dl.suggestedFilename() === "prototype.html", dl.suggestedFilename());
+        await fp.waitForTimeout(700);
+        const keepRead = await read(fp);
+        const keepPseudos = await fp.evaluate(() => document.getAnimations()
+          .map((a) => a.effect && a.effect.pseudoElement)
+          .filter((x) => x && x.startsWith("::view-transition")));
+        t("factory keep · …and neither keep-rail interaction opened a transition or left a pseudo running",
+          keepRead.calls === 0 && keepPseudos.length === 0, `calls=${keepRead.calls} pseudos=${keepPseudos.join(" ")}`);
+      }
       await fctx.close();
     }
   } finally {
@@ -473,5 +524,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, and its #207 compile beat, whose crossfade opens no transition at all — under reduced motion too, with the movement proven first in every one (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, its #207 compile beat, whose crossfade opens no transition at all, and (#213) its take-over handover and #210 keep-rail copy + export clicks — the interactions the earlier samples predate — sampled the same way with movement proven first: under reduced motion too, in every one (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);

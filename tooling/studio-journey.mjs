@@ -35,6 +35,9 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// #213's INP helper: the injected observer source + the pure comparator perfPass self-tests with.
+// Driver-side only — nothing from it ever ships (its header carries the argument).
+import { OBSERVER_INIT, summarize, violations } from "./inp-observer.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VRDIR = path.join(HERE, "visual-regression");
@@ -322,6 +325,51 @@ async function journey(engineName, results, held) {
   t("reset returns to scale 1 and scroll 0,0",
     afterReset.zoom === String(ZOOM_REST) && afterReset.scrollLeft === 0 && afterReset.scrollTop === 0,
     JSON.stringify({ zoom: afterReset.zoom, l: afterReset.scrollLeft, t: afterReset.scrollTop }));
+
+  // ---------------------------------------------------------------- [2b] #213 · the zoom verbs BY KEYBOARD
+  // AC #5's last gap: everything above activates the zoom row by CLICK. Each verb is driven here
+  // by focus + Enter and asserted against its OWN live surface — and only the surfaces the module
+  // actually writes (studio-canvas.mjs:121, 177, 185): zoom in/out update the aria-live="polite"
+  // .stx-zoom-level readout, so asserting the readout IS the announcement assertion — there is no
+  // .stx-live sentence to invent for them — while Fit and Reset also announce through .stx-live,
+  // counted with countLive so a stale sentence from the click cases above cannot pass for a new one.
+  await btn(page, "Zoom in").focus();
+  await page.keyboard.press("Enter");
+  const kzin = await snapshot(page);
+  t(`#213 · Zoom in by Enter steps to ${pct(ZOOM_REST + 1)} and the aria-live readout says so`,
+    kzin.zoom === String(ZOOM_REST + 1) && kzin.readout === pct(ZOOM_REST + 1), `${kzin.zoom} / ${kzin.readout}`);
+
+  await btn(page, "Zoom out").focus();
+  await page.keyboard.press("Enter");
+  const kzout = await snapshot(page);
+  t("#213 · Zoom out by Enter returns to 100% and the readout tracks it",
+    kzout.zoom === String(ZOOM_REST) && kzout.readout === "100%", `${kzout.zoom} / ${kzout.readout}`);
+
+  await countLive(page);
+  await btn(page, "Fit").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(120);
+  const kfit = await snapshot(page);
+  const kfitSaid = await liveSeen(page);
+  const kfits = (i) => ZOOM_LEVELS[i] * kfit.contentW <= kfit.clientW + 1 && ZOOM_LEVELS[i] * kfit.contentH <= kfit.clientH + 1;
+  const kchosen = Number(kfit.zoom);
+  t("#213 · Fit by Enter lands on a level the measured layout agrees with",
+    (kfits(kchosen) || kchosen === 0) && (kchosen === ZOOM_LEVELS.length - 1 || !kfits(kchosen + 1)),
+    `chose ${kchosen}; content ${kfit.contentW}×${kfit.contentH} in ${kfit.clientW}×${kfit.clientH}`);
+  t("#213 · …and announces the level through .stx-live, once",
+    kfitSaid.n === 1 && /^Zoom \d+ percent, fit to the canvas$/.test(kfitSaid.last), `${kfitSaid.n}: ${kfitSaid.last}`);
+
+  await countLive(page);
+  await btn(page, "Reset").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(120);
+  const kreset = await snapshot(page);
+  const kresetSaid = await liveSeen(page);
+  t("#213 · Reset by Enter returns to scale 1, scroll 0,0",
+    kreset.zoom === String(ZOOM_REST) && kreset.scrollLeft === 0 && kreset.scrollTop === 0,
+    JSON.stringify({ zoom: kreset.zoom, l: kreset.scrollLeft, t: kreset.scrollTop }));
+  t("#213 · …and announces the return through .stx-live",
+    kresetSaid.n === 1 && kresetSaid.last === "Zoom 100 percent, back to the top left", `${kresetSaid.n}: ${kresetSaid.last}`);
 
   // ---------------------------------------------------------------- [3] the bare-wheel rule
   const box = await page.locator(SCROLL).boundingBox();
@@ -1190,6 +1238,7 @@ async function journey(engineName, results, held) {
   // assertions below are what replaced that: a completely unstyled, unrendered trace player would
   // otherwise pass update:docker, build-checks and drift-check alike.
   await factoryPass(browser, t, errors);
+  await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
   return errors;
@@ -1337,6 +1386,95 @@ async function factoryPass(browser, t, errors) {
     await p.evaluate(() => document.getElementById("build-stage")?.classList.contains("stu-canvas-col")));
 
   await ctx.close();
+
+  // ---------------------------------------------------------------- #213 · the dock, MID-FLOW
+  // The one piece of site chrome the journey never touched. Opened while the replay is still
+  // authoring the canvas, the pack switched to saulera, closed — and the four claims that make it
+  // a studio case rather than a dock case: the head's ONE pack line re-points (pack-boot's
+  // contract), the pack switch is CHROME and not a take-over (the discriminator is canvas-scoped,
+  // and this is the assertion that keeps it that way), the replay keeps playing to the committed
+  // board, and the canvas is still alive to a move verb afterwards. Template:
+  // tooling/build-journey.mjs's dock-mid-flow cases (lines 495-515, 1115-1150).
+  //
+  // A fresh context, load-bearing twice over: pack-boot restores a persisted pack from
+  // localStorage pre-paint, so this must start neutral — and the saulera choice this case
+  // persists must die with the context rather than skin every later pass.
+  {
+  const dctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const dp = await dctx.newPage();
+  dp.on("pageerror", (e) => errors.push(`dock pageerror: ${e.message}`));
+  // The teardown pass's narrow exemption, for the same reason: wearing saulera 404s the pack's
+  // own `@import url("../fonts/fonts.css")` — fonts/ is not committed, a standing property of the
+  // hand-authored reference pack that every saulera surface shares (the pixel gate wears it too,
+  // it just never watches the console). That line is the browser reporting the network, not the
+  // page reporting itself; everything else still fails the run.
+  dp.on("console", (m) => {
+    if (m.type() !== "error") return;
+    if (/Failed to load resource/.test(m.text())) return;
+    errors.push(`dock console: ${m.text()}`);
+  });
+  await dp.addInitScript(() => {
+    window.__pushed = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, u) => { window.__pushed.push(String(u)); return real(s, ti, u); };
+  });
+  await dp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await dp.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+  const dReplay = () => dp.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
+    const r = m.getReplay();
+    return r ? { state: r.state, index: r.index, beats: r.beats.length, took: r.tookOver } : null;
+  }));
+  const dMid = await dReplay();
+  t("#213 · the dock case really is MID-REPLAY — a settled page would prove the wrong thing",
+    dMid.state === "ready" && dMid.index < dMid.beats, JSON.stringify(dMid));
+
+  // Open (the hash-routed disclosure), switch, close — the reader's own path.
+  await dp.evaluate(() => { location.hash = "appearance"; });
+  await dp.waitForTimeout(250);
+  await dp.locator('label[for="dock-pack-saulera"]').click();
+  await dp.waitForFunction(() => [...document.querySelectorAll('link[rel="stylesheet"]')]
+    .some((l) => /\/system\/tokens\.saulera\.css$/.test(l.getAttribute("href") || "")), null, { timeout: 10000 });
+  await dp.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await dp.waitForTimeout(250);
+  const packLines = await dp.evaluate(() => [...document.querySelectorAll('link[rel="stylesheet"]')]
+    .map((l) => l.getAttribute("href"))
+    .filter((h) => /\/system\/tokens\.(neutral|saulera|verdant|plusui)\.css$/.test(h || "")));
+  t("#213 · the head's ONE pack line now points at saulera — switched mid-replay, with the run still authoring",
+    packLines.length === 1 && /saulera/.test(packLines[0]), JSON.stringify(packLines));
+  const dAfterDock = await dReplay();
+  t("#213 · the pack switch did NOT count as take-over — a dock verb is chrome, not canvas",
+    dAfterDock.took === false
+    && (await dp.evaluate(() => window.__pushed.filter((u) => u === "/factory/took-over").length)) === 0,
+    `took=${dAfterDock.took} pushed=${JSON.stringify(await dp.evaluate(() => window.__pushed.slice()))}`);
+
+  // The run plays through to the COMMITTED board — skinned, never shortened.
+  await dp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  const dBoard = await dp.evaluate(async () => {
+    const want = await (await fetch("/replay/build-fieldwork-dispatch.board.json")).json();
+    return {
+      wanted: want.places.map((x) => x.label),
+      got: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((w) => w.getAttribute("data-stx-name")),
+    };
+  });
+  t("#213 · …and the replay CONTINUED to the committed board, block for block",
+    JSON.stringify(dBoard.got) === JSON.stringify(dBoard.wanted),
+    `${JSON.stringify(dBoard.got)} vs ${JSON.stringify(dBoard.wanted)}`);
+
+  // The dock left the canvas ALIVE: one keyboard move still works and still announces per keypress.
+  const dFirst = await dp.locator(`${VIEWPORT} .stx-slot`).first().getAttribute("data-stx-id");
+  const dBefore = await dp.evaluate((i) => document.querySelector(`.stx-slot[data-stx-id="${i}"]`).getAttribute("data-row"), dFirst);
+  await countLive(dp);
+  await dp.locator(`.stx-slot[data-stx-id="${dFirst}"] .stx-grab`).focus();
+  await dp.keyboard.press("Enter");
+  await dp.keyboard.press("ArrowDown");
+  await dp.keyboard.press("Enter");
+  await dp.waitForTimeout(150);
+  const dSaid = await liveSeen(dp);
+  const dAfter = await dp.evaluate((i) => document.querySelector(`.stx-slot[data-stx-id="${i}"]`).getAttribute("data-row"), dFirst);
+  t("#213 · …and a move verb still works after the dock, announced per keypress",
+    dAfter !== dBefore && dSaid.n === 3, `row ${dBefore} → ${dAfter}; ${dSaid.n} announcement(s): ${dSaid.last}`);
+  await dctx.close();
+  }
 
   await replayPass(browser, t, errors);
   await compilePass(browser, t, errors);
@@ -2709,6 +2847,328 @@ async function teardownPass(browser, t, errors) {
   await ctx.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// #213 · THE MEASUREMENT GATE. The PRD's WRONG-if guardrails, measured instead of assumed: INP
+// ≤ 200 ms per named interaction per engine, and a drag that drops no frames under a base-spec
+// CPU profile. Nothing here ships — the observer is driver-injected via addInitScript
+// (tooling/inp-observer.mjs's header carries the argument), so the zero-dep pages and the pixel
+// baselines are untouched.
+//
+// THE FLOOR IS THE COMMON CASE, NOT AN EDGE CASE (probe-verified while planning, all three
+// engines): the Event Timing API's durationThreshold floors at 16 ms and a healthy studio
+// interaction usually completes under it, so most rows yield NO entry. That is a sound pass —
+// the observer delivers every entry ≥ 16 ms, so no entry ⇒ latency < 16 ≤ 200 — but only because
+// the calibration step below proves the delivery pipeline ALIVE first with a forced-slow click.
+// A bare-click sanity check fails healthy pages (a fast page legitimately yields nothing), and
+// no calibration at all lets a silently-dead observer turn every budget row vacuous-green
+// (proto-journey.mjs:289-304's recorded lesson, arriving here as a fixture choice).
+async function perfPass(browser, engineName, t, errors) {
+  const BUDGET_MS = 200;
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+  };
+  const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  // Entries are delivered after the interaction's next paint — flush with a double rAF plus a
+  // beat of real time before reading, or the delta is short on every engine (probe-verified).
+  const flush = async (p) => {
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await p.waitForTimeout(150);
+  };
+  const entriesFrom = (p, from) => p.evaluate((i) => window.__studioINP.slice(i), from);
+  const count = (p) => p.evaluate(() => window.__studioINP.length);
+
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+  await ctx.addInitScript(OBSERVER_INIT);
+
+  // --- 0 · calibration: the observer proven ALIVE with a forced-slow click -----------------------
+  // A throwaway page in the SAME context (so it inherits the init script) gets a capture-phase
+  // listener that busy-waits ~35 ms — past the 16 ms floor — so the click MUST yield an entry with
+  // a non-zero interactionId on a live pipeline. preventDefault so the click can land anywhere
+  // without navigating. Closed before any measurement page opens, so the slow listener never
+  // pollutes a real row.
+  const cal = await ctx.newPage();
+  watch(cal, "perf calibration");
+  await cal.goto(`${BASE}/404.html`, { waitUntil: "load" });
+  await cal.evaluate(() => {
+    document.addEventListener("click", (e) => {
+      e.preventDefault();
+      const t0 = performance.now();
+      while (performance.now() - t0 < 35) { /* forced-slow: past the observer's delivery floor */ }
+    }, true);
+  });
+  await cal.mouse.click(400, 300);
+  await flush(cal);
+  const calSeen = summarize(await entriesFrom(cal, 0));
+  t(`INP · the observer pipeline is ALIVE on ${engineName} — a forced-slow click yields a grouped entry`,
+    calSeen.length >= 1 && calSeen.every((g) => g.interactionId > 0), JSON.stringify(calSeen));
+  await cal.close();
+
+  // --- 1 · the interaction table ----------------------------------------------------------------
+  // One row per discrete scripted interaction on the settled /factory (plus two on a mid-replay
+  // page below). Rows run IN ORDER and depend on each other — the keyboard drop needs the grab,
+  // revert needs the compile — which is also why the retry re-runs the WHOLE sequence on a fresh
+  // page and re-measures only the flagged rows. ENUMERATED, not exhaustive of future verbs:
+  // #212's flow verbs join this list when they land (the designed extension point).
+  const modZ = engineName === "webkit" ? "Meta+z" : "Control+z";
+  const ROWS_FACTORY = [
+    { label: "zoom-in click", act: (p) => btn(p, "Zoom in").click() },
+    { label: "fit click", act: (p) => btn(p, "Fit").click() },
+    { label: "reset click", act: (p) => btn(p, "Reset").click() },
+    { label: "slot pointer-drag", act: async (p, st) => {
+      // Down on the HANDLE, four moves, up one row below. The committed board fills row 1 only,
+      // so row 2 is free — the drop point is the block's own centre plus one measured row pitch
+      // (track + gap), never a guessed constant. This is also page A's first canvas interaction,
+      // so the one-shot take-over fires here; that is the visitor path, not noise.
+      const g = await p.evaluate((id) => {
+        const r = document.querySelector(`.stx-slot[data-stx-id="${id}"] .stx-grab`).getBoundingClientRect();
+        return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
+      }, st.id);
+      const drop = await p.evaluate((id) => {
+        const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+        const cs = getComputedStyle(stage);
+        const pitch = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+        const r = document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getBoundingClientRect();
+        return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 + pitch };
+      }, st.id);
+      await p.mouse.move(g.x, g.y);
+      await p.mouse.down();
+      for (let i = 1; i <= 4; i += 1) {
+        await p.mouse.move(g.x + (drop.x - g.x) * (i / 4), g.y + (drop.y - g.y) * (i / 4));
+      }
+      await p.mouse.up();
+      await p.waitForTimeout(120);
+    } },
+    { label: "keyboard grab (Enter)", act: async (p, st) => {
+      await p.locator(`.stx-slot[data-stx-id="${st.id}"] .stx-grab`).focus();
+      await p.keyboard.press("Enter");
+    } },
+    { label: "keyboard arrow step", act: (p) => p.keyboard.press("ArrowDown") },
+    { label: "keyboard drop (Enter)", act: (p) => p.keyboard.press("Enter") },
+    { label: "undo ⌘/Ctrl+Z", act: async (p) => {
+      await p.locator(SCROLL).focus();
+      await p.keyboard.press(modZ);
+    } },
+    { label: "redo click", act: (p) => btn(p, "Redo").click() },
+    { label: "panel tab arrow", act: async (p) => {
+      await p.focus("#stu-tab-this-build");
+      await p.keyboard.press("ArrowRight");
+    } },
+    { label: "compile click", act: async (p) => {
+      await p.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+      await p.waitForFunction(() => document.querySelector("[data-studio-canvas]")
+        .getAttribute("data-compile-state") === "rendered", null, { timeout: 20000 });
+    } },
+    { label: "revert click", act: async (p) => {
+      await p.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+      await p.waitForFunction(() => document.querySelector("[data-studio-canvas]")
+        .getAttribute("data-compile-state") === "blocks", null, { timeout: 20000 });
+    } },
+    { label: "keep copy-link click", act: async (p) => {
+      await p.locator("[data-keep-share] button").click();
+      await p.waitForTimeout(400); // past build-keep's URL debounce
+    } },
+    { label: "export click", act: async (p) => {
+      await Promise.all([
+        p.waitForEvent("download", { timeout: 30000 }),
+        p.locator("[data-keep-export] button").click(),
+      ]);
+    } },
+  ];
+  // The two interactions that only exist MID-REPLAY, on their own page. Pause FIRST: after a
+  // take-over the whole transport is dead (#240/1), so this order is the only one in which both
+  // rows are live interactions.
+  const ROWS_MIDREPLAY = [
+    { label: "transport pause (Enter)", act: async (p) => {
+      const b = p.locator(".stu-replay-controls").getByRole("button", { name: "Pause", exact: true });
+      await b.focus();
+      await p.keyboard.press("Enter");
+    } },
+    { label: "take-over pointerdown", act: async (p) => {
+      await p.locator(`${VIEWPORT} .stx-slot`).first().click();
+      await p.waitForTimeout(120);
+    } },
+  ];
+
+  // Runs one fresh page through `rows` in order, measuring the rows named in `only` (all when
+  // null). Per row: entry count before, act, flush, delta → summarize → the MAX latency among the
+  // new interactions. latency null = no entry = below the 16 ms floor (a pass — see the header).
+  const runSequence = async (rows, ready, only = null) => {
+    const p = await ctx.newPage();
+    watch(p, "perf");
+    await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    const st = await ready(p);
+    const out = {};
+    for (const row of rows) {
+      const measure = !only || only.includes(row.label);
+      const before = measure ? await count(p) : 0;
+      await row.act(p, st);
+      if (!measure) continue;
+      await flush(p);
+      const fresh = summarize(await entriesFrom(p, before));
+      out[row.label] = {
+        latency: fresh.length ? Math.max(...fresh.map((g) => g.latency)) : null,
+        entries: fresh.reduce((n, g) => n + g.events.length, 0),
+      };
+    }
+    await p.close();
+    return out;
+  };
+  const factoryReady = async (p) => {
+    await settled(p);
+    await p.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
+    await p.waitForTimeout(300);
+    return { id: await p.locator(`${VIEWPORT} .stx-slot`).first().getAttribute("data-stx-id") };
+  };
+  // Mid-replay: the first block has arrived and the run is still playing — a WAIT on the page's
+  // own state, never a sleep (replayPass's rule).
+  const midReady = async (p) => {
+    await p.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+    return {};
+  };
+
+  const measured = {
+    ...(await runSequence(ROWS_FACTORY, factoryReady)),
+    ...(await runSequence(ROWS_MIDREPLAY, midReady)),
+  };
+
+  // The bounded, LOGGED retry: an over-budget row on a loaded operator machine is re-measured
+  // ONCE on a fresh settled page, and BOTH numbers print. Red only if still over. Silent
+  // tolerance is AC #7's named sin, which is why the rule is printed with the table below.
+  const over = Object.entries(measured)
+    .filter(([, m]) => m.latency !== null && m.latency > BUDGET_MS).map(([l]) => l);
+  if (over.length) {
+    const overFactory = over.filter((l) => ROWS_FACTORY.some((r) => r.label === l));
+    const overMid = over.filter((l) => ROWS_MIDREPLAY.some((r) => r.label === l));
+    const again = {
+      ...(overFactory.length ? await runSequence(ROWS_FACTORY, factoryReady, overFactory) : {}),
+      ...(overMid.length ? await runSequence(ROWS_MIDREPLAY, midReady, overMid) : {}),
+    };
+    for (const label of over) {
+      const re = again[label];
+      console.log(`    retried: ${label} ${measured[label].latency} ms → ${re.latency === null ? "< 16 ms (below floor)" : `${re.latency} ms`}`);
+      measured[label] = { ...re, retried: measured[label].latency };
+    }
+  }
+
+  // The per-engine table — the report's data source. Durations are 8 ms granular by spec, so the
+  // numbers are budgets, never exact values.
+  console.log(`  INP · ${engineName} · budget ${BUDGET_MS} ms · one logged retry · observer floor 16 ms:`);
+  for (const [label, m] of Object.entries(measured)) {
+    const ms = m.latency === null ? "< 16 ms (below observer floor)" : `${m.latency} ms`;
+    console.log(`    ${label} · ${ms} · ${m.entries} entr${m.entries === 1 ? "y" : "ies"}${m.retried ? ` · retried from ${m.retried} ms` : ""}`);
+  }
+  for (const [label, m] of Object.entries(measured)) {
+    t(`INP · ${label} ≤ ${BUDGET_MS} ms`, (m.latency ?? 0) <= BUDGET_MS,
+      `${m.latency} ms${m.retried ? ` (retried from ${m.retried} ms)` : ""}`);
+  }
+
+  // The self-test control (memory `check-that-cannot-fail`): the comparator proven able to go red
+  // in the same pass that relies on it — a synthetic 250 ms interaction must flag.
+  const control = violations(summarize([{ interactionId: 1, duration: 250 }]), BUDGET_MS);
+  t("INP · the comparator itself can flag — a synthetic 250 ms interaction is a violation",
+    control.length === 1 && control[0].latency === 250, JSON.stringify(control));
+
+  await ctx.close();
+
+  // --- 2 · the throttled drag (AC #3) — chromium only, and STATED as such (AC #7) ---------------
+  // CDP CPU throttling and long-animation-frames are both chromium-only by definition, so this
+  // half runs on one engine and SAYS so rather than silently narrowing. 4× is the base-spec-laptop
+  // proxy with two recorded measurements behind the thresholds: the #72 spike (worst frame 33 ms
+  // @4× was its green; memory `cross-engine-motion-verify`) and this ticket's planning probe (idle
+  // median 16.7 ms, drag max 16.8 ms @4× on the HEAVIER 31-component harness stage — /factory's
+  // settled 4-place board is bounded by it). Worst rAF gap ≤ 50 ms carries ~3× headroom over
+  // measured-healthy while sitting far below the sustained-100 ms jank it exists to catch; zero
+  // LoAF entries (≥ 50 ms by definition) may overlap the drag window.
+  if (engineName === "chromium") {
+    const tctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const tp = await tctx.newPage();
+    watch(tp, "perf throttled-drag");
+    await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await settled(tp);
+    await tp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
+    // Settle + rest BEFORE any sampling: the 150–266 ms bootstrap frames (site.js/dock.mjs chrome
+    // injection) live at load and must never enter a measured window (the #72 spike's rule).
+    await tp.waitForTimeout(500);
+    const cdp = await tctx.newCDPSession(tp);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+
+    // Idle baseline: ~60 frames of rAF cadence at rest under the throttle.
+    const idle = await tp.evaluate(() => new Promise((res) => {
+      const ts = [];
+      const tick = (now) => { ts.push(now); if (ts.length >= 61) return res(ts); requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    }));
+    const idleGaps = idle.slice(1).map((v, i) => v - idle[i]).sort((a, b) => a - b);
+    const idleMedian = idleGaps[Math.floor(idleGaps.length / 2)];
+
+    // Instrumented drag: a continuous rAF-timestamp recorder plus a window-scoped LoAF observer
+    // (buffered OFF — only what runs during the drag counts), then a real ~40-step pointer drag
+    // over ~800 ms from the first block's handle to the free cell one row down.
+    await tp.evaluate(() => {
+      window.__frames = [];
+      window.__loaf = [];
+      const loop = (now) => { window.__frames.push(now); window.__rafId = requestAnimationFrame(loop); };
+      window.__rafId = requestAnimationFrame(loop);
+      window.__loafObs = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) window.__loaf.push({ start: e.startTime, duration: e.duration });
+      });
+      window.__loafObs.observe({ type: "long-animation-frame" });
+    });
+    const geom = await tp.evaluate(() => {
+      const slot = document.querySelector("[data-studio-canvas] .stx-slot");
+      const grab = slot.querySelector(".stx-grab").getBoundingClientRect();
+      const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+      const cs = getComputedStyle(stage);
+      const pitch = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+      const r = slot.getBoundingClientRect();
+      return { fromX: (grab.left + grab.right) / 2, fromY: (grab.top + grab.bottom) / 2,
+        toX: (r.left + r.right) / 2, toY: (r.top + r.bottom) / 2 + pitch };
+    });
+    const t0 = await tp.evaluate(() => performance.now());
+    await tp.mouse.move(geom.fromX, geom.fromY);
+    await tp.mouse.down();
+    for (let i = 1; i <= 40; i += 1) {
+      await tp.mouse.move(
+        geom.fromX + (geom.toX - geom.fromX) * (i / 40),
+        geom.fromY + (geom.toY - geom.fromY) * (i / 40));
+      await tp.waitForTimeout(15);
+    }
+    await tp.mouse.up();
+    const t1 = await tp.evaluate(() => performance.now());
+    const sampled = await tp.evaluate(() => {
+      cancelAnimationFrame(window.__rafId);
+      window.__loafObs.disconnect();
+      return { frames: window.__frames, loaf: window.__loaf };
+    });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+
+    const inWindow = sampled.frames.filter((v) => v >= t0 && v <= t1);
+    const gaps = inWindow.slice(1).map((v, i) => v - inWindow[i]).sort((a, b) => a - b);
+    const fmt = (v) => (v === undefined ? "–" : v.toFixed(1));
+    const pctl = (q) => gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * q))];
+    const worst = gaps[gaps.length - 1] ?? 0;
+    const over33 = gaps.filter((g) => g > 33).length;
+    const loafInWindow = sampled.loaf.filter((e) => e.start + e.duration >= t0 && e.start <= t1);
+    console.log("  frame check · chromium only (CDP + LoAF are chromium-only by definition) · 4× CPU throttle · thresholds: worst rAF gap ≤ 50 ms, zero LoAF (≥ 50 ms) in the drag window");
+    console.log(`    idle median ${fmt(idleMedian)} ms · ${gaps.length + 1} drag frames over ${Math.round(t1 - t0)} ms · p50 ${fmt(pctl(0.5))} · p95 ${fmt(pctl(0.95))} · max ${fmt(worst)} · >33 ms: ${over33} · LoAF: ${loafInWindow.length}`);
+    // Movement proven first — "no dropped frames" is trivially true of a drag that never engaged.
+    const movedRow = await tp.evaluate(() => document.querySelector("[data-studio-canvas] .stx-slot").getAttribute("data-row"));
+    t("frame check · the throttled drag genuinely moved the block — the sampled window holds a real gesture",
+      movedRow === "2", `data-row=${movedRow}`);
+    t("frame check · a genuinely sampled drag — dozens of frames inside the drag window",
+      gaps.length >= 20, `${gaps.length} gap(s)`);
+    t("frame check · worst rAF gap inside the throttled drag ≤ 50 ms", worst <= 50, `${fmt(worst)} ms`);
+    t("frame check · zero long-animation-frame entries overlap the drag window",
+      loafInWindow.length === 0, JSON.stringify(loafInWindow));
+    // Leave the board as the run committed it.
+    await btn(tp, "Undo").click();
+    await tp.waitForTimeout(250);
+    await tp.close();
+    await tctx.close();
+  }
+}
+
 let totalFails = 0;
 for (const engine of toRun) {
   console.log(`\n════ ${engine} ════`);
@@ -2726,7 +3186,12 @@ for (const engine of toRun) {
   totalFails += results.fails;
 }
 
+// #213 · AC #7 — every bound the driver carries, stated by the driver itself on every run, red or
+// green. Silent truncation reads as "covered everything", which is the sin this block exists to
+// not commit.
+console.log('\nstudio-journey bounds · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (16 rows), not exhaustive of future verbs — #212\'s flow verbs join it when they land');
+
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one composed component per block ON THE CANVAS at the canvas's own coordinates with no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling more pieces onto the canvas than the board has places, so the copied link carries no arrangement AND the confirmation says so on both copy outcomes (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one composed component per block ON THE CANVAS at the canvas's own coordinates with no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling more pieces onto the canvas than the board has places, so the copied link carries no arrangement AND the confirmation says so on both copy outcomes · AND #213's MEASUREMENT GATE: INP measured per named interaction — sixteen rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
