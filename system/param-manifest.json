@@ -92,6 +92,7 @@
     { "page": "/factory", "selector": "[data-keep-artifacts] button:nth-of-type(3)", "label": "keep rail: download breadboard.json", "note": "added by #210" },
     { "page": "/factory", "selector": "[data-keep-artifacts] button:nth-of-type(4)", "label": "keep rail: download pattern-spec.md", "note": "added by #210" },
     { "page": "/factory", "selector": "[data-keep-share] .btn-primary", "label": "keep rail: copy the link that rebuilds this, arrangement included", "note": "added by #210; the readonly link field beside it is NOT a separate entry, matching /build's .bx-keep-link — one rail, one counting rule" },
+    { "page": "/factory", "selector": "[data-studio-canvas] .stf-go", "label": "compiled flow navigation (one verb class)", "note": "added by #212; conditional — after compile" },
     { "page": "/proto/verdant", "selector": ".vd-care-task-row[data-task-id]", "label": "care-task checkboxes (one group)" },
     { "page": "/proto/verdant", "selector": "#log-care", "label": "log care button" },
     { "page": "/proto/verdant", "selector": "[data-inspect-toggle]", "label": "inspect-mode toggle", "note": "added by #175" },
