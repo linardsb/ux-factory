@@ -1804,10 +1804,13 @@ async function replayPass(browser, t, errors) {
     return s && s !== "blocks" && s !== "compiling";
   }, null, { timeout: 20000 });
   const state9 = await p9.getAttribute(VIEWPORT, "data-compile-state");
+  // #212's compiled shape: a slot holds a screen holding the primitives. Counted as wrappers whose
+  // screen carries a ds-* primitive — a PARTIAL board's later places can honestly compile to S4
+  // empty screens (their affordances had not been placed yet), so the count is "some", never "all".
   const compiled9 = await p9.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
-    .filter((w) => [...w.children].some((c) => !c.classList.contains("stx-grab") && /^ds-/.test(c.className))).length);
+    .filter((w) => !!w.querySelector(':scope > .stf-screen [class^="ds-"]')).length);
   t("#240/1 · Compile pressed MID-REPLAY after a take-over compiles the blocks that are on the canvas — never the empty board",
-    state9 === "rendered" && compiled9 > 0, `state=${state9}, ${compiled9} of ${slotsAtCompile} slot(s) hold a library primitive`);
+    state9 === "rendered" && compiled9 > 0, `state=${state9}, ${compiled9} of ${slotsAtCompile} slot(s) hold a screen with a library primitive`);
   t("#240/1 · …and the page's own board seam agrees with what it just compiled",
     await p9.evaluate((n) => import("/system/studio.mjs").then((m) => {
       const s = m.getStudio();
@@ -1817,7 +1820,7 @@ async function replayPass(browser, t, errors) {
   // beat, so this is the residual made checkable rather than asserted away.
   await p9.waitForTimeout(2000);
   const stillCompiled = await p9.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
-    .filter((w) => [...w.children].some((c) => !c.classList.contains("stx-grab") && /^ds-/.test(c.className))).length);
+    .filter((w) => !!w.querySelector(':scope > .stf-screen [class^="ds-"]')).length);
   t("#240/1 · …and two seconds later the driver has replaced none of it — one author, one stage",
     stillCompiled === compiled9, `${compiled9} → ${stillCompiled}`);
   await p9.close();
@@ -2024,9 +2027,16 @@ async function compilePass(browser, t, errors) {
   await settled(p, "rendered");
   const said = await liveSeen(p);
   const done = await stageState(p);
-  t("#207 · the beat compiles every slot into a library primitive",
-    done.slots.length === rest.slots.length && done.slots.every((s) => /^ds-/.test(s.kind)),
+  // #212 reshaped the compiled DOM: a slot holds a SCREEN (heading + composed components + nav),
+  // and the library primitives live inside it — both facts asserted, because "every slot holds a
+  // screen" alone would pass for screens that composed nothing.
+  t("#207 · the beat compiles every slot into a flow screen",
+    done.slots.length === rest.slots.length && done.slots.every((s) => s.kind === "stf-screen"),
     JSON.stringify(done.slots.map((s) => s.kind)));
+  const screensHold = await p.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot > .stf-screen")]
+    .map((scr) => !!scr.querySelector('[class^="ds-"]')));
+  t("#212 · …and every screen holds a library primitive (the committed board has work in every place)",
+    screensHold.length > 0 && screensHold.every(Boolean), JSON.stringify(screensHold));
   // AC #1: the reader's arrangement survives the swap. This is the assertion that catches a
   // repopulate-instead-of-swap — a rebuilt stage would keep the same COUNT and hand out new ids.
   t("#207 · …in the same slots: every data-stx-id, data-col and data-row is unchanged",
@@ -2109,8 +2119,8 @@ async function compilePass(browser, t, errors) {
   t("#207 · AC #5 · reduced motion still announces all five, still spaced",
     rSaid.n === 5 && rSaid.gaps.length === 4 && rSaid.gaps.every((g) => g >= 30),
     `${rSaid.n} announcement(s); gaps: ${rSaid.gaps.join(", ")}ms`);
-  t("#207 · AC #5 · reduced motion still completes the beat — real components on the stage",
-    rdone.slots.length > 0 && rdone.slots.every((s) => /^ds-/.test(s.kind)),
+  t("#207 · AC #5 · reduced motion still completes the beat — real screens on the stage",
+    rdone.slots.length > 0 && rdone.slots.every((s) => s.kind === "stf-screen"),
     JSON.stringify(rdone.slots.map((s) => s.kind)));
   t("#207 · AC #5 · …and reaches the IDENTICAL end state",
     rdone.html === done.html, "the reduced-motion stage differs from the no-preference one");
@@ -2119,8 +2129,134 @@ async function compilePass(browser, t, errors) {
   t("#207 · AC #5 · …with no crossfade running", ranims === 0, `${ranims} animation(s)`);
   await rctx.close();
 
+  await flowPass(browser, t, errors);
   await teardownPass(browser, t, errors);
   await keepPass(browser, t, errors);
+}
+
+// ---------------------------------------------------------------------------------------------
+// #212 · THE FLOW: places become screens, connections become navigation. The running-page half of
+// build-checks group 19's boundary statement — the pointer click, the keyboard path, the focus
+// landing, the ONE announced sentence per navigation, the byte-identical revert and reduced motion
+// are all here, walked end to end on the committed fieldwork board the replay builds.
+async function flowPass(browser, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const open = async (context) => {
+    const page = await context.newPage();
+    page.on("pageerror", (e) => errors.push(`flow pageerror: ${e.message}`));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(`flow console: ${m.text()}`); });
+    await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
+    // SETTLED FIRST — the beat is setEnabled(false) until the replay settles (#240/1,
+    // studio.mjs's disable), so a click before settle silently no-ops and every assertion below
+    // would read the blocks.
+    await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+    return page;
+  };
+  const compileNow = async (page) => {
+    await page.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+    // Never a fixed sleep: the beat paces 4 × 420 ms plus a first-compile vocabulary round trip.
+    await page.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "rendered",
+      null, { timeout: 20000 });
+  };
+  // One navigation must produce ONE live-region write carrying the fixed counted sentence. Waited
+  // for as a CHANGE to the expected string (polling the same string twice counts one announcement
+  // as two); countLive's MutationRecords make the exactness assertable beside it.
+  const navigated = async (page, want) => {
+    await page.waitForFunction((w) => document.querySelector("[data-studio-canvas] .stx-live").textContent.trim() === w,
+      want, { timeout: 5000 });
+    return liveSeen(page);
+  };
+  const landedOn = (page, targetIndex) => page.evaluate((idx) => {
+    const wrapper = [...document.querySelectorAll("[data-studio-canvas] .stx-slot")][idx];
+    const active = document.activeElement;
+    return { inWrapper: !!wrapper && wrapper.contains(active), onHeading: !!active && active.classList.contains("stf-screen-name") };
+  }, targetIndex);
+
+  const p = await open(ctx);
+  // The committed board, fetched by this driver from the same file the page plays — the walk below
+  // follows ITS connections and labels, never a hand-typed list.
+  const board = await p.evaluate(() => fetch("/replay/build-fieldwork-dispatch.board.json").then((r) => r.json()));
+  const stageRest = await p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-stage").outerHTML);
+
+  await compileNow(p);
+  const screensOn = await p.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot > .stf-screen")].length);
+  t("#212 · AC #3 · compile puts one screen per place on the stage",
+    screensOn === board.places.length, `${screensOn} screens for ${board.places.length} places`);
+  const goCount = await p.locator(`${VIEWPORT} .stf-go`).count();
+  t("#212 · …with one nav button per connection", goCount === board.connections.length,
+    `${goCount} nav buttons for ${board.connections.length} connections`);
+
+  // THE POINTER WALK, end to end along the dispatch chain p1→p2→p3→p4: after each hop, focus sits
+  // on the target screen's heading inside the target wrapper, and the live region carries exactly
+  // "<label>, screen k of N." — one announcement, counted exactly.
+  let fromIndex = 0;
+  for (const targetId of ["p2", "p3", "p4"]) {
+    const targetIndex = board.places.findIndex((place) => place.id === targetId);
+    const want = `${board.places[targetIndex].label}, screen ${targetIndex + 1} of ${board.places.length}.`;
+    await countLive(p);
+    await p.locator(`${VIEWPORT} .stx-slot`).nth(fromIndex).locator(`.stf-go[data-flow-target="${targetId}"]`).click();
+    const said = await navigated(p, want);
+    const landed = await landedOn(p, targetIndex);
+    t(`#212 · AC #3 · pointer: navigating to ${targetId} focuses the target screen's heading, announced ONCE with the counted sentence`,
+      landed.inWrapper && landed.onHeading && said.n === 1 && said.last === want,
+      `${JSON.stringify(landed)} n=${said.n} last="${said.last}"`);
+    fromIndex = targetIndex;
+  }
+
+  // BACK TO BLOCKS after navigating: the screens are discarded whole (listeners included) and the
+  // stage is the at-rest one byte for byte — AC #3's revert half with the flow exercised first.
+  await p.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+  await p.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "blocks",
+    null, { timeout: 10000 });
+  const stageBack = await p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-stage").outerHTML);
+  t("#212 · revert after navigating returns the fat-marker stage byte-identically",
+    stageBack === stageRest, "the reverted stage differs from the at-rest one");
+
+  // THE KEYBOARD LEG, on a fresh compile — which also proves the navigation re-wires on a
+  // re-compile. Tab from the first wrapper's grab handle reaches the nav button (the heading is
+  // tabindex=-1 and the composed primitives are non-interactive, so it is the next stop), Enter
+  // navigates, and the same two facts hold.
+  await compileNow(p);
+  await p.locator(`${VIEWPORT} .stx-slot`).nth(0).locator(".stx-grab").focus();
+  let reached = false;
+  for (let i = 0; i < 30 && !reached; i += 1) {
+    await p.keyboard.press("Tab");
+    reached = await p.evaluate(() => {
+      const active = document.activeElement;
+      return !!(active && active.classList.contains("stf-go") && active.getAttribute("data-flow-target") === "p2");
+    });
+  }
+  t("#212 · AC #3 · keyboard: Tab from the grab handle reaches the entry screen's nav button", reached,
+    "30 Tabs never landed on .stf-go[data-flow-target=p2]");
+  const kbTargetIndex = board.places.findIndex((place) => place.id === "p2");
+  const kbWant = `${board.places[kbTargetIndex].label}, screen ${kbTargetIndex + 1} of ${board.places.length}.`;
+  await countLive(p);
+  await p.keyboard.press("Enter");
+  const kbSaid = await navigated(p, kbWant);
+  const kbLanded = await landedOn(p, kbTargetIndex);
+  t("#212 · AC #3 · keyboard: Enter navigates with the same focus landing and the same single announcement",
+    kbLanded.inWrapper && kbLanded.onHeading && kbSaid.n === 1 && kbSaid.last === kbWant,
+    `${JSON.stringify(kbLanded)} n=${kbSaid.n} last="${kbSaid.last}"`);
+  await p.close();
+
+  // REDUCED MOTION: the same end state — focus landed, sentence announced — with the scroll's
+  // smooth behavior gated off in wireFlow, so nothing animates for the assertions to race.
+  const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const rp = await open(rctx);
+  await compileNow(rp);
+  const rTargetIndex = board.places.findIndex((place) => place.id === "p2");
+  const rWant = `${board.places[rTargetIndex].label}, screen ${rTargetIndex + 1} of ${board.places.length}.`;
+  await countLive(rp);
+  await rp.locator(`${VIEWPORT} .stx-slot`).nth(0).locator('.stf-go[data-flow-target="p2"]').click();
+  const rSaid = await navigated(rp, rWant);
+  const rLanded = await landedOn(rp, rTargetIndex);
+  t("#212 · AC #3 · reduced motion: the navigation reaches the same end state, announced the same once",
+    rLanded.inWrapper && rLanded.onHeading && rSaid.n === 1 && rSaid.last === rWant,
+    `${JSON.stringify(rLanded)} n=${rSaid.n} last="${rSaid.last}"`);
+  await rctx.close();
+  await ctx.close();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2189,26 +2325,37 @@ async function keepPass(browser, t, errors) {
   t("#210 · AC #2 · the export button downloads a file, and it is named for what it is",
     download.suggestedFilename() === "prototype.html", download.suggestedFilename());
   // Parsed as HTML BY A BROWSER rather than pattern-matched: group 17 already owns the string, and
-  // what this adds is that a real engine reads it as a document containing the composed components.
+  // what this adds is that a real engine reads it as a document containing the composed flow.
+  // (#210's coordinate assertion retired with the coordinates: since #212 the file's layout is
+  // board order × affordance order, the share link carries the arrangement, and the provenance
+  // claims no geometry — so there is nothing on the canvas for the file to be compared against.)
   const parsed = await p1.evaluate((html) => {
     const doc = new DOMParser().parseFromString(html, "text/html");
     return {
-      cells: doc.querySelectorAll(".sx-cell").length,
+      sections: [...doc.querySelectorAll("section.sx-screen")].map((s) => s.id),
       tiles: doc.querySelectorAll(".ds-metric-tile").length,
+      anchors: [...doc.querySelectorAll(".sx-nav a")].map((a) => a.getAttribute("href")),
       scripts: doc.querySelectorAll("script").length,
       title: doc.title,
-      slots: [...doc.querySelectorAll(".sx-cell")].map((c) => c.className),
     };
   }, text);
   const onCanvas = await p1.locator(`${VIEWPORT} .stx-slot`).count();
-  t("#210 · AC #3 · the downloaded bytes parse as HTML carrying one composed component per block on the canvas",
-    parsed.cells === onCanvas && parsed.tiles === onCanvas, `${parsed.cells} cells / ${parsed.tiles} tiles for ${onCanvas} blocks`);
+  const boardCounts = await p1.evaluate(() => import("/system/studio.mjs").then((m) => {
+    const s = m.getStudio();
+    return { places: s.board.places.length, connections: s.board.connections.length };
+  }));
+  t("#212 · AC #5 · the downloaded bytes parse as HTML carrying one screen per block on the canvas",
+    parsed.sections.length === onCanvas && parsed.sections.length === boardCounts.places,
+    `${parsed.sections.length} sections for ${onCanvas} blocks`);
+  t("#212 · AC #5 · …one nav anchor per connection, every one a fragment resolving to a section in the file",
+    parsed.anchors.length === boardCounts.connections
+    && parsed.anchors.every((h) => h && h.startsWith("#") && parsed.sections.includes(h.slice(1))),
+    `${parsed.anchors.length} anchors for ${boardCounts.connections} connections: ${JSON.stringify(parsed.anchors)}`);
+  t("#212 · …and the entry screen still carries one tile per place (the flow extends the single screen)",
+    parsed.tiles === boardCounts.places, `${parsed.tiles} tiles for ${boardCounts.places} places`);
   t("#210 · …and it carries no script at all — nothing in it can run, and nothing needs to",
     parsed.scripts === 0, `${parsed.scripts} script(s)`);
   const canvasSlots = await p1.locator(`${VIEWPORT} .stx-slot`).evaluateAll((ws) => ws.map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`));
-  t("#210 · …at the coordinates the blocks are actually at on the canvas, which is the claim its provenance makes",
-    JSON.stringify(parsed.slots.map((c) => c.split(" ")[1])) === JSON.stringify(canvasSlots),
-    `${JSON.stringify(parsed.slots)} vs ${JSON.stringify(canvasSlots)}`);
 
   // --- 3 · the copy click, the address bar, and the `g` field only this page can produce ---------
   //
@@ -2472,17 +2619,19 @@ async function keepPass(browser, t, errors) {
     }));
   }, "#0b7285", "derived palette");
 
-  // --- 10 · THE ARRANGEMENT THAT DOES NOT TRAVEL, AND THE SENTENCE THAT SAYS SO -----------------
+  // --- 10 · THE FEED LINK, POST-#212: THE FLOW REMOVED THE ARRANGEMENT DIVERGENCE ----------------
   //
-  // arrangement() is right to refuse when the live wrapper count and board.places disagree — a `g`
-  // shorter than the board is not a partial arrangement, it is an unreadable one — but until this
-  // review the confirmation claimed "arrangement included" unconditionally, on a link that carried
-  // none. Reachable, and #210 is what made it so: a ?b= link carries the SENDER'S answers, and
-  // `shape: stream` names the FEED pattern (pattern-rules.mjs:86) — the one whose slots are counted
-  // off the WHOLE board rather than its places (6 for this 4-place board), so applySwap place()s the
-  // surplus onto the canvas (studio-compile.mjs:433-440).
-  // Built from the sender's own link with ONE answer changed, so nothing about the board is
-  // invented. (PR #241 review, Medium 2.)
+  // #241's M2 case lived here: a `shape: stream` ?b= link names the FEED pattern, whose slots are
+  // counted off the WHOLE board (6 of this 4-place board's 7 affordances), and applySwap used to
+  // place() the surplus onto the canvas — more wrappers than places, so the copied link carried no
+  // arrangement and the confirmation had to say so. #212 DELETED those branches: the swap's unit is
+  // the screen, screens are 1:1 with wrappers by construction, and the six feed rows render INSIDE
+  // the entry screen with streamNote's truncation sentence beside them. The state this section
+  // drove is therefore unreachable, and the SAME LINK now proves the new truth instead: the wrapper
+  // count never moves, the truncation is stated on the stage, and the copied link DOES carry the
+  // arrangement, labelled as carrying it. The no-arrangement caveat machinery stays in
+  // studio-keep.mjs on the tripwire's terms — it only speaks when the state occurs — and no known
+  // path produces it, which is exactly what these assertions would catch changing.
   const p10 = await ctx.newPage();
   watch(p10, "keep-feed");
   await p10.goto(`${BASE}/factory.html`, { waitUntil: "load" });
@@ -2500,12 +2649,20 @@ async function keepPass(browser, t, errors) {
   await p10.locator("button", { hasText: "Compile the board" }).first().click();
   await p10.waitForFunction(() => document.querySelector("[data-studio-canvas]")?.getAttribute("data-compile-state") === "rendered",
     null, { timeout: 30000 });
-  const surplus = await p10.locator(`${VIEWPORT} .stx-slot`).count();
-  t("#210 · a `shape: stream` link compiles MORE pieces onto the canvas than the board has places",
-    surplus > 4, `${surplus} wrappers against a 4-place board`);
+  const feedState = await p10.evaluate(() => ({
+    wrappers: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+    screens: document.querySelectorAll("[data-studio-canvas] .stx-slot > .stf-screen").length,
+    rows: document.querySelectorAll("[data-studio-canvas] .stx-slot:first-child .stf-screen .ds-list-row").length,
+    note: document.querySelector("[data-studio-canvas] .stf-note")?.textContent || "",
+  }));
+  t("#212 · a `shape: stream` link compiles IN PLACE — the wrapper count never moves, so the state M2 lived in is gone",
+    feedState.wrappers === 4 && feedState.screens === 4, JSON.stringify(feedState));
+  t("#212 · …the feed entry screen carries six rows inside ONE screen (the whole-board read, capped)",
+    feedState.rows === 6, `${feedState.rows} rows`);
+  t("#212 · …with streamNote's truncation sentence on the stage, denominator included",
+    /shows 6 of the 7 affordances/.test(feedState.note), feedState.note);
   // FOCUSED first: clipboard access is permissioned and a background page is refused, which sends
-  // the handler down its select-the-field branch — a branch that makes no arrangement claim at all
-  // and would leave the sentence under test unexercised.
+  // the handler down its select-the-field branch — the claims below must hold on either branch.
   await p10.bringToFront();
   await p10.locator("[data-keep-share] button").click();
   await p10.waitForTimeout(400);
@@ -2518,15 +2675,11 @@ async function keepPass(browser, t, errors) {
       label: document.querySelector(".stu-keep-link").getAttribute("aria-label"),
     };
   });
-  t("#210 · …so the copied link carries NO arrangement, which is the codec refusing to encode a guess",
-    feedOut.arrangement === null, JSON.stringify(feedOut.arrangement));
-  // UNCONDITIONAL, on BOTH copy outcomes: the clipboard branch and the select-the-field branch each
-  // leave the reader holding this link, so the caveat rides both and this cannot be satisfied by
-  // whichever branch a given engine's clipboard permissions happen to take.
-  t("#210 · …and the confirmation SAYS the arrangement did not travel, instead of claiming it did",
-    /did not travel/.test(feedOut.note) && !/arrangement included/.test(feedOut.note), feedOut.note);
-  t("#210 · …and the field's own label makes the same claim as the sentence beside it",
-    /without the arrangement/.test(feedOut.label), feedOut.label);
+  t("#212 · …and the copied link CARRIES the arrangement — with screens 1:1 to wrappers nothing stops it travelling",
+    Array.isArray(feedOut.arrangement) && feedOut.arrangement.length === 4, JSON.stringify(feedOut.arrangement));
+  t("#212 · …and neither the confirmation nor the field's label hedges about it",
+    !/did not travel/.test(feedOut.note) && /arrangement included/.test(feedOut.label),
+    `${feedOut.note} | ${feedOut.label}`);
   await p10.close();
 
   // --- 11 · reduced motion -----------------------------------------------------------------------
@@ -2701,7 +2854,7 @@ async function teardownPass(browser, t, errors) {
   await settledAt(p3, "rendered").catch(() => {});
   const retried = await afterState(p3);
   t("#237 · the NEXT compile re-issues the request and renders — the failure was not memoized",
-    retried.kinds.length > 0 && retried.kinds.every((k) => /^ds-/.test(k)), JSON.stringify(retried.kinds));
+    retried.kinds.length > 0 && retried.kinds.every((k) => k === "stf-screen"), JSON.stringify(retried.kinds));
   t("#237 · …and it really was a second request, not a cached verdict",
     served === 2, `${served} request(s) for vocabulary.json`);
   await p3.close();
@@ -2728,5 +2881,5 @@ for (const engine of toRun) {
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one composed component per block ON THE CANVAS at the canvas's own coordinates with no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling more pieces onto the canvas than the board has places, so the copied link carries no arrangement AND the confirmation says so on both copy outcomes (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage — so the copied link now CARRIES the arrangement, labelled as carrying it · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
