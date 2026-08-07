@@ -43,17 +43,20 @@
 //     impossible in the block below — that is a dependency, stated, not a coincidence. A second
 //     escaping opinion in this file would be the bug, not the fix.
 //
-//  4. THE ARRANGEMENT IS THE STUDIO'S UNIQUE ARTIFACT, so it is CSS grid LINE PLACEMENT rather than
-//     source order. MAX_COLS and MAX_ROWS are IMPORTED from studio-canvas.mjs and the placement
-//     table is generated from them (group 12's rule: the caps are never re-literalled).
+//  4. THE PRODUCT'S LAYOUT IS THE BOARD'S OWN ORDER (#212): screens in board order, each screen's
+//     components in the board's affordance order — "no new bytes", the epic architecture's line.
+//     Canvas coordinates deliberately do NOT travel: the share link (`g`, #208) is the arrangement
+//     carrier per the epic PRD §3, and the provenance block below claims no geometry this file no
+//     longer carries. (#210's grid placement table went with them — a flow's screens are not cells.)
 //
-//  5. NO SCRIPT, NO NAV, NO ROUTER, NO fetch, NO history CALL. All three of those last ones throw or
-//     fail on file://. #212 turns places into screens and connections into navigation and extends
-//     `screens` from one entry to several — the seam is one array; the nav script is that ticket's.
+//  5. NO SCRIPT, NO ROUTER, NO fetch, NO history CALL — all of which throw or fail on file://. #212
+//     turned places into screens and connections into navigation, and the sanctioned nav-script
+//     seam was NOT taken: navigation is fragment-only anchors (`#s<k>`), and one-screen-at-a-time
+//     is CSS — `.sx-flow:has(:target) .sx-screen:not(:target){display:none}`, written in the
+//     HAS-HIDES direction on purpose, so an engine without :has() hides nothing and degrades to
+//     every screen stacked with working fragment jumps, never a blank page.
 //
-//  6. ONE SCREEN. #207 compiles today's single pattern, so there is exactly one to export.
-//
-// TOTAL BY CONTRACT: null, garbage slots, a null css, a hostile token map → a valid document that
+// TOTAL BY CONTRACT: null, garbage screens, a null css, a hostile token map → a valid document that
 // honestly says nothing was composed. Never a throw (arrangeBoard / compileSteps / parseTrace's
 // discipline, inherited).
 //
@@ -62,7 +65,6 @@
 // Node over the REAL committed stylesheets.
 
 import { vetTokens } from "./pack-imported.mjs";
-import { MAX_COLS, MAX_ROWS } from "./studio-canvas.mjs";
 import { NO_DESIGN_IMPORTED, TWO_CLAIMS } from "./build-keep.mjs";
 
 // build-card.mjs:68's escape, copied for its reason: escape ONCE, at the template, and keep the two
@@ -76,11 +78,6 @@ const esc = (s) => String(s ?? "")
   .replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#39;");
-
-const num = (v, max) => {
-  const n = Number(v);
-  return Number.isInteger(n) && n >= 1 && n <= max ? n : null;
-};
 
 // stripImports(css) → css with every @import AT-RULE removed and every comment left intact.
 //
@@ -120,36 +117,33 @@ export function stripImports(css) {
   return out;
 }
 
-// The placement table, GENERATED from the imported caps. MAX_COLS × MAX_ROWS one-line rules, so a
-// cell class exists for every address the canvas can hold and the export can never be handed a slot
-// it has no rule for. This is what makes importing the caps load-bearing rather than decorative:
-// widen the canvas and this table widens with it, in the same commit, with no edit here.
-function placementRules() {
-  const rules = [];
-  for (let c = 1; c <= MAX_COLS; c += 1) {
-    for (let r = 1; r <= MAX_ROWS; r += 1) {
-      rules.push(`.sx-c${c}-r${r}{grid-column:${c};grid-row:${r}}`);
-    }
-  }
-  return rules.join("");
-}
-
 // The export's own layout, and ALL of it. system/studio.css is deliberately not inlined: it carries
 // canvas chrome — grab handles, zoom rows, the transport — that an exported product has no use for
-// and would be lying about (there is nothing here to drag). Spike 3 checklist 6 confirmed this block
-// is sufficient for the arrangement to survive; if it ever is not, widen this block rather than
-// reaching for the page sheet.
+// and would be lying about (there is nothing here to drag). If this block ever proves insufficient,
+// widen it rather than reaching for the page sheet.
 //
 // Token-only, like every sheet in this repo: the frame reads --spacing-*, --color-* and --type-*, so
 // the export re-skins with the pack exactly as the site does.
+//
+// THE LAST RULE IS THE FLOW'S WHOLE PRESENTATION, and its direction is load-bearing (header call 5):
+// once a navigation is followed, only the targeted screen shows — written as has-HIDES, so an engine
+// without :has() simply hides nothing and the document degrades to every screen stacked, fragment
+// jumps still working. The other direction (has-shows) would blank the page on those engines.
 const FRAME_CSS = `
 .sx-page{max-width:none;padding:var(--spacing-xl, 32px);display:flex;flex-direction:column;gap:var(--spacing-xl, 32px)}
-.sx-screen{display:grid;gap:var(--spacing-lg, 24px);justify-content:start;align-content:start}
+.sx-flow{display:flex;flex-direction:column;gap:var(--spacing-xl, 32px)}
+.sx-screen{display:grid;gap:var(--spacing-lg, 24px);grid-template-columns:minmax(0,22rem);justify-content:start;align-content:start}
+.sx-screen-name{margin:0;font-size:var(--type-h4)}
+.sx-note{color:var(--color-fg-muted);max-width:60ch;margin:0}
+.sx-screen-empty{color:var(--color-fg-muted);max-width:60ch;margin:0}
+.sx-nav{display:flex;flex-direction:column;gap:var(--spacing-sm, 8px);align-items:flex-start}
+.sx-nav a{color:var(--color-accent)}
 .sx-empty{color:var(--color-fg-muted);max-width:60ch}
 .sx-prov{border-top:1px solid var(--color-border);padding-top:var(--spacing-lg, 24px);max-width:78ch;color:var(--color-fg-muted);font-size:var(--type-small)}
 .sx-prov h2{font-size:var(--type-h4)}
 .sx-prov p{margin:0 0 var(--spacing-sm, 8px)}
 .sx-facts{display:flex;flex-wrap:wrap;gap:var(--spacing-md, 16px);margin:0 0 var(--spacing-md, 16px);padding:0;list-style:none}
+.sx-flow:has(:target) .sx-screen:not(:target){display:none}
 `;
 
 // The sentence a document with nothing composed carries. An export of a board that compiles to
@@ -158,6 +152,14 @@ const FRAME_CSS = `
 const NOTHING_COMPOSED = "This board did not compile to any components, so this file carries none. "
   + "Nothing was mocked up in their place — an empty document that says it is empty is a truer "
   + "artifact than a drawn one that is not the product.";
+
+// Rule S4's surface sentence (#212): a place with no affordances is still a screen — it can be a
+// connection's destination — and this is what that screen says instead of invented content.
+// Declared HERE, in the DOM-free leaf, and imported by system/studio-flow.mjs for the canvas,
+// because the two surfaces make the same statement about the same board fact and a second sentence
+// would be this studio giving two accounts of one thing (VOCAB_UNAVAILABLE's own argument, #210).
+export const EMPTY_SCREEN = "Nothing to act on here. The board drew this place as a destination "
+  + "with no work in it, and this screen says so rather than inventing content.";
 
 // The font sentence, and it is spike 3's MEASURED one rather than the deduced one it replaces. The
 // pack's declared families are token VALUES and they travel in the inlined pack; the self-hosted
@@ -170,9 +172,9 @@ const FONT_NOTE = "The type is this pack's own declared families, inlined with t
   + "nothing you can see — the referenced file is absent from the running site as well, so the studio "
   + "and this document fall back to the same stack.";
 
-// exportHtml({ title, css, inlineTokens, slots, meta }) → a complete HTML document, as a string.
+// exportHtml({ title, css, inlineTokens, screens, meta }) → a complete HTML document, as a string.
 //
-//   title         text — the pattern's label. Visitor-influenced, so escaped as TEXT.
+//   title         text — the flow's (entry pattern's) label. Visitor-influenced, so escaped as TEXT.
 //   css           the three stylesheets already concatenated, fetched DOM-side and passed in.
 //                 @import-stripped HERE rather than by the caller: one place decides, and group 17
 //                 asserts the OUTPUT rather than the input.
@@ -180,51 +182,68 @@ const FONT_NOTE = "The type is this pack's own declared families, inlined with t
 //                 DERIVED pack lives here and NOT in any stylesheet (build-import.mjs:153 writes the
 //                 stage, never :root), so an export that inlined only the sheet would be faithful
 //                 under neutral and wrong under everything a visitor brings.
-//   slots         [{ col, row, html }] — html is renderComposition's serialized own output.
-//   meta          { patternLabel, places, affordances, connections, packLabel, hasVisitorTokens,
-//                   omitted } for the provenance block. Every number COUNTED by the caller from the
-//                 board, none invented (pattern-rules.mjs's honesty rule, inherited).
+//   screens       [{ name, type, note, slots: [{ html }], nav: [{ label, target }] }] — one entry
+//                 per screen, in BOARD ORDER; html is renderComposition's serialized own output, in
+//                 the board's affordance order; `target` is the 1-based index of the destination
+//                 screen; `note` is feed's truncation sentence when compileSteps attached one —
+//                 streamNote's own words, carried so the file states the drop the canvas states
+//                 (EMPTY_SCREEN's argument, applied to the other honesty sentence; PR #248 review).
+//   meta          { patternLabel, screens, places, affordances, connections, packLabel,
+//                   hasVisitorTokens } for the provenance block. Every number COUNTED by the caller
+//                 from the board, none invented (pattern-rules.mjs's honesty rule, inherited).
 //
 // NO TIMESTAMP, NO COUNTER, NO RUN ID anywhere in this document, and that is a contract rather than
 // an omission: two exports of the same board must be byte-identical, which build-checks group 17
 // asserts. specMarkdown interpolates a build date and is allowed to — it is a different artifact
 // with a different claim. A `builtOn` field was drafted for this meta and deliberately dropped: no
 // caller filled it, and a determinism claim with an unfilled escape hatch in it is not one.
-export function exportHtml({ title, css, inlineTokens, slots, meta } = {}) {
+export function exportHtml({ title, css, inlineTokens, screens, meta } = {}) {
   const m = meta && typeof meta === "object" ? meta : {};
   const label = typeof title === "string" && title.trim() ? title.trim() : "A prototype from ux factory";
 
-  // Only slots that carry BOTH a real on-grid address and real serialized markup. A slot that
-  // carries neither is dropped rather than guessed at — placing it at 1,1 would be this file
-  // inventing an arrangement, which is the one thing the arrangement must never be.
-  const cells = [];
-  let maxCol = 0;
-  let maxRow = 0;
-  for (const slot of Array.isArray(slots) ? slots : []) {
-    if (!slot || typeof slot !== "object") continue;
-    const col = num(slot.col, MAX_COLS);
-    const row = num(slot.row, MAX_ROWS);
-    if (col === null || row === null) continue;
-    if (typeof slot.html !== "string" || !slot.html) continue;
-    if (col > maxCol) maxCol = col;
-    if (row > maxRow) maxRow = row;
-    // slot.html is SERIALIZED DOM and is emitted verbatim. The class name is built from two
-    // integers this function validated, so nothing visitor-supplied reaches an attribute here.
-    cells.push(`<div class="sx-cell sx-c${col}-r${row}">${slot.html}</div>`);
+  // Only screens that are objects; within one, only slots carrying real serialized markup and only
+  // nav entries carrying a real 1-based index. Junk is dropped rather than guessed at, and the
+  // second pass below drops any nav entry pointing past the last section — every href this file
+  // emits resolves to a section IN it, which is the one structural claim a fragment-only navigation
+  // has to make. The whole-screen drop below stays aligned with the caller's 1-based targets only
+  // because the real caller (studio-keep.mjs's id-join) never passes a junk entry — dropping one
+  // HERE would shift every later target by one. A precondition on the caller, stated.
+  const shown = [];
+  for (const screen of Array.isArray(screens) ? screens : []) {
+    if (!screen || typeof screen !== "object") continue;
+    const slots = (Array.isArray(screen.slots) ? screen.slots : [])
+      .filter((s) => s && typeof s === "object" && typeof s.html === "string" && s.html);
+    const nav = (Array.isArray(screen.nav) ? screen.nav : [])
+      .filter((n) => n && typeof n === "object" && Number.isInteger(n.target) && n.target >= 1);
+    const note = typeof screen.note === "string" ? screen.note : "";
+    shown.push({ name: String(screen.name ?? ""), note, slots, nav });
+  }
+  for (const screen of shown) {
+    screen.nav = screen.nav.filter((n) => n.target <= shown.length);
   }
 
   const vetted = vetTokens(inlineTokens || {});
   const decls = Object.entries(vetted.tokens).map(([k, v]) => `${k}:${v};`).join("");
 
-  // The grid is sized to what is actually on it, and the cells are addressed by generated class.
-  // `min-content` rows rather than equal ones, so an empty row between two occupied ones collapses
-  // instead of leaving a band of nothing the reader has to scroll past.
-  const screenCss = cells.length
-    ? `.sx-screen{grid-template-columns:repeat(${maxCol},minmax(0,22rem));grid-template-rows:repeat(${maxRow},min-content)}`
-    : "";
+  // One <section> per screen. The ids are GENERATED integers (s1…sN), so nothing visitor-supplied
+  // ever reaches an id or an href; slot.html is SERIALIZED DOM and is emitted verbatim (the
+  // escape-once rule — it was escaped when it was built).
+  const sections = shown.map((screen, i) => {
+    const heading = `<h2 class="sx-screen-name">${esc(screen.name || `Screen ${i + 1}`)}</h2>`;
+    // Feed's truncation sentence, as TEXT beside the heading — the canvas's .stf-note, restated in
+    // this file in the same words (streamNote's), never re-phrased here.
+    const note = screen.note ? `\n<p class="sx-note">${esc(screen.note)}</p>` : "";
+    const content = screen.slots.length
+      ? screen.slots.map((slot) => slot.html).join("\n")
+      : `<p class="sx-screen-empty">${esc(EMPTY_SCREEN)}</p>`;
+    const nav = screen.nav.length
+      ? `\n<nav class="sx-nav" aria-label="${esc(`Where ${screen.name || `screen ${i + 1}`} leads`)}">${screen.nav.map((n) => `<a href="#s${n.target}">${esc(n.label)}</a>`).join("\n")}</nav>`
+      : "";
+    return `<section class="sx-screen" id="s${i + 1}">\n${heading}${note}\n${content}${nav}\n</section>`;
+  });
 
   const facts = [
-    ["Places", m.places], ["Affordances", m.affordances], ["Connections", m.connections],
+    ["Screens", m.screens], ["Places", m.places], ["Affordances", m.affordances], ["Connections", m.connections],
   ].filter(([, v]) => Number.isFinite(v))
     .map(([term, v]) => `<li><strong>${esc(term)}</strong> ${esc(String(v))}</li>`)
     .join("");
@@ -239,9 +258,9 @@ export function exportHtml({ title, css, inlineTokens, slots, meta } = {}) {
     : esc(`${NO_DESIGN_IMPORTED} The components and the token values here are both this site's, so `
       + "there is no second claim to make about whose design work this is.");
 
-  const body = cells.length
-    ? `<main class="sx-screen">\n${cells.join("\n")}\n</main>`
-    : `<main class="sx-screen"><p class="sx-empty">${esc(NOTHING_COMPOSED)}</p></main>`;
+  const body = sections.length
+    ? `<main class="sx-flow">\n${sections.join("\n")}\n</main>`
+    : `<main class="sx-flow"><p class="sx-empty">${esc(NOTHING_COMPOSED)}</p></main>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -251,7 +270,7 @@ export function exportHtml({ title, css, inlineTokens, slots, meta } = {}) {
 <title>${esc(label)}</title>
 <style>${stripImports(css)}</style>
 <style>:root{${decls}}</style>
-<style>${placementRules()}${FRAME_CSS}${screenCss}</style>
+<style>${FRAME_CSS}</style>
 </head>
 <body class="sx-page">
 ${body}
@@ -261,16 +280,13 @@ ${body}
 <p>${esc("Assembled in your own browser on the /factory studio page of ux factory, from the same "
   + "stylesheets and the same renderer that page uses. Nothing was uploaded — the shipped site is "
   + "static and has nowhere to upload to. No model was called, at view time or any other time.")}</p>
-<p>${esc(`The components were composed by the committed rules in system/pattern-rules.mjs and `
-  + `validated against the generated component vocabulary before any of them reached the page. `
-  + `They are arranged here at the coordinates you left them at on the canvas.`)}</p>
+<p>${esc(`Each screen was typed and its components composed by the committed rules in `
+  + `system/pattern-rules.mjs and validated against the generated component vocabulary before any `
+  + `of them reached the page. The screens are in the board's own order; each screen's components `
+  + `are in the board's affordance order; the navigation is the board's connections — every link `
+  + `in this file leads to another screen in it.`)}</p>
 <p>${claims}</p>
 <p>${esc(FONT_NOTE)}</p>
-${Number.isFinite(m.omitted) && m.omitted > 0
-  ? `<p>${esc(`${m.omitted} composed component${m.omitted === 1 ? "" : "s"} did not travel: the pattern named more `
-    + "than the canvas was holding blocks for, and a component with no block has no place on the "
-    + "canvas to have been arranged at. Nothing was placed at a coordinate nobody chose.")}</p>`
-  : ""}
 </footer>
 </body>
 </html>

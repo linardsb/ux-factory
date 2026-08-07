@@ -212,9 +212,10 @@
           compile them: press <em>Compile the board</em> and the same rules that name a pattern on
           the builder run here, one step at a time, until each block is the real component its slot
           calls for, in the slot you left it in. <em>Back to blocks</em> plays it again. What
-          compiles is one screen's components, not a flow between screens. The compile runs
+          compiles is a connected flow: each place becomes a screen, and every connection the run
+          drew becomes a working navigation between them. The compile runs
           <dfn class="term" data-term="declarative-generative-ui" tabindex="0">declarative generative
-          UI</dfn>: the screen is proposed as data, then validated against the generated component
+          UI</dfn>: each screen is proposed as data, then validated against the generated component
           vocabulary before any of it renders.
         </p>
 
