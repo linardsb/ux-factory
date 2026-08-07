@@ -134,6 +134,7 @@ const FRAME_CSS = `
 .sx-flow{display:flex;flex-direction:column;gap:var(--spacing-xl, 32px)}
 .sx-screen{display:grid;gap:var(--spacing-lg, 24px);grid-template-columns:minmax(0,22rem);justify-content:start;align-content:start}
 .sx-screen-name{margin:0;font-size:var(--type-h4)}
+.sx-note{color:var(--color-fg-muted);max-width:60ch;margin:0}
 .sx-screen-empty{color:var(--color-fg-muted);max-width:60ch;margin:0}
 .sx-nav{display:flex;flex-direction:column;gap:var(--spacing-sm, 8px);align-items:flex-start}
 .sx-nav a{color:var(--color-accent)}
@@ -181,9 +182,12 @@ const FONT_NOTE = "The type is this pack's own declared families, inlined with t
 //                 DERIVED pack lives here and NOT in any stylesheet (build-import.mjs:153 writes the
 //                 stage, never :root), so an export that inlined only the sheet would be faithful
 //                 under neutral and wrong under everything a visitor brings.
-//   screens       [{ name, type, slots: [{ html }], nav: [{ label, target }] }] — one entry per
-//                 screen, in BOARD ORDER; html is renderComposition's serialized own output, in the
-//                 board's affordance order; `target` is the 1-based index of the destination screen.
+//   screens       [{ name, type, note, slots: [{ html }], nav: [{ label, target }] }] — one entry
+//                 per screen, in BOARD ORDER; html is renderComposition's serialized own output, in
+//                 the board's affordance order; `target` is the 1-based index of the destination
+//                 screen; `note` is feed's truncation sentence when compileSteps attached one —
+//                 streamNote's own words, carried so the file states the drop the canvas states
+//                 (EMPTY_SCREEN's argument, applied to the other honesty sentence; PR #248 review).
 //   meta          { patternLabel, screens, places, affordances, connections, packLabel,
 //                   hasVisitorTokens } for the provenance block. Every number COUNTED by the caller
 //                 from the board, none invented (pattern-rules.mjs's honesty rule, inherited).
@@ -201,7 +205,9 @@ export function exportHtml({ title, css, inlineTokens, screens, meta } = {}) {
   // nav entries carrying a real 1-based index. Junk is dropped rather than guessed at, and the
   // second pass below drops any nav entry pointing past the last section — every href this file
   // emits resolves to a section IN it, which is the one structural claim a fragment-only navigation
-  // has to make.
+  // has to make. The whole-screen drop below stays aligned with the caller's 1-based targets only
+  // because the real caller (studio-keep.mjs's id-join) never passes a junk entry — dropping one
+  // HERE would shift every later target by one. A precondition on the caller, stated.
   const shown = [];
   for (const screen of Array.isArray(screens) ? screens : []) {
     if (!screen || typeof screen !== "object") continue;
@@ -209,7 +215,8 @@ export function exportHtml({ title, css, inlineTokens, screens, meta } = {}) {
       .filter((s) => s && typeof s === "object" && typeof s.html === "string" && s.html);
     const nav = (Array.isArray(screen.nav) ? screen.nav : [])
       .filter((n) => n && typeof n === "object" && Number.isInteger(n.target) && n.target >= 1);
-    shown.push({ name: String(screen.name ?? ""), slots, nav });
+    const note = typeof screen.note === "string" ? screen.note : "";
+    shown.push({ name: String(screen.name ?? ""), note, slots, nav });
   }
   for (const screen of shown) {
     screen.nav = screen.nav.filter((n) => n.target <= shown.length);
@@ -223,13 +230,16 @@ export function exportHtml({ title, css, inlineTokens, screens, meta } = {}) {
   // escape-once rule — it was escaped when it was built).
   const sections = shown.map((screen, i) => {
     const heading = `<h2 class="sx-screen-name">${esc(screen.name || `Screen ${i + 1}`)}</h2>`;
+    // Feed's truncation sentence, as TEXT beside the heading — the canvas's .stf-note, restated in
+    // this file in the same words (streamNote's), never re-phrased here.
+    const note = screen.note ? `\n<p class="sx-note">${esc(screen.note)}</p>` : "";
     const content = screen.slots.length
       ? screen.slots.map((slot) => slot.html).join("\n")
       : `<p class="sx-screen-empty">${esc(EMPTY_SCREEN)}</p>`;
     const nav = screen.nav.length
       ? `\n<nav class="sx-nav" aria-label="${esc(`Where ${screen.name || `screen ${i + 1}`} leads`)}">${screen.nav.map((n) => `<a href="#s${n.target}">${esc(n.label)}</a>`).join("\n")}</nav>`
       : "";
-    return `<section class="sx-screen" id="s${i + 1}">\n${heading}\n${content}${nav}\n</section>`;
+    return `<section class="sx-screen" id="s${i + 1}">\n${heading}${note}\n${content}${nav}\n</section>`;
   });
 
   const facts = [

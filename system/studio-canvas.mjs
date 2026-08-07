@@ -228,11 +228,13 @@ export function initStudioCanvas(root = document) {
       // scroller, and the click event — which fires on the common ancestor of the down and up
       // targets — then lands here instead of on the control, so the control silently never
       // activates. Latent for any interactive component on the harness's stage; #212's nav buttons
-      // made it reachable on /factory. The mirror-image of studio-verbs.mjs's body-drag rule
-      // ("body-drag must not fight a real control"), which RETURNS for these targets and lets the
-      // press bubble to exactly this line. The grab handles never reach it — the verbs' handler
-      // stops propagation for every press it owns.
-      if (e.target.closest?.("button, a, input, select, textarea")) return;
+      // made it reachable on /factory. The TRUE mirror of studio-verbs.mjs's body-drag rule
+      // ("body-drag must not fight a real control"), [tabindex] included — #212's screen headings
+      // carry -1 — except the scroller ITSELF, which has one (:116) and is every press's ancestor:
+      // the closest() walk-up trap the verbs' node.contains scoping exists for. The grab handles
+      // never reach this line — the verbs' handler stops propagation for every press it owns.
+      const control = e.target.closest?.("button, a, input, select, textarea, [tabindex]");
+      if (control && control !== scroll) return;
       pan = { id: e.pointerId, x: e.clientX, y: e.clientY, left: scroll.scrollLeft, top: scroll.scrollTop };
       try { scroll.setPointerCapture(e.pointerId); } catch { /* capture unavailable — the move listener still tracks */ }
       scroll.classList.add("is-panning");

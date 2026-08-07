@@ -349,6 +349,9 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
           return {
             name: screen.label,
             type: screen.type,
+            // Feed's truncation sentence travels with its screen (PR #248 review H1): the exported
+            // file states the drop in streamNote's own words, exactly as the canvas does.
+            note: screen.note,
             slots,
             nav: screen.nav
               .map((entry) => ({ label: entry.label, target: flowScreens.findIndex((s) => s.id === entry.targetId) + 1 }))

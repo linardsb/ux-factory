@@ -70,9 +70,9 @@
 //  19 flow           places become screens, connections become navigation: screensFor over the
 //                     REAL committed replay board (reachability, the counted nav, the pinned type
 //                     mix), a flow fixture per screen type via the BOARD_FOR rule, rules S1–S4
-//                     each proven to fire, feed's truncation stated by streamNote identity, the
-//                     empty board, every screen against the real vocabulary, two mutations, and
-//                     totality over the junk boards (#212)
+//                     each proven to fire, feed's truncation stated by streamNote identity on the
+//                     canvas and in the exported file, the empty board, every screen against the
+//                     real vocabulary, two mutations, and totality over the junk boards (#212)
 //
 //   node tooling/build-checks.mjs
 
@@ -3609,7 +3609,7 @@ function scanSvg(svg, label) {
   ok(loneFlow[1].nav.length === 0, "an unconnected affordance produced a nav entry");
   ok(loneFlow[1].slots[0].value === "acts here", "an unconnected affordance's row does not say it acts in place");
 
-  // --- 19.4 the one truncation, stated — and the per-place bound proven un-truncating -----------
+  // --- 19.4 the one truncation, stated — on the canvas AND in the exported file ------------------
   const feedRun = compileSteps(FULL_BOARD, answersWith({ shape: "stream" }));
   ok(feedRun.screens[0].type === "feed" && feedRun.screens[0].slots.length === SLOT_MAX,
     `the FULL_BOARD feed entry shows ${feedRun.screens[0].slots.length} slots, expected SLOT_MAX ${SLOT_MAX}`);
@@ -3622,6 +3622,27 @@ function scanSvg(svg, label) {
   const fullQueue = screensFor(FULL_BOARD, answersWith({ shape: "worklist" }));
   ok(fullQueue.slice(1).every((screen) => screen.slots.length === MAX_AFFORDANCES),
     "a full place's screen dropped rows — the per-place bound is truncating after all");
+  // The sentence REACHES THE EXPORTED FILE (PR #248 review, H1): the same screens the keep rail
+  // maps travel into exportHtml with the note threaded, and the document states the drop in
+  // streamNote's own words — asserted by IDENTITY (esc() alters none of them), on the feed entry
+  // alone. Before the fix the mapping returned {name, type, slots, nav} and the sentence never left
+  // the canvas: 6 rows printed beside "Affordances: 7" with nothing saying one was dropped.
+  const feedDoc = exportHtml({
+    title: "t",
+    css: "",
+    screens: feedRun.screens.map((screen) => ({
+      name: screen.label,
+      type: screen.type,
+      note: screen.note,
+      slots: [{ html: "<i>row</i>" }],
+      nav: [],
+    })),
+    meta: {},
+  });
+  ok(feedDoc.includes(`<p class="sx-note">${streamNote(SLOT_MAX, affordanceCount(FULL_BOARD))}</p>`),
+    "the exported feed document does not carry streamNote's sentence — the truncation is silently dropped from the file");
+  ok(feedDoc.split(`class="sx-note"`).length === 2,
+    "sx-note appears a wrong number of times — a screen with no note grew one, or the feed entry lost its only one");
 
   // --- 19.5 the empty board names no screens, and every layer says so honestly (AC #4) ----------
   ok(screensFor({ places: [], connections: [] }, DEFAULT_ANSWERS) === null, "an empty board named screens");
@@ -3699,7 +3720,7 @@ function scanSvg(svg, label) {
     }
   }
 
-  group("flow", `screensFor over the REAL committed replay board: ${REPLAY_BOARD.places.length} places become ${flow.length} screens (entry type read from patternFor, rule S1), ${navTotal(flow)} nav entries counted from the file's ${REPLAY_BOARD.connections.length} connections and every screen reachable from the entry — clickable end to end, the pure half — with the 1-dashboard + 3-queue type mix pinned as a tripwire · a flow fixture per in-library screen type via the BOARD_FOR rule (a missing fixture fails loudly) and every rule S1–S4 proven to fire by its own reason sentence, S2 on a deliberate non-entry hub no draft can produce · navigation counted from connections ONLY: cutting one connection removes exactly its nav entry and strands the entry, an unconnected affordance navigates nowhere and says "acts here" · feed's SLOT_MAX truncation stated by streamNote IDENTITY and the per-place bound proven un-truncating (MAX_AFFORDANCES === SLOT_MAX, asserted) · the empty board names null at every layer and the empty export says so · every composed screen of every fixture validates against the real vocabulary with a template per node · two mutations — a tampered document fails href resolution, a re-typed screen fails the pinned histogram · total over 9 junk boards × 6 junk answer sets · the click, the focus, the announcement, the scroll and the cold file:// open are tooling/studio-journey.mjs's flow pass and the manual check's, and say so`);
+  group("flow", `screensFor over the REAL committed replay board: ${REPLAY_BOARD.places.length} places become ${flow.length} screens (entry type read from patternFor, rule S1), ${navTotal(flow)} nav entries counted from the file's ${REPLAY_BOARD.connections.length} connections and every screen reachable from the entry — clickable end to end, the pure half — with the 1-dashboard + 3-queue type mix pinned as a tripwire · a flow fixture per in-library screen type via the BOARD_FOR rule (a missing fixture fails loudly) and every rule S1–S4 proven to fire by its own reason sentence, S2 on a deliberate non-entry hub no draft can produce · navigation counted from connections ONLY: cutting one connection removes exactly its nav entry and strands the entry, an unconnected affordance navigates nowhere and says "acts here" · feed's SLOT_MAX truncation stated by streamNote IDENTITY — on the flow's screens AND carried into the exported document, exactly once (PR #248 review H1) — and the per-place bound proven un-truncating (MAX_AFFORDANCES === SLOT_MAX, asserted) · the empty board names null at every layer and the empty export says so · every composed screen of every fixture validates against the real vocabulary with a template per node · two mutations — a tampered document fails href resolution, a re-typed screen fails the pinned histogram · total over 9 junk boards × 6 junk answer sets · the click, the focus, the announcement, the scroll and the cold file:// open are tooling/studio-journey.mjs's flow pass and the manual check's, and say so`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------
