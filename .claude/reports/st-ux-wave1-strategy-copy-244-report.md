@@ -47,6 +47,8 @@ None — the repo has no suite and none was invented. The gates that cover this 
 
 Baseline height deltas (all positive → nothing truncated): approach +179/+224, factory +227/+256, index +73/+77 px.
 
+> **This table describes the tree as first submitted, not the tree that merges.** The PR review's six fixes changed four of these numbers — see *Post-review fixes* at the end. Superseded: approach's baselines moved again (+51/+29 px on top of the above, the M1 measure cap re-wrapping the sources cluster), factory's two were rewritten at **unchanged height** (+0 px — the reorders churn ~38k pixels without moving the box), and the baseline count for the PR as a whole is now **6 from the original pass + 4 re-regenerated**, not 6. `build-checks` 18/18, both drift checks, the term cross-check and the keyboard-bubble check were all re-run after the fixes and still hold as written.
+
 ## Deviations from the plan
 
 The plan bound the authorial pass to *tightening only*, and named the register rules and the honesty contract as constraints. Six edits tightened the drafts against those constraints; each is a constraint the plan itself stated, not a loosening.
