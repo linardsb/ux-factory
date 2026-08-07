@@ -199,6 +199,9 @@
      applies every beat synchronously and never starts a timer), so these names are here for the
      same reason the compile row's are: a later CSS transition on the chrome, the transport or the
      provenance line cannot slip past the off-ramp. */
+  /* #212's flow chrome joins on the same terms. The navigation's smooth scroll is gated in JS
+     (wireFlow passes an explicit behavior, which no sheet rule can reach), so these names are here
+     for the standing reason: a later CSS transition on a screen or its nav cannot slip past. */
   .stu-tab,
   .stu-compile,
   .stu-compile-step,
@@ -206,7 +209,10 @@
   .stu-replay,
   .stu-replay-step,
   .stu-replay-provenance,
-  .stu-replay-card { transition: none !important; animation: none !important; }
+  .stu-replay-card,
+  .stf-screen,
+  .stf-nav,
+  .stf-go { transition: none !important; animation: none !important; }
   .stx-scroll { scroll-behavior: auto; }
 }
 
@@ -424,6 +430,49 @@
    step readout carries the page's own colour instead of the muted one. An attribute selector, so the
    module writes an attribute and this sheet decides what it means (the data-zoom discipline). */
 .stx-viewport[data-compile-state="compiling"] .stu-compile-step { color: var(--color-fg); }
+
+/* ---------- the flow's screens (#212) ---------- */
+/* system/studio-flow.mjs's chrome. Everything a compiled screen looks like is here — the module's
+   inline-style write count stays zero and build-checks group 7 includes it with no exception argued.
+
+   A SCREEN SCROLLS INSIDE ITS WRAPPER. The stage's slots are fixed cells (--stx-slot-w × --stx-slot-h
+   above), and a screen is a heading, its composed components and its navigation — more than a cell
+   holds. overflow-y: auto is what keeps every component and every nav button reachable, by scroll
+   and by Tab's own scroll-into-view; clipping them silently would be a canvas hiding the product it
+   claims to show. min-height: 0 lets the flex item actually shrink to the wrapper's box.
+
+   THE COMPILED COMPONENTS ARE STILL NOT STYLED HERE — the .ds-* primitives carry components.css's
+   token-only rules, which is the entire claim the beat makes (the compile block's own note).
+
+   NOTHING HERE IS NAMED FOR A VIEW TRANSITION, for the compile block's standing reason. */
+.stf-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs, 8px);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--spacing-xs, 8px);
+}
+.stf-screen-name { margin: 0; font-size: var(--type-caption); color: var(--color-fg); }
+.stf-note,
+.stf-empty { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stf-nav { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+/* A real button, compactly dressed: the .btn organism's padding is sized for page chrome, and four
+   of these have to fit legibly inside one slot. min-height 24px is SC 2.5.8's minimum target size,
+   met by the box itself — the Spacing exception is not relied on (studio-verbs' header records the
+   same call for .stx-grab). */
+.stf-go {
+  min-height: 24px;
+  padding: 2px var(--spacing-xs, 8px);
+  font-size: var(--type-caption);
+  text-align: left;
+  color: var(--color-fg);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.stf-go-target { color: var(--color-fg-muted); }
 
 /* ---------- the replay chrome (#209) ---------- */
 /* system/replay-driver.mjs plays a committed real agent run onto the canvas. Everything it draws is

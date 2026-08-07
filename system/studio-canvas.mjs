@@ -224,6 +224,15 @@ export function initStudioCanvas(root = document) {
 
     scroll.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || e.pointerType === "touch") return;
+      // A PRESS ON A REAL CONTROL IS A CLICK, NOT A PAN. Capture retargets the pointerup to this
+      // scroller, and the click event — which fires on the common ancestor of the down and up
+      // targets — then lands here instead of on the control, so the control silently never
+      // activates. Latent for any interactive component on the harness's stage; #212's nav buttons
+      // made it reachable on /factory. The mirror-image of studio-verbs.mjs's body-drag rule
+      // ("body-drag must not fight a real control"), which RETURNS for these targets and lets the
+      // press bubble to exactly this line. The grab handles never reach it — the verbs' handler
+      // stops propagation for every press it owns.
+      if (e.target.closest?.("button, a, input, select, textarea")) return;
       pan = { id: e.pointerId, x: e.clientX, y: e.clientY, left: scroll.scrollLeft, top: scroll.scrollTop };
       try { scroll.setPointerCapture(e.pointerId); } catch { /* capture unavailable — the move listener still tracks */ }
       scroll.classList.add("is-panning");
