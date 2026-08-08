@@ -107,3 +107,30 @@ regression fixture (or record the drop as a documented deviation with the trade-
 one-token change worth folding in while the PR is open; L2 is optional. Everything else reviewed —
 the screen rules, the L3 close, the exporter's security posture, the gate reshaping, the pan-vs-click
 fix — is approve-quality.
+
+---
+
+## Resolution (2026-08-08)
+
+All findings addressed in `5852953`, merged to main in PR #248's squash `d4c8d49`. The REQUEST
+CHANGES verdict above is discharged.
+
+- **H1 — fixed.** `studio-keep.mjs`'s screen mapping threads `screen.note` into `exportHtml`, and
+  `studio-export.mjs` renders it as `.sx-note` beside the section heading — streamNote's own words,
+  never re-phrased (the `EMPTY_SCREEN` import argument, applied to the other honesty sentence).
+  Regression fixture: build-checks group 19 drives `exportHtml` over the real feed run's screens and
+  asserts the exported document carries the sentence by IDENTITY, exactly once — proven able to go
+  red by muting the render path (both assertions fail, each naming itself).
+- **L1 — fixed.** The canvas pan-bail now matches `[tabindex]` like the verbs' body-drag rule,
+  exempting only the scroller itself: its own tabindex is every press's `closest()` ancestor — the
+  walk-up trap the verbs' `node.contains` scoping exists for. The comment states the true rule.
+- **L2 — first note fixed** (the alignment-precondition comment now sits on `exportHtml`'s
+  junk-screen drop); **second note no-action** per this review's own call — the dead `type` field
+  stays as passed data.
+
+Re-validated on the fix commit: build-checks 19/19 (including the new fixture's mutation proof) ·
+drift-check 12/12 · token-lint clean · studio-journey 265/265 on chromium, firefox and webkit ·
+loc-summary no drift on the staged tree · CI `verify` + `visual` green. One observation left for
+later: several `file:line` citations into `studio-canvas.mjs` (the `:329`/`:332` place() references
+in `replay-driver.mjs` and CLAUDE.md) were already stale before this PR — pre-existing drift, not
+churned here.
