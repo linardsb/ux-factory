@@ -35,28 +35,28 @@
 //      pixel baseline. No timestamp, no counter and no randomness reaches an attribute or a string;
 //      every step label is a fixed constant and every step detail is built from COUNTED numbers.
 //
-// WHICH BRANCHES THE PAGE EXERCISES, AND WHICH ARE #212's. The build store is in-memory
-// (build-questions.mjs:65-73), so at rest /factory is ALWAYS draftBoard(DEFAULT_ANSWERS) → dashboard
-// → 3 places, 3 slots, 3 metric-tiles, one per wrapper. The swap's 1:1 branch is therefore the only
-// one the shipped page can reach today. The EXTRA branch (more composed components than wrappers)
-// and the SURPLUS branch (fewer) are written and reachable only once a board can differ from the
-// canvas — which is #212's flows. The SURPLUS branch reverts EXACTLY (the removed wrappers go back
-// at their stashed indices); the EXTRA branch does NOT and is #212's to close — it re-mints
-// data-stx-id through place()'s counter on every re-compile, and its column choice runs no occupancy
-// scan, so a reader who had moved a block into that column could get two components in one cell,
-// which the canvas otherwise refuses. Neither is dead code and neither is
-// live coverage: tooling/build-checks.mjs group 15 retires the cardinality question for all five
-// patterns under Node, which is where that question can be answered honestly.
+// SCREENS ARE 1:1 WITH WRAPPERS BY CONSTRUCTION (#212), and that is a fact about the page rather
+// than a hope. Screens are places (pattern-rules.mjs's screensFor), and every wrapper on /factory's
+// canvas is one place's: the replay driver places exactly one wrapper per place.add and never adds
+// or removes one, no canvas verb creates or deletes a wrapper (studio-verbs.mjs only moves them),
+// and the ?b= restore arranges places.length wrappers — studio.mjs's arrangeBoard breaks at
+// MAX_COLS = 12, which MAX_PLACES = 6 never reaches, and its sent-arrangement branch requires equal
+// lengths. The EXTRA and SURPLUS branches #207 wrote for a board that could differ from the canvas
+// are therefore DELETED rather than fixed (PR #235's finding L3, closed structurally): they were
+// written for a state flows remove, and fixing their id instability and missing occupancy scan
+// would have been building correctness into dead code. What guards the unforeseen is the TRIPWIRE
+// at the top of applySwap — a wrapper count that disagrees with the screen count throws before
+// anything is stashed, is caught by compile()'s existing handler, and renders as the refusal card:
+// a loud, honest refusal instead of a silent misalignment.
 //
 // Node-import safe: no DOM outside a function body and NO self-boot — system/studio.mjs mounts this
 // explicitly, and tooling/build-checks.mjs imports the pure layer directly.
 
 import { isBoard } from "./breadboard.mjs";
-import { affordanceCount, PATTERNS, patternFor, slotsFor } from "./pattern-rules.mjs";
-import { INSPECT_IDS, OUT_OF_LIBRARY, REFUSED, compose } from "./pattern-render.mjs";
-import { renderComposition } from "./agentic-renderer.mjs";
+import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor } from "./pattern-rules.mjs";
+import { INSPECT_IDS, OUT_OF_LIBRARY, REFUSED, compose, streamNote } from "./pattern-render.mjs";
 import { createBus } from "./action-bus.mjs";
-import { MAX_COLS, clampSlot } from "./studio-canvas.mjs";
+import { renderScreen, wireFlow } from "./studio-flow.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 15 drives it in CI with no browser — the
@@ -73,8 +73,14 @@ export const STEPS = Object.freeze([
 ]);
 
 // compileSteps(board, answers) → the whole beat as data:
-//   { state, patternId, patternLabel, reason, inLibrary, slots, composition,
+//   { state, patternId, patternLabel, reason, inLibrary, slots, composition, screens,
 //     counted: { places, affordances, connections }, steps }
+//
+// `screens` is #212's flow: screensFor's typed screens, each carrying its own compose() output as
+// `composition` (null where a screen has nothing to arrange — rule S4's screens), and the entry
+// screen carrying streamNote's truncation sentence when the flow's pattern is feed. The top-level
+// `slots` and `composition` stay the ENTRY screen's — the entry screen IS #207's single compiled
+// screen, which is what makes the flow a strict extension rather than a re-derivation.
 //
 // `state` is the TERMINAL state of the pure half, and only three of the four render states live
 // here — "rendered", "out-of-library" and "empty". The fourth, the refusal, is a DOM fact: it is
@@ -103,6 +109,28 @@ export function compileSteps(board, answers) {
   // at all when the rules named nothing, because there is nothing to compose FOR.
   const composition = known && known.inLibrary && slots.length ? compose(pattern.id, slots) : null;
 
+  // #212's flow: one typed screen per place, each carrying its own compose() output. screensFor is
+  // total and answers null exactly where patternFor names nothing, so `screens` is null on the same
+  // boards `state` reads "empty" for a bare canvas — and non-null with zero-slot screens for a board
+  // whose places exist but hold nothing, which the beat still refuses to swap (no entry slots).
+  const screens = screensFor(b, answers);
+  if (screens) {
+    for (const screen of screens) {
+      screen.composition = screen.slots.length ? compose(screen.type, screen.slots) : null;
+    }
+    // Feed is the one derivation SLOT_MAX truncates (pattern-rules.mjs's own argument), and the flow
+    // inherits its sentence rather than writing a second one: the entry screen carries streamNote's
+    // exact words, whole-board denominator included, and renderScreen prints them beside the rows.
+    if (screens[0].type === "feed") {
+      screens[0].note = streamNote(screens[0].slots.length, counted.affordances);
+    }
+  }
+  const screenCount = screens ? screens.length : 0;
+  const slotTotal = screens ? screens.reduce((n, s) => n + s.slots.length, 0) : 0;
+  const composedTotal = screens
+    ? screens.reduce((n, s) => n + (s.composition ? s.composition.length : 0), 0)
+    : 0;
+
   let state;
   if (!known || !slots.length) state = "empty";
   else if (!composition) state = "out-of-library";
@@ -112,12 +140,12 @@ export function compileSteps(board, answers) {
     name: known
       ? `${counted.places} places and ${counted.affordances} affordances read as ${known.label.toLowerCase()}`
       : `${counted.places} places and ${counted.affordances} affordances name no pattern`,
-    slots: `${slots.length} slots counted from ${counted.places} places, ${counted.affordances} affordances and ${counted.connections} connections`,
+    slots: `${slotTotal} slots across ${screenCount} screens, counted from ${counted.places} places, ${counted.affordances} affordances and ${counted.connections} connections`,
     compose: composition
-      ? `${composition.length} components composed from ${slots.length} slots`
+      ? `${composedTotal} components composed for ${screenCount} screens`
       : "no components to compose from this board",
     render: composition
-      ? `${composition.length} components validated against the generated component vocabulary`
+      ? `${composedTotal} components validated against the generated component vocabulary`
       : "nothing rendered, and nothing mocked up in its place",
   };
 
@@ -131,6 +159,7 @@ export function compileSteps(board, answers) {
     definition: known ? known.definition : null,
     slots,
     composition,
+    screens,
     counted,
     steps: STEPS.map((step) => ({ id: step.id, label: step.label, detail: detail[step.id] })),
   };
@@ -195,19 +224,6 @@ let live = null; // the mounted beat — the exported seam below drives THIS one
 // tooling/studio-journey.mjs reaches the beat through this, and #209's replay driver takes it over
 // through the same handle rather than re-implementing the swap.
 export const getCompile = () => live;
-
-// The name a compiled component carries on its wrapper — what the live region says when it is moved
-// and what its move handle is labelled with.
-//
-// The COMPOSED LABEL, not the primitive's name. "metric-tile" is the honest name of the thing, and
-// it is also the same string for all three slots, which would leave a screen-reader user with three
-// sibling buttons reading "Move metric-tile" and no way to tell them apart. The label prop IS the
-// place's own label, counted from the board by pattern-rules.mjs, so this both identifies the slot
-// and stays a number-free string this module did not invent.
-const nameOf = (node) => {
-  const label = node && node.props ? node.props.label : null;
-  return typeof label === "string" && label.trim() ? label : String(node && node.name ? node.name : "Component");
-};
 
 // `getBoard` is #209's seam and the ONLY change that ticket needed here. The beat reads `board` at
 // exactly one line (:471, inside compile()), so a getter costs two lines and lets the replay driver
@@ -360,14 +376,16 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
       el("p", { class: "stu-compile-note", text: VOCAB_UNAVAILABLE })));
 
     // --- the swap ------------------------------------------------------------------------------
-    // POSITIONAL and IN PLACE: the wrappers in DOM order against the composed nodes in composition
-    // order. Everything that survives the beat — data-stx-id, data-col, data-row, the aria wiring,
-    // the undo history — survives because the wrapper is never rebuilt.
+    // POSITIONAL and IN PLACE: the wrappers in DOM order against the screens in board order — the
+    // same correspondence, because stage order IS board order (the studio's standing fact). Every
+    // attribute that survives the beat — data-stx-id, data-col, data-row, data-stx-name, the aria
+    // wiring, the undo history — survives because the wrapper is never rebuilt AND never renamed:
+    // a screen keeps the place's own label, which is the name the wrapper already carries, and a
+    // screen has no single vocabulary shape, so data-stx-component is not written either (#232's
+    // null-stash question answers itself once nothing is written at all).
     //
     // Keyed BY WRAPPER so revert() is a lookup rather than a second derivation of what was where.
-    const stash = new Map();  // wrapper → { block, name, label }
-    const added = [];         // wrappers this beat created  (#212's extra branch)
-    const removed = [];       // { wrapper, index } it removed (#212's surplus branch)
+    const stash = new Map();  // wrapper → { block }
 
     const blockOf = (wrapper) => [...wrapper.children].find((c) => !c.classList.contains("stx-grab")) || null;
 
@@ -380,73 +398,37 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
       node.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
     };
 
-    function applySwap(composition) {
+    function applySwap(result) {
       const wrappers = [...stage.querySelectorAll(".stx-slot")];
-      // ONE validation, ONE refusal path, and the refusal names the exact composition[i] that failed.
-      const frag = renderComposition(vocab, composition, actionBus);
-      // BEFORE anything is appended — appending consumes a fragment's children, and every count
-      // below would then be read off an empty fragment.
-      const nodes = [...frag.children];
-      // A TRIPWIRE, NOT A LIVE BRANCH, and it says so the way group 1's vacuous clause says so.
-      // Every template this beat can reach returns exactly one root today (agentic-renderer.mjs:321
-      // metric-tile, :333 list-row, :350 sequence-step), so the counts agree. The day one returns
-      // two, the positional swap would misalign SILENTLY and every other assertion on this page
-      // would still pass — which is why it ships now rather than then. Caught by the same handler
-      // that renders the refusal card.
-      if (nodes.length !== composition.length) {
-        throw new Error(`the renderer built ${nodes.length} top-level nodes for ${composition.length} composed components, so the positional swap cannot align them`);
+      const screens = Array.isArray(result.screens) ? result.screens : [];
+      // THE TRIPWIRE, before anything is stashed (the header's construction argument). Screens are
+      // 1:1 with wrappers by construction — one place is one wrapper is one screen — so a count
+      // that disagrees means something unforeseen changed the stage, and the only honest move is a
+      // loud refusal before the swap can misalign anything. Caught by the same handler that renders
+      // the refusal card.
+      if (wrappers.length !== screens.length) {
+        throw new Error(`the canvas holds ${wrappers.length} wrappers for ${screens.length} screens — one place is one wrapper is one screen, so the swap cannot align them`);
       }
 
-      const shared = Math.min(wrappers.length, nodes.length);
-      for (let i = 0; i < shared; i += 1) {
+      // EVERY screen is built before the first DOM write: renderScreen validates each screen's
+      // composition through renderComposition, which refuses by THROWING — and a refusal mid-loop
+      // must not leave half the canvas swapped. Building first keeps the refusal atomic: either
+      // every screen renders or no wrapper is touched.
+      const nodes = screens.map((screen) => renderScreen(screen, { vocab, bus: actionBus }));
+
+      for (let i = 0; i < wrappers.length; i += 1) {
         const wrapper = wrappers[i];
-        const grab = wrapper.querySelector(".stx-grab");
         const block = blockOf(wrapper);
-        stash.set(wrapper, {
-          block,
-          name: wrapper.getAttribute("data-stx-name"),
-          label: grab ? grab.getAttribute("aria-label") : null,
-          // The wrapper's vocabulary shape, which the swap is about to change and the revert must
-          // put back exactly — a fat-marker block has none, so `null` is a real stashed value here
-          // and not a missing one (#232).
-          component: wrapper.getAttribute("data-stx-component"),
-        });
-        const label = nameOf(composition[i]);
+        stash.set(wrapper, { block });
         if (block) wrapper.replaceChild(nodes[i], block);
         else wrapper.appendChild(nodes[i]);
-        wrapper.setAttribute("data-stx-name", label);
-        // The composed node's REAL vocabulary name, so a move of a compiled component puts the
-        // shape on the bus and the label under `label` (#232). nameOf() above is deliberately the
-        // composed label and not this — three sibling buttons all reading "Move metric-tile" would
-        // be indistinguishable to a screen-reader user.
-        wrapper.setAttribute("data-stx-component", String(composition[i].name));
-        // STILL WRITTEN HERE after #231 moved place()'s aria-label out of its create branch, and
-        // the reason is that this swap never calls place(): it renames a wrapper IN PLACE, because
-        // place() appends to the stage (re-ordering it) and announces a placement the reader did
-        // not ask for. So the handle would keep naming the block that is no longer there.
-        if (grab) grab.setAttribute("aria-label", `Move ${label}`);
         fade(nodes[i]);
       }
 
-      // #212's EXTRA branch: more composed components than the canvas holds. Along row 1, breaking
-      // at MAX_COLS exactly as studio.mjs's arrangeBoard breaks — a clamp would stack two components
-      // on one cell, which the canvas explicitly refuses.
-      for (let i = shared; i < nodes.length; i += 1) {
-        const col = i + 1;
-        if (col > MAX_COLS) break;
-        canvas.place(nodes[i], { ...clampSlot({ col, row: 1 }), name: nameOf(composition[i]), component: composition[i].name });
-        if (nodes[i].parentElement) added.push(nodes[i].parentElement);
-        fade(nodes[i]);
-      }
-
-      // #212's SURPLUS branch: fewer composed components than wrappers. The removed wrappers' undo
-      // entries survive harmlessly — restore() skips an id with no node on the stage — and that line
-      // carries a comment warning it is NOT the phantom-undo path (studio-verbs.mjs:315-322), so
-      // this is the case it is talking about.
-      for (let i = shared; i < wrappers.length; i += 1) {
-        removed.push({ wrapper: wrappers[i], index: i });
-        wrappers[i].remove();
-      }
+      // The navigation, wired once every screen is on the stage so a click always has somewhere to
+      // land. Announcements go through the canvas's ONE live region; reduced motion reaches the
+      // scroll through the same JS gate the fade uses.
+      wireFlow(wrappers, screens, { say: canvas.say, reduceMotion });
 
       // Inspect mounts on the primitives this beat just built. The ids are COPIED from
       // system/inspect-data.json via pattern-render.mjs's one list — an id absent from that file
@@ -530,22 +512,27 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
           return settle("unavailable", "The component vocabulary could not be read, so nothing was compiled. The blocks are unchanged.");
         }
         try {
-          applySwap(result.composition);
+          applySwap(result);
         } catch (err) {
-          // The renderer refuses by THROWING (agentic-renderer.mjs:369-371). Caught here and shown
-          // as the refusal card — never left to reject into the console, which studio-journey's
-          // no-page-errors contract reads as a failure and a reader never sees at all.
+          // The renderer refuses by THROWING (agentic-renderer.mjs:369-371), and applySwap's own
+          // tripwire throws the same way. Caught here and shown as the refusal card — never left to
+          // reject into the console, which studio-journey's no-page-errors contract reads as a
+          // failure and a reader never sees at all.
           renderRefusal(err, result);
           return settle("refused", "The renderer refused this composition. The blocks are unchanged and the refusal is printed above.");
         }
       }
 
-      return settle("rendered", `${result.composition.length} blocks are now the components the rules named. Back to blocks replays the beat.`);
+      return settle("rendered", `The ${result.screens.length} blocks are now the flow's ${result.screens.length} screens, wired by the board's own connections. Back to blocks replays the beat.`);
     }
 
     // --- the revert ------------------------------------------------------------------------------
-    // EXACT for the swap, in both directions, because the stash is keyed by wrapper: every branch
-    // that changed something recorded what it changed, so nothing here is re-derived from the board.
+    // EXACT for the swap, in both directions, because the stash is keyed by wrapper and the swap
+    // changed exactly one thing per wrapper — its content. Nothing here is re-derived from the
+    // board, and nothing else needs restoring: the swap never renamed a wrapper or wrote a shape,
+    // so the reverted stage is the at-rest one byte for byte (AC #3, asserted exactly that way).
+    // The screens go with their nodes, listeners included — wireFlow attaches to the buttons, so
+    // discarding the screen elements whole is the unwire.
     function revert() {
       if (destroyed || state === "blocks" || state === "compiling") return state;
 
@@ -557,26 +544,9 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
         } else if (current) {
           current.remove();
         }
-        wrapper.setAttribute("data-stx-name", saved.name ?? "Component");
-        // Put back or REMOVED, because the pre-compile block had no shape at all and leaving the
-        // composed one behind would make the reverted stage differ from the at-rest one — which is
-        // AC #3, asserted byte for byte.
-        if (saved.component == null) wrapper.removeAttribute("data-stx-component");
-        else wrapper.setAttribute("data-stx-component", saved.component);
-        const grab = wrapper.querySelector(".stx-grab");
-        if (grab && saved.label != null) grab.setAttribute("aria-label", saved.label);
         fade(saved.block);
       }
-      for (const wrapper of added) wrapper.remove();
-      // Re-inserted AT THEIR INDEX, ascending, so the stage's wrapper order is the one the next
-      // compile's positional swap reads. Appending them at the end instead would make a second run
-      // align differently from the first, which is AC #3 broken in the branch nothing watches.
-      for (const { wrapper, index } of removed) {
-        stage.insertBefore(wrapper, stage.children[index] ?? null);
-      }
       stash.clear();
-      added.length = 0;
-      removed.length = 0;
 
       clearReport();
       viewport.removeAttribute("data-compile-step");

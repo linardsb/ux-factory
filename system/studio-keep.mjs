@@ -32,14 +32,14 @@
 //     thing three ways: at rest the stage holds fat-marker BLOCKS rather than components, the
 //     wrappers carry canvas chrome (grab handles, aria wiring, data-stx-id) that means nothing
 //     outside the studio, and the fidelity would depend on whether the reader happened to press
-//     Compile. compile.composed() hands back renderComposition's own composition and the vocabulary
-//     that validates it, and rendering THAT into a detached container is literally what AC #3 asks
-//     for. The arrangement is read separately, off the live wrappers — the same two sources the
-//     share link uses, which is why the file and the link can never describe different arrangements.
-//     They can describe DIFFERENT AMOUNTS of one, and each says which: when the wrapper count and
-//     the place count disagree the file carries what it could and states the omission, while the
-//     link carries none at all, because a `g` shorter than the board is not a partial arrangement —
-//     it is an unreadable one. Both outcomes are announced; neither is silent (PR #241 review, M2).
+//     Compile. compile.composed() hands back compileSteps' screens — each carrying
+//     renderComposition's own composition — and the vocabulary that validates them, and rendering
+//     THOSE into detached containers is literally what AC #3 asks for. Since #212 the export reads
+//     NO arrangement at all: the flow's layout is screens in board order × components in affordance
+//     order (the epic architecture's "no new bytes"), canvas coordinates persist in the share
+//     link's `g` field (#208) and nowhere else, and the file's provenance claims no geometry it
+//     does not carry. The link's own no-`g` divergence is still announced when it happens (PR #241
+//     review, M2) — that caveat is the SHARE tier's and stays below.
 //
 //  3. THE STUDIO HAS NO ANSWERS OF ITS OWN, and the downloaded spec must say so. specMarkdown
 //     destructures { answers, quadrant, frequencyVerdict, board, pack } unguarded and would THROW on
@@ -100,9 +100,11 @@ const AT_REST = "Everything here is generated in your browser when you ask for i
 // .claude/reports/studio-export-keep-rail-210-spike3.md: a hand-assembled export from these exact
 // four sources opened cold from file:// on chromium, firefox and webkit, under all four shipped
 // packs plus a derived one, rendering the composed components with the visitor's own token values
-// and making ZERO network requests. This copy is the branch that was actually taken.
-const EXPORT_COPY = "A single file that runs. Open it anywhere — no server, no build step, nothing "
-  + "to install. It carries this system's tokens and components inline, wearing your design values.";
+// and making ZERO network requests. This copy is the branch that was actually taken — extended by
+// #212 to name the flow, because the file now carries every screen and the navigation between them.
+const EXPORT_COPY = "A single file that runs: every screen of this flow, and every navigation "
+  + "between them, working. Open it anywhere — no server, no build step, nothing to install. It "
+  + "carries this system's tokens and components inline, wearing your design values.";
 
 // The sentence the downloaded spec owes the reader, and decision 3's second half.
 const ANSWERS_NOTE = "The spec carries the ten method answers this page runs on, which are the "
@@ -321,35 +323,41 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
         const composedNow = await compile.composed();
         if (!composedNow) { say(NOT_COMPOSED); return; }
         if (!composedNow.vocab) { say(VOCAB_UNAVAILABLE); return; }
+        const result = composedNow.result;
 
         // renderComposition VALIDATES BEFORE ANY DOM and throws its refusal — the same contract
-        // studio-compile.mjs:526-533 catches. Into a DETACHED node: nothing this builds is ever
-        // attached to the page, which is what keeps this an assembly rather than a second author on
-        // a canvas the verbs and the driver own.
-        const frag = renderComposition(composedNow.vocab, composedNow.result.composition, createBus());
-        // BEFORE anything consumes the fragment (applySwap's note, same trap).
-        const nodes = [...frag.children];
-
-        // SERIALIZED, never scraped, and never through a markup sink — see the header's call 1.
+        // studio-compile.mjs's compile() catches — once PER SCREEN, the path naming which screen
+        // failed. Into DETACHED nodes: nothing this builds is ever attached to the page, which is
+        // what keeps this an assembly rather than a second author on a canvas the verbs and the
+        // driver own.
         //
-        // CAPPED AT THE SHORTER OF THE TWO, which is applySwap's own line (studio-compile.mjs:395,
-        // `Math.min(wrappers.length, nodes.length)`) and is not defensive padding: slotsFor produces
-        // MORE slots than places for the feed and settings patterns (build-checks group 16 pins
-        // exactly that), and a ?b= link carries the SENDER'S answers, so a restored build can name
-        // one of those on a canvas holding fewer blocks. Inventing a coordinate for the surplus
-        // would fabricate an arrangement — it could land on top of a block the reader moved, and the
-        // provenance block's "arranged here at the coordinates you left them at" would be false for
-        // every fabricated cell. The header's claim that the file and the link can never describe
-        // different arrangements is only true if this agrees with arrangement()'s own refusal to
-        // guess. What is cut is STATED rather than dropped (pattern-rules.mjs's affordanceCount
-        // precedent, inherited).
+        // SERIALIZED, never scraped, and never through a markup sink — see the header's call 1.
+        // Screens travel WHOLE, in board order, components in affordance order; no coordinate is
+        // read and none travels (the header's call 2). The nav's targetId becomes the 1-based index
+        // of the destination screen — a join over the same array, so every emitted href resolves.
         const serializer = new XMLSerializer();
-        const live = typeof getArrangement === "function" ? getArrangement() : [];
-        const shown = Math.min(nodes.length, live.length);
-        const slots = [];
-        for (let i = 0; i < shown; i += 1) {
-          slots.push({ col: live[i].col, row: live[i].row, html: serializer.serializeToString(nodes[i]) });
-        }
+        const flowScreens = Array.isArray(result.screens) ? result.screens : [];
+        const screens = flowScreens.map((screen, i) => {
+          let slots = [];
+          if (Array.isArray(screen.composition) && screen.composition.length) {
+            const frag = renderComposition(composedNow.vocab, screen.composition, createBus(),
+              `screen "${screen.label}"`);
+            // Read BEFORE anything consumes the fragment (applySwap's note, same trap) — here via
+            // one spread, for the same reason.
+            slots = [...frag.children].map((node) => ({ html: serializer.serializeToString(node) }));
+          }
+          return {
+            name: screen.label,
+            type: screen.type,
+            // Feed's truncation sentence travels with its screen (PR #248 review H1): the exported
+            // file states the drop in streamNote's own words, exactly as the canvas does.
+            note: screen.note,
+            slots,
+            nav: screen.nav
+              .map((entry) => ({ label: entry.label, target: flowScreens.findIndex((s) => s.id === entry.targetId) + 1 }))
+              .filter((entry) => entry.target >= 1),
+          };
+        });
 
         const packHref = [...document.querySelectorAll("link[rel=stylesheet]")]
           .map((l) => l.getAttribute("href"))
@@ -371,24 +379,21 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
         const worn = wornPack();
         const inlineTokens = { ...(worn ? worn.tokens : {}), ...inlineTokensOf(stage) };
         const stored = readBuild();
-        const board = getBoard() || { places: [], connections: [] };
-        const result = composedNow.result;
 
         download(EXPORT_NAME, exportHtml({
           title: result.patternLabel || "A prototype from ux factory",
           css: sheets.join("\n"),
           inlineTokens,
-          slots,
+          screens,
           meta: {
             patternLabel: result.patternLabel,
-            // COUNTED, all three, by the beat that just ran — not re-derived here and not typed.
+            // COUNTED, all four, by the beat that just ran — not re-derived here and not typed.
+            screens: flowScreens.length,
             places: result.counted.places,
             affordances: result.counted.affordances,
             connections: result.counted.connections,
             packLabel: packLabelOf(stored.pack, worn, inlineTokens),
             hasVisitorTokens: Object.keys(inlineTokens).length > 0,
-            // What did not fit, so the document can say so instead of quietly being short.
-            omitted: nodes.length - shown,
           },
         }), "text/html");
         handed = true;
@@ -426,12 +431,13 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
 
     // Returns the arrangement ALONGSIDE the url, because the caller has a sentence to say about it
     // and arrangement() legitimately answers null: build-share.mjs's arrangementSlots then emits no
-    // `g` and the link rebuilds the board with the default row-1 layout. That divergence is
-    // reachable rather than theoretical — applySwap place()s surplus components and removes surplus
-    // wrappers (studio-compile.mjs:433-448), and a ?b= link carries the SENDER'S answers, so a
-    // visitor who arrives on a `shape: feed` link and presses Compile is holding 6 wrappers against
-    // 4 places. Computing it once here is what keeps the announcement and the payload the same fact
-    // rather than two reads that can disagree. (PR #241 review, Medium 2.)
+    // `g` and the link rebuilds the board with the default row-1 layout. The divergence #241's M2
+    // named was reached through the compile beat's surplus/extra branches; #212 deleted those —
+    // screens are 1:1 with wrappers by construction, and a count mismatch now refuses the swap
+    // loudly — so no known path produces it today. The guard STAYS, on the tripwire's own terms:
+    // it only speaks when the state actually occurs, and computing the arrangement once here is
+    // what keeps the announcement and the payload the same fact rather than two reads that can
+    // disagree. (PR #241 review, Medium 2; #212's structural close.)
     async function currentUrl() {
       const arrangement_ = arrangement();
       const url = shareUrl(await settledUrl(), await encodeBuild({ ...specState(), arrangement: arrangement_ }));

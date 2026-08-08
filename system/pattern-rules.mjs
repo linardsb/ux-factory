@@ -1,6 +1,7 @@
 // system/pattern-rules.mjs — the committed rules that turn a breadboard into a named pattern
 // (epic #134, ticket #137; .claude/plans/hooked-shapeup-pattern-builder.md Phase 1.4,
-// .claude/plans/build-pattern-render-keep-rail.md).
+// .claude/plans/build-pattern-render-keep-rail.md) — and, since #212, into the screens of a
+// connected flow (epic #202; .claude/plans/studio-flows-places-screens-212.md; screensFor below).
 //
 // This file is the argument. /build tells a visitor that a pattern is named by rules they can
 // read, so the rules have to be readable — one file, every rule written out, the way
@@ -104,6 +105,20 @@ const HUB_MIN_AFFORDANCES = 4;
 
 const affordancesOf = (place) => (place && Array.isArray(place.affordances) ? place.affordances : []);
 
+// Where an affordance leads, and what that place is called. First written inside slotsFor; hoisted
+// to module scope when screensFor became their fourth reader — three derivations and the flow all
+// read the same two facts off the same board, and a second copy is a second answer waiting to
+// disagree with the first. Junk-tolerant by inspection rather than validation: a connection that is
+// not a pair is no connection, and a place that is not there has no label.
+const targetOf = (connections, affId) => {
+  for (const c of connections) if (Array.isArray(c) && c[0] === affId) return c[1] || null;
+  return null;
+};
+const labelOf = (places, placeId) => {
+  const found = places.find((p) => p && p.id === placeId);
+  return found ? String(found.label ?? "") : null;
+};
+
 // A board with nothing on it. Zero places is the obvious case; one place with no affordances is
 // the same emptiness one edit later — a single box with nothing to act on names no pattern either.
 function isEmptyBoard(board) {
@@ -123,14 +138,23 @@ function isEmptyBoard(board) {
 // affordance (breadboard.mjs:128-133), so the third condition fails by construction — which means
 // this rule only ever describes a board a visitor deliberately edited into a hub. That is the
 // right relationship between an editable artifact and a rule that reads it.
+// The PER-PLACE core of the hub reading, shared by rule 2 below and by flow rule S2: at least
+// HUB_MIN_AFFORDANCES affordances, every one of them carrying a connection. Rule 2 adds the
+// whole-board conditions (it must be the ENTRY place, and no other place may have work of its own);
+// S2 reads exactly this on one non-entry place. One predicate, two rules — the condition is stated
+// once so the two can never quietly diverge.
+function isHubShaped(place, connections) {
+  const affs = affordancesOf(place);
+  if (affs.length < HUB_MIN_AFFORDANCES) return false;
+  const connected = new Set(connections.filter((c) => Array.isArray(c)).map(([from]) => from));
+  return affs.every((aff) => aff && connected.has(aff.id));
+}
+
 function isHub(board) {
   const places = (board && Array.isArray(board.places)) ? board.places : [];
   const connections = (board && Array.isArray(board.connections)) ? board.connections : [];
   if (places.length < 2) return false;
-  const entry = affordancesOf(places[0]);
-  if (entry.length < HUB_MIN_AFFORDANCES) return false;
-  const connected = new Set(connections.map(([from]) => from));
-  if (!entry.every((aff) => connected.has(aff.id))) return false;
+  if (!isHubShaped(places[0], connections)) return false;
   return places.slice(1).every((p) => affordancesOf(p).length === 0);
 }
 
@@ -185,14 +209,8 @@ export function slotsFor(patternId, board) {
   const connections = (board && Array.isArray(board.connections)) ? board.connections : [];
   if (!places.length) return null;
 
-  // Where an affordance leads, and what that place is called. Hoisted out of the queue branch,
-  // where they were written: three of the five derivations now read the same two facts off the
-  // same board, and a second copy is a second answer waiting to disagree with the first.
-  const targetOf = (affId) => (connections.find(([from]) => from === affId) || [])[1] || null;
-  const labelOf = (placeId) => {
-    const found = places.find((p) => p.id === placeId);
-    return found ? String(found.label ?? "") : null;
-  };
+  // targetOf and labelOf — the two facts three of the five derivations read — live at module scope
+  // now (screensFor reads them too); each call below hands them this board's places and connections.
 
   if (patternId === "dashboard") {
     // One tile per place. `value` is a STRING because metric-tile's spec says so — the validator
@@ -218,7 +236,7 @@ export function slotsFor(patternId, board) {
     }
     return affordancesOf(busiest).slice(0, SLOT_MAX).map((aff) => ({
       label: String(aff.label ?? ""),
-      value: labelOf(targetOf(aff.id)) ?? "acts here",
+      value: labelOf(places, targetOf(connections, aff.id)) ?? "acts here",
       meta: `in ${String(busiest.label ?? "")}`,
     }));
   }
@@ -271,7 +289,7 @@ export function slotsFor(patternId, board) {
     // `affordanceCount` beside the slots so the drop is stated rather than silent.
     return places.flatMap((place) => affordancesOf(place).map((aff) => ({
       label: String(aff.label ?? ""),
-      value: labelOf(targetOf(aff.id)) ?? "acts here",
+      value: labelOf(places, targetOf(connections, aff.id)) ?? "acts here",
       meta: `in ${String(place.label ?? "")}`,
     }))).slice(0, SLOT_MAX);
   }
@@ -285,7 +303,7 @@ export function slotsFor(patternId, board) {
     // rather than a fact. A field that says the same thing on every row says nothing.
     return affordancesOf(places[0]).slice(0, SLOT_MAX).map((aff) => ({
       label: String(aff.label ?? ""),
-      value: labelOf(targetOf(aff.id)) ?? "acts here",
+      value: labelOf(places, targetOf(connections, aff.id)) ?? "acts here",
     }));
   }
 
@@ -300,4 +318,109 @@ export function slotsFor(patternId, board) {
 export function affordanceCount(board) {
   const places = (board && Array.isArray(board.places)) ? board.places : [];
   return places.reduce((n, place) => n + affordancesOf(place).length, 0);
+}
+
+// --- the flow: places become screens (#212) -------------------------------------------------------
+//
+// The second half of the compile language (epic #202 — docs/epics/prototype-studio.architecture.md
+// §Data model → "Screen typing"): each place on a board resolves to one SCREEN, and the five
+// patterns above ARE the flow's screen types. A second type table would be a second truth beside
+// PATTERNS, with its own inLibrary story and its own out-of-library contract to re-open — reusing
+// the patterns keeps compose() the one place a type becomes components, and answers the epic PRD's
+// open question ("how the five patterns map to flow screen types") with an identity plus the rules
+// below for which place gets which.
+//
+// The rules, in order per place — committed and commented like everything else in this file, and
+// each screen's `reason` is the rule that fired, in a sentence, on patternFor's own contract:
+//
+//   S1  the ENTRY place wears the board's own pattern: patternFor, verbatim, reason included. Its
+//       slots are slotsFor(patternId, board) — the existing whole-board read — which is what makes
+//       the flow a strict extension of the single compiled screen: the entry screen IS it. Feed's
+//       SLOT_MAX truncation rides along here, the one real truncation in the flow, and the surface
+//       states it with affordanceCount's denominator exactly as /build does.
+//   S2  a NON-ENTRY place shaped like a hub is a `settings` screen: isHubShaped, the hub rule's own
+//       per-place condition — at least HUB_MIN_AFFORDANCES affordances, every one carrying a
+//       connection. Same threshold, same argument, read on one place.
+//   S3  every OTHER non-entry place with at least one affordance is a `queue` screen: a list worked
+//       through where the reader is, one row per affordance, each row saying where it leads or that
+//       it acts in place. The row shape is the queue/settings one, scoped to the place — and no
+//       `meta`, because every row is in the same place and a field that says the same thing on
+//       every row says nothing.
+//   S4  a non-entry place with NO affordances is still a screen — it can be a connection's
+//       destination — typed `queue` with zero slots, and the surface renders the honest sentence
+//       instead of content. A hole in the board is shown as one, never mocked up.
+//
+// An EMPTY board names no screens at all: null, exactly where patternFor names no pattern.
+//
+// NAVIGATION IS COUNTED FROM `connections` AND FROM NOTHING ELSE — the board's only record of what
+// leads where. Per screen: one nav entry per affordance OF THAT PLACE that carries a connection.
+// An affordance without a connection navigates nowhere, and no rule invents a link for it.
+//
+// PURE and total like the rest of the file. The board is cleaned AT THE BOUNDARY, by hand (the
+// project's validation convention): junk place or affordance entries become empty ones rather than
+// throws, so the nine junk boards the committed gate drives produce screens or null, never a crash.
+// For a valid board the cleaning is the identity, so every counted number is still the board's own.
+export function screensFor(board, answers) {
+  if (isEmptyBoard(board)) return null;
+
+  const places = board.places.map((entry) => {
+    const place = entry && typeof entry === "object" ? entry : {};
+    return {
+      id: place.id ?? null,
+      label: place.label ?? "",
+      affordances: affordancesOf(place).map((a) => (a && typeof a === "object" ? a : {})),
+    };
+  });
+  const connections = (Array.isArray(board.connections) ? board.connections : [])
+    .filter((c) => Array.isArray(c));
+  const cleaned = { places, connections };
+
+  // One row per affordance of ONE place — the S2/S3 slot shape. Sliced at SLOT_MAX like every
+  // derivation, and provably never truncating: breadboard.mjs caps affordances per place at
+  // MAX_AFFORDANCES, which equals SLOT_MAX, so there is no per-place truncation to go unstated
+  // (the committed gate asserts the equality rather than trusting this sentence).
+  const rowsOf = (place) => place.affordances.slice(0, SLOT_MAX).map((aff) => ({
+    label: String(aff.label ?? ""),
+    value: labelOf(places, targetOf(connections, aff.id)) ?? "acts here",
+  }));
+
+  const entry = patternFor({ answers: answers ?? null, board: cleaned });
+
+  return places.map((place, i) => {
+    const affs = place.affordances;
+    let type;
+    let reason;
+    let slots;
+    if (i === 0) {
+      type = entry.id;
+      reason = `Rule S1: the entry place wears the board's own pattern. ${entry.reason}`;
+      slots = slotsFor(type, cleaned) || [];
+    } else if (isHubShaped(place, connections)) {
+      type = "settings";
+      reason = `Rule S2: this place carries ${affs.length} affordances and every one of them leads to another place — a menu of destinations, which is the hub rule read on one place.`;
+      slots = rowsOf(place);
+    } else if (affs.length) {
+      type = "queue";
+      reason = `Rule S3: this place carries ${affs.length} affordance${affs.length === 1 ? "" : "s"} and the work happens here — a list worked through where you are, with each row saying where it leads or that it acts in place.`;
+      slots = rowsOf(place);
+    } else {
+      type = "queue";
+      reason = "Rule S4: this place has nothing to act on. The board drew a destination with no work in it, and this screen says so rather than inventing content.";
+      slots = [];
+    }
+
+    const nav = [];
+    for (const aff of affs) {
+      const targetId = targetOf(connections, aff.id);
+      if (targetId == null) continue;
+      nav.push({
+        affordanceId: aff.id ?? null,
+        label: String(aff.label ?? ""),
+        targetId,
+        targetLabel: labelOf(places, targetId) ?? "",
+      });
+    }
+
+    return { id: place.id, label: String(place.label ?? ""), type, reason, slots, nav };
+  });
 }

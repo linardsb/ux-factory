@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Eighteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Nineteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -67,6 +67,12 @@
 //                     fail at all, and prepareHandoff's view-time join over the real pack,
 //                     vocabulary and system-graph — the consumer set anchored on the PACK, since a
 //                     graph-derived one moves in lockstep with the thing under test (#211)
+//  19 flow           places become screens, connections become navigation: screensFor over the
+//                     REAL committed replay board (reachability, the counted nav, the pinned type
+//                     mix), a flow fixture per screen type via the BOARD_FOR rule, rules S1–S4
+//                     each proven to fire, feed's truncation stated by streamNote identity on the
+//                     canvas and in the exported file, the empty board, every screen against the
+//                     real vocabulary, two mutations, and totality over the junk boards (#212)
 //
 //   node tooling/build-checks.mjs
 
@@ -86,7 +92,7 @@ import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/br
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { clampSlot, fitLevel, MAX_COLS, MAX_ROWS, ZOOM_LEVELS, ZOOM_REST } from "../system/studio-canvas.mjs";
 import { createHistory, DIRS, hitSlot, HISTORY_MAX, occupancyKey, stepSlot } from "../system/studio-verbs.mjs";
-import { affordanceCount, PATTERNS, patternFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
+import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
   ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
   listScenarios, QUESTION_INPUTS, runBuild, runOptions, SHAPE_QUESTION, slugFor, STEP_EVENT_TEXT_MAX,
@@ -898,13 +904,20 @@ function scanSvg(svg, label) {
   // already-serialized DOM and must NOT be, because escaping it twice is the exact bug
   // build-card.mjs's "escaped once" note exists about.
   {
-    const hostileSlots = [{ col: 2, row: 3, html: "<div class=\"ds-metric-tile\"><p>real &amp; serialized</p></div>" }];
+    // The screens shape since #212 — and richer for it: the hostile label now ALSO travels through
+    // a section heading and a nav anchor's text, two more places escape-once has to hold.
+    const hostileScreens = [{
+      name: HOSTILE_LABEL,
+      type: "queue",
+      slots: [{ html: "<div class=\"ds-metric-tile\"><p>real &amp; serialized</p></div>" }],
+      nav: [{ label: HOSTILE_LABEL, target: 1 }],
+    }];
     const out = exportHtml({
       title: HOSTILE_LABEL,
       css: ":root{--x:1}",
       inlineTokens: { ...HOSTILE_TOKENS, "--color-accent": "#b5179e" },
-      slots: hostileSlots,
-      meta: { patternLabel: HOSTILE_LABEL, places: 1, affordances: 2, connections: 0, packLabel: HOSTILE_LABEL, hasVisitorTokens: true },
+      screens: hostileScreens,
+      meta: { patternLabel: HOSTILE_LABEL, screens: 1, places: 1, affordances: 2, connections: 0, packLabel: HOSTILE_LABEL, hasVisitorTokens: true },
     });
 
     // 1 · the hostile label reaches nothing executable, in any of the three places it is used.
@@ -919,7 +932,7 @@ function scanSvg(svg, label) {
     //     deleting the `&` replacement from esc() left every assertion above green — the mutation
     //     sweep for this group found exactly that. A raw `&` in a text field is also the ordinary
     //     case, not the adversarial one: place labels really do read "Jobs & routes".
-    const amp = exportHtml({ title: "Jobs & routes <b>", css: "", slots: hostileSlots, meta: {} });
+    const amp = exportHtml({ title: "Jobs & routes <b>", css: "", screens: hostileScreens, meta: {} });
     ok(amp.includes("<title>Jobs &amp; routes &lt;b&gt;</title>"),
       "the export did not escape a bare ampersand in a text field — the entity that follows it in the same string is then broken");
     //     …and the serialized markup was NOT escaped at all: it is the renderer's own output.
@@ -950,7 +963,7 @@ function scanSvg(svg, label) {
     //     is HTML with no character budgets — clip() is the SVG templates' problem, not this one —
     //     so what matters is that the file stays valid text.
     const longLabel = `${"x".repeat(4000)}\u{1F4CA}`;
-    const long = exportHtml({ title: longLabel, css: "", slots: hostileSlots, meta: { places: 0 } });
+    const long = exportHtml({ title: longLabel, css: "", screens: hostileScreens, meta: { places: 0 } });
     ok(!hasLoneSurrogate(long), "the export split an astral character into a lone surrogate");
     ok(long.includes(longLabel), "the export clipped a long title — an HTML document has no such budget");
 
@@ -962,7 +975,7 @@ function scanSvg(svg, label) {
     const wholly = Object.fromEntries(vetTokens(HOSTILE_TOKENS).rejected.map((r) => [r.key, r.value]));
     ok(Object.keys(vetTokens(wholly).tokens).length === 0,
       "the wholly-rejected fixture is not wholly rejected — this case would pass on any implementation");
-    const allBad = exportHtml({ title: "t", css: "", inlineTokens: wholly, slots: hostileSlots, meta: {} });
+    const allBad = exportHtml({ title: "t", css: "", inlineTokens: wholly, screens: hostileScreens, meta: {} });
     ok(allBad.includes("<style>:root{}</style>"), "a wholly-rejected token map did not leave the :root block empty");
     ok(allBad.includes("ds-metric-tile"), "a wholly-rejected token map took the components down with it");
   }
@@ -1017,7 +1030,7 @@ function scanSvg(svg, label) {
     "build-import.mjs", "build-keep.mjs", "build-card.mjs", "build-share.mjs",
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
-    "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs",
+    "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs", "studio-flow.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -2688,13 +2701,19 @@ function scanSvg(svg, label) {
   ok(run.counted.places === drafted.places.length && run.counted.affordances === affordanceCount(drafted)
     && run.counted.connections === drafted.connections.length,
     `the counted numbers are not the board's: ${deep(run.counted)}`);
-  // A TRIPWIRE on the measured shape, and it records what it is: dashboard derives ONE SLOT PER
-  // PLACE, so the canvas's wrapper count and the composition length coincide — which is why the
-  // shipped page only ever exercises the swap's 1:1 branch. queue, feed and settings derive from
-  // AFFORDANCES instead and can differ from the place count in either direction; 15.2 is where that
-  // is retired for all five rather than left to run-time discovery.
+  // A TRIPWIRE on the measured shape of the DERIVATION — not of the swap, which since #212 is
+  // per-SCREEN and 1:1 with places by construction: dashboard derives ONE SLOT PER PLACE, so this
+  // fixture's entry screen holds one tile per place. If this moves, slotsFor moved.
   ok(run.slots.length === drafted.places.length,
     `dashboard is 1:1 with places, so ${run.slots.length} slots for ${drafted.places.length} places means the derivation moved`);
+  // #212: THE FLOW. Screens are the places, 1:1 — the structural fact applySwap's tripwire enforces
+  // on the running page — and the ENTRY screen is the top-level result, slots and composition both,
+  // which is "a strict extension of the single compiled screen" as an assertion rather than prose.
+  ok(Array.isArray(run.screens) && run.screens.length === drafted.places.length,
+    `${run.screens && run.screens.length} screens for ${drafted.places.length} places — one place is one screen`);
+  ok(run.screens && deep(run.screens[0].slots) === deep(run.slots)
+    && deep(run.screens[0].composition) === deep(run.composition),
+    "the entry screen is not the top-level result — the flow must be a strict extension of the single screen");
   // Every step carries a detail sentence, and none of them is empty — the readout renders them.
   ok(deep(run.steps.map((s) => s.id)) === deep(STEPS.map((s) => s.id)), "the run's steps are not STEPS, in order");
   ok(run.steps.every((s) => typeof s.detail === "string" && s.detail.length > 0),
@@ -2710,7 +2729,10 @@ function scanSvg(svg, label) {
   // MEASURED PER FIXTURE, not claimed per derivation. dashboard and onboarding derive one slot per
   // PLACE by rule; queue, feed and settings derive from AFFORDANCES and can differ from the place
   // count in either direction — queue happens to coincide on its fixture, which is exactly why this
-  // is recorded as what the fixtures measured rather than as a statement about the rules.
+  // is recorded as what the fixtures measured rather than as a statement about the rules. Since
+  // #212 that split is a fact about slotsFor's derivations ONLY, never about the swap: renderScreen
+  // renders one whole screen into one wrapper, so composition-vs-slots decides how many components
+  // a SCREEN holds, and the canvas aligns screens to wrappers 1:1 whatever the slot count is.
   const matchesPlaces = [];
   const differs = [];
   for (const p of Object.values(PATTERNS)) {
@@ -2735,12 +2757,23 @@ function scanSvg(svg, label) {
     }
     ok(r.state === "rendered", `${p.id} compiles to "${r.state}", not "rendered"`);
     if (r.state !== "rendered") continue;
-    // THE CARDINALITY QUESTION, RETIRED FOR ALL FIVE rather than for the one the page reaches: the
-    // DOM swap aligns composed nodes to canvas wrappers positionally, so a pattern whose composition
-    // and slots disagreed would misalign silently.
+    // Composition and slots must agree per pattern — since #212 this decides how many components
+    // the ENTRY SCREEN holds (renderScreen renders them as one screen in one wrapper), so a
+    // disagreement is a derivation bug rather than a swap misalignment.
     ok(r.composition.length === r.slots.length,
       `${p.id} composed ${r.composition.length} components for ${r.slots.length} slots`);
     (r.slots.length === board.places.length ? matchesPlaces : differs).push(p.id);
+    // #212: the swap's unit is the screen, so the per-fixture flow facts are asserted here where
+    // every pattern already iterates: one screen per place, and per screen either a composition the
+    // same length as its slots or — for a zero-slot S4 screen — none at all, honestly.
+    ok(Array.isArray(r.screens) && r.screens.length === board.places.length,
+      `${p.id}: ${r.screens && r.screens.length} screens for ${board.places.length} places`);
+    for (const [si, screen] of (r.screens || []).entries()) {
+      ok(screen.slots.length
+        ? (screen.composition || []).length === screen.slots.length
+        : screen.composition === null,
+      `${p.id} screen ${si + 1} ("${screen.label}") composed ${(screen.composition || []).length} components for ${screen.slots.length} slots`);
+    }
     try {
       validateComposition(VOCAB, r.composition);
     } catch (err) {
@@ -2752,7 +2785,7 @@ function scanSvg(svg, label) {
     }
   }
   ok(matchesPlaces.length > 0 && differs.length > 0,
-    `the fixtures no longer cover both cardinalities (slots === places: ${matchesPlaces.join(", ") || "none"}; slots !== places: ${differs.join(", ") || "none"}) — the swap's alignment is only interesting while both are covered`);
+    `the fixtures no longer cover both cardinalities (slots === places: ${matchesPlaces.join(", ") || "none"}; slots !== places: ${differs.join(", ") || "none"}) — slotsFor's place-derived vs affordance-derived split is only a gated fact while both are covered`);
 
   // --- 15.3 determinism, by comparison rather than by inspection --------------------------------
   // AC #3's pure half. Two runs of the same board must be indistinguishable WHOLE — steps included,
@@ -2787,6 +2820,7 @@ function scanSvg(svg, label) {
     ok(!threw, `compileSteps threw on ${why}: ${threw && threw.message}`);
     ok(got && got.state === "empty", `compileSteps returned "${got && got.state}" for ${why}, expected "empty"`);
     ok(got && got.composition === null, `compileSteps composed something for ${why}`);
+    ok(got && got.screens === null, `compileSteps built screens for ${why} — junk names no flow`);
     ok(got && got.steps.length === STEPS.length && got.steps.every((s) => s.detail),
       `compileSteps dropped its step sentences for ${why} — the readout renders them on every path`);
   }
@@ -2799,7 +2833,7 @@ function scanSvg(svg, label) {
   ok(compileSteps(drafted, null).state === "rendered",
     "a board with no answers should still compile — patternFor falls back to dashboard and says so");
 
-  group("compile", `the committed pipeline as data: the REAL drafted board compiles to ${run.patternId} with ${comp.length} components for ${run.slots.length} slots, every number counted from the board and the pattern read from patternFor rather than re-derived · all 5 patterns validate against handoff/verdant/vocabulary.json and every one has composition.length === slots.length, so the DOM swap's positional alignment is a gated fact for all of them (measured on the fixtures: slots === places for ${matchesPlaces.join(", ")}, slots !== places for ${differs.join(", ")}) · the out-of-library refusal is DELIBERATELY VACUOUS and guarded · determinism proven by deep-comparing two whole runs, steps included · total over 9 junk boards and 4 junk answer sets, never a throw · the beat itself — the positional in-place swap, the byte-identical re-run, the lazy vocabulary fetch, the zero view transitions and the reduced-motion end state — is studio-journey's and vt-verify's, and says so`);
+  group("compile", `the committed pipeline as data: the REAL drafted board compiles to ${run.patternId} with ${comp.length} components for ${run.slots.length} slots and ${run.screens.length} screens for ${drafted.places.length} places, every number counted from the board and the pattern read from patternFor rather than re-derived · the entry screen IS the top-level result, slots and composition both — the flow as a strict extension, deep-compared · all 5 patterns validate against handoff/verdant/vocabulary.json, every one has composition.length === slots.length, and every fixture's flow is one screen per place with per-screen compositions aligned (or honestly null on a zero-slot screen) · the cardinality split (slots === places for ${matchesPlaces.join(", ")}, slots !== places for ${differs.join(", ")}) stays gated as a fact about slotsFor's derivations · the out-of-library refusal is DELIBERATELY VACUOUS and guarded · determinism proven by deep-comparing two whole runs, screens and steps included · total over 9 junk boards and 4 junk answer sets, never a throw, screens null on junk · the beat itself — the per-screen in-place swap, the tripwire refusal, the byte-identical re-run, the lazy vocabulary fetch, the zero view transitions and the reduced-motion end state — is studio-journey's and vt-verify's, and says so`);
 }
 
 // --- 16 · the replay driver's pure layer ------------------------------------------------------------
@@ -3033,15 +3067,19 @@ function scanSvg(svg, label) {
   // containing the word — a bare substring test would fail on the pack that is doing it right.
   const decommented = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
 
-  const slotsFixture = [{ col: 4, row: 2, html: "<div class=\"ds-metric-tile\">x</div>" }];
+  const screensFixture = [{
+    name: "Overview", type: "dashboard",
+    slots: [{ html: "<div class=\"ds-metric-tile\">x</div>" }],
+    nav: [],
+  }];
 
   for (const pack of PACK_IDS) {
     const packCss = readFileSync(join(CSS_DIR, `tokens.${pack}.css`), "utf8");
     const out = exportHtml({
       title: "A prototype from ux factory",
       css: [contractCss, packCss, componentsCss].join("\n"),
-      slots: slotsFixture,
-      meta: { places: 1, affordances: 0, connections: 0 },
+      screens: screensFixture,
+      meta: { screens: 1, places: 1, affordances: 0, connections: 0 },
     });
     const bare = decommented(out);
 
@@ -3104,37 +3142,44 @@ function scanSvg(svg, label) {
   ok(stripImports(null) === "" && stripImports(undefined) === "" && stripImports(42) === "",
     "stripImports is not total over a non-string");
 
-  // 4 · THE ARRANGEMENT SURVIVES — the studio's unique artifact, and the reason this export exists
-  //     rather than /build's. A slot at column 4, row 2 must emit grid LINE PLACEMENT for column 4,
-  //     row 2, not source order.
-  const arranged = exportHtml({ title: "t", css: "", slots: [{ col: 4, row: 2, html: "<i>a</i>" }, { col: 1, row: 1, html: "<i>b</i>" }], meta: {} });
-  ok(arranged.includes('class="sx-cell sx-c4-r2"'), "a slot at column 4, row 2 did not get its own placement class");
-  ok(arranged.includes(".sx-c4-r2{grid-column:4;grid-row:2}"), "the placement class for column 4, row 2 carries no grid line placement");
-  // Source order is NOT the arrangement: the 4,2 cell is written first because that is the order the
-  // canvas handed it over, and the grid is what puts it second.
-  const body = arranged.split("<body")[1];
-  ok(body.indexOf("sx-c4-r2") < body.indexOf("sx-c1-r1"), "the fixture no longer exercises out-of-source-order placement");
+  // 4 · THE FLOW'S STRUCTURE (#212) — the studio's artifact is now a multi-screen document. One
+  //     <section> per screen with GENERATED ids (s1…sN), every href a fragment resolving to a
+  //     section id in the SAME document, and the one-screen-at-a-time rule present in the
+  //     has-hides direction (the graceful-degradation half of AC #5: an engine without :has()
+  //     hides nothing and stacks the screens with working fragment jumps).
+  //     (#210's placement table, caps import and out-of-source-order cases retired with the
+  //     coordinates themselves — the flow's layout is board order × affordance order, and the
+  //     share link is the arrangement carrier per the epic PRD §3.)
+  const everyHrefResolves = (doc) => {
+    const ids = new Set([...doc.matchAll(/<section class="sx-screen" id="([^"]+)">/g)].map((match) => match[1]));
+    return [...doc.matchAll(/href="([^"]+)"/g)].every(([, h]) => h.startsWith("#") && ids.has(h.slice(1)));
+  };
+  const flowFixture = [
+    { name: "Overview", type: "dashboard", slots: [{ html: "<div class=\"ds-metric-tile\">a</div>" }], nav: [{ label: "Open the queue", target: 2 }] },
+    { name: "Queue", type: "queue", slots: [{ html: "<div class=\"ds-list-row\">b</div>" }], nav: [{ label: "Back to overview", target: 1 }] },
+  ];
+  const flowDoc = exportHtml({ title: "t", css: "", screens: flowFixture, meta: { screens: 2 } });
+  ok((flowDoc.match(/<section class="sx-screen" id="s\d+">/g) || []).length === 2,
+    "two screens did not emit two sections");
+  ok(flowDoc.includes('id="s1"') && flowDoc.includes('id="s2"'), "the section ids are not the generated s1…sN");
+  ok((flowDoc.match(/href="#s\d+"/g) || []).length === 2, "the two nav entries did not become two fragment anchors");
+  ok(everyHrefResolves(flowDoc), "an emitted href does not resolve to a section in the document");
+  ok(!/href="(?!#)/.test(flowDoc), "the export emitted a non-fragment href — a link that leaves the file is a request");
+  ok(flowDoc.includes(".sx-flow:has(:target) .sx-screen:not(:target){display:none}"),
+    "the one-screen-at-a-time rule is missing or not written in the has-hides direction");
 
-  // 5 · THE CAPS ARE IMPORTED AND NOT RE-LITERALLED — group 12's discipline, in both directions and
-  //     by RUNNING the generator rather than counting occurrences of "12" in the source.
-  const table = exportHtml({ title: "t", css: "", slots: [], meta: {} });
-  const rules = table.match(/\.sx-c\d+-r\d+\{/g) || [];
-  ok(rules.length === MAX_COLS * MAX_ROWS,
-    `the placement table has ${rules.length} rules for a ${MAX_COLS}×${MAX_ROWS} canvas — it is not generated from the imported caps`);
-  ok(new Set(rules).size === rules.length, "the placement table repeats a cell address");
-  ok(table.includes(`.sx-c${MAX_COLS}-r${MAX_ROWS}{grid-column:${MAX_COLS};grid-row:${MAX_ROWS}}`),
-    "the far corner of the canvas has no placement rule — a component moved there would export unplaced");
-  ok(!table.includes(`.sx-c${MAX_COLS + 1}-`) && !table.includes(`-r${MAX_ROWS + 1}{`),
-    "the placement table extends past the canvas's own caps");
-  const exportSrc = readFileSync(join(CSS_DIR, "studio-export.mjs"), "utf8");
-  ok(/import \{ MAX_COLS, MAX_ROWS \} from "\.\/studio-canvas\.mjs"/.test(exportSrc),
-    "studio-export.mjs no longer imports the caps from studio-canvas.mjs");
-  // An off-grid slot is DROPPED, never clamped: clamping would place a component at a coordinate
-  // nobody chose, and the arrangement is the one thing this file must not invent.
-  const offGrid = exportHtml({ title: "t", css: "", slots: [{ col: MAX_COLS + 1, row: 1, html: "<i>a</i>" }], meta: {} });
-  ok(!offGrid.includes("sx-cell"), "an off-grid slot was placed anyway — the export invented a coordinate");
-  ok(offGrid.includes("did not compile to any components") || offGrid.includes("sx-empty"),
-    "an export with every slot dropped does not say it is empty");
+  // 5 · NO DEAD NAV, in both of the ways a link can die: a one-screen flow has nowhere to lead and
+  //     must emit no anchors at all, and a nav entry pointing past the last section is dropped
+  //     rather than emitted as an href to nowhere. A zero-slot screen (rule S4 — a destination the
+  //     board drew no work in) still emits its section, carrying the honest sentence.
+  const oneScreen = exportHtml({ title: "t", css: "", screens: [{ name: "Only", type: "queue", slots: [{ html: "<i>a</i>" }], nav: [] }], meta: {} });
+  ok((oneScreen.match(/<section /g) || []).length === 1 && !oneScreen.includes("<a href"),
+    "a one-screen flow emitted nav anchors — dead links in a single-screen file");
+  const ghost = exportHtml({ title: "t", css: "", screens: [{ name: "Only", type: "queue", slots: [{ html: "<i>a</i>" }], nav: [{ label: "ghost", target: 4 }] }], meta: {} });
+  ok(!ghost.includes("<a href"), "a nav entry past the last section was emitted anyway — an href to nowhere");
+  const bareScreen = exportHtml({ title: "t", css: "", screens: [{ name: "Bare", type: "queue", slots: [], nav: [] }], meta: {} });
+  ok(bareScreen.includes("sx-screen-empty") && bareScreen.includes("Nothing to act on here"),
+    "a zero-slot screen did not carry the honest empty sentence");
 
   // 6 · THE HONESTY SENTENCES, BY IDENTITY against build-keep.mjs's exported constants — which is
   //     only possible because they ARE constants, and is why #210 lifted them out of specMarkdown
@@ -3148,37 +3193,29 @@ function scanSvg(svg, label) {
   const unesc = (s) => s
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-  const claimsOn = unesc(exportHtml({ title: "t", css: "", inlineTokens: { "--color-accent": "#b5179e" }, slots: slotsFixture, meta: { hasVisitorTokens: true, packLabel: "your own derived palette" } }));
+  const claimsOn = unesc(exportHtml({ title: "t", css: "", inlineTokens: { "--color-accent": "#b5179e" }, screens: screensFixture, meta: { hasVisitorTokens: true, packLabel: "your own derived palette" } }));
   for (const line of TWO_CLAIMS) {
     ok(claimsOn.includes(line), `the export's provenance block does not carry build-keep.mjs's line verbatim: "${line.slice(0, 50)}…"`);
   }
   ok(claimsOn.includes("Wearing: your own derived palette."), "the export does not name whose design values it is wearing");
   ok(!claimsOn.includes(NO_DESIGN_IMPORTED), "the export claims BOTH that a design was imported and that none was");
-  const claimsOff = unesc(exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { hasVisitorTokens: false } }));
+  const claimsOff = unesc(exportHtml({ title: "t", css: "", screens: screensFixture, meta: { hasVisitorTokens: false } }));
   ok(claimsOff.includes(NO_DESIGN_IMPORTED), "an export wearing the site's own pack does not say so");
   for (const line of TWO_CLAIMS) {
     ok(!claimsOff.includes(line), "an export with NO visitor tokens still claims \"the TOKEN VALUES above are yours\" — the one dishonest line this artifact could carry");
   }
-
-  // 7 · TRUNCATION IS STATED. The pattern can name more components than the canvas is holding blocks
-  //     for (slotsFor produces more slots than places for feed and settings — group 16's own
-  //     measurement), and a ?b= link carries the SENDER'S answers, so it is reachable. The rail caps
-  //     at the shorter of the two; this is the sentence that keeps that honest.
-  const cut = exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { omitted: 3 } });
-  ok(cut.includes("3 composed components did not travel"), "the export dropped components without saying so");
-  ok(!exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { omitted: 0 } }).includes("did not travel"),
-    "the export claims a truncation on a document where nothing was cut — a note that also appears when nothing happened teaches readers to ignore it");
-  ok(exportHtml({ title: "t", css: "", slots: slotsFixture, meta: { omitted: 1 } }).includes("1 composed component did not travel"),
-    "the truncation note does not agree in number");
+  //     (#210's `omitted` truncation note retired with the branch that produced it: screens travel
+  //     whole — there is no arrangement to cap them against — and the provenance block claims no
+  //     geometry, so there is nothing left for the note to state.)
 
   // 8 · TOTAL BY CONTRACT over junk. Never a throw, always a document.
   const junk = [
-    undefined, {}, { slots: null }, { slots: "nope" }, { slots: [null, 3, "x"] },
-    { css: 42, slots: [{ col: "a", row: {}, html: 1 }] },
+    undefined, {}, { screens: null }, { screens: "nope" }, { screens: [null, 3, "x"] },
+    { css: 42, screens: [{ name: {}, slots: "nope", nav: 7 }] },
     { title: {}, meta: "meta", inlineTokens: [1, 2] },
-    { slots: [{ col: 0, row: 0, html: "<i>a</i>" }] },
-    { slots: [{ col: 1.5, row: 1, html: "<i>a</i>" }] },
-    { slots: [{ col: 1, row: 1 }] },
+    { screens: [{ name: "a", slots: [{ html: 1 }], nav: [{ label: "x", target: 0 }] }] },
+    { screens: [{ slots: [null, 3], nav: [null, "x"] }] },
+    { screens: [{ name: "a", slots: [{}], nav: [{ target: 1.5 }] }] },
   ];
   for (const [i, input] of junk.entries()) {
     let doc = null;
@@ -3193,12 +3230,12 @@ function scanSvg(svg, label) {
   //     must be byte-identical, which is what makes the artifact a description of the board rather
   //     than of the moment it was pressed. specMarkdown interpolates a build date and is allowed to;
   //     this must not, which is why the drafted `builtOn` field was dropped rather than left unused.
-  const once = exportHtml({ title: "t", css: contractCss, inlineTokens: { "--color-accent": "#b5179e" }, slots: slotsFixture, meta: { places: 1, hasVisitorTokens: true } });
-  const twice = exportHtml({ title: "t", css: contractCss, inlineTokens: { "--color-accent": "#b5179e" }, slots: slotsFixture, meta: { places: 1, hasVisitorTokens: true } });
+  const once = exportHtml({ title: "t", css: contractCss, inlineTokens: { "--color-accent": "#b5179e" }, screens: screensFixture, meta: { screens: 1, places: 1, hasVisitorTokens: true } });
+  const twice = exportHtml({ title: "t", css: contractCss, inlineTokens: { "--color-accent": "#b5179e" }, screens: screensFixture, meta: { screens: 1, places: 1, hasVisitorTokens: true } });
   ok(once === twice, "two exports of the same board differ — something in the document carries a time, a counter or an id");
   ok(!/\b20\d\d-\d\d-\d\d\b/.test(once), "the export carries a date — two exports of the same board would differ across midnight");
 
-  group("export", `the document driven over the REAL committed stylesheets — the contract, components.css and each of the ${PACK_IDS.length} packs dock.mjs's own PACK_RE allowlists — with the zero-request claim asserted on the OUTPUT and the saulera pack proven to SURVIVE the strip, the pair that would have caught the plan's original regex eating :root (and case 1 goes red on committed bytes with no mutation, because tokens.saulera.css carries a live @import) · the arrangement as grid LINE placement, out of source order, with an off-grid slot DROPPED rather than clamped · the placement table generated from the imported ${MAX_COLS}×${MAX_ROWS} caps, exhaustively and in both directions · both honesty branches asserted by IDENTITY against build-keep.mjs's constants, including the negative half — an export with no visitor tokens must NOT claim the token values are theirs · truncation stated and agreeing in number · total over ${junk.length} junk inputs · byte-identical across two runs. The cold file:// render, the ACTUAL request count, the rail's both-ways hide and the download are tooling/studio-journey.mjs's and spike 3's, and say so`);
+  group("export", `the document driven over the REAL committed stylesheets — the contract, components.css and each of the ${PACK_IDS.length} packs dock.mjs's own PACK_RE allowlists — with the zero-request claim asserted on the OUTPUT and the saulera pack proven to SURVIVE the strip, the pair that would have caught the plan's original regex eating :root (and case 1 goes red on committed bytes with no mutation, because tokens.saulera.css carries a live @import) · #212's flow structure: one section per screen with generated s1…sN ids, every href a fragment resolving inside the document, no non-fragment href at all, the has-hides :has() rule present, a one-screen flow emitting no dead nav, an over-range nav entry dropped, and a zero-slot S4 screen carrying the honest sentence · both honesty branches asserted by IDENTITY against build-keep.mjs's constants, including the negative half — an export with no visitor tokens must NOT claim the token values are theirs · total over ${junk.length} junk inputs · byte-identical across two runs. The cold file:// render, the ACTUAL request count, the rail's both-ways hide and the download are tooling/studio-journey.mjs's and spike 3's, and say so`);
 }
 
 // --- 18 · the docs chain ----------------------------------------------------------------------------
@@ -3446,6 +3483,246 @@ function scanSvg(svg, label) {
   group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
 }
 
+// --- 19 · the flow: places become screens, connections become navigation (#212) ---------------------
+//
+// screensFor is the committed answer to the epic PRD's open question ("how the five patterns map to
+// flow screen types"), and this group is its gate: driven over the REAL committed replay board the
+// shipped page compiles (group 16's real-file discipline), over a fixture per screen type (the
+// BOARD_FOR rule — an in-library pattern with no flow fixture fails loudly), with the two MUTATIONS
+// that decide whether its own predicates can go red, and total over the same junk group 15 drives.
+//
+// AND IT STATES ITS BOUNDARY, the way groups 9, 11, 13 and 16 do. Nothing here can click a nav
+// button, watch focus land on a heading, hear the live region, scroll a canvas, or open a file://
+// document cold and count the requests a browser really makes. Those belong to
+// tooling/studio-journey.mjs's flow pass and to the manual cold open recorded in the ticket's
+// report. What this group owns is the DATA — which screen each place becomes, what navigates where
+// — and the exported string's structure.
+{
+  const { compileSteps } = await import("../system/studio-compile.mjs");
+
+  // Group 13/15's hand-written canonical stringify, copied for its standing reason:
+  // JSON.stringify(v, keys) puts an array in the REPLACER position and silently filters every level.
+  const deep = (v) => {
+    if (Array.isArray(v)) return `[${v.map(deep).join(",")}]`;
+    if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  };
+
+  // --- 19.1 the REAL committed board — the flow the shipped page compiles -----------------------
+  const REPLAY_BOARD = JSON.parse(readFileSync(join(ROOT, "replay/build-fieldwork-dispatch.board.json"), "utf8"));
+  const flow = screensFor(REPLAY_BOARD, DEFAULT_ANSWERS);
+  ok(Array.isArray(flow) && flow.length === REPLAY_BOARD.places.length,
+    `the committed board's ${REPLAY_BOARD.places.length} places became ${flow && flow.length} screens`);
+  ok(flow[0].type === patternFor({ answers: DEFAULT_ANSWERS, board: REPLAY_BOARD }).id,
+    `the entry screen's type is ${flow[0].type}; patternFor names ${patternFor({ answers: DEFAULT_ANSWERS, board: REPLAY_BOARD }).id} (rule S1)`);
+  const navTotal = (screens) => screens.reduce((n, s) => n + s.nav.length, 0);
+  ok(navTotal(flow) === REPLAY_BOARD.connections.length,
+    `${navTotal(flow)} nav entries for ${REPLAY_BOARD.connections.length} connections — navigation is counted from connections and from nothing else`);
+  // REACHABILITY — "clickable end to end", the pure half: a walk over nav from the entry reaches
+  // every screen. A real graph walk rather than a chain check, because the committed board's return
+  // paths make it one.
+  const reach = (screens) => {
+    const byId = new Map(screens.map((s, i) => [s.id, i]));
+    const seen = new Set([0]);
+    const queue = [0];
+    while (queue.length) {
+      const i = queue.shift();
+      for (const entry of screens[i].nav) {
+        const j = byId.get(entry.targetId);
+        if (j != null && !seen.has(j)) { seen.add(j); queue.push(j); }
+      }
+    }
+    return seen;
+  };
+  ok(reach(flow).size === flow.length,
+    `only ${reach(flow).size} of ${flow.length} screens are reachable from the entry — the flow is not clickable end to end`);
+  // The TYPE HISTOGRAM, pinned as a tripwire the way group 16 pins the artifact's op mix: the
+  // committed board reads as 1 dashboard entry + 3 queue screens today, and a rule edit that
+  // silently re-types one must go red HERE rather than ship unnoticed.
+  const histogram = (screens) => screens.reduce((h, s) => ({ ...h, [s.type]: (h[s.type] || 0) + 1 }), {});
+  ok(deep(histogram(flow)) === deep({ dashboard: 1, queue: 3 }),
+    `the committed flow's type mix moved: ${deep(histogram(flow))} — expected 1 dashboard + 3 queue (a tripwire over the rules, not a rule)`);
+
+  // --- 19.2 a flow fixture per screen type — the BOARD_FOR rule ---------------------------------
+  // Screen types ARE the patterns, so the roster iterates PATTERNS: an in-library pattern with no
+  // flow fixture fails loudly rather than being silently skipped. The four shape-named patterns are
+  // ENTRY screens of their own BOARD_FOR fixtures (rule S1); settings is covered on both of its
+  // routes — HUB_BOARD's entry (S1 through the hub override, with four S4 bare screens for free)
+  // and a NON-ENTRY hub place (rule S2), which no draft can produce and S2_BOARD draws deliberately.
+  const S2_BOARD = {
+    places: [
+      { id: "p1", label: "Overview", affordances: [{ id: "p1a1", label: "Open the menu" }] },
+      { id: "p2", label: "Menu", affordances: [1, 2, 3, 4].map((n) => ({ id: `p2a${n}`, label: `Go ${n}` })) },
+      { id: "p3", label: "Archive", affordances: [{ id: "p3a1", label: "Open a record" }] },
+    ],
+    connections: [["p1a1", "p2"], ["p2a1", "p1"], ["p2a2", "p3"], ["p2a3", "p1"], ["p2a4", "p3"]],
+  };
+  const FLOW_ANSWERS = {
+    dashboard: answersWith({ shape: "overview" }),
+    queue: answersWith({ shape: "worklist" }),
+    feed: answersWith({ shape: "stream" }),
+    onboarding: answersWith({ shape: "steps" }),
+    settings: answersWith({ shape: "overview" }),
+  };
+  const flows = {};
+  for (const p of Object.values(PATTERNS)) {
+    if (!p.inLibrary) continue;
+    ok(Object.hasOwn(BOARD_FOR, p.id) && BOARD_FOR[p.id],
+      `${p.id} has no flow fixture — a pattern was added and this gate was not told which board's flow carries it`);
+    if (!BOARD_FOR[p.id]) continue;
+    const screens = screensFor(BOARD_FOR[p.id], FLOW_ANSWERS[p.id]);
+    flows[p.id] = screens;
+    ok(Array.isArray(screens) && screens.some((screen) => screen.type === p.id),
+      `no screen of type ${p.id} anywhere in its own fixture's flow`);
+  }
+  // Every rule S1–S4 exercised, read off the REASON sentences — the reason IS the rule, so the
+  // assertion reads what fired rather than re-deriving the condition beside it.
+  const s2flow = screensFor(S2_BOARD, answersWith({ shape: "overview" }));
+  ok(s2flow[1].type === "settings" && s2flow[1].reason.startsWith("Rule S2"),
+    `the non-entry hub place read as ${s2flow[1].type} — rule S2 did not fire`);
+  ok(s2flow[1].slots.length === 4 && s2flow[1].slots.every((row) => row.value !== "acts here"),
+    "the S2 screen's rows are not the hub's four destinations");
+  ok(Object.values(flows).every((screens) => screens[0].reason.startsWith("Rule S1")),
+    "an entry screen's reason is not rule S1's");
+  ok(flows.queue.some((screen, i) => i > 0 && screen.reason.startsWith("Rule S3")),
+    "no S3 screen in the queue fixture's flow");
+  ok(flows.settings.slice(1).every((screen) => screen.reason.startsWith("Rule S4")
+    && screen.type === "queue" && screen.slots.length === 0),
+  "HUB_BOARD's bare places did not read as S4 empty screens");
+
+  // --- 19.3 navigation is counted from connections, and from nothing else -----------------------
+  const cut = structuredClone(REPLAY_BOARD);
+  cut.connections = cut.connections.filter(([from]) => from !== "p1a1");
+  const cutFlow = screensFor(cut, DEFAULT_ANSWERS);
+  ok(cutFlow[0].nav.length === 0 && navTotal(cutFlow) === REPLAY_BOARD.connections.length - 1,
+    "removing one connection did not remove exactly its own nav entry");
+  ok(reach(cutFlow).size === 1,
+    `severing the entry's one outgoing connection should strand the entry, but ${reach(cutFlow).size} screens stay reachable — reachability is not being read off the connections`);
+  const lone = {
+    places: [
+      { id: "p1", label: "A", affordances: [{ id: "p1a1", label: "Open B" }] },
+      { id: "p2", label: "B", affordances: [{ id: "p2a1", label: "Act in place" }] },
+    ],
+    connections: [["p1a1", "p2"]],
+  };
+  const loneFlow = screensFor(lone, null);
+  ok(loneFlow[1].nav.length === 0, "an unconnected affordance produced a nav entry");
+  ok(loneFlow[1].slots[0].value === "acts here", "an unconnected affordance's row does not say it acts in place");
+
+  // --- 19.4 the one truncation, stated — on the canvas AND in the exported file ------------------
+  const feedRun = compileSteps(FULL_BOARD, answersWith({ shape: "stream" }));
+  ok(feedRun.screens[0].type === "feed" && feedRun.screens[0].slots.length === SLOT_MAX,
+    `the FULL_BOARD feed entry shows ${feedRun.screens[0].slots.length} slots, expected SLOT_MAX ${SLOT_MAX}`);
+  ok(feedRun.screens[0].note === streamNote(SLOT_MAX, affordanceCount(FULL_BOARD)),
+    "the feed entry screen does not carry streamNote's sentence by identity — the truncation is unstated");
+  ok(feedRun.screens.slice(1).every((screen) => screen.note === undefined),
+    "a non-feed screen grew a truncation note");
+  ok(MAX_AFFORDANCES === SLOT_MAX,
+    `MAX_AFFORDANCES ${MAX_AFFORDANCES} !== SLOT_MAX ${SLOT_MAX} — a per-place truncation now exists and no sentence states it`);
+  const fullQueue = screensFor(FULL_BOARD, answersWith({ shape: "worklist" }));
+  ok(fullQueue.slice(1).every((screen) => screen.slots.length === MAX_AFFORDANCES),
+    "a full place's screen dropped rows — the per-place bound is truncating after all");
+  // The sentence REACHES THE EXPORTED FILE (PR #248 review, H1): the same screens the keep rail
+  // maps travel into exportHtml with the note threaded, and the document states the drop in
+  // streamNote's own words — asserted by IDENTITY (esc() alters none of them), on the feed entry
+  // alone. Before the fix the mapping returned {name, type, slots, nav} and the sentence never left
+  // the canvas: 6 rows printed beside "Affordances: 7" with nothing saying one was dropped.
+  const feedDoc = exportHtml({
+    title: "t",
+    css: "",
+    screens: feedRun.screens.map((screen) => ({
+      name: screen.label,
+      type: screen.type,
+      note: screen.note,
+      slots: [{ html: "<i>row</i>" }],
+      nav: [],
+    })),
+    meta: {},
+  });
+  ok(feedDoc.includes(`<p class="sx-note">${streamNote(SLOT_MAX, affordanceCount(FULL_BOARD))}</p>`),
+    "the exported feed document does not carry streamNote's sentence — the truncation is silently dropped from the file");
+  ok(feedDoc.split(`class="sx-note"`).length === 2,
+    "sx-note appears a wrong number of times — a screen with no note grew one, or the feed entry lost its only one");
+
+  // --- 19.5 the empty board names no screens, and every layer says so honestly (AC #4) ----------
+  ok(screensFor({ places: [], connections: [] }, DEFAULT_ANSWERS) === null, "an empty board named screens");
+  ok(screensFor({ places: [{ id: "p1", label: "A", affordances: [] }], connections: [] }, null) === null,
+    "one bare place named screens — the emptiness reading is patternFor's, shared");
+  const emptyRun = compileSteps({ places: [], connections: [] }, DEFAULT_ANSWERS);
+  ok(emptyRun.state === "empty" && emptyRun.screens === null,
+    "compileSteps did not carry the empty verdict through to the flow");
+  const emptyDoc = exportHtml({ title: "t", css: "", screens: [], meta: {} });
+  ok(emptyDoc.includes("did not compile to any components"),
+    "an export with no screens does not say it is empty");
+
+  // --- 19.6 every composed screen validates against the REAL generated vocabulary (AC #6) -------
+  const everyFlow = [
+    ["the committed board", compileSteps(REPLAY_BOARD, DEFAULT_ANSWERS)],
+    ...Object.keys(flows).map((id) => [id, compileSteps(BOARD_FOR[id], FLOW_ANSWERS[id])]),
+    ["the S2 board", compileSteps(S2_BOARD, answersWith({ shape: "overview" }))],
+  ];
+  let validated = 0;
+  for (const [label, run] of everyFlow) {
+    for (const [si, screen] of (run.screens || []).entries()) {
+      if (!screen.composition) continue;
+      try {
+        validateComposition(VOCAB, screen.composition);
+        validated += 1;
+      } catch (err) {
+        ok(false, `${label} screen ${si + 1} ("${screen.label}") failed the real vocabulary: ${err.message}`);
+      }
+      for (const node of screen.composition) {
+        ok(hasTemplate(node.name), `${node.name} has no renderer template — a screen would refuse on stage`);
+      }
+    }
+  }
+  ok(validated > 0, "no screen was validated at all — this case went vacuous");
+
+  // --- 19.7 the mutations — the checks above must be able to fail -------------------------------
+  // (a) tamper the exported document: drop one section and the href-resolution predicate goes red.
+  //     The predicate is group 17's, copied per the deep() rule (each group carries its own).
+  const everyHrefResolves = (doc) => {
+    const ids = new Set([...doc.matchAll(/<section class="sx-screen" id="([^"]+)">/g)].map((match) => match[1]));
+    return [...doc.matchAll(/href="([^"]+)"/g)].every(([, h]) => h.startsWith("#") && ids.has(h.slice(1)));
+  };
+  const twoDoc = exportHtml({ title: "t", css: "", screens: [
+    { name: "A", type: "queue", slots: [{ html: "<i>a</i>" }], nav: [{ label: "to B", target: 2 }] },
+    { name: "B", type: "queue", slots: [{ html: "<i>b</i>" }], nav: [] },
+  ], meta: {} });
+  ok(everyHrefResolves(twoDoc), "the two-screen document should resolve before tampering, or the mutation proves nothing");
+  const tampered = twoDoc.replace(/<section class="sx-screen" id="s2">[\s\S]*?<\/section>/, "");
+  ok(tampered !== twoDoc && !everyHrefResolves(tampered),
+    "dropping a section left every href 'resolving' — the resolution predicate cannot fail");
+  // (b) corrupt one screen's type in a copy of the real flow: the pinned histogram compare fails.
+  const corrupt = structuredClone(flow);
+  corrupt[1].type = "settings";
+  ok(deep(histogram(corrupt)) !== deep({ dashboard: 1, queue: 3 }),
+    "re-typing a screen left the pinned histogram equal — the tripwire cannot fail");
+
+  // --- 19.8 totality — group 15's nine junk boards × junk answers, never a throw ----------------
+  for (const [given, why] of [
+    [null, "null"],
+    [undefined, "undefined"],
+    [{}, "an object with no places"],
+    [{ places: null, connections: null }, "places that are not an array"],
+    [{ places: "nope" }, "places that are a string"],
+    [{ places: [null, 7, "x"] }, "places that are junk entries"],
+    [{ places: [{}] }, "a place with no id, label or affordances"],
+    [{ places: [{ id: "p1", label: "A", affordances: "nope" }] }, "affordances that are not an array"],
+    [{ places: [{ id: "p1", label: "A", affordances: [null, 3] }] }, "affordances that are junk entries"],
+  ]) {
+    for (const answers of [null, undefined, DEFAULT_ANSWERS, { shape: "worklist" }, { shape: 7 }, "nope"]) {
+      let got;
+      let threw = null;
+      try { got = screensFor(given, answers); } catch (e) { threw = e; }
+      ok(!threw, `screensFor threw on ${why} with answers ${JSON.stringify(answers)}: ${threw && threw.message}`);
+      ok(got === null || Array.isArray(got), `screensFor answered a non-array non-null for ${why}`);
+    }
+  }
+
+  group("flow", `screensFor over the REAL committed replay board: ${REPLAY_BOARD.places.length} places become ${flow.length} screens (entry type read from patternFor, rule S1), ${navTotal(flow)} nav entries counted from the file's ${REPLAY_BOARD.connections.length} connections and every screen reachable from the entry — clickable end to end, the pure half — with the 1-dashboard + 3-queue type mix pinned as a tripwire · a flow fixture per in-library screen type via the BOARD_FOR rule (a missing fixture fails loudly) and every rule S1–S4 proven to fire by its own reason sentence, S2 on a deliberate non-entry hub no draft can produce · navigation counted from connections ONLY: cutting one connection removes exactly its nav entry and strands the entry, an unconnected affordance navigates nowhere and says "acts here" · feed's SLOT_MAX truncation stated by streamNote IDENTITY — on the flow's screens AND carried into the exported document, exactly once (PR #248 review H1) — and the per-place bound proven un-truncating (MAX_AFFORDANCES === SLOT_MAX, asserted) · the empty board names null at every layer and the empty export says so · every composed screen of every fixture validates against the real vocabulary with a template per node · two mutations — a tampered document fails href resolution, a re-typed screen fails the pinned histogram · total over 9 junk boards × 6 junk answer sets · the click, the focus, the announcement, the scroll and the cold file:// open are tooling/studio-journey.mjs's flow pass and the manual check's, and say so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -3453,5 +3730,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 18 groups pass");
+  console.log("\nbuild ✓  all 19 groups pass");
 }
