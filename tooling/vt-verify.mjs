@@ -477,6 +477,7 @@ for (const name of toRun) {
       // The studio deliberately names NOTHING for view transitions (#171's lesson), so the honest
       // expected count here is zero everywhere and there are no group names to assert missing —
       // that half of the machinery is exercised by the /build entries above, which have names.
+      // Skipped under reduced motion BY DESIGN (PR #247 review, finding 3) — the summary sentence says so.
       if (!reduced) {
         // (a) the take-over, on a fresh hooked page mid-replay.
         const tpg = await fctx.newPage();
@@ -524,5 +525,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, its #207 compile beat, whose crossfade opens no transition at all, and (#213) its take-over handover and #210 keep-rail copy + export clicks — the interactions the earlier samples predate — sampled the same way with movement proven first: under reduced motion too, in every one (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, its #207 compile beat, whose crossfade opens no transition at all — that one under reduced motion too — and (#213) its take-over handover and #210 keep-rail copy + export clicks — the interactions the earlier samples predate — sampled the same way with movement proven first, full motion only by design, in every one (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);
