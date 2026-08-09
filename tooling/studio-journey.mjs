@@ -3014,7 +3014,8 @@ async function teardownPass(browser, t, errors) {
 // the calibration step below proves the delivery pipeline ALIVE first with a forced-slow click.
 // A bare-click sanity check fails healthy pages (a fast page legitimately yields nothing), and
 // no calibration at all lets a silently-dead observer turn every budget row vacuous-green
-// (proto-journey.mjs:289-304's recorded lesson, arriving here as a fixture choice).
+// (proto-journey.mjs:289-304's recorded lesson, arriving here as a fixture choice). The rows
+// CONSUME that verdict (PR #247 review): a dead pipeline is sixteen named reds, not one.
 async function perfPass(browser, engineName, t, errors) {
   const BUDGET_MS = 200;
   const watch = (p, tag) => {
@@ -3053,8 +3054,10 @@ async function perfPass(browser, engineName, t, errors) {
   await cal.mouse.click(400, 300);
   await flush(cal);
   const calSeen = summarize(await entriesFrom(cal, 0));
+  // The verdict the 16 rows below consume: a null latency is only a pass while THIS is true.
+  const alive = calSeen.length >= 1 && calSeen.every((g) => g.interactionId > 0);
   t(`INP · the observer pipeline is ALIVE on ${engineName} — a forced-slow click yields a grouped entry`,
-    calSeen.length >= 1 && calSeen.every((g) => g.interactionId > 0), JSON.stringify(calSeen));
+    alive, JSON.stringify(calSeen));
   await cal.close();
 
   // --- 1 · the interaction table ----------------------------------------------------------------
@@ -3145,7 +3148,8 @@ async function perfPass(browser, engineName, t, errors) {
 
   // Runs one fresh page through `rows` in order, measuring the rows named in `only` (all when
   // null). Per row: entry count before, act, flush, delta → summarize → the MAX latency among the
-  // new interactions. latency null = no entry = below the 16 ms floor (a pass — see the header).
+  // new interactions. latency null = no entry = below the 16 ms floor (a pass — see the header —
+  // a pass the row assertions grant only against the calibration verdict, never outright).
   const runSequence = async (rows, ready, only = null) => {
     const p = await ctx.newPage();
     watch(p, "perf");
@@ -3186,10 +3190,18 @@ async function perfPass(browser, engineName, t, errors) {
   };
 
   // The bounded, LOGGED retry: an over-budget row on a loaded operator machine is re-measured
-  // ONCE on a fresh settled page, and BOTH numbers print. Red only if still over. Silent
-  // tolerance is AC #7's named sin, which is why the rule is printed with the table below.
-  const over = Object.entries(measured)
-    .filter(([, m]) => m.latency !== null && m.latency > BUDGET_MS).map(([l]) => l);
+  // ONCE on a fresh settled page, and BOTH numbers print. Red if still over — or if the retry
+  // yields no entry for a row that measured over: calibration proves the floor is real for a
+  // FIRST null, but a null that follows an over-budget measure is inconclusive, not a clearance.
+  // Silent tolerance is AC #7's named sin, which is why the rule is printed with the table below.
+  //
+  // The ONE comparator (PR #247 review, finding 2): both the retry filter and the row verdicts
+  // below consume the imported violations() — an inline re-implementation here is the bug class
+  // the self-test control exists to catch and could not see.
+  const overLabels = (obj) => violations(
+    Object.entries(obj).map(([label, m]) => ({ label, latency: m.latency })), BUDGET_MS,
+  ).map((v) => v.label);
+  const over = overLabels(measured);
   if (over.length) {
     const overFactory = over.filter((l) => ROWS_FACTORY.some((r) => r.label === l));
     const overMid = over.filter((l) => ROWS_MIDREPLAY.some((r) => r.label === l));
@@ -3199,7 +3211,7 @@ async function perfPass(browser, engineName, t, errors) {
     };
     for (const label of over) {
       const re = again[label];
-      console.log(`    retried: ${label} ${measured[label].latency} ms → ${re.latency === null ? "< 16 ms (below floor)" : `${re.latency} ms`}`);
+      console.log(`    retried: ${label} ${measured[label].latency} ms → ${re.latency === null ? "no entry (inconclusive)" : `${re.latency} ms`}`);
       measured[label] = { ...re, retried: measured[label].latency };
     }
   }
@@ -3208,12 +3220,23 @@ async function perfPass(browser, engineName, t, errors) {
   // numbers are budgets, never exact values.
   console.log(`  INP · ${engineName} · budget ${BUDGET_MS} ms · one logged retry · observer floor 16 ms:`);
   for (const [label, m] of Object.entries(measured)) {
-    const ms = m.latency === null ? "< 16 ms (below observer floor)" : `${m.latency} ms`;
+    const ms = m.latency === null
+      ? (m.retried ? "no entry after retry (inconclusive)" : "< 16 ms (below observer floor)")
+      : `${m.latency} ms`;
     console.log(`    ${label} · ${ms} · ${m.entries} entr${m.entries === 1 ? "y" : "ies"}${m.retried ? ` · retried from ${m.retried} ms` : ""}`);
   }
+  const stillOver = new Set(overLabels(measured));
   for (const [label, m] of Object.entries(measured)) {
-    t(`INP · ${label} ≤ ${BUDGET_MS} ms`, (m.latency ?? 0) <= BUDGET_MS,
-      `${m.latency} ms${m.retried ? ` (retried from ${m.retried} ms)` : ""}`);
+    // null + never retried → a floor pass ONLY while calibration proved delivery (finding 1);
+    // null + retried      → the row measured over and the retry proved nothing (finding 4);
+    // a number            → the imported comparator decides, same as the retry filter (finding 2).
+    const pass = m.latency === null ? (alive && !m.retried) : !stillOver.has(label);
+    const detail = m.latency === null
+      ? (m.retried
+        ? `inconclusive — first measured ${m.retried} ms over budget, the retry yielded no entry`
+        : `no entry (< 16 ms floor) · calibration ${alive ? "alive" : "DEAD — nothing was delivered this run"}`)
+      : `${m.latency} ms${m.retried ? ` (retried from ${m.retried} ms)` : ""}`;
+    t(`INP · ${label} ≤ ${BUDGET_MS} ms`, pass, detail);
   }
 
   // The self-test control (memory `check-that-cannot-fail`): the comparator proven able to go red
