@@ -452,11 +452,15 @@
 /* system/studio-flow.mjs's chrome. Everything a compiled screen looks like is here — the module's
    inline-style write count stays zero and build-checks group 7 includes it with no exception argued.
 
-   A SCREEN SCROLLS INSIDE ITS WRAPPER. The stage's slots are fixed cells (--stx-slot-w × --stx-slot-h
-   above), and a screen is a heading, its composed components and its navigation — more than a cell
-   holds. overflow-y: auto is what keeps every component and every nav button reachable, by scroll
-   and by Tab's own scroll-into-view; clipping them silently would be a canvas hiding the product it
-   claims to show. min-height: 0 lets the flex item actually shrink to the wrapper's box.
+   A SCREEN FITS ITS SLOT; SCROLLING IS THE BOUNDED FALLBACK (#251, amending #212's original
+   scroll-inside-the-wrapper call). The committed flow's screens held 2–3× their 140px viewport
+   behind macOS's invisible-at-rest overlay scrollbars, so the epic's payoff moment read as a
+   rendering bug — the fix is the compiled-state slot growth below, which makes the committed
+   board's screens fit WHOLE. overflow-y: auto stays for the boards the growth cannot bound (an
+   oversize ?b=-restored board), and it is what keeps every component and every nav button
+   reachable there, by scroll and by Tab's own scroll-into-view — now behind a visible, token-styled
+   scrollbar instead of a silent one. min-height: 0 lets the flex item actually shrink to the
+   wrapper's box.
 
    THE COMPILED COMPONENTS ARE STILL NOT STYLED HERE — the .ds-* primitives carry components.css's
    token-only rules, which is the entire claim the beat makes (the compile block's own note).
@@ -470,6 +474,29 @@
   overflow-y: auto;
   padding: var(--spacing-xs, 8px);
 }
+/* THE COMPILED STATE GROWS THE SLOT (#251). data-compile-state is studio-compile.mjs's
+   attribute (the data-zoom discipline: the module writes an attribute, this sheet decides
+   what it means), and "rendered" is the ONE state whose slots hold screens rather than
+   fat-marker blocks — empty/out-of-library/refused all keep the blocks, and keep 140px.
+   480px is MEASURED, not chosen: with the list-row fix in, the committed replay board's
+   tallest screen is 426/428/429px on chromium/firefox/webkit (2026-08-10), so 480 clears the
+   worst engine by 51px — and 220×480 is phone aspect, so the screens read as product
+   screens, the presentation #219's device frames later formalise. The sizer and the grid
+   template consume the same variable, so the scroll range, the hit-test (measured per
+   gesture, studio-verbs.mjs) and fit() (measured per call) all follow. Revert restores
+   "blocks" and the geometry snaps back — no JS knows about this rule, which is the point.
+   The one carry that could span this growth is cancelled at the swap (studio.mjs's onState
+   guard, #251), so no gesture's cached geometry ever meets the grown tracks. */
+.stx-viewport[data-compile-state="rendered"] { --stx-slot-h: 480px; }
+/* The scroller that remains is the FALLBACK, and it must look like one (#251): a ?b=-restored
+   board can outgrow even the compiled slot, and macOS overlay scrollbars are invisible at
+   rest — which is how 2/3 of every screen sat behind a scroller nothing announced. Standard
+   properties for Firefox/Chromium; the ::-webkit-* fallback is Safari's, whose custom
+   scrollbars paint whenever content overflows. Tokens only. */
+.stf-screen { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+.stf-screen::-webkit-scrollbar { width: 8px; }
+.stf-screen::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: var(--radius-sm); }
+.stf-screen::-webkit-scrollbar-track { background: transparent; }
 .stf-screen-name { margin: 0; font-size: var(--type-caption); color: var(--color-fg); }
 .stf-note,
 .stf-empty { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }

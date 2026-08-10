@@ -453,7 +453,21 @@ function mountStudioCore(root, shell, restored) {
   // board the run built rather than the empty one this line was reached with.
   // `getAnswers` beside `getBoard`, the same two-line seam for the same reason (#214): the method
   // cards move `answers` after this mount, and the beat must compile the CURRENT set at call time.
-  const compile = mountCompile(canvas, { getBoard: () => board, answers, getAnswers: () => answers, bus, onState: () => syncInspect() });
+  const compile = mountCompile(canvas, {
+    getBoard: () => board,
+    answers,
+    getAnswers: () => answers,
+    bus,
+    onState: (next) => {
+      // #251: the swap ("rendered") and its revert ("blocks") replace every wrapper's content —
+      // a carry started over the old content is void, and its cached pick-up geometry predates
+      // the compiled state's grown tracks. The other terminal states (empty, out-of-library,
+      // refused, unavailable) leave the blocks untouched and cancel nothing. cancel() no-ops
+      // without a live gesture, which is every ordinary compile.
+      if (next === "rendered" || next === "blocks") verbs.cancel();
+      syncInspect();
+    },
+  });
 
   let summary = buildSummary(board, answers);
   const summaryMount = document.getElementById("this-build-summary");

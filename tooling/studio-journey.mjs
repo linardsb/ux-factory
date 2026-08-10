@@ -2333,6 +2333,21 @@ async function flowPass(browser, t, errors) {
   t("#212 · …with one nav button per connection", goCount === board.connections.length,
     `${goCount} nav buttons for ${board.connections.length} connections`);
 
+  // #251 · presentation, not just reachability: the committed flow FITS its compiled slots. The
+  // pixel gate never interacts and groups 12/19 are DOM-free, so this is the only gate that can
+  // see a screen guillotined behind its own scroller. Both bounds printed on every run.
+  const boxes = await p.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot > .stf-screen")].map((s) => ({
+      label: s.querySelector(".stf-screen-name")?.textContent ?? "?",
+      sh: s.scrollHeight, ch: s.clientHeight, sw: s.scrollWidth, cw: s.clientWidth,
+    })));
+  t("#251 · every compiled screen of the committed board shows its whole content — no internal vertical scroll",
+    boxes.length > 0 && boxes.every((b) => b.sh <= b.ch),
+    boxes.map((b) => `${b.label}: ${b.sh}/${b.ch}v`).join(" · "));
+  t("#251 · no compiled screen scrolls horizontally — the list-row value stays inside the screen",
+    boxes.length > 0 && boxes.every((b) => b.sw <= b.cw),
+    boxes.map((b) => `${b.label}: ${b.sw}/${b.cw}h`).join(" · "));
+
   // THE POINTER WALK, end to end along the dispatch chain p1→p2→p3→p4: after each hop, focus sits
   // on the target screen's heading inside the target wrapper, and the live region carries exactly
   // "<label>, screen k of N." — one announcement, counted exactly.
@@ -2401,6 +2416,34 @@ async function flowPass(browser, t, errors) {
     rLanded.inWrapper && rLanded.onHeading && rSaid.n === 1 && rSaid.last === rWant,
     `${JSON.stringify(rLanded)} n=${rSaid.n} last="${rSaid.last}"`);
   await rctx.close();
+
+  // #251 · a carry cannot span the swap: the compiled state grows the tracks, and a gesture's
+  // geometry is cached at pick-up — so a sticky or keyboard carry surviving the Compile click
+  // would place drops against 140px rows on a 480px grid (and would be carrying a block whose
+  // content just became a screen). The orchestrator cancels it when onState says the content
+  // actually swapped. This case is the discriminator: without the guard the gesture survives.
+  const cp = await open(ctx);
+  const carryOrigin = await cp.evaluate(() => {
+    const w = document.querySelector("[data-studio-canvas] .stx-slot");
+    return { col: w.getAttribute("data-col"), row: w.getAttribute("data-row") };
+  });
+  await cp.locator(`${VIEWPORT} .stx-slot`).nth(0).locator(".stx-grab").click();
+  await cp.waitForFunction(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.includes("picked up"),
+    null, { timeout: 5000 });
+  await compileNow(cp);
+  const carried = await cp.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
+    const w = document.querySelector("[data-studio-canvas] .stx-slot");
+    return {
+      gestureLive: m.getVerbs().gesture !== null,
+      picked: document.querySelectorAll("[data-studio-canvas] .is-picked").length,
+      col: w.getAttribute("data-col"), row: w.getAttribute("data-row"),
+    };
+  }));
+  t("#251 · a live sticky carry is cancelled when the compile swap lands — gesture void, node at origin",
+    !carried.gestureLive && carried.picked === 0
+      && carried.col === carryOrigin.col && carried.row === carryOrigin.row,
+    JSON.stringify({ origin: carryOrigin, after: carried }));
+  await cp.close();
   await ctx.close();
 }
 

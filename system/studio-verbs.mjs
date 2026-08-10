@@ -764,6 +764,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       bus,
       history,
       snapshot,
+      cancel, // the orchestrator's carry-across-swap guard (#251); a silent no-op with no live gesture
       get gesture() { return gesture; },
       destroy() {
         ac.abort();
