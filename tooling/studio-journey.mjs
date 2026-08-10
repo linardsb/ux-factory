@@ -3263,6 +3263,57 @@ async function methodPass(browser, engineName, t, errors) {
     restored.state === "ready" && restored.note.includes("link you followed"), restored.note.slice(0, 200));
   await p3.close();
 
+  // --- the loading-window race (PR #252 review, L1) ---------------------------------------------
+  // The band is live on the declined path from construction, while the driver's two fetches are
+  // still in flight — so a card answered in that window relinquishes the driver FIRST, and the
+  // continuation that then resolves (the declined branch, or unavailable() on a failed artifact)
+  // must leave the redraft's provenance sentence alone: the stage holds the drafted board now, not
+  // the sender's. The artifact fetch is HELD BY ROUTE so the window is deterministic rather than
+  // won by luck (the #240/2 loading-window case's technique, pointed at the other author).
+  const REDRAFTED_LINE = "The run's board was set aside — what is on this canvas is drafted from your answers.";
+  const p4 = await ctx.newPage();
+  watch(p4, "method race");
+  let releaseArtifact;
+  const artifactHeld = new Promise((r) => { releaseArtifact = r; });
+  await p4.route("**/replay/*.json", async (route) => { await artifactHeld; await route.continue(); });
+  await p4.goto(`${BASE}/factory.html?${SHARE_PARAM}=${encodeURIComponent(rParam)}`, { waitUntil: "load" });
+  await p4.waitForSelector('[data-studio-method="ready"]', { timeout: 20000 });
+  const preState = await p4.getAttribute("[data-studio]", "data-replay");
+  await check(p4, 'input[name="stm-q-shape"][value="worklist"]');
+  const preRelease = await p4.$eval(".stu-replay-provenance", (n) => n.textContent);
+  releaseArtifact();
+  await p4.waitForFunction(() => document.querySelector("[data-studio]")?.getAttribute("data-replay") === "declined",
+    null, { timeout: 20000 });
+  const postRelease = await p4.$eval(".stu-replay-provenance", (n) => n.textContent);
+  t("#252/L1 · the card really was answered inside the loading window, and the redraft relinquished the driver there",
+    preState === "loading" && preRelease === REDRAFTED_LINE, `state=${preState} · ${preRelease.slice(0, 90)}`);
+  t("#252/L1 · …and the declined continuation leaves that sentence alone — it describes the board that is actually on the canvas",
+    postRelease === REDRAFTED_LINE && !/came in on the link/.test(postRelease), postRelease.slice(0, 120));
+  await p4.close();
+
+  // The same race resolved the OTHER way: the artifact 404s, so the continuation runs
+  // unavailable(), whose provenance clear must equally not stomp the redraft — a run that failed
+  // to load changes nothing about whose board is on the canvas.
+  const p5 = await ctx.newPage();
+  // replayPass case (a)'s narrow exemption: this case serves a 404 on purpose, and chromium logs
+  // every failed resource load as a console error of its own — the browser reporting the network,
+  // not the page reporting itself.
+  p5.on("pageerror", (e) => errors.push(`method race 404 pageerror: ${e.message}`));
+  p5.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`method race 404 console: ${m.text()}`); });
+  let release404;
+  const held404 = new Promise((r) => { release404 = r; });
+  await p5.route("**/replay/*.json", async (route) => { await held404; await route.fulfill({ status: 404, body: "gone" }); });
+  await p5.goto(`${BASE}/factory.html?${SHARE_PARAM}=${encodeURIComponent(rParam)}`, { waitUntil: "load" });
+  await p5.waitForSelector('[data-studio-method="ready"]', { timeout: 20000 });
+  await check(p5, 'input[name="stm-q-shape"][value="worklist"]');
+  release404();
+  await p5.waitForFunction(() => document.querySelector("[data-studio]")?.getAttribute("data-replay") === "unavailable",
+    null, { timeout: 20000 });
+  const after404 = await p5.$eval(".stu-replay-provenance", (n) => n.textContent);
+  t("#252/L1 · unavailable() after the same redraft keeps the sentence too",
+    after404 === REDRAFTED_LINE, after404 === "" ? "(cleared)" : after404.slice(0, 120));
+  await p5.close();
+
   await ctx.close();
 }
 
