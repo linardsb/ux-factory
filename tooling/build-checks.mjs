@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Nineteen groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Twenty groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -73,6 +73,12 @@
 //                     each proven to fire, feed's truncation stated by streamNote identity on the
 //                     canvas and in the exported file, the empty board, every screen against the
 //                     real vocabulary, two mutations, and totality over the junk boards (#212)
+//  20 method         the method band's pure layer: HOOK_STAGES pinned to the Hooked questions in
+//                     loop order, assembleReducer's truth table (right/wrong stage, occupied slot,
+//                     hostile inputs — refused, never thrown), hookComplete only at an exact 4/4,
+//                     verdictFor by IDENTITY on the imported rules for all four quadrants and both
+//                     frequency branches, the RENDER_SOURCES #193 tripwire, and the smuggled
+//                     shaping-id mutation that proves the group can fail (#214)
 //
 //   node tooling/build-checks.mjs
 
@@ -86,7 +92,8 @@ import { vetTokens } from "../system/pack-imported.mjs";
 import { boardSvg, cardSvg } from "../system/build-card.mjs";
 import { NO_DESIGN_IMPORTED, specMarkdown, TWO_CLAIMS } from "../system/build-keep.mjs";
 import { exportHtml, stripImports } from "../system/studio-export.mjs";
-import { DEFAULT_ANSWERS, frequencyVerdictFor, quadrantFor, QUESTIONS } from "../system/build-questions.mjs";
+import { DEFAULT_ANSWERS, frequencyVerdictFor, HOOK_STAGES, QUADRANT_MEANINGS, quadrantFor, QUESTIONS, SUMMARY_TERM } from "../system/build-questions.mjs";
+import { assembleReducer, hookComplete, RENDER_SOURCES, verdictFor } from "../system/studio-method.mjs";
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
@@ -1031,6 +1038,7 @@ function scanSvg(svg, label) {
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
     "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs", "studio-flow.mjs",
+    "studio-method.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -3723,6 +3731,120 @@ function scanSvg(svg, label) {
   group("flow", `screensFor over the REAL committed replay board: ${REPLAY_BOARD.places.length} places become ${flow.length} screens (entry type read from patternFor, rule S1), ${navTotal(flow)} nav entries counted from the file's ${REPLAY_BOARD.connections.length} connections and every screen reachable from the entry — clickable end to end, the pure half — with the 1-dashboard + 3-queue type mix pinned as a tripwire · a flow fixture per in-library screen type via the BOARD_FOR rule (a missing fixture fails loudly) and every rule S1–S4 proven to fire by its own reason sentence, S2 on a deliberate non-entry hub no draft can produce · navigation counted from connections ONLY: cutting one connection removes exactly its nav entry and strands the entry, an unconnected affordance navigates nowhere and says "acts here" · feed's SLOT_MAX truncation stated by streamNote IDENTITY — on the flow's screens AND carried into the exported document, exactly once (PR #248 review H1) — and the per-place bound proven un-truncating (MAX_AFFORDANCES === SLOT_MAX, asserted) · the empty board names null at every layer and the empty export says so · every composed screen of every fixture validates against the real vocabulary with a template per node · two mutations — a tampered document fails href resolution, a re-typed screen fails the pinned histogram · total over 9 junk boards × 6 junk answer sets · the click, the focus, the announcement, the scroll and the cold file:// open are tooling/studio-journey.mjs's flow pass and the manual check's, and say so`);
 }
 
+// --- 20 · the method band's pure layer (#214) --------------------------------------------------------
+// system/studio-method.mjs: the on-canvas method cards' DOM-free half. THE BOUNDARY, stated like
+// groups 9/11/13/16/19 state theirs: the running-page halves — the driver gating (disabled while
+// the replay plays, enabled at settle, never disabled on declined), the redraft actually replacing
+// the canvas, the announcements through the one live region, and the ?b= restore populating cards
+// and verdict with zero interaction — are tooling/studio-journey.mjs's methodPass, and cannot be
+// reached from a Node import. What CAN be reached is everything the band decides with: the stage
+// list's coupling to the Hooked questions, the reducer, the completion read, the verdict
+// composition's identity with the imported rules, and the listener filter as data.
+
+{
+  // 20.1 HOOK_STAGES is a projection of the Hooked questions, in loop order, frozen.
+  ok(Array.isArray(HOOK_STAGES) && HOOK_STAGES.length === 4,
+    `HOOK_STAGES holds ${HOOK_STAGES.length} stages; the Hook loop has exactly 4`);
+  ok(HOOK_STAGES.join("·") === "trigger·action·rewardType·investment",
+    `the loop order moved: ${HOOK_STAGES.join(" → ")}`);
+  for (const id of HOOK_STAGES) {
+    const q = QUESTIONS.find((x) => x.id === id);
+    ok(Boolean(q) && q.act === "hooked", `HOOK_STAGES names "${id}", which is not a Hooked question`);
+  }
+  ok(Object.isFrozen(HOOK_STAGES), "HOOK_STAGES is not frozen");
+  // The load-assert's own predicate proven ABLE to fail, over a tampered clone — pinning a
+  // constant is not pinning a behaviour (memory: the check that cannot fail).
+  const tamperedStages = [...HOOK_STAGES.slice(0, 3), "appetite"];
+  ok(tamperedStages.some((id) => {
+    const q = QUESTIONS.find((x) => x.id === id);
+    return !q || q.act !== "hooked";
+  }), "the hooked-question predicate passed a stage list carrying a shaping id — the coupling check cannot fail");
+
+  // 20.2 assembleReducer's truth table — every refusal a fixed sentence, never a throw.
+  const empty = {};
+  const first = assembleReducer(empty, "trigger", 0);
+  ok(first.accepted === true && first.placed[0] === "trigger" && first.reason === null,
+    "the right stage in its own empty slot was not accepted");
+  ok(!(0 in empty), "the reducer mutated its input map — it must return a NEW one every time");
+  let loop = {};
+  HOOK_STAGES.forEach((stage, i) => {
+    const r = assembleReducer(loop, stage, i);
+    ok(r.accepted, `${stage} was refused its own slot ${i + 1}`);
+    loop = r.placed;
+  });
+  ok(hookComplete(loop) === true, "the loop the reducer itself built does not read complete");
+  const wrong = assembleReducer({}, "investment", 0);
+  ok(!wrong.accepted && wrong.reason.includes(SUMMARY_TERM.investment) && wrong.reason.includes("stage 1"),
+    `a wrong-stage refusal must name the stage and the slot; got "${wrong && wrong.reason}"`);
+  const misSlot = assembleReducer({}, "trigger", 2);
+  ok(!misSlot.accepted, "the right stage in the wrong slot was accepted");
+  const occupied = assembleReducer({ 0: "trigger" }, "trigger", 0);
+  ok(!occupied.accepted && occupied.reason.includes("already"),
+    `an occupied slot must refuse and say so; got "${occupied && occupied.reason}"`);
+  for (const hostile of ["appetite", "shape", "<img src=x onerror=1>", "", null, undefined, 7, {}]) {
+    let r; let threw = null;
+    try { r = assembleReducer({}, hostile, 0); } catch (e) { threw = e; }
+    ok(!threw, `assembleReducer threw on a hostile stage ${JSON.stringify(String(hostile))}: ${threw && threw.message}`);
+    ok(r && r.accepted === false && typeof r.reason === "string", "a hostile stage id was not refused with a reason");
+  }
+  for (const slot of [-1, 4, 1.5, "x", null, undefined, Infinity]) {
+    let r; let threw = null;
+    try { r = assembleReducer({}, "trigger", slot); } catch (e) { threw = e; }
+    ok(!threw, `assembleReducer threw on a hostile slot ${String(slot)}: ${threw && threw.message}`);
+    ok(r && r.accepted === false, `a hostile slot ${String(slot)} was accepted`);
+  }
+
+  // 20.3 hookComplete: true at an exact 4/4 and nowhere else.
+  ok(hookComplete({}) === false, "an empty map read complete");
+  ok(hookComplete({ 0: "trigger", 1: "action", 2: "rewardType" }) === false, "3/4 read complete");
+  ok(hookComplete({ 0: "action", 1: "trigger", 2: "rewardType", 3: "investment" }) === false,
+    "a 4/4 map with two stages swapped read complete");
+  ok(hookComplete(null) === false && hookComplete("nope") === false, "junk read complete");
+  // THE MUTATION — a map smuggling a shaping id past the reducer (the plan's synthetic
+  // stages-array-with-a-shaping-id, fed via the inputs): it can neither read complete nor be
+  // completed, because the reducer refuses the id anywhere and the occupied guard holds slot 0.
+  const smuggled = { 0: "appetite", 1: "action", 2: "rewardType", 3: "investment" };
+  ok(hookComplete(smuggled) === false, "a smuggled shaping id read complete — the completion check cannot fail");
+  ok(!assembleReducer(smuggled, "trigger", 0).accepted, "the occupied guard let the smuggled map be repaired in place");
+
+  // 20.4 verdictFor: identity on the IMPORTED rules' outputs — all four quadrants, both frequency
+  // branches. Never a re-derivation here: the point is that the band and /build cannot disagree.
+  const seen = new Set();
+  for (const patch of [
+    { improvesLives: "yes", wouldUseIt: "yes" },
+    { improvesLives: "yes", wouldUseIt: "no" },
+    { improvesLives: "no", wouldUseIt: "yes" },
+    { improvesLives: "no", wouldUseIt: "no" },
+  ]) {
+    for (const frequency of ["daily", "rarely"]) {
+      const answers = { ...DEFAULT_ANSWERS, ...patch, frequency };
+      const v = verdictFor(answers);
+      const expectQ = quadrantFor(answers);
+      const expectF = frequencyVerdictFor(answers);
+      seen.add(v.quadrant);
+      ok(v.quadrant === expectQ, `verdictFor named ${v.quadrant} where quadrantFor names ${expectQ}`);
+      ok(v.meaning === QUADRANT_MEANINGS[expectQ], `the ${expectQ} meaning is not QUADRANT_MEANINGS' sentence by identity`);
+      ok(v.frequency.passes === expectF.passes && v.frequency.verdict === expectF.verdict,
+        `the frequency verdict for "${frequency}" is not frequencyVerdictFor's own`);
+    }
+  }
+  ok(seen.size === 4, `the four ethics pairs named ${seen.size} distinct quadrants, expected 4`);
+  for (const junk of [null, undefined, "nope", { improvesLives: 7 }]) {
+    let threw = null;
+    try { verdictFor(junk); } catch (e) { threw = e; }
+    ok(!threw, `verdictFor threw on junk ${JSON.stringify(junk)}: ${threw && threw.message}`);
+  }
+
+  // 20.5 RENDER_SOURCES — the #193 tripwire as data.
+  ok(RENDER_SOURCES.includes("questions") && RENDER_SOURCES.includes("restore"),
+    "RENDER_SOURCES lost a source — filtering to \"questions\" alone is exactly the #193 regression");
+  ok(RENDER_SOURCES.length === 2 && !RENDER_SOURCES.includes("breadboard"),
+    "RENDER_SOURCES admits \"breadboard\" — the redraft's own publish would re-enter the listener");
+  ok(Object.isFrozen(RENDER_SOURCES), "RENDER_SOURCES is not frozen");
+
+  group("method", `the method band's pure layer: HOOK_STAGES pinned to the four Hooked questions in loop order (frozen, and the coupling predicate proven able to fail on a tampered clone) · assembleReducer's truth table — the right stage in its own empty slot accepted into a NEW map, a wrong stage refused with a sentence naming the stage and the slot, the right stage in a wrong slot refused, an occupied slot refused, 8 hostile stage ids and 7 hostile slots refused without a throw · hookComplete true at an exact 4/4 only — 3/4, a swapped 4/4, junk and the smuggled shaping-id mutation all false, and the smuggled map proven unrepairable through the reducer · verdictFor equal BY IDENTITY to quadrantFor + QUADRANT_MEANINGS + frequencyVerdictFor for all four quadrants × both frequency branches, total over junk · RENDER_SOURCES carries "questions" AND "restore" (the #193 tripwire) and refuses "breadboard" (the redraft loop-breaker). The driver gating, the on-page redraft, the announcements and the zero-interaction restore are tooling/studio-journey.mjs's methodPass, and say so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -3730,5 +3852,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 19 groups pass");
+  console.log("\nbuild ✓  all 20 groups pass");
 }

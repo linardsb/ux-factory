@@ -306,6 +306,10 @@ export const SUMMARY_TERM = {
   nogos: "No-gos",
 };
 
+// The Hook loop's four stages, in loop order — the assemblable diagram's truth (#214). These are
+// QUESTION ids: the diagram is a projection of four of the ten answers, never a second store.
+export const HOOK_STAGES = Object.freeze(["trigger", "action", "rewardType", "investment"]);
+
 // Manipulation Matrix quadrant meanings, the four strings lifted VERBATIM from
 // system/factory-intake.mjs:153-158, which in turn lifted them from __UX_UI_Research.md §Layer B.
 // Duplicated rather than imported: that constant is module-private, and exporting from a shared
@@ -337,6 +341,14 @@ for (const q of QUESTIONS) {
   }
   if (q.options.some((o) => !o.label || !o.short)) {
     throw new Error(`build-questions: "${q.id}" has an option missing a label or a short form`);
+  }
+}
+// HOOK_STAGES is a projection of QUESTIONS (#214): every stage must be a Hooked question, or the
+// assemblable diagram would name a stage the answer store cannot hold.
+for (const id of HOOK_STAGES) {
+  const q = QUESTIONS.find((x) => x.id === id);
+  if (!q || q.act !== "hooked") {
+    throw new Error(`build-questions: HOOK_STAGES names "${id}", which is not a Hooked question`);
   }
 }
 

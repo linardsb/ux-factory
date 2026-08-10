@@ -40,6 +40,11 @@
 // absent, so a load with no link still reaches only the replay path — deterministic for the pixel
 // gate by construction, which is what that gate depends on and what the restore must not disturb.
 //
+// Since #214 the PAGE writes the store on an ordinary visit — but not this file: the method band
+// (system/studio-method.mjs) is the page's answer-writer, through setAnswers/publishBuild's own
+// paths, and this file's store-write count stays exactly ONE. The determinism claim above survives
+// because the cards only write on a visitor interaction, which the pixel gate never performs.
+//
 // ZERO INLINE STYLES, ZERO MARKUP FROM A STRING. build-checks group 7 includes this file with no
 // exception argued: layout is classes and data-* resolved in system/studio.css, and every node is
 // built element by element. tooling/studio-journey.mjs's running-page hasAttribute("style") pass is
@@ -60,6 +65,7 @@ import { affordanceCount, PATTERNS, patternFor } from "./pattern-rules.mjs";
 import { initGlossary } from "./glossary.mjs";
 import { refreshInspect } from "./inspect.mjs";
 import { mountStudioKeep } from "./studio-keep.mjs";
+import { mountStudioMethod } from "./studio-method.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
@@ -255,8 +261,15 @@ function placeBlock(entry) {
     n ? chips : null);
 }
 
+// What the panel and the notice say once the method cards redraft the board (#214). ONE constant
+// for both surfaces — restoreShared's two-places rule: canvas.say is transient, the notice stays
+// put, and the panel's note re-renders; three places saying it in different words would drift.
+const DRAFTED = "This board is drafted from your ten answers by the committed rules — the recorded run's board was set aside. Reload to watch the run again.";
+
 // The "This build" panel — the at-rest panel, and the only one this file renders itself.
-function renderSummary(mount, summary, arranged) {
+// `provenance` decides the closing note: the counted numbers above it are true of any board, but
+// whose board they count is a claim, and it has three honest values (see boardProvenance).
+function renderSummary(mount, summary, arranged, provenance) {
   if (!mount) return;
   mount.textContent = "";
 
@@ -281,16 +294,27 @@ function renderSummary(mount, summary, arranged) {
       `The canvas holds the first ${arranged.length} of ${summary.places} places — row 1 is ${MAX_COLS} columns wide.` }));
   }
 
-  // TWO SOURCES, AND THEY ARE NOT THE SAME ONE (#209). The places, affordances and connections were
-  // built by the recorded run; the PATTERN is named from the ten method answers by rule 1, which is
-  // why the link still offers to change them. Saying "these came from the recommended answers"
-  // — which is what this paragraph said when the board was drafted here — would now credit the
-  // answers with work the run did.
-  mount.appendChild(el("p", { class: "stu-note" },
-    "The board is the recorded run's. The pattern above is named from the ten method questions' "
-    + "recommended answers. ",
-    el("a", { href: "/build#act-hooked", text: "Answer them yourself" }),
-    " and a board is drafted from what you said instead."));
+  // TWO SOURCES, AND THEY ARE NOT THE SAME ONE (#209) — until the visitor makes them one (#214).
+  // On "run" the places were built by the recorded run and the PATTERN is named from the ten method
+  // answers by rule 1, which is why the note offers the cards; on "restored" the board is the
+  // sender's, and saying it was the run's would credit the run with a board it never built; on
+  // "drafted" both sources ARE the visitor's answers, and the note is the DRAFTED sentence the
+  // notice carries — the same constant, so the two surfaces cannot disagree.
+  if (provenance === "drafted") {
+    mount.appendChild(el("p", { class: "stu-note", text: DRAFTED }));
+  } else if (provenance === "restored") {
+    mount.appendChild(el("p", { class: "stu-note" },
+      "This board came in on the link you followed — the sender's, not the recorded run's. The "
+      + "pattern above is named from its restored answers. ",
+      el("a", { href: "#method", text: "Answer the method cards below" }),
+      " and the board is redrafted from what you say instead."));
+  } else {
+    mount.appendChild(el("p", { class: "stu-note" },
+      "The board is the recorded run's. The pattern above is named from the ten method questions' "
+      + "recommended answers. ",
+      el("a", { href: "#method", text: "Answer them in the method cards below" }),
+      " and the board is redrafted from what you say instead."));
+  }
 }
 
 // The panel switcher: click · APG arrow / Home / End keys · hashchange. Ported from the tab
@@ -376,7 +400,9 @@ function mountStudioCore(root, shell, restored) {
   // null (pattern-rules.mjs:167 guards with `answers &&`) and silently falls through to dashboard
   // with named:false, which renders a fallback sentence where the reader should see an answered one.
   const stored = readBuild();
-  const answers = stored.answers ?? DEFAULT_ANSWERS;
+  // `let` since #214: adoptBoard re-points this at the visitor's answer set before it publishes,
+  // so every later read — buildSummary here, the compile beat's getAnswers — sees current answers.
+  let answers = stored.answers ?? DEFAULT_ANSWERS;
   // THE VISITOR'S OWN BOARD IS NEVER OVERWRITTEN BY A REPLAY, and since #210 that branch is LIVE
   // rather than recorded: restoreShared publishes a decoded board into the store before this runs,
   // so `own` is the sender's board on a ?b= arrival and null on every other load. What follows is
@@ -385,6 +411,10 @@ function mountStudioCore(root, shell, restored) {
   const own = isBoard(stored.board) ? stored.board : null;
   const declined = !!own;
   let board = own || { places: [], connections: [] };
+  // WHOSE BOARD THE SUMMARY DESCRIBES (#214): "run" on an ordinary load, "restored" when a ?b=
+  // link brought the sender's board, "drafted" once the method cards redraft it. The panel's
+  // closing note renders from this, so it can never credit the run with a board it did not build.
+  let boardProvenance = declined ? "restored" : "run";
 
   // THE SENDER'S ARRANGEMENT, WHEN THE LINK CARRIED ONE. decodeBuild returns [{ id, col, row }] in
   // board order with every id taken from the validated place at that index and never from the
@@ -421,7 +451,9 @@ function mountStudioCore(root, shell, restored) {
   // mounted HERE, at load, so its `finally` handle resolves where every gate already waits for it —
   // and it reads the board at call time, so pressing Compile after the replay settles compiles the
   // board the run built rather than the empty one this line was reached with.
-  const compile = mountCompile(canvas, { getBoard: () => board, answers, bus, onState: () => syncInspect() });
+  // `getAnswers` beside `getBoard`, the same two-line seam for the same reason (#214): the method
+  // cards move `answers` after this mount, and the beat must compile the CURRENT set at call time.
+  const compile = mountCompile(canvas, { getBoard: () => board, answers, getAnswers: () => answers, bus, onState: () => syncInspect() });
 
   let summary = buildSummary(board, answers);
   const summaryMount = document.getElementById("this-build-summary");
@@ -429,7 +461,7 @@ function mountStudioCore(root, shell, restored) {
   // the replay path there is nothing to count yet — and a panel reading "Places 0" for the first
   // five seconds would be a set of true numbers about nothing. factory.html's own markup says what
   // is coming instead, and onSettle below replaces it with the counted panel.
-  if (arranged.length) renderSummary(summaryMount, summary, arranged);
+  if (arranged.length) renderSummary(summaryMount, summary, arranged, boardProvenance);
 
   const inspector = wireInspector(shell);
 
@@ -457,6 +489,9 @@ function mountStudioCore(root, shell, restored) {
   // the same reason the driver is mounted last — everything it needs is a seam something else has
   // already exposed, and it must take a canvas whose verbs and beat exist.
   let keep = null;
+  // #214's method band, on the same terms: declared here so publishBoard can reach its setEnabled,
+  // mounted below after the keep rail, so it takes a page whose canvas, beat and rail exist.
+  let method = null;
 
   // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
   // studio's standing correspondence: studio-compile.mjs:377's positional swap and
@@ -470,7 +505,10 @@ function mountStudioCore(root, shell, restored) {
     row: Number(w.getAttribute("data-row")),
   }));
 
-  const publishBoard = (finalBoard) => {
+  const publishBoard = (finalBoard, provenance) => {
+    // Only a caller that CLAIMS a provenance moves it (#214's adoptBoard passes "drafted");
+    // settle and take-over pass nothing and inherit whatever the board already was.
+    if (provenance) boardProvenance = provenance;
     if (isBoard(finalBoard)) {
       board = finalBoard;
       arranged = arrangeBoard(board);
@@ -479,10 +517,14 @@ function mountStudioCore(root, shell, restored) {
       // "Places 0" is a set of true numbers about nothing. It was unreachable while settle() was
       // the only publisher — a settled run always has places — and a take-over is reachable from
       // the moment the driver is `ready`, which is several beats before the first place.add.
-      if (arranged.length) renderSummary(summaryMount, summary, arranged);
+      if (arranged.length) renderSummary(summaryMount, summary, arranged, boardProvenance);
       if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
     }
     compile.setEnabled(true);
+    // SYNCHRONOUS BESIDE THE COMPILE ENABLE — never behind a rAF, a timeout or an await. settle()
+    // writes [data-replay="settled"] and then calls onSettle in the SAME task, so the pixel gate
+    // can only ever capture settled-and-enabled cards; defer this one tick and the gate races it.
+    method?.setEnabled(true);
     // THE RAIL REFRESHES WHEREVER THE BOARD IS PUBLISHED, and for the reason this pair exists at
     // all: settle and take-over are the two states nothing resumes from, so they are the two
     // moments the artifacts describe a board that has stopped changing. Refreshing it at a pause
@@ -533,11 +575,51 @@ function mountStudioCore(root, shell, restored) {
     canvas,
   });
 
+  // #214's adoption point: the method band redrafts the WHOLE board from the visitor's answers and
+  // this closure is the one place the canvas is made to match. It does NOT write the store — the
+  // method module owns the page's store writes, so this file's restoreShared exception stays the
+  // only one here — and it does not emit ui.move or call applySlot: authorship (place/remove) is
+  // not movement, the same line replay-driver.mjs walks, so #205's one-mover invariant survives.
+  const adoptBoard = (nextBoard, nextAnswers) => {
+    answers = nextAnswers;
+    // FIRST, before the stage is touched: the driver's post-settle seek would otherwise rebuild
+    // the run's board over the drafted one — seek stays live at settle (replay-driver.mjs:612) and
+    // the band lives outside canvas.scroll, so onTouch never sees a card. relinquish() is the
+    // driver adopting its own declined-mount idiom: tookOver IS "this driver will not write to the
+    // stage again", and it kills the transport for the reason that path gives (#214).
+    replay?.relinquish();
+    // A compiled stage goes back to blocks BEFORE the clear, so the beat's state machine and its
+    // stash agree with the stage they describe and the drafted board arrives compilable. There is
+    // nothing to revert mid-"compiling"; a redraft in that window meets the beat's own count
+    // tripwire, which refuses the stale swap loudly rather than misaligning it.
+    if (compile.state !== "blocks" && compile.state !== "compiling") compile.revert();
+    // wrapper.remove() per slot, never a wipe of the stage node: the sizer and the stage are what
+    // the canvas owns; the slots are what this board put there (studio-canvas.mjs:114-117).
+    for (const wrapper of canvas.stage.querySelectorAll(".stx-slot")) wrapper.remove();
+    for (const entry of arrangeBoard(nextBoard)) {
+      canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
+    }
+    publishBoard(nextBoard, "drafted");
+    // Where the provenance sentence STAYS PUT — canvas.say is transient by design, and the panel's
+    // note re-renders; all three surfaces print the one DRAFTED constant (restoreShared's rule).
+    const notice = root.querySelector?.("[data-studio-notice]");
+    if (notice) {
+      notice.textContent = DRAFTED;
+      notice.hidden = false;
+    }
+  };
+
+  // #214's method band, LAST for the keep rail's reason: everything it takes is a seam something
+  // above already exposed, and it must take a page whose canvas, beat and rail exist. Its cards
+  // mirror the compile beat's gating asymmetry — disabled only when the driver will PLAY,
+  // re-enabled inside publishBoard on every stopped-for-good path, never disabled on declined.
+  method = mountStudioMethod(root, { canvas, adoptBoard, declined });
+
   // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
   // built after inspect.mjs restored, so they need one refresh to be wired.
   syncInspect();
 
-  live = { shell, canvas, bus, verbs, compile, replay, inspector, keep, board, summary, arranged };
+  live = { shell, canvas, bus, verbs, compile, replay, inspector, keep, method, board, summary, arranged };
   return live;
 }
 

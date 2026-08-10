@@ -241,8 +241,25 @@
 }
 /* NOT OPTIONAL. The canvas column holds a wide scroller, and a grid item without min-width: 0
    resolves its track from that content rather than from the track definition — the blowout PR #54
-   hit in a real browser while the gate's Chromium stayed green. */
-.stu-canvas-col { min-width: 0; display: grid; gap: var(--spacing-sm); }
+   hit in a real browser while the gate's Chromium stayed green.
+
+   THE EXPLICIT TRACK IS #214's, and it closes the cause .stu-compile-step's note observed: with no
+   template, this column's one IMPLICIT track was auto-sized, .stx-viewport's ~2818px max-content
+   inflated it past the column's own 776px box, and every sibling row STRETCHED to the inflated
+   track. Harmless while every row was short or ch-capped text — and a real defect the moment the
+   method band filled its box: its auto-fill card grid resolved against ~2818px and put cards past
+   the window's right edge, where body{overflow-x:clip} makes them POINTER-UNREACHABLE (no page
+   scroll can reach them). minmax(0, 1fr) sizes the track to the column's real box. The canvas
+   keeps its exact pre-#214 geometry through the width pin below — measured before/after at 1440:
+   viewport, scroll, stage and every slot byte-identical; only the band narrows. */
+.stu-canvas-col { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--spacing-sm); }
+
+/* The pin that keeps the explicit track from being an at-rest canvas change: the viewport's box
+   was the inflated track's max-content, so pinning it AT max-content reproduces today's geometry
+   exactly — it overflows its grid area now instead of inflating the track (every zoom level
+   included, since both forms track the sizer). Scoped to .stu-shell so studio.html's raw harness,
+   which has no .stu-canvas-col, keeps its untouched responsive layout. */
+.stu-shell .stx-viewport { width: max-content; }
 
 /* One column under the site's own 900px step (portfolio.css:237, 298, 1518 all break there), with
    the inspector below the canvas rather than beside it. */
@@ -734,3 +751,105 @@
   line-height: 1.6;
   max-width: 68ch;
 }
+
+/* ---------- the method band (#214) ---------- */
+/* system/studio-method.mjs's chrome: the ten answer cards, the assemblable Hook loop and the
+   ethics verdict, in the canvas column OUTSIDE .stx-scroll — legible at every zoom, never a grid
+   cell, never a take-over (the discriminator listens on canvas.scroll only). Tokens only; the
+   structural px are borders and SC 2.5.8 targets.
+
+   NO transition and NO animation anywhere in this block, so the reduced-motion literal list above
+   gains nothing — add one here and its class joins that list in the same edit.
+   NOTHING HERE IS NAMED FOR A VIEW TRANSITION (the standing #171 reason). */
+.stu-method { display: grid; gap: var(--spacing-md); margin-top: var(--spacing-sm); min-width: 0; }
+.stu-method-lead { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; }
+/* The gate's visual: the compile row's disabled look, on the whole band. The attribute is written
+   by setEnabled; this sheet decides what it means (the data-zoom discipline). */
+.stu-method[data-method-state="disabled"] { opacity: 0.5; cursor: not-allowed; }
+/* Ten compact cards as a wrapping grid — auto-fill at a 13rem floor keeps them from dwarfing the
+   canvas at any column width, and the act labels span the whole row. */
+.stu-method-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--spacing-sm); }
+.stu-method-act {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--type-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-fg-muted);
+}
+.stu-mcard {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  padding: var(--spacing-sm);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stu-mcard-term { margin: 0; font-size: var(--type-eyebrow); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-fg-muted); }
+.stu-mcard-prompt { margin: 0 0 4px; font-size: var(--type-caption); }
+.stu-mcard-radios { display: grid; gap: 2px; }
+/* The whole label row is the target: 24px is WCAG 2.2 SC 2.5.8 Target Size (Minimum), met by the
+   row's own box — the Spacing exception is not relied on (.stx-grab's convention). */
+.stu-mcard-radio { display: flex; align-items: baseline; gap: 6px; min-height: 24px; font-size: var(--type-caption); color: var(--color-fg-muted); cursor: pointer; }
+.stu-mcard-radio:has(input:checked) { color: var(--color-fg); }
+.stu-method[data-method-state="disabled"] .stu-mcard-radio { cursor: not-allowed; }
+.stu-mcard-radio-label { min-width: 0; }
+
+/* The Hook loop: four stage nodes, four slots, select-then-place on real buttons. */
+.stu-hook {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stu-hook-title { margin: 0; font-size: var(--type-body); }
+.stu-hook-hint { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; }
+.stu-hook-nodes,
+.stu-hook-slots { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+/* 24×24 is WCAG 2.2 SC 2.5.8 Target Size (Minimum), met by each button's own box — the Spacing
+   exception is not relied on (.stx-grab records the same call). */
+.stu-hook-node,
+.stu-hook-slot {
+  min-height: 24px;
+  min-width: 24px;
+  padding: 2px var(--spacing-xs);
+  font: inherit;
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.stu-hook-node[disabled],
+.stu-hook-slot[disabled] { opacity: 0.5; cursor: not-allowed; }
+.stu-hook-node:focus-visible,
+.stu-hook-slot:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* The ONLY visual carrier of selected state beside aria-pressed (the .stx-slot.is-picked idiom). */
+.stu-hook-node.is-selected { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+/* An empty slot reads as a slot; a filled one reads as DONE, not as disabled — it wins the
+   [disabled] fade above by coming later at equal specificity. */
+.stu-hook-slot { border-style: dashed; color: var(--color-fg-muted); }
+.stu-hook-slot.is-filled { border-style: solid; color: var(--color-fg); background: var(--color-bg-surface); opacity: 1; cursor: default; }
+
+/* The ethics verdict: locked is one honest sentence; unlocked renders the imported rules. */
+.stu-verdict {
+  display: grid;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stu-verdict-title { margin: 0; font-size: var(--type-body); }
+.stu-verdict-body { display: grid; gap: var(--spacing-xs); }
+.stu-verdict-locked { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stu-verdict-eyebrow { margin: 0; font-size: var(--type-eyebrow); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-fg-muted); }
+.stu-verdict-quadrant { margin: 0; font-size: var(--type-h4); font-family: var(--font-display); }
+.stu-verdict-meaning { margin: 0; font-size: var(--type-caption); }
+.stu-verdict-gate { margin: 0; font-size: var(--type-caption); padding-left: var(--spacing-sm); border-left: 2px solid var(--color-border); }
+.stu-verdict-gate[data-passes="true"] { border-left-color: var(--color-accent); }

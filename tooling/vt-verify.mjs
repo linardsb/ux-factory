@@ -515,6 +515,31 @@ for (const name of toRun) {
           .filter((x) => x && x.startsWith("::view-transition")));
         t("factory keep · …and neither keep-rail interaction opened a transition or left a pseudo running",
           keepRead.calls === 0 && keepPseudos.length === 0, `calls=${keepRead.calls} pseudos=${keepPseudos.join(" ")}`);
+
+        // (c) #214's method-card redraft, on the same settled page — the newest interaction to
+        // postdate the earlier samples, and the heaviest: relinquish, a revert of the compiled
+        // stage, a wholesale replace, a publish and a provenance flip, all in one change event.
+        // Movement proven first (the entry block's name flips to the drafted board's and the
+        // notice unhides); the band uses no morph and names nothing, and this pins it. Parked
+        // instantly first — the site scrolls smoothly and an actionability scroll races it.
+        await reset(fp);
+        await fp.$eval('input[name="stm-q-shape"][value="worklist"]',
+          (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+        await fp.waitForTimeout(150);
+        await fp.check('input[name="stm-q-shape"][value="worklist"]');
+        await fp.waitForTimeout(700);
+        const cardMoved = await fp.evaluate(() => ({
+          first: document.querySelector("[data-studio-canvas] .stx-slot")?.getAttribute("data-stx-name") ?? null,
+          notice: document.querySelector("[data-studio-notice]").hidden === false,
+        }));
+        const cardRead = await read(fp);
+        const cardPseudos = await fp.evaluate(() => document.getAnimations()
+          .map((a) => a.effect && a.effect.pseudoElement)
+          .filter((x) => x && x.startsWith("::view-transition")));
+        t("factory method · the card answer genuinely redrafted the board",
+          cardMoved.first === "Worklist" && cardMoved.notice, JSON.stringify(cardMoved));
+        t("factory method · …and the redraft opened no transition and left no pseudo running",
+          cardRead.calls === 0 && cardPseudos.length === 0, `calls=${cardRead.calls} pseudos=${cardPseudos.join(" ")}`);
       }
       await fctx.close();
     }
@@ -525,5 +550,5 @@ for (const name of toRun) {
 
 console.log(failed
   ? `\nvt-verify ✗  ${failed} assertion(s) failed`
-  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, its #207 compile beat, whose crossfade opens no transition at all — that one under reduced motion too — and (#213) its take-over handover and #210 keep-rail copy + export clicks — the interactions the earlier samples predate — sampled the same way with movement proven first, full motion only by design, in every one (${toRun.join(", ")})`);
+  : `\nvt-verify ✓  morphs real · load accounted for · renames instant · reduced motion off — /build + ${SITEWIDE.length} site-wide surfaces + the studio canvas, whose zoom, placement and #205 move verbs all name nothing, /factory's #209 replay driver, sampled DURING its fourteen-second playback as well as after it, its #207 compile beat, whose crossfade opens no transition at all — that one under reduced motion too — and (#213) its take-over handover and #210 keep-rail copy + export clicks plus (#214) the method-card redraft — the interactions the earlier samples predate — sampled the same way with movement proven first, full motion only by design, in every one (${toRun.join(", ")})`);
 process.exit(failed ? 1 : 0);
