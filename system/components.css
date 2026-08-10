@@ -1569,12 +1569,22 @@ p, .body {
   display: inline-flex;
   align-items: baseline;
   gap: var(--spacing-xs);
-  flex: 0 0 auto;
+  /* 0 1 auto, not 0 0 auto (#251): in a narrow container — the studio's 220px compiled screens
+     were the first — a reading that cannot shrink pushes the row past its box (+12px measured,
+     the PR #54 blowout family). Shrink fires only under constraint, so wide consumers
+     (Fieldwork's slots, the study, /build's patterns) lay out identically to before. */
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .ds-row-value {
   font-size: var(--type-body);
   font-weight: 600;
   color: var(--color-fg);
+  /* Wrap under constraint, never truncate (#251): the value is the fact the row exists to state,
+     so an ellipsis here loses data where a second line only costs height — which the compiled
+     slot now has. Inert in wide containers, same argument as the shrink above. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ds-row-unit {
   font-size: var(--type-caption);
