@@ -56,6 +56,12 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 // Imported from the shipped module, never retyped — moving a cap or a level fails this driver
 // instead of drifting past it (proto-journey.mjs:54-56's discipline).
 const { MAX_COLS, ZOOM_LEVELS, ZOOM_REST } = await import(new URL("../system/studio-canvas.mjs", import.meta.url));
+// #214's methodPass computes its expectations IN NODE from the same committed rules the page runs —
+// a hardcoded label list would pass a redraft that silently stopped being draftBoard's.
+const { draftBoard } = await import(new URL("../system/breadboard.mjs", import.meta.url));
+const { DEFAULT_ANSWERS, frequencyVerdictFor, quadrantFor, QUADRANT_MEANINGS } =
+  await import(new URL("../system/build-questions.mjs", import.meta.url));
+const { decodeBuild, encodeBuild, SHARE_PARAM } = await import(new URL("../system/build-share.mjs", import.meta.url));
 
 const VIEWPORT = "[data-studio-canvas]";
 const SCROLL = `${VIEWPORT} .stx-scroll`;
@@ -1238,6 +1244,7 @@ async function journey(engineName, results, held) {
   // assertions below are what replaced that: a completely unstyled, unrendered trace player would
   // otherwise pass update:docker, build-checks and drift-check alike.
   await factoryPass(browser, t, errors);
+  await methodPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -3001,6 +3008,265 @@ async function teardownPass(browser, t, errors) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// #214 · THE METHOD BAND. build-checks group 20 proves the pure layer — the reducer's truth table,
+// the completion read, the verdict identity, the listener filter as data — and states in its own
+// header that the driver gating, the redraft actually replacing the canvas, the announcements and
+// the zero-interaction restore are this file's. Every assertion is phrased as RESULTING DOM (the
+// #205 rule): "the store moved" would pass with no consumer at all. Expectations are computed IN
+// NODE from draftBoard / quadrantFor / QUADRANT_MEANINGS — the same committed rules the page runs —
+// never hardcoded label lists.
+async function methodPass(browser, engineName, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+  };
+  // The site scrolls smoothly and the band sits far down the page: Playwright's own actionability
+  // scroll RACES the smooth behaviour and samples mid-travel (memory: hover probes race smooth
+  // scroll — re-measured while building this pass), so every interaction parks its target
+  // instantly first.
+  const park = async (p, sel) => {
+    await p.$eval(sel, (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+    await p.waitForTimeout(80);
+  };
+  const check = async (p, sel) => { await park(p, sel); await p.check(sel); await p.waitForTimeout(150); };
+  const clickAt = async (p, sel) => { await park(p, sel); await p.click(sel); };
+  const stageNames = (p) => p.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((w) => w.getAttribute("data-stx-name")));
+  const storeAnswers = (p) => p.evaluate(() => import("/system/build-questions.mjs").then((m) => m.readBuild().answers));
+  const verdictShown = (p) => p.evaluate(() => ({
+    state: document.querySelector("[data-method-verdict]").getAttribute("data-method-verdict"),
+    quadrant: document.querySelector(".stu-verdict-quadrant")?.textContent ?? null,
+    meaning: document.querySelector(".stu-verdict-meaning")?.textContent ?? null,
+    gate: document.querySelector(".stu-verdict-gate")?.textContent ?? null,
+    locked: document.querySelector(".stu-verdict-locked")?.textContent ?? null,
+  }));
+
+  // --- gating: disabled while the driver plays, enabled in settle's own task --------------------
+  const p = await ctx.newPage();
+  watch(p, "method");
+  await p.addInitScript(() => {
+    window.__pushed = [];
+    const real = history.pushState.bind(history);
+    history.pushState = (s, ti, u) => { window.__pushed.push(String(u)); return real(s, ti, u); };
+  });
+  await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p.waitForSelector('[data-studio-method="ready"]', { timeout: 20000 });
+  const mid = await p.evaluate(() => ({
+    state: document.querySelector("[data-studio-method]").getAttribute("data-method-state"),
+    input: document.querySelector('input[name="stm-q-shape"]').disabled,
+    node: document.querySelector("[data-hook-node]").disabled,
+    slot: document.querySelector("[data-hook-slot]").disabled,
+  }));
+  t("#214 · mid-replay the cards AND the diagram are disabled, and the band says so",
+    mid.state === "disabled" && mid.input && mid.node && mid.slot, JSON.stringify(mid));
+  // A real pointerdown on the disabled band mid-replay: NOT a take-over (the band lives outside
+  // canvas.scroll — this is the assertion that keeps it there), no route, and the run plays on.
+  const cardBox = await p.evaluate(() => {
+    document.querySelector('[data-method-card="shape"]').scrollIntoView({ behavior: "instant", block: "center" });
+    const r = document.querySelector('[data-method-card="shape"]').getBoundingClientRect();
+    return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
+  });
+  await p.mouse.click(cardBox.x, cardBox.y);
+  await p.waitForTimeout(150);
+  const midAfter = await p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
+    const r = m.getReplay();
+    return {
+      took: r ? r.tookOver : null,
+      routes: window.__pushed.filter((u) => u === "/factory/took-over").length,
+      redrafted: document.querySelector("[data-studio-notice]").hidden === false,
+    };
+  }));
+  t("#214 · a pointerdown on the disabled band is NOT a take-over and causes no redraft",
+    midAfter.took === false && midAfter.routes === 0 && !midAfter.redrafted, JSON.stringify(midAfter));
+
+  await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  const on = await p.evaluate(() => ({
+    state: document.querySelector("[data-studio-method]").getAttribute("data-method-state"),
+    input: document.querySelector('input[name="stm-q-shape"]').disabled,
+  }));
+  t("#214 · at settle the band enables — the same synchronous task as [data-replay=settled], so a gate can never catch settled-but-disabled cards",
+    on.state === "ready" && !on.input, JSON.stringify(on));
+  const atRest = await verdictShown(p);
+  t("#214 · AC #2 · at rest the verdict is LOCKED — the honest sentence, no quadrant text",
+    atRest.state === "locked" && atRest.quadrant === null
+    && atRest.locked === "Assemble the Hook loop to unlock the ethics verdict.", JSON.stringify(atRest));
+
+  // --- card → artifact, pointer (AC #1) ---------------------------------------------------------
+  const expected = draftBoard({ ...DEFAULT_ANSWERS, shape: "worklist" }).places.map((x) => x.label);
+  await countLive(p);
+  await check(p, 'input[name="stm-q-shape"][value="worklist"]');
+  const names = await stageNames(p);
+  t("#214 · AC #1 · a pointer answer redrafts the canvas to draftBoard's OWN board, label for label, computed in Node",
+    JSON.stringify(names) === JSON.stringify(expected), `${JSON.stringify(names)} vs ${JSON.stringify(expected)}`);
+  const said = await liveSeen(p);
+  t("#214 · AC #1 · …announced once per placement plus the one redraft sentence, which the polite region speaks last",
+    said.n === expected.length + 1 && said.last === `Board redrafted from your answers — ${expected.length} places.`,
+    `${said.n} record(s): ${said.last}`);
+  const provenance = await p.evaluate(() => ({
+    notice: { hidden: document.querySelector("[data-studio-notice]").hidden,
+      text: document.querySelector("[data-studio-notice]").textContent.trim() },
+    note: document.querySelector("#this-build-summary").textContent,
+  }));
+  t("#214 · AC #1 · provenance flips in BOTH standing places — the notice and the This-build note — in the same words",
+    !provenance.notice.hidden && provenance.notice.text.includes("drafted from your ten answers")
+    && provenance.notice.text.includes("set aside") && provenance.note.includes(provenance.notice.text),
+    JSON.stringify(provenance.notice));
+  const gBoard = await p.evaluate(() => import("/system/studio.mjs").then((m) => {
+    const s = m.getStudio();
+    return { places: s.board.places.map((x) => x.label), arranged: s.arranged.length };
+  }));
+  t("#214 · AC #1 · the orchestrator's published board matches the canvas it drew",
+    JSON.stringify(gBoard.places) === JSON.stringify(expected) && gBoard.arranged === expected.length,
+    JSON.stringify(gBoard));
+  // The relinquish (#214's one replay-driver seam): the driver's post-settle seek would rebuild
+  // the run's board over the drafted one, so a redraft must leave the transport DEAD, the settled
+  // attribute in place, the provenance line honest — and fire no take-over route, because a card
+  // answer is not a grab of the wheel.
+  const relinq = await p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
+    const r = m.getReplay();
+    return {
+      took: r.tookOver, state: r.state,
+      seekDead: document.querySelector(".stu-replay-seek").disabled,
+      provenance: document.querySelector(".stu-replay-provenance").textContent,
+      routes: window.__pushed.filter((u) => u === "/factory/took-over").length,
+    };
+  }));
+  t("#214 · the redraft RELINQUISHES the driver: transport dead, still settled, the set-aside sentence on the provenance line, and NO take-over route",
+    relinq.took === true && relinq.state === "settled" && relinq.seekDead && relinq.routes === 0
+    && relinq.provenance === "The run's board was set aside — what is on this canvas is drafted from your answers.",
+    JSON.stringify(relinq));
+
+  // --- card → artifact, keyboard (AC #1) — native radio semantics, a different card -------------
+  // Per engine, the perfPass modZ precedent: chromium and firefox move a radio group's selection
+  // with the arrows; Playwright's webkit does not move it at all (probed while building this pass
+  // — focus and checked both stay put), and the platform's own keyboard path there is focus +
+  // Space on the target radio. Both branches are keyboard-only.
+  if (engineName === "webkit") {
+    await park(p, '[data-method-card="rewardType"]');
+    await p.focus('[data-method-card="rewardType"] input:not(:checked)');
+    await p.keyboard.press("Space");
+  } else {
+    await park(p, 'input[name="stm-q-rewardType"]:checked');
+    await p.focus('input[name="stm-q-rewardType"]:checked');
+    await p.keyboard.press("ArrowDown");
+  }
+  await p.waitForTimeout(200);
+  const kChecked = await p.$eval('input[name="stm-q-rewardType"]:checked', (i) => i.value);
+  const kExpected = draftBoard({ ...DEFAULT_ANSWERS, shape: "worklist", rewardType: kChecked }).places.map((x) => x.label);
+  const kNames = await stageNames(p);
+  t("#214 · AC #1 · the keyboard path — a native radio arrow — moves the answer and redrafts the same way",
+    kChecked !== "self" && JSON.stringify(kNames) === JSON.stringify(kExpected),
+    `checked=${kChecked}; ${JSON.stringify(kNames)} vs ${JSON.stringify(kExpected)}`);
+
+  // --- the Hook diagram: refusal first, then pointer assembly (AC #2) ---------------------------
+  await countLive(p);
+  await clickAt(p, '[data-hook-node="investment"]');
+  await clickAt(p, '[data-hook-slot="0"]');
+  await p.waitForTimeout(150);
+  const refusal = await liveSeen(p);
+  const slot0 = await p.$eval('[data-hook-slot="0"]', (b) => ({ text: b.textContent, filled: b.classList.contains("is-filled") }));
+  t("#214 · AC #2 · a wrong-stage placement is REFUSED — the fixed reason announced, the DOM untouched",
+    refusal.n === 2 && refusal.last === "Investment is not stage 1 — that slot is Internal trigger's."
+    && slot0.text === "Stage 1" && !slot0.filled,
+    `${refusal.n} record(s): "${refusal.last}"; slot0=${JSON.stringify(slot0)}`);
+
+  await countLive(p);
+  for (const [node, slot] of [["trigger", 0], ["action", 1], ["rewardType", 2], ["investment", 3]]) {
+    await clickAt(p, `[data-hook-node="${node}"]`);
+    await clickAt(p, `[data-hook-slot="${slot}"]`);
+  }
+  await p.waitForTimeout(200);
+  const asm = await liveSeen(p);
+  t("#214 · AC #2 · pointer assembly — each select and each placement announced, counted exactly (4 + 4), completion in the final sentence",
+    asm.n === 8 && asm.last === "Investment placed, stage 4 of 4. Hook loop assembled — the ethics verdict is unlocked.",
+    `${asm.n} record(s): "${asm.last}"`);
+  const answersNow = await storeAnswers(p);
+  const vq = quadrantFor(answersNow);
+  const unlocked = await verdictShown(p);
+  t("#214 · AC #2/#3 · completion unlocks the verdict, and every sentence is the IMPORTED rules' own by identity",
+    unlocked.state === "unlocked" && unlocked.quadrant.toLowerCase() === vq
+    && unlocked.meaning === QUADRANT_MEANINGS[vq]
+    && unlocked.gate === frequencyVerdictFor(answersNow).verdict,
+    JSON.stringify(unlocked));
+
+  // --- the two ethics cards changed AFTER the unlock: the verdict tracks ------------------------
+  await check(p, 'input[name="stm-q-improvesLives"][value="no"]');
+  await check(p, 'input[name="stm-q-wouldUseIt"][value="no"]');
+  const ethicsNow = await storeAnswers(p);
+  const reQ = quadrantFor(ethicsNow);
+  const reShown = await verdictShown(p);
+  t("#214 · AC #3 · an ethics answer changed after the unlock re-renders the verdict from the same imported rules",
+    reQ === "dealer" && reShown.meaning === QUADRANT_MEANINGS[reQ], `${reQ}: ${reShown.meaning}`);
+
+  // --- cross-restore (AC #4): the keep rail's link round-trips the DRAFTED build ----------------
+  await park(p, "[data-keep-share] button");
+  await p.locator("[data-keep-share] button").click();
+  await p.waitForFunction(() => /[?&]b=/.test(document.querySelector(".stu-keep-link")?.value || ""), null, { timeout: 5000 });
+  const href = await p.$eval(".stu-keep-link", (i) => i.value);
+  const decoded = await decodeBuild(new URL(href).searchParams.get(SHARE_PARAM));
+  const drawnNow = await stageNames(p);
+  t("#214 · AC #4 · the copied link decodes back to the DRAFTED board and the card answers through the real codec",
+    Boolean(decoded.state)
+    && JSON.stringify(decoded.state.board.places.map((x) => x.label)) === JSON.stringify(drawnNow)
+    && decoded.state.answers.shape === "worklist" && decoded.state.answers.improvesLives === "no",
+    decoded.state ? JSON.stringify(decoded.state.answers) : decoded.reason);
+  await p.close();
+
+  // --- the Hook diagram from the KEYBOARD alone, on a fresh page (AC #2) ------------------------
+  const p2 = await ctx.newPage();
+  watch(p2, "method kb");
+  await p2.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p2.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  for (const [node, slot] of [["trigger", 0], ["action", 1], ["rewardType", 2], ["investment", 3]]) {
+    await park(p2, `[data-hook-node="${node}"]`);
+    await p2.focus(`[data-hook-node="${node}"]`);
+    await p2.keyboard.press("Enter");
+    await p2.focus(`[data-hook-slot="${slot}"]`);
+    await p2.keyboard.press("Enter");
+    await p2.waitForTimeout(80);
+  }
+  const kbDone = await p2.evaluate(() => ({
+    filled: [...document.querySelectorAll("[data-hook-slot]")].every((b) => b.classList.contains("is-filled")),
+    verdict: document.querySelector("[data-method-verdict]").getAttribute("data-method-verdict"),
+  }));
+  t("#214 · AC #2 · the loop assembles from the keyboard alone — focus + Enter, no pointer",
+    kbDone.filled && kbDone.verdict === "unlocked", JSON.stringify(kbDone));
+  await p2.close();
+
+  // --- the #193 mode (AC #5): a ?b= restore with ZERO interaction -------------------------------
+  const rAnswers = { ...DEFAULT_ANSWERS, shape: "stream", improvesLives: "no", wouldUseIt: "no" };
+  const rBoard = draftBoard(rAnswers);
+  const rParam = await encodeBuild({ answers: rAnswers, board: rBoard, boardIsEdited: false, pack: null });
+  const p3 = await ctx.newPage();
+  watch(p3, "method restore");
+  await p3.goto(`${BASE}/factory.html?${SHARE_PARAM}=${encodeURIComponent(rParam)}`, { waitUntil: "load" });
+  // data-studio="ready" is withheld until the decode settles — the declined driver never reaches
+  // "settled", so waiting on the replay here would deadlock (the plan's own gotcha).
+  await p3.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+  await p3.waitForSelector('[data-studio-method="ready"]', { timeout: 5000 });
+  const restored = await p3.evaluate(() => ({
+    state: document.querySelector("[data-studio-method]").getAttribute("data-method-state"),
+    shape: document.querySelector('input[name="stm-q-shape"]:checked')?.value,
+    lives: document.querySelector('input[name="stm-q-improvesLives"]:checked')?.value,
+    filled: [...document.querySelectorAll("[data-hook-slot]")].every((b) => b.classList.contains("is-filled")),
+    verdict: document.querySelector("[data-method-verdict]").getAttribute("data-method-verdict"),
+    meaning: document.querySelector(".stu-verdict-meaning")?.textContent ?? null,
+    note: document.querySelector("#this-build-summary").textContent,
+  }));
+  t("#214 · AC #5 · a ?b= restore populates cards, diagram AND verdict with ZERO interaction (the #193 mode), the meaning verbatim",
+    restored.state === "ready" && restored.shape === "stream" && restored.lives === "no"
+    && restored.filled && restored.verdict === "unlocked"
+    && restored.meaning === QUADRANT_MEANINGS[quadrantFor(rAnswers)],
+    JSON.stringify(restored));
+  t("#214 · AC #5 · …the declined path never disabled the band, and the panel names the sender's board, not the run's",
+    restored.state === "ready" && restored.note.includes("link you followed"), restored.note.slice(0, 200));
+  await p3.close();
+
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------------------------------------
 // #213 · THE MEASUREMENT GATE. The PRD's WRONG-if guardrails, measured instead of assumed: INP
 // ≤ 200 ms per named interaction per engine, and a drag that drops no frames under a base-spec
 // CPU profile. Nothing here ships — the observer is driver-injected via addInitScript
@@ -3065,7 +3331,8 @@ async function perfPass(browser, engineName, t, errors) {
   // page below). Rows run IN ORDER and depend on each other — the keyboard drop needs the grab,
   // revert needs the compile — which is also why the retry re-runs the WHOLE sequence on a fresh
   // page and re-measures only the flagged rows. ENUMERATED, not exhaustive of future verbs:
-  // #212's flow verbs join this list when they land (the designed extension point).
+  // #212's flow verbs join this list when they land (the designed extension point); #214's two
+  // method rows joined at the tail, where the redraft cannot disturb the rows above.
   const modZ = engineName === "webkit" ? "Meta+z" : "Control+z";
   const ROWS_FACTORY = [
     { label: "zoom-in click", act: (p) => btn(p, "Zoom in").click() },
@@ -3129,6 +3396,27 @@ async function perfPass(browser, engineName, t, errors) {
         p.waitForEvent("download", { timeout: 30000 }),
         p.locator("[data-keep-export] button").click(),
       ]);
+    } },
+    // #214's two rows, LAST because the first one redrafts the whole board (relinquish, wholesale
+    // replace, publish — the real interaction cost) and everything above wants the run's board.
+    // Each parks its target instantly first: the site scrolls smoothly and Playwright's
+    // actionability scroll races it (methodPass's rule).
+    { label: "method card radio click", act: async (p) => {
+      await p.$eval('input[name="stm-q-shape"][value="worklist"]',
+        (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+      await p.waitForTimeout(100);
+      await p.check('input[name="stm-q-shape"][value="worklist"]');
+      await p.waitForTimeout(150);
+    } },
+    { label: "hook slot place click", act: async (p) => {
+      // The select click shares the measured window, so this row's number is the MAX of the pair —
+      // both are method-band interactions and both belong under the budget.
+      await p.$eval('[data-hook-node="trigger"]',
+        (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+      await p.waitForTimeout(100);
+      await p.click('[data-hook-node="trigger"]');
+      await p.click('[data-hook-slot="0"]');
+      await p.waitForTimeout(150);
     } },
   ];
   // The two interactions that only exist MID-REPLAY, on their own page. Pause FIRST: after a
@@ -3365,9 +3653,9 @@ for (const engine of toRun) {
 // #213 · AC #7 — every bound the driver carries, stated by the driver itself on every run, red or
 // green. Silent truncation reads as "covered everything", which is the sin this block exists to
 // not commit.
-console.log('\nstudio-journey bounds · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (16 rows), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them');
+console.log('\nstudio-journey bounds · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (18 rows), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them');
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage — so the copied link now CARRIES the arrangement, labelled as carrying it · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state · AND #213's MEASUREMENT GATE: INP measured per named interaction — sixteen rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage — so the copied link now CARRIES the arrangement, labelled as carrying it · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state · AND #214's METHOD BAND: the ten questions as cards on the shipped canvas — disabled while the driver plays with a disabled-band pointerdown proven NOT a take-over and not a redraft, enabled in settle's own task, a pointer answer and a native radio-arrow keyboard answer each redrafting the canvas to draftBoard's OWN board computed in Node label for label, announced once per placement plus the one redraft sentence, provenance flipped in both standing places in the same words, the driver RELINQUISHED (transport dead, still settled, the set-aside sentence, no take-over route), the Hook loop assembled by pointer AND by keyboard with every select and placement announced counted exactly, a wrong-stage placement refused with the fixed reason and an untouched DOM, the verdict locked until completion and then the imported rules' sentences BY IDENTITY, re-rendering when an ethics card moves afterwards, the keep rail's link decoding back to the drafted board and answers, and the ?b= #193 mode populating cards, diagram and verdict with zero interaction on a never-disabled band · AND #213's MEASUREMENT GATE: INP measured per named interaction — eighteen rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

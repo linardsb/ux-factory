@@ -234,7 +234,7 @@ export const getCompile = () => live;
 // timeout, so deferring that handle behind a 14 s playback leaves a 6 s margin on a gate that runs
 // on three engines. Every mount and every `finally` handle staying at load is what keeps that
 // margin, and it costs two lines.
-export function mountCompile(canvas, { board, getBoard, answers, bus, onState } = {}) {
+export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus, onState } = {}) {
   const viewport = canvas && canvas.viewport;
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
@@ -480,7 +480,8 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
 
       // READ AT CALL TIME, never at mount — see getBoard on the signature. compileSteps is total
       // over junk, so a getter that answers nothing yet compiles to "empty" rather than throwing.
-      const result = compileSteps(typeof getBoard === "function" ? getBoard() : board, answers);
+      const result = compileSteps(typeof getBoard === "function" ? getBoard() : board,
+        typeof getAnswers === "function" ? getAnswers() : answers);
 
       // The vocabulary fetch starts NOW and is awaited before the last step only, so the beat begins
       // the moment the reader asks for it rather than after a round trip.
@@ -575,7 +576,8 @@ export function mountCompile(canvas, { board, getBoard, answers, bus, onState } 
     // Answers null for a board with nothing to compose, so the caller has one thing to test.
     async function composed() {
       if (destroyed) return null;
-      const result = compileSteps(typeof getBoard === "function" ? getBoard() : board, answers);
+      const result = compileSteps(typeof getBoard === "function" ? getBoard() : board,
+        typeof getAnswers === "function" ? getAnswers() : answers);
       if (result.state !== "rendered") return null;
       const vocabulary = await loadVocabulary();
       if (destroyed) return null;

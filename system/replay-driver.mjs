@@ -103,6 +103,9 @@ const PROVENANCE_VISITOR = "The run's work, with your edits on top.";
 // say that plainly, because a transport sitting dead beside a canvas full of blocks otherwise reads
 // as a replay that broke.
 const PROVENANCE_DECLINED = "Everything on this canvas came in on the link you followed — it is the sender's board, not this run's.";
+// #214's relinquish: after a method-card redraft the stage holds a board this run never built, so
+// neither the run sentence nor the edits-on-top one is true of it.
+const PROVENANCE_REDRAFTED = "The run's board was set aside — what is on this canvas is drafted from your answers.";
 const DECLINED_NOTE = "The recorded run below did not play here, and that is deliberate: you arrived "
   + "with a board already on the link, and the run would have had to build over it. The run is still "
   + "readable as it is — its trace and its brief are linked above — and opening /factory without a "
@@ -938,6 +941,24 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       get beats() { return beats; },
       get index() { return index; },
       get tookOver() { return tookOver; },
+      // #214's one seam, and it is a STATE ADOPTION rather than a new state: the method band's
+      // redraft replaces the stage's contents from OUTSIDE the scroller, so onTouch never sees it —
+      // but from that moment this driver must not write to the stage again, and the transport must
+      // not offer to (seek stays live at settle, and a backward seek REBUILDS the run's board).
+      // `tookOver` already means exactly that — see the declined mount above — so this adopts it.
+      // NO take-over route fires: the visitor answered a card, they did not grab the wheel over the
+      // run's work, and #75's lesson is that an event fires only from its own success path. The
+      // provenance line moves for the declined path's reason: the board on the stage is no longer
+      // the run's. pause() first, so a driver resumed after a backward seek stops mid-play too.
+      relinquish() {
+        if (tookOver || destroyed) return;
+        tookOver = true;
+        pause();
+        host.setAttribute("data-provenance", "visitor");
+        provenance.setAttribute("data-provenance", "visitor");
+        provenance.textContent = PROVENANCE_REDRAFTED;
+        syncControls();
+      },
       destroy() {
         // IT DOES NOT RE-ENABLE THE COMPILE BEAT, and that is stated rather than left to be found:
         // studio.mjs blocks the beat before mounting this driver and unblocks it on settle, on

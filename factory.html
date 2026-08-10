@@ -256,6 +256,19 @@
                 as a form at <a href="/build">the pattern builder</a>, and the panels beside this one
                 are all readable as they are.</p>
             </noscript>
+            <!-- The method band (#214). system/studio-method.mjs mounts on [data-studio-method] —
+                 mounted BY system/studio.mjs, not by a script tag of its own, because the
+                 adoptBoard seam it takes belongs to the orchestrator. The heading and the sentence
+                 below are the no-JS copy; the module appends the ten cards, the Hook diagram and
+                 the verdict after them. id="method" is the anchor the "This build" panel's note
+                 links to — the two are kept in sync by hand. -->
+            <section id="method" class="stu-method" data-studio-method aria-label="Method">
+              <h3 class="stu-panel-title">The method — answer it here</h3>
+              <p class="stu-method-lead">The ten questions the pattern is named from — seven from
+                Hooked, three from Shape Up — as cards. Answering one redrafts the board on the
+                canvas from the committed rules, in the same interaction. The same questions run as
+                a stepped form on <a href="/build">the pattern builder</a>.</p>
+            </section>
           </div>
 
           <aside class="stu-inspector" aria-label="Inspector">
