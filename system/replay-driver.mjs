@@ -838,12 +838,18 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       // driver never built. studio.mjs re-enables the compile beat itself on this path, which is the
       // constraint that matters: a declined mount must not leave the page's primary control dead.
       if (declined) {
+        // The method band is live on this path from construction, so a card answered while the two
+        // fetches were in flight has already relinquished this driver — and its PROVENANCE_REDRAFTED
+        // is the true sentence: the stage holds the drafted board now, not the sender's. Writing
+        // PROVENANCE_DECLINED over it would describe a board no longer on the canvas (PR #252
+        // review, L1).
+        const relinquished = tookOver;
         tookOver = true;
         setState("declined");
         controls.hidden = true;
         pacingLine.after(el("p", { class: "stu-replay-note", text: DECLINED_NOTE }));
         provenance.setAttribute("data-provenance", "visitor");
-        provenance.textContent = PROVENANCE_DECLINED;
+        if (!relinquished) provenance.textContent = PROVENANCE_DECLINED;
         host.setAttribute("data-provenance", "visitor");
         readout.textContent = "";
         return;
@@ -874,7 +880,11 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       mount.appendChild(el("div", { class: "stu-replay-card" },
         el("p", { class: "stu-replay-eyebrow", text: "Not available" }),
         el("p", { class: "stu-replay-note", text: message })));
-      provenance.textContent = "";
+      // tookOver here can only mean a pre-fetch relinquish on the declined path (elsewhere the band
+      // is disabled until publishBoard and onTouch bails on empty `beats`) — that redraft's sentence
+      // stays; a run that then failed to load changes nothing about whose board is on the canvas
+      // (PR #252 review, L1).
+      if (!tookOver) provenance.textContent = "";
       if (typeof onSettle === "function") onSettle(null);
     }
 
@@ -929,7 +939,10 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
           `${built.skipped} of the run's steps are neither ops nor words — it read the brief and validated the board — and are not played.` }));
       }
 
-      provenance.textContent = PROVENANCE_RUN;
+      // Guarded like the declined branch and unavailable() (PR #252 review, L1): tookOver here can
+      // only mean a pre-fetch relinquish on the declined path, whose sentence already names the
+      // drafted board — "the run's work" would describe a canvas the run does not own.
+      if (!tookOver) provenance.textContent = PROVENANCE_RUN;
     }
 
     start();

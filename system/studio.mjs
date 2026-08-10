@@ -590,8 +590,11 @@ function mountStudioCore(root, shell, restored) {
     replay?.relinquish();
     // A compiled stage goes back to blocks BEFORE the clear, so the beat's state machine and its
     // stash agree with the stage they describe and the drafted board arrives compilable. There is
-    // nothing to revert mid-"compiling"; a redraft in that window meets the beat's own count
-    // tripwire, which refuses the stale swap loudly rather than misaligning it.
+    // nothing to revert mid-"compiling"; a redraft in that window leaves the in-flight swap to the
+    // beat's count tripwire, which compares COUNTS only (studio-compile.mjs:409-411) — a mismatch
+    // refuses loudly, but a draft with the SAME place count swaps the old board's screens onto the
+    // new wrappers unrefused. Rare (a sub-2 s window), recoverable via "Back to blocks"; closing it
+    // needs an identity/generation stamp in applySwap (#253).
     if (compile.state !== "blocks" && compile.state !== "compiling") compile.revert();
     // wrapper.remove() per slot, never a wipe of the stage node: the sizer and the stage are what
     // the canvas owns; the slots are what this board put there (studio-canvas.mjs:114-117).

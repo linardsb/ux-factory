@@ -79,3 +79,30 @@ merge for.
 
 _Posted by the piv-review-pr agentic gate; a human makes the final call. (Solo repo: GitHub
 refuses a formal self-approval, so this verdict is posted as a review comment.)_
+
+---
+
+## Resolution (2026-08-10)
+
+Both findings fixed in the follow-up PR from `fix/studio-214-pr252-review` (#252 had already
+merged when the review landed). The APPROVE verdict above is discharged.
+
+- **M1 — fixed** (comment corrected, the review's first option). `adoptBoard`'s mid-"compiling"
+  comment now states the count-collision caveat in the report's own words — the tripwire compares
+  counts only, so a same-place-count draft swaps stale screens unrefused — and points at the close:
+  an identity/generation stamp in `applySwap`, logged as issue **#253**.
+- **L1 — fixed, and the regression case found a THIRD writer.** Both named writes are gated on
+  `tookOver` (the declined branch captures it before adopting it; `unavailable()` checks it before
+  clearing) — and the new methodPass case caught a third stomp the review missed: `renderChrome`'s
+  `PROVENANCE_RUN` write runs on the same continuation *before* the declined branch, and was only
+  ever masked by the declined write landing after it. Guarded the same way, with the same citation.
+  Regression case (studio-journey methodPass): the artifact fetch held by route on a declined `?b=`
+  arrival, a card answered inside the loading window, then the hold released — asserting the
+  redrafted sentence survives both resolutions (the declined branch, and `unavailable()` via a held
+  404). Proven able to fail: 2 red against the unfixed driver, each printing the stomped sentence
+  (`came in on the link…` / `(cleared)`), green with the guards.
+
+Re-validated on the fix branch: build-checks 20/20 · gen-param-count no drift · loc-summary
+regenerated (grand total 34700 → 34800; the runtime group approach renders is untouched, so no
+baseline churn) · studio-journey chromium 321/0 · firefox 317/0 · webkit 317/0 (the +4/+3 over the
+review's counts are this fix's own cases; the chromium/others delta stays the frame check).
