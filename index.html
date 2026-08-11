@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Linards Berzins · UX engineer</title>
-  <meta name="description" content="A UX-engineering portfolio you can try: answer three product questions and watch it generate an accessible design system, live in your browser." />
+  <meta name="description" content="A UX-engineering portfolio you can run: drop your design tokens and watch an accessible system re-derive in your browser, then open the studio and move a real product's shape around." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
@@ -20,36 +20,49 @@
 
   <main>
     <!-- ============================================================================
-         v3 spine — region contract (ticket #71). Home IS the product-demo (PRD D6).
-         Five band-chaptered <section> beats. Each #beat-* section is owned INTERNALLY
-         by a later ticket, which fills it as a DISJOINT region (parallel-safe). This
-         file ships the STATIC, at-rest state only: it is the reduced-motion / no-JS
-         first paint AND the VR baseline. rest == final — later beats animate TO these
-         states and must not change them.
+         Home — region contract (#216, epic #202). Home is THE GATE, not the pipeline.
 
-           #beat-hero    Beat 1 · instant proof.   Owner #72 — adds system/spine.mjs
-                         (the beat-orchestration seam) + build-in choreography + ONE
-                         real derive() re-skin via :root custom properties.
-           #beat-intake  Beat 2a · you brief it.   Owner #73 — mounts the rewritten
-                         stakeholder wizard (shared factory-intake.mjs via initIntake).
-                         NB: the wizard's existing mount convention is id="intake"
-                         (factory.html); #73 may nest #intake inside #beat-intake.
-           #beat-brand   Beat 2b · your brand.     Owner #74 — bounded brand-colour
-                         input + derived-pack persistence (pack-derived.mjs + pack-boot).
-           #beat-peak    Beat 3 · the peak.        Owner #75 — a committed proto/
-                         composition assembles under the answers/brand + WCAG receipts
-                         + the Manipulation-Matrix ethics gate. The signature moment.
-           #beat-close   Beat 4 · you keep it.     Owner #77 — handoff link + shareable
-                         URL-state + the contact close.
-           #verify       Beat 5 · verify.          STATIC evidence index (row-list) to
-                         factory / roundtrip / study / approach / work. No JS mount.
+         The site's centre of gravity moved to /factory across waves 1-5 of epic #202,
+         and this page moved with it: four sections, one unmistakable route out. The old
+         seven-beat v3 spine (#71) is EVOLVED, not discarded (PRD §Amendments 3) — every
+         beat that left has a better successor inside the studio:
 
-         system/spine.mjs is present (#72: the beat-orchestration seam + Beat 1, the hero).
-         Later beats register through it (#73/#75/#77). Honesty: a placeholder beat must not
-         claim a live capability it does not yet perform (no `.capability.live` chip until wired).
+           #beat-intake  the stepped wizard   → #214's on-canvas method cards
+           #beat-wear    the dock interstitial→ folded into #beat-brand's lead below
+           #beat-peak    the built screen     → #207's compile beat + #209's replay
+           #beat-close   the keep card        → #210's keep rail
+
+         The four that remain:
+
+           #beat-hero    The billboard. Role and outcome legible in five seconds
+                         (ux-overhaul-v3-prd-research.md:37), one primary CTA into the
+                         studio. system/spine.mjs's heroBeat owns it: ONE real derive()
+                         re-skin via :root custom properties, then a revert. It sets
+                         data-spine="ready" in a finally on every path — that handle is
+                         the VR gate's waitReady, and its two load-time view transitions
+                         are vt-verify's expected boot count of 2.
+           #beat-brand   The live re-skin proof, MERGED from the old 2a/2b pair: the
+                         brand-colour input + the token drop zone (ask column) beside
+                         #reskin-preview + the three scrub handles (stage column). This
+                         is home's only interactive claim, and it is the one the studio
+                         then pays off at full size.
+           #verify       The evidence index. Four rows, studio first. Keeps its id —
+                         palette.mjs:109 deep-links /#verify and the ⌘K palette MEMOIZES
+                         its command list at first open, so a dead hash fails silently
+                         and forever.
+           (close row)   One .section CTA row, mirroring approach.html and work.html.
+
+         This file ships the STATIC, at-rest state only: it is the reduced-motion / no-JS
+         first paint AND the VR baseline. rest == final. Honesty: a beat must not claim a
+         live capability it does not perform.
+
+         NB the .intake-* class names in #beat-brand predate the merge and are SHARED with
+         instance.html, which still mirrors home's old spine until #222. They are pure
+         layout primitives (a two-column grid and its caption); renaming them honestly
+         would mean editing a page this ticket has scoped out. Revisit at #222.
          ============================================================================ -->
 
-    <!-- Beat 1 · instant proof — the billboard cover (I1). #72 animates TO this state. -->
+    <!-- The billboard. #72 animates TO this state. -->
     <section class="page-hero" id="beat-hero" data-inspect="page-hero">
       <div class="container">
         <div class="hero-eyebrow">
@@ -57,52 +70,86 @@
           <span class="stamp">Linards Berzins · UX engineer</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">Turn a brand colour into a working <span class="hl">design system</span>.</h1>
+        <h1 class="text-balance">I build the <span class="hl">design system and the prototype</span> your engineers ship from.</h1>
         <p class="hero-sub">
-          I'm Linards, a UX engineer. Instead of telling you what I do, this site shows it.
-          Brief a product, pick a brand colour, and watch an accessible design system get
-          built in your browser. Every step is inspectable.
+          I'm Linards, a UX engineer. Instead of describing that, this site does it. The studio
+          holds a real product's shape, drafted by a recorded agent run and laid out on a canvas
+          you can rearrange. Drop your own design tokens and every screen wears them, each
+          contrast pair checked in your browser. Nothing is uploaded, and every claim opens to
+          the evidence behind it.
         </p>
         <div class="hero-cta-row">
-          <a class="btn btn-primary btn-arrow" href="#beat-intake" data-inspect="buttons">Start the brief</a>
+          <a class="btn btn-primary btn-arrow" href="/factory" data-inspect="buttons">Open the studio</a>
           <a class="btn btn-secondary" href="/approach" data-inspect="buttons">How I work</a>
         </div>
       </div>
     </section>
 
-    <!-- Beat 2a · you brief it — the SHARED factory wizard (system/factory-intake.mjs), configured
-         Verdant-only and to the three non-brand axes via initIntake, mounted by system/intake-beat.mjs
-         on the spine's beat seam. data-intake="external" stands down factory-intake's import-time
-         auto-init so the beat owns the mount. Brand is #74's beat; the Manipulation Matrix is #75's —
-         home shows only the live frequency→verdict line, inside the narrative. (#73; PRD D4)
-         The static wizard/preview seed below is the no-JS / reduced-motion first paint AND the VR
-         baseline; the module replaces the "Loading…" seed and sets derived tokens on #reskin-preview. -->
-    <section class="band" id="beat-intake">
+    <!-- The live re-skin proof (#216, merging the old #beat-intake stage with #beat-brand).
+         ASK column: system/pack-derived.mjs derives a full palette from the entered colour and
+         applies it stage-side on :root (and, when worn, across the site via pack-boot);
+         system/brand-import.mjs reads a dropped token export IN THE BROWSER through the real
+         mapping engine (system/pack-import.mjs — the same one the CLI and the portal run).
+         STAGE column: #reskin-preview carries the derived tokens as custom properties, and
+         system/scrub.mjs renders the three handles under it.
+         The static markup below is the no-JS / fail-closed final state: real components and
+         inert copy, never a control that does nothing. -->
+    <section class="band" id="beat-brand">
       <div class="container">
         <div class="beat-head">
-          <span class="beat-numeral">01</span>
           <div class="beat-head-text">
-            <p class="beat-kicker">You brief it</p>
-            <h2 class="beat-title">Brief a product in three questions.</h2>
+            <p class="beat-kicker">The live proof</p>
+            <h2 class="beat-title">Change one value. The whole system follows.</h2>
           </div>
         </div>
         <p class="beat-lead">
-          Each question carries a recommended answer and the reason behind it, so the brief
-          stays sharp. Answer them and watch the design system rebuild to match.
-        </p>
-        <p class="fw-scenario">
-          <strong class="fw-scenario-tag">Fictional scenario</strong>
-          <span id="fw-scenario-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</span>
-          The answers below are real inputs to the live engine.
+          Pick a brand colour or drop the token export your design already uses. The components
+          on the right re-derive from it: a full palette, every contrast pair measured, nothing
+          leaving your browser. Drag the numbers underneath to push hue, corner radius and
+          spacing further. On a desktop screen an appearance control sits on the right edge of
+          every page — tick "Wear it across the site" and your pick follows you from page to
+          page, so each page becomes another test of the same system.
         </p>
         <div class="intake-live">
           <div class="intake-ask">
-            <div id="factory-wizard" data-intake="external">
-              <p class="fw-loading muted">Loading the intake wizard…</p>
+            <div class="brand-input">
+              <div class="brand-fields">
+                <label class="brand-field">
+                  <span class="brand-field-label">Brand colour</span>
+                  <input type="color" class="brand-color" data-brand-color value="#2563eb" />
+                </label>
+                <label class="brand-field brand-field--name">
+                  <span class="brand-field-label">Company name <span class="brand-field-hint">(for the label only)</span></span>
+                  <input type="text" class="brand-name" data-brand-name maxlength="40" autocomplete="off" spellcheck="false" placeholder="Optional" />
+                </label>
+              </div>
+              <div class="brand-actions">
+                <label class="brand-wear">
+                  <input type="checkbox" class="brand-wear-box" data-brand-wear />
+                  <span class="brand-wear-text">Wear it across the site</span>
+                </label>
+                <button type="button" class="btn btn-ghost" data-brand-reset>Reset to neutral</button>
+              </div>
+              <p class="brand-label" data-brand-label data-state="empty">Pick a colour. The demo derives a full palette and checks every contrast pair. Nothing you enter leaves your browser.</p>
+
+              <!-- #130 · public drop-to-re-skin. The file is never uploaded: the shipped site has
+                   no server. This block is the no-JS / fail-closed state — with JS off it is inert
+                   copy naming what the feature does, never a control that does nothing. -->
+              <div class="brand-import" data-import>
+                <p class="brand-import-or">or</p>
+                <label class="brand-drop" data-import-drop>
+                  <input type="file" accept="application/json,.json" class="brand-drop-input" data-import-file />
+                  <span class="brand-drop-title">Drop your design tokens</span>
+                  <span class="brand-drop-formats">A DTCG or Tokens Studio export, a Figma variables dump, or any nested JSON of names and values.</span>
+                  <span class="brand-drop-privacy">Read here in your browser. Never uploaded.</span>
+                </label>
+                <p class="brand-import-status" data-import-status role="status" data-state="idle"></p>
+                <div class="brand-import-report" data-import-report hidden></div>
+              </div>
             </div>
           </div>
           <div class="intake-stage">
-            <p class="intake-stage-cap">The system, generated live from your answers</p>
+            <p class="intake-stage-cap">Real components, re-derived live</p>
             <!-- Sample surface: real components. Static so it renders even if the module is blocked;
                  the module only sets the engine's derived tokens as custom properties on this root. -->
             <div id="reskin-preview">
@@ -120,8 +167,8 @@
                   </div></article>
                   <article class="card" data-inspect="cards"><div class="card-body">
                     <div class="card-kicker">Buttons</div>
-                    <p class="mb-md"><a class="btn btn-primary" href="#beat-intake" data-inspect="buttons">Primary</a></p>
-                    <p><a class="btn btn-secondary" href="#beat-intake" data-inspect="buttons">Secondary</a></p>
+                    <p class="mb-md"><a class="btn btn-primary" href="#beat-brand" data-inspect="buttons">Primary</a></p>
+                    <p><a class="btn btn-secondary" href="#beat-brand" data-inspect="buttons">Secondary</a></p>
                   </div></article>
                 </div>
               </div>
@@ -134,218 +181,16 @@
             <div class="stage-scrub" data-stage-scrub></div>
           </div>
         </div>
-        <!-- Staged "how it's generated" narrative, full-width below the ask|stage row and visible (no
-             disclosure) so the reward → patterns and frequency → verdict changes land on stage even
-             though only density re-skins the preview tokens above. -->
-        <div class="intake-evidence">
-          <p class="intake-stage-cap">How it's generated, step by step</p>
-          <div id="factory-narrative"></div>
-        </div>
       </div>
     </section>
 
-    <!-- Beat 2b · your brand (I4 numeral + real colour input). #74: system/pack-derived.mjs derives
-         a full palette from the entered colour, applies it stage-side on :root, and (when worn)
-         persists it across the site via pack-boot. Colour only; the name is a display label. -->
-    <section class="band" id="beat-brand">
-      <div class="container">
-        <div class="beat-head">
-          <span class="beat-numeral">02</span>
-          <div class="beat-head-text">
-            <p class="beat-kicker">Your brand</p>
-            <h2 class="beat-title">Try it with your own brand colour.</h2>
-          </div>
-        </div>
-        <p class="beat-lead">
-          Give the demo a brand colour and it pulls your product onto the stage. The whole
-          site can wear it while you look around.
-        </p>
-        <div class="brand-input">
-          <div class="brand-fields">
-            <label class="brand-field">
-              <span class="brand-field-label">Brand colour</span>
-              <input type="color" class="brand-color" data-brand-color value="#2563eb" />
-            </label>
-            <label class="brand-field brand-field--name">
-              <span class="brand-field-label">Company name <span class="brand-field-hint">(for the label only)</span></span>
-              <input type="text" class="brand-name" data-brand-name maxlength="40" autocomplete="off" spellcheck="false" placeholder="Optional" />
-            </label>
-          </div>
-          <div class="brand-actions">
-            <label class="brand-wear">
-              <input type="checkbox" class="brand-wear-box" data-brand-wear />
-              <span class="brand-wear-text">Wear it across the site</span>
-            </label>
-            <button type="button" class="btn btn-ghost" data-brand-reset>Reset to neutral</button>
-          </div>
-          <p class="brand-label" data-brand-label data-state="empty">Pick a colour. The demo derives a full palette and checks every contrast pair. Nothing you enter leaves your browser.</p>
-
-          <!-- #130 · public drop-to-re-skin. system/brand-import.mjs reads a dropped JSON token
-               export in the browser, runs the REAL mapping engine (system/pack-import.mjs — the
-               same one the CLI and the portal run), and renders the mapping report + WCAG
-               receipts below. The file is never uploaded: the shipped site has no server. This
-               block is the no-JS / fail-closed state — with JS off it is inert copy naming what
-               the feature does, never a control that does nothing. -->
-          <div class="brand-import" data-import>
-            <p class="brand-import-or">or</p>
-            <label class="brand-drop" data-import-drop>
-              <input type="file" accept="application/json,.json" class="brand-drop-input" data-import-file />
-              <span class="brand-drop-title">Drop your design tokens</span>
-              <span class="brand-drop-formats">A DTCG or Tokens Studio export, a Figma variables dump, or any nested JSON of names and values.</span>
-              <span class="brand-drop-privacy">Read here in your browser. Never uploaded.</span>
-            </label>
-            <p class="brand-import-status" data-import-status role="status" data-state="idle"></p>
-            <div class="brand-import-report" data-import-report hidden></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Interstitial · the appearance control (#76). NOT numbered on purpose: 01-05 are the build
-         pipeline, and this is the meta-utility that carries the pipeline's output across the site.
-         It sits right after "your brand" because that is the moment there is something to wear.
-         The affordance is desktop-only (system/dock.mjs's rail is hidden below 1100px), so the
-         copy names the width it needs and promises no control the reader cannot reach. -->
-    <section class="band band--interstitial" id="beat-wear">
-      <div class="container">
-        <div class="wear-intro">
-          <p class="beat-kicker">Wear it while you explore</p>
-          <h2 class="beat-title">Every page can wear the design system you pick.</h2>
-          <p class="beat-lead">
-            On a desktop screen an appearance control sits on the right edge of every page. It holds
-            the three committed packs, plus your own derived one once you have entered a colour above.
-            Every page reads its colours and sizes from the same named list (the token contract),
-            and your pick follows you from page to page, so each page becomes another test of it.
-          </p>
-          <p class="wear-cue"><a class="btn btn-secondary" href="#appearance">Open the appearance control</a></p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Beat 3 · the peak — the ONE dark band, the signature. A STILL of what it builds. #75 makes it assemble. -->
-    <section class="band band--dark" id="beat-peak">
-      <div class="container">
-        <div class="beat-head">
-          <span class="beat-numeral">03</span>
-          <div class="beat-head-text">
-            <p class="beat-kicker">It builds</p>
-            <h2 class="beat-title">A product screen from the same system, wearing your brand.</h2>
-          </div>
-        </div>
-        <!-- Beat 3 · the built-screen peak (#75). With JS, system/peak.mjs replaces the still
-             (.peak-screen) with a Verdant screen the real renderer builds from a COMMITTED example
-             composition, re-skinned to the visitor's brand + answers; draws the real WCAG receipts;
-             runs the ethics guess-then-reveal; and appends the adjust-live control. Build-then-swap:
-             this still IS the no-JS / fail-closed final state, so it stays honest on its own. -->
-        <div class="peak-stage">
-          <div class="peak-screen-col">
-            <div class="peak-screen">
-              <div class="peak-screen-bar">
-                <span class="peak-screen-title">Verdant</span>
-                <span class="peak-screen-dot" aria-hidden="true"></span>
-              </div>
-              <div class="peak-screen-tiles">
-                <div class="peak-tile">
-                  <div class="n">3</div>
-                  <div class="l">plants need water</div>
-                </div>
-                <div class="peak-tile">
-                  <div class="n">12</div>
-                  <div class="l">healthy today</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="peak-side">
-            <span class="peak-tag">Fictional product</span>
-            <div class="peak-receipts" data-peak-receipts>
-              <div class="wcag-row">
-                <span class="wcag-pair">Body text on the card</span>
-                <span class="wcag-pass">Pass AA</span>
-              </div>
-              <div class="wcag-row">
-                <span class="wcag-pair">Brand accent on the card</span>
-                <span class="wcag-pass">Pass AA</span>
-              </div>
-            </div>
-            <p class="peak-note">
-              A real example screen, saved into the site and rebuilt here in your brand from the
-              same design system. The code that checks every colour pair for readable contrast
-              (the contrast engine) measures this screen live, and the screen enforces its own
-              rules when you adjust it. On a private instance an agent composes this screen per
-              employer before the site ships; here it is a committed example.
-            </p>
-            <details class="peak-ethics">
-              <summary>Does this screen manipulate the user? Guess, then reveal the engine's read.</summary>
-              <div class="peak-ethics-body">
-                <p>
-                  Every screen is run through the Manipulation Matrix before it ships, and the verdict
-                  is shown. With JavaScript on, you guess where Verdant sits and the real engine reveals
-                  its read: genuinely useful, because it improves the user's life and its maker would
-                  use it (the engine calls this the facilitator quadrant).
-                </p>
-              </div>
-            </details>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Beat 4 · you keep it — the single-card close (I6), the Hook Model's investment step
-         (#77). Everything below the .close-extras mount is the no-JS floor and the documented
-         circuit-breaker state: one statement, one action, and a handoff pack you can keep.
-         system/close.mjs fills .close-extras with the share link and the derived-token copy.
-         The pack is Verdant's committed pack, never "your pack" — honesty contract, hard. -->
-    <section class="band" id="beat-close">
-      <div class="container">
-        <div class="beat-head">
-          <span class="beat-numeral">04</span>
-          <div class="beat-head-text">
-            <p class="beat-kicker">You keep it</p>
-            <h2 class="beat-title">You keep what it builds.</h2>
-          </div>
-        </div>
-        <div class="close-card">
-          <p class="close-card-line">This is what I'd do for your team in week one, and what you'd hold at the end of it: a system your engineers can build on.</p>
-          <div class="hero-cta-row">
-            <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
-          </div>
-          <div class="close-takeaway">
-            <p class="close-takeaway-line">
-              Take the handoff pack with you. It holds everything an engineer needs to build
-              Verdant, the fictional product this demo designs: component specs, data contracts,
-              tokens, and the agent vocabulary.
-            </p>
-            <div class="close-takeaway-row">
-              <a class="btn btn-secondary" href="/handoff.html">See the handoff pack</a>
-              <a class="btn btn-secondary" href="/handoff/verdant/pack.bundle.json" download>Download the pack</a>
-            </div>
-          </div>
-          <!-- The third tier, and the only one that is about the reader's own product (#138): /build
-               is off-nav but reachable, and it is static markup on purpose — close.mjs is additive
-               only, so an action this central cannot depend on JavaScript being on. -->
-          <div class="close-takeaway">
-            <p class="close-takeaway-line">
-              Or run the method on your own product. Bring the colour-and-size values your design
-              already uses (its design tokens), answer the ten questions this portfolio works by,
-              and a UI pattern assembles under your brand. The
-              rules run in your browser — nothing is uploaded and no model is called — and the link
-              at the end rebuilds the whole build for whoever you send it to.
-            </p>
-            <div class="close-takeaway-row">
-              <a class="btn btn-secondary" href="/build">Build one with your own tokens</a>
-            </div>
-          </div>
-          <div class="close-extras" data-close-extras></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Beat 5 · verify — static evidence index (I3 row-list), one disclosure deep (D8). No JS mount. -->
+    <!-- The evidence index (row-list, one disclosure deep). No JS mount. Studio first: it is the
+         destination the rest of the site is evidence for. /roundtrip and /agentic-ui-study are
+         deliberately not rows here — both stay in the footer site index and in the studio's own
+         "Go deeper" list, and a gate that lists everything is not a gate. -->
     <section class="band" id="verify">
       <div class="container">
         <div class="beat-head">
-          <span class="beat-numeral">05</span>
           <div class="beat-head-text">
             <p class="beat-kicker">Verify</p>
             <h2 class="beat-title">Verify any of it.</h2>
@@ -359,35 +204,8 @@
           <li>
             <a class="row-item" href="/factory">
               <span class="row-item-text">
-                <span class="row-item-title">The factory floor</span>
-                <span class="row-item-desc">Real agent-run traces, replayed step by step</span>
-              </span>
-              <span class="row-item-arrow" aria-hidden="true">→</span>
-            </a>
-          </li>
-          <li>
-            <a class="row-item" href="/roundtrip">
-              <span class="row-item-text">
-                <span class="row-item-title">The round-trip check</span>
-                <span class="row-item-desc">Screenshots turned back into tokens, with the fidelity diff</span>
-              </span>
-              <span class="row-item-arrow" aria-hidden="true">→</span>
-            </a>
-          </li>
-          <li>
-            <a class="row-item" href="/agentic-ui-study">
-              <span class="row-item-text">
-                <span class="row-item-title">The agentic study</span>
-                <span class="row-item-desc">An interface composed by an agent, adjustable live</span>
-              </span>
-              <span class="row-item-arrow" aria-hidden="true">→</span>
-            </a>
-          </li>
-          <li>
-            <a class="row-item" href="/approach">
-              <span class="row-item-text">
-                <span class="row-item-title">How I work</span>
-                <span class="row-item-desc">The method, the token contract, the annotated source</span>
+                <span class="row-item-title">The studio</span>
+                <span class="row-item-desc">What a real recorded agent run built, replayed step by step on a canvas you can take over</span>
               </span>
               <span class="row-item-arrow" aria-hidden="true">→</span>
             </a>
@@ -396,12 +214,39 @@
             <a class="row-item" href="/work">
               <span class="row-item-text">
                 <span class="row-item-title">The work</span>
-                <span class="row-item-desc">Two working demos and the handoff pack an engineer receives</span>
+                <span class="row-item-desc">The prototypes, the live component library, and the handoff pack an engineer receives</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/approach">
+              <span class="row-item-text">
+                <span class="row-item-title">How I work</span>
+                <span class="row-item-desc">The method, the token contract, and the annotated source behind every claim</span>
+              </span>
+              <span class="row-item-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+          <li>
+            <a class="row-item" href="/components">
+              <span class="row-item-text">
+                <span class="row-item-title">The component catalog</span>
+                <span class="row-item-desc">Every component's spec, engineer docs and agent vocabulary, generated from one source</span>
               </span>
               <span class="row-item-arrow" aria-hidden="true">→</span>
             </a>
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="hero-cta-row">
+          <a class="btn btn-primary btn-arrow" href="/factory">Open the studio</a>
+          <a class="btn btn-secondary" href="/contact">Get in touch</a>
+        </div>
       </div>
     </section>
 
@@ -411,18 +256,16 @@
   <script src="/system/site.js"></script>
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
+  <!-- Do NOT move any module above dock.mjs: dock imports pack-derived, and that import is what
+       makes the shared-link hydration run before spine's hero registers. The beat that named this
+       ordering (#77's close) is gone, but the arrival path it protects is not — pack-derived.mjs
+       still fires trackFactoryArrived for a link someone else sent. Reordering breaks it. -->
   <script type="module" src="/system/dock.mjs"></script>
   <script type="module" src="/system/inspect.mjs"></script>
   <script type="module" src="/system/spine.mjs"></script>
-  <script type="module" src="/system/intake-beat.mjs"></script>
   <script type="module" src="/system/pack-derived.mjs"></script>
   <script type="module" src="/system/brand-import.mjs"></script>
-  <script type="module" src="/system/peak.mjs"></script>
   <script type="module" src="/system/scrub.mjs"></script>
-  <!-- Beat 4. Last is fine (it imports spine.mjs), but do NOT move any module above dock.mjs:
-       dock imports pack-derived, and that import is what makes the shared-link hydration run
-       before spine's hero registers. Reordering these tags breaks the arrival path (#77). -->
-  <script type="module" src="/system/close.mjs"></script>
   <script type="module" src="/system/palette.mjs"></script>
 </body>
 </html>

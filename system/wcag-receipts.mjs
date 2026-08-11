@@ -1,18 +1,20 @@
 // system/wcag-receipts.mjs — hand-written canon (this repo; not generated). The WCAG-receipt
-// presentation, extracted from peak.mjs so two hosts share ONE receipt contract: the home peak
-// (system/peak.mjs, epic #70 ticket #75) and the private-instance peak (system/instance.mjs,
-// epic #70 ticket #81). Governing doc: docs/epics/portfolio-v3-experience.prd.md §6.1 beat 3.
+// presentation. Governing doc: docs/epics/portfolio-v3-experience.prd.md §6.1 beat 3.
 //
-// Why its own module rather than instance.mjs importing peak.mjs: peak.mjs imports pack-derived.mjs
-// (transitively, via intake-beat.mjs too), whose module tail runs hydrateFromSharedLink() UNGUARDED
-// by any mount — on a URL carrying ?brand=… it applies derived colours to :root, writes the record
-// and calls wear(). On a private instance that would let a forwarded query param silently override
-// the company's PINNED pack, which is the one thing that page must never lose. Extracting these ~45
-// lines removes the hazard structurally rather than by comment.
+// It was extracted from the old system/peak.mjs (epic #70 ticket #75) so that home's peak and the
+// private-instance peak (system/instance.mjs, ticket #81) shared ONE receipt contract. #216 deleted
+// home's peak — its successors are the studio's compile beat (#207) and replay (#209) — so the one
+// remaining host is instance.mjs. THE MODULE STAYS SEPARATE, and the reason is unchanged by losing
+// a host: peak.mjs imported pack-derived.mjs, whose module tail runs hydrateFromSharedLink()
+// UNGUARDED by any mount — on a URL carrying ?brand=… it applies derived colours to :root, writes
+// the record and calls wear(). On a private instance that would let a forwarded query param
+// silently override the company's PINNED pack, which is the one thing that page must never lose.
+// Folding these ~45 lines back into a caller would re-open that hazard the moment a second host
+// appears, so the structural separation is kept rather than argued about again.
 //
 // Pure + DOM-only: no imports at all (the caller passes derive()'s `checks` array), so importing
-// this module can have no side effect anywhere. The el() builder below is deliberately duplicated
-// from peak.mjs:89-99 — a 10-line private helper is a cheaper price than a shared dependency.
+// this module can have no side effect anywhere. The el() builder below is a deliberate private
+// duplicate — a 10-line helper is a cheaper price than a shared dependency.
 
 // The receipt rows a peak SHOWS — the pairs a reader sees on the light card screen (the rest of the
 // 12 are page-chrome pairs). The headline pass-count is computed over ALL 12, and any FAILING pair
@@ -26,7 +28,7 @@ export const RECEIPT_USAGES = [
 ];
 
 // Element builder — never innerHTML from data, so engine-/visitor-supplied strings stay inert text.
-// (Duplicated from peak.mjs by design; see the header.)
+// (Duplicated by design from the deleted peak.mjs; see the header.)
 function el(tag, attrs, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {

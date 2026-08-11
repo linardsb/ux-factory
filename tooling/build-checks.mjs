@@ -1741,9 +1741,20 @@ function scanSvg(svg, label) {
   //      existing one and fall outside the only check that looks. The pinned minimum stays, because
   //      derivation alone is satisfied by an empty module: a rename that DROPS a tracker must be as
   //      red as a duplicate one. (PR #241 review, Low 5.)
+  //
+  //      #216 DROPPED TWO — trackFactoryBuilt and trackFactoryShared — and this list is where that
+  //      had to be said out loud. Both fired only from home's spine (the built-screen peak and the
+  //      close beat), and #216 compressed home to the gate, deleting system/peak.mjs and
+  //      system/close.mjs with their only call sites; the pin went red on the deletion commit
+  //      exactly as designed, and dropping the two names here is what discharges it. Their paths
+  //      /factory/built and /factory/shared are now free literals that NO code pushes — and must
+  //      stay that way. The studio's successors are deliberately named differently
+  //      (/factory/exported, /factory/link-copied, #210): CF WA is a time series, so a path that
+  //      meant "reached home's peak" until #216 must never start meaning "exported from the studio"
+  //      afterwards. Nine is the new floor; the duplicate-path check below is untouched.
   {
     const MIN = [
-      "trackFactoryDriven", "trackFactoryBuilt", "trackFactoryShared", "trackFactoryArrived",
+      "trackFactoryDriven", "trackFactoryArrived",
       "trackBuildPattern", "trackBuildShared", "trackToolInspect", "trackToolPalette",
       "trackFactoryTookOver", "trackFactoryLinkCopied", "trackFactoryExported",
     ];

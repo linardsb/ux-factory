@@ -2,24 +2,26 @@
 // drag a number, or arrow-key it, and watch the generated system respond (epic #164 ticket
 // #169 — docs/epics/prototyping-feel-uplift.architecture.md §New pieces "Scrub values").
 // makeScrubbable() wires one element as a WAI-ARIA slider driven by pointer delta or keys;
-// the guarded home mount below renders three of them under the intake stage's #reskin-preview:
+// the guarded home mount below renders three of them under #beat-brand's #reskin-preview:
 // brand hue re-runs the REAL derivation engine (system/derive.mjs) per change; corner radius
 // and spacing set the contract's own tokens directly — the caption on the page says which is
 // which (honesty contract). #174 imports makeScrubbable for approach's derive probe and
 // ignores the mount.
 //
-// LAST-WRITER-WINS with the intake wizard: both write custom properties on #reskin-preview
-// (the factory-intake.mjs:282 seam), so whoever acted last owns the preview — the documented,
-// honest interplay, not a bug. The handles cache NOTHING: every interaction start (pointerdown,
-// each keydown step) and every focusin calls read() — the live computed value — so a wizard
-// re-run can never leave a handle fighting or displaying stale state.
+// LAST-WRITER-WINS with the brand input: pack-derived.mjs applies the derived palette on :root
+// while the handles write custom properties on #reskin-preview, so whoever acted last owns the
+// preview — the documented, honest interplay, not a bug. (Until #216 the other writer was home's
+// intake wizard via the factory-intake.mjs seam; that wizard moved into the studio's method band,
+// and the brand-colour input took its place as the thing a handle can be fighting.) The handles
+// cache NOTHING: every interaction start (pointerdown, each keydown step) and every focusin calls
+// read() — the live computed value — so a re-skin can never leave a handle fighting or displaying
+// stale state.
 //
 // Node-import safe: no top-level DOM access outside the guarded init (derive-probe posture).
 // portfolio.css owns every class; this module injects no <style> and rebuilds no DOM per tick.
 
 import { derive } from "./derive.mjs";
 import { hexToOklch, oklchToHex, toGamut } from "./oklch.mjs";
-import { getHomeAnswers } from "./intake-beat.mjs";
 
 // --- the primitive ---------------------------------------------------------------------------
 
@@ -97,8 +99,9 @@ export function makeScrubbable(handle, { min, max, step, read, unit = "", label,
 
 // --- the home stage mount --------------------------------------------------------------------
 
-// The wizard's non-brand defaults (scenarios/verdant — same set spine.mjs's canned axes carry),
-// used only until the wizard has published its first live answer set.
+// The committed scenario's non-brand axes (scenarios/verdant — the same set spine.mjs's canned
+// axes carry). Since #216 these are FIXED rather than a fallback-until-the-wizard-runs: the only
+// axis home still lets a reader move is the brand colour, and that one is read live below.
 const DEFAULT_AXES = { brandColor: "#2f7a4d", density: "comfortable", rewardType: "self", frequency: "daily" };
 
 function el(tag, attrs, ...children) {
@@ -125,13 +128,21 @@ function mountStageScrub() {
   };
   const setPx = (name, v) => preview.style.setProperty(name, `${Math.round(v)}px`);
 
-  // The hue base is the brief's brand colour (the wizard's live one once it has run); the hue
-  // handle reads the PREVIEW's computed accent instead — derive() negotiates lightness and
-  // chroma but preserves hue, so the accent tracks whatever was last derived, wizard run or
-  // scrub alike (the wizard's own answers never learn a scrubbed hue). Defensive ||0 / catch:
-  // hexToOklch pins near-achromatic hue to 0, and an unparsable computed value (a worn derived
-  // pack can hold non-hex colour formats) falls back to the brief's brand hue.
-  const brandHex = () => (getHomeAnswers() ?? DEFAULT_AXES).brandColor.toLowerCase();
+  // The hue base is the reader's LIVE brand colour, read from #beat-brand's own colour input
+  // (pack-derived.mjs owns that control). It falls back to the committed scenario brand before
+  // the reader touches anything, and on any page that mounts this stage without the control.
+  // Read, never cached — same discipline as read() below. Deliberately NOT readRecord() from
+  // pack-derived.mjs: that module's tail runs hydrateFromSharedLink() unguarded, and this file is
+  // on approach.html's module graph via derive-probe.mjs, so importing it would put that side
+  // effect on a page that has no brand input to hydrate. The input's value is the same answer.
+  //
+  // The hue HANDLE reads the PREVIEW's computed accent instead — derive() negotiates lightness
+  // and chroma but preserves hue, so the accent tracks whatever was last derived, brand pick or
+  // scrub alike. Defensive ||0 / catch: hexToOklch pins near-achromatic hue to 0, and an
+  // unparsable computed value (a worn derived pack can hold non-hex colour formats) falls back
+  // to the brand hue.
+  const brandHex = () =>
+    (document.querySelector("[data-brand-color]")?.value || DEFAULT_AXES.brandColor).toLowerCase();
   const readHue = () => {
     try { return Math.round(hexToOklch(prop("--color-accent"))?.h) || 0; }
     catch { try { return Math.round(hexToOklch(brandHex()).h) || 0; } catch { return 0; } }
@@ -145,7 +156,7 @@ function mountStageScrub() {
   };
 
   host.appendChild(el("p", { class: "stage-scrub-cap",
-    text: "Or drag the numbers. Hue re-runs the live derivation engine; radius and spacing set the system's tokens directly. Running the brief again takes the stage back." }));
+    text: "Or drag the numbers. Hue re-runs the live derivation engine off the brand colour beside them; radius and spacing set the system's tokens directly. The colour input and these handles feed the same engine, so whichever you touched last owns the preview." }));
 
   // Deliberately a plain BOUNDED slider, no 0/360 wrap: all three rows share one keyboard
   // model (Home/End are real endpoints), and aria-valuemin/max stay honest.
@@ -153,7 +164,7 @@ function mountStageScrub() {
     min: 0, max: 360, step: 2, unit: "°", label: "brand hue", read: readHue,
     onChange: (h) => {
       const lch = toGamut({ ...hexToOklch(brandHex()), h });
-      const { tokens } = derive({ ...(getHomeAnswers() ?? DEFAULT_AXES), brandColor: oklchToHex(lch) });
+      const { tokens } = derive({ ...DEFAULT_AXES, brandColor: oklchToHex(lch) });
       for (const [k, v] of Object.entries(tokens))
         if (k.startsWith("color-")) preview.style.setProperty("--" + k, v);
     },

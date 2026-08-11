@@ -10,8 +10,9 @@
 // instance.html's head comment records why: a private instance PINS its pack, and #81 gives it its
 // own two-option control instead, system/instance-pack.mjs) on purpose: the pick follows the reader,
 // so every page is another test of the
-// same token contract. index.html's #beat-wear interstitial introduces it, so it is never an
-// unexplained widget (#76; PRD §2 "weird colour selectors, for what").
+// same token contract. index.html introduces it in #beat-brand's lead, so it is never an
+// unexplained widget (#76; PRD §2 "weird colour selectors, for what" — #216 folded that
+// explanation out of the standalone #beat-wear interstitial and into the live-proof section).
 // "Copy tokens" copies what is skinning the page RIGHT NOW: the committed artifact for a committed
 // pack, the derived custom properties for "your brand".
 // The panel is a non-modal disclosure (APG): location.hash === "#appearance" is the single source
