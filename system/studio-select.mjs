@@ -642,6 +642,13 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
     // OWN LIVE STATE and nothing else (D11): Escape during a carry must not cancel a marquee, and
     // Escape during a marquee must not cancel a carry. Each listener returns immediately unless its
     // own verb is live, and the journey asserts the non-interference in both directions.
+    //
+    // IN THE CAPTURE PHASE, and that is the load-bearing half rather than a style choice. The
+    // verbs' Escape handler is on `stage`, a DESCENDANT, so on a bubble listener here the carry has
+    // ALREADY been cancelled by the time this runs — carrying() reads .is-picked, which is gone —
+    // and one Escape both cancelled the carry AND cleared the selection. Capturing makes the
+    // decision on the state as the reader left it. Nothing is stopped from propagating, so the
+    // verbs' cancel still happens and the replay driver still sees the key.
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (menu) { e.preventDefault(); closeMenu(); return; }
@@ -654,7 +661,7 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
         resetAnchor();
         applySelection([]);
       }
-    }, { signal });
+    }, { capture: true, signal });
 
     const handleObj = {
       bus,

@@ -170,7 +170,40 @@ the counter and the pseudo list are read.
    names all three. The shipped sentence follows `SPOKEN_MAX` consistently (the same shape
    `restoreVerb` uses), which is what D12's own "reuse `SPOKEN_MAX`'s shape" instruction asks for.
 
-10. **Reduced motion is satisfied by construction** (Task 7 asked which was chosen). Nothing in the
+10. **R5's premise is wrong for the shipped sizes, and the row was rewritten to say what is true.**
+    The plan asserts that "a menu opened on a column-12 block renders off the right edge of the
+    scroller, where the reader who just right-clicked cannot see it". Measured on the running page,
+    the menu is **≈91 px wide against a 220 px track**, so it never overflows the stage — with the
+    flip *or* without it. The planned assertion ("its client rect sits inside the scroller's") is
+    therefore **vacuously true both ways**: a check that cannot fail, which is the one defect this
+    repo names most often. Two further facts the plan did not have:
+    - **A pointer cannot reach column 12 on `/factory` at this viewport.** The scroller measures
+      ≈2818 px — wider than the 1440 px window — so `scrollWidth <= clientWidth`, `scrollLeft` stays
+      pinned at 0, and the block sits at x ≈ 2741, off-screen and un-scrollable-to. That is the
+      driver's own standing constraint ("an EMPTY cell is not automatically a REACHABLE one")
+      arriving on the horizontal axis. The row opens the menu through the module's own entry point
+      instead; the pointer OPEN path is proven in section 6 on a reachable interior block.
+    - **R7's scroll-closes row had the same problem** — a `scrollLeft` nudge fires no scroll event
+      on a scroller that cannot scroll horizontally, so it would have passed for the wrong reason.
+      It scrolls vertically now (1232 px of content in a 638 px box).
+
+    What the row asserts instead is what the flip genuinely does and what can genuinely fail: at
+    column 12 `data-flip-x` is set **and the CSS rule is live** — the menu's right edge lands on its
+    grid area's right edge — proven by a **mutation** that removes the attribute from the same open
+    menu and measures the box move (129 px), plus the conditional half on an interior column. The
+    flip is a positioning guarantee today and becomes a real overflow rescue the moment the menu
+    grows past a track (a sixth item, a longer label, a narrower `--stx-slot-w`) — which is exactly
+    when nobody would be looking. Both facts are recorded in the row's own comment.
+
+11. **A `?b=` link drops the selection, and that is D5 working rather than a gap.** `build-share.mjs`'s
+    `g` field carries slots only, so a copied link rebuilds the board and its arrangement with nothing
+    selected. Correct — selection is view state, in no history entry, no export and no share payload,
+    which is the whole argument for keeping it off the bus. Stated here so a reviewer reads a decision:
+    a reader following their own shared link sees the board they arranged and an empty selection. The
+    same is true of a method-card redraft, where `studio.mjs:614` removes the wrappers and the
+    selection goes with them — that one is the *point* of carrying it on the DOM.
+
+12. **Reduced motion is satisfied by construction** (Task 7 asked which was chosen). Nothing in the
     #217 block animates or transitions at all. The three new classes are still listed in the
     reduced-motion off-ramp for the standing reason — so a later CSS transition on a guide, the menu or
     its items cannot slip past.
@@ -183,8 +216,51 @@ the counter and the pseudo list are read.
   blowout on PR #54, so this is a genuine gap rather than a formality. The `.stx-menu` flex card and
   the `color-mix` guide wash are the two things most worth eyeballing there.
 
+## A PRE-EXISTING defect observed while validating this ticket (not #217's, not fixed here)
+
+Checking that #217's document-level Escape does not disturb `/factory`'s other Escape consumers turned
+up a real bug that predates this ticket. **On `/factory`, with the appearance dock open (`#appearance`)
+and focus inside `.stx-scroll`, Escape does not close the dock.**
+
+The mechanism, confirmed by instrumenting `history.pushState`:
+
+1. Escape on `canvas.scroll` is a replay TAKE-OVER (`replay-driver.mjs`'s capture-phase `keydown`), so
+   `trackFactoryTookOver()` pushes the virtual path `/factory/took-over` — which carries no hash.
+2. The event then bubbles to `dock.mjs:458`, whose handler is guarded on
+   `location.hash === "#appearance"`. The hash is already `""`, so it does not strip.
+3. 50 ms later the tracker restores its per-flip URL **snapshot**, which was taken before the push and
+   still carries `#appearance`. The dock is left open with the hash back.
+
+This is precisely the collision `system/analytics.mjs`'s header describes and `CLAUDE.md` records as
+*"reachable there in principle, neither has been observed"* — `#149` fixed it for the `/build` pair by
+reading the hash live in `flipTo`, and **deliberately did not touch the four `/factory` trackers**. It
+has now been observed. A second Escape closes the dock normally, because the handover is one-shot.
+
+**Proven pre-existing rather than assumed**: a detached `main` worktree served on port 4758 and the
+`#217` branch on 4757 were driven through the identical sequence and produced byte-identical results
+(`hash "#appearance"`, dock stays open) on both. #217's own Escape listener is not involved — the row
+reproduces with **no selection live**, which is the condition its clear branch requires.
+
+Not fixed here: the fix belongs in `analytics.mjs`'s `/factory` trackers (make them read the hash live,
+the way `flipTo` already does), that file is outside this ticket's scope, and its current behaviour is
+gated by `build-checks` group 10 and #209/#213's journey rows. **Worth its own ticket.**
+
+What #217 *does* own here is pinned by two new `selectPass` rows: Escape with focus outside the canvas
+leaves the selection alone (the clear is focus-scoped), and the ⌘K palette's Escape closes the palette
+without reaching this module — `palette.mjs:272`'s `stopPropagation` is a line #217 now depends on, and
+dropping it would silently start clearing the selection on every palette close.
+
 ## Issues encountered
 
+- **One Escape both cancelled a group carry AND cleared the selection — a real bug, found by the
+  driver and fixed in the module.** `studio-select.mjs`'s document-level Escape listener was on the
+  bubble phase, and `studio-verbs.mjs`'s is on `stage` — a **descendant**. So by the time the
+  selection layer ran, the carry had already been cancelled and `carrying()` (which reads
+  `.is-picked`) was false, so the clear branch fired too. The listener is registered
+  `{ capture: true }` now, which decides on the state as the reader left it; nothing is stopped from
+  propagating, so the verbs' cancel still happens and the replay driver still sees the key. D11's
+  "each returns immediately unless its own verb is live" is only true with the capture flag, and the
+  module header and the listener both say so now.
 - **`clampSlot(null)` throws.** Its default parameter covers `undefined` and not `null`, so a null slot
   destructures. Found by running the totality sweep rather than by reading. `studio-select.mjs` coerces
   once in a local `slotOf` helper rather than at four call sites; `menuItems` destructures in the body

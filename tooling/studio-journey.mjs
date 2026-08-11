@@ -3507,10 +3507,31 @@ async function selectPass(browser, engineName, t, errors) {
     if (!a || !b) return { error: "the reference slots (1,1) and (2,1) are not both placed" };
     const cs = getComputedStyle(stage);
     const pitchY = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
-    return { x: a.left + (c - 1) * (b.left - a.left) + a.width / 2, y: a.top + (r - 1) * pitchY + a.height / 2 };
+    const x = a.left + (c - 1) * (b.left - a.left) + a.width / 2;
+    const y = a.top + (r - 1) * pitchY + a.height / 2;
+    // REACHABILITY IS REPORTED, NOT ASSUMED. A cell can be perfectly valid and still be somewhere no
+    // pointer can go: .stx-scroll is 640 px tall so anything past row ~4 is below it, and on
+    // /factory the scroller is wider than the window so the far columns are off-screen with no
+    // horizontal scroll to reach them. A raw mouse.move to such a point silently does nothing, and
+    // the row that used it fails somewhere else entirely — three separate fixtures in this pass
+    // were written wrong that way before this flag existed.
+    const sr = document.querySelector("[data-studio-canvas] .stx-scroll").getBoundingClientRect();
+    const onScreen = x >= sr.left && x <= sr.right && y >= sr.top && y <= sr.bottom
+      && x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
+    return { x, y, onScreen };
   }, [col, row]);
 
+  // Every pointer gesture below goes through these two, so an off-screen fixture is a NAMED throw at
+  // the point of use rather than a green row that tested nothing.
+  const reachable = (pt, what) => {
+    if (!pt || pt.error) throw new Error(`selectPass: ${what} could not be measured — ${pt && pt.error}`);
+    if (!pt.onScreen) throw new Error(`selectPass: ${what} is at (${Math.round(pt.x)}, ${Math.round(pt.y)}), outside the visible canvas — a pointer cannot go there, so this fixture would test nothing`);
+    return pt;
+  };
+
   const shiftDrag = async (p, from, to, { quick = false } = {}) => {
+    reachable(from, "the marquee's origin");
+    reachable(to, "the marquee's far corner");
     await p.keyboard.down("Shift");
     await p.mouse.move(from.x, from.y);
     await p.mouse.down();
@@ -3526,6 +3547,7 @@ async function selectPass(browser, engineName, t, errors) {
       const r = document.querySelector(`.stx-slot[data-stx-id="${i}"] .stx-grab`).getBoundingClientRect();
       return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
     }, id);
+    reachable(to, "the group drag's drop point");
     await p.mouse.move(g.x, g.y);
     await p.mouse.down();
     await p.mouse.move(to.x, to.y, { steps: quick ? 4 : 14 });
@@ -3551,14 +3573,22 @@ async function selectPass(browser, engineName, t, errors) {
   t("#217/AC1 · …announced EXACTLY ONCE for the whole drag, on release (D12: the reader is watching their own hand)",
     said1.n === 1 && /^\d+ selected: /.test(said1.last), JSON.stringify(said1));
   // A marquee that caught nothing says so, and says the OTHER sentence — it never had a selection
-  // to clear. Dragged across two provably empty cells, read off the live arrangement.
-  const emptyCol = (() => { for (let c = 1; c <= MAX_COLS; c += 1) if (!grid1.some((s) => s.col === c)) return c; return null; })();
+  // to clear. TWO CONSTRAINTS decide which cells this may use, not one: the pair must be provably
+  // empty (asserted below from the live arrangement, never assumed) AND on screen. A far column
+  // sits outside the 1440px window and a low row below .stx-scroll's 640px box, and a raw
+  // mouse.move to either lands somewhere else entirely — which is exactly how this row failed on
+  // firefox while passing on chromium. The committed board fills ROW 1 only, so rows 2-3 of the
+  // first columns are both empty and visible.
+  const emptyA = { col: 1, row: 2 };
+  const emptyB = { col: 2, row: 3 };
+  t("#217 · the empty-marquee fixture really is empty — otherwise the sentence below would be about the wrong event",
+    idsInRange(grid1, marqueeRange(emptyA, emptyB)).length === 0, JSON.stringify(grid1));
   await countLive(p1);
-  await shiftDrag(p1, await cell(p1, emptyCol, 4), await cell(p1, emptyCol, 6));
+  await shiftDrag(p1, await cell(p1, emptyA.col, emptyA.row), await cell(p1, emptyB.col, emptyB.row));
   const said1b = await liveSeen(p1);
   t("#217 · a marquee over empty canvas says \"Nothing to select.\", not \"Selection cleared.\" — it never had a selection to clear",
     said1b.n === 1 && said1b.last === "Nothing to select." && (await chosen(p1)).length === 0,
-    `${JSON.stringify(said1b)} col=${emptyCol}`);
+    JSON.stringify(said1b));
   t("#217 · …and no style attribute exists anywhere on the canvas after a marquee",
     (await p1.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-stage, [data-studio-canvas] .stx-scroll, [data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-guide, [data-studio-canvas] .stx-menu")].filter((n) => n.hasAttribute("style")).length)) === 0);
   await p1.close();
@@ -3843,43 +3873,72 @@ async function selectPass(browser, engineName, t, errors) {
     (await chosen(p6)).length === grid6.length && saidA.n === 1, `${JSON.stringify(saidA)}`);
   await p6.close();
 
-  // --- 7 · R5: the menu at the far edge stays inside the scroller ---------------------------------
+  // --- 7 · R5: the far-edge FLIP, and an honest account of what it actually buys -----------------
+  // TWO THINGS THE PLAN GOT WRONG ABOUT THIS ROW, both found by running it rather than reasoning:
+  //
+  //   1. A POINTER CANNOT REACH COLUMN 12 AT THIS VIEWPORT. On /factory the scroller measures ~2818
+  //      px wide — wider than the 1440 px window — so scrollWidth <= clientWidth, scrollLeft stays
+  //      pinned at 0 and a block at column 12 sits at x ≈ 2741, off-screen and un-scrollable-to.
+  //      That is this driver's own standing constraint (an EMPTY cell is not automatically a
+  //      REACHABLE one) arriving on the far axis. The menu is therefore opened through the module's
+  //      OWN entry point, which is the one both real paths call; the POINTER open path is proven on
+  //      a reachable interior block in section 6, so nothing is lost.
+  //   2. THE MENU IS NARROWER THAN A TRACK (≈91 px against a 220 px column), so it never overflows
+  //      the stage and "the menu's rect is inside the scroller" is VACUOUSLY true with the flip and
+  //      without it. Asserting that would have been a check that cannot fail. What the flip really
+  //      does — and what is asserted below — is align the menu's RIGHT edge with its grid area's
+  //      right edge instead of growing rightward from its left edge. It is a positioning guarantee
+  //      today and becomes an overflow rescue the moment the menu grows past a track (a sixth item,
+  //      a longer label, a narrower --stx-slot-w), which is exactly when nobody would be looking.
   const p7 = await openSettled();
   const grid7 = await slotsNow(p7);
   const edgeId = grid7[0].id;
-  // Moved to the LAST column through the bus seam rather than by dragging there: column 12 sits
-  // outside the 1440px window at this viewport, so an empty cell is not automatically a reachable
-  // one (studio-journey's standing constraint). Injection is free of that; pointers are not.
-  await inject(p7, { type: "ui.move", source: "agent", target: { id: edgeId }, params: { col: MAX_COLS, row: 1 } });
-  await p7.waitForTimeout(150);
-  await p7.evaluate((id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).scrollIntoView({ block: "nearest", inline: "nearest" }), edgeId);
-  await p7.waitForTimeout(150);
-  await p7.locator(`.stx-slot[data-stx-id="${edgeId}"]`).click({ button: "right" });
-  await p7.waitForTimeout(150);
-  const edgeMenu = await p7.evaluate(() => {
-    const m = document.querySelector("[data-studio-canvas] .stx-menu");
-    const s = document.querySelector("[data-studio-canvas] .stx-scroll");
-    if (!m) return null;
-    const mr = m.getBoundingClientRect();
-    const sr = s.getBoundingClientRect();
-    return { flipX: m.hasAttribute("data-flip-x"), col: m.getAttribute("data-col"),
-      inside: mr.left >= sr.left - 1 && mr.right <= sr.right + 1 };
-  });
-  t("#217 · R5 — a menu opened on a LAST-COLUMN component sets data-flip-x and its box stays INSIDE the scroller",
-    Boolean(edgeMenu) && edgeMenu.flipX === true && edgeMenu.inside === true, JSON.stringify(edgeMenu));
-  await p7.keyboard.press("Escape");
-  await p7.waitForTimeout(100);
-  // …and the attribute is CONDITIONAL, not always on — the other half of an off-by-one check.
-  const innerId = grid7.find((s) => s.id !== edgeId).id;
-  await p7.locator(`.stx-slot[data-stx-id="${innerId}"]`).click({ button: "right" });
-  await p7.waitForTimeout(150);
+  const openAt = async (col, { stripFlip = false } = {}) => {
+    await inject(p7, { type: "ui.move", source: "agent", target: { id: edgeId }, params: { col, row: 1 } });
+    await p7.waitForTimeout(150);
+    return p7.evaluate(async ([id, strip]) => {
+      const m = await import("/system/studio-select.mjs");
+      const sel = m.getSelect();
+      sel.closeMenu({ restoreFocus: false });
+      const node = document.querySelector(`.stx-slot[data-stx-id="${id}"]`);
+      sel.openMenu(node, node);
+      const menu = document.querySelector("[data-studio-canvas] .stx-menu");
+      if (!menu) return null;
+      if (strip) menu.removeAttribute("data-flip-x"); // the MUTATION: undo the fix, keep everything else
+      const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+      const mr = menu.getBoundingClientRect();
+      const sr = stage.getBoundingClientRect();
+      return {
+        flipX: menu.hasAttribute("data-flip-x"),
+        col: menu.getAttribute("data-col"),
+        right: Math.round(mr.right), left: Math.round(mr.left), width: Math.round(mr.width),
+        stageRight: Math.round(sr.right),
+      };
+    }, [edgeId, stripFlip]);
+  };
+  const flipped = await openAt(MAX_COLS);
+  t(`#217 · R5 — a menu opened on a LAST-COLUMN (${MAX_COLS}) component sets data-flip-x, and the CSS rule is LIVE: its right edge lands on its grid area's right edge`,
+    Boolean(flipped) && flipped.flipX === true && flipped.col === String(MAX_COLS)
+    && Math.abs(flipped.right - flipped.stageRight) <= 1, JSON.stringify(flipped));
+  // THE MUTATION that decides whether the row above can fail: same menu, same cell, attribute
+  // removed. If .stx-menu[data-flip-x] { justify-self: end } ever stopped being in the sheet, the
+  // two measurements would be identical and this goes red.
+  const unflipped = await openAt(MAX_COLS, { stripFlip: true });
+  t("#217 · R5 · THE MUTATION — removing data-flip-x really moves the box, so the rule is wired rather than merely written",
+    unflipped.right < flipped.right - 1 && unflipped.width === flipped.width,
+    `${JSON.stringify(unflipped)} vs ${JSON.stringify(flipped)}`);
+  // …and it is CONDITIONAL, not always on — the other side of an off-by-one that group 22 pins purely.
+  const interior = await openAt(3);
   t("#217 · …while an INTERIOR component's menu carries no flip at all, so the attribute is proven conditional rather than always on",
-    (await p7.evaluate(() => document.querySelector("[data-studio-canvas] .stx-menu")?.hasAttribute("data-flip-x"))) === false);
-  // R7: the menu is anchored to a CELL, so a scroll leaves it detached from its block. It closes.
-  await p7.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollLeft += 120; });
-  await p7.waitForTimeout(200);
+    interior.flipX === false && interior.col === "3", JSON.stringify(interior));
+  // R7: the menu is anchored to a CELL, so a pan leaves it detached from the block it belongs to.
+  // Scrolled VERTICALLY — the horizontal axis does not scroll here at all (see note 1 above), so a
+  // scrollLeft nudge would fire no scroll event and this row would pass for the wrong reason.
+  await p7.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop += 120; });
+  await p7.waitForTimeout(300);
   t("#217 · R7 — scrolling the canvas CLOSES an open menu, which is anchored to a cell and would otherwise float over an unrelated component",
-    (await p7.locator(`${VIEWPORT} .stx-menu`).count()) === 0);
+    (await p7.locator(`${VIEWPORT} .stx-menu`).count()) === 0,
+    `scrollTop=${await p7.evaluate(() => Math.round(document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop))}`);
   await p7.close();
 
   // --- 8 · AC #5: Escape cancels every multi-verb back to the pre-verb state ----------------------
@@ -3926,7 +3985,7 @@ async function selectPass(browser, engineName, t, errors) {
   await p8.keyboard.press("Enter");
   await p8.waitForTimeout(100);
   const selDuring = await chosen(p8);
-  await shiftDrag(p8, await cell(p8, 5, 4), await cell(p8, 6, 6));
+  await shiftDrag(p8, await cell(p8, 1, 3), await cell(p8, 2, 4));
   t("#217/D11 · a Shift-drag while a carry is LIVE starts no marquee — the selection is untouched and the carry is still in the reader's hand, so the two Escape listeners are never both armed",
     JSON.stringify(await chosen(p8)) === JSON.stringify(selDuring) && (await picked(p8)) > 0,
     `${JSON.stringify(await chosen(p8))} picked=${await picked(p8)}`);
@@ -3946,7 +4005,19 @@ async function selectPass(browser, engineName, t, errors) {
   // selection the reader cannot even see.
   await shiftDrag(p8, await cell(p8, 1, 1), await cell(p8, 2, 2));
   const keptSel = await chosen(p8);
-  await btn(p8, "Undo").focus();          // still on the page, deliberately OUTSIDE canvas.scroll
+  t("#217 · the focus-scope fixture starts from a REAL selection — an empty one would make the row below vacuous",
+    keptSel.length > 0, JSON.stringify(keptSel));
+  // ZOOM IN rather than Undo: the section above cancels everything it starts, so the history can be
+  // empty here and .focus() on a DISABLED button is a silent no-op — focus would stay inside the
+  // scroller and this row would fail for a reason that has nothing to do with what it tests. The
+  // move is asserted rather than assumed, which is what makes the row's premise checkable.
+  await btn(p8, "Zoom in").focus();
+  const outside = await p8.evaluate(() => {
+    const s = document.querySelector("[data-studio-canvas] .stx-scroll");
+    return { moved: !s.contains(document.activeElement), what: document.activeElement?.textContent?.trim() || document.activeElement?.tagName };
+  });
+  t("#217 · the focus-scope fixture is real — focus genuinely left the canvas before Escape",
+    outside.moved === true, JSON.stringify(outside));
   await p8.keyboard.press("Escape");
   await p8.waitForTimeout(150);
   t("#217/D10 · Escape with focus OUTSIDE the canvas leaves the selection alone — the clear is focus-scoped, like ⌘/Ctrl+A",
@@ -4031,6 +4102,13 @@ async function selectPass(browser, engineName, t, errors) {
     });
     await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await p.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+    // THE CANVAS IS PARKED IN VIEW before any pointer row, for openSettled's reason: /factory's
+    // studio sits below the fold, so a raw mouse.move to a rect-derived point lands off-screen and
+    // the press never happens — which reads as "the take-over did not fire" rather than as "the
+    // press did not land". A programmatic page scroll is neither a pointerdown nor a keydown on
+    // canvas.scroll, so it cannot itself count as a handover.
+    await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(300);
     return p;
   };
   const replayNow = (p) => p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
@@ -4045,7 +4123,16 @@ async function selectPass(browser, engineName, t, errors) {
   const midA = await replayNow(pa);
   t("#217 · R4a — the marquee take-over case really is MID-REPLAY; a settled page would prove the wrong thing",
     midA && midA.state === "ready" && midA.index < midA.beats, JSON.stringify(midA));
-  await shiftDrag(pa, await cell(pa, 1, 1), await cell(pa, 2, 2));
+  // THE DRAG POINTS COME FROM THE SCROLLER'S OWN RECT, not from cell(): mid-replay the canvas holds
+  // only the blocks the run has placed so far, and cell() needs the reference slots at (1,1) and
+  // (2,1) to BOTH exist — without them it answers { error } and the drag lands at NaN, which is a
+  // press that never happens and a take-over that never fires. This row is about the handover, not
+  // about what the marquee caught, so any two points inside the scroller are the right fixture.
+  const band = await pa.evaluate(() => {
+    const r = document.querySelector("[data-studio-canvas] .stx-scroll").getBoundingClientRect();
+    return { from: { x: r.left + 80, y: r.top + 60 }, to: { x: r.left + 320, y: r.top + 260 } };
+  });
+  await shiftDrag(pa, { ...band.from, onScreen: true }, { ...band.to, onScreen: true });
   await pa.waitForTimeout(400);
   const tookA = await replayNow(pa);
   t("#217 · R4a — a Shift-drag marquee mid-replay IS a take-over: the transport dies and provenance flips to the visitor",
