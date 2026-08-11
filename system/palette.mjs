@@ -89,7 +89,7 @@ function buildCommands() {
   const pages = [
     ["Go to Home", "/"],
     ["Go to Approach", "/approach"],
-    ["Go to Factory", "/factory"],
+    ["Go to Studio", "/factory"],
     ["Go to Work", "/work"],
     ["Go to Contact", "/contact"],
     ["Go to Build a pattern", "/build"],
@@ -110,9 +110,9 @@ function buildCommands() {
     ["Approach: derive probe", "/approach", "asrc-probe"],
     ["Approach: code at scale", "/approach", "loc-proof"],
     ["Approach: live-control count", "/approach", "param-proof"],
-    ["Factory: agents trace", "/factory", "agents"],
-    ["Factory: round-trip diff", "/factory", "round-trip"],
-    ["Factory: system shape", "/factory", "shape"],
+    ["Studio: agents trace", "/factory", "agents"],
+    ["Studio: round-trip diff", "/factory", "round-trip"],
+    ["Studio: system shape", "/factory", "shape"],
     ["Work: component library", "/work", "library"],
     ["Work: handoff pack", "/work", "handoff"],
   ];

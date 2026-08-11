@@ -302,6 +302,16 @@ function wireBeatBrand(sharedRec = null) {
   const label = beat.querySelector("[data-brand-label]");
   if (!colorInput || !label) return; // the two load-bearing nodes must exist
 
+  // Arm the stage's colour crossfade (portfolio.css's #beat-brand #reskin-preview.is-animated,
+  // gated behind no-preference there — so this class is added unconditionally and CSS decides).
+  // Until #216 the armer was initIntake() at system/factory-intake.mjs:705; #216 deleted home's
+  // wizard and its intake-beat.mjs caller, which left that block committed and DEAD — the derived
+  // colours snapped instead of crossfading. Armed here because this module owns #beat-brand and
+  // derives the very colours the block transitions. The rAF is PR #55's and is load-bearing: arm
+  // one frame after mount so a worn record or a shared link — both applied synchronously above —
+  // land on the first paint without animating in.
+  requestAnimationFrame(() => beat.querySelector("#reskin-preview")?.classList.add("is-animated"));
+
   let current = null; // the --color-* map on :root right now (null ⇒ nothing to clear)
   // The record the name input was last filled from (ts|label). syncFromRoot re-runs on every pack
   // change, so without this it would rewrite the input from an UNCHANGED record — see below.

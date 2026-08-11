@@ -19,15 +19,29 @@ window.CLIENT_CONFIG = {
     },
   },
 
-  // v3 IA (#71): top nav shrinks to Home · Approach · Work + the Contact CTA. Factory
-  // drops from the nav (D6: it becomes the evidence layer) and is reached from the Home
-  // #verify row-list + the footer, which stays the full site index. Every route resolves.
-  // /build joins that index (#148) but stays out of the nav: the three-item set below is the
-  // D6 decision, not an accident of when the page shipped.
+  // IA (#216, epic #202): the site stopped being five peer pages and became ONE DESTINATION
+  // WITH EVIDENCE AROUND IT, so the nav is the destination plus its evidence layers —
+  // Studio · Approach · Work + the Contact CTA. This SUPERSEDES v3's D6 ("Factory drops from
+  // the nav; it is the evidence layer"), which was written before waves 1-5 of epic #202 moved
+  // the site's centre of gravity onto /factory. The label is "Studio", not "Factory": #206
+  // deliberately deferred that rename to #216 (its D2) because the string lives here and so
+  // churns every chrome baseline, and #216 already runs alone.
+  //
+  // HOME LEAVES THE NAV DELIBERATELY (#216 D2). index.html carries data-page="home", which now
+  // matches no nav key, so NO nav item is marked active on / — intended, and 404.html's
+  // data-page="" already proves that state renders fine. The logo (site.js:46-48, aria-label
+  // "… home") is the home affordance; a fourth nav item would put Home in direct competition
+  // with the route this IA change exists to promote. Home is not reduced to the logo alone:
+  // the footer site index below keeps its Home row, and palette.mjs registers "Go to Home" on
+  // every page except / — three routes back, none of them the nav. Reverting is one entry:
+  // { label: "Home", href: "/", key: "home" } at the head of the array.
+  //
+  // /build and /components stay out of the nav but in the footer index (#148, #215), which
+  // still claims — and is — the FULL site index. Every route resolves.
   nav: [
-    { label: "Home",     href: "/",         key: "home" },
+    { label: "Studio",   href: "/factory",  key: "factory"  },
     { label: "Approach", href: "/approach", key: "approach" },
-    { label: "Work",     href: "/work",     key: "work" },
+    { label: "Work",     href: "/work",     key: "work"     },
   ],
 
   cta: { label: "Get in touch", href: "/contact" },
@@ -40,10 +54,11 @@ window.CLIENT_CONFIG = {
     columns: [
       {
         title: "Site",
+        // Ordered destination-first to match the nav, and relabelled "Studio" with it (#216).
         items: [
           { label: "Home",       href: "/" },
+          { label: "Studio",     href: "/factory" },
           { label: "Approach",   href: "/approach" },
-          { label: "Factory",    href: "/factory" },
           { label: "Work",       href: "/work" },
           { label: "Build",      href: "/build" },
           { label: "Components", href: "/components" },

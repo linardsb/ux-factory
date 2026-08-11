@@ -2232,8 +2232,9 @@ p, .body {
 /* Moved out of portfolio.css by #175 so the two proto pages — which load components.css but not
    portfolio.css — wear the same chrome; the .cmdk block above set the precedent (#168).
    The one persistent utility of the v3 site: the control the reader picks a design system from and
-   then carries across every page that loads it. index.html's #beat-wear interstitial introduces it, so the
-   rail is never an unexplained widget (PRD §2 "weird colour selectors, for what").
+   then carries across every page that loads it. index.html introduces it in #beat-brand's lead, so
+   the rail is never an unexplained widget (PRD §2 "weird colour selectors, for what"; #216 folded
+   that explanation out of the standalone #beat-wear interstitial and into the live-proof section).
    Monochrome chrome by the calm-colour bar (fg-muted / border / bg-surface only — the packs
    themselves provide the colour). Fixed-chrome z-index ladder: header 50 · to-top 90 ·
    skip-link 100 → rails 40 (under header), open panel 95 (over to-top, under skip-link).
@@ -2392,8 +2393,7 @@ p, .body {
   color: var(--color-fg-muted);
   line-height: 1.5;
 }
-/* .btn-ghost is a text-height control, so lift it to the 44px target on its own (the same fix
-   .close-tokens .btn-ghost takes in portfolio.css). */
+/* .btn-ghost is a text-height control, so lift it to the 44px target on its own. */
 .dock-restore {
   width: 100%;
   min-height: 44px;

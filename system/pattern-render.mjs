@@ -220,7 +220,8 @@ function mount(root) {
       for (const node of root.querySelectorAll(sel)) node.setAttribute("data-inspect", inspectId);
     // The pattern is on stage — THIS is "a pattern rendered", so the event fires here and not at
     // render()'s `root.dataset.patternStage = "ready"` below, which also runs for the empty,
-    // out-of-library, refused and vocabulary-unavailable branches. Same lesson as peak.mjs:240.
+    // out-of-library, refused and vocabulary-unavailable branches. Same lesson the old home peak
+    // recorded (system/peak.mjs, deleted by #216): fire from the success path, never a settled flag.
     // Last line on purpose: renderComposition can throw above, and a pattern that never reached the
     // DOM must not be counted. Safe inside render()'s try only because the tracker swallows a
     // refused pushState — without that, a file:// load would render "the renderer refused this

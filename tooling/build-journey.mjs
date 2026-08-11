@@ -992,8 +992,13 @@ async function journey(engineName, results, held) {
   // "the link resolves" are two different claims and only the second one matters to a visitor.
   // Three links now (#148 added the footer one). /approach.html is the page #148 names as having no
   // route to /build at all, and it carries no other /build link, so the selector is unambiguous.
+  //
+  // #216 MOVED THE FIRST ROW OFF HOME. It used to assert home's .close-card link; that card is gone
+  // — home compressed to a gate carrying ONE route (the studio), and the studio is where the form
+  // fallback now lives (factory.html:412-420). Leaving the row pointing at /index.html would not
+  // fail cleanly: the selector would match nothing and .click() would hang to timeout.
   for (const [from, sel, where] of [
-    ["/index.html", '.close-card a[href="/build"]', "the home close card"],
+    ["/factory.html", '#verify-further a[href="/build"]', "the studio's go-deeper list"],
     ["/work.html", '#run a[href="/build"]', "the work proof index"],
     ["/approach.html", '.site-footer a[href="/build"]', "the footer site index"],
   ]) {
@@ -1009,14 +1014,21 @@ async function journey(engineName, results, held) {
       (await linkPage.title()).includes("The builder") && (await linkPage.locator("#act-import").count()) === 1);
     await linkPage.close();
   }
-  // JS-off is the documented floor for both: close.mjs is additive, and neither link is JS-built.
-  // TWO rows here, not three, and deliberately: the footer is injected by site.js, so with
-  // JavaScript off there is no footer — and no header or nav either, on any page. That is the
-  // site-wide chrome floor, not a regression the #148 link introduced; the footer link is exactly
-  // as available as the nav is. The two static links in remain the documented JS-off route.
+  // JS-off is the documented floor for both: neither link is JS-built — both are static markup in
+  // their page's source. TWO rows here, not three, and deliberately: the footer is injected by
+  // site.js, so with JavaScript off there is no footer — and no header or nav either, on any page.
+  // That is the site-wide chrome floor, not a regression the #148 link introduced; the footer link
+  // is exactly as available as the nav is.
+  //
+  // THE TWO DOCUMENTED JS-OFF ROUTES ARE NOW THE STUDIO AND WORK (#216), not home and work. Home no
+  // longer links /build at all. The studio's JS-off floor was measured before this row moved and is
+  // BETTER than the one it left: at 1440x900 with javaScriptEnabled:false, /factory.html renders
+  // 6,893 characters of visible text across five headings (home's old floor was 3,990 across seven),
+  // and #verify-further's /build row is present, visible and clicks through. The only empty mount is
+  // #canvas, inside a section whose static copy explains what fills it.
   const noJs = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
   for (const [from, sel, where] of [
-    ["/index.html", '.close-card a[href="/build"]', "home"],
+    ["/factory.html", '#verify-further a[href="/build"]', "the studio"],
     ["/work.html", '#run a[href="/build"]', "work"],
   ]) {
     const p = await noJs.newPage();

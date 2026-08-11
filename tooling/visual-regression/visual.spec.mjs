@@ -20,15 +20,15 @@ const PAGES = [
   // the capture cannot race (and silently baseline) the branded flush. Set in a finally on every
   // path (reduced-motion, success, derive failure), so a JS context always resolves it; a spine.mjs
   // that fails to load hangs to timeout and fails LOUD — the intended never-baseline-a-broken-hero.
-  // waitVisible (#105): the peak (#75) is activateOn:'visible', and this spec reveals the whole page
-  // only at the final viewport resize (see below) — so #beat-peak starts its skeleton→content swap
-  // AFTER every load-time wait, immediately before the shot. animations:'disabled' freezes CSS but
-  // not a DOM swap, so without a post-resize wait the two stability samples differ: the shot either
-  // fails ("two consecutive stable screenshots") or silently bakes a mid-assembly frame. It must be
-  // waited for after the resize, never here — at load the peak is off-screen and never activates,
-  // so waiting on it in waitReady would deadlock to timeout. peak.mjs sets it in a finally on every
-  // path, so a peak that falls back to the static still resolves it too.
-  { name: 'index',           url: '/index.html',           kind: 'ia', waitReady: '#beat-hero[data-spine="ready"]', waitVisible: '#beat-peak[data-peak="ready"]' },
+  // NO waitVisible SINCE #216, and that is a property of the page rather than a simplification:
+  // home has ZERO activateOn:'visible' beats left. The one it had was the built-screen peak (#75,
+  // the #105 fix), and #216 compressed home to the gate and deleted system/peak.mjs with it —
+  // spine.mjs:199's 'load'-registered beat-hero is now the only registerBeat call on this page.
+  // Leaving the old handle here would DEADLOCK the gate to timeout on both packs, because
+  // #beat-peak no longer exists; adding a new one for the brand beat would deadlock the same way.
+  // With the key absent, index leaves the bounded post-resize re-measure loop through the existing
+  // `if (p.waitVisible)` guard below — the same path contact and 404 take.
+  { name: 'index',           url: '/index.html',           kind: 'ia', waitReady: '#beat-hero[data-spine="ready"]' },
   // waitReady: the annotated-source exhibit renders after an async fetch and sets
   // [data-asrc="ready"] only on success — wait so the paint can't race the capture, and a
   // broken artifact fails loudly instead of baselining an empty exhibit.

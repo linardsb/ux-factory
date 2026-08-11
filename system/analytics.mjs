@@ -58,54 +58,31 @@ export function trackFactoryDriven() {
   setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
 }
 
-const BUILT_EVENT_PATH = "/factory/built";
-let builtFired = false;
-
-// The spine-completion event (#75): fired once by the peak beat when a reader REACHES the built
-// screen (the PRD success metric — visitors who reach the peak, not everyone who loads home). Its
-// own fire-once guard: sharing trackFactoryDriven's module-level `fired` would let whichever event
-// fires first suppress the other. Same virtual-route mechanism (CF WA has no custom events).
-export function trackFactoryBuilt() {
-  if (builtFired) return;
-  builtFired = true;
-  const real = location.pathname + location.search + location.hash;
-  history.pushState(history.state, "", BUILT_EVENT_PATH);
-  setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
-}
-
-const SHARED_EVENT_PATH = "/factory/shared";
-let sharedFired = false;
-
-// The investment event (#77): fired once by the close beat when a reader HAS a share link in hand,
-// on the clipboard-success path or the hand-it-over fallback. It measures link production, which is
-// the leading indicator for the PRD §7 "Forwarded internally" metric, NOT the metric itself — a
-// forward can only be observed at the receiving end, and firing on arrival is not safe here: the
-// virtual-route flip drops location.search for RESTORE_DELAY_MS, and every arrival module reads
-// location.search inside that window. Measuring the arrival side stays an open call for the owner.
-// This is also #77 EXTENDING the epic's analytics call rather than executing it: the architecture
-// doc names only /factory/built as the added virtual route, so a reviewer should see it as a scope
-// decision (delete this function and its one call site and nothing else changes).
-// Its own fire-once guard, for the same reason trackFactoryBuilt has one. Note for callers: this
-// rewrites location for RESTORE_DELAY_MS, so build the share URL BEFORE calling it.
-export function trackFactoryShared() {
-  if (sharedFired) return;
-  sharedFired = true;
-  const real = location.pathname + location.search + location.hash;
-  history.pushState(history.state, "", SHARED_EVENT_PATH);
-  setTimeout(() => history.replaceState(history.state, "", real), RESTORE_DELAY_MS);
-}
+// RETIRED BY #216: trackFactoryBuilt (/factory/built, #75) and trackFactoryShared
+// (/factory/shared, #77). Both fired only from home's spine — the built-screen peak and the close
+// beat — and #216 compressed home to the gate, deleting system/peak.mjs and system/close.mjs with
+// their only call sites. The two literals are now free: NO code pushes them, and none should be
+// reused. Their successors on the studio are deliberately named differently (/factory/exported and
+// /factory/link-copied, #210) so that two differently-meaning events never collapse into one CF WA
+// row across time — see the block above FACTORY_LINK_PATH, which records that reasoning in full.
+// tooling/build-checks.mjs group 10's pinned MIN dropped both names in the same commit.
 
 const ARRIVED_EVENT_PATH = "/factory/arrived";
 let arrivedFired = false;
 
 // The receiving half of the share loop (#77): fired once when a reader opens SOMEONE ELSE's share
-// link. This is the PRD §7 "Forwarded internally" metric itself — a forward is only observable where
-// it lands, so /factory/shared counts senders producing links and this counts the links arriving.
-// The pair is what makes the metric readable: neither number means much on its own.
+// link. This is the PRD §7 "Forwarded internally" metric itself — a forward is only observable
+// where it lands.
+//
+// IT SURVIVES #216 WITHOUT ITS SENDING HALF, and that asymmetry is correct rather than an
+// oversight: /factory/shared counted senders producing links from home's close beat, which is gone,
+// but links already in the wild keep arriving and this still counts them. The studio's
+// /factory/link-copied (FACTORY_LINK_PATH below) is the sending half now, so the pair still
+// exists — under a different name, on a different page, deliberately (see that block).
 //
 // HELD UNTIL `load`, unlike the three above, and that is load-bearing rather than tidy. Its caller is
 // pack-derived.mjs's shared-link hydration, which runs while dock.mjs is being imported — before
-// intake-beat.mjs and close.mjs have read location.search out of the URL. The flip blanks the query
+// the page's later modules have read location.search out of the URL. The flip blanks the query
 // string for RESTORE_DELAY_MS, so firing early breaks the arrival this event exists to measure.
 //
 // A macrotask is NOT enough, and this was measured, not assumed: each deferred <script type="module">
@@ -127,10 +104,10 @@ export function trackFactoryArrived() {
 }
 
 // ------------------------------------------------------------------ /build (epic #134, #149)
-// Two events for the sixth public surface. Like /factory/shared above, this EXTENDS the epic's
-// analytics call rather than executing it: docs/epics/portfolio-v3-experience.architecture.md:25
-// names only /factory/built, so a reviewer should read this as a scope decision — delete these two
-// functions and their two call sites and nothing else changes.
+// Two events for the sixth public surface. These EXTEND the epic's analytics call rather than
+// executing it: docs/epics/portfolio-v3-experience.architecture.md:25 names only /factory/built
+// (a route #216 has since retired), so a reviewer should read this as a scope decision — delete
+// these two functions and their two call sites and nothing else changes.
 //
 // Both paths are module-level literals and stay that way. A virtual route IS the entire payload,
 // and /build's promise is that nothing about the visitor's tokens, answers or board leaves the
@@ -222,7 +199,8 @@ let buildPatternFired = false;
 // renderPattern, the one branch that means it. NOT from the data-pattern-stage="ready" flag, which
 // is also set for the empty, out-of-library, refused and vocabulary-unavailable branches: that flag
 // means "this stage has settled", not "a pattern rendered". /build pageviews vs this path is the
-// funnel-completion ratio. Own fire-once guard, for the reason trackFactoryBuilt's has one.
+// funnel-completion ratio. Own fire-once guard: a shared module-level flag would let whichever
+// event fires first suppress the other.
 export function trackBuildPattern() {
   if (buildPatternFired) return;
   buildPatternFired = true;
@@ -232,9 +210,9 @@ export function trackBuildPattern() {
 const BUILD_SHARED_PATH = "/build/shared";
 let buildSharedFired = false;
 
-// The /build half of /factory/shared: fired once when the visitor HAS a link — clipboard granted or
+// The /build link-production event: fired once when the visitor HAS a link — clipboard granted or
 // the select-the-field fallback, since both leave them holding it. It measures link production, not
-// forwarding, for the same reason trackFactoryShared does. Same caller contract too: build the URL
+// forwarding — a forward is only observable where it lands. Same caller contract as the rest: build the URL
 // and put it in the address bar BEFORE calling this, or the RESTORE_DELAY_MS flip window rewrites
 // location out from under the code that is still assembling it.
 export function trackBuildShared() {
@@ -250,12 +228,12 @@ let toolInspectFired = false;
 // The inspect-engine event (#166): fired once per page visit by system/inspect.mjs's show(), the
 // one path that means a bubble is actually on screen — never from the toggle or a settled-state
 // flag. The static literal is the entire payload (same discipline as every path above). Simple
-// trackFactoryBuilt shape, not flipTo: per the epic architecture §Analytics milestones these
+// pushState-and-restore shape, not flipTo: per the epic architecture §Analytics milestones these
 // events don't navigate, so it inherits the same theoretical 50 ms collision window the four
 // /factory trackers accept (#149 left them unchanged deliberately). The pushState is guarded like
 // flipTo's because inspect.mjs may run where pushState refuses (file:// during dev) — a refusal
-// must not throw out of the bubble's show path. Own fire-once guard, for the reason
-// trackFactoryBuilt has one.
+// must not throw out of the bubble's show path. Own fire-once guard, for the reason every tracker
+// here has its own.
 export function trackToolInspect() {
   if (toolInspectFired) return;
   toolInspectFired = true;
@@ -305,12 +283,15 @@ export function trackFactoryTookOver() {
 // this route. Both are flipTo for the reason stated above, and both are on THE SAME PAGE as the
 // take-over, which is what makes the overlapping-flip rule load-bearing here rather than defensive.
 //
-// THE NAMES ARE NOT THE OBVIOUS ONES, DELIBERATELY. /factory/shared (:76) and /factory/built (:61)
-// already exist and both fire from HOME'S SPINE, not from this page — reusing either would make two
-// different events indistinguishable in CF Web Analytics, where the path is the entire payload, and
-// the metric this ticket exists to produce would be unattributable from day one. build-checks group
-// 10 asserts that every path this module can push is pairwise DISTINCT, which is the check that
-// would have caught it; that a path is merely static never could.
+// THE NAMES ARE NOT THE OBVIOUS ONES, DELIBERATELY. /factory/shared and /factory/built already
+// existed when #210 named these, and both fired from HOME'S SPINE, not from this page — reusing
+// either would make two different events indistinguishable in CF Web Analytics, where the path is
+// the entire payload, and the metric #210 exists to produce would be unattributable from day one.
+// #216 has since deleted both of those trackers, which does NOT free the literals: the CF WA
+// dashboard is a time series, so a path that meant "reached home's peak" until #216 must never
+// start meaning "exported from the studio" after it. build-checks group 10 asserts that every path
+// this module can push is pairwise DISTINCT, which is the check that would have caught the reuse;
+// that a path is merely static never could.
 const FACTORY_LINK_PATH = "/factory/link-copied";
 let linkCopiedFired = false;
 
@@ -345,7 +326,7 @@ let toolPaletteFired = false;
 
 // The command-palette event (#168): fired once per page visit by system/palette.mjs's open path,
 // AFTER showModal() returns — the one line that means the palette is really on screen — never
-// from the keydown alone. The static literal is the entire payload. Simple trackFactoryBuilt
+// from the keydown alone. The static literal is the entire payload. Simple pushState-and-restore
 // shape, not flipTo: opening the palette does not navigate and builds no URLs, so per the epic
 // architecture §Analytics milestones it inherits the same theoretical 50 ms collision window the
 // four /factory trackers accept. Guarded pushState for the same reason trackToolInspect's is —

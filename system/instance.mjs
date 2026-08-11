@@ -34,10 +34,10 @@
 //     forwarded instance URL carrying ?brand=… would apply derived colours to :root, write the
 //     record and wear() it — silently overriding the pinned company pack, which IS the thing this
 //     page demonstrates. This is also why the receipts come from wcag-receipts.mjs rather than from
-//     peak.mjs (peak.mjs imports pack-derived transitively).
+//     the old home peak (system/peak.mjs, deleted by #216 — it imported pack-derived transitively).
 //   · dock.mjs — its pack allowlist is neutral|saulera|verdant, so on a company pack its radio would
 //     show "neutral" checked while the page wears the brand. instance-pack.mjs replaces it here.
-//   · close.mjs / share-state.mjs — a share link encodes a brand hex + three axes for a DERIVED
+//   · share-state.mjs (and the deleted close.mjs, #216) — a share link encodes a brand hex + three axes for a DERIVED
 //     pack, which is meaningless against a pack pinned at build time.
 //
 // Screenshots-in-trace decision (epic §Open questions, recorded here per AC3): on an unlisted link
@@ -240,7 +240,7 @@ function renderLinks(links) {
 // singular. So renderPeakDerivation does two things from ONE derive(): it applies the full derived
 // token set as inline custom properties SCOPED to .pi-peak-panel, and it rebuilds the receipts. The
 // panel is a contained preview (the same argument factory-intake.mjs:280-283 makes for
-// #reskin-preview and peak.mjs:120-127 for the home peak), so density-driven spacing and type scales
+// #reskin-preview, and the deleted peak.mjs made for the home peak), so density-driven spacing and type scales
 // move with the answers too. Nothing here ever writes to :root — that would strip the pinned company
 // pack for the rest of the visit, which is the single worst failure this page can have.
 
@@ -266,7 +266,7 @@ function renderPeakDerivation(axes) {
   if (!band) return; // no peak on this page (a partial shell) — the wizard is unaffected
   if (!peakPanel) peakPanel = band.querySelector(".pi-peak-panel");
   // Read the host FRESH each call: buildReceipts returns a NEW element that replaceWith() swaps in,
-  // so a cached node goes stale after the first render (peak.mjs:279-282 has the same contract).
+  // so a cached node goes stale after the first render (the deleted peak.mjs had the same contract).
   const host = band.querySelector("[data-peak-receipts]");
 
   let result;
@@ -312,7 +312,7 @@ function heroEffect(ctx) {
 // viewport and NEVER lands at 800/740/640px, i.e. on most laptops. A readiness handle that silently
 // fails to land is worse than none (a future VR waitReady would deadlock on it — the trap the handle
 // exists to avoid, issue #105), so it lands on load here.
-// Nothing is lost by the change: unlike peak.mjs:363 there is no analytics event gated on "reached
+// Nothing is lost by the change: unlike the deleted home peak there is no analytics event gated on "reached
 // the built screen" (deliberately — see the plan's Q2), and the effect owns no expensive work. The
 // receipts ride the wizard's own publish on the package chain, which does not wait for scroll;
 // re-rendering from the cached axes here is idempotent and only covers the reverse ordering.
