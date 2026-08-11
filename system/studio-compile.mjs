@@ -395,7 +395,7 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     // the driver's post-settle seek (replay-driver.mjs:698-716) both remove and re-mint every
     // wrapper, and a same-count rebuild slips the count tripwire below. Element identity is the
     // stamp: no counter reaches an attribute (call 4 above), and no new seam is opened to
-    // studio.mjs. Released at settle() so detached wrappers are not pinned for the page's life.
+    // studio.mjs. Released at settle(), or dropped with the closure on destroy — never pinned.
     let stageAtCompile = null;
 
     const blockOf = (wrapper) => [...wrapper.children].find((c) => !c.classList.contains("stx-grab")) || null;

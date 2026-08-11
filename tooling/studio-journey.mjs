@@ -3381,7 +3381,7 @@ async function methodPass(browser, engineName, t, errors) {
   // Park the mid-beat card NOW, so the check inside the window needs no scroll.
   await park(p6, 'input[name="stm-q-rewardType"][value="hunt"]');
   // Compile via a direct DOM click — the compile button is the FIRST child of .stu-compile
-  // (studio-compile.mjs:262) — because a locator's actionability scroll would leave the parked
+  // (studio-compile.mjs:265) — because a locator's actionability scroll would leave the parked
   // card and eat the ~1.7 s window.
   await p6.$eval(`${VIEWPORT} .stu-compile button`, (b) => b.click());
   const midState = await p6.$eval(VIEWPORT, (n) => n.getAttribute("data-compile-state"));
