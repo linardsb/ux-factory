@@ -7,7 +7,7 @@
     },
     {
       "page": "/",
-      "controls": 21
+      "controls": 13
     },
     {
       "page": "/approach",
@@ -42,5 +42,5 @@
       "controls": 1
     }
   ],
-  "total": 119
+  "total": 111
 }

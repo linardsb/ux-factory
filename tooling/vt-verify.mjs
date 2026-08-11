@@ -100,15 +100,24 @@ const HOOK = () => {
 // against a settled page rather than folded in with someone else's animation.
 const SITEWIDE = [
   {
-    page: "/index.html", label: "home · intake wizard step", boot: 2,
+    // BOOT-COUNT ONLY SINCE #216, and the coverage loss is deliberate and stated. This row used to
+    // click Next in home's intake wizard — home's one morph()-wrapped verb. #216 compressed home to
+    // the gate and that wizard left for the studio's method band (#214), so there is no reader verb
+    // on this page for the per-verb claim to measure: the only other morph() reachable from home is
+    // brand-import.mjs:384, and it runs ONLY on the unclaimed/unstored fallback path — with dock.mjs
+    // on the page the dock claims the pack request and owns that transition, so it does not fire in
+    // a normal browser. A row whose `act` silently no-ops would be worse than no row, so the row
+    // keeps the half it can still honestly assert.
+    //
+    // THE BOOT COUNT IS THE HALF WORTH KEEPING: it is the property the pixel gate depends on. It is
+    // 2 only while spine.mjs's heroBeat is unchanged (:147,:149 — the re-skin and its revert); #216
+    // does not touch spine.mjs. If a later edit changes the hero, this number changes with it, and
+    // that is the point.
+    page: "/index.html", label: "home · load", boot: 2,
     bootWhy: "spine heroBeat re-skin + revert (#72), both settled before data-spine=ready",
-    ready: async (p) => {
-      await p.waitForSelector('[data-spine="ready"]', { timeout: 20000 });
-      await p.waitForSelector("#factory-wizard .fw-card", { timeout: 20000 });
-      await p.locator("#beat-intake").scrollIntoViewIfNeeded();
-    },
-    act: (p) => p.locator("#factory-wizard").getByRole("button", { name: "Next" }).click(),
-    state: (p) => p.locator("#factory-wizard .fw-progress").textContent().then((s) => s.trim()),
+    ready: (p) => p.waitForSelector('[data-spine="ready"]', { timeout: 20000 }),
+    // No `act`/`state`: see above. The loop skips the per-verb and reduced-motion halves for any
+    // row without an `act`.
   },
   {
     // The SECOND mount of the same wizard, through instance.mjs's initIntake(config) seam — full
@@ -249,6 +258,11 @@ for (const name of toRun) {
       const sboot = await read(sp);
       t(`${s.label} · load opens ${s.boot} transition(s)${s.bootWhy ? ` — ${s.bootWhy}` : ", none of them this ticket's"}`,
         sboot.calls === s.boot, `calls=${sboot.calls}`);
+
+      // A row with no `act` asserts its boot count and stops there (#216's home row — the page has
+      // no morph()-wrapped reader verb left). Nothing after this point in the iteration is needed by
+      // such a row, and the reduced-motion block below also drives `act`, so `continue` skips both.
+      if (!s.act) { await sctx.close(); continue; }
 
       const from = await s.state(sp);
       await reset(sp);
