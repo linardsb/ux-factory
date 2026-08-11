@@ -102,11 +102,42 @@ the counter and the pseudo list are read.
 | `node tooling/drift-check.mjs` | ✓ all 12 checks |
 | `node agent-layer/gen-param-count.mjs --check` | ✓ 113 controls — no drift (was 111; +2 exactly) |
 | `node agent-layer/gen-loc-summary.mjs` | ✓ 3 groups; runtime 72→73 files, 26 700→27 800 lines |
-| `node tooling/vt-verify.mjs all` | see below |
-| `node tooling/studio-journey.mjs all` | see below |
-| `npm run update:docker` | see below |
+| `node tooling/vt-verify.mjs all` | ✓ zero failures on chromium + firefox + webkit · **18 #217 rows** (3 per engine in the studio-canvas block, incl. reduced motion, + 1 per engine in the factory block), each behind its own movement precondition |
+| `node tooling/studio-journey.mjs all` | ✓ **chromium 405 passed / 0 failed · firefox 401 / 0 · webkit 401 / 0** · **224 #217 rows** across the three engines |
+| `cd tooling/visual-regression && npm run update:docker` | ✓ 22 passed · **exactly four baselines rewritten**: `factory-{neutral,saulera}.png` + `approach-{neutral,saulera}.png` |
 
-<!-- RESULTS -->
+The four new INP rows, measured on the settled `/factory` (budget ≤ 200 ms):
+
+| row | chromium |
+|---|---|
+| marquee drag | 40 ms (3 entries) |
+| group pointer-drag | < 16 ms — below the observer floor |
+| group keyboard step | < 16 ms — below the observer floor |
+| context menu open | 24 ms (3 entries) |
+
+The below-floor readings are sound for `perfPass`'s stated reason: the forced-slow calibration click
+proves the delivery pipeline alive on each engine first, so "no entry" means "< 16 ms", not "dead
+observer". Spike 2's verdict was inherited rather than re-measured, as the plan directs.
+
+**The `/approach` baselines needed forcing.** `update:docker` rewrote only the two `/factory` PNGs on
+the first run — `/approach`'s change is the rendered `loc-summary` and `param-count` DIGITS
+(`26 700 → 27 800`, `72 → 73` files, `111 → 113` controls), which falls under pixelmatch's per-pixel
+threshold and inside the 100-pixel tolerance. Exactly the trap memories `vr-update-skips-subperceptual`
+and `vr-tolerance-hides-text-changes` describe. The two PNGs were `rm`'d and the gate re-run, which
+produced them. **A green `update:docker` run is not proof a page did not change**, and treating the
+2-of-4 result as "nothing else moved" would have shipped two stale baselines.
+
+**R11 (baseline collision) checked immediately before regenerating**: `gh pr list` returned no open
+PRs and there is no `#219` branch, so nothing else was regenerating `/factory`'s PNGs from a different
+tree. #219 is open as an issue only.
+
+**One transient failure worth recording rather than hiding**: on an earlier run, #213's pre-existing
+frame check reported a single 53.2 ms long-animation-frame in the 4×-throttled drag window (threshold
+50 ms). It did **not** reproduce on a quiet machine — several Playwright browsers of my own were
+running concurrently at the time — and the final run reports `zero long-animation-frame entries`. The
+per-frame cost this ticket adds to a carry is bounded by CELL CROSSINGS, not by pointermoves:
+`renderGuides()` is called only from `pickUp` and from the branch of `preview()` that actually moved
+something.
 
 ## Deviations from the plan
 
