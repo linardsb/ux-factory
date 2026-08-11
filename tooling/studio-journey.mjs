@@ -3657,8 +3657,12 @@ async function selectPass(browser, engineName, t, errors) {
   await p4.locator(`.stx-slot[data-stx-id="${members4[0]}"] .stx-grab`).focus();
   await p4.keyboard.press("Enter");
   await p4.waitForTimeout(80);
+  // READ THE PICK-UP SENTENCE HERE, while it is the region's current value: liveSeen() reports only
+  // the LAST sentence, and the drop's is the one that survives to the end of the gesture.
+  const pickupSaid = await p4.locator(LIVE).textContent();
   await p4.keyboard.press("ArrowDown");
   await p4.waitForTimeout(80);
+  const stepSaid = await p4.locator(LIVE).textContent();
   await p4.keyboard.press("Enter");
   await p4.waitForTimeout(160);
   const grid4b = await slotsNow(p4);
@@ -3678,8 +3682,15 @@ async function selectPass(browser, engineName, t, errors) {
   // per-step feedback, which is the wrong fix (studio-verbs.mjs:718-721).
   t("#217/AC2 · …announced 3 times: the group pick-up, the arrow step, and the drop — per press, by design",
     said4.n === 3 && said4.last.startsWith("Moved: "), JSON.stringify(said4));
-  t("#217 · …and the group pick-up sentence names the COUNT rather than one component (R8)",
-    /^\d+ components picked up/.test(await p4.evaluate(() => window.__liveFirst || "")) || true);
+  // R8 — the group sentences name the COUNT, not a component: a whole-canvas selection that only the
+  // edge can stop is correct and would otherwise be silent about why. Read as the region's value AT
+  // each moment, never as a flag, and never with an `|| true` escape hatch that cannot fail.
+  t("#217 · the group PICK-UP sentence names the count and the instructions, not one component (R8)",
+    new RegExp(`^${members4.length} components picked up, column \\d+, row \\d+\\. Arrow keys to move, Enter to drop, Escape to cancel\\.$`)
+      .test((pickupSaid || "").trim()), JSON.stringify(pickupSaid));
+  t("#217 · …and the group ARROW STEP sentence names the count and the slot it reached",
+    new RegExp(`^${members4.length} components in column \\d+, row \\d+\\.$`).test((stepSaid || "").trim()),
+    JSON.stringify(stepSaid));
   t("#217/AC2 · one Undo restores the whole keyboard group move too",
     await (async () => {
       await btn(p4, "Undo").click();
@@ -3929,6 +3940,32 @@ async function selectPass(browser, engineName, t, errors) {
   const said8 = await liveSeen(p8);
   t("#217/AC5 · Escape on a live selection with nothing else running clears it and says so",
     (await chosen(p8)).length === 0 && said8.n === 1 && said8.last === "Selection cleared.", JSON.stringify(said8));
+  // (e) …and ONLY when the canvas is where the reader is. The clear branch is guarded on
+  // scroll.contains(document.activeElement), because /factory is a long page with several other
+  // Escape-sensitive surfaces, and an Escape pressed at the far end of it must not silently empty a
+  // selection the reader cannot even see.
+  await shiftDrag(p8, await cell(p8, 1, 1), await cell(p8, 2, 2));
+  const keptSel = await chosen(p8);
+  await btn(p8, "Undo").focus();          // still on the page, deliberately OUTSIDE canvas.scroll
+  await p8.keyboard.press("Escape");
+  await p8.waitForTimeout(150);
+  t("#217/D10 · Escape with focus OUTSIDE the canvas leaves the selection alone — the clear is focus-scoped, like ⌘/Ctrl+A",
+    JSON.stringify(await chosen(p8)) === JSON.stringify(keptSel) && keptSel.length > 0,
+    `${JSON.stringify(await chosen(p8))} vs ${JSON.stringify(keptSel)}`);
+  // (f) THE ⌘K PALETTE, pinned rather than reasoned about — the same discipline R4 applies to the
+  // replay driver. system/palette.mjs:272 stopPropagation()s Escape precisely so the listeners
+  // underneath it never see the key; this module is now one of those listeners, and a future edit
+  // that dropped that line would silently start clearing the selection every time a reader closed
+  // the palette. Nothing else in the repo would notice.
+  await p8.keyboard.press(engineName === "webkit" ? "Meta+k" : "Control+k");
+  await p8.waitForTimeout(400);
+  const paletteOpen = await p8.evaluate(() => Boolean(document.querySelector("dialog[open]")));
+  await p8.keyboard.press("Escape");
+  await p8.waitForTimeout(300);
+  const afterPalette = await p8.evaluate(() => Boolean(document.querySelector("dialog[open]")));
+  t("#217 · the ⌘K palette's Escape closes the palette and does NOT reach this module — its stopPropagation is a line #217 now depends on",
+    paletteOpen === true && afterPalette === false && JSON.stringify(await chosen(p8)) === JSON.stringify(keptSel),
+    `open=${paletteOpen}→${afterPalette} sel=${JSON.stringify(await chosen(p8))}`);
   await p8.close();
 
   // --- 9 · R3: the QUICK group drag, released with no settling wait -------------------------------
