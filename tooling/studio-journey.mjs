@@ -2044,7 +2044,7 @@ async function replayPass(browser, t, errors) {
   // skipToEnd applies every remaining beat synchronously, and the reduced-motion arrival IS that
   // loop. An aria-live="polite" region speaks its FINAL value per task, so the act sentences written
   // on the way were overwritten by settle()'s completion sentence and a screen-reader user heard
-  // none of them — studio-compile.mjs:165-174's recorded lesson, in a file that cites it.
+  // none of them — studio-compile.mjs:197-203's recorded lesson, in a file that cites it.
   //
   // ASSERTED ON THE SENTENCE THAT IS ACTUALLY HEARD, which is the only assertion that can fail here:
   // "an act sentence was written" passes against the broken version too, because in one task the

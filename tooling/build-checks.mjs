@@ -3017,7 +3017,7 @@ function scanSvg(svg, label) {
     "the op-only degradation does not reach the committed board — the fallback would draw a different run");
 
   // applyBeat is total too: a hostile beat answers a refusal change rather than throwing, because
-  // action-bus.mjs:70-77 turns a thrown refusal into a console line the reader never sees.
+  // action-bus.mjs:71-81 turns a thrown refusal into a console line the reader never sees.
   for (const bad of [null, {}, { kind: "op", op: "nope", params: {} }, { kind: "op", op: "place.rename", params: { placeId: "p9", label: "x" } }, { kind: "note" }]) {
     let threw = null;
     let got;
@@ -3054,7 +3054,7 @@ function scanSvg(svg, label) {
   // place-removed branch and the rename half of place-changed are written, correct and NOT exercised
   // by it — so this pins what the artifact reaches, and the day a second run carries a rename or a
   // remove it fails and forces someone to look at that branch instead of shipping it untested.
-  // studio-compile.mjs:38-49 and group 1's vacuous in-library clause make the same move.
+  // studio-compile.mjs:38-53 and group 1's vacuous in-library clause make the same move.
   const histogram = {};
   for (const op of artifact.ops) histogram[op.op] = (histogram[op.op] || 0) + 1;
   ok(deep(histogram) === deep({ "place.add": 4, "affordance.add": 7, connect: 7 }),

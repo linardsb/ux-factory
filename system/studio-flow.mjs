@@ -39,7 +39,7 @@
 import { renderComposition } from "./agentic-renderer.mjs";
 import { EMPTY_SCREEN } from "./studio-export.mjs";
 
-// Copied rather than imported, like every other hand-written canon module (studio-compile.mjs:145,
+// Copied rather than imported, like every other hand-written canon module (studio-compile.mjs:177,
 // studio-canvas.mjs:80). Every node is built element by element — build-checks group 7 bans every
 // markup-from-string sink across these modules, which is why a hostile board label can never become
 // markup anywhere in the studio.

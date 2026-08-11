@@ -22,7 +22,7 @@
 //  1. THE ARRANGEMENT IS READ POSITIONALLY, and it has to be. `canvas.place()` assigns its own
 //     `data-stx-id` (studio-canvas.mjs:307) and never carries a board place id, so there is no id to
 //     join on. What there IS, and what the whole studio already depends on, is that the wrappers in
-//     DOM order correspond to `board.places` in board order — studio-compile.mjs:377's positional
+//     DOM order correspond to `board.places` in board order — studio-compile.mjs:382-383's positional
 //     swap rests on the same fact, and replay-driver.mjs renames in place rather than re-placing
 //     precisely so that stage order stays board order. Each entry still CARRIES its place id, so
 //     build-share.mjs's arrangementSlots (:145) refuses a mismatch instead of encoding a lie. A
@@ -59,7 +59,7 @@
 //     from update().
 //
 // Refusals go to the rail's own note and to canvas.say — never a throw, never console.error
-// (bus-toggles.mjs / studio-verbs.mjs / studio-compile.mjs:335-355; tooling/studio-journey.mjs's
+// (bus-toggles.mjs / studio-verbs.mjs / studio-compile.mjs:336-350; tooling/studio-journey.mjs's
 // no-page-errors contract is a real assertion).
 //
 // Node-import safe: every DOM reference lives inside a function body and there is no self-boot at
@@ -92,7 +92,7 @@ const EXPORT_NAME = "prototype.html";
 
 // The rail's at-rest sentences. FIXED strings — this rail is visible at rest once the replay
 // settles, so it is in the pixel baseline and nothing in it may carry a time, a counter or a run id
-// (studio-compile.mjs:65-67's rule, inherited). specMarkdown interpolates a date; that is a
+// (studio-compile.mjs:68-70's rule, inherited). specMarkdown interpolates a date; that is a
 // DOWNLOAD and is never rendered on the page. Keep it that way.
 const AT_REST = "Everything here is generated in your browser when you ask for it. Nothing is uploaded and nothing is stored.";
 
@@ -538,7 +538,7 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
     return { update, root };
   } finally {
     // Every path, including the early return — a gate fails on the missing thing instead of
-    // deadlocking to timeout (studio-canvas.mjs:327-330 / device-frame.mjs:195-199).
+    // deadlocking to timeout (studio-canvas.mjs:372-374 / device-frame.mjs:195-199).
     root?.setAttribute("data-studio-keep", "ready");
   }
 }

@@ -21,7 +21,7 @@
 // command is visibly pointer-sourced. The tiles' CONTENT is still the committed build-time run's;
 // Reset puts that proposal back.
 //
-// REFUSALS GO TO THE READOUT, NEVER A THROW. action-bus.mjs:70-77 wraps every handler in
+// REFUSALS GO TO THE READOUT, NEVER A THROW. action-bus.mjs:71-81 wraps every handler in
 // try/catch → console.error, so a thrown refusal would become a console line the reader never sees
 // AND would trip tooling/proto-journey.mjs's "exit 1 if any engine logs a page error" contract.
 // Writing it into the aria-live readout keeps the refusal a visible affordance — which is the study
