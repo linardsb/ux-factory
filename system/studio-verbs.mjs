@@ -74,6 +74,15 @@ export const DIRS = {
 // cap at all is that a long session cannot grow the stack without bound.
 export const HISTORY_MAX = 50;
 
+// How many components a live-region sentence NAMES before it switches to counting. A live region is
+// spoken end to end, so a verb that moved twenty of them would otherwise be one sentence a screen
+// reader user has to sit through before they can do anything else; past the bound the count is the
+// useful part. Hoisted to module scope and exported at #217 (it lived inside mountCanvasVerbs) for
+// the MAX_COLS / LABEL_MAX / SLOT_MAX reason: system/studio-select.mjs writes the same shape of
+// sentence for the selection, and a cap re-typed there is a second copy that drifts. Nothing about
+// its value or its use changed in the move; build-checks group 13 pins it.
+export const SPOKEN_MAX = 3;
+
 // One string per cell, so occupancy is a Set lookup rather than an array scan per candidate.
 export function occupancyKey({ col, row } = {}) {
   return `${col},${row}`;
@@ -143,6 +152,88 @@ export function hitSlot(x, y, geom = {}) {
     col: walk(x, geom.cols, geom.colGap),
     row: walk(y, geom.rows, geom.rowGap),
   });
+}
+
+// ---- the GROUP layer (#217) ---------------------------------------------------------------------
+// One selection moves as one thing. Everything below is the multi-node twin of stepSlot's answers,
+// and the reason it is a separate set of functions rather than a loop over stepSlot is stated at
+// groupDelta: a group step is ALL-OR-NOTHING, and stepSlot is deliberately not.
+
+// The occupancy set for a GROUP: every slot in `all` whose id is NOT a member. Excluding EVERY
+// member is the whole point — exclude only an anchor and each member blocks its neighbour's
+// destination, so a group of two adjacent blocks can never move at all in the direction they are
+// adjacent along. occupancyExcept() in the mount is the single-node shape this generalises.
+export function groupOccupancy(all, members) {
+  const held = new Set(Array.isArray(members) ? members : []);
+  const taken = new Set();
+  for (const slot of Array.isArray(all) ? all : []) {
+    if (!slot || held.has(slot.id)) continue;
+    taken.add(occupancyKey(slot));
+  }
+  return taken;
+}
+
+// Translate EVERY member by [dcol, drow], or return `members` UNCHANGED. There is no partial answer:
+// if any destination leaves the grid or lands on a non-member peer, the whole set stays put, and the
+// keyboard path announces that as a blocked step exactly as it does for one node.
+//
+// WHY NOT stepSlot PER MEMBER, since that is the shape a reader reaches for first: stepSlot KEEPS
+// WALKING past occupied cells (see its comment), which for N nodes lands members at DIFFERENT
+// offsets and deforms the selection — two blocks a column apart come back adjacent. Skipping is the
+// right answer for one node (a peer in the way is a thing to step over) and the wrong one for a
+// group (the group's shape is the thing being moved). Detected by deep-equality on the blocked case
+// in build-checks group 13, never by "did anything move?", which a partial move passes.
+//
+// The grid test is clampSlot's, so "on the grid" keeps its one definition (studio-canvas.mjs:50):
+// a destination the clamp would CHANGE is a destination off the grid.
+export function groupDelta(members, dcol, drow, occupied) {
+  const list = Array.isArray(members) ? members.filter((m) => m && Number.isFinite(Number(m.col)) && Number.isFinite(Number(m.row))) : [];
+  if (!list.length) return Array.isArray(members) ? members : [];
+  const dc = Number(dcol);
+  const dr = Number(drow);
+  if (!Number.isFinite(dc) || !Number.isFinite(dr)) return members;
+  const taken = occupied instanceof Set ? occupied : new Set(occupied || []);
+
+  const moved = [];
+  for (const m of list) {
+    const want = { col: Number(m.col) + dc, row: Number(m.row) + dr };
+    const clamped = clampSlot(want);
+    if (clamped.col !== want.col || clamped.row !== want.row) return members; // off the grid
+    if (taken.has(occupancyKey(clamped))) return members; // a non-member peer holds it
+    moved.push({ ...m, col: clamped.col, row: clamped.row });
+  }
+  return moved;
+}
+
+// ONE arrow step for a group, in DIRS' vocabulary. Written over groupDelta rather than beside it so
+// there is one all-or-nothing rule, not two that agree today.
+export function groupStep(members, dir, occupied) {
+  if (!Array.isArray(dir) || dir.length !== 2) return Array.isArray(members) ? members : [];
+  return groupDelta(members, dir[0], dir[1], occupied);
+}
+
+// The alignment guides for a carry: the columns and rows where a CARRIED member and a non-carried
+// PEER line up. Deduplicated, sorted ascending, empty when nothing aligns.
+//
+// BOTH HALVES ARE REQUIRED, and that is AC #3's whole sentence rather than a refinement. A guide
+// over a column holding only carried members says nothing the reader cannot already see; a guide
+// over a column holding neither is a claim about an alignment that does not exist — the lie the AC
+// forbids. So the gate does not count guides: it forces one onto an empty column and watches red.
+export function guidesFor(carried, peers) {
+  const axis = (key) => {
+    const mine = new Set();
+    for (const s of Array.isArray(carried) ? carried : []) {
+      const n = Number(s && s[key]);
+      if (Number.isFinite(n)) mine.add(n);
+    }
+    const out = new Set();
+    for (const p of Array.isArray(peers) ? peers : []) {
+      const n = Number(p && p[key]);
+      if (Number.isFinite(n) && mine.has(n)) out.add(n);
+    }
+    return [...out].sort((a, b) => a - b);
+  };
+  return { cols: axis("col"), rows: axis("row") };
 }
 
 // The undo/redo stack over { stack, index }. Every snapshot is structuredClone'd on the way IN and
@@ -278,12 +369,55 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       node.setAttribute("data-row", String(slot.row));
     };
 
-    // Built at gesture start — peers do not move during a gesture — and EXCLUDING the node being
-    // carried, or it could never move off its own cell.
-    const occupancyExcept = (node) => {
+    // Built at gesture start — peers do not move during a gesture — and EXCLUDING every node being
+    // carried, or a member could never move off its own cell and a group could never move at all
+    // (each member would block its neighbour's destination). One member is the #205 case; the pure
+    // groupOccupancy above is the same rule written over plain data so CI can drive it.
+    const occupancyExcept = (nodes) => {
+      const carried = new Set(Array.isArray(nodes) ? nodes : [nodes]);
       const taken = new Set();
-      for (const peer of slots()) if (peer !== node) taken.add(occupancyKey(slotOf(peer)));
+      for (const peer of slots()) if (!carried.has(peer)) taken.add(occupancyKey(slotOf(peer)));
       return taken;
+    };
+
+    // --- the alignment guides (#217) ------------------------------------------------------------
+    // At most two elements — one column, one row — created lazily, placed by data-col / data-row on
+    // the SAME grid every slot uses, and removed on drop, cancel and clear. Attributes only, so this
+    // ticket's half of the module keeps the zero-inline-style property #204 established.
+    //
+    // PREPENDED to the stage rather than appended: .stx-slot is position: relative, so it paints
+    // above this static grid item whatever the order, and a guide is a ground wash UNDER the
+    // components rather than a tint over the alignment it is pointing out (studio.css says the same).
+    //
+    // A GUIDE IS A CLAIM THAT AN ALIGNMENT EXISTS. guidesFor only reports a line where a CARRIED
+    // member and a non-carried PEER share it, and the mount adds nothing to that: the first of each
+    // axis is drawn, both arrays being sorted so the choice is deterministic. Showing every aligned
+    // column would be honest too, and is not done because three highlighted columns read as noise —
+    // but showing one where none aligns is the lie AC #3 forbids, which is why the gate forces a
+    // guide onto a provably empty column and watches the check go red rather than counting guides.
+    let colGuide = null;
+    let rowGuide = null;
+    const setGuide = (existing, attr, value) => {
+      if (value == null) { existing?.remove(); return null; }
+      const node = existing || el("div", { class: "stx-guide", "aria-hidden": "true" });
+      node.setAttribute(attr, String(value));
+      if (!node.isConnected) stage.insertBefore(node, stage.firstChild);
+      return node;
+    };
+    const clearGuides = () => {
+      colGuide = setGuide(colGuide, "data-col", null);
+      rowGuide = setGuide(rowGuide, "data-row", null);
+    };
+    // Rendered for a SINGLE-node carry too, not only for a group: AC #3 does not scope guides to
+    // groups, guidesFor handles one member as naturally as N, and a single drag is the commonest
+    // gesture on this canvas — scoping them would leave the gate exercising only the rarer path.
+    const renderGuides = () => {
+      if (!gesture) { clearGuides(); return; }
+      const carriedNodes = new Set(gesture.members.map((m) => m.node));
+      const peers = slots().filter((n) => !carriedNodes.has(n)).map(slotOf);
+      const { cols, rows } = guidesFor(gesture.members.map((m) => m.current), peers);
+      colGuide = setGuide(colGuide, "data-col", cols.length ? cols[0] : null);
+      rowGuide = setGuide(rowGuide, "data-row", rows.length ? rows[0] : null);
     };
 
     // --- the FLIP, used by undo/redo ONLY -------------------------------------------------------
@@ -331,8 +465,14 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     };
 
     // --- the verb controls ----------------------------------------------------------------------
-    const undoBtn = el("button", { type: "button", class: "btn btn-secondary stx-verb-btn", text: "Undo" });
-    const redoBtn = el("button", { type: "button", class: "btn btn-secondary stx-verb-btn", text: "Redo" });
+    // data-stx-verb is #217's seam and the whole of it: the context menu offers Undo and Redo, and
+    // must know whether the history can do them. It reads THESE buttons' `disabled` rather than
+    // taking a history handle, for studio.mjs:513-516's recorded reason — the buttons already ARE
+    // the live display of canUndo/canRedo (syncControls writes them), and a second source could
+    // disagree with the one the reader is looking at. An attribute rather than an index into
+    // .stx-verb-btn, because an index is a contract nothing states and everything breaks.
+    const undoBtn = el("button", { type: "button", class: "btn btn-secondary stx-verb-btn", "data-stx-verb": "undo", text: "Undo" });
+    const redoBtn = el("button", { type: "button", class: "btn btn-secondary stx-verb-btn", "data-stx-verb": "redo", text: "Redo" });
     // One static instructions element, referenced by every handle's aria-describedby, so the
     // affordance is discoverable ON FOCUS — before pick-up — rather than only after the reader has
     // guessed that Enter does something.
@@ -341,7 +481,19 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       id: "stx-move-help",
       text: "Enter to pick up, arrow keys to move, Enter to drop, Escape to cancel.",
     });
-    const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, help);
+    // #217's verbs get their OWN element, and the existing sentence above is byte-identical — every
+    // handle's aria-describedby points at `help` by IDREF, and it must keep describing the MOVE
+    // affordance only. A reader focused on one component does not want the marquee's grammar read
+    // to them; a reader looking at the canvas does, which is what a second visible line is for.
+    //
+    // This IS the discovery path for the context menu (nothing else advertises Shift+F10), and that
+    // is a stated bet rather than an oversight: a per-block "⋯" button would churn every wrapper
+    // and add a control per component, which belongs to #221. Flagged for #223's hallway test.
+    const selectHelp = el("p", {
+      class: "stx-verb-help",
+      text: "Shift-drag to select several, Shift-click to add one. With the canvas focused, ⌘/Ctrl+A selects all. Right-click or Shift+F10 on a component opens its menu.",
+    });
+    const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, help, selectHelp);
     viewport.insertBefore(verbRow, scroll);
     // ARM THE MOVE HANDLES (#231 L2). studio-canvas.mjs draws the .stx-grab button but owns none of
     // its behaviour, so it is born disabled and undescribed; this line is the moment that stops
@@ -395,10 +547,57 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       syncControls();
     });
 
-    // Bounded at three named components, because a live region is spoken end to end: a restore that
-    // moved twenty of them would otherwise be one sentence a screen-reader user has to sit through
-    // before they can do anything else. Past the bound it says how many, which is the useful part.
-    const SPOKEN_MAX = 3;
+    // THE SECOND CONSUMER, IN THE SAME BLOCK (#217). One selection moves as one thing: one
+    // history.push, one canvas.say, one undo. It joins here rather than in studio-select.mjs so the
+    // mover stays ONE module and applySlot stays the one place a slot is written — a second module
+    // applying slots is precisely the shape call 1 of this header refuses.
+    //
+    // NO `target`, and that is the honest envelope rather than a saving: a group move has no single
+    // subject, so naming one (the anchor) would let a consumer that read it move the wrong thing.
+    //
+    // IT DOES NOT CONSULT OCCUPANCY, exactly as ui.move's does not (:386-391): the gesture enforced
+    // it during preview, and a refusal here would make an injected source:"agent" group move behave
+    // differently from a pointer one — precisely the parity AC #1 turns on. The consequence, stated
+    // rather than discovered: an injected group move CAN stack components on one cell. That is the
+    // caller's business.
+    //
+    // EVERY ID IS RESOLVED BEFORE ANY SLOT IS WRITTEN, so a payload naming one missing component
+    // leaves the DOM UNTOUCHED instead of half-applied. The refusal is the live region's, never a
+    // throw — action-bus.mjs:71-81 would turn a throw into a console line the reader never sees AND
+    // trip studio-journey's no-page-errors contract.
+    const offMoveGroup = bus.on("ui.move-group", (action) => {
+      const moves = Array.isArray(action?.params?.moves) ? action.params.moves : [];
+      if (!moves.length) {
+        canvas.say("Refused: that group move named no components.");
+        return; // DOM untouched
+      }
+      const known = slots();
+      const resolved = [];
+      for (const move of moves) {
+        const id = String(move?.id ?? "");
+        const node = known.find((n) => idOf(n) === id);
+        if (!node) {
+          canvas.say(`Refused: no component ${JSON.stringify(id)} on this canvas.`);
+          return; // DOM untouched — nothing has been applied yet
+        }
+        resolved.push({ node, slot: clampSlot(move) }); // hostile input never reaches an attribute
+      }
+      // #230's adopt, for the source with no gesture behind it — the same call ui.move's consumer
+      // makes, and it composes for the same reason: adopt fills MISSING ids only.
+      history.adopt(snapshot());
+      for (const r of resolved) applySlot(r.node, r.slot);
+      history.push(snapshot()); // ONE entry, so ONE undo puts every member back
+      const named = resolved.slice(0, SPOKEN_MAX)
+        .map((r) => `${nameOf(r.node)} in column ${r.slot.col}, row ${r.slot.row}`)
+        .join("; ");
+      const rest = resolved.length - SPOKEN_MAX;
+      canvas.say(rest > 0 ? `Moved: ${named}, and ${rest} more.` : `Moved: ${named}.`);
+      syncControls();
+    });
+
+    // SPOKEN_MAX is module scope since #217 — see its declaration for why it moved. The vocabulary
+    // below is unchanged; studio-select.mjs writes the selection's count sentence to the same bound.
+    //
     // TWO words, not one derived from the other: the success sentence leads with the past participle
     // ("Undone: …") and the nothing-moved sentence names the verb ("Nothing to undo."). Deriving
     // either from the other gave "Nothing to undone."
@@ -428,10 +627,19 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     });
 
     // --- the gesture ----------------------------------------------------------------------------
-    // null, or { id, node, origin, current, occupied, source, pointerId?, geom?, raf?, pending? }.
-    // Written as a single object with a `node` field rather than a list, but shaped so #217's
-    // multi-move is a plausible future: a gesture holding a LIST of nodes changes this object and
-    // nothing about the consumer, the history or the announcement vocabulary.
+    // null, or { id, node, origin, current, members, occupied, source, pointerId?, geom?, raf?,
+    // pending? }.
+    //
+    // #217 MADE THE FORECAST TRUE, and it cost exactly what :430-434 said it would: `members` is the
+    // list — [{ node, id, origin, current }], the ANCHOR included and length 1 for an ordinary carry
+    // — and `node` / `id` / `origin` / `current` stay the ANCHOR's, so every existing pointer and
+    // keyboard branch reads the same fields it always did and a single-node gesture behaves
+    // byte-identically. The consumer, the history and the announcement vocabulary were untouched by
+    // the shape change; what #217 added beside them is one more bus verb, not a second mover.
+    //
+    // Members are in DOM ORDER (querySelectorAll's), which is the studio's standing correspondence
+    // with board order (studio.mjs:510-516) — so the group sentence names components in the order
+    // the reader sees them rather than in the order they happened to be clicked.
     let gesture = null;
 
     // `component` IS THE VOCABULARY SHAPE, `label` IS THE DISPLAY NAME (#232). This used to emit
@@ -448,6 +656,18 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const shapeOf = (node) => node.getAttribute("data-stx-component") || null;
 
     const emitMove = (source) => {
+      // ONE VERB FOR ONE NODE, ONE FOR MANY — and `ui.move-group` carries NO `target`, deliberately:
+      // there is no single subject to name, and inventing one (the anchor) would make a consumer
+      // that read it move the wrong thing. Both are applied by a consumer in this same module, so
+      // applySlot stays the one place a slot is written and the mover stays one module.
+      if (gesture.members.length > 1) {
+        bus.emit({
+          type: "ui.move-group",
+          source,
+          params: { moves: gesture.members.map((m) => ({ id: m.id, col: m.current.col, row: m.current.row })) },
+        });
+        return;
+      }
       const shape = shapeOf(gesture.node);
       bus.emit({
         type: "ui.move",
@@ -459,6 +679,15 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
 
     const pickUp = (node, source) => {
       const origin = slotOf(node);
+      // THE SELECTION IS READ LIVE OFF THE DOM, at pick-up, with no cross-module handle — which is
+      // what lets system/studio-select.mjs own the selection without this file importing it, and
+      // what makes a selection cleared by a board redraft (studio.mjs:614 removes the wrappers)
+      // disappear from here for free. A carry is a GROUP only when the picked-up node is itself
+      // selected AND more than one node is: picking up an UNselected block while a selection exists
+      // moves that block alone, which is what every design tool does and what keeps the single-node
+      // path reachable at all times.
+      const chosen = [...stage.querySelectorAll(".stx-slot[data-stx-selected]")];
+      const carried = node.hasAttribute("data-stx-selected") && chosen.length > 1 ? chosen : [node];
       // ADOPT AT PICK-UP, NOT ONLY IN THE CONSUMER — because a gesture is a PREVIEW. Both input
       // paths write slots to the DOM live and emit their one ui.move at the DROP, so by the time
       // the consumer runs, snapshot() reports a post-mount node's DESTINATION and adopting there
@@ -470,11 +699,16 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         node,
         origin,
         current: origin,
-        occupied: occupancyExcept(node),
+        members: carried.map((n) => ({ node: n, id: idOf(n), origin: slotOf(n), current: slotOf(n) })),
+        occupied: occupancyExcept(carried),
         source,
         sticky: false,
       };
-      node.classList.add("is-picked");
+      for (const m of gesture.members) m.node.classList.add("is-picked");
+      // The guides are part of the carry's feedback, so they exist from the pick-up rather than from
+      // the first movement: a keyboard reader who picks up a block already aligned with a peer sees
+      // that alignment before pressing an arrow.
+      renderGuides();
       // ANNOUNCED ONLY WHEN THE PICK-UP IS ITSELF A VERB. Pressing the button down to start a DRAG
       // is not one — the reader is about to watch their own hand carry the thing, exactly the
       // argument that keeps slot crossings silent, and announcing it would make one pointer gesture
@@ -482,7 +716,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // now carrying something), and so is the click-to-pick-up of the single-pointer path, which
       // announces from its own branch in the pointerup handler.
       if (source === "keyboard") {
-        canvas.say(`${nameOf(node)} picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`);
+        canvas.say(gesture.members.length > 1
+          ? `${gesture.members.length} components picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`
+          : `${nameOf(node)} picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`);
       }
       return gesture;
     };
@@ -492,7 +728,10 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       const g = gesture;
       gesture = null;
       if (g.raf) cancelAnimationFrame(g.raf);
-      g.node.classList.remove("is-picked");
+      for (const m of g.members) m.node.classList.remove("is-picked");
+      clearGuides();
+      // Capture is only ever taken on the ANCHOR — the members follow it, they are not each their
+      // own pointer target — so there is exactly one release here however many nodes moved.
       if (g.pointerId != null) {
         try { g.node.releasePointerCapture(g.pointerId); } catch { /* already released */ }
       }
@@ -522,18 +761,32 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const drop = (source) => {
       if (!gesture) return;
       flushPreview();
-      const moved = gesture.current.col !== gesture.origin.col || gesture.current.row !== gesture.origin.row;
+      // "MOVED" MEANS ANY MEMBER CHANGED SLOT (R9). Per-member is the easy thing to get wrong here:
+      // reading only the anchor lets a group whose anchor happened to land back on its origin
+      // commit nothing while N-1 members sit somewhere new, and reading "every member" refuses a
+      // real move for the same reason in reverse. The gate is the history depth delta — exactly 1
+      // for a real move, 0 for a null one.
+      const moved = gesture.members.some((m) => m.current.col !== m.origin.col || m.current.row !== m.origin.row);
       if (moved) emitMove(source);
       const g = clearGesture();
-      if (!moved) canvas.say(`${nameOf(g.node)} put down in column ${g.origin.col}, row ${g.origin.row}.`);
+      if (!moved) {
+        canvas.say(g.members.length > 1
+          ? `${g.members.length} components put down in column ${g.origin.col}, row ${g.origin.row}.`
+          : `${nameOf(g.node)} put down in column ${g.origin.col}, row ${g.origin.row}.`);
+      }
     };
 
+    // EVERY member goes back to its own origin, not the anchor's delta applied in reverse: the two
+    // are the same for a rigid translation and differ the moment a future verb is not one, and this
+    // is also the guard studio.mjs:467 leans on when a compile lands mid-carry (#251, now over N).
     const cancel = () => {
       if (!gesture) return;
       const g = gesture;
-      applySlot(g.node, g.origin);
+      for (const m of g.members) applySlot(m.node, m.origin);
       clearGesture();
-      canvas.say(`Cancelled, ${nameOf(g.node)} back in column ${g.origin.col}, row ${g.origin.row}.`);
+      canvas.say(g.members.length > 1
+        ? `Cancelled, ${g.members.length} components back where they were.`
+        : `Cancelled, ${nameOf(g.node)} back in column ${g.origin.col}, row ${g.origin.row}.`);
     };
 
     // --- geometry -------------------------------------------------------------------------------
@@ -568,11 +821,34 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
 
     // A preview is instant and silent on the pointer path — the reader is watching their own hand
     // move the thing. It writes attributes and nothing else.
+    //
+    // ONE FUNCTION FOR ONE NODE AND FOR N (#217), and keeping the NAME is the load-bearing part
+    // rather than a tidiness call. `preview` is invoked from three places — the rAF callback,
+    // flushPreview and the sticky-drop branch — and R3's whole lesson is that flushPreview's two
+    // call sites cover each other and neither is individually proven (:502-518). Giving the group
+    // path its own entry point would have meant deciding, three times, which of them the group goes
+    // through; there is nothing to decide if there is one function.
+    //
+    // `slot` is the ANCHOR's destination; every member translates by the same delta, all-or-nothing
+    // through the pure groupDelta. Blocked (or off-grid) leaves the whole set on its last valid
+    // position, which is exactly what the single-node path already did — groupDelta returns the very
+    // array it was handed, so identity is the "nothing changed" signal and no member is half-moved.
     const preview = (slot) => {
-      if (slot.col === gesture.current.col && slot.row === gesture.current.row) return false;
-      if (gesture.occupied.has(occupancyKey(slot))) return false; // keep the last valid slot
-      gesture.current = slot;
-      applySlot(gesture.node, slot);
+      const dcol = slot.col - gesture.current.col;
+      const drow = slot.row - gesture.current.row;
+      if (!dcol && !drow) return false;
+      const before = gesture.members.map((m) => ({ id: m.id, col: m.current.col, row: m.current.row }));
+      const after = groupDelta(before, dcol, drow, gesture.occupied);
+      if (after === before) return false; // keep the last valid slot
+      for (let i = 0; i < gesture.members.length; i += 1) {
+        const m = gesture.members[i];
+        m.current = { col: after[i].col, row: after[i].row };
+        applySlot(m.node, m.current);
+      }
+      // The anchor's own current is what every existing branch reads, so it is kept in step here
+      // rather than recomputed at each reader.
+      gesture.current = { col: gesture.current.col + dcol, row: gesture.current.row + drow };
+      renderGuides();
       return true;
     };
 
@@ -669,7 +945,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         gesture.sticky = true;
         gesture.pointerId = null;
         try { gesture.node.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-        canvas.say(`${nameOf(gesture.node)} picked up, column ${gesture.origin.col}, row ${gesture.origin.row}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`);
+        canvas.say(gesture.members.length > 1
+          ? `${gesture.members.length} components picked up, column ${gesture.origin.col}, row ${gesture.origin.row}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`
+          : `${nameOf(gesture.node)} picked up, column ${gesture.origin.col}, row ${gesture.origin.row}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`);
         return;
       }
       drop("pointer");
@@ -713,15 +991,36 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       if (!dir) return; // not ours — let the page have the key
       e.preventDefault(); // or the scroller also scrolls
 
-      const next = stepSlot(gesture.current, dir, gesture.occupied);
-      const moved = preview(next);
+      // TWO RESOLVERS, AND THEY ARE NOT THE SAME ONE. stepSlot KEEPS WALKING past an occupied cell,
+      // which is right for one node — a peer in the way is a thing to step over. groupStep is
+      // ALL-OR-NOTHING, which is right for many — walking would land members at different offsets
+      // and deform the selection the reader is holding. Reusing stepSlot here is the silent bug
+      // group 13's deep-equality case exists to catch (R1).
+      let moved;
+      if (gesture.members.length > 1) {
+        const before = gesture.members.map((m) => ({ id: m.id, col: m.current.col, row: m.current.row }));
+        const after = groupStep(before, dir, gesture.occupied);
+        moved = after !== before && preview({ col: gesture.current.col + dir[0], row: gesture.current.row + dir[1] });
+      } else {
+        moved = preview(stepSlot(gesture.current, dir, gesture.occupied));
+      }
       // ANNOUNCED ON EVERY PRESS, INCLUDING A BLOCKED ONE. A keyboard user with no per-step feedback
       // is flying blind for the whole gesture, unable to tell a step blocked by a peer from one
       // blocked by the grid edge. Announcing unconditionally is also what makes the driver's exact
       // N + 2 count independent of which N it chose.
-      canvas.say(moved
-        ? `Column ${gesture.current.col}, row ${gesture.current.row}.`
-        : `Blocked, still in column ${gesture.current.col}, row ${gesture.current.row}.`);
+      //
+      // The group sentence NAMES THE COUNT rather than a component (R8): a whole-canvas selection
+      // that can only be stopped by the edge is correct and would otherwise be silent about why.
+      const n = gesture.members.length;
+      if (n > 1) {
+        canvas.say(moved
+          ? `${n} components in column ${gesture.current.col}, row ${gesture.current.row}.`
+          : `Blocked, ${n} components still in column ${gesture.current.col}, row ${gesture.current.row}.`);
+      } else {
+        canvas.say(moved
+          ? `Column ${gesture.current.col}, row ${gesture.current.row}.`
+          : `Blocked, still in column ${gesture.current.col}, row ${gesture.current.row}.`);
+      }
     }, { signal });
 
     // ESCAPE REACHES A POINTER DRAG, and that needs a document listener rather than a stage one. A
@@ -768,8 +1067,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       get gesture() { return gesture; },
       destroy() {
         ac.abort();
-        clearGesture();
+        clearGesture(); // also removes the guides, on every teardown path
         offMove();
+        offMoveGroup();
         offUndo();
         offRedo();
         verbRow.remove();

@@ -55,6 +55,7 @@
 
 import { initStudioCanvas, MAX_COLS, clampSlot } from "./studio-canvas.mjs";
 import { mountCanvasVerbs } from "./studio-verbs.mjs";
+import { mountCanvasSelect } from "./studio-select.mjs";
 import { mountCompile } from "./studio-compile.mjs";
 import { mountReplay } from "./replay-driver.mjs";
 import { createBus } from "./action-bus.mjs";
@@ -440,6 +441,13 @@ function mountStudioCore(root, shell, restored) {
   // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :324-326).
   const bus = createBus();
   const verbs = mountCanvasVerbs(canvas, { bus });
+  // #217's selection layer, AFTER the verbs and for one reason: the context menu emits ui.undo /
+  // ui.redo, and their consumers are the verbs' — so mounting the other way round gives the menu a
+  // window in which its two history items do nothing. The marquee itself is order-independent (its
+  // pointerdown is registered in the capture phase, which is what makes the on-a-slot case beat the
+  // mover regardless), and the selection it writes lives on the wrappers, so adoptBoard's removal
+  // loop below clears it for free.
+  const select = mountCanvasSelect(canvas, { bus });
 
   // AFTER the verbs, so createHistory's initial snapshot is still the FAT-MARKER arrangement — the
   // compile beat swaps a wrapper's contents and never its slot, so the history it inherits stays
@@ -635,7 +643,7 @@ function mountStudioCore(root, shell, restored) {
   // built after inspect.mjs restored, so they need one refresh to be wired.
   syncInspect();
 
-  live = { shell, canvas, bus, verbs, compile, replay, inspector, keep, method, board, summary, arranged };
+  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, board, summary, arranged };
   return live;
 }
 

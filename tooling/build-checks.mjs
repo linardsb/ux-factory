@@ -106,7 +106,8 @@ import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "..
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { clampSlot, fitLevel, MAX_COLS, MAX_ROWS, ZOOM_LEVELS, ZOOM_REST } from "../system/studio-canvas.mjs";
-import { createHistory, DIRS, hitSlot, HISTORY_MAX, occupancyKey, stepSlot } from "../system/studio-verbs.mjs";
+import { createHistory, DIRS, groupDelta, groupOccupancy, groupStep, guidesFor, hitSlot, HISTORY_MAX, occupancyKey, SPOKEN_MAX, stepSlot } from "../system/studio-verbs.mjs";
+import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_ITEMS, MENU_SELECT, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
   ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
@@ -1051,7 +1052,7 @@ function scanSvg(svg, label) {
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
     "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs", "studio-flow.mjs",
-    "studio-method.mjs", "catalog.mjs",
+    "studio-method.mjs", "catalog.mjs", "studio-select.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -2120,18 +2121,38 @@ function scanSvg(svg, label) {
   ok(declared("stx-rows") === String(MAX_ROWS),
     `studio.css declares --stx-rows: ${declared("stx-rows")} but studio-canvas.mjs exports MAX_ROWS ${MAX_ROWS}`);
 
-  // The slot rules, both directions: every index in range present, none twice, none out of range.
-  const axis = (attr, max) => {
-    const found = [...css.matchAll(new RegExp(`\\.stx-slot\\[${attr}="(\\d+)"\\]`, "g"))].map((m) => Number(m[1]));
-    ok(found.length > 0, `studio.css has no .stx-slot[${attr}] rules at all — the mirror check would pass vacuously`);
+  // The grid rules, both directions: every index in range present, none twice, none out of range.
+  //
+  // THREE SELECTOR FAMILIES SINCE #217, not one. .stx-slot was the only grid child until this
+  // ticket; .stx-guide and .stx-menu are placed by the same two attributes and therefore carry the
+  // same 12 + 8 hand-mirror. Checking only the slots would let a cap move with one of the three
+  // mirrors following it — precisely the drift the exhaustive pin exists to prevent, arriving
+  // through the door the check does not watch.
+  const axis = (selector, attr, max) => {
+    const escaped = selector.replace(/[.]/g, "\\.");
+    const found = [...css.matchAll(new RegExp(`${escaped}\\[${attr}="(\\d+)"\\]`, "g"))].map((m) => Number(m[1]));
+    ok(found.length > 0, `studio.css has no ${selector}[${attr}] rules at all — the mirror check would pass vacuously`);
     for (let i = 1; i <= max; i += 1) {
       ok(found.filter((n) => n === i).length === 1,
-        `studio.css declares ${found.filter((n) => n === i).length} .stx-slot[${attr}="${i}"] rules; every index in 1..${max} needs exactly one`);
+        `studio.css declares ${found.filter((n) => n === i).length} ${selector}[${attr}="${i}"] rules; every index in 1..${max} needs exactly one`);
     }
-    for (const n of found) ok(n >= 1 && n <= max, `studio.css declares .stx-slot[${attr}="${n}"], outside the exported cap of ${max}`);
+    for (const n of found) ok(n >= 1 && n <= max, `studio.css declares ${selector}[${attr}="${n}"], outside the exported cap of ${max}`);
   };
-  axis("data-col", MAX_COLS);
-  axis("data-row", MAX_ROWS);
+  const GRID_FAMILIES = [".stx-slot", ".stx-guide", ".stx-menu"];
+  for (const family of GRID_FAMILIES) {
+    axis(family, "data-col", MAX_COLS);
+    axis(family, "data-row", MAX_ROWS);
+  }
+  // …and no FOURTH family placed by these attributes with no mirror behind it. Derived from the
+  // sheet rather than typed, so a later ticket adding `.stx-thing[data-col="1"]` and stopping at
+  // column 6 fails HERE — where the message says what to do — instead of at column 7 on a reader's
+  // screen. The two flip attributes are deliberately not in this set: they are booleans, not
+  // grid lines, and carry no per-index mirror to drift.
+  const placed = new Set([...css.matchAll(/(\.stx-[a-z-]+)\[data-(?:col|row)="\d+"\]/g)].map((m) => m[1]));
+  for (const family of placed) {
+    ok(GRID_FAMILIES.includes(family),
+      `studio.css places ${family} by data-col/data-row but group 12 does not mirror-check it — add it to GRID_FAMILIES or the ${MAX_COLS}×${MAX_ROWS} mirror drifts silently`);
+  }
 
   // The scale table: one rule per level, each declaring exactly that level's scale, and no extras.
   const zoomRules = [...css.matchAll(/\.stx-viewport\[data-zoom="(\d+)"\]\s*\{\s*--stx-scale:\s*([^;]+);/g)]
@@ -2501,7 +2522,135 @@ function scanSvg(svg, label) {
       `DIRS.${key} is [${dc}, ${dr}] — every direction must be a UNIT step on ONE axis, or stepSlot's per-axis bound is wrong`);
   }
 
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · the single-consumer invariant is studio-journey's, and says so`);
+  // SPOKEN_MAX moved to module scope at #217 so system/studio-select.mjs can IMPORT the bound
+  // rather than re-type it (the MAX_COLS / LABEL_MAX / SLOT_MAX precedent). Pinned here as an
+  // export, and asserted to be a usable bound rather than to equal a number typed twice: a cap of 0
+  // would make every group sentence say "and N more" with nothing named, and a huge one would
+  // restore the unbounded sentence the cap exists to prevent.
+  ok(Number.isInteger(SPOKEN_MAX) && SPOKEN_MAX >= 1 && SPOKEN_MAX <= 5,
+    `SPOKEN_MAX is ${SPOKEN_MAX}; the live region's naming bound must be a small positive integer`);
+  ok(/^export const SPOKEN_MAX/m.test(readFileSync(join(ROOT, "system/studio-verbs.mjs"), "utf8")),
+    "SPOKEN_MAX is no longer a module-scope export of studio-verbs.mjs — studio-select.mjs imports it, and a re-declared copy there is a second bound that drifts");
+
+  // --- the GROUP layer (#217): all-or-nothing steps and honest guides -------------------------
+  // A group step is NOT a loop over stepSlot, and the cases below are shaped to prove exactly that:
+  // stepSlot keeps walking past occupied cells, which for N nodes lands members at DIFFERENT
+  // offsets and deforms the selection. Every "blocked" case is therefore asserted by DEEP EQUALITY
+  // WITH THE INPUT rather than by "did anything move?", which a partial move passes happily.
+  const members = (...pairs) => pairs.map(([id, col, row]) => ({ id, col, row }));
+  const G3 = members(["a", 2, 2], ["b", 3, 2], ["c", 4, 2]);
+
+  // groupOccupancy excludes EVERY member, not just an anchor. Its own case first, because the
+  // group cases below are all built on it and a wrong set makes them fail for the wrong reason.
+  const allSlots = [...G3, { id: "p", col: 6, row: 2 }, { id: "q", col: 2, row: 4 }];
+  const occAll = groupOccupancy(allSlots, G3.map((m) => m.id));
+  ok(deep([...occAll].sort()) === deep(["2,4", "6,2"]),
+    `groupOccupancy gave ${deep([...occAll].sort())}; it must exclude EVERY member and keep every non-member — excluding only an anchor makes a group self-blocking`);
+  ok(groupOccupancy(allSlots, []).size === allSlots.length,
+    "groupOccupancy with no members should hold every slot — the empty selection is not a licence to overlap");
+
+  const GROUP_CASES = [
+    [G3, "ArrowDown", occAll, members(["a", 2, 3], ["b", 3, 3], ["c", 4, 3]),
+      "a clean 3-member step moves every member by the same delta"],
+    // THE CASE MUTATION 2 IS FOR: with an anchor-only occupancy set, b's origin blocks a's
+    // destination and the group cannot move at all.
+    [G3, "ArrowRight", occAll, members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]),
+      "members do not block each other — a step INTO a cell another member is vacating is allowed"],
+    // THE CASE MUTATION 1 IS FOR. c's destination is the non-member peer at 6,2 — so the WHOLE set
+    // stays put. A partially-moved answer (a and b at 4,2/5,2 with c left behind) is the defect,
+    // and only the deep-equality assertion below can see it.
+    [members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]), "ArrowRight", occAll,
+      members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]),
+      "a step blocked by a NON-MEMBER peer returns the set unchanged, never partially moved"],
+    [members(["a", 1, 1], ["b", 2, 1]), "ArrowLeft", new Set(),
+      members(["a", 1, 1], ["b", 2, 1]),
+      "a step blocked by the grid edge returns the set unchanged, even though only ONE member is at the edge"],
+    [members(["a", MAX_COLS, MAX_ROWS]), "ArrowDown", new Set(),
+      members(["a", MAX_COLS, MAX_ROWS]), "the far corner is an edge on the row axis too"],
+    // R8: a selection of EVERY slot has nothing outside it to block, so only the edge can — which
+    // is correct and silent, and is why the blocked sentence names the group (D12).
+    [allSlots, "ArrowRight", groupOccupancy(allSlots, allSlots.map((m) => m.id)),
+      allSlots.map((m) => ({ ...m, col: m.col + 1 })),
+      "a whole-canvas selection moves freely — nothing outside it exists to block it"],
+    // …and the edge is the ONLY thing that stops it. Shifted so the rightmost member sits exactly on
+    // MAX_COLS with every cell still distinct — mapping them all to one column instead would make
+    // this case a duplicate-cell fixture rather than an edge one, which the collision assertion in
+    // the loop below catches (and did).
+    [allSlots.map((m) => ({ ...m, col: m.col + (MAX_COLS - 6) })), "ArrowRight",
+      groupOccupancy(allSlots, allSlots.map((m) => m.id)),
+      allSlots.map((m) => ({ ...m, col: m.col + (MAX_COLS - 6) })),
+      "…and is stopped only by the edge, with one member on MAX_COLS and the rest behind it"],
+    // A 1-member "group" is the case that gets tried first and looks correct under every wrong
+    // implementation, so it is pinned as the UNBLOCKED twin of stepSlot rather than left implied.
+    [members(["solo", 5, 5]), "ArrowUp", new Set(), members(["solo", 5, 4]),
+      "a 1-member group is exactly stepSlot's unblocked answer"],
+  ];
+  for (const [given, key, taken, want, why] of GROUP_CASES) {
+    const got = groupStep(given, DIRS[key], taken);
+    ok(deep(got) === deep(want),
+      `groupStep(${deep(given)}, ${key}) gave ${deep(got)}, expected ${deep(want)} — ${why}`);
+    // Every member of every answer: on the grid, and no two members on one cell.
+    const cells = new Set(got.map((m) => occupancyKey(m)));
+    ok(cells.size === got.length, `groupStep(${key}) put two members on one cell in ${deep(got)}`);
+    for (const m of got) {
+      ok(m.col >= 1 && m.col <= MAX_COLS && m.row >= 1 && m.row <= MAX_ROWS,
+        `groupStep(${key}) returned ${deep(m)}, off the ${MAX_COLS}×${MAX_ROWS} grid`);
+    }
+  }
+  // The blocked answer is the INPUT, identity included where it can be: returning a fresh
+  // equal-looking array is fine, but returning a partially-moved one is the bug, and the case above
+  // is the only thing that separates them.
+  const blockedIn = members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]);
+  ok(groupStep(blockedIn, DIRS.ArrowRight, occAll) === blockedIn,
+    "a blocked groupStep should hand back the very set it was given, not a rebuilt copy of it");
+
+  // groupDelta is the arbitrary-delta form the POINTER path uses; groupStep is written over it, so
+  // the two are asserted to agree rather than tested twice.
+  ok(deep(groupDelta(G3, 0, 1, occAll)) === deep(groupStep(G3, DIRS.ArrowDown, occAll)),
+    "groupDelta and groupStep disagree on the same move — groupStep is meant to BE groupDelta, not a second rule");
+  ok(deep(groupDelta(G3, 2, 1, occAll)) === deep(members(["a", 4, 3], ["b", 5, 3], ["c", 6, 3])),
+    `a multi-cell delta moved to ${deep(groupDelta(G3, 2, 1, occAll))} — the pointer path translates by an arbitrary anchor delta, not by one cell`);
+  ok(deep(groupDelta(G3, 0, 0, occAll)) === deep(G3), "a zero delta must be the identity, not a refusal");
+  ok(deep(groupDelta(G3, 99, 0, occAll)) === deep(G3), "a delta that walks the whole set off the grid returns it unchanged");
+
+  // Totality: junk in, never a throw, and never a half-answer.
+  for (const junk of [null, undefined, 0, "x", [], {}, NaN, true, [{}], [{ col: "a", row: null }]]) {
+    groupStep(junk, DIRS.ArrowUp, occAll);
+    groupDelta(junk, junk, junk, junk);
+    groupOccupancy(junk, junk);
+    guidesFor(junk, junk);
+  }
+  ok(deep(groupStep(G3, "not a direction", occAll)) === deep(G3),
+    "groupStep with no direction should answer the members, not throw or empty them");
+
+  // --- guidesFor: a guide is a claim about an alignment that EXISTS -----------------------------
+  const GUIDE_CASES = [
+    [[{ col: 3, row: 2 }], [{ col: 3, row: 7 }], { cols: [3], rows: [] },
+      "a peer in the same COLUMN draws a column guide and nothing else"],
+    [[{ col: 3, row: 2 }], [{ col: 9, row: 2 }], { cols: [], rows: [2] },
+      "…and a peer in the same ROW draws a row guide"],
+    [[{ col: 3, row: 2 }], [{ col: 3, row: 2 }], { cols: [3], rows: [2] },
+      "a peer aligned on both axes draws both"],
+    [[{ col: 3, row: 2 }], [{ col: 9, row: 7 }], { cols: [], rows: [] },
+      "a peer aligned on neither draws nothing — the empty answer is the common one"],
+    // MUTATION 3's case. Dropping the peer requirement makes this return { cols: [3, 4] }: a guide
+    // over a column holding ONLY carried members says nothing the reader cannot already see, and
+    // one over a column holding neither is the lie AC #3 forbids.
+    [[{ col: 3, row: 2 }, { col: 4, row: 2 }], [{ col: 3, row: 6 }], { cols: [3], rows: [] },
+      "a column occupied ONLY by carried members draws NO guide — the peer half of the rule"],
+    [[{ col: 3, row: 2 }], [], { cols: [], rows: [] }, "no peers at all draws nothing"],
+    [[], [{ col: 3, row: 2 }], { cols: [], rows: [] }, "nothing carried draws nothing"],
+    [[{ col: 3, row: 2 }], [{ col: 3, row: 5 }, { col: 3, row: 7 }, { col: 3, row: 8 }], { cols: [3], rows: [] },
+      "three peers in one column are ONE guide — duplicates are deduped"],
+    [[{ col: 5, row: 1 }, { col: 2, row: 1 }], [{ col: 5, row: 4 }, { col: 2, row: 4 }], { cols: [2, 5], rows: [] },
+      "several aligned columns come back SORTED ascending, so the mount's choice is deterministic"],
+  ];
+  for (const [carried, peers, want, why] of GUIDE_CASES) {
+    ok(deep(guidesFor(carried, peers)) === deep(want),
+      `guidesFor(${deep(carried)}, ${deep(peers)}) gave ${deep(guidesFor(carried, peers))}, expected ${deep(want)} — ${why}`);
+  }
+
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · #217's GROUP layer: groupOccupancy excludes every member (not an anchor), groupStep/groupDelta over ${GROUP_CASES.length} cases with every blocked answer asserted by DEEP EQUALITY WITH THE INPUT — the only assertion a partially-moved set fails — incl. the whole-canvas selection, the edge, the member-vacating-a-cell case and the 1-member twin of stepSlot, plus groupStep proven to BE groupDelta rather than a second rule · guidesFor over ${GUIDE_CASES.length} cases incl. the carried-only column that must draw NOTHING · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports · the single-consumer invariant, the group announcements and the guides on a running stage are studio-journey's, and say so`);
 }
 
 // --- 14 · the studio orchestrator's pure layer ----------------------------------------------------
@@ -4054,6 +4203,194 @@ function scanSvg(svg, label) {
   group("catalog", `pack↔vocabulary set identity over ${vocabNames.length} components · the palette's static list pinned against the artifact (the memoization is why it is static, #188) · controlFor over all ${propsChecked} real props — ${boundedNumbers} bounded number (stat-tile.value, fields compared to the artifact's own), ${unboundedNumbers} unbounded, bounds NEVER invented (hasOwn asserted both ways, plus the partial-bounds synthetic) · tabsFor's ${withWrapper}/${withoutWrapper} wrapper histogram pinned as the #220 tripwire · WRAPPER_ATTRS pinned in BOTH directions (wrapper source text · vocabulary props · exact component set · every prop mapped, so a regenerated wrapper cannot silently under-project) with the type:"type" mutation proving the fabricated-API refusal real · reactSnippet projects type→action, escapes quotes, booleans present-when-true · ${specFiles} committed spec files behind the copy buttons · the baked fictional notice byte-pinned to copy.json so the outside-the-ready-handle re-confirm stays a no-op. The running page — deep links, live serialization, the byte-identical copy, the ⌘K race, the refusal line — is tooling/catalog-journey.mjs's, and says so`);
 }
 
+// --- 22 · the canvas selection --------------------------------------------------------------------
+
+{
+  // system/studio-select.mjs's PURE half: the marquee's rectangle, the keyboard's rectangle, the
+  // menu's item list and the menu's off-edge flip. Written in group 12's and 13's voice — every
+  // check RUNS the function, none greps for a constant, and anything deliberately vacuous says so.
+  //
+  // THE BOUNDARY THIS GROUP DOES NOT REACH, stated rather than left to be assumed, the way groups 9,
+  // 11, 13, 16 and 18 state theirs. AC #1's real claim is that the POINTER and the KEYBOARD select
+  // THE SAME SET on a running page, and AC #4's is that the two menu OPEN PATHS produce identical
+  // items with working arrow navigation. Both need real focus, real pointer capture and a real
+  // engine's contextmenu event. What this group can do — and does, below — is prove that the two
+  // paths are computed from ONE rectangle and the two menus from ONE item list, so that the
+  // driver's identity assertion is checking a wiring rather than a coincidence. The wiring itself,
+  // the announcements, the guides on a real stage, the take-over coupling and Escape's
+  // non-interference are all tooling/studio-journey.mjs's selectPass.
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+
+  // --- 22.1 marqueeRange: one rectangle, whichever way the reader dragged ----------------------
+  // All four drag directions over the SAME two cells must give the same normalized range, or the
+  // pointer path selects a different set depending on which corner the reader started from.
+  const corners = [{ col: 2, row: 3 }, { col: 5, row: 6 }];
+  const [tl, br] = corners;
+  const tr = { col: br.col, row: tl.row };
+  const bl = { col: tl.col, row: br.row };
+  const wantRange = { col1: 2, row1: 3, col2: 5, row2: 6 };
+  for (const [a, b, why] of [
+    [tl, br, "top-left to bottom-right"],
+    [br, tl, "bottom-right to top-left"],
+    [tr, bl, "top-right to bottom-left"],
+    [bl, tr, "bottom-left to top-right"],
+  ]) {
+    ok(deep(marqueeRange(a, b)) === deep(wantRange),
+      `marqueeRange dragged ${why} gave ${deep(marqueeRange(a, b))}, expected ${deep(wantRange)} — a marquee's set must not depend on which corner it started from`);
+  }
+  ok(deep(marqueeRange({ col: 4, row: 4 }, { col: 4, row: 4 })) === deep({ col1: 4, row1: 4, col2: 4, row2: 4 }),
+    "a marquee that never left its origin cell is that ONE cell, not an empty range");
+  // The clamp, which nothing above can see: a hit-test past the far corner of a drifted stylesheet
+  // must not put a range off the grid. clampSlot is the one definition (studio-canvas.mjs:50).
+  ok(deep(marqueeRange({ col: -9, row: -9 }, { col: 99, row: 99 }))
+    === deep({ col1: 1, row1: 1, col2: MAX_COLS, row2: MAX_ROWS }),
+    `an off-grid marquee must clamp to the exported ${MAX_COLS}×${MAX_ROWS}, not carry its own bounds`);
+
+  // --- 22.2 idsInRange: inclusive on EVERY boundary ---------------------------------------------
+  // A half-open range is the classic off-by-one here, and it is invisible in the middle of a
+  // selection: only a component sitting exactly ON an edge can tell the two apart. So every one of
+  // the four edges gets its own member, plus the four just-outside twins.
+  const grid = [];
+  for (let c = 1; c <= 6; c += 1) for (let r = 1; r <= 6; r += 1) grid.push({ id: `${c}-${r}`, col: c, row: r });
+  const inner = { col1: 2, row1: 2, col2: 4, row2: 4 };
+  const hit = idsInRange(grid, inner);
+  ok(hit.length === 9, `idsInRange over a 3×3 rectangle found ${hit.length} ids, expected 9 — an inclusive range on both axes`);
+  for (const id of ["2-2", "4-4", "2-4", "4-2", "3-3"]) {
+    ok(hit.includes(id), `idsInRange dropped ${id}, which sits ON the rectangle's boundary — the range is INCLUSIVE`);
+  }
+  for (const id of ["1-3", "5-3", "3-1", "3-5"]) {
+    ok(!hit.includes(id), `idsInRange picked up ${id}, one cell OUTSIDE the rectangle on one axis`);
+  }
+  ok(deep(idsInRange(grid.slice().reverse(), inner)) === deep(hit.slice().reverse()),
+    "idsInRange must answer IN THE ORDER GIVEN — on the running page that order is DOM order, the studio's standing correspondence with board order");
+  ok(idsInRange([], inner).length === 0 && idsInRange(grid, { col1: 9, row1: 9, col2: 9, row2: 9 }).length === 0,
+    "a marquee over nothing is an empty list, which is what the mount turns into \"Nothing to select.\"");
+
+  // --- 22.3 extendSelection: AC #1's PURE half --------------------------------------------------
+  // The keyboard rectangle and the pointer rectangle must be THE SAME rectangle, so the set
+  // identity the driver asserts on the running page is a property of one shared definition rather
+  // than of two implementations that agree today. Two Shift+Arrow presses from the anchor, against
+  // a marquee dragged over the same two corners.
+  const anchor = { col: 2, row: 3 };
+  const right = extendSelection(anchor, null, DIRS.ArrowRight);
+  const down = extendSelection(anchor, right.cursor, DIRS.ArrowDown);
+  ok(deep(down.cursor) === deep({ col: 3, row: 4 }), `two Shift+Arrow presses put the cursor at ${deep(down.cursor)}, expected {col:3,row:4}`);
+  ok(deep(down.range) === deep(marqueeRange(anchor, { col: 3, row: 4 })),
+    "extendSelection's rectangle is not marqueeRange's over the same corners — AC #1's identity claim rests on there being ONE rectangle");
+  const bySet = (ids) => deep([...ids].sort());
+  ok(bySet(idsInRange(grid, down.range)) === bySet(idsInRange(grid, marqueeRange(anchor, down.cursor))),
+    "the keyboard path and the pointer path selected DIFFERENT id sets over the same corners — this is AC #1");
+  // THE ANCHOR DOES NOT MOVE. Re-anchoring on the second press gives a 1×2 instead of a 2×2, which
+  // is the defect the module header records: it looks like a feature bug at driver-assert time.
+  ok(deep(extendSelection(anchor, down.cursor, DIRS.ArrowLeft).range) === deep(marqueeRange(anchor, { col: 2, row: 4 })),
+    "extendSelection re-derived its rectangle from the cursor rather than from the unmoving anchor");
+  // IT REPLACES, IT DOES NOT UNION — Task 2's recorded decision, and MUTATION 4's case. A union
+  // implementation returns a range (or a set) that still contains the stray, so the assertion is
+  // written on the resulting ID SET against a marquee's, from a start that HAS a stray.
+  const strayThenKeyboard = idsInRange(grid, extendSelection(anchor, null, DIRS.ArrowRight).range);
+  ok(!strayThenKeyboard.includes("6-6"),
+    "extendSelection's rectangle reached a cell outside the anchor→cursor rectangle — it must REPLACE the selection, never union with a stray Shift-click");
+  ok(bySet(strayThenKeyboard) === bySet(["2-3", "3-3"]),
+    `one Shift+Right from {2,3} selected ${bySet(strayThenKeyboard)}, expected exactly the two cells of the anchor→cursor rectangle`);
+  // Walking off the grid CLAMPS and never throws — the keyboard equivalent of a marquee dragged
+  // past the edge, and a real thing a reader does by holding the key down.
+  let walk = { cursor: { col: 1, row: 1 }, range: null };
+  for (let i = 0; i < MAX_COLS + 5; i += 1) walk = extendSelection({ col: 1, row: 1 }, walk.cursor, DIRS.ArrowLeft);
+  ok(deep(walk.cursor) === deep({ col: 1, row: 1 }), `Shift+Left held against the edge walked to ${deep(walk.cursor)} instead of clamping at column 1`);
+  let walkR = { cursor: { col: 1, row: 1 } };
+  for (let i = 0; i < MAX_COLS + 5; i += 1) walkR = extendSelection({ col: 1, row: 1 }, walkR.cursor, DIRS.ArrowRight);
+  ok(walkR.cursor.col === MAX_COLS, `Shift+Right held down reached column ${walkR.cursor.col}, not the exported cap ${MAX_COLS}`);
+  // A selection rectangle INCLUDES what it covers — the opposite of stepSlot's skip-the-occupied
+  // rule, and the reason extendSelection is its own function rather than a call into that one.
+  const overPeer = extendSelection({ col: 2, row: 2 }, null, DIRS.ArrowRight);
+  ok(deep(overPeer.cursor) === deep({ col: 3, row: 2 }),
+    "extendSelection skipped a cell — a selection rectangle covers what it covers; only a CARRY steps over an occupied cell");
+
+  // --- 22.4 menuItems: one source for both open paths -------------------------------------------
+  // MUTATION 6's case, asserted BOTH ways: a menu offering `Select this` AND `Deselect this` makes
+  // the reader guess which one describes the current state.
+  const onSelected = menuItems({ selected: true, anySelected: true, canUndo: true, canRedo: true });
+  const onPlain = menuItems({ selected: false, anySelected: false, canUndo: false, canRedo: false });
+  ok(onSelected[0].id === MENU_DESELECT.id, `the menu on a SELECTED node opens with ${onSelected[0].id}, expected ${MENU_DESELECT.id}`);
+  ok(onPlain[0].id === MENU_SELECT.id, `the menu on an UNSELECTED node opens with ${onPlain[0].id}, expected ${MENU_SELECT.id}`);
+  for (const [items, why] of [[onSelected, "selected"], [onPlain, "unselected"]]) {
+    const ids = items.map((i) => i.id);
+    ok(!(ids.includes(MENU_SELECT.id) && ids.includes(MENU_DESELECT.id)),
+      `the ${why} node's menu offers BOTH ${MENU_SELECT.id} and ${MENU_DESELECT.id}; the item names what activating it will do, so exactly one of them is true at a time`);
+  }
+  ok(onSelected.map((i) => i.id).includes("clear"), "Clear selection is missing from a menu opened WITH a selection live");
+  ok(!onPlain.map((i) => i.id).includes("clear"),
+    "Clear selection appears with nothing selected — it is conditional rather than disabled, because a verb with nothing to act on is not a verb whose moment has not come");
+  ok(onPlain.find((i) => i.id === "undo").disabled === true && onSelected.find((i) => i.id === "undo").disabled === false,
+    "Undo's disabled flag does not follow canUndo — the menu would offer a verb the history cannot do");
+  ok(onSelected.every((i) => typeof i.label === "string" && i.label.length > 0),
+    "a menu item has no label — the driver compares the two open paths by ACCESSIBLE NAME");
+  // No invented verbs. The pattern grammar has no delete, duplicate or z-order, and a menu item
+  // that always refuses is a lie about capability rather than an honest refusal.
+  const KNOWN = new Set([MENU_SELECT.id, MENU_DESELECT.id, ...MENU_ITEMS.map((i) => i.id)]);
+  for (const i of [...onSelected, ...onPlain]) {
+    ok(KNOWN.has(i.id), `the menu offers "${i.id}", which is not in MENU_ITEMS — every item must be a REAL verb, never one that always refuses`);
+  }
+  // FROZEN, both levels: a mutation attempt leaves it unchanged, so the two open paths cannot be
+  // made to disagree at runtime. Run rather than grepped for Object.freeze.
+  const beforeLen = MENU_ITEMS.length;
+  const beforeLabel = MENU_ITEMS[0].label;
+  try { MENU_ITEMS.push({ id: "evil", label: "Delete everything" }); } catch { /* strict mode throws; frozen is the point either way */ }
+  try { MENU_ITEMS[0].label = "tampered"; } catch { /* ditto */ }
+  ok(MENU_ITEMS.length === beforeLen && MENU_ITEMS[0].label === beforeLabel,
+    "MENU_ITEMS is mutable at runtime — the menu's two open paths could then be made to disagree");
+  // …and the items menuItems HANDS OUT are copies where they carry state, so a caller that stamps
+  // `disabled` on one cannot poison the next menu.
+  onSelected.find((i) => i.id === "undo").disabled = true;
+  ok(menuItems({ selected: true, anySelected: true, canUndo: true, canRedo: true }).find((i) => i.id === "undo").disabled === false,
+    "menuItems handed out the shared frozen item for a STATEFUL entry — one menu's disabled flag leaked into the next");
+
+  // --- 22.5 menuAnchor: R5's off-edge flip, on both sides of each boundary -----------------------
+  // MUTATION 5's case. An off-by-one here is invisible on every interior cell, which is exactly
+  // where a menu gets tried — so the boundary is asserted from BOTH sides on BOTH axes.
+  for (const [col, row, flipX, flipY, why] of [
+    [1, 1, false, false, "the origin opens down and to the right, like every interior cell"],
+    [MAX_COLS - 1, MAX_ROWS - 1, false, false, "one cell inside the far corner must NOT flip"],
+    [MAX_COLS, MAX_ROWS - 1, true, false, "the last COLUMN flips only the X axis"],
+    [MAX_COLS - 1, MAX_ROWS, false, true, "the last ROW flips only the Y axis"],
+    [MAX_COLS, MAX_ROWS, true, true, "the far corner flips both"],
+  ]) {
+    const a = menuAnchor(col, row);
+    ok(a.flipX === flipX && a.flipY === flipY,
+      `menuAnchor(${col}, ${row}) gave flipX ${a.flipX} / flipY ${a.flipY}, expected ${flipX} / ${flipY} — ${why}`);
+    ok(a.col === col && a.row === row,
+      `menuAnchor(${col}, ${row}) moved the anchor to ${a.col}, ${a.row}; the menu is placed in the INVOKER's cell and flipped within it, never relocated`);
+  }
+  // The caps are PARAMETERS, so a narrower grid flips earlier — which is what proves the boundary
+  // is read from the caps rather than from a literal 12 baked into the comparison.
+  ok(menuAnchor(6, 4, 6, 4).flipX === true && menuAnchor(5, 4, 6, 4).flipX === false,
+    "menuAnchor's flip boundary does not follow its cols/rows arguments — a hard-coded cap here drifts the day the canvas widens");
+  ok(menuAnchor(99, 99).col === MAX_COLS && menuAnchor(-5, -5).col === 1,
+    "menuAnchor must clamp an off-grid invoker through clampSlot rather than placing a menu off the stage");
+
+  // --- 22.6 totality ---------------------------------------------------------------------------
+  // Every export answers junk with a shape, never a throw. clampSlot's default parameter covers
+  // `undefined` and NOT `null`, so a null slot destructures and throws — found by running this,
+  // which is why the module coerces once rather than at four call sites.
+  const junk = [null, undefined, 0, "x", [], {}, NaN, true, { col: "a" }, [{ id: null }]];
+  for (const j of junk) {
+    marqueeRange(j, j);
+    idsInRange(j, j);
+    extendSelection(j, j, j);
+    menuAnchor(j, j);
+    menuItems(j);
+  }
+  ok(deep(idsInRange(junk, null)) === deep([]), "idsInRange over junk must answer [], not throw");
+  ok(deep(marqueeRange(null, null)) === deep({ col1: 1, row1: 1, col2: 1, row2: 1 }),
+    "marqueeRange over nulls must answer the origin cell — clampSlot's posture, not a throw");
+  ok(deep(extendSelection({ col: 4, row: 4 }, { col: 4, row: 4 }, [NaN, 1]).cursor) === deep({ col: 4, row: 4 }),
+    "a non-finite direction must leave the cursor where it is; letting NaN reach clampSlot answers the ORIGIN, which is a jump rather than a refusal");
+
+  group("select", `marqueeRange normalized identically from all 4 drag directions and clamped to the exported ${MAX_COLS}×${MAX_ROWS} · idsInRange inclusive on all four boundaries with the four just-outside twins refused, order preserved, empty over nothing · extendSelection is AC #1's PURE half — the keyboard rectangle asserted to BE marqueeRange's over the same corners and the resulting ID SETS compared, the anchor proven not to re-derive from the cursor (the 1×2-instead-of-2×2 defect), the REPLACE-not-union rule pinned on the id set, the held-key clamp on both edges, and a covered cell proven NOT skipped (a rectangle is not a carry) · menuItems' contextual pair asserted both ways and never both, Clear conditional, the disabled flags following canUndo/canRedo, no invented verb, MENU_ITEMS frozen BY MUTATION at both levels and its stateful items proven to be copies · menuAnchor's flips on BOTH sides of BOTH boundaries with the caps proven to be parameters · total over ${junk.length} junk inputs per export. The two input paths actually selecting the same set, the two menu open paths, the arrow navigation, Escape's non-interference and the take-over coupling are tooling/studio-journey.mjs's selectPass, and say so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -4061,5 +4398,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 21 groups pass");
+  console.log("\nbuild ✓  all 22 groups pass");
 }

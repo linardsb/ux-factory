@@ -355,6 +355,44 @@ for (const name of toRun) {
     t("studio canvas · …and the #205 move verbs moved something and undid it",
       verbs.moved !== verbs.undone, `${verbs.moved} → ${verbs.undone}`);
     t("studio canvas · …and opened no transition", cmoved.calls === 0, `calls=${cmoved.calls}`);
+
+    // ---- #217's three new verbs, on the SAME page and with their OWN movement precondition ----
+    // The precondition is the point, not a formality: "zero pseudos" is trivially true of a page
+    // where nothing happened, which is the defect class this block has already paid for twice. So
+    // the marquee is proven to have SELECTED, the group move to have MOVED every member, and the
+    // menu to have OPENED — and only then is the counter read.
+    const sel217 = await cp.evaluate(() => import("/system/studio-select.mjs").then(async (m) => {
+      const sel = m.getSelect();
+      const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+      const ids = [...stage.querySelectorAll(".stx-slot")].slice(0, 3)
+        .map((n) => n.getAttribute("data-stx-id"));
+      sel.applySelection(ids);                       // the marquee's own one write path
+      const selected = sel.chosenIds().length;
+      const node = stage.querySelector(`.stx-slot[data-stx-id="${ids[0]}"]`);
+      sel.openMenu(node, node);                      // the menu, by the module's own entry point
+      const menuItems = stage.querySelectorAll(".stx-menu-item").length;
+      sel.closeMenu({ restoreFocus: false });
+      return { selected, menuItems, ids };
+    }));
+    const grp217 = await cp.evaluate((ids) => import("/system/studio-verbs.mjs").then((m) => {
+      const v = m.getVerbs();
+      const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getAttribute("data-row");
+      const before = ids.map(at);
+      v.bus.emit({ type: "ui.move-group", source: "agent",
+        params: { moves: ids.map((id, i) => ({ id, col: 2 + i, row: 6 })) } });
+      const after = ids.map(at);
+      v.bus.emit({ type: "ui.undo", source: "agent" });
+      return { before, after, undone: ids.map(at) };
+    }), sel217.ids);
+    await cp.waitForTimeout(700);
+    const c217 = await read(cp);
+    t("studio canvas · #217 · the marquee's selection, the group move and the menu all genuinely happened",
+      sel217.selected === 3 && sel217.menuItems >= 4
+      && JSON.stringify(grp217.after) !== JSON.stringify(grp217.before)
+      && JSON.stringify(grp217.undone) === JSON.stringify(grp217.before),
+      JSON.stringify({ sel217, grp217 }));
+    t("studio canvas · #217 · …and none of them opened a transition",
+      c217.calls === 0, `calls=${c217.calls}`);
     const pseudos = await cp.evaluate(() => document.getAnimations()
       .map((a) => a.effect && a.effect.pseudoElement)
       .filter((x) => x && x.startsWith("::view-transition")));
@@ -393,6 +431,38 @@ for (const name of toRun) {
       rafter !== rbefore, `data-zoom ${rbefore} → ${rafter}`);
     t("studio canvas · reduced motion · the move verbs still move and still undo",
       rverbs.moved !== rverbs.undone, `${rverbs.moved} → ${rverbs.undone}`);
+    // #217's three verbs under reduced motion, with the same movement precondition: quiet is not
+    // enough, the verbs still have to work and "it worked" still has to be a change.
+    const rsel = await crp.evaluate(() => import("/system/studio-select.mjs").then((m) => {
+      const sel = m.getSelect();
+      const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+      const ids = [...stage.querySelectorAll(".stx-slot")].slice(0, 2).map((n) => n.getAttribute("data-stx-id"));
+      sel.applySelection(ids);
+      const node = stage.querySelector(`.stx-slot[data-stx-id="${ids[0]}"]`);
+      sel.openMenu(node, node);
+      const items = stage.querySelectorAll(".stx-menu-item").length;
+      sel.closeMenu({ restoreFocus: false });
+      return { selected: sel.chosenIds().length, items, ids };
+    }));
+    const rgrp = await crp.evaluate((ids) => import("/system/studio-verbs.mjs").then((m) => {
+      const v = m.getVerbs();
+      const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getAttribute("data-row");
+      const before = ids.map(at);
+      v.bus.emit({ type: "ui.move-group", source: "agent", params: { moves: ids.map((id, i) => ({ id, col: 4 + i, row: 5 })) } });
+      return { before, after: ids.map(at) };
+    }), rsel.ids);
+    await crp.waitForTimeout(400);
+    const rc217 = await read(crp);
+    t("studio canvas · reduced motion · #217's marquee, group move and menu all still complete",
+      rsel.selected === 2 && rsel.items >= 4 && JSON.stringify(rgrp.after) !== JSON.stringify(rgrp.before),
+      JSON.stringify({ rsel, rgrp }));
+    t("studio canvas · reduced motion · …and open none", rc217.calls === 0, `calls=${rc217.calls}`);
+    const rpseudos = await crp.evaluate(() => document.getAnimations()
+      .map((a) => a.effect && a.effect.pseudoElement)
+      .filter((x) => x && x.startsWith("::view-transition")));
+    t("studio canvas · reduced motion · zero ::view-transition-* pseudos after #217's verbs",
+      rpseudos.length === 0, rpseudos.join(" "));
+
     t("studio canvas · reduced motion opens none", crm.calls === 0, `calls=${crm.calls}`);
     await crc.close();
 
@@ -529,6 +599,44 @@ for (const name of toRun) {
           .filter((x) => x && x.startsWith("::view-transition")));
         t("factory keep · …and neither keep-rail interaction opened a transition or left a pseudo running",
           keepRead.calls === 0 && keepPseudos.length === 0, `calls=${keepRead.calls} pseudos=${keepPseudos.join(" ")}`);
+
+        // (b2) #217's three affordances, on the same settled page and BEFORE the redraft below —
+        // which replaces the board and would leave these acting on a different canvas. Each has its
+        // own movement precondition, for the reason this whole block keeps repeating: zero pseudos
+        // is trivially true of a page where nothing happened.
+        await reset(fp);
+        const sel217 = await fp.evaluate(() => import("/system/studio-select.mjs").then((m) => {
+          const sel = m.getSelect();
+          const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+          const ids = [...stage.querySelectorAll(".stx-slot")].slice(0, 2).map((n) => n.getAttribute("data-stx-id"));
+          sel.applySelection(ids);
+          const node = stage.querySelector(`.stx-slot[data-stx-id="${ids[0]}"]`);
+          sel.openMenu(node, node);
+          const items = stage.querySelectorAll(".stx-menu-item").length;
+          sel.closeMenu({ restoreFocus: false });
+          return { selected: sel.chosenIds().length, items, ids };
+        }));
+        const grp217 = await fp.evaluate((ids) => import("/system/studio-verbs.mjs").then((m) => {
+          const v = m.getVerbs();
+          const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getAttribute("data-row");
+          const before = ids.map(at);
+          v.bus.emit({ type: "ui.move-group", source: "agent", params: { moves: ids.map((id, i) => ({ id, col: 1 + i, row: 3 })) } });
+          const after = ids.map(at);
+          v.bus.emit({ type: "ui.undo", source: "agent" });
+          return { before, after, undone: ids.map(at) };
+        }), sel217.ids);
+        await fp.waitForTimeout(700);
+        const r217 = await read(fp);
+        const p217 = await fp.evaluate(() => document.getAnimations()
+          .map((a) => a.effect && a.effect.pseudoElement)
+          .filter((x) => x && x.startsWith("::view-transition")));
+        t("factory #217 · the marquee's selection, the group move and the menu genuinely happened on /factory",
+          sel217.selected === 2 && sel217.items >= 4
+          && JSON.stringify(grp217.after) !== JSON.stringify(grp217.before)
+          && JSON.stringify(grp217.undone) === JSON.stringify(grp217.before),
+          JSON.stringify({ sel217, grp217 }));
+        t("factory #217 · …and none of them opened a transition or left a pseudo running",
+          r217.calls === 0 && p217.length === 0, `calls=${r217.calls} pseudos=${p217.join(" ")}`);
 
         // (c) #214's method-card redraft, on the same settled page — the newest interaction to
         // postdate the earlier samples, and the heaviest: relinquish, a revert of the compiled
