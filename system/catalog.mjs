@@ -465,11 +465,28 @@ function focusHash() {
 // re-point the ONE tokens.<pack>.css head line, so watch that link's href and re-resolve after
 // the new sheet loads. At rest this never fires — pack-boot is a guaranteed no-op by default,
 // which is what keeps the pixel gate's capture deterministic.
+//
+// NOT a bare href-prefix match, which was this function's first version and silently watched the
+// WRONG link: /system/tokens.contract.css matches the prefix too and comes first in head order
+// (dock.mjs:72 records the same trap for its packLink). Matched by shape, contract excluded —
+// deliberately BROADER than dock.mjs's PACK_RE hard allowlist, which is a security gate on
+// storage-supplied hrefs; this is only "which line do I observe", and it must keep matching when
+// a pack joins that list without a second copy to edit.
 function watchPackSwap(root) {
-  const link = document.querySelector('link[href^="/system/tokens."]');
+  let link = null;
+  for (const candidate of document.querySelectorAll('link[rel="stylesheet"]')) {
+    const href = candidate.getAttribute("href") || "";
+    if (/\/system\/tokens\.(?!contract)[a-z0-9-]+\.css$/.test(href)) { link = candidate; break; }
+  }
   if (!link) return;
   new MutationObserver(() => {
-    link.addEventListener("load", () => resolveTokenValues(root), { once: true });
+    // BOTH events, exactly as the dock's own swap awaits them (dock.mjs's done handler):
+    // tokens.saulera.css @imports a fonts file the static host does not ship, and an engine
+    // reports that sheet's settling as `error` while still applying every rule — here `error`
+    // means "settled", not "failed", and waiting on load alone leaves the cells stale.
+    const refresh = () => resolveTokenValues(root);
+    link.addEventListener("load", refresh, { once: true });
+    link.addEventListener("error", refresh, { once: true });
   }).observe(link, { attributes: true, attributeFilter: ["href"] });
 }
 
