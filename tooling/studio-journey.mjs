@@ -3365,6 +3365,63 @@ async function methodPass(browser, engineName, t, errors) {
     after404 === REDRAFTED_LINE, after404 === "" ? "(cleared)" : after404.slice(0, 120));
   await p5.close();
 
+  // --- #253 · a same-count redraft mid-"compiling" REFUSES instead of swapping stale screens ----
+  // The window: compile() reads the board, then walks four ~420 ms steps before applySwap. A card
+  // answered inside it redrafts the stage (adoptBoard removes every wrapper). Same place count —
+  // worklist board (3) redrafted to the hunt variant (3) — so the count tripwire cannot see it;
+  // the identity tripwire must, and the refusal must land through the beat's own card.
+  const IDENTITY_REFUSAL = "the canvas was redrafted while this compile was mid-beat — these "
+    + "screens were compiled from a board that is no longer on the stage, so the swap cannot apply to it";
+  const p6 = await ctx.newPage();
+  watch(p6, "method midcompile");
+  await p6.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p6.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  // A drafted 3-place board on the stage, then compile IT (not the run's 4-place board).
+  await check(p6, 'input[name="stm-q-shape"][value="worklist"]');
+  // Park the mid-beat card NOW, so the check inside the window needs no scroll.
+  await park(p6, 'input[name="stm-q-rewardType"][value="hunt"]');
+  // Compile via a direct DOM click — the compile button is the FIRST child of .stu-compile
+  // (studio-compile.mjs:265) — because a locator's actionability scroll would leave the parked
+  // card and eat the ~1.7 s window.
+  await p6.$eval(`${VIEWPORT} .stu-compile button`, (b) => b.click());
+  const midState = await p6.$eval(VIEWPORT, (n) => n.getAttribute("data-compile-state"));
+  // Bare check, not the check() helper: the target was parked one line earlier, and the helper's
+  // park + 150 ms wait would spend ~230 ms of the window for nothing.
+  await p6.check('input[name="stm-q-rewardType"][value="hunt"]');   // the mid-beat redraft
+  const expectedMid = draftBoard({ ...DEFAULT_ANSWERS, shape: "worklist", rewardType: "hunt" })
+    .places.map((x) => x.label);   // ["Worklist", "Results", "Settings"] — 3, same count, new middle
+  await p6.waitForFunction(() => document.querySelector("[data-studio-canvas]")
+    .getAttribute("data-compile-state") === "refused", null, { timeout: 20000 });
+  const after = await p6.evaluate(() => ({
+    names: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((w) => w.getAttribute("data-stx-name")),
+    kinds: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((w) =>
+      [...w.children].filter((c) => !c.classList.contains("stx-grab")).map((c) => c.className.split(" ")[0]).join("+")),
+    refusal: document.querySelector(".stu-compile-refusal code")?.textContent ?? null,
+  }));
+  t("#253 · a same-count redraft mid-compiling lands REFUSED with the identity sentence",
+    midState === "compiling" && after.refusal === IDENTITY_REFUSAL,
+    JSON.stringify({ midState, refusal: after.refusal }));
+  t("#253 · …and the drafted blocks are on the stage untouched — no stale screen swapped in",
+    JSON.stringify(after.names) === JSON.stringify(expectedMid) && after.kinds.every((k) => k === "stu-place"),
+    JSON.stringify(after));
+  // Recovery: the disclosed path. Back to blocks, then a clean compile of the DRAFTED board.
+  await p6.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+  await p6.waitForFunction(() => document.querySelector("[data-studio-canvas]")
+    .getAttribute("data-compile-state") === "blocks", null, { timeout: 20000 });
+  await p6.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+  await p6.waitForFunction(() => document.querySelector("[data-studio-canvas]")
+    .getAttribute("data-compile-state") === "rendered", null, { timeout: 20000 });
+  const recovered = await p6.evaluate(() => ({
+    kinds: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((w) =>
+      [...w.children].filter((c) => !c.classList.contains("stx-grab")).map((c) => c.className.split(" ")[0]).join("+")),
+    headings: [...document.querySelectorAll("[data-studio-canvas] .stf-screen-name")].map((h) => h.textContent),
+  }));
+  t("#253 · …and after Back to blocks a fresh compile renders the DRAFTED board's own screens",
+    recovered.kinds.every((k) => k === "stf-screen")
+    && JSON.stringify(recovered.headings) === JSON.stringify(expectedMid),
+    JSON.stringify(recovered));
+  await p6.close();
+
   await ctx.close();
 }
 

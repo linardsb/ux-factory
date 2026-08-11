@@ -44,10 +44,13 @@
 // lengths. The EXTRA and SURPLUS branches #207 wrote for a board that could differ from the canvas
 // are therefore DELETED rather than fixed (PR #235's finding L3, closed structurally): they were
 // written for a state flows remove, and fixing their id instability and missing occupancy scan
-// would have been building correctness into dead code. What guards the unforeseen is the TRIPWIRE
-// at the top of applySwap — a wrapper count that disagrees with the screen count throws before
-// anything is stashed, is caught by compile()'s existing handler, and renders as the refusal card:
-// a loud, honest refusal instead of a silent misalignment.
+// would have been building correctness into dead code. What guards the unforeseen is the pair of
+// TRIPWIRES at the top of applySwap — IDENTITY (#253: the stage no longer holds the exact wrapper
+// elements compile() snapshotted beside the board read, which is what a mid-"compiling" redraft or
+// a post-settle seek leaves behind, same-count rebuilds included) and COUNT (a wrapper count that
+// disagrees with the screen count). Both throw before anything is stashed, are caught by
+// compile()'s existing handler, and render as the refusal card: a loud, honest refusal instead of
+// a silent misalignment.
 //
 // Node-import safe: no DOM outside a function body and NO self-boot — system/studio.mjs mounts this
 // explicitly, and tooling/build-checks.mjs imports the pure layer directly.
@@ -387,6 +390,14 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     // Keyed BY WRAPPER so revert() is a lookup rather than a second derivation of what was where.
     const stash = new Map();  // wrapper → { block }
 
+    // The wrappers compile() read the board BESIDE (#253): applySwap refuses when the stage no
+    // longer holds these exact elements — adoptBoard's mid-"compiling" redraft (studio.mjs) and
+    // the driver's post-settle seek (replay-driver.mjs:698-716) both remove and re-mint every
+    // wrapper, and a same-count rebuild slips the count tripwire below. Element identity is the
+    // stamp: no counter reaches an attribute (call 4 above), and no new seam is opened to
+    // studio.mjs. Released at settle(), or dropped with the closure on destroy — never pinned.
+    let stageAtCompile = null;
+
     const blockOf = (wrapper) => [...wrapper.children].find((c) => !c.classList.contains("stx-grab")) || null;
 
     // element.animate() only — it never touches an inline style, so build-checks group 7's write
@@ -401,7 +412,20 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     function applySwap(result) {
       const wrappers = [...stage.querySelectorAll(".stx-slot")];
       const screens = Array.isArray(result.screens) ? result.screens : [];
-      // THE TRIPWIRE, before anything is stashed (the header's construction argument). Screens are
+      // THE IDENTITY TRIPWIRE, first and before anything is stashed (#253): these screens were
+      // compiled for the exact wrappers compile() snapshotted beside the board read, and if the
+      // stage no longer holds those elements in that order, the swap would dress a NEW board in
+      // an OLD board's screens — mislabeled content, wireFlow wired to stale ids, no refusal.
+      // Checked BEFORE the count below deliberately: when a redraft changed the count too, both
+      // tripwires are true and this sentence is the accurate diagnosis; the count keeps guarding
+      // the other defect class (screens that disagree with an untouched stage). Same handler,
+      // same refusal card.
+      if (!stageAtCompile || wrappers.length !== stageAtCompile.length
+        || wrappers.some((w, i) => w !== stageAtCompile[i])) {
+        throw new Error("the canvas was redrafted while this compile was mid-beat — these screens were "
+          + "compiled from a board that is no longer on the stage, so the swap cannot apply to it");
+      }
+      // THE COUNT TRIPWIRE, before anything is stashed (the header's construction argument). Screens are
       // 1:1 with wrappers by construction — one place is one wrapper is one screen — so a count
       // that disagrees means something unforeseen changed the stage, and the only honest move is a
       // loud refusal before the swap can misalign anything. Caught by the same handler that renders
@@ -461,6 +485,9 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     // sentence through the canvas's live region, and the orchestrator's inspect refresh. `spoken`
     // exists for the revert, whose readout is the at-rest line and whose announcement is a verb.
     const settle = (next, line, spoken) => {
+      // The snapshot dies with the beat (#253): after a redraft the old wrappers are detached,
+      // and pinning them past the settle would leak them for the life of the page.
+      stageAtCompile = null;
       readout.textContent = line;
       setState(next);
       canvas.say(spoken ?? line);
@@ -482,6 +509,9 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
       // over junk, so a getter that answers nothing yet compiles to "empty" rather than throwing.
       const result = compileSteps(typeof getBoard === "function" ? getBoard() : board,
         typeof getAnswers === "function" ? getAnswers() : answers);
+      // In the SAME synchronous block as the board read (#253): the board and the wrappers it
+      // will dress are one consistent picture — no await sits between them.
+      stageAtCompile = [...stage.querySelectorAll(".stx-slot")];
 
       // The vocabulary fetch starts NOW and is awaited before the last step only, so the beat begins
       // the moment the reader asks for it rather than after a round trip.
