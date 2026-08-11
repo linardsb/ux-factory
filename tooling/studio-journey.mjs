@@ -2430,6 +2430,14 @@ async function flowPass(browser, t, errors) {
   await cp.locator(`${VIEWPORT} .stx-slot`).nth(0).locator(".stx-grab").click();
   await cp.waitForFunction(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.includes("picked up"),
     null, { timeout: 5000 });
+  // One real step before the swap (PR #255 review M1): a carry that never moved satisfies the
+  // at-origin conjunct below vacuously — origin === current from pick-up, so cancel()'s restore
+  // line could be deleted and the row would stay green. Displacing the preview to row 2 (free on
+  // the committed board — every place arranges along row 1) makes the restore the only way back,
+  // and the wait proves the displacement really happened rather than assuming the keypress landed.
+  await cp.keyboard.press("ArrowDown");
+  await cp.waitForFunction((o) => document.querySelector("[data-studio-canvas] .stx-slot").getAttribute("data-row") !== o,
+    carryOrigin.row, { timeout: 5000 });
   await compileNow(cp);
   const carried = await cp.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
     const w = document.querySelector("[data-studio-canvas] .stx-slot");
