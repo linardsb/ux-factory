@@ -2393,8 +2393,7 @@ p, .body {
   color: var(--color-fg-muted);
   line-height: 1.5;
 }
-/* .btn-ghost is a text-height control, so lift it to the 44px target on its own (the same fix
-   .close-tokens .btn-ghost takes in portfolio.css). */
+/* .btn-ghost is a text-height control, so lift it to the 44px target on its own. */
 .dock-restore {
   width: 100%;
   min-height: 44px;

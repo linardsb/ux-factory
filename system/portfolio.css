@@ -969,9 +969,11 @@ dfn.term {
 }
 .band--dark .beat-lead { color: var(--color-fg-on-inverse-soft); }
 
-/* Interstitial · the appearance control (#76). The affordance renders only at the widths where
-   the control it opens exists (system/dock.mjs's rail is hidden below 1100px), so the page never
-   offers a control the reader cannot reach; the copy above it names that width either way. */
+/* Interstitial · the appearance control's intro copy (#76). INSTANCE-ONLY SINCE #216: the .wear-cue
+   affordance this introduced — rendered only at the widths where the control it opened exists, so
+   the page never offered a control the reader could not reach — went with home's compression to the
+   gate, and home now names that control in #beat-brand's own lead instead. Only instance.html:521
+   still renders this intro, and that page is outside the VR page set, so nothing here is guarded. */
 .wear-intro { max-width: 62ch; }
 .wear-intro .beat-title { margin-bottom: var(--spacing-lg); } /* no .beat-head here to carry the step */
 .wear-intro .beat-lead { margin-bottom: var(--spacing-xl); }
@@ -1074,15 +1076,18 @@ dfn.term {
 #beat-brand #reskin-preview {
   overflow: hidden; background: var(--color-bg);
   border: 1px solid var(--color-border); border-radius: var(--radius-md);
-  scroll-margin-top: 90px; /* the wizard's "Review" jump clears the sticky header */
+  scroll-margin-top: 90px; /* it carries an id, so it is a hash target — clear the sticky header */
 }
 #beat-brand #reskin-preview .fw-preview-pad { padding: var(--spacing-xl); }
 #beat-brand #reskin-preview .grid-3 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
-/* Presentation motion — compositor-safe. ZERO at-rest change: rest == final, every entrance inside
-   no-preference. The re-skin crossfades colour on #reskin-preview (armed one frame after mount); the
-   wizard card + WCAG rows enter on DISCRETE renders only (step change / mount), never on the radio
-   change that goes through run(false) — so no restart-and-blank on repeated answers (PR #55). */
+/* Presentation motion — compositor-safe. ZERO at-rest change: rest == final, the transition inside
+   no-preference. The re-skin crossfades colour on #reskin-preview, armed one frame after mount by
+   system/pack-derived.mjs (PR #55's rAF, moved there by #216 — until then initIntake() armed it,
+   and when home's wizard left with its factory-intake.mjs seam the class went unarmed and this
+   block was dead: the derived colours snapped). The wizard-card and WCAG-row entrances that used
+   to share this block went with the wizard. An armer is what makes these rules real — check one
+   exists before trusting them, because no gate here can: the pixel gate captures at rest. */
 @media (prefers-reduced-motion: no-preference) {
   #beat-brand #reskin-preview.is-animated,
   #beat-brand #reskin-preview.is-animated .card,
@@ -1553,14 +1558,19 @@ dfn.term {
    composition — re-skinned to the visitor's brand + density (the full derived
    token set applied inline on .peak-screen--live only) — drew the real WCAG
    receipts, ran the ethics guess-then-reveal, and appended the adjust-live
-   control. #216 deleted home's peak (its successors are the studio's compile
-   beat #207 and replay #209) and this whole .peak-* region survives for ONE
-   remaining host: instance.html, which still mirrors the old spine and drives it
-   through system/instance.mjs until #222 re-shells it. Do not delete these rules
-   with the module — instance.html is deep-link-only and outside the VR page set,
-   so nothing would catch the breakage. Token-only; the assembly entrance is that
-   page's one authored moment, gated behind .discrete-render so adjust re-renders
-   never re-trigger it. */
+   control. #216 deleted home's peak; its successors are the studio's compile beat
+   #207 and replay #209.
+
+   RETAINED, AND ONLY PARTLY LIVE. What instance.html still renders is .peak-note
+   and the .peak-receipts* family (built by system/wcag-receipts.mjs). It does NOT
+   render any .peak-screen* rule — it composes its own .pi-peak-panel /
+   .pi-peak-stage instead — so the .peak-screen* family below has had NO BUILDER
+   since peak.mjs left, and is retained rather than live. #262 audits the region
+   class by class and #222 re-shells that page. Do not prune by eye, in either
+   direction: instance.html is deep-link-only and outside the VR page set, so
+   nothing here is pixel-guarded, and the apparent .peak-ethics / .peak-stage
+   consumers are substring false-positives from pi-peak-ethics / pi-peak-stage —
+   match on the class attribute, never on a substring. */
 
 .peak-screen-col { display: flex; flex-direction: column; gap: var(--spacing-lg); min-width: 0; }
 
@@ -1582,11 +1592,19 @@ dfn.term {
 .peak-screen--live > .vd-plant-card,
 .peak-screen--live > .vd-primary-button { grid-column: 1 / -1; }
 
-/* assembly reveal — the one authored moment: composed pieces settle in, staggered.
-   At rest IS the final state; the entrance is gated behind .discrete-render (a JS
-   class added only for the one-shot assembly under no-preference, dropped before
-   any adjust re-render) so continuous re-renders never restart it. Compositor
-   props only (transform/opacity), settle curve, ease-out by construction. */
+/* assembly reveal — DEAD SINCE #216, and kept only until #262 prunes the region.
+   BOTH halves lost their code at once: main's system/peak.mjs:225 built the
+   .peak-screen--live this selects and :237 armed .discrete-render, and #216
+   deleted that module. Nothing in the repo now creates the element or adds the
+   class, so these rules cannot fire — verified by grep over every .html and .mjs.
+   Not deleted here because @keyframes peak-assemble is the ONLY consumer of
+   --motion-skeleton-to-content, and dropping a contract token cascades through
+   gen-token-css → gen-handoff → gen-system-graph and on into factory.html's pixel
+   baselines; #262 does the rules and the token in one piece. No gate can tell you
+   any of this: the pixel gate captures at rest, where a dead entrance and a live
+   one look identical. What it DID, for whoever restores it: composed pieces
+   settled in staggered, compositor props only (transform/opacity), settle curve,
+   the one-shot gated so continuous adjust re-renders never restarted it. */
 @media (prefers-reduced-motion: no-preference) {
   .peak-screen--live.discrete-render > * {
     animation: peak-assemble var(--motion-skeleton-to-content) var(--motion-ease-settle) both;
