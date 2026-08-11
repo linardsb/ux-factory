@@ -1,6 +1,6 @@
 // system/palette.mjs — hand-written canon (this repo; not generated). The ⌘K command palette
 // (epic #164 — docs/epics/prototyping-feel-uplift.architecture.md §New pieces "Command palette";
-// ticket #168): a native <dialog>-backed, keyboard-first palette on every one of the 10 shipped
+// ticket #168): a native <dialog>-backed, keyboard-first palette on every one of the 11 shipped
 // pages — ⌘K / Ctrl-K opens it, type-to-filter fuzzy matching over a static command list,
 // ArrowUp/Down + Enter runs a command, Escape closes with focus returned to the invoker
 // (showModal()'s own semantics; no focus management is hand-rolled here).
@@ -26,6 +26,16 @@
 // Self-initializes when loaded as a page script; Node-import safe (no top-level DOM access).
 
 import { trackToolPalette } from "./analytics.mjs";
+
+// The catalog's component set (#215) — a STATIC second copy of the generated vocabulary's keys,
+// deliberately: the palette memoizes its command list at first open (#188 measured a dynamic
+// registration racing it by 17–134 ms), so the list is code, and build-checks group 21 pins it
+// against handoff/verdant/vocabulary.json — the dock PACKS / bus-toggles TONES pattern. #220 adds
+// components by editing this list, and the pin is what forces that edit.
+export const CATALOG_COMPONENTS = [
+  "care-task-row", "demo-notice", "list-row", "metric-tile", "plant-card",
+  "primary-button", "screen-header", "sequence-step", "stat-tile", "status-chip",
+];
 
 // --- DOM builder (inspect.mjs / glossary.mjs shape) — text via textContent, never innerHTML.
 function el(tag, attrs, ...children) {
@@ -83,6 +93,7 @@ function buildCommands() {
     ["Go to Work", "/work"],
     ["Go to Contact", "/contact"],
     ["Go to Build a pattern", "/build"],
+    ["Go to Components", "/components"],
     ["Go to Round-trip evidence", "/roundtrip"],
     ["Open the Verdant prototype", "/proto/verdant.html"],
     ["Open the Fieldwork prototype", "/proto/fieldwork.html"],
@@ -105,6 +116,10 @@ function buildCommands() {
     ["Work: component library", "/work", "library"],
     ["Work: handoff pack", "/work", "handoff"],
   ];
+  // Per-component catalog commands (#215) — the same exhibits idiom, one per CATALOG_COMPONENTS
+  // entry: same-page sets the hash (catalog.mjs's hashchange listener moves focus), cross-page
+  // navigates to /components#<name>. Static like everything above — see CATALOG_COMPONENTS.
+  for (const name of CATALOG_COMPONENTS) exhibits.push([`Components: ${name}`, "/components", name]);
   for (const [label, page, hash] of exhibits) {
     if (normalize(page) === here) {
       commands.push({ label, run: () => { location.hash = hash; }, samePage: true });

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ux factory · components</title>
+  <meta name="description" content="The component catalog: every component of the design system with a live playground, generated API and token tables, spec prose and copy-ready code — rendered from the same generated artifacts the handoff pack ships." />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- components.html — the component catalog (epic #202, ticket #215;
+       .claude/plans/component-catalog-appica-docs-215.md). Mount 1 of "Docs, two mounts of one
+       source" (architecture §Other eng-lead calls): system/catalog.mjs renders every vocabulary
+       component as an anchor-addressed section — a live playground driven through the site's own
+       vocabulary-validated renderer, API + token tables projected from the generated artifacts,
+       spec prose through the shared markdown renderer, and code tabs serialized from the live
+       render. Nothing here is hand-written ABOUT the system: prose comes from the pack, markup is
+       serialized, the copied Markdown is the committed spec source, token values resolve live.
+       There is deliberately NO generated catalog artifact (architecture §Data model) — the join is
+       prepareHandoff(pack, vocab, graph), pure and at view time. Off-nav (the D6 three-item nav is
+       a recorded decision) but in the footer site index, which claims to be the full index; in the
+       VR page set under both packs; `noindex` like /build — reachable for a reader who is already
+       here, not a search result. -->
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/portfolio.css" />
+  <script src="/system/pack-boot.js"></script>
+
+  <style>
+    /* Catalog layout — the cat-* classes system/catalog.mjs emits, styled from tokens alone
+       (colour / space / radius / type via var(--…)); grid tracks and % are inherently structural
+       literals. One page, not a reused organism, so deliberately not promoted to components.css.
+       The prose sections reuse the hv-* classes the shared markdown renderer emits, styled here
+       because the module injects no <style>. */
+
+    /* `hidden` wins, everywhere on this page — the code-tab panels toggle on it, and the
+       attribute is only a UA rule any author `display` beats (the /build #138 lesson). */
+    [hidden] { display: none !important; }
+
+    .cat-notice { font-size: var(--type-caption); color: var(--color-fg-muted); }
+    .cat-count { font-size: var(--type-body); color: var(--color-fg-muted); margin: 0; }
+
+    .cat-index { display: flex; flex-wrap: wrap; gap: var(--spacing-xs, 4px); margin-top: var(--spacing-sm); }
+    .cat-chip {
+      font-size: var(--type-caption); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--color-fg); text-decoration: none;
+      border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+      padding: 2px 10px; background: var(--color-bg-surface);
+    }
+    .cat-chip:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+    .cat-component { border-top: 2px solid var(--color-border); padding-top: var(--spacing-lg); margin-top: var(--spacing-2xl, 48px); min-width: 0; }
+    .cat-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+    .cat-name { font-size: var(--type-h2); margin: 0; }
+    .cat-class {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption);
+      color: var(--color-fg-muted);
+    }
+    .cat-status-pill {
+      text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--type-eyebrow); font-weight: 700;
+      color: var(--color-fg); background: var(--color-bg-surface);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 8px;
+    }
+    .cat-figma { font-size: var(--type-caption); color: var(--color-accent); }
+    .cat-copy-md {
+      margin-left: auto;
+      padding: 4px 10px;
+      font-size: var(--type-caption);
+      letter-spacing: 0.06em;
+      vertical-align: middle;
+    }
+
+    /* Playground: stage + controls side by side; both cells guard min-width:0 so wide specimens
+       and long labels scroll inside their cell instead of blowing the grid (the PR #54 lesson). */
+    .cat-playground {
+      display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+      gap: var(--spacing-lg); align-items: start; margin-top: var(--spacing-md);
+    }
+    .cat-stage {
+      min-width: 0; min-height: 96px;
+      background: var(--color-bg-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-md); padding: var(--spacing-md);
+      display: flex; flex-direction: column; justify-content: center; align-items: stretch;
+      overflow-x: auto;
+    }
+    .cat-controls { min-width: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .cat-control-row {
+      display: grid; grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto;
+      gap: var(--spacing-sm); align-items: center; font-size: var(--type-caption);
+    }
+    .cat-control-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-fg-muted); }
+    .cat-control {
+      font: inherit; color: var(--color-fg); background: var(--color-bg);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      padding: 4px 8px; min-width: 0;
+    }
+    .cat-control[type="checkbox"] { justify-self: start; padding: 0; }
+    .cat-control[type="range"] { padding: 0; border: none; background: none; }
+    .cat-control-readout { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-fg-muted); }
+
+    /* One line, two jobs: the validator's refusal verbatim, or the specimen's last ui.intent.
+       min-height keeps the section from jumping when the text arrives. */
+    .cat-status-line { font-size: var(--type-caption); color: var(--color-fg-muted); min-height: 1.4em; margin: var(--spacing-sm) 0 0; }
+
+    .cat-tabs { display: flex; flex-wrap: wrap; gap: var(--spacing-xs, 4px); margin-top: var(--spacing-md); }
+    .cat-tab {
+      font: inherit; font-size: var(--type-caption); letter-spacing: 0.04em;
+      color: var(--color-fg-muted); background: var(--color-bg-surface);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      padding: 4px 12px; cursor: pointer;
+    }
+    .cat-tab[aria-pressed="true"] { color: var(--color-fg); border-color: var(--color-accent); }
+
+    .cat-panels { min-width: 0; margin-top: var(--spacing-sm); }
+    .cat-code {
+      margin: 0; overflow-x: auto; background: var(--color-bg); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: var(--spacing-sm); font-size: 12px; line-height: 1.5;
+      max-height: 22rem; overflow-y: auto;
+    }
+    .cat-code code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+    .cat-trajectory { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-sm) 0 0; }
+
+    .cat-eyebrow {
+      text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow);
+      color: var(--color-fg-muted); font-weight: 700;
+    }
+    .cat-api, .cat-tokens, .cat-prose { margin-top: var(--spacing-lg); min-width: 0; }
+    .cat-api > .cat-eyebrow, .cat-tokens > .cat-eyebrow, .cat-prose > .cat-eyebrow { margin-bottom: var(--spacing-sm); }
+
+    .cat-table { border-collapse: collapse; font-size: var(--type-caption); display: block; overflow-x: auto; }
+    .cat-table th, .cat-table td {
+      border: 1px solid var(--color-border); padding: var(--spacing-xs, 4px) var(--spacing-sm);
+      text-align: left; vertical-align: top;
+    }
+    .cat-table th { background: var(--color-bg-surface); }
+    .cat-table code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.95em; }
+    .cat-token-value { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .cat-swatch { width: 12px; height: 12px; margin-right: 6px; vertical-align: baseline; }
+    .cat-swatch rect { stroke: var(--color-border); stroke-width: 1; }
+    .cat-meta-line { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-sm) 0 0; }
+
+    .cat-section-title { font-size: var(--type-h3); margin: var(--spacing-sm) 0 0; }
+    .cat-error { border-color: var(--color-fg); padding: var(--spacing-md); }
+    .cat-error p { margin-top: var(--spacing-sm); }
+
+    /* The shared markdown renderer's hv-* classes (handoff.html owns the same set there). */
+    .hv-p { font-size: var(--type-body); line-height: 1.6; margin: var(--spacing-xs, 4px) 0 0; max-width: 70ch; }
+    .hv-list { margin: var(--spacing-xs, 4px) 0 0; padding-left: var(--spacing-lg); display: flex; flex-direction: column; gap: var(--spacing-xs, 4px); }
+    .hv-list li { font-size: var(--type-body); line-height: 1.55; }
+    .hv-inline-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+      background: var(--color-bg-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: 0 4px;
+    }
+    .hv-code {
+      margin: var(--spacing-sm) 0 0; overflow-x: auto; background: var(--color-bg); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: var(--spacing-sm); font-size: 12px; line-height: 1.5;
+    }
+    .hv-code code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+    .hv-table { border-collapse: collapse; font-size: var(--type-caption); display: block; overflow-x: auto; margin-top: var(--spacing-sm); }
+    .hv-table th, .hv-table td {
+      border: 1px solid var(--color-border); padding: var(--spacing-xs, 4px) var(--spacing-sm);
+      text-align: left; vertical-align: top;
+    }
+    .hv-table th { background: var(--color-bg-surface); }
+
+    @media (max-width: 900px) {
+      .cat-playground { grid-template-columns: 1fr; }
+      .cat-copy-md { margin-left: 0; }
+    }
+  </style>
+</head>
+<body data-page="components">
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="pill"></span>
+          <span class="stamp">The component catalog · generated docs</span>
+        </div>
+        <h1 class="text-balance">Every component. <span class="hl">One generated source.</span></h1>
+        <p class="hero-sub">
+          Specs, the handoff pack, the agent vocabulary and the token graph are generated
+          artifacts committed in this repo. This page renders them: the playground runs the
+          site's own vocabulary-validated renderer, the tables are projected from the artifacts,
+          the code tabs are serialized from the live render, and the copy button hands you the
+          committed spec source byte-for-byte. Nothing on this page is hand-written prose about
+          the system.
+        </p>
+        <!-- Honesty surface — verbatim fictionalNotice, baked static so it is present and never
+             paraphrased even if the copy.json re-confirm fetch fails (handoff.html's idiom;
+             system/catalog.mjs runs the re-confirm). -->
+        <p class="cat-notice" id="fictional-notice">Verdant is a fictional product, invented for this demonstration. No real company, users, or data are involved.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p class="cat-count" data-catalog-count></p>
+        <nav class="cat-index" data-catalog-index aria-label="Components on this page"></nav>
+        <div data-catalog-root></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/system/client.neutral.config.js"></script>
+  <script src="/system/site.js"></script>
+  <script src="/system/portfolio.js"></script>
+  <script type="module" src="/system/analytics.mjs"></script>
+  <script type="module" src="/system/dock.mjs"></script>
+  <script type="module" src="/system/palette.mjs"></script>
+  <script type="module" src="/system/catalog.mjs"></script>
+</body>
+</html>
