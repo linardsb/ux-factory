@@ -18,6 +18,10 @@
       "controls": 34
     },
     {
+      "page": "/components",
+      "controls": 4
+    },
+    {
       "page": "/factory",
       "controls": 37
     },
@@ -38,5 +42,5 @@
       "controls": 1
     }
   ],
-  "total": 115
+  "total": 119
 }

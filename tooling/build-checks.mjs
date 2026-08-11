@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Twenty groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Twenty-one groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -79,10 +79,18 @@
 //                     verdictFor by IDENTITY on the imported rules for all four quadrants and both
 //                     frequency branches, the RENDER_SOURCES #193 tripwire, and the smuggled
 //                     shaping-id mutation that proves the group can fail (#214)
+//  21 catalog        the component catalog's pure layer: pack↔vocabulary set identity, the
+//                     palette's static CATALOG_COMPONENTS pinned against the generated vocabulary,
+//                     controlFor's bounds fidelity over every real prop (declared subsets only,
+//                     nothing invented), tabsFor's 3/7 wrapper histogram pinned as the #220
+//                     tripwire, WRAPPER_ATTRS pinned against each wrapper source's
+//                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
+//                     that proves the fabricated-API refusal is real), reactSnippet's attribute
+//                     projection + escaping, and a committed spec file behind every copy button (#215)
 //
 //   node tooling/build-checks.mjs
 
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -116,6 +124,11 @@ import { projectTrace } from "../agent-layer/gen-replay.mjs";
 import { validateExamples } from "../agent-layer/gen-vocabulary.mjs";
 import { parseComponentSpec } from "../agent-layer/lib.mjs";
 import { prepareHandoff } from "../system/handoff-viewer.mjs";
+// #215's pure layer — DOM-free above the fold by design (vdMarkup's body is browser-only but is
+// never called here). palette.mjs is Node-import-safe (self-boot behind typeof document) and is
+// imported for the ONE static list group 21 pins against the vocabulary.
+import { controlFor, reactSnippet, specPath, tabsFor, WRAPPER_ATTRS } from "../system/catalog.mjs";
+import { CATALOG_COMPONENTS } from "../system/palette.mjs";
 // The recorder's FENCE — importable here for the same reason group 8 can import the operator path:
 // portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
 // portal/node_modules is what proves that, and this import now rides on it too.
@@ -1038,7 +1051,7 @@ function scanSvg(svg, label) {
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
     "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs", "studio-flow.mjs",
-    "studio-method.mjs",
+    "studio-method.mjs", "catalog.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -1076,6 +1089,14 @@ function scanSvg(svg, label) {
     // explain in prose why they do not use innerHTML, and a substring match reads those sentences
     // as violations — the same trap the .setProperty( check hit when its own header named the API.
     for (const sink of [".innerHTML", ".outerHTML", ".insertAdjacentHTML(", "document.write("]) {
+      // catalog.mjs (#215) READS outerHTML — its HTML and vd-* tabs ARE serializations of a live
+      // render, which is this ban's own recorded line: document SINKS are banned, and a
+      // serialization is a read. The exception swaps the substring check for the sharper one: the
+      // ASSIGNMENT form must stay impossible, checked rather than assumed.
+      if (file === "catalog.mjs" && sink === ".outerHTML") {
+        ok(!/\.outerHTML\s*=[^=]/.test(src), `system/${file} ASSIGNS .outerHTML — serialization is a read, never a sink`);
+        continue;
+      }
       ok(!src.includes(sink), `system/${file} uses ${sink}; /build builds every node element by element`);
     }
     // NO RAW C0 CONTROL BYTE IN THE SOURCE, and this is a check about the REPO's own tooling rather
@@ -3845,6 +3866,162 @@ function scanSvg(svg, label) {
   group("method", `the method band's pure layer: HOOK_STAGES pinned to the four Hooked questions in loop order (frozen, and the coupling predicate proven able to fail on a tampered clone) · assembleReducer's truth table — the right stage in its own empty slot accepted into a NEW map, a wrong stage refused with a sentence naming the stage and the slot, the right stage in a wrong slot refused, an occupied slot refused, 8 hostile stage ids and 7 hostile slots refused without a throw · hookComplete true at an exact 4/4 only — 3/4, a swapped 4/4, junk and the smuggled shaping-id mutation all false, and the smuggled map proven unrepairable through the reducer · verdictFor equal BY IDENTITY to quadrantFor + QUADRANT_MEANINGS + frequencyVerdictFor for all four quadrants × both frequency branches, total over junk · RENDER_SOURCES carries "questions" AND "restore" (the #193 tripwire) and refuses "breadboard" (the redraft loop-breaker). The driver gating, the on-page redraft, the announcements and the zero-interaction restore are tooling/studio-journey.mjs's methodPass, and say so`);
 }
 
+// --- 21 · catalog — the component catalog's pure layer (#215) ---------------------------------------
+// system/catalog.mjs renders the docs the repo generates; this group gates everything about that
+// which is decidable under Node — the set identity, the two pinned second copies (the palette's
+// static list, WRAPPER_ATTRS), controlFor's bounds fidelity and the code-tab projections. What it
+// STATES rather than reaches (the group 9/11/13/16 discipline): that the page RENDERS any of this
+// — the deep link, the live serialization, the byte-identical copy, the ⌘K race, the refusal line —
+// is tooling/catalog-journey.mjs's, on a running page across three engines.
+{
+  const PACK = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/pack.json"), "utf8"));
+  const GRAPH = JSON.parse(readFileSync(join(ROOT, "system/system-graph.json"), "utf8"));
+  const model = prepareHandoff(PACK, VOCAB, GRAPH);
+
+  // Group 13/15's hand-written canonical stringify, copied for its standing reason:
+  // JSON.stringify(v, keys) puts an array in the REPLACER position and silently filters every level.
+  const deep = (v) => {
+    if (Array.isArray(v)) return `[${v.map(deep).join(",")}]`;
+    if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  };
+
+  // --- 21.1 set identity — "renders every vocabulary component" made structural: the mount
+  // iterates the pack's rows, the count line reads the vocabulary's keys, and this is what makes
+  // those the same set.
+  const vocabNames = Object.keys(VOCAB.components).sort();
+  const packNames = PACK.components.map((c) => c.component).sort();
+  ok(deep(vocabNames) === deep(packNames),
+    `pack and vocabulary disagree about the component set — vocabulary [${vocabNames.join(", ")}], pack [${packNames.join(", ")}]`);
+
+  // --- 21.2 the palette pin — CATALOG_COMPONENTS is a deliberate STATIC second copy (the palette
+  // memoizes at first open, #188), allowed only with this identity assertion against the artifact
+  // (the dock PACKS / bus-toggles TONES pattern). Edit either side alone → red. #220 lands here.
+  ok(deep([...CATALOG_COMPONENTS].sort()) === deep(vocabNames),
+    `palette.mjs CATALOG_COMPONENTS has drifted from the generated vocabulary — palette [${[...CATALOG_COMPONENTS].sort().join(", ")}] vs vocabulary [${vocabNames.join(", ")}]`);
+
+  // --- 21.3 controlFor over EVERY real prop of every entry: an enum prop's options are the enum
+  // itself, a boolean is a boolean, and a number's bounds are exactly the spec's own — present
+  // when declared (compared field by field to the artifact, never typed twice) and ABSENT when
+  // not (Object.hasOwn false — the AC-#3 mutation surface: a defaulted 0–100 range fails here).
+  let propsChecked = 0;
+  let boundedNumbers = 0;
+  let unboundedNumbers = 0;
+  for (const [name, entry] of Object.entries(VOCAB.components)) {
+    for (const [propName, spec] of Object.entries(entry.props)) {
+      const d = controlFor(propName, spec);
+      propsChecked += 1;
+      if (Array.isArray(spec.enum)) {
+        ok(d.kind === "enum" && deep(d.options) === deep(spec.enum),
+          `${name}.${propName}: enum descriptor drifted — got ${JSON.stringify(d)}`);
+      } else if (spec.type === "boolean") {
+        ok(d.kind === "boolean", `${name}.${propName}: boolean descriptor drifted — got ${JSON.stringify(d)}`);
+      } else if (spec.type === "number") {
+        ok(d.kind === "number", `${name}.${propName}: number descriptor drifted — got ${JSON.stringify(d)}`);
+        let declared = 0;
+        for (const k of ["min", "max", "step"]) {
+          ok(Object.hasOwn(spec, k) === Object.hasOwn(d, k),
+            `${name}.${propName}: descriptor ${Object.hasOwn(d, k) ? "invents" : "drops"} ${k} — the spec ${Object.hasOwn(spec, k) ? "declares" : "does not declare"} it`);
+          if (Object.hasOwn(spec, k)) {
+            declared += 1;
+            ok(d[k] === spec[k], `${name}.${propName}: descriptor ${k} is ${d[k]}, the artifact says ${spec[k]}`);
+          }
+        }
+        if (declared) boundedNumbers += 1; else unboundedNumbers += 1;
+      } else {
+        ok(d.kind === "text", `${name}.${propName}: expected a text descriptor, got ${JSON.stringify(d)}`);
+      }
+    }
+  }
+  // stat-tile's value is today's one bounded number and the reason the range control exists —
+  // named so a regeneration that drops its bounds is a loud sentence, not a histogram shift.
+  const statValue = VOCAB.components["stat-tile"]?.props?.value;
+  ok(statValue && Object.hasOwn(statValue, "min") && Object.hasOwn(statValue, "max") && Object.hasOwn(statValue, "step"),
+    "stat-tile.value no longer declares min/max/step — the bounded-control case has lost its real subject");
+  // Partial bounds carry ONLY what was declared — the synthetic case the real artifact cannot
+  // currently produce (its one number is fully bounded).
+  ok(deep(controlFor("n", { type: "number", min: 5 })) === deep({ kind: "number", min: 5 }),
+    `a partial-bounds number must carry exactly the declared subset — got ${JSON.stringify(controlFor("n", { type: "number", min: 5 }))}`);
+  ok(deep(controlFor("n", { type: "number" })) === deep({ kind: "number" }),
+    `an unbounded number must carry NO bounds keys — got ${JSON.stringify(controlFor("n", { type: "number" }))}`);
+
+  // --- 21.4 tabsFor over the real prepared model: vd/react present IFF the pack ships a wrapper.
+  // The 3/7 histogram is a TRIPWIRE, deliberately: the day #220 or a new wrapper lands, this
+  // number moves and the failure is the reminder that a code tab just lit up — move it on purpose,
+  // with the vd tab's honesty note re-checked, never by reflex.
+  let withWrapper = 0;
+  let withoutWrapper = 0;
+  for (const c of model.components) {
+    const tabs = tabsFor(c);
+    ok(tabs[0] === "html" && tabs[tabs.length - 1] === "json",
+      `${c.name}: tabs must open with html and close with json — got [${tabs.join(", ")}]`);
+    ok((tabs.includes("vd") && tabs.includes("react")) === Boolean(c.wrapper),
+      `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
+    if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
+  }
+  ok(withWrapper === 3 && withoutWrapper === 7,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/7; see the tripwire note above)`);
+
+  // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
+  // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,
+  // stated: a wrapper calls customElements.define at module top and cannot run under Node); every
+  // map VALUE must be observed by the element, every map KEY must be a prop of the vocabulary
+  // entry, and the map's key set must be exactly the wrapper'd components.
+  const wrapperNames = model.components.filter((c) => c.wrapper).map((c) => c.name).sort();
+  ok(deep(Object.keys(WRAPPER_ATTRS).sort()) === deep(wrapperNames),
+    `WRAPPER_ATTRS covers [${Object.keys(WRAPPER_ATTRS).sort().join(", ")}]; the pack ships wrappers for [${wrapperNames.join(", ")}]`);
+  const observedOf = (className) => {
+    const src = readFileSync(join(ROOT, `system/wc/${className}.mjs`), "utf8");
+    const m = src.match(/static observedAttributes = (\[[^\]]*\])/);
+    ok(m, `system/wc/${className}.mjs no longer declares a parseable observedAttributes literal`);
+    return m ? JSON.parse(m[1]) : [];
+  };
+  const attrsValid = (map, observed, props) =>
+    Object.entries(map).every(([prop, attr]) => Object.hasOwn(props, prop) && observed.includes(attr));
+  for (const c of model.components.filter((x) => x.wrapper)) {
+    const map = WRAPPER_ATTRS[c.name];
+    const observed = observedOf(c.className);
+    ok(attrsValid(map, observed, VOCAB.components[c.name].props),
+      `WRAPPER_ATTRS["${c.name}"] drifted — every key must be a vocabulary prop and every value in ${c.className}'s observedAttributes [${observed.join(", ")}]`);
+  }
+  // The MUTATION that decides whether the fabricated-API refusal is real: the mechanical
+  // projection this map exists to prevent (`type` staying `type`) must FAIL the same predicate
+  // the real maps just passed — vd-care-task-row observes `action`, not `type`.
+  {
+    const observed = observedOf("vd-care-task-row");
+    const fabricated = { ...WRAPPER_ATTRS["care-task-row"], type: "type" };
+    ok(!attrsValid(fabricated, observed, VOCAB.components["care-task-row"].props),
+      "the type:\"type\" mutation passed the observedAttributes pin — the fabricated-API check cannot fail");
+  }
+
+  // --- 21.6 reactSnippet — the attribute projection over the real example, plus escaping.
+  {
+    const row = model.components.find((c) => c.name === "care-task-row");
+    const snippet = reactSnippet(row, row.example);
+    ok(snippet.includes('action="water"') && !snippet.includes('type="water"'),
+      `reactSnippet must project type→action — got: ${snippet}`);
+    ok(snippet.includes(`import "./wc/${row.className}.mjs";`),
+      "reactSnippet lost the wrapper import line");
+    const quoted = reactSnippet(row, { type: "water", plantName: 'say "hi"', status: "ok" });
+    ok(!quoted.includes('plant-name="say "hi""') && quoted.includes('\\"'),
+      `a quote in a prop value must arrive escaped — got: ${quoted}`);
+    // present-when-true booleans: checked true is a bare attribute, false is absent.
+    ok(reactSnippet(row, { ...row.example, checked: true }).includes(" checked"),
+      "a true boolean must project as a bare attribute");
+    ok(!reactSnippet(row, { ...row.example, checked: false }).includes("checked"),
+      "a false boolean must be absent, not checked=\"false\"");
+  }
+
+  // --- 21.7 specPath + fs — a committed spec source behind every copy-as-Markdown button.
+  let specFiles = 0;
+  for (const name of vocabNames) {
+    ok(existsSync(join(ROOT, specPath(name))), `copy-as-Markdown target missing: ${specPath(name)}`);
+    specFiles += 1;
+  }
+
+  group("catalog", `pack↔vocabulary set identity over ${vocabNames.length} components · the palette's static list pinned against the artifact (the memoization is why it is static, #188) · controlFor over all ${propsChecked} real props — ${boundedNumbers} bounded number (stat-tile.value, fields compared to the artifact's own), ${unboundedNumbers} unbounded, bounds NEVER invented (hasOwn asserted both ways, plus the partial-bounds synthetic) · tabsFor's ${withWrapper}/${withoutWrapper} wrapper histogram pinned as the #220 tripwire · WRAPPER_ATTRS triple-pinned (wrapper source text · vocabulary props · exact key set) with the type:"type" mutation proving the fabricated-API refusal real · reactSnippet projects type→action, escapes quotes, booleans present-when-true · ${specFiles} committed spec files behind the copy buttons. The running page — deep links, live serialization, the byte-identical copy, the ⌘K race, the refusal line — is tooling/catalog-journey.mjs's, and says so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -3852,5 +4029,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 20 groups pass");
+  console.log("\nbuild ✓  all 21 groups pass");
 }

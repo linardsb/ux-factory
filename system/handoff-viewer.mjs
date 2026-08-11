@@ -157,7 +157,10 @@ function splitRow(row) {
 
 // renderMarkdown(container, md) — a line-walker (NOT blank-line block-splitting: a multi-line
 // fence would break that). Detection order: fence → list → table → paragraph.
-function renderMarkdown(container, md) {
+// Exported since #215: system/catalog.mjs renders the same spec sections through the same bounded
+// construct census — one renderer, two mounts. A catalog prose need beyond the census is a
+// spec-format conversation, not a renderer extension.
+export function renderMarkdown(container, md) {
   const lines = String(md).split("\n");
   let i = 0;
   while (i < lines.length) {
