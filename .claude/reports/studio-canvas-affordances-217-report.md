@@ -102,7 +102,7 @@ the counter and the pseudo list are read.
 | `node tooling/drift-check.mjs` | ✓ all 12 checks |
 | `node agent-layer/gen-param-count.mjs --check` | ✓ 113 controls — no drift (was 111; +2 exactly) |
 | `node agent-layer/gen-loc-summary.mjs` | ✓ 3 groups; runtime 72→73 files, 26 700→27 800 lines |
-| `node tooling/vt-verify.mjs all` | ✓ zero failures on chromium + firefox + webkit · **18 #217 rows** (3 per engine in the studio-canvas block, incl. reduced motion, + 1 per engine in the factory block), each behind its own movement precondition |
+| `node tooling/vt-verify.mjs all` | ✓ zero failures on chromium + firefox + webkit · **18 #217 rows** (6 per engine), each behind its own movement precondition · **re-run against the FINAL HEAD** — see the note below |
 | `node tooling/studio-journey.mjs all` | ✓ **chromium 405 passed / 0 failed · firefox 401 / 0 · webkit 401 / 0** · **224 #217 rows** across the three engines |
 | `cd tooling/visual-regression && npm run update:docker` | ✓ 22 passed · **exactly four baselines rewritten**: `factory-{neutral,saulera}.png` + `approach-{neutral,saulera}.png` |
 
@@ -126,6 +126,13 @@ threshold and inside the 100-pixel tolerance. Exactly the trap memories `vr-upda
 and `vr-tolerance-hides-text-changes` describe. The two PNGs were `rm`'d and the gate re-run, which
 produced them. **A green `update:docker` run is not proof a page did not change**, and treating the
 2-of-4 result as "nothing else moved" would have shipped two stale baselines.
+
+**`vt-verify` was re-run against the FINAL HEAD, because the first pass was stale.** Its original run
+predated three later changes — the `aria-disabled` menu fix, the capture-phase Escape listener and
+section 7's rewrite — so claiming it green would have been claiming a gate for code it never executed.
+None of the three touch what that gate measures (transition counts and running pseudos), which is why
+it was easy not to notice. Re-run on all three engines against the shipped tree: **18 #217 assertion
+rows, zero failures.** Found while auditing this report's own numbers against the run logs.
 
 **One line changed AFTER the green run, stated rather than glossed**: section 10's Compile click was
 `…click().catch(() => {})`. The swallow never fired — R10a and R10b passed on all three engines, so
