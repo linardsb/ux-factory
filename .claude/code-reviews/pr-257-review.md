@@ -85,3 +85,29 @@ keys per wrapped component.
 are "the check that cannot fail" class gaps in waiting); none blocks. Validation passes everywhere
 it was re-run, the diff matches the PR's stated intent, and every documented deviation checks out
 as described.
+
+## Resolution (2026-08-11, on this PR — piv-fix-review-findings)
+
+All four Lows fixed on the branch, none deferred:
+
+- **L1 — fixed** via the pin, not the Promise.all fold (zero runtime change, zero baseline risk):
+  build-checks 21.8 byte-pins components.html's baked `#fictional-notice` against
+  `scenarios/verdant/copy.json`'s `fictionalNotice`, so the outside-the-ready-handle re-confirm
+  swap is provably always a no-op. Mutation-proven: a one-word drift in the baked line goes red
+  naming both sides.
+- **L2 — fixed**: `watchPackSwap` gets one `AbortController` per swap — the firing listener sweeps
+  its dead sibling, a new swap sweeps a still-pending pair. Proven by new journey case [11]:
+  chromium CDP counts settled load/error listeners on the pack link — 0 after one swap and 0 after
+  three on the fix; the pre-fix code reads 1 and 3 there (run and confirmed red). The re-resolve
+  behavior itself is asserted ×3 engines (swaps to verdant — saulera's fonts @import 404s under the
+  static serve and would trip the console gate).
+- **L3 — fixed**: new journey case [10] drives palette.mjs's `samePage` branch on /components
+  itself — hash becomes `#status-chip`, a pre-command window marker survives (no navigation), and
+  the section heading takes focus. ×3 engines.
+- **L4 — fixed**: 21.5 gains the converse pin — per wrapped component,
+  `Object.keys(WRAPPER_ATTRS[name])` deep-equals the vocabulary entry's prop keys, so a
+  regenerated wrapper gaining a prop is a red build, not a silent under-projection.
+  Mutation-proven: dropping `checked` from care-task-row's map goes red naming both key sets.
+
+Gates on the fixed tree: build-checks 21/21 · drift-check all green (loc-summary unmoved) ·
+catalog-journey 33/32/32 × chromium/firefox/webkit. No at-rest page change — no baseline churn.

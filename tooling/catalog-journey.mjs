@@ -12,7 +12,9 @@
 // copy-as-Markdown byte-equal to the committed spec source, the palette's commands existing
 // BEFORE the catalog could have registered anything (a held route, never a sleep), the vd tab's
 // 3/7 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
-// as content with a clean console, and the playground bus readout from pointer and keyboard.
+// as content with a clean console, the playground bus readout from pointer and keyboard, the
+// palette's same-page hash routing, and the pack swap's cell re-resolve + listener hygiene
+// (chromium-CDP half stated as such).
 //
 // Playwright is NOT a repo dependency — resolved out of tooling/visual-regression/node_modules,
 // the exact version the pixel gate pins (proto-journey.mjs's discipline). Operator-run, not in CI.
@@ -277,6 +279,73 @@ async function journey(engineName, results, held) {
   await page.keyboard.press("Enter");
   const keyboardLine = await page.evaluate(() => document.getElementById("primary-button").querySelector(".cat-status-line").textContent);
   t("keyboard: the same resulting DOM", keyboardLine === pointerLine, `"${keyboardLine}" vs "${pointerLine}"`);
+
+  // ------------------------------------------------- [10] ⌘K same-page command = hash routing
+  // Case [6] proves the commands are static pre-render; THIS drives palette.mjs's samePage branch
+  // (`location.hash = hash` when normalize() says you are already on /components) — the one branch
+  // no driver exercised (PR #257 review L3). No navigation: a pre-command window marker must
+  // survive, and catalog.mjs's hashchange listener must move focus to the section heading.
+  console.log("\n[10] a per-component ⌘K command on /components itself routes by hash, no navigation (review L3)");
+  await page.evaluate(() => { window.__samePageMarker = true; });
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.fill(".cmdk-input", "status-chip");
+  await page.click('.cmdk-item:text-is("Components: status-chip")');
+  await settleScroll(page);
+  const routed = await page.evaluate(() => ({
+    hash: location.hash,
+    marker: window.__samePageMarker === true,
+    focused: document.activeElement && document.activeElement.classList.contains("cat-name")
+      ? document.activeElement.textContent : null,
+  }));
+  t('the hash became "#status-chip"', routed.hash === "#status-chip", routed.hash);
+  t("same document — the pre-command marker survived (no navigation)", routed.marker);
+  t("the section heading took focus (the hashchange listener ran)", routed.focused === "status-chip", String(routed.focused));
+
+  // ------------------------------------------------- [11] pack swap re-resolves, listeners settle
+  // The pixel gate proves the CELLS re-resolve under saulera (the two /components baselines); what
+  // it cannot see is watchPackSwap's listener hygiene — before PR #257's L2 fix every settled swap
+  // left one dead once-listener on the pack link. Swaps go to VERDANT, not saulera: saulera
+  // @imports a fonts file the static host does not ship, and that 404 would trip this driver's
+  // no-console-errors gate.
+  console.log("\n[11] a pack swap re-resolves the token cells; settled swaps leave no listeners (review L2)");
+  const swapPack = async (href) => {
+    const before = await page.evaluate(() => [...document.querySelectorAll("[data-token-value]")].map((c) => c.textContent).join("|"));
+    await page.evaluate((h) => {
+      const link = [...document.querySelectorAll('link[rel="stylesheet"]')]
+        .find((l) => /\/system\/tokens\.(?!contract)[a-z0-9-]+\.css$/.test(l.getAttribute("href") || ""));
+      link.setAttribute("href", h);
+    }, href);
+    await page.waitForFunction(
+      (prev) => [...document.querySelectorAll("[data-token-value]")].map((c) => c.textContent).join("|") !== prev,
+      before, { timeout: 10000 },
+    );
+  };
+  await swapPack("/system/tokens.verdant.css");
+  t("the token cells re-resolved under the verdant pack", true);
+  if (engineName === "chromium") {
+    // Listener counting is CDP-only, so this half is chromium-only and STATED (the
+    // studio-journey throttled-drag precedent). Settled = the pair fired-and-swept, so the
+    // count must be ZERO after one swap and STAY zero after three — the pre-fix code reads
+    // one dead listener per settled swap here.
+    const countSettled = async () => {
+      const cdp = await ctx.newCDPSession(page);
+      const { result } = await cdp.send("Runtime.evaluate", {
+        expression: `[...document.querySelectorAll('link[rel="stylesheet"]')].find((l) => /\\/system\\/tokens\\.(?!contract)[a-z0-9-]+\\.css$/.test(l.getAttribute("href") || ""))`,
+      });
+      const { listeners } = await cdp.send("DOMDebugger.getEventListeners", { objectId: result.objectId });
+      await cdp.detach();
+      return listeners.filter((l) => l.type === "load" || l.type === "error").length;
+    };
+    const afterOne = await countSettled();
+    await swapPack("/system/tokens.neutral.css");
+    await swapPack("/system/tokens.verdant.css");
+    const afterThree = await countSettled();
+    t("settled load/error listeners on the pack link: zero, and zero after two more swaps",
+      afterOne === 0 && afterThree === 0, `${afterOne} after one swap, ${afterThree} after three`);
+  } else {
+    console.log("  · the listener count is chromium-only (CDP getEventListeners), stated");
+  }
+  await swapPack("/system/tokens.neutral.css"); // leave the page as it was found
 
   await page.close();
   await deep.close();

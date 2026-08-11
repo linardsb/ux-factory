@@ -479,14 +479,20 @@ function watchPackSwap(root) {
     if (/\/system\/tokens\.(?!contract)[a-z0-9-]+\.css$/.test(href)) { link = candidate; break; }
   }
   if (!link) return;
+  let pending = null;
   new MutationObserver(() => {
     // BOTH events, exactly as the dock's own swap awaits them (dock.mjs's done handler):
     // tokens.saulera.css @imports a fonts file the static host does not ship, and an engine
     // reports that sheet's settling as `error` while still applying every rule — here `error`
     // means "settled", not "failed", and waiting on load alone leaves the cells stale.
-    const refresh = () => resolveTokenValues(root);
-    link.addEventListener("load", refresh, { once: true });
-    link.addEventListener("error", refresh, { once: true });
+    // Exactly ONE of the pair ever fires, so each swap gets an AbortController: the firing
+    // listener sweeps its dead sibling, and a new swap sweeps a still-pending pair — otherwise
+    // every dock toggle would leave one no-op listener on the link forever.
+    if (pending) pending.abort();
+    const swap = (pending = new AbortController());
+    const refresh = () => { swap.abort(); resolveTokenValues(root); };
+    link.addEventListener("load", refresh, { once: true, signal: swap.signal });
+    link.addEventListener("error", refresh, { once: true, signal: swap.signal });
   }).observe(link, { attributes: true, attributeFilter: ["href"] });
 }
 

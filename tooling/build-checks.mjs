@@ -3983,6 +3983,12 @@ function scanSvg(svg, label) {
     const observed = observedOf(c.className);
     ok(attrsValid(map, observed, VOCAB.components[c.name].props),
       `WRAPPER_ATTRS["${c.name}"] drifted — every key must be a vocabulary prop and every value in ${c.className}'s observedAttributes [${observed.join(", ")}]`);
+    // The CONVERSE, or the pin is sound but not complete (PR #257 review L4): every vocabulary
+    // prop of a wrapped component must be mapped, because vdMarkup/reactSnippet iterate the MAP —
+    // a regenerated wrapper gaining a prop would otherwise silently under-project the vd/react
+    // tabs, the opposite failure direction from the fabrication the map exists to prevent.
+    ok(deep(Object.keys(map).sort()) === deep(Object.keys(VOCAB.components[c.name].props).sort()),
+      `WRAPPER_ATTRS["${c.name}"] is incomplete — it maps [${Object.keys(map).sort().join(", ")}] but the vocabulary declares props [${Object.keys(VOCAB.components[c.name].props).sort().join(", ")}]`);
   }
   // The MUTATION that decides whether the fabricated-API refusal is real: the mechanical
   // projection this map exists to prevent (`type` staying `type`) must FAIL the same predicate
@@ -4019,7 +4025,22 @@ function scanSvg(svg, label) {
     specFiles += 1;
   }
 
-  group("catalog", `pack↔vocabulary set identity over ${vocabNames.length} components · the palette's static list pinned against the artifact (the memoization is why it is static, #188) · controlFor over all ${propsChecked} real props — ${boundedNumbers} bounded number (stat-tile.value, fields compared to the artifact's own), ${unboundedNumbers} unbounded, bounds NEVER invented (hasOwn asserted both ways, plus the partial-bounds synthetic) · tabsFor's ${withWrapper}/${withoutWrapper} wrapper histogram pinned as the #220 tripwire · WRAPPER_ATTRS triple-pinned (wrapper source text · vocabulary props · exact key set) with the type:"type" mutation proving the fabricated-API refusal real · reactSnippet projects type→action, escapes quotes, booleans present-when-true · ${specFiles} committed spec files behind the copy buttons. The running page — deep links, live serialization, the byte-identical copy, the ⌘K race, the refusal line — is tooling/catalog-journey.mjs's, and says so`);
+  // --- 21.8 the baked fictional notice — components.html's honesty line is a deliberate STATIC
+  // second copy of scenarios/verdant/copy.json's fictionalNotice (present even when catalog.mjs's
+  // re-confirm fetch fails), and that fetch resolves OUTSIDE the data-catalog="ready" handle the
+  // pixel gate waits on. Byte-identity is what keeps the late swap a guaranteed no-op — drift
+  // would surface as an INTERMITTENT baseline flake, never a red — so pin it here, the
+  // CATALOG_COMPONENTS/TONES second-copy pattern (PR #257 review L1).
+  {
+    const html = readFileSync(join(ROOT, "components.html"), "utf8");
+    const baked = html.match(/<p class="cat-notice" id="fictional-notice">([^<]*)<\/p>/);
+    ok(baked, "components.html no longer carries the baked #fictional-notice line for this pin to hold");
+    const copy = JSON.parse(readFileSync(join(ROOT, "scenarios/verdant/copy.json"), "utf8"));
+    if (baked) ok(baked[1] === copy.fictionalNotice,
+      `the baked fictional notice drifted from scenarios/verdant/copy.json — the re-confirm swap is no longer a no-op and the pixel gate can flake. Baked: "${baked[1]}" · copy.json: "${copy.fictionalNotice}"`);
+  }
+
+  group("catalog", `pack↔vocabulary set identity over ${vocabNames.length} components · the palette's static list pinned against the artifact (the memoization is why it is static, #188) · controlFor over all ${propsChecked} real props — ${boundedNumbers} bounded number (stat-tile.value, fields compared to the artifact's own), ${unboundedNumbers} unbounded, bounds NEVER invented (hasOwn asserted both ways, plus the partial-bounds synthetic) · tabsFor's ${withWrapper}/${withoutWrapper} wrapper histogram pinned as the #220 tripwire · WRAPPER_ATTRS pinned in BOTH directions (wrapper source text · vocabulary props · exact component set · every prop mapped, so a regenerated wrapper cannot silently under-project) with the type:"type" mutation proving the fabricated-API refusal real · reactSnippet projects type→action, escapes quotes, booleans present-when-true · ${specFiles} committed spec files behind the copy buttons · the baked fictional notice byte-pinned to copy.json so the outside-the-ready-handle re-confirm stays a no-op. The running page — deep links, live serialization, the byte-identical copy, the ⌘K race, the refusal line — is tooling/catalog-journey.mjs's, and says so`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------
