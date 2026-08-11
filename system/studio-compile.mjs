@@ -95,7 +95,7 @@ export const STEPS = Object.freeze([
 // `counted` and from array lengths and from nothing else.
 //
 // TOTAL BY CONTRACT: null, garbage, or a board whose fields are junk returns state "empty" and never
-// throws (buildSummary's discipline, studio.mjs:91-103).
+// throws (buildSummary's discipline, studio.mjs:114-116).
 export function compileSteps(board, answers) {
   const b = isBoard(board) ? board : null;
   const counted = {
@@ -229,7 +229,7 @@ let live = null; // the mounted beat — the exported seam below drives THIS one
 export const getCompile = () => live;
 
 // `getBoard` is #209's seam and the ONLY change that ticket needed here. The beat reads `board` at
-// exactly one line (:471, inside compile()), so a getter costs two lines and lets the replay driver
+// exactly one line (:510, inside compile()), so a getter costs two lines and lets the replay driver
 // build the board AFTER this mount without the beat compiling a board that no longer exists.
 //
 // THE REJECTED ALTERNATIVE WAS MOUNTING THIS BEAT AFTER THE REPLAY SETTLES, and it is rejected for a
@@ -599,10 +599,10 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     //
     // The vocabulary's DEGRADED branch is INHERITED rather than re-decided: loadVocabulary() answers
     // null on a failure it has already declined to log, and the rail then prints the very sentence
-    // renderUnavailable() puts on the page (:350). A third fetch with its own failure copy would be
+    // renderUnavailable() puts on the page (:379). A third fetch with its own failure copy would be
     // a second opinion about the same gap.
     //
-    // Awaits, so it re-checks `destroyed` before returning — the file's liveness rule (:483-487).
+    // Awaits, so it re-checks `destroyed` before returning — the file's liveness rule (:498-502).
     // Answers null for a board with nothing to compose, so the caller has one thing to test.
     async function composed() {
       if (destroyed) return null;
@@ -644,7 +644,7 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     return handleObj;
   } finally {
     // Every path, including the boundary throw above, so a gate fails on the missing thing instead
-    // of deadlocking to timeout (studio-canvas.mjs:327-330 / device-frame.mjs:195-199).
+    // of deadlocking to timeout (studio-canvas.mjs:372-374 / device-frame.mjs:195-199).
     viewport?.setAttribute("data-studio-compile", "ready");
   }
 }

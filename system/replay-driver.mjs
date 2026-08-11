@@ -18,11 +18,11 @@
 //      the only thing on this canvas that MOVES a wrapper. This file never emits ui.move, never
 //      calls applySlot and never writes data-col / data-row on an existing wrapper. It changes the
 //      BOARD and reflects that change onto the stage; where a block sits stays #205's sentence.
-//   2. ONLY place.add CALLS place(). studio-canvas.mjs:329 appends unconditionally — even on the
-//      idempotent re-place path — and :332 announces on every call. So re-placing a wrapper to
+//   2. ONLY place.add CALLS place(). studio-canvas.mjs:340 appends unconditionally — even on the
+//      idempotent re-place path — and :343 announces on every call. So re-placing a wrapper to
 //      re-label it would re-order the stage by append order AND turn four announcements into eleven
 //      during autoplay. Every other reflection renames the wrapper IN PLACE, which is exactly the
-//      call studio-compile.mjs:395-398 made and wrote down, for the same two reasons.
+//      call studio-compile.mjs:382-388 made and wrote down, for the same two reasons.
 //   3. THE PACING IS THE RUN'S OWN, PROPORTIONALLY — and the compression is STATED, not hidden. The
 //      real run is 131 s; autoplaying that literally makes a visitor wait two minutes and makes the
 //      pixel gate wait two minutes per shot. paceBeats preserves the GAP RATIOS exactly and scales
@@ -46,10 +46,10 @@
 // place-changed are written and correct and are NOT exercised by this artifact. They are not dead
 // code and they are not live coverage: build-checks group 16 pins the artifact's op histogram, so
 // the day a second run carries a rename or a remove the gate forces someone to look at that branch
-// instead of shipping it untested (studio-compile.mjs:38-49's discipline, and group 1's vacuous
+// instead of shipping it untested (studio-compile.mjs:38-53's discipline, and group 1's vacuous
 // clause).
 //
-// REFUSALS REACH THE LIVE REGION, NEVER A THROW. action-bus.mjs:70-77 catches a handler throw into
+// REFUSALS REACH THE LIVE REGION, NEVER A THROW. action-bus.mjs:71-81 catches a handler throw into
 // console.error, which hides the refusal from the reader AND trips tooling/studio-journey.mjs's
 // no-page-errors contract (studio-verbs.mjs:363-365, inherited).
 //
@@ -69,7 +69,7 @@ import { trackFactoryTookOver } from "./analytics.mjs";
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 16 drives it in CI with no browser — the same
 // split studio-canvas.mjs:34-73, studio-verbs.mjs:60-235, studio.mjs:47-103 and
-// studio-compile.mjs:61-137 carry.
+// studio-compile.mjs:64-169 carry.
 
 // ONE committed slug, named once. A brief picker or a second artifact is #210's, not this file's.
 export const REPLAY_SLUG = "build-fieldwork-dispatch";
@@ -140,8 +140,8 @@ const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 // same fact as a file that is missing.
 //
 // TOTAL BY CONTRACT: junk in either position returns { beats: [], error: "<what was wrong>" } and
-// NEVER throws. parseTrace throws by design (trace-player.mjs:29) and studio.mjs:78-88 /
-// studio-compile.mjs:88 both make this same call for the same reason: a bad fetch must not crash the
+// NEVER throws. parseTrace throws by design (trace-player.mjs:29) and studio.mjs:91-103 /
+// studio-compile.mjs:97-98 both make this same call for the same reason: a bad fetch must not crash the
 // page before the canvas exists.
 export function buildBeats(artifact, traceText) {
   if (!isObj(artifact)) return { beats: [], meta: null, label: "", skipped: 0, error: "the replay artifact is not an object" };
@@ -373,7 +373,7 @@ export function describeBeat(beat) {
 // ---- the mount ---------------------------------------------------------------------------------
 
 // Copied rather than imported, like every other hand-written canon module (studio-canvas.mjs:80,
-// studio-compile.mjs:145, device-frame.mjs:33). Group 7 bans every markup-from-string sink across
+// studio-compile.mjs:177, device-frame.mjs:33). Group 7 bans every markup-from-string sink across
 // these modules, which is why a hostile label in a committed artifact can never become markup.
 const el = (tag, attrs, ...kids) => {
   const n = document.createElement(tag);
@@ -386,7 +386,7 @@ const el = (tag, attrs, ...kids) => {
   return n;
 };
 
-// studio-compile.mjs:159's copy, and the CSS half is declared in system/studio.css beside the
+// studio-compile.mjs:191-192's copy, and the CSS half is declared in system/studio.css beside the
 // classes it applies to: the pixel gate captures under NO-PREFERENCE, so a JS-only gate is what
 // churns a baseline the day someone adds a transition to one of these classes.
 const reduceMotion = () => typeof matchMedia === "function"
@@ -394,7 +394,7 @@ const reduceMotion = () => typeof matchMedia === "function"
 
 let live = null; // the mounted driver — the exported seam below drives THIS one, never a new one
 
-// The driver's seam (studio-canvas.mjs:95 / studio-verbs.mjs:236 / studio-compile.mjs:188's idiom,
+// The driver's seam (studio-canvas.mjs:95 / studio-verbs.mjs:236 / studio-compile.mjs:229's idiom,
 // and the reason it is an export rather than a window.__ global: page globals are not this repo's
 // test surface). tooling/studio-journey.mjs reaches the replay through this.
 export const getReplay = () => live;
@@ -415,7 +415,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
   let state = "loading";
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
-    // convention (studio-verbs.mjs:243-248, studio-compile.mjs:206-211).
+    // convention (studio-verbs.mjs:243-248, studio-compile.mjs:245-248).
     if (!canvas || !canvas.stage || !canvas.scroll || typeof canvas.place !== "function"
       || typeof canvas.say !== "function") {
       throw new Error("replay-driver: a mounted canvas handle { stage, scroll, place, say } is required");
@@ -509,7 +509,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
         }
         // place-changed — RENAMED IN PLACE, never re-placed. See call 2 in the header: place()
         // appends unconditionally and announces on every call, so re-placing would re-order the
-        // stage and turn four announcements into eleven. studio-compile.mjs:387-399, copied.
+        // stage and turn four announcements into eleven. studio-compile.mjs:382-388, copied.
         const wrapper = wrappers.get(change.placeId);
         if (!wrapper) {
           canvas.say(`Refused: no block for ${change.placeId} on this canvas.`);
@@ -571,7 +571,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
     // region speaks its FINAL value per task, so skipToEnd's synchronous loop — and the whole
     // reduced-motion path, which IS that loop — used to write N act sentences a screen-reader user
     // heard none of: settle()'s completion sentence overwrote every one of them in the same task.
-    // This is studio-compile.mjs:165-174's recorded lesson and deliberately NOT its answer —
+    // This is studio-compile.mjs:197-203's recorded lesson and deliberately NOT its answer —
     // spacing across tasks is right for a beat meant to play out and wrong for a path whose entire
     // contract is that it is instant. Folding them into the sentence that ENDS the task is the only
     // shape that survives: one say, one task, one value. `instant` is set only around a synchronous
@@ -782,7 +782,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
     canvas.scroll.addEventListener("keydown", onTouch, { capture: true, signal });
 
     // --- the run --------------------------------------------------------------------------------
-    // A LIVENESS CHECK AFTER EVERY AWAIT (studio-compile.mjs:461-465's #236 lesson): destroy() has
+    // A LIVENESS CHECK AFTER EVERY AWAIT (studio-compile.mjs:498-502's #236 lesson): destroy() has
     // already removed the chrome and aborted the fetches, so every line below an await would
     // otherwise be writing into a surface that no longer belongs to this handle.
     async function start() {
@@ -796,7 +796,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       } catch {
         // Swallowed rather than logged: the failure is REPORTED by the card below. A console.error
         // would say the same thing to nobody the reader can see and trip studio-journey's
-        // no-page-errors contract on the way (studio-compile.mjs:294-298, inherited).
+        // no-page-errors contract on the way (studio-compile.mjs:345-347, inherited).
         artifact = null;
       }
       if (destroyed) return;
@@ -981,7 +981,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
         // it tears the page down straight after. The day a shipped path calls this — #206's route
         // surgery is the candidate — it must publish the board first or re-enable the beat.
         //
-        // THE ORDER IS THE POINT (studio-compile.mjs:565-573): the flag first so a frame parked
+        // THE ORDER IS THE POINT (studio-compile.mjs:626-629): the flag first so a frame parked
         // below an await reads it and stops, the abort second — which detaches every listener AND
         // rejects the in-flight fetches — then the timer, then the DOM.
         destroyed = true;

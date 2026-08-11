@@ -360,7 +360,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // node identically, which is what makes the three sources genuinely interchangeable — and is the
     // assertion tooling/studio-journey.mjs makes on a FRESH page with no gesture performed first.
     //
-    // REFUSALS GO TO THE LIVE REGION, NEVER A THROW. action-bus.mjs:70-77 wraps every handler in
+    // REFUSALS GO TO THE LIVE REGION, NEVER A THROW. action-bus.mjs:71-81 wraps every handler in
     // try/catch → console.error, so a thrown refusal would become a console line the reader never
     // sees AND would trip studio-journey's no-console-errors contract.
     const offMove = bus.on("ui.move", (action) => {

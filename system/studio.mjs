@@ -437,7 +437,7 @@ function mountStudioCore(root, shell, restored) {
   // case #230's `adopt` closes, from both of its call sites (studio-verbs.mjs:181-202, :382, :467).
   // It was the edge case; it is now the normal one, and nothing new is needed for it. The move
   // handles are fine for the same kind of reason: #231's armMoveHandles is FORWARD-ACTING, so
-  // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :313-315).
+  // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :324-326).
   const bus = createBus();
   const verbs = mountCanvasVerbs(canvas, { bus });
 
@@ -508,7 +508,7 @@ function mountStudioCore(root, shell, restored) {
   let method = null;
 
   // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
-  // studio's standing correspondence: studio-compile.mjs:377's positional swap and
+  // studio's standing correspondence: studio-compile.mjs:382-383's positional swap and
   // replay-driver.mjs's rename-in-place both rest on it). This is the one thing /build's rail
   // structurally cannot produce, and it is what #208's `g` field carries. Read live rather than
   // tracked, for the reason the beat reads the board live: the verbs, the driver and an undo all
