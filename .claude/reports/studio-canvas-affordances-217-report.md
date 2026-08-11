@@ -127,6 +127,16 @@ and `vr-tolerance-hides-text-changes` describe. The two PNGs were `rm`'d and the
 produced them. **A green `update:docker` run is not proof a page did not change**, and treating the
 2-of-4 result as "nothing else moved" would have shipped two stale baselines.
 
+**One line changed AFTER the green run, stated rather than glossed**: section 10's Compile click was
+`…click().catch(() => {})`. The swallow never fired — R10a and R10b passed on all three engines, so
+the click landed every time — but it would turn a selector typo into a confusing 30 s timeout on the
+next `waitForSelector` instead of a named failure on the wrong line, which is the opposite of this
+file's own discipline (and the reason section 7 was changed the same way). It is now an unguarded
+click on the same locator shape section 13 already uses. **Verified rather than assumed**: driven on
+a live settled `/factory`, the locator resolves to exactly one button ("Compile the board") and the
+click reaches `data-compile-state="rendered"`. The three-engine run above was not repeated for a
+one-line change to an error path that never executed.
+
 **R11 (baseline collision) checked immediately before regenerating**: `gh pr list` returned no open
 PRs and there is no `#219` branch, so nothing else was regenerating `/factory`'s PNGs from a different
 tree. #219 is open as an issue only.

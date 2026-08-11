@@ -4066,7 +4066,10 @@ async function selectPass(browser, engineName, t, errors) {
   const p10 = await openSettled();
   await shiftDrag(p10, await cell(p10, 1, 1), await cell(p10, 2, 2));
   const members10 = await chosen(p10);
-  await p10.locator("[data-studio-compile] button", { hasText: "Compile" }).first().click().catch(() => {});
+  // NOT .catch()-ed, on this file's own terms: a swallowed rejection turns a selector typo into a
+  // confusing 30 s timeout on the waitForSelector below instead of a named failure on the line that
+  // is actually wrong. Fail on the missing thing, loudly.
+  await p10.locator("[data-studio-compile] button").filter({ hasText: /^Compile/ }).first().click();
   await p10.waitForSelector('[data-compile-state="rendered"]', { timeout: 30000 });
   t("#217 · R10a — a COMPILE keeps the selection: the beat swaps wrapper CONTENTS, never the wrappers, which is what a reader expects",
     JSON.stringify(await chosen(p10)) === JSON.stringify(members10),
