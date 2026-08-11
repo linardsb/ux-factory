@@ -1,6 +1,6 @@
 // tooling/visual-regression/visual.spec.mjs — CI visual-regression gate (epic #1, ticket #9, gate 3/3).
-// Screenshots ten shipped pages — the six IA pages, the /roundtrip deep viewer, /build (the
-// off-nav pattern builder, linked in by #138), and the two
+// Screenshots eleven shipped pages — the six IA pages, the /roundtrip deep viewer, /build (the
+// off-nav pattern builder, linked in by #138), /components (the catalog, #215), and the two
 // data-connected proto pages (verdant, fieldwork) — under the neutral pack + one client pack
 // (saulera, applied by swapping the single
 // tokens.neutral.css link), pixel-diffed vs committed baselines. Proto pages render from the mock
@@ -97,6 +97,13 @@ const PAGES = [
     waitReady: ['[data-build-import="ready"]', '[data-build-questions="ready"]', '[data-build-verdict="ready"]',
                 '[data-breadboard="ready"]', '[data-build-keep="ready"]'],
     waitVisible: '[data-pattern-stage="ready"]' },
+  // /components (#215): system/catalog.mjs fetches pack + vocabulary + system-graph at load and
+  // sets data-catalog="ready" on the root ONLY after a successful render (approach's asrc idiom) —
+  // a broken artifact hangs this gate loudly instead of baselining an empty catalog. waitReady and
+  // deliberately NOT waitVisible: everything renders at load, no IntersectionObserver-gated beat.
+  // The live token-value cells make the two pack baselines differ — that is the point; the
+  // pack-swap MutationObserver never fires at rest (pack-boot's guaranteed no-op default).
+  { name: 'components',      url: '/components.html',      kind: 'ia', waitReady: '[data-catalog-root][data-catalog="ready"]' },
   // #176: BOTH proto pages now paint at-rest chrome that arrives after load, and the proto branch
   // below waits only on DATA (#source, `rows`) — neither of those waits covers it. Verdant's resize
   // handle and width readout are injected by a dynamic import() of device-frame.mjs, which also

@@ -41,20 +41,24 @@ window.CLIENT_CONFIG = {
       {
         title: "Site",
         items: [
-          { label: "Home",     href: "/" },
-          { label: "Approach", href: "/approach" },
-          { label: "Factory",  href: "/factory" },
-          { label: "Work",     href: "/work" },
-          { label: "Build",    href: "/build" },
-          { label: "Contact",  href: "/contact" },
+          { label: "Home",       href: "/" },
+          { label: "Approach",   href: "/approach" },
+          { label: "Factory",    href: "/factory" },
+          { label: "Work",       href: "/work" },
+          { label: "Build",      href: "/build" },
+          { label: "Components", href: "/components" },
+          { label: "Contact",    href: "/contact" },
         ],
       },
       {
         title: "The system",
         items: [
-          { label: "Token contract",  href: "/system/tokens.contract.css" },
-          { label: "Neutral pack",    href: "/system/tokens.neutral.css" },
-          { label: "Components",      href: "/system/components.css" },
+          { label: "Token contract",   href: "/system/tokens.contract.css" },
+          { label: "Neutral pack",     href: "/system/tokens.neutral.css" },
+          // "Component styles" since #215: the Site column gained a "Components" PAGE link, and two
+          // links named "Components" to different targets is a real ambiguity. The sibling labels
+          // ("Token contract", "Neutral pack") are friendly names, not filenames, so this one is too.
+          { label: "Component styles", href: "/system/components.css" },
           { label: "Source (GitHub)", href: "https://github.com/linardsb/ux-factory" },
         ],
       },
