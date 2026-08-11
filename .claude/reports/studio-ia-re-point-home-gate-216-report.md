@@ -72,6 +72,26 @@ plus the ⌘K palette: every route resolved, every same-page hash resolved to a 
 footer contents asserted explicitly, and the two dead-hash instances this ticket could have created
 (`/#verify`, `#beat-intake`) checked by name.
 
+**`brand-read.mjs`** (Task 5's VALIDATE, mechanised) — the one *behavioural* change in this diff is
+`scrub.mjs`'s `brandHex()`, and **nothing else here could have caught it being wrong**: if it still
+returned the canned `#2f7a4d`, all 242 handle assertions would still pass, because they prove the
+handle *works*, not that it reads the *right brand*.
+
+The discriminator is lightness and chroma, not hue: `derive()` preserves hue but negotiates L/C from
+the input, and the handle sets hue either way. Set the brand to `#b3005a` (L 0.495 / C 0.200 vs the
+canned green's 0.520 / 0.103), drag the hue handle, convert the preview's resulting
+`--color-accent` back through `hexToOklch`:
+
+| case | resulting accent | L/C distance to reader | to canned |
+|---|---|---|---|
+| live control present | `#b90319` | **0.0002** | 0.1000 |
+| **mutation** — control hidden from `scrub.mjs` | `#675ea1` | 0.0995 | **0.0008** |
+
+The mutation inverts the verdict, so the check can fail. Also covers the plan's edge case 5: an old
+shared link (`/?brand=b3005a`) still hydrates the derived pack, `/factory/arrived` is still pushed
+exactly once, and the real URL is restored — which is what makes Assumption 2 true rather than
+assumed (`trackFactoryArrived` survives with a live caller, not as a dead export).
+
 ## Validation results
 
 | Gate | Result |
@@ -83,6 +103,7 @@ footer contents asserted explicitly, and the two dead-hash instances this ticket
 | `node tooling/vt-verify.mjs all` | ✓ green ×3 engines — home reports `load opens 2 transition(s)` |
 | `node tooling/build-journey.mjs all` | ✓ **157 passed · 0 failed** ×3 engines |
 | handle proof | ✓ **242 passed · 0 failed** (12 combinations) + mutation red |
+| brand-read proof (Task 5) | ✓ **5 passed · 0 failed** + mutation inverts the verdict |
 | link audit | ✓ **249 passed · 0 failed** |
 | `node tooling/studio-journey.mjs chromium` | ✓ **327 passed · 0 failed** (/factory regression) |
 | visual gate (docker, no `--update-snapshots`) | ✓ **22/22 pass** |
@@ -142,6 +163,22 @@ resolving to `/factory`.
    `update:docker`). The plan's Level 5 named it wrongly. Ran the Docker command without
    `--update-snapshots` instead, which is the same check.
 
+9. **The chosen h1 sits outside the register the plan names as its own source text.**
+   `st-ux-wave1-strategy-copy-244.md:101` excludes "isn't just X, it's Y" constructions, and
+   *"I build the system, not the picture of it"* is that family. It is the owner's explicit pick
+   from two options presented with screenshots, so it ships — logged here as a **decision, not an
+   oversight**, so a reviewer does not re-litigate it.
+
+10. **Task 3's stated reason for dropping two home rows was factually wrong, and the comment that
+    repeated it has been corrected.** The plan says `/roundtrip` and `/agentic-ui-study` "both stay
+    in the footer index and in `/factory`'s Go-deeper list". Neither is in the footer Site column
+    (which lists the seven IA routes only — pre-existing, unchanged by #216), and `/roundtrip` is
+    not in `#verify-further` either. **Neither route is orphaned**: `/roundtrip` is reachable from
+    `work.html`'s `#more`, from `/factory`'s own round-trip exhibit panel and from ⌘K;
+    `/agentic-ui-study` from `work.html`'s Exhibit 02, `/factory`'s `#verify-further` and ⌘K. The
+    `index.html` comment now names the real routes rather than the plan's premise. **The footer's
+    scope was not widened** — that would be a different ticket.
+
 ## Issues encountered
 
 **One pre-existing dead link, left alone and flagged.** `work.html:420` links `href="/handoff"`,
@@ -150,6 +187,14 @@ the directory and the extensionless→`.html` fallback at `:30` never fires. **I
 and is not this ticket's** — the link audit excludes it explicitly and prints why rather than
 passing silently. Worth its own ticket; production CF Pages may resolve it differently from
 `serve.mjs`, which is exactly why it deserves a real check rather than a guess here.
+
+**AC #4's "the footer still claims — and IS — the full site index" holds only for the IA routes.**
+The footer Site column lists the seven IA pages (`/`, `/factory`, `/approach`, `/work`, `/build`,
+`/components`, `/contact`). Two shipped exhibit routes are not in it — `/roundtrip` and
+`/agentic-ui-study` — and that is **pre-existing and unchanged by this ticket**: the pre-#216 config
+carried the same seven. The link audit proves no *dead* link; it does not prove *completeness*, and
+this is the gap. Both routes remain reachable (see deviation 10). Flagged rather than fixed, because
+widening the footer's scope is a decision about what that column means, not a #216 cascade.
 
 **Coverage loss, stated out loud (plan Open Question ➋).** Home no longer contributes a per-verb
 view-transition assertion to `vt-verify`. Its only `morph()`-wrapped verb was the intake wizard,

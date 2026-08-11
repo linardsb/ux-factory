@@ -77,8 +77,8 @@ let arrivedFired = false;
 // IT SURVIVES #216 WITHOUT ITS SENDING HALF, and that asymmetry is correct rather than an
 // oversight: /factory/shared counted senders producing links from home's close beat, which is gone,
 // but links already in the wild keep arriving and this still counts them. The studio's
-// /factory/link-copied (:290ish) is the sending half now, so the pair still exists — under a
-// different name, on a different page, deliberately (see that block).
+// /factory/link-copied (FACTORY_LINK_PATH below) is the sending half now, so the pair still
+// exists — under a different name, on a different page, deliberately (see that block).
 //
 // HELD UNTIL `load`, unlike the three above, and that is load-bearing rather than tidy. Its caller is
 // pack-derived.mjs's shared-link hydration, which runs while dock.mjs is being imported — before
