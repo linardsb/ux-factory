@@ -82,6 +82,7 @@
     import { createBus } from "/system/action-bus.mjs";
     import { initStudioCanvas, MAX_COLS, MAX_ROWS } from "/system/studio-canvas.mjs";
     import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
+    import { mountCanvasSelect } from "/system/studio-select.mjs";
 
     // ~30 real components across the library's shapes — the token-skinned DOM is the thing under
     // test, so nothing here is a div standing in for one. Each entry is a single-node composition,
@@ -142,6 +143,10 @@
       // empty one, and so every wrapper's aria-describedby has its instructions element to point at.
       const bus = createBus();
       mountCanvasVerbs(canvas, { bus });
+      // AFTER the verbs (#217), so the bus already carries the ui.undo / ui.redo consumers the
+      // context menu can emit into the moment it opens. The marquee is order-independent — its
+      // pointerdown is registered in the capture phase — but the menu's verbs are not.
+      mountCanvasSelect(canvas, { bus });
 
       const p = document.createElement("p");
       p.className = "cap-live";

@@ -23,7 +23,7 @@
     },
     {
       "page": "/factory",
-      "controls": 37
+      "controls": 39
     },
     {
       "page": "/proto/fieldwork",
@@ -42,5 +42,5 @@
       "controls": 1
     }
   ],
-  "total": 111
+  "total": 113
 }
