@@ -3822,6 +3822,35 @@ async function selectPass(browser, engineName, t, errors) {
     (await p6.locator(`${VIEWPORT} .stx-menu`).count()) === 0
     && (await p6.evaluate(() => document.activeElement?.className || "")).includes("stx-grab"),
     await p6.evaluate(() => document.activeElement?.className || "BODY"));
+  // THE SAME CLAIM ON THE POINTER PATH, AND ON A FRESH PAGE WITH FOCUS CLEARED — which is the whole
+  // row, not housekeeping. The keyboard rows above legitimately left focus on this very node's grab
+  // handle, and a right-click does not move focus; so if the pointer path's focus restore no-ops,
+  // focus is STILL on that handle from the earlier, unrelated success and the assertion passes on
+  // RESIDUE. That is exactly how PR #263's review found a live AC violation behind a green pass:
+  // openMenu resolved the invoker to the non-focusable `.stx-slot` wrapper for every right-click
+  // that missed the 24×24 corner handle, so closeMenu()'s focus() was a silent no-op. The fresh
+  // page + cleared focus is the discriminator, the same shape the three-source proof already uses
+  // for injected moves. Asserted POSITIVELY on `.stx-grab` rather than as "not BODY", which
+  // focusing the stage would also satisfy. Proven red against the unfixed module before it landed.
+  const p6b = await openSettled(ctx, "select-menu-focus");
+  const menuNodeB = (await slotsNow(p6b))[1].id;
+  await p6b.evaluate(() => document.activeElement?.blur?.());
+  const clearedB = await p6b.evaluate(() => document.activeElement?.tagName || "none");
+  t("#217/AC4+AC5 · (the discriminator itself) focus really is cleared before the pointer open — a row that skipped this would inherit the residue it exists to catch",
+    clearedB === "BODY", clearedB);
+  // The wrapper's CENTRE, i.e. deliberately NOT the corner handle: that is the miss the bug lived in.
+  await p6b.locator(`.stx-slot[data-stx-id="${menuNodeB}"]`).click({ button: "right" });
+  await p6b.waitForTimeout(150);
+  await p6b.keyboard.press("Escape");
+  await p6b.waitForTimeout(150);
+  const escFocusB = await p6b.evaluate(() => ({
+    cls: document.activeElement?.className || "",
+    tag: document.activeElement?.tagName || "none",
+    menu: document.querySelectorAll("[data-studio-canvas] .stx-menu").length,
+  }));
+  t("#217/AC4+AC5 · a RIGHT-CLICK on a component's centre also returns focus to its grab handle on Escape — the invoker is resolved inside openMenu, so a press that misses the handle is not a press that loses the reader",
+    escFocusB.menu === 0 && escFocusB.cls.includes("stx-grab"), JSON.stringify(escFocusB));
+  await p6b.close();
   // THE POINTER PATH, against the SAME node — the item lists must be identical by accessible name.
   const scrollBefore = await p6.evaluate(() => {
     const s = document.querySelector("[data-studio-canvas] .stx-scroll");
@@ -4190,12 +4219,23 @@ async function selectPass(browser, engineName, t, errors) {
   await pr.locator(`.stx-slot[data-stx-id="${membersR[0]}"] .stx-grab`).focus();
   await pr.keyboard.press("Shift+F10");
   await pr.waitForTimeout(120);
+  // OPENS · NAVIGATES · CLOSES — all three actually driven, because the sentence names all three.
+  // It used to assert the item count alone, which made "navigates and closes" a claim no key press
+  // stood behind (PR #263 review, finding 6). Arrow navigation is the half most likely to be lost
+  // under reduced motion, since it is the one that moves focus between items.
+  const openedR = await pr.locator(`${VIEWPORT} .stx-menu-item`).count();
+  const firstR = await focusedText(pr);
+  await pr.keyboard.press("ArrowDown");
+  const secondR = await focusedText(pr);
   t("#217/AC6 · …and the context menu still opens, navigates and closes",
-    (await pr.locator(`${VIEWPORT} .stx-menu-item`).count()) >= 4);
+    openedR >= 4 && !!secondR && secondR !== firstR,
+    JSON.stringify({ openedR, firstR, secondR }));
   await pr.keyboard.press("Escape");
   await pr.waitForTimeout(100);
-  t("#217/AC6 · …returning focus to the invoker",
-    (await pr.evaluate(() => document.activeElement?.className || "")).includes("stx-grab"));
+  t("#217/AC6 · …closing on Escape and returning focus to the invoker",
+    (await pr.locator(`${VIEWPORT} .stx-menu`).count()) === 0
+    && (await pr.evaluate(() => document.activeElement?.className || "")).includes("stx-grab"),
+    await pr.evaluate(() => document.activeElement?.className || "BODY"));
   await pr.close();
   await rctx.close();
 
