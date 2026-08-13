@@ -343,8 +343,9 @@ What shipped is `focusTargetFor(node, invoker)` inside `openMenu`, so all three 
 after a compile, `studio-flow.mjs`'s screen headings are `tabindex="-1"` elements living inside these
 wrappers, and Shift+F10 on a focused heading must return the reader to that heading. A bare
 `tabIndex >= 0` test would have quietly regressed the keyboard path in order to fix the pointer one.
-The resolved value is also what the `:389` idempotency guard compares and what `:435` stores, or they
-drift apart.
+The resolved value is also what the idempotency guard compares and what `menu.invoker` stores, or they
+drift apart. (Named rather than cited by line: the review's `:389`/`:435` moved to 412/458 the moment
+this fix landed, which is the drift class `0d8cbc2` exists to stop.)
 
 The replacement `selectPass` row carries **the fresh page + cleared focus** the old rows lacked — and
 the clearing is itself asserted, because a row that skipped it would inherit the very residue it
