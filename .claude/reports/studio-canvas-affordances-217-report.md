@@ -317,3 +317,87 @@ dropping it would silently start clearing the selection on every palette close.
   contract (the contract's smallest is `--spacing-xs`), and gave `--shadow-md` an `rgb()` literal
   fallback. Both fixed before `token-lint` ran; the token is in the contract, so the fallback was
   unnecessary as well as a literal.
+
+## PR #263 review — what was fixed, and the one place the review was wrong
+
+`gh pr review` verdict: REQUEST CHANGES on **Finding 1 only**. Triaged with the owner: fix 1, 3, 4 and
+6 here; defer 2 to its own ticket; leave 5.
+
+### Finding 1 (High) — the context menu dropped focus to `<body>` on the pointer path
+
+Real, and squarely against this ticket's own AC. `.stx-slot` wrappers carry no `tabindex` — only the
+24×24 `.stx-grab` button is focusable — so a right-click landing anywhere but that corner resolved the
+invoker to the **non-focusable wrapper** and `closeMenu()`'s `focus()` was a silent no-op.
+
+**Reproduced red before touching the module** (fresh page, focus cleared, right-click on the wrapper's
+centre): `menu.invoker.className` = `stx-slot`, focus after Escape = `BODY`.
+
+**The review's suggested fix does not work, and this is worth recording.** It gated on
+`typeof invoker.focus === "function"` — true for **every** `HTMLElement`, including the bare div that
+IS the bug. Applied verbatim it resolves to the same wrapper, reads correct, and leaves the defect
+live. The discriminator has to be *focusable*, not *has a focus method*.
+
+What shipped is `focusTargetFor(node, invoker)` inside `openMenu`, so all three callers benefit:
+`invoker.tabIndex >= 0 || invoker === document.activeElement`, falling back to
+`node.querySelector(":scope > .stx-grab")`. **The second clause is load-bearing, not belt-and-braces:**
+after a compile, `studio-flow.mjs`'s screen headings are `tabindex="-1"` elements living inside these
+wrappers, and Shift+F10 on a focused heading must return the reader to that heading. A bare
+`tabIndex >= 0` test would have quietly regressed the keyboard path in order to fix the pointer one.
+The resolved value is also what the `:389` idempotency guard compares and what `:435` stores, or they
+drift apart.
+
+The replacement `selectPass` row carries **the fresh page + cleared focus** the old rows lacked — and
+the clearing is itself asserted, because a row that skipped it would inherit the very residue it
+exists to catch. Asserted positively on `.stx-grab`, not as "not BODY" (focusing the stage satisfies
+that). **Proven red at HEAD on webkit**: 402 passed, 1 failed, the one failure being this row with
+`{"cls":"","tag":"BODY","menu":0}` — the exact defect — against 403/0 with the fix.
+
+### Finding 3 (Low) — `groupDelta` truncated a mixed-validity array
+
+All-or-nothing now covers validity, not just the grid edge and the occupied peer. The guard sits
+**after** the empty-list return, not before it: past that line `members` is provably a non-empty array,
+and the review's "immediately after building `list`" placement would throw on `groupDelta(null, …)`.
+Group 13's new case asserts **reference identity**, since a fix that filtered and returned a fresh
+3-entry copy would satisfy a deep compare while failing the contract. Mutation-proven: with the guard
+stripped the case goes red naming `3 in, 2 out`.
+
+### Finding 4 (Low) — the unreachable Escape branch is annotated, not deleted
+
+Its deadness rests on a fact about **another** listener (document capture beats descendant bubble,
+sharing one closure's `menu`). Change that listener's phase, add a `stopPropagation`, or narrow its
+guard and the branch is load-bearing again — and no gate can see either the deletion or the
+resurrection. Behaviour is identical either way, so the comment is the honest artifact.
+
+### Finding 6 (Low) — the reduced-motion row now drives what it claims
+
+It said "opens, navigates and closes" and asserted an item count. It now sends an ArrowDown and
+asserts focus moved, and asserts the menu is gone on Escape as well as the focus return.
+
+### Deferred
+
+- **Finding 2 (Medium, pre-existing)** → **#264**. `adoptBoard` never calls `verbs.cancel()`, so a live
+  carry survives a method-card redraft as a phantom gesture. Predates #217 (it arrived with #214's
+  `adoptBoard`), but #217 widens it from one node to a selection and makes `studio-select.mjs` the
+  first module to trust `carrying()` cross-module.
+- **Finding 5 (Low)** — `destroy()` releasing marquee capture / cancelling its rAF. Unreachable: the
+  rAF callback is guarded, the browser releases capture implicitly, and `destroy()` has no caller.
+
+### A gate failure that was NOT a regression, and how that was established
+
+`studio-journey webkit` and `vt-verify` both failed on `page.waitForSelector('[data-replay="settled"]')`
+timing out at 30 s. Two tools, two engines, one symptom — not dismissible on signature alone.
+
+The cause was CPU starvation: the box was carrying an 89%-CPU browser renderer and ~10 unrelated
+Docker containers, and `[data-replay="settled"]` waits on ~14 s of real replay playback inside a 30 s
+budget. Established by A/B on a quiet machine against **two serves on two ports** — HEAD in a detached
+worktree on 4758, this branch on 4757 — rather than by re-running and hoping. Neither tree timed out;
+the only difference was Finding 1's row, red at HEAD and green here. `vt-verify all` then passed on all
+three engines.
+
+Recorded because the honest reading is "this environment cannot run a 30 s replay wait under load",
+not "webkit is flaky".
+
+### Still outstanding
+
+The **real-Safari / real-Chrome manual pass** has not been run — carried forward from the original
+report and unchanged by the review.

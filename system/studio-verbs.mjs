@@ -189,6 +189,15 @@ export function groupOccupancy(all, members) {
 export function groupDelta(members, dcol, drow, occupied) {
   const list = Array.isArray(members) ? members.filter((m) => m && Number.isFinite(Number(m.col)) && Number.isFinite(Number(m.row))) : [];
   if (!list.length) return Array.isArray(members) ? members : [];
+  // ALL-OR-NOTHING COVERS VALIDITY TOO, not just the grid edge and the occupied peer. A MIXED array
+  // — some entries readable, some not — otherwise came back SHORTER than it went in, which is a
+  // partial move wearing the shape of a successful one: the caller gets a list it can apply and the
+  // unreadable members simply vanish from the selection, silently. Unreachable from either live call
+  // site (both build their entries from the live DOM), but the identity return is the contract this
+  // function states, and group 13's totality sweep only ever fed it WHOLESALE-invalid arrays, so the
+  // gap sat behind a green gate (PR #263 review, finding 3). Placed AFTER the empty-list return, not
+  // before: past that line `members` is provably a non-empty array, so reading .length is safe.
+  if (list.length !== members.length) return members;
   const dc = Number(dcol);
   const dr = Number(drow);
   if (!Number.isFinite(dc) || !Number.isFinite(dr)) return members;
