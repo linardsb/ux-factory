@@ -2612,6 +2612,15 @@ function scanSvg(svg, label) {
     `a multi-cell delta moved to ${deep(groupDelta(G3, 2, 1, occAll))} — the pointer path translates by an arbitrary anchor delta, not by one cell`);
   ok(deep(groupDelta(G3, 0, 0, occAll)) === deep(G3), "a zero delta must be the identity, not a refusal");
   ok(deep(groupDelta(G3, 99, 0, occAll)) === deep(G3), "a delta that walks the whole set off the grid returns it unchanged");
+  // THE MIXED-VALIDITY CASE, and the reason it is here rather than in the totality loop below: that
+  // loop only ever feeds WHOLESALE-invalid arrays, which the empty-list return already catches, so
+  // a set with SOME unreadable entries slipped between the two and came back TRUNCATED — three in,
+  // two out, and the caller cannot tell that from a successful move (PR #263 review, finding 3).
+  // Asserted by REFERENCE IDENTITY, not deep equality: a fix that filtered and returned a fresh
+  // 3-entry copy would satisfy a deep compare while still not being the all-or-nothing contract.
+  const mixed = [{ id: "a", col: 1, row: 1 }, { id: "b", col: NaN, row: 2 }, { id: "c", col: 3, row: 1 }];
+  ok(groupDelta(mixed, 1, 0, new Set()) === mixed,
+    `a mixed-validity set came back as ${deep(groupDelta(mixed, 1, 0, new Set()))} — groupDelta must hand back the very set it was given, never a partial move that looks like a whole one`);
 
   // Totality: junk in, never a throw, and never a half-answer.
   for (const junk of [null, undefined, 0, "x", [], {}, NaN, true, [{}], [{ col: "a", row: null }]]) {

@@ -381,11 +381,34 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       closeMenu();
     };
 
-    const openMenu = (node, invoker) => {
+    // WHERE FOCUS GOES BACK TO, resolved HERE rather than at each call site so all three callers get
+    // it — the `contextmenu` handler (whose `|| node` fallback is every right-click that misses the
+    // 24×24 corner handle, i.e. nearly all of them), the keydown handler, and tooling's
+    // openMenu(node, node). A `.stx-slot` wrapper carries NO tabindex (studio-canvas.mjs:307-338
+    // gives it a `.stx-grab` button and the component, and nothing else focusable), so an invoker
+    // that IS the wrapper makes closeMenu()'s focus() a silent no-op and drops the reader on <body>
+    // — the failure the APG note at :362 exists to prevent, arriving through the pointer path.
+    //
+    // `tabIndex >= 0` OR `=== activeElement`, and the second half is load-bearing rather than belt
+    // and braces: after a compile, studio-flow.mjs's screen headings are `tabindex="-1"` elements
+    // living INSIDE these wrappers, and Shift+F10 on a focused heading must return the reader to
+    // that heading, not to the wrapper's grab handle. A bare `tabIndex >= 0` test would quietly
+    // regress the keyboard path to fix the pointer one. openMenu is called synchronously from both
+    // handlers, so activeElement is still the pre-menu focus when this reads it.
+    const focusTargetFor = (node, invoker) => {
+      const ok = invoker && invoker.isConnected
+        && (invoker.tabIndex >= 0 || invoker === document.activeElement);
+      return ok ? invoker : (node?.querySelector(":scope > .stx-grab") || node);
+    };
+
+    const openMenu = (node, rawInvoker) => {
+      const invoker = focusTargetFor(node, rawInvoker);
       // IDEMPOTENT (the belt-and-braces guard). Several engines synthesise a `contextmenu` event for
       // Shift+F10 and the ContextMenu key IN ADDITION to delivering the keydown, so both handlers
       // can fire for one press; re-opening on the same invoker is a no-op rather than a menu that
-      // flickers or loses its focus.
+      // flickers or loses its focus. Compared on the RESOLVED invoker, which also collapses the case
+      // where an engine retargets its synthesised `contextmenu` to the wrapper while the keydown
+      // gives the handle: two raw invokers, one focus target, so the guard still holds.
       if (menu && menu.invoker === invoker) return;
       closeMenu({ restoreFocus: false });
       if (carrying()) return; // a live carry owns the canvas
@@ -432,7 +455,7 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       // A STAGE SIBLING, never a wrapper child: .stx-slot { overflow: hidden } (studio.css:90) would
       // clip it, and that rule is load-bearing for the compiled screens.
       stage.appendChild(list);
-      menu = { el: list, invoker: invoker && invoker.isConnected ? invoker : node, node };
+      menu = { el: list, invoker, node }; // already resolved + connectedness-checked by focusTargetFor
       focusItem(0);
     };
 
@@ -578,6 +601,15 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       else if (e.key === "ArrowUp") { e.preventDefault(); focusItem(at - 1); }
       else if (e.key === "Home") { e.preventDefault(); focusItem(0); }
       else if (e.key === "End") { e.preventDefault(); focusItem(items.length - 1); }
+      // THIS ESCAPE BRANCH IS CURRENTLY UNREACHABLE, and it is kept rather than deleted because
+      // what makes it dead is a fact about ANOTHER listener, not about this one: the document-level
+      // Escape handler at :684 is registered in the CAPTURE phase and shares this closure's `menu`,
+      // so by the time a key event bubbles back down to `stage` — a descendant — `menu` is already
+      // null and the guard at :597 has returned. Behaviour is identical either way (both branches
+      // preventDefault and call the same closeMenu()), which is why no gate can see this. Give that
+      // document listener a bubble registration, a stopPropagation, or a narrower Escape guard and
+      // this line is load-bearing again — so it stays, named, as the APG pattern this handler
+      // claims to implement in full (PR #263 review, finding 4).
       else if (e.key === "Escape") { e.preventDefault(); closeMenu(); }
       else if (e.key === "Tab") closeMenu();
     }, { signal });
