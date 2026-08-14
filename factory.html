@@ -17,7 +17,10 @@
        spent on a tabbed viewer of three read-only exhibits (#78, #80). It is now the surface the
        whole platform points at: Act 0 (your token export, or one colour), a canvas holding the
        drafted breadboard as fat-marker blocks you can move, and a DOCKED INSPECTOR whose panel list
-       absorbs all three exhibits — mounted on activation rather than at load.
+       absorbs all three exhibits — mounted on activation rather than at load. Since #218 the
+       inspector carries a FIFTH panel, "Component": click or focus any component on a compiled
+       canvas and system/studio-docs.mjs opens its generated docs there, through the very same
+       renderer /components uses (system/catalog.mjs's renderComponentDocs — imported, never forked).
 
        system/studio.mjs orchestrates. It invents nothing: the canvas is #204, its verbs are #205,
        the board is breadboard.mjs's draftBoard over build-questions.mjs's shared answer store, and
@@ -27,7 +30,11 @@
 
        THE PANEL IDS #agents / #round-trip / #shape ARE FIXED BY FOUR INBOUND ENTRY POINTS —
        system/palette.mjs:102-104's three memoized ⌘K commands and roundtrip.html's "back to the
-       factory" link. Renaming one breaks all four silently.
+       factory" link. Renaming one breaks all four silently. #component-docs is NOT one of them and
+       deliberately has no inbound entry point: the palette memoizes its command list at first open,
+       and a deep link into a panel that is empty until the visitor compiles would be chrome churn
+       for nothing. It is still owned jointly by two files — system/studio-docs.mjs's DOCS_PANEL_ID
+       must equal it — so rename it in both or in neither.
 
        Honesty contract unchanged: capability chips still state replay-not-live, the fictional label
        stays visible whenever its panel is, and no sentence here claims the canvas composes anything
@@ -41,6 +48,11 @@
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/portfolio.css" />
   <link rel="stylesheet" href="/system/studio.css" />
+  <!-- The catalog's surface styles, linked here because the inspector's Component panel renders
+       system/catalog.mjs's renderComponentDocs a SECOND time (#218, system/studio-docs.mjs). Moved
+       out of components.html's page <style> in the same ticket so the rules — including the
+       [hidden] one the code tabs depend on — travel with the renderer rather than with one page. -->
+  <link rel="stylesheet" href="/system/catalog.css" />
   <script src="/system/pack-boot.js"></script>
 
   <style>
@@ -277,6 +289,11 @@
               <button type="button" class="stu-tab" role="tab" id="stu-tab-agents" aria-controls="agents" aria-selected="false">Traces</button>
               <button type="button" class="stu-tab" role="tab" id="stu-tab-round-trip" aria-controls="round-trip" aria-selected="false">Round-trip</button>
               <button type="button" class="stu-tab" role="tab" id="stu-tab-shape" aria-controls="shape" aria-selected="false">Graph</button>
+              <!-- LAST in the list on purpose (#218): ArrowRight from Round-trip still lands on
+                   Graph and Home still lands on This build, so tooling/studio-journey.mjs's
+                   existing arrow-key assertions stay green unedited. Any other position edits a
+                   shipped assertion for no user-visible gain. -->
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-component-docs" aria-controls="component-docs" aria-selected="false">Component</button>
             </div>
 
             <!-- Inspect toggle (#173): static markup so it renders with JS blocked (degrades to an
@@ -358,6 +375,28 @@
               <p class="muted">
                 Full dataset → <a href="/system/system-graph.json">system-graph.json</a>
               </p>
+            </div>
+
+            <!-- #218's fifth panel. Everything inside it is drawn by system/studio-docs.mjs through
+                 system/catalog.mjs's renderComponentDocs — there is no docs markup here, only the
+                 mount node and the honest precondition sentence, which is what the panel shows
+                 with JS off too (with JS off nothing on the canvas is clickable either). -->
+            <div class="stu-panel" id="component-docs" role="tabpanel" aria-labelledby="stu-tab-component-docs" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">Component</h3>
+                <span class="capability">Generated · one source</span>
+              </div>
+              <p class="stu-panel-lead">
+                Every component on this canvas is documented from the artifacts this repo generates —
+                the handoff pack, the agent vocabulary and the measured token graph, joined at view
+                time. Nothing here is written about the system; it is the system, rendered.
+              </p>
+              <p class="muted" data-studio-docs-empty>
+                Compile the board first. Then click or focus any component on the canvas and its
+                generated documentation opens here — the same docs, from the same source, as
+                <a href="/components">the component catalog</a>.
+              </p>
+              <div class="cat-compact" data-studio-docs-mount></div>
             </div>
           </aside>
         </div>

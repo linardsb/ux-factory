@@ -7,8 +7,16 @@
 // vocab, graph). There is deliberately no catalog.json and no second truth anywhere in here: the
 // per-component renderer, renderComponentDocs, is exactly what the studio inspector (#218, mount 2)
 // imports, and everything it prints is either an artifact's own text, a serialization of a live
-// render, or a value getComputedStyle reports at view time. The one hand-written table is
-// WRAPPER_ATTRS, and it exists because a mechanical camelCase→kebab projection would FABRICATE an
+// render, or a value getComputedStyle reports at view time.
+//
+// MOUNT 2 LANDED AT #218 (system/studio-docs.mjs), and it consumes FOUR things from this file and
+// nothing else: renderComponentDocs, headingTags, resolveTokenValues and watchPackSwap. It adds no
+// renderer of its own — the compaction is a class in system/catalog.css (`.cat-compact`), and the
+// only behaviour the second mount genuinely needed was a heading-level shift, which is what `opts`
+// was reserved for and is now spent on. If a third mount needs this file to DRAW something it does
+// not draw, that is a missing seam here, not a licence to copy the renderer.
+//
+// The one hand-written table is WRAPPER_ATTRS, and it exists because a mechanical camelCase→kebab projection would FABRICATE an
 // API (vd-care-task-row observes `action`; the spec prop is `type`) — build-checks group 21 pins
 // every entry against the wrapper source's observedAttributes and the vocabulary's props, and
 // tooling/catalog-journey.mjs proves the serialized markup drives the real element.
@@ -73,6 +81,21 @@ export const WRAPPER_ATTRS = {
   "plant-card": { name: "name", species: "species", status: "status", photoUrl: "photo-url" },
   "status-chip": { value: "value", label: "label" },
 };
+
+// headingTags(level) → { name, section } — the two heading tags renderComponentDocs uses, and the
+// whole of what #218 spent the `opts` pocket on.
+//
+// The catalog page renders a component's name as an h2 under the page h1; the studio inspector
+// renders it inside a panel whose own title is an h3 (factory.html's .stu-panel-title), so a second
+// mount that kept h2 would invert the outline for every reader walking headings. Clamped to 2..5 so
+// the section tag is always exactly one level below the name and never runs past h6 — and a level
+// outside that range is coerced rather than refused, because this is a caller's layout hint, not
+// data. A non-number (or an absent opts.level) resolves to 2, which is what keeps mount 1's output
+// byte-identical to what it was before this function existed.
+export function headingTags(level) {
+  const n = Number.isFinite(level) ? Math.min(5, Math.max(2, Math.trunc(level))) : 2;
+  return { name: `h${n}`, section: `h${n + 1}` };
+}
 
 // The committed spec source for one component — the copy-as-Markdown fetch target (served
 // same-origin; the repo ships its own sources) and group 21's fs existence check.
@@ -176,15 +199,21 @@ export function resolveTokenValues(scope = document) {
 // vocabulary object for renderComposition, the pack's portability block for the trajectory string
 // and the Figma path). This function is what the studio inspector (#218) imports — keep it free of
 // page chrome; the count line, index strip, hash handling and pack-swap observer are the page
-// mount's, below. `opts` is the seam's forward pocket and is deliberately unused today.
+// mount's, below. `opts` carries exactly one key — `level`, the heading level the NAME renders at
+// (headingTags above says why, and why it defaults to 2). It is deliberately the only one: the
+// second mount's compaction is a class its caller puts on the container, so this function stays ONE
+// code path for both mounts rather than growing a `compact` branch.
 export function renderComponentDocs(container, component, model, opts = {}) {
   const entry = component.vocab;
   const portability = model.portability || null;
+  const heading = headingTags(opts.level);
 
   // -- head: name (the hash focus target — the SECTION wrapper owns the id, not the h2),
   // class, non-shipped status pill, the Figma link-out, copy-as-Markdown.
   const head = el("header", { class: "cat-head" });
-  head.appendChild(el("h2", { class: "cat-name", tabindex: "-1", text: component.name }));
+  // tabindex="-1" in BOTH mounts: mount 1's hash focus target (focusHash) depends on it, and an
+  // unused -1 in mount 2 costs nothing and keeps one code path.
+  head.appendChild(el(heading.name, { class: "cat-name", tabindex: "-1", text: component.name }));
   head.appendChild(el("span", { class: "cat-class", text: component.className }));
   if (component.status && component.status !== "shipped")
     head.appendChild(el("span", { class: "cat-status-pill", text: component.status }));
@@ -335,8 +364,11 @@ export function renderComponentDocs(container, component, model, opts = {}) {
 
   // -- code tabs: HTML = the CURRENT stage node re-serialized on every prop change (never a
   // stored string — AC #5); vd/react only when the pack ships a wrapper (tabsFor); JSON = the
-  // vocabulary entry. Panels toggle via `hidden` (the page carries the page-wide
-  // [hidden] { display: none !important; } rule).
+  // vocabulary entry. Panels toggle via `hidden`, which works on the UA rule alone: nothing in
+  // system/catalog.css gives .cat-code a `display`, measured in both directions by #218's mutation
+  // drill. That sheet's [hidden] { display: none !important } is defence in depth for the day one
+  // does (the /build #138 regression), not a dependency this function has — the sentence here used
+  // to claim the latter, and the drill is what disproved it.
   const tabIds = tabsFor(component);
   const TAB_LABELS = { html: "HTML", vd: "vd-* element", react: "React", json: "JSON" };
   const tabRow = el("div", { class: "cat-tabs", role: "group", "aria-label": `${component.name} code views` });
@@ -430,7 +462,9 @@ export function renderComponentDocs(container, component, model, opts = {}) {
   const prose = el("section", { class: "cat-prose" });
   prose.appendChild(el("div", { class: "cat-eyebrow", text: "Spec prose — committed source, rendered" }));
   for (const sec of component.sections || []) {
-    prose.appendChild(el("h3", { class: "cat-section-title", text: sec.title }));
+    // Exactly one level below the name. Only the SECTION TITLE's tag is ours to shift — the bodies
+    // go through the imported markdown subset, which renders no headings at all.
+    prose.appendChild(el(heading.section, { class: "cat-section-title", text: sec.title }));
     renderMarkdown(prose, sec.body);
   }
   container.appendChild(prose);
@@ -472,7 +506,11 @@ function focusHash() {
 // deliberately BROADER than dock.mjs's PACK_RE hard allowlist, which is a security gate on
 // storage-supplied hrefs; this is only "which line do I observe", and it must keep matching when
 // a pack joins that list without a second copy to edit.
-function watchPackSwap(root) {
+//
+// Exported for mount 2 (#218), body unchanged. ONE observer per mount, never one per render: the
+// studio inspector calls it once when its model lands, not on every open, or every component a
+// reader ever clicked would leave a live MutationObserver behind.
+export function watchPackSwap(root) {
   let link = null;
   for (const candidate of document.querySelectorAll('link[rel="stylesheet"]')) {
     const href = candidate.getAttribute("href") || "";

@@ -409,8 +409,26 @@
 .stu-canvas-label { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
 
 /* ---------- the docked inspector ---------- */
+/* THE RAIL TAKES POINTER PRECEDENCE OVER THE CANVAS COLUMN, and this is a pointer fix, not a paint
+   one (#218). The overflow it works around is #206's, is already recorded at .stu-compile-step
+   below, and is deliberately left alone there: .stx-viewport is ~2818px wide inside a 776px column,
+   so the canvas column's box extends transparently ACROSS the inspector. Nothing paints there —
+   which is why every pixel baseline has always looked correct and no gate could see it — but the
+   box is still the topmost hit-test target, so a pointer aimed at the rail lands on the canvas.
+   It went unnoticed while the rail's only controls were the tab pills at its very top; #218 puts a
+   playground, a code-tab row and a copy button several hundred pixels down it, and a reader
+   clicking those was hitting the stage instead (measured on chromium, identical on origin/main —
+   the defect predates this ticket and only its REACH is new).
+
+   A stacking context rather than a narrower column: narrowing is an at-rest change to the canvas
+   with its own baselines and its own gates to argue (studio.css's own words below). This changes no
+   computed geometry, no at-rest pixel and nothing about the canvas — Task 11b's comparison across
+   both trees is what says so. It names nothing for a view transition, so #171's hazard class is not
+   in play; the inspect bubble is appended to <body> and is unaffected. */
 .stu-inspector {
   min-width: 0;
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
@@ -857,7 +875,7 @@
 
    AT REST THIS RAIL IS VISIBLE, because the replay settles to a board with places on it, so every
    rule here is in the pixel baseline. Nothing below animates, nothing carries a time, and the tiers'
-   only state is `hidden` — which factory.html:79's `[hidden] { display: none !important }` already
+   only state is `hidden` — which factory.html:91's `[hidden] { display: none !important }` already
    makes stick, so the author-`display` trap (memory `hidden-defeated-by-author-display`) is closed
    for the `display: grid` below rather than reopened by it. */
 .stu-keep { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-xl); min-width: 0; }
@@ -896,7 +914,7 @@
 }
 
 /* The shared-link notice (#210). Empty and `hidden` unless a ?b= arrived, so it paints nothing at
-   rest and is not in the pixel baseline; factory.html:79's `[hidden] { display: none !important }`
+   rest and is not in the pixel baseline; factory.html:91's `[hidden] { display: none !important }`
    is what makes that stick over the block below. */
 .stu-notice {
   margin: 0 0 var(--spacing-md);

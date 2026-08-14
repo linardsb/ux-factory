@@ -1,0 +1,210 @@
+/* system/catalog.css — the component catalog's surface styles (epic #202, tickets #215, #218;
+   .claude/plans/studio-inspector-docs-218.md).
+
+   TWO MOUNTS, ONE SHEET. This block was components.html's page <style> at #215, where its own
+   comment said "one page, not a reused organism, so deliberately not promoted to components.css".
+   #218 is the event that changed that: system/catalog.mjs's renderComponentDocs now renders a
+   second time inside /factory's docked inspector (system/studio-docs.mjs), so both pages link this
+   file — moved verbatim rather than rewritten, the same move #206 made when the studio absorbed the
+   trace-player and system-graph blocks into system/studio.css (factory.html records it).
+
+   NOT components.css, deliberately: that sheet is the shipped design system every page and both
+   protos load, and these are two surfaces' docs styles. A third mount links this file too.
+
+   The `.cat-compact` block at the bottom is the ONLY thing #218 added. Compaction is CSS and
+   nothing else — renderComponentDocs stays one code path for both mounts, and the caller puts the
+   class on its container (a `compact` branch inside the renderer would be the first crack in "one
+   source"). */
+
+/* Catalog layout — the cat-* classes system/catalog.mjs emits, styled from tokens alone
+   (colour / space / radius / type via var(--…)); grid tracks and % are inherently structural
+   literals. The prose sections reuse the hv-* classes the shared markdown renderer emits, styled
+   here because the module injects no <style> — and among the pages linking this sheet renderMarkdown
+   has exactly one caller (catalog.mjs's renderComponentDocs), so those rules reach nothing but this
+   renderer's own output on either host page. The shared renderer's OTHER caller is
+   handoff-viewer.mjs's renderHandoffViewer, which draws onto /handoff.html — that page does not link
+   this file and carries its own separate copy of the hv-* rules in a page <style>, so there is no
+   leak in either direction. Both callers are named by SYMBOL rather than by line, deliberately —
+   a line cite here goes stale the next time either file grows. */
+
+/* `hidden` wins wherever this sheet is linked. The rule TRAVELS WITH THE RENDERER (#218) rather
+   than staying in one page's <style>, so a host does not have to know to declare it.
+
+   WHAT IT IS AND IS NOT, measured rather than assumed — because the sentence this replaced was
+   wrong, and #218's mutation drill is what caught it. `panel.hidden = …` is how
+   renderComponentDocs toggles its code tabs, and the attribute is only a UA rule any author
+   `display` beats (the /build #138 lesson). But NO rule in this sheet sets `display` on
+   `.cat-code`, so the UA rule already wins on both pages TODAY: deleting this line and re-running
+   tooling/studio-journey.mjs's docsPass leaves the code panels toggling correctly on /factory AND
+   on /components, verified in both directions. So this is DEFENCE IN DEPTH against the day someone
+   gives .cat-code (or another `hidden`-toggled node here) a display — the exact regression #138
+   shipped on /build — and NOT a dependency the renderer currently has. Said plainly so the next
+   editor neither deletes it as dead nor trusts a gate to catch its removal: none can, today.
+
+   Both hosts also declare an identical rule in their own <style>; those duplicates are inert (same
+   declaration, same !important). */
+[hidden] { display: none !important; }
+
+.cat-notice { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.cat-count { font-size: var(--type-body); color: var(--color-fg-muted); margin: 0; }
+
+.cat-index { display: flex; flex-wrap: wrap; gap: var(--spacing-xs, 4px); margin-top: var(--spacing-sm); }
+.cat-chip {
+  font-size: var(--type-caption); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-fg); text-decoration: none;
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  padding: 2px 10px; background: var(--color-bg-surface);
+}
+.cat-chip:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+.cat-component { border-top: 2px solid var(--color-border); padding-top: var(--spacing-lg); margin-top: var(--spacing-2xl, 48px); min-width: 0; }
+.cat-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-sm); }
+.cat-name { font-size: var(--type-h2); margin: 0; }
+.cat-class {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.cat-status-pill {
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--type-eyebrow); font-weight: 700;
+  color: var(--color-fg); background: var(--color-bg-surface);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 8px;
+}
+.cat-figma { font-size: var(--type-caption); color: var(--color-accent); }
+.cat-copy-md {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: var(--type-caption);
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+
+/* Playground: stage + controls side by side; both cells guard min-width:0 so wide specimens
+   and long labels scroll inside their cell instead of blowing the grid (the PR #54 lesson). */
+.cat-playground {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: var(--spacing-lg); align-items: start; margin-top: var(--spacing-md);
+}
+.cat-stage {
+  min-width: 0; min-height: 96px;
+  background: var(--color-bg-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: var(--spacing-md);
+  display: flex; flex-direction: column; justify-content: center; align-items: stretch;
+  overflow-x: auto;
+}
+.cat-controls { min-width: 0; display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.cat-control-row {
+  display: grid; grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto;
+  gap: var(--spacing-sm); align-items: center; font-size: var(--type-caption);
+}
+.cat-control-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-fg-muted); }
+.cat-control {
+  font: inherit; color: var(--color-fg); background: var(--color-bg);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 4px 8px; min-width: 0;
+}
+.cat-control[type="checkbox"] { justify-self: start; padding: 0; }
+.cat-control[type="range"] { padding: 0; border: none; background: none; }
+.cat-control-readout { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-fg-muted); }
+
+/* One line, two jobs: the validator's refusal verbatim, or the specimen's last ui.intent.
+   min-height keeps the section from jumping when the text arrives. */
+.cat-status-line { font-size: var(--type-caption); color: var(--color-fg-muted); min-height: 1.4em; margin: var(--spacing-sm) 0 0; }
+
+.cat-tabs { display: flex; flex-wrap: wrap; gap: var(--spacing-xs, 4px); margin-top: var(--spacing-md); }
+.cat-tab {
+  font: inherit; font-size: var(--type-caption); letter-spacing: 0.04em;
+  color: var(--color-fg-muted); background: var(--color-bg-surface);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 4px 12px; cursor: pointer;
+}
+.cat-tab[aria-pressed="true"] { color: var(--color-fg); border-color: var(--color-accent); }
+
+.cat-panels { min-width: 0; margin-top: var(--spacing-sm); }
+.cat-code {
+  margin: 0; overflow-x: auto; background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); padding: var(--spacing-sm); font-size: 12px; line-height: 1.5;
+  max-height: 22rem; overflow-y: auto;
+}
+.cat-code code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.cat-trajectory { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-sm) 0 0; }
+
+.cat-eyebrow {
+  text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--type-eyebrow);
+  color: var(--color-fg-muted); font-weight: 700;
+}
+.cat-api, .cat-tokens, .cat-prose { margin-top: var(--spacing-lg); min-width: 0; }
+.cat-api > .cat-eyebrow, .cat-tokens > .cat-eyebrow, .cat-prose > .cat-eyebrow { margin-bottom: var(--spacing-sm); }
+
+.cat-table { border-collapse: collapse; font-size: var(--type-caption); display: block; overflow-x: auto; }
+.cat-table th, .cat-table td {
+  border: 1px solid var(--color-border); padding: var(--spacing-xs, 4px) var(--spacing-sm);
+  text-align: left; vertical-align: top;
+}
+.cat-table th { background: var(--color-bg-surface); }
+.cat-table code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.95em; }
+.cat-token-value { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cat-swatch { width: 12px; height: 12px; margin-right: 6px; vertical-align: baseline; }
+.cat-swatch rect { stroke: var(--color-border); stroke-width: 1; }
+.cat-meta-line { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-sm) 0 0; }
+
+.cat-section-title { font-size: var(--type-h3); margin: var(--spacing-sm) 0 0; }
+.cat-error { border-color: var(--color-fg); padding: var(--spacing-md); }
+.cat-error p { margin-top: var(--spacing-sm); }
+
+/* The shared markdown renderer's hv-* classes (handoff.html owns the same set there). */
+.hv-p { font-size: var(--type-body); line-height: 1.6; margin: var(--spacing-xs, 4px) 0 0; max-width: 70ch; }
+.hv-list { margin: var(--spacing-xs, 4px) 0 0; padding-left: var(--spacing-lg); display: flex; flex-direction: column; gap: var(--spacing-xs, 4px); }
+.hv-list li { font-size: var(--type-body); line-height: 1.55; }
+.hv-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+  background: var(--color-bg-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); padding: 0 4px;
+}
+.hv-code {
+  margin: var(--spacing-sm) 0 0; overflow-x: auto; background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); padding: var(--spacing-sm); font-size: 12px; line-height: 1.5;
+}
+.hv-code code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.hv-table { border-collapse: collapse; font-size: var(--type-caption); display: block; overflow-x: auto; margin-top: var(--spacing-sm); }
+.hv-table th, .hv-table td {
+  border: 1px solid var(--color-border); padding: var(--spacing-xs, 4px) var(--spacing-sm);
+  text-align: left; vertical-align: top;
+}
+.hv-table th { background: var(--color-bg-surface); }
+
+@media (max-width: 900px) {
+  .cat-playground { grid-template-columns: 1fr; }
+  .cat-copy-md { margin-left: 0; }
+}
+
+/* ---------- .cat-compact — MOUNT 2's only addition (#218) ----------
+   The studio inspector renders ONE component into a ~22rem rail (studio.css's .stu-inspector),
+   where the catalog's two-column playground and h2-scale head do not fit. Compaction is CSS and
+   only CSS: system/studio-docs.mjs puts this class on its mount container and calls the same
+   renderComponentDocs the catalog page calls, so there is one code path and no `compact` flag.
+
+   The type sizes are here rather than in opts: opts.level shifts the heading TAGS so the panel's
+   outline is correct under its own h3 title, and a tag carries no size — .cat-name's font-size is
+   class-driven, so without these two rules the semantic fix would be invisible and the rail would
+   still render at h2 scale.
+
+   Tables need nothing: .cat-table is already `display: block; overflow-x: auto` above, which is
+   what keeps a wide token table scrolling inside the rail instead of widening the page. */
+.cat-compact .cat-name { font-size: var(--type-body); }
+.cat-compact .cat-section-title { font-size: var(--type-caption); margin-top: var(--spacing-sm); }
+.cat-compact .cat-head { gap: var(--spacing-xs, 4px); }
+.cat-compact .cat-copy-md { margin-left: 0; }
+.cat-compact .cat-eyebrow { font-size: var(--type-eyebrow); }
+
+/* One column, both here and in the controls: two tracks in a 22rem rail leave neither usable. */
+.cat-compact .cat-playground { grid-template-columns: 1fr; gap: var(--spacing-md); }
+.cat-compact .cat-stage { min-height: 72px; padding: var(--spacing-sm); }
+.cat-compact .cat-control-row { grid-template-columns: minmax(0, 1fr); gap: var(--spacing-xs, 4px); }
+.cat-compact .cat-control-readout { justify-self: start; }
+
+/* Reduced vertical rhythm — the rail is a column beside the work, not a page to read down. */
+.cat-compact .cat-api,
+.cat-compact .cat-tokens,
+.cat-compact .cat-prose { margin-top: var(--spacing-md); }
+.cat-compact .cat-code { max-height: 14rem; }
+.cat-compact .hv-p { max-width: none; }
