@@ -22,6 +22,10 @@
   --stx-rows: 8;           /* mirrors MAX_ROWS  — pinned by build-checks group 12 */
   --stx-slot-w: 220px;
   --stx-slot-h: 140px;
+  /* #219's frame row unit. It MIRRORS the at-rest --stx-slot-h above rather than reading it, because
+     :638 flips that variable to 480px in the compiled state and a device frame must not change size
+     when a board compiles (the argument is at the .stx-frame block). Group 12 pins the pair. */
+  --stx-frame-unit: 140px;
   --stx-gap: var(--spacing-md, 16px);
   --stx-scale: 1;          /* the at-rest level; the table below overrides it per data-zoom */
   display: flex;
@@ -298,6 +302,167 @@
 .stx-menu[data-row="7"] { grid-row: 7; }
 .stx-menu[data-row="8"] { grid-row: 8; }
 
+/* ---------- frames: the FOURTH grid family (#219) ---------- */
+/* A frame is on the grid but is NOT a board wrapper. system/studio-compile.mjs's identity and count
+   tripwires, system/studio.mjs's arrangementNow() and adoptBoard's removal loop all mean `.stx-slot`
+   and must keep meaning it, so the two device frames join .stx-guide and .stx-menu as a family that
+   is a grid child without being a wrapper. Registered in build-checks group 12's GRID_FAMILIES — the
+   fourth-family detector fails on the first rule below without it, which is that check working.
+
+   A FRAME IS A RECTANGLE, so it carries TWO more attributes than the three families above:
+   data-span-col / data-span-row, mirroring system/studio-canvas.mjs's clampSpan. Group 12 pins those
+   two tables exhaustively and in both directions, exactly as it pins the position ones.
+
+   NOTHING HERE IS NAMED FOR A VIEW TRANSITION, and nothing here animates — the frames join the
+   reduced-motion off-ramp below for the standing prophylactic reason. */
+
+/* START AND END ARE SPLIT DELIBERATELY. `grid-column: N` is a SHORTHAND: declared in a rule of equal
+   specificity it resets grid-column-end back to `auto`, so a frame would silently be one cell wide
+   whichever rule happened to come last. The three families above can use the shorthand because none
+   of them spans. */
+.stx-frame[data-col="1"]  { grid-column-start: 1; }
+.stx-frame[data-col="2"]  { grid-column-start: 2; }
+.stx-frame[data-col="3"]  { grid-column-start: 3; }
+.stx-frame[data-col="4"]  { grid-column-start: 4; }
+.stx-frame[data-col="5"]  { grid-column-start: 5; }
+.stx-frame[data-col="6"]  { grid-column-start: 6; }
+.stx-frame[data-col="7"]  { grid-column-start: 7; }
+.stx-frame[data-col="8"]  { grid-column-start: 8; }
+.stx-frame[data-col="9"]  { grid-column-start: 9; }
+.stx-frame[data-col="10"] { grid-column-start: 10; }
+.stx-frame[data-col="11"] { grid-column-start: 11; }
+.stx-frame[data-col="12"] { grid-column-start: 12; }
+
+.stx-frame[data-row="1"] { grid-row-start: 1; }
+.stx-frame[data-row="2"] { grid-row-start: 2; }
+.stx-frame[data-row="3"] { grid-row-start: 3; }
+.stx-frame[data-row="4"] { grid-row-start: 4; }
+.stx-frame[data-row="5"] { grid-row-start: 5; }
+.stx-frame[data-row="6"] { grid-row-start: 6; }
+.stx-frame[data-row="7"] { grid-row-start: 7; }
+.stx-frame[data-row="8"] { grid-row-start: 8; }
+
+.stx-frame[data-span-col="1"]  { grid-column-end: span 1; }
+.stx-frame[data-span-col="2"]  { grid-column-end: span 2; }
+.stx-frame[data-span-col="3"]  { grid-column-end: span 3; }
+.stx-frame[data-span-col="4"]  { grid-column-end: span 4; }
+.stx-frame[data-span-col="5"]  { grid-column-end: span 5; }
+.stx-frame[data-span-col="6"]  { grid-column-end: span 6; }
+.stx-frame[data-span-col="7"]  { grid-column-end: span 7; }
+.stx-frame[data-span-col="8"]  { grid-column-end: span 8; }
+.stx-frame[data-span-col="9"]  { grid-column-end: span 9; }
+.stx-frame[data-span-col="10"] { grid-column-end: span 10; }
+.stx-frame[data-span-col="11"] { grid-column-end: span 11; }
+.stx-frame[data-span-col="12"] { grid-column-end: span 12; }
+
+/* Each row-span rule declares its own index TWICE — once as the grid span, once as the row count the
+   height calc below reads. Group 12 asserts the pair agrees, because a height and a span that
+   disagree is a frame claiming grid area it does not paint for a reason nobody chose. */
+.stx-frame[data-span-row="1"] { grid-row-end: span 1; --stx-frame-rows: 1; }
+.stx-frame[data-span-row="2"] { grid-row-end: span 2; --stx-frame-rows: 2; }
+.stx-frame[data-span-row="3"] { grid-row-end: span 3; --stx-frame-rows: 3; }
+.stx-frame[data-span-row="4"] { grid-row-end: span 4; --stx-frame-rows: 4; }
+.stx-frame[data-span-row="5"] { grid-row-end: span 5; --stx-frame-rows: 5; }
+.stx-frame[data-span-row="6"] { grid-row-end: span 6; --stx-frame-rows: 6; }
+.stx-frame[data-span-row="7"] { grid-row-end: span 7; --stx-frame-rows: 7; }
+.stx-frame[data-span-row="8"] { grid-row-end: span 8; --stx-frame-rows: 8; }
+
+/* THE HEIGHT DOES NOT RIDE --stx-slot-h, and that is the one call in this block worth arguing.
+   :638 flips --stx-slot-h to 480px in the compiled state, so a grid-stretched 3-row frame would be
+   452px at rest and 1,472px after Compile — a depicted phone that grows when you compile a board is
+   a lie about the device it depicts. align-self: start plus an explicit height off the AT-REST row
+   unit keeps the device the same size in both states; the frame then claims more grid area than it
+   paints once compiled, which is visible whitespace and honest.
+
+   Rejected alternative: a per-compile-state span override. It would make the announcement ("3 rows")
+   false in one of the two states. */
+.stx-frame {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  align-self: start;
+  height: calc(var(--stx-frame-rows, 1) * var(--stx-frame-unit)
+               + (var(--stx-frame-rows, 1) - 1) * var(--stx-gap));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface);
+}
+/* .stx-slot's :not(.stx-grab) rule (:125), with the resize handle excluded on the same terms: both
+   handles are absolutely positioned chrome, and everything else is the frame's body. */
+.stx-frame > :not(.stx-grab):not(.stx-resize) { flex: 1 1 auto; min-width: 0; }
+
+.stx-frame-box { display: flex; flex-direction: column; min-width: 0; }
+/* The iframe takes the room the caption leaves. `display: block` kills the inline baseline gap;
+   `border: 0` because the box's frame is the wrapper's border above. */
+.stx-frame-box > iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  display: block;
+  background: var(--color-bg);
+}
+.stx-frame-cap {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-xs, 4px) var(--spacing-sm, 12px);
+  padding: var(--spacing-xs, 4px) var(--spacing-sm, 12px);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--type-caption, 0.85rem);
+  color: var(--color-fg-muted);
+}
+.stx-frame-cap p { margin: 0; }
+
+/* The same kill as .stx-slot's (:113). It matters MORE here: an <iframe> swallows every pointer
+   event, so without it a pan that crosses a frame would hand the gesture to the proto document. */
+.stx-scroll.is-panning .stx-frame { pointer-events: none; }
+
+/* .stx-slot.is-picked's twin (:173). A frame is outside #217's SELECTION layer by decision, so it
+   gets the picked outline and no .is-selected rule — see system/studio-frames.mjs's header. */
+.stx-frame.is-picked { outline: 2px solid var(--color-accent); outline-offset: 2px; z-index: 2; }
+.stx-frame.is-picked .stx-grab { cursor: grabbing; }
+
+/* THE RESIZE HANDLE. Above the iframe, or the initial pointerdown would land in the proto document
+   and the gesture could never start (everything after that is safe — studio-verbs.mjs takes pointer
+   capture on the wrapper, which retargets every subsequent move).
+
+   24×24 IS WCAG 2.2 SC 2.5.8 Target Size (Minimum), recorded beside the size exactly as .stx-grab's
+   is at :127-135, and the Spacing exception is NOT relied on here either: the caption's standalone
+   link is an adjacent target in the same corner region, so the size is met rather than argued.
+   Always visible, never hover-revealed, for .stx-grab's reason.
+
+   touch-action: none so a drag on it is a gesture rather than a scroll on the engines that would
+   otherwise claim it — the handle's own pointer path, not the canvas's. */
+.stx-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  touch-action: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  cursor: se-resize;
+  /* The grip: two corner rules drawn from the current colour, so it re-skins with the pack. */
+  background-image: linear-gradient(to top left, currentColor 1px, transparent 1px),
+                    linear-gradient(to top left, transparent 4px, currentColor 5px, transparent 6px);
+  background-origin: content-box;
+  background-clip: content-box;
+  background-repeat: no-repeat;
+}
+.stx-resize:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* The INERT handle, .stx-grab[disabled]'s twin (:168): place() draws it, studio-verbs.mjs's mount
+   arms it, and between those two moments it must not look like a control that works. */
+.stx-resize[disabled] { opacity: 0.5; cursor: not-allowed; }
+
 /* No transition on --stx-scale anywhere: a transitioned scale would jank every wheel tick. This
    block is the off-ramp for anything a later ticket adds to the stage, declared now so the
    reduced-motion story is never an afterthought. The undo/redo travel is an element.animate() and
@@ -342,6 +507,13 @@
   .stx-guide,
   .stx-menu,
   .stx-menu-item,
+  /* #219's frames join on the same terms, and prophylactically for the same reason: nothing in the
+     frame block transitions or animates, and a resize is an attribute flip the grid resolves. The
+     names are here so a later CSS transition on a frame or its handle cannot slip past the off-ramp.
+     The frames' CONTENTS are separate documents with their own reduced-motion handling — a rule here
+     could not reach them even if it wanted to. */
+  .stx-frame,
+  .stx-resize,
   .stf-go { transition: none !important; animation: none !important; }
   .stx-scroll { scroll-behavior: auto; }
 }

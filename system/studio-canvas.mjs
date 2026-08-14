@@ -56,6 +56,93 @@ export function clampSlot({ col, row } = {}) {
   return { col: axis(col, MAX_COLS), row: axis(row, MAX_ROWS) };
 }
 
+// ---- the SPAN layer (#219) ----------------------------------------------------------------------
+// A frame is a RECTANGLE of cells, not a cell. Everything below is the rectangle twin of clampSlot's
+// answers, and it lives here — beside the caps it clamps against — rather than in the frames module,
+// because three layers read it: system/studio-frames.mjs (the descriptors), system/studio-verbs.mjs
+// (the occupancy, the gesture and the ui.resize consumer) and tooling/build-checks.mjs (groups 12,
+// 13 and 24). CSS cannot import, so system/studio.css mirrors the span tables by hand and group 12
+// pins that mirror exhaustively, exactly as it does for the caps and the zoom levels.
+
+// MIN is 1 because a 1×1 frame is a legitimate (tiny) state, and refusing it would need a second
+// bound nothing else in the studio has.
+export const MIN_SPAN = 1;
+
+// The frame's wrapper class, as ONE constant three modules read. It is NOT `.stx-slot`, and that is
+// the ticket's load-bearing call: `.stx-slot` means BOARD WRAPPER — studio-compile.mjs's identity
+// and count tripwires, studio.mjs's arrangementNow() and adoptBoard's removal loop all depend on
+// that meaning, and they keep it. Frames join .stx-guide and .stx-menu (#217) as a family that is on
+// the grid without being a board wrapper.
+export const FRAME_CLASS = "stx-frame";
+
+// The MOVABLE families, as ONE selector both this module and studio-verbs.mjs read — exported rather
+// than literalled twice for the MAX_COLS / LABEL_MAX / SLOT_MAX reason: the day a fifth family
+// becomes movable there is exactly one line to edit, and build-checks can pin it.
+//
+// NOTE WHAT IS NOT HERE. .stx-guide and .stx-menu are chrome, and #217's SELECTION layer keeps its
+// own `.stx-slot`-only scope on purpose — a frame moves and resizes on its own (system/
+// studio-frames.mjs's header records why half-widening a selection is a bug factory).
+export const MOVABLE = ".stx-slot, .stx-frame";
+
+// clampSpan(slot, span) → { cols, rows } that keep the whole footprint ON THE GRID from `slot`.
+// Coerces first, exactly as clampSlot does — a decoded "2" is a real input — and answers MIN_SPAN
+// for anything non-finite rather than letting NaN reach an attribute.
+//
+// THE BOUND IS `MAX_COLS - col + 1`, NOT `MAX_COLS`. A frame at column 11 can be at most 2 wide.
+// Getting this wrong looks correct at column 1, which is where it gets tested first.
+export function clampSpan({ col, row } = {}, { cols, rows } = {}) {
+  const start = clampSlot({ col, row });
+  const axis = (v, max) => {
+    const n = Math.round(Number(v));
+    if (!Number.isFinite(n)) return MIN_SPAN;
+    return Math.min(max, Math.max(MIN_SPAN, n));
+  };
+  return { cols: axis(cols, MAX_COLS - start.col + 1), rows: axis(rows, MAX_ROWS - start.row + 1) };
+}
+
+// footprint(slot, span) → ["c,r", …] — every cell the rectangle covers, in the same string form
+// studio-verbs.mjs's occupancyKey produces, so the two sets are directly comparable. The key is
+// written out rather than imported because studio-verbs.mjs imports THIS file; group 13 pins the two
+// against each other instead, which is the honest place for a coupling a circular import would hide.
+//
+// A 1×1 span returns exactly [occupancyKey(slot)] — the property that lets the whole occupancy layer
+// widen without changing a single existing answer.
+export function footprint(slot, span) {
+  const start = clampSlot(slot);
+  const { cols, rows } = clampSpan(start, span);
+  const out = [];
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) out.push(`${start.col + c},${start.row + r}`);
+  }
+  return out;
+}
+
+// fits(slot, span, occupied) → boolean. THE ONE PREDICATE four callers share (stepSlot, groupDelta,
+// the resize gesture's preview and the keyboard End), and the reason it is here rather than in a
+// mount: `occupied` is a plain Set of keys, so this is pure and build-checks group 13 can drive it —
+// which the DOM-reading occupancyExcept() it is fed from never could.
+//
+// On-grid AND every covered cell free. A footprint that runs off the grid is FALSE, never clamped,
+// because clamping a DESTINATION silently moves the reader's frame somewhere they did not ask for —
+// stepSlot's "a blocked step is a real answer" rule, extended to rectangles. That is also why this
+// and clampSpan must not be merged: clamping is "make this legal geometry", fitting is "is this
+// destination free", and the two callers want opposite answers about a collision.
+export function fits(slot, span, occupied) {
+  const col = Math.round(Number(slot?.col));
+  const row = Math.round(Number(slot?.row));
+  const cols = Math.round(Number(span?.cols));
+  const rows = Math.round(Number(span?.rows));
+  if (![col, row, cols, rows].every(Number.isFinite)) return false;
+  if (cols < MIN_SPAN || rows < MIN_SPAN) return false;
+  if (col < 1 || row < 1) return false;
+  if (col + cols - 1 > MAX_COLS || row + rows - 1 > MAX_ROWS) return false;
+  const taken = occupied instanceof Set ? occupied : new Set(occupied || []);
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) if (taken.has(`${col + c},${row + r}`)) return false;
+  }
+  return true;
+}
+
 // The index of the largest level whose scale still fits the content in the available box. Snapping
 // DOWN is what lets fit be discrete without ever overflowing the viewport — a level ABOVE the
 // ratio would fit nothing, it would just be closer.
@@ -286,14 +373,25 @@ export function initStudioCanvas(root = document) {
     // itself. The id comes from the module that OWNS the instructions element rather than being
     // literalled twice, and arming is idempotent and forward-acting: a component placed after the
     // verbs mounted is armed at creation.
+    //
+    // TWO IDS SINCE #219, for the same reason there was one: the frames' .stx-resize handle is drawn
+    // by place() and armed by the verbs, and its instructions element (#stx-resize-help) belongs to
+    // the module that created it. A second parameter rather than an object, so every existing caller
+    // is unchanged and a host that arms only the move handles is still a legal call.
     let armed = false;
     let helpId = null;
-    const armMoveHandles = (describedBy) => {
+    let resizeHelpId = null;
+    const armMoveHandles = (describedBy, resizeDescribedBy) => {
       armed = true;
       helpId = typeof describedBy === "string" && describedBy ? describedBy : null;
+      resizeHelpId = typeof resizeDescribedBy === "string" && resizeDescribedBy ? resizeDescribedBy : null;
       for (const grab of stage.querySelectorAll(".stx-grab")) {
         grab.disabled = false;
         if (helpId) grab.setAttribute("aria-describedby", helpId);
+      }
+      for (const grip of stage.querySelectorAll(".stx-resize")) {
+        grip.disabled = false;
+        if (resizeHelpId) grip.setAttribute("aria-describedby", resizeHelpId);
       }
     };
 
@@ -304,13 +402,25 @@ export function initStudioCanvas(root = document) {
     // the wrapper so system/studio-verbs.mjs can put the real shape on the bus's `target.component`
     // instead of the display label (#232); a caller that does not know a shape supplies none, and
     // the action carries none, which is the honest answer rather than an invented name.
-    const place = (node, { col, row, name, component } = {}) => {
+    //
+    // `kind` IS THE FOURTH FAMILY'S ONE BRANCH (#219). kind: "frame" builds a .stx-frame wrapper —
+    // a device frame is on the grid but is NOT a board wrapper (FRAME_CLASS's comment says why) —
+    // and it spans, so spanCol / spanRow join col / row as the geometry the caller supplies.
+    // Everything else is shared deliberately: the idempotency contract two drivers rely on, the
+    // handle-first tab order, the born-inert handle, the re-label fix (#231 L3), the id counter and
+    // the say() on placement are six rules someone argued for, and a second wrapper builder in
+    // system/studio-frames.mjs would be a second copy of all six.
+    const place = (node, { col, row, name, component, kind, spanCol, spanRow } = {}) => {
       if (!node) throw new Error("studio-canvas: place() was called with no node");
       const slot = clampSlot({ col, row });
-      const existing = node.classList.contains("stx-slot")
+      // WIDENED WITH THE FAMILY, and the parent test with it. Both drivers do
+      // querySelector(…) → place(node) → read data-col off that same node, so a frame that nested a
+      // second wrapper on its second call would break idempotency for the family that needs it most.
+      const isWrapper = (n) => Boolean(n?.classList?.contains("stx-slot") || n?.classList?.contains(FRAME_CLASS));
+      const existing = isWrapper(node)
         ? node
-        : (node.parentElement?.classList.contains("stx-slot") ? node.parentElement : null);
-      const wrap = existing || el("div", { class: "stx-slot" });
+        : (isWrapper(node.parentElement) ? node.parentElement : null);
+      const wrap = existing || el("div", { class: kind === "frame" ? FRAME_CLASS : "stx-slot" });
       const label = name || node.dataset?.stxName || wrap.dataset.stxName || "Component";
 
       if (!existing) {
@@ -326,6 +436,15 @@ export function initStudioCanvas(root = document) {
         else if (helpId) born.setAttribute("aria-describedby", helpId);
         wrap.appendChild(born);
         wrap.appendChild(node);
+        // The resize handle, AFTER the component: a frame's first tab stop is still Move, and Resize
+        // is the last, so the reader meets the two verbs in the order the grammar teaches them. Born
+        // inert and armed by studio-verbs.mjs's mount, exactly as .stx-grab is (#231 L2).
+        if (kind === "frame") {
+          const grip = el("button", { type: "button", class: "stx-resize" });
+          if (!armed) grip.disabled = true;
+          else if (resizeHelpId) grip.setAttribute("aria-describedby", resizeHelpId);
+          wrap.appendChild(grip);
+        }
       }
       wrap.setAttribute("data-stx-name", label);
       // OUT OF THE CREATE BRANCH (#231 L3). place(node, { name }) on an existing wrapper is a
@@ -337,6 +456,19 @@ export function initStudioCanvas(root = document) {
       if (typeof component === "string" && component) wrap.setAttribute("data-stx-component", component);
       wrap.setAttribute("data-col", String(slot.col));
       wrap.setAttribute("data-row", String(slot.row));
+      // OUT OF THE CREATE BRANCH, like the label (#231 L3): a re-placed frame must not be left
+      // wearing a stale span. The span is read from the ARGUMENTS when they carry one and from the
+      // wrapper otherwise, so a re-place that mentions no geometry keeps the frame's size instead of
+      // silently shrinking it to 1×1 — and it is re-clamped against the NEW column, which is the
+      // whole reason clampSpan takes a slot.
+      if (wrap.classList.contains(FRAME_CLASS)) {
+        const span = clampSpan(slot, {
+          cols: spanCol ?? wrap.getAttribute("data-span-col"),
+          rows: spanRow ?? wrap.getAttribute("data-span-row"),
+        });
+        wrap.setAttribute("data-span-col", String(span.cols));
+        wrap.setAttribute("data-span-row", String(span.rows));
+      }
       stage.appendChild(wrap);
       // Still PLACED, not moved. place() is placement; "moved to column X, row Y" is the mover's
       // sentence and belongs to system/studio-verbs.mjs's one consumer.

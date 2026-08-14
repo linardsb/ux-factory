@@ -98,6 +98,12 @@
 //                     join driven through a stub fetch with the graph-omitted mutation, and
 //                     shouldLoad's truth table with COMPILED_SELECTOR pinned to studio-flow.mjs's
 //                     own screen class (#218)
+//  24 frames         the studio's device frames as DATA: FRAMES frozen at both levels by mutation,
+//                     every src a real committed file (with the mutation that proves that check can
+//                     fail, which matters because the pixel gate MASKS this content), both
+//                     footprints on the grid by clampSpan's own definition, disjoint and clear of
+//                     arrangeBoard's row 1, and packHref's contract-line trap over a stub
+//                     document (#219)
 //
 //   node tooling/build-checks.mjs
 
@@ -1064,6 +1070,13 @@ function scanSvg(svg, label) {
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
     "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs", "studio-flow.mjs",
     "studio-method.mjs", "catalog.mjs", "studio-select.mjs", "studio-docs.mjs",
+    // studio-frames.mjs (#219) joins on the same terms, and for it the terms are the DESIGN rather
+    // than a property it happens to have: #176's drafted device frame resized by writing a px
+    // --frame-w, and the reason this one resizes in GRID SPANS instead is precisely that a studio
+    // module cannot write an inline style and keep `writes === 1` true. Leaving it off this list to
+    // keep the px mechanism would have been the "check that skipped the thing it tested" failure
+    // this repo has a memory about, so the mechanism changed and the list grew.
+    "studio-frames.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -2149,11 +2162,53 @@ function scanSvg(svg, label) {
     }
     for (const n of found) ok(n >= 1 && n <= max, `studio.css declares ${selector}[${attr}="${n}"], outside the exported cap of ${max}`);
   };
-  const GRID_FAMILIES = [".stx-slot", ".stx-guide", ".stx-menu"];
+  const GRID_FAMILIES = [".stx-slot", ".stx-guide", ".stx-menu", ".stx-frame"];
   for (const family of GRID_FAMILIES) {
     axis(family, "data-col", MAX_COLS);
     axis(family, "data-row", MAX_ROWS);
   }
+  // #219's FOURTH family is the first that SPANS, so it carries two more hand-mirrors — and they get
+  // the same exhaustive both-directions treatment for the reason axis() states: a count-based check
+  // ("there are 12 span rules") passes happily for a set with a duplicate and a gap.
+  axis(".stx-frame", "data-span-col", MAX_COLS);
+  axis(".stx-frame", "data-span-row", MAX_ROWS);
+  // Each row-span rule declares its index TWICE — once as the grid span, once as --stx-frame-rows,
+  // which the height calc reads. A height and a span that disagree is a frame claiming grid area it
+  // does not paint for a reason nobody chose, and nothing else in the repo can see it: the pixel gate
+  // masks the frame's content and would re-baseline the wrong height without complaint.
+  const spanRows = [...css.matchAll(/\.stx-frame\[data-span-row="(\d+)"\]\s*\{([^}]*)\}/g)];
+  ok(spanRows.length === MAX_ROWS,
+    `studio.css declares ${spanRows.length} .stx-frame[data-span-row] rule bodies for ${MAX_ROWS} rows`);
+  for (const [, index, body] of spanRows) {
+    ok(new RegExp(`grid-row-end:\\s*span\\s+${index}\\b`).test(body),
+      `.stx-frame[data-span-row="${index}"] does not declare grid-row-end: span ${index}`);
+    ok(new RegExp(`--stx-frame-rows:\\s*${index}\\s*;`).test(body),
+      `.stx-frame[data-span-row="${index}"] declares a --stx-frame-rows that is not ${index} — the height calc and the span would disagree`);
+  }
+  const spanCols = [...css.matchAll(/\.stx-frame\[data-span-col="(\d+)"\]\s*\{([^}]*)\}/g)];
+  ok(spanCols.length === MAX_COLS,
+    `studio.css declares ${spanCols.length} .stx-frame[data-span-col] rule bodies for ${MAX_COLS} columns`);
+  for (const [, index, body] of spanCols) {
+    ok(new RegExp(`grid-column-end:\\s*span\\s+${index}\\b`).test(body),
+      `.stx-frame[data-span-col="${index}"] does not declare grid-column-end: span ${index}`);
+  }
+  // THE SHORTHAND TRAP, pinned rather than remembered. `grid-column: N` is a shorthand and would
+  // reset the span declared by an equal-specificity rule, silently leaving every frame one cell wide
+  // — so the frame's POSITION rules must use the -start longhands. The three non-spanning families
+  // above are free to use the shorthand and do.
+  for (const [, index, body] of [...css.matchAll(/\.stx-frame\[data-col="(\d+)"\]\s*\{([^}]*)\}/g)]) {
+    ok(/grid-column-start:/.test(body) && !/grid-column:/.test(body),
+      `.stx-frame[data-col="${index}"] uses the grid-column SHORTHAND; it resets grid-column-end, so every frame would be one cell wide`);
+  }
+  for (const [, index, body] of [...css.matchAll(/\.stx-frame\[data-row="(\d+)"\]\s*\{([^}]*)\}/g)]) {
+    ok(/grid-row-start:/.test(body) && !/grid-row:/.test(body),
+      `.stx-frame[data-row="${index}"] uses the grid-row SHORTHAND; it resets grid-row-end, so every frame would be one row tall`);
+  }
+  // The frame row unit mirrors the AT-REST slot height. It cannot READ --stx-slot-h, because :638
+  // flips that to 480px in the compiled state and a depicted device must not change size when a
+  // board compiles — so the two are a hand-mirror and this is the pin behind it.
+  ok(declared("stx-frame-unit") === declared("stx-slot-h"),
+    `studio.css declares --stx-frame-unit: ${declared("stx-frame-unit")} but the at-rest --stx-slot-h is ${declared("stx-slot-h")} — the frames' height unit is a hand-mirror of it`);
   // …and no FOURTH family placed by these attributes with no mirror behind it. Derived from the
   // sheet rather than typed, so a later ticket adding `.stx-thing[data-col="1"]` and stopping at
   // column 6 fails HERE — where the message says what to do — instead of at column 7 on a reader's
@@ -2248,7 +2303,7 @@ function scanSvg(svg, label) {
   ok(clampSlot({ col: "4", row: "2" }).col === 4,
     "clampSlot must keep coercing a string — the codec's rejection of the same value is a different caller's rule, not a bug in this one");
 
-  group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 tripwire is DISCHARGED: build-share.mjs imports both caps and re-types neither, while clampSlot keeps coercing what the codec refuses`);
+  group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions, across all ${GRID_FAMILIES.length} grid families · #219's FOURTH family also mirrors both SPAN tables exhaustively, each row-span rule proven to declare its own index twice (the span and the --stx-frame-rows the height calc reads), every position rule proven to use the -start LONGHAND (the shorthand silently resets the span), and --stx-frame-unit pinned against the AT-REST --stx-slot-h it hand-mirrors · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 tripwire is DISCHARGED: build-share.mjs imports both caps and re-types neither, while clampSlot keeps coercing what the codec refuses`);
 }
 
 // --- 13 · the canvas verbs ----------------------------------------------------------------------
@@ -4623,6 +4678,114 @@ function scanSvg(svg, label) {
   group("studio docs", `docsIndex over the real pack — ${index.size} classes, one per component, collisions proven to THROW and to name both sides · every pack class asserted to be a class agentic-renderer.mjs actually emits (three template forms, source-text and says so), plus the ${rendered.size} components the COMMITTED replay board really compiles, each proven to be a doc trigger · the class-rename MUTATION proving that detector can fail · headingTags exact at 2/4/5 and total over 12 junk levels, with the absent-level default pinned so mount 1 stays byte-identical · loadDocsModel driven with a stub fetch: exactly ${askedOnce} requests equal to DOCS_SOURCES, the THIRD argument's fields (token groups, ${withConsumer} measured consumers) asserted present, and the graph-omitted MUTATION proving that assertion real — AC #3 gated rather than true by construction · shouldLoad's full 8-row truth table + totality, and COMPILED_SELECTOR pinned against studio-flow.mjs's own renderScreen class. The click, the opened panel, the cross-page agreement, the un-stolen focus, the live token values and the at-rest request count are tooling/studio-journey.mjs's docsPass, and say so`);
 }
 
+// --- 24 · the studio's device frames (#219) ----------------------------------------------------------
+// system/studio-frames.mjs's pure layer: the two descriptors and the pack-line matcher.
+//
+// WHAT THIS GROUP CAN SEE, and it is a short list on purpose — the frames are two <iframe>s, and
+// almost everything true about them is only true in a browser. It gates the DATA: that the two
+// prototypes named here are files that exist, that their footprints are geometry the canvas can
+// actually hold, and that the pack matcher answers the question the mount asks it.
+//
+// WHAT IT CANNOT REACH, stated as groups 9, 11, 13, 16, 18, 19, 21 and 23 all state theirs: that the
+// frames RENDER, that their contents carry no nested dock / inspect toggle / palette (the AC #2
+// assertion, which must be made on the frame's own contentDocument), that the pack FOLLOWS a
+// mid-visit dock swap, that the resize gesture produces the same span from a pointer, a keypress and
+// an injected source:"agent" action, and that the readiness handle resolves. Those are
+// tooling/studio-journey.mjs's framesPass, on a running page across three engines.
+{
+  const { FRAMES, packHref, packLink } = await import("../system/studio-frames.mjs");
+  const { MAX_COLS: FMAX_COLS, MAX_ROWS: FMAX_ROWS, clampSpan: fClampSpan, footprint: fFootprint } =
+    await import("../system/studio-canvas.mjs");
+
+  // --- 24.1 the descriptor list is DATA, and frozen at both levels -----------------------------
+  // MENU_ITEMS' idiom (group 22): proven by MUTATION rather than by Object.isFrozen, because the
+  // property that matters is that a caller cannot change it, not that a flag is set.
+  ok(Array.isArray(FRAMES) && FRAMES.length === 2,
+    `FRAMES should hold exactly the two committed prototypes; got ${Array.isArray(FRAMES) ? FRAMES.length : typeof FRAMES}`);
+  {
+    const beforeLen = FRAMES.length;
+    try { FRAMES.push({ id: "smuggled" }); } catch { /* strict-mode frozen array throws */ }
+    ok(FRAMES.length === beforeLen, "FRAMES accepted a pushed entry — a caller could add a third frame at runtime");
+    const first = FRAMES[0];
+    const beforeSrc = first.src;
+    try { first.src = "/proto/smuggled.html"; } catch { /* frozen */ }
+    ok(first.src === beforeSrc, "a FRAMES entry accepted a written src — the descriptors are not frozen at the second level");
+  }
+
+  // --- 24.2 every src and standalone is a REAL COMMITTED FILE ----------------------------------
+  // A renamed proto page fails HERE, where the message says which descriptor to edit, rather than as
+  // two empty boxes on a public canvas that no gate in this repo would notice: the pixel gate MASKS
+  // the frames' content, so a 404 inside one compares cleanly against its own baseline forever.
+  const frameFile = (url) => join(ROOT, String(url).replace(/^\//, ""));
+  for (const f of FRAMES) {
+    ok(existsSync(frameFile(f.src)), `FRAMES["${f.id}"].src points at ${f.src}, which is not a committed file`);
+    ok(existsSync(frameFile(f.standalone)), `FRAMES["${f.id}"].standalone points at ${f.standalone}, which is not a committed file`);
+    ok(typeof f.title === "string" && f.title.trim().length > 0, `FRAMES["${f.id}"] has no iframe title — an untitled frame is unnavigable by a screen reader`);
+    ok(typeof f.caption === "string" && f.caption.includes("this site's pack"),
+      `FRAMES["${f.id}"]'s caption must tell the reader the frame wears the SITE pack — that sentence is how the honesty contract discharges the "a dropped brand does not reach the frames" decision, and deleting it is how it would be lost`);
+  }
+  // THE MUTATION that decides whether the file check can fail at all. Over a CLONE of the data, so
+  // the committed descriptors are untouched.
+  {
+    const broken = FRAMES.map((f) => ({ ...f, src: "/proto/nope.html" }));
+    ok(broken.every((f) => !existsSync(frameFile(f.src))),
+      "a descriptor pointed at /proto/nope.html still resolved to a file — case 24.2 cannot fail, so it proves nothing about the real ones");
+  }
+
+  // --- 24.3 both footprints are geometry the canvas can hold ------------------------------------
+  // On the grid by clampSpan's OWN definition (a span the clamp would change is a span off the
+  // grid), disjoint from each other, and CLEAR OF ROW 1 — which is where studio.mjs's arrangeBoard
+  // puts every place, so a frame overlapping it would collide with a board the replay driver has not
+  // built yet. The message says the reason, because the number alone reads as arbitrary.
+  const cells = new Map();
+  for (const f of FRAMES) {
+    ok(f.col >= 1 && f.col <= FMAX_COLS && f.row >= 1 && f.row <= FMAX_ROWS,
+      `FRAMES["${f.id}"] starts at ${f.col},${f.row}, off the ${FMAX_COLS}×${FMAX_ROWS} grid`);
+    const clamped = fClampSpan({ col: f.col, row: f.row }, { cols: f.spanCol, rows: f.spanRow });
+    ok(clamped.cols === f.spanCol && clamped.rows === f.spanRow,
+      `FRAMES["${f.id}"] declares a ${f.spanCol}×${f.spanRow} span at column ${f.col}, row ${f.row}, which clampSpan would cut to ${clamped.cols}×${clamped.rows} — the footprint runs off the grid`);
+    ok(f.row > 1, `FRAMES["${f.id}"] starts on row 1, where studio.mjs's arrangeBoard lays every board place — the frame and the replay's own blocks would collide`);
+    for (const cell of fFootprint({ col: f.col, row: f.row }, { cols: f.spanCol, rows: f.spanRow })) {
+      ok(!cells.has(cell), `FRAMES["${f.id}"] covers cell ${cell}, which FRAMES["${cells.get(cell)}"] already covers — two frames cannot share a cell`);
+      cells.set(cell, f.id);
+    }
+  }
+  ok(FRAMES.every((f) => !cells.has(`${f.col},1`)) && [...cells.keys()].every((k) => !k.endsWith(",1")),
+    "a frame footprint reaches row 1 — arrangeBoard's row");
+
+  // --- 24.4 packHref answers the question the mount asks it -------------------------------------
+  // Driven over a STUB document, which is the whole reason it takes one: the mount calls it for the
+  // top document AND for each frame's contentDocument, and neither exists in Node.
+  const stubDoc = (hrefs) => ({
+    querySelectorAll: () => hrefs.map((href) => ({ getAttribute: (k) => (k === "href" ? href : null) })),
+  });
+  ok(packHref(stubDoc(["/system/tokens.contract.css", "/system/tokens.neutral.css"])) === "/system/tokens.neutral.css",
+    "packHref returned the CONTRACT line — it comes first in head order on every shipped page, which is the trap catalog.mjs:503-508 and dock.mjs:72 both record");
+  ok(packHref(stubDoc(["/system/tokens.saulera.css"])) === "/system/tokens.saulera.css",
+    "packHref did not match a pack line that is the only stylesheet");
+  ok(packHref(stubDoc(["/system/components.css", "/system/tokens.contract.css"])) === null,
+    "packHref must answer null on a document with no pack line, not throw and not guess");
+  ok(packHref(stubDoc([])) === null, "packHref must answer null on a document with no stylesheets at all");
+  ok(packLink(stubDoc(["/system/tokens.neutral.css"]))?.getAttribute("href") === "/system/tokens.neutral.css",
+    "packLink must return the ELEMENT — the mount writes the new href onto it");
+  // Total over junk, never a throw: contentDocument is NULL for a frame that has not loaded and for
+  // one on another origin, and the mount's loop must not die on the first of them. `undefined` is
+  // deliberately NOT in this list — it selects the default parameter, which is the top `document`,
+  // and asserting that a no-argument call is safe under Node would be asserting the opposite of what
+  // the browser call means.
+  for (const junk of [null, {}, { querySelectorAll: null }, 7, "doc", []]) {
+    let threw = null;
+    try { packHref(junk); } catch (e) { threw = e; }
+    ok(!threw, `packHref(${JSON.stringify(junk)}) threw: ${threw && threw.message}`);
+  }
+  // …and it must match by SHAPE rather than by an allowlist, so a pack that joins dock.mjs's PACK_RE
+  // needs no second edit here. A pack name nothing has shipped yet still resolves.
+  ok(packHref(stubDoc(["/system/tokens.notyetapack.css"])) === "/system/tokens.notyetapack.css",
+    "packHref refused an unknown pack name — it is 'which line do I observe', not a security allowlist, and narrowing it to PACK_RE would make it a second copy of one");
+
+  group("frames", `FRAMES holds the ${FRAMES.length} committed prototypes, frozen at BOTH levels by mutation (a pushed entry and a written src) · every src and standalone proven to be a real committed file, with the /proto/nope.html mutation that decides whether that check can fail — the pixel gate MASKS this content, so a 404 inside a frame compares cleanly against its own baseline forever · every caption proven to carry the site-pack sentence, which is how the honesty contract discharges "a dropped brand does not reach the frames" · both footprints on the grid by clampSpan's OWN definition, disjoint cell by cell through footprint(), and clear of ROW 1 with arrangeBoard named as the reason · packHref over a stub document: the CONTRACT line refused (the head-order trap dock.mjs:72 records), a lone pack line matched, null rather than a throw on a document with no pack line, total over 6 junk documents because an unloaded frame's contentDocument is one, and an unshipped pack name still matched — this is "which line do I observe", not a second copy of PACK_RE. That the frames RENDER, that their contents carry no nested chrome (asserted on contentDocument), that the pack FOLLOWS a mid-visit swap, that the resize gesture agrees across pointer, keyboard and an injected agent action, and that the ready handle resolves are tooling/studio-journey.mjs's framesPass, and this group cannot reach them`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -4630,5 +4793,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 23 groups pass");
+  console.log("\nbuild ✓  all 24 groups pass");
 }
