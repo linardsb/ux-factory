@@ -36,7 +36,8 @@ appears anywhere in the diff.
 | 13 · the manifest | `system/param-manifest.json`, `system/param-count.json` — `/factory` 43 → 44, site-wide 117 → 118 |
 | 14 · the non-regressions | proven below |
 | 15–16 · the pure gates | `tooling/build-checks.mjs` — group 7's `MODULES`, group 12's fourth family + span mirrors, **new group 24** |
-| 17–18 · the running-page gate | `tooling/studio-journey.mjs` — `framesPass`, `EXPECTED_NOISE`, `mainOnly` |
+| 17 · the running-page gate | `tooling/studio-journey.mjs` — `framesPass`, `EXPECTED_NOISE`, `mainOnly` |
+| 18 · the measurement rows | `tooling/studio-journey.mjs` — two INP rows (`frame resize (pointer)`, `frame resize (keyboard)`), the enumerated list 22 → 24; `vt-verify` re-sampled |
 | 19 · the pixel gate | `tooling/visual-regression/visual.spec.mjs`; `system/loc-summary.json` regenerated |
 | 20 · baselines | four PNGs, regenerated last from a clean detached worktree |
 | 21 · the map | `CLAUDE.md` |
@@ -69,8 +70,9 @@ that run is the behaviour-preservation proof for the span widening, and it was g
 
 **`tooling/studio-journey.mjs` — `framesPass`** (8 sections): both frames rendered at their declared
 footprints with both handles armed and describing themselves through a resolving IDREF; **AC #2 on
-each frame's own `contentDocument`** (no nested dock, inspect toggle, palette or standalone device
-frame) behind a positive control that the page actually loaded; the dock's mid-visit swap
+each frame's own `contentDocument`** (no nested dock, inspect toggle, standalone device frame or
+at-rest ⌘K chrome — with the ⌘K *layer* asserted present, which is the proto pages' own recorded
+call) behind a positive control that the page actually loaded; the dock's mid-visit swap
 re-pointing the frame's own pack line while still not counting as a take-over; **three-source resize
 parity** compared on the resulting `data-span-*` with the agent leg on a fresh page and
 announcements counted per path (pointer 1 at the drop, keyboard N + 2 including a blocked press);
@@ -86,7 +88,7 @@ standing at an unchanged height.
 | `node tooling/build-checks.mjs` | ✅ **24 groups pass** (was 23) |
 | `node agent-layer/gen-param-count.mjs --check` | ✅ 118 controls, no drift |
 | `node agent-layer/gen-loc-summary.mjs --check` | ✅ 3 groups, no drift |
-| `node tooling/studio-journey.mjs all` | ✅ **chromium 475 · firefox 471 · webkit 471, zero failures** (41 new `framesPass` rows) |
+| `node tooling/studio-journey.mjs all` | ✅ **chromium 477 · firefox 473 · webkit 473, zero failures** (41 new `framesPass` rows + 2 INP rows). The two new INP rows are far inside the ≤ 200 ms budget on every engine — pointer 32/16/16 ms, keyboard 24/<16/16 ms — behind the same forced-slow calibration click that proves the observer alive |
 | `node tooling/catalog-journey.mjs chromium` | ✅ 33 passed, 0 failed — mount 1 unaffected by the `watchPackSwap` widening |
 | `node tooling/vt-verify.mjs all` | ✅ green on all three engines with the frames on the page — they name nothing for a view transition |
 | the pixel gate, in the pinned container | ✅ **22 passed** against the new baselines. Exactly four PNGs changed: `factory-{neutral,saulera}` (the frames + the lead copy + the mask) and `approach-{neutral,saulera}` (the loc numbers). The two proto baselines are byte-identical — AC #4 |

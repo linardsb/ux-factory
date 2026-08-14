@@ -5417,6 +5417,37 @@ async function perfPass(browser, engineName, t, errors) {
       await p.keyboard.press("Escape");
       await p.waitForTimeout(80);
     } },
+    // #219's two rows. The resize is the one verb on this canvas whose two input paths do NOT
+    // converge — a continuous drag and a stepped keypress — so both are measured, exactly as the
+    // move's two are. The drag's delta is MEASURED from the resolved grid rather than typed:
+    // framesPass learned that a chromium-derived pixel constant crosses no row on firefox, and a
+    // gesture that moved nothing would report a flatteringly small INP.
+    { label: "frame resize (pointer)", act: async (p) => {
+      const h = p.locator('[data-stx-frame="verdant"] .stx-resize');
+      if (!(await h.count())) return;
+      await h.scrollIntoViewIfNeeded();
+      const pitch = await p.evaluate(() => {
+        const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+        return parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+      });
+      const b = await h.boundingBox();
+      if (!b) return;
+      await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await p.mouse.down();
+      await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + pitch, { steps: 10 });
+      await p.mouse.up();
+      await p.waitForTimeout(140);
+    } },
+    { label: "frame resize (keyboard)", act: async (p) => {
+      const h = p.locator('[data-stx-frame="verdant"] .stx-resize');
+      if (!(await h.count())) return;
+      await h.scrollIntoViewIfNeeded();
+      await h.focus();
+      await p.keyboard.press("Enter");
+      await p.keyboard.press("ArrowUp");   // shrink: Verdant is already at the grid band's floor
+      await p.keyboard.press("Enter");
+      await p.waitForTimeout(140);
+    } },
     // #214's two rows, LAST because the first one redrafts the whole board (relinquish, wholesale
     // replace, publish — the real interaction cost) and everything above wants the run's board.
     // Each parks its target instantly first: the site scrolls smoothly and Playwright's
@@ -5684,7 +5715,7 @@ for (const engine of toRun) {
 // #213 · AC #7 — every bound the driver carries, stated by the driver itself on every run, red or
 // green. Silent truncation reads as "covered everything", which is the sin this block exists to
 // not commit.
-console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\'s LAZY WIRING as two halves (a raw zero-request count before Compile; a per-url DELTA of zero across four forced re-renders) and NOT as a raw per-url total, because two of the three DOCS_SOURCES have other consumers on this page — studio-compile.mjs fetches vocabulary.json on first compile and the Graph panel fetches system-graph.json, so an absolute "exactly 1 per url" would be RED on a correct implementation; pack.json, which nothing else touches, IS pinned at exactly 1 · its cross-page comparison (assertion 5) runs BEFORE the pack swap and compares the tables WHOLE, live-value column included, which is sound only while both documents wear neutral — the order is part of the assertion · what it does NOT cover, stated rather than implied: the docs panel is asserted on /factory ONLY (studio.html has no inspector by design and /components is tooling/catalog-journey.mjs\'s), no assertion here drives the playground CONTROLS or the copy-as-Markdown button (both are mount 1\'s, gated there), and the AC #2 hover case moves the pointer AWAY before re-hovering because a node rebuilt under a resting pointer delivers no enter event at all (inspect.mjs\'s own recorded lesson) · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (22 rows since #217 added marquee drag, group pointer-drag, group keyboard step and context menu open), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them · #217\'s \u2318/Ctrl+A is FOCUS-SCOPED to .stx-scroll, so it is the browser\'s own document select-all everywhere else on the page, and it is deliberately NOT a replay take-over (the driver\'s discriminator returns early on ctrlKey/metaKey, exactly as it already does for \u2318Z) · #217 adds NEITHER of \u00a75\'s last two items and says so: zoom-to-fit landed at #204 and pan-by-drag covers the hand tool on EMPTY canvas — there is no mode in which a drag over a component pans, recorded as a decision rather than left as a gap');
+console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\'s LAZY WIRING as two halves (a raw zero-request count before Compile; a per-url DELTA of zero across four forced re-renders) and NOT as a raw per-url total, because two of the three DOCS_SOURCES have other consumers on this page — studio-compile.mjs fetches vocabulary.json on first compile and the Graph panel fetches system-graph.json, so an absolute "exactly 1 per url" would be RED on a correct implementation; pack.json, which nothing else touches, IS pinned at exactly 1 · its cross-page comparison (assertion 5) runs BEFORE the pack swap and compares the tables WHOLE, live-value column included, which is sound only while both documents wear neutral — the order is part of the assertion · what it does NOT cover, stated rather than implied: the docs panel is asserted on /factory ONLY (studio.html has no inspector by design and /components is tooling/catalog-journey.mjs\'s), no assertion here drives the playground CONTROLS or the copy-as-Markdown button (both are mount 1\'s, gated there), and the AC #2 hover case moves the pointer AWAY before re-hovering because a node rebuilt under a resting pointer delivers no enter event at all (inspect.mjs\'s own recorded lesson) · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (24 rows since #219 added the frame resize in both of its non-converging input paths, on top of #217\u2019s marquee drag, group pointer-drag, group keyboard step and context menu open), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them · #217\'s \u2318/Ctrl+A is FOCUS-SCOPED to .stx-scroll, so it is the browser\'s own document select-all everywhere else on the page, and it is deliberately NOT a replay take-over (the driver\'s discriminator returns early on ctrlKey/metaKey, exactly as it already does for \u2318Z) · #217 adds NEITHER of \u00a75\'s last two items and says so: zoom-to-fit landed at #204 and pan-by-drag covers the hand tool on EMPTY canvas — there is no mode in which a drag over a component pans, recorded as a decision rather than left as a gap');
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
