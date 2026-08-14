@@ -34,12 +34,12 @@ now gated twice: the RULE in CI (build-checks group 23) and the WIRING on a runn
 | 6 · mount and refresh | UPDATE `system/studio.mjs` (`PANELS`, `let docs`, three `docs?.refresh()` calls beside `syncInspect()`, the mount, the `live` handle) |
 | 7 · the pure gate | UPDATE `tooling/build-checks.mjs` — **group 23**, not 22 (see Deviations) + group 7's `MODULES` + roster + count |
 | 8 · the running-page gate | UPDATE `tooling/studio-journey.mjs` — `docsPass` + the stale-serve guard + the bounds/summary prints |
-| 8b · the mutation drill | RUN — see below |
+| 8b · the mutation drill | RUN — 6 of 7 rows reddened; row 6 is a **finding**, see below |
 | 9 · param manifest + count | UPDATE — the false "4 panels" label corrected, 4 new `/factory` entries, `113 → 117` |
 | 10 · loc-summary | UPDATE — runtime `73 → 75` files / `27,900 → 28,500` lines (the number moved, so approach's baselines churn) |
 | 11 · CLAUDE.md | UPDATE — `studio-docs.mjs` + `catalog.css` map entries, `catalog.mjs`/`components.html` extended, build-checks roster `21 → 23`, `studio-journey` line + `docsPass` |
 | 11b · the extraction proof | RUN and DELETED — see below |
-| 12 · baselines | See "Validation results" |
+| 12 · baselines | DONE — 4 PNGs, exactly the predicted set |
 | 13 · report + PR | this file; `Closes #218` in the PR body |
 
 ## Tests added
@@ -67,9 +67,8 @@ now gated twice: the RULE in CI (build-checks group 23) and the WIRING on a runn
 
 ### `tooling/studio-journey.mjs` `docsPass` — the wiring (×3 engines, operator-run)
 
-**28 assertions — chromium 28/0, firefox 27/0, webkit 27/0** (the 28th, `/components`' `[hidden]`
-check, was added after the firefox and webkit legs and is re-run in the full three-engine pass).
-The two that no other gate can make:
+**28 assertions, 28/0 on chromium, firefox and webkit** in the full three-engine run. The two that
+no other gate can make:
 
 - **1a** zero requests for all three artifacts before Compile, no trigger on the canvas, and the panel
   stating its precondition.
@@ -96,10 +95,10 @@ nothing the page itself said reaching the console.
 | `node tooling/build-checks.mjs` with `portal/node_modules` moved aside | **✓** (SDK-free invariant intact) |
 | `node tooling/drift-check.mjs` | **✓** every section |
 | `node agent-layer/gen-param-count.mjs --check` · `gen-loc-summary.mjs --check` | **✓** after regen |
-| `node tooling/studio-journey.mjs all` | see below |
-| `node tooling/catalog-journey.mjs all` | see below |
-| `node tooling/build-journey.mjs all` | see below |
-| `node tooling/vt-verify.mjs all` | see below |
+| `node tooling/studio-journey.mjs all` | **✓ chromium 435/0 · firefox 431/0 · webkit 431/0** — 0 failures across all three engines, including all 28 `docsPass` rows |
+| `node tooling/catalog-journey.mjs all` | **✓ 32/0 per engine ×3** — mount 1 unregressed by the style extraction |
+| `node tooling/build-journey.mjs all` | **✓ 157/0 per engine ×3** — `/build` untouched |
+| `node tooling/vt-verify.mjs all` | **✓** ×3 — the docs panel opens no view transitions; `/factory`'s counts unchanged |
 | Task 11b · computed-style extraction proof | **✓ identical for every sampled property, both routes** — `/components` 26/26 nodes, `/factory` 27/27, across `origin/main` and this branch on two ports. Script deleted (it is a one-time proof, not a gate). |
 | Narrow-viewport check (390 px and 1440 px) | **✓** nothing in the panel overflows, the body never scrolls sideways |
 
@@ -117,7 +116,12 @@ all three are consequences the ticket owns:
 2. **`#237 · it really was a second request`** → now **three**, composition stated exactly (the 503,
    the retry, the docs join). The docs join fires only once a screen exists, so it is strictly after
    the retry and never sees the 503.
-3. **`#207 · compiling a second time produces a byte-identical stage`** → a real race, now fixed in
+3. **`#237 · it really was a second request`** exposed a flake of my own on firefox. Counting the
+   third request without waiting for it gave 3 on chromium and 2 on firefox (435/0 vs 430/1) —
+   the docs join is asynchronous and that pass never waited for it. It now waits for the decoration
+   to land before counting, which is what makes the total deterministic. Found by running all three
+   engines, which is the only thing that could have found it.
+4. **`#207 · compiling a second time produces a byte-identical stage`** → a real race, now fixed in
    the gate. The decoration waits on a fetch on the FIRST compile and is synchronous on the second,
    so the two snapshots differed by three attributes per node for a page that is entirely correct.
    `compilePass`'s `stageState` now awaits decoration before snapshotting — the same shape of break
@@ -161,16 +165,23 @@ next editor neither deletes it as dead nor trusts a gate to notice. The rule is 
 This is the repo's own *"the check that cannot fail"* discipline finding a false claim rather than a
 false pass, which is the outcome the drill exists for.
 
-### Task 12 · baseline churn
+### Task 12 · baseline churn — **matches the written-down list exactly**
 
-Written down **before** the regen run and diffed against `git status --porcelain` after.
+The list was written **before** the regen and diffed against `git status --porcelain` after.
+Regenerated from a clean detached worktree under `/Users` at `bf1fdb8`.
 
-**Expected to change (4)** — `factory-neutral` · `factory-saulera` (the fifth tab is visible at rest;
-the panel itself is hidden, since `wireInspector` collapses to panel 0, so the only at-rest change is
-one more pill in the wrapping tab row) and `approach-neutral` · `approach-saulera` (approach renders
-BOTH numbers that moved: loc-summary's runtime group and the param-count total).
+| PNG | Predicted | Actual |
+|---|---|---|
+| `factory-neutral` · `factory-saulera` | change — the fifth tab is visible at rest (the panel itself is hidden, `wireInspector` collapses to panel 0, so the only at-rest change is one more pill in the wrapping tab row) | ✅ changed |
+| `approach-neutral` · `approach-saulera` | change — approach renders BOTH numbers this ticket moved | ✅ changed, **after a forced regen** (see below) |
+| `components-neutral` · `components-saulera` | **unchanged** | ✅ unchanged |
+| `build-neutral` · `build-saulera` | **unchanged** | ✅ unchanged |
+| the other 14 | unchanged | ✅ unchanged |
 
-**Expected unchanged (18)** — `components-*` above all, and `build-*`, plus every chrome-bearing page.
+**The `approach` pair needed `rm` + re-run.** The first `update:docker` pass left them alone: the
+only change is a few digits (`27,900` → `28,500`, `113` → `117`), which sits under `maxDiffPixels`.
+That is the repo's recorded sub-perceptual skip, and it is the reason a green update run is not proof
+a page did not change. Forced, verified, and the final churn is exactly 4 files.
 
 ## Deviations from the plan
 
