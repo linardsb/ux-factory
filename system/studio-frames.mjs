@@ -90,19 +90,35 @@ import { watchPackSwap } from "./catalog.mjs";
 // studio.mjs's arrangeBoard puts every place, so a frame overlapping it would collide with a board
 // the replay driver has not built yet.
 //
-// The footprints were decided against the REAL 1280px capture: .stx-scroll is 640px tall on
-// /factory, so a frame starting at row 2 has 3 rows (452px) before it runs past the visible box, and
-// the canvas column shows about five columns. 2×3 at (1,2) and 3×3 at (3,2) is therefore the largest
-// pair that is wholly visible at rest — which is what factory-neutral.png shows. Changing these
-// numbers is a baseline change; group 24 keeps them honest either way.
+// THE FOOTPRINTS WERE DECIDED IN A BROWSER AT THE REAL CAPTURE WIDTH, against two constraints the
+// grid arithmetic hides. .stx-scroll is 640px tall on /factory and the canvas column shows about five
+// columns before the page clips it, so rows 3–4 (312–608px) is the lowest band that is WHOLLY visible
+// at rest — which is what factory-neutral.png shows.
+//
+// AND ROW 2 IS LEFT FREE ON PURPOSE. The pointer-reachable free canvas is small — cols 1–5 × rows 1–4,
+// with the board holding row 1 — so a pair of frames filling rows 2–4 leaves exactly ONE free cell a
+// reader can drag a block into, which quietly contradicts the page's own "a canvas you can move". The
+// row directly under the board is where a block goes, so the frames start below it. Changing these
+// numbers is a baseline change; build-checks group 24 keeps them honest either way.
+//
+// `anchor` IS WHERE THE FRAME OPENS, AND IT IS NOT AN EDIT TO EITHER PROTO PAGE. Both pages open with
+// a lede — an honesty notice, a title, a paragraph, a data-source badge — that is right for a page and
+// wrong for a 296px device frame, where it fills the box and pushes the actual prototype out of sight.
+// So the frame's own document is scrolled to an id those pages already carry (see anchorFrame below
+// for why it is NOT a `src` fragment, which is the obvious way and the wrong one). `standalone` keeps
+// the clean URL: a reader opening the page in a tab should get its top. Nothing DEPENDS on the anchor
+// resolving — a frame that never scrolls shows the lede and the reader scrolls it — but build-checks
+// group 24 pins each id against the committed HTML, because a proto refactor renaming one would
+// silently revert both frames to their ledes with no other symptom.
 export const FRAMES = Object.freeze([
   Object.freeze({
     id: "verdant",
     src: "/proto/verdant.html",
     standalone: "/proto/verdant.html",
+    anchor: "screen-header",
     title: "Verdant — plant overview, the real prototype",
     name: "Verdant prototype",
-    col: 1, row: 2, spanCol: 2, spanRow: 3,
+    col: 1, row: 3, spanCol: 2, spanRow: 2,
     caption: "Verdant, running for real. It wears this site's pack — a brand you drop re-skins the canvas around it, not inside it.",
     link: "Open Verdant on its own page",
   }),
@@ -110,9 +126,10 @@ export const FRAMES = Object.freeze([
     id: "fieldwork",
     src: "/proto/fieldwork.html",
     standalone: "/proto/fieldwork.html",
+    anchor: "board",
     title: "Fieldwork — dispatch board, the real prototype",
     name: "Fieldwork prototype",
-    col: 3, row: 2, spanCol: 3, spanRow: 3,
+    col: 3, row: 3, spanCol: 3, spanRow: 2,
     caption: "Fieldwork, running for real. It wears this site's pack — a brand you drop re-skins the canvas around it, not inside it.",
     link: "Open Fieldwork on its own page",
   }),
@@ -164,8 +181,47 @@ let live = null; // the mounted frames — the exported seam below drives THESE,
 // window.__ global: page globals are not this repo's test surface).
 export const getFrames = () => live;
 
+// How many animation frames anchorFrame waits for the embedded page to settle before giving up. The
+// proto pages fetch their fixtures and set #source[data-source] synchronously just before rendering
+// (tooling/visual-regression/visual.spec.mjs waits on the same handle), so the settle condition is a
+// real event rather than a guessed delay — this bound only stops a frame that never renders from
+// polling forever.
+const ANCHOR_FRAMES = 120;
+
+// Put a loaded frame's OWN document at the prototype rather than at the page's lede.
+//
+// NOT A `src` FRAGMENT, which is the obvious way and the wrong one: an <iframe> whose src carries one
+// scrolls every ANCESTOR scroll container to bring the frame into view when it lands. Measured on the
+// shipped page — .stx-scroll.scrollTop came back 313 — so the canvas was left scrolled at rest, which
+// breaks studio-canvas.mjs's "scale 1, scrolled to 0,0" contract AND makes the pixel baseline depend
+// on when a lazy frame happened to load. scrollIntoView() on the target has the identical problem: it
+// walks up across the frame boundary too. contentWindow.scrollTo touches nothing outside the frame.
+//
+// WAITED FOR THE PAGE'S OWN SETTLE, not for `load`: the fixtures land after it and the lede above the
+// anchor grows when the notice text arrives, so scrolling at `load` lands short by whatever that text
+// turned out to be. Everything is inside a try — an unloaded or cross-origin frame simply keeps its
+// lede, which is the honest degradation and never a throw.
+const anchorFrame = (iframe, anchorId, signal) => {
+  const settle = (left) => {
+    if (signal.aborted || left <= 0) return;
+    try {
+      const doc = iframe.contentDocument;
+      const target = doc?.getElementById(anchorId);
+      if (!target || !doc.querySelector("#source[data-source]")) {
+        requestAnimationFrame(() => settle(left - 1));
+        return;
+      }
+      iframe.contentWindow.scrollTo(0, target.getBoundingClientRect().top + iframe.contentWindow.scrollY);
+    } catch { /* cross-origin, or the frame is gone — it keeps its lede */ }
+  };
+  iframe.addEventListener("load", () => settle(ANCHOR_FRAMES), { signal });
+};
+
 export function mountStudioFrames(canvas, { root = document } = {}) {
   const mount = root?.querySelector?.("[data-studio-frames]") || null;
+  // One controller for every listener this mount adds, so destroy() genuinely detaches (the studio's
+  // standing rule — studio-canvas.mjs:189, studio-verbs.mjs's `ac`).
+  const ac = new AbortController();
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
     // convention (bus-toggles.mjs:73-76). A page with no hook is NOT an error: studio.html drives
@@ -183,6 +239,7 @@ export function mountStudioFrames(canvas, { root = document } = {}) {
       // pixel gate masks the iframe's content — so an engine that ignores the attribute inside a
       // scroll container changes nothing that is asserted anywhere.
       const iframe = el("iframe", { src: frame.src, title: frame.title, loading: "lazy" });
+      anchorFrame(iframe, frame.anchor, ac.signal);
       const caption = el("div", { class: "stx-frame-cap" },
         el("p", { text: frame.caption }),
         el("a", { href: frame.standalone, text: frame.link }));
@@ -230,6 +287,7 @@ export function mountStudioFrames(canvas, { root = document } = {}) {
       frames: wrappers,
       repoint,
       destroy() {
+        ac.abort();
         packWatcher?.disconnect();
         for (const f of wrappers) f.wrap.remove();
         if (live === handleObj) live = null;

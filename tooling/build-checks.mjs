@@ -4724,10 +4724,27 @@ function scanSvg(svg, label) {
   // A renamed proto page fails HERE, where the message says which descriptor to edit, rather than as
   // two empty boxes on a public canvas that no gate in this repo would notice: the pixel gate MASKS
   // the frames' content, so a 404 inside one compares cleanly against its own baseline forever.
-  const frameFile = (url) => join(ROOT, String(url).replace(/^\//, ""));
+  const frameFile = (url) => join(ROOT, String(url).split("#")[0].replace(/^\//, ""));
   for (const f of FRAMES) {
     ok(existsSync(frameFile(f.src)), `FRAMES["${f.id}"].src points at ${f.src}, which is not a committed file`);
     ok(existsSync(frameFile(f.standalone)), `FRAMES["${f.id}"].standalone points at ${f.standalone}, which is not a committed file`);
+    // NEITHER URL CARRIES A FRAGMENT, and that is a property rather than tidiness: a `src` fragment
+    // scrolls every ANCESTOR scroll container when the frame lands, which left the studio canvas
+    // scrolled at rest (measured: .stx-scroll.scrollTop 313) and made the pixel baseline depend on
+    // when a lazy frame happened to load. The anchoring is the module's own contentWindow.scrollTo.
+    ok(!String(f.src).includes("#") && !String(f.standalone).includes("#"),
+      `FRAMES["${f.id}"] carries a URL fragment; a src fragment scrolls the CANVAS as well as the frame, and studio-frames.mjs's anchorFrame exists to not do that`);
+    // THE ANCHOR, pinned against the committed HTML. NOTHING depends on it resolving — a frame that
+    // never scrolls shows the proto page's lede and the reader scrolls it — which is exactly why it
+    // needs a check: a proto refactor renaming the id reverts both frames to their ledes with no
+    // other symptom, and the pixel gate MASKS the content that would have shown the difference.
+    ok(typeof f.anchor === "string" && f.anchor,
+      `FRAMES["${f.id}"] declares no anchor — the frame would open at the proto page's lede rather than at the prototype`);
+    if (f.anchor) {
+      const html = readFileSync(frameFile(f.src), "utf8");
+      ok(new RegExp(`id="${f.anchor}"`).test(html),
+        `FRAMES["${f.id}"] anchors at #${f.anchor}, which is not an id in ${f.src} — the frame would silently show that page's lede instead`);
+    }
     ok(typeof f.title === "string" && f.title.trim().length > 0, `FRAMES["${f.id}"] has no iframe title — an untitled frame is unnavigable by a screen reader`);
     ok(typeof f.caption === "string" && f.caption.includes("this site's pack"),
       `FRAMES["${f.id}"]'s caption must tell the reader the frame wears the SITE pack — that sentence is how the honesty contract discharges the "a dropped brand does not reach the frames" decision, and deleting it is how it would be lost`);
@@ -4791,7 +4808,7 @@ function scanSvg(svg, label) {
   ok(packHref(stubDoc(["/system/tokens.notyetapack.css"])) === "/system/tokens.notyetapack.css",
     "packHref refused an unknown pack name — it is 'which line do I observe', not a security allowlist, and narrowing it to PACK_RE would make it a second copy of one");
 
-  group("frames", `FRAMES holds the ${FRAMES.length} committed prototypes, frozen at BOTH levels by mutation (a pushed entry and a written src) · every src and standalone proven to be a real committed file, with the /proto/nope.html mutation that decides whether that check can fail — the pixel gate MASKS this content, so a 404 inside a frame compares cleanly against its own baseline forever · every caption proven to carry the site-pack sentence, which is how the honesty contract discharges "a dropped brand does not reach the frames" · both footprints on the grid by clampSpan's OWN definition, disjoint cell by cell through footprint(), and clear of ROW 1 with arrangeBoard named as the reason · packHref over a stub document: the CONTRACT line refused (the head-order trap dock.mjs:72 records), a lone pack line matched, null rather than a throw on a document with no pack line, total over 6 junk documents because an unloaded frame's contentDocument is one, and an unshipped pack name still matched — this is "which line do I observe", not a second copy of PACK_RE. That the frames RENDER, that their contents carry no nested chrome (asserted on contentDocument), that the pack FOLLOWS a mid-visit swap, that the resize gesture agrees across pointer, keyboard and an injected agent action, and that the ready handle resolves are tooling/studio-journey.mjs's framesPass, and this group cannot reach them`);
+  group("frames", `FRAMES holds the ${FRAMES.length} committed prototypes, frozen at BOTH levels by mutation (a pushed entry and a written src) · every src and standalone proven to be a real committed file, with the /proto/nope.html mutation that decides whether that check can fail — the pixel gate MASKS this content, so a 404 inside a frame compares cleanly against its own baseline forever · each descriptor's ANCHOR pinned as a real id in the committed proto HTML and NEITHER url allowed a fragment (a src fragment scrolls the canvas as well as the frame): nothing depends on the anchor resolving, which is exactly why a rename would revert both frames to their page ledes with no other symptom · every caption proven to carry the site-pack sentence, which is how the honesty contract discharges "a dropped brand does not reach the frames" · both footprints on the grid by clampSpan's OWN definition, disjoint cell by cell through footprint(), and clear of ROW 1 with arrangeBoard named as the reason · packHref over a stub document: the CONTRACT line refused (the head-order trap dock.mjs:72 records), a lone pack line matched, null rather than a throw on a document with no pack line, total over 6 junk documents because an unloaded frame's contentDocument is one, and an unshipped pack name still matched — this is "which line do I observe", not a second copy of PACK_RE. That the frames RENDER, that their contents carry no nested chrome (asserted on contentDocument), that the pack FOLLOWS a mid-visit swap, that the resize gesture agrees across pointer, keyboard and an injected agent action, and that the ready handle resolves are tooling/studio-journey.mjs's framesPass, and this group cannot reach them`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

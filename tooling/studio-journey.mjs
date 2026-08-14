@@ -96,6 +96,9 @@ const { idsInRange, marqueeRange } = await import(new URL("../system/studio-sele
 // #218's docsPass asks the SHIPPED module which three artifacts the docs panel loads, so a fourth
 // source (or a renamed one) moves the driver with the module instead of drifting past it.
 const { DOCS_SOURCES } = await import(new URL("../system/studio-docs.mjs", import.meta.url));
+// #219's framesPass asks the SHIPPED module which prototypes are on the canvas and where, so a
+// changed footprint or a renamed frame moves the driver with the module instead of drifting past it.
+const { FRAMES } = await import(new URL("../system/studio-frames.mjs", import.meta.url));
 
 // The stale-serve guard (tooling/catalog-journey.mjs's, copied): a long-lived serve.mjs can belong
 // to another session and serve ANOTHER tree, and every assertion below would then be about the
@@ -1297,6 +1300,7 @@ async function journey(engineName, results, held) {
   await methodPass(browser, engineName, t, errors);
   await selectPass(browser, engineName, t, errors);
   await docsPass(browser, engineName, t, errors);
+  await framesPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -4762,6 +4766,410 @@ async function docsPass(browser, engineName, t, errors) {
     await rctx.close();
   }
 
+  await ctx.close();
+}
+
+// --- #219 · THE DEVICE FRAMES ------------------------------------------------------------------
+// The two shipped prototypes on the /factory canvas, and the half build-checks group 24 structurally
+// cannot be. That group gates the DESCRIPTORS — two files that exist, two footprints on the grid. It
+// says so itself, and everything below is the list it names: that the frames RENDER, that their
+// contents carry no nested chrome (which can only be asserted on the frame's own contentDocument),
+// that the pack FOLLOWS a mid-visit dock swap, that pointer, keyboard and an injected agent action
+// produce the SAME span, that a resize is undoable in the ONE history the moves live in, that the
+// selection layer stays out of it, and that a redraft and a compile both leave the frames alone.
+async function framesPass(browser, engineName, t, errors) {
+  console.log(`\n[frames] #219 · the two prototypes as device frames on the canvas (${engineName})`);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
+  };
+  // THE HANDLE FIRST, THEN THE SETTLE. [data-studio-frames="ready"] fires at MOUNT and the frames are
+  // placed there, so it resolves long before the replay finishes — but every assertion below is about
+  // a canvas the run has finished authoring, and #209's own opener records why waiting for that
+  // matters. The frames' CONTENT is waited for separately, per frame, because loading="lazy" makes
+  // its timing an engine's business rather than a contract (studio-frames.mjs says so).
+  const open = async (context = ctx, tag = "frames") => {
+    const p = await context.newPage();
+    watch(p, tag);
+    await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await p.waitForSelector('[data-studio-frames="ready"]', { timeout: 20000 });
+    await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    // The canvas scrolled into view before any pointer row — selectPass's recorded lesson: on
+    // /factory the studio sits well below the fold, so a raw mouse.move to a computed client
+    // coordinate lands off-screen and the press never reaches the stage.
+    await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(400);
+    return p;
+  };
+  const frameState = (p) => p.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")].map((n) => ({
+    key: n.getAttribute("data-stx-frame"),
+    id: n.getAttribute("data-stx-id"),
+    col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
+    cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
+    src: n.querySelector("iframe")?.getAttribute("src"),
+    title: n.querySelector("iframe")?.getAttribute("title"),
+    grab: n.querySelector(".stx-grab") ? !n.querySelector(".stx-grab").disabled : null,
+    resize: n.querySelector(".stx-resize") ? !n.querySelector(".stx-resize").disabled : null,
+    describedBy: n.querySelector(".stx-resize")?.getAttribute("aria-describedby"),
+    styled: n.hasAttribute("style"),
+  })));
+  const live = (p) => p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.trim());
+  const spanOf = (p, key) => p.evaluate((k) => {
+    const n = document.querySelector(`[data-stx-frame="${k}"]`);
+    return { cols: n?.getAttribute("data-span-col"), rows: n?.getAttribute("data-span-row"),
+      col: n?.getAttribute("data-col"), row: n?.getAttribute("data-row") };
+  }, key);
+  const idOf = (p, key) => p.evaluate((k) => document.querySelector(`[data-stx-frame="${k}"]`)?.getAttribute("data-stx-id"), key);
+  const depth = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => m.getVerbs().history.depth()));
+  // A frame's CONTENT, waited for rather than assumed: loading="lazy" is a hedge and nothing in the
+  // shipped module depends on when it resolves, so the driver must not either.
+  const loaded = (p, key) => p.waitForFunction((k) => {
+    const f = document.querySelector(`[data-stx-frame="${k}"] iframe`);
+    return Boolean(f?.contentDocument?.body?.dataset?.page || f?.contentDocument?.querySelector(".vd-plant-card, .fw-lane"));
+  }, key, { timeout: 30000 });
+
+  const p = await open();
+
+  // --- 1 · they are there, and they are frames --------------------------------------------------
+  const rest = await frameState(p);
+  t(`#219 · the canvas holds exactly ${FRAMES.length} device frames, one per committed descriptor`,
+    rest.length === FRAMES.length, JSON.stringify(rest.map((f) => f.key)));
+  for (const want of FRAMES) {
+    const got = rest.find((f) => f.key === want.id);
+    t(`#219 · the ${want.id} frame is an <iframe> of the shipped page at its declared footprint`,
+      Boolean(got) && got.src === want.src && got.title === want.title
+      && got.col === String(want.col) && got.row === String(want.row)
+      && got.cols === String(want.spanCol) && got.rows === String(want.spanRow),
+      JSON.stringify(got));
+    t(`#219 · …with a stable id and BOTH handles armed, each describing itself through a resolving IDREF`,
+      Boolean(got?.id) && got.grab === true && got.resize === true && got.describedBy === "stx-resize-help",
+      JSON.stringify({ id: got?.id, grab: got?.grab, resize: got?.resize, describedBy: got?.describedBy }));
+  }
+  t("#219 · #stx-resize-help exists, so every .stx-resize's aria-describedby resolves to real text",
+    (await p.locator("#stx-resize-help").count()) === 1
+    && (await p.locator("#stx-resize-help").textContent() || "").includes("Escape to cancel"));
+  t("#219 · no `style` attribute on any frame — geometry is attributes, on the running page",
+    rest.every((f) => !f.styled), JSON.stringify(rest.map((f) => f.styled)));
+
+  // --- 2 · NO NESTED CHROME, asserted on the frame's own contentDocument (AC #2) -----------------
+  // THE ASSERTION THE PIXEL GATE STRUCTURALLY CANNOT MAKE, and the one that catches a proto page
+  // dropping its `window.self === window.top` guard — a regression whose only other symptom is a
+  // second appearance dock appearing inside a box the gate masks.
+  for (const want of FRAMES) {
+    await loaded(p, want.id);
+    const inside = await p.evaluate((k) => {
+      const d = document.querySelector(`[data-stx-frame="${k}"] iframe`).contentDocument;
+      return {
+        page: d.body?.dataset?.page ?? null,
+        dock: d.querySelectorAll(".dock, [data-dock]").length,
+        inspect: d.querySelectorAll("[data-inspect-toggle]").length,
+        palette: d.querySelectorAll("[data-palette-open], .cmdk, [data-palette]").length,
+        deviceFrame: d.querySelectorAll(".proto-resize, [data-device-frame]").length,
+        busToggles: d.querySelectorAll("[data-bus-toggles]").length,
+        rendered: d.querySelectorAll(".vd-plant-card, .fw-lane").length,
+      };
+    }, want.id);
+    t(`#219 · AC #2 · the ${want.id} frame really loaded the proto page (or the absences below prove nothing)`,
+      inside.page !== null && inside.rendered > 0, JSON.stringify(inside));
+    t(`#219 · AC #2 · …and carries NO nested dock, inspect toggle, palette or standalone device frame`,
+      inside.dock === 0 && inside.inspect === 0 && inside.palette === 0 && inside.deviceFrame === 0,
+      JSON.stringify(inside));
+  }
+
+  // --- 3 · the pack FOLLOWS a mid-visit dock swap (AC #1) ----------------------------------------
+  // A fresh context, load-bearing for the reason #213's dock case records: pack-boot restores a
+  // persisted pack pre-paint, so this must start neutral and the saulera choice must die with the
+  // context rather than skin every later page.
+  {
+    const dctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const dp = await open(dctx, "frames/dock");
+    await loaded(dp, "verdant");
+    const before = await dp.evaluate(() => document.querySelector('[data-stx-frame="verdant"] iframe')
+      .contentDocument.querySelector('link[rel="stylesheet"][href*="/system/tokens."]:not([href*="contract"])')
+      ?.getAttribute("href"));
+    await dp.evaluate(() => { location.hash = "appearance"; });
+    await dp.waitForTimeout(250);
+    await dp.locator('label[for="dock-pack-saulera"]').click();
+    await dp.waitForFunction(() => [...document.querySelectorAll('link[rel="stylesheet"]')]
+      .some((l) => /\/system\/tokens\.saulera\.css$/.test(l.getAttribute("href") || "")), null, { timeout: 10000 });
+    await dp.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    const after = await dp.waitForFunction(() => {
+      const h = document.querySelector('[data-stx-frame="verdant"] iframe')
+        .contentDocument?.querySelector('link[rel="stylesheet"][href*="/system/tokens."]:not([href*="contract"])')
+        ?.getAttribute("href");
+      return /saulera/.test(h || "") ? h : false;
+    }, null, { timeout: 10000 }).then((h) => h.jsonValue()).catch(() => null);
+    t("#219 · AC #1 · the frame wore the site's pack before the swap",
+      /neutral/.test(before || ""), String(before));
+    t("#219 · AC #1 · …and the dock's mid-visit swap re-points the frame's OWN pack line to saulera",
+      /saulera/.test(after || ""), String(after));
+    // The discriminator is canvas-scoped (#213's precedent): a dock verb is chrome, not canvas.
+    const took = await dp.evaluate(() => import("/system/replay-driver.mjs")
+      .then((m) => m.getReplay()?.tookOver ?? null));
+    t("#219 · …and switching the dock is still NOT a canvas take-over", took === false, String(took));
+    await dctx.close();
+  }
+
+  // --- 4 · THREE-SOURCE RESIZE PARITY (AC #3) ---------------------------------------------------
+  // Pointer, keyboard and an injected source:"agent" action, compared on the RESULTING data-span-*
+  // rather than on "an action was emitted" — which would pass with no consumer at all. The agent leg
+  // runs on a FRESH page with no gesture first, because that freshness is the whole discriminator:
+  // a mover that applied directly and merely emitted would pass the other two (#205's recorded rule).
+  const TARGET = "verdant";
+  const WANT = { cols: "2", rows: "4" };   // Verdant can only grow DOWNWARD — Fieldwork is beside it
+  {
+    const pp = await open(ctx, "frames/pointer");
+    const before = await depth(pp);
+    const h = pp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`);
+    await h.scrollIntoViewIfNeeded();
+    const b = await h.boundingBox();
+    const said = [];
+    await pp.evaluate(() => {
+      window.__said = [];
+      const region = document.querySelector("[data-studio-canvas] .stx-live");
+      new MutationObserver(() => window.__said.push(region.textContent.trim())).observe(region, { childList: true, characterData: true, subtree: true });
+    });
+    await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await pp.mouse.down();
+    await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 170, { steps: 12 });
+    await pp.mouse.up();
+    await pp.waitForTimeout(250);
+    said.push(...await pp.evaluate(() => window.__said));
+    const byPointer = await spanOf(pp, TARGET);
+    t("#219 · AC #3 · a POINTER drag of the corner resizes the frame",
+      byPointer.cols === WANT.cols && byPointer.rows === WANT.rows, JSON.stringify(byPointer));
+    t("#219 · AC #3 · …in exactly ONE history entry", (await depth(pp)) - before === 1,
+      `Δ${(await depth(pp)) - before}`);
+    // ANNOUNCEMENTS COUNTED EXACTLY AND PER PATH, because the two paths differ ON PURPOSE and the
+    // formula is read off the implementation rather than guessed: a pointer resize announces ONCE, at
+    // the drop. A naive once-per-gesture count applied to the keyboard path below would send the next
+    // implementer to delete the per-press feedback, which is the wrong fix.
+    t("#219 · AC #3 · …and announces exactly once, at the drop", said.length === 1, JSON.stringify(said));
+    await pp.close();
+  }
+  {
+    const kp = await open(ctx, "frames/keyboard");
+    const before = await depth(kp);
+    await kp.evaluate(() => {
+      window.__said = [];
+      const region = document.querySelector("[data-studio-canvas] .stx-live");
+      new MutationObserver(() => window.__said.push(region.textContent.trim())).observe(region, { childList: true, characterData: true, subtree: true });
+    });
+    await kp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await kp.keyboard.press("Enter");
+    await kp.keyboard.press("ArrowDown");
+    await kp.keyboard.press("Enter");
+    await kp.waitForTimeout(200);
+    const said = await kp.evaluate(() => window.__said);
+    const byKeyboard = await spanOf(kp, TARGET);
+    t("#219 · AC #3 · the KEYBOARD path (Enter · arrows · Enter) reaches the SAME span",
+      byKeyboard.cols === WANT.cols && byKeyboard.rows === WANT.rows, JSON.stringify(byKeyboard));
+    t("#219 · AC #3 · …in exactly ONE history entry, so Undo undoes THE RESIZE and not its last column",
+      (await depth(kp)) - before === 1, `Δ${(await depth(kp)) - before}`);
+    // pick-up + one per arrow press + the drop = N + 2, the move path's own formula.
+    t("#219 · AC #3 · …and announces the pick-up, EVERY arrow press and the drop — N + 2, never once",
+      said.length === 3 && /ready to resize/.test(said[0]) && /2 columns by 4 rows/.test(said[1])
+      && /resized to 2 columns by 4 rows/.test(said[2]), JSON.stringify(said));
+    // A BLOCKED press still announces, which is what tells a keyboard reader why nothing moved.
+    await kp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await kp.keyboard.press("Enter");
+    await kp.keyboard.press("ArrowRight");
+    const blocked = await live(kp);
+    await kp.keyboard.press("Escape");
+    t("#219 · AC #3 · …and a press blocked by a PEER's footprint says so rather than going silent",
+      /^Blocked, still /.test(blocked), blocked);
+    await kp.close();
+  }
+  {
+    // THE AGENT LEG, on a fresh page with NO gesture first.
+    const ap = await open(ctx, "frames/agent");
+    const seen = await ap.evaluate(async ([id, want]) => {
+      const { getVerbs } = await import("/system/studio-verbs.mjs");
+      const types = [];
+      getVerbs().bus.on("*", (a) => types.push(a.type));
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id }, params: want });
+      return types;
+    }, [await idOf(ap, TARGET), { cols: Number(WANT.cols), rows: Number(WANT.rows) }]).catch(() => null);
+    const byAgent = await spanOf(ap, TARGET);
+    t("#219 · AC #3 · an injected source:\"agent\" ui.resize reaches the SAME span on a FRESH page — the three sources are one consumer",
+      byAgent.cols === WANT.cols && byAgent.rows === WANT.rows, JSON.stringify({ byAgent, seen }));
+    // The two refusals the consumer owns, each CONTENT and never a throw.
+    const refusals = await ap.evaluate(async () => {
+      const { getVerbs } = await import("/system/studio-verbs.mjs");
+      const region = document.querySelector("[data-studio-canvas] .stx-live");
+      const out = {};
+      const slot = document.querySelector("[data-studio-canvas] .stx-slot");
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: slot.getAttribute("data-stx-id") }, params: { cols: 3, rows: 3 } });
+      out.notResizable = region.textContent.trim();
+      out.slotUntouched = !slot.hasAttribute("data-span-col") && !slot.hasAttribute("data-span-row");
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: "nope" }, params: { cols: 2, rows: 2 } });
+      out.unknown = region.textContent.trim();
+      const f = document.querySelector('[data-stx-frame="verdant"]');
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: f.getAttribute("data-stx-id") }, params: { cols: "abc", rows: -9 } });
+      out.clamped = [f.getAttribute("data-span-col"), f.getAttribute("data-span-row")];
+      return out;
+    });
+    t("#219 · a ui.resize naming a BOARD WRAPPER is refused as not resizable, and writes no span attribute",
+      /is not resizable\.$/.test(refusals.notResizable) && refusals.slotUntouched, JSON.stringify(refusals));
+    t("#219 · …a ui.resize naming nothing on the canvas is refused by id",
+      /^Refused: no component "nope"/.test(refusals.unknown), refusals.unknown);
+    t("#219 · …and hostile params are CLAMPED rather than reaching an attribute as NaN",
+      refusals.clamped[0] === "1" && refusals.clamped[1] === "1", JSON.stringify(refusals.clamped));
+    await ap.close();
+  }
+
+  // --- 5 · Undo restores the SPAN, and the mixed sequence walks back through ONE history ---------
+  {
+    const up = await open(ctx, "frames/undo");
+    const start = await spanOf(up, TARGET);
+    await up.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await up.keyboard.press("Enter");
+    await up.keyboard.press("ArrowDown");
+    await up.keyboard.press("Enter");
+    const resized = await spanOf(up, TARGET);
+    await up.locator('[data-stx-verb="undo"]').click();
+    await up.waitForTimeout(200);
+    const undone = await spanOf(up, TARGET);
+    const undoneSaid = await live(up);
+    await up.locator('[data-stx-verb="redo"]').click();
+    await up.waitForTimeout(200);
+    const redone = await spanOf(up, TARGET);
+    t("#219 · AC #3 · Undo restores the span the resize changed",
+      resized.rows !== start.rows && undone.rows === start.rows && undone.cols === start.cols,
+      JSON.stringify({ start, resized, undone }));
+    t("#219 · …announced as a SIZE, not as a column and row the frame never left",
+      /at \d+ columns by \d+ rows/.test(undoneSaid), undoneSaid);
+    t("#219 · …and Redo returns it", redone.rows === resized.rows && redone.cols === resized.cols,
+      JSON.stringify(redone));
+
+    // THE MIXED SEQUENCE — the one a per-verb history would fail. Move, resize, move; then three
+    // Undos, each walking back the step before it, in order.
+    const grab = up.locator(`[data-stx-frame="${TARGET}"] .stx-grab`);
+    await grab.focus();
+    await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
+    const m1 = await spanOf(up, TARGET);
+    await up.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
+    const r1 = await spanOf(up, TARGET);
+    await grab.focus();
+    await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
+    const m2 = await spanOf(up, TARGET);
+    const moved = m1.row !== redone.row || m2.row !== m1.row;
+    await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
+    const back1 = await spanOf(up, TARGET);
+    await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
+    const back2 = await spanOf(up, TARGET);
+    await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
+    const back3 = await spanOf(up, TARGET);
+    t("#219 · the mixed sequence really moved AND resized (or the three Undos below prove nothing)",
+      moved && r1.rows !== m1.rows, JSON.stringify({ redone, m1, r1, m2 }));
+    t("#219 · AC #3 · three Undos walk back move · resize · move IN ORDER, through ONE history",
+      JSON.stringify(back1) === JSON.stringify(r1)
+      && JSON.stringify(back2) === JSON.stringify(m1)
+      && JSON.stringify(back3) === JSON.stringify(redone),
+      JSON.stringify({ back1, back2, back3, want: [r1, m1, redone] }));
+    await up.close();
+  }
+
+  // --- 6 · the SELECTION line holds (D6) --------------------------------------------------------
+  // The assertion that keeps a half-widened selection layer from shipping unnoticed: studio-verbs'
+  // slots() is MOVABLE now, and studio-select's chosenNodes() is deliberately still .stx-slot.
+  {
+    const sp = await open(ctx, "frames/select");
+    await sp.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await sp.waitForTimeout(300);
+    const marked = await sp.evaluate(async () => {
+      const scroll = document.querySelector("[data-studio-canvas] .stx-scroll");
+      scroll.focus();
+      const e = new KeyboardEvent("keydown", { key: "a", ctrlKey: true, bubbles: true, cancelable: true });
+      scroll.dispatchEvent(e);
+      await new Promise((r) => setTimeout(r, 150));
+      return {
+        slots: document.querySelectorAll("[data-studio-canvas] .stx-slot[data-stx-selected]").length,
+        frames: document.querySelectorAll("[data-studio-canvas] .stx-frame[data-stx-selected]").length,
+        allSlots: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+      };
+    });
+    t("#219 · D6 · ⌘/Ctrl+A selects every BOARD block…", marked.slots === marked.allSlots && marked.slots > 0,
+      JSON.stringify(marked));
+    t("#219 · D6 · …and leaves both device frames unselected — a frame moves and resizes on its own",
+      marked.frames === 0, JSON.stringify(marked));
+    await sp.close();
+  }
+
+  // --- 7 · a frame is MOVABLE, and its whole FOOTPRINT blocks ------------------------------------
+  {
+    const mp = await open(ctx, "frames/move");
+    const from = await spanOf(mp, TARGET);
+    await mp.locator(`[data-stx-frame="${TARGET}"] .stx-grab`).focus();
+    await mp.keyboard.press("Enter");
+    await mp.keyboard.press("ArrowRight");
+    await mp.keyboard.press("Enter");
+    const to = await spanOf(mp, TARGET);
+    t("#219 · a frame moves by the SAME grab handle and the SAME ui.move verb everything else uses",
+      to.col !== from.col && to.cols === from.cols && to.rows === from.rows,
+      JSON.stringify({ from, to }));
+    // THE FOOTPRINT, not the corner: the step landed past the OTHER frame's whole rectangle rather
+    // than one column along. A top-left-only occupancy set would have let it stop inside.
+    const other = FRAMES.find((f) => f.id !== TARGET);
+    t("#219 · …and it stepped clear of the other frame's WHOLE footprint, not just its top-left cell",
+      Number(to.col) >= other.col + other.spanCol,
+      `landed at column ${to.col}; ${other.id} covers ${other.col}..${other.col + other.spanCol - 1}`);
+    await mp.close();
+  }
+
+  // --- 8 · a redraft and a compile both leave the frames alone -----------------------------------
+  {
+    const cp = await open(ctx, "frames/compile");
+    const beforeSlots = await cp.evaluate(() => document.querySelectorAll("[data-studio-canvas] .stx-slot").length);
+    await cp.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+    await cp.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "rendered",
+      null, { timeout: 20000 });
+    const compiled = await cp.evaluate(() => ({
+      screens: document.querySelectorAll(".stf-screen").length,
+      frames: document.querySelectorAll("[data-studio-canvas] .stx-frame").length,
+      slots: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+      refusal: document.querySelectorAll(".stu-compile-refusal").length,
+    }));
+    t("#219 · Compile still swaps every board wrapper to a screen with the frames present",
+      compiled.screens === beforeSlots && compiled.slots === beforeSlots && compiled.refusal === 0,
+      JSON.stringify(compiled));
+    t("#219 · …and the frames are untouched by it — they are not board wrappers",
+      compiled.frames === FRAMES.length, JSON.stringify(compiled));
+    // THE HEIGHT DOES NOT RIDE --stx-slot-h (D4): a depicted device that grew when a board compiled
+    // would be a lie about the device. Measured, because the whole point is that CSS decides it.
+    const heights = await cp.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")]
+      .map((n) => Math.round(n.getBoundingClientRect().height)));
+    await cp.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+    await cp.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "blocks",
+      null, { timeout: 20000 });
+    const heightsBack = await cp.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")]
+      .map((n) => Math.round(n.getBoundingClientRect().height)));
+    t("#219 · D4 · a frame is the SAME height compiled and uncompiled — the depicted device does not grow",
+      JSON.stringify(heights) === JSON.stringify(heightsBack), JSON.stringify({ heights, heightsBack }));
+    await cp.close();
+  }
+  {
+    const rp = await open(ctx, "frames/redraft");
+    const before = await rp.evaluate(() => document.querySelectorAll("[data-studio-canvas] .stx-slot").length);
+    // The method band's first card, answered — #214's own redraft path.
+    const card = rp.locator("[data-studio-method] input[type=radio]").first();
+    await card.scrollIntoViewIfNeeded();
+    await card.click();
+    await rp.waitForTimeout(600);
+    const after = await rp.evaluate(() => ({
+      slots: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+      frames: document.querySelectorAll("[data-studio-canvas] .stx-frame").length,
+      keys: [...document.querySelectorAll("[data-studio-canvas] .stx-frame")].map((n) => n.getAttribute("data-stx-frame")),
+    }));
+    t("#219 · a method redraft rebuilds the board and leaves BOTH frames standing — adoptBoard removes .stx-slot only",
+      after.frames === FRAMES.length && after.keys.length === FRAMES.length,
+      JSON.stringify({ before, after }));
+    await rp.close();
+  }
+
+  await p.close();
   await ctx.close();
 }
 
