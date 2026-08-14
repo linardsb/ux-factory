@@ -3098,6 +3098,13 @@ async function teardownPass(browser, t, errors) {
   const retried = await afterState(p3);
   t("#237 · the NEXT compile re-issues the request and renders — the failure was not memoized",
     retried.kinds.length > 0 && retried.kinds.every((k) => k === "stf-screen"), JSON.stringify(retried.kinds));
+  // #218's join is the THIRD request below, and it is asynchronous: it starts only once a screen
+  // exists and resolves whenever the network does. Waiting for its DECORATION to land is what makes
+  // the count deterministic — without this the total is 2 on a fast engine and 3 on a slow one
+  // (measured: chromium 3, firefox 2), which is a flake rather than an assertion. Bounded and
+  // swallowed; whether decoration happens at all is docsPass's claim, not this pass's.
+  await p3.waitForFunction(() => document.querySelectorAll("[data-studio-docs]").length > 0,
+    null, { timeout: 15000 }).catch(() => {});
   // THREE since #218, and the composition is exact rather than a floor: the beat's 503, the beat's
   // retry, and system/studio-docs.mjs's join — which only fires once a screen exists, so it is
   // strictly after the retry that produced one, and it never sees the 503. The claim this assertion

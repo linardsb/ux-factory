@@ -67,7 +67,9 @@ now gated twice: the RULE in CI (build-checks group 23) and the WIRING on a runn
 
 ### `tooling/studio-journey.mjs` `docsPass` — the wiring (×3 engines, operator-run)
 
-Sixteen assertions. The two that no other gate can make:
+**28 assertions — chromium 28/0, firefox 27/0, webkit 27/0** (the 28th, `/components`' `[hidden]`
+check, was added after the firefox and webkit legs and is re-run in the full three-engine pass).
+The two that no other gate can make:
 
 - **1a** zero requests for all three artifacts before Compile, no trigger on the canvas, and the panel
   stating its precondition.
@@ -127,15 +129,37 @@ all three are consequences the ticket owns:
 Every row run, observed failure text recorded, every mutation reverted, and the full gate set re-run
 afterwards.
 
-| # | Mutation | Went red in | It named |
+| # | Mutation | Went red in | Observed failure text |
 |---|---|---|---|
-| 1 | `loadDocsModel` joins with two args | group 23 case 5 (2 failures) | *"the joined rows carry no resolved token groups — the graph argument did not reach prepareHandoff, and the inspector is quietly poorer than /components"* · *"no joined row carries a measured `consumer`…"* |
-| 2 | `shouldLoad` returns `true` unconditionally | group 23 case 6 (15 failures) | every false row by its own `{compiled,loaded,loading}` triple, e.g. *"shouldLoad({compiled:false,loaded:false,loading:false}) must be false — fetch only once the stage has compiled, only once, never while a load is in flight"* |
-| 3 | `refresh()` calls `ensureModel()` without `shouldLoad` | `docsPass` 1b | the per-url delta |
-| 4 | a pack component's `class` renamed | group 23 case 3 (in-group mutation) | *"a renamed pack class still resolved against the renderer — case 23.2's drift detector cannot fail, and metric-tile is what it would have named"* |
-| 5 | `inspector.activate(i, true)` | `docsPass` 4 | the stolen `activeElement` |
-| 6 | `[hidden]` rule removed from `system/catalog.css` | `docsPass` 6b | the second painted code panel |
-| 7 | `COMPILED_SELECTOR` → `".stf-screenX"` | group 23 case 6 | *"COMPILED_SELECTOR is .stf-screenX but renderScreen emits .stf-screen — the studio would never notice it had compiled"* |
+| 1 | `loadDocsModel` joins with two args | ✅ group 23 case 5 — 2 failures | *"the joined rows carry no resolved token groups — the graph argument did not reach prepareHandoff, and the inspector is quietly poorer than /components"* · *"no joined row carries a measured `consumer` — the graph argument did not reach prepareHandoff"* |
+| 2 | `shouldLoad` returns `true` unconditionally | ✅ group 23 case 6 — 15 failures | every false row by its own triple, e.g. *"shouldLoad({compiled:false,loaded:false,loading:false}) must be false — fetch only once the stage has compiled, only once, never while a load is in flight"* |
+| 3 | `refresh()` calls `ensureModel()` without `shouldLoad` | ✅ `docsPass` 1b — 2 failures | the delta row, plus *"pack.json … was fetched exactly once across the whole visit → /handoff/verdant/pack.json = 4"* |
+| 4 | a pack component's `class` renamed | ✅ group 23 case 3 (in-group) | *"a renamed pack class still resolved against the renderer — case 23.2's drift detector cannot fail, and metric-tile is what it would have named"* |
+| 5 | `inspector.activate(i, true)` | ✅ `docsPass` 4 | *"…does NOT steal focus — activate(i, false) is load-bearing  {"name":"list-row","onCanvas":false,"active":"BUTTON"}"* |
+| 6 | `[hidden]` rule removed from `system/catalog.css` | ❌ **STAYED GREEN — a finding, see below** | — |
+| 7 | `COMPILED_SELECTOR` → `".stf-screenX"` | ✅ group 23 case 6 | *"COMPILED_SELECTOR is .stf-screenX but renderScreen emits .stf-screen — the studio would never notice it had compiled"* |
+
+#### Row 6 is a finding about a CLAIM, not about the gate
+
+Run twice, green twice, and the second run is the informative one.
+
+- **First run**, on `/factory`: green because `factory.html` declares its own identical `[hidden]`
+  rule, so the sheet's copy is invisible there. Fair — the detector was in the wrong place. So a
+  28th assertion was added, on `/components`, whose page `<style>` no longer declares the rule and
+  where the shared sheet is therefore its **only** carrier.
+- **Second run**, against that stronger detector: **still green.** The reason is that the rule is
+  not load-bearing at all today — **nothing in `system/catalog.css` gives `.cat-code` a `display`**,
+  so the UA rule `[hidden] { display: none }` already wins unaided. Verified in both directions: with
+  the rule deleted, exactly one of many code panels is painted on `/components` and on `/factory`.
+
+`system/catalog.mjs` has asserted the opposite in prose since #215 (*"the page carries the page-wide
+`[hidden]` rule"*), and this plan repeated it. Both comments are corrected to what is true: the rule
+is **defence in depth** against the day someone gives `.cat-code` a `display` — the exact shape of
+the #138 regression on `/build` — and **no gate can catch its removal today**, which is stated so the
+next editor neither deletes it as dead nor trusts a gate to notice. The rule is kept.
+
+This is the repo's own *"the check that cannot fail"* discipline finding a false claim rather than a
+false pass, which is the outcome the drill exists for.
 
 ### Task 12 · baseline churn
 
@@ -176,6 +200,42 @@ BOTH numbers that moved: loc-summary's runtime group and the param-count total).
    catch different regressions (assertion 1 into 1a/1b, assertion 5 into API / tokens / class).
 
 ## Issues encountered
+
+### A pre-existing layout defect this ticket's REACH exposes — `system/studio.css` (fixed here)
+
+`#206`'s canvas overflow is already recorded in `system/studio.css` at `.stu-compile-step`:
+`.stx-viewport` is ~2818 px wide inside a 776 px column. The consequence that comment names is
+cosmetic (a readout running under the inspector); the one it does not is that **the canvas column's
+box extends transparently ACROSS the inspector rail and is the topmost hit-test target there**.
+Nothing paints, which is why every pixel baseline has always looked correct and no gate in the repo
+could see it — but a pointer aimed at the rail lands on the stage.
+
+It went unnoticed while the rail's only controls were the tab pills at its very top. #218 puts a
+playground, a code-tab row and a copy button several hundred pixels down it, and a reader clicking
+those was hitting the canvas. **Measured identical on `origin/main`** (`elementFromPoint` inside the
+inspector's x-range returns `.stx-stage` on both trees), so the defect predates this ticket and only
+its reach is new.
+
+Fixed with `position: relative; z-index: 1` on `.stu-inspector` — a pointer fix, not a paint one, and
+deliberately not the narrower column that `studio.css`'s own comment rules out as *"an at-rest change
+to the canvas with its own baselines and its own gates to argue"*. Task 11b's computed-style
+comparison across both trees is what says it moved no geometry.
+
+### Two driver traps, both already recorded elsewhere in this repo
+
+- **A node rebuilt under a resting pointer delivers no enter event** (`inspect.mjs:301-329`'s own
+  lesson). AC #2's second hover was at the same coordinates over new nodes, so no `mouseenter` fired
+  and a correct page read as a dead bubble. The driver now moves the pointer away and back.
+- **A reload in the tick after a `localStorage` write loses it.** Measured on chromium: 3/3 failures
+  with the key already absent at `document_start`, 0/3 with a settle. A driver wait, not a page
+  defect — commented as such, since removing it makes AC #5 red for a correct implementation.
+
+### Iteration technique worth recording
+
+`docsPass` is the last pass in a ~40-minute chromium journey, which made a 40-minute loop for code
+that had never run. A **throwaway** one-line pass filter (`ONLY=docs`) at the top of `journey()` cut
+it to ~2 minutes; it was removed before the final run. Worth considering as a real operator
+affordance in a later ticket — it is out of scope here.
 
 - **The accepted double-open** (Task 4's gotcha) behaves as the plan predicted and was checked by
   hand: `tabindex="0"` makes the three compiled primitives focusable, so `inspect.mjs`'s `focusin`
