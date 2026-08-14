@@ -24,8 +24,8 @@
    renderer's own output on either host page. The shared renderer's OTHER caller is
    handoff-viewer.mjs's renderHandoffViewer, which draws onto /handoff.html — that page does not link
    this file and carries its own separate copy of the hv-* rules in a page <style>, so there is no
-   leak in either direction. Both are checked by name rather than by line, deliberately: two of PR
-   #266's five findings were line cites that had gone stale. */
+   leak in either direction. Both callers are named by SYMBOL rather than by line, deliberately —
+   a line cite here goes stale the next time either file grows. */
 
 /* `hidden` wins wherever this sheet is linked. The rule TRAVELS WITH THE RENDERER (#218) rather
    than staying in one page's <style>, so a host does not have to know to declare it.
