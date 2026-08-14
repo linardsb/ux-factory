@@ -45,6 +45,34 @@ const require = createRequire(`${VRDIR}${path.sep}`);
 const pw = require("@playwright/test");
 
 const BASE = process.env.BASE || "http://127.0.0.1:4757";
+
+// THE ONE EXPECTED-NOISE FILTER ON THIS DRIVER, and it arrived at #219 — this file's header used to
+// say there was none, "unlike proto-journey's". That sentence stopped being true the moment /factory
+// started embedding the two proto pages as device frames: those pages fetch the mock Worker
+// (127.0.0.1:8787) and fall back to committed static fixtures when it is absent, which IS the
+// designed behaviour, and every engine logs the refused request for it in its own words. An iframe's
+// console messages surface on the embedding page, so without this every /factory assertion below
+// would fail for a degradation the proto pages are supposed to perform.
+//
+// Copied VERBATIM from tooling/proto-journey.mjs:70 rather than re-derived, so the two drivers agree
+// about what the same degradation looks like — and narrow for the same reason it is narrow there:
+//   · firefox names the blocked origin, so the Worker's own address identifies it;
+//   · chromium and webkit carry no URL, so each is matched on its own refused-CONNECTION wording.
+// All three name a connection that was refused, which a 404, a bad MIME type or a real script error
+// does not produce — so a genuine failure, including one against some other origin, still fails the
+// run. NOT applied to the /studio.html opener below: that page mounts no frames, so it keeps the
+// stronger any-error-is-a-failure contract this driver was written with.
+const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server/;
+
+// #219 · A SUB-FRAME'S REQUESTS ARE NOT THIS PAGE'S. /factory embeds the two proto pages as device
+// frames, and Fieldwork fetches handoff/verdant/vocabulary.json for its agentic slots — the SAME url
+// the compile beat lazily fetches and the same one two fixtures below deliberately fail. Playwright
+// reports a sub-frame's requests on the embedding page and routes them through its handlers, so
+// every request LOG and every route FIXTURE that means "/factory itself" has to say so. Without it
+// the beat's lazy-fetch claim reads as broken by a frame doing exactly what it should, and the 503
+// fixture serves its one failure to the frame instead of to the beat.
+const mainOnly = (page) => (r) => r.frame() === page.mainFrame();
+
 const ENGINES = ["chromium", "firefox", "webkit"];
 const requested = (process.argv[2] || "all").toLowerCase();
 const toRun = requested === "all" ? ENGINES : [requested];
@@ -265,8 +293,9 @@ async function journey(engineName, results, held) {
 
   const browser = held.browser = await pw[engineName].launch();
   const errors = [];
-  // The harness fetches only committed files and calls no Worker, so ANY console error or page
-  // error is a real failure — there is no expected-noise filter to weaken, unlike proto-journey's.
+  // studio.html fetches only committed files and calls no Worker, so ANY console error or page error
+  // is a real failure on THIS opener — no filter to weaken. /factory is different since #219 embeds
+  // the two proto pages there; see EXPECTED_NOISE above for what those openers filter and why.
   async function open(ctx) {
     const p = await ctx.newPage();
     p.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
@@ -1285,7 +1314,7 @@ async function factoryPass(browser, t, errors) {
   // four inbound entry points share.
   const p = await ctx.newPage();
   p.on("pageerror", (e) => errors.push(`factory pageerror: ${e.message}`));
-  p.on("console", (m) => { if (m.type() === "error") errors.push(`factory console: ${m.text()}`); });
+  p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`factory console: ${m.text()}`); });
   await p.goto(`${BASE}/factory.html#shape`, { waitUntil: "load" });
   await p.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
   await p.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
@@ -1528,7 +1557,7 @@ async function replayPass(browser, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
   const replayState = (p) => p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
@@ -2125,7 +2154,8 @@ async function compilePass(browser, t, errors) {
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(`compile pageerror: ${e.message}`));
     page.on("console", (m) => { if (m.type() === "error") errors.push(`compile console: ${m.text()}`); });
-    page.on("request", (r) => requests.push(r.url()));
+    const onlyMine = mainOnly(page); // #219: the frames fetch this same vocabulary — see mainOnly
+    page.on("request", (r) => { if (onlyMine(r)) requests.push(r.url()); });
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
@@ -2517,7 +2547,7 @@ async function keepPass(browser, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const railReady = (p) => p.waitForSelector('[data-studio-keep="ready"]', { timeout: 20000 });
   const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
@@ -2552,7 +2582,8 @@ async function keepPass(browser, t, errors) {
   // CLICK. Counted from the moment the rail was ready, so the replay's own two artifact fetches —
   // which happen before it — are not what this is measuring.
   const atRest = [];
-  p1.on("request", (r) => atRest.push(r.url()));
+  const p1Mine = mainOnly(p1); // #219: the device frames load two proto pages of their own
+  p1.on("request", (r) => { if (p1Mine(r)) atRest.push(r.url()); });
   await p1.waitForTimeout(400);
   t("#210 · the rail fetches NOTHING at rest — no vocabulary, no stylesheets until the reader asks",
     atRest.filter((u) => /vocabulary\.json|tokens\.|components\.css/.test(u)).length === 0, JSON.stringify(atRest));
@@ -2968,7 +2999,11 @@ async function teardownPass(browser, t, errors) {
       if (/Failed to load resource/.test(m.text())) return;
       errors.push(`teardown console: ${m.text()}`);
     });
-    if (route) await page.route("**/vocabulary.json", route);
+    // #219: scoped to the MAIN frame, or case 3 serves its one 503 to the Fieldwork frame — which
+    // fetches this url first — and the beat under test gets the real file and never settles
+    // "unavailable".
+    const mine = mainOnly(page);
+    if (route) await page.route("**/vocabulary.json", (r) => (mine(r.request()) ? route(r) : r.continue()));
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
     // #209 · SETTLED FIRST, for a reason sharper than the compile pass's: every assertion in this
@@ -3030,7 +3065,8 @@ async function teardownPass(browser, t, errors) {
   // `{ signal }` on the fetch could be deleted with every other assertion still green — and a
   // torn-down beat that keeps a request in flight is exactly what #209's driver must not inherit.
   const failedReqs = [];
-  p2.on("requestfailed", (r) => { if (r.url().includes("vocabulary.json")) failedReqs.push(r.failure()?.errorText ?? "failed"); });
+  const p2Mine = mainOnly(p2); // #219: a frame's own aborted fetch is not the teardown's
+  p2.on("requestfailed", (r) => { if (p2Mine(r) && r.url().includes("vocabulary.json")) failedReqs.push(r.failure()?.errorText ?? "failed"); });
   const swapped = await p2.evaluate(() => import("/system/studio-compile.mjs").then(async (m) => {
     const c = m.getCompile();
     const ran = c.compile().then((s) => ({ settled: s }));
@@ -3129,7 +3165,7 @@ async function methodPass(browser, engineName, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   // The site scrolls smoothly and the band sits far down the page: Playwright's own actionability
   // scroll RACES the smooth behaviour and samples mid-travel (memory: hover probes race smooth
@@ -3513,7 +3549,7 @@ async function selectPass(browser, engineName, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const modA = engineName === "webkit" ? "Meta+a" : "Control+a";
 
@@ -4370,7 +4406,8 @@ async function docsPass(browser, engineName, t, errors) {
     if (/Failed to load resource/.test(m.text())) return;
     errors.push(`docs console: ${m.text()}`);
   });
-  page.on("request", (r) => requests.push(r.url()));
+  const docsMine = mainOnly(page); // #219: the device frames fetch artifacts of their own
+  page.on("request", (r) => { if (docsMine(r)) requests.push(r.url()); });
   await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
   await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
   await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
@@ -4598,7 +4635,7 @@ async function docsPass(browser, engineName, t, errors) {
     await ictx.addInitScript(() => { try { localStorage.setItem("factory-inspect", "on"); } catch { /* private mode */ } });
     const ip = await ictx.newPage();
     ip.on("pageerror", (e) => errors.push(`docs/inspect pageerror: ${e.message}`));
-    ip.on("console", (m) => { if (m.type() === "error") errors.push(`docs/inspect console: ${m.text()}`); });
+    ip.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`docs/inspect console: ${m.text()}`); });
     await ip.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await ip.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
     t("#218/7 · the expert toggle restored from localStorage — inspect is ON before anything is compiled",
@@ -4648,7 +4685,7 @@ async function docsPass(browser, engineName, t, errors) {
     const tctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const tp = await tctx.newPage();
     tp.on("pageerror", (e) => errors.push(`docs/toggle pageerror: ${e.message}`));
-    tp.on("console", (m) => { if (m.type() === "error") errors.push(`docs/toggle console: ${m.text()}`); });
+    tp.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`docs/toggle console: ${m.text()}`); });
     await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await tp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
     const fresh = await tp.evaluate(() => ({
@@ -4701,7 +4738,10 @@ async function docsPass(browser, engineName, t, errors) {
       if (/Failed to load resource/.test(m.text())) return;
       pageNoise.push(`console: ${m.text()}`);
     });
-    await rp.route(`**${SOURCES[0]}`, (route) => route.fulfill({ status: 500, body: "no" }));
+    const rpMine = mainOnly(rp); // #219: fail it for THIS document, not for a device frame
+    await rp.route(`**${SOURCES[0]}`, (route) => (rpMine(route.request())
+      ? route.fulfill({ status: 500, body: "no" })
+      : route.continue()));
     await rp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await rp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
     await rp.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
@@ -4729,7 +4769,7 @@ async function perfPass(browser, engineName, t, errors) {
   const BUDGET_MS = 200;
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
   // Entries are delivered after the interaction's next paint — flush with a double rAF plus a

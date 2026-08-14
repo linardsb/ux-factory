@@ -230,6 +230,14 @@
           UI</dfn>: each screen is proposed as data, then validated against the generated component
           vocabulary before any of it renders.
         </p>
+        <p class="beat-lead max-prose">
+          Below the run's blocks sit the two prototypes this platform actually shipped — Verdant's
+          phone screen and Fieldwork's dispatch board — running for real inside device frames on the
+          same canvas, each openable on its own page. Move them by the same handle, and drag the
+          corner (or press Enter on it and use the arrow keys) to resize them. They wear this site's
+          design tokens like everything else here; a token export you drop above re-skins the canvas
+          around them, not the pages inside them.
+        </p>
 
         <div class="stu-shell" data-studio>
           <div class="stu-canvas-col" id="build-stage" data-build-stage>
@@ -258,7 +266,12 @@
                  placeholder inside would survive the mount and sit beside the stage. The no-JS
                  sentence therefore lives in a <noscript>, which is also the only way to say it
                  without the JS path paying for a node it immediately has to hide. -->
-            <div data-studio-canvas id="canvas"></div>
+            <!-- data-studio-frames (#219) is the frames' mount hook, on the canvas mount because the
+                 frames are canvas content: system/studio-frames.mjs places them through the canvas's
+                 own place(), and the attribute's VALUE becomes the readiness handle
+                 ([data-studio-frames="ready"], set in a finally) the pixel gate waits on —
+                 [data-studio-keep]'s idiom, hook and state in one attribute. -->
+            <div data-studio-canvas id="canvas" data-studio-frames></div>
             <noscript>
               <p class="muted">The canvas needs scripting to draw, to move and to compile, and to replay the
                 recorded run that builds it. The run itself is committed and readable as it is:

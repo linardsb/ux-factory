@@ -68,6 +68,7 @@ import { refreshInspect } from "./inspect.mjs";
 import { mountStudioKeep } from "./studio-keep.mjs";
 import { mountStudioMethod } from "./studio-method.mjs";
 import { mountStudioDocs, DOCS_PANEL_ID } from "./studio-docs.mjs";
+import { mountStudioFrames } from "./studio-frames.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
@@ -664,6 +665,21 @@ function mountStudioCore(root, shell, restored) {
   // and mountStudioDocs hands back an inert handle, so nothing below needs a second guard.
   docs = mountStudioDocs(root, { canvas, inspector });
 
+  // #219's device frames, LAST for the reason docs and the rail are: everything they take is a seam
+  // something above already exposed — the canvas's place(), and nothing else. They take NO bus: the
+  // move gesture, the resize gesture, the two consumers and the one history are all
+  // studio-verbs.mjs's, and a bus handle here would be the beginning of a second mover.
+  //
+  // PLACED AT MOUNT rather than at settle. The replay builds ROW 1 only (arrangeBoard), the frames
+  // live from row 2 down, and a canvas that is empty for the first fourteen seconds except for two
+  // real prototypes is the honest arrival state — better than nothing, and it is what the pixel
+  // baseline shows beside the settled board.
+  //
+  // adoptBoard's removal loop is `.stx-slot`-scoped, so THE FRAMES SURVIVE A REDRAFT. That is
+  // correct and is asserted by studio-journey's framesPass rather than assumed; do not "tidy" that
+  // loop into MOVABLE.
+  const frames = mountStudioFrames(canvas, { root });
+
   // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
   // built after inspect.mjs restored, so they need one refresh to be wired. The docs layer refreshes
   // beside it for the same reason and by the same rule (see `let docs` above) — a no-op on an
@@ -671,7 +687,7 @@ function mountStudioCore(root, shell, restored) {
   syncInspect();
   docs.refresh();
 
-  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, docs, board, summary, arranged };
+  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, docs, frames, board, summary, arranged };
   return live;
 }
 

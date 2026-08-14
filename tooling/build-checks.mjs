@@ -2207,8 +2207,16 @@ function scanSvg(svg, label) {
   // The frame row unit mirrors the AT-REST slot height. It cannot READ --stx-slot-h, because :638
   // flips that to 480px in the compiled state and a depicted device must not change size when a
   // board compiles — so the two are a hand-mirror and this is the pin behind it.
-  ok(declared("stx-frame-unit") === declared("stx-slot-h"),
-    `studio.css declares --stx-frame-unit: ${declared("stx-frame-unit")} but the at-rest --stx-slot-h is ${declared("stx-slot-h")} — the frames' height unit is a hand-mirror of it`);
+  // Read out of the .stx-viewport BLOCK rather than by first-match, deliberately: the sheet declares
+  // --stx-slot-h twice (here, and again at the [data-compile-state="rendered"] flip), so a first-match
+  // read is correct only while the at-rest block happens to come first. A reorder would silently
+  // compare 140 against 480 and pass, which is the whole class of check this group exists to not be.
+  const viewportBlock = css.match(/\.stx-viewport\s*\{([^}]*)\}/)?.[1] || "";
+  const inViewport = (name) => viewportBlock.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1]?.trim() ?? null;
+  ok(inViewport("stx-slot-h") !== null && inViewport("stx-frame-unit") !== null,
+    "studio.css's .stx-viewport block declares neither --stx-slot-h nor --stx-frame-unit — this pin would pass vacuously");
+  ok(inViewport("stx-frame-unit") === inViewport("stx-slot-h"),
+    `studio.css declares --stx-frame-unit: ${inViewport("stx-frame-unit")} but the AT-REST --stx-slot-h is ${inViewport("stx-slot-h")} — the frames' height unit is a hand-mirror of it, and it cannot read the variable because :638 flips that one to 480px once a board compiles`);
   // …and no FOURTH family placed by these attributes with no mirror behind it. Derived from the
   // sheet rather than typed, so a later ticket adding `.stx-thing[data-col="1"]` and stopping at
   // column 6 fails HERE — where the message says what to do — instead of at column 7 on a reader's
