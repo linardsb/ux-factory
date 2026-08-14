@@ -65,6 +65,24 @@ const { decodeBuild, encodeBuild, SHARE_PARAM } = await import(new URL("../syste
 // #217's selectPass computes every expected id set IN NODE through the same pure functions the
 // page runs — a literal id list would pass a board that silently stopped being the replay's.
 const { idsInRange, marqueeRange } = await import(new URL("../system/studio-select.mjs", import.meta.url));
+// #218's docsPass asks the SHIPPED module which three artifacts the docs panel loads, so a fourth
+// source (or a renamed one) moves the driver with the module instead of drifting past it.
+const { DOCS_SOURCES } = await import(new URL("../system/studio-docs.mjs", import.meta.url));
+
+// The stale-serve guard (tooling/catalog-journey.mjs's, copied): a long-lived serve.mjs can belong
+// to another session and serve ANOTHER tree, and every assertion below would then be about the
+// wrong code. Checked on studio-docs.mjs because that is the file this run is newest about — a
+// stale server is exactly how a green run gets reported for code that was never served.
+{
+  const here = new URL("../system/studio-docs.mjs", import.meta.url);
+  const served = await fetch(`${BASE}/system/studio-docs.mjs`).then((r) => r.text()).catch(() => null);
+  const { readFile } = await import("node:fs/promises");
+  if (served !== await readFile(here, "utf8")) {
+    console.error(`studio-journey: ${BASE} is not serving THIS tree's system/studio-docs.mjs — start `
+      + "node tooling/visual-regression/serve.mjs from this checkout (or point BASE elsewhere)");
+    process.exit(1);
+  }
+}
 
 const VIEWPORT = "[data-studio-canvas]";
 const SCROLL = `${VIEWPORT} .stx-scroll`;
@@ -1249,6 +1267,7 @@ async function journey(engineName, results, held) {
   await factoryPass(browser, t, errors);
   await methodPass(browser, engineName, t, errors);
   await selectPass(browser, engineName, t, errors);
+  await docsPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -2119,10 +2138,27 @@ async function compilePass(browser, t, errors) {
     await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
     return page;
   };
+  // #218 · DECORATION SETTLED FIRST, and this is the same shape of break #209's `open()` above
+  // records rather than a tidy-up. The docs layer decorates every rendered primitive with
+  // data-studio-docs / tabindex / aria-describedby, and on the FIRST compile that decoration waits
+  // on a fetch while on the second it is synchronous (the model is already loaded). Snapshot without
+  // this wait and the two compiles differ by three attributes per node — a byte-identical assertion
+  // failing for a page that is entirely correct, which is exactly the noise #209's note warns about.
+  // Bounded and swallowed: whether decoration happens AT ALL is docsPass's assertion, not this
+  // pass's, and a degraded page leaves BOTH snapshots undecorated and still comparable.
+  const docsSettled = async (page) => {
+    if (!(await page.locator(".stf-screen").count())) return;   // nothing compiled — nothing to decorate
+    await page.waitForFunction(() => {
+      const rendered = document.querySelectorAll(
+        ".stf-screen .ds-metric-tile, .stf-screen .ds-list-row, .stf-screen .ds-sequence-step");
+      return rendered.length > 0 && [...rendered].every((n) => n.hasAttribute("data-studio-docs"));
+    }, null, { timeout: 15000 }).catch(() => {});
+  };
+
   // The stage as data. `kinds` is what each slot HOLDS — the fat-marker block or a library primitive
   // — and it is read as a class name rather than as a count, so "the blocks became components" and
   // "the components stayed put" are two readings of one snapshot.
-  const stageState = (page) => page.evaluate(() => {
+  const stageState = async (page) => (await docsSettled(page), page.evaluate(() => {
     const stage = document.querySelector("[data-studio-canvas] .stx-stage");
     return {
       html: stage.outerHTML,
@@ -2136,7 +2172,7 @@ async function compilePass(browser, t, errors) {
       state: document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state"),
       styled: [...stage.querySelectorAll(".stx-slot, .stx-slot > *")].filter((n) => n.hasAttribute("style")).length,
     };
-  });
+  }));
   const settled = (page, want) => page.waitForFunction(
     (w) => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === w,
     want, { timeout: 20000 });
@@ -2205,9 +2241,16 @@ async function compilePass(browser, t, errors) {
   // the document — on every single use of this page's primary control.
   t("#207 · compiling moves focus to 'Back to blocks' rather than dropping it to the body",
     await focusedText(p) === "Back to blocks", await focusedText(p));
-  t("#207 · …and the vocabulary was fetched exactly once, on the compile",
-    requests.filter((u) => u.includes("vocabulary.json")).length === 1,
-    requests.filter((u) => u.includes("vocabulary.json")).join(" "));
+  // ONE FETCH PER CONSUMER, and since #218 this page has two of them — the beat's own memoized
+  // load and system/studio-docs.mjs's join, which is deliberately the ONLY path to a docs model
+  // (build-checks group 23 gates that) rather than a vocabulary threaded in from here, which would
+  // couple two independent surfaces. The claim this assertion owns is unchanged and is stated
+  // exactly: the BEAT does not refetch. Both halves are asserted, so a third fetch is still red.
+  {
+    const vocabHits = requests.filter((u) => u.includes("vocabulary.json"));
+    t("#207 · …and the vocabulary was fetched exactly once by the BEAT, plus once by #218's docs join — never a third time",
+      vocabHits.length === 2, vocabHits.join(" "));
+  }
   // Group 7's claim on the RUNNING page, taken after the beat — the crossfade is the one effect an
   // implementer reaches for an inline opacity to write.
   t("#207 · no `style` attribute on any slot or composed node after the beat", done.styled === 0, `${done.styled}`);
@@ -3055,8 +3098,13 @@ async function teardownPass(browser, t, errors) {
   const retried = await afterState(p3);
   t("#237 · the NEXT compile re-issues the request and renders — the failure was not memoized",
     retried.kinds.length > 0 && retried.kinds.every((k) => k === "stf-screen"), JSON.stringify(retried.kinds));
-  t("#237 · …and it really was a second request, not a cached verdict",
-    served === 2, `${served} request(s) for vocabulary.json`);
+  // THREE since #218, and the composition is exact rather than a floor: the beat's 503, the beat's
+  // retry, and system/studio-docs.mjs's join — which only fires once a screen exists, so it is
+  // strictly after the retry that produced one, and it never sees the 503. The claim this assertion
+  // owns is untouched (the beat re-issued rather than memoizing the error) and a change in EITHER
+  // consumer still reddens it. See #207's twin, above, for why the docs layer keeps its own fetch.
+  t("#237 · …and it really was a second request, not a cached verdict — 3 in all: the 503, the retry, and #218's docs join",
+    served === 3, `${served} request(s) for vocabulary.json`);
   await p3.close();
 
   await ctx.close();
@@ -4272,6 +4320,365 @@ async function selectPass(browser, engineName, t, errors) {
 // no calibration at all lets a silently-dead observer turn every budget row vacuous-green
 // (proto-journey.mjs:289-304's recorded lesson, arriving here as a fixture choice). The rows
 // CONSUME that verdict (PR #247 review): a dead pipeline is sixteen named reds, not one.
+// #218 · THE DOCKED COMPONENT DOCS — the second mount of /components' generated docs, in the
+// inspector. This pass owns the two claims build-checks group 23 states it cannot reach, and it
+// says which is which so a later editor cannot delete either as redundant:
+//
+//   · THE LAZY WIRING. Group 23 gates shouldLoad's truth table; only a browser can say whether
+//     refresh() CONSULTS it. Assertion 1 is therefore split in two, because the two halves catch
+//     opposite regressions that look identical from every other angle: an eager fetch at mount
+//     (zero-at-rest goes red) and a refresh() that re-fetches on every canvas render (the delta
+//     goes red — three requests behind every undo, which no pixel, Node or drift gate can see).
+//
+//   · THE CROSS-PAGE FACT. Group 23 proves the join carries the third argument's fields; only a
+//     browser can compare what the two pages RENDER. Assertion 5 does that, and its ORDER is part
+//     of the assertion — see its own note.
+//
+// THE DELTA, AND WHY IT IS NOT A RAW COUNT (a correctness point, not a weakening): two of the three
+// DOCS_SOURCES have other consumers on this very page. studio-compile.mjs fetches
+// /handoff/verdant/vocabulary.json on first compile, and studio.mjs fetches /system/system-graph.json
+// when the Graph panel is activated. A raw "exactly 1 per url" would be RED on a correct
+// implementation. So: the zero-before-Compile half stays a raw count on all three (nothing has
+// fetched any of them yet, which is the strong claim), pack.json — which nothing else on the page
+// touches — is additionally asserted at exactly 1, and the once-only property is asserted for all
+// three as a DELTA across repeated re-renders.
+async function docsPass(browser, engineName, t, errors) {
+  const SOURCES = DOCS_SOURCES;
+  const PRIMITIVES = ".stf-screen .ds-metric-tile, .stf-screen .ds-list-row, .stf-screen .ds-sequence-step";
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const requests = [];
+  const count = (url) => requests.filter((r) => r.endsWith(url)).length;
+  const counts = () => SOURCES.map(count);
+
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errors.push(`docs pageerror: ${e.message}`));
+  page.on("console", (m) => { if (m.type() === "error") errors.push(`docs console: ${m.text()}`); });
+  page.on("request", (r) => requests.push(r.url()));
+  await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+  await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
+  await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+
+  const compileBtn = () => page.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true });
+  const revertBtn = () => page.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true });
+  const compileOnce = async () => {
+    await compileBtn().click();
+    await page.waitForSelector(".stf-screen", { timeout: 20000 });
+  };
+
+  // ---------------------------------------------------------------- [1a] at rest, nothing fetched
+  const atRest = counts();
+  t("#218/1a · at rest the docs panel has fetched NONE of its three artifacts — the lazy discriminator, the one property no other gate in this repo can see",
+    atRest.every((n) => n === 0), SOURCES.map((u, i) => `${u}=${atRest[i]}`).join(" "));
+  t("#218/1a · …and no node on the canvas is a doc trigger before Compile — the drafted places are not vocabulary components and have no docs to show",
+    (await page.locator(`${VIEWPORT} [data-studio-docs]`).count()) === 0);
+  t("#218/1a · the panel states its precondition instead of pretending to be empty",
+    /Compile the board first/.test(await page.locator("[data-studio-docs-empty]").innerText()),
+    await page.locator("[data-studio-docs-empty]").innerText());
+
+  // ---------------------------------------------------------------- [2] every primitive is a trigger
+  await compileOnce();
+  await page.waitForFunction(() => document.querySelectorAll("[data-studio-docs]").length > 0, null, { timeout: 20000 });
+  const decoration = await page.evaluate((sel) => {
+    const rendered = [...document.querySelectorAll(sel)];
+    return {
+      rendered: rendered.length,
+      triggers: rendered.filter((n) => n.hasAttribute("data-studio-docs")).length,
+      focusable: rendered.filter((n) => n.getAttribute("tabindex") === "0").length,
+      described: rendered.filter((n) => n.getAttribute("aria-describedby") === "stu-docs-help").length,
+      helpText: document.getElementById("stu-docs-help")?.textContent || "",
+      names: [...new Set(rendered.map((n) => n.getAttribute("data-studio-docs")))],
+    };
+  }, PRIMITIVES);
+  t("#218/2 · after Compile EVERY rendered primitive is a doc trigger, focusable and described — the count read off the running page, never typed",
+    decoration.rendered > 0 && decoration.triggers === decoration.rendered
+    && decoration.focusable === decoration.rendered && decoration.described === decoration.rendered,
+    JSON.stringify(decoration));
+  t("#218/2 · the affordance is stated ONCE, statically, rather than announced on every Tab step",
+    /Focus or click a component/.test(decoration.helpText), decoration.helpText);
+
+  // ---------------------------------------------------------------- [3] the pointer opens the docs
+  const first = page.locator(`${VIEWPORT} [data-studio-docs]`).first();
+  const firstName = await first.getAttribute("data-studio-docs");
+  await first.click();
+  await page.waitForSelector("#component-docs .cat-name", { timeout: 10000 });
+  const opened = await page.evaluate(() => ({
+    selected: document.getElementById("stu-tab-component-docs").getAttribute("aria-selected"),
+    hidden: document.getElementById("component-docs").hidden,
+    name: document.querySelector("#component-docs .cat-name")?.textContent,
+    nameTag: document.querySelector("#component-docs .cat-name")?.tagName,
+    sectionTag: document.querySelector("#component-docs .cat-section-title")?.tagName,
+    emptyHidden: document.querySelector("[data-studio-docs-empty]").hidden,
+  }));
+  t("#218/3 · a pointer click opens THAT component's docs and switches the inspector to them",
+    opened.selected === "true" && opened.hidden === false && opened.name === firstName && opened.emptyHidden === true,
+    JSON.stringify({ ...opened, firstName }));
+  t("#218/3 · the heading level is shifted for the second mount — an h4 name under the panel's own h3, sections one below",
+    opened.nameTag === "H4" && opened.sectionTag === "H5", `${opened.nameTag}/${opened.sectionTag}`);
+
+  // ---------------------------------------------------------------- [4] focus opens, and steals nothing
+  // A DIFFERENT component, so "the panel re-rendered" is a real observation rather than a no-op.
+  const other = page.locator(`${VIEWPORT} [data-studio-docs]`).filter({ hasNot: page.locator("nothing") });
+  const otherName = await page.evaluate((want) => {
+    const n = [...document.querySelectorAll("[data-studio-canvas] [data-studio-docs]")]
+      .find((x) => x.getAttribute("data-studio-docs") !== want);
+    if (!n) return null;
+    n.focus();
+    return n.getAttribute("data-studio-docs");
+  }, firstName);
+  if (otherName) {
+    await page.waitForFunction((w) => document.querySelector("#component-docs .cat-name")?.textContent === w,
+      otherName, { timeout: 10000 }).catch(() => {});
+    const focused = await page.evaluate(() => ({
+      name: document.querySelector("#component-docs .cat-name")?.textContent,
+      onCanvas: document.activeElement?.hasAttribute("data-studio-docs") === true,
+      active: document.activeElement?.getAttribute("data-studio-docs") || document.activeElement?.tagName,
+    }));
+    t("#218/4 · keyboard focus opens the SAME docs — the second route, converging natively on focusin",
+      focused.name === otherName, `${focused.name} vs ${otherName}`);
+    // A focusin handler that passed moveFocus:true to inspector.activate fails EXACTLY here, and
+    // nowhere else: it would yank focus to the tab on every Tab press through a compiled screen and
+    // make the keyboard route unusable while every other assertion in this pass stayed green.
+    t("#218/4 · …and does NOT steal focus — activate(i, false) is load-bearing",
+      focused.onCanvas === true && focused.active === otherName, JSON.stringify(focused));
+  } else {
+    t("#218/4 · a second distinct component to focus", false, "the compiled canvas rendered only one component kind");
+  }
+
+  // Back to the first component, so assertion 5 compares a component both pages can show.
+  await first.click();
+  await page.waitForFunction((w) => document.querySelector("#component-docs .cat-name")?.textContent === w,
+    firstName, { timeout: 10000 });
+
+  // ---------------------------------------------------------------- [6b] the code tabs really toggle
+  // Read as COMPUTED display, never as the `hidden` attribute: the attribute is inert wherever an
+  // author rule sets a display, which is the whole reason the [hidden] rule moved into the shared
+  // system/catalog.css — and it is the one failure mode here that looks correct in every other check.
+  const tabsBefore = await page.evaluate(() => ({
+    painted: [...document.querySelectorAll("#component-docs .cat-code")]
+      .filter((n) => getComputedStyle(n).display !== "none").map((n) => n.getAttribute("data-panel")),
+    tabs: [...document.querySelectorAll("#component-docs .cat-tab")].map((b) => b.getAttribute("data-tab")),
+  }));
+  if (tabsBefore.tabs.length > 1) {
+    await page.locator(`#component-docs .cat-tab[data-tab="${tabsBefore.tabs[1]}"]`).click();
+    const tabsAfter = await page.evaluate(() => [...document.querySelectorAll("#component-docs .cat-code")]
+      .filter((n) => getComputedStyle(n).display !== "none").map((n) => n.getAttribute("data-panel")));
+    t("#218/6b · exactly ONE code panel is painted, and pressing another tab changes which — read as computed display, not as the inert `hidden` attribute",
+      tabsBefore.painted.length === 1 && tabsAfter.length === 1 && tabsAfter[0] !== tabsBefore.painted[0],
+      JSON.stringify({ before: tabsBefore.painted, after: tabsAfter, tabs: tabsBefore.tabs }));
+    await page.locator(`#component-docs .cat-tab[data-tab="${tabsBefore.tabs[0]}"]`).click();
+  } else {
+    t("#218/6b · more than one code tab to toggle", false, JSON.stringify(tabsBefore));
+  }
+
+  // ---------------------------------------------------------------- [5] AC #3 — the same facts
+  // ORDER IS PART OF THIS ASSERTION, and this note is the "pick one and say which" the plan asked
+  // for: the token table's live-value column is getComputedStyle in TWO DIFFERENT DOCUMENTS, equal
+  // only while both wear the neutral pack. So this runs BEFORE assertion 6's pack swap and compares
+  // the tables WHOLE, live values included — which is strictly stronger than excluding those cells
+  // and letting 6 own them, because it proves the two mounts resolve the same values as well as
+  // print the same text. Run it after the swap and it fails for a correct implementation.
+  const catPage = await ctx.newPage();
+  catPage.on("pageerror", (e) => errors.push(`docs/catalog pageerror: ${e.message}`));
+  catPage.on("console", (m) => { if (m.type() === "error") errors.push(`docs/catalog console: ${m.text()}`); });
+  await catPage.goto(`${BASE}/components.html`, { waitUntil: "load" });
+  await catPage.waitForSelector('[data-catalog="ready"]', { timeout: 20000 });
+  const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
+  const fromCatalog = await catPage.evaluate((name) => {
+    const sec = document.getElementById(name);
+    return sec ? {
+      api: sec.querySelector(".cat-api")?.innerText,
+      tokens: sec.querySelector(".cat-tokens")?.innerText,
+      klass: sec.querySelector(".cat-class")?.textContent,
+    } : null;
+  }, firstName);
+  const fromPanel = await page.evaluate(() => ({
+    api: document.querySelector("#component-docs .cat-api")?.innerText,
+    tokens: document.querySelector("#component-docs .cat-tokens")?.innerText,
+    klass: document.querySelector("#component-docs .cat-class")?.textContent,
+  }));
+  t(`#218/5 · AC #3 — the inspector and /components print the SAME API table for ${firstName} (${norm(fromPanel.api).length} chars compared)`,
+    !!fromCatalog && norm(fromCatalog.api) === norm(fromPanel.api) && norm(fromPanel.api).length > 0,
+    `panel: ${norm(fromPanel.api).slice(0, 160)} … catalog: ${norm(fromCatalog && fromCatalog.api).slice(0, 160)}`);
+  t(`#218/5 · …and the SAME token table, live-value column included, both under the neutral pack (${norm(fromPanel.tokens).length} chars compared)`,
+    !!fromCatalog && norm(fromCatalog.tokens) === norm(fromPanel.tokens) && norm(fromPanel.tokens).length > 0,
+    `panel: ${norm(fromPanel.tokens).slice(0, 200)} … catalog: ${norm(fromCatalog && fromCatalog.tokens).slice(0, 200)}`);
+  t("#218/5 · …for the same class, so the two pages are describing one component and not two",
+    !!fromCatalog && fromCatalog.klass === fromPanel.klass, `${fromPanel.klass} vs ${fromCatalog && fromCatalog.klass}`);
+  await catPage.close();
+
+  // ---------------------------------------------------------------- [1b] re-renders re-fetch NOTHING
+  // Forced re-renders, each of which calls docs.refresh() through the beat's onState. The delta is
+  // what catches a refresh() that dropped shouldLoad and re-fetches per render.
+  const before = counts();
+  await revertBtn().click();
+  await page.waitForFunction(() => document.querySelectorAll(".stf-screen").length === 0, null, { timeout: 20000 });
+  await compileOnce();
+  await revertBtn().click();
+  await page.waitForFunction(() => document.querySelectorAll(".stf-screen").length === 0, null, { timeout: 20000 });
+  await compileOnce();
+  await page.waitForTimeout(500);
+  const after = counts();
+  t("#218/1b · four more canvas re-renders fetched NOTHING further — refresh() consults shouldLoad rather than re-fetching per render (three requests behind every undo, invisible to every other gate)",
+    SOURCES.every((_, i) => after[i] === before[i]),
+    SOURCES.map((u, i) => `${u}: ${before[i]} → ${after[i]}`).join(" · "));
+  t("#218/1b · and pack.json — the one source nothing else on this page touches — was fetched exactly once across the whole visit",
+    count(SOURCES[0]) === 1, `${SOURCES[0]} = ${count(SOURCES[0])}`);
+  t("#218/1b · …the triggers were re-decorated on the new nodes, so the delegation survived four rebuilds",
+    (await page.locator(`${VIEWPORT} [data-studio-docs]`).count()) === decoration.rendered,
+    `${await page.locator(`${VIEWPORT} [data-studio-docs]`).count()} vs ${decoration.rendered}`);
+
+  // ---------------------------------------------------------------- [6] AC #4 — values resolve LIVE
+  await page.locator(`${VIEWPORT} [data-studio-docs]`).first().click();
+  await page.waitForSelector("#component-docs [data-token-value]", { timeout: 10000 });
+  const neutralValues = await page.evaluate(() => [...document.querySelectorAll("#component-docs [data-token-value]")]
+    .map((c) => ({ name: c.getAttribute("data-token-value"), value: c.textContent.trim() })));
+  // The dock's own path — the hash-routed disclosure, a real label click — not a scripted href swap.
+  const packErrors = [];
+  const packFilter = (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) packErrors.push(m.text()); };
+  page.on("console", packFilter);
+  await page.evaluate(() => { location.hash = "appearance"; });
+  await page.waitForTimeout(250);
+  await page.locator('label[for="dock-pack-saulera"]').click();
+  await page.waitForFunction(() => [...document.querySelectorAll('link[rel="stylesheet"]')]
+    .some((l) => /\/system\/tokens\.saulera\.css$/.test(l.getAttribute("href") || "")), null, { timeout: 10000 });
+  await page.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await page.waitForFunction((was) => [...document.querySelectorAll("#component-docs [data-token-value]")]
+    .some((c, i) => c.textContent.trim() !== was[i]), neutralValues.map((v) => v.value), { timeout: 10000 }).catch(() => {});
+  const swapped = await page.evaluate(() => [...document.querySelectorAll("#component-docs [data-token-value]")]
+    .map((c) => c.textContent.trim()));
+  const moved = swapped.filter((v, i) => v !== neutralValues[i].value);
+  t("#218/6 · AC #4 — the pack swap moved at least one live token value in the inspector: the values are getComputedStyle at view time, not carried in an artifact",
+    moved.length > 0, `${moved.length} of ${swapped.length} cells changed`);
+  // A RESOLVED value, never a raw binding: the graph's committed pack columns are var(--…) aliases,
+  // and a cell showing one would mean the panel is printing the artifact rather than asking the page.
+  t("#218/6 · …and every live value is a RESOLVED value, never one of the artifact's var(--…) bindings",
+    swapped.every((v) => !/^var\(/.test(v)), JSON.stringify(swapped.filter((v) => /^var\(/.test(v))));
+  page.off("console", packFilter);
+  await page.close();
+
+  // ---------------------------------------------------------------- [7] AC #2 — inspect re-inits
+  // The docs decoration and refreshInspect travel together in system/studio.mjs for one reason, and
+  // this is that reason on a running page: this canvas rebuilds its contents after mount, so a
+  // layer wired only at mount is wired to nodes that are gone.
+  //
+  // Memory, "hover probes race smooth scroll": wait for scrollY to settle before hovering — inspect
+  // hides on scroll BY DESIGN, so a hover during a smooth scroll reads as a dead bubble.
+  {
+    const ictx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    await ictx.addInitScript(() => { try { localStorage.setItem("factory-inspect", "on"); } catch { /* private mode */ } });
+    const ip = await ictx.newPage();
+    ip.on("pageerror", (e) => errors.push(`docs/inspect pageerror: ${e.message}`));
+    ip.on("console", (m) => { if (m.type() === "error") errors.push(`docs/inspect console: ${m.text()}`); });
+    await ip.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await ip.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    t("#218/7 · the expert toggle restored from localStorage — inspect is ON before anything is compiled",
+      await ip.evaluate(() => document.documentElement.dataset.inspectMode === "on"));
+    const settleScroll = async () => {
+      await ip.waitForFunction(() => new Promise((r) => {
+        let last = -1; let same = 0;
+        const tick = () => { const y = Math.round(window.scrollY);
+          if (y === last) { same += 1; } else { same = 0; last = y; }
+          if (same > 3) r(true); else requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+      }), null, { timeout: 10000 }).catch(() => {});
+    };
+    const hoverOpensBubble = async () => {
+      await settleScroll();
+      await ip.locator(PRIMITIVES).first().hover();
+      return ip.waitForFunction(() => {
+        const b = document.getElementById("inspect-bubble");
+        return !!b && b.getBoundingClientRect().width > 0;
+      }, null, { timeout: 8000 }).then(() => true, () => false);
+    };
+    await ip.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+    await ip.waitForSelector(".stf-screen", { timeout: 20000 });
+    const firstHover = await hoverOpensBubble();
+    const firstTriggers = await ip.locator(`${VIEWPORT} [data-studio-docs]`).count();
+    await ip.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+    await ip.waitForFunction(() => document.querySelectorAll(".stf-screen").length === 0, null, { timeout: 20000 });
+    await ip.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+    await ip.waitForSelector(".stf-screen", { timeout: 20000 });
+    const secondHover = await hoverOpensBubble();
+    const secondTriggers = await ip.locator(`${VIEWPORT} [data-studio-docs]`).count();
+    t("#218/7 · AC #2 — the inspect bubble opens on a compiled primitive, and STILL opens after a revert + recompile replaced every node",
+      firstHover && secondHover, `first=${firstHover} second=${secondHover}`);
+    t("#218/7 · …and the doc triggers were re-decorated on those same new nodes, in the same count",
+      firstTriggers > 0 && secondTriggers === firstTriggers, `${firstTriggers} → ${secondTriggers}`);
+    await ictx.close();
+  }
+
+  // ---------------------------------------------------------------- [8] AC #5 — off by default, persisted
+  {
+    const tctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const tp = await tctx.newPage();
+    tp.on("pageerror", (e) => errors.push(`docs/toggle pageerror: ${e.message}`));
+    tp.on("console", (m) => { if (m.type() === "error") errors.push(`docs/toggle console: ${m.text()}`); });
+    await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await tp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+    const fresh = await tp.evaluate(() => ({
+      key: localStorage.getItem("factory-inspect"),
+      mode: document.documentElement.dataset.inspectMode || null,
+    }));
+    t("#218/8 · AC #5 — on a fresh visit the expert toggle is OFF and has written nothing: this is what keeps the at-rest pixel baseline unchanged by it",
+      fresh.key === null && fresh.mode === null, JSON.stringify(fresh));
+    await tp.locator("[data-inspect-toggle]").first().click();
+    await tp.waitForFunction(() => document.documentElement.dataset.inspectMode === "on", null, { timeout: 5000 });
+    await tp.reload({ waitUntil: "load" });
+    await tp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+    t("#218/8 · …it persists across a reload",
+      await tp.evaluate(() => document.documentElement.dataset.inspectMode === "on"));
+    await tp.locator("[data-inspect-toggle]").first().click();
+    await tp.waitForFunction(() => !document.documentElement.dataset.inspectMode, null, { timeout: 5000 });
+    await tp.reload({ waitUntil: "load" });
+    await tp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
+    const off = await tp.evaluate(() => ({
+      key: localStorage.getItem("factory-inspect"),
+      mode: document.documentElement.dataset.inspectMode || null,
+    }));
+    t("#218/8 · …and turning it off again comes back off, with the key gone rather than left as \"off\"",
+      off.mode === null && off.key !== "on", JSON.stringify(off));
+    await tctx.close();
+  }
+
+  // ---------------------------------------------------------------- [9] refusal is CONTENT
+  // The narrow console exemption is the one the dock case already carries and for the same reason:
+  // a 500 on a routed request is the BROWSER reporting the network, not the page reporting itself.
+  // Everything the page says still fails the run — which is exactly what this case asserts.
+  {
+    const rctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const rp = await rctx.newPage();
+    const pageNoise = [];
+    rp.on("pageerror", (e) => pageNoise.push(`pageerror: ${e.message}`));
+    rp.on("console", (m) => {
+      if (m.type() !== "error") return;
+      if (/Failed to load resource/.test(m.text())) return;
+      pageNoise.push(`console: ${m.text()}`);
+    });
+    await rp.route(`**${SOURCES[0]}`, (route) => route.fulfill({ status: 500, body: "no" }));
+    await rp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await rp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await rp.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+    await rp.waitForSelector(".stf-screen", { timeout: 20000 });
+    await rp.waitForFunction(() => /could not be loaded/.test(
+      document.querySelector("[data-studio-docs-empty]")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    const refusal = await rp.evaluate(() => ({
+      text: document.querySelector("[data-studio-docs-empty]")?.textContent || "",
+      screens: document.querySelectorAll(".stf-screen").length,
+      triggers: document.querySelectorAll("[data-studio-docs]").length,
+    }));
+    t("#218/9 · a 500 on an artifact becomes a SENTENCE in the panel naming the failure — content, never a throw",
+      /could not be loaded/.test(refusal.text) && /500/.test(refusal.text), JSON.stringify(refusal));
+    t("#218/9 · …the canvas is untouched: the board still compiled, and there is simply nothing to click",
+      refusal.screens > 0 && refusal.triggers === 0, JSON.stringify(refusal));
+    t("#218/9 · …and NOTHING the page itself said reached the console",
+      pageNoise.length === 0, pageNoise.join(" | "));
+    await rctx.close();
+  }
+
+  await ctx.close();
+}
+
 async function perfPass(browser, engineName, t, errors) {
   const BUDGET_MS = 200;
   const watch = (p, tag) => {
