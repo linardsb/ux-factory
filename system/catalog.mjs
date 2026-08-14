@@ -364,8 +364,11 @@ export function renderComponentDocs(container, component, model, opts = {}) {
 
   // -- code tabs: HTML = the CURRENT stage node re-serialized on every prop change (never a
   // stored string — AC #5); vd/react only when the pack ships a wrapper (tabsFor); JSON = the
-  // vocabulary entry. Panels toggle via `hidden` (the page carries the page-wide
-  // [hidden] { display: none !important; } rule).
+  // vocabulary entry. Panels toggle via `hidden`, which works on the UA rule alone: nothing in
+  // system/catalog.css gives .cat-code a `display`, measured in both directions by #218's mutation
+  // drill. That sheet's [hidden] { display: none !important } is defence in depth for the day one
+  // does (the /build #138 regression), not a dependency this function has — the sentence here used
+  // to claim the latter, and the drill is what disproved it.
   const tabIds = tabsFor(component);
   const TAB_LABELS = { html: "HTML", vd: "vd-* element", react: "React", json: "JSON" };
   const tabRow = el("div", { class: "cat-tabs", role: "group", "aria-label": `${component.name} code views` });

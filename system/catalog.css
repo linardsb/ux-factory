@@ -23,12 +23,22 @@
    repo's shipped modules (catalog.mjs:434), so those rules reach nothing but this renderer's own
    output on either host page. */
 
-/* `hidden` wins wherever this sheet is linked, and the rule TRAVELS WITH THE RENDERER THAT NEEDS
-   IT. renderComponentDocs toggles its code-tab panels with `panel.hidden = …` (catalog.mjs), and
-   the attribute is only a UA rule any author `display` beats (the /build #138 lesson). Left
-   page-scoped it would make the renderer depend on each host declaring it — true on both pages
-   today by coincidence, silently broken by a third mount. Both hosts also declare an identical
-   rule in their own <style>; the duplicate is inert (same declaration, same !important). */
+/* `hidden` wins wherever this sheet is linked. The rule TRAVELS WITH THE RENDERER (#218) rather
+   than staying in one page's <style>, so a host does not have to know to declare it.
+
+   WHAT IT IS AND IS NOT, measured rather than assumed — because the sentence this replaced was
+   wrong, and #218's mutation drill is what caught it. `panel.hidden = …` is how
+   renderComponentDocs toggles its code tabs, and the attribute is only a UA rule any author
+   `display` beats (the /build #138 lesson). But NO rule in this sheet sets `display` on
+   `.cat-code`, so the UA rule already wins on both pages TODAY: deleting this line and re-running
+   tooling/studio-journey.mjs's docsPass leaves the code panels toggling correctly on /factory AND
+   on /components, verified in both directions. So this is DEFENCE IN DEPTH against the day someone
+   gives .cat-code (or another `hidden`-toggled node here) a display — the exact regression #138
+   shipped on /build — and NOT a dependency the renderer currently has. Said plainly so the next
+   editor neither deletes it as dead nor trusts a gate to catch its removal: none can, today.
+
+   Both hosts also declare an identical rule in their own <style>; those duplicates are inert (same
+   declaration, same !important). */
 [hidden] { display: none !important; }
 
 .cat-notice { font-size: var(--type-caption); color: var(--color-fg-muted); }
