@@ -86,14 +86,29 @@ standing at an unchanged height.
 | `node tooling/build-checks.mjs` | ✅ **24 groups pass** (was 23) |
 | `node agent-layer/gen-param-count.mjs --check` | ✅ 118 controls, no drift |
 | `node agent-layer/gen-loc-summary.mjs --check` | ✅ 3 groups, no drift |
-| `node tooling/studio-journey.mjs all` | see below |
+| `node tooling/studio-journey.mjs all` | ✅ **chromium 475 · firefox 471 · webkit 471, zero failures** (41 new `framesPass` rows) |
 | `node tooling/catalog-journey.mjs chromium` | ✅ 33 passed, 0 failed — mount 1 unaffected by the `watchPackSwap` widening |
-| `node tooling/vt-verify.mjs all` | see below |
-| `npm run test:docker` | see below |
+| `node tooling/vt-verify.mjs all` | ✅ green on all three engines with the frames on the page — they name nothing for a view transition |
+| the pixel gate, in the pinned container | ✅ **22 passed** against the new baselines. Exactly four PNGs changed: `factory-{neutral,saulera}` (the frames + the lead copy + the mask) and `approach-{neutral,saulera}` (the loc numbers). The two proto baselines are byte-identical — AC #4 |
 
 **Mutations proven to go red, then reverted:** deleting `.stx-frame[data-span-col="7"]` (group 12,
 named index 7); pointing a descriptor at `/proto/nope.html` (group 24); renaming an `anchor` (group
 24, named the id and the file).
+
+## Manual pass (nothing gated covers these)
+
+- **The three paint-order checks, in one pass:** the context menu opens **over** a frame and is the
+  topmost element at its own centre; an alignment guide draws **under** one (the frame's iframe is
+  topmost where they overlap); and `.stx-frame`'s computed box is
+  `position: relative · overflow: hidden · z-index: auto · transform: none · filter: none ·
+  contain: none · isolation: auto · container-type: normal` — structurally identical to `.stx-slot`,
+  so no new stacking context is introduced. #176's `container-type`, the mechanism that made a full
+  `vt-stack-audit` necessary there, appears nowhere in this design.
+- **`/proto/verdant.html` standalone**: dock 1, inspect toggle 1, device frame present. **`/proto/
+  fieldwork.html`**: dock 1, inspect toggle 1, bus toggles 1. **`/work.html`**: its two embeds, and
+  no new chrome. Zero page errors on all three.
+- Both frames render, wear the site pack, and their contents are live (source badge `static` with no
+  Worker running); the dock's four packs each re-skin both frames.
 
 ## Non-regressions (Task 14)
 
