@@ -510,7 +510,14 @@ function focusHash() {
 // Exported for mount 2 (#218), body unchanged. ONE observer per mount, never one per render: the
 // studio inspector calls it once when its model lands, not on every open, or every component a
 // reader ever clicked would leave a live MutationObserver behind.
-export function watchPackSwap(root) {
+//
+// `onSwap` IS A SIGNATURE WIDENING WITH A DEFAULT (#219), so both existing mounts stay
+// byte-identical in behaviour. system/studio-frames.mjs has the same question — "which head line is
+// the pack?" — and a different answer to give it: it copies the href into two <iframe> documents
+// instead of re-resolving token cells. A third copy of the matcher above is what this avoids, and
+// the matcher must NOT be narrowed to dock.mjs's PACK_RE to serve it: that allowlist is a security
+// gate on storage-supplied hrefs, and this is only "which line do I observe".
+export function watchPackSwap(root, onSwap = resolveTokenValues) {
   let link = null;
   for (const candidate of document.querySelectorAll('link[rel="stylesheet"]')) {
     const href = candidate.getAttribute("href") || "";
@@ -518,7 +525,7 @@ export function watchPackSwap(root) {
   }
   if (!link) return;
   let pending = null;
-  new MutationObserver(() => {
+  const observer = new MutationObserver(() => {
     // BOTH events, exactly as the dock's own swap awaits them (dock.mjs's done handler):
     // tokens.saulera.css @imports a fonts file the static host does not ship, and an engine
     // reports that sheet's settling as `error` while still applying every rule — here `error`
@@ -528,10 +535,16 @@ export function watchPackSwap(root) {
     // every dock toggle would leave one no-op listener on the link forever.
     if (pending) pending.abort();
     const swap = (pending = new AbortController());
-    const refresh = () => { swap.abort(); resolveTokenValues(root); };
+    const refresh = () => { swap.abort(); onSwap(root); };
     link.addEventListener("load", refresh, { once: true, signal: swap.signal });
     link.addEventListener("error", refresh, { once: true, signal: swap.signal });
-  }).observe(link, { attributes: true, attributeFilter: ["href"] });
+  });
+  observer.observe(link, { attributes: true, attributeFilter: ["href"] });
+  // RETURNED SINCE #219, and both existing mounts ignore it — they live as long as their page does.
+  // system/studio-frames.mjs does not: studio.mjs's destroy() tears the studio down mid-visit in the
+  // journey driver, and an observer left watching the head link would go on re-pointing frames that
+  // no longer exist. Handing the handle back is cheaper than a second copy of this function.
+  return observer;
 }
 
 export function mountCatalog() {

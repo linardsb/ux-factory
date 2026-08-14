@@ -274,7 +274,13 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
     // into that module and cannot go stale. Nothing here starts while a component is in the
     // reader's hand — a marquee would eat the sticky drop, and a menu mid-carry offers verbs that
     // contradict the gesture in progress.
-    const carrying = () => Boolean(stage.querySelector(".stx-slot.is-picked"));
+    // WIDENED AT #219 to any picked node, not just a board wrapper: a device frame being moved or
+    // resized is just as live a carry, and a marquee started mid-resize would eat its sticky drop.
+    // `.is-picked` only ever appears on a movable wrapper (studio-verbs.mjs's pickUp writes it), so
+    // the narrower selector bought nothing and cost this case. Note what did NOT widen and must not:
+    // chosenNodes() above stays `.stx-slot`-scoped, which is the line that keeps a frame out of the
+    // selection whole rather than half in it (system/studio-frames.mjs's header).
+    const carrying = () => Boolean(stage.querySelector(".is-picked"));
 
     const resetAnchor = () => { anchor = null; cursor = null; };
 

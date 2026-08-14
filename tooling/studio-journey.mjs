@@ -45,6 +45,34 @@ const require = createRequire(`${VRDIR}${path.sep}`);
 const pw = require("@playwright/test");
 
 const BASE = process.env.BASE || "http://127.0.0.1:4757";
+
+// THE ONE EXPECTED-NOISE FILTER ON THIS DRIVER, and it arrived at #219 — this file's header used to
+// say there was none, "unlike proto-journey's". That sentence stopped being true the moment /factory
+// started embedding the two proto pages as device frames: those pages fetch the mock Worker
+// (127.0.0.1:8787) and fall back to committed static fixtures when it is absent, which IS the
+// designed behaviour, and every engine logs the refused request for it in its own words. An iframe's
+// console messages surface on the embedding page, so without this every /factory assertion below
+// would fail for a degradation the proto pages are supposed to perform.
+//
+// Copied VERBATIM from tooling/proto-journey.mjs:70 rather than re-derived, so the two drivers agree
+// about what the same degradation looks like — and narrow for the same reason it is narrow there:
+//   · firefox names the blocked origin, so the Worker's own address identifies it;
+//   · chromium and webkit carry no URL, so each is matched on its own refused-CONNECTION wording.
+// All three name a connection that was refused, which a 404, a bad MIME type or a real script error
+// does not produce — so a genuine failure, including one against some other origin, still fails the
+// run. NOT applied to the /studio.html opener below: that page mounts no frames, so it keeps the
+// stronger any-error-is-a-failure contract this driver was written with.
+const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server|CORS request did not succeed/;
+
+// #219 · A SUB-FRAME'S REQUESTS ARE NOT THIS PAGE'S. /factory embeds the two proto pages as device
+// frames, and Fieldwork fetches handoff/verdant/vocabulary.json for its agentic slots — the SAME url
+// the compile beat lazily fetches and the same one two fixtures below deliberately fail. Playwright
+// reports a sub-frame's requests on the embedding page and routes them through its handlers, so
+// every request LOG and every route FIXTURE that means "/factory itself" has to say so. Without it
+// the beat's lazy-fetch claim reads as broken by a frame doing exactly what it should, and the 503
+// fixture serves its one failure to the frame instead of to the beat.
+const mainOnly = (page) => (r) => r.frame() === page.mainFrame();
+
 const ENGINES = ["chromium", "firefox", "webkit"];
 const requested = (process.argv[2] || "all").toLowerCase();
 const toRun = requested === "all" ? ENGINES : [requested];
@@ -68,6 +96,9 @@ const { idsInRange, marqueeRange } = await import(new URL("../system/studio-sele
 // #218's docsPass asks the SHIPPED module which three artifacts the docs panel loads, so a fourth
 // source (or a renamed one) moves the driver with the module instead of drifting past it.
 const { DOCS_SOURCES } = await import(new URL("../system/studio-docs.mjs", import.meta.url));
+// #219's framesPass asks the SHIPPED module which prototypes are on the canvas and where, so a
+// changed footprint or a renamed frame moves the driver with the module instead of drifting past it.
+const { FRAMES } = await import(new URL("../system/studio-frames.mjs", import.meta.url));
 
 // The stale-serve guard (tooling/catalog-journey.mjs's, copied): a long-lived serve.mjs can belong
 // to another session and serve ANOTHER tree, and every assertion below would then be about the
@@ -265,8 +296,9 @@ async function journey(engineName, results, held) {
 
   const browser = held.browser = await pw[engineName].launch();
   const errors = [];
-  // The harness fetches only committed files and calls no Worker, so ANY console error or page
-  // error is a real failure — there is no expected-noise filter to weaken, unlike proto-journey's.
+  // studio.html fetches only committed files and calls no Worker, so ANY console error or page error
+  // is a real failure on THIS opener — no filter to weaken. /factory is different since #219 embeds
+  // the two proto pages there; see EXPECTED_NOISE above for what those openers filter and why.
   async function open(ctx) {
     const p = await ctx.newPage();
     p.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
@@ -1268,6 +1300,7 @@ async function journey(engineName, results, held) {
   await methodPass(browser, engineName, t, errors);
   await selectPass(browser, engineName, t, errors);
   await docsPass(browser, engineName, t, errors);
+  await framesPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -1285,7 +1318,7 @@ async function factoryPass(browser, t, errors) {
   // four inbound entry points share.
   const p = await ctx.newPage();
   p.on("pageerror", (e) => errors.push(`factory pageerror: ${e.message}`));
-  p.on("console", (m) => { if (m.type() === "error") errors.push(`factory console: ${m.text()}`); });
+  p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`factory console: ${m.text()}`); });
   await p.goto(`${BASE}/factory.html#shape`, { waitUntil: "load" });
   await p.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
   await p.waitForSelector('[data-studio-canvas="ready"]', { timeout: 20000 });
@@ -1440,7 +1473,10 @@ async function factoryPass(browser, t, errors) {
   // page reporting itself; everything else still fails the run.
   dp.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/Failed to load resource/.test(m.text())) return;
+    // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+    // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+    // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+    if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
     errors.push(`dock console: ${m.text()}`);
   });
   await dp.addInitScript(() => {
@@ -1528,7 +1564,7 @@ async function replayPass(browser, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
   const replayState = (p) => p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
@@ -1842,7 +1878,13 @@ async function replayPass(browser, t, errors) {
   const pa = await dgctx.newPage();
   const aErrors = [];
   pa.on("pageerror", (e) => aErrors.push(`pageerror: ${e.message}`));
-  pa.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) aErrors.push(`console: ${m.text()}`); });
+  // …and #219 · EXPECTED_NOISE for the same reason the other exemptions carry it: /factory embeds the
+  // two proto pages, whose designed Worker fallback is a refused CONNECTION on chromium and webkit
+  // and a blocked CROSS-ORIGIN request naming the Worker on firefox.
+  pa.on("console", (m) => {
+    if (m.type() !== "error" || /Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
+    aErrors.push(`console: ${m.text()}`);
+  });
   await pa.addInitScript(() => {
     window.__pushed = [];
     const real = history.pushState.bind(history);
@@ -1878,7 +1920,10 @@ async function replayPass(browser, t, errors) {
   pb.on("pageerror", (e) => errors.push(`replay traceless pageerror: ${e.message}`));
   pb.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/Failed to load resource/.test(m.text())) return;
+    // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+    // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+    // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+    if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
     errors.push(`replay traceless console: ${m.text()}`);
   });
   await pb.route("**/traces/*.jsonl", (route) => route.fulfill({ status: 404, body: "gone" }));
@@ -2124,8 +2169,9 @@ async function compilePass(browser, t, errors) {
   const open = async (context) => {
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(`compile pageerror: ${e.message}`));
-    page.on("console", (m) => { if (m.type() === "error") errors.push(`compile console: ${m.text()}`); });
-    page.on("request", (r) => requests.push(r.url()));
+    page.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`compile console: ${m.text()}`); });
+    const onlyMine = mainOnly(page); // #219: the frames fetch this same vocabulary — see mainOnly
+    page.on("request", (r) => { if (onlyMine(r)) requests.push(r.url()); });
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
@@ -2336,7 +2382,7 @@ async function flowPass(browser, t, errors) {
   const open = async (context) => {
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(`flow pageerror: ${e.message}`));
-    page.on("console", (m) => { if (m.type() === "error") errors.push(`flow console: ${m.text()}`); });
+    page.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`flow console: ${m.text()}`); });
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
     // SETTLED FIRST — the beat is setEnabled(false) until the replay settles (#240/1,
@@ -2517,7 +2563,7 @@ async function keepPass(browser, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const railReady = (p) => p.waitForSelector('[data-studio-keep="ready"]', { timeout: 20000 });
   const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
@@ -2552,7 +2598,8 @@ async function keepPass(browser, t, errors) {
   // CLICK. Counted from the moment the rail was ready, so the replay's own two artifact fetches —
   // which happen before it — are not what this is measuring.
   const atRest = [];
-  p1.on("request", (r) => atRest.push(r.url()));
+  const p1Mine = mainOnly(p1); // #219: the device frames load two proto pages of their own
+  p1.on("request", (r) => { if (p1Mine(r)) atRest.push(r.url()); });
   await p1.waitForTimeout(400);
   t("#210 · the rail fetches NOTHING at rest — no vocabulary, no stylesheets until the reader asks",
     atRest.filter((u) => /vocabulary\.json|tokens\.|components\.css/.test(u)).length === 0, JSON.stringify(atRest));
@@ -2965,10 +3012,17 @@ async function teardownPass(browser, t, errors) {
     // is about the latter, and everything the beat says about the failure goes to its card.
     page.on("console", (m) => {
       if (m.type() !== "error") return;
-      if (/Failed to load resource/.test(m.text())) return;
+      // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+      // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+      // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+      if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
       errors.push(`teardown console: ${m.text()}`);
     });
-    if (route) await page.route("**/vocabulary.json", route);
+    // #219: scoped to the MAIN frame, or case 3 serves its one 503 to the Fieldwork frame — which
+    // fetches this url first — and the beat under test gets the real file and never settles
+    // "unavailable".
+    const mine = mainOnly(page);
+    if (route) await page.route("**/vocabulary.json", (r) => (mine(r.request()) ? route(r) : r.continue()));
     await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
     // #209 · SETTLED FIRST, for a reason sharper than the compile pass's: every assertion in this
@@ -3030,7 +3084,8 @@ async function teardownPass(browser, t, errors) {
   // `{ signal }` on the fetch could be deleted with every other assertion still green — and a
   // torn-down beat that keeps a request in flight is exactly what #209's driver must not inherit.
   const failedReqs = [];
-  p2.on("requestfailed", (r) => { if (r.url().includes("vocabulary.json")) failedReqs.push(r.failure()?.errorText ?? "failed"); });
+  const p2Mine = mainOnly(p2); // #219: a frame's own aborted fetch is not the teardown's
+  p2.on("requestfailed", (r) => { if (p2Mine(r) && r.url().includes("vocabulary.json")) failedReqs.push(r.failure()?.errorText ?? "failed"); });
   const swapped = await p2.evaluate(() => import("/system/studio-compile.mjs").then(async (m) => {
     const c = m.getCompile();
     const ran = c.compile().then((s) => ({ settled: s }));
@@ -3129,7 +3184,7 @@ async function methodPass(browser, engineName, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   // The site scrolls smoothly and the band sits far down the page: Playwright's own actionability
   // scroll RACES the smooth behaviour and samples mid-travel (memory: hover probes race smooth
@@ -3409,7 +3464,12 @@ async function methodPass(browser, engineName, t, errors) {
   // every failed resource load as a console error of its own — the browser reporting the network,
   // not the page reporting itself.
   p5.on("pageerror", (e) => errors.push(`method race 404 pageerror: ${e.message}`));
-  p5.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`method race 404 console: ${m.text()}`); });
+  // …and #219's EXPECTED_NOISE beside it, for the standing reason: this page embeds the two proto
+  // pages, whose designed Worker fallback each engine reports in its own words.
+  p5.on("console", (m) => {
+    if (m.type() !== "error" || /Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
+    errors.push(`method race 404 console: ${m.text()}`);
+  });
   let release404;
   const held404 = new Promise((r) => { release404 = r; });
   await p5.route("**/replay/*.json", async (route) => { await held404; await route.fulfill({ status: 404, body: "gone" }); });
@@ -3513,7 +3573,7 @@ async function selectPass(browser, engineName, t, errors) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const modA = engineName === "webkit" ? "Meta+a" : "Control+a";
 
@@ -3797,9 +3857,13 @@ async function selectPass(browser, engineName, t, errors) {
     const stage = document.querySelector("[data-studio-canvas] .stx-stage");
     const guides = [...stage.querySelectorAll(".stx-guide")]
       .map((n) => ({ col: n.getAttribute("data-col"), row: n.getAttribute("data-row") }));
-    const peers = [...stage.querySelectorAll(".stx-slot:not(.is-picked)")]
+    // BOTH SETS ARE THE MOVABLE FAMILIES SINCE #219, not .stx-slot alone. studio-verbs.mjs's
+    // renderGuides reads the same widened set, and it is RIGHT to: a device frame is on the grid, so
+    // a block sharing its column really is aligned with something. Left narrow, this predicate calls
+    // an honest guide a lie — which is how it failed the moment the frames landed.
+    const peers = [...stage.querySelectorAll(".stx-slot:not(.is-picked), .stx-frame:not(.is-picked)")]
       .map((n) => ({ col: Number(n.getAttribute("data-col")), row: Number(n.getAttribute("data-row")) }));
-    const carried = [...stage.querySelectorAll(".stx-slot.is-picked")]
+    const carried = [...stage.querySelectorAll(".stx-slot.is-picked, .stx-frame.is-picked")]
       .map((n) => ({ col: Number(n.getAttribute("data-col")), row: Number(n.getAttribute("data-row")) }));
     const honest = guides.every((g) => (g.col != null
       ? peers.some((s) => s.col === Number(g.col)) && carried.some((s) => s.col === Number(g.col))
@@ -4069,7 +4133,11 @@ async function selectPass(browser, engineName, t, errors) {
   await p8.keyboard.press("Enter");
   await p8.waitForTimeout(100);
   const selDuring = await chosen(p8);
-  await shiftDrag(p8, await cell(p8, 1, 3), await cell(p8, 2, 4));
+  // ROW 2, not rows 3-4: #219's device frames hold those cells, and an <iframe> swallows the press —
+  // so the drag would start INSIDE the frame document, take focus with it, and the Escape below would
+  // never reach this page at all. The assertion is about a marquee not starting mid-carry, and it
+  // needs a press the page actually receives to assert that.
+  await shiftDrag(p8, await cell(p8, 1, 2), await cell(p8, 2, 2));
   t("#217/D11 · a Shift-drag while a carry is LIVE starts no marquee — the selection is untouched and the carry is still in the reader's hand, so the two Escape listeners are never both armed",
     JSON.stringify(await chosen(p8)) === JSON.stringify(selDuring) && (await picked(p8)) > 0,
     `${JSON.stringify(await chosen(p8))} picked=${await picked(p8)}`);
@@ -4134,7 +4202,11 @@ async function selectPass(browser, engineName, t, errors) {
   const members9 = await chosen(p9);
   t("#217 · R3 — even a QUICK marquee (no settling wait before release) selects the whole rectangle rather than one cell short",
     JSON.stringify(members9) === JSON.stringify(want), `${JSON.stringify(members9)} vs ${JSON.stringify(want)}`);
-  const target9 = await cell(p9, 1, 3);
+  // ROW 2, one row down rather than two: rows 3-4 are #219's device frames, and an occupied cell is
+  // not enterable, so a two-row drag would be BLOCKED and this row would be asserting the collision
+  // rule rather than the stale-frame flush it exists for. One row still crosses a cell boundary,
+  // which is all the quick-release bug needs.
+  const target9 = await cell(p9, 1, 2);
   await dragHandle(p9, members9[0], target9, { quick: true });
   await p9.waitForTimeout(300);
   const grid9b = await slotsNow(p9);
@@ -4142,7 +4214,7 @@ async function selectPass(browser, engineName, t, errors) {
     members9.every((id) => {
       const was = grid9.find((s) => s.id === id);
       const now = grid9b.find((s) => s.id === id);
-      return now.col === was.col && now.row === was.row + 2;
+      return now.col === was.col && now.row === was.row + 1;
     }), JSON.stringify(grid9b.filter((s) => members9.includes(s.id))));
   await p9.close();
 
@@ -4367,10 +4439,14 @@ async function docsPass(browser, engineName, t, errors) {
   // is exactly what assertion 9 turns on.
   page.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/Failed to load resource/.test(m.text())) return;
+    // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+    // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+    // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+    if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
     errors.push(`docs console: ${m.text()}`);
   });
-  page.on("request", (r) => requests.push(r.url()));
+  const docsMine = mainOnly(page); // #219: the device frames fetch artifacts of their own
+  page.on("request", (r) => { if (docsMine(r)) requests.push(r.url()); });
   await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
   await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
   await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
@@ -4598,7 +4674,7 @@ async function docsPass(browser, engineName, t, errors) {
     await ictx.addInitScript(() => { try { localStorage.setItem("factory-inspect", "on"); } catch { /* private mode */ } });
     const ip = await ictx.newPage();
     ip.on("pageerror", (e) => errors.push(`docs/inspect pageerror: ${e.message}`));
-    ip.on("console", (m) => { if (m.type() === "error") errors.push(`docs/inspect console: ${m.text()}`); });
+    ip.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`docs/inspect console: ${m.text()}`); });
     await ip.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await ip.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
     t("#218/7 · the expert toggle restored from localStorage — inspect is ON before anything is compiled",
@@ -4648,7 +4724,7 @@ async function docsPass(browser, engineName, t, errors) {
     const tctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const tp = await tctx.newPage();
     tp.on("pageerror", (e) => errors.push(`docs/toggle pageerror: ${e.message}`));
-    tp.on("console", (m) => { if (m.type() === "error") errors.push(`docs/toggle console: ${m.text()}`); });
+    tp.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`docs/toggle console: ${m.text()}`); });
     await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await tp.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
     const fresh = await tp.evaluate(() => ({
@@ -4698,10 +4774,16 @@ async function docsPass(browser, engineName, t, errors) {
     rp.on("pageerror", (e) => pageNoise.push(`pageerror: ${e.message}`));
     rp.on("console", (m) => {
       if (m.type() !== "error") return;
-      if (/Failed to load resource/.test(m.text())) return;
+      // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+      // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+      // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+      if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
       pageNoise.push(`console: ${m.text()}`);
     });
-    await rp.route(`**${SOURCES[0]}`, (route) => route.fulfill({ status: 500, body: "no" }));
+    const rpMine = mainOnly(rp); // #219: fail it for THIS document, not for a device frame
+    await rp.route(`**${SOURCES[0]}`, (route) => (rpMine(route.request())
+      ? route.fulfill({ status: 500, body: "no" })
+      : route.continue()));
     await rp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await rp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
     await rp.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
@@ -4725,11 +4807,446 @@ async function docsPass(browser, engineName, t, errors) {
   await ctx.close();
 }
 
+// --- #219 · THE DEVICE FRAMES ------------------------------------------------------------------
+// The two shipped prototypes on the /factory canvas, and the half build-checks group 24 structurally
+// cannot be. That group gates the DESCRIPTORS — two files that exist, two footprints on the grid. It
+// says so itself, and everything below is the list it names: that the frames RENDER, that their
+// contents carry no nested chrome (which can only be asserted on the frame's own contentDocument),
+// that the pack FOLLOWS a mid-visit dock swap, that pointer, keyboard and an injected agent action
+// produce the SAME span, that a resize is undoable in the ONE history the moves live in, that the
+// selection layer stays out of it, and that a redraft and a compile both leave the frames alone.
+async function framesPass(browser, engineName, t, errors) {
+  console.log(`\n[frames] #219 · the two prototypes as device frames on the canvas (${engineName})`);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag, allowResourceErrors = false) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => {
+      if (m.type() !== "error" || EXPECTED_NOISE.test(m.text())) return;
+      // allowResourceErrors is the DOCK row's alone, and it is the standing narrow exemption #213's
+      // dock case already carries: wearing saulera 404s that pack's own `@import
+      // url("../fonts/fonts.css")`, because fonts/ is not committed — a property every saulera
+      // surface shares. That line is the browser reporting the network, not the page reporting itself.
+      if (allowResourceErrors && /Failed to load resource/.test(m.text())) return;
+      errors.push(`${tag} console: ${m.text()}`);
+    });
+  };
+  // THE HANDLE FIRST, THEN THE SETTLE. [data-studio-frames="ready"] fires at MOUNT and the frames are
+  // placed there, so it resolves long before the replay finishes — but every assertion below is about
+  // a canvas the run has finished authoring, and #209's own opener records why waiting for that
+  // matters. The frames' CONTENT is waited for separately, per frame, because loading="lazy" makes
+  // its timing an engine's business rather than a contract (studio-frames.mjs says so).
+  const open = async (context = ctx, tag = "frames", allowResourceErrors = false) => {
+    const p = await context.newPage();
+    watch(p, tag, allowResourceErrors);
+    await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await p.waitForSelector('[data-studio-frames="ready"]', { timeout: 20000 });
+    await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    // The canvas scrolled into view before any pointer row — selectPass's recorded lesson: on
+    // /factory the studio sits well below the fold, so a raw mouse.move to a computed client
+    // coordinate lands off-screen and the press never reaches the stage.
+    await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(400);
+    return p;
+  };
+  const frameState = (p) => p.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")].map((n) => ({
+    key: n.getAttribute("data-stx-frame"),
+    id: n.getAttribute("data-stx-id"),
+    col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
+    cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
+    src: n.querySelector("iframe")?.getAttribute("src"),
+    title: n.querySelector("iframe")?.getAttribute("title"),
+    grab: n.querySelector(".stx-grab") ? !n.querySelector(".stx-grab").disabled : null,
+    resize: n.querySelector(".stx-resize") ? !n.querySelector(".stx-resize").disabled : null,
+    describedBy: n.querySelector(".stx-resize")?.getAttribute("aria-describedby"),
+    styled: n.hasAttribute("style"),
+  })));
+  const live = (p) => p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.trim());
+  const spanOf = (p, key) => p.evaluate((k) => {
+    const n = document.querySelector(`[data-stx-frame="${k}"]`);
+    return { cols: n?.getAttribute("data-span-col"), rows: n?.getAttribute("data-span-row"),
+      col: n?.getAttribute("data-col"), row: n?.getAttribute("data-row") };
+  }, key);
+  const idOf = (p, key) => p.evaluate((k) => document.querySelector(`[data-stx-frame="${k}"]`)?.getAttribute("data-stx-id"), key);
+  const depth = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => m.getVerbs().history.depth()));
+  // A frame's CONTENT, waited for rather than assumed: loading="lazy" is a hedge and nothing in the
+  // shipped module depends on when it resolves, so the driver must not either.
+  const loaded = (p, key) => p.waitForFunction((k) => {
+    const f = document.querySelector(`[data-stx-frame="${k}"] iframe`);
+    return Boolean(f?.contentDocument?.body?.dataset?.page || f?.contentDocument?.querySelector(".vd-plant-card, .fw-lane"));
+  }, key, { timeout: 30000 });
+
+  const p = await open();
+
+  // --- 1 · they are there, and they are frames --------------------------------------------------
+  const rest = await frameState(p);
+  t(`#219 · the canvas holds exactly ${FRAMES.length} device frames, one per committed descriptor`,
+    rest.length === FRAMES.length, JSON.stringify(rest.map((f) => f.key)));
+  for (const want of FRAMES) {
+    const got = rest.find((f) => f.key === want.id);
+    t(`#219 · the ${want.id} frame is an <iframe> of the shipped page at its declared footprint`,
+      Boolean(got) && got.src === want.src && got.title === want.title
+      && got.col === String(want.col) && got.row === String(want.row)
+      && got.cols === String(want.spanCol) && got.rows === String(want.spanRow),
+      JSON.stringify(got));
+    t(`#219 · …with a stable id and BOTH handles armed, each describing itself through a resolving IDREF`,
+      Boolean(got?.id) && got.grab === true && got.resize === true && got.describedBy === "stx-resize-help",
+      JSON.stringify({ id: got?.id, grab: got?.grab, resize: got?.resize, describedBy: got?.describedBy }));
+  }
+  t("#219 · #stx-resize-help exists, so every .stx-resize's aria-describedby resolves to real text",
+    (await p.locator("#stx-resize-help").count()) === 1
+    && (await p.locator("#stx-resize-help").textContent() || "").includes("Escape to cancel"));
+  t("#219 · no `style` attribute on any frame — geometry is attributes, on the running page",
+    rest.every((f) => !f.styled), JSON.stringify(rest.map((f) => f.styled)));
+
+  // --- 2 · NO NESTED CHROME, asserted on the frame's own contentDocument (AC #2) -----------------
+  // THE ASSERTION THE PIXEL GATE STRUCTURALLY CANNOT MAKE, and the one that catches a proto page
+  // dropping its `window.self === window.top` guard — a regression whose only other symptom is a
+  // second appearance dock appearing inside a box the gate masks.
+  for (const want of FRAMES) {
+    await loaded(p, want.id);
+    const inside = await p.evaluate((k) => {
+      const d = document.querySelector(`[data-stx-frame="${k}"] iframe`).contentDocument;
+      return {
+        page: d.body?.dataset?.page ?? null,
+        dock: d.querySelectorAll(".dock, [data-dock]").length,
+        inspect: d.querySelectorAll("[data-inspect-toggle]").length,
+        // THE ⌘K PALETTE IS DELIBERATELY MOUNTED INSIDE AN EMBED and is not a defect —
+        // proto/verdant.html:191-202 records the call in its own words: "A reader who deliberately
+        // drives the ⌘K palette inside the frame still gets the layer — the rule is about at-rest
+        // chrome, not consent." So what AC #2 forbids here is at-rest CHROME: a VISIBLE ⌘K hint or an
+        // open dialog. The keyboard layer behind them is asserted PRESENT below, not absent.
+        paletteChrome: d.querySelectorAll("[data-palette-open]:not([hidden]), dialog[open]").length,
+        paletteLayer: d.querySelectorAll("[data-palette], .cmdk, dialog").length,
+        deviceFrame: d.querySelectorAll(".proto-resize, [data-device-frame]").length,
+        busToggles: d.querySelectorAll("[data-bus-toggles]").length,
+        rendered: d.querySelectorAll(".vd-plant-card, .fw-lane").length,
+      };
+    }, want.id);
+    t(`#219 · AC #2 · the ${want.id} frame really loaded the proto page (or the absences below prove nothing)`,
+      inside.page !== null && inside.rendered > 0, JSON.stringify(inside));
+    t(`#219 · AC #2 · …and carries NO nested dock, inspect toggle, standalone device frame or at-rest ⌘K chrome`,
+      inside.dock === 0 && inside.inspect === 0 && inside.deviceFrame === 0 && inside.paletteChrome === 0,
+      JSON.stringify(inside));
+    t(`#219 · AC #2 · …while the ⌘K LAYER is still there, which is the proto pages' own recorded call rather than a gap`,
+      inside.paletteLayer > 0, JSON.stringify(inside));
+  }
+
+  // --- 3 · the pack FOLLOWS a mid-visit dock swap (AC #1) ----------------------------------------
+  // A fresh context, load-bearing for the reason #213's dock case records: pack-boot restores a
+  // persisted pack pre-paint, so this must start neutral and the saulera choice must die with the
+  // context rather than skin every later page.
+  {
+    const dctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const dp = await open(dctx, "frames/dock", true);
+    await loaded(dp, "verdant");
+    const before = await dp.evaluate(() => document.querySelector('[data-stx-frame="verdant"] iframe')
+      .contentDocument.querySelector('link[rel="stylesheet"][href*="/system/tokens."]:not([href*="contract"])')
+      ?.getAttribute("href"));
+    await dp.evaluate(() => { location.hash = "appearance"; });
+    await dp.waitForTimeout(250);
+    await dp.locator('label[for="dock-pack-saulera"]').click();
+    await dp.waitForFunction(() => [...document.querySelectorAll('link[rel="stylesheet"]')]
+      .some((l) => /\/system\/tokens\.saulera\.css$/.test(l.getAttribute("href") || "")), null, { timeout: 10000 });
+    await dp.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    const after = await dp.waitForFunction(() => {
+      const h = document.querySelector('[data-stx-frame="verdant"] iframe')
+        .contentDocument?.querySelector('link[rel="stylesheet"][href*="/system/tokens."]:not([href*="contract"])')
+        ?.getAttribute("href");
+      return /saulera/.test(h || "") ? h : false;
+    }, null, { timeout: 10000 }).then((h) => h.jsonValue()).catch(() => null);
+    t("#219 · AC #1 · the frame wore the site's pack before the swap",
+      /neutral/.test(before || ""), String(before));
+    t("#219 · AC #1 · …and the dock's mid-visit swap re-points the frame's OWN pack line to saulera",
+      /saulera/.test(after || ""), String(after));
+    // The discriminator is canvas-scoped (#213's precedent): a dock verb is chrome, not canvas.
+    const took = await dp.evaluate(() => import("/system/replay-driver.mjs")
+      .then((m) => m.getReplay()?.tookOver ?? null));
+    t("#219 · …and switching the dock is still NOT a canvas take-over", took === false, String(took));
+    await dctx.close();
+  }
+
+  // --- 4 · THREE-SOURCE RESIZE PARITY (AC #3) ---------------------------------------------------
+  // Pointer, keyboard and an injected source:"agent" action, compared on the RESULTING data-span-*
+  // rather than on "an action was emitted" — which would pass with no consumer at all. The agent leg
+  // runs on a FRESH page with no gesture first, because that freshness is the whole discriminator:
+  // a mover that applied directly and merely emitted would pass the other two (#205's recorded rule).
+  const TARGET = "verdant";
+  // DERIVED FROM THE DESCRIPTOR, never typed: one row taller than Verdant ships. It can only grow
+  // DOWNWARD — Fieldwork sits directly beside it — which is why every leg below steps ROWS.
+  const TARGET_FRAME = FRAMES.find((f) => f.id === TARGET);
+  const WANT = { cols: String(TARGET_FRAME.spanCol), rows: String(TARGET_FRAME.spanRow + 1) };
+  {
+    const pp = await open(ctx, "frames/pointer");
+    const before = await depth(pp);
+    // THE SCROLLER PUT AT A KNOWN PLACE, then the drag delta MEASURED from the resolved grid —
+    // selectPass's own discipline, and not a nicety: a typed 170px is a chromium layout constant, and
+    // on firefox the same drag crossed no row boundary at all, so the resize silently did nothing and
+    // the row read as a bug in the module rather than in the fixture.
+    await pp.evaluate(() => document.querySelector("[data-studio-canvas] .stx-scroll").scrollIntoView({ block: "start" }));
+    await pp.waitForTimeout(300);
+    const pitch = await pp.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+      return parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+    });
+    const h = pp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`);
+    await h.scrollIntoViewIfNeeded();
+    const b = await h.boundingBox();
+    const said = [];
+    await pp.evaluate(() => {
+      window.__said = [];
+      const region = document.querySelector("[data-studio-canvas] .stx-live");
+      new MutationObserver(() => window.__said.push(region.textContent.trim())).observe(region, { childList: true, characterData: true, subtree: true });
+    });
+    await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await pp.mouse.down();
+    await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + pitch, { steps: 12 });
+    await pp.mouse.up();
+    await pp.waitForTimeout(250);
+    said.push(...await pp.evaluate(() => window.__said));
+    const byPointer = await spanOf(pp, TARGET);
+    t("#219 · AC #3 · a POINTER drag of the corner resizes the frame",
+      byPointer.cols === WANT.cols && byPointer.rows === WANT.rows, JSON.stringify(byPointer));
+    t("#219 · AC #3 · …in exactly ONE history entry", (await depth(pp)) - before === 1,
+      `Δ${(await depth(pp)) - before}`);
+    // ANNOUNCEMENTS COUNTED EXACTLY AND PER PATH, because the two paths differ ON PURPOSE and the
+    // formula is read off the implementation rather than guessed: a pointer resize announces ONCE, at
+    // the drop. A naive once-per-gesture count applied to the keyboard path below would send the next
+    // implementer to delete the per-press feedback, which is the wrong fix.
+    t("#219 · AC #3 · …and announces exactly once, at the drop", said.length === 1, JSON.stringify(said));
+    await pp.close();
+  }
+  {
+    const kp = await open(ctx, "frames/keyboard");
+    const before = await depth(kp);
+    await kp.evaluate(() => {
+      window.__said = [];
+      const region = document.querySelector("[data-studio-canvas] .stx-live");
+      new MutationObserver(() => window.__said.push(region.textContent.trim())).observe(region, { childList: true, characterData: true, subtree: true });
+    });
+    await kp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await kp.keyboard.press("Enter");
+    await kp.keyboard.press("ArrowDown");
+    await kp.keyboard.press("Enter");
+    await kp.waitForTimeout(200);
+    const said = await kp.evaluate(() => window.__said);
+    const byKeyboard = await spanOf(kp, TARGET);
+    t("#219 · AC #3 · the KEYBOARD path (Enter · arrows · Enter) reaches the SAME span",
+      byKeyboard.cols === WANT.cols && byKeyboard.rows === WANT.rows, JSON.stringify(byKeyboard));
+    t("#219 · AC #3 · …in exactly ONE history entry, so Undo undoes THE RESIZE and not its last column",
+      (await depth(kp)) - before === 1, `Δ${(await depth(kp)) - before}`);
+    // pick-up + one per arrow press + the drop = N + 2, the move path's own formula.
+    t("#219 · AC #3 · …and announces the pick-up, EVERY arrow press and the drop — N + 2, never once",
+      said.length === 3 && /ready to resize/.test(said[0])
+      && said[1] === `${WANT.cols} columns by ${WANT.rows} rows.`
+      && said[2] === `${TARGET_FRAME.name} resized to ${WANT.cols} columns by ${WANT.rows} rows.`,
+      JSON.stringify(said));
+    // A BLOCKED press still announces, which is what tells a keyboard reader why nothing moved.
+    await kp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await kp.keyboard.press("Enter");
+    await kp.keyboard.press("ArrowRight");
+    const blocked = await live(kp);
+    await kp.keyboard.press("Escape");
+    t("#219 · AC #3 · …and a press blocked by a PEER's footprint says so rather than going silent",
+      /^Blocked, still /.test(blocked), blocked);
+    await kp.close();
+  }
+  {
+    // THE AGENT LEG, on a fresh page with NO gesture first.
+    const ap = await open(ctx, "frames/agent");
+    const seen = await ap.evaluate(async ([id, want]) => {
+      const { getVerbs } = await import("/system/studio-verbs.mjs");
+      const types = [];
+      getVerbs().bus.on("*", (a) => types.push(a.type));
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id }, params: want });
+      return types;
+    }, [await idOf(ap, TARGET), { cols: Number(WANT.cols), rows: Number(WANT.rows) }]).catch(() => null);
+    const byAgent = await spanOf(ap, TARGET);
+    t("#219 · AC #3 · an injected source:\"agent\" ui.resize reaches the SAME span on a FRESH page — the three sources are one consumer",
+      byAgent.cols === WANT.cols && byAgent.rows === WANT.rows, JSON.stringify({ byAgent, seen }));
+    // The two refusals the consumer owns, each CONTENT and never a throw.
+    const refusals = await ap.evaluate(async () => {
+      const { getVerbs } = await import("/system/studio-verbs.mjs");
+      const region = document.querySelector("[data-studio-canvas] .stx-live");
+      const out = {};
+      const slot = document.querySelector("[data-studio-canvas] .stx-slot");
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: slot.getAttribute("data-stx-id") }, params: { cols: 3, rows: 3 } });
+      out.notResizable = region.textContent.trim();
+      out.slotUntouched = !slot.hasAttribute("data-span-col") && !slot.hasAttribute("data-span-row");
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: "nope" }, params: { cols: 2, rows: 2 } });
+      out.unknown = region.textContent.trim();
+      const f = document.querySelector('[data-stx-frame="verdant"]');
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: f.getAttribute("data-stx-id") }, params: { cols: "abc", rows: -9 } });
+      out.clamped = [f.getAttribute("data-span-col"), f.getAttribute("data-span-row")];
+      return out;
+    });
+    t("#219 · a ui.resize naming a BOARD WRAPPER is refused as not resizable, and writes no span attribute",
+      /is not resizable\.$/.test(refusals.notResizable) && refusals.slotUntouched, JSON.stringify(refusals));
+    t("#219 · …a ui.resize naming nothing on the canvas is refused by id",
+      /^Refused: no component "nope"/.test(refusals.unknown), refusals.unknown);
+    t("#219 · …and hostile params are CLAMPED rather than reaching an attribute as NaN",
+      refusals.clamped[0] === "1" && refusals.clamped[1] === "1", JSON.stringify(refusals.clamped));
+    await ap.close();
+  }
+
+  // --- 5 · Undo restores the SPAN, and the mixed sequence walks back through ONE history ---------
+  {
+    const up = await open(ctx, "frames/undo");
+    const start = await spanOf(up, TARGET);
+    await up.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await up.keyboard.press("Enter");
+    await up.keyboard.press("ArrowDown");
+    await up.keyboard.press("Enter");
+    const resized = await spanOf(up, TARGET);
+    await up.locator('[data-stx-verb="undo"]').click();
+    await up.waitForTimeout(200);
+    const undone = await spanOf(up, TARGET);
+    const undoneSaid = await live(up);
+    await up.locator('[data-stx-verb="redo"]').click();
+    await up.waitForTimeout(200);
+    const redone = await spanOf(up, TARGET);
+    t("#219 · AC #3 · Undo restores the span the resize changed",
+      resized.rows !== start.rows && undone.rows === start.rows && undone.cols === start.cols,
+      JSON.stringify({ start, resized, undone }));
+    t("#219 · …announced as a SIZE, not as a column and row the frame never left",
+      /at \d+ columns by \d+ rows/.test(undoneSaid), undoneSaid);
+    t("#219 · …and Redo returns it", redone.rows === resized.rows && redone.cols === resized.cols,
+      JSON.stringify(redone));
+
+    // THE MIXED SEQUENCE — the one a per-verb history would fail. Move, resize, move; then three
+    // Undos, each walking back the step before it, in order.
+    const grab = up.locator(`[data-stx-frame="${TARGET}"] .stx-grab`);
+    await grab.focus();
+    await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
+    const m1 = await spanOf(up, TARGET);
+    await up.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
+    await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
+    const r1 = await spanOf(up, TARGET);
+    await grab.focus();
+    await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
+    const m2 = await spanOf(up, TARGET);
+    const moved = m1.row !== redone.row || m2.row !== m1.row;
+    await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
+    const back1 = await spanOf(up, TARGET);
+    await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
+    const back2 = await spanOf(up, TARGET);
+    await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
+    const back3 = await spanOf(up, TARGET);
+    t("#219 · the mixed sequence really moved AND resized (or the three Undos below prove nothing)",
+      moved && r1.rows !== m1.rows, JSON.stringify({ redone, m1, r1, m2 }));
+    t("#219 · AC #3 · three Undos walk back move · resize · move IN ORDER, through ONE history",
+      JSON.stringify(back1) === JSON.stringify(r1)
+      && JSON.stringify(back2) === JSON.stringify(m1)
+      && JSON.stringify(back3) === JSON.stringify(redone),
+      JSON.stringify({ back1, back2, back3, want: [r1, m1, redone] }));
+    await up.close();
+  }
+
+  // --- 6 · the SELECTION line holds (D6) --------------------------------------------------------
+  // The assertion that keeps a half-widened selection layer from shipping unnoticed: studio-verbs'
+  // slots() is MOVABLE now, and studio-select's chosenNodes() is deliberately still .stx-slot.
+  {
+    const sp = await open(ctx, "frames/select");
+    await sp.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await sp.waitForTimeout(300);
+    const marked = await sp.evaluate(async () => {
+      const scroll = document.querySelector("[data-studio-canvas] .stx-scroll");
+      scroll.focus();
+      const e = new KeyboardEvent("keydown", { key: "a", ctrlKey: true, bubbles: true, cancelable: true });
+      scroll.dispatchEvent(e);
+      await new Promise((r) => setTimeout(r, 150));
+      return {
+        slots: document.querySelectorAll("[data-studio-canvas] .stx-slot[data-stx-selected]").length,
+        frames: document.querySelectorAll("[data-studio-canvas] .stx-frame[data-stx-selected]").length,
+        allSlots: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+      };
+    });
+    t("#219 · D6 · ⌘/Ctrl+A selects every BOARD block…", marked.slots === marked.allSlots && marked.slots > 0,
+      JSON.stringify(marked));
+    t("#219 · D6 · …and leaves both device frames unselected — a frame moves and resizes on its own",
+      marked.frames === 0, JSON.stringify(marked));
+    await sp.close();
+  }
+
+  // --- 7 · a frame is MOVABLE, and its whole FOOTPRINT blocks ------------------------------------
+  {
+    const mp = await open(ctx, "frames/move");
+    const from = await spanOf(mp, TARGET);
+    await mp.locator(`[data-stx-frame="${TARGET}"] .stx-grab`).focus();
+    await mp.keyboard.press("Enter");
+    await mp.keyboard.press("ArrowRight");
+    await mp.keyboard.press("Enter");
+    const to = await spanOf(mp, TARGET);
+    t("#219 · a frame moves by the SAME grab handle and the SAME ui.move verb everything else uses",
+      to.col !== from.col && to.cols === from.cols && to.rows === from.rows,
+      JSON.stringify({ from, to }));
+    // THE FOOTPRINT, not the corner: the step landed past the OTHER frame's whole rectangle rather
+    // than one column along. A top-left-only occupancy set would have let it stop inside.
+    const other = FRAMES.find((f) => f.id !== TARGET);
+    t("#219 · …and it stepped clear of the other frame's WHOLE footprint, not just its top-left cell",
+      Number(to.col) >= other.col + other.spanCol,
+      `landed at column ${to.col}; ${other.id} covers ${other.col}..${other.col + other.spanCol - 1}`);
+    await mp.close();
+  }
+
+  // --- 8 · a redraft and a compile both leave the frames alone -----------------------------------
+  {
+    const cp = await open(ctx, "frames/compile");
+    const beforeSlots = await cp.evaluate(() => document.querySelectorAll("[data-studio-canvas] .stx-slot").length);
+    await cp.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+    await cp.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "rendered",
+      null, { timeout: 20000 });
+    const compiled = await cp.evaluate(() => ({
+      screens: document.querySelectorAll(".stf-screen").length,
+      frames: document.querySelectorAll("[data-studio-canvas] .stx-frame").length,
+      slots: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+      refusal: document.querySelectorAll(".stu-compile-refusal").length,
+    }));
+    t("#219 · Compile still swaps every board wrapper to a screen with the frames present",
+      compiled.screens === beforeSlots && compiled.slots === beforeSlots && compiled.refusal === 0,
+      JSON.stringify(compiled));
+    t("#219 · …and the frames are untouched by it — they are not board wrappers",
+      compiled.frames === FRAMES.length, JSON.stringify(compiled));
+    // THE HEIGHT DOES NOT RIDE --stx-slot-h (D4): a depicted device that grew when a board compiled
+    // would be a lie about the device. Measured, because the whole point is that CSS decides it.
+    const heights = await cp.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")]
+      .map((n) => Math.round(n.getBoundingClientRect().height)));
+    await cp.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+    await cp.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "blocks",
+      null, { timeout: 20000 });
+    const heightsBack = await cp.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")]
+      .map((n) => Math.round(n.getBoundingClientRect().height)));
+    t("#219 · D4 · a frame is the SAME height compiled and uncompiled — the depicted device does not grow",
+      JSON.stringify(heights) === JSON.stringify(heightsBack), JSON.stringify({ heights, heightsBack }));
+    await cp.close();
+  }
+  {
+    const rp = await open(ctx, "frames/redraft");
+    const before = await rp.evaluate(() => document.querySelectorAll("[data-studio-canvas] .stx-slot").length);
+    // The method band's first card, answered — #214's own redraft path.
+    const card = rp.locator("[data-studio-method] input[type=radio]").first();
+    await card.scrollIntoViewIfNeeded();
+    await card.click();
+    await rp.waitForTimeout(600);
+    const after = await rp.evaluate(() => ({
+      slots: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
+      frames: document.querySelectorAll("[data-studio-canvas] .stx-frame").length,
+      keys: [...document.querySelectorAll("[data-studio-canvas] .stx-frame")].map((n) => n.getAttribute("data-stx-frame")),
+    }));
+    t("#219 · a method redraft rebuilds the board and leaves BOTH frames standing — adoptBoard removes .stx-slot only",
+      after.frames === FRAMES.length && after.keys.length === FRAMES.length,
+      JSON.stringify({ before, after }));
+    await rp.close();
+  }
+
+  await p.close();
+  await ctx.close();
+}
+
 async function perfPass(browser, engineName, t, errors) {
   const BUDGET_MS = 200;
   const watch = (p, tag) => {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
-    p.on("console", (m) => { if (m.type() === "error") errors.push(`${tag} console: ${m.text()}`); });
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
   // Entries are delivered after the interaction's next paint — flush with a double rAF plus a
@@ -4900,6 +5417,37 @@ async function perfPass(browser, engineName, t, errors) {
       await p.keyboard.press("Escape");
       await p.waitForTimeout(80);
     } },
+    // #219's two rows. The resize is the one verb on this canvas whose two input paths do NOT
+    // converge — a continuous drag and a stepped keypress — so both are measured, exactly as the
+    // move's two are. The drag's delta is MEASURED from the resolved grid rather than typed:
+    // framesPass learned that a chromium-derived pixel constant crosses no row on firefox, and a
+    // gesture that moved nothing would report a flatteringly small INP.
+    { label: "frame resize (pointer)", act: async (p) => {
+      const h = p.locator('[data-stx-frame="verdant"] .stx-resize');
+      if (!(await h.count())) return;
+      await h.scrollIntoViewIfNeeded();
+      const pitch = await p.evaluate(() => {
+        const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+        return parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+      });
+      const b = await h.boundingBox();
+      if (!b) return;
+      await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await p.mouse.down();
+      await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + pitch, { steps: 10 });
+      await p.mouse.up();
+      await p.waitForTimeout(140);
+    } },
+    { label: "frame resize (keyboard)", act: async (p) => {
+      const h = p.locator('[data-stx-frame="verdant"] .stx-resize');
+      if (!(await h.count())) return;
+      await h.scrollIntoViewIfNeeded();
+      await h.focus();
+      await p.keyboard.press("Enter");
+      await p.keyboard.press("ArrowUp");   // shrink: Verdant is already at the grid band's floor
+      await p.keyboard.press("Enter");
+      await p.waitForTimeout(140);
+    } },
     // #214's two rows, LAST because the first one redrafts the whole board (relinquish, wholesale
     // replace, publish — the real interaction cost) and everything above wants the run's board.
     // Each parks its target instantly first: the site scrolls smoothly and Playwright's
@@ -5054,6 +5602,17 @@ async function perfPass(browser, engineName, t, errors) {
     await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await settled(tp);
     await tp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
+    // #219 · THE DEVICE FRAMES ARE PART OF THE BOOTSTRAP NOW, and the line above is what starts them:
+    // the two <iframe>s are loading="lazy", so scrolling the canvas into view is the moment two whole
+    // proto pages begin booting. Under the 4× CPU throttle applied below that work lands squarely
+    // inside the measured drag window — observed as one 61 ms long-animation-frame — which is the
+    // IDENTICAL argument the 500 ms rest already makes for site.js/dock.mjs's chrome injection. So it
+    // is WAITED FOR on each frame's own settle handle rather than slept past. Swallowed on timeout
+    // deliberately: whether the frames load at all is framesPass's assertion, and this pass failing
+    // for it would report the wrong thing.
+    await tp.waitForFunction(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame iframe")]
+      .every((f) => f.contentDocument?.querySelector("#source[data-source]")), null, { timeout: 30000 })
+      .catch(() => {});
     // Settle + rest BEFORE any sampling: the 150–266 ms bootstrap frames (site.js/dock.mjs chrome
     // injection) live at load and must never enter a measured window (the #72 spike's rule).
     await tp.waitForTimeout(500);
@@ -5156,7 +5715,7 @@ for (const engine of toRun) {
 // #213 · AC #7 — every bound the driver carries, stated by the driver itself on every run, red or
 // green. Silent truncation reads as "covered everything", which is the sin this block exists to
 // not commit.
-console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\'s LAZY WIRING as two halves (a raw zero-request count before Compile; a per-url DELTA of zero across four forced re-renders) and NOT as a raw per-url total, because two of the three DOCS_SOURCES have other consumers on this page — studio-compile.mjs fetches vocabulary.json on first compile and the Graph panel fetches system-graph.json, so an absolute "exactly 1 per url" would be RED on a correct implementation; pack.json, which nothing else touches, IS pinned at exactly 1 · its cross-page comparison (assertion 5) runs BEFORE the pack swap and compares the tables WHOLE, live-value column included, which is sound only while both documents wear neutral — the order is part of the assertion · what it does NOT cover, stated rather than implied: the docs panel is asserted on /factory ONLY (studio.html has no inspector by design and /components is tooling/catalog-journey.mjs\'s), no assertion here drives the playground CONTROLS or the copy-as-Markdown button (both are mount 1\'s, gated there), and the AC #2 hover case moves the pointer AWAY before re-hovering because a node rebuilt under a resting pointer delivers no enter event at all (inspect.mjs\'s own recorded lesson) · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (22 rows since #217 added marquee drag, group pointer-drag, group keyboard step and context menu open), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them · #217\'s \u2318/Ctrl+A is FOCUS-SCOPED to .stx-scroll, so it is the browser\'s own document select-all everywhere else on the page, and it is deliberately NOT a replay take-over (the driver\'s discriminator returns early on ctrlKey/metaKey, exactly as it already does for \u2318Z) · #217 adds NEITHER of \u00a75\'s last two items and says so: zoom-to-fit landed at #204 and pan-by-drag covers the hand tool on EMPTY canvas — there is no mode in which a drag over a component pans, recorded as a decision rather than left as a gap');
+console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\'s LAZY WIRING as two halves (a raw zero-request count before Compile; a per-url DELTA of zero across four forced re-renders) and NOT as a raw per-url total, because two of the three DOCS_SOURCES have other consumers on this page — studio-compile.mjs fetches vocabulary.json on first compile and the Graph panel fetches system-graph.json, so an absolute "exactly 1 per url" would be RED on a correct implementation; pack.json, which nothing else touches, IS pinned at exactly 1 · its cross-page comparison (assertion 5) runs BEFORE the pack swap and compares the tables WHOLE, live-value column included, which is sound only while both documents wear neutral — the order is part of the assertion · what it does NOT cover, stated rather than implied: the docs panel is asserted on /factory ONLY (studio.html has no inspector by design and /components is tooling/catalog-journey.mjs\'s), no assertion here drives the playground CONTROLS or the copy-as-Markdown button (both are mount 1\'s, gated there), and the AC #2 hover case moves the pointer AWAY before re-hovering because a node rebuilt under a resting pointer delivers no enter event at all (inspect.mjs\'s own recorded lesson) · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (24 rows since #219 added the frame resize in both of its non-converging input paths, on top of #217\u2019s marquee drag, group pointer-drag, group keyboard step and context menu open), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them · #217\'s \u2318/Ctrl+A is FOCUS-SCOPED to .stx-scroll, so it is the browser\'s own document select-all everywhere else on the page, and it is deliberately NOT a replay take-over (the driver\'s discriminator returns early on ctrlKey/metaKey, exactly as it already does for \u2318Z) · #217 adds NEITHER of \u00a75\'s last two items and says so: zoom-to-fit landed at #204 and pan-by-drag covers the hand tool on EMPTY canvas — there is no mode in which a drag over a component pans, recorded as a decision rather than left as a gap');
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`

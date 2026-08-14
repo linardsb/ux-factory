@@ -74,8 +74,22 @@ const PAGES = [
   // captures, and Playwright's per-test default is 30 s. It is a PAGE property, not a global one, so
   // it lives on the page rather than in the config — and it moves with replay-driver.mjs's
   // PLAYBACK_MS, which says so.
+  //
+  // THREE HANDLES SINCE #219, and the third is deliberately the WEAKEST of the three. The two device
+  // frames (system/studio-frames.mjs) are <iframe>s of the shipped proto pages, and
+  // [data-studio-frames="ready"] resolves when the frame ELEMENTS and their attributes exist — set
+  // in a finally at mount — NOT on iframe load. That is the whole point: their content loads async
+  // behind loading="lazy", so a load-based handle would make this gate's timing depend on two more
+  // page boots, and a proto page that failed to load would hang the capture for the wrong reason.
+  // What the handle does buy is the frames' own CHROME (the box, the caption, the two handles), which
+  // IS in the baseline and is what a mount that silently stopped placing them would remove.
+  //
+  // The CONTENT is masked instead, on work.html's precedent (:80-85) and with the same zero coverage
+  // loss: verdant and fieldwork are screenshotted standalone in the two proto entries below, so
+  // masking them here re-baselines nothing that is not already gated somewhere better.
   { name: 'factory',         url: '/factory.html',         kind: 'ia', timeout: 90_000,
-    waitReady: ['[data-studio="ready"]', '[data-replay="settled"]'] },
+    waitReady: ['[data-studio="ready"]', '[data-replay="settled"]', '[data-studio-frames="ready"]'],
+    mask: '[data-studio-canvas] .stx-frame iframe' },
   { name: 'roundtrip',       url: '/roundtrip.html',       kind: 'ia', waitReady: ['#roundtrip-diff[data-diff="ready"]', '#roundtrip-player[data-trace="ready"]'] },
   // Work (#80) now embeds the two proto pages in iframes (fixed-height boxes). Their content loads
   // async and the ia branch doesn't wait for frames, so mask the iframe boxes — deterministic
@@ -229,8 +243,10 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
             + `the page silently, and identically on the capture and comparison runs.`);
         }
       }
-      // p.mask (factory only): paint a solid box over the embed iframes so their async content can't
-      // move the baseline. A locator matching multiple elements masks them all. (#10, slice 10.1)
+      // p.mask (work, and factory since #219): paint a solid box over the embed iframes so their
+      // async content can't move the baseline. A locator matching multiple elements masks them all.
+      // Generic, and now proven so by a second entry — factory's `timeout` and its three-selector
+      // waitReady compose with this because nothing here reads either. (#10, slice 10.1)
       const shotOpts = p.mask ? { mask: [page.locator(p.mask)] } : {};
       await expect(page).toHaveScreenshot(`${p.name}-${pack}.png`, shotOpts);
     });
