@@ -153,6 +153,42 @@ named index 7); pointing a descriptor at `/proto/nope.html` (group 24); renaming
    is blocked — on the shipped canvas that is the commonest gesture on the commonest frame. The
    keyboard path is unaffected by construction (one arrow changes one axis, so both fallbacks
    collapse to the current span and the press is announced as blocked).
+8. **Three shipped `#217` fixtures in `studio-journey.mjs` moved.** These are the changes most likely
+   to be read as weakening a gate, so each is argued rather than listed. The frames are real canvas
+   content, and a fixture that assumed a cell was empty has to move when the page fills it —
+   `selectPass`'s own `reachable()` guard exists for exactly this and threw with the right message.
+   · **The alignment guides' peer set widened to the MOVABLE families.** `renderGuides` includes a
+   frame and is *right* to: a device frame is on the grid, so a block sharing its column really is
+   aligned with something. Left narrow, the driver's predicate called an honest guide a lie. The
+   mutation that forces a guide onto a provably empty column is untouched and still goes red.
+   · **The mid-carry Shift-drag moved from rows 3–4 to row 2.** Started on a frame it pressed *inside*
+   the iframe, taking focus with it, so the Escape that follows never reached the page under test —
+   the assertion would have been vacuous, not merely relocated.
+   · **The quick group drag goes one row instead of two.** Rows 3–4 are the frames, and an occupied
+   cell is not enterable, so a two-row drag would have been asserting the collision rule rather than
+   the stale-rAF-frame flush it exists for. One row still crosses a cell boundary, which is all that
+   bug needs.
+9. **`perfPass`'s throttled frame check waits for both proto pages to settle before throttling.** Two
+   page boots under a 4× CPU throttle put one 61 ms long-animation-frame inside the measured drag
+   window. That is not a drag-smoothness regression, it is bootstrap work inside a window the check
+   already excludes bootstrap from — the 500 ms rest above it makes the identical argument for
+   `site.js`/`dock.mjs`'s chrome injection. Waited for on each frame's own settle handle, never slept
+   past, and swallowed on timeout because whether the frames load at all is `framesPass`'s assertion.
+10. **`framesPass`'s AC #2 asserts the ⌘K palette's at-rest CHROME is absent, not the palette layer.**
+   The first version asserted the layer absent and went red — correctly. `proto/verdant.html:191-202`
+   records the opposite call in its own words: *"A reader who deliberately drives the ⌘K palette
+   inside the frame still gets the layer — the rule is about at-rest chrome, not consent."* So the
+   assertion now forbids a visible hint or an open dialog, and separately asserts the layer is
+   **present** — the proto pages' recorded decision, gated rather than accidentally reversed.
+11. **`EXPECTED_NOISE` gained firefox's wording, and five existing chromium-only resource-error
+   exemptions gained the shared filter.** Firefox reports the same refused Worker as
+   *"Cross-Origin Request Blocked … CORS request did not succeed"* and names the Worker's origin;
+   the five listeners that already exempted chromium's `"Failed to load resource"` had no equivalent.
+   Found by running firefox, not by reasoning about it.
+12. **`framesPass`'s pointer drag derives its delta from the resolved grid** rather than the 170 px
+   that worked on chromium. On firefox that constant crossed no row boundary, so the resize did
+   nothing and the row read as a bug in the module rather than in the fixture — `selectPass`'s own
+   recorded discipline, applied one engine late.
 
 ## Issues encountered
 

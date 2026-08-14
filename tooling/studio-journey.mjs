@@ -62,7 +62,7 @@ const BASE = process.env.BASE || "http://127.0.0.1:4757";
 // does not produce — so a genuine failure, including one against some other origin, still fails the
 // run. NOT applied to the /studio.html opener below: that page mounts no frames, so it keeps the
 // stronger any-error-is-a-failure contract this driver was written with.
-const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server/;
+const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server|CORS request did not succeed/;
 
 // #219 · A SUB-FRAME'S REQUESTS ARE NOT THIS PAGE'S. /factory embeds the two proto pages as device
 // frames, and Fieldwork fetches handoff/verdant/vocabulary.json for its agentic slots — the SAME url
@@ -1473,7 +1473,10 @@ async function factoryPass(browser, t, errors) {
   // page reporting itself; everything else still fails the run.
   dp.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/Failed to load resource/.test(m.text())) return;
+    // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+    // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+    // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+    if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
     errors.push(`dock console: ${m.text()}`);
   });
   await dp.addInitScript(() => {
@@ -1875,7 +1878,13 @@ async function replayPass(browser, t, errors) {
   const pa = await dgctx.newPage();
   const aErrors = [];
   pa.on("pageerror", (e) => aErrors.push(`pageerror: ${e.message}`));
-  pa.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) aErrors.push(`console: ${m.text()}`); });
+  // …and #219 · EXPECTED_NOISE for the same reason the other exemptions carry it: /factory embeds the
+  // two proto pages, whose designed Worker fallback is a refused CONNECTION on chromium and webkit
+  // and a blocked CROSS-ORIGIN request naming the Worker on firefox.
+  pa.on("console", (m) => {
+    if (m.type() !== "error" || /Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
+    aErrors.push(`console: ${m.text()}`);
+  });
   await pa.addInitScript(() => {
     window.__pushed = [];
     const real = history.pushState.bind(history);
@@ -1911,7 +1920,10 @@ async function replayPass(browser, t, errors) {
   pb.on("pageerror", (e) => errors.push(`replay traceless pageerror: ${e.message}`));
   pb.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/Failed to load resource/.test(m.text())) return;
+    // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+    // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+    // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+    if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
     errors.push(`replay traceless console: ${m.text()}`);
   });
   await pb.route("**/traces/*.jsonl", (route) => route.fulfill({ status: 404, body: "gone" }));
@@ -3000,7 +3012,10 @@ async function teardownPass(browser, t, errors) {
     // is about the latter, and everything the beat says about the failure goes to its card.
     page.on("console", (m) => {
       if (m.type() !== "error") return;
-      if (/Failed to load resource/.test(m.text())) return;
+      // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+      // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+      // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+      if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
       errors.push(`teardown console: ${m.text()}`);
     });
     // #219: scoped to the MAIN frame, or case 3 serves its one 503 to the Fieldwork frame — which
@@ -3449,7 +3464,12 @@ async function methodPass(browser, engineName, t, errors) {
   // every failed resource load as a console error of its own — the browser reporting the network,
   // not the page reporting itself.
   p5.on("pageerror", (e) => errors.push(`method race 404 pageerror: ${e.message}`));
-  p5.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`method race 404 console: ${m.text()}`); });
+  // …and #219's EXPECTED_NOISE beside it, for the standing reason: this page embeds the two proto
+  // pages, whose designed Worker fallback each engine reports in its own words.
+  p5.on("console", (m) => {
+    if (m.type() !== "error" || /Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
+    errors.push(`method race 404 console: ${m.text()}`);
+  });
   let release404;
   const held404 = new Promise((r) => { release404 = r; });
   await p5.route("**/replay/*.json", async (route) => { await held404; await route.fulfill({ status: 404, body: "gone" }); });
@@ -4419,7 +4439,10 @@ async function docsPass(browser, engineName, t, errors) {
   // is exactly what assertion 9 turns on.
   page.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/Failed to load resource/.test(m.text())) return;
+    // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+    // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+    // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+    if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
     errors.push(`docs console: ${m.text()}`);
   });
   const docsMine = mainOnly(page); // #219: the device frames fetch artifacts of their own
@@ -4751,7 +4774,10 @@ async function docsPass(browser, engineName, t, errors) {
     rp.on("pageerror", (e) => pageNoise.push(`pageerror: ${e.message}`));
     rp.on("console", (m) => {
       if (m.type() !== "error") return;
-      if (/Failed to load resource/.test(m.text())) return;
+      // …and #219 · the SAME exemption in the other two engines' words: /factory embeds the two
+      // proto pages now, and their designed Worker fallback is reported as a refused CONNECTION by
+      // chromium and webkit and as a blocked CROSS-ORIGIN request naming the Worker by firefox.
+      if (/Failed to load resource/.test(m.text()) || EXPECTED_NOISE.test(m.text())) return;
       pageNoise.push(`console: ${m.text()}`);
     });
     const rpMine = mainOnly(rp); // #219: fail it for THIS document, not for a device frame
@@ -4952,6 +4978,16 @@ async function framesPass(browser, engineName, t, errors) {
   {
     const pp = await open(ctx, "frames/pointer");
     const before = await depth(pp);
+    // THE SCROLLER PUT AT A KNOWN PLACE, then the drag delta MEASURED from the resolved grid —
+    // selectPass's own discipline, and not a nicety: a typed 170px is a chromium layout constant, and
+    // on firefox the same drag crossed no row boundary at all, so the resize silently did nothing and
+    // the row read as a bug in the module rather than in the fixture.
+    await pp.evaluate(() => document.querySelector("[data-studio-canvas] .stx-scroll").scrollIntoView({ block: "start" }));
+    await pp.waitForTimeout(300);
+    const pitch = await pp.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+      return parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+    });
     const h = pp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`);
     await h.scrollIntoViewIfNeeded();
     const b = await h.boundingBox();
@@ -4963,7 +4999,7 @@ async function framesPass(browser, engineName, t, errors) {
     });
     await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await pp.mouse.down();
-    await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 170, { steps: 12 });
+    await pp.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + pitch, { steps: 12 });
     await pp.mouse.up();
     await pp.waitForTimeout(250);
     said.push(...await pp.evaluate(() => window.__said));
