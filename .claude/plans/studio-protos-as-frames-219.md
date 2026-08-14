@@ -131,7 +131,9 @@ standalone*)
 
 **Forward-references**:
 
-- (none yet) — the dropped-brand-in-frames follow-up ticket created in Task 17 lands here.
+- [#268](https://github.com/linardsb/ux-factory/issues/268) — a dropped or derived brand does not
+  reach the device frames. Created at implementation; the constraint it has to satisfy (the
+  one-application-point vetting invariant) is stated in the issue.
 
 ---
 

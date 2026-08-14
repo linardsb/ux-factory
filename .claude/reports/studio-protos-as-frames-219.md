@@ -202,7 +202,17 @@ named index 7); pointing a descriptor at `/proto/nope.html` (group 24); renaming
    *"Cross-Origin Request Blocked … CORS request did not succeed"* and names the Worker's origin;
    the five listeners that already exempted chromium's `"Failed to load resource"` had no equivalent.
    Found by running firefox, not by reasoning about it.
-12. **`framesPass`'s pointer drag derives its delta from the resolved grid** rather than the 170 px
+12. **`npm run test:docker` does not exist in this tree.** The plan names it in three places; the
+   VR package has `test` and `update:docker` only. The verify form actually run is the same pinned
+   container without `--update-snapshots`, which is what `update:docker` reduces to — recorded here
+   because the next reader will otherwise reach for a script that is not there.
+13. **Group 24 grew two checks the plan did not ask for**, both consequences of deviation 4: each
+   descriptor's `anchor` is pinned as a real id in the committed proto HTML, and neither url may
+   carry a fragment. Nothing *depends* on the anchor resolving — a frame that never scrolls shows the
+   page lede — which is exactly why it needs a gate: a proto refactor renaming the id would revert
+   both frames to their ledes with no other symptom, and the pixel gate masks the content that would
+   have shown the difference. Proven able to fail by mutation.
+14. **`framesPass`'s pointer drag derives its delta from the resolved grid** rather than the 170 px
    that worked on chromium. On firefox that constant crossed no row boundary, so the resize did
    nothing and the row read as a bug in the module rather than in the fixture — `selectPass`'s own
    recorded discipline, applied one engine late.
@@ -231,6 +241,8 @@ named index 7); pointing a descriptor at `/proto/nope.html` (group 24); renaming
   dropped one. Stated to the reader in every frame caption and in `factory.html`'s lead copy. Not
   solved here by owner decision (2026-08-14): copying the vetted token map into the frame document
   would make the one-application-point vetting invariant `writes === 1` become 2.
+- **[#268](https://github.com/linardsb/ux-factory/issues/268)** carries the dropped-brand limitation
+  above as a real ticket, with the constraint a fix has to satisfy stated in it.
 - **`groupOccupancy` is the one function in the group family this ticket does not widen**, named in
   both `studio-verbs.mjs`'s and `studio-frames.mjs`'s headers as the remaining piece. Nothing calls it
   with a spanning member while frames stay out of the selection; the day a later ticket widens the
