@@ -67,6 +67,7 @@ import { initGlossary } from "./glossary.mjs";
 import { refreshInspect } from "./inspect.mjs";
 import { mountStudioKeep } from "./studio-keep.mjs";
 import { mountStudioMethod } from "./studio-method.mjs";
+import { mountStudioDocs, DOCS_PANEL_ID } from "./studio-docs.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
@@ -154,11 +155,19 @@ export const getStudio = () => live;
 // /factory#round-trip. A rename here breaks all four silently — nothing throws, the links just stop
 // resolving. `mount` names the panel's own mount node; `this-build` is rendered by this file and
 // the other three are lazily imported exhibits.
+//
+// `component-docs` (#218) is the one id here that is OURS: nothing links to it and no ⌘K command
+// registers against it, deliberately — a deep link into a panel that is empty until the visitor
+// compiles is chrome churn for nothing, and the palette memoizes at first open. It is shared with
+// exactly one other place, system/studio-docs.mjs's DOCS_PANEL_ID, which is imported below rather
+// than re-typed. It carries no `mount`: mountPanel matches no branch for it and returns immediately,
+// which is correct — its content belongs to the docs module, not to the lazy-exhibit machinery.
 const PANELS = [
   { id: "this-build", label: "This build" },
   { id: "agents", label: "Traces", mount: "agents-player" },
   { id: "round-trip", label: "Round-trip", mount: "roundtrip-diff" },
   { id: "shape", label: "Graph", mount: "system-graph" },
+  { id: DOCS_PANEL_ID, label: "Component" },
 ];
 
 const errorCard = (mount, message) => {
@@ -474,6 +483,7 @@ function mountStudioCore(root, shell, restored) {
       // without a live gesture, which is every ordinary compile.
       if (next === "rendered" || next === "blocks") verbs.cancel();
       syncInspect();
+      docs?.refresh();
     },
   });
 
@@ -514,6 +524,13 @@ function mountStudioCore(root, shell, restored) {
   // #214's method band, on the same terms: declared here so publishBoard can reach its setEnabled,
   // mounted below after the keep rail, so it takes a page whose canvas, beat and rail exist.
   let method = null;
+  // #218's docs layer, on the same terms again: declared here so the closures above can reach its
+  // refresh(), mounted last of all. WHY IT TRAVELS WITH syncInspect: refreshInspect re-wires the
+  // bubble layer over the nodes on the page NOW, and docs.refresh() re-decorates the doc triggers
+  // on those same nodes — both exist because this canvas rebuilds its contents after mount, which
+  // is the whole reason system/inspect.mjs's refreshInspect exists at all (#175). Wherever one is
+  // called and the other is not, one of the two layers is wired to elements that are gone.
+  let docs = null;
 
   // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
   // studio's standing correspondence: studio-compile.mjs:382-383's positional swap and
@@ -553,6 +570,7 @@ function mountStudioCore(root, shell, restored) {
     // the driver can resume from would hand a reader a spec and a link for a half-built board.
     keep?.update();
     syncInspect();
+    docs?.refresh();
   };
   // BEFORE the mount, not inside it: mountReplay runs two awaited fetches, and the window between
   // this line and the driver's first beat is exactly the one a reader could press Compile in and
@@ -639,11 +657,21 @@ function mountStudioCore(root, shell, restored) {
   // re-enabled inside publishBoard on every stopped-for-good path, never disabled on declined.
   method = mountStudioMethod(root, { canvas, adoptBoard, declined });
 
-  // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
-  // built after inspect.mjs restored, so they need one refresh to be wired.
-  syncInspect();
+  // #218's docs layer, LAST — after everything, for the reason the driver and the rail are: it takes
+  // the canvas and the wired inspector, and both are seams something above already exposed. Passing
+  // `inspector` rather than a panel index is what keeps the magic number out of this file — the docs
+  // module finds its own place in the tablist. On a page with no tablist wireInspector returns null
+  // and mountStudioDocs hands back an inert handle, so nothing below needs a second guard.
+  docs = mountStudioDocs(root, { canvas, inspector });
 
-  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, board, summary, arranged };
+  // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
+  // built after inspect.mjs restored, so they need one refresh to be wired. The docs layer refreshes
+  // beside it for the same reason and by the same rule (see `let docs` above) — a no-op on an
+  // uncompiled canvas, which is every ordinary arrival.
+  syncInspect();
+  docs.refresh();
+
+  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, docs, board, summary, arranged };
   return live;
 }
 
