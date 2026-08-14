@@ -18,7 +18,7 @@
 //  2. THE INDEX IS DERIVED, NOT WRITTEN. className → row comes from the generated pack, and the
 //     renderer's root class IS that class (agentic-renderer.mjs's templates emit `component.class`
 //     verbatim), so a rename anywhere in the chain moves both sides together and build-checks
-//     group 22 goes red the day they stop agreeing. It is NOT an extension of
+//     group 23 goes red the day they stop agreeing. It is NOT an extension of
 //     system/pattern-render.mjs's INSPECT_IDS: that list is hand-copied from inspect-data.json,
 //     covers three primitives, and an unknown id there aborts the whole inspect activation. This
 //     one is generated, covers every pack component, and its failure mode is one dead click. Two
@@ -29,7 +29,7 @@
 //     issued no request for this panel, which is the property #206 argued for the three absorbed
 //     exhibits and the property the pixel gate depends on. An eager fetch here would be invisible to
 //     every gate in the repo — identical pixels, no artifact, no browser in CI — so the RULE is a
-//     pure function (shouldLoad) gated by build-checks group 22, and the WIRING is
+//     pure function (shouldLoad) gated by build-checks group 23, and the WIRING is
 //     tooling/studio-journey.mjs's docsPass, which is the only thing that can see it.
 //
 //  4. DELEGATION, NOT PER-NODE LISTENERS. A compile, a revert, a ?b= restore, a method redraft and
@@ -62,14 +62,14 @@
 // so there is no reduced-motion branch to write.
 //
 // Node-import safe: no DOM outside a function body, and NO SELF-BOOT — system/studio.mjs mounts this
-// exactly as it mounts the keep rail and the method band. build-checks group 22 imports it under
+// exactly as it mounts the keep rail and the method band. build-checks group 23 imports it under
 // Node and drives its pure layer; group 7 includes it in the zero-inline-styles / no-markup-from-a-
 // string set with no exception argued.
 
 import { renderComponentDocs, watchPackSwap } from "./catalog.mjs";
 import { prepareHandoff } from "./handoff-viewer.mjs";
 
-// --- the pure layer (DOM-free; gated by build-checks group 22) ---------------------------------
+// --- the pure layer (DOM-free; gated by build-checks group 23) ---------------------------------
 
 // The inspector panel this module owns. Not one of the three ids fixed by four inbound entry points
 // (studio.mjs's PANELS comment) — no ⌘K command and no cross-page link resolves to it, deliberately:
@@ -130,7 +130,7 @@ export function docsIndex(components) {
 //
 // It is a function because "at rest this page fetched nothing" is invisible to every gate that can
 // run without a browser — the pixel gate sees identical pixels either way, drift-check sees no
-// artifact, and build-checks holds no DOM. So the RULE is gated in CI here (group 22's truth table)
+// artifact, and build-checks holds no DOM. So the RULE is gated in CI here (group 23's truth table)
 // and the WIRING is tooling/studio-journey.mjs's docsPass. Neither is sufficient alone.
 export function shouldLoad(state) {
   const s = state || {};
@@ -144,7 +144,7 @@ export function shouldLoad(state) {
 // to the two-argument prepareHandoff(pack, vocab) still renders a plausible panel, but `tokens`,
 // `example`, `wrapper` and `consumer` all degrade to null and the inspector becomes silently poorer
 // than /components — no console error, no pixel difference, nothing to notice. Because the join is
-// in one pure-ish function taking its fetch as an argument, build-checks group 22 drives it with a
+// in one pure-ish function taking its fetch as an argument, build-checks group 23 drives it with a
 // stub over the committed files and asserts the third argument's fields survived.
 //
 // `shared` is exactly the { vocab, portability } model shape mountCatalog builds — the same object
@@ -335,6 +335,13 @@ export function mountStudioDocs(root, { canvas, inspector } = {}) {
   stage.addEventListener("click", fromEvent, { signal: wiring.signal });
   stage.addEventListener("focusin", fromEvent, { signal: wiring.signal });
 
+  // SHAPE-MATCHING, NOT A COMPLETE TEARDOWN, and said so rather than left to be discovered: the
+  // watchPackSwap MutationObserver started in the load path is NOT disposed here, because
+  // catalog.mjs's watchPackSwap calls .observe() and returns nothing to call. Inert today —
+  // mountStudioCore runs once per page load, there is no re-mount path and nothing calls destroy()
+  // (studio-keep.mjs and studio-method.mjs have the same posture). Giving that export a disposer is
+  // a change to MOUNT 1's contract as well, so it belongs to whichever ticket first needs a real
+  // re-mount, not to a docs panel that never gets one.
   function destroy() {
     wiring.abort();
     for (const node of stage.querySelectorAll(`[${DOCS_ATTR}]`)) {

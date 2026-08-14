@@ -19,9 +19,13 @@
 /* Catalog layout — the cat-* classes system/catalog.mjs emits, styled from tokens alone
    (colour / space / radius / type via var(--…)); grid tracks and % are inherently structural
    literals. The prose sections reuse the hv-* classes the shared markdown renderer emits, styled
-   here because the module injects no <style> — and renderMarkdown has exactly one caller in this
-   repo's shipped modules (catalog.mjs:434), so those rules reach nothing but this renderer's own
-   output on either host page. */
+   here because the module injects no <style> — and among the pages linking this sheet renderMarkdown
+   has exactly one caller (catalog.mjs's renderComponentDocs), so those rules reach nothing but this
+   renderer's own output on either host page. The shared renderer's OTHER caller is
+   handoff-viewer.mjs's renderHandoffViewer, which draws onto /handoff.html — that page does not link
+   this file and carries its own separate copy of the hv-* rules in a page <style>, so there is no
+   leak in either direction. Both are checked by name rather than by line, deliberately: two of PR
+   #266's five findings were line cites that had gone stale. */
 
 /* `hidden` wins wherever this sheet is linked. The rule TRAVELS WITH THE RENDERER (#218) rather
    than staying in one page's <style>, so a host does not have to know to declare it.

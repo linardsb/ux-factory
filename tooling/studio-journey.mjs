@@ -4506,12 +4506,18 @@ async function docsPass(browser, engineName, t, errors) {
       api: sec.querySelector(".cat-api")?.innerText,
       tokens: sec.querySelector(".cat-tokens")?.innerText,
       klass: sec.querySelector(".cat-class")?.textContent,
-      // The SHARED SHEET'S [hidden] rule, asserted where the sheet is its ONLY carrier. #218 moved
-      // that rule out of components.html's page <style> and into system/catalog.css so it travels
-      // with the renderer; /factory still declares an identical one of its own, so 6b above cannot
-      // see the sheet's copy at all — deleting it from catalog.css leaves /factory green and breaks
-      // /components silently. This is that mutation's real detector, and it lives here rather than
-      // in tooling/catalog-journey.mjs because the MOVE is this ticket's, not mount 1's.
+      // The code panels PAINT on /components, read as computed display. #218 moved the [hidden]
+      // rule out of components.html's page <style> and into system/catalog.css so it travels with
+      // the renderer; /factory still declares an identical one of its own, so 6b above cannot see
+      // the sheet's copy at all. This assertion is here rather than in tooling/catalog-journey.mjs
+      // because the MOVE is this ticket's, not mount 1's.
+      //
+      // It is NOT a detector for the sheet's rule being DELETED, and the earlier version of this
+      // comment claiming it was is what #218's mutation drill disproved: no rule in catalog.css
+      // gives .cat-code a `display`, so the UA [hidden] rule already wins unaided on BOTH pages —
+      // the deletion mutation stayed green here too. The rule's own block in system/catalog.css
+      // ("WHAT IT IS AND IS NOT") states this at length; the honest summary is that it is defence in
+      // depth, and that no gate in this repo catches its removal today.
       paintedCode: [...sec.querySelectorAll(".cat-code")].filter((n) => getComputedStyle(n).display !== "none").length,
       totalCode: sec.querySelectorAll(".cat-code").length,
     } : null;

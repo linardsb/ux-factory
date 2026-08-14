@@ -875,7 +875,7 @@
 
    AT REST THIS RAIL IS VISIBLE, because the replay settles to a board with places on it, so every
    rule here is in the pixel baseline. Nothing below animates, nothing carries a time, and the tiers'
-   only state is `hidden` — which factory.html:79's `[hidden] { display: none !important }` already
+   only state is `hidden` — which factory.html:91's `[hidden] { display: none !important }` already
    makes stick, so the author-`display` trap (memory `hidden-defeated-by-author-display`) is closed
    for the `display: grid` below rather than reopened by it. */
 .stu-keep { display: grid; gap: var(--spacing-xl); margin-top: var(--spacing-xl); min-width: 0; }
@@ -914,7 +914,7 @@
 }
 
 /* The shared-link notice (#210). Empty and `hidden` unless a ?b= arrived, so it paints nothing at
-   rest and is not in the pixel baseline; factory.html:79's `[hidden] { display: none !important }`
+   rest and is not in the pixel baseline; factory.html:91's `[hidden] { display: none !important }`
    is what makes that stick over the block below. */
 .stu-notice {
   margin: 0 0 var(--spacing-md);
