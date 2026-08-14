@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Twenty-one groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Twenty-three groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -87,6 +87,17 @@
 //                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
 //                     that proves the fabricated-API refusal is real), reactSnippet's attribute
 //                     projection + escaping, and a committed spec file behind every copy button (#215)
+//  22 select         the canvas selection's pure half: one rectangle behind both input paths, one
+//                     item list behind both menu open paths, menuAnchor's flips, and MENU_ITEMS
+//                     frozen by mutation (#217)
+//  23 studio docs    the studio's docked docs: docsIndex over the real pack with the collision
+//                     throw and the class-rename mutation, every pack class asserted to be a class
+//                     agentic-renderer.mjs actually emits (and every component the committed board
+//                     really compiles asserted to be a doc trigger), headingTags, and the two
+//                     invariants no other gate in this repo can see — loadDocsModel's THREE-argument
+//                     join driven through a stub fetch with the graph-omitted mutation, and
+//                     shouldLoad's truth table with COMPILED_SELECTOR pinned to studio-flow.mjs's
+//                     own screen class (#218)
 //
 //   node tooling/build-checks.mjs
 
@@ -1052,7 +1063,7 @@ function scanSvg(svg, label) {
     "build-questions.mjs", "breadboard.mjs", "pattern-render.mjs", "pattern-rules.mjs",
     "studio-canvas.mjs", "studio-verbs.mjs", "studio.mjs", "studio-compile.mjs",
     "replay-driver.mjs", "studio-export.mjs", "studio-keep.mjs", "studio-flow.mjs",
-    "studio-method.mjs", "catalog.mjs", "studio-select.mjs",
+    "studio-method.mjs", "catalog.mjs", "studio-select.mjs", "studio-docs.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -4400,6 +4411,218 @@ function scanSvg(svg, label) {
   group("select", `marqueeRange normalized identically from all 4 drag directions and clamped to the exported ${MAX_COLS}×${MAX_ROWS} · idsInRange inclusive on all four boundaries with the four just-outside twins refused, order preserved, empty over nothing · extendSelection is AC #1's PURE half — the keyboard rectangle asserted to BE marqueeRange's over the same corners and the resulting ID SETS compared, the anchor proven not to re-derive from the cursor (the 1×2-instead-of-2×2 defect), the REPLACE-not-union rule pinned on the id set, the held-key clamp on both edges, and a covered cell proven NOT skipped (a rectangle is not a carry) · menuItems' contextual pair asserted both ways and never both, Clear conditional, the disabled flags following canUndo/canRedo, no invented verb, MENU_ITEMS frozen BY MUTATION at both levels and its stateful items proven to be copies · menuAnchor's flips on BOTH sides of BOTH boundaries with the caps proven to be parameters · total over ${junk.length} junk inputs per export. The two input paths actually selecting the same set, the two menu open paths, the arrow navigation, Escape's non-interference and the take-over coupling are tooling/studio-journey.mjs's selectPass, and say so`);
 }
 
+// --- 23 · the studio's docked docs (#218) -----------------------------------------------------------
+//
+// system/studio-docs.mjs mounts system/catalog.mjs's renderComponentDocs a SECOND time, in
+// /factory's inspector. Almost nothing about that is decidable under Node — but the two invariants
+// the whole ticket rests on are, and both of them are invisible to every OTHER gate in this repo,
+// which is exactly why they were extracted into pure functions rather than left as `if`s:
+//
+//   · THE JOIN'S ARITY. A regression to the two-argument prepareHandoff(pack, vocab) renders a
+//     perfectly plausible panel — with `tokens`, `example`, `wrapper` and `consumer` silently null,
+//     so the inspector is quietly poorer than /components. No console error, no pixel difference,
+//     nothing for a reader to notice. Case 5 drives loadDocsModel with a stub fetch over the real
+//     committed files and asserts the third argument's fields survived, with the graph-omitted
+//     MUTATION that decides whether the assertion can fail at all.
+//
+//   · THE LAZY RULE. "At rest this page fetched nothing for the docs panel" is invisible to the
+//     pixel gate (identical pixels either way), to drift-check (no artifact) and to this job (no
+//     browser). Case 6 gates the RULE — shouldLoad's truth table, and COMPILED_SELECTOR pinned
+//     against studio-flow.mjs's own class so a renamed screen turns the rule red rather than turning
+//     the docs panel permanently empty.
+//
+// AND IT STATES ITS BOUNDARY, the way groups 9, 11, 13, 16, 18, 19 and 22 state theirs. That a click
+// OPENS anything, that the panel and /components agree ON THE PAGE, that focus is not stolen from
+// the canvas, that token values resolve live under a pack swap, and that refresh() actually consults
+// shouldLoad rather than fetching anyway are all tooling/studio-journey.mjs's docsPass, on a running
+// page across three engines. Cases 5 and 6 gate the RULES; docsPass assertions 1 and 5 gate the
+// WIRING. Neither is sufficient alone, and saying so here is what stops a later editor deleting one
+// as redundant.
+{
+  const { COMPILED_SELECTOR, DOCS_SOURCES, docsIndex, loadDocsModel, shouldLoad } =
+    await import("../system/studio-docs.mjs");
+  const { headingTags } = await import("../system/catalog.mjs");
+
+  // Group 13/15/19/21's hand-written canonical stringify, copied for its standing reason:
+  // JSON.stringify(v, keys) puts an array in the REPLACER position and silently filters every level.
+  const deep = (v) => {
+    if (Array.isArray(v)) return `[${v.map(deep).join(",")}]`;
+    if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  };
+
+  const PACK = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/pack.json"), "utf8"));
+  const GRAPH = JSON.parse(readFileSync(join(ROOT, "system/system-graph.json"), "utf8"));
+  const RENDERER_SRC = readFileSync(join(ROOT, "system/agentic-renderer.mjs"), "utf8");
+
+  // --- 23.1 index integrity over the REAL artifacts ---------------------------------------------
+  // One entry per pack component, so no class collision is being silently absorbed (docsIndex
+  // throws on one; this asserts none occurred rather than trusting that it would have).
+  const model = prepareHandoff(PACK, VOCAB, GRAPH);
+  const index = docsIndex(model.components);
+  ok(index.size === PACK.components.length,
+    `docsIndex holds ${index.size} classes for ${PACK.components.length} pack components — a component was dropped or two share a class`);
+  for (const [className, row] of index)
+    ok(typeof className === "string" && className.length > 0 && typeof row.name === "string" && row.name.length > 0,
+      `docsIndex key/row pair is not a usable (class, name): ${JSON.stringify([className, row && row.name])}`);
+
+  // --- 23.2 THE CLICK TARGET IS REAL — the group's load-bearing case ----------------------------
+  // The decoration scans the stage for `.<className>` and the RENDERER decides what class a
+  // component actually gets. Those are two files that must agree, and nothing else in this repo
+  // asserts that they do: group 21 pins the pack against the VOCABULARY, not against the templates.
+  //
+  // So: read the class literal out of agentic-renderer.mjs's source for every pack component, in
+  // all three forms its templates use ( class: "x" · class: `x${…}` · class: `x is-…` ), and
+  // require the pack's class to be one of them. A template rename, a pack rename or a spec rename
+  // each break this from a different side, which is what makes it a drift detector rather than a
+  // restatement. It is a SOURCE-TEXT check and says so: the alternative is a DOM, which this job
+  // does not have.
+  const emitsClass = (src, className) => {
+    const esc = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`class: (?:"${esc}"|\`${esc}(?:\\$| ))`).test(src);
+  };
+  for (const c of PACK.components) {
+    ok(index.has(c.class), `the docs index cannot resolve "${c.component}"'s class ${c.class}`);
+    ok(emitsClass(RENDERER_SRC, c.class),
+      `agentic-renderer.mjs emits no root class "${c.class}" for "${c.component}" — a rendered component the inspector's decoration would never find, so clicking it does nothing`);
+  }
+
+  // …and specifically over what the SHIPPED page really puts on the canvas: every component the
+  // committed replay board's compiled screens render. Driven through compileSteps — the beat's own
+  // pipeline, which is what actually decides the composition (screensFor stops at counted SLOTS) —
+  // so the trigger set is asserted against the RENDERED set rather than against a literal.
+  const { compileSteps: compileSteps23 } = await import("../system/studio-compile.mjs");
+  const REPLAY_BOARD_23 = JSON.parse(readFileSync(join(ROOT, "replay/build-fieldwork-dispatch.board.json"), "utf8"));
+  const rendered = new Set();
+  for (const screen of compileSteps23(REPLAY_BOARD_23, DEFAULT_ANSWERS).screens || [])
+    for (const node of screen.composition || []) if (node && node.name) rendered.add(node.name);
+  ok(rendered.size > 0, "the committed board compiled to no components at all — case 23.2 would be vacuous");
+  const classOf = new Map(PACK.components.map((c) => [c.component, c.class]));
+  for (const name of rendered) {
+    const className = classOf.get(name);
+    ok(className && index.has(className) && emitsClass(RENDERER_SRC, className),
+      `"${name}" is on the compiled canvas but is not a doc trigger — class ${className || "(absent from the pack)"}`);
+  }
+
+  // --- 23.3 THE MUTATIONS THAT PROVE 23.2 CAN FAIL ----------------------------------------------
+  // Repo memory, "the check that cannot fail": mutate the source and RUN the function, never grep
+  // for a constant. Two mutations, because 23.2 has two halves that fail from opposite sides.
+  {
+    const renamed = JSON.parse(JSON.stringify(PACK));
+    const victim = renamed.components.find((c) => c.component === "metric-tile");
+    victim.class = "ds-metric-tile-RENAMED";
+    const mutated = docsIndex(prepareHandoff(renamed, VOCAB, GRAPH).components);
+    ok(mutated.has(victim.class), "the mutation did not take — the clone is not being indexed");
+    ok(!emitsClass(RENDERER_SRC, victim.class),
+      `a renamed pack class still resolved against the renderer — case 23.2's drift detector cannot fail, and "${victim.component}" is what it would have named`);
+  }
+  {
+    const collided = JSON.parse(JSON.stringify(PACK));
+    collided.components[1].class = collided.components[0].class;
+    let threw = null;
+    try { docsIndex(prepareHandoff(collided, VOCAB, GRAPH).components); } catch (e) { threw = e; }
+    ok(threw && threw.message.includes(collided.components[0].class)
+      && threw.message.includes(collided.components[1].component),
+      `two components claiming one class must throw and NAME both — silently keeping the last would open the wrong component's docs. Got: ${threw ? threw.message : "no throw"}`);
+  }
+
+  // --- 23.4 headingTags — the whole of what #218 spent renderComponentDocs's `opts` pocket on ----
+  // Lives here rather than in group 21 (the function is catalog.mjs's, but it exists only for the
+  // second mount and this is the group that owns the second mount). The section tag is ALWAYS
+  // exactly one level below the name, at every input, which is the property the outline depends on.
+  ok(deep(headingTags(2)) === deep({ name: "h2", section: "h3" }), `headingTags(2) → ${deep(headingTags(2))}`);
+  ok(deep(headingTags(4)) === deep({ name: "h4", section: "h5" }), `headingTags(4) → ${deep(headingTags(4))}`);
+  ok(deep(headingTags(5)) === deep({ name: "h5", section: "h6" }), `headingTags(5) must clamp the section at h6 — got ${deep(headingTags(5))}`);
+  for (const junk of [undefined, null, NaN, Infinity, -3, 0, 1, 9, 99, "4", {}, []]) {
+    const { name, section } = headingTags(junk);
+    ok(/^h[2-5]$/.test(name) && section === `h${Number(name.slice(1)) + 1}`,
+      `headingTags(${JSON.stringify(junk)}) → ${name}/${section}; the name must clamp to h2..h5 and the section must be exactly one below it`);
+  }
+  // Mount 1 stays byte-identical: an ABSENT opts.level must resolve to 2, which is the tag the
+  // catalog page has always rendered.
+  ok(deep(headingTags(({}).level)) === deep({ name: "h2", section: "h3" }),
+    "an absent opts.level must resolve to h2/h3 — anything else silently rewrites /components' outline");
+
+  // --- 23.5 THE JOIN'S ARITY, DRIVEN — the ticket's AC #3, as a gated fact ----------------------
+  // A stub fetch serving the three committed artifacts off disk, recording what was asked for.
+  const asked = [];
+  const diskFetch = (only) => async (url) => {
+    asked.push(url);
+    const rel = url.replace(/^\//, "");
+    if (only && !only.includes(url)) return { ok: false, status: 404 };
+    const text = readFileSync(join(ROOT, rel), "utf8");
+    return { ok: true, status: 200, json: async () => JSON.parse(text) };
+  };
+  const joined = await loadDocsModel(diskFetch(null));
+  ok(deep(asked) === deep(DOCS_SOURCES),
+    `loadDocsModel asked for ${deep(asked)}; it must ask for exactly DOCS_SOURCES ${deep(DOCS_SOURCES)} — a mount that fetched two of the three could never satisfy this`);
+  // Snapshotted HERE, before the mutation below drives the same function again — the summary line
+  // must print what the assertion actually saw, not a running total.
+  const askedOnce = asked.length;
+  // THE LOAD-BEARING HALF: the fields that exist ONLY because the third argument was passed.
+  const tileRow = joined.model.components.find((c) => c.name === "metric-tile");
+  ok(tileRow && Array.isArray(tileRow.tokens) && tileRow.tokens.length > 0 && tileRow.tokens.some((t) => t.group),
+    "the joined rows carry no resolved token groups — the graph argument did not reach prepareHandoff, and the inspector is quietly poorer than /components");
+  const withConsumer = joined.model.components.filter((c) => c.consumer).length;
+  ok(withConsumer > 0, "no joined row carries a measured `consumer` — the graph argument did not reach prepareHandoff");
+  // The `shared` model, asserted field by field against the ARTIFACTS — the same { vocab,
+  // portability } shape mountCatalog builds on the other page, so renderComponentDocs receives an
+  // identical second argument in both mounts rather than a lookalike assembled differently here.
+  ok(joined.shared && deep(Object.keys(joined.shared).sort()) === deep(["portability", "vocab"]),
+    `loadDocsModel's \`shared\` must carry exactly { vocab, portability } — got ${deep(joined.shared && Object.keys(joined.shared).sort())}`);
+  ok(deep(joined.shared.vocab) === deep(VOCAB),
+    "loadDocsModel's `shared.vocab` is not the committed vocabulary — renderComposition would validate against something else");
+  ok(deep(joined.shared.portability) === deep(PACK.portability ?? null),
+    "loadDocsModel's `shared.portability` is not the pack's own portability block — the wrapper tabs and the Figma path would drift from mount 1");
+  ok(joined.index instanceof Map && joined.index.size === index.size,
+    "loadDocsModel must return the index built from its own join, not a second one");
+  // THE MUTATION: the same function against a stub whose graph 404s. prepareHandoff degrades every
+  // joined field to null by design, so this is exactly the shape a two-argument regression takes —
+  // and it must be VISIBLE here, or case 23.5 above is decoration.
+  {
+    let degraded = null;
+    try { degraded = await loadDocsModel(diskFetch(DOCS_SOURCES.slice(0, 2))); } catch { /* the throw is the other honest answer */ }
+    if (degraded) {
+      const tile = degraded.model.components.find((c) => c.name === "metric-tile");
+      ok(tile && tile.tokens === null && degraded.model.components.every((c) => !c.consumer),
+        "a graph-less join still produced token groups and consumers — case 23.5's assertion cannot fail, so AC #3 is not gated here at all");
+    } else {
+      ok(true, "a graph-less join refused outright, which is the other honest answer");
+    }
+  }
+
+  // --- 23.6 THE LAZY RULE — shouldLoad's truth table and the pinned discriminator ---------------
+  for (const compiled of [false, true])
+    for (const loaded of [false, true])
+      for (const loading of [false, true]) {
+        const want = compiled && !loaded && !loading;
+        ok(shouldLoad({ compiled, loaded, loading }) === want,
+          `shouldLoad({compiled:${compiled},loaded:${loaded},loading:${loading}}) must be ${want} — fetch only once the stage has compiled, only once, never while a load is in flight`);
+      }
+  // Total, like every other pure function in this file: junk answers false rather than throwing, so
+  // a corrupted call site cannot turn the lazy rule into an eager one.
+  for (const junk of [undefined, null, 0, "", [], "compiled", { compiled: "yes", loaded: 1 }, { loading: 0 }])
+    ok(shouldLoad(junk) === false,
+      `shouldLoad(${JSON.stringify(junk)}) returned ${shouldLoad(junk)}; junk is not a compiled canvas and must never open a fetch`);
+  // …and the ONE positive control this table needs: without it every row above passes for a
+  // function that returns false unconditionally, which is the eager rule's exact opposite and just
+  // as wrong. (Repo memory: the check that cannot fail.)
+  ok(shouldLoad({ compiled: true, loaded: false, loading: false }) === true,
+    "shouldLoad never returns true — the docs panel would stay empty forever, and every negative row above would still pass");
+  // COMPILED_SELECTOR pinned against studio-flow.mjs's OWN class, read out of its renderScreen
+  // source rather than typed twice. A renamed screen class now turns this rule red instead of
+  // turning the docs panel permanently empty — a failure mode with no other detector anywhere.
+  {
+    const flowSrc = readFileSync(join(ROOT, "system/studio-flow.mjs"), "utf8");
+    const rootClass = flowSrc.match(/el\("section",\s*\{\s*class:\s*"([a-z-]+)"/);
+    ok(rootClass, "studio-flow.mjs's renderScreen no longer opens with a literal section class for this pin to read");
+    if (rootClass) ok(COMPILED_SELECTOR === `.${rootClass[1]}`,
+      `COMPILED_SELECTOR is ${COMPILED_SELECTOR} but renderScreen emits .${rootClass[1]} — the studio would never notice it had compiled`);
+  }
+
+  group("studio docs", `docsIndex over the real pack — ${index.size} classes, one per component, collisions proven to THROW and to name both sides · every pack class asserted to be a class agentic-renderer.mjs actually emits (three template forms, source-text and says so), plus the ${rendered.size} components the COMMITTED replay board really compiles, each proven to be a doc trigger · the class-rename MUTATION proving that detector can fail · headingTags exact at 2/4/5 and total over 12 junk levels, with the absent-level default pinned so mount 1 stays byte-identical · loadDocsModel driven with a stub fetch: exactly ${askedOnce} requests equal to DOCS_SOURCES, the THIRD argument's fields (token groups, ${withConsumer} measured consumers) asserted present, and the graph-omitted MUTATION proving that assertion real — AC #3 gated rather than true by construction · shouldLoad's full 8-row truth table + totality, and COMPILED_SELECTOR pinned against studio-flow.mjs's own renderScreen class. The click, the opened panel, the cross-page agreement, the un-stolen focus, the live token values and the at-rest request count are tooling/studio-journey.mjs's docsPass, and say so`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -4407,5 +4630,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 22 groups pass");
+  console.log("\nbuild ✓  all 23 groups pass");
 }
