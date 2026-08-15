@@ -482,6 +482,136 @@
       ]
     },
     {
+      "component": "modal-dialog",
+      "status": "shipped",
+      "class": "ds-modal-dialog",
+      "contract": null,
+      "props": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "the decision being asked — \"Remove this sensor?\" — the group's accessible name"
+        },
+        "body": {
+          "type": "string",
+          "required": true,
+          "description": "one sentence of consequence — what confirming does, stated plainly"
+        },
+        "confirmLabel": {
+          "type": "string",
+          "required": true,
+          "description": "the confirming action as a verb phrase — \"Remove sensor\", never \"OK\""
+        },
+        "dismissLabel": {
+          "type": "string",
+          "required": false,
+          "description": "the way out — \"Keep it\"; absent renders no dismiss button"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-accent-active",
+        "--color-accent-fg",
+        "--color-accent-hover",
+        "--color-accent-wash",
+        "--color-bg",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--radius-lg",
+        "--radius-md",
+        "--shadow-lg",
+        "--spacing-lg",
+        "--spacing-md",
+        "--spacing-sm",
+        "--type-body",
+        "--type-h3"
+      ],
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "example": {
+        "title": "Remove this sensor?",
+        "body": "Its readings stay recorded; the schedule stops.",
+        "confirmLabel": "Remove sensor",
+        "dismissLabel": "Keep it"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "A decision surface: a question, one sentence of consequence, and the two ways through it — depicted INLINE and non-modal, which is the design call this component exists to state. Modality (the scrim, the focus trap, Escape, focus restore, the open/close lifecycle) is BEHAVIOURAL state, and a pure `(props) → Node` template has no honest home for it — a rendered \"modal\" that did not actually trap focus would be an accessibility lie, and one that did would smuggle a lifecycle into a vocabulary of stateless depictions. So the composing surface owns modality; this component owns the decision's content and its two real buttons, which genuinely emit. `--shadow-lg` carries the elevation the name promises — the library's one use of its deepest shadow. Library-generic (`ds-`, cross-scenario); use it wherever a composed screen depicts a confirmation."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the only state of the surface itself: `--color-bg` on a `--color-border` hairline at `--radius-lg`, lifted by `--shadow-lg`. Title at `--type-h3` weight 600; body in `--color-fg-muted`. There is no open/closed state — an inline surface is simply present (see Usage).\n\nThe two buttons carry their own interactive states: confirm is the filled accent (primary-button's hover/active/focus mechanic, scoped); dismiss is the ghost treatment (`--color-accent-wash` hover). Confirm filled, dismiss quiet — the visual weight states which action commits."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational plus two intents. Each button emits one `ui.intent` with `{ action: \"confirm\" }` or `{ action: \"dismiss\" }` plus its own label; the composing surface decides what confirming performs. `dismissLabel` absent renders no dismiss button — some depicted decisions are acknowledgements — and the confirm button never invents a sibling.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `title` | the surface's first line and `aria-label` | required |\n| `body` | the consequence sentence | required — a confirmation with no stated consequence is a dark pattern's shape |\n| `confirmLabel` | the filled button's text | required |\n| `dismissLabel` | the quiet button's text | renders no dismiss button |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "A `<section role=\"group\">` named by the title — a grouping role with no modality claim, deliberately NOT `role=\"dialog\"`: a dialog role tells assistive tech to expect trapped focus and a dismiss path this inline depiction does not implement, and the roles-without-behaviour rule (nav-tabs' Accessibility, same argument) applies in full. Both buttons are real `<button type=\"button\">` elements — focusable, named by their labels, Enter/Space free. DOM order is title → body → dismiss → confirm, so the keyboard path reaches the way out before the commitment. Contrast: `--color-accent-fg` on `--color-accent` (\"button label on an accent fill\") and accent-on-bg are declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). Both buttons clear 44px."
+        }
+      ]
+    },
+    {
+      "component": "nav-tabs",
+      "status": "shipped",
+      "class": "ds-nav-tabs",
+      "contract": null,
+      "props": {
+        "items": {
+          "type": "string",
+          "required": true,
+          "description": "the tab labels as one pipe-delimited string — \"Overview | Activity | Settings\"; the template splits on |, trims each label and drops empties"
+        },
+        "active": {
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "the 1-based position of the active tab; the template clamps an out-of-range value into the rendered set"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--spacing-md",
+        "--spacing-sm",
+        "--type-body"
+      ],
+      "states": [
+        "default",
+        "active"
+      ],
+      "children": [],
+      "example": {
+        "items": "Overview | Activity | Settings",
+        "active": 1
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "A row of section labels with one marked current — the DEPICTION of top-level navigation, deliberately not the behaviour. Navigation is chrome, never a composed component (`studio-flow.mjs`'s recorded rule: the flow's nav buttons are chrome the canvas owns, and a clickable composed row would change a shipped contract for every consumer) — so these tabs do not switch anything, carry no click handlers, and take no bus. What they honestly state is structure: which sections exist and which one the depicted screen is. Library-generic (`ds-`, cross-scenario); use it at the head of a composed screen that belongs to a sectioned surface. The pipe-delimited `items` string is the one place the library encodes a list in a scalar — a real schema call (array props) was considered and declined at planning; the encoding rule lives here, in Data binding, not in a reader's guess."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — labels in `--color-fg-muted` on a `--color-border` bottom rail.\n- **active** — the one current label in `--color-fg` weight 600 with a 2px `--color-accent` underline sitting ON the rail. Weight and underline together: never colour alone.\n\nNo hover or focus states, because there is nothing to operate — a presentational tab that lit up on hover would promise the click this component deliberately does not have."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. The encoding rule, stated once: `items` splits on `|`, each label is trimmed, empty segments are dropped; `active` is 1-based and the template clamps it into the rendered set (an out-of-range current tab draws the nearest real one rather than none — a screen always IS somewhere). A `|` inside a label is not expressible — a known, accepted cost of staying scalar; a product whose tab names contain pipes has outgrown the depiction.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `items` | one span per parsed label | required — an empty parse renders an empty row |\n| `active` | the `is-active` class + `aria-current=\"true\"` on one span | required |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "Plain spans with `aria-current=\"true\"` on the active one — and deliberately NO `role=\"tab\"`/`tablist`: those roles promise arrow-key operation and panel switching that the composition model forbids, and an ARIA promise the DOM cannot keep is worse than no ARIA at all (roles without behaviour are a lie to the people who rely on them). `aria-current` states \"this is where you are\" with no operability claim, which is exactly what a depiction can honestly say. The active state is weight + underline + `aria-current`, never hue alone; label contrast holds at the declared `--color-fg` / `--color-fg-muted` pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). Wide tab sets scroll inside their own row rather than blowing out the composition (the recorded grid-blowout family)."
+        }
+      ]
+    },
+    {
       "component": "plant-card",
       "status": "shipped",
       "class": "vd-plant-card",
@@ -738,6 +868,141 @@
         {
           "title": "Accessibility",
           "body": "A `<header>` landmark; the title is the screen's top-level heading within its frame — when the screen is embedded in a page that owns the `<h1>` (like the prototype exhibit), the title steps down to the next level. Back and settings are `<button>`s with explicit labels (\"Back\", \"Settings\") — the glyphs are `aria-hidden`. Both targets minimum 44px with visible `:focus-visible` outlines; the empty-slot rule keeps the title from shifting when affordances toggle, so nothing moves under a screen-reader user's touch."
+        }
+      ]
+    },
+    {
+      "component": "search-input",
+      "status": "shipped",
+      "class": "ds-search-input",
+      "contract": null,
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what is being searched — \"Search plants\" — a visible caption, same shape as text-field's"
+        },
+        "value": {
+          "type": "string",
+          "required": false,
+          "description": "the query's starting text; absent renders empty"
+        },
+        "placeholder": {
+          "type": "string",
+          "required": false,
+          "description": "a query example shown while empty; absent renders none"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-bg",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--radius-lg",
+        "--spacing-md",
+        "--spacing-sm",
+        "--spacing-xs",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default",
+        "focus"
+      ],
+      "children": [],
+      "example": {
+        "label": "Search plants",
+        "placeholder": "Name or species"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "A labelled query field: text-field's compact, glyph-led sibling for finding rather than entering. Library-generic (`ds-`, cross-scenario). Use it at the head of anything listable — a queue, a feed, a catalog of records. The magnifier glyph is inline SVG in `currentColor` drawn by the template (the stat-tile glyph precedent) — no image asset, no literal colour, so it re-skins with the pack like everything else. The caption label stays visible, deliberately: convention hides a search field's label behind the glyph, but this library already argued (text-field's Usage) that a visible caption beats a vanishing one, and consistency inside the library outranks convention outside it. Like text-field it emits nothing onto the bus — a query is not an intent in this vocabulary today."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — a pill-cornered box (`--radius-lg` — the status-chip pill precedent) on `--color-bg` inside a `--color-border` hairline; the glyph in `--color-fg-muted` leads, the input follows.\n- **focus** — a 2px `--color-accent` outline on the whole box via `:focus-within`: the box is the perceived control, so the box takes the ring; the input's own outline is suppressed only because the box carries it.\n\nNo disabled state, deliberately: a search field with nothing searchable is an empty-state's job, not a greyed control's."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. The composing agent passes display strings; the reader can type freely and the component reports nothing (see Usage). What a submitted query does — filter, navigate, fetch — belongs to the consuming product.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `label` | the visible caption inside the wrapping `<label>` | required — the glyph alone is not a name |\n| `value` | the input's `value` attribute | renders empty |\n| `placeholder` | the input's `placeholder` attribute | renders none |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "A real `<input type=\"search\">` nested in its own `<label>` — implicit association, no ids minted (text-field's argument, inherited whole). The glyph is `aria-hidden`: it decorates a field the label already names. The visible label is the accessible name; the placeholder is never the only prompt. Contrast: `--color-fg` on `--color-bg` and the muted glyph/placeholder pair are declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). The box clears 44px min-height. `type=\"search\"`'s native clear affordance (where an engine draws one) is kept — suppressing a platform control the reader already knows would be styling winning over use."
+        }
+      ]
+    },
+    {
+      "component": "select-field",
+      "status": "shipped",
+      "class": "ds-select-field",
+      "contract": null,
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the field chooses — \"Plan\", \"Sensor\" — always visible above the control"
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "description": "the chosen option, shown in the closed control — the specimen depicts the CLOSED state, so this is the one option it carries"
+        },
+        "hint": {
+          "type": "string",
+          "required": false,
+          "description": "one persistent line under the control; absent renders nothing"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled; absent means enabled"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-bg",
+        "--color-bg-surface",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--radius-sm",
+        "--spacing-md",
+        "--spacing-sm",
+        "--spacing-xl",
+        "--spacing-xs",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "example": {
+        "label": "Sensor",
+        "value": "Moisture probe A",
+        "hint": "Readings arrive every hour."
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "A labelled choice field, depicted CLOSED — and that closed state is the design insight that keeps this component scalar. A `<select>`'s option list is the consuming product's data: which plans exist, which sensors are wired. The composition model deliberately does not carry product data (head schema v1 props are string/number/boolean scalars), so the specimen renders a real `<select>` holding exactly ONE `<option>` — the chosen `value` — which is everything the closed control ever shows. No delimited-list encoding, no schema change, no fake options invented to make a demo look fuller than the data. Library-generic (`ds-`, cross-scenario); use it wherever a composed screen depicts a made choice — a settings row, a filter's current state. Like the other fields it emits nothing onto the bus."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the text-field box (`--color-bg` fill, `--color-border` hairline, `--radius-sm`) with a CSS chevron in `--color-fg-muted` trailing — drawn from borders, no image asset, no literal colour.\n- **focus** — the 2px `--color-accent` outline, offset outside (identical to text-field; one focus grammar across the field family).\n- **disabled** — `--color-bg-surface` fill, `--color-fg-muted` text, `cursor: not-allowed`; the label keeps its weight."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. The composing agent passes the label and the chosen value from the scenario's data; the option LIST never travels through props, because the closed control never shows it (see Usage — this is the honest boundary, stated rather than worked around). Opening the specimen's dropdown shows the one option it truthfully has.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `label` | the visible caption inside the wrapping `<label>` | required |\n| `value` | the single `<option>`'s text, shown closed | required — a choice field with no choice shows nothing |\n| `hint` | the persistent line under the control | renders nothing |\n| `disabled` | the native `disabled` attribute | absent means enabled |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "A real `<select>` nested in its own `<label>` — implicit association, no ids (the field-family rule). Its accessible value is the option text itself, so assistive tech reads exactly what sighted readers see in the closed control. `appearance: none` removes the engine's arrow only because the CSS redraws one at declared contrast; the native popup, keyboard behaviour and value semantics are untouched. Contrast pairs as text-field's (`system/derive.rules.mjs` `wcagPairs`, AA 4.5); the control clears 44px min-height."
         }
       ]
     },
@@ -1033,6 +1298,73 @@
         {
           "title": "Accessibility",
           "body": "The control is nested inside its own `<label>` — implicit association, structural and collision-free, and the reason no template mints `id` attributes (nothing to collide when a composition renders two of these). The label is always visible: a placeholder-as-label disappears on first keystroke, which is the classic failure this shape exists to avoid. The hint sits inside the label element, so its text joins the field's accessible name — a deliberate trade: with no ids there is no `aria-describedby`, and a hint read as part of the name reaches assistive tech on the same terms as sighted readers; a consuming product that needs name/description separation mints its ids at the form layer. Contrast: `--color-fg` on `--color-bg` and `--color-fg-muted` on both grounds are declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). The input clears 44px min-height."
+        }
+      ]
+    },
+    {
+      "component": "toggle-switch",
+      "status": "shipped",
+      "class": "ds-toggle-switch",
+      "contract": null,
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the switch controls — \"Watering reminders\" — read as the switch's accessible name"
+        },
+        "on": {
+          "type": "boolean",
+          "required": false,
+          "description": "the starting state; absent means off"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled — the flip never happens and nothing reaches the bus; absent means enabled"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-bg",
+        "--color-bg-surface",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--motion-fast",
+        "--motion-ease",
+        "--radius-lg",
+        "--radius-md",
+        "--spacing-md",
+        "--spacing-sm",
+        "--type-body"
+      ],
+      "states": [
+        "off",
+        "on",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "example": {
+        "label": "Watering reminders",
+        "on": true
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "A labelled on/off control: one setting, one row, one flip. Library-generic (`ds-`, cross-scenario). Use it on any composed settings surface — the pattern rules already name settings screens, and this is the control they depict. It is care-task-row's mechanic in library form: the row flips its OWN state first, then reports the new value on the bus — the composing surface owns what \"on\" means (a reminder armed, a sensor muted), the component only owns being honest about which side it shows. A switch, not a checkbox, deliberately: `role=\"switch\"` announces on/off rather than checked/unchecked, which is the vocabulary a setting speaks."
+        },
+        {
+          "title": "States",
+          "body": "- **off** — the track is `--color-bg` inside a `--color-border` hairline at the pill radius (`--radius-lg` — the status-chip precedent, no invented 999px); the thumb sits left on `--color-bg-surface`.\n- **on** — the track fills `--color-accent` and the thumb slides right: position AND fill state the side together, never colour alone (the label's row is also `aria-checked` for AT).\n- **focus** — the 2px `--color-accent` outline on the whole row.\n- **disabled** — label drops to `--color-fg-muted`, `cursor: not-allowed`; native `disabled` suppresses the click, so no flip and no emission.\n\nThe slide is the library's one moving state: `--motion-fast` with `--motion-ease` on transform only (compositor-safe), and it stands down entirely under `prefers-reduced-motion` — the state still changes instantly, only the travel is dropped."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational plus one intent. The composing agent passes the setting's name and starting side; each click flips the rendered state and emits `{ intent: \"toggle\", on, label }` with the NEW value (the care-task-row shape: flip first, then report). No stored record binds here — persisting the setting is the consuming product's job, and a specimen that pretended to save would be dishonest about what runs.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `label` | the row's visible text and accessible name | required — an unnamed switch is a mystery control |\n| `on` | `aria-checked` + the `is-on` class | absent means off |\n| `disabled` | the native `disabled` attribute | absent means enabled |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "One real `<button type=\"button\" role=\"switch\">` wrapping label and track — the whole row is the 44px target, named by its own label text, with `aria-checked` carrying the state (flipped in the same handler that moves the thumb, so the two can never disagree). The track and thumb are `aria-hidden` decoration: the switch role already states the side. Enter/Space come free with the button element. Colour is never the sole signal — thumb position moves with the fill, and AT hears on/off regardless. Contrast: the accent track against its `--color-bg` surround exceeds the 3:1 non-text minimum under the neutral pack, and the label reads at the declared `--color-fg` pairs (`system/derive.rules.mjs` `wcagPairs`)."
         }
       ]
     }

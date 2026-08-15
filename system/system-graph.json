@@ -1170,6 +1170,102 @@
       ]
     },
     {
+      "id": "ds-search-input-cross-scenario-library-primitive",
+      "label": "ds-search-input — cross-scenario library primitive",
+      "spec": "system/specs/search-input.md",
+      "tokens": [
+        "--spacing-xs",
+        "--type-caption",
+        "--color-fg",
+        "--spacing-sm",
+        "--spacing-md",
+        "--color-bg",
+        "--color-border",
+        "--radius-lg",
+        "--color-accent",
+        "--color-fg-muted",
+        "--type-body"
+      ]
+    },
+    {
+      "id": "ds-select-field-cross-scenario-library-primitive",
+      "label": "ds-select-field — cross-scenario library primitive",
+      "spec": "system/specs/select-field.md",
+      "tokens": [
+        "--spacing-xs",
+        "--type-caption",
+        "--color-fg",
+        "--spacing-md",
+        "--color-fg-muted",
+        "--spacing-sm",
+        "--spacing-xl",
+        "--type-body",
+        "--color-bg",
+        "--color-border",
+        "--radius-sm",
+        "--color-accent",
+        "--color-bg-surface"
+      ]
+    },
+    {
+      "id": "ds-toggle-switch-cross-scenario-library-primitive",
+      "label": "ds-toggle-switch — cross-scenario library primitive",
+      "spec": "system/specs/toggle-switch.md",
+      "tokens": [
+        "--spacing-md",
+        "--spacing-sm",
+        "--color-bg-surface",
+        "--color-border",
+        "--radius-md",
+        "--type-body",
+        "--color-fg",
+        "--color-accent",
+        "--color-fg-muted",
+        "--color-bg",
+        "--radius-lg",
+        "--motion-fast",
+        "--motion-ease"
+      ]
+    },
+    {
+      "id": "ds-nav-tabs-cross-scenario-library-primitive",
+      "label": "ds-nav-tabs — cross-scenario library primitive",
+      "spec": "system/specs/nav-tabs.md",
+      "tokens": [
+        "--spacing-md",
+        "--color-border",
+        "--spacing-sm",
+        "--type-body",
+        "--color-fg-muted",
+        "--color-fg",
+        "--color-accent"
+      ]
+    },
+    {
+      "id": "ds-modal-dialog-cross-scenario-library-primitive",
+      "label": "ds-modal-dialog — cross-scenario library primitive",
+      "spec": "system/specs/modal-dialog.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-lg",
+        "--color-bg",
+        "--color-border",
+        "--radius-lg",
+        "--shadow-lg",
+        "--type-h3",
+        "--color-fg",
+        "--type-body",
+        "--color-fg-muted",
+        "--spacing-md",
+        "--radius-md",
+        "--color-accent",
+        "--color-accent-fg",
+        "--color-accent-hover",
+        "--color-accent-active",
+        "--color-accent-wash"
+      ]
+    },
+    {
       "id": "verdant-screen-scaffolding-layout-not-spec-d-components",
       "label": "Verdant screen scaffolding (layout, not spec'd components)",
       "spec": null,
@@ -1290,7 +1386,7 @@
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 38,
-    "edges": 442
+    "consumers": 43,
+    "edges": 503
   }
 }

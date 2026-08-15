@@ -299,6 +299,62 @@
       "usage": "A single computed metric: a label, a value, an optional unit, and an optional emphasis tone. Library-generic — the one primitive both demo scenarios reuse (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). Use it anywhere a dashboard needs a KPI or reading: a horizontal summary strip above a board, a vertical column of readings beside it, the agentic slots in Fieldwork's dispatch canvas. Unlike stat-tile (Verdant, glyph-led, `kind` enum-locked to sensor readings), metric-tile carries no domain vocabulary — the composing agent computes the label and value from the scenario's own data, so one primitive expresses moisture, dispatch load, or anything else a metric can name. The tile displays; it does not judge — tone adds emphasis, never a threshold verdict the label does not already state.",
       "contract": null
     },
+    "modal-dialog": {
+      "class": "ds-modal-dialog",
+      "status": "shipped",
+      "props": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "the decision being asked — \"Remove this sensor?\" — the group's accessible name"
+        },
+        "body": {
+          "type": "string",
+          "required": true,
+          "description": "one sentence of consequence — what confirming does, stated plainly"
+        },
+        "confirmLabel": {
+          "type": "string",
+          "required": true,
+          "description": "the confirming action as a verb phrase — \"Remove sensor\", never \"OK\""
+        },
+        "dismissLabel": {
+          "type": "string",
+          "required": false,
+          "description": "the way out — \"Keep it\"; absent renders no dismiss button"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "usage": "A decision surface: a question, one sentence of consequence, and the two ways through it — depicted INLINE and non-modal, which is the design call this component exists to state. Modality (the scrim, the focus trap, Escape, focus restore, the open/close lifecycle) is BEHAVIOURAL state, and a pure `(props) → Node` template has no honest home for it — a rendered \"modal\" that did not actually trap focus would be an accessibility lie, and one that did would smuggle a lifecycle into a vocabulary of stateless depictions. So the composing surface owns modality; this component owns the decision's content and its two real buttons, which genuinely emit. `--shadow-lg` carries the elevation the name promises — the library's one use of its deepest shadow. Library-generic (`ds-`, cross-scenario); use it wherever a composed screen depicts a confirmation.",
+      "contract": null
+    },
+    "nav-tabs": {
+      "class": "ds-nav-tabs",
+      "status": "shipped",
+      "props": {
+        "items": {
+          "type": "string",
+          "required": true,
+          "description": "the tab labels as one pipe-delimited string — \"Overview | Activity | Settings\"; the template splits on |, trims each label and drops empties"
+        },
+        "active": {
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "the 1-based position of the active tab; the template clamps an out-of-range value into the rendered set"
+        }
+      },
+      "states": [
+        "default",
+        "active"
+      ],
+      "children": [],
+      "usage": "A row of section labels with one marked current — the DEPICTION of top-level navigation, deliberately not the behaviour. Navigation is chrome, never a composed component (`studio-flow.mjs`'s recorded rule: the flow's nav buttons are chrome the canvas owns, and a clickable composed row would change a shipped contract for every consumer) — so these tabs do not switch anything, carry no click handlers, and take no bus. What they honestly state is structure: which sections exist and which one the depicted screen is. Library-generic (`ds-`, cross-scenario); use it at the head of a composed screen that belongs to a sectioned surface. The pipe-delimited `items` string is the one place the library encodes a list in a scalar — a real schema call (array props) was considered and declined at planning; the encoding rule lives here, in Data binding, not in a reader's guess.",
+      "contract": null
+    },
     "plant-card": {
       "class": "vd-plant-card",
       "status": "shipped",
@@ -503,6 +559,68 @@
       ],
       "children": [],
       "usage": "Component of the Verdant demo scenario (fictional product). The phone app bar: back affordance left, screen title centre, settings right — always the topmost element of a screen, exactly one per screen. Presentational: it renders what the composing screen passes, it fetches nothing and owns no state beyond scroll elevation. Keep the title short enough to never truncate (\"My plants\", not a sentence).",
+      "contract": null
+    },
+    "search-input": {
+      "class": "ds-search-input",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what is being searched — \"Search plants\" — a visible caption, same shape as text-field's"
+        },
+        "value": {
+          "type": "string",
+          "required": false,
+          "description": "the query's starting text; absent renders empty"
+        },
+        "placeholder": {
+          "type": "string",
+          "required": false,
+          "description": "a query example shown while empty; absent renders none"
+        }
+      },
+      "states": [
+        "default",
+        "focus"
+      ],
+      "children": [],
+      "usage": "A labelled query field: text-field's compact, glyph-led sibling for finding rather than entering. Library-generic (`ds-`, cross-scenario). Use it at the head of anything listable — a queue, a feed, a catalog of records. The magnifier glyph is inline SVG in `currentColor` drawn by the template (the stat-tile glyph precedent) — no image asset, no literal colour, so it re-skins with the pack like everything else. The caption label stays visible, deliberately: convention hides a search field's label behind the glyph, but this library already argued (text-field's Usage) that a visible caption beats a vanishing one, and consistency inside the library outranks convention outside it. Like text-field it emits nothing onto the bus — a query is not an intent in this vocabulary today.",
+      "contract": null
+    },
+    "select-field": {
+      "class": "ds-select-field",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the field chooses — \"Plan\", \"Sensor\" — always visible above the control"
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "description": "the chosen option, shown in the closed control — the specimen depicts the CLOSED state, so this is the one option it carries"
+        },
+        "hint": {
+          "type": "string",
+          "required": false,
+          "description": "one persistent line under the control; absent renders nothing"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled; absent means enabled"
+        }
+      },
+      "states": [
+        "default",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "usage": "A labelled choice field, depicted CLOSED — and that closed state is the design insight that keeps this component scalar. A `<select>`'s option list is the consuming product's data: which plans exist, which sensors are wired. The composition model deliberately does not carry product data (head schema v1 props are string/number/boolean scalars), so the specimen renders a real `<select>` holding exactly ONE `<option>` — the chosen `value` — which is everything the closed control ever shows. No delimited-list encoding, no schema change, no fake options invented to make a demo look fuller than the data. Library-generic (`ds-`, cross-scenario); use it wherever a composed screen depicts a made choice — a settings row, a filter's current state. Like the other fields it emits nothing onto the bus.",
       "contract": null
     },
     "sequence-step": {
@@ -727,6 +845,36 @@
       ],
       "children": [],
       "usage": "The library's first real input: a labelled single-line text control. Library-generic (`ds-`, cross-scenario). Use it wherever a composed screen depicts text entry — a settings screen's name field, a form step in an onboarding sequence. It is a REAL `<input>`, not a picture of one (the primary-button precedent: templates render working native elements), so focus, typing and selection all behave natively in the playground and in any composed screen. What it deliberately is not: a form system. No validation states, no error rendering, no submission — a value change is not an intent in this vocabulary today, so the field emits nothing onto the bus; the consuming product owns what entered text means.",
+      "contract": null
+    },
+    "toggle-switch": {
+      "class": "ds-toggle-switch",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the switch controls — \"Watering reminders\" — read as the switch's accessible name"
+        },
+        "on": {
+          "type": "boolean",
+          "required": false,
+          "description": "the starting state; absent means off"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled — the flip never happens and nothing reaches the bus; absent means enabled"
+        }
+      },
+      "states": [
+        "off",
+        "on",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "usage": "A labelled on/off control: one setting, one row, one flip. Library-generic (`ds-`, cross-scenario). Use it on any composed settings surface — the pattern rules already name settings screens, and this is the control they depict. It is care-task-row's mechanic in library form: the row flips its OWN state first, then reports the new value on the bus — the composing surface owns what \"on\" means (a reminder armed, a sensor muted), the component only owns being honest about which side it shows. A switch, not a checkbox, deliberately: `role=\"switch\"` announces on/off rather than checked/unchecked, which is the vocabulary a setting speaks.",
       "contract": null
     }
   }
