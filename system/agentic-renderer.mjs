@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The ten templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The twenty templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -212,7 +212,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the ten specs, one per vocabulary
+// Templates — the canonical DOM realization of the twenty specs, one per vocabulary
 // entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
@@ -361,6 +361,174 @@ const TEMPLATES = {
   // (no bus). role="note" and plain text content, never aria-hidden, never truncated: the disclosure
   // must reach assistive tech on the same terms as sighted readers (spec's Accessibility prose).
   "demo-notice": (props) => el("p", { class: "vd-demo-notice", role: "note", text: props.text }),
+
+  // ---- The ten library components (#220) — ds-, cross-scenario, each mirroring one of the
+  // templates above (spec: system/specs/<name>.md). ----
+
+  // MIRROR of primary-button: the quiet sibling — same emission, no fill; native disabled
+  // suppresses the click for free.
+  "ghost-button": (props, kids, bus) => {
+    const btn = el("button", {
+      type: "button",
+      class: "ds-ghost-button",
+      disabled: props.disabled === true,
+      text: props.label,
+    });
+    btn.addEventListener("click", (e) => busEmit(bus, "ghost-button", e, { intent: "commit", label: props.label }));
+    return btn;
+  },
+
+  // The container primitive — the single-child rule made visible: the one validated child renders
+  // through its OWN template (validateComposition recursed before build reached here), so the card
+  // adds a frame, never behaviour. DOM order title → body → child → footnote is reading order.
+  "card": (props, kids, bus, path) => {
+    const card = el("section", { class: "ds-card" },
+      el("p", { class: "ds-card-title", text: props.title }),
+      props.body != null ? el("p", { class: "ds-card-body", text: props.body }) : null);
+    const child = kids[0];
+    if (child) card.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
+    if (props.footnote != null) card.appendChild(el("p", { class: "ds-card-footnote", text: props.footnote }));
+    return card;
+  },
+
+  // Absence stated plainly, with one invited action. A plain div, no role="status": a live region
+  // announces CHANGES, and this renders at-rest absence (spec's Accessibility prose).
+  "empty-state": (props, kids, bus, path) => {
+    const box = el("div", { class: "ds-empty-state" },
+      el("p", { class: "ds-empty-state-title", text: props.title }),
+      props.body != null ? el("p", { class: "ds-empty-state-body", text: props.body }) : null);
+    const child = kids[0];
+    if (child) box.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
+    return box;
+  },
+
+  // Determinate only. The TRACK carries role="progressbar" (a progressbar's descendants are
+  // presentational to AT, so the role must not swallow `detail`); the visible caption row is
+  // aria-hidden because it mirrors exactly what the role already announces (the status-chip
+  // precedent). The fill width is CSSOM, not a setAttribute("style") — data, not design, and
+  // CSP-safe. Clamped, and the readout prints the clamped number: bar and text always agree.
+  "progress-indicator": (props) => {
+    const v = Math.min(100, Math.max(0, props.value));
+    const fill = el("span", { class: "ds-progress-fill" });
+    fill.style.width = v + "%";
+    return el("div", { class: `ds-progress-indicator${v === 100 ? " is-complete" : ""}` },
+      el("p", { class: "ds-progress-caption", "aria-hidden": "true" },
+        el("span", { class: "ds-progress-label", text: props.label }),
+        el("span", { class: "ds-progress-value", text: `${v}%` })),
+      el("span", {
+        class: "ds-progress-track",
+        role: "progressbar",
+        "aria-label": props.label,
+        "aria-valuemin": "0",
+        "aria-valuemax": "100",
+        "aria-valuenow": String(v),
+      }, fill),
+      props.detail != null ? el("p", { class: "ds-progress-detail", text: props.detail }) : null);
+  },
+
+  // The library's first real <input> (the primary-button precedent: templates render working
+  // native elements). Implicit label wrapping — no ids minted, nothing to collide. No bus: a
+  // value change is not an intent in this vocabulary (spec's Usage prose).
+  "text-field": (props) => {
+    const input = el("input", {
+      type: "text",
+      class: "ds-text-field-input",
+      value: props.value,
+      placeholder: props.placeholder,
+      disabled: props.disabled === true,
+    });
+    return el("label", { class: "ds-text-field" },
+      el("span", { class: "ds-text-field-label", text: props.label }),
+      input,
+      props.hint != null ? el("span", { class: "ds-text-field-hint", text: props.hint }) : null);
+  },
+
+  // text-field's compact sibling. The magnifier is inline SVG in currentColor (the stat-tile
+  // glyph precedent) — aria-hidden decoration on a field the label already names. No bus.
+  "search-input": (props) => {
+    const input = el("input", {
+      type: "search",
+      class: "ds-search-input-input",
+      value: props.value,
+      placeholder: props.placeholder,
+    });
+    return el("label", { class: "ds-search-input" },
+      el("span", { class: "ds-search-input-label", text: props.label }),
+      el("span", { class: "ds-search-input-box" },
+        el("span", { class: "ds-search-input-glyph", "aria-hidden": "true" },
+          icon(svgCircle(11, 11, 8, STROKE), svgPath("M21 21l-4.35-4.35", STROKE))),
+        input));
+  },
+
+  // The choice field, depicted CLOSED: one real <option> — the chosen value — because the option
+  // LIST is the consuming product's data, which the composition model deliberately does not carry
+  // (spec's Usage prose). No bus.
+  "select-field": (props) =>
+    el("label", { class: "ds-select-field" },
+      el("span", { class: "ds-select-field-label", text: props.label }),
+      el("span", { class: "ds-select-field-control" },
+        el("select", { class: "ds-select-field-input", disabled: props.disabled === true },
+          el("option", { text: props.value }))),
+      props.hint != null ? el("span", { class: "ds-select-field-hint", text: props.hint }) : null),
+
+  // MIRROR of care-task-row: the row flips its OWN state first, then reports the new value — the
+  // composing surface owns what "on" means. role="switch" announces on/off, which is the
+  // vocabulary a setting speaks; the track/thumb pair is aria-hidden decoration.
+  "toggle-switch": (props, kids, bus) => {
+    const on = props.on === true;
+    const row = el("button", {
+      type: "button",
+      role: "switch",
+      "aria-checked": String(on),
+      class: `ds-toggle-switch${on ? " is-on" : ""}`,
+      disabled: props.disabled === true,
+    },
+      el("span", { class: "ds-toggle-switch-label", text: props.label }),
+      el("span", { class: "ds-toggle-switch-track", "aria-hidden": "true" },
+        el("span", { class: "ds-toggle-switch-thumb" })));
+    row.addEventListener("click", (e) => {
+      const next = row.getAttribute("aria-checked") !== "true";
+      row.setAttribute("aria-checked", String(next));
+      row.classList.toggle("is-on", next);
+      busEmit(bus, "toggle-switch", e, { intent: "toggle", on: next, label: props.label });
+    });
+    return row;
+  },
+
+  // The DEPICTION of navigation, never the behaviour — navigation is chrome (studio-flow.mjs's
+  // recorded rule), so: spans, no handlers, no tab/tablist roles (roles without behaviour lie to
+  // AT), aria-current on the one active label. The pipe encoding and the clamp are the spec's
+  // Data-binding rule: split on |, trim, drop empties; active clamps into the rendered set.
+  "nav-tabs": (props) => {
+    const items = String(props.items).split("|").map((s) => s.trim()).filter(Boolean);
+    const active = Math.min(Math.max(1, Math.trunc(props.active)), Math.max(items.length, 1));
+    return el("div", { class: "ds-nav-tabs" },
+      ...items.map((label, i) => el("span", {
+        class: `ds-nav-tabs-item${i + 1 === active ? " is-active" : ""}`,
+        "aria-current": i + 1 === active ? "true" : false,
+        text: label,
+      })));
+  },
+
+  // An inline, NON-modal decision surface — role="group", deliberately not role="dialog": a
+  // dialog role promises trapped focus and a dismiss path a pure template cannot honestly
+  // implement (spec's Usage prose). Two real buttons, each MIRRORING primary-button's emission;
+  // DOM order puts the way out before the commitment.
+  "modal-dialog": (props, kids, bus) => {
+    const actions = el("div", { class: "ds-modal-dialog-actions" });
+    if (props.dismissLabel != null) {
+      const dismiss = el("button", { type: "button", class: "ds-modal-dialog-dismiss", text: props.dismissLabel });
+      dismiss.addEventListener("click", (e) => busEmit(bus, "modal-dialog", e, { action: "dismiss", label: props.dismissLabel }));
+      actions.appendChild(dismiss);
+    }
+    const confirm = el("button", { type: "button", class: "ds-modal-dialog-confirm", text: props.confirmLabel });
+    confirm.addEventListener("click", (e) => busEmit(bus, "modal-dialog", e, { action: "confirm", label: props.confirmLabel }));
+    actions.appendChild(confirm);
+    return el("section", { class: "ds-modal-dialog", role: "group", "aria-label": props.title },
+      el("p", { class: "ds-modal-dialog-title", text: props.title }),
+      el("p", { class: "ds-modal-dialog-body", text: props.body }),
+      actions);
+  },
 };
 
 // Does this renderer know how to build that component? The drift `build()` refuses below, asked as

@@ -1932,6 +1932,451 @@ p, .body {
   line-height: 1.5;
 }
 
+/* ---------- ds-ghost-button (system/specs/ghost-button.md) — cross-scenario library primitive ---------- */
+
+/* The quiet sibling of vd-primary-button: the same box, the same type, no fill — one filled
+   button per view keeps its weight because everything else stands down to this. Hover is the
+   accent as a barely-there wash, which ADDS contrast rather than removing information; disabled
+   drops to muted text with no fill to grey out. No new token: the accent family already carries
+   hover/active/disabled expression (the ds-metric-tile precedent). */
+.ds-ghost-button {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-md);
+  background: transparent;
+  color: var(--color-accent);
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: var(--type-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ds-ghost-button:hover { background: var(--color-accent-wash); }
+.ds-ghost-button:active {
+  background: var(--color-accent-wash);
+  color: var(--color-accent-active);
+}
+.ds-ghost-button:focus-visible { outline: 2px solid var(--color-accent-active); outline-offset: 2px; }
+.ds-ghost-button:disabled {
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+}
+
+/* ---------- ds-card (system/specs/card.md) — cross-scenario library primitive ---------- */
+
+/* The container primitive: title, optional sentence, at most ONE composed child, optional
+   footnote. --color-bg fill rather than --color-bg-surface, deliberately: the three child
+   primitives are all surface-tinted, so the card must sit one step lighter or its child
+   disappears into it. --shadow-sm only — a resting container, never an overlay (that depth
+   is ds-modal-dialog's). */
+.ds-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.ds-card-title {
+  margin: 0;
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-card-body {
+  margin: 0;
+  font-size: var(--type-body);
+  color: var(--color-fg-muted);
+}
+.ds-card-footnote {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+
+/* ---------- ds-empty-state (system/specs/empty-state.md) — cross-scenario library primitive ---------- */
+
+/* Absence drawn as an outline: the library's one DASHED border marks where content will sit,
+   never a filled card pretending to be content. Centre-set muted prose, --spacing-xl of honest
+   room, and space for one ghost-button child inviting the next action. No illustration, no
+   icon — the title does the work (spec's Usage prose). */
+.ds-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl) var(--spacing-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+.ds-empty-state-title {
+  margin: 0;
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-empty-state-body {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+
+/* ---------- ds-progress-indicator (system/specs/progress-indicator.md) — cross-scenario library primitive ---------- */
+
+/* One bounded number made visible. The caption row is aria-hidden in the template — the track's
+   progressbar role announces label + value itself, so the visible row is the mirror, not the
+   source (the status-chip precedent). The fill's width is written by the template as a
+   percentage: it is DATA, not design, and no token names a datum. is-complete recolours the
+   readout only — at 100 the bar is already all accent, and a louder state would out-shout the
+   ds-metric-tile escalation grammar. */
+.ds-progress-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.ds-progress-caption {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+.ds-progress-label {
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+.ds-progress-value {
+  font-size: var(--type-caption);
+  font-weight: 600;
+  color: var(--color-fg);
+  font-variant-numeric: tabular-nums;
+}
+.ds-progress-track {
+  display: block;
+  height: var(--spacing-sm);
+  background: var(--color-accent-wash);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.ds-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+.ds-progress-indicator.is-complete .ds-progress-value { color: var(--color-accent); }
+.ds-progress-detail {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--color-fg-muted);
+}
+
+/* ---------- ds-text-field (system/specs/text-field.md) — cross-scenario library primitive ---------- */
+
+/* The library's first real input. Implicit label wrapping (the control nested in its <label>) is
+   the association mechanism — structural, collision-free, the reason no template mints ids. The
+   label never moves or hides: the placeholder is a format example, not the caption. Focus is a
+   2px accent OUTLINE — never a border swap (layout shift) or box-shadow (dies in forced-colors
+   mode), and never a new token. Error/validation states deliberately absent: no --color-danger
+   exists, and inventing one is a system-level call (spec's States prose). */
+.ds-text-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--type-caption);
+}
+.ds-text-field-label {
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-text-field-input {
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font: inherit;
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.ds-text-field-input::placeholder { color: var(--color-fg-muted); }
+.ds-text-field-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.ds-text-field-input:disabled {
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+}
+.ds-text-field-hint {
+  color: var(--color-fg-muted);
+}
+
+/* ---------- ds-search-input (system/specs/search-input.md) — cross-scenario library primitive ---------- */
+
+/* text-field's compact, glyph-led sibling. The BOX is the perceived control, so the box takes the
+   focus ring — gated on the input's :focus-visible via :has() (the .dock-pack-row precedent), so a
+   pointer click rings nothing, same as the other nine — and the input's own outline is suppressed
+   only because the box carries it. Pill corners at --radius-lg — the status-chip precedent, no
+   invented 999px. The magnifier is template-drawn inline SVG in currentColor: no image asset, no
+   literal colour. */
+.ds-search-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--type-caption);
+}
+.ds-search-input-label {
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-search-input-box {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.ds-search-input-box:has(.ds-search-input-input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.ds-search-input-glyph {
+  display: inline-flex;
+  color: var(--color-fg-muted);
+}
+.ds-search-input-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-body);
+  color: var(--color-fg);
+}
+.ds-search-input-input::placeholder { color: var(--color-fg-muted); }
+.ds-search-input-input:focus { outline: none; }
+
+/* ---------- ds-select-field (system/specs/select-field.md) — cross-scenario library primitive ---------- */
+
+/* The choice field, depicted CLOSED (the spec's scalar argument). appearance:none removes the
+   engine's arrow only because the ::after chevron redraws one at declared contrast — borders in
+   --color-fg-muted, rotated: no image asset, no literal colour. The --spacing-xl right padding
+   is the chevron's room. One focus grammar across the field family: the 2px accent outline. */
+.ds-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--type-caption);
+}
+.ds-select-field-label {
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-select-field-control {
+  position: relative;
+  display: block;
+}
+.ds-select-field-control::after {
+  content: "";
+  position: absolute;
+  right: var(--spacing-md);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-fg-muted);
+  border-bottom: 2px solid var(--color-fg-muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+.ds-select-field-input {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-xl) var(--spacing-sm) var(--spacing-md);
+  font: inherit;
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.ds-select-field-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.ds-select-field-input:disabled {
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+}
+.ds-select-field-hint {
+  color: var(--color-fg-muted);
+}
+
+/* ---------- ds-toggle-switch (system/specs/toggle-switch.md) — cross-scenario library primitive ---------- */
+
+/* care-task-row's flip-then-report mechanic in library form: the whole row is one <button
+   role="switch">, the 44px target. Track at the pill radius (--radius-lg, the status-chip
+   precedent); thumb travel is exactly 20px under the global border-box reset (track 44w − 2
+   border − 4 padding = 38 content; thumb 18) — transform only, compositor-safe, and dropped
+   whole under reduced motion (the state still changes instantly). */
+.ds-toggle-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--type-body);
+  color: var(--color-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.ds-toggle-switch:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.ds-toggle-switch:disabled {
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+}
+.ds-toggle-switch-track {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  padding: 2px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.ds-toggle-switch-thumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.ds-toggle-switch.is-on .ds-toggle-switch-track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.ds-toggle-switch.is-on .ds-toggle-switch-thumb {
+  transform: translateX(20px);
+  border-color: var(--color-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ds-toggle-switch-thumb { transition: none; }
+}
+
+/* ---------- ds-nav-tabs (system/specs/nav-tabs.md) — cross-scenario library primitive ---------- */
+
+/* The DEPICTION of navigation, never the behaviour (navigation is chrome — studio-flow.mjs's
+   recorded rule): spans, no hover, no cursor, no click. Active = weight + a 2px accent underline
+   sitting ON the rail (the -1px pull), never hue alone. Wide sets scroll inside their own row
+   rather than blowing the composition out (the PR #54 family). */
+.ds-nav-tabs {
+  display: flex;
+  gap: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+.ds-nav-tabs-item {
+  flex: 0 0 auto;
+  padding: var(--spacing-sm) 0;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font-size: var(--type-body);
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+.ds-nav-tabs-item.is-active {
+  color: var(--color-fg);
+  font-weight: 600;
+  border-bottom-color: var(--color-accent);
+}
+
+/* ---------- ds-modal-dialog (system/specs/modal-dialog.md) — cross-scenario library primitive ---------- */
+
+/* An inline, non-modal decision surface: --shadow-lg carries the elevation the name promises —
+   the library's one use of its deepest shadow — and there is no scrim, no trap, no open state
+   (modality is the composing surface's, spec's Usage prose). The two buttons restate the two
+   shipped button treatments, scoped: confirm = the primary-button mechanic, dismiss = the
+   ghost-button mechanic; visual weight states which action commits. */
+.ds-modal-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.ds-modal-dialog-title {
+  margin: 0;
+  font-size: var(--type-h3);
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.ds-modal-dialog-body {
+  margin: 0;
+  font-size: var(--type-body);
+  color: var(--color-fg-muted);
+}
+.ds-modal-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+.ds-modal-dialog-confirm,
+.ds-modal-dialog-dismiss {
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 0;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--type-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ds-modal-dialog-confirm {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+.ds-modal-dialog-confirm:hover { background: var(--color-accent-hover); }
+.ds-modal-dialog-confirm:active { background: var(--color-accent-active); }
+.ds-modal-dialog-confirm:focus-visible { outline: 2px solid var(--color-accent-active); outline-offset: 2px; }
+.ds-modal-dialog-dismiss {
+  background: transparent;
+  color: var(--color-accent);
+}
+.ds-modal-dialog-dismiss:hover { background: var(--color-accent-wash); }
+.ds-modal-dialog-dismiss:active { color: var(--color-accent-active); }
+.ds-modal-dialog-dismiss:focus-visible { outline: 2px solid var(--color-accent-active); outline-offset: 2px; }
+
 /* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
 
 .vd-screen-body {

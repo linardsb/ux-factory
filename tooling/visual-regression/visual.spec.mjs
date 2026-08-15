@@ -117,7 +117,12 @@ const PAGES = [
   // deliberately NOT waitVisible: everything renders at load, no IntersectionObserver-gated beat.
   // The live token-value cells make the two pack baselines differ — that is the point; the
   // pack-swap MutationObserver never fires at rest (pack-boot's guaranteed no-op default).
-  { name: 'components',      url: '/components.html',      kind: 'ia', waitReady: '[data-catalog-root][data-catalog="ready"]' },
+  // shotTimeout (#220): the catalog doubled to 20 components and the viewport-sized capture is now
+  // ~44k px tall (~225 MB of raster per shot) — toHaveScreenshot's stable-generation pass takes TWO
+  // consecutive shots, which no longer fit the default 5 s expect budget in the pinned container.
+  // A per-shot budget, not a looser diff: the comparison itself stays exactly as strict.
+  { name: 'components',      url: '/components.html',      kind: 'ia', timeout: 60_000, shotTimeout: 30_000,
+    waitReady: '[data-catalog-root][data-catalog="ready"]' },
   // #176: BOTH proto pages now paint at-rest chrome that arrives after load, and the proto branch
   // below waits only on DATA (#source, `rows`) — neither of those waits covers it. Verdant's resize
   // handle and width readout are injected by a dynamic import() of device-frame.mjs, which also
@@ -248,6 +253,11 @@ for (const [pack, packPath] of Object.entries(PACKS)) {
       // Generic, and now proven so by a second entry — factory's `timeout` and its three-selector
       // waitReady compose with this because nothing here reads either. (#10, slice 10.1)
       const shotOpts = p.mask ? { mask: [page.locator(p.mask)] } : {};
+      // p.shotTimeout (components, #220): a page tall enough that one screenshot costs seconds
+      // needs a bigger EXPECT budget — test.setTimeout above cannot reach it. Composes with mask
+      // and the config's animations/maxDiffPixels; absent on every other page, so their flow and
+      // strictness are byte-identical.
+      if (p.shotTimeout) shotOpts.timeout = p.shotTimeout;
       await expect(page).toHaveScreenshot(`${p.name}-${pack}.png`, shotOpts);
     });
   }

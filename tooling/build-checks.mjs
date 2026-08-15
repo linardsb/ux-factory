@@ -4189,9 +4189,10 @@ function scanSvg(svg, label) {
     `an unbounded number must carry NO bounds keys — got ${JSON.stringify(controlFor("n", { type: "number" }))}`);
 
   // --- 21.4 tabsFor over the real prepared model: vd/react present IFF the pack ships a wrapper.
-  // The 3/7 histogram is a TRIPWIRE, deliberately: the day #220 or a new wrapper lands, this
-  // number moves and the failure is the reminder that a code tab just lit up — move it on purpose,
-  // with the vd tab's honesty note re-checked, never by reflex.
+  // The histogram is a TRIPWIRE, deliberately: #220 tripped it as designed (3/7 → 3/17 — its ten
+  // components ship wrapper-less, and the absent vd/react tabs are honest), and the next wrapper
+  // or component moves it again — move it on purpose, with the vd tab's honesty note re-checked,
+  // never by reflex.
   let withWrapper = 0;
   let withoutWrapper = 0;
   for (const c of model.components) {
@@ -4202,8 +4203,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 7,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/7; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 17,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/17; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,
