@@ -65,9 +65,9 @@ export function controlFor(propName, propSpec) {
 }
 
 // tabsFor(component) → the code-tab ids for one prepareHandoff row. The vd/react pair is
-// presence-gated on the pack's OWN portability block (component.wrapper) — 3 of 10 today; the 7
-// absences are honest, not gaps to fill, and build-checks group 21 pins the 3/7 histogram as the
-// tripwire #220 (or a new wrapper) is meant to trip.
+// presence-gated on the pack's OWN portability block (component.wrapper) — 3 of 20 today; the 17
+// absences are honest, not gaps to fill, and build-checks group 21 pins the 3/17 histogram as the
+// tripwire the next wrapper (or component) moves — #220 tripped it as designed, seven absences to 17.
 export function tabsFor(component) {
   return ["html", ...(component && component.wrapper ? ["vd", "react"] : []), "json"];
 }

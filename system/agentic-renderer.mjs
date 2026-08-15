@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The ten templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The twenty templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -212,7 +212,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the ten specs, one per vocabulary
+// Templates — the canonical DOM realization of the twenty specs, one per vocabulary
 // entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
