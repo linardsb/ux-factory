@@ -2123,9 +2123,11 @@ p, .body {
 /* ---------- ds-search-input (system/specs/search-input.md) — cross-scenario library primitive ---------- */
 
 /* text-field's compact, glyph-led sibling. The BOX is the perceived control, so the box takes the
-   focus ring (:focus-within) and the input's own outline is suppressed only because the box
-   carries it. Pill corners at --radius-lg — the status-chip precedent, no invented 999px. The
-   magnifier is template-drawn inline SVG in currentColor: no image asset, no literal colour. */
+   focus ring — gated on the input's :focus-visible via :has() (the .dock-pack-row precedent), so a
+   pointer click rings nothing, same as the other nine — and the input's own outline is suppressed
+   only because the box carries it. Pill corners at --radius-lg — the status-chip precedent, no
+   invented 999px. The magnifier is template-drawn inline SVG in currentColor: no image asset, no
+   literal colour. */
 .ds-search-input {
   display: flex;
   flex-direction: column;
@@ -2146,7 +2148,7 @@ p, .body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
-.ds-search-input-box:focus-within {
+.ds-search-input-box:has(.ds-search-input-input:focus-visible) {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }

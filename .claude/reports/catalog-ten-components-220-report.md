@@ -38,7 +38,7 @@ histogram to 3/17), everything else flowed through the generated artifacts with 
 - inspect-data: regenerated, **no change** (no new `ROLES` — absent-from-inspect is the designed default)
 - loc-summary: regenerated **after each commit** (tracked-content trap, see issues)
 - param-count: 118 controls, **unchanged** (the specimen entry counts as one group)
-- group 21.3: 50 props checked, **2 bounded numbers** (stat-tile.value + progress-indicator.value — the plan's playground range control)
+- group 21.3: 66 props checked, **3 bounded numbers** (stat-tile.value + progress-indicator.value fully bounded — the plan's playground range control — plus nav-tabs.active, min-only) *(corrected after PR #269's review L2 — the first write-up carried a mid-implementation snapshot of the count)*
 
 ## Mutation drill (each red observed verbatim, then restored; final state 24/24 + clean tree)
 
@@ -68,7 +68,9 @@ proof each can fail.
 - Visual gate: update run 22 passed, churn exactly 4 PNGs; containerized **verify run (no
   `--update-snapshots`): 22/22** against the new baselines
 - `portfolio-design/references/CHECKLIST.md` audited over the ten blocks: declared `wcagPairs` only,
-  `:focus-visible` on every interactive element, the one transition is transform-only behind
+  `:focus-visible` on every interactive element *(true since PR #269's review M1 — search-input
+  shipped `:focus-within` on the box, corrected to `:has(input:focus-visible)`, the dock-pack-row
+  precedent)*, the one transition is transform-only behind
   `prefers-reduced-motion`, `min-width: 0`/`overflow-x: auto` on the two wide-content spots
   (search input, nav-tabs row), no literals.
 
