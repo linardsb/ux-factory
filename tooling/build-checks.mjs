@@ -104,6 +104,17 @@
 //                     footprints on the grid by clampSpan's own definition, disjoint and clear of
 //                     arrangeBoard's row 1, and packHref's contract-line trap over a stub
 //                     document (#219)
+//  25 instance stamp the per-company shell stamp: stampShell over the real committed shell,
+//                     Mechanism A anchors thrown by name, Mechanism B as a global pass, and
+//                     auditRefs' deploy-listing predicate (#222)
+//  26 layers         the layers list's pure layer: order preservation (DOM order IS board order),
+//                     the position sentences, selectable false exactly for a frame (the tripwire
+//                     for the day the selection widens), toggleId's isolation, totality (#221)
+//  27 minimap        the minimap's pure layer: mapView in three conditions (each the sole detector
+//                     of one missing coordinate term), the far-edge clamps, jumpFrom's centering
+//                     and both clamps, trackOffsets' gap rule, cellRect's footprint consistency,
+//                     visibleRange's round-trip, and the no-timer source pin over both new
+//                     modules (#221)
 //
 //   node tooling/build-checks.mjs
 
@@ -147,6 +158,10 @@ import { prepareHandoff } from "../system/handoff-viewer.mjs";
 // imported for the ONE static list group 21 pins against the vocabulary.
 import { controlFor, reactSnippet, specPath, tabsFor, WRAPPER_ATTRS } from "../system/catalog.mjs";
 import { CATALOG_COMPONENTS } from "../system/palette.mjs";
+// #221's two pure layers — both modules are Node-import-safe (no DOM outside a function body, no
+// self-boot; system/studio.mjs mounts them).
+import { layerEntries, toggleId } from "../system/studio-layers.mjs";
+import { cellRect, jumpFrom, mapView, trackOffsets, visibleRange } from "../system/studio-minimap.mjs";
 // The recorder's FENCE — importable here for the same reason group 8 can import the operator path:
 // portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
 // portal/node_modules is what proves that, and this import now rides on it too.
@@ -1078,6 +1093,12 @@ function scanSvg(svg, label) {
     // keep the px mechanism would have been the "check that skipped the thing it tested" failure
     // this repo has a memory about, so the mechanism changed and the list grew.
     "studio-frames.mjs",
+    // studio-layers.mjs + studio-minimap.mjs (#221) join on the same terms. The layers list is
+    // classes and attributes end to end; the minimap is the case this gate SHAPED — its viewport
+    // rectangle is continuous geometry, drawn as SVG PRESENTATION ATTRIBUTES (setAttribute on x/y/
+    // width/height) for exactly this gate's reason: a studio module cannot write an inline style
+    // and keep `writes === 1` true — the #219 spans-not-px forcing function, third application.
+    "studio-layers.mjs", "studio-minimap.mjs",
   ];
   // Counted: `.setProperty(`, a direct `.style.<name> =` assignment, and `.style.cssText =`. Until
   // #171 it matched only `.setProperty(`, which meant a direct `el.style.color = untrusted` was
@@ -4896,6 +4917,183 @@ function scanSvg(svg, label) {
   group("instance stamp", `stampShell over the REAL committed shell with a synthetic company: zero data-when= / {{ / stray-hidden residue (the [data-studio-notice] at-rest notice exempted, the same sanction validateAssembly carries) · body text free of "Northwind"/"demo"/"fictional" with the company name proven substituted · the v2 INSTANCE_CONFIG parses as pure JSON with replay { artifact, trace } derived from the slug and composition + links.prototype proven ABSENT · the chrome config <script> re-pointed at the generated per-instance one (#160) and the pack <link> at the company pack · MUTATIONS: an extra data-when="demo" region still stripped (Mechanism B is a global pass, not a site list), a missing #instance-name anchor AND a missing chrome-config anchor each thrown with the anchor named, and auditRefs refusing /approach by name while accepting mailto / https / fragments / in-dir refs with query suffixes stripped and refusing http, protocol-relative, bare-relative, javascript: and empty refs. The RUNNING built page — settled bespoke replay, stamped pack, zero 404s, every link 2xx — is tooling/instance-journey.mjs's, operator-run, and this group cannot reach it`);
 }
 
+// --- 26 · the layers list's pure layer (#221) --------------------------------------------------------
+//
+// system/studio-layers.mjs's DOM-free half. Everything here CALLS the functions over hand-computed
+// fixtures — the check-that-cannot-fail memory's rule — and the junk-row case is the mutation that
+// proves the skipping rule is real rather than a comment.
+
+{
+  // ORDER PRESERVATION: DOM order is board order (studio.mjs's arrangementNow correspondence), so
+  // input order must be output order — the list never sorts.
+  const rows = layerEntries([
+    { id: "s3", name: "Job Detail", col: 3, row: 1, kind: "slot", selected: false },
+    { id: "s1", name: "Verdant prototype", col: 1, row: 3, kind: "frame", cols: 2, rows: 2 },
+    { id: "s2", name: "Today Overview", col: 1, row: 1, kind: "slot", selected: true },
+  ]);
+  ok(rows.map((r) => r.id).join(",") === "s3,s1,s2",
+    `layerEntries must preserve input order — DOM order IS board order (got ${rows.map((r) => r.id).join(",")})`);
+
+  // The position sentences: a 1×1 slot, a spanning frame, and a 1×1 FRAME — the span text belongs
+  // to the footprint, not the family, so a 1×1 frame gets the short sentence too.
+  ok(rows[0].sentence === "column 3, row 1", `the 1×1 sentence drifted: ${rows[0].sentence}`);
+  ok(rows[1].sentence === "column 1, row 3, 2 by 2", `the spanning sentence drifted: ${rows[1].sentence}`);
+  const unitFrame = layerEntries([{ id: "f", name: "F", col: 4, row: 2, kind: "frame", cols: 1, rows: 1 }]);
+  ok(unitFrame[0].sentence === "column 4, row 2", `a 1×1 frame must get the short sentence: ${unitFrame[0].sentence}`);
+
+  // selectable IS false EXACTLY for kind "frame" — the pure statement of frames-outside-the-
+  // selection (system/studio-frames.mjs call 5), and the tripwire for the day someone widens the
+  // selection layer: widen it and this line is the one that says the layers list must follow.
+  ok(rows[0].selectable === true && rows[2].selectable === true && rows[1].selectable === false
+    && unitFrame[0].selectable === false,
+    "selectable must be false exactly for kind \"frame\" — frames are outside the selection layer");
+  // …and an UNKNOWN kind reads as a slot, never as a frame: the honest default is the selectable
+  // family, because refusing selection is the frame-specific decision.
+  ok(layerEntries([{ id: "u", col: 1, row: 1, kind: "mystery" }])[0].selectable === true,
+    "an unknown kind must read as a selectable slot");
+
+  // THE MUTATION that proves the gate can fail: one bad row among good ones. An id-less entry is a
+  // wrapper mid-construction and must be SKIPPED, not rendered — counted, so a layerEntries that
+  // stopped skipping (or started dropping good rows) goes red here.
+  const mixed = layerEntries([{ id: "a", col: 1, row: 1 }, { name: "no id" }, { id: "", col: 2, row: 1 }, { id: "b", col: 2, row: 1 }]);
+  ok(mixed.length === 2 && mixed[0].id === "a" && mixed[1].id === "b",
+    `one junk row among good ones: expected exactly a,b — got ${mixed.map((r) => r.id).join(",")}`);
+
+  // Totality over junk shapes, and non-finite geometry coerces to 1 (clampSlot's posture) so NaN
+  // can never reach a rendered sentence.
+  for (const junk of [null, undefined, 42, "rows", {}, () => {}]) {
+    const r = layerEntries(junk);
+    ok(Array.isArray(r) && r.length === 0, `layerEntries(${String(junk)}) must answer []`);
+  }
+  ok(layerEntries([{ id: "x", col: "junk", row: null }])[0].sentence === "column 1, row 1",
+    "non-finite geometry must coerce to 1, never NaN in a sentence");
+  ok(layerEntries([{ id: "x", col: 1, row: 1 }])[0].name === "Component",
+    "a nameless entry must read as \"Component\" — place()'s own fallback label");
+
+  // toggleId: both directions, and the answers are NEW ARRAYS — proven by mutating a result and
+  // re-deriving (the createHistory clone-proof idiom). The caller hands it chosenIds() and passes
+  // the answer to applySelection; an in-place mutation would edit a list another closure holds.
+  const base = ["s1", "s2"];
+  const added = toggleId(base, "s3");
+  const removed = toggleId(base, "s2");
+  ok(added.join(",") === "s1,s2,s3", `toggleId must add a missing id: ${added.join(",")}`);
+  ok(removed.join(",") === "s1", `toggleId must remove a present id: ${removed.join(",")}`);
+  added.push("EVIL");
+  removed.push("EVIL");
+  ok(base.join(",") === "s1,s2", "toggleId mutated its input array");
+  ok(toggleId(base, "s3").join(",") === "s1,s2,s3" && toggleId(base, "s2").join(",") === "s1",
+    "re-deriving after mutating a result must be unchanged — the answers must be new arrays");
+  // Totality: junk lists read as empty, a null id toggles nothing, null members are dropped.
+  ok(toggleId(null, "x").join(",") === "x", "toggleId(null, id) must answer [id]");
+  ok(toggleId(["a"], null).join(",") === "a", "toggleId(list, null) must toggle nothing");
+  ok(toggleId(["a", null, "b"], "c").join(",") === "a,b,c", "toggleId must drop null members");
+
+  group("layers", "layerEntries preserves input order (DOM order IS board order) · the position sentences for a 1×1 slot, a spanning frame AND a 1×1 frame (span text belongs to the footprint, not the family) · selectable false EXACTLY for kind \"frame\" — the pure statement of frames-outside-the-selection and the tripwire for the day the selection layer widens — with an unknown kind reading as a selectable slot · the one-junk-row-among-good-ones mutation proving the skipping rule real · totality over 6 junk shapes with non-finite geometry coerced so NaN never reaches a sentence · toggleId both directions, proven to answer NEW arrays by mutate-and-re-derive, total over junk. The running list — the same-interaction reflection, selection parity both ways through the ONE applySelection, the roving tabindex, the announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's layersPass, and this group cannot reach it");
+}
+
+// --- 27 · the minimap's pure layer (#221) ------------------------------------------------------------
+//
+// system/studio-minimap.mjs's DOM-free half — studio-verbs.mjs's coordinate chain INVERTED, so the
+// three mapView conditions below are that chain's two missing-term traps run in reverse: each is
+// the SOLE detector of one term, and each looks correct in the other two conditions.
+
+{
+  const M = { clientW: 700, clientH: 640, scale: 1, contentW: 2816, contentH: 1232 };
+
+  // 1 · at rest (0,0 @ 100%): the condition every broken chain still passes — the positive control.
+  const rest = mapView({ scrollLeft: 0, scrollTop: 0, ...M });
+  ok(rest.x === 0 && rest.y === 0 && rest.w === 700 && rest.h === 640,
+    `mapView at rest drifted: ${JSON.stringify(rest)}`);
+
+  // 2 · PANNED — the missing-scroll-term detector: the expected x/y are the scroll offsets
+  //     themselves at scale 1, computed independently of the function.
+  const panned = mapView({ scrollLeft: 260, scrollTop: 170, ...M });
+  ok(panned.x === 260 && panned.y === 170 && panned.w === 700 && panned.h === 640,
+    `the missing-scroll-term detector: ${JSON.stringify(panned)} (expected x 260, y 170)`);
+
+  // 3 · ZOOMED AT 0,0 — the missing-divide detector: at 50% the visible fraction doubles, so w
+  //     MUST equal clientW/scale — and h caps at the content box (640/0.5 = 1280 > 1232).
+  const zoomed = mapView({ scrollLeft: 0, scrollTop: 0, ...M, scale: 0.5 });
+  ok(zoomed.x === 0 && zoomed.y === 0 && zoomed.w === 1400 && zoomed.h === 1232,
+    `the missing-divide detector: ${JSON.stringify(zoomed)} (expected w 1400, h capped at 1232)`);
+
+  // The far-edge clamp: the view rect never exits the content box, however far the scroll claims.
+  const far = mapView({ scrollLeft: 999999, scrollTop: 999999, ...M });
+  ok(far.x === 2116 && far.y === 592, `the far-edge clamp drifted: ${JSON.stringify(far)}`);
+
+  // Junk answers the PINNED honest whole view — { 0, 0, contentW, contentH }, unreadable content
+  // reading as 0 — a contract, not an accident: the mount feeds this straight into attributes.
+  ok(JSON.stringify(mapView({ scrollLeft: 1, scrollTop: 1, ...M, scale: 0 }))
+    === JSON.stringify({ x: 0, y: 0, w: 2816, h: 1232 }), "scale 0 must answer the honest whole view");
+  ok(JSON.stringify(mapView({ scrollLeft: NaN, scrollTop: 0, ...M }))
+    === JSON.stringify({ x: 0, y: 0, w: 2816, h: 1232 }), "a non-finite scroll must answer the whole view");
+  ok(JSON.stringify(mapView(null)) === JSON.stringify({ x: 0, y: 0, w: 0, h: 0 }),
+    "mapView(null) must answer zeros, never a throw");
+
+  // jumpFrom: CENTERING (the target puts the named content point mid-viewport), the 0 floor and
+  // the max ceiling — the same clamp range the browser applies to a scrollLeft write, which is
+  // what lets the journey assert computed target === settled scroll.
+  const centered = jumpFrom({ fx: 0.5, fy: 0.5 }, M);
+  ok(centered.left === 1058 && centered.top === 296, `jumpFrom centering drifted: ${JSON.stringify(centered)}`);
+  ok(JSON.stringify(jumpFrom({ fx: 0, fy: 0 }, M)) === JSON.stringify({ left: 0, top: 0 }),
+    "the 0 floor: a corner click must clamp at 0,0");
+  ok(JSON.stringify(jumpFrom({ fx: 1, fy: 1 }, M)) === JSON.stringify({ left: 2116, top: 592 }),
+    "the max ceiling: the far corner must clamp at content*scale − client");
+  ok(JSON.stringify(jumpFrom(null, M)) === JSON.stringify({ left: 0, top: 0 })
+    && JSON.stringify(jumpFrom({ fx: 0.5, fy: 0.5 }, { ...M, scale: -1 })) === JSON.stringify({ left: 0, top: 0 }),
+    "jumpFrom must be total over junk fractions and a junk scale");
+
+  // trackOffsets: the gap belongs to the track BEFORE the next start (hitSlot's band rule,
+  // inverted) — against a hand-computed fixture, plus totality.
+  ok(JSON.stringify(trackOffsets([220, 220, 220], 16)) === "[0,236,472]",
+    `trackOffsets' gap rule drifted: ${JSON.stringify(trackOffsets([220, 220, 220], 16))}`);
+  ok(trackOffsets(null, 16).length === 0 && JSON.stringify(trackOffsets(["x", 220], null)) === "[0,0]",
+    "trackOffsets must be total over junk tracks and a junk gap");
+
+  // cellRect: a 2×3 span equals the UNION of its six 1×1 rects — consistency with footprint()'s
+  // definition, drawn instead of keyed. Computed from the six unit answers, never re-derived from
+  // the span path under test.
+  const geom = { cols: [220, 220, 220, 220], rows: [140, 140, 140, 140], colGap: 16, rowGap: 16 };
+  const span = cellRect({ col: 2, row: 1 }, { cols: 2, rows: 3 }, geom);
+  const units = [];
+  for (let r = 1; r <= 3; r += 1) for (let c = 2; c <= 3; c += 1) units.push(cellRect({ col: c, row: r }, { cols: 1, rows: 1 }, geom));
+  const minX = Math.min(...units.map((u) => u.x));
+  const minY = Math.min(...units.map((u) => u.y));
+  const maxR = Math.max(...units.map((u) => u.x + u.w));
+  const maxB = Math.max(...units.map((u) => u.y + u.h));
+  ok(span.x === minX && span.y === minY && span.w === maxR - minX && span.h === maxB - minY,
+    `a 2×3 cellRect must equal the union of its six 1×1 rects: ${JSON.stringify(span)} vs union ${JSON.stringify({ x: minX, y: minY, w: maxR - minX, h: maxB - minY })}`);
+  // A missing span reads as 1×1 — the UNIT_SPAN default that keeps a .stx-slot's answer exact.
+  const unit = cellRect({ col: 3, row: 2 }, undefined, geom);
+  ok(unit.x === 472 && unit.y === 156 && unit.w === 220 && unit.h === 140,
+    `a spanless cellRect must be one track: ${JSON.stringify(unit)}`);
+  ok(JSON.stringify(cellRect(null, null, null)) === JSON.stringify({ x: 0, y: 0, w: 0, h: 0 }),
+    "cellRect must answer zeros over junk, never a throw");
+
+  // visibleRange ROUND-TRIPS mapView's answer: a viewport mapView says covers cells 2–3 × 2–3
+  // must announce exactly that range. contentW/H are the fixture grid's own (4 tracks + 3 gaps).
+  const view = mapView({ scrollLeft: 236, scrollTop: 156, clientW: 456, clientH: 296, scale: 1, contentW: 928, contentH: 608 });
+  const range = visibleRange(view, geom);
+  ok(range.col1 === 2 && range.col2 === 3 && range.row1 === 2 && range.row2 === 3,
+    `visibleRange must round-trip mapView's answer: ${JSON.stringify(range)} for view ${JSON.stringify(view)}`);
+  // An edge-KISSING viewport does not claim the next column: a rect whose right edge lands exactly
+  // on track 2's start (x 0, w 236) shows nothing of column 2.
+  ok(visibleRange({ x: 0, y: 0, w: 236, h: 140 }, geom).col2 === 1,
+    "a viewport whose edge kisses the next track's start must not claim that column");
+  ok(JSON.stringify(visibleRange(null, null)) === JSON.stringify({ col1: 1, col2: 1, row1: 1, row2: 1 }),
+    "visibleRange must answer the 1,1 cell over junk, never a throw");
+
+  // THE NO-TIMER SOURCE PIN, over BOTH #221 modules: "tracks without a timer" as a tripwire.
+  // rAF is allowed and used (coalescing, not scheduling); setInterval/setTimeout are not.
+  for (const file of ["studio-layers.mjs", "studio-minimap.mjs"]) {
+    const src = readFileSync(join(ROOT, "system", file), "utf8");
+    ok(!src.includes("setInterval(") && !src.includes("setTimeout("),
+      `system/${file} reaches for a timer — the tracking contract is events + rAF coalescing only`);
+  }
+
+  group("minimap", "mapView in THREE conditions — at rest (the positive control), panned (the missing-scroll-term detector, expected offsets computed independently) and zoomed at 0,0 (the missing-divide detector, w === clientW/scale with h capped at the content box) — each the sole detector of one coordinate term · the far-edge clamp keeping the rect inside the content box · junk pinned to the HONEST WHOLE VIEW as a contract · jumpFrom's centering with the 0 floor and the max ceiling equal to the browser's own scrollLeft clamp range · trackOffsets' gap-before-next-start rule against a hand-computed fixture · a 2×3 cellRect equal to the union of its six 1×1 rects (footprint()'s definition drawn, not keyed) with the spanless 1×1 default · visibleRange round-tripping mapView's answer and refusing an edge-kissing column · totality throughout · and the no-timer source pin over BOTH #221 modules (rAF coalescing allowed and used, setInterval/setTimeout refused). The running map — the view rect tracking a real pan, the zoom-at-0,0 observer wiring, click-to-jump against the settled scroll, the keyboard path's announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's minimapPass, and this group cannot reach it");
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -4903,5 +5101,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 25 groups pass");
+  console.log("\nbuild ✓  all 27 groups pass");
 }

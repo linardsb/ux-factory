@@ -79,6 +79,8 @@ import { mountStudioKeep } from "./studio-keep.mjs";
 import { mountStudioMethod } from "./studio-method.mjs";
 import { mountStudioDocs, DOCS_PANEL_ID } from "./studio-docs.mjs";
 import { mountStudioFrames } from "./studio-frames.mjs";
+import { mountStudioLayers } from "./studio-layers.mjs";
+import { mountStudioMinimap } from "./studio-minimap.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
@@ -693,6 +695,16 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // loop into MOVABLE.
   const frames = mountStudioFrames(canvas, { root });
 
+  // #221's two rail surfaces, LAST for the standing reason: everything each takes is a seam
+  // something above already exposed — the canvas handle, and for the layers list the selection's
+  // applySelection/chosenIds (mounted at the select line above). NO BUS handle is passed, on
+  // studio-frames.mjs's sentence: selection stays applySelection's one writer and viewport
+  // position is view state, so a bus here would be a parameter with no call site. Mounted after
+  // the frames so the two frame rows and cells exist at first paint — but both REFLECT the stage
+  // through observers, so nothing depends on this order for correctness, only for that paint.
+  const layers = mountStudioLayers(root, { canvas, select });
+  const minimap = mountStudioMinimap(root, { canvas });
+
   // A reader who turned inspect on elsewhere arrives with it persisted; the blocks above were
   // built after inspect.mjs restored, so they need one refresh to be wired. The docs layer refreshes
   // beside it for the same reason and by the same rule (see `let docs` above) — a no-op on an
@@ -700,7 +712,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   syncInspect();
   docs.refresh();
 
-  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, docs, frames, board, summary, arranged };
+  live = { shell, canvas, bus, verbs, select, compile, replay, inspector, keep, method, docs, frames, layers, minimap, board, summary, arranged };
   return live;
 }
 
