@@ -191,7 +191,8 @@ it is surfaced verbatim by the portal drawer rather than paraphrased.
 ### `rubric.json` (optional)
 
 Present only when the package's prototype includes a real AI feature — today, Fieldwork's agentic
-dispatch composition (the `/agentic-ui-study` screen). It records the screen's five-pillar AI-UX
+dispatch composition (its committed proposals fill `/proto/fieldwork.html`'s two agentic slots;
+the dedicated study page that also rendered them retired at #222). It records the screen's five-pillar AI-UX
 rubric: each entry ties a pillar (`trust | clarity | control | transparency | meaningful-benefit`)
 to an affordance the screen ships **today**, and cites its primary source.
 

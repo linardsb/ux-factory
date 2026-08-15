@@ -1,7 +1,7 @@
 {
   "screen": "Fieldwork dispatch — agentic composition",
   "aiFeature": true,
-  "note": "Maker-authored assessment of the AI-UX patterns the Fieldwork agentic composition (the /agentic-ui-study screen) ships TODAY — not agent output. Every `how` names a real, present affordance (see system/agentic-study.mjs); every `cite` is verified against its primary source. Screen/flow-level rubric; a screen's full rubric is this ∪ the `aiPatterns` its components carry (kb-format §ComponentSpec). #41.",
+  "note": "Maker-authored assessment of the AI-UX patterns the Fieldwork agentic composition ships TODAY — not agent output. Assessed on the study surface it originally shipped on (retired at #222; the committed proposals still fill /proto/fieldwork.html's two agentic slots, whose control rows keep the adjust-within-bounds affordance). Every `how` names a real affordance as shipped then; every `cite` is verified against its primary source. Screen/flow-level rubric; a screen's full rubric is this ∪ the `aiPatterns` its components carry (kb-format §ComponentSpec). #41.",
   "patterns": [
     {
       "pillar": "clarity",

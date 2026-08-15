@@ -151,6 +151,7 @@ import { CATALOG_COMPONENTS } from "../system/palette.mjs";
 // portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
 // portal/node_modules is what proves that, and this import now rides on it too.
 import { makeFence } from "../portal/record-build.mjs";
+import { auditRefs, stampShell } from "../agent-layer/build-instance.mjs";
 import { curateTrace } from "./curate-trace.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -4812,6 +4813,89 @@ function scanSvg(svg, label) {
   group("frames", `FRAMES holds the ${FRAMES.length} committed prototypes, frozen at BOTH levels by mutation (a pushed entry and a written src) · every src and standalone proven to be a real committed file, with the /proto/nope.html mutation that decides whether that check can fail — the pixel gate MASKS this content, so a 404 inside a frame compares cleanly against its own baseline forever · each descriptor's ANCHOR pinned as a real id in the committed proto HTML and NEITHER url allowed a fragment (a src fragment scrolls the canvas as well as the frame): nothing depends on the anchor resolving, which is exactly why a rename would revert both frames to their page ledes with no other symptom · every caption proven to carry the site-pack sentence, which is how the honesty contract discharges "a dropped brand does not reach the frames" · both footprints on the grid by clampSpan's OWN definition, disjoint cell by cell through footprint(), and clear of ROW 1 with arrangeBoard named as the reason · packHref over a stub document: the CONTRACT line refused (the head-order trap dock.mjs:72 records), a lone pack line matched, null rather than a throw on a document with no pack line, total over 6 junk documents because an unloaded frame's contentDocument is one, and an unshipped pack name still matched — this is "which line do I observe", not a second copy of PACK_RE. That the frames RENDER, that their contents carry no nested chrome (asserted on contentDocument), that the pack FOLLOWS a mid-visit swap, that the resize gesture agrees across pointer, keyboard and an injected agent action, and that the ready handle resolves are tooling/studio-journey.mjs's framesPass, and this group cannot reach them`);
 }
 
+// --- 25 · the instance stamp + chrome audit (#222) ---------------------------------------------------
+// agent-layer/build-instance.mjs's pure half: stampShell (text in, text out) driven over the REAL
+// committed instance.html, and auditRefs (the #160 deploy-safety predicate) driven over a synthetic
+// deploy listing. SDK-free by construction — build-instance imports node builtins + lib.mjs +
+// gen-company-package only, which is what lets CI (no portal/node_modules) import it here.
+//
+// WHAT IT CANNOT REACH, stated as groups 9, 11, 13, 16, 18, 19, 21, 23 and 24 all state theirs:
+// the RUNNING built page — that the stamped instance renders, settles its bespoke replay, wears
+// the stamped pack, serves zero 404s and answers every link 2xx — is tooling/instance-journey.mjs's,
+// operator-run against a fixture build, and this group cannot reach any of it. validateAssembly's
+// filesystem half (real copied files) is exercised by build-instance's own fixture runs, not here.
+{
+  const shellHtml = readFileSync(join(ROOT, "instance.html"), "utf8");
+  const cfg = { name: "Harborlight", slug: "harborlight", traceBase: "derivation.jsonl", links: {}, replaySlug: "build-harborlight-berths" };
+  const stamped = stampShell(shellHtml, cfg);
+
+  // Residue: the same signatures validateAssembly greps, asserted here on the pure output so CI
+  // sees them without a filesystem build. The [data-studio-notice] node is the ONE sanctioned
+  // standalone hidden (#210's at-rest notice) — same exemption validateAssembly carries.
+  ok(!/data-when=/.test(stamped), "stamped shell still carries a data-when= attribute");
+  ok(!/\{\{/.test(stamped), "stamped shell still carries a {{ template token");
+  const hiddenScan = stamped.replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*\bdata-studio-notice\b[^>]*>/g, " ");
+  ok(!/<[a-zA-Z][^>]*\shidden(?=[\s/>])/.test(hiddenScan), "a real-only region kept its hidden attribute after stamping");
+  const bodyText = (stamped.match(/<body[\s\S]*<\/body>/) || [, ""])[0]
+    .replace(/<!--[\s\S]*?-->/g, " ").replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+  for (const word of ["Northwind", "demo", "fictional"])
+    ok(!new RegExp(`\\b${word}\\b`, "i").test(bodyText), `stamped body text still contains "${word}"`);
+  ok(bodyText.includes("Harborlight"), "the company name was not substituted into the stamped body");
+
+  // The v2 INSTANCE_CONFIG: parses as pure JSON, replay in, composition/links.prototype out.
+  const region = (stamped.match(/<!-- INSTANCE_CONFIG:start[\s\S]*?INSTANCE_CONFIG:end -->/) || [, ""])[0];
+  const assignment = region && region.match(/window\.INSTANCE_CONFIG\s*=\s*([\s\S]*);\s*<\/script>/);
+  ok(!!assignment, "stamped INSTANCE_CONFIG assignment not found between its markers");
+  if (assignment) {
+    let parsed = null;
+    try { parsed = JSON.parse(assignment[1]); } catch { parsed = null; }
+    ok(!!parsed, "stamped INSTANCE_CONFIG does not parse as pure JSON");
+    if (parsed) {
+      ok(parsed.replay && parsed.replay.artifact === "/replay/build-harborlight-berths.json"
+        && parsed.replay.trace === "/traces/build-harborlight-berths.jsonl",
+        "v2 config must carry replay { artifact, trace } derived from the slug");
+      ok(!("composition" in parsed), "v2 config must NOT carry composition (retired at #222)");
+      ok(!(parsed.links && "prototype" in parsed.links), "v2 config must NOT carry links.prototype (retired at #222)");
+    }
+  }
+  ok(stamped.includes('src="/system/client.instance.config.js"'), "the chrome config <script> was not re-pointed (#160)");
+  ok(!/client\.neutral\.config\.js/.test(stamped), "the stamped shell still loads client.neutral.config.js");
+  ok(stamped.includes('href="/system/tokens.harborlight.css"'), "the pack <link> was not stamped to the company pack");
+
+  // MUTATION (a): a synthetic EXTRA data-when="demo" region is still stripped — the toggling is a
+  // global pass, not a list of known sites, so a new seam added to the shell needs no stamp edit.
+  const withExtra = shellHtml.replace("</main>", '<p data-when="demo">an EXTRA demo region</p></main>');
+  const extraStamped = stampShell(withExtra, cfg);
+  ok(!/EXTRA demo region/.test(extraStamped) && !/data-when=/.test(extraStamped),
+    "an extra data-when=\"demo\" region survived stamping — Mechanism B is not a global pass");
+
+  // MUTATION (b): a missing Mechanism-A anchor is a HARD THROW naming the anchor — twice, once for
+  // an original anchor and once for #222's new chrome-config anchor, because a throw with the wrong
+  // name is a gate nobody can debug.
+  let threw = null;
+  try { stampShell(shellHtml.replace(/<span id="instance-name">[^<]*<\/span>/, ""), cfg); } catch (e) { threw = e; }
+  ok(threw && /#instance-name/.test(threw.message), `a missing #instance-name anchor must throw naming it (got: ${threw && threw.message})`);
+  threw = null;
+  try { stampShell(shellHtml.replace('<script src="/system/client.neutral.config.js"></script>', ""), cfg); } catch (e) { threw = e; }
+  ok(threw && /client\.neutral\.config\.js/.test(threw.message), `a missing chrome-config anchor must throw naming it (got: ${threw && threw.message})`);
+
+  // MUTATION (c): the chrome predicate over a synthetic deploy listing — the public-site route the
+  // old validateAssembly deliberately excluded is now refused BY NAME, and everything sanctioned
+  // still passes: mailto, https, a fragment, an in-dir file (query suffix stripped), the dir root.
+  const listing = new Set(["", "/system/tokens.contract.css", "/system/client.instance.config.js", "/replay/run.json"]);
+  const resolves = (p) => listing.has(p.replace(/^\//, "")) || listing.has(p) || p === "/";
+  const refused = auditRefs(["/approach"], (p) => p === "/" || listing.has(p));
+  ok(refused.length === 1 && /\/approach/.test(refused[0]), "auditRefs must refuse /approach by name");
+  ok(auditRefs(["mailto:linardsberzins@gmail.com", "https://github.com/linardsb/ux-factory", "#beat-brief",
+    "/system/tokens.contract.css?v=2", "/replay/run.json", "/"], (p) => p === "/" || listing.has(p)).length === 0,
+    "auditRefs must accept mailto / https / fragment / in-dir (query stripped) / the dir root");
+  const hostile = auditRefs(["http://insecure.example", "//protocol.relative", "relative.html", "javascript:alert(1)", ""], resolves);
+  ok(hostile.length === 5, `auditRefs must refuse http/protocol-relative/bare-relative/javascript/empty (refused ${hostile.length} of 5)`);
+
+  group("instance stamp", `stampShell over the REAL committed shell with a synthetic company: zero data-when= / {{ / stray-hidden residue (the [data-studio-notice] at-rest notice exempted, the same sanction validateAssembly carries) · body text free of "Northwind"/"demo"/"fictional" with the company name proven substituted · the v2 INSTANCE_CONFIG parses as pure JSON with replay { artifact, trace } derived from the slug and composition + links.prototype proven ABSENT · the chrome config <script> re-pointed at the generated per-instance one (#160) and the pack <link> at the company pack · MUTATIONS: an extra data-when="demo" region still stripped (Mechanism B is a global pass, not a site list), a missing #instance-name anchor AND a missing chrome-config anchor each thrown with the anchor named, and auditRefs refusing /approach by name while accepting mailto / https / fragments / in-dir refs with query suffixes stripped and refusing http, protocol-relative, bare-relative, javascript: and empty refs. The RUNNING built page — settled bespoke replay, stamped pack, zero 404s, every link 2xx — is tooling/instance-journey.mjs's, operator-run, and this group cannot reach it`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -4819,5 +4903,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 24 groups pass");
+  console.log("\nbuild ✓  all 25 groups pass");
 }

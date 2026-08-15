@@ -1,25 +1,41 @@
-// build-instance.mjs — per-company instance build + unlisted-deploy prep (epic #38, ticket #44).
+// build-instance.mjs — per-company instance build + unlisted-deploy prep (epic #38, ticket #44;
+// v2 — the studio re-shell — epic #202, ticket #222).
 // Governing doc: docs/epics/per-company-brief.architecture.md §Stack (per-company deploy: `wrangler
 // pages deploy` direct upload to an unlisted target) + §Boundaries (privacy — real-brand content
 // lives only in the jobs folder and unlisted deploys, NEVER in this public repo; deploys are
-// human-triggered). Folds spike 2.
+// human-triggered) + docs/epics/prototype-studio.prd.md §9. Folds spike 2.
 //
 // A standalone orchestrator — run FROM THE JOBS FOLDER the way agent-layer/build.mjs is (input paths
 // resolve from cwd; --out is REQUIRED and MUST be OUTSIDE this repo). It compiles one company brief
-// (#39's genCompanyPackage) + a derived pack (#40's tokens.<slug>.css) + a derivation trace + the
-// #43 private-instance shell into a self-contained, deployable directory, then PRINTS the exact
+// (#39's genCompanyPackage) + a derived pack (#40's tokens.<slug>.css) + a derivation trace + a
+// RECORDED BUILD RUN (#222: the studio band's replay — five committed files, copied never run) +
+// the #43 private-instance shell into a self-contained, deployable directory, then PRINTS the exact
 // `wrangler pages deploy` command — the irreversible deploy stays an explicit human step
 // (§Boundaries). A SIBLING of build.mjs, NOT a gen-* registered inside it.
 //
 // Standalone (from the jobs folder):
 //   node ../ux-factory/agent-layer/build-instance.mjs <brief.md> --out <dir> \
-//     --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--compositions <dir>] \
-//     [--name <s>] [--proto <url>] [--handoff <url>]
+//     --pack <tokens.<slug>.css> --trace <derivation.jsonl> --replay <slug> \
+//     [--name <s>] [--handoff <url>]
 //
-// --compositions adds the BESPOKE-PROTOTYPE step (epic #86, ticket #89): a pre-recorded composed
-// view (a real record-composition run) is copied into the deploy dir with the vocabulary it
-// validates against, referenced from INSTANCE_CONFIG, and gated by validateAssembly through the
-// same refusal engine the reader's browser renders it with. Copy-not-run — no SDK here.
+// --replay names a recorded build run by slug (epic #202 ticket #203's recorder): the five files —
+// replay/<slug>.json, replay/<slug>.board.json, replay/briefs/<slug>.md, traces/<slug>.jsonl,
+// traces/<slug>.raw.jsonl — are copied from THIS REPO's tree at the same root-absolute paths the
+// projection self-describes with. COPY-NOT-RUN, the --trace discipline: this builder never records
+// and never generates; a company-real run is recorded through the repo tooling into the WORKING
+// TREE and NEVER COMMITTED (`git clean` after building) — the recorder and generator are
+// repo-anchored, so "copy" means "copy whatever the tree holds" and the no-commit rule is operator
+// discipline, stated here and in the usage text.
+//
+// v2 retired --compositions and --proto with the composed-view slot they fed (#89 → #222): the
+// studio band IS the bespoke prototype now. It also GENERATES the per-instance chrome config
+// (system/client.instance.config.js — closing #160: the deployed chrome used to 404 on every
+// public-site route), and validateAssembly now refuses ANY internal reference that does not
+// resolve inside the deploy dir — the old chrome exclusion is gone.
+//
+// The fictional:false privacy boundary is NOT here: gen-company-package.mjs:11-13 refuses to
+// compile a real company's package into the repo, and portal/lib/builder.mjs refuses to run a
+// composition over one (build-checks group 8). This file's half is the --out guard below.
 
 import { cpSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, statSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -27,9 +43,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
 import { parseCompanyBrief } from "./lib.mjs";
 import { genCompanyPackage } from "./gen-company-package.mjs";
-// The SAME engine the view uses to render a composed view — pure + DOM-free (agentic-renderer.mjs
-// header), so validateAssembly can gate every copied proposal with it before an operator deploys.
-import { validateComposition } from "../system/agentic-renderer.mjs";
 
 // Repo assets resolve from the MODULE (agent-layer/.. = repo root); NEVER cwd (cwd is the jobs folder
 // at runtime). The same module-relative-vs-cwd split gen-company-package.mjs + build.mjs use.
@@ -80,6 +93,9 @@ const HEADERS = `/*
 /traces/*
   Cache-Control: public, max-age=300, must-revalidate
 
+/replay/*
+  Cache-Control: public, max-age=300, must-revalidate
+
 /proto/*
   Cache-Control: public, max-age=300, must-revalidate
 
@@ -94,10 +110,13 @@ const HEADERS = `/*
 // (per-company-brief.architecture.md §Stamping / the #44 plan). Every Mechanism-A anchor is REQUIRED:
 // a missing one is a HARD THROW, never a silent skip — else a real instance ships demo scaffolding.
 //   A) anchored full-region rewrites — pack <link>, <title>, <meta description>, #instance-name text,
-//      and the INSTANCE_CONFIG block (between its marker comments).
+//      the chrome config <script> line (#222/#160), and the INSTANCE_CONFIG block (between its
+//      marker comments).
 //   B) demo/real region toggling — delete every [data-when="demo"], un-hide every [data-when="real"],
 //      strip the data-when marker, substitute {{name}} (HTML-escaped).
-function stampShell(html, { name, slug, traceBase, links, composition }) {
+// EXPORTED (#222) so tooling/build-checks.mjs can drive it over the REAL shell text with a
+// synthetic config in CI — pure: text in, text out, no filesystem.
+export function stampShell(html, { name, slug, traceBase, links, replaySlug }) {
   const nameHtml = htmlEscape(name);
   let out = html;
 
@@ -138,16 +157,22 @@ function stampShell(html, { name, slug, traceBase, links, composition }) {
   rewrite(/<span id="instance-name">[^<]*<\/span>/,
     `<span id="instance-name">${nameHtml}</span>`, "#instance-name span");
 
+  // The chrome config <script> (#222, closing #160): the deployed instance loads the GENERATED
+  // per-instance chrome, never the repo's neutral IA — whose routes do not exist in a deploy dir.
+  rewrite(/<script src="\/system\/client\.neutral\.config\.js"><\/script>/,
+    `<script src="/system/client.instance.config.js"></script>`,
+    "chrome config <script> (client.neutral.config.js)");
+
   // INSTANCE_CONFIG block (between markers). JSON in a <script> context → JSON.stringify handles
   // quoting; escape `<` so a stray "</script>" or "<" inside a value can't break out of the element.
-  // `composition` is present ONLY when this build shipped a bespoke composed view (--compositions);
-  // without the key instance.mjs falls back to the prototype link, then the honest placeholder.
+  // v2 (#222): `replay` names the recorded build run the studio band plays; `composition` and
+  // `links.prototype` retired with the composed-view slot.
   const config = {
     package: `/scenarios/${slug}`,
     name,
     trace: { path: `/traces/${traceBase}` },
-    ...(composition ? { composition } : {}),
-    links: { prototype: (links && links.prototype) || null, handoff: (links && links.handoff) || null },
+    replay: { artifact: `/replay/${replaySlug}.json`, trace: `/traces/${replaySlug}.jsonl` },
+    links: { handoff: (links && links.handoff) || null },
   };
   const configJson = JSON.stringify(config, null, 2).replace(/</g, "\\u003c").replace(/\n/g, "\n    ");
   const configBlock =
@@ -174,19 +199,65 @@ function stampShell(html, { name, slug, traceBase, links, composition }) {
   return out;
 }
 
-// The composition manifest's `proposal` paths are a CONTRACT, not a hint: each must name a plain file
-// directly inside THIS instance's own composition dir. Returns the ref when it holds, else null.
-// Enforced at both the copy step and validateAssembly, because a manifest value ends up in
-// readFileSync twice — a `../…` ref would otherwise walk straight out of the deploy dir (the manifest
-// is the operator's own record-composition output, so this is a contract guard, not a trust boundary,
-// but a gate whose stated job is "what validates is what ships" has to enforce it, not infer it from
-// a downstream symptom). `.`/`..` are excluded explicitly: neither contains a slash.
-function compositionRef(slug, ref) {
-  if (typeof ref !== "string") return null;
-  const prefix = `/proto/compositions/${slug}/`;
-  if (!ref.startsWith(prefix)) return null;
-  const file = ref.slice(prefix.length);
-  return file && file !== "." && file !== ".." && !file.includes("/") ? ref : null;
+// Which references are deploy-safe (#160 → #222). A deployed instance carries ONLY itself, so an
+// internal reference must resolve inside the deploy dir; the only sanctioned externals are mailto:
+// and https: (the designed --public-origin hook is still not implemented, so there is no public
+// origin to rewrite a route onto). Fragments are same-page by definition; query/hash suffixes are
+// stripped before the lookup. Anything else — http:, protocol-relative, bare-relative,
+// javascript: — is refused: none of them can be proven safe from here.
+// EXPORTED and PURE (the caller supplies `resolves(rootAbsolutePath)`), so tooling/build-checks.mjs
+// drives it over a synthetic deploy listing in CI.
+export function auditRefs(refs, resolves) {
+  const problems = [];
+  for (const ref of refs) {
+    if (typeof ref !== "string" || !ref.trim()) { problems.push(`empty reference ${JSON.stringify(ref)}`); continue; }
+    if (ref.startsWith("#") || ref.startsWith("mailto:") || ref.startsWith("https:")) continue;
+    if (ref.startsWith("/") && !ref.startsWith("//")) {
+      const path = ref.replace(/[?#].*$/, "");
+      if (!resolves(path)) problems.push(`internal reference does not resolve in the deploy dir: ${ref}`);
+      continue;
+    }
+    problems.push(`reference is neither in-dir, mailto: nor https:: ${ref}`);
+  }
+  return problems;
+}
+
+// The generated per-instance chrome config (#222, closing #160): brand name = the company's, an
+// EMPTY nav (site.js:29 tolerates it — a bare brand header; the hero's own jump nav covers the
+// page's sections), the contact CTA as mailto, and a footer whose every link is a file this deploy
+// dir actually carries, plus the two sanctioned externals. Emitted as `window.CLIENT_CONFIG =
+// <pure JSON>;` so validateAssembly can parse it back and audit every link through auditRefs.
+function instanceChromeConfig({ name, slug }) {
+  return {
+    brand: {
+      name,
+      homeHref: "/",
+      logo: {
+        default: "/assets/logo-neutral.svg",
+        onDark: "/assets/logo-neutral-on-dark.svg",
+      },
+    },
+    nav: [],
+    cta: { label: "Get in touch", href: "mailto:linardsberzins@gmail.com" },
+    footer: {
+      tagline:
+        "A working factory for UX engineering: a token-contract design system, generated "
+        + "artifacts committed in the open, agents at build time only. Built by Linards Berzins.",
+      columns: [
+        {
+          title: "The system",
+          items: [
+            { label: "Token contract", href: "/system/tokens.contract.css" },
+            { label: `The ${name} pack`, href: `/system/tokens.${slug}.css` },
+            { label: "Component styles", href: "/system/components.css" },
+            { label: "Source (GitHub)", href: "https://github.com/linardsb/ux-factory" },
+            { label: "Contact", href: "mailto:linardsberzins@gmail.com" },
+          ],
+        },
+      ],
+      copyright: "© 2026 Linards Berzins · ux factory",
+    },
+  };
 }
 
 // Validate the assembled deploy dir — the gate that catches a bad stamp or a missing asset before the
@@ -199,8 +270,15 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   if (/data-when=/.test(html)) problems.push("residual data-when= attribute (a demo/real region was not toggled)");
   if (/\{\{/.test(html)) problems.push("residual {{ template token (a substitution was missed)");
   // No element kept a standalone `hidden` attribute (un-hide failed → invisible content). Strip the
-  // <style> block first so CSS `overflow: hidden` never trips this.
-  if (/<[a-zA-Z][^>]*\shidden(?=[\s/>])/.test(html.replace(/<style[\s\S]*?<\/style>/gi, " ")))
+  // <style> block first so CSS `overflow: hidden` never trips this — and strip the studio's
+  // [data-studio-notice] node too (#222): the shared-link notice is hidden AT REST by design
+  // (#210's rule — a page reached without a ?b= never fills it), carries no data-when, and is the
+  // ONE sanctioned standalone `hidden` in the shell. Anything else with a bare `hidden` is still a
+  // failed un-hide.
+  const hiddenScan = html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]*\bdata-studio-notice\b[^>]*>/g, " ");
+  if (/<[a-zA-Z][^>]*\shidden(?=[\s/>])/.test(hiddenScan))
     problems.push("a real-only region kept its `hidden` attribute (un-hide failed) — that content would be invisible");
 
   // 2. Pack <link> points at the company pack, not the neutral one.
@@ -228,6 +306,11 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
     if (config.package !== `/scenarios/${slug}`) problems.push(`INSTANCE_CONFIG.package !== /scenarios/${slug} (got ${JSON.stringify(config.package)})`);
     if (config.name !== name) problems.push(`INSTANCE_CONFIG.name !== ${JSON.stringify(name)} (got ${JSON.stringify(config.name)})`);
     if (!config.trace || config.trace.path !== `/traces/${traceBase}`) problems.push(`INSTANCE_CONFIG.trace.path !== /traces/${traceBase}`);
+    // v2 shape (#222): the recorded run in, the composed-view slot out.
+    if (!config.replay || typeof config.replay.artifact !== "string" || typeof config.replay.trace !== "string")
+      problems.push("INSTANCE_CONFIG.replay { artifact, trace } is missing or malformed — v2 requires the recorded build run");
+    if (config.composition) problems.push("INSTANCE_CONFIG.composition is v1 — the composed-view slot retired at #222");
+    if (config.links && "prototype" in config.links) problems.push("INSTANCE_CONFIG.links.prototype is v1 — retired at #222");
   }
 
   // 5. No "demo"/"fictional" left in RENDERED body text (strip comments, scripts, styles, tags first —
@@ -238,67 +321,71 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   if (/\bdemo\b/i.test(body)) problems.push('rendered body text still contains "demo" (a demo-only region was not tagged data-when="demo")');
   if (/\bfictional\b/i.test(body)) problems.push('rendered body text still contains "fictional"');
 
-  // 6. Every referenced same-origin asset resolves in the deploy dir (chrome cross-links like /factory
-  //    /contact are intentionally excluded — documented v1 limitation, they 404 pre-launch).
+  // 6. EVERY reference resolves — #160 CLOSED: the old "chrome cross-links intentionally excluded"
+  //    carve-out is gone. All href/src values in the stamped HTML, everything INSTANCE_CONFIG
+  //    names, and (6d) every link in the generated chrome config go through the one auditRefs
+  //    predicate: in-dir, mailto: or https:, nothing else.
+  const resolves = (p) => existsSync(join(deployDir, String(p).replace(/^\//, "")));
   const refs = new Set();
-  for (const m of html.matchAll(/(?:href|src)="(\/(?:system|assets|scenarios|traces|proto|handoff)\/[^"]+)"/g)) refs.add(m[1]);
-  let compositionIndex = null; // the parsed manifest, when this instance ships a composed view
-  const composedViews = [];    // only its entries whose proposal path holds to the contract
+  for (const m of html.matchAll(/(?:href|src)="([^"]+)"/g)) refs.add(m[1]);
   if (config) {
     refs.add(`${config.package}/intake.defaults.json`);
     refs.add(`${config.package}/copy.json`);
     if (config.trace && config.trace.path) refs.add(config.trace.path);
-    if (config.composition) {
-      refs.add(config.composition.index);
-      refs.add(config.composition.vocab);
-      // Each manifest entry's PROPOSAL must resolve. Its `trace` is deliberately NOT ref'd: the
-      // per-composition PIV traces are not shipped with an instance (station 04 carries the headline
-      // derivation run) — ref'ing them would fail every build.
-      try {
-        compositionIndex = JSON.parse(readFileSync(join(deployDir, config.composition.index.replace(/^\//, "")), "utf8"));
-        if (!Array.isArray(compositionIndex) || compositionIndex.length === 0)
-          problems.push(`${config.composition.index} carries no composed views (expected a non-empty manifest array)`);
-        else for (const entry of compositionIndex) {
-          // Contract first, filesystem second. A violating entry is named here and dropped — it is
-          // deliberately NOT ref'd and NOT validated below, so each bad entry yields exactly one
-          // problem instead of a fence complaint plus a "referenced asset missing" echo.
-          const ref = compositionRef(slug, entry && entry.proposal);
-          if (!ref) {
-            problems.push(`composed view path ${JSON.stringify(entry && entry.proposal)} is outside this instance's manifest contract — every proposal must read /proto/compositions/${slug}/<file> (record the run with scenario == "${slug}")`);
-            continue;
-          }
-          refs.add(ref);
-          composedViews.push(entry);
-        }
-      } catch (e) {
-        compositionIndex = null;
-        problems.push(`could not read the copied composition manifest ${config.composition.index} — ${e.message}`);
-      }
-    }
+    if (config.replay && typeof config.replay.artifact === "string") refs.add(config.replay.artifact);
+    if (config.replay && typeof config.replay.trace === "string") refs.add(config.replay.trace);
   }
-  for (const ref of refs)
-    if (typeof ref !== "string" || !existsSync(join(deployDir, ref.replace(/^\//, "")))) problems.push(`referenced asset missing in deploy dir: ${ref}`);
+  problems.push(...auditRefs([...refs], resolves));
 
-  // 6b. Every copied proposal VALIDATES against the copied vocabulary — the same refusal engine the
-  //     view renders through, run here so a composition that the reader's browser would refuse can
-  //     never reach a deploy. Runs only on files that resolved above — a missing one is already a
-  //     problem, and re-reporting it as a validation failure would just double the noise.
-  const resolved = (ref) => typeof ref === "string" && existsSync(join(deployDir, ref.replace(/^\//, "")));
-  if (config && config.composition && composedViews.length && resolved(config.composition.vocab)) {
+  // 6c. The recorded run (#222): the copied artifact parses, carries ops, and SELF-DESCRIBES with
+  //     paths that all shipped — the projection's `source` values are root-absolute (replay/README)
+  //     and the driver renders them as the chrome's links, so a source path missing from the deploy
+  //     dir is a dead link on the built page.
+  if (config && config.replay && typeof config.replay.artifact === "string" && resolves(config.replay.artifact)) {
     try {
-      const vocab = JSON.parse(readFileSync(join(deployDir, config.composition.vocab.replace(/^\//, "")), "utf8"));
-      for (const entry of composedViews) {
-        if (!resolved(entry.proposal)) continue;
-        try {
-          validateComposition(vocab, JSON.parse(readFileSync(join(deployDir, entry.proposal.replace(/^\//, "")), "utf8")), entry.slug);
-        } catch (e) {
-          problems.push(`composed view ${entry.proposal} is not renderable — ${e.message}`);
-        }
-      }
+      const artifact = JSON.parse(readFileSync(join(deployDir, config.replay.artifact.replace(/^\//, "")), "utf8"));
+      if (!Array.isArray(artifact.ops) || !artifact.ops.length)
+        problems.push(`${config.replay.artifact} carries no ops — not a replay projection`);
+      const src = artifact.source && typeof artifact.source === "object" ? artifact.source : {};
+      for (const [k, v] of Object.entries(src))
+        if (typeof v === "string" && v.startsWith("/") && !resolves(v))
+          problems.push(`replay artifact source.${k} names a path not in the deploy dir: ${v}`);
+      if (typeof src.curatedTrace === "string" && src.curatedTrace !== config.replay.trace)
+        problems.push(`replay artifact source.curatedTrace (${src.curatedTrace}) !== INSTANCE_CONFIG.replay.trace (${config.replay.trace}) — the chrome and the config would link different traces`);
     } catch (e) {
-      problems.push(`could not read the copied vocabulary ${config.composition.vocab} — ${e.message}`);
+      problems.push(`replay artifact ${config.replay.artifact} does not parse — ${e.message}`);
     }
   }
+
+  // 6d. The generated chrome config (#160): present, loaded by the stamped HTML, parses as pure
+  //     JSON, and every link in it deploy-safe through the same predicate.
+  const chromePath = join(deployDir, "system", "client.instance.config.js");
+  if (!existsSync(chromePath)) problems.push("system/client.instance.config.js missing (the generated chrome config)");
+  else {
+    const text = readFileSync(chromePath, "utf8");
+    const assignment = text.match(/window\.CLIENT_CONFIG\s*=\s*([\s\S]*);\s*$/);
+    if (!assignment) problems.push("client.instance.config.js carries no window.CLIENT_CONFIG assignment");
+    else {
+      try {
+        const chrome = JSON.parse(assignment[1]);
+        const chromeRefs = [];
+        (function walk(v) {
+          if (Array.isArray(v)) { v.forEach(walk); return; }
+          if (v && typeof v === "object") {
+            for (const [k, val] of Object.entries(v)) {
+              if (typeof val === "string" && ["href", "homeHref", "default", "onDark"].includes(k)) chromeRefs.push(val);
+              else walk(val);
+            }
+          }
+        })(chrome);
+        problems.push(...auditRefs(chromeRefs, resolves).map((p) => `chrome config: ${p}`));
+      } catch (e) {
+        problems.push(`client.instance.config.js RHS is not JSON — ${e.message}`);
+      }
+    }
+  }
+  if (!html.includes('src="/system/client.instance.config.js"')) problems.push("stamped HTML does not load the generated chrome config");
+  if (/client\.neutral\.config\.js/.test(html)) problems.push("stamped HTML still loads client.neutral.config.js (the chrome anchor was not stamped)");
 
   // 7. _headers carries the unconditional noindex.
   const headersPath = join(deployDir, "_headers");
@@ -308,10 +395,10 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
   if (problems.length) throw new Error(`build-instance: assembled instance failed validation:\n  - ${problems.join("\n  - ")}`);
 }
 
-// Compile briefPath + pack + trace + the shell into a self-contained deploy dir under outDir. Paths
-// resolve from cwd; REPO_ROOT (the privacy boundary + the shell/assets source) resolves from this
-// module. Returns { deployDir, slug, name, provenance, traceBase }.
-export function buildInstance({ briefPath, outDir, packPath, tracePath, compositionsDir, name, links, publicOrigin }) {
+// Compile briefPath + pack + trace + the recorded run + the shell into a self-contained deploy dir
+// under outDir. Paths resolve from cwd; REPO_ROOT (the privacy boundary + the shell/assets/run
+// source) resolves from this module. Returns { deployDir, slug, name, provenance, traceBase }.
+export function buildInstance({ briefPath, outDir, packPath, tracePath, replaySlug, name, links, publicOrigin }) {
   if (!briefPath) throw new Error("build-instance: <brief.md> is required");
   if (!outDir) throw new Error("build-instance: --out <dir> is required (must be OUTSIDE this repo)");
   // --public-origin is a DESIGNED HOOK, deliberately not implemented in v1 (per-company-brief
@@ -332,12 +419,23 @@ export function buildInstance({ briefPath, outDir, packPath, tracePath, composit
   const traceAbs = resolve(tracePath || "");
   if (!tracePath || !traceAbs.endsWith(".jsonl") || !existsSync(traceAbs))
     throw new Error(`build-instance: --trace must be an existing .jsonl derivation trace (got ${JSON.stringify(tracePath)})`);
-  // --compositions is OPTIONAL (an instance with no bespoke prototype still builds). COPY-NOT-RUN,
-  // exactly like --trace: the composed views come from a real record-composition run through
-  // record → curate → validate; this builder never generates one (no SDK here, by design).
-  const compAbs = compositionsDir ? resolve(compositionsDir) : null;
-  if (compAbs && !existsSync(join(compAbs, "index.json")))
-    throw new Error(`build-instance: --compositions must be an existing record-composition output dir containing index.json (got ${JSON.stringify(compositionsDir)} → ${join(compAbs, "index.json")})`);
+  // --replay is REQUIRED (#222): the studio band plays a recorded build run, and an instance built
+  // without one would fall back to the PUBLIC demo run — the one thing a "built for YOU" page must
+  // never show. COPY-NOT-RUN, the --trace discipline: the five files come from a real
+  // portal/record-build.mjs run projected by agent-layer/gen-replay.mjs, resolved from THIS repo's
+  // tree (working tree included — a company-real run is recorded there and never committed).
+  if (typeof replaySlug !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(replaySlug))
+    throw new Error(`build-instance: --replay <slug> is required — a recorded build run's slug, e.g. build-<company>-<subject> (got ${JSON.stringify(replaySlug)})`);
+  const replayFiles = [
+    `replay/${replaySlug}.json`,
+    `replay/${replaySlug}.board.json`,
+    `replay/briefs/${replaySlug}.md`,
+    `traces/${replaySlug}.jsonl`,
+    `traces/${replaySlug}.raw.jsonl`,
+  ];
+  for (const rel of replayFiles)
+    if (!existsSync(join(REPO_ROOT, rel)))
+      throw new Error(`build-instance: --replay ${replaySlug} — missing ${join(REPO_ROOT, rel)}. Record the run first (node portal/record-build.mjs --slug ${replaySlug}) and project it (node agent-layer/gen-replay.mjs).`);
 
   // Brief head → the instance display name default (genCompanyPackage re-parses + validates the rest).
   const { head } = parseCompanyBrief(briefPath);
@@ -364,54 +462,40 @@ export function buildInstance({ briefPath, outDir, packPath, tracePath, composit
     copyFileSync(traceAbs, join(deployDir, "traces", traceBase));
     writeFileSync(join(deployDir, "_headers"), HEADERS);
 
-    // Bespoke-prototype step (epic #86, ticket #89) — copy the pre-recorded composed views in, and
-    // the design-system vocabulary they validate against. vocabulary.json is GENERATED design-system
-    // output (gen-vocabulary.mjs), never company-real, so it sources from REPO_ROOT and is safe to
-    // ship. The manifest's proposal paths must already be /proto/compositions/<slug>/… (run
-    // record-composition with scenario == slug) — validateAssembly fails loudly on a mismatch.
-    let composition = null;
-    if (compAbs) {
-      // COPY BY NAME, never wholesale. `--trace` ships exactly the one file it references; this ships
-      // index.json plus exactly the proposals that manifest names, so "only what the manifest
-      // references reaches the unlisted deploy dir" is structural rather than incidental — a stray
-      // scratch file, an earlier run's artifact or a .DS_Store in the source dir has no path in.
-      // Entries that fail the path contract are deliberately not copied: validateAssembly names each
-      // one below, and a name is more use to the operator than a silently-absent file.
-      const srcIndexPath = join(compAbs, "index.json");
-      let srcIndex;
-      try {
-        srcIndex = JSON.parse(readFileSync(srcIndexPath, "utf8"));
-      } catch (e) {
-        throw new Error(`build-instance: --compositions manifest ${srcIndexPath} is not readable JSON — ${e.message}`);
-      }
-      const compDir = join(deployDir, "proto", "compositions", slug);
-      mkdirSync(compDir, { recursive: true });
-      copyFileSync(srcIndexPath, join(compDir, "index.json"));
-      if (Array.isArray(srcIndex))
-        for (const entry of srcIndex) {
-          const ref = compositionRef(slug, entry && entry.proposal);
-          if (!ref) continue;
-          const file = basename(ref);
-          if (existsSync(join(compAbs, file))) copyFileSync(join(compAbs, file), join(compDir, file));
-        }
-      mkdirSync(join(deployDir, "handoff", "verdant"), { recursive: true });
-      copyFileSync(join(REPO_ROOT, "handoff", "verdant", "vocabulary.json"), join(deployDir, "handoff", "verdant", "vocabulary.json"));
-      composition = { index: `/proto/compositions/${slug}/index.json`, vocab: "/handoff/verdant/vocabulary.json" };
+    // The recorded run (#222) — copy the five files at the SAME root-absolute paths the projection
+    // self-describes with (its `source` values), so the driver's chrome links resolve unchanged.
+    // Presence was validated before any write; validateAssembly re-checks the copied artifact.
+    for (const rel of replayFiles) {
+      mkdirSync(dirname(join(deployDir, rel)), { recursive: true });
+      copyFileSync(join(REPO_ROOT, rel), join(deployDir, rel));
     }
+
+    // The studio's docs chain (#222) — ALWAYS copied now: studio-compile.mjs fetches
+    // vocabulary.json on first compile and studio-docs.mjs's DOCS_SOURCES adds pack.json (its
+    // third source, system-graph.json, rides the wholesale system/ copy). Both are GENERATED
+    // design-system output, never company-real, so they source from REPO_ROOT and are safe to ship.
+    mkdirSync(join(deployDir, "handoff", "verdant"), { recursive: true });
+    for (const f of ["pack.json", "vocabulary.json"])
+      copyFileSync(join(REPO_ROOT, "handoff", "verdant", f), join(deployDir, "handoff", "verdant", f));
+
+    // The per-instance chrome config (#222, closing #160) — written AFTER the wholesale system/
+    // copy so nothing overwrites it. Pure JSON RHS on purpose: validateAssembly parses it back and
+    // audits every link through auditRefs.
+    const chrome = instanceChromeConfig({ name: instanceName, slug });
+    writeFileSync(join(deployDir, "system", "client.instance.config.js"),
+      "// GENERATED by agent-layer/build-instance.mjs (#222) — the per-instance chrome config (#160):\n"
+      + "// every internal link resolves inside this deploy dir; externals are mailto/GitHub only.\n"
+      + `window.CLIENT_CONFIG = ${JSON.stringify(chrome, null, 2)};\n`);
 
     // Stamp the shell → index.html (renamed → bare root URL).
     const stamped = stampShell(readFileSync(join(REPO_ROOT, "instance.html"), "utf8"),
-      { name: instanceName, slug, traceBase, links, composition });
+      { name: instanceName, slug, traceBase, links, replaySlug });
     writeFileSync(join(deployDir, "index.html"), stamped);
 
     // Gate: the assembled dir must validate before the operator deploys.
     validateAssembly(deployDir, { slug, traceBase, name: instanceName });
 
-    // Manifest parse is safe here: validateAssembly above already gated it.
-    const views = composition
-      ? JSON.parse(readFileSync(join(deployDir, "proto", "compositions", slug, "index.json"), "utf8")).length
-      : 0;
-    return { deployDir, slug, name: instanceName, provenance: pkg.provenance, traceBase, views };
+    return { deployDir, slug, name: instanceName, provenance: pkg.provenance, traceBase, replaySlug };
   } catch (e) {
     if (!preexisting) rmSync(deployDir, { recursive: true, force: true }); // discard only what we created
     throw e; // preserve the original error (bad brief, bad stamp, or failed validation)
@@ -426,21 +510,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const outDir = flag("--out");
     const packPath = flag("--pack");
     const tracePath = flag("--trace");
-    const compositionsDir = flag("--compositions");
-    if (!briefPath || !outDir || !packPath || !tracePath)
+    const replaySlug = flag("--replay");
+    if (!briefPath || !outDir || !packPath || !tracePath || !replaySlug)
       throw new Error(
-        "usage: node agent-layer/build-instance.mjs <brief.md> --out <dir> --pack <tokens.<slug>.css> --trace <derivation.jsonl> [--compositions <dir>] [--name <s>] [--proto <url>] [--handoff <url>]\n" +
-        "  --compositions  a pre-recorded record-composition output dir (its index.json proposal paths must be\n" +
-        "                  /proto/compositions/<slug>/…); copied in and validated here, never generated here\n" +
+        "usage: node agent-layer/build-instance.mjs <brief.md> --out <dir> --pack <tokens.<slug>.css> --trace <derivation.jsonl> --replay <slug> [--name <s>] [--handoff <url>]\n" +
+        "  --replay  a recorded build run's slug (portal/record-build.mjs → agent-layer/gen-replay.mjs);\n" +
+        "            its five files are copied from this repo's tree, never recorded or generated here.\n" +
+        "            A company-real run lives in the WORKING TREE only — never commit it; `git clean` after building.\n" +
         "  run FROM THE JOBS FOLDER; --out MUST be OUTSIDE this repo (nothing company-real is committed here)");
-    const links = { prototype: flag("--proto"), handoff: flag("--handoff") };
-    const r = buildInstance({ briefPath, outDir, packPath, tracePath, compositionsDir, name: flag("--name"), links, publicOrigin: flag("--public-origin") });
+    const links = { handoff: flag("--handoff") };
+    const r = buildInstance({ briefPath, outDir, packPath, tracePath, replaySlug, name: flag("--name"), links, publicOrigin: flag("--public-origin") });
 
     // Non-guessable deploy target — the <rand> suffix keeps the URL unguessable from the company name
     // (spike 2's non-discoverability requirement). project/branch naming per the wrangler skill.
     const target = `inst-${r.slug}-${randomBytes(3).toString("hex")}`;
     console.log(`build-instance ${r.slug.padEnd(10)} ✓  ${r.provenance} · name "${r.name}" · trace ${r.traceBase}` +
-      (r.views ? ` · prototype ${r.views} composed view${r.views === 1 ? "" : "s"}` : "") + ` → ${r.deployDir}`);
+      ` · replay ${r.replaySlug}` + ` → ${r.deployDir}`);
     console.log("\nNext — DEPLOY is the operator's explicit step (irreversible + outward-facing; needs Cloudflare auth, separate from the SDK login):\n");
     console.log("  # auth once — either:  npx wrangler login   OR   export CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=…  (token: Account · Cloudflare Pages · Edit)");
     console.log(`  npx wrangler pages project create ${target} --production-branch main`);

@@ -20,9 +20,9 @@
 //                            An unexercised guardrail is still the difference between the next
 //                            pattern refusing honestly and shipping a fake before anyone notices.
 //   3. empty board         — nothing to arrange yet, one sentence, a way back to Act 3.
-//   4. refusal             — the validator threw. Its message renders VERBATIM, the way
-//                            agentic-study.mjs treats the boundary probe: naming the offending
-//                            path IS the feature. This one IS reachable, and it is the guardrail
+//   4. refusal             — the validator threw. Its message renders VERBATIM — naming the
+//                            offending path IS the feature (the repo's refusal-as-content
+//                            discipline). This one IS reachable, and it is the guardrail
 //                            the committed gate exercises: a component name outside the generated
 //                            vocabulary is refused whatever named it.
 //

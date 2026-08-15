@@ -133,18 +133,6 @@ const SITEWIDE = [
     state: (p) => p.locator("#factory-wizard .fw-progress").textContent().then((s) => s.trim()),
   },
   {
-    page: "/agentic-ui-study.html", label: "study · question tab", boot: 0,
-    ready: (p) => p.waitForSelector("#study .study-tab", { timeout: 20000 }),
-    act: async (p) => { const tab = p.locator("#study .study-tab").nth(1); await tab.scrollIntoViewIfNeeded(); await tab.click(); },
-    state: (p) => p.locator("#study .study-tab[aria-selected='true']").first().textContent().then((s) => s.trim()),
-  },
-  {
-    page: "/agentic-ui-study.html", label: "study · remove a tile", boot: 0,
-    ready: (p) => p.waitForSelector("#study .study-control-row", { timeout: 20000 }),
-    act: async (p) => { const b = p.locator("#study .study-control-row button[aria-label='Remove']").first(); await b.scrollIntoViewIfNeeded(); await b.click(); },
-    state: (p) => p.locator("#study .study-control-row").count().then(String),
-  },
-  {
     page: "/trace.html", label: "trace · step forward", boot: 0,
     ready: (p) => p.waitForSelector("#player .trace-controls", { timeout: 20000 }),
     act: async (p) => { const b = p.locator("#player").getByRole("button", { name: /Next/ }); await b.scrollIntoViewIfNeeded(); await b.click(); },

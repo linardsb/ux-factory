@@ -50,6 +50,16 @@
 // built element by element. tooling/studio-journey.mjs's running-page hasAttribute("style") pass is
 // the other half of that claim — grep proves the source, not the page.
 //
+// CONFIGURED, NEVER FORKED (#222): mountStudio takes an `opts` object a second page can call it
+// with — today `opts.replay` alone, an { artifact, trace } pair threaded to the replay driver's
+// `source` — and the self-boot at the bottom STANDS DOWN when the shell carries
+// data-studio-mount="external", so that page's own module owns the call. That is
+// system/factory-intake.mjs:711's seam, applied to this orchestrator: /factory's markup carries no
+// mount attribute and passes no opts, so its behavior is byte-identical; the private instance
+// (system/instance.mjs) is the external caller. Everything else an instance configures, it
+// configures by DOM omission — no [data-studio-frames], only the wanted inspector tabs — because
+// the modules already read the DOM for what exists.
+//
 // Node-import safe: no DOM outside a function body, and the self-boot at the bottom is behind a
 // `typeof document` guard, because tooling/build-checks.mjs imports this file for its pure layer.
 
@@ -401,7 +411,9 @@ function wireInspector(shell) {
 // exactly what it was; what changed is who calls it and with what.
 //
 // `restored` is null on every ordinary load and is decodeBuild's validated state on a shared link.
-function mountStudioCore(root, shell, restored) {
+// `opts` is mountStudio's, threaded verbatim (#222): plain data, no await — `opts.replay` names
+// which committed run the driver plays, absent on /factory.
+function mountStudioCore(root, shell, restored, opts = {}) {
   const canvas = initStudioCanvas(root);
   if (!canvas) return null;
 
@@ -595,6 +607,7 @@ function mountStudioCore(root, shell, restored) {
       // option to add here. It can only fire after start()'s awaits, so `replay` is bound.
       onTakeOver: () => publishBoard(replay ? replay.board : null),
       declined,
+      source: opts.replay,
     });
   } catch (err) {
     // The driver reports a boundary failure by throwing (replay-driver.mjs:864-869) and leaves
@@ -713,7 +726,7 @@ function mountStudioCore(root, shell, restored) {
 const RESTORED = "This board came in on the link you followed. Nothing was stored anywhere; your browser rebuilt it from the URL.";
 const REFUSED = "That shared link could not be read, so this is the studio as it comes.";
 
-async function restoreShared(param, root, shell) {
+async function restoreShared(param, root, shell, opts) {
   let restored = null;
   let refusal = null;
   try {
@@ -734,7 +747,7 @@ async function restoreShared(param, root, shell) {
     } catch { /* file:// has no entry to replace, and no address bar to mislead */ }
   }
 
-  const handle = mountStudioCore(root, shell, restored);
+  const handle = mountStudioCore(root, shell, restored, opts);
   const sentence = restored ? RESTORED : `${REFUSED} ${refusal}`;
   // TWO PLACES, and they are not redundant. canvas.say is the studio's ONE live region, so a screen
   // reader hears it — but that region is transient by design, and on the refused path the replay
@@ -749,7 +762,7 @@ async function restoreShared(param, root, shell) {
   return handle;
 }
 
-export function mountStudio(root = document) {
+export function mountStudio(root = document, opts = {}) {
   // OUTSIDE THE try/finally, DELIBERATELY — and a future reader's instinct will be to tidy it
   // inward, which is why this paragraph is here. Two repo rules meet at this line. #173's
   // arrangement (docs/epics/annotated-source-glossary.architecture.md) puts initGlossary inside the
@@ -780,7 +793,7 @@ export function mountStudio(root = document) {
   if (!shared) {
     try {
       if (!shell) return null;
-      return mountStudioCore(root, shell, null);
+      return mountStudioCore(root, shell, null, opts);
     } finally {
       settleHandles(root, shell);
     }
@@ -791,7 +804,7 @@ export function mountStudio(root = document) {
   // capture and assert a page mid-restore (build-keep.mjs:382-384 makes the same call for the same
   // reason). `.finally` rather than a try/finally: the work is a promise now, and the handles must
   // resolve on the rejected path too.
-  return restoreShared(shared, root, shell).finally(() => settleHandles(root, shell));
+  return restoreShared(shared, root, shell, opts).finally(() => settleHandles(root, shell));
 }
 
 // Both readiness handles, in one place because both are now set from two call sites.
@@ -810,4 +823,10 @@ function settleHandles(root, shell) {
 }
 
 // Self-boot behind a DOM guard so a Node import stays clean; inert on every page without the shell.
-if (typeof document !== "undefined") mountStudio(document);
+// STANDS DOWN when the page claims external mounting (#222) — factory-intake.mjs:711's idiom: the
+// instance's shell carries data-studio-mount="external" and system/instance.mjs makes the call
+// with its own opts, so importing this module there does not double-mount.
+if (typeof document !== "undefined"
+  && !document.querySelector('[data-studio][data-studio-mount="external"]')) {
+  mountStudio(document);
+}

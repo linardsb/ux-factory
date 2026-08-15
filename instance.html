@@ -11,38 +11,50 @@
   <meta name="theme-color" content="#ffffff" />
 
   <!-- instance.html — the private-instance shell (epic #38, ticket #43; re-chaptered onto the v3
-       spine by epic #70, ticket #81). The page a
+       spine by #81; re-shelled onto the STUDIO by epic #202, ticket #222). The page a
        hiring manager opens on an unlisted link: the factory demonstrated on THEIR company's publicly
        stated product vision. Governing doc: docs/epics/per-company-brief.architecture.md
        §Recommended approach (private layer + bounded steering) + §Boundaries (privacy · honesty
-       labeling · no public upload surface) + docs/epics/portfolio-v3-experience.prd.md §6.1 (the
-       spine's beats) / §6.2 ("public = the capability demonstrated; private = the capability applied
-       to THIS company").
+       labeling · no public upload surface) + docs/epics/prototype-studio.prd.md §9 (per-company
+       instances re-shell onto the studio).
 
-       Structure (#81) — the same spine the public home page runs, pre-seeded from the company brief:
+       Structure — the same spine the public home page runs, pre-seeded from the company brief:
          #instance-hero          beat 1, the hero (registered on spine.mjs's seam; NO re-skin — this
                                  page already wears the company pack from its head <link>)
          #labeling               honesty surface #1, before anything else
          #beat-brief             01 · you brief it — curated intake + the SHARED wizard
          #instance-appearance    interstitial · the instance-local pack control (no numeral)
-         #beat-built             02 · the peak — THE one dark band: the composed screen, the live
-                                 WCAG receipts, the Manipulation Matrix
-         #beat-keep              03 · you keep it — one close card (no share control: a share link
-                                 encodes a DERIVED pack's axes, meaningless against a pinned pack)
-         #verify                 04 · verify — the derivation run + the evidence row-list
+         #beat-built             02 · the peak — THE one dark band: the STUDIO (#222), pre-seeded
+                                 with this instance's pinned pack and its own recorded build run —
+                                 replay → take over → method cards → compile → keep rail — the same
+                                 modules /factory mounts, configured never forked. The shell claims
+                                 data-studio-mount="external" so studio.mjs's self-boot stands down
+                                 and system/instance.mjs makes the call with this instance's run.
+         #beat-keep              03 · you keep it — one close card (no share control: the studio's
+                                 keep rail above owns the board share link; the unlisted URL itself
+                                 is already forwardable)
+         #verify                 04 · verify — the derivation run + the open-source row
        The instance's hero id is `instance-hero`, not `beat-hero`: spine.mjs registers its own
        `beat-hero` at module scope, and a beat whose mount is absent registers INERT (spine.mjs:55),
        so importing the spine here needs no change to it and never runs home's canned re-skin.
 
        This is the GENERIC, config-driven shell — nothing company-real is ever committed here (the
        repo is public by design). #44's per-company build (agent-layer/build-instance.mjs) STAMPS this
-       shell into a real instance: it swaps the tokens.neutral.css pack <link>, rewrites the
-       INSTANCE_CONFIG block (between the markers below), the <title>, the <meta description>, and the
-       #instance-name text, and toggles the data-when="demo"/"real" prose regions (demo deleted, real
-       un-hidden, {{name}} substituted) — then ships a company package + pack beside this shell. In
-       this repo the shell is demo-configured to the fictional `scenarios/northwind` package (which
-       also carries the real-provenance labels, so the speculative-notice + sources path is exercised
-       in-repo); a stamped real instance carries the company's own package instead.
+       shell into a real instance: it swaps the tokens.neutral.css pack <link>, re-points the chrome
+       config <script> at the generated per-instance one, rewrites the INSTANCE_CONFIG block (between
+       the markers below — package · name · trace · replay · links), the <title>, the <meta
+       description>, and the #instance-name text, and toggles the data-when="demo"/"real" prose
+       regions (demo deleted, real un-hidden, {{name}} substituted) — then ships a company package +
+       pack + the recorded run's five files beside this shell. In this repo the shell is
+       demo-configured to a fictional scenario package committed here (which also carries the
+       real-provenance labels, so the speculative-notice + sources path is exercised in-repo); a
+       stamped real instance carries the company's own package and its own recorded run instead.
+
+       Every non-fragment link in this BODY is deploy-safe by construction — mailto:, https:, or a
+       path the per-company build ships — because a deployed instance carries only itself (#160's
+       lesson; validateAssembly now refuses any internal href that does not resolve in the deploy
+       dir). Public-site routes may appear only inside data-when="demo" regions, which stamping
+       deletes.
 
        Screenshots-in-trace decision (epic §Open questions): on an unlisted link the replayed
        derivation trace MAY include the company's own product screenshots — default YES. The demo
@@ -51,15 +63,21 @@
 
        No pack-boot.js and no dock.mjs (deliberate): a private instance PINS its pack. #44 swaps the
        tokens.<company>.css head line per company at build time; there is no localStorage pack to
-       restore here, and the dock's hard allowlist (neutral|saulera|verdant) would show "neutral"
-       checked while the page wears the company brand. #81 mounts system/instance-pack.mjs instead —
-       a two-option, session-only control in the #instance-appearance interstitial. And no
-       pack-derived.mjs anywhere in the import closure: its module tail applies a ?brand=… query
-       param to :root unguarded, which on this page would silently override the pinned company pack. -->
+       restore here, and the dock's hard allowlist would show "neutral" checked while the page wears
+       the company brand. #81 mounts system/instance-pack.mjs instead — a two-option, session-only
+       control in the #instance-appearance interstitial. And no pack-derived.mjs anywhere in the
+       import closure: its module tail applies a ?brand=… query param to :root unguarded, which on
+       this page would silently override the pinned company pack. -->
   <link rel="stylesheet" href="/system/tokens.contract.css" />
   <link rel="stylesheet" href="/system/tokens.neutral.css" />
   <link rel="stylesheet" href="/system/components.css" />
   <link rel="stylesheet" href="/system/portfolio.css" />
+  <link rel="stylesheet" href="/system/studio.css" />
+  <!-- The catalog's surface styles (factory.html:55's reason, inherited): the inspector's Component
+       panel renders system/catalog.mjs's renderComponentDocs, and the rules — including the global
+       [hidden] one the code tabs and the inspector's panel toggling both depend on — travel with
+       the renderer rather than with one page. -->
+  <link rel="stylesheet" href="/system/catalog.css" />
 
   <style>
     /* Page-unique shell styling — styled from tokens alone (colour / space / radius / type via
@@ -71,7 +89,10 @@
        the six IA visual-regression baselines for zero functional gain (a #44-era follow-up when many
        instances are stamped). New shell-only classes use the pi-* prefix. */
 
-    /* Beat anchors clear the sticky header (same 90px as factory.html). */
+    /* Beat anchors clear the sticky header (same 90px as factory.html). scroll-padding on the root
+       covers EVERY scroll-into-view the studio performs — deep-linked panels, keyboard focus, flow
+       navigation — factory.html:69's rule, inherited with the studio. */
+    html { scroll-padding-top: 96px; }
     #labeling, #beat-brief, #instance-appearance, #beat-built, #beat-keep, #verify { scroll-margin-top: 90px; }
 
     /* scenario / speculative label — honesty surface #1 (ported verbatim from factory.html:64–71). */
@@ -279,44 +300,36 @@
     /* Beat 01 · the curated answers, above the live wizard they seed. */
     .pi-curated { margin: 0 0 var(--spacing-2xl); display: grid; gap: var(--spacing-md); }
 
-    /* Beat 02 · the peak (#81) — the ONE dark band on this page. Both panels below are LIGHT cards
-       on the dark ground, and that is deliberate rather than an oversight: the study-* markup
-       agentic-study.mjs emits and the fw-ethics-* / fw-matrix / fw-reveal-* families ported above
-       are authored against the LIGHT token set (--color-fg, --color-bg-surface, --color-border).
-       A light panel needs zero override rules; an inverse variant would need roughly fifteen
-       overrides on classes whose whole value is that they are ported verbatim. index.html does the
-       same with .peak-screen--live. z-index lifts both panels above .band--dark::after's grain. */
-    .pi-peak-stage {
-      display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--spacing-2xl);
-      align-items: start; position: relative; z-index: 1;
-    }
-    .pi-peak-stage > * { min-width: 0; }
-    @media (max-width: 900px) { .pi-peak-stage { grid-template-columns: 1fr; gap: var(--spacing-xl); } }
-    .pi-peak-panel, .pi-peak-ethics {
+    /* Beat 02 · the studio (#222) — the ONE dark band on this page. The studio's own sheets paint
+       the canvas (.stx-scroll), the inspector and every card, but the shell's connective text —
+       the canvas label, the replay chrome's sentences, the method lead — is authored against the
+       LIGHT token set (--color-fg, --color-bg-surface, --color-border). So the band gives the
+       shell, the keep rail and the ethics panel each ONE light panel to sit on (index.html's
+       .peak-screen--live idiom, and the old peak's). Page-scoped shims, never a studio.css edit.
+       z-index lifts them above .band--dark::after's grain. Capability chips inside these panels sit
+       on the light surface, so the old .band--dark .capability inverse override is gone with the
+       machinery that needed it. */
+    #beat-built .stu-shell,
+    .pi-studio-keep,
+    .pi-peak-ethics {
       background: var(--color-bg); color: var(--color-fg);
       border: 1px solid var(--color-border); border-radius: var(--radius-md);
-      padding: var(--spacing-lg); min-width: 0;
+      padding: var(--spacing-xl); min-width: 0;
+      position: relative; z-index: 1;
     }
-    /* The panel carries the engine's derived token set as inline custom properties (instance.mjs
-       renderPeakDerivation) so the screen and the receipts beside it always describe one palette.
-       No entrance keyframe here or on the receipts: both are rebuilt on every wizard change, and a
-       per-render entrance restarts-and-blanks under a continuous colour drag. */
+    /* The run's provenance sentence sits INSIDE the light shell, above the replay chrome. */
+    .pi-run-provenance { margin: 0; max-width: 68ch; font-size: var(--type-caption); }
+    .pi-studio-keep { margin-top: var(--spacing-2xl); }
+    .pi-keep-head { margin: 0 0 var(--spacing-sm); }
+    .pi-keep-lead { margin: 0 0 var(--spacing-md); max-width: 68ch; }
     /* Hugs its content rather than stretching the container: the matrix caps at 56ch and the reveal
        at two columns, so a full-bleed panel would be mostly empty ground beside them. */
-    .pi-peak-ethics { position: relative; z-index: 1; margin-top: var(--spacing-2xl); padding: var(--spacing-xl); max-width: 74ch; }
+    .pi-peak-ethics { margin-top: var(--spacing-2xl); max-width: 74ch; }
     /* the ported .fw-ethics rule opens with its own hairline + top margin — inside a panel that is
        a second, redundant rule above the panel's own border. */
     .pi-peak-ethics .fw-ethics { margin-top: 0; padding-top: 0; border-top: 0; }
     .pi-peak-head { margin: 0 0 var(--spacing-sm); }
     .pi-peak-intro { margin: 0 0 var(--spacing-lg); max-width: 64ch; }
-
-    /* The capability chip and its claim move onto the dark band with the prototype slot. .capability
-       is authored against the light token set (--color-fg-muted / --color-border-strong /
-       --color-accent), so on near-black it would be the lowest-contrast element on the one band
-       whose whole subject is contrast. Re-point it at the inverse group; the TEXT still states the
-       status, so state is never carried by colour alone. */
-    .band--dark .capability { color: var(--color-fg-on-inverse-muted); border-color: var(--color-on-dark-border); }
-    .band--dark .capability.live { color: var(--color-accent-on-inverse); border-color: var(--color-accent-on-inverse); }
 
     /* Interstitial · the instance-local pack control (system/instance-pack.mjs). It reuses the
        dock's row classes from portfolio.css verbatim, so only the caption and the unstamped-shell
@@ -327,59 +340,6 @@
     /* Beat 04 · verify — the derivation run, one disclosure below the peak rather than above it. */
     .pi-verify-head { margin: var(--spacing-2xl) 0 var(--spacing-sm); }
     .pi-verify-list { margin-top: var(--spacing-3xl); }
-
-    /* Study workbench chrome (ported VERBATIM from agentic-ui-study.html:35–76) — the semantic
-       study-* classes system/agentic-study.mjs emits, token-only. Station 5 mounts that SAME module
-       for the composed prototype view, so it needs the same rules. (agentic-ui-study.html:28–34 is
-       that page's own chrome — .study-notice / .study-cap — deliberately NOT ported.) The tiles
-       inside the preview are real components: .ds-metric-tile lives in the shared
-       system/components.css already linked above, never re-declared here. */
-    .study-block { margin: 0 0 var(--spacing-xl); }
-    .study-eyebrow { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent); margin: 0 0 var(--spacing-sm); }
-    .study-hint { font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; margin: 0 0 var(--spacing-md); }
-
-    .study-ask { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-    .study-tab { font: inherit; font-size: var(--type-caption); text-align: left; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; max-width: 44ch; }
-    .study-tab:hover { border-color: var(--color-accent); }
-    .study-tab[aria-selected="true"] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%); font-weight: 600; }
-
-    .study-preview-frame { border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-md); margin: 0 0 var(--spacing-sm); }
-    .study-preview--summary-strip { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-    .study-preview--summary-strip > * { flex: 1 1 0; min-width: 120px; }
-    .study-preview--insight-panel { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-    .study-preview--insight-panel > * { flex: 1 1 220px; min-width: 200px; }
-    /* A list-row reports one named entity across the full width — it must never sit two-across
-       next to another row the way the 220px-basis tiles do (ds-list-row, #101). */
-    .study-preview--insight-panel > .ds-list-row,
-    .study-preview--summary-strip > .ds-list-row { flex: 1 1 100%; }
-    .study-dump { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); overflow-x: auto; font-size: 12px; line-height: 1.5; margin: var(--spacing-sm) 0 0; color: var(--color-fg); }
-
-    .study-controls { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-    .study-control-row { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
-    .study-control-name { flex: 1 1 12ch; min-width: 12ch; font-size: var(--type-caption); color: var(--color-fg); }
-    .study-select { font: inherit; font-size: var(--type-caption); padding: 6px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-fg); }
-    .study-btn { font: inherit; font-size: var(--type-caption); min-width: 34px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-surface); color: var(--color-fg); cursor: pointer; }
-    .study-btn:hover { border-color: var(--color-accent); }
-    .study-btn--reset { align-self: flex-start; margin-top: var(--spacing-sm); }
-
-    .study-refusal { display: flex; align-items: baseline; gap: var(--spacing-sm); margin-top: var(--spacing-md); padding: 10px 12px; border: 1px solid var(--color-accent); border-left-width: 3px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 6%); }
-    .study-refusal-tag { font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent); }
-    .study-refusal-msg { font-size: var(--type-caption); color: var(--color-fg); font-weight: 600; }
-
-    .study-bus { margin: 0 0 var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-surface); padding: var(--spacing-sm) var(--spacing-md); }
-    .study-bus-summary { cursor: pointer; font-size: var(--type-caption); font-weight: 600; color: var(--color-fg); }
-    .study-bus[open] .study-bus-summary { margin-bottom: var(--spacing-sm); }
-    .study-bus-list { display: flex; flex-direction: column; gap: 4px; margin-top: var(--spacing-sm); max-height: 240px; overflow-y: auto; }
-    .study-bus-row { display: flex; gap: var(--spacing-sm); align-items: baseline; flex-wrap: wrap; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-    .study-bus-seq { color: var(--color-fg-muted); }
-    .study-bus-type { font-weight: 600; color: var(--color-accent); }
-    .study-bus-src { color: var(--color-fg-muted); }
-    .study-bus-target { color: var(--color-fg); }
-    .study-bus-params { color: var(--color-fg-muted); overflow-wrap: anywhere; }
-
-    .study-provenance { font-size: var(--type-caption); color: var(--color-fg-muted); margin: var(--spacing-md) 0 0; }
-    .study-prov-label { font-weight: 600; color: var(--color-fg); }
-    .study-empty { font-size: var(--type-caption); color: var(--color-fg-muted); margin: 0; }
   </style>
 </head>
 <body data-page="instance">
@@ -402,9 +362,10 @@
           <span data-when="demo">Northwind</span><span data-when="real" hidden>{{name}}</span>'s publicly stated
           product vision, taken through the same pipeline the public site demonstrates: the brief is
           already answered with the reasoning behind each answer, the design system re-derives live
-          as you change those answers, a screen is built from this company's own data, and the
-          recorded agent run that proposed the pack replays at the end. Everything here is
-          speculative work on public statements, and the labels below say so before anything else.
+          as you change those answers, a recorded agent run assembles the product's shape on a
+          studio canvas you then take over, and the derivation run that proposed the pack replays
+          at the end. Everything here is speculative work on public statements, and the labels below
+          say so before anything else.
         </p>
         <nav class="cs-jump" aria-label="Jump to a beat">
           <a href="#beat-brief">01 · You brief it</a>
@@ -532,62 +493,151 @@
       </div>
     </section>
 
-    <!-- Beat 02 · the peak — THE one dark band, the moment the reader came for (PRD §6.1 beat 3:
-         visually singular). The composed view the factory built at BUILD TIME from this company's
-         own data (instance.mjs renderPrototype → the SHARED renderStudy surface, agentic-renderer +
-         action-bus) when INSTANCE_CONFIG.composition is present; otherwise a config-driven link,
-         then an honest placeholder. Beside it, the WCAG receipts the real engine measures from the
-         wizard's live answers, and below it the Manipulation Matrix, moved here from beat 01 so the
-         peak carries the one guess-then-reveal. -->
+    <!-- Beat 02 · the studio (#222) — THE one dark band, the moment the reader came for. The SAME
+         studio /factory mounts, configured never forked: system/instance.mjs calls mountStudio()
+         with this instance's own recorded run (INSTANCE_CONFIG.replay), and the shell below claims
+         data-studio-mount="external" so studio.mjs's self-boot stands down. Configuration is by DOM
+         OMISSION, deliberately: no [data-studio-frames] (the public site's example prototypes —
+         invented subjects — would dilute "built for YOU"), and only the this-build / shape / component-docs inspector
+         panels exist — wireInspector wires whatever tabs are present; the agents panel's notice
+         trace and the round-trip exhibit belong to the public site, and #verify below carries this
+         instance's OWN recorded derivation run. The keep rail lives inside this band too: what the
+         run built and what you did to it leave together. -->
     <section class="band band--dark" id="beat-built">
       <div class="container">
         <div class="beat-head">
           <span class="beat-numeral">02</span>
           <div class="beat-head-text">
             <p class="beat-kicker">It builds</p>
-            <h2 class="beat-title">A working screen, from this company's own data.</h2>
+            <h2 class="beat-title">Watch a real run assemble it. Then take the wheel.</h2>
           </div>
         </div>
         <p class="beat-lead">
-          Real components from the design system above, assembled into a screen that answers a
-          question this company actually has. Every contrast pair on it is measured, and every change
-          you make to it is checked against the same contract an engineer would receive.
+          <span data-when="demo">A real recorded agent run read this instance's brief — the
+          fictional Northwind restock problem — and assembles the product's shape on the canvas
+          below, one committed op at a time.</span><span data-when="real" hidden>A real recorded
+          agent run read {{name}}'s brief and assembles the product's shape on the canvas below,
+          one committed op at a time.</span>
+          The moment you touch the canvas it is yours: move the blocks, answer the method cards to
+          redraft the board, compile it into a working flow of real components, and leave with the
+          files. Nothing runs live here — the run is a committed record, replayed.
         </p>
 
-        <div class="pi-peak-stage">
-          <div class="pi-peak-panel">
-            <div id="instance-prototype"><p class="fw-loading muted">Loading the composed view…</p></div>
-          </div>
-          <div class="peak-side">
-            <!-- The badge + the claim + the note below describe a SHIPPED composed view. An instance
-                 built without one must carry none of them: instance.mjs's renderPrototype removes
-                 the badge and rewrites both paragraphs synchronously on the fallback path. They
-                 cannot be static hidden/data-when variants — validateAssembly rejects any surviving
-                 `hidden`, and data-when's axis is company-vs-shell, not composition present/absent. -->
-            <span class="capability live" id="prototype-capability">Adjusts now · composed at build time</span>
-            <p id="prototype-claim">
-              A view the factory composed at build time from this application's own data: real
-              components on this instance's pack, every one of them from the approved vocabulary.
-              Adjust it and it re-renders. Reach past the vocabulary and it refuses, naming the exact
-              path. Nothing runs live here.
+        <div class="stu-shell" data-studio data-studio-mount="external">
+          <div class="stu-canvas-col" data-build-stage>
+            <h3 class="stu-panel-title">The canvas</h3>
+            <p class="stu-canvas-label">Wearing the pack this instance is pinned to.</p>
+            <!-- The run's provenance, stated before its chrome. The chrome below quotes the run's
+                 own words and numbers; this line says WHOSE brief the run read, which is the one
+                 fact the chrome cannot state about itself. -->
+            <p class="pi-run-provenance muted">
+              <span data-when="demo">What plays here is a real recorded run over the fictional
+              Northwind brief — the same recorder, the same fence and the same honesty rules as
+              every run on the public site.</span><span data-when="real" hidden>What plays here is
+              a real recorded run over {{name}}'s brief — recorded step by step, never
+              hand-written.</span>
             </p>
-            <!-- Static receipts seed. It names WHAT gets measured and states no verdict on purpose:
-                 a hard-coded conformance claim here would be an unmeasured assertion about a
-                 company's own pack, it would survive stampShell into a real instance, and it is what
-                 a reader with JavaScript off sees. index.html's equivalent seed can carry one
-                 honestly because home's still is a committed example whose pairs were measured; this
-                 page has no such still. instance.mjs replaces this node with the measured rows. -->
-            <div class="peak-receipts" data-peak-receipts>
-              <p class="peak-receipts-headline">
-                <span>With JavaScript on, every contrast pair in this design system is measured live
-                from the answers above and listed here, ratio by ratio.</span>
+            <!-- The shared-link notice + replay chrome + canvas: factory.html:256-283's structure,
+                 mirrored — the modules select on these attributes. Empty in the markup because the
+                 driver appends the run's own sentences once the committed files are read. -->
+            <p class="stu-notice" data-studio-notice hidden></p>
+            <div data-replay-chrome class="stu-replay"></div>
+            <div data-studio-canvas id="canvas"></div>
+            <noscript>
+              <p class="muted">The canvas needs scripting to draw, to move and to compile, and to
+                replay the recorded run that builds it. The run itself is a committed record and
+                ships beside this page — its curated trace, the brief it was given and the board it
+                built are all plain files in this deploy.</p>
+            </noscript>
+            <!-- The method band (#214) — mounted BY studio.mjs on [data-studio-method]. id="method"
+                 is the anchor the "This build" panel's note links to. -->
+            <section id="method" class="stu-method" data-studio-method aria-label="Method">
+              <h3 class="stu-panel-title">The method — answer it here</h3>
+              <p class="stu-method-lead">The ten questions the pattern is named from — seven from
+                Hooked, three from Shape Up — as cards. Answering one redrafts the board on the
+                canvas from the committed rules, in the same interaction.</p>
+            </section>
+          </div>
+
+          <aside class="stu-inspector" aria-label="Inspector">
+            <div class="stu-tablist" data-studio-tablist role="tablist" aria-label="Inspector panels">
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-this-build" aria-controls="this-build" aria-selected="true">This build</button>
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-shape" aria-controls="shape" aria-selected="false">Graph</button>
+              <button type="button" class="stu-tab" role="tab" id="stu-tab-component-docs" aria-controls="component-docs" aria-selected="false">Component</button>
+            </div>
+
+            <!-- No panel carries `hidden` in the markup: with scripting off all three stay visible
+                 and the evidence is never hidden behind a control that cannot run. JS hides the
+                 inactive two on mount. No inspect toggle here — inspect.mjs's engine arrives
+                 transitively with the studio, but this page marks nothing data-inspect, so a
+                 toggle would be a control that does nothing. -->
+            <div class="stu-panel" id="this-build" role="tabpanel" aria-labelledby="stu-tab-this-build" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">This build</h3>
+                <span class="capability">Counted · from the board</span>
+              </div>
+              <p class="stu-panel-lead">
+                What is on the canvas, read off the board rather than described. The rule that named
+                the pattern is quoted as it was written.
+              </p>
+              <div id="this-build-summary">
+                <p class="muted">These numbers are counted from the board once the recorded run has finished
+                  building it.</p>
+              </div>
+            </div>
+
+            <div class="stu-panel" id="shape" role="tabpanel" aria-labelledby="stu-tab-shape" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">The shape of the system</h3>
+                <span class="capability">Measured · generated</span>
+              </div>
+              <p class="stu-panel-lead">
+                A map of every named value this instance's styling runs on, beside the components
+                that read it and what each committed pack sets it to. Drawn from measurement, never
+                by hand. Hover or focus a token to see everything it touches. Drag the map to move
+                it, and zoom in to read the labels.
+              </p>
+              <div id="system-graph"><p class="muted">Opens when you pick this panel.</p></div>
+              <p class="muted">
+                Full dataset → <a href="/system/system-graph.json">system-graph.json</a>
               </p>
             </div>
-            <p class="peak-note" id="prototype-note">
-              The screen wears the palette the answers above derive, so the ratios beside it always
-              describe the screen you are looking at. The rest of the page stays on the pack this
-              instance was built with.
-            </p>
+
+            <div class="stu-panel" id="component-docs" role="tabpanel" aria-labelledby="stu-tab-component-docs" tabindex="0">
+              <div class="stu-panel-head">
+                <h3 class="stu-panel-title">Component</h3>
+                <span class="capability">Generated · one source</span>
+              </div>
+              <p class="stu-panel-lead">
+                Every component on this canvas is documented from the artifacts the factory
+                generates — the handoff pack, the agent vocabulary and the measured token graph,
+                joined at view time. Nothing here is written about the system; it is the system,
+                rendered.
+              </p>
+              <p class="muted" data-studio-docs-empty>
+                Compile the board first. Then click or focus any component on the canvas and its
+                generated documentation opens here.
+              </p>
+              <div class="cat-compact" data-studio-docs-mount></div>
+            </div>
+          </aside>
+        </div>
+
+        <!-- The keep rail (#210's, mounted by studio.mjs on [data-studio-keep]). Empty in the
+             markup for the replay chrome's reason: there is nothing honest to print about a board
+             that has not been built yet. -->
+        <div class="pi-studio-keep">
+          <h3 class="h3 pi-keep-head">Take the thing you just watched get built</h3>
+          <p class="pi-keep-lead muted">A file that runs on its own, the handoff pack for this
+            board, and a link that rebuilds all of it — including where you put each block. Every
+            one of them is assembled in your browser from the same sources this page renders.
+            Nothing is uploaded.</p>
+          <div class="stu-keep" data-studio-keep>
+            <noscript>
+              <p class="muted">The artifacts here are assembled in the browser, so they need
+                scripting. Everything they are made of ships beside this page as committed,
+                readable files.</p>
+            </noscript>
           </div>
         </div>
 
@@ -622,12 +672,14 @@
           <p class="close-card-line" data-when="demo">This is what I'd do for your team in week one.</p>
           <p class="close-card-line" data-when="real" hidden>This is what I'd do for {{name}} in week one.</p>
           <div class="hero-cta-row">
-            <a class="btn btn-primary btn-arrow" href="/contact">Get in touch</a>
+            <!-- mailto, not /contact: a deployed instance carries only itself, so every non-fragment
+                 body link is deploy-safe by construction (#160; head comment). -->
+            <a class="btn btn-primary btn-arrow" href="mailto:linardsberzins@gmail.com">Get in touch</a>
           </div>
           <div class="close-takeaway">
             <p class="close-takeaway-line">
               None of this stays locked in a design tool. The pack this instance wears, the component
-              specs and data contracts behind the screen above, and the agent vocabulary that bounds
+              specs and data contracts behind the studio above, and the agent vocabulary that bounds
               what any agent may compose from them all ship as files an engineer can read.
             </p>
             <div id="instance-links"></div>
@@ -672,30 +724,15 @@
         </p>
         <div id="instance-player"></div>
 
+        <!-- One row, https on purpose: a deployed instance carries only itself, so the public
+             site's routes cannot be linked from a stamped build (#160). The repo IS the deeper
+             evidence layer, and it resolves from anywhere. -->
         <ul class="row-list pi-verify-list">
           <li>
-            <a class="row-item" href="/factory">
+            <a class="row-item" href="https://github.com/linardsb/ux-factory">
               <span class="row-item-text">
-                <span class="row-item-title">The factory floor</span>
-                <span class="row-item-desc">The public pipeline this instance is one run of, with more recorded runs</span>
-              </span>
-              <span class="row-item-arrow" aria-hidden="true">→</span>
-            </a>
-          </li>
-          <li>
-            <a class="row-item" href="/roundtrip">
-              <span class="row-item-text">
-                <span class="row-item-title">The round-trip check</span>
-                <span class="row-item-desc">Screenshots turned back into tokens, with the fidelity diff</span>
-              </span>
-              <span class="row-item-arrow" aria-hidden="true">→</span>
-            </a>
-          </li>
-          <li>
-            <a class="row-item" href="/approach">
-              <span class="row-item-text">
-                <span class="row-item-title">How I work</span>
-                <span class="row-item-desc">The method, the token contract, the annotated source</span>
+                <span class="row-item-title">The whole factory, in the open</span>
+                <span class="row-item-desc">Every generator, gate and committed run behind this instance is public source — inspect any of it</span>
               </span>
               <span class="row-item-arrow" aria-hidden="true">→</span>
             </a>
@@ -707,21 +744,20 @@
   </main>
 
   <!-- INSTANCE_CONFIG:start — build-instance.mjs replaces everything between these markers per company -->
-  <!-- Demo config: the fictional northwind package + Verdant's committed derivation run; package is a
-       root-absolute dir (no trailing slash), links null → honest placeholders. `composition` points at
-       northwind's committed composed views (the manifest + the vocabulary they validate against) and
-       supersedes links.prototype when present. A stamped real instance gets its own package, trace,
-       composition, and links here (nothing company-real is committed in this repo). -->
+  <!-- Demo config: the fictional demo package + Verdant's committed derivation run + this shell's
+       own committed build run (the studio band's replay, #222); package is a root-absolute dir (no
+       trailing slash), links null → honest placeholders. A stamped real instance gets its own
+       package, trace, replay, and links here (nothing company-real is committed in this repo). -->
   <script>
     window.INSTANCE_CONFIG = {
       package: "/scenarios/northwind",
       name: "Northwind",
       trace: { path: "/traces/pack-seed-verdant.jsonl" },
-      composition: {
-        index: "/proto/compositions/northwind/index.json",
-        vocab: "/handoff/verdant/vocabulary.json"
+      replay: {
+        artifact: "/replay/build-northwind-restock.json",
+        trace: "/traces/build-northwind-restock.jsonl"
       },
-      links: { prototype: null, handoff: null },
+      links: { handoff: null },
     };
   </script>
   <!-- INSTANCE_CONFIG:end -->
@@ -731,11 +767,12 @@
   <script src="/system/portfolio.js"></script>
   <script type="module" src="/system/analytics.mjs"></script>
   <!-- One module tag. instance.mjs imports what this page needs itself — the spine seam (spine.mjs),
-       the shared wizard (factory-intake.mjs), trace-player.mjs, agentic-study.mjs, the shared
-       receipt presentation (wcag-receipts.mjs) and this page's own pack control (instance-pack.mjs).
-       Deliberately NOT loaded, here or transitively: dock.mjs and pack-boot.js (a private instance
-       pins its pack), and pack-derived.mjs (its module tail would let a ?brand= query param
-       override that pinned pack). See the head comment. -->
+       the shared wizard (factory-intake.mjs), trace-player.mjs, THE STUDIO (studio.mjs — its
+       self-boot stands down on this page's data-studio-mount="external" shell, and instance.mjs
+       makes the call with this instance's own recorded run) and this page's own pack control
+       (instance-pack.mjs). Deliberately NOT loaded, here or transitively: dock.mjs and pack-boot.js
+       (a private instance pins its pack), and pack-derived.mjs (its module tail would let a ?brand=
+       query param override that pinned pack). See the head comment. -->
   <script type="module" src="/system/instance.mjs"></script>
 </body>
 </html>

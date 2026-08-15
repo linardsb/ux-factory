@@ -40,9 +40,9 @@
 
 import { renderComposition } from "./agentic-renderer.mjs";
 
-// The tone enum, owned here. agentic-study.mjs has the same list as a bare module-scope const
-// (:23) and does not export it, so this is a second copy by necessity rather than by choice — and
-// a second copy of an enum is exactly the thing that drifts silently. tooling/proto-journey.mjs
+// The tone enum, owned here — a copy of the vocabulary's metric-tile.props.tone.enum rather than
+// a fetch of it (this module must not await the vocabulary to wire three buttons), and a copy of
+// an enum is exactly the thing that drifts silently. tooling/proto-journey.mjs
 // therefore asserts this list against the LIVE vocabulary's metric-tile.props.tone.enum read off
 // the running page, so a divergence from handoff/verdant/vocabulary.json fails a check instead of
 // sitting there looking correct.
@@ -81,7 +81,8 @@ export function mountSlotToggles(region, { vocab, composition, bus, slotId } = {
   liveBus ??= bus;
 
   // The reader adjusts a deep-cloned WORKING COPY; the committed proposal is never mutated
-  // (agentic-study.mjs:26,48 — the same discipline, for the same reason).
+  // (the retired study surface's discipline, kept for the same reason: reset must always be able
+  // to return to the committed record).
   let working = clone(composition);
   const nameOf = (node, i) => node.props?.label ?? `${node.name} ${i + 1}`;
 

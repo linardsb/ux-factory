@@ -13,13 +13,17 @@
 //   3. The SHARED wizard (system/factory-intake.mjs) configured, never forked, via initIntake() —
 //      pre-seeded from the package's axes, reader overrides re-derive live through derive.mjs.
 //   4. The recorded pack-seed derivation trace, replayed via system/trace-player.mjs.
-//   5. The bespoke prototype: the view the factory COMPOSED at build time, replayed and adjustable
-//      in place via the shared study surface (system/agentic-study.mjs) when INSTANCE_CONFIG carries
-//      a `composition` ref — else a config-driven link, else an honest placeholder (epic #86, #89).
+//   5. THE STUDIO (#222, epic #202): the same modules /factory mounts — canvas, verbs, replay
+//      driver, method band, compile beat, inspector, keep rail — booted HERE through
+//      system/studio.mjs's mountStudio(document, { replay }) seam, pre-seeded with this instance's
+//      OWN recorded build run (INSTANCE_CONFIG.replay). Configured, never forked: the shell claims
+//      data-studio-mount="external" so studio.mjs's self-boot stands down, and everything else the
+//      instance configures it configures by DOM OMISSION (no [data-studio-frames], only three
+//      inspector panels). This replaces #89's composed-view slot (renderStudy), retired with
+//      agentic-ui-study.html by this ticket.
 //   6. The config-driven handoff link slot (honest placeholder when the link is absent).
-//   7. (#81) The spine's beats: #instance-hero and #beat-built are registered on spine.mjs's
-//      registerBeat seam, the peak band's WCAG receipts are measured live off the wizard's own
-//      onAnswers publish, and the instance's two-option pack control is mounted.
+//   7. (#81) The spine's hero beat on registerBeat's seam, and the instance's two-option pack
+//      control.
 //
 // Boot contract (#81). Importing spine.mjs self-registers home's `beat-hero` at module scope — that
 // registration is INERT here, because this page has no #beat-hero element and registerBeat returns
@@ -29,16 +33,27 @@
 // committed pack from its head <link>, so a flush-and-revert would either be invisible or would
 // strip that pack mid-visit.
 //
-// Deliberate NON-imports, each load-bearing:
+// Deliberate NON-imports, each load-bearing — and each SURVIVES the studio import (#222): the
+// studio graph (studio.mjs → canvas, verbs, compile, replay driver, keep, method, docs, frames,
+// inspect.mjs) transitively imports NONE of the three below, so pulling the studio in does not
+// smuggle any of them back:
 //   · pack-derived.mjs — its module tail runs hydrateFromSharedLink() unguarded by any mount, so a
 //     forwarded instance URL carrying ?brand=… would apply derived colours to :root, write the
 //     record and wear() it — silently overriding the pinned company pack, which IS the thing this
-//     page demonstrates. This is also why the receipts come from wcag-receipts.mjs rather than from
-//     the old home peak (system/peak.mjs, deleted by #216 — it imported pack-derived transitively).
-//   · dock.mjs — its pack allowlist is neutral|saulera|verdant, so on a company pack its radio would
-//     show "neutral" checked while the page wears the brand. instance-pack.mjs replaces it here.
+//     page demonstrates.
+//   · dock.mjs — its pack allowlist is hard-coded to the shipped packs, so on a company pack its
+//     radio would show "neutral" checked while the page wears the brand. instance-pack.mjs
+//     replaces it here. (pack-boot.js stays out of the head for the same reason: a private
+//     instance PINS its pack; there is no localStorage pack to restore.)
 //   · share-state.mjs (and the deleted close.mjs, #216) — a share link encodes a brand hex + three axes for a DERIVED
 //     pack, which is meaningless against a pack pinned at build time.
+//
+// The studio import DOES bring inspect.mjs (self-inits at import, restores a persisted choice) —
+// harmless here by construction: this page marks nothing data-inspect, so a persisted "on" wires
+// to zero elements, and the page ships no toggle because a control that does nothing is worse
+// than none. It also shares /build's in-memory answer store: a visitor arriving with a ?b= link
+// pre-seeds the canvas exactly as on /factory (the driver declines, the sender's board rules) —
+// designed behavior, inherited with the studio, not fought here.
 //
 // Screenshots-in-trace decision (epic §Open questions, recorded here per AC3): on an unlisted link
 // the replayed derivation trace MAY include the company's own product screenshots — default YES.
@@ -57,12 +72,12 @@
 
 import { initIntake } from "./factory-intake.mjs";
 import { parseTrace, renderTracePlayer } from "./trace-player.mjs";
-import { renderStudy } from "./agentic-study.mjs";
-import { createBus } from "./action-bus.mjs";
 import { registerBeat } from "./spine.mjs";
-import { derive } from "./derive.mjs";
-import { buildReceipts } from "./wcag-receipts.mjs";
 import { initInstancePack } from "./instance-pack.mjs";
+// The studio's orchestrator (#222). Importing it is safe ONLY because instance.html's shell
+// carries data-studio-mount="external" — studio.mjs's self-boot stands down on that attribute and
+// mountStudioBand below makes the one call, with this instance's own recorded run.
+import { mountStudio } from "./studio.mjs";
 
 // --- DOM helper (all package text via textContent — untrusted at the boundary) -------------------
 const el = (tag, cls, text) => {
@@ -181,21 +196,18 @@ function mountWizard(slug, name, intake, copy) {
   };
   // The shell supplies a SINGLE scenario → no #scenario-toggle anchor on the page, so the wizard's
   // toggle render no-ops (guarded). assertScenarioConfig re-runs inside initIntake on this config.
-  // onAnswers (#75's additive seam) is the peak's input: the wizard publishes a copy of the live
-  // axes on mount and on every change, and #81 turns each publish into one derive() that both
-  // re-skins the peak panel and rebuilds its receipts — so the screen and the ratios beside it can
-  // never describe different palettes.
+  // No onAnswers callback since #222: the peak panel it fed died with the studio re-shell — the
+  // wizard's own #reskin-preview and step-by-step narrative (checks table included) remain the
+  // live-derivation surface, in beat 01 where the answers live.
   initIntake({
     scenarios: { [slug]: scenario },
     defaultScenario: slug,
-    onAnswers: (axes) => renderPeakDerivation(axes),
   });
 }
 
 // --- Prototype / handoff slots (config-driven; honest placeholder when nothing is configured) -----
-// One card shape, two callers: the handoff slot (always) and the prototype slot's FALLBACK (only
-// when no composed view ships — see renderPrototype). Returned inside a .pi-links grid so a lone
-// card is laid out the same either way.
+// One card shape, one caller since #222: the handoff slot (the prototype slot retired with the
+// studio re-shell). Returned inside a .pi-links grid so a lone card fills the row.
 function linkCard(title, blurb, href) {
   const card = el("article", "card");
   const body = el("div", "card-body");
@@ -222,8 +234,8 @@ function linkCard(title, blurb, href) {
   return grid;
 }
 
-// The handoff slot only — the prototype slot moved to its own sub-surface (#instance-prototype)
-// when #89 gave it a composed view to render in place.
+// The handoff slot only — #89's composed-view prototype slot retired with #222's studio re-shell,
+// so there is no links.prototype any more; the studio band IS the bespoke prototype now.
 function renderLinks(links) {
   const mount = document.getElementById("instance-links");
   if (!mount) return;
@@ -231,64 +243,6 @@ function renderLinks(links) {
     "Handoff pack",
     "The engineer-ready pack: component specs, typed props, data contracts, agent vocabulary.",
     links && links.handoff));
-}
-
-// --- Beat 02 · the peak: one derive() call feeds BOTH the screen's palette and its receipts --------
-// The receipts are computed from the wizard's LIVE axes, so a reader who overrides the brand colour
-// in beat 01 would otherwise see ratios describing palette B beside a composed screen still wearing
-// the committed pack's palette A — a contradiction inside the one band the PRD calls visually
-// singular. So renderPeakDerivation does two things from ONE derive(): it applies the full derived
-// token set as inline custom properties SCOPED to .pi-peak-panel, and it rebuilds the receipts. The
-// panel is a contained preview (the same argument factory-intake.mjs:280-283 makes for
-// #reskin-preview, and the deleted peak.mjs made for the home peak), so density-driven spacing and type scales
-// move with the answers too. Nothing here ever writes to :root — that would strip the pinned company
-// pack for the rest of the visit, which is the single worst failure this page can have.
-
-let peakAppliedKeys = [];      // the inline custom properties currently on the panel
-let peakPanel = null;          // stable node: renderStudy replaces the MOUNT's children, never this
-let lastAxes = null;           // the wizard's most recent publish (the peak beat may activate later)
-
-function peakBand() { return document.getElementById("beat-built"); }
-
-// An honest, verdict-free receipts node — the shape the static seed in instance.html already carries,
-// rebuilt in JS for the derive-refused path so a stale measured set never outlives the palette it
-// described. No ratio, no pass/fail token, no .wcag-pass/.wcag-fail class.
-function seedReceipts(text) {
-  const wrap = el("div", "peak-receipts");
-  wrap.setAttribute("data-peak-receipts", "");
-  wrap.append(el("p", "peak-receipts-headline", text));
-  return wrap;
-}
-
-function renderPeakDerivation(axes) {
-  lastAxes = axes;
-  const band = peakBand();
-  if (!band) return; // no peak on this page (a partial shell) — the wizard is unaffected
-  if (!peakPanel) peakPanel = band.querySelector(".pi-peak-panel");
-  // Read the host FRESH each call: buildReceipts returns a NEW element that replaceWith() swaps in,
-  // so a cached node goes stale after the first render (the deleted peak.mjs had the same contract).
-  const host = band.querySelector("[data-peak-receipts]");
-
-  let result;
-  try {
-    result = derive(axes);
-  } catch (err) {
-    // Fail-closed, the shape factory-intake.mjs:289-295 uses: drop the applied props so the panel
-    // inherits the committed company pack, and state no verdict rather than keep a measurement of a
-    // palette nothing is wearing. Nothing fails on stage.
-    if (peakPanel) for (const k of peakAppliedKeys) peakPanel.style.removeProperty("--" + k);
-    peakAppliedKeys = [];
-    if (host) host.replaceWith(seedReceipts("Live derivation is unavailable, so no contrast measurement is shown here."));
-    console.error(err);
-    return;
-  }
-
-  if (peakPanel) {
-    for (const k of peakAppliedKeys) peakPanel.style.removeProperty("--" + k);
-    peakAppliedKeys = Object.keys(result.tokens);
-    for (const [k, v] of Object.entries(result.tokens)) peakPanel.style.setProperty("--" + k, v);
-  }
-  if (host) host.replaceWith(buildReceipts(result.checks));
 }
 
 // Beat 1 · the hero. No effect beyond the readiness handle, and that is the point: the page already
@@ -304,93 +258,29 @@ function heroEffect(ctx) {
   }
 }
 
-// Beat 2 · the peak. activateOn:'load', NOT 'visible' — a measured deviation from home's peak, and
-// the reason is spine.mjs's observer threshold. It observes at 0.35 of the TARGET's own area, so a
-// target taller than viewportHeight / 0.35 can never cross it and the beat never activates. This
-// band carries the composed view, the receipts and the full Manipulation Matrix panel: measured at
-// 2301px, which needs an 805px-tall viewport. Verified in Chromium — data-peak lands at a 900px
-// viewport and NEVER lands at 800/740/640px, i.e. on most laptops. A readiness handle that silently
-// fails to land is worse than none (a future VR waitReady would deadlock on it — the trap the handle
-// exists to avoid, issue #105), so it lands on load here.
-// Nothing is lost by the change: unlike the deleted home peak there is no analytics event gated on "reached
-// the built screen" (deliberately — see the plan's Q2), and the effect owns no expensive work. The
-// receipts ride the wizard's own publish on the package chain, which does not wait for scroll;
-// re-rendering from the cached axes here is idempotent and only covers the reverse ordering.
-// The handle means "this beat did its own work" — the composed view has its OWN handle
-// (#instance-prototype[data-prototype="ready"]) and the wizard has #reskin-preview[data-reskin].
-function peakEffect(ctx) {
-  try {
-    if (lastAxes) renderPeakDerivation(lastAxes);
-  } finally {
-    ctx.el.setAttribute("data-peak", "ready");
-  }
-}
-
-// --- Prototype slot: the composed view, rendered IN PLACE (epic #86, ticket #89) -------------------
-// A view the factory composed at BUILD TIME (a real, honesty-gated record-composition run) is
-// replayed here through the SHARED study surface (system/agentic-study.mjs → agentic-renderer +
-// action-bus) — the same module agentic-ui-study.html mounts, configured not forked. The reader
-// adjusts a deep-cloned working copy within the vocabulary's bounds and watches it refuse anything
-// outside them. There is NO model call at view time: proposals are committed files this instance
-// ships. `trace`/`label` are deliberately omitted from the entries — the composition traces are not
-// shipped with an instance (station 04 carries the headline derivation run), so the study renders no
-// in-slot trace link and falls back to its own honest default label.
-function renderPrototype(config, name) {
-  const mount = document.getElementById("instance-prototype");
-  if (!mount) return;
-  const comp = config.composition;
-
-  // The peak band's capability badge ("Adjusts now · composed at build time"), its claim paragraph
-  // and its note are authored for the case where a composed view SHIPS. Withdraw all three the
-  // moment that turns out to be untrue — an instance built without --compositions, or one whose view
-  // fails to load — so the shell never claims a capability the reader can't exercise (honesty
-  // contract). This is sharper here than on home: home's peak falls back to a committed Verdant
-  // still, so it always has an honest screen to show; this page has none, because the instance's
-  // screen only exists if a composed view shipped. The badge can't be a static hidden variant —
-  // validateAssembly rejects any surviving `hidden`, and data-when's axis is company-vs-shell, not
-  // composition present/absent.
-  // The RECEIPTS are deliberately NOT withdrawn: they come from the wizard's live derive, not from
-  // the composition, so they stay true whatever happens to this slot.
-  const unclaim = (replacementText) => {
-    const badge = document.getElementById("prototype-capability");
-    if (badge) badge.remove();
-    const claim = document.getElementById("prototype-claim");
-    if (claim && replacementText) claim.textContent = replacementText;
-    const note = document.getElementById("prototype-note");
-    if (note) note.textContent =
-      "The contrast ratios above are measured live from the answers in the brief, and describe the design system this instance ships.";
-  };
-
-  // No composed view shipped → the honest link/placeholder, rendered SYNCHRONOUSLY so an instance
-  // built without one never sits on the static "Loading…" seed.
-  if (!comp || typeof comp.index !== "string" || typeof comp.vocab !== "string") {
-    unclaim("The data-connected screen built for this application. No composed view ships inside this instance — when a prototype exists, it is linked below.");
-    mount.replaceChildren(linkCard(
-      "Prototype screen",
-      "The data-connected screen built for this application.",
-      config.links && config.links.prototype));
+// --- Beat 02 · the studio (#222): the same modules /factory mounts, configured never forked -------
+// One synchronous call into system/studio.mjs's mountStudio(document, { replay }) — the seam #222
+// added, with this instance's own recorded run threaded through to the replay driver's `source`.
+// The shell's data-studio-mount="external" is what stood the module's self-boot down, so this is
+// the page's ONE mount.
+//
+// A missing/invalid `config.replay` renders an honest error card in the band and mounts NOTHING:
+// mounting without a source would play the PUBLIC site's demo run on a page whose whole claim is
+// "built for you" — refusing loudly is the honest degradation, and build-instance.mjs's
+// validateAssembly makes this state unreachable on a correctly built instance. The un-set
+// [data-studio] handle is deliberate on that path (the initGlossary discipline, studio.mjs:766):
+// a broken build must deadlock a gate loudly rather than be captured green.
+function mountStudioBand(config) {
+  const shell = document.querySelector('[data-studio][data-studio-mount="external"]');
+  if (!shell) return; // a partial shell with no studio band — every other chain is unaffected
+  const replay = config.replay;
+  if (!replay || typeof replay.artifact !== "string" || typeof replay.trace !== "string") {
+    const chrome = shell.querySelector("[data-replay-chrome]");
+    if (chrome) errorCard(chrome,
+      "This instance names no recorded run — INSTANCE_CONFIG.replay is absent or malformed — so the studio was not mounted.");
     return;
   }
-
-  // INDEPENDENT of the package + trace chains (below): a failure here error-cards this slot only.
-  Promise.all([grabJson(comp.index), grabJson(comp.vocab)])
-    .then(([index, vocab]) => {
-      if (!Array.isArray(index) || index.length === 0) throw new Error(`${comp.index} carries no composed views`);
-      return Promise.all(index.map((e) =>
-        grabJson(e.proposal).then((composition) => ({ slug: e.slug, question: e.question, slot: e.slot, composition }))))
-        .then((entries) => {
-          renderStudy(mount, { vocab, entries, bus: createBus(), subject: `${name}'s data` });
-          mount.dataset.prototype = "ready";
-        });
-    })
-    .catch((err) => {
-      // Badge AND claim both go: the error card below says what broke, but the paragraph above it
-      // would otherwise still read "Adjust it below" over a slot holding nothing adjustable. Same
-      // honesty-contract reasoning as the no-composition path — a capability the reader cannot
-      // exercise must not be claimed, whatever the reason it is unavailable.
-      unclaim("The data-connected screen built for this application. This instance's composed view could not be loaded, so there is nothing to adjust here.");
-      errorCard(mount, `Could not load the composed view — ${err.message}`);
-    });
+  mountStudio(document, { replay: { artifact: replay.artifact, trace: replay.trace } });
 }
 
 // --- self-mount: inert under Node and on any page without the shell's notices anchor -------------
@@ -423,16 +313,17 @@ function init() {
   // parsed", which a module script guarantees.
   initInstancePack({ name });
 
-  // (C) Prototype chain — INDEPENDENT of (A), (B) and (D); its own readiness flag, and it never
-  // gates body[data-instance="ready"]. Synchronous when no composed view is configured.
-  renderPrototype(config, name);
+  // (C) The studio band (#222) — INDEPENDENT of (A), (B) and (D); a synchronous mount whose own
+  // readiness handles ([data-studio="ready"], [data-replay="settled"]) belong to the studio
+  // modules, and it never gates body[data-instance="ready"].
+  mountStudioBand(config);
 
-  // The spine's beats. Registered here, AFTER the config guard, for two reasons: activateOn:'load'
-  // calls activate() synchronously inside registerBeat (spine.mjs:56), so a malformed
+  // The spine's hero beat. Registered here, AFTER the config guard, for two reasons: activateOn:
+  // 'load' calls activate() synchronously inside registerBeat (spine.mjs:56), so a malformed
   // INSTANCE_CONFIG must still produce exactly one honest error card and nothing else; and keeping
-  // the calls inside init() means a Node import of this module never touches the DOM.
+  // the call inside init() means a Node import of this module never touches the DOM. The old
+  // beat-built registration died with #222: the studio band's readiness is its own modules'.
   registerBeat("instance-hero", { effect: heroEffect, activateOn: "load" });
-  registerBeat("beat-built", { effect: peakEffect, activateOn: "load" }); // 'load', not 'visible' — see peakEffect
 
   // (A) Package chain — notices + curated intake + wizard. body[data-instance="ready"] is set only
   // after all of it renders (readiness handle; instance.html is not in the VR set today — a possible

@@ -1,0 +1,5 @@
+[
+  { "id": "berth-a1", "name": "A1 · inner pontoon", "lengthM": 12, "status": "free" },
+  { "id": "berth-a2", "name": "A2 · inner pontoon", "lengthM": 12, "status": "occupied" },
+  { "id": "berth-b1", "name": "B1 · outer wall", "lengthM": 18, "status": "free" }
+]
