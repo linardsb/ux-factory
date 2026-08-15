@@ -102,8 +102,8 @@ async function journey(engineName, results, held) {
     mounted.rows === mounted.filled && mounted.rows === 2, JSON.stringify(mounted));
 
   // The enum this module owns, checked against the vocabulary the renderer actually validates
-  // against. agentic-study.mjs keeps the same list as an unexported const, so bus-toggles.mjs holds
-  // a second copy by necessity — and a second copy of an enum is exactly what drifts in silence.
+  // against. bus-toggles.mjs holds its TONES as a module-scope copy of the vocabulary's enum —
+  // and a copy of an enum is exactly what drifts in silence.
   const vocabTones = await page.evaluate(() =>
     fetch("/handoff/verdant/vocabulary.json").then((r) => r.json()).then((v) => v.components["metric-tile"].props.tone.enum));
   t(`TONES matches the generated vocabulary's metric-tile tone enum [${vocabTones.join(" | ")}]`,

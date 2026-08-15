@@ -71,7 +71,11 @@ import { trackFactoryTookOver } from "./analytics.mjs";
 // split studio-canvas.mjs:34-73, studio-verbs.mjs:60-235, studio.mjs:47-103 and
 // studio-compile.mjs:64-169 carry.
 
-// ONE committed slug, named once. A brief picker or a second artifact is #210's, not this file's.
+// ONE committed slug, named once — as the DEFAULT. /factory mounts with no `source` option and
+// plays this run; a private instance names its own run through mountReplay's `source`
+// { artifact, trace } option instead (epic #202 ticket #222 — the anticipated "second artifact"
+// this comment used to defer). A brief PICKER — choosing between runs on one page — is still
+// #210's, not this file's.
 export const REPLAY_SLUG = "build-fieldwork-dispatch";
 export const ARTIFACT_URL = `/replay/${REPLAY_SLUG}.json`;
 export const TRACE_URL = `/traces/${REPLAY_SLUG}.jsonl`;
@@ -315,7 +319,7 @@ export function applyBeat(board, beat) {
 // EVERY VALUE IS COPIED from the two committed files; the only computed numbers are the counts (which
 // are counted, not claimed) and `compression`, which exists precisely so the pacing sentence states a
 // number that was derived rather than typed.
-export function describeRun(artifact, meta, pacing, beats) {
+export function describeRun(artifact, meta, pacing, beats, traceUrl = TRACE_URL) {
   const source = isObj(artifact) && isObj(artifact.source) ? artifact.source : {};
   const list = Array.isArray(beats) ? beats : [];
   const count = (kind) => list.filter((b) => isObj(b) && b.kind === kind).length;
@@ -328,7 +332,7 @@ export function describeRun(artifact, meta, pacing, beats) {
     sessionId: typeof source.sessionId === "string" ? source.sessionId : "",
     startedAt: typeof source.startedAt === "string" ? source.startedAt : "",
     durationMs: Number(source.durationMs) || 0,
-    tracePath: typeof source.curatedTrace === "string" ? source.curatedTrace : TRACE_URL,
+    tracePath: typeof source.curatedTrace === "string" ? source.curatedTrace : traceUrl,
     briefPath: typeof source.brief === "string" ? source.brief : "",
     boardPath: typeof source.board === "string" ? source.board : "",
     opCount: count("op"),
@@ -399,19 +403,26 @@ let live = null; // the mounted driver — the exported seam below drives THIS o
 // test surface). tooling/studio-journey.mjs reaches the replay through this.
 export const getReplay = () => live;
 
-// mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver })
+// mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver, declined, source })
 //
 // `renderPlace` is system/studio.mjs's placeBlock, PASSED IN rather than imported: studio.mjs already
 // imports this file, so importing back would be a cycle, and "what a place looks like before it
 // compiles is that file's sentence" (studio.mjs:220-225) stays true either way.
+// `source` is #222's option: { artifact, trace } URLs naming which committed run this mount plays.
+// Absent, the exported constants above are the answer — /factory's behavior is byte-identical — and
+// a private instance passes its own bespoke run's pair (initIntake's default-preserving idiom,
+// factory-intake.mjs:225-240). Note the chrome's trace link PREFERS the artifact's own
+// source.curatedTrace, so a well-formed artifact self-describes its trace either way.
 // `declined` is #210's option and the smallest one this file could grow. It was RECORDED as a
 // requirement by studio.mjs before any code path reached it ("must place what the visitor brought and
 // let the driver mount in a declined state rather than assembling over it"), and #210's ?b= restore
 // is what makes it reachable. It is one early return in start(), and it adopts `tookOver` rather
 // than `ready` — a declined mount is closer to "already handed over" than to "about to play", and
 // tookOver is what makes the whole transport dead (see syncControls). (PR #240 review, finding 6.)
-export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver, declined } = {}) {
+export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver, declined, source } = {}) {
   const host = shell || null;
+  const artifactUrl = source?.artifact || ARTIFACT_URL;
+  const traceUrl = source?.trace || TRACE_URL;
   let state = "loading";
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
@@ -789,9 +800,9 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       let artifact = null;
       let traceText = null;
       try {
-        const res = await fetch(ARTIFACT_URL, { signal });
+        const res = await fetch(artifactUrl, { signal });
         if (destroyed) return;
-        if (!res.ok) throw new Error(`${ARTIFACT_URL} → HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`${artifactUrl} → HTTP ${res.status}`);
         artifact = await res.json();
       } catch {
         // Swallowed rather than logged: the failure is REPORTED by the card below. A console.error
@@ -800,12 +811,12 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
         artifact = null;
       }
       if (destroyed) return;
-      if (!artifact) { unavailable(`The run's projection at ${ARTIFACT_URL} could not be read here, so nothing is replayed and nothing is drawn in its place.`); return; }
+      if (!artifact) { unavailable(`The run's projection at ${artifactUrl} could not be read here, so nothing is replayed and nothing is drawn in its place.`); return; }
 
       try {
-        const res = await fetch(TRACE_URL, { signal });
+        const res = await fetch(traceUrl, { signal });
         if (destroyed) return;
-        if (!res.ok) throw new Error(`${TRACE_URL} → HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`${traceUrl} → HTTP ${res.status}`);
         traceText = await res.text();
       } catch {
         traceText = null; // op-only, and the chrome says so
@@ -820,7 +831,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
 
       const pacing = paceBeats(built.beats, PLAYBACK_MS);
       beats = pacing.beats;
-      run = describeRun(artifact, built.meta, pacing, beats);
+      run = describeRun(artifact, built.meta, pacing, beats, traceUrl);
       renderChrome(built);
       seek.setAttribute("max", String(beats.length));
 
@@ -933,7 +944,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
 
       if (built.traceless) {
         pacingLine.after(el("p", { class: "stu-replay-note", text:
-          `The run's own words could not be read from ${TRACE_URL}, so the ops play without the narration and the refusals that ran between them.` }));
+          `The run's own words could not be read from ${traceUrl}, so the ops play without the narration and the refusals that ran between them.` }));
       } else if (built.skipped) {
         pacingLine.after(el("p", { class: "stu-replay-note", text:
           `${built.skipped} of the run's steps are neither ops nor words — it read the brief and validated the board — and are not played.` }));

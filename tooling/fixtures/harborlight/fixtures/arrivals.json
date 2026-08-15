@@ -1,0 +1,4 @@
+[
+  { "id": "arr-01", "vessel": "Selkie", "eta": "2026-08-15", "berthId": "berth-a1", "status": "expected" },
+  { "id": "arr-02", "vessel": "Petrel", "eta": "2026-08-15", "berthId": "berth-b1", "status": "arrived" }
+]

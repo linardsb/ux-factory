@@ -681,7 +681,7 @@ async function journey(engineName, results, held) {
     pointerMoves.length === 1, JSON.stringify(pointerActions));
   t("AC #4 · …with an honest source", pointerMoves[0]?.source === "pointer", pointerMoves[0]?.source);
   // #232 · the target's two names, read against what the wrapper actually carries. `component` is
-  // the VOCABULARY SHAPE everywhere else on this bus (agentic-renderer, agentic-study, bus-toggles,
+  // the VOCABULARY SHAPE everywhere else on this bus (agentic-renderer, bus-toggles,
   // peak) and this emitter used to put the display label there. Asserted as "the shape, and NOT the
   // label" — equality with the wrapper alone would pass for an emitter that sent the label if the
   // two ever coincided.
