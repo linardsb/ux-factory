@@ -93,6 +93,9 @@ const HEADERS = `/*
 /traces/*
   Cache-Control: public, max-age=300, must-revalidate
 
+/replay/*
+  Cache-Control: public, max-age=300, must-revalidate
+
 /proto/*
   Cache-Control: public, max-age=300, must-revalidate
 

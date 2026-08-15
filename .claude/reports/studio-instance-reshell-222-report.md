@@ -53,6 +53,13 @@ group 25 (pure, with mutations) and `tooling/instance-journey.mjs` (the built de
   residue on served bytes (comments included; config block carved out, stated), every internal
   `<a>` 2xx, take-over, compile end to end, ZERO non-2xx. **21/21 × chromium/firefox/webkit.**
   Mutation drill performed: `rm pack.json` from the built dir → the zero-404 row red naming it.
+  **PR #270 review fixes raised it to 25/25 × 3 engines**: the docs chain's lazy fetches awaited
+  before the accounting is read (M2 — the `rm pack.json` drill now reds deterministically, re-performed),
+  and a declined-path step — the keep rail's own `?b=` link revisited, DECLINED asserted, and the
+  note proven to name no `/factory` route on a built instance (M1's running-page proof; the
+  route clause is now `/factory`'s alone, its text byte-identical there, red-proof performed by
+  mutating the deploy dir's driver copy). M1/M2/L3 all fixed — L3 is the `_headers` `/replay/*`
+  cache block, asserted present in the built dir.
 
 ## Validation results
 

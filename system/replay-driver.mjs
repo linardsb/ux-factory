@@ -112,7 +112,10 @@ const PROVENANCE_DECLINED = "Everything on this canvas came in on the link you f
 const PROVENANCE_REDRAFTED = "The run's board was set aside — what is on this canvas is drafted from your answers.";
 const DECLINED_NOTE = "The recorded run below did not play here, and that is deliberate: you arrived "
   + "with a board already on the link, and the run would have had to build over it. The run is still "
-  + "readable as it is — its trace and its brief are linked above — and opening /factory without a "
+  + "readable as it is — its trace and its brief are linked above";
+// The route clause is /factory's alone: a mount with `source` set is a private instance's, and a
+// deployed instance has no /factory route to send its visitor to (PR #270 review, M1).
+const DECLINED_NOTE_ROUTE = " — and opening /factory without a "
   + "link plays it from the start.";
 
 const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -858,7 +861,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
         tookOver = true;
         setState("declined");
         controls.hidden = true;
-        pacingLine.after(el("p", { class: "stu-replay-note", text: DECLINED_NOTE }));
+        pacingLine.after(el("p", { class: "stu-replay-note", text: DECLINED_NOTE + (source ? "." : DECLINED_NOTE_ROUTE) }));
         provenance.setAttribute("data-provenance", "visitor");
         if (!relinquished) provenance.textContent = PROVENANCE_DECLINED;
         host.setAttribute("data-provenance", "visitor");

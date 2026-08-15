@@ -20,6 +20,9 @@
 //   · every internal <a href> in the served HTML answers 2xx (fragments / mailto: / https: exempt);
 //   · one canvas interaction takes over (provenance flips to "visitor") and the compile beat runs
 //     end to end on the built page ([data-compile-state="rendered"], ≥1 .stf-screen);
+//   · the keep rail's own ?b= link comes back DECLINED — the never-author-over-the-sender's-board
+//     rule holds on a built instance — and the declined note names no /factory route, because the
+//     deploy dir has none to offer (PR #270 review, M1);
 //   · the build's own stdout PRINTS the wrangler commands and the "nothing is deployed" sentence —
 //     AC #7's deploy-stays-human, asserted as text; no deploy call exists to observe.
 //
@@ -219,12 +222,50 @@ async function journey(engineName, results, held) {
   t('provenance flipped to "visitor"', prov === "visitor", `got ${prov}`);
 
   console.log("\n[6] the compile beat runs end to end on the built page");
+  // ARMED BEFORE THE CLICK, AWAITED BEFORE THE ACCOUNTING IS READ: settle() STARTS the docs chain's
+  // lazy fetches (docs.refresh()) but nothing awaits them, so on loopback the [data-compile-state]
+  // wait can win the race and the zero-404 row would read badResponses before a missing artifact's
+  // 404 lands — green in the bad direction (PR #270 review, M2). loadDocsModel fetches DOCS_SOURCES
+  // sequentially, each awaited before the next fires, so a response to the LAST source implies the
+  // earlier two landed; any response settles it, 404 included — counting the status stays [8]'s job.
+  const docsFetch = page.waitForResponse((r) => r.url().endsWith("/system/system-graph.json"), { timeout: 20000 })
+    .then(() => true, () => false);
   await page.getByRole("button", { name: "Compile the board" }).click();
   await page.waitForSelector('[data-compile-state="rendered"]', { timeout: 20000 });
   const screens = await page.locator(".stf-screen").count();
   t("compile rendered ≥1 screen", screens >= 1, `got ${screens}`);
+  t("the docs chain's lazy fetches were observed before the accounting is read", await docsFetch);
 
-  console.log("\n[7] zero non-2xx responses across the whole visit (compile's lazy fetches included)");
+  // [7] the declined path a real instance's visitor actually reaches: the keep rail's own ?b= link,
+  // revisited. The driver must mount DECLINED (never author over the sender's board), and the note
+  // must not send the visitor to /factory — the deploy dir has no such route (PR #270 review, M1).
+  // BEFORE the accounting on purpose: the revisit re-fetches the whole config chain, so its
+  // requests belong inside the zero-404 sweep.
+  console.log("\n[7] the keep rail's own ?b= link comes back declined, with no /factory in the note");
+  await page.getByRole("button", { name: "Copy the link that rebuilds this" }).click();
+  // The copy handler is async (it awaits the codec before publishing the link), so the field is
+  // waited for, not read on the click's heels.
+  await page.waitForFunction(() => {
+    const i = document.querySelector(".stu-keep-link");
+    return !!i && !i.hidden && i.value.includes("?b=");
+  }, null, { timeout: 10000 });
+  const shareLink = await page.locator(".stu-keep-link").inputValue();
+  t("the keep rail built a ?b= link", shareLink.includes("?b="), shareLink.slice(0, 80));
+  await page.goto(shareLink, { waitUntil: "load" });
+  await page.waitForFunction(() => {
+    const v = document.querySelector("[data-studio]")?.getAttribute("data-replay");
+    return v && v !== "loading";
+  }, null, { timeout: 30000 });
+  const replayState = await page.getAttribute("[data-studio]", "data-replay");
+  t("the driver mounts DECLINED on the visitor's own link", replayState === "declined", `got ${replayState}`);
+  // .stu-replay-note is a shared class (the skipped-steps note wears it too) — filter to the
+  // declined sentence.
+  const declinedNote = await page.locator(".stu-replay-note", { hasText: "did not play here" }).innerText();
+  t("the declined note names no /factory route on a built instance",
+    !declinedNote.includes("/factory") && declinedNote.includes("linked above."),
+    declinedNote.replace(/\s+/g, " ").slice(0, 120));
+
+  console.log("\n[8] zero non-2xx responses across the whole visit (compile's lazy fetches + the ?b= revisit included)");
   t("no non-2xx response", badResponses.length === 0, badResponses.join(" · "));
 
   await ctx.close();
