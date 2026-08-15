@@ -361,6 +361,87 @@ const TEMPLATES = {
   // (no bus). role="note" and plain text content, never aria-hidden, never truncated: the disclosure
   // must reach assistive tech on the same terms as sighted readers (spec's Accessibility prose).
   "demo-notice": (props) => el("p", { class: "vd-demo-notice", role: "note", text: props.text }),
+
+  // ---- The ten library components (#220) — ds-, cross-scenario, each mirroring one of the
+  // templates above (spec: system/specs/<name>.md). ----
+
+  // MIRROR of primary-button: the quiet sibling — same emission, no fill; native disabled
+  // suppresses the click for free.
+  "ghost-button": (props, kids, bus) => {
+    const btn = el("button", {
+      type: "button",
+      class: "ds-ghost-button",
+      disabled: props.disabled === true,
+      text: props.label,
+    });
+    btn.addEventListener("click", (e) => busEmit(bus, "ghost-button", e, { intent: "commit", label: props.label }));
+    return btn;
+  },
+
+  // The container primitive — the single-child rule made visible: the one validated child renders
+  // through its OWN template (validateComposition recursed before build reached here), so the card
+  // adds a frame, never behaviour. DOM order title → body → child → footnote is reading order.
+  "card": (props, kids, bus, path) => {
+    const card = el("section", { class: "ds-card" },
+      el("p", { class: "ds-card-title", text: props.title }),
+      props.body != null ? el("p", { class: "ds-card-body", text: props.body }) : null);
+    const child = kids[0];
+    if (child) card.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
+    if (props.footnote != null) card.appendChild(el("p", { class: "ds-card-footnote", text: props.footnote }));
+    return card;
+  },
+
+  // Absence stated plainly, with one invited action. A plain div, no role="status": a live region
+  // announces CHANGES, and this renders at-rest absence (spec's Accessibility prose).
+  "empty-state": (props, kids, bus, path) => {
+    const box = el("div", { class: "ds-empty-state" },
+      el("p", { class: "ds-empty-state-title", text: props.title }),
+      props.body != null ? el("p", { class: "ds-empty-state-body", text: props.body }) : null);
+    const child = kids[0];
+    if (child) box.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
+    return box;
+  },
+
+  // Determinate only. The TRACK carries role="progressbar" (a progressbar's descendants are
+  // presentational to AT, so the role must not swallow `detail`); the visible caption row is
+  // aria-hidden because it mirrors exactly what the role already announces (the status-chip
+  // precedent). The fill width is CSSOM, not a setAttribute("style") — data, not design, and
+  // CSP-safe. Clamped, and the readout prints the clamped number: bar and text always agree.
+  "progress-indicator": (props) => {
+    const v = Math.min(100, Math.max(0, props.value));
+    const fill = el("span", { class: "ds-progress-fill" });
+    fill.style.width = v + "%";
+    return el("div", { class: `ds-progress-indicator${v === 100 ? " is-complete" : ""}` },
+      el("p", { class: "ds-progress-caption", "aria-hidden": "true" },
+        el("span", { class: "ds-progress-label", text: props.label }),
+        el("span", { class: "ds-progress-value", text: `${v}%` })),
+      el("span", {
+        class: "ds-progress-track",
+        role: "progressbar",
+        "aria-label": props.label,
+        "aria-valuemin": "0",
+        "aria-valuemax": "100",
+        "aria-valuenow": String(v),
+      }, fill),
+      props.detail != null ? el("p", { class: "ds-progress-detail", text: props.detail }) : null);
+  },
+
+  // The library's first real <input> (the primary-button precedent: templates render working
+  // native elements). Implicit label wrapping — no ids minted, nothing to collide. No bus: a
+  // value change is not an intent in this vocabulary (spec's Usage prose).
+  "text-field": (props) => {
+    const input = el("input", {
+      type: "text",
+      class: "ds-text-field-input",
+      value: props.value,
+      placeholder: props.placeholder,
+      disabled: props.disabled === true,
+    });
+    return el("label", { class: "ds-text-field" },
+      el("span", { class: "ds-text-field-label", text: props.label }),
+      input,
+      props.hint != null ? el("span", { class: "ds-text-field-hint", text: props.hint }) : null);
+  },
 };
 
 // Does this renderer know how to build that component? The drift `build()` refuses below, asked as

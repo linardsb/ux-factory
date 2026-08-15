@@ -8,6 +8,37 @@
     "chipRule": "plant-card and care-task-row always render one status-chip derived from their own status prop; supply an explicit status-chip child only to override its label, and its value must equal the parent's status"
   },
   "components": {
+    "card": {
+      "class": "ds-card",
+      "status": "shipped",
+      "props": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "what the card groups — \"This week\", \"Moisture\" — read before the content it frames"
+        },
+        "body": {
+          "type": "string",
+          "required": false,
+          "description": "one supporting sentence under the title; absent renders nothing"
+        },
+        "footnote": {
+          "type": "string",
+          "required": false,
+          "description": "a quiet trailing line — a source, a timestamp, a count; absent renders nothing"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [
+        "metric-tile",
+        "list-row",
+        "sequence-step"
+      ],
+      "usage": "The container primitive: a titled frame around at most one composed component. Library-generic (`ds-`, cross-scenario). Use it where a metric, a row or a step needs stating context the component itself does not carry — a caption above a reading, a sentence explaining what a queue row means on this screen. Its `children` list is the three library display primitives, and the at-most-one-child rule is not a limitation being tolerated but the composition model's own grammar made visible: a card frames ONE thing; a screen that needs a card of five rows is a screen composing five cards or a different layout, and that call belongs to the composing surface. It deliberately does not accept another `card` — nesting frames is how container soup starts.",
+      "contract": null
+    },
     "care-task-row": {
       "class": "vd-care-task-row",
       "status": "shipped",
@@ -128,6 +159,56 @@
       ],
       "children": [],
       "usage": "Component of the Verdant demo scenario (fictional product). This is honesty surface #1: the visible label telling a viewer that the scenario they're looking at — its company, users, plants, data — is invented for the demonstration. It renders whatever `fictionalNotice` string the active scenario's copy carries, nothing more. The composing page decides which scenario is active and where the notice sits in the layout; this component's only job is to display the string it's given, unedited.",
+      "contract": null
+    },
+    "empty-state": {
+      "class": "ds-empty-state",
+      "status": "shipped",
+      "props": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "what there is none of yet, stated plainly — \"No readings yet\""
+        },
+        "body": {
+          "type": "string",
+          "required": false,
+          "description": "one sentence saying how the first item arrives; absent renders nothing"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [
+        "ghost-button"
+      ],
+      "usage": "What a screen says when the data it was built for is not there yet. Library-generic (`ds-`, cross-scenario). Use it wherever a list, a board or a dashboard would otherwise render nothing — an empty region that explains itself beats a blank one every time, and an empty state that invites the next action beats one that merely reports absence. Its one allowed child is a ghost-button carrying that invitation (\"Add a plant\", \"Connect a sensor\"); the quiet button is deliberate — an empty screen is not an alarm, and a filled primary-button would argue harder than the moment warrants. No illustration and no icon: the title does the work, in the interface's own voice.",
+      "contract": null
+    },
+    "ghost-button": {
+      "class": "ds-ghost-button",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "the action, named as a verb phrase — \"View details\", \"Skip for now\" — rendered verbatim as the button's own text"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled — visible but inert, the click never reaches the bus; absent means enabled"
+        }
+      },
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ],
+      "children": [],
+      "usage": "The quiet sibling of primary-button: the same box, the same type, the same bus emission — and no fill. Library-generic (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). Use it for the action a screen offers without arguing for it: the secondary path beside a primary-button, a dismissal, the invited action inside an empty-state (whose `children` list names exactly this component). One view keeps one filled button; everything else that acts stands down to this. Like primary-button, it does not know what its action means — it emits the intent onto the bus and the composing surface decides.",
       "contract": null
     },
     "list-row": {
@@ -365,6 +446,37 @@
       "usage": "Component of the Verdant demo scenario (fictional product). The screen's one committing action: full-width accent fill at the bottom of the content — on the today screen, \"Log care\" commits the checked care-task-rows. One per screen, always last in reading order; anything less than the screen's primary action is not this component. Presentational: the composing screen owns what \"commit\" means and when `disabled` lifts.",
       "contract": null
     },
+    "progress-indicator": {
+      "class": "ds-progress-indicator",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what is progressing — \"Setup\", \"Uploading\" — the progressbar's accessible name"
+        },
+        "value": {
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "description": "percent complete, 0–100; the template clamps an out-of-range value into the bounds rather than throwing"
+        },
+        "detail": {
+          "type": "string",
+          "required": false,
+          "description": "one quiet line under the bar — \"Step 3 of 5\"; absent renders nothing"
+        }
+      },
+      "states": [
+        "default",
+        "complete"
+      ],
+      "children": [],
+      "usage": "One bounded number made visible: a caption row, a track, a fill. Library-generic (`ds-`, cross-scenario). Use it for determinate progress a scenario can actually measure — steps completed, records processed, a percentage the data really contains. It is determinate only, deliberately: an indeterminate spinner reports the SYSTEM's mood, this component reports the DATA's position, and conflating them is how interfaces end up animating confidence they do not have. The value is the library's one bounded number prop (`min` 0 · `max` 100 · `step` 1), which is also what gives the catalog playground its real range control.",
+      "contract": null
+    },
     "screen-header": {
       "class": "vd-screen-header",
       "status": "shipped",
@@ -577,6 +689,45 @@
         },
         "additionalProperties": false
       }
+    },
+    "text-field": {
+      "class": "ds-text-field",
+      "status": "shipped",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the field asks for — \"Email\" — always visible, never replaced by the placeholder"
+        },
+        "value": {
+          "type": "string",
+          "required": false,
+          "description": "the field's starting text; absent renders empty"
+        },
+        "placeholder": {
+          "type": "string",
+          "required": false,
+          "description": "a format example shown while empty — \"you@example.com\" — never instructions the reader must remember"
+        },
+        "hint": {
+          "type": "string",
+          "required": false,
+          "description": "one persistent line under the input; absent renders nothing"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled; absent means enabled"
+        }
+      },
+      "states": [
+        "default",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "usage": "The library's first real input: a labelled single-line text control. Library-generic (`ds-`, cross-scenario). Use it wherever a composed screen depicts text entry — a settings screen's name field, a form step in an onboarding sequence. It is a REAL `<input>`, not a picture of one (the primary-button precedent: templates render working native elements), so focus, typing and selection all behave natively in the playground and in any composed screen. What it deliberately is not: a form system. No validation states, no error rendering, no submission — a value change is not an intent in this vocabulary today, so the field emits nothing onto the bus; the consuming product owns what entered text means.",
+      "contract": null
     }
   }
 }

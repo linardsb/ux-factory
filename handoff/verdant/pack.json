@@ -4,6 +4,72 @@
   "generatedFrom": "system/specs",
   "components": [
     {
+      "component": "card",
+      "status": "shipped",
+      "class": "ds-card",
+      "contract": null,
+      "props": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "what the card groups — \"This week\", \"Moisture\" — read before the content it frames"
+        },
+        "body": {
+          "type": "string",
+          "required": false,
+          "description": "one supporting sentence under the title; absent renders nothing"
+        },
+        "footnote": {
+          "type": "string",
+          "required": false,
+          "description": "a quiet trailing line — a source, a timestamp, a count; absent renders nothing"
+        }
+      },
+      "tokens": [
+        "--color-bg",
+        "--color-fg",
+        "--color-fg-muted",
+        "--color-border",
+        "--radius-md",
+        "--shadow-sm",
+        "--spacing-md",
+        "--spacing-sm",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default"
+      ],
+      "children": [
+        "metric-tile",
+        "list-row",
+        "sequence-step"
+      ],
+      "example": {
+        "title": "This week",
+        "body": "Three readings crossed their threshold.",
+        "footnote": "Updated an hour ago"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "The container primitive: a titled frame around at most one composed component. Library-generic (`ds-`, cross-scenario). Use it where a metric, a row or a step needs stating context the component itself does not carry — a caption above a reading, a sentence explaining what a queue row means on this screen. Its `children` list is the three library display primitives, and the at-most-one-child rule is not a limitation being tolerated but the composition model's own grammar made visible: a card frames ONE thing; a screen that needs a card of five rows is a screen composing five cards or a different layout, and that call belongs to the composing surface. It deliberately does not accept another `card` — nesting frames is how container soup starts."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the only state: `--color-bg` fill inside a `--color-border` hairline, `--radius-md`, `--shadow-sm`. The fill is the PAGE ground rather than `--color-bg-surface`, deliberately: the three child primitives are all surface-tinted, so the card must sit one step lighter or its child disappears into it. `--shadow-sm` only — a resting container, never an overlay (that depth is modal-dialog's).\n\nThe card has no hover, focus or pressed variant because it is not a control; making a card tappable is a new component decision, not a state."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. No record binds here; the composing agent computes the three strings and, optionally, one child node from the scenario's data. All three props are plain display strings (head schema v1 prop types are string/number/boolean; string is the uniform display choice, the metric-tile argument).\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `title` | the card's caption line | required — an untitled frame is decoration, not information |\n| `body` | one sentence under the title | renders nothing |\n| `footnote` | the quiet last line, after the child | renders nothing |\n\nThe single child renders between body and footnote, through its own template, exactly as it would render alone — the card adds a frame, never behaviour."
+        },
+        {
+          "title": "Accessibility",
+          "body": "A `<section>` with no accessible name of its own — DOM order is title → body → child → footnote, so a screen reader hears the caption before the content it frames, mirroring the visual layout. The title is a styled paragraph rather than a heading, deliberately: a composition can place a card at any depth, and a hard-coded heading level would lie about the document outline more often than it helped; the composing page owns its heading structure. Text contrast: `--color-fg` and `--color-fg-muted` on `--color-bg` are both declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). Nothing here is colour-only, nothing truncates, and the card adds no interaction to trap."
+        }
+      ]
+    },
+    {
       "component": "care-task-row",
       "status": "shipped",
       "class": "vd-care-task-row",
@@ -134,6 +200,119 @@
         {
           "title": "Accessibility",
           "body": "A plain text element (e.g. a `<p>` or an element with `role=\"note\"`) — always present in the accessibility tree, never visually hidden, truncated, or collapsed behind an interaction. The disclosure has to reach assistive-tech users on the same terms as sighted ones, so no `aria-hidden`, no icon-only rendering, no relying on color alone. `--color-fg-muted` on `--color-bg-surface` reads as secondary, quiet emphasis, not as a warning — and that exact pair is a declared contrast pair in `system/derive.rules.mjs` (`wcagPairs`, \"captions on cards\", AA 4.5), so a derived pack that could not clear text contrast behind this notice at `--type-caption` size fails its own check rather than shipping quietly."
+        }
+      ]
+    },
+    {
+      "component": "empty-state",
+      "status": "shipped",
+      "class": "ds-empty-state",
+      "contract": null,
+      "props": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "what there is none of yet, stated plainly — \"No readings yet\""
+        },
+        "body": {
+          "type": "string",
+          "required": false,
+          "description": "one sentence saying how the first item arrives; absent renders nothing"
+        }
+      },
+      "tokens": [
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--radius-md",
+        "--spacing-md",
+        "--spacing-sm",
+        "--spacing-xl",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default"
+      ],
+      "children": [
+        "ghost-button"
+      ],
+      "example": {
+        "title": "No readings yet",
+        "body": "Connect a sensor and its first reading appears here."
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "What a screen says when the data it was built for is not there yet. Library-generic (`ds-`, cross-scenario). Use it wherever a list, a board or a dashboard would otherwise render nothing — an empty region that explains itself beats a blank one every time, and an empty state that invites the next action beats one that merely reports absence. Its one allowed child is a ghost-button carrying that invitation (\"Add a plant\", \"Connect a sensor\"); the quiet button is deliberate — an empty screen is not an alarm, and a filled primary-button would argue harder than the moment warrants. No illustration and no icon: the title does the work, in the interface's own voice."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the only state: a `--color-border` DASHED hairline around centre-set muted prose. The dash is the design call — the library's one dashed border, drawing absence as an outline of where content will sit rather than as a filled card pretending to be content. `--spacing-xl` vertical padding gives the emptiness honest room; title in `--color-fg` at `--type-body` weight 600, body in `--color-fg-muted` at `--type-caption`.\n\nNo hover, focus or pressed variant: the container is not a control. The child ghost-button carries its own interactive states."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. No record binds here, which is the point: this component renders precisely when there is no record to bind. The composing agent or page states what is absent and, optionally, one action that changes that.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `title` | the centre-set first line | required — an unexplained empty region is a gap, not a state |\n| `body` | the sentence under it | renders nothing |\n\nThe single ghost-button child renders after the body, through its own template; its intent emission is its own (see ghost-button's Data binding)."
+        },
+        {
+          "title": "Accessibility",
+          "body": "A plain `<div>` of ordinary text — no `role=\"status\"`, deliberately: a live-region role announces CHANGES, and this component renders at-rest absence; a screen that swaps content in later owns that announcement itself. DOM order is title → body → action, one readable sentence sequence. `--color-fg` and `--color-fg-muted` on the page ground are declared contrast pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5); the dashed border is decorative grouping, not identification-bearing UI, so SC 1.4.11 does not bind it (the same recorded exclusion as `--color-border` hairlines). Centre-set text stays a few lines at most by design — the props are one title and one sentence, not prose."
+        }
+      ]
+    },
+    {
+      "component": "ghost-button",
+      "status": "shipped",
+      "class": "ds-ghost-button",
+      "contract": null,
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "the action, named as a verb phrase — \"View details\", \"Skip for now\" — rendered verbatim as the button's own text"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled — visible but inert, the click never reaches the bus; absent means enabled"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-accent-wash",
+        "--color-accent-active",
+        "--color-fg-muted",
+        "--radius-md",
+        "--spacing-md",
+        "--type-body"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ],
+      "children": [],
+      "example": {
+        "label": "View details"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "The quiet sibling of primary-button: the same box, the same type, the same bus emission — and no fill. Library-generic (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). Use it for the action a screen offers without arguing for it: the secondary path beside a primary-button, a dismissal, the invited action inside an empty-state (whose `children` list names exactly this component). One view keeps one filled button; everything else that acts stands down to this. Like primary-button, it does not know what its action means — it emits the intent onto the bus and the composing surface decides."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — transparent fill, `--color-accent` text at `--type-body` weight 600. The accent alone marks it interactive; there is no border, so it never competes with a card's hairline.\n- **hover** — `--color-accent-wash` fill: the accent as a barely-there ground, adding contrast without removing information.\n- **focus** — `:focus-visible` outline in `--color-accent-active`, offset outside the box (mirrors primary-button).\n- **active** — the wash fill with `--color-accent-active` text: pressed reads one step darker, same mechanic as primary-button's active.\n- **disabled** — `--color-fg-muted` text, no fill, `cursor: not-allowed`; native `disabled` suppresses the click entirely, so nothing reaches the bus.\n\nNo new token at any state: the accent family already carries hover/active/disabled expression (the metric-tile precedent — emphasis needs no new hue)."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational plus one intent. No stored record binds here; the composing agent or page passes the action's name down and listens on the bus. Emission mirrors primary-button exactly: one `ui.intent` per click with `{ intent: \"commit\", label }`, `source` resolved from the event (`e.detail === 0` is keyboard). What \"commit\" means — navigate, dismiss, retry — is the composing surface's decision; the component only reports that its labelled action was chosen.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `label` | the button's text content and accessible name | required — a button with no name is not a control |\n| `disabled` | the native `disabled` attribute | absent means enabled |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "A real `<button type=\"button\">` — focusable, Enter/Space for free, named by its own text content, no ARIA needed. `--color-accent` on the page ground is a declared contrast pair (`system/derive.rules.mjs` `wcagPairs`, \"accent text / links\", AA 4.5), so a derived pack that could not hold this button's label readable fails its own check rather than shipping quietly. The hover wash only ever adds background behind that same pair. Disabled drops to `--color-fg-muted` with the pointer cursor withdrawn — conventionally exempt from contrast minima, and the label text is unchanged, so the state is never colour-only. Hit area: the `--spacing-md` padding puts the box comfortably past 44px tall at `--type-body`."
         }
       ]
     },
@@ -438,6 +617,73 @@
       ]
     },
     {
+      "component": "progress-indicator",
+      "status": "shipped",
+      "class": "ds-progress-indicator",
+      "contract": null,
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what is progressing — \"Setup\", \"Uploading\" — the progressbar's accessible name"
+        },
+        "value": {
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "description": "percent complete, 0–100; the template clamps an out-of-range value into the bounds rather than throwing"
+        },
+        "detail": {
+          "type": "string",
+          "required": false,
+          "description": "one quiet line under the bar — \"Step 3 of 5\"; absent renders nothing"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-accent-wash",
+        "--color-bg-surface",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--radius-md",
+        "--radius-sm",
+        "--spacing-md",
+        "--spacing-sm",
+        "--type-caption"
+      ],
+      "states": [
+        "default",
+        "complete"
+      ],
+      "children": [],
+      "example": {
+        "label": "Setup",
+        "value": 62,
+        "detail": "Step 3 of 5"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "One bounded number made visible: a caption row, a track, a fill. Library-generic (`ds-`, cross-scenario). Use it for determinate progress a scenario can actually measure — steps completed, records processed, a percentage the data really contains. It is determinate only, deliberately: an indeterminate spinner reports the SYSTEM's mood, this component reports the DATA's position, and conflating them is how interfaces end up animating confidence they do not have. The value is the library's one bounded number prop (`min` 0 · `max` 100 · `step` 1), which is also what gives the catalog playground its real range control."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the track is `--color-accent-wash` inside a `--color-border` hairline; the fill is `--color-accent`, its width the value itself. Caption row above: label in `--color-fg-muted`, the percent readout in `--color-fg` with tabular numerals so a ticking value does not jitter.\n- **complete** — at exactly 100 the template adds `is-complete`, which recolours the percent readout to `--color-accent` and nothing else: the bar is already all accent at 100, and any louder state would out-shout the metric-tile escalation grammar. Completion is the value's own fact, never a separate flag."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. The composing agent computes the percentage from the scenario's data and passes it down; the component never computes, rounds or invents progress. An out-of-range value clamps into 0–100 at render (a bar cannot honestly draw 140%), and the readout prints the clamped number — the drawn bar and the printed number always agree.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `label` | the caption's leading text and the progressbar's `aria-label` | required — an unlabelled bar is a decoration |\n| `value` | the fill width, the percent readout, and `aria-valuenow` | required — a progress bar with no value has nothing to state |\n| `detail` | the quiet line under the track | renders nothing |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "The track element carries `role=\"progressbar\"` with `aria-label`, `aria-valuemin=\"0\"`, `aria-valuemax=\"100\"` and `aria-valuenow` — the value reaches assistive tech through the ARIA value interface, which is what the role exists for. The visible caption row is `aria-hidden=\"true\"`, deliberately: it renders exactly the label and value the progressbar already announces, and leaving it in the tree would double every reading (the status-chip precedent — the visible mirror is hidden where the semantic source speaks). `detail` stays in the tree as plain text — the progressbar does not announce it. Colour is never the sole signal: the percent readout states the position in text at every state, and `is-complete` only re-weights a number that already says 100%."
+        }
+      ]
+    },
+    {
       "component": "screen-header",
       "status": "shipped",
       "class": "vd-screen-header",
@@ -711,6 +957,82 @@
         {
           "title": "Accessibility",
           "body": "Text in a `<span>` — no role, no tabindex (the chip is never interactive). When the parent already speaks the state in its accessible name (plant-card does), the chip is `aria-hidden` to avoid double announcement; free label text plus the variant means state never relies on colour alone. Minimum `--type-eyebrow` size with generous letter-spacing keeps the uppercase legible."
+        }
+      ]
+    },
+    {
+      "component": "text-field",
+      "status": "shipped",
+      "class": "ds-text-field",
+      "contract": null,
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the field asks for — \"Email\" — always visible, never replaced by the placeholder"
+        },
+        "value": {
+          "type": "string",
+          "required": false,
+          "description": "the field's starting text; absent renders empty"
+        },
+        "placeholder": {
+          "type": "string",
+          "required": false,
+          "description": "a format example shown while empty — \"you@example.com\" — never instructions the reader must remember"
+        },
+        "hint": {
+          "type": "string",
+          "required": false,
+          "description": "one persistent line under the input; absent renders nothing"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled; absent means enabled"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-bg",
+        "--color-bg-surface",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--radius-sm",
+        "--spacing-md",
+        "--spacing-sm",
+        "--spacing-xs",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "example": {
+        "label": "Email",
+        "placeholder": "you@example.com",
+        "hint": "Work address preferred."
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "The library's first real input: a labelled single-line text control. Library-generic (`ds-`, cross-scenario). Use it wherever a composed screen depicts text entry — a settings screen's name field, a form step in an onboarding sequence. It is a REAL `<input>`, not a picture of one (the primary-button precedent: templates render working native elements), so focus, typing and selection all behave natively in the playground and in any composed screen. What it deliberately is not: a form system. No validation states, no error rendering, no submission — a value change is not an intent in this vocabulary today, so the field emits nothing onto the bus; the consuming product owns what entered text means."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — `--color-bg` fill inside a `--color-border` hairline at `--radius-sm`; label above in `--color-fg` weight 600 at `--type-caption`; placeholder in `--color-fg-muted`.\n- **focus** — a 2px `--color-accent` outline, offset outside the box. An outline rather than a border swap or box-shadow, deliberately: it survives forced-colors mode and never shifts layout.\n- **disabled** — the input drops to `--color-bg-surface` fill with `--color-fg-muted` text and `cursor: not-allowed`; the label keeps its weight so the field stays identifiable.\n\nError and validation states are deliberately absent — no `--color-danger` exists in the contract, and inventing one is a system-level call this component does not get to make (the metric-tile precedent: emphasis without a new hue). A consuming product layers validation; the specimen stays honest about what the system ships."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. No record binds here; the composing agent passes display strings. `value` seeds the input's starting text and the reader can edit it freely — the component never reports the edit anywhere (see Usage; a value change is not an intent in this vocabulary).\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `label` | the visible caption inside the wrapping `<label>` | required — an unlabelled input fails the reader before it fails a checker |\n| `value` | the input's `value` attribute | renders empty |\n| `placeholder` | the input's `placeholder` attribute | renders none |\n| `hint` | the persistent line under the input | renders nothing |\n| `disabled` | the native `disabled` attribute | absent means enabled |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "The control is nested inside its own `<label>` — implicit association, structural and collision-free, and the reason no template mints `id` attributes (nothing to collide when a composition renders two of these). The label is always visible: a placeholder-as-label disappears on first keystroke, which is the classic failure this shape exists to avoid. The hint sits inside the label element, so its text joins the field's accessible name — a deliberate trade: with no ids there is no `aria-describedby`, and a hint read as part of the name reaches assistive tech on the same terms as sighted readers; a consuming product that needs name/description separation mints its ids at the form layer. Contrast: `--color-fg` on `--color-bg` and `--color-fg-muted` on both grounds are declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). The input clears 44px min-height."
         }
       ]
     }

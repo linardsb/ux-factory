@@ -1086,6 +1086,90 @@
       ]
     },
     {
+      "id": "ds-ghost-button-cross-scenario-library-primitive",
+      "label": "ds-ghost-button — cross-scenario library primitive",
+      "spec": "system/specs/ghost-button.md",
+      "tokens": [
+        "--spacing-md",
+        "--color-accent",
+        "--radius-md",
+        "--type-body",
+        "--color-accent-wash",
+        "--color-accent-active",
+        "--color-fg-muted"
+      ]
+    },
+    {
+      "id": "ds-card-cross-scenario-library-primitive",
+      "label": "ds-card — cross-scenario library primitive",
+      "spec": "system/specs/card.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-md",
+        "--color-bg",
+        "--color-border",
+        "--radius-md",
+        "--shadow-sm",
+        "--type-body",
+        "--color-fg",
+        "--color-fg-muted",
+        "--type-caption"
+      ]
+    },
+    {
+      "id": "ds-empty-state-cross-scenario-library-primitive",
+      "label": "ds-empty-state — cross-scenario library primitive",
+      "spec": "system/specs/empty-state.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-xl",
+        "--spacing-md",
+        "--color-border",
+        "--radius-md",
+        "--type-body",
+        "--color-fg",
+        "--type-caption",
+        "--color-fg-muted"
+      ]
+    },
+    {
+      "id": "ds-progress-indicator-cross-scenario-library-primitive",
+      "label": "ds-progress-indicator — cross-scenario library primitive",
+      "spec": "system/specs/progress-indicator.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-md",
+        "--color-bg-surface",
+        "--color-border",
+        "--radius-md",
+        "--type-caption",
+        "--color-fg-muted",
+        "--color-fg",
+        "--color-accent-wash",
+        "--radius-sm",
+        "--color-accent"
+      ]
+    },
+    {
+      "id": "ds-text-field-cross-scenario-library-primitive",
+      "label": "ds-text-field — cross-scenario library primitive",
+      "spec": "system/specs/text-field.md",
+      "tokens": [
+        "--spacing-xs",
+        "--type-caption",
+        "--color-fg",
+        "--spacing-sm",
+        "--spacing-md",
+        "--type-body",
+        "--color-bg",
+        "--color-border",
+        "--radius-sm",
+        "--color-fg-muted",
+        "--color-accent",
+        "--color-bg-surface"
+      ]
+    },
+    {
       "id": "verdant-screen-scaffolding-layout-not-spec-d-components",
       "label": "Verdant screen scaffolding (layout, not spec'd components)",
       "spec": null,
@@ -1206,7 +1290,7 @@
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 33,
-    "edges": 393
+    "consumers": 38,
+    "edges": 442
   }
 }

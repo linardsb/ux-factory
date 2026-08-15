@@ -4202,8 +4202,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 7,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/7; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 12,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/12; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,
