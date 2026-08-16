@@ -99,17 +99,21 @@ const { DOCS_SOURCES } = await import(new URL("../system/studio-docs.mjs", impor
 // #219's framesPass asks the SHIPPED module which prototypes are on the canvas and where, so a
 // changed footprint or a renamed frame moves the driver with the module instead of drifting past it.
 const { FRAMES } = await import(new URL("../system/studio-frames.mjs", import.meta.url));
+// #221's two passes compute every expectation through the same pure functions the page runs — a
+// literal sentence or rect would pass a list or a map that silently stopped being the canvas's.
+const { layerEntries } = await import(new URL("../system/studio-layers.mjs", import.meta.url));
+const { cellRect, jumpFrom, mapView, visibleRange } = await import(new URL("../system/studio-minimap.mjs", import.meta.url));
 
 // The stale-serve guard (tooling/catalog-journey.mjs's, copied): a long-lived serve.mjs can belong
 // to another session and serve ANOTHER tree, and every assertion below would then be about the
-// wrong code. Checked on studio-docs.mjs because that is the file this run is newest about — a
+// wrong code. Checked on studio-layers.mjs because that is the file this run is newest about — a
 // stale server is exactly how a green run gets reported for code that was never served.
 {
-  const here = new URL("../system/studio-docs.mjs", import.meta.url);
-  const served = await fetch(`${BASE}/system/studio-docs.mjs`).then((r) => r.text()).catch(() => null);
+  const here = new URL("../system/studio-layers.mjs", import.meta.url);
+  const served = await fetch(`${BASE}/system/studio-layers.mjs`).then((r) => r.text()).catch(() => null);
   const { readFile } = await import("node:fs/promises");
   if (served !== await readFile(here, "utf8")) {
-    console.error(`studio-journey: ${BASE} is not serving THIS tree's system/studio-docs.mjs — start `
+    console.error(`studio-journey: ${BASE} is not serving THIS tree's system/studio-layers.mjs — start `
       + "node tooling/visual-regression/serve.mjs from this checkout (or point BASE elsewhere)");
     process.exit(1);
   }
@@ -1301,6 +1305,8 @@ async function journey(engineName, results, held) {
   await selectPass(browser, engineName, t, errors);
   await docsPass(browser, engineName, t, errors);
   await framesPass(browser, engineName, t, errors);
+  await layersPass(browser, engineName, t, errors);
+  await minimapPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -5242,6 +5248,595 @@ async function framesPass(browser, engineName, t, errors) {
   await ctx.close();
 }
 
+// #221's layersPass — the running-page half build-checks group 26 states it cannot reach: the
+// same-interaction reflection, selection parity BOTH WAYS through the one applySelection, the
+// roving tabindex as one tab stop, the announcements, the refusal-as-content, and the mid-replay
+// non-take-over. Every expectation is computed through the page's own pure imports (layerEntries,
+// marqueeRange + idsInRange) and live DOM reads — never literals.
+async function layersPass(browser, engineName, t, errors) {
+  console.log(`\n[layers] #221 · the layers list in the inspector rail (${engineName})`);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
+  };
+  // Settled by default (selectPass's recorded reason: the mount handles fire over an EMPTY canvas);
+  // settle:false is the mid-replay case's own opener.
+  const open = async (context = ctx, tag = "layers", { settle = true } = {}) => {
+    const p = await context.newPage();
+    watch(p, tag);
+    await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await p.waitForSelector('[data-studio-layers="ready"]', { timeout: 20000 });
+    if (settle) await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(400);
+    return p;
+  };
+  // The stage's MOVABLE wrappers as the pure layer's input shape, in DOM order — which is board
+  // order, the correspondence the whole list rides on.
+  const movables = (p) => p.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => ({
+      id: n.getAttribute("data-stx-id"),
+      name: n.getAttribute("data-stx-name"),
+      col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
+      kind: n.classList.contains("stx-frame") ? "frame" : "slot",
+      selected: n.hasAttribute("data-stx-selected"),
+      cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
+    })));
+  const rowsNow = (p) => p.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-layers] .stu-layer")].map((b) => ({
+      id: b.getAttribute("data-layer-id"),
+      name: b.querySelector(".stu-layer-name").textContent,
+      pos: b.querySelector(".stu-layer-pos").textContent,
+      kind: b.getAttribute("data-layer-kind"),
+      pressed: b.getAttribute("aria-pressed"),
+      sel: b.classList.contains("is-selected"),
+    })));
+  const chosenIds = async (p) => (await p.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot[data-stx-selected]")]
+      .map((n) => n.getAttribute("data-stx-id")))).sort();
+  const rowSel = (id) => `[data-studio-layers] .stu-layer[data-layer-id="${id}"]`;
+  const mirrors = (rows, wraps) => {
+    const expect = layerEntries(wraps);
+    return rows.length === expect.length
+      && rows.every((r, i) => r.id === expect[i].id && r.name === expect[i].name && r.pos === expect[i].sentence);
+  };
+
+  // --- 1 · the mirror: count, ids, names AND order ------------------------------------------------
+  const p1 = await open();
+  const wraps1 = await movables(p1);
+  t("#221 · the settled canvas is non-empty — board wrappers AND both frames — or every row below is vacuous",
+    wraps1.filter((w) => w.kind === "slot").length >= 3 && wraps1.filter((w) => w.kind === "frame").length === FRAMES.length,
+    JSON.stringify(wraps1.map((w) => w.kind)));
+  const rows1 = await rowsNow(p1);
+  t("#221/AC1 · the list mirrors the stage — count, ids, names and ORDER, computed through the page's own layerEntries, never literals",
+    mirrors(rows1, wraps1), JSON.stringify({ rows: rows1.map((r) => r.id), wraps: wraps1.map((w) => w.id) }));
+  t("#221 · frame rows are marked and carry NO aria-pressed (actions, not toggles); board rows carry it",
+    rows1.filter((r) => r.kind === "frame").length === FRAMES.length
+    && rows1.filter((r) => r.kind === "frame").every((r) => r.pressed === null)
+    && rows1.filter((r) => r.kind !== "frame").every((r) => r.pressed === "false" || r.pressed === "true"),
+    JSON.stringify(rows1.map((r) => [r.kind, r.pressed])));
+
+  // --- 2 · same-interaction reflection: a pointer drag, then an injected agent move ---------------
+  const dragId = wraps1.find((w) => w.kind === "slot").id;
+  const posBefore = rows1.find((r) => r.id === dragId).pos;
+  const g1 = await p1.evaluate((id) => {
+    const r = document.querySelector(`.stx-slot[data-stx-id="${id}"] .stx-grab`).getBoundingClientRect();
+    const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+    const pitch = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+    const b = document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getBoundingClientRect();
+    return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2, dropX: (b.left + b.right) / 2, dropY: (b.top + b.bottom) / 2 + pitch };
+  }, dragId);
+  await p1.mouse.move(g1.x, g1.y);
+  await p1.mouse.down();
+  await p1.mouse.move(g1.dropX, g1.dropY, { steps: 8 });
+  await p1.mouse.up();
+  await p1.waitForTimeout(250);
+  const rows2 = await rowsNow(p1);
+  const wraps2 = await movables(p1);
+  t("#221/AC1 · a pointer drag updates that row's position sentence in the SAME interaction — no reload, no poll",
+    mirrors(rows2, wraps2) && rows2.find((r) => r.id === dragId).pos !== posBefore,
+    JSON.stringify({ before: posBefore, after: rows2.find((r) => r.id === dragId).pos }));
+
+  const p2 = await open(ctx, "layers agent");
+  const agentId = (await movables(p2)).find((w) => w.kind === "slot").id;
+  await inject(p2, { type: "ui.move", source: "agent", target: { id: agentId }, params: { col: 6, row: 2 } });
+  await p2.waitForTimeout(250);
+  const rows2b = await rowsNow(p2);
+  const wraps2b = await movables(p2);
+  t("#221/AC1 · an injected source:\"agent\" ui.move on a FRESH page updates the row too — the reflection is the observer, not the gesture",
+    mirrors(rows2b, wraps2b)
+    && rows2b.find((r) => r.id === agentId).pos === layerEntries(wraps2b).find((e) => e.id === agentId).sentence
+    && wraps2b.find((w) => w.id === agentId).col === "6",
+    JSON.stringify(rows2b.find((r) => r.id === agentId)));
+  await p2.close();
+
+  // --- 3 · a method redraft rebuilds the rows; the frames' rows SURVIVE ---------------------------
+  // The worklist answer, not the first radio: the cards restore the recommended answers, and
+  // checking an already-checked radio is a no-op that redrafts nothing (perfPass's own fixture).
+  const slotIdsBefore = (await rowsNow(p1)).filter((r) => r.kind !== "frame").map((r) => r.id);
+  await p1.$eval('input[name="stm-q-shape"][value="worklist"]', (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+  await p1.waitForTimeout(100);
+  await p1.check('input[name="stm-q-shape"][value="worklist"]');
+  await p1.waitForTimeout(400);
+  const wraps3 = await movables(p1);
+  const rows3 = await rowsNow(p1);
+  t("#221/AC1 · a method redraft rebuilds the list to the DRAFTED board's rows — genuinely new rows — and the frame rows survive (adoptBoard's .stx-slot scope, observed not assumed)",
+    mirrors(rows3, wraps3) && rows3.filter((r) => r.kind === "frame").length === FRAMES.length
+    && JSON.stringify(rows3.filter((r) => r.kind !== "frame").map((r) => r.id)) !== JSON.stringify(slotIdsBefore),
+    JSON.stringify(rows3.map((r) => [r.id, r.kind])));
+
+  // --- 7 · compile round-trip: rows byte-identical across Compile → Back to blocks ----------------
+  const beforeC = await rowsNow(p1);
+  await p1.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+  await p1.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "rendered", null, { timeout: 20000 });
+  await p1.waitForTimeout(250);
+  await p1.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+  await p1.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "blocks", null, { timeout: 20000 });
+  await p1.waitForTimeout(250);
+  const afterC = await rowsNow(p1);
+  t("#221 · rows are byte-identical across Compile → Back to blocks — a compile swaps wrapper CONTENT, never wrappers",
+    JSON.stringify(afterC) === JSON.stringify(beforeC), JSON.stringify({ beforeC, afterC }));
+  await p1.close();
+
+  // --- 4 · selection parity, BOTH directions, through the ONE applySelection ----------------------
+  const p3 = await open(ctx, "layers select");
+  const target = (await movables(p3)).find((w) => w.kind === "slot");
+  await countLive(p3);
+  await p3.click(rowSel(target.id));
+  await p3.waitForTimeout(200);
+  const said4 = await liveSeen(p3);
+  const row4 = (await rowsNow(p3)).find((r) => r.id === target.id);
+  t("#221/AC1 · clicking a row selects EXACTLY that component, the row shows aria-pressed + the visual, and the sentence is applySelection's own count — once, never duplicated here",
+    JSON.stringify(await chosenIds(p3)) === JSON.stringify([target.id]) && row4.pressed === "true" && row4.sel
+    && said4.n === 1 && /^1 selected: /.test(said4.last),
+    JSON.stringify({ said4, row4 }));
+  // The canvas direction: a Shift-drag marquee, its expected set computed through the page's own
+  // marqueeRange + idsInRange (the selectPass idiom) — the rows' pressed set must equal it.
+  const grid4 = await p3.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((n) => ({
+    id: n.getAttribute("data-stx-id"), col: Number(n.getAttribute("data-col")), row: Number(n.getAttribute("data-row")) })));
+  const want4 = idsInRange(grid4, marqueeRange({ col: 1, row: 1 }, { col: 2, row: 2 })).slice().sort();
+  const pts4 = await p3.evaluate(() => {
+    const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+    const a = stage.querySelector('.stx-slot[data-col="1"][data-row="1"]')?.getBoundingClientRect();
+    if (!a) return null;
+    const cs = getComputedStyle(stage);
+    const px = parseFloat(cs.gridTemplateColumns) + (parseFloat(cs.columnGap) || 0);
+    const py = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+    const from = { x: a.left + a.width / 2, y: a.top + a.height / 2 };
+    return { from, to: { x: from.x + px, y: from.y + py } };
+  });
+  await p3.keyboard.down("Shift");
+  await p3.mouse.move(pts4.from.x, pts4.from.y);
+  await p3.mouse.down();
+  await p3.mouse.move(pts4.to.x, pts4.to.y, { steps: 10 });
+  await p3.mouse.up();
+  await p3.keyboard.up("Shift");
+  await p3.waitForTimeout(250);
+  const pressed4 = (await rowsNow(p3)).filter((r) => r.pressed === "true").map((r) => r.id).sort();
+  t("#221/AC1 · …and the canvas direction: a marquee's id set — marqueeRange + idsInRange in Node — IS the rows' pressed set",
+    JSON.stringify(pressed4) === JSON.stringify(want4) && want4.length >= 2,
+    JSON.stringify({ pressed4, want4 }));
+  // The toggle proven both ways: a second click on a now-selected row DESELECTS.
+  await p3.click(rowSel(target.id));
+  await p3.waitForTimeout(200);
+  const after4 = await chosenIds(p3);
+  t("#221/AC1 · a second row click DESELECTS — the toggle proven both ways",
+    !after4.includes(target.id) && JSON.stringify(after4) === JSON.stringify(want4.filter((x) => x !== target.id)),
+    JSON.stringify({ after4, want4 }));
+
+  // --- 5 · the keyboard: ONE tab stop, roving arrows, Enter on a frame row and on a slot row ------
+  await p3.focus("[data-studio-minimap] .stu-map");
+  await p3.keyboard.press("Tab");
+  const onRow = await p3.evaluate(() => document.activeElement.classList.contains("stu-layer"));
+  await p3.keyboard.press("Tab");
+  const offList = await p3.evaluate(() => !document.activeElement.classList.contains("stu-layer"));
+  t("#221/AC2 · Tab reaches the list as ONE stop and one more Tab leaves it — the roving tabindex",
+    onRow && offList, JSON.stringify({ onRow, offList }));
+  const rowIds = (await rowsNow(p3)).map((r) => r.id);
+  const focusedRow = (p) => p.evaluate(() => document.activeElement.getAttribute?.("data-layer-id") ?? null);
+  await p3.focus('[data-studio-layers] .stu-layer[tabindex="0"]');
+  await p3.keyboard.press("ArrowDown");
+  const f1 = await focusedRow(p3);
+  await p3.keyboard.press("End");
+  const f2 = await focusedRow(p3);
+  await p3.keyboard.press("Home");
+  const f3 = await focusedRow(p3);
+  await p3.keyboard.press("ArrowUp");
+  const f4 = await focusedRow(p3);
+  t("#221/AC2 · ArrowDown/End/Home move the roving focus and ArrowUp wraps — ids read off the page, never literals",
+    f1 === rowIds[1] && f2 === rowIds[rowIds.length - 1] && f3 === rowIds[0] && f4 === rowIds[rowIds.length - 1],
+    JSON.stringify({ f1, f2, f3, f4, rowIds }));
+  // Enter on a FRAME row: no selection change, the brought-into-view sentence, the frame measurably
+  // inside the scroller's viewport afterwards. The first row IS a frame row (frames place at mount).
+  await p3.keyboard.press("Home");
+  const beforeF = await chosenIds(p3);
+  await countLive(p3);
+  await p3.keyboard.press("Enter");
+  await p3.waitForTimeout(250);
+  const saidF = await liveSeen(p3);
+  const inView = await p3.evaluate(() => {
+    const w = document.querySelector("[data-studio-canvas] .stx-frame");
+    const wr = w.getBoundingClientRect();
+    const sr = document.querySelector("[data-studio-canvas] .stx-scroll").getBoundingClientRect();
+    return wr.bottom > sr.top && wr.top < sr.bottom && wr.right > sr.left && wr.left < sr.right;
+  });
+  t("#221/AC2 · Enter on a FRAME row changes NO selection and announces the brought-into-view sentence — never applySelection",
+    saidF.n === 1 && / brought into view\.$/.test(saidF.last) && JSON.stringify(await chosenIds(p3)) === JSON.stringify(beforeF),
+    JSON.stringify({ saidF, beforeF }));
+  t("#221/AC2 · …and the frame is inside the scroller's viewport afterwards, measured", inView);
+  // Enter on a SLOT row: exactly one sentence, and it is applySelection's count.
+  for (let i = 0; i < 12; i += 1) {
+    if (await p3.evaluate(() => document.activeElement.hasAttribute("aria-pressed"))) break;
+    await p3.keyboard.press("ArrowDown");
+  }
+  const slotRowId = await focusedRow(p3);
+  const beforeS = await chosenIds(p3);
+  await countLive(p3);
+  await p3.keyboard.press("Enter");
+  await p3.waitForTimeout(250);
+  const saidS = await liveSeen(p3);
+  const afterS = await chosenIds(p3);
+  t("#221/AC2 · Enter on a slot row toggles its selection with EXACTLY ONE live-region sentence — applySelection's own",
+    saidS.n === 1 && (/^\d+ selected: /.test(saidS.last) || saidS.last === "Selection cleared.")
+    && (beforeS.includes(slotRowId) ? !afterS.includes(slotRowId) : afterS.includes(slotRowId)),
+    JSON.stringify({ slotRowId, saidS, beforeS, afterS }));
+
+  // --- the refusal, forced deterministically ------------------------------------------------------
+  // The wrapper is removed and the row clicked IN THE SAME TASK, before the observer's rAF flush
+  // can rebuild — the only deterministic route to a row whose wrapper vanished between paint and
+  // press. Content, never a throw; the selection untouched; watch() proves nothing hit the console.
+  const refusal = await p3.evaluate(() => {
+    const row = [...document.querySelectorAll('[data-studio-layers] .stu-layer[aria-pressed]')].pop();
+    const id = row.getAttribute("data-layer-id");
+    document.querySelector(`[data-studio-canvas] .stx-slot[data-stx-id="${id}"]`).remove();
+    const before = [...document.querySelectorAll("[data-studio-canvas] .stx-slot[data-stx-selected]")].map((n) => n.getAttribute("data-stx-id"));
+    row.click();
+    return {
+      live: document.querySelector("[data-studio-canvas] .stx-live").textContent.trim(),
+      after: [...document.querySelectorAll("[data-studio-canvas] .stx-slot[data-stx-selected]")].map((n) => n.getAttribute("data-stx-id")),
+      before,
+    };
+  });
+  t("#221 · a row whose wrapper vanished between paint and press refuses AS CONTENT — the sentence, an untouched selection, nothing thrown",
+    refusal.live === "Refused: that component is no longer on the canvas."
+    && JSON.stringify(refusal.after) === JSON.stringify(refusal.before), JSON.stringify(refusal));
+
+  // --- 9 · the runtime pins: zero inline styles, and NO sticky anywhere in either block -----------
+  const pins = await p3.evaluate(() => ({
+    styled: [...document.querySelectorAll("[data-studio-layers], [data-studio-layers] *, [data-studio-minimap], [data-studio-minimap] *")]
+      .filter((n) => n.hasAttribute?.("style")).length,
+    layers: getComputedStyle(document.querySelector("[data-studio-layers]")).position,
+    map: getComputedStyle(document.querySelector("[data-studio-minimap]")).position,
+    list: getComputedStyle(document.querySelector(".stu-layers-list")).position,
+  }));
+  t("#221/AC4 · zero inline styles on the rail and neither block computes position: sticky — the overflow-clip no-op, pinned at runtime",
+    pins.styled === 0 && pins.layers !== "sticky" && pins.map !== "sticky" && pins.list !== "sticky",
+    JSON.stringify(pins));
+  await p3.close();
+
+  // --- 6 · mid-replay: rebuild-under-focus survives, and a row click is NOT a take-over -----------
+  const p4 = await open(ctx, "layers midreplay", { settle: false });
+  await p4.waitForSelector('[data-studio-layers] .stu-layer[aria-pressed]', { timeout: 30000 });
+  const heldId = await p4.evaluate(() => {
+    const row = document.querySelector('[data-studio-layers] .stu-layer[tabindex="0"]');
+    row.focus({ preventScroll: true });
+    return row.getAttribute("data-layer-id");
+  });
+  const n0 = await p4.locator(`${VIEWPORT} .stx-slot`).count();
+  await p4.waitForFunction((n) => document.querySelectorAll("[data-studio-canvas] .stx-slot").length > n, n0, { timeout: 20000 });
+  await p4.waitForTimeout(150);
+  const heldAfter = await p4.evaluate(() => document.activeElement.getAttribute?.("data-layer-id") ?? document.activeElement.tagName);
+  t("#221 · a rebuild UNDER FOCUS (the replay placing a new row) re-focuses the same surviving row — never <body>",
+    heldAfter === heldId, JSON.stringify({ heldId, heldAfter }));
+  const n1 = await p4.locator(`${VIEWPORT} .stx-slot`).count();
+  await p4.locator('[data-studio-layers] .stu-layer[aria-pressed]').first().click();
+  await p4.waitForFunction((n) => document.querySelectorAll("[data-studio-canvas] .stx-slot").length > n, n1, { timeout: 20000 });
+  const prov4 = await p4.evaluate(() => document.querySelector("[data-replay-chrome]")?.getAttribute("data-provenance"));
+  t("#221 · a layers-row toggle MID-REPLAY is NOT a take-over — the driver keeps authoring and provenance stays the run's (the rail lives outside canvas.scroll, structurally)",
+    prov4 !== "visitor", `provenance=${prov4}`);
+  await p4.close();
+
+  // --- 8 · reduced motion: rows still reflect and select ------------------------------------------
+  const ctxRM = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const p5 = await open(ctxRM, "layers reduced-motion");
+  const rmId = (await movables(p5)).find((w) => w.kind === "slot").id;
+  await inject(p5, { type: "ui.move", source: "agent", target: { id: rmId }, params: { col: 6, row: 2 } });
+  await p5.waitForTimeout(250);
+  const rows5 = await rowsNow(p5);
+  const wraps5 = await movables(p5);
+  await p5.click(rowSel(rmId));
+  await p5.waitForTimeout(200);
+  t("#221 · reduced motion: rows still reflect and select — the reflection is attribute-driven, with nothing to animate away",
+    mirrors(rows5, wraps5) && JSON.stringify(await chosenIds(p5)) === JSON.stringify([rmId]),
+    JSON.stringify(rows5.find((r) => r.id === rmId)));
+  await p5.close();
+  await ctxRM.close();
+  await ctx.close();
+}
+
+// #221's minimapPass — the running-page half build-checks group 27 states it cannot reach: the
+// view rect tracking a real pan, the ZOOM-AT-0,0 observer wiring (the sole detector), content
+// tracking, click-to-jump against the settled scroll, the keyboard path's per-press announcements
+// including a blocked press, the zero-request rail, and the mid-replay non-take-over. Expectations
+// are computed through the imported mapView/jumpFrom/cellRect/visibleRange from measured page
+// state — never literal rects.
+//
+// THE HORIZONTAL AXIS ON /factory HAS NO SCROLL RANGE — its own recorded truth (the R5 note in
+// selectPass: #214's width:max-content pin makes scrollWidth <= clientWidth at every zoom), so the
+// "panned" condition rides the VERTICAL axis and the blocked-press case rides the horizontal one.
+// The view rect's width term is the reader-VISIBLE width (the scroller's box clipped by the window
+// edge — studio-minimap.mjs call 5), measured here exactly as the module measures it.
+async function minimapPass(browser, engineName, t, errors) {
+  console.log(`\n[minimap] #221 · the minimap in the inspector rail (${engineName})`);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
+  };
+  const open = async (context = ctx, tag = "minimap", { settle = true } = {}) => {
+    const p = await context.newPage();
+    watch(p, tag);
+    await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await p.waitForSelector('[data-studio-minimap="ready"]', { timeout: 20000 });
+    if (settle) await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(400);
+    return p;
+  };
+  const viewAttr = (p) => p.evaluate(() => {
+    const v = document.querySelector(".stu-map-view");
+    return { x: Number(v.getAttribute("x")), y: Number(v.getAttribute("y")), w: Number(v.getAttribute("width")), h: Number(v.getAttribute("height")) };
+  });
+  // The page's measured state, in one round trip. clientW is the reader-visible width — the
+  // scroller's box intersected with the window edge, the module's own call-5 measurement;
+  // realClientW is the scroll-range truth jumpFrom is held to.
+  const metricsOf = (p) => p.evaluate(() => {
+    const s = document.querySelector("[data-studio-canvas] .stx-scroll");
+    const stage = document.querySelector("[data-studio-canvas] .stx-stage");
+    const r = s.getBoundingClientRect();
+    const visible = Math.max(0, Math.min(r.right, document.documentElement.clientWidth) - Math.max(r.left, 0));
+    return {
+      scrollLeft: s.scrollLeft, scrollTop: s.scrollTop,
+      clientW: Math.min(s.clientWidth, visible), clientH: s.clientHeight,
+      realClientW: s.clientWidth, scrollW: s.scrollWidth,
+      zoom: Number(document.querySelector("[data-studio-canvas]").getAttribute("data-zoom")),
+      contentW: stage.offsetWidth, contentH: stage.offsetHeight,
+    };
+  });
+  const geomOf = (p) => p.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+    const track = (v) => String(v || "").trim().split(/\s+/).map(parseFloat).filter(Number.isFinite);
+    return { cols: track(cs.gridTemplateColumns), rows: track(cs.gridTemplateRows), colGap: parseFloat(cs.columnGap) || 0, rowGap: parseFloat(cs.rowGap) || 0 };
+  });
+  const expectView = (m) => mapView({ scrollLeft: m.scrollLeft, scrollTop: m.scrollTop, clientW: m.clientW, clientH: m.clientH, scale: ZOOM_LEVELS[m.zoom], contentW: m.contentW, contentH: m.contentH });
+  const close = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
+  const sameRect = (v, e, tol = 1.5) => close(v.x, e.x, tol) && close(v.y, e.y, tol) && close(v.w, e.w, tol) && close(v.h, e.h, tol);
+  const cellRects = (p) => p.evaluate(() => [...document.querySelectorAll(".stu-map-cell")].map((c) => ({
+    x: Number(c.getAttribute("x")), y: Number(c.getAttribute("y")), w: Number(c.getAttribute("width")), h: Number(c.getAttribute("height")),
+    frame: c.classList.contains("stu-map-cell--frame"),
+  })));
+
+  const p1 = await open();
+  // Requests AFTER settle: the rail fetches nothing, and none of its verbs below may either — the
+  // zero-request claim, scoped to the main frame (the embedded protos fetch their own files).
+  const reqs = [];
+  p1.on("request", (r) => { if (r.frame() === p1.mainFrame() && r.url().startsWith(BASE)) reqs.push(r.url()); });
+
+  // --- 1 · the cells and the view rect, in THREE conditions ---------------------------------------
+  const geom1 = await geomOf(p1);
+  const wrapGeo = await p1.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => ({
+      col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
+      cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
+      frame: n.classList.contains("stx-frame"),
+    })));
+  const cells1 = await cellRects(p1);
+  t("#221/AC3 · one map cell per MOVABLE wrapper at settle, frames wearing their own modifier",
+    cells1.length === wrapGeo.length && cells1.filter((c) => c.frame).length === FRAMES.length && wrapGeo.length >= 5,
+    JSON.stringify({ cells: cells1.length, wrappers: wrapGeo.length }));
+  t("#221/AC3 · …and every cell sits at cellRect's answer for its wrapper's attributes over the MEASURED tracks — span-aware, in order",
+    cells1.every((c, i) => {
+      const e = cellRect({ col: wrapGeo[i].col, row: wrapGeo[i].row }, { cols: wrapGeo[i].cols, rows: wrapGeo[i].rows }, geom1);
+      return sameRect(c, e) && c.frame === wrapGeo[i].frame;
+    }), JSON.stringify({ cells1, wrapGeo }));
+
+  const mRest = await metricsOf(p1);
+  const vRest = await viewAttr(p1);
+  t("#221/AC3 · at rest the view rect equals mapView's answer computed in Node from measured page state — the positive control",
+    sameRect(vRest, expectView(mRest)), JSON.stringify({ vRest, expect: expectView(mRest), mRest }));
+  t("#221 · the horizontal axis genuinely has no scroll range on /factory (scrollWidth <= clientWidth) — the recorded constraint the two cases below are shaped by",
+    mRest.scrollW <= mRest.realClientW, JSON.stringify({ scrollW: mRest.scrollW, clientW: mRest.realClientW }));
+  // PANNED — the missing-scroll-term detector, on the axis this page can actually scroll.
+  await p1.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop = 170; });
+  await p1.waitForTimeout(200);
+  const mPan = await metricsOf(p1);
+  const vPan = await viewAttr(p1);
+  t("#221/AC3 · panned (scrollTop 170): the rect moved and equals the computed expectation — the missing-scroll-term detector",
+    sameRect(vPan, expectView(mPan)) && vPan.y > vRest.y && close(mPan.scrollTop, 170),
+    JSON.stringify({ vPan, expect: expectView(mPan) }));
+  // ZOOMED AT 0,0 — no scroll event can fire, so only the data-zoom observer can move the rect:
+  // the sole detector of the observer wiring, and the no-timer AC's positive proof.
+  await p1.evaluate(() => { const s = document.querySelector("[data-studio-canvas] .stx-scroll"); s.scrollLeft = 0; s.scrollTop = 0; });
+  await p1.waitForTimeout(200);
+  const vAt100 = await viewAttr(p1);
+  await btn(p1, "Zoom out").click();
+  await p1.waitForTimeout(200);
+  const mZoom = await metricsOf(p1);
+  const vZoom = await viewAttr(p1);
+  t("#221/AC3 · THE ZOOM-AT-0,0 CASE: the rect GREW to mapView's zoomed answer with no scroll event fired — only the data-zoom observer can have done this",
+    sameRect(vZoom, expectView(mZoom)) && vZoom.w > vAt100.w && mZoom.zoom !== ZOOM_REST,
+    JSON.stringify({ vZoom, expect: expectView(mZoom), mZoom }));
+  await btn(p1, "Reset").click();
+  await p1.waitForTimeout(200);
+
+  // --- 3 · pan tracking through a real drag (the scroll-event path) -------------------------------
+  const panPt = await p1.evaluate(() => {
+    const a = document.querySelector('[data-studio-canvas] .stx-slot[data-col="1"][data-row="1"]').getBoundingClientRect();
+    const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
+    const py = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+    return { x: a.left + a.width / 2, y: a.top + a.height / 2 + py };
+  });
+  const v3a = await viewAttr(p1);
+  await p1.mouse.move(panPt.x, panPt.y);
+  await p1.mouse.down();
+  await p1.mouse.move(panPt.x, panPt.y - 120, { steps: 8 });
+  await p1.mouse.up();
+  await p1.waitForTimeout(200);
+  const v3b = await viewAttr(p1);
+  t("#221/AC3 · a real drag-pan of the canvas moves the rect — the scroll-event path",
+    v3b.y > v3a.y && sameRect(v3b, expectView(await metricsOf(p1))), JSON.stringify({ v3a, v3b }));
+
+  // --- 4 · content tracking: an injected agent move re-draws that block's cell --------------------
+  const movedId = await p1.evaluate(() => document.querySelector('[data-studio-canvas] .stx-slot[data-col="1"][data-row="1"]').getAttribute("data-stx-id"));
+  await inject(p1, { type: "ui.move", source: "agent", target: { id: movedId }, params: { col: 6, row: 2 } });
+  await p1.waitForTimeout(250);
+  const cells4 = await cellRects(p1);
+  const newRect = cellRect({ col: 6, row: 2 }, undefined, geom1);
+  const oldRect = cellRect({ col: 1, row: 1 }, undefined, geom1);
+  t("#221/AC3 · an injected agent move re-draws that block's cell at its new footprint (and nothing is left at the old one)",
+    cells4.some((c) => sameRect(c, newRect)) && !cells4.some((c) => sameRect(c, oldRect)),
+    JSON.stringify({ cells4, newRect }));
+
+  // --- 5 · click-to-jump against the settled scroll, announced once -------------------------------
+  // PARKED AT CENTER FIRST, instantly (methodPass's rule): after open() the rail's top sits at the
+  // window's top edge, UNDER the site's fixed header — a raw mouse.click there lands on the header
+  // and does nothing, silently (found by this pass's own first run: zero announcements).
+  await p1.$eval("[data-studio-minimap] .stu-map", (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+  await p1.waitForTimeout(200);
+  const mapBox = await p1.evaluate(() => {
+    const r = document.querySelector(".stu-map svg").getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+  });
+  const click5 = { x: mapBox.left + mapBox.width * 0.9, y: mapBox.top + mapBox.height * 0.9 };
+  const frac5 = { fx: (click5.x - mapBox.left) / mapBox.width, fy: (click5.y - mapBox.top) / mapBox.height };
+  await countLive(p1);
+  await p1.mouse.click(click5.x, click5.y);
+  await p1.waitForTimeout(300);
+  const m5 = await metricsOf(p1);
+  const exp5 = jumpFrom(frac5, { clientW: m5.realClientW, clientH: m5.clientH, scale: ZOOM_LEVELS[m5.zoom], contentW: m5.contentW, contentH: m5.contentH });
+  const said5 = await liveSeen(p1);
+  const range5 = visibleRange(expectView(m5), geom1);
+  t("#221/AC3 · click-to-jump: the scroller settles at jumpFrom's clamped target — the same clamp range the browser applies, so computed === settled on BOTH axes",
+    close(m5.scrollLeft, exp5.left, 3) && close(m5.scrollTop, exp5.top, 3),
+    JSON.stringify({ settled: { left: m5.scrollLeft, top: m5.scrollTop }, exp5 }));
+  t("#221/AC3 · …announced exactly once, with visibleRange's own sentence",
+    said5.n === 1 && said5.last === `Viewing columns ${range5.col1} to ${range5.col2}, rows ${range5.row1} to ${range5.row2}.`,
+    JSON.stringify({ said5, range5 }));
+
+  // --- 6 · the keyboard: one cell per press, the blocked press honest, Home -----------------------
+  await p1.focus("[data-studio-minimap] .stu-map");
+  await p1.keyboard.press("Home");
+  await p1.waitForTimeout(200);
+  const m6a = await metricsOf(p1);
+  await countLive(p1);
+  await p1.keyboard.press("ArrowDown");
+  await p1.waitForTimeout(200);
+  const m6b = await metricsOf(p1);
+  const said6 = await liveSeen(p1);
+  const pitchY = (geom1.rows[0] + geom1.rowGap) * ZOOM_LEVELS[m6b.zoom];
+  t("#221/AC3 · ArrowDown on the focused map pans exactly one cell — track + gap, × the current scale — and announces the range reached",
+    close(m6b.scrollTop - m6a.scrollTop, pitchY) && said6.n === 1 && /^Viewing columns \d+ to \d+, rows \d+ to \d+\.$/.test(said6.last),
+    JSON.stringify({ delta: m6b.scrollTop - m6a.scrollTop, pitchY, said6 }));
+  await countLive(p1);
+  await p1.keyboard.press("ArrowRight");
+  await p1.waitForTimeout(200);
+  const m6c = await metricsOf(p1);
+  const said6b = await liveSeen(p1);
+  t("#221/AC3 · a BLOCKED press announces the UNCHANGED range — ArrowRight has no horizontal range on this page, and the map says so instead of going silent",
+    m6c.scrollLeft === m6b.scrollLeft && said6b.n === 1 && said6b.last === said6.last,
+    JSON.stringify({ said6b, was: said6.last }));
+  await countLive(p1);
+  await p1.keyboard.press("Home");
+  await p1.waitForTimeout(200);
+  const m6d = await metricsOf(p1);
+  t("#221/AC3 · Home returns to the top left, announced",
+    m6d.scrollLeft === 0 && m6d.scrollTop === 0 && (await liveSeen(p1)).n === 1,
+    JSON.stringify({ left: m6d.scrollLeft, top: m6d.scrollTop }));
+
+  // The zero-request claim, across every interaction above.
+  t("#221 · the minimap issued NO main-frame request across pan, zoom, content moves, jumps and keys — the rail is a reflection, not a fetcher",
+    reqs.length === 0, JSON.stringify(reqs));
+
+  // --- 9 · compile round-trip: the data-compile-state full-rebuild branch -------------------------
+  // The one branch no other gate can see (group 27 is DOM-free, so it cannot read computed tracks;
+  // the pixel gate captures the pre-compile settled state): Compile flips --stx-slot-h under the
+  // stage, so the map must RE-MEASURE tracks, content box and viewBox. Delete the observer's
+  // data-compile-state branch, or the re-measure inside rebuildCells(), and this goes red. It runs
+  // AFTER the zero-request claim deliberately — the first compile legitimately fetches
+  // vocabulary.json, which is studio-compile.mjs's request, not the rail's.
+  const geomPre = await geomOf(p1);
+  const boxPre = await p1.evaluate(() => document.querySelector(".stu-map svg").getAttribute("viewBox"));
+  const cellsPre = await cellRects(p1);
+  await p1.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
+  await p1.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "rendered", null, { timeout: 20000 });
+  await p1.waitForTimeout(400);
+  const geomC = await geomOf(p1);
+  const wrapC = await p1.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => ({
+      col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
+      cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
+    })));
+  const boxC = await p1.evaluate(() => document.querySelector(".stu-map svg").getAttribute("viewBox"));
+  const stageC = await p1.evaluate(() => {
+    const s = document.querySelector("[data-studio-canvas] .stx-stage");
+    return { w: s.offsetWidth, h: s.offsetHeight };
+  });
+  const cellsC = await cellRects(p1);
+  t("#221/AC3 · Compile RE-MEASURES the map: the viewBox is the compiled stage's own box (the tracks grew under it) and every cell sits at cellRect's answer over the FRESHLY measured tracks",
+    boxC === `0 0 ${stageC.w} ${stageC.h}` && boxC !== boxPre && geomC.rows[0] > geomPre.rows[0]
+    && cellsC.length === cellsPre.length
+    && cellsC.every((c, i) => sameRect(c, cellRect({ col: wrapC[i].col, row: wrapC[i].row }, { cols: wrapC[i].cols, rows: wrapC[i].rows }, geomC))),
+    JSON.stringify({ boxPre, boxC, rows0: [geomPre.rows[0], geomC.rows[0]] }));
+  t("#221/AC3 · …and the view rect tracks the compiled geometry — re-scaled against the new viewBox, never left at the pre-compile scale",
+    sameRect(await viewAttr(p1), expectView(await metricsOf(p1))),
+    JSON.stringify({ v: await viewAttr(p1), expect: expectView(await metricsOf(p1)) }));
+  await p1.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true }).click();
+  await p1.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "blocks", null, { timeout: 20000 });
+  await p1.waitForTimeout(400);
+  const boxR = await p1.evaluate(() => document.querySelector(".stu-map svg").getAttribute("viewBox"));
+  const cellsR = await cellRects(p1);
+  t("#221/AC3 · Back to blocks restores it: the viewBox back exactly, every cell back at its pre-compile rect",
+    boxR === boxPre && cellsR.length === cellsPre.length && cellsR.every((c, i) => sameRect(c, cellsPre[i]) && c.frame === cellsPre[i].frame),
+    JSON.stringify({ boxR, boxPre }));
+  await p1.close();
+
+  // --- 7 · mid-replay: a minimap jump is NOT a take-over ------------------------------------------
+  const p2 = await open(ctx, "minimap midreplay", { settle: false });
+  await p2.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
+  const n0 = await p2.locator(`${VIEWPORT} .stx-slot`).count();
+  await p2.$eval("[data-studio-minimap] .stu-map", (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+  await p2.waitForTimeout(200);
+  const box2 = await p2.evaluate(() => {
+    const r = document.querySelector(".stu-map svg").getBoundingClientRect();
+    return { x: r.left + r.width * 0.8, y: r.top + r.height * 0.8 };
+  });
+  await p2.mouse.click(box2.x, box2.y);
+  await p2.waitForFunction((n) => document.querySelectorAll("[data-studio-canvas] .stx-slot").length > n, n0, { timeout: 20000 });
+  const after2 = await p2.evaluate(() => ({
+    prov: document.querySelector("[data-replay-chrome]")?.getAttribute("data-provenance"),
+    // The movement proof, so this row cannot pass on a click that hit nothing: the jump really
+    // moved the scroller AND the run kept authoring — both, or the discriminator claim is untested.
+    top: document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop,
+  }));
+  t("#221 · a minimap jump MID-REPLAY really jumps AND is NOT a take-over — the driver keeps authoring (the dock-mid-replay case's sibling: this is what keeps the discriminator canvas-scoped)",
+    after2.prov !== "visitor" && after2.top > 0, JSON.stringify(after2));
+  await p2.close();
+
+  // --- 8 · reduced motion: the rect still tracks --------------------------------------------------
+  const ctxRM = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const p3 = await open(ctxRM, "minimap reduced-motion");
+  await p3.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop = 170; });
+  await p3.waitForTimeout(200);
+  const mR = await metricsOf(p3);
+  const vR = await viewAttr(p3);
+  t("#221 · reduced motion: the rect still tracks — attribute writes, nothing animates",
+    sameRect(vR, expectView(mR)) && vR.y > 0, JSON.stringify({ vR, expect: expectView(mR) }));
+  await p3.close();
+  await ctxRM.close();
+  await ctx.close();
+}
+
 async function perfPass(browser, engineName, t, errors) {
   const BUDGET_MS = 200;
   const watch = (p, tag) => {
@@ -5280,7 +5875,7 @@ async function perfPass(browser, engineName, t, errors) {
   await cal.mouse.click(400, 300);
   await flush(cal);
   const calSeen = summarize(await entriesFrom(cal, 0));
-  // The verdict the 16 rows below consume: a null latency is only a pass while THIS is true.
+  // The verdict every measured row below consumes: a null latency is only a pass while THIS is true.
   const alive = calSeen.length >= 1 && calSeen.every((g) => g.interactionId > 0);
   t(`INP · the observer pipeline is ALIVE on ${engineName} — a forced-slow click yields a grouped entry`,
     alive, JSON.stringify(calSeen));
@@ -5447,6 +6042,29 @@ async function perfPass(browser, engineName, t, errors) {
       await p.keyboard.press("ArrowUp");   // shrink: Verdant is already at the grid band's floor
       await p.keyboard.press("Enter");
       await p.waitForTimeout(140);
+    } },
+    // #221's two rows, BEFORE the method pair for the same reason #217's four are: they act on the
+    // RUN's board, and the redraft below replaces the rows the layers list is reading. Each returns
+    // silently when its target is absent — its own pass owns that failure.
+    { label: "layers-row toggle", act: async (p) => {
+      const row = p.locator("[data-studio-layers] .stu-layer[aria-pressed]").first();
+      if (!(await row.count())) return;
+      await row.scrollIntoViewIfNeeded();
+      await row.click();
+      await p.waitForTimeout(120);
+    } },
+    { label: "minimap jump", act: async (p) => {
+      const map = p.locator("[data-studio-minimap] .stu-map");
+      if (!(await map.count())) return;
+      // Parked at CENTER instantly, never scrollIntoViewIfNeeded: the rail's top lands under the
+      // site's fixed header, where a raw click does nothing and the row measures a false sub-floor
+      // pass (minimapPass's own first-run lesson).
+      await p.$eval("[data-studio-minimap] .stu-map", (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+      await p.waitForTimeout(150);
+      const b = await map.boundingBox();
+      if (!b) return;
+      await p.mouse.click(b.x + b.width * 0.8, b.y + b.height * 0.8);
+      await p.waitForTimeout(120);
     } },
     // #214's two rows, LAST because the first one redrafts the whole board (relinquish, wholesale
     // replace, publish — the real interaction cost) and everything above wants the run's board.
@@ -5715,9 +6333,9 @@ for (const engine of toRun) {
 // #213 · AC #7 — every bound the driver carries, stated by the driver itself on every run, red or
 // green. Silent truncation reads as "covered everything", which is the sin this block exists to
 // not commit.
-console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\'s LAZY WIRING as two halves (a raw zero-request count before Compile; a per-url DELTA of zero across four forced re-renders) and NOT as a raw per-url total, because two of the three DOCS_SOURCES have other consumers on this page — studio-compile.mjs fetches vocabulary.json on first compile and the Graph panel fetches system-graph.json, so an absolute "exactly 1 per url" would be RED on a correct implementation; pack.json, which nothing else touches, IS pinned at exactly 1 · its cross-page comparison (assertion 5) runs BEFORE the pack swap and compares the tables WHOLE, live-value column included, which is sound only while both documents wear neutral — the order is part of the assertion · what it does NOT cover, stated rather than implied: the docs panel is asserted on /factory ONLY (studio.html has no inspector by design and /components is tooling/catalog-journey.mjs\'s), no assertion here drives the playground CONTROLS or the copy-as-Markdown button (both are mount 1\'s, gated there), and the AC #2 hover case moves the pointer AWAY before re-hovering because a node rebuilt under a resting pointer delivers no enter event at all (inspect.mjs\'s own recorded lesson) · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (24 rows since #219 added the frame resize in both of its non-converging input paths, on top of #217\u2019s marquee drag, group pointer-drag, group keyboard step and context menu open), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them · #217\'s \u2318/Ctrl+A is FOCUS-SCOPED to .stx-scroll, so it is the browser\'s own document select-all everywhere else on the page, and it is deliberately NOT a replay take-over (the driver\'s discriminator returns early on ctrlKey/metaKey, exactly as it already does for \u2318Z) · #217 adds NEITHER of \u00a75\'s last two items and says so: zoom-to-fit landed at #204 and pan-by-drag covers the hand tool on EMPTY canvas — there is no mode in which a drag over a component pans, recorded as a decision rather than left as a gap');
+console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\'s LAZY WIRING as two halves (a raw zero-request count before Compile; a per-url DELTA of zero across four forced re-renders) and NOT as a raw per-url total, because two of the three DOCS_SOURCES have other consumers on this page — studio-compile.mjs fetches vocabulary.json on first compile and the Graph panel fetches system-graph.json, so an absolute "exactly 1 per url" would be RED on a correct implementation; pack.json, which nothing else touches, IS pinned at exactly 1 · its cross-page comparison (assertion 5) runs BEFORE the pack swap and compares the tables WHOLE, live-value column included, which is sound only while both documents wear neutral — the order is part of the assertion · what it does NOT cover, stated rather than implied: the docs panel is asserted on /factory ONLY (studio.html has no inspector by design and /components is tooling/catalog-journey.mjs\'s), no assertion here drives the playground CONTROLS or the copy-as-Markdown button (both are mount 1\'s, gated there), and the AC #2 hover case moves the pointer AWAY before re-hovering because a node rebuilt under a resting pointer delivers no enter event at all (inspect.mjs\'s own recorded lesson) · the frame check runs on CHROMIUM ONLY (CDP CPU throttling and long-animation-frames are chromium-only by definition) · an over-budget INP row is re-measured ONCE on a fresh page with both numbers printed, never silently · the Event Timing observer\'s durationThreshold floor is 16 ms, so a faster interaction yields no entry and prints as "< 16 ms" (sound: the calibration click proves delivery) · the INP interaction list is ENUMERATED (26 rows since #221 added the layers-row toggle and the minimap jump, on top of #219\u2019s frame-resize pair (both non-converging input paths) and #217\u2019s marquee drag, group pointer-drag, group keyboard step and context menu open), not exhaustive of every verb — #212\'s flow navigation (landed since this list was cut) is not yet among them · #217\'s \u2318/Ctrl+A is FOCUS-SCOPED to .stx-scroll, so it is the browser\'s own document select-all everywhere else on the page, and it is deliberately NOT a replay take-over (the driver\'s discriminator returns early on ctrlKey/metaKey, exactly as it already does for \u2318Z) · #217 adds NEITHER of \u00a75\'s last two items and says so: zoom-to-fit landed at #204 and pan-by-drag covers the hand tool on EMPTY canvas — there is no mode in which a drag over a component pans, recorded as a decision rather than left as a gap');
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage — so the copied link now CARRIES the arrangement, labelled as carrying it · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state · AND #214's METHOD BAND: the ten questions as cards on the shipped canvas — disabled while the driver plays with a disabled-band pointerdown proven NOT a take-over and not a redraft, enabled in settle's own task, a pointer answer and a native radio-arrow keyboard answer each redrafting the canvas to draftBoard's OWN board computed in Node label for label, announced once per placement plus the one redraft sentence, provenance flipped in both standing places in the same words, the driver RELINQUISHED (transport dead, still settled, the set-aside sentence, no take-over route), the Hook loop assembled by pointer AND by keyboard with every select and placement announced counted exactly, a wrong-stage placement refused with the fixed reason and an untouched DOM, the verdict locked until completion and then the imported rules' sentences BY IDENTITY, re-rendering when an ethics card moves afterwards, the keep rail's link decoding back to the drafted board and answers, and the ?b= #193 mode populating cards, diagram and verdict with zero interaction on a never-disabled band · AND #213's MEASUREMENT GATE: INP measured per named interaction — eighteen rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset \u00b7 AND #217's FULL CANVAS AFFORDANCES on the shipped /factory: a Shift-drag marquee selecting exactly the components inside the dragged rectangle (computed in Node from the LIVE arrangement through the page's own marqueeRange + idsInRange, never a literal) and announced EXACTLY ONCE on release, the KEYBOARD path selecting the SAME SET from a captured-once anchor — AC #1's whole claim — and proven to REPLACE rather than union by a deliberate stray Shift-click first, a marquee over empty canvas saying \"Nothing to select.\" rather than \"Selection cleared.\", the group move by pointer AND by keyboard landing every member at its own offset through ONE ui.move-group with no ui.move at all and no target on the envelope, one announcement, one history entry and ONE Undo restoring all of them, alignment guides proven to sit only where a NON-CARRIED peer really is WITH the mutation that forces one onto a provably empty column and watches the check go red, the context menu opening by Shift+F10 and by right-click with IDENTICAL items, full Arrow/Home/End navigation over items that stay focusable because they are aria-disabled rather than disabled, Escape returning focus to the invoker, an item press starting neither a pan nor a drag, the far-column menu flipping and staying inside the scroller while an interior one does not, a scroll closing it, Escape cancelling each multi-verb back to its pre-verb state with the selection surviving a cancel and an undo, a Shift-drag mid-carry starting no marquee (so the two Escape listeners are never both armed), the QUICK group drag landing where the reader released, a compile KEEPING the selection while CANCELLING a live group carry (two rows, because they look like one property), both sides of the replay take-over coupling — a marquee hands over exactly once, \u2318/Ctrl+A deliberately does not — reduced motion completing every verb, and Fit on a COMPILED canvas flooring at 50% with the honest sentence rather than a claim that everything is in view \u00b7 AND #218's DOCKED COMPONENT DOCS, the half build-checks group 23 structurally cannot be: the panel fetching NONE of its three artifacts at rest and carrying no trigger on the canvas until the visitor compiles — the lazy discriminator, invisible to the pixel gate (identical pixels), to drift-check (no artifact) and to CI (no browser) — then EVERY rendered primitive proven a doc trigger that is focusable and described, with the count read off the running page, a pointer click and a keyboard FOCUS each opening that component's docs while focus STAYS ON THE CANVAS (the sole detector of activate(i, true), which would make the keyboard route unusable and leave every other assertion green), the heading level shifted to h4/h5 under the panel's own h3, exactly one code panel painted and changing on a tab press read as COMPUTED display (the hidden attribute is inert under an author rule — the whole reason that rule moved into the shared sheet), the API and token tables printed by the inspector compared STRING FOR STRING against /components in a second page with the live-value column included and BEFORE the pack swap, four more canvas re-renders fetching nothing further with pack.json pinned at exactly one request across the visit and the triggers re-decorated on the new nodes each time, the dock switched to saulera moving live token values with not one var(--\u2026) binding among them, the inspect bubble still opening after a revert+recompile replaced every node, the expert toggle off-by-default and persisted in both directions with the key GONE rather than left as "off", and a 500 on an artifact becoming a SENTENCE in the panel while the canvas stays compiled and nothing the page itself said reaches the console (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage — so the copied link now CARRIES the arrangement, labelled as carrying it · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state · AND #214's METHOD BAND: the ten questions as cards on the shipped canvas — disabled while the driver plays with a disabled-band pointerdown proven NOT a take-over and not a redraft, enabled in settle's own task, a pointer answer and a native radio-arrow keyboard answer each redrafting the canvas to draftBoard's OWN board computed in Node label for label, announced once per placement plus the one redraft sentence, provenance flipped in both standing places in the same words, the driver RELINQUISHED (transport dead, still settled, the set-aside sentence, no take-over route), the Hook loop assembled by pointer AND by keyboard with every select and placement announced counted exactly, a wrong-stage placement refused with the fixed reason and an untouched DOM, the verdict locked until completion and then the imported rules' sentences BY IDENTITY, re-rendering when an ethics card moves afterwards, the keep rail's link decoding back to the drafted board and answers, and the ?b= #193 mode populating cards, diagram and verdict with zero interaction on a never-disabled band · AND #213's MEASUREMENT GATE: INP measured per named interaction — twenty-six rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset \u00b7 AND #217's FULL CANVAS AFFORDANCES on the shipped /factory: a Shift-drag marquee selecting exactly the components inside the dragged rectangle (computed in Node from the LIVE arrangement through the page's own marqueeRange + idsInRange, never a literal) and announced EXACTLY ONCE on release, the KEYBOARD path selecting the SAME SET from a captured-once anchor — AC #1's whole claim — and proven to REPLACE rather than union by a deliberate stray Shift-click first, a marquee over empty canvas saying \"Nothing to select.\" rather than \"Selection cleared.\", the group move by pointer AND by keyboard landing every member at its own offset through ONE ui.move-group with no ui.move at all and no target on the envelope, one announcement, one history entry and ONE Undo restoring all of them, alignment guides proven to sit only where a NON-CARRIED peer really is WITH the mutation that forces one onto a provably empty column and watches the check go red, the context menu opening by Shift+F10 and by right-click with IDENTICAL items, full Arrow/Home/End navigation over items that stay focusable because they are aria-disabled rather than disabled, Escape returning focus to the invoker, an item press starting neither a pan nor a drag, the far-column menu flipping and staying inside the scroller while an interior one does not, a scroll closing it, Escape cancelling each multi-verb back to its pre-verb state with the selection surviving a cancel and an undo, a Shift-drag mid-carry starting no marquee (so the two Escape listeners are never both armed), the QUICK group drag landing where the reader released, a compile KEEPING the selection while CANCELLING a live group carry (two rows, because they look like one property), both sides of the replay take-over coupling — a marquee hands over exactly once, \u2318/Ctrl+A deliberately does not — reduced motion completing every verb, and Fit on a COMPILED canvas flooring at 50% with the honest sentence rather than a claim that everything is in view \u00b7 AND #218's DOCKED COMPONENT DOCS, the half build-checks group 23 structurally cannot be: the panel fetching NONE of its three artifacts at rest and carrying no trigger on the canvas until the visitor compiles — the lazy discriminator, invisible to the pixel gate (identical pixels), to drift-check (no artifact) and to CI (no browser) — then EVERY rendered primitive proven a doc trigger that is focusable and described, with the count read off the running page, a pointer click and a keyboard FOCUS each opening that component's docs while focus STAYS ON THE CANVAS (the sole detector of activate(i, true), which would make the keyboard route unusable and leave every other assertion green), the heading level shifted to h4/h5 under the panel's own h3, exactly one code panel painted and changing on a tab press read as COMPUTED display (the hidden attribute is inert under an author rule — the whole reason that rule moved into the shared sheet), the API and token tables printed by the inspector compared STRING FOR STRING against /components in a second page with the live-value column included and BEFORE the pack swap, four more canvas re-renders fetching nothing further with pack.json pinned at exactly one request across the visit and the triggers re-decorated on the new nodes each time, the dock switched to saulera moving live token values with not one var(--\u2026) binding among them, the inspect bubble still opening after a revert+recompile replaced every node, the expert toggle off-by-default and persisted in both directions with the key GONE rather than left as "off", and a 500 on an artifact becoming a SENTENCE in the panel while the canvas stays compiled and nothing the page itself said reaches the console · AND #221's LAYERS LIST + MINIMAP, the running-page halves build-checks groups 26/27 structurally cannot be: the list mirroring the stage in count, ids, names AND order through the page's own layerEntries, a pointer drag and an injected agent move each updating a row's position sentence in the same interaction, a method redraft rebuilding the rows with the frames' rows SURVIVING, selection parity BOTH ways through the one applySelection — a row click announced once with its own count sentence, a marquee's computed id set equal to the rows' pressed set, a second click deselecting — ONE tab stop with roving arrows, Enter on a frame row bringing it into view without touching the selection, the vanished-wrapper refusal as CONTENT, zero inline styles and no position:sticky pinned at runtime, a rebuild UNDER FOCUS keeping focus on the surviving row, a mid-replay row click and map jump both NOT take-overs with the driver still authoring, the view rect equal to mapView's computed answer at rest · panned · zoomed-at-0,0 (the data-zoom observer's sole detector, and the no-timer AC's positive proof), every map cell at cellRect's answer over the measured tracks, click-to-jump settling at jumpFrom's clamped target with visibleRange's own sentence announced once, one-cell keyboard pans with a BLOCKED press honestly announcing the unchanged range, the rail issuing ZERO main-frame requests across every interaction, a Compile RE-MEASURING the map — tracks, content box and viewBox, every cell at cellRect's answer over the fresh tracks — with Back to blocks restoring it exactly (the data-compile-state rebuild branch's only gate), and reduced motion reflecting and tracking identically (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

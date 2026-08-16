@@ -297,6 +297,15 @@
           </div>
 
           <aside class="stu-inspector" aria-label="Inspector">
+            <!-- The minimap (#221). system/studio-minimap.mjs mounts on [data-studio-minimap] —
+                 mounted BY system/studio.mjs, and the attribute's VALUE becomes the readiness
+                 handle ([data-studio-minimap="ready"], set in a finally) the gates wait on —
+                 [data-studio-keep]'s idiom, hook and state in one attribute. Empty at no-JS:
+                 there is nothing honest to depict without the canvas the modules draw. -->
+            <div class="stu-map-block" data-studio-minimap></div>
+            <!-- The layers list (#221). Same terms: system/studio-layers.mjs mounts on
+                 [data-studio-layers], readiness is the attribute's value, set in a finally. -->
+            <div class="stu-layers" data-studio-layers></div>
             <div class="stu-tablist" data-studio-tablist role="tablist" aria-label="Inspector panels">
               <button type="button" class="stu-tab" role="tab" id="stu-tab-this-build" aria-controls="this-build" aria-selected="true">This build</button>
               <button type="button" class="stu-tab" role="tab" id="stu-tab-agents" aria-controls="agents" aria-selected="false">Traces</button>

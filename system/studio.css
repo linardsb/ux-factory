@@ -640,6 +640,82 @@
 .stu-panel-title { font-size: var(--type-body); margin: 0; }
 .stu-panel-lead { margin: 0 0 var(--spacing-md); font-size: var(--type-caption); color: var(--color-fg-muted); }
 
+/* ---------- the minimap + the layers list (#221) ---------- */
+/* STRUCTURAL blocks in the rail's own grid — NEVER position: sticky: portfolio.css puts
+   overflow-x: clip on the body, which makes sticky a site-wide no-op for every descendant
+   (recorded on #73), so both surfaces are ordinary grid items and the layers list scrolls in its
+   own box. NO NEW HAND-MIRRORS of JS constants either — the minimap draws from MEASURED grid
+   tracks and a viewBox measured at mount, so build-checks group 12 grows by nothing here. */
+.stu-map-block { min-width: 0; display: grid; gap: var(--spacing-xs); }
+.stu-map {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+.stu-map:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.stu-map svg { display: block; width: 100%; height: auto; }
+.stu-map-bg { fill: var(--color-bg); }
+.stu-map-cell { fill: var(--color-bg-surface); stroke: var(--color-border); stroke-width: 4; }
+.stu-map-cell--frame { stroke: var(--color-fg-muted); }
+/* The viewport rect: accent at low opacity for the fill, solid accent stroke. non-scaling-stroke
+   keeps the outline readable at the map's ~12% render scale. */
+.stu-map-view {
+  fill: var(--color-accent);
+  fill-opacity: 0.12;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.stu-layers { min-width: 0; display: grid; gap: var(--spacing-xs); }
+.stu-layers-help { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.stu-layers-empty { margin: 0; font-size: var(--type-caption); }
+/* Its OWN scroller past ~16rem of rows — the structural answer to a long board, where sticky
+   would have been the pinned one. */
+.stu-layers-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+.stu-layer {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-height: 32px;            /* the .stu-tab SC 2.5.8 convention: the 24px floor with air */
+  padding: 4px 8px;
+  font-size: var(--type-caption);
+  color: var(--color-fg);
+  text-align: left;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.stu-layer:hover { border-color: var(--color-fg-muted); }
+.stu-layer:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* The class is the visual and aria-pressed is the semantics — deliberately not a selector pair,
+   the same .is-selected convention the canvas wrappers carry (studio-select.mjs call 1). */
+.stu-layer.is-selected { border-color: var(--color-accent); }
+.stu-layer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stu-layer-kind {
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+.stu-layer-pos {
+  margin-left: auto;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- the "This build" panel ---------- */
 .stu-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--spacing-sm); margin: 0 0 var(--spacing-md); }
 .stu-fact-term { font-size: var(--type-caption); color: var(--color-fg-muted); }
