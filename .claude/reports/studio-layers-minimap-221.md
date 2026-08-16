@@ -128,3 +128,24 @@ presentation attributes — the #219 spans-not-px forcing function, third applic
 
 - Groups/rows counts in three maintained places (bounds log, success sentence, CLAUDE.md) were
   already stale in three different ways, as the plan predicted; all trued up to 26 rows / 27 groups.
+
+## PR #272 review fixes (post-review commit)
+
+The agentic review (`.claude/code-reviews/pr-272-review.md`) approved with two Medium and two Low
+findings; the follow-up commit on this PR takes three and defers one:
+
+- **M1 fixed** — `rebuildCells()`'s frame classification imported `FRAME_CLASS` and flipped to the
+  positive `classList.contains` check, matching `studio-layers.mjs` and its own header's
+  "imported, never re-literalled" rule (it was the repo's sole negative-literal outlier).
+- **M2 fixed** — the deviation-8 compile→re-measure branch now has a repeatable gate: minimapPass
+  case 9 presses Compile, asserts the viewBox is the compiled stage's own box and every cell sits
+  at `cellRect`'s answer over the FRESHLY measured tracks, then reverts and asserts exact
+  restoration. It runs after the zero-request claim deliberately (the first compile legitimately
+  fetches `vocabulary.json`).
+- **L1 fixed** — `rebuildCells()` ends with `updateView()`, so the view rect re-scales in the same
+  flush as the viewBox it lives in (the two existing `rebuildCells(); updateView();` pairings
+  collapsed into it); closes the pending-rAF stale-rect window.
+- **L2 deferred to #273** — the role-less focusable map `div` carrying `aria-label` is an advisory
+  ARIA trade-off the module header records deliberately; whichever direction lands
+  (`role="application"` vs an `aria-describedby` caption) is an owner decision, logged as its own
+  issue rather than folded in here.

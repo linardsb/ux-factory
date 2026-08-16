@@ -57,7 +57,7 @@
 // Node-import safe: no DOM outside a function body and no self-boot — system/studio.mjs mounts
 // this exactly as it mounts the layers list. build-checks group 26 drives the pure layer.
 
-import { MOVABLE, ZOOM_LEVELS } from "./studio-canvas.mjs";
+import { FRAME_CLASS, MOVABLE, ZOOM_LEVELS } from "./studio-canvas.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 26 drives it in CI with no browser. The
@@ -334,7 +334,7 @@ export function mountStudioMinimap(root, { canvas } = {}) {
       bg.setAttribute("height", String(contentH));
       for (const cell of cellsOf()) cell.remove();
       for (const wrapper of stage.querySelectorAll(MOVABLE)) {
-        const frame = !wrapper.classList.contains("stx-slot");
+        const frame = wrapper.classList.contains(FRAME_CLASS);
         const r = wrapperRect(wrapper);
         const cell = svgEl("rect", {
           class: frame ? "stu-map-cell stu-map-cell--frame" : "stu-map-cell",
@@ -345,6 +345,10 @@ export function mountStudioMinimap(root, { canvas } = {}) {
         cell.setAttribute("data-for", wrapper.getAttribute("data-stx-id") || "");
         svg.insertBefore(cell, view); // before the view rect, so the viewport always paints on top
       }
+      // The view rect re-scales IN THE SAME FLUSH as the viewBox it lives in: an updateView rAF
+      // registered before this rebuild (an earlier scroll in the same frame) fires first, against
+      // the old content box — without this, the rect sits mis-scaled until the next event heals it.
+      updateView();
     };
     // The per-frame path: a moved or resized wrapper re-draws ITS cell from the already-measured
     // tracks — four attribute writes, no style recalc, no node churn. A cell the map has never
@@ -486,13 +490,12 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     }, { signal });
 
     rebuildCells();
-    updateView();
 
     const handleObj = {
       root: mount,
       map,
       svg,
-      refresh: () => { rebuildCells(); updateView(); },
+      refresh: () => rebuildCells(),
       destroy() {
         zoomObserver.disconnect();
         resizeObserver.disconnect();
