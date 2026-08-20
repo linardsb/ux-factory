@@ -23,3 +23,7 @@ tooling/figma/.raw/
 
 # figma imports (a dropped export is someone else's design file — the pack is the artifact)
 tooling/figma/exports/
+
+# the PR loop's per-run gate record — a stamp of one run on one machine, not an
+# artifact. The rest of .claude/ (plans, reports, reviews) IS committed, deliberately.
+.claude/last-gate.json
