@@ -86,3 +86,31 @@ and after the edit). Full-page Chromium shots at 1440×900, animations disabled,
    system-graph.json (observed), so dropping it regenerates gen-token-css → gen-handoff →
    gen-system-graph and churns factory.html's pixel baselines — a cascade a hand-verified CSS
    prune must not smuggle in. Follow-up candidate, ideally bundled with follow-up 2.
+
+## Amendment (2026-08-20) — flags 1 and 3 resolved in this PR, not deferred
+
+Appended, not rewritten: the two flags above record what was true when they were written. Both
+were then forced by CI, and the branch now carries their fixes.
+
+**Flag 3 had to be done here.** `node tooling/token-lint.mjs` is a `verify` step and it is not in
+this report's gate list — it was never run locally, so the orphan it refuses was not visible when
+the deferral was reasoned about. The moment the region went, `verify` went red: *"contract declares
+orphan token(s) referenced by no shipped/proto surface: --motion-skeleton-to-content"*. A deferral
+that leaves a required check red is not a deferral, so the token half landed here — which is also
+what the #261 in-file note asked for in the first place ("#262 does the rules and the token in one
+piece"). Cascade run end to end: `tokens.source.json` (both groups) → `gen-token-css` →
+`gen-handoff` → `gen-system-graph` → `gen-pack-bundle`. Now: token-lint clean at 63 contract
+tokens · 0 orphan, `build-checks` all 27 groups, `drift-check` clean across all 12 families.
+
+**Flag 3's stated cost did not exist.** Dropping the token cannot churn factory.html's baselines:
+`factory-neutral.png` and `factory-saulera.png` regenerate BYTE-IDENTICAL. The count the graph
+prints (`system-graph.mjs:126`, 64 → 63) lives inside the hash-routed `#shape` panel, which is
+closed at capture — the same "hidden-at-capture panel" property #173 relied on.
+
+**Flag 1 landed too.** The approach baselines were genuinely stale, and a plain `update:docker`
+will not say so: one changed digit sits inside `maxDiffPixels:100`, so the run passes green against
+the old reference and rewrites nothing. Forced by deleting the candidate PNGs and re-capturing in
+the same Linux container CI uses; `approach-{neutral,saulera}.png` are the only two that moved.
+
+**Flag 2 (`system/wcag-receipts.mjs` orphaned) stays deferred** — no gate refuses it, so it is a
+real follow-up rather than a blocked merge.
