@@ -667,6 +667,9 @@
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
+/* #273: the map's keyboard affordance as a visible caption, aria-describedby-wired — naming is
+   prohibited on the map's generic role, so the sentence lives here rather than in an aria-label. */
+.stu-map-help { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
 
 .stu-layers { min-width: 0; display: grid; gap: var(--spacing-xs); }
 .stu-layers-help { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }

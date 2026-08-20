@@ -5645,6 +5645,14 @@ async function minimapPass(browser, engineName, t, errors) {
   const reqs = [];
   p1.on("request", (r) => { if (r.frame() === p1.mainFrame() && r.url().startsWith(BASE)) reqs.push(r.url()); });
 
+  // --- 0 · #273: the resolving IDREF (framesPass's #stx-resize-help row's shape) ------------------
+  // Pins the WIRING only — no journey assertion can see SR output: the caption element exists,
+  // carries the affordance sentence, and is exactly what the map's aria-describedby names.
+  t("#273 · #stu-map-help exists and carries the affordance sentence, so the map's aria-describedby resolves to real text",
+    (await p1.locator("#stu-map-help").count()) === 1
+    && (await p1.locator("#stu-map-help").textContent() || "").includes("arrow keys pan the canvas")
+    && (await p1.locator("[data-studio-minimap] .stu-map").getAttribute("aria-describedby")) === "stu-map-help");
+
   // --- 1 · the cells and the view rect, in THREE conditions ---------------------------------------
   const geom1 = await geomOf(p1);
   const wrapGeo = await p1.evaluate(() =>
