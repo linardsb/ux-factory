@@ -540,10 +540,13 @@ export function watchPackSwap(root, onSwap = resolveTokenValues) {
     link.addEventListener("error", refresh, { once: true, signal: swap.signal });
   });
   observer.observe(link, { attributes: true, attributeFilter: ["href"] });
-  // RETURNED SINCE #219, and both existing mounts ignore it — they live as long as their page does.
-  // system/studio-frames.mjs does not: studio.mjs's destroy() tears the studio down mid-visit in the
-  // journey driver, and an observer left watching the head link would go on re-pointing frames that
-  // no longer exist. Handing the handle back is cheaper than a second copy of this function.
+  // RETURNED SINCE #219, and all three mounts ignore it TODAY — they live as long as their page
+  // does. It is returned so system/studio-frames.mjs's own destroy() can disconnect it IF a teardown
+  // path is ever wired: that module removes its wrappers, and an observer left watching the head
+  // link would go on re-pointing frames that no longer exist. NO SUCH PATH EXISTS — studio.mjs's
+  // mountStudioCore runs once per page load, its handle has no destroy(), and nothing calls
+  // mountStudioFrames's (studio-docs.mjs:341 records the same fact). Handing the handle back is
+  // cheaper than a second copy of this function, and cheaper than discovering the leak later.
   return observer;
 }
 
