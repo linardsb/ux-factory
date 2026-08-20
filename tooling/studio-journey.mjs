@@ -62,7 +62,15 @@ const BASE = process.env.BASE || "http://127.0.0.1:4757";
 // does not produce — so a genuine failure, including one against some other origin, still fails the
 // run. NOT applied to the /studio.html opener below: that page mounts no frames, so it keeps the
 // stronger any-error-is-a-failure contract this driver was written with.
-const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server|CORS request did not succeed/;
+//
+// IT BRIEFLY CARRIED A FOURTH, UNANCHORED `CORS request did not succeed` ALTERNATIVE (PR #267 M2),
+// which would have matched a cross-origin failure against ANY host and quietly cancelled the
+// sentence above. Measured on all three engines against a settled /factory with both frames loaded:
+// firefox emits six messages, every one of them of the form "Cross-Origin Request Blocked: … at
+// http://127.0.0.1:8787/api/…", so the FIRST alternative already matches it; chromium's six are
+// "net::ERR_CONNECTION_REFUSED" and webkit's six "Could not connect to the server". Zero unmatched
+// on each. The fourth bought nothing and is gone, and "verbatim" is true again.
+const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server/;
 
 // #219 · A SUB-FRAME'S REQUESTS ARE NOT THIS PAGE'S. /factory embeds the two proto pages as device
 // frames, and Fieldwork fetches handoff/verdant/vocabulary.json for its agentic slots — the SAME url
@@ -4863,6 +4871,13 @@ async function framesPass(browser, engineName, t, errors) {
     title: n.querySelector("iframe")?.getAttribute("title"),
     grab: n.querySelector(".stx-grab") ? !n.querySelector(".stx-grab").disabled : null,
     resize: n.querySelector(".stx-resize") ? !n.querySelector(".stx-resize").disabled : null,
+    // BOTH NAMES, since a describedby-only projection is what let PR #267's H1 through: this driver
+    // already read .stx-grab's aria-label twice (movePass), and simply did not read the new
+    // control's — the repo's own "the check that cannot fail" shape. Read as the ATTRIBUTE rather
+    // than through an accname API because that is what place() writes; the descriptor's `name` is
+    // what the expectation below is derived from, exactly as the footprints are.
+    grabLabel: n.querySelector(".stx-grab")?.getAttribute("aria-label"),
+    resizeLabel: n.querySelector(".stx-resize")?.getAttribute("aria-label"),
     describedBy: n.querySelector(".stx-resize")?.getAttribute("aria-describedby"),
     styled: n.hasAttribute("style"),
   })));
@@ -4897,6 +4912,13 @@ async function framesPass(browser, engineName, t, errors) {
     t(`#219 · …with a stable id and BOTH handles armed, each describing itself through a resolving IDREF`,
       Boolean(got?.id) && got.grab === true && got.resize === true && got.describedBy === "stx-resize-help",
       JSON.stringify({ id: got?.id, grab: got?.grab, resize: got?.resize, describedBy: got?.describedBy }));
+    // SC 4.1.2, and the two names asserted TOGETHER because they are one code path: place() writes
+    // both from the same `label`, so a regression that drops one is a regression that could drop
+    // either. Derived from the descriptor's own `name` — a typed string here would pass against a
+    // frame that had silently been re-labelled.
+    t(`#219 · …and BOTH handles carry an accessible name naming the frame (SC 4.1.2 Name, Role, Value)`,
+      got?.grabLabel === `Move ${want.name}` && got?.resizeLabel === `Resize ${want.name}`,
+      JSON.stringify({ grabLabel: got?.grabLabel, resizeLabel: got?.resizeLabel, want: want.name }));
   }
   t("#219 · #stx-resize-help exists, so every .stx-resize's aria-describedby resolves to real text",
     (await p.locator("#stx-resize-help").count()) === 1
