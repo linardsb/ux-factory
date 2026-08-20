@@ -44,11 +44,23 @@ Fix restored (`git stash pop`), served tree curl-verified FIXED (`grep -c '264'`
 
 ## Rebase note
 
-main advanced while this ticket was in flight (PRs #274, #275, #276 merged). Validation sequence
-per coordination: red-proof + the three-engine run on the pre-rebase base (the merged changes
-touch neither `adoptBoard` nor `methodPass` — #274's journey rows are in `framesPass`), then a
-rebase onto origin/main, loc-summary REGENERATED, and post-rebase `build-checks` + a chromium
-journey re-run as the rebased-tree evidence. Observed results: PENDING.
+main advanced while this ticket was in flight (PRs #274, #275, #276 merged). The validation
+evidence therefore splits, stated explicitly: the red-proof and the THREE-ENGINE run above ran on
+the pre-rebase base (origin/main 9cd9696) — sound because the merged changes touch neither
+`adoptBoard` nor `methodPass` (#274's journey rows are in `framesPass`, #275 is a portfolio.css
+prune + loc regen, #276 is docs/epic close) — and the rebased tree's evidence is the post-rebase
+re-runs below. Observed:
+
+- `git rebase origin/main` → clean, zero conflicts (my journey rows are in `methodPass`, #274's in
+  `framesPass`; this branch never committed a loc-summary change, so no generated-file conflict).
+- `node agent-layer/gen-loc-summary.mjs` post-rebase → **zero drift** (byte-identical to main's
+  regenerated 30,600 runtime / 38,500 total — the same outcome the sibling rebase observed), so
+  this PR ships NO loc-summary change and no group number moved.
+- `node tooling/build-checks.mjs` post-rebase → **all 27 groups pass** (observed).
+- `BASE=http://127.0.0.1:4761 node tooling/studio-journey.mjs chromium` post-rebase (serve
+  curl-verified serving the rebased worktree) → **chromium 523 passed / 0 failed** (observed; the
+  three #264 rows green among them; the delta over the pre-rebase 521 is #274's added rows). No
+  LoAF overshoot seen, so the known machine-load flake never needed the solo re-run.
 
 ## Deviations from the brief
 
