@@ -3,7 +3,7 @@
 // .claude/plans/studio-layers-minimap-221.md).
 //
 // The whole 12×8 stage at a glance in the inspector rail, with a live viewport rectangle tracking
-// pan and zoom; a click moves the view, arrow keys pan a cell at a time. Four calls are made here
+// pan and zoom; a click moves the view, arrow keys pan a cell at a time. Six calls are made here
 // so a later editor inherits rather than re-argues them:
 //
 //  1. GEOMETRY IS ATTRIBUTES — SVG PRESENTATION ATTRIBUTES. build-checks group 7 pins
@@ -44,6 +44,17 @@
 //     widths are identical and this call costs nothing. Vertical is deliberately NOT
 //     window-clipped: the scroller genuinely scrolls that axis, and page scroll is the PAGE's
 //     viewport, not the canvas's — this is a canvas instrument, not a browser-window one.
+//  6. THE KEYBOARD AFFORDANCE RIDES A VISIBLE CAPTION, NEVER aria-label (#273). The map is a
+//     focusable role-less div, and ARIA 1.2 prohibits naming on the generic role — so the
+//     aria-label that used to carry the whole affordance sentence was formally not exposed at
+//     all. The caption is the #stx-move-help idiom (studio-verbs.mjs:568-575): one static visible
+//     <p> under the map, referenced by the map's aria-describedby — which IS permitted on every
+//     role — so the affordance is discoverable on focus AND readable by sighted readers, the
+//     idiom's whole point. role="application" was the REJECTED alternative: it strips native
+//     reading semantics inside and is a heavy hammer for one small widget. The aria-label is
+//     DROPPED rather than shortened — a short name on a generic is the same formal violation as
+//     a long one, the visible h3 "Minimap" already names the panel, and what focus needs exposed
+//     is the affordance, which the description now carries.
 //
 // TWO ACCESSIBILITY CRITERIA, RECORDED WHICH-IS-WHICH (studio-verbs.mjs:41-46's discipline):
 // click-to-jump is a single-pointer action — nothing here drags, so SC 2.5.7 is not even engaged;
@@ -198,9 +209,9 @@ const svgEl = (tag, attrs) => {
   return n;
 };
 
-// The label IS the instructions — one control, so the studio's static-caption rule collapses to
-// the accessible name itself rather than a separate help element.
-const MAP_LABEL = "Minimap. Click to move the view; arrow keys pan the canvas one cell, "
+// The affordance sentence the caption carries (call 6 in the header) — the affordance tail only:
+// the visible h3 "Minimap" already names the panel, so the caption does not repeat it.
+const MAP_HELP = "Click to move the view; arrow keys pan the canvas one cell, "
   + "Home returns to the top left.";
 
 let live = null; // the mounted minimap — the exported seam below drives THIS one
@@ -251,8 +262,9 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     // --- structure ------------------------------------------------------------------------------
     const title = el("h3", { class: "stu-panel-title", text: "Minimap" });
     // A focusable interactive div, NOT role="img" (it is interactive) and NOT a button (Enter and
-    // Space have nothing to activate — the verbs are click-to-jump and the arrows).
-    const map = el("div", { class: "stu-map", tabindex: "0", "aria-label": MAP_LABEL });
+    // Space have nothing to activate — the verbs are click-to-jump and the arrows). No aria-label:
+    // naming is prohibited on the generic role, so the caption below is the exposure (call 6).
+    const map = el("div", { class: "stu-map", tabindex: "0", "aria-describedby": "stu-map-help" });
     const svg = svgEl("svg", {
       "aria-hidden": "true",
       viewBox: `0 0 ${contentW} ${contentH}`,
@@ -264,7 +276,10 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     const view = svgEl("rect", { class: "stu-map-view", x: 0, y: 0, width: contentW, height: contentH });
     svg.append(bg, view);
     map.appendChild(svg);
-    mount.append(title, map);
+    // The visible caption the map's aria-describedby resolves to — the #stx-move-help idiom
+    // (call 6): the module that OWNS the element owns the id (studio-verbs.mjs:591's rule).
+    const help = el("p", { class: "stu-map-help", id: "stu-map-help", text: MAP_HELP });
+    mount.append(title, map, help);
 
     // --- the metrics, read live every update ----------------------------------------------------
     // The reader-visible width (call 5 in the header): the scroller's box intersected with the
@@ -505,6 +520,7 @@ export function mountStudioMinimap(root, { canvas } = {}) {
         ac.abort();
         title.remove();
         map.remove();
+        help.remove();
         if (live === handleObj) live = null;
       },
     };
