@@ -264,11 +264,20 @@ const countLive = (p) => p.evaluate(() => {
   window.__liveCount = 0;
   window.__liveLast = "";
   window.__liveAt = [];
+  // Per-record texts beside the count (#264): say() sets textContent, so each announcement is one
+  // childList record whose addedNodes[0] carries the whole sentence — and a synchronous burst
+  // (adoptBoard's cancel + placements + the redraft sentence) batches into ONE callback, where
+  // __liveLast keeps only the final sentence. Additive; the counting rows read n/last as before.
+  window.__liveTexts = [];
   const live = document.querySelector("[data-studio-canvas] .stx-live");
   window.__liveObs?.disconnect();
   window.__liveObs = new MutationObserver((ms) => {
     window.__liveCount += ms.length;
     for (let i = 0; i < ms.length; i += 1) window.__liveAt.push(performance.now());
+    for (const m of ms) {
+      const said = (m.addedNodes && m.addedNodes[0] ? m.addedNodes[0].textContent : "").trim();
+      if (said) window.__liveTexts.push(said);
+    }
     window.__liveLast = live.textContent.trim();
   });
   window.__liveObs.observe(live, { childList: true, characterData: true, subtree: true });
@@ -283,6 +292,7 @@ const focusedText = (p) => p.evaluate(() => {
 const liveSeen = (p) => p.evaluate(() => ({
   n: window.__liveCount,
   last: window.__liveLast,
+  texts: (window.__liveTexts || []).slice(),
   gaps: (window.__liveAt || []).slice(1).map((t, i) => Math.round(t - window.__liveAt[i])),
 }));
 
@@ -3554,6 +3564,64 @@ async function methodPass(browser, engineName, t, errors) {
     && JSON.stringify(recovered.headings) === JSON.stringify(expectedMid),
     JSON.stringify(recovered));
   await p6.close();
+
+  // --- #264 · a live carry must not survive a redraft as a phantom gesture ----------------------
+  // The compile beat's onState guard covers a redraft from a COMPILED stage (adoptBoard's revert
+  // lands in it); the uncovered path was a redraft from BLOCKS state with a carry live — the
+  // gesture closure kept referencing detached nodes, .is-picked left the DOM with them (so
+  // studio-select's carrying() went false while a gesture was live), and Escape announced a
+  // cancellation naming a component no longer on the canvas. Only a running page can see any of
+  // this: build-checks group 13's history cases never mount a stage, and the pixel gate never
+  // carries anything. Its OWN page load, so the counted rows above keep their exact counts.
+  const p7 = await ctx.newPage();
+  watch(p7, "method carry");
+  await p7.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p7.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  // Pick up the first block from the keyboard — park it first (the smooth-scroll rule above),
+  // record its label from the wrapper itself so the assertions below never type a name.
+  await park(p7, `${VIEWPORT} .stx-slot`);
+  const carried = await p7.$eval(`${VIEWPORT} .stx-slot`, (w) => w.getAttribute("data-stx-name"));
+  await p7.focus(`${VIEWPORT} .stx-slot .stx-grab`);
+  await p7.keyboard.press("Enter");
+  await p7.waitForTimeout(120);
+  // The positive control: the carry really is live before the redraft, or rows 2 and 3 prove
+  // nothing (a pick-up that never happened leaves nothing to phantom).
+  const held = await p7.evaluate(() => import("/system/studio-verbs.mjs").then((m) => ({
+    live: Boolean(m.getVerbs()?.gesture),
+    marked: document.querySelectorAll(".is-picked").length,
+  })));
+  await countLive(p7);
+  await check(p7, 'input[name="stm-q-shape"][value="worklist"]');
+  const afterDraft = await p7.evaluate(() => import("/system/studio-verbs.mjs").then((m) => ({
+    gestureNull: m.getVerbs()?.gesture === null,
+    picked: document.querySelectorAll(".is-picked").length,
+  })));
+  // BOTH halves, because carrying() reads .is-picked: gesture null AND no .is-picked anywhere —
+  // false for the RIGHT reason (cancelled), not false-by-detachment with a gesture still live.
+  t("#264 · a method-card redraft CANCELS a live carry — gesture null and zero .is-picked, not carrying() false by detachment",
+    held.live && held.marked === 1 && afterDraft.gestureNull && afterDraft.picked === 0,
+    JSON.stringify({ held, afterDraft }));
+  // The cancel lands BEFORE the wrapper-removal loop, so it names the block while its node still
+  // exists — the same sentence the compile path already produces. Read from the per-record texts:
+  // the cancel + placements + redraft sentence are one synchronous burst, so `last` never holds it.
+  const draftSaid = await liveSeen(p7);
+  t("#264 · …and the redraft announces the cancellation NAMING the carried block, spoken while its node still existed",
+    draftSaid.texts.some((s) => s.startsWith(`Cancelled, ${carried} back in column `)),
+    `${draftSaid.n} record(s): ${JSON.stringify(draftSaid.texts)}`);
+  // Escape after the redraft: the document listener (studio-verbs.mjs's body-drag route) finds no
+  // gesture, so NOTHING is announced — on the pre-fix tree this is where the phantom spoke,
+  // naming a component the reader could no longer see.
+  await countLive(p7);
+  await p7.focus(SCROLL);
+  await p7.keyboard.press("Escape");
+  await p7.waitForTimeout(150);
+  const escSaid = await liveSeen(p7);
+  const escGesture = await p7.evaluate(() => import("/system/studio-verbs.mjs")
+    .then((m) => m.getVerbs()?.gesture === null));
+  t("#264 · Escape after the redraft announces NOTHING — no phantom cancellation naming the vanished block, gesture still null",
+    escGesture && escSaid.n === 0 && !escSaid.texts.some((s) => s.includes(carried)),
+    JSON.stringify(escSaid));
+  await p7.close();
 
   await ctx.close();
 }
