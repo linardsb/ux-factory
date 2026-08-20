@@ -131,10 +131,13 @@ named index 7); pointing a descriptor at `/proto/nope.html` (group 24); renaming
    `mountStudioFrames(canvas, { bus, root })`. The module emits nothing — every action on a frame is
    `studio-verbs.mjs`'s — so a bus handle would be a parameter with no call site. Recorded in the
    module header as call 7.
-2. **`watchPackSwap` also returns its `MutationObserver`** (the plan said "signature only"). Both
-   existing mounts ignore it; `studio-frames.mjs` does not, because `studio.mjs`'s `destroy()` tears
-   the studio down mid-visit in the journey driver and an observer left watching the head link would
-   go on re-pointing frames that no longer exist. One line, no behaviour change for mounts 1 and 2.
+2. **`watchPackSwap` also returns its `MutationObserver`** (the plan said "signature only"). All three
+   mounts ignore it today; it is returned so `studio-frames.mjs`'s own `destroy()` can disconnect it
+   **if a teardown path is ever wired** — that module removes its wrappers, and an observer left
+   watching the head link would go on re-pointing frames that no longer exist. **No such path exists**:
+   `mountStudioCore` runs once per page load, its handle carries no `destroy()`, and nothing calls
+   `mountStudioFrames`'s. One line, no behaviour change for mounts 1 and 2. *(Corrected after PR #267's
+   review M3 — the original wording asserted a running-driver teardown that does not happen.)*
 3. **The footprints are 2×2 at (1,3) and 3×2 at (3,3), not the plan's 2×5 and 4×4.** The plan asked
    for this decision to be made in a real browser (Assumption 3) and it was, twice. The binding
    constraint is not the one the plan predicted: with frames at rows 2–4 the canvas has **exactly one
@@ -197,11 +200,17 @@ named index 7); pointing a descriptor at `/proto/nope.html` (group 24); renaming
    inside the frame still gets the layer — the rule is about at-rest chrome, not consent."* So the
    assertion now forbids a visible hint or an open dialog, and separately asserts the layer is
    **present** — the proto pages' recorded decision, gated rather than accidentally reversed.
-11. **`EXPECTED_NOISE` gained firefox's wording, and five existing chromium-only resource-error
+11. **`EXPECTED_NOISE` arrived on this driver, and five existing chromium-only resource-error
    exemptions gained the shared filter.** Firefox reports the same refused Worker as
    *"Cross-Origin Request Blocked … CORS request did not succeed"* and names the Worker's origin;
    the five listeners that already exempted chromium's `"Failed to load resource"` had no equivalent.
-   Found by running firefox, not by reasoning about it.
+   Found by running firefox, not by reasoning about it. *(Corrected after PR #267's review M2: the
+   filter as first written also carried a fourth, unanchored `CORS request did not succeed`
+   alternative, which was **not** the verbatim copy the comment claimed and would have matched a
+   cross-origin failure against any host. Measured on all three engines against a settled `/factory`
+   with both frames loaded — firefox 6/6 messages name `127.0.0.1:8787`, chromium 6/6
+   `net::ERR_CONNECTION_REFUSED`, webkit 6/6 `Could not connect to the server`, zero unmatched by the
+   three-alternative form — so the fourth bought nothing and was dropped.)*
 12. **`npm run test:docker` does not exist in this tree.** The plan names it in three places; the
    VR package has `test` and `update:docker` only. The verify form actually run is the same pinned
    container without `--update-snapshots`, which is what `update:docker` reduces to — recorded here
