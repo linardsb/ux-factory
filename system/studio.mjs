@@ -651,6 +651,15 @@ function mountStudioCore(root, shell, restored, opts = {}) {
     // screens were compiled for, same-count collisions included — loudly, via the refusal card,
     // recoverable through "Back to blocks".
     if (compile.state !== "blocks" && compile.state !== "compiling") compile.revert();
+    // #264: a carry live at redraft time dies HERE, while its nodes are still attached. Without
+    // this the loop below detaches them with the gesture still live — `.is-picked` leaves the DOM
+    // with the wrappers, so studio-select.mjs's carrying() goes false while a gesture exists, and
+    // Escape announces a cancellation naming a component that is no longer on the canvas. cancel()
+    // no-ops without a live gesture, which is every ordinary redraft; it sits AFTER the revert
+    // branch because the compiled path was already covered — revert lands in the onState guard
+    // above (:499) — so this line owns exactly the blocks-state redraft. It announces the same
+    // "Cancelled, X back in column c, row r." sentence the compile path already produces.
+    verbs?.cancel();
     // wrapper.remove() per slot, never a wipe of the stage node: the sizer and the stage are what
     // the canvas owns; the slots are what this board put there (studio-canvas.mjs:114-117).
     for (const wrapper of canvas.stage.querySelectorAll(".stx-slot")) wrapper.remove();
