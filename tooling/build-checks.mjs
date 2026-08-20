@@ -4214,7 +4214,8 @@ function scanSvg(svg, label) {
   // The histogram is a TRIPWIRE, deliberately: #220 tripped it as designed (3/7 → 3/17 — its ten
   // components ship wrapper-less, and the absent vd/react tabs are honest), and the next wrapper
   // or component moves it again — move it on purpose, with the vd tab's honesty note re-checked,
-  // never by reflex.
+  // never by reflex. The design-import spike moved it 3/17 → 3/18: avatar (the Polaris port,
+  // system/specs/avatar.md) ships wrapper-less, so its absent vd/react tabs are honest.
   let withWrapper = 0;
   let withoutWrapper = 0;
   for (const c of model.components) {
@@ -4225,8 +4226,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 17,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/17; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 18,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/18; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,

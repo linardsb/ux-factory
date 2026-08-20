@@ -33,7 +33,7 @@ import { trackToolPalette } from "./analytics.mjs";
 // against handoff/verdant/vocabulary.json — the dock PACKS / bus-toggles TONES pattern. #220 adds
 // components by editing this list, and the pin is what forces that edit.
 export const CATALOG_COMPONENTS = [
-  "card", "care-task-row", "demo-notice", "empty-state", "ghost-button",
+  "avatar", "card", "care-task-row", "demo-notice", "empty-state", "ghost-button",
   "list-row", "metric-tile", "modal-dialog", "nav-tabs", "plant-card",
   "primary-button", "progress-indicator", "screen-header", "search-input",
   "select-field", "sequence-step", "stat-tile", "status-chip", "text-field",

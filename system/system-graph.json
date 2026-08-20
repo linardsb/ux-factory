@@ -1100,6 +1100,19 @@
       ]
     },
     {
+      "id": "ds-avatar-cross-scenario-library-primitive",
+      "label": "ds-avatar — cross-scenario library primitive",
+      "spec": "system/specs/avatar.md",
+      "tokens": [
+        "--color-accent-wash",
+        "--color-border",
+        "--color-accent",
+        "--type-body",
+        "--type-caption",
+        "--type-h3"
+      ]
+    },
+    {
       "id": "ds-card-cross-scenario-library-primitive",
       "label": "ds-card — cross-scenario library primitive",
       "spec": "system/specs/card.md",
@@ -1386,7 +1399,7 @@
   ],
   "counts": {
     "tokens": 64,
-    "consumers": 43,
-    "edges": 503
+    "consumers": 44,
+    "edges": 509
   }
 }

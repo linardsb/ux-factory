@@ -8,6 +8,38 @@
     "chipRule": "plant-card and care-task-row always render one status-chip derived from their own status prop; supply an explicit status-chip child only to override its label, and its value must equal the parent's status"
   },
   "components": {
+    "avatar": {
+      "class": "ds-avatar",
+      "status": "shipped",
+      "props": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "whose avatar this is — \"Nora Osei\" — the disc's accessible name, never rendered as text"
+        },
+        "initials": {
+          "type": "string",
+          "required": false,
+          "description": "the one-to-three characters shown in the disc; absent falls back to the first character of name (the plant-card monogram precedent)"
+        },
+        "size": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "sm",
+            "md",
+            "lg"
+          ],
+          "description": "disc diameter step; absent means md"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "usage": "A PORT, and the spec says so first: this is Shopify Polaris's Avatar (public token/component\nsystem, `@shopify/polaris`, ported at its v7-era shape) projected onto THIS system's token\ncontract — Polaris's design decision (an initials disc naming a person where a photo would be\nnoise), this repo's tokens. Library-generic (`ds-`, cross-scenario, the metric-tile precedent),\nnon-interactive like stat-tile: a disc of initials standing in for a person wherever a row or\ncard names one. Never a tap target — if the person opens something, the PARENT is the control\nand the avatar is decoration inside it.\n\nWhat the port deliberately drops (projection, not reproduction): Polaris cycles avatar\nbackgrounds through its own six-colour palette keyed off the customer name. The contract has no\n\"avatar palette\" concept and a colour literal in `components.css` is a red build, so every disc\nhere wears the accent wash — one fewer concept, stated rather than smuggled in.",
+      "contract": null
+    },
     "card": {
       "class": "ds-card",
       "status": "shipped",
