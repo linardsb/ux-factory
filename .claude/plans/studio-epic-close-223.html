@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build brief — Studio 21: the epic close (#223)</title>
+<style>
+  :root { --ink:#1a1d21; --dim:#5c646e; --line:#d9dde2; --bg:#fafbfc; --card:#ffffff; --accent:#0b5fff; --warn:#b45309; }
+  * { box-sizing:border-box; margin:0; }
+  body { font:16px/1.6 -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); padding:2.5rem 1rem 5rem; }
+  main { max-width:46rem; margin:0 auto; }
+  h1 { font-size:1.5rem; line-height:1.3; margin-bottom:.4rem; }
+  h2 { font-size:1.1rem; margin:2.4rem 0 .8rem; border-bottom:1px solid var(--line); padding-bottom:.35rem; }
+  h3 { font-size:1rem; margin:1.4rem 0 .4rem; }
+  p, li { color:var(--ink); }
+  .dim { color:var(--dim); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:1rem 1.2rem; margin:.9rem 0; }
+  code { font:.85em ui-monospace, monospace; background:#eef1f4; padding:.1em .35em; border-radius:4px; }
+  pre { font:.8rem/1.5 ui-monospace, monospace; background:#14171a; color:#dfe5ea; padding:1rem; border-radius:8px; overflow-x:auto; margin:.8rem 0; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; margin:.8rem 0; }
+  th, td { text-align:left; padding:.4rem .6rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  .tag { display:inline-block; font-size:.72rem; font-weight:600; letter-spacing:.03em; color:var(--accent); border:1px solid currentColor; border-radius:99px; padding:.05rem .55rem; margin-right:.4rem; }
+  .warn { color:var(--warn); }
+  .flow { display:flex; flex-wrap:wrap; gap:.5rem; align-items:stretch; margin:.8rem 0; }
+  .flow .box { flex:1 1 8rem; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.55rem .7rem; font-size:.85rem; }
+  .flow .box b { display:block; font-size:.78rem; color:var(--accent); }
+  .arrow { align-self:center; color:var(--dim); }
+  ul { padding-left:1.2rem; }
+  li { margin:.25rem 0; }
+  .learn { font-size:.85rem; color:var(--dim); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Studio 21 — the epic close (#223)</h1>
+<p class="dim">A five-minute briefing on what this plan builds, and the ideas it rests on.</p>
+
+<h2>1 · What we're building and why</h2>
+<p>Epic #202 shipped twenty tickets: the portfolio's /factory page became a prototype studio.
+This last ticket ships no feature — it <strong>judges the epic</strong>. Real strangers use the
+studio while we watch in silence, the three win-metric signals are verified on the live site, every
+number and honesty label on the shipped pages is traced back to a generated artifact, and what was
+cut or deferred is written down. Last epic, this exact ticket (#177) was skipped — the audit never
+ran. This time it is nobody's option to skip.</p>
+
+<h2>2 · The concepts this plan rests on</h2>
+
+<div class="card">
+  <h3><span class="tag">concept</span>Virtual-route analytics — the path is the entire payload</h3>
+  <p>Cloudflare Web Analytics has no custom events; it only counts pageviews. So this site encodes
+  an event as a fake, momentary navigation: push <code>/factory/took-over</code> into the address
+  bar, let the beacon's history hook see it, restore the real URL 50&nbsp;ms later. The path
+  string is the whole message — which is why each is a static literal, fires exactly once, and only
+  from the code path where the thing <em>actually happened</em> (an export that failed to assemble
+  must never count as a keep).</p>
+  <p class="dim">Analogy: a lighthouse flashing a fixed pattern — the pattern is the message, so
+  two meanings must never share one pattern. Where it breaks: a lighthouse repeats; these flash
+  once per visit, deliberately.</p>
+  <p><em>Why this plan needs it:</em> the audit's job is to confirm each flash on the
+  <strong>live</strong> site — and the twist is that the beacon is dark until launch
+  (<code>BEACON_TOKEN = ""</code>, fail-closed). So the honest live check watches the history flip
+  itself, with a hook installed before any module loads.</p>
+</div>
+
+<div class="card">
+  <h3><span class="tag">concept</span>Hallway testing — cold readers are a non-renewable resource</h3>
+  <p>3–5 people who have never seen the site, silence for the timed part, verbatim notes, two fixed
+  questions. Small samples find the big confusions (the NN/g result); silence matters because a
+  single hint destroys the one thing being measured — what a stranger does unprompted. And a tester
+  is <em>spent</em> after one session: they can never be cold again, so recruitment is the plan's
+  critical path and starts on day one.</p>
+  <p class="dim">Analogy: taste-testing a recipe — you can't un-tell someone what's in the dish.</p>
+  <p><em>Why this plan needs it:</em> the epic's named failure mode — "visitors watch the replay
+  without ever grabbing the wheel" — is invisible to every automated gate. Only a cold human can
+  produce it. Round 3 adds a studio part to the existing (never-run) v3 script: name the page,
+  never the capability, and log whether they grab the wheel unprompted.</p>
+</div>
+
+<div class="card">
+  <h3><span class="tag">concept</span>Numbers as claims — every stated figure has a generated source</h3>
+  <p>This repo's honesty contract treats every on-page number (component count, control count,
+  line counts) as a claim that must trace to a machine-measured artifact —
+  <code>loc-summary.json</code>, <code>param-count.json</code>, the fetched pack. A hand-written
+  number can silently rot; a generated one is drift-checked in CI. The audit re-runs every
+  generator (tree must come back unchanged), sweeps all eleven pages for digits, and records a
+  verdict per number — "checked, not assumed" means the triage table exists, not that someone
+  looked.</p>
+  <p><em>Why this plan needs it:</em> twenty tickets of copy churn is exactly how a true number
+  goes stale, and the catalog just doubled to twenty components.</p>
+</div>
+
+<div class="card">
+  <h3><span class="tag">concept</span>The epic close as a ticket — audits that are nobody's job don't run</h3>
+  <p>A process step with no owner and no artifact evaporates under delivery pressure (#177,
+  closed <code>NOT_PLANNED</code>). Making the close a ticket gives it acceptance criteria, a PR,
+  and a paper trail: cuts recorded on the epic issue, dated closing notes in the PRD settling each
+  success-metric row honestly — including the two rows that <em>cannot</em> be judged before
+  launch (keep/share and take-over rates need the beacon live; the note says the clock hasn't
+  started rather than pretending a verdict).</p>
+</div>
+
+<h2>3 · How the pieces fit</h2>
+<div class="flow">
+  <div class="box"><b>A · Desk audits</b>copy + count, honesty labels, capability chips — fix in-PR</div>
+  <div class="arrow">→</div>
+  <div class="box"><b>B · Deploy + live audit</b>ship main to pages.dev <span class="warn">(owner OK)</span>, run <code>live-metric-audit.mjs</code></div>
+  <div class="arrow">→</div>
+  <div class="box"><b>C · Hallway round 3</b>3–5 cold sessions on the live site → findings.md</div>
+  <div class="arrow">→</div>
+  <div class="box"><b>D · Biggest confusion</b>fix if ~2 days &amp; no decision broken, else ticket + explicit deferral</div>
+  <div class="arrow">→</div>
+  <div class="box"><b>E · Record + close</b>cuts on #202, closing notes in both epic docs, <code>Closes #223</code></div>
+</div>
+<p class="dim">Recruitment (part of C) starts on day one, in parallel with A — testers are the long
+pole. A key find already made while planning: the live deploy is <strong>stale</strong> — it
+predates the whole epic — so B's deploy is load-bearing, not ceremonial.</p>
+
+<h2>4 · The plan at a glance</h2>
+
+<h3>New and changed files</h3>
+<pre>tooling/live-metric-audit.mjs                 NEW — live route verification (re-runs at launch)
+docs/hallway-notes/TEMPLATE-studio.md         NEW — round-3 session script
+docs/hallway-notes/round-3-studio/            NEW — README, tester-0N.md ×3–5, findings.md
+docs/hallway-runbook.md                       + "Round 3 — the studio" section
+docs/epics/prototype-studio.prd.md            + dated closing note (metrics settled row by row)
+docs/epics/prototype-studio.architecture.md   + dated outcome note + launch checklist pointer
+*.html (shipped pages)                        copy fixes as the audits find them (+ VR baselines)</pre>
+
+<h3>Acceptance criteria</h3>
+<table>
+  <tr><th>AC</th><th>Evidence</th></tr>
+  <tr><td>3–5 sessions run and recorded; biggest confusion fixed or ticketed</td><td>tester files + findings.md</td></tr>
+  <tr><td>Each win-metric route fires once, live, from its success path</td><td>script log (took-over · exported · link-copied)</td></tr>
+  <tr><td>Every stated number traces to a generated artifact</td><td>triage table + empty regen diff</td></tr>
+  <tr><td>Honesty contract audited end to end</td><td>per-surface verdict rows</td></tr>
+  <tr><td>Cuts recorded; contradicting copy removed</td><td>comment on #202 + copy diffs</td></tr>
+  <tr><td>Closing notes in both epic docs</td><td>dated sections, no row oversold</td></tr>
+</table>
+
+<h3>Open questions for the owner</h3>
+<ul>
+  <li><b>Q1</b> — is this launch? Assumed no: the beacon stays dark, recording stays launch-gated.</li>
+  <li><b>Q2</b> — book the 3–5 testers; nothing else can substitute for them.</li>
+  <li><b>Q3</b> — OK to deploy current main to factory-ux.pages.dev at phase B.</li>
+</ul>
+
+<h2>5 · Go deeper</h2>
+<p class="learn">To properly learn any of these, run:
+<code>/learn virtual-route analytics (path-as-payload events)</code> ·
+<code>/learn hallway usability testing (NN/g small-sample method)</code> ·
+<code>/learn generated-artifact honesty (numbers as drift-checked claims)</code> ·
+<code>/learn definition-of-done rituals (why epic closes need owners)</code></p>
+
+<p class="dim" style="margin-top:2rem">Source of truth: <code>.claude/plans/studio-epic-close-223.md</code></p>
+
+</main>
+</body>
+</html>
