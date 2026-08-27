@@ -23,3 +23,7 @@ tooling/figma/.raw/
 
 # figma imports (a dropped export is someone else's design file — the pack is the artifact)
 tooling/figma/exports/
+
+# Research sources kept out of the repo (see docs/epics/discovery-partner.prd.md C3 + Inputs).
+# The bank itself is parked, title-free, at docs/research/question-bank-source.md.
+__CXO_CPO_VP_Product.md
