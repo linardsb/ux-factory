@@ -227,3 +227,48 @@ routes · ~10 component specs through the full generation chain.
 PRD deferred (replay source · flow model · route · at-rest state · mode entry · in-flight
 sequencing), on top of a four-agent exploration of the existing surfaces. Next: slice with
 `piv-slice-epic` (feed this doc + the PRD), running spike 1 before or inside the first wave.*
+
+---
+
+## Closing note — 2026-08-27
+
+Written as the mechanical half of [#223](https://github.com/linardsb/ux-factory/issues/223); the
+hallway test and the live-site metric confirmation stay open there. What shipped, what was cut and
+what carries forward is recorded once, in
+[prototype-studio.prd.md § Epic close](./prototype-studio.prd.md#epic-close--audit-run-2026-08-27) —
+this note resolves only the questions *this* document left open.
+
+**Every decision above survived contact.** The chosen approach (A, absorb-and-arrange) held: one board
+stayed the single source of truth, the canvas is a render surface rather than a second app, and
+`/build` still works over the same store. No approach below the line was revisited.
+
+**Wave order** — the suggested spine broadly held (MVP → flows → method → catalog → components →
+frames + extras → instance re-shell), with three insertions the plan did not name: the studio gates
+(#213, folding #177's INP half), the IA re-point (#216), and full canvas affordances (#217). The docs
+chain (#211) landed before flows (#212) rather than after. Twenty tickets and fifteen follow-ups
+closed between 2026-08-04 and 2026-08-20 — about two and a half weeks against a six-week appetite, so
+the appetite never had to cut anything.
+
+**Final cut of the 10 components** — no cut. All ten shipped through the full chain (#220); the
+catalog reads 20. The alternates list went unused.
+
+**`morph()` versus transform-only** — **transform-only with crossfades**, and the reservation in
+§Stack & libraries stands permanently rather than as a launch deferral: no `view-transition-name` is
+written anywhere in the studio, and both `system/studio-compile.mjs:22` and `system/studio.css:1120`
+record that decision with #171 as its reason. The determinism requirement is met by the replay engine
+itself, not by a boot count.
+
+**`agentic-ui-study.html` retirement** — unblocked and taken by #222; `system/instance.mjs:22-23`
+records `renderStudy` retiring with it, and the file is gone from disk. The sweep was clean, with no
+residue: `agentic.html` is a **different** page — the raw agentic-bridge harness from epic #1 ticket
+#11, which its own header distinguishes from the study page ("this is the workbench, not that"). It
+remains a live sibling of `trace.html` and `derive.html` under this doc's own "the raw harnesses stay
+off-nav" rule: noindex, no `site.js`, no chrome, and no `<a href>` to it anywhere in the repo.
+
+**Hallway-test recruitment, instance migration timing** — both were the PRD's, and both stay with #223.
+
+**Spikes** — all three were folded into their tickets rather than run standalone: incremental-run
+recording quality into #203, drag/zoom responsiveness into #204, single-file export fidelity into #210.
+Each shipped its decision rule's first branch; no fallback was taken.
+
+*Gate state at close (observed 2026-08-27): `node tooling/build-checks.mjs` → all 27 groups pass.*

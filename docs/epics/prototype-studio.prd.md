@@ -197,3 +197,61 @@ flow's screens), re-recorded incremental agent runs projected into a drift-check
 played over the action bus's `agent.*` half, share-codec v2 grid-slot arrangement, a view-time-
 joined docs catalog with one new `example` spec field, autoplay-to-completion as the gated at-rest
 state, a no-mode-UI behavior gradient — shipped at `/factory`.
+
+## Epic close — audit run 2026-08-27
+
+Mechanical half of [#223](https://github.com/linardsb/ux-factory/issues/223), run against the repo as
+it stands. The hallway test and the live-site metric confirmation are **not** covered here and remain
+that ticket's open work.
+
+**What shipped: all twenty tickets, #203–#222.** The recorder + replay artifact · the canvas stage ·
+manipulation with keyboard parity · `/factory` route surgery · the compile beat · share codec v2 ·
+the replay driver + take-over · single-file export + keep rail + win-metric routes · the docs chain ·
+flows · the studio gates · the method band · the catalog at `/components` · the IA re-point · marquee,
+guides and context menu · inspector docs · protos as device frames · ten new components · layers list
++ minimap · per-company instances re-shelled.
+
+**What was cut: nothing.** Both pre-agreed scope cuts landed anyway — the ten components (#220, catalog
+now at **20**) and the layers list + minimap (#221). The architecture's line that these were "the
+pre-agreed first cuts under the appetite" never had to fire, and no shipped copy needs correcting
+because nothing was claimed that did not ship.
+
+**All three spikes were folded into tickets rather than run standalone** — spike 1 into #203, spike 2
+into #204, spike 3 into #210.
+
+**Fifteen follow-up and review tickets were absorbed inside the epic**: #225, #226, #229–#232, #236,
+#237, #249, #251, #253, #259, #262, #264, #273.
+
+**Verified at close (observed, 2026-08-27):**
+
+- `node tooling/build-checks.mjs` → **all 27 groups pass**.
+- **Counts are generated, never typed.** `approach.html` fetches `system/loc-summary.json` and
+  `system/param-count.json` at view time into `#loc-proof` / `#param-proof`; no shipped page states a
+  count in prose. Ground truth at close: 114 files / ~38,600 lines · 120 controls · 20 components.
+- **Honesty labels hold.** All 12 curated traces carry `Real run, curated for length`. Both replay
+  artifacts carry `Projection of the real run <slug>` and a `$description` naming the generator — a
+  projection, never a recording. The fictional notice stays byte-pinned to `copy.json` and the device
+  frames' site-pack sentence is asserted by build-checks, which is how the honesty contract discharges
+  #268.
+- **Win-metric routes** are asserted in CI (build-checks group `analytics`: five static virtual paths,
+  each firing once, no `?b=` payload in any). Their confirmation **on the live site** is still #223's.
+
+**Open questions, resolved:**
+
+- *Which ~10 components* → all ten shipped through the full chain (#220); the catalog reads 20.
+- *Whether replay steps drive `morph()` or stay transform-only* → **transform-only with crossfades**.
+  No `view-transition-name` is written anywhere in the studio; `system/studio-compile.mjs:22` and
+  `system/studio.css:1120` both record the decision and #171 as its reason.
+- *`agentic-ui-study.html` retirement timing* → unblocked and taken by #222
+  (`system/instance.mjs:22-23` records `renderStudy` retiring with it), and **the file is gone from
+  disk** — the retirement completed, nothing was left behind. `agentic.html` is a different page and
+  is not residue: the raw agentic-bridge harness from epic #1 ticket #11, whose own header calls it
+  "the workbench, not that". It sits with `trace.html` and `derive.html` as an off-nav, noindex, no-
+  chrome harness that nothing links to, which is the posture `studio.html:18` names by these files
+  and the architecture states as "the raw harnesses stay off-nav". Unmapped in CLAUDE.md by that
+  convention, like its two siblings.
+
+**Carried forward:** #223 (hallway test · live-site metric confirmation) · #268 (a dropped brand does
+not reach the device frames — disclosed to the reader and gated, so honest rather than broken; fixing
+it means trading the one-application-point vetting invariant) · #271 (a11y gates — the same work
+`discovery-partner.prd.md` names as D11 and defers to its own epic).
