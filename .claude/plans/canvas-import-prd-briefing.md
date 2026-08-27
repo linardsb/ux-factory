@@ -1,0 +1,416 @@
+# Canvas + design-import — what to know before writing the PRD
+
+**Status:** pre-PRD briefing, written 2026-08-27; §11–§15 added the same evening after reading the Brilliant tool schemas and re-checking the tracker. Not a PRD. This exists so the PRD session starts from
+what is already settled instead of re-deriving it.
+
+**The one-line answer.** The PRD can be written **now**. Nothing blocks it — not epic #279, not spike C.
+Spike C gates the *architecture* doc, not the intent.
+
+---
+
+## 1. The trigger
+
+> **Nothing. Run `plan-create-prd` whenever you have the session in you.**
+
+Not epic #279, not #223, not #271 — none shares a file, a gate or a dependency with this work, and
+writing a PRD is a document rather than code.
+
+**And not spike C either.** A PRD is intent; `plan-create-prd`'s own rule is *"A PRD is INTENT
+(what/why), never engineering decisions (how) — those are the `plan-architecture` skill's spec."* What a
+Brilliant capture returns is a how. Test it section by section — problem, evidence, hypothesis, users,
+MVP, metrics, non-goals, open questions — and none is unwritable without it. The MVP simply reads
+"Figma, with Brilliant pending a spike" instead of naming both, which is more honest rather than less
+complete, and the unproven leg files under Evidence as an assumption needing validation. The discovery
+PRD set that precedent: *"Skill discovery under the SDK is plausible but unproven… nothing depends on
+it."*
+
+**Spike C gates `plan-architecture`**, where the draft mechanism is actually decided. A vision path and
+a structured-metadata path are different builds, and guessing between them is the expensive mistake.
+
+The bounded risk of writing the PRD first: if Brilliant returns nothing usable, one MVP line changes and
+Brilliant demotes from translation gate to later source. The Figma leg is untouched. A line edit, not a
+rewrite.
+
+**What waiting longer would buy, stated so it can be declined on purpose:**
+
+- **Waiting for #288** (the discovery portal UI) informs **Q6** — operator canvas in the portal, or
+  `studio.html` promoted? But Q6 is already an open question; it does not need answering to write a PRD.
+- **Waiting for runs 1 and 2** buys evidence about *discovery*, which this epic is not about.
+- **Waiting for #223's hallway round** buys the one genuinely useful thing on the list: whether the
+  studio reads as a tool or an exhibit — problem 6 in §5 below. It is people-scheduling, so start
+  recruiting now and it will likely land before the PRD is finished anyway.
+
+---
+
+## 2. Spike C — required before the architecture, not before the PRD
+
+> **Superseded in part by §12 and §15.** `capture_ui` does not read designs, and the structured-vs-screenshot
+> question is answered by schema. The placement argument below stands; the shape does not.
+
+Nobody has run the Brilliant path. Its MCP is registered for this project (`~/.claude.json`,
+`mcpServers.brilliant`), D7 names four tools — `capture_ui` · `lookup` · `create_html` · `render_ui` —
+and no run exists.
+
+**The question:** what does a Brilliant capture actually hand you? A screenshot means the draft path is
+vision-based. Structured component metadata means something else entirely. D7's whole claim — *the agent
+drafts spec + CSS block + renderer template from a capture, the human ratifies what a drawing cannot
+carry* — rests on which of those it is.
+
+**Shape:** one component captured through `capture_ui`/`lookup`, then drafted through the spec chain,
+timed the way spike B was timed. Roughly an hour.
+
+**Decision rule:** structured output → the draft path is a real mechanism and the MVP can commit to it ·
+screenshot only → the draft path is vision-based, which is a different cost and a different honesty
+statement (`record-derivation.mjs` is the vision-run precedent) · unusable → Figma `--from` carries the
+MVP alone and Brilliant is named as a later source.
+
+**Why it sits here and not before the PRD.** The handoff's §6 ran spikes A and B before its PRD step,
+and that was right — they answered *scope* questions (does the engine work at all; what does one
+component cost), which are intent-level. Spike C answers a *mechanism* question, which is architecture-
+level. Same skill, different job.
+
+---
+
+## 3. What is already settled — do not re-ask these
+
+### Spike A — Polaris v7 (238 tokens) through `system/pack-import.mjs`, zero new code
+
+**No new converter engine is needed.** The engine reached a mapped pack in three runs. It needs five
+named changes, all engine/report work:
+
+1. **Value normalisation.** `rgba()` and `rem` — how Polaris and most current systems publish — read as
+   nothing. 137 colours and 49 dimensions invisible, and the refusal then misdiagnoses: *"none of the
+   238 styles read is a colour"* when 137 are. A mechanical shim fixed both in ~20 lines.
+2. **Semantic-name recognition before ramp inference.** Polaris names *are* roles, several byte-identical
+   to contract tokens (`color-bg-surface`, `color-border`), and the engine only ramps-and-rungs. The
+   import that should be trivial is the one it cannot do.
+3. **A provenance/licence block.** The header hard-codes "read from the Figma file" even for a non-Figma
+   export; version, source URL and licence have no field.
+4. **A total drop list.** 52 of 238 tokens (22%) appear nowhere in the report — the whole motion family,
+   all z-index, all shadows. "The drop list is itself presentable content" is not yet true.
+5. **A fidelity check.** Run 3 shipped **12/12 WCAG passing while visibly not Polaris** — green body
+   text, a line-height ranked as the largest type size. Wrong-but-green has no detector.
+
+Its own verdict: *"the engine's mapping DISCIPLINE is presentable today; the REPORT is not yet the
+artifact."*
+
+### Spike B — one foreign component (Polaris Avatar) through the full chain, timed
+
+**5:32 wall-clock**, all 27 build-checks groups green after two designed tripwires named their own fixes.
+
+The finding that shapes tooling: **the time concentrates in judgement** — what the projection drops, the
+a11y model — **not plumbing**, which is seconds. So drafting tooling only attacks the right bottleneck
+if it drafts the *prose* for human editing. Automating file writing buys nothing.
+
+Bounds stated honestly: cold-session orientation excluded; an interactive component, a contract-token
+addition, or the unpaid VR/journey costs would multiply it. Against D7's ≤10-minute target: plausible at
+this grain, unproven at the harder one.
+
+Also observed: recognition-over-admission decided itself cheaply — Polaris Badge was rejected in under a
+minute because `status-chip` already covers the shape.
+
+---
+
+## 4. What the canvas decision already says (D6, revised 2026-08-26)
+
+The canvas is **not** unplanned. It is specified in the vault thinking doc
+(`2026-08-26-ux-factory-discovery-build-revamp`) and was never carried into a repo doc.
+
+> *"So the binary-refusal call above was half wrong: the grid is not the grammar to keep, it is the
+> ceiling to replace."*
+
+**Two layers.** Flow layer free: an infinite pannable zoomable canvas on native scroll, everything with
+free x/y — frames (one per screen, sized by a per-frame mobile/desktop device mode), state variants
+(empty/loading/error/partial/success as sibling frames fanned out), components, annotations, and flow
+arrows between frames. **Positions are view state saved with the run, never an op and never part of the
+honesty claim; arrows ARE ops** (the board's `connect`).
+
+**Retires:** the 12×8 grid, spans-not-px, `clampSlot`/`stepSlot`.
+**Keeps:** the bus as the drive path, the vocabulary refusal, visible refusals in the live region, the
+catalog docs mount, one op per tool call with a twelve-op vocabulary (the eight board ops plus
+`screen.compose` · `screen.set` · `annotate` · `component.propose`).
+
+**Already decided, so do not re-litigate it:** *"The `writes===1` inline-style gate does not reach a
+portal canvas; if shipped studio modules are reused, x/y ride custom properties through one write path."*
+
+### What survives from the current canvas
+
+`system/studio-canvas.mjs`'s header names three load-bearing calls. Two are grammar-agnostic:
+
+| Call | Survives a coordinate-system change? |
+|---|---|
+| **The stage is DOM** — real token-skinned components, so the token contract, inspect bubbles and Tab order work by construction | Yes |
+| **Pan is native scroll** — a translated stage breaks scroll-into-view for Tab, the scrollbar affordance, and touch panning | Yes |
+| **Zoom and arrangement are attributes** — `data-col`/`data-row` select grid lines from `studio.css` rules | **No. This is the layer being replaced** |
+
+The grid reaches 12 files. Beyond placement maths: share codec v2's `g` field goes to v3 and the tamper
+battery's 20-case coordinate family needs rewriting (its "duplicate cell" case is meaningless in free
+space) · the SC 2.5.7 keyboard path is `stepSlot`/`groupStep` · announcements say *"moved to column 2,
+row 1"*, and free space has no announceable unit · build-checks groups `canvas`, `verbs`, `select` and
+`minimap` all mirror the grid tables exhaustively.
+
+Most of the ~7,470 lines across the studio modules do not care what the coordinates mean.
+
+---
+
+## 5. The six problems with the canvas as it stands
+
+Named by the owner, 2026-08-27. They are not one epic, and three are cheap:
+
+| # | Problem | Where it lands |
+|---|---|---|
+| 1 | Free pixel placement | **The canvas epic.** Coordinate-system swap; `writes===1` already resolved by D6 |
+| 2 | 12×8 too coarse | `MAX_COLS`/`MAX_ROWS` are exported constants the codec imports rather than re-types. Near a two-constant change plus regenerated `studio.css` tables. **Standalone ticket today** |
+| 3 | Zoom will not fit exactly | Already a recorded trade — `fit()` snaps to a level at or below the ideal ratio because zoom is a five-entry table. **Standalone ticket** |
+| 4 | The feel | Tuning on the existing substrate. **Standalone** |
+| 5 | The flow/compile model | A different layer — not the canvas |
+| 6 | Reads as an exhibit, not a tool | The product question. **#223's hallway round is the only instrument that answers it** |
+
+Problem 6 decides whether 1–5 are worth doing. That is the argument for running #223's hallway round
+before or during the PRD session, not after it. **Update, evening: #223 closed with the round never run — see §11.
+The instrument has to be re-homed in this PRD.**
+
+---
+
+## 6. Scope: one PRD, two waves
+
+**One document covering canvas and import.** D15 already couples them — *"Wave 2: D6 canvas additions +
+D7 import"* — and the systems map says why:
+
+> *"Supply loop (reinforcing): the canvas is only as quick as the component supply; twenty entries cap
+> ideation; an import path that still costs half an hour of ratification per component never closes the
+> loop. The metric that matters is minutes-to-ratify, not components-in-vocabulary."*
+
+Split them and you get an import epic with nowhere to put components and a canvas epic with nothing to
+arrange. The supply loop is the thesis; it needs both halves in one document.
+
+---
+
+## 7. Open decisions the PRD must settle
+
+**From the handoff's §5** (`.claude/plans/design-import-epic-prd-handoff.md`):
+
+- **D1** — canon vs scoped admission: are ported components first-class vocabulary citizens, mapped onto
+  existing components by default, or a pack-scoped extension layer?
+- **D2** — gallery vs per-company first.
+- **D3** — recognition matcher: shipped capability in MVP, later ticket, or never?
+- **D4** — open-issue fold-ins. **Note: #268 was closed 2026-08-27** as a recorded limitation, so this
+  decision has lost one of its two inputs; re-read it knowing that. #271 (a11y gates, which would vet
+  every ported pack) is still open. **Update, evening: #271 closed too, unimplemented — see §11. D4 has lost
+  both inputs.**
+- **D5** — VR/baseline policy for ported packs.
+- **D6** — naming policy: do ported components keep foreign names or take system names?
+- **D7** — the falsifiable hypothesis and its metric.
+
+**From the thinking doc:**
+
+- **Q2b** — is drag-to-reorder within a frame's layout grammar enough, or must a component sit at an
+  arbitrary pixel *inside* a frame? (D6 settled the flow layer; this is the frame's interior.)
+- **Q6** — operator canvas in the portal mounting the studio modules, or `studio.html` promoted?
+- **D18 — the base vocabulary.** *"the twenty components are Verdant/Fieldwork-flavoured and enum-locked…
+  This, not the canvas, is the real ceiling for 'any product'."* A generic base (layout containers, text,
+  the input family, button, list, card, nav, dialog, toast, table, media, chart slot) plus
+  product-specific components arriving only through import or `component.propose`.
+
+  **D18 does not block epic #279**, despite reading as though it might. It says the base is *"paid before
+  Faster Payment runs"*, and Faster Payment is discovery run 1 (#291) — but that run **chooses no
+  component**: the discovery PRD's non-goals state *"No prototype composition or screen rendering in this
+  epic. The three buttons run before any component is chosen."* D18 was written when Faster Payment meant
+  building the thing. The vocabulary ceiling binds here, in this epic, not there.
+
+- **D20 / Q7 — platform.** The discovery questionnaire determines web / native / both, and that selects
+  device frames, a conventions module (web nav · iOS tab bar and sheets · Android bottom sheet and FAB)
+  and the pack targets. **Brilliant is the translation gate for both platforms; Figma is a source that
+  holds web and native designs.** Note the handoff doc predates this by a week and does not reflect it.
+
+---
+
+## 8. Constraints the PRD must not contradict
+
+From the handoff's §7, unchanged:
+
+- Shipped pages are vanilla — no framework, no build step, no runtime deps, no view-time LLM calls.
+  Agent work is build-time, committed, replayed.
+- Token discipline: `components.css` is token-only; new semantic tokens enter `tokens.source.json`
+  (contract group) first, then regenerate.
+- Honesty contract: attribution stated, agent-run claims backed by real recorded runs, fidelity deltas
+  shown rather than hidden. **Projection, not reproduction** — fidelity is achieved *through* the
+  contract (exact values carried as pack tokens), never around it (literals). Token concepts the
+  contract lacks drop, and the drop list is presentable content.
+- Gates that will fire: build-checks group 3, VR baselines for any at-rest shipped-page change,
+  `param-manifest.json` for new live controls, loc-summary regen for new tracked files.
+- Fonts must be shipped/licensed; vector art travels as inline SVG.
+
+Two frames from the handoff's §1 worth carrying verbatim into the PRD:
+
+- **Mode 1 vs Mode 2.** Every import answers this fork. Mode 1: the component JOINS the system
+  (token-only CSS, wears every pack, pixel-faithful under its own brand pack because the pack carries
+  the exact values). Mode 2: it stays FROZEN as a brand-locked exhibit, labelled as the original.
+- **Recognition vs admission.** Recognition — their `ListItem` is my `list-row` — is deterministic
+  comparison against the vocabulary and can be automated. Admission — a genuinely novel shape entering
+  the vocabulary — always costs judgement. No accumulation removes that; it makes it rare.
+
+---
+
+## 9. Inputs for the PRD session
+
+| Path | What it carries |
+|---|---|
+| `.claude/plans/design-import-epic-prd-handoff.md` | 435 lines: the narrowed thesis, feasibility map, capability inventory, candidate workflows, D1–D7, §8 interview questions, both spike write-ups |
+| `.claude/plans/design-import-spike-a/` | Spike A's engine log, browser log, two refusal screenshots, the Polaris merge script |
+| `~/…/thinking/2026-08-26-ux-factory-discovery-build-revamp.md` | D6 · D7 · D15 · D18 · D20 · Q2b · Q6 · Q7 — in the vault, not committed |
+| `docs/epics/prototype-studio.architecture.md` | The current canvas's decisions and its § Closing note |
+| `system/studio-canvas.mjs` | The three substrate calls, in the file that owns them |
+| `system/pack-import.mjs` | The import engine spike A exercised |
+| Spike C | **Does not exist yet. Run it first.** |
+
+---
+
+## 10. Sequence
+
+1. **`plan-create-prd`** → `docs/epics/<slug>.prd.md`, fed everything in §9. **Start here — nothing
+   blocks it.** Brilliant's viability files under Evidence as an assumption needing validation, and the
+   MVP names Figma with Brilliant pending.
+2. **Spike C** — one Brilliant component through `lookup`/`export`, timed (shape re-cut in §15). ~1 hour. Run it between the
+   two, so the architecture decides the draft mechanism on evidence.
+3. **`plan-architecture`** → `docs/epics/<slug>.architecture.md`, with D1, Q2b and Q6 as the named calls.
+4. **`piv-slice-epic`** → the epic issue and its tickets, carrying the § For slicing conventions from
+   `docs/epics/discovery-partner.architecture.md` (they generalise: the "every ticket carries" table,
+   spike-verdict-before-dependent-planning, and the close-out ticket created at slicing rather than at
+   the end).
+
+Running alongside, not blocking: **#223's hallway round** answers problem 6 in §5, and the three cheap
+canvas fixes (grid density, zoom fit, feel) can ship as standalone tickets against the existing
+substrate at any time.
+
+---
+
+## 11. Corrections, 2026-08-27 evening (observed)
+
+Facts that changed between this briefing being written and the PRD session:
+
+- **#271 is CLOSED** (20:43, batch-closed with #202 and #223; no implementing PR — the two PRs `gh` matches
+  on "271" are line-number hits). D4 has now lost **both** inputs. The a11y-gate policy for ported packs
+  comes back into this PRD as an open decision; fold it into D5 as one "gating a ported pack" decision.
+- **#223 is CLOSED with hallway round 3 never run.** Its last comment (17:37) lists Phase C as remaining,
+  and `docs/hallway-notes/` still holds only `TEMPLATE.md` and two `README.md`s, last touched 2026-07-25.
+  Problem 6 in §5 therefore has **no instrument**. The PRD carries it as *"Assumption — validate via
+  hallway round"* and someone owns recruiting; otherwise problems 1–5 get built on an unverified premise.
+- **The docs this session cites are unpushed.** `docs/discovery-partner-prd-grill` is 6 commits ahead of
+  `origin/main`, no upstream, no PR; it holds the discovery PRD + architecture, the #223 close notes and
+  the spike A/B parking. `.claude/skills/plan-create-prd/SKILL.md` carries an uncommitted retune (grill at
+  every gate, the systems-loop question, the cobra check, `docs/epics/` as the write path) — that is the
+  version that will run. Push, PR, merge before step 1 of §10 so the PRD's citations resolve on main.
+  Local `main` is 5 behind `origin/main`.
+
+---
+
+## 12. The Brilliant tools, read from their schemas — D7 is mis-specified
+
+The four tools' schemas were loaded this session (no capture run, no quota, nothing bound). What they are:
+
+| Tool | What it actually does | Role in import |
+|---|---|---|
+| `capture_ui` | Screenshots **Brilliant's own chrome** — toolbars, command palette, panels — to a WebP. Desktop-only | **None.** A self-documentation tool |
+| `render_ui` | Renders a **Brilliant UI stager** (e.g. `ai-chat-panel`) offscreen to an image | **None.** Same family |
+| `lookup` | Finds/reads elements; `format:"blueprint"` returns the **full element tree** as Blueprint DSL text; `expandInstances:true` shows a component instance's derived children with real ids; `depth` bounds the subtree | **The read path.** Structured |
+| `export` | `svg` raw markup · `htmlFlex` semantic-flexbox HTML/CSS snippet · `react` JSX · `html`/`htmlDoc` · png/jpeg/webp/pdf · mp4/mov | **The second read path** (three code shapes) + vector art as inline SVG |
+| `create_html` | HTML + inline CSS → native auto-layout frames, text, shapes; hex/rgb colours only; returns a PNG preview | **The write direction** (us → Brilliant) |
+| `create_modify_elements` | Blueprint DSL create/edit; needs `get_knowledge("blueprint/core")` first | Write direction, native |
+
+Two consequences:
+
+**D7 names two tools that do not read designs.** `capture_ui`/`lookup` was written as the capture pair;
+only `lookup` is. The vault doc's D7 and the handoff's line 135 both carry the error. The PRD names
+`lookup` + `export` as the read surface and drops `capture_ui`/`render_ui` from the conversation.
+
+**Spike C's headline question is answered by schema: structured, not screenshot.** Three structured shapes
+exist (Blueprint DSL, htmlFlex, react) plus SVG. What spike C must still answer is narrower and better:
+
+- (a) does the blueprint carry **design-system token references** (Brilliant has tokens) or only resolved
+  literals — token refs make role mapping deterministic; literals fall back to `pack-import.mjs`'s by-value
+  discipline and spike A's five fixes;
+- (b) which of blueprint vs htmlFlex is the better conversion input on a real component (auto-layout
+  params, text styles, states/variants);
+- (c) whether the portal's Agent SDK run can reach the Brilliant MCP at all — `~/.claude.json` registers it
+  for Claude Code sessions, and the SDK does not read that file unless told to (expected; verify by passing
+  it as `mcpServers` in the query options — the surface #280 is already probing).
+
+---
+
+## 13. "Is there a workaround?" — the conversion is the product, not a bypass
+
+Asked 2026-08-27: Brilliant cannot be the canvas and raw exports cannot land on shipped pages — can we
+build our own hooks/MCPs for a granular, customisable conversion into the ux-factory canvas?
+
+**The constraint is not a limitation to route around; it is the thesis.** A raw `htmlFlex`/`react` export
+is literals (hex, px, font names) with no props, states or behaviour. Landed as-is it fails token
+discipline (`components.css` is token-only; build-checks refuses), wears one pack instead of every pack,
+and breaks the honesty contract (an exhibit pretending to be a system component). The handoff's frame
+already names the answer — **projection, not reproduction**: exact values travel as pack tokens, structure
+becomes a spec + CSS block + renderer template, concepts the contract lacks drop, and the drop list is
+presentable content. The "workaround" is a converter, and the converter is what makes it granular and
+customisable.
+
+**Yes to our own tooling — on the repo side, not the Brilliant side.** Every piece has a precedent in the
+repo already:
+
+| Piece | Precedent | What this epic adds |
+|---|---|---|
+| Reading Brilliant from an agent run | `portal/lib/trace-recorder.mjs:169-173` — the SDK query takes `tools`/`allowedTools`/`canUseTool` + a `PreToolUse` fence + a `PostToolUse` recorder | Brilliant's MCP passed as `mcpServers`; **no MCP server of our own is needed to read** |
+| One fenced write tool; one call = one op = one trace step | `tooling/board-op.mjs` — the build agent's ONLY tool | `tooling/component-op.mjs`: applies one `component.propose` op; the draft spec/CSS/template lands as a **proposal**, never directly in `system/specs/` |
+| The converter engine, ONE never a fork | `system/pack-import.mjs` (tokens) | `system/brilliant-import.mjs`: blueprint/htmlFlex text → `{roleMap, dropList, specDraft, cssDraft, templateDraft, notes}`; view-time-safe so the portal drawer and a CLI share it |
+| Deterministic where it can be | D3 recognition — their `ListItem` is my `list-row` | Runs in code before any agent prose; Polaris Badge → `status-chip` in under a minute is the observed shape |
+| Judgement drafted, never auto-written | Spike B: the cost is prose (what the projection drops, the a11y model); plumbing is seconds | The agent drafts the prose; the human ratifies in the portal (the owner prefers UI over CLI) |
+| Customisable | `figma-pull --accent/--page`; `pack-import`'s `notes[]` | An **operator-editable role map** (rename, remap, drop) persisted with the run — **the operator edits the mapping, never the output** |
+| Honest by construction | real run → trace → curated → labelled | `portal/record-import.mjs`, the third recorder beside `record-build`/`record-composition`, so every admitted component carries replayable provenance |
+
+**Two grains, both in scope.** *Component grain*: one Brilliant element → recognition or admission →
+vocabulary entry → renderable everywhere the agentic renderer runs. *Screen grain*: one Brilliant frame →
+recognised components + positions → `screen.compose` ops on the free x/y canvas (D6); positions are view
+state, unrecognised elements are visible refusals or `component.propose`. The screen grain is what
+"conversion into the canvas" means, and it only works once the component grain exists.
+
+**The write direction (`create_html`) is a later wave with a named caveat.** Pushing our token-skinned
+components into Brilliant would seed a designer with recognisable parts — but `create_html` takes inline
+CSS with hex/rgb only, so tokens flatten to literals on the way out and the return trip has to
+re-recognise by value. Name it as an MVP non-goal and a candidate wave 3.
+
+---
+
+## 14. What goes in the PRD vs the architecture
+
+**PRD (intent):**
+
+- MVP direction is **read** (Brilliant → ux-factory); the write direction is a non-goal.
+- The conversion is a **projection through the contract** with a human ratification step; the fidelity
+  delta and the drop list are shown, never hidden.
+- Two grains: component admission, and screen composition onto the canvas.
+- **The operator edits the mapping, never the output.**
+- Metric: minutes-to-ratify (≤10 per component, D7's bar) with the fidelity delta shown. Cobra check:
+  12/12 WCAG green while visibly not the source is the observed failure mode (spike A, run 3).
+- Non-goals: Brilliant as the canvas; a raw export on a shipped page; the write direction.
+- Assumptions to validate: the blueprint carries token refs (spike C); the SDK run reaches the MCP
+  (spike C); the studio reads as a tool (hallway round, §11).
+
+**Architecture (how, after spike C):** converter module placement; SDK transport (in-process tool vs
+CLI — take #280's verdict rather than re-running it); the recorder and its fence; the recognition
+matcher's rules; the `component.propose` payload shape (a `board-ops.mjs` edit plus a build-checks group
+11 case, never a generator special case); the ratification UI in the portal; where proposals live before
+admission.
+
+---
+
+## 15. Spike C, re-shaped
+
+One component drawn in Brilliant **with design-system tokens bound** (a card or a list row) → `init` →
+`lookup(scope, format:"blueprint", expandInstances:true)` **and** `export(format:"htmlFlex")` **and**
+`export(format:"svg")` on the same element → diff what each carries → draft through the spec chain →
+time it against spike B's 5:32. Then one SDK query from the portal with the Brilliant MCP in
+`mcpServers`, `--dry`, to prove the recorded-run path can reach it.
+
+**Decision rule:** blueprint carries token refs → deterministic role mapping; commit to it · literals
+only → by-value mapping through `pack-import.mjs` + spike A's five fixes, and the fidelity check is
+mandatory · the SDK cannot reach the MCP → the read happens in a Claude Code session and the op file is
+the handoff into the recorder (the CLI-shaped transport, #280's alternative) · nothing usable → Figma
+`--from` alone.
