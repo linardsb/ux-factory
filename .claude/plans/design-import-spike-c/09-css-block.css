@@ -1,0 +1,109 @@
+/* ---------- ds-person-row (system/specs/person-row.md) — cross-scenario library primitive, drafted from a Brilliant blueprint read (spike C) ---------- */
+
+/* The tappable sibling of .ds-list-row: same surface, hairline and pill vocabulary, plus a leading
+   monogram disc and a trailing chevron because the row NAVIGATES (one <a>, spec's Accessibility). */
+.ds-person-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-fg);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ds-person-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+/* 32px is structural, with in-file precedent (.vd-plant-thumb 28px); the disc's source tint
+   (primary.container) projects to the accent wash. */
+.ds-person-avatar {
+  flex: 0 0 auto;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-wash);
+  color: var(--color-accent);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.ds-person-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1 1 14ch;
+  min-width: 0;
+}
+.ds-person-name {
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--color-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-person-meta {
+  font-size: var(--type-caption);
+  line-height: 1.5;
+  color: var(--color-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The row owns its pill — free text, never a vd-status-chip child (same argument as .ds-row-status). */
+.ds-person-status {
+  flex: 0 0 auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-fg-muted);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* A CSS chevron stands in for the source's Phosphor caret-right in this DRAFT; a real port carries
+   the path as inline SVG (spec's Usage drop list). The source's `disabled` tier collapses to muted. */
+.ds-person-chevron {
+  flex: 0 0 auto;
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--color-fg-muted);
+  border-bottom: 2px solid var(--color-fg-muted);
+  transform: rotate(-45deg);
+}
+/* Tone = emphasis via fill-inversion on the accent family, the identical mechanic to .ds-list-row. */
+.ds-person-row.is-warn {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-surface), var(--color-accent) 8%);
+}
+.ds-person-row.is-warn .ds-person-status {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.ds-person-row.is-critical {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+.ds-person-row.is-critical .ds-person-name,
+.ds-person-row.is-critical .ds-person-meta {
+  color: var(--color-accent-fg);
+}
+.ds-person-row.is-critical .ds-person-status {
+  border-color: var(--color-accent-fg);
+  color: var(--color-accent-fg);
+}
+.ds-person-row.is-critical .ds-person-chevron {
+  border-color: var(--color-accent-fg);
+}
+.ds-person-row.is-critical .ds-person-avatar {
+  background: color-mix(in srgb, var(--color-accent-fg) 20%, transparent);
+  color: var(--color-accent-fg);
+}
+

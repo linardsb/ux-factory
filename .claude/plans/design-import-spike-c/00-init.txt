@@ -1,0 +1,23 @@
+init — spike C, real run 2026-08-27
+sessionId: mcp:9ceb7647595615f9
+sessionCanvasId: playground
+agentName: spike C
+design system: `default` present; designSystem arg on create_modify_elements = default|new|none (sticky); token discipline enforced under default ($color.surface, $spacing.md, $font.size.lg, typography.body.md ...). create_html is always sovereign (no token refs).
+elements at init: 0
+
+available knowledge keys (verbatim from init):
+- design-systems/{core, authoring, authoring-modes}
+- blueprint/{core, layout, layout-patterns, paint, text, styled-ranges, effects, vectors, components, libraries, lines, arcs, images, commands, directives}
+- blueprint/gradients/{linear, radial, angular, diamond}
+- blueprint/shaders/{overview, metaballs, metal, irid, steel}
+- design/{foundations, colors, typography, shadows, backgrounds, gradients, brand, covers}
+- design/blocks/{actions, inputs, navigation, data-display, feedback, layout, patterns}
+- effects/{glass, neon, clay, dark-mode}
+- charts/{tables, bar-charts, line-charts, sparklines, misc}
+- images/{prompts, templates, integration}
+- recreation/{from-image, from-web}
+- svg/{prompts, integration}
+- reference/{shortcuts, tools, ui, ui-walkthroughs, editing, canvas, frames, text, vectors, components, libraries, styling, effects, export, design-systems, crop, shaders, canvases, layout-guides, ai, ai-setup, feedback, image-filters, mcp-connections, mcp-external-servers}
+- webgl/{overview, setup, metaballs, liquid-metal, holographic, liquid-stainless-steel, dithering, reactive-grid, color-adjust, noise-grain, halftone, pixelate, duotone, posterize, dither}
+
+chosen for step 2: blueprint/core, blueprint/components, design-systems/core, blueprint/layout, blueprint/text, blueprint/paint, reference/design-systems, reference/components, reference/export, blueprint/directives, blueprint/vectors, design-systems/authoring

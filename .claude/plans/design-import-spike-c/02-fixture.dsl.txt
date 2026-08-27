@@ -1,0 +1,27 @@
+-- spike C fixture (real run 2026-08-27): a list-row look-alike, token-bound under designSystem "default"
+-- sent via mcp__brilliant__create_modify_elements { canvasId: "playground", designSystem: "default", sessionId: "mcp:9ceb7647595615f9" }
+al(v,g($spacing.md),pad($spacing.lg)) s(hug,hug) f[($color.surface.container)] rd($radius.lg) "Spike C fixture" #spikec_lib
+  comp "Spike List Row" axes[state[active,away]] #spikec_row
+    al(h,y(c),g($spacing.md),pad($spacing.sm,$spacing.md)) variant(state(active)) s(360,hug) f[($color.surface)] rd($radius.md) st[($color.outline.variant,w($stroke.width.subtle))]
+      c s(32,32) f[($color.primary.container)] "Avatar" #spikec_avatar
+      al(v,g($spacing.xs),pad($spacing.none)) s(fill,hug) "Text block"
+        t("Amara Okafor",$font.family,$font.size.md,sb) s(fill,hug) f[($color.text.primary)] #spikec_title
+        t("Last seen 2 min ago",$font.family,$font.size.sm,lh($font.lineHeight.normal)) s(fill,hug) f[($color.text.secondary)] #spikec_subtitle
+      al(h,x(c),y(c),g($spacing.none),pad($spacing.xs,$spacing.sm)) s(hug,hug) f[($color.success.container)] rd($radius.full) "Status chip" #spikec_chip
+        t("Active",$font.family,$font.size.xs,m) f[($color.success)] #spikec_status
+      svg(icon:caret-right) s(16,16) f[($color.text.disabled)] "Chevron"
+    al(h,y(c),g($spacing.md),pad($spacing.sm,$spacing.md)) variant(state(away)) s(360,hug) f[($color.surface)] rd($radius.md) st[($color.outline.variant,w($stroke.width.subtle))]
+      c s(32,32) f[($color.primary.container)] "Avatar"
+      al(v,g($spacing.xs),pad($spacing.none)) s(fill,hug) "Text block"
+        t("Amara Okafor",$font.family,$font.size.md,sb) s(fill,hug) f[($color.text.primary)]
+        t("Last seen 2 min ago",$font.family,$font.size.sm,lh($font.lineHeight.normal)) s(fill,hug) f[($color.text.secondary)]
+      al(h,x(c),y(c),g($spacing.none),pad($spacing.xs,$spacing.sm)) s(hug,hug) f[($color.warning.container)] rd($radius.full) "Status chip"
+        t("Away",$font.family,$font.size.xs,m) f[($color.on-warning)]
+      svg(icon:caret-right) s(16,16) f[($color.text.disabled)] "Chevron"
+  inst(#spikec_row) at(state(active)) #spikec_inst
+    override(#spikec_status) t("On call")
+
+-- RESULT: the create call timed out at 120s on the surface relay but HAD applied (verified by lookup). ids:
+--   lib      e53951d9e7dfb4bd  "Spike C fixture"   #spikec_lib
+--   master   6282a5879cdc52a8  "Spike List Row"    #spikec_row   (comp, axes[state[active,away]])
+--   instance 1db1b29957b949ca  "Frame 1"           #spikec_inst  (at(state(active)), override on #spikec_status → "On call")

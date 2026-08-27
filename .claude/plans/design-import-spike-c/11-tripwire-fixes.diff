@@ -1,0 +1,28 @@
+diff --git a/system/palette.mjs b/system/palette.mjs
+index 786b1c4..50ea23e 100644
+--- a/system/palette.mjs
++++ b/system/palette.mjs
+@@ -34,7 +34,7 @@ import { trackToolPalette } from "./analytics.mjs";
+ // components by editing this list, and the pin is what forces that edit.
+ export const CATALOG_COMPONENTS = [
+   "card", "care-task-row", "demo-notice", "empty-state", "ghost-button",
+-  "list-row", "metric-tile", "modal-dialog", "nav-tabs", "plant-card",
++  "list-row", "metric-tile", "modal-dialog", "nav-tabs", "person-row", "plant-card",
+   "primary-button", "progress-indicator", "screen-header", "search-input",
+   "select-field", "sequence-step", "stat-tile", "status-chip", "text-field",
+   "toggle-switch",
+diff --git a/tooling/build-checks.mjs b/tooling/build-checks.mjs
+index 76768a5..2163b42 100644
+--- a/tooling/build-checks.mjs
++++ b/tooling/build-checks.mjs
+@@ -4225,8 +4225,8 @@ function scanSvg(svg, label) {
+       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
+     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
+   }
+-  ok(withWrapper === 3 && withoutWrapper === 17,
+-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/17; see the tripwire note above)`);
++  ok(withWrapper === 3 && withoutWrapper === 18,
++    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/18 — spike C's person-row ships wrapper-less, moved on purpose; see the tripwire note above)`);
+ 
+   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
+   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,

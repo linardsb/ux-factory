@@ -414,3 +414,27 @@ only → by-value mapping through `pack-import.mjs` + spike A's five fixes, and 
 mandatory · the SDK cannot reach the MCP → the read happens in a Claude Code session and the op file is
 the handoff into the recorder (the CLI-shaped transport, #280's alternative) · nothing usable → Figma
 `--from` alone.
+
+**Result (real run, 2026-08-27 22:18–22:31; write-up at `.claude/plans/design-import-spike-c/README.md`):**
+
+- **Q1 — token refs, yes.** The blueprint carries both the reference and the resolved value on every
+  tokenisable slot (`$spacing.sm`, `tok(color.text.secondary,#575757,dark(#C6C6C6),…)`) — but only when the
+  source was drawn under a design system (`designSystem:"default"`). The session default is sovereign, so
+  an unbound source falls back to by-value mapping through `pack-import.mjs`.
+- **Q2 — blueprint is the converter input.** Roles by name, auto-layout intent, `comp axes[state[…]]`,
+  `inst … at()`, explicit `override`, icons by Phosphor name. `htmlFlex` is the fallback (semantic flex,
+  literals, `data-component`/`data-instance-of`); `react` is absolute-positioned; `svg` is a 383 KB rendering.
+- **Q3 — the SDK reaches the MCP.** `mcpServers:{brilliant}` passed explicitly, status `connected`, 17
+  tools visible, `lookup` answered in 7.8 s, the fence denied nothing.
+- **Decision rule → deterministic role mapping; the in-process recorded-run path; no CLI-shaped handoff.**
+- **Draft cost:** recognition (0:16, not covered → `ds-person-row`) to all 27 build-checks groups green in
+  **2:45** (spike B: 5:32), 1:45 of it prose. Run 1 was red on 7 groups: the two designed tripwires plus
+  three regens `gen-handoff` does not run (gen-vocabulary, gen-pack-bundle, gen-system-graph) — a chain
+  fact the architecture should record and the admission tool should run.
+- **Also observed:** `create_html` is always sovereign (literals); `create_modify_elements` under
+  `designSystem:"default"` writes token-bound elements, so a **token-preserving write direction exists**
+  (wave 3's caveat in §13 is narrower than written). MCP mutations are at-least-once with a slow ack (the
+  create timed out at 120 s but had applied — verify with `lookup`, never re-send). `capture_ui`/`render_ui`
+  are desktop-only and stayed unused.
+- **Not exercised:** interactive states, a contract-token addition, VR, the write direction. The fixture
+  stays on canvas `playground` (instance `1db1b29957b949ca`); the draft was reverted, admission is the epic's.

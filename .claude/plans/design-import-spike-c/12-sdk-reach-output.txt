@@ -1,0 +1,47 @@
+[4.0s] init: model=claude-sonnet-5 tools=35 mcp_servers=[{"name":"brilliant","status":"connected"}]
+[4.0s] brilliant tools visible: mcp__brilliant__get_selection, mcp__brilliant__export, mcp__brilliant__lookup, mcp__brilliant__list_projects, mcp__brilliant__create_modify_elements, mcp__brilliant__create_html, mcp__brilliant__execute_commands, mcp__brilliant__get_knowledge, mcp__brilliant__init, mcp__brilliant__generate_image, mcp__brilliant__generate_svg, mcp__brilliant__vectorize_image, mcp__brilliant__capture_ui, mcp__brilliant__list_capture_targets, mcp__brilliant__render_ui, mcp__brilliant__list_stagers, mcp__brilliant__send_feedback
+[6.2s] tool_use mcp__brilliant__lookup {"scope":"[\"1db1b29957b949ca\"]","format":"summary"}
+[6.3s] PostToolUse mcp__brilliant__lookup
+[7.2s] assistant: Frame 1
+[7.2s] result: subtype=success turns=2 cost=0.16426220000000002 text=Frame 1
+
+VERDICT {
+  "elapsedMs": 7816,
+  "brilliantToolsVisible": [
+    "mcp__brilliant__get_selection",
+    "mcp__brilliant__export",
+    "mcp__brilliant__lookup",
+    "mcp__brilliant__list_projects",
+    "mcp__brilliant__create_modify_elements",
+    "mcp__brilliant__create_html",
+    "mcp__brilliant__execute_commands",
+    "mcp__brilliant__get_knowledge",
+    "mcp__brilliant__init",
+    "mcp__brilliant__generate_image",
+    "mcp__brilliant__generate_svg",
+    "mcp__brilliant__vectorize_image",
+    "mcp__brilliant__capture_ui",
+    "mcp__brilliant__list_capture_targets",
+    "mcp__brilliant__render_ui",
+    "mcp__brilliant__list_stagers",
+    "mcp__brilliant__send_feedback"
+  ],
+  "mcpStatus": [
+    {
+      "name": "brilliant",
+      "status": "connected"
+    }
+  ],
+  "calls": [
+    {
+      "tool": "mcp__brilliant__lookup",
+      "input": {
+        "scope": "[\"1db1b29957b949ca\"]",
+        "format": "summary"
+      },
+      "response": "[{\"type\":\"text\",\"text\":\"{\\\"totalMatches\\\":1,\\\"returnedCount\\\":1,\\\"searchedCanvases\\\":1,\\\"results\\\":[{\\\"canvasId\\\":\\\"playground\\\",\\\"matchCount\\\":1,\\\"returnedCount\\\":1,\\\"elements\\\":[{\\\"id\\\":\\\"1db1b29957b949ca\\\",\\\"name\\\":\\\"Frame 1\\\",\\\"type\\\":\\\"parent\\\",\\\"parentId\\\":\\\"e53951d9e7dfb4bd\\\",\\\"parentName\\\":\\\"Spike C fixture\\\",\\\"childCount\\\":4}]}]}\"}]"
+    }
+  ],
+  "denied": [],
+  "finalText": "Frame 1"
+}
