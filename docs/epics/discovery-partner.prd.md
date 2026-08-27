@@ -360,7 +360,7 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
 | **Completion** | Run 1 reaches a generated PRD in one sitting | The run package exists and the PRD is generated | Gamed by shrinking the bank → **coverage of the twelve-question opening set** reported with it |
 | **Independent reach (run 1)** | **4/4** of m-005…m-008 trace to a business or stakeholder requirement the run produced, and **≥1** run kill criterion matches a published `would_measure` | Post-hoc trace against `_portfolio/decisions.json` | Gamed by leaking the answer into the input → the one-sentence input is **committed before the run**, and the key must be **fenced, not merely unmentioned**: `decisions.json` sits under `JOBS_DIR`, which is `chat.mjs`'s own `cwd` with `Read`/`Grep`/`Glob` allowed, so it takes a `canUseTool` deny on that path (and on the sealed file) to hold |
 | **Marginal reach (run 1)** | _No pre-set target — reported, not passed._ What the run reached that the sealed pre-registration did not | Diff of the run's parents against the sealed file | The answerer wrote the key, so the trace-up number alone is an upper bound. This row is the part memory cannot inflate, and it is the honest read of what the bank added |
-| **Gap finding (run 2)** | Share of this session's seven findings independently reached from the frozen fixture | Found/missed against the list in MVP 13 | Gamed by re-reading the grilled PRD → the fixture is byte-frozen at md5 `ab6eb0ee`, but the findings list is **printed in this file**, one directory up from the fixture. The run needs a `canUseTool` deny on `docs/epics/discovery-partner.prd.md` as well. Same class of problem as run 1: the key is inside the working directory, so omission is not a fence |
+| **Gap finding (run 2)** | Share of this session's eight findings independently reached from the frozen fixture | Found/missed against the list in MVP 13 | Gamed by re-reading the grilled PRD → the fixture is byte-frozen at md5 `ab6eb0ee`, but the findings list is **printed in this file**, one directory up from the fixture. The run needs a `canUseTool` deny on `docs/epics/discovery-partner.prd.md` as well. Same class of problem as run 1: the key is inside the working directory, so omission is not a fence |
 | **Auditability** | Every decision in the pack has an evidence link and a wrong-if line; every evidence row has a provenance label; every checkable domain claim carries a `secondary-source` URL | Checked over the run package | Gamed by labelling everything "assumption" → a decision resting only on assumptions is **flagged in the pack**, and a checkable fact filed as an assumption is a **failure**, not a flag |
 | **Not a form** | Never more than 3 consecutive questions recorded with no decision and no weak-answer note | Counted within a run; a parked open question counts as neither | An agent that flags everything → weak-answer flags are a reported rate, not just a floor |
 | **Disclosure held** | Always-loaded context ≤ **11k tokens** | Measured: CLAUDE.md words + every skill description | Split Tier 0 into references a hook re-injects anyway → the budget is on what a session **loads**, not on file count. Baseline after the 2026-08-27 trim: **9.5k** (2,761-word CLAUDE.md + 73 skill descriptions at ~80 tokens each). This epic adds no skills (C1, MVP 3) and the bank is read at run time, so the only always-on cost is a CLAUDE.md section on the run package: est. 400–650 tokens against ~1.5k headroom |
@@ -428,14 +428,14 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
 the escape hatch's filing rule (MVP 9) · the scoring method for independently reached (MVP 12) ·
 whether the 44px bar applies to the CLI path (no CLI path exists — non-goals) · parking the inputs
 (Inputs, both parked under `docs/research/`) · skills under the Agent SDK (MVP 3 — nothing depends
-on the answer) · the transition-note contradiction (MVP 10) · the existing-PRD entry mode (MVP 2) · what "full discovery" means (MVP 5 — nine stages, ~30 selected from 56).
+on the answer) · the transition-note contradiction (MVP 10) · the existing-PRD entry mode (MVP 2) · what "full discovery" means (MVP 5 — nine stages, ~30 selected from 66).
 
 ## Architecture
 
-_TBD — see `plan-architecture`._
+Architecture: [discovery-partner.architecture.md](./discovery-partner.architecture.md) — decided 2026-08-27.
 
-The following thinking-doc decisions are deliberately **left open here as engineering** and must be
-made in the architecture doc: **D3** (agent topology, the PreToolUse fence — now also covering MVP 7's
+The following thinking-doc decisions were deliberately **left open here as engineering** and are
+settled in that doc: **D3** (agent topology, the PreToolUse fence — now also covering MVP 7's
 fetch path) · **D4** (skill tiers, `disable-model-invocation`, the disclosure mechanism) · **D14** (hooks,
 the CLAUDE.md split, `.mcp.json`, per-surface priming) · **D16** (run-package layout, including where a
 parked open question and a filed off-script exchange sit in it) · the bank's storage format · the SSE/session
