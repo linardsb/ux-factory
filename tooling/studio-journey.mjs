@@ -62,7 +62,15 @@ const BASE = process.env.BASE || "http://127.0.0.1:4757";
 // does not produce — so a genuine failure, including one against some other origin, still fails the
 // run. NOT applied to the /studio.html opener below: that page mounts no frames, so it keeps the
 // stronger any-error-is-a-failure contract this driver was written with.
-const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server|CORS request did not succeed/;
+//
+// IT BRIEFLY CARRIED A FOURTH, UNANCHORED `CORS request did not succeed` ALTERNATIVE (PR #267 M2),
+// which would have matched a cross-origin failure against ANY host and quietly cancelled the
+// sentence above. Measured on all three engines against a settled /factory with both frames loaded:
+// firefox emits six messages, every one of them of the form "Cross-Origin Request Blocked: … at
+// http://127.0.0.1:8787/api/…", so the FIRST alternative already matches it; chromium's six are
+// "net::ERR_CONNECTION_REFUSED" and webkit's six "Could not connect to the server". Zero unmatched
+// on each. The fourth bought nothing and is gone, and "verbatim" is true again.
+const EXPECTED_NOISE = /127\.0\.0\.1:8787|ERR_CONNECTION_REFUSED|Could not connect to the server/;
 
 // #219 · A SUB-FRAME'S REQUESTS ARE NOT THIS PAGE'S. /factory embeds the two proto pages as device
 // frames, and Fieldwork fetches handoff/verdant/vocabulary.json for its agentic slots — the SAME url
@@ -256,11 +264,20 @@ const countLive = (p) => p.evaluate(() => {
   window.__liveCount = 0;
   window.__liveLast = "";
   window.__liveAt = [];
+  // Per-record texts beside the count (#264): say() sets textContent, so each announcement is one
+  // childList record whose addedNodes[0] carries the whole sentence — and a synchronous burst
+  // (adoptBoard's cancel + placements + the redraft sentence) batches into ONE callback, where
+  // __liveLast keeps only the final sentence. Additive; the counting rows read n/last as before.
+  window.__liveTexts = [];
   const live = document.querySelector("[data-studio-canvas] .stx-live");
   window.__liveObs?.disconnect();
   window.__liveObs = new MutationObserver((ms) => {
     window.__liveCount += ms.length;
     for (let i = 0; i < ms.length; i += 1) window.__liveAt.push(performance.now());
+    for (const m of ms) {
+      const said = (m.addedNodes && m.addedNodes[0] ? m.addedNodes[0].textContent : "").trim();
+      if (said) window.__liveTexts.push(said);
+    }
     window.__liveLast = live.textContent.trim();
   });
   window.__liveObs.observe(live, { childList: true, characterData: true, subtree: true });
@@ -275,6 +292,7 @@ const focusedText = (p) => p.evaluate(() => {
 const liveSeen = (p) => p.evaluate(() => ({
   n: window.__liveCount,
   last: window.__liveLast,
+  texts: (window.__liveTexts || []).slice(),
   gaps: (window.__liveAt || []).slice(1).map((t, i) => Math.round(t - window.__liveAt[i])),
 }));
 
@@ -3547,6 +3565,64 @@ async function methodPass(browser, engineName, t, errors) {
     JSON.stringify(recovered));
   await p6.close();
 
+  // --- #264 · a live carry must not survive a redraft as a phantom gesture ----------------------
+  // The compile beat's onState guard covers a redraft from a COMPILED stage (adoptBoard's revert
+  // lands in it); the uncovered path was a redraft from BLOCKS state with a carry live — the
+  // gesture closure kept referencing detached nodes, .is-picked left the DOM with them (so
+  // studio-select's carrying() went false while a gesture was live), and Escape announced a
+  // cancellation naming a component no longer on the canvas. Only a running page can see any of
+  // this: build-checks group 13's history cases never mount a stage, and the pixel gate never
+  // carries anything. Its OWN page load, so the counted rows above keep their exact counts.
+  const p7 = await ctx.newPage();
+  watch(p7, "method carry");
+  await p7.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p7.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  // Pick up the first block from the keyboard — park it first (the smooth-scroll rule above),
+  // record its label from the wrapper itself so the assertions below never type a name.
+  await park(p7, `${VIEWPORT} .stx-slot`);
+  const carried = await p7.$eval(`${VIEWPORT} .stx-slot`, (w) => w.getAttribute("data-stx-name"));
+  await p7.focus(`${VIEWPORT} .stx-slot .stx-grab`);
+  await p7.keyboard.press("Enter");
+  await p7.waitForTimeout(120);
+  // The positive control: the carry really is live before the redraft, or rows 2 and 3 prove
+  // nothing (a pick-up that never happened leaves nothing to phantom).
+  const held = await p7.evaluate(() => import("/system/studio-verbs.mjs").then((m) => ({
+    live: Boolean(m.getVerbs()?.gesture),
+    marked: document.querySelectorAll(".is-picked").length,
+  })));
+  await countLive(p7);
+  await check(p7, 'input[name="stm-q-shape"][value="worklist"]');
+  const afterDraft = await p7.evaluate(() => import("/system/studio-verbs.mjs").then((m) => ({
+    gestureNull: m.getVerbs()?.gesture === null,
+    picked: document.querySelectorAll(".is-picked").length,
+  })));
+  // BOTH halves, because carrying() reads .is-picked: gesture null AND no .is-picked anywhere —
+  // false for the RIGHT reason (cancelled), not false-by-detachment with a gesture still live.
+  t("#264 · a method-card redraft CANCELS a live carry — gesture null and zero .is-picked, not carrying() false by detachment",
+    held.live && held.marked === 1 && afterDraft.gestureNull && afterDraft.picked === 0,
+    JSON.stringify({ held, afterDraft }));
+  // The cancel lands BEFORE the wrapper-removal loop, so it names the block while its node still
+  // exists — the same sentence the compile path already produces. Read from the per-record texts:
+  // the cancel + placements + redraft sentence are one synchronous burst, so `last` never holds it.
+  const draftSaid = await liveSeen(p7);
+  t("#264 · …and the redraft announces the cancellation NAMING the carried block, spoken while its node still existed",
+    draftSaid.texts.some((s) => s.startsWith(`Cancelled, ${carried} back in column `)),
+    `${draftSaid.n} record(s): ${JSON.stringify(draftSaid.texts)}`);
+  // Escape after the redraft: the document listener (studio-verbs.mjs's body-drag route) finds no
+  // gesture, so NOTHING is announced — on the pre-fix tree this is where the phantom spoke,
+  // naming a component the reader could no longer see.
+  await countLive(p7);
+  await p7.focus(SCROLL);
+  await p7.keyboard.press("Escape");
+  await p7.waitForTimeout(150);
+  const escSaid = await liveSeen(p7);
+  const escGesture = await p7.evaluate(() => import("/system/studio-verbs.mjs")
+    .then((m) => m.getVerbs()?.gesture === null));
+  t("#264 · Escape after the redraft announces NOTHING — no phantom cancellation naming the vanished block, gesture still null",
+    escGesture && escSaid.n === 0 && !escSaid.texts.some((s) => s.includes(carried)),
+    JSON.stringify(escSaid));
+  await p7.close();
+
   await ctx.close();
 }
 
@@ -4863,6 +4939,13 @@ async function framesPass(browser, engineName, t, errors) {
     title: n.querySelector("iframe")?.getAttribute("title"),
     grab: n.querySelector(".stx-grab") ? !n.querySelector(".stx-grab").disabled : null,
     resize: n.querySelector(".stx-resize") ? !n.querySelector(".stx-resize").disabled : null,
+    // BOTH NAMES, since a describedby-only projection is what let PR #267's H1 through: this driver
+    // already read .stx-grab's aria-label twice (movePass), and simply did not read the new
+    // control's — the repo's own "the check that cannot fail" shape. Read as the ATTRIBUTE rather
+    // than through an accname API because that is what place() writes; the descriptor's `name` is
+    // what the expectation below is derived from, exactly as the footprints are.
+    grabLabel: n.querySelector(".stx-grab")?.getAttribute("aria-label"),
+    resizeLabel: n.querySelector(".stx-resize")?.getAttribute("aria-label"),
     describedBy: n.querySelector(".stx-resize")?.getAttribute("aria-describedby"),
     styled: n.hasAttribute("style"),
   })));
@@ -4897,6 +4980,13 @@ async function framesPass(browser, engineName, t, errors) {
     t(`#219 · …with a stable id and BOTH handles armed, each describing itself through a resolving IDREF`,
       Boolean(got?.id) && got.grab === true && got.resize === true && got.describedBy === "stx-resize-help",
       JSON.stringify({ id: got?.id, grab: got?.grab, resize: got?.resize, describedBy: got?.describedBy }));
+    // SC 4.1.2, and the two names asserted TOGETHER because they are one code path: place() writes
+    // both from the same `label`, so a regression that drops one is a regression that could drop
+    // either. Derived from the descriptor's own `name` — a typed string here would pass against a
+    // frame that had silently been re-labelled.
+    t(`#219 · …and BOTH handles carry an accessible name naming the frame (SC 4.1.2 Name, Role, Value)`,
+      got?.grabLabel === `Move ${want.name}` && got?.resizeLabel === `Resize ${want.name}`,
+      JSON.stringify({ grabLabel: got?.grabLabel, resizeLabel: got?.resizeLabel, want: want.name }));
   }
   t("#219 · #stx-resize-help exists, so every .stx-resize's aria-describedby resolves to real text",
     (await p.locator("#stx-resize-help").count()) === 1
@@ -5622,6 +5712,14 @@ async function minimapPass(browser, engineName, t, errors) {
   // zero-request claim, scoped to the main frame (the embedded protos fetch their own files).
   const reqs = [];
   p1.on("request", (r) => { if (r.frame() === p1.mainFrame() && r.url().startsWith(BASE)) reqs.push(r.url()); });
+
+  // --- 0 · #273: the resolving IDREF (framesPass's #stx-resize-help row's shape) ------------------
+  // Pins the WIRING only — no journey assertion can see SR output: the caption element exists,
+  // carries the affordance sentence, and is exactly what the map's aria-describedby names.
+  t("#273 · #stu-map-help exists and carries the affordance sentence, so the map's aria-describedby resolves to real text",
+    (await p1.locator("#stu-map-help").count()) === 1
+    && (await p1.locator("#stu-map-help").textContent() || "").includes("arrow keys pan the canvas")
+    && (await p1.locator("[data-studio-minimap] .stu-map").getAttribute("aria-describedby")) === "stu-map-help");
 
   // --- 1 · the cells and the view rect, in THREE conditions ---------------------------------------
   const geom1 = await geomOf(p1);

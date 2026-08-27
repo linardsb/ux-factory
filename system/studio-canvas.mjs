@@ -453,6 +453,14 @@ export function initStudioCanvas(root = document) {
       // only on the first, so a re-placed component kept announcing "Move <the old name>".
       const grab = wrap.querySelector(":scope > .stx-grab");
       if (grab) grab.setAttribute("aria-label", `Move ${label}`);
+      // ITS TWIN, AND FOR THE SAME TWO REASONS (#219, PR #267 H1). The resize handle's only visual is
+      // a CSS background-image corner glyph, which contributes NOTHING to the accessible name, and
+      // aria-describedby is a description and never a name — so without this line the control's
+      // computed name is "" and every frame's last tab stop announces a bare "button" (SC 4.1.2).
+      // Out of the create branch like the label above, so a re-place cannot leave a stale name; the
+      // `:scope >` guard is what makes it a no-op for a board wrapper, which has no such handle.
+      const grip = wrap.querySelector(":scope > .stx-resize");
+      if (grip) grip.setAttribute("aria-label", `Resize ${label}`);
       if (typeof component === "string" && component) wrap.setAttribute("data-stx-component", component);
       wrap.setAttribute("data-col", String(slot.col));
       wrap.setAttribute("data-row", String(slot.row));

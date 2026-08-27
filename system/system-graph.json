@@ -470,15 +470,6 @@
       }
     },
     {
-      "name": "--motion-skeleton-to-content",
-      "group": "motion",
-      "packs": {
-        "neutral": "520ms",
-        "saulera": null,
-        "verdant": null
-      }
-    },
-    {
       "name": "--motion-icon-morph",
       "group": "motion",
       "packs": {
@@ -1385,7 +1376,7 @@
     }
   ],
   "counts": {
-    "tokens": 64,
+    "tokens": 63,
     "consumers": 43,
     "edges": 503
   }

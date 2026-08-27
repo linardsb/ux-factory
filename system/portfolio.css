@@ -1474,58 +1474,32 @@ dfn.term {
    unreadable), so narrow columns drop the hex to its own line instead of shearing it */
 .cmp-strip-cell { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); min-width: 0; }
 
-/* Beat 03 — the peak (the one dark band, the signature). A STILL of the composed
-   product screen + illustrative WCAG receipts + the ethics gate as a guess-then-reveal.
-   Framed as "this is what it builds", never as a live run: #75 makes it assemble under
-   the visitor's answers. Fictional product, tagged. */
-.peak-stage {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: var(--spacing-2xl);
-  align-items: start;
-  position: relative;
-  z-index: 1;   /* above the band grain */
-}
-.peak-stage > * { min-width: 0; }
-@media (max-width: 900px) { .peak-stage { grid-template-columns: 1fr; gap: var(--spacing-xl); } }
-
-/* the built screen — a bright light card floating on the dark stage (the brand accent
-   is the one place colour is spent here: colour as demonstration) */
-.peak-screen {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-lg);
-}
-.peak-screen-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-  padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--spacing-md);
-}
-.peak-screen-title { font-family: var(--font-display); font-weight: 500; font-size: var(--type-body); color: var(--color-fg); }
-.peak-screen-dot { width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--color-accent); }
-.peak-screen-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); }
-.peak-tile { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-md); min-width: 0; }
-.peak-tile .n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--type-h3); color: var(--color-fg); }
-.peak-tile .l { font-size: var(--type-caption); color: var(--color-fg-muted); margin-top: 2px; }
-
-/* illustrative receipts on the dark stage */
-.peak-tag {
-  display: inline-block;
-  font-size: var(--type-eyebrow);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-accent-on-inverse);
-  border: 1px solid var(--color-on-dark-border);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
-  margin: 0 0 var(--spacing-md);
-}
+/* ── the peak region, pruned (#262) ─────────────────────────────────────────
+   #216 deleted system/peak.mjs (home's live peak) and #222 re-shelled
+   instance.html, which removed the last .peak-* consumer: that page now composes
+   its own pi-peak-* classes, styled in its page <style> — the old .peak-ethics /
+   .peak-stage "consumers" were substring false-positives from pi-peak-ethics /
+   pi-peak-stage, so this audit exact-matched on the class token, never a
+   substring. Audited class by class across every .html and every system/,
+   agent-layer/, portal/public and proto .mjs/.js (#216's close-* discipline,
+   above): .peak-stage, .peak-screen(-bar/-title/-dot/-tiles/-col/--live),
+   .peak-tile, .peak-tag, .peak-note, .peak-ethics(-body/-intro/-choices/-choice/
+   -result/-verdict/-verdict-label/-verdict-tag/-gloss/-judge),
+   .peak-receipts(-headline/-mark), .peak-adjust(-eyebrow/-hint/-control/-label/
+   -select), .peak-refusal(-tag/-msg) — all 34 had zero consumers and their rules
+   were deleted here, @keyframes peak-assemble and the
+   .peak-screen--live.discrete-render entrance with them (#261 had already
+   recorded both halves dead: nothing built the element, nothing armed the class).
+   Two deliberate leftovers, both follow-ups rather than part of this prune:
+   --motion-skeleton-to-content (tokens.source.json) lost its only consumer with
+   peak-assemble, but dropping a contract token regenerates gen-token-css →
+   gen-handoff → gen-system-graph and churns factory.html's pixel baselines —
+   beyond a CSS prune. And the .wcag-* rules below SURVIVE because their sole
+   builder, system/wcag-receipts.mjs, is still in the tree — verified orphaned
+   (nothing imports it; only comment references in brand-import.mjs and
+   build-import.mjs remain), so these rules die with that module, and deleting it
+   moves loc-summary's runtime group, which approach.html renders. Nothing here is
+   pixel-guarded (instance.html is outside the VR page set) — re-verify by hand. */
 .wcag-row {
   display: flex;
   align-items: baseline;
@@ -1536,157 +1510,9 @@ dfn.term {
 }
 .wcag-pair { font-size: var(--type-caption); color: var(--color-fg-on-inverse-soft); }
 .wcag-pass { flex: 0 0 auto; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.1em; color: var(--color-accent-on-inverse); }
-.peak-note { font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-on-inverse-muted); margin: var(--spacing-md) 0 0; max-width: 48ch; }
-.peak-ethics { margin-top: var(--spacing-lg); border-top: 1px solid var(--color-inverse-line); padding-top: var(--spacing-lg); }
-.peak-ethics summary {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  font-family: var(--font-display);
-  font-size: var(--type-body);
-  color: var(--color-fg-on-inverse-strong);
-  list-style: none;
-}
-.peak-ethics summary::-webkit-details-marker { display: none; }
-.peak-ethics summary:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 3px; }
-.peak-ethics-body p { color: var(--color-fg-on-inverse-soft); font-size: var(--type-caption); line-height: 1.6; margin: var(--spacing-md) 0 0; max-width: 52ch; }
-
-/* ── #75 · the built-screen peak, live ──────────────────────────────────────
-   NOW INSTANCE-ONLY (#216). system/peak.mjs drove this on home: it replaced the
-   still with a Verdant screen the real renderer built from a committed example
-   composition — re-skinned to the visitor's brand + density (the full derived
-   token set applied inline on .peak-screen--live only) — drew the real WCAG
-   receipts, ran the ethics guess-then-reveal, and appended the adjust-live
-   control. #216 deleted home's peak; its successors are the studio's compile beat
-   #207 and replay #209.
-
-   RETAINED, AND ONLY PARTLY LIVE. What instance.html still renders is .peak-note
-   and the .peak-receipts* family (built by system/wcag-receipts.mjs). It does NOT
-   render any .peak-screen* rule — it composes its own .pi-peak-panel /
-   .pi-peak-stage instead — so the .peak-screen* family below has had NO BUILDER
-   since peak.mjs left, and is retained rather than live. #262 audits the region
-   class by class and #222 re-shells that page. Do not prune by eye, in either
-   direction: instance.html is deep-link-only and outside the VR page set, so
-   nothing here is pixel-guarded, and the apparent .peak-ethics / .peak-stage
-   consumers are substring false-positives from pi-peak-ethics / pi-peak-stage —
-   match on the class attribute, never on a substring. */
-
-.peak-screen-col { display: flex; flex-direction: column; gap: var(--spacing-lg); min-width: 0; }
-
-/* the built screen — the same bright card as the still, now a grid the composed
-   Verdant components fill: header / [moisture · light] / tasks / plant / action. */
-.peak-screen--live {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-lg);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
-  min-width: 0;
-}
-.peak-screen--live > .vd-screen-header,
-.peak-screen--live > .vd-care-task-row,
-.peak-screen--live > .vd-plant-card,
-.peak-screen--live > .vd-primary-button { grid-column: 1 / -1; }
-
-/* assembly reveal — DEAD SINCE #216, and kept only until #262 prunes the region.
-   BOTH halves lost their code at once: main's system/peak.mjs:225 built the
-   .peak-screen--live this selects and :237 armed .discrete-render, and #216
-   deleted that module. Nothing in the repo now creates the element or adds the
-   class, so these rules cannot fire — verified by grep over every .html and .mjs.
-   Not deleted here because @keyframes peak-assemble is the ONLY consumer of
-   --motion-skeleton-to-content, and dropping a contract token cascades through
-   gen-token-css → gen-handoff → gen-system-graph and on into factory.html's pixel
-   baselines; #262 does the rules and the token in one piece. No gate can tell you
-   any of this: the pixel gate captures at rest, where a dead entrance and a live
-   one look identical. What it DID, for whoever restores it: composed pieces
-   settled in staggered, compositor props only (transform/opacity), settle curve,
-   the one-shot gated so continuous adjust re-renders never restarted it. */
-@media (prefers-reduced-motion: no-preference) {
-  .peak-screen--live.discrete-render > * {
-    animation: peak-assemble var(--motion-skeleton-to-content) var(--motion-ease-settle) both;
-  }
-  .peak-screen--live.discrete-render > *:nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
-  .peak-screen--live.discrete-render > *:nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
-  .peak-screen--live.discrete-render > *:nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
-  .peak-screen--live.discrete-render > *:nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
-  .peak-screen--live.discrete-render > *:nth-child(6) { animation-delay: calc(var(--motion-stagger) * 5); }
-  .peak-screen--live.discrete-render > *:nth-child(n + 7) { animation-delay: calc(var(--motion-stagger) * 6); }
-}
-@keyframes peak-assemble {
-  from { opacity: 0; transform: translateY(var(--motion-rise)); }
-  to   { opacity: 1; transform: none; }
-}
-
-/* real WCAG receipts — replace the faux rows on assembly. Headline is computed
-   over ALL pairs; a failing pair (deliberately low-contrast entered brand) is
-   surfaced honestly, never a hard-coded pass. */
-.peak-receipts-headline {
-  display: flex; align-items: baseline; gap: var(--spacing-sm);
-  margin: 0 0 var(--spacing-sm);
-  font-family: var(--font-display); font-size: var(--type-caption); font-weight: 500;
-  color: var(--color-fg-on-inverse-strong);
-}
-.peak-receipts-mark {
-  flex: 0 0 auto; align-self: center;
-  display: inline-grid; place-items: center; width: 18px; height: 18px;
-  border-radius: 50%; font-size: var(--type-eyebrow); line-height: 1;
-  color: var(--color-bg-inverse); background: var(--color-accent-on-inverse);
-}
-.peak-receipts-headline.is-flagged .peak-receipts-mark { background: var(--color-fg-on-inverse-strong); }
-.peak-receipts .wcag-pair { flex: 1 1 auto; min-width: 0; }
 .wcag-ratio { flex: 0 0 auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--type-caption); color: var(--color-fg-on-inverse-soft); }
 .wcag-fail { flex: 0 0 auto; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-fg-on-inverse-strong); }
 .wcag-row.is-fail { border-bottom-color: var(--color-fg-on-inverse-strong); }
-
-/* adjust-live — one valid control + the out-of-vocabulary refusal (the thesis) */
-.peak-adjust { border-top: 1px solid var(--color-inverse-line); padding-top: var(--spacing-lg); }
-.peak-adjust-eyebrow { margin: 0; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-on-inverse-muted); }
-.peak-adjust-hint { margin: var(--spacing-sm) 0 var(--spacing-md); font-size: var(--type-caption); line-height: 1.55; color: var(--color-fg-on-inverse-soft); max-width: 52ch; }
-.peak-adjust-control { display: flex; align-items: center; gap: var(--spacing-md); flex-wrap: wrap; }
-.peak-adjust-label { font-size: var(--type-caption); color: var(--color-fg-on-inverse); }
-.peak-adjust-select {
-  min-height: 44px; padding: 0 var(--spacing-md); border-radius: var(--radius-sm);
-  border: 1px solid var(--color-on-dark-border); background: transparent;
-  color: var(--color-fg-on-inverse); font: inherit; font-size: var(--type-caption); cursor: pointer;
-  transition: border-color var(--motion-fast) var(--motion-ease);
-}
-.peak-adjust-select:hover { border-color: var(--color-fg-on-inverse-soft); }
-.peak-adjust-select:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 2px; }
-
-/* the refusal — the system naming the exact offending path. A controlled "no",
-   not an error blowout; the message can be long, so it wraps inside its column. */
-.peak-refusal {
-  margin-top: var(--spacing-md); padding: var(--spacing-md);
-  border-radius: var(--radius-sm); border: 1px solid var(--color-on-dark-border);
-  border-left: 3px solid var(--color-accent-on-inverse); min-width: 0;
-}
-.peak-refusal-tag { display: inline-block; margin-bottom: 6px; font-family: var(--font-display); font-size: var(--type-eyebrow); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent-on-inverse); }
-.peak-refusal-msg { display: block; font-family: var(--font-mono); font-size: var(--type-caption); line-height: 1.5; color: var(--color-fg-on-inverse-soft); overflow-wrap: anywhere; }
-
-/* ethics guess-then-reveal — plain-label guesses, then the engine's canonical read */
-.peak-ethics-intro { margin: 0 0 var(--spacing-md); font-size: var(--type-caption); color: var(--color-fg-on-inverse-soft); }
-.peak-ethics-choices { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-.peak-ethics-choice {
-  min-height: 44px; padding: 0 var(--spacing-md); border-radius: var(--radius-lg);
-  border: 1px solid var(--color-on-dark-border); background: transparent;
-  color: var(--color-fg-on-inverse); font: inherit; font-size: var(--type-caption); cursor: pointer;
-  transition: transform var(--motion-bounce) var(--motion-ease-bounce), border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
-}
-.peak-ethics-choice:hover { border-color: var(--color-fg-on-inverse-soft); }
-.peak-ethics-choice:focus-visible { outline: 3px solid var(--color-accent-on-inverse); outline-offset: 2px; }
-.peak-ethics-choice:active { transform: scale(0.97); }
-.peak-ethics-choice[aria-pressed="true"] { background: var(--color-accent-on-inverse); border-color: var(--color-accent-on-inverse); color: var(--color-bg-inverse); }
-.peak-ethics-result { margin-top: var(--spacing-md); }
-.peak-ethics-verdict { display: flex; align-items: baseline; gap: var(--spacing-sm); flex-wrap: wrap; margin: 0; }
-.peak-ethics-verdict-label { font-family: var(--font-display); font-size: var(--type-h3); color: var(--color-fg-on-inverse-strong); }
-.peak-ethics-verdict-tag { font-size: var(--type-eyebrow); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-fg-on-inverse-muted); }
-.peak-ethics-gloss { margin: var(--spacing-sm) 0 0; font-size: var(--type-caption); line-height: 1.6; }
-.peak-ethics-judge { margin: var(--spacing-sm) 0 0; font-size: var(--type-caption); line-height: 1.6; color: var(--color-fg-on-inverse-soft); }
-@media (prefers-reduced-motion: reduce) { .peak-ethics-choice:active { transform: none; } }
 
 /* I6 — the single-card close: one sentence, one action, floated on the light band. */
 .close-card {

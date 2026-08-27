@@ -104,3 +104,25 @@ and opens the single PR that closes ticket #82.
 
 Round-2 findings are recorded and filed as follow-up tickets. They are not fixed in this ticket,
 or the merge gate never closes.
+
+---
+
+## Round 3 — the studio (epic #202, ticket #223)
+
+Same recruitment bar, same discipline, a different hypothesis: the prototype studio. The script is
+`docs/hallway-notes/TEMPLATE-studio.md`; the notes go in `docs/hallway-notes/round-3-studio/`.
+
+- **Session ≈ 10 minutes**, two timed parts: Part 1 is the 90-second read, word-for-word the
+  rounds-1/2 script, so the rounds stay comparable and Home's compressed gate (#216) gets its
+  first cold read. Part 2 is 5 silent minutes on the studio page.
+- **The live site is the default start** — a session against a local server is only for the
+  operator's own pilot run.
+- **The prompt names the page, never the capability.** The epic's WRONG-if is whether a visitor
+  grabs the wheel *unprompted*; a session where the operator hinted at the take-over measures
+  nothing.
+- **The fix rule differs from rounds 1–2:** the biggest confusion is fixed before the epic closes,
+  or explicitly deferred with a ticket — the decision recorded in `round-3-studio/findings.md`
+  either way. Fix now iff it fits in roughly two days, contradicts no recorded epic decision, and
+  needs no new instrumentation.
+- **Pilot on yourself first** (not counted as a tester) to prove the template fillable in real
+  time. Never rehearse on a potential tester.
