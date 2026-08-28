@@ -100,13 +100,14 @@ proto/                        the two data-connected prototype pages (vd-/fw- co
 proto/compositions/           COMMITTED composition proposals from real record-composition.mjs runs
 traces/                       committed real agent-run traces, raw + curated pairs (traces/README.md)
 replay/                       the studio's replay artifacts (replay/README.md) — brief · board · projection
-discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank + depth selectors; Node-only, no page reads it
+discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank + depth selectors · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) · README.md: the run-package format; Node-only, no page reads it
+discovery/<slug>/             committed FICTIONAL run packages — run.json · answers.jsonl (server-written only) · transcript.jsonl (text · op · denied) · prd.md
 handoff/                      GENERATED handoff pack (verdant/) — committed, never edited by hand
 docs/epics/                   PRD + architecture decisions governing the platform build
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            28 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            29 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -144,6 +145,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **New scenario** → clone a `scenarios/<slug>/` package per `scenarios/README.md` + one `scenarios/index.json` entry + its imports in `worker/fixtures.mjs`; the Worker's routes (`worker/api.mjs`) never change.
 - **New trace** → record a REAL run: `node portal/record-trace.mjs` → curate `node tooling/curate-trace.mjs <raw> <out>` → validate `node tooling/validate-trace.mjs`. Hand-writing or hand-editing trace content is forbidden (honesty contract, hard) — a bad run is fixed by a tighter agent prompt + re-run, never an edit.
 - **New replay run** → a REAL run, the trace rule extended: write the brief by hand (`replay/briefs/<slug>.md` — the problem, never the answer, and no board), prove the mechanism with `node portal/record-build.mjs --slug <slug> --dry`, record it with `node portal/record-build.mjs --slug <slug>` (`--force` to re-run a slug), then project it with `node agent-layer/gen-replay.mjs`. The slug names four files and `traces/` is a FLAT namespace, so it must be globally unique. **Never hand-write or hand-edit a board, a trace or an op.** A new op verb is a `system/board-ops.mjs` edit (the `OPS` list, its `PARAMS` entry and the switch, together) plus a build-checks group 11 case, never a special case in the generator.
+- **New discovery op verb or run** → a verb is a `discovery/ops.mjs` edit (`OPS`, its `PARAMS` entry, the switch case and its build-checks group 28 fixture, together, under the epic's op-verb lock — no other ticket adds one concurrently). A run is a REAL session (the recorder is #284): `answers.jsonl` is server-written and verbatim, `transcript.jsonl` is append-only, and neither is ever hand-written or hand-edited — a bad run is re-run. Provenance decides the root: fictional → `discovery/<slug>/`; real → `<JOBS_DIR>/_discovery/<slug>/`, never committed. Format → `discovery/README.md`.
 - **New composition proposal** → a REAL run. **UI-first path (preferred):** the portal's "Compose a view" drawer — answer /build's ten method questions, and `portal/lib/builder.mjs`'s three committed rules draft the question from two of them; the drafted question is EDITABLE before the run, and the PIV phases stream live. Leave the `--dry` box checked for the first run: a dry run is a full agent run over the real fixtures that writes nothing, so `in-process validateComposition ✓` is what proves the question is answerable before a real one is spent. **The equivalent CLI:** `node portal/record-composition.mjs <scenario> "<question>" <slot> [--slug <slug>]`. The scenario must carry a `scenarios/<scenario>/compose.json`. Verify the numbers against the fixture (Fieldwork has `node tooling/fieldwork-kpis.mjs`). Same honesty rule as traces — never hand-write a composition or hand-feed an example; the `compose.json` computeRules carries DEFINITIONS ONLY.
 - **Platform capability (epic work)** → check `docs/epics/ai-first-ux-factory.architecture.md` first — most "new" pieces are already-decided Missing pieces with format and placement pinned.
 
