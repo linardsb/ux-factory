@@ -8,7 +8,7 @@ Load this when adding a gate, changing one, or working out why a green run prove
 
 ---
 
-## `tooling/build-checks.mjs` — 28 pure groups, in CI
+## `tooling/build-checks.mjs` — 29 pure groups, in CI
 
 PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /build's pattern rules, slots, compositions against the real generated vocabulary, the share codec + its tamper battery, SVG escaping, and the one-application-point vetting invariant.
 
@@ -43,6 +43,8 @@ PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /b
 **Group 27 — the minimap's pure layer** (#221, `system/studio-minimap.mjs`): `mapView` in THREE conditions each the sole detector of one coordinate term — at rest, panned, zoomed-at-0,0 — the far-edge clamp, junk pinned to the honest whole view, `jumpFrom`'s centering with both clamps equal to the browser's own scroll clamp range, `trackOffsets`' gap-before-next-start rule, a 2×3 `cellRect` equal to the union of its six 1×1 rects, `visibleRange` round-tripping `mapView`'s answer, and the no-timer source pin over BOTH #221 modules.
 
 **Group 28 — the question bank** (#282, `discovery/bank.mjs`): the count and per-stage counts pinned, ids unique and stage-prefixed, every entry's text + attribution + weak-answer note + label, the twelve as an ORDER assertion, each depth's exact documented set and the junk-depth throw, purity and frozenness by mutation, the C3 title-term list with its positive control, the zero-import / no-page source pin, and every weak-answer note pinned to `docs/research/question-bank-source.md` by its first 30 characters. *Only `weakAnswer` is pinned to the source: whether an entry's `text`, `attribution`, `note` or `provenanceNote` is the source's wording for its id, and the C2 slop pass, are review facts against that file; this group cannot reach them.*
+
+**Group 29 — discovery ops** (#281, `discovery/ops.mjs`): every refusal driven by a broken op, both flag directions, R2 keyed on the turn, the supersede rule, and the run-2 fixture's md5 with the mutation that proves it can fail. SDK-free like group 8 and for the same reason. *Cannot reach: the server's answer store, the transcript writer, the real bank.*
 
 **Adding a pattern or component?** Group 3 asserts that EVERY generated vocabulary entry has a render path (widened from the emitted set by #211, which closed `demo-notice`'s gap and deleted the written-down exception). Every group iterates `PATTERNS`, so a new entry with no `BOARD_FOR` fixture fails loudly rather than being silently skipped.
 

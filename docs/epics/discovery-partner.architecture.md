@@ -277,7 +277,7 @@ already states, that a guard reachable only by starting a real agent run is a gu
 ### Other eng-lead calls
 - **The three postures live in `portal/lib/discovery-postures.mjs`** — this closes the PRD's open
   question 3. A posture is a prompt; nothing shipped reads it; putting agent prompts in `system/` would
-  file them as design-system material. The bank and the ops are shared definitions and go to `system/`;
+  file them as design-system material. The bank and the ops are shared definitions and go to `discovery/` (§Data model — the loc-summary tripwire);
   the prompts that read them are portal concerns and stay in `portal/lib/`, one concern per module, per
   CLAUDE.md's own placement rule.
 - **The session module is `portal/lib/discovery.mjs`** — cursor, depth, branch, the answer store, the

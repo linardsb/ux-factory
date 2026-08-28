@@ -121,10 +121,16 @@
 //                     mutation, the C3 title-term list with its positive control, the zero-import /
 //                     no-page source pin, and every weak-answer note pinned to the research file by
 //                     its first thirty characters (#282)
+//  29 discovery ops  the discovery applier (discovery/ops.mjs): OPS iterated against PARAMS and a
+//                     VALID_FOR fixture per verb, the four named throws each driven by a broken
+//                     op, both flag directions, R2 on the turn, the supersede rule, totality over
+//                     junk, and the run-2 fixture's md5 pinned with the mutation that proves the
+//                     compare can fail (#281)
 //
 //   node tooling/build-checks.mjs
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -178,8 +184,12 @@ import { curateTrace } from "./curate-trace.mjs";
 // #282's bank — a zero-import data module (discovery/, not system/), so there is no SDK anywhere
 // in its graph and CI's absence of portal/node_modules cannot touch it.
 import { DEPTHS, OPENING_SET, questionById, questionsForStage, QUESTIONS as BANK, selectDepth, STAGES } from "../discovery/bank.mjs";
+// #281's op grammar + applier — a zero-import module in discovery/ (not system/, so gen-loc-summary
+// counts nothing), with no SDK anywhere in its graph. OPS and PARAMS are aliased because OPS above
+// is board-ops.mjs's.
+import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, emptyRun, FLAGS, LEVELS, OPS as DISCOVERY_OPS, PARAMS as DISCOVERY_PARAMS, PROVENANCE, SOURCES } from "../discovery/ops.mjs";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT =resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
 
 let failures = 0;
@@ -5249,6 +5259,262 @@ function scanSvg(svg, label) {
   group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — all review facts against that source file");
 }
 
+// --- 29 · the discovery applier -------------------------------------------------------------------
+// Drives discovery/ops.mjs's PURE applyOp over SYNTHETIC in-memory answers (a1…a4) and a stub bank
+// (q1, q2) — legitimate test input the way group 11's rows are, and nothing here is presented as a
+// run. Nothing under discovery/<slug>/ is read (none exists and none may be hand-made) and no SDK
+// is loaded: the module has no imports at all, so CI's absence of portal/node_modules PROVES the
+// "no SDK in the graph" claim rather than asserting it. Every refusal below is driven by feeding a
+// broken op behind a positive control, and the message is matched against the op, field or value
+// it must name — a gate that throws the right number of times with the wrong messages is a gate
+// nobody can debug.
+{
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  const msg = (fn) => threw(fn)?.message ?? null;
+  const names = (fn, ...needles) => {
+    const m = msg(fn);
+    if (m === null) return "did not throw";
+    const missing = needles.filter((n) => !m.includes(n));
+    return missing.length ? `threw "${m}", which does not name ${missing.map((n) => JSON.stringify(n)).join(" or ")}` : null;
+  };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  const ANSWERS = [{ ref: "a1", text: "…" }, { ref: "a2", text: "…" }, { ref: "a3", text: "…" }, { ref: "a4", text: "…" }];
+  const BANK = [{ id: "q1" }, { id: "q2" }];
+  const ctx = (turn = null) => ({ answers: ANSWERS, bank: BANK, turn });
+  // One minimal valid op per verb, each overridable for the refusal cases.
+  const ev = (over = {}) => ({ op: "file_evidence", params: { url: "https://example.test/source", ref: null, provenance: "secondary-source", claim_ref: null, ...over } });
+  const dec = (over = {}) => ({ op: "record_decision", params: { question_id: "q1", answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [1], wrong_if: "the pilot cohort churns inside a quarter", off_script: false, ...over } });
+  const weak = (over = {}) => ({ op: "flag_weak_answer", params: { question_id: "q2", answer_ref: "a2", missing: ["a number"], ...over } });
+  const openq = (over = {}) => ({ op: "open_question", params: { source: "banked", question_id: "q2", answer_ref: "a3", reason: "needs a figure nobody in the room had", ...over } });
+
+  // 28.1 — the roster, both directions, and frozen BY MUTATION (a module in strict mode throws on
+  // a push into a frozen array, and the length is re-read so a swallowed push cannot pass).
+  ok(DISCOVERY_OPS.length === 4 && Object.keys(DISCOVERY_PARAMS).length === DISCOVERY_OPS.length
+    && DISCOVERY_OPS.every((v) => Array.isArray(DISCOVERY_PARAMS[v]))
+    && Object.keys(DISCOVERY_PARAMS).every((v) => DISCOVERY_OPS.includes(v)),
+  `OPS (${DISCOVERY_OPS.join(", ")}) and PARAMS (${Object.keys(DISCOVERY_PARAMS).join(", ")}) are not the same four verbs`);
+  for (const [label, arr] of [["OPS", DISCOVERY_OPS], ["LEVELS", LEVELS], ["PROVENANCE", PROVENANCE], ["SOURCES", SOURCES], ["FLAGS", FLAGS], ...DISCOVERY_OPS.map((v) => [`PARAMS.${v}`, DISCOVERY_PARAMS[v]])]) {
+    const n = arr.length;
+    ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n, `${label} is not frozen — a push landed`);
+  }
+  ok(Object.isFrozen(DISCOVERY_PARAMS) && threw(() => { DISCOVERY_PARAMS.fifth = ["x"]; }) !== null && !("fifth" in DISCOVERY_PARAMS), "PARAMS is not frozen — a fifth verb landed");
+  ok(same(LEVELS, ["business", "stakeholder", "solution", "transition"]), "LEVELS is not the BABOK ladder in order");
+  ok(FLAGS.length === 2 && FLAGS.includes("no-evidence") && FLAGS.includes("orphan"), "FLAGS is not exactly no-evidence + orphan");
+  // The BOARD_FOR idiom: a fifth verb with no fixture fails here by name rather than being skipped.
+  const VALID_FOR = {
+    file_evidence: { ...ev(), turn: null },
+    record_decision: { ...dec(), turn: "t1" },
+    flag_weak_answer: { ...weak(), turn: "t2" },
+    open_question: { ...openq(), turn: "t3" },
+  };
+  for (const verb of DISCOVERY_OPS) ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or the group iterates OPS in name only`);
+  const HAPPY = ["file_evidence", "record_decision", "flag_weak_answer", "open_question"].map((v) => VALID_FOR[v]);
+  ok(new Set(HAPPY.map((x) => x.op)).size === DISCOVERY_OPS.length, "the happy fold does not exercise every verb");
+  const CLOSES = { file_evidence: false, record_decision: true, flag_weak_answer: true, open_question: true };
+  const happy = applyDiscoveryOps(HAPPY, ctx());
+  ok(happy.ops.length === HAPPY.length, `the happy fold recorded ${happy.ops.length} ops for ${HAPPY.length}`);
+  happy.ops.forEach((r, i) => {
+    ok(r.seq === i + 1, `record ${i} carries seq ${r.seq}, not ${i + 1} — seq is the address and must be 1-based and strictly increasing`);
+    ok(r.op === HAPPY[i].op && r.turn === HAPPY[i].turn, `record ${i + 1} is ${r.op} on ${r.turn}, not ${HAPPY[i].op} on ${HAPPY[i].turn}`);
+    ok(r.closes === CLOSES[r.op], `${r.op} recorded closes: ${r.closes}, the table says ${CLOSES[r.op]}`);
+    ok(Array.isArray(r.flagged) && r.flagged.every((f) => FLAGS.includes(f)), `${r.op} carries a flag outside FLAGS: ${JSON.stringify(r.flagged)}`);
+    ok("supersedes" in r && (r.supersedes === null || Number.isInteger(r.supersedes)), `${r.op} record has no supersedes field`);
+    ok(same(Object.keys(r.params), DISCOVERY_PARAMS[r.op]), `${r.op}'s recorded params keys are ${Object.keys(r.params).join(", ")} — not exactly PARAMS' ${DISCOVERY_PARAMS[r.op].join(", ")}`);
+  });
+  ok(same(happy.ops.map((r) => r.flagged), [[], [], [], []]), `the happy fold flagged something: ${JSON.stringify(happy.ops.map((r) => r.flagged))}`);
+  const s1 = applyDiscoveryOp(emptyRun(), ev(), ctx()); // seq 1 = one piece of evidence; the base for most cases below
+
+  // 28.2 — the positive control: deterministic and pure. The refusals below mean nothing unless
+  // the fixture applies cleanly first.
+  ok(same(applyDiscoveryOps(HAPPY, ctx()), happy), "two folds of the same ops from emptyRun() differ — the applier is not deterministic");
+  {
+    const input = emptyRun();
+    const before = JSON.stringify(input);
+    const o = dec();
+    const oBefore = JSON.stringify(o);
+    const mid = applyDiscoveryOp(input, ev(), ctx());
+    const midBefore = JSON.stringify(mid);
+    const out = applyDiscoveryOp(mid, o, ctx("t1"));
+    ok(JSON.stringify(input) === before && JSON.stringify(mid) === midBefore, "applyOp mutated its input state");
+    ok(JSON.stringify(o) === oBefore, "applyOp mutated the op it was given");
+    // The record must not alias the caller's objects in either direction.
+    out.ops[1].params.wrong_if = "tampered";
+    out.ops[1].params.evidence_refs.push(9);
+    ok(JSON.stringify(o) === oBefore && JSON.stringify(mid) === midBefore, "mutating the returned record reached the op or the input state — the ledger aliases the caller's objects");
+    o.params.evidence_refs.push(8);
+    o.params.wrong_if = "rewritten";
+    ok(same(out.ops[1].params.evidence_refs, [1, 9]) && out.ops[1].params.wrong_if === "tampered", "mutating the op after applying reached the ledger — a later push on the agent's argument object would rewrite history without a write");
+  }
+
+  // 28.3 — the four throws the architecture names, each driven by a broken op.
+  ok(names(() => applyDiscoveryOp(s1, dec({ answer_ref: "a99" }), ctx("t1")), "record_decision", "a99", "does not resolve") === null,
+    `throw 1 (unresolvable answer_ref): ${names(() => applyDiscoveryOp(s1, dec({ answer_ref: "a99" }), ctx("t1")), "record_decision", "a99", "does not resolve")}`);
+  ok(names(() => applyDiscoveryOp(happy, weak(), ctx("t1")), "flag_weak_answer", 'turn "t1"', "op 2", "R2") === null,
+    `throw 2 (second closing op on a closed turn): ${names(() => applyDiscoveryOp(happy, weak(), ctx("t1")), "flag_weak_answer", 'turn "t1"', "op 2", "R2")}`);
+  ok(names(() => applyDiscoveryOp(s1, dec({ question_id: "q-not-in-bank" }), ctx("t1")), "record_decision", "q-not-in-bank") === null,
+    `throw 3 (question the bank does not hold): ${names(() => applyDiscoveryOp(s1, dec({ question_id: "q-not-in-bank" }), ctx("t1")), "record_decision", "q-not-in-bank")}`);
+  {
+    const nullTwin = threw(() => applyDiscoveryOp(s1, dec({ question_id: null, off_script: true }), ctx("t1")));
+    ok(nullTwin === null, `the null twin (question_id: null, off_script: true) was refused: ${nullTwin?.message} — null is legal and means off-script`);
+    const rec = applyDiscoveryOp(s1, dec({ question_id: null, off_script: true }), ctx("t1")).ops[1];
+    ok(rec.closes === false && rec.supersedes === null, "an off-script decision on no banked question closed the turn or superseded something");
+  }
+  ok(names(() => applyDiscoveryOp(s1, ev({ provenance: "vibes" }), ctx()), "file_evidence", "vibes", ...PROVENANCE) === null,
+    `throw 4 (provenance outside the four): ${names(() => applyDiscoveryOp(s1, ev({ provenance: "vibes" }), ctx()), "file_evidence", "vibes", ...PROVENANCE)}`);
+
+  // 28.4 — the further refusals, each by a broken op, each message naming what it must.
+  const absent = dec();
+  delete absent.params.evidence_refs;
+  const REFUSALS = [
+    ["an absent field", () => applyDiscoveryOp(s1, absent, ctx("t1")), ["record_decision", '"evidence_refs" is required']],
+    ["an unknown param", () => applyDiscoveryOp(s1, dec({ extra: 1 }), ctx("t1")), ["record_decision", 'unknown param "extra"']],
+    ["an unknown envelope key", () => applyDiscoveryOp(s1, { ...dec(), turn: "t1" }, ctx("t1")), ['unknown key "turn"', "envelope"]],
+    ["a string evidence ref", () => applyDiscoveryOp(s1, dec({ evidence_refs: ["1"] }), ctx("t1")), ["evidence_refs", '"1"']],
+    ["a dangling evidence ref", () => applyDiscoveryOp(s1, dec({ evidence_refs: [99] }), ctx("t1")), ["evidence_refs", "99"]],
+    ["evidence_refs not an array", () => applyDiscoveryOp(s1, dec({ evidence_refs: 1 }), ctx("t1")), ['"evidence_refs" must be an array']],
+    ["a parent naming a file_evidence", () => applyDiscoveryOp(s1, dec({ level: "stakeholder", parent_id: 1 }), ctx("t1")), ["parent_id 1", "file_evidence", "record_decision"]],
+    ["a parent two rungs up", () => applyDiscoveryOp(happy, dec({ level: "solution", parent_id: 2, question_id: "q2" }), ctx("t9")), ["parent_id 2", "business", "solution", "stakeholder"]],
+    ["a business decision with a parent", () => applyDiscoveryOp(happy, dec({ parent_id: 2, question_id: "q2" }), ctx("t9")), ["business decision has no parent", "2"]],
+    ["a dangling parent", () => applyDiscoveryOp(s1, dec({ level: "stakeholder", parent_id: 7 }), ctx("t1")), ["parent_id 7", "seq 1…1"]],
+    ["a level off the ladder", () => applyDiscoveryOp(s1, dec({ level: "vibes" }), ctx("t1")), ['level "vibes"', ...LEVELS]],
+    ["a non-boolean off_script", () => applyDiscoveryOp(s1, dec({ off_script: "no" }), ctx("t1")), ['"off_script"']],
+    ["a banked decision with no question", () => applyDiscoveryOp(s1, dec({ question_id: null, off_script: false }), ctx("t1")), ["record_decision", "question_id"]],
+    ["an empty wrong_if", () => applyDiscoveryOp(s1, dec({ wrong_if: "  " }), ctx("t1")), ['"wrong_if"']],
+    ["a banked open question with no question", () => applyDiscoveryOp(s1, openq({ question_id: null }), ctx("t1")), ["open_question", "question_id"]],
+    ["a source off the list", () => applyDiscoveryOp(s1, openq({ source: "vibes" }), ctx("t1")), ['source "vibes"', ...SOURCES]],
+    ["an empty reason", () => applyDiscoveryOp(s1, openq({ reason: "" }), ctx("t1")), ['"reason"']],
+    ["a weak-answer flag with no question", () => applyDiscoveryOp(s1, weak({ question_id: null }), ctx("t1")), ["flag_weak_answer", "question_id"]],
+    ["missing: []", () => applyDiscoveryOp(s1, weak({ missing: [] }), ctx("t1")), ['"missing"', "non-empty"]],
+    ["missing: [\"\"]", () => applyDiscoveryOp(s1, weak({ missing: [""] }), ctx("t1")), ['"missing"']],
+    ["evidence with neither url nor ref", () => applyDiscoveryOp(s1, ev({ url: null, ref: null }), ctx()), ["file_evidence", "neither"]],
+    ["evidence with both url and ref", () => applyDiscoveryOp(s1, ev({ url: "https://x.test", ref: "a1" }), ctx()), ["file_evidence", "both"]],
+    ["a non-http url", () => applyDiscoveryOp(s1, ev({ url: "ftp://x.test" }), ctx()), ["ftp://x.test", "http"]],
+    ["a pasted source that does not resolve", () => applyDiscoveryOp(s1, ev({ url: null, ref: "a99" }), ctx()), ['ref "a99"', "does not resolve"]],
+    ["a claim_ref naming a file_evidence", () => applyDiscoveryOp(s1, ev({ claim_ref: 1 }), ctx()), ["claim_ref 1", "file_evidence", "record_decision"]],
+    ["a closing decision with no turn", () => applyDiscoveryOp(s1, dec(), ctx(null)), ["record_decision", "no banked turn is open"]],
+    ["a closing flag with an empty turn", () => applyDiscoveryOp(s1, weak(), ctx("")), ["flag_weak_answer", "no banked turn is open"]],
+    ["a banked open question with no turn", () => applyDiscoveryOp(s1, openq(), ctx(null)), ["open_question", "no banked turn is open"]],
+  ];
+  for (const [what, fn, needles] of REFUSALS) ok(names(fn, ...needles) === null, `${what}: ${names(fn, ...needles)}`);
+  ok(REFUSALS.length >= 27, `${REFUSALS.length} refusals driven — the battery shrank`);
+  // The fold names the failing item by index, and applyOps is where a { op, params, turn } item's
+  // turn is lifted into ctx (the applier's exact envelope refuses it as a key, see above).
+  ok(names(() => applyDiscoveryOps([{ ...ev(), turn: null }, { ...ev(), turn: null }, { ...dec({ answer_ref: "a99" }), turn: "t1" }], ctx()), "op 2 (record_decision):", "a99") === null,
+    `applyOps did not rethrow with the index: ${names(() => applyDiscoveryOps([{ ...ev(), turn: null }, { ...ev(), turn: null }, { ...dec({ answer_ref: "a99" }), turn: "t1" }], ctx()), "op 2 (record_decision):", "a99")}`);
+  // …and the ITEM envelope is exact as well: a transcript line fed whole (seq, closes, flagged beside
+  // a valid op) is refused by name, so a hand-altered line cannot ride through the fold.
+  ok(names(() => applyDiscoveryOps([{ ...ev(), turn: null, seq: 9 }], ctx()), "op 0 (file_evidence):", 'unknown key "seq"') === null,
+    `applyOps accepted an item carrying seq: ${names(() => applyDiscoveryOps([{ ...ev(), turn: null, seq: 9 }], ctx()), "op 0 (file_evidence):", 'unknown key "seq"')}`);
+  ok(threw(() => applyDiscoveryOps([{ op: "file_evidence", params: ev().params }], ctx())) === null, "an item with no turn key was refused — turn is optional on an item (null when absent)");
+
+  // 28.5 — both flag directions: empty is RECORDED and flagged, never thrown; filled is not flagged.
+  // A throw here is recorded as its own failure rather than crashing the group: s1 and happy are
+  // shared fixtures, and a purity regression upstream would otherwise surface as a raw stack trace.
+  const flagOf = (over, turn = "t1", from = s1) => {
+    try { return applyDiscoveryOp(from, dec(over), ctx(turn)).ops.at(-1).flagged; }
+    catch (e) { ok(false, `record_decision ${JSON.stringify(over)} was refused (${e.message}) — empty must be recorded and flagged, or a session deadlocks on evidence not findable yet`); return []; }
+  };
+  ok(flagOf({ evidence_refs: [] }).includes("no-evidence"), "evidence_refs: [] recorded without the no-evidence flag — an unbacked decision passed silently");
+  ok(!flagOf({ evidence_refs: [1] }).includes("no-evidence"), "evidence_refs: [1] carries the no-evidence flag");
+  ok(flagOf({ level: "stakeholder", parent_id: null }).includes("orphan"), "a stakeholder decision with parent_id: null recorded without the orphan flag");
+  ok(!flagOf({ level: "business", parent_id: null }).includes("orphan"), "a business decision carries the orphan flag — the top of the ladder has no parent by definition");
+  ok(!flagOf({ level: "stakeholder", parent_id: 2, question_id: "q2" }, "t9", happy).includes("orphan"), "a stakeholder decision naming its business parent carries the orphan flag");
+  ok(same(flagOf({ level: "stakeholder", parent_id: null, evidence_refs: [] }), ["no-evidence", "orphan"]), "both flags at once are not recorded in FLAGS order");
+  ok(same(flagOf({}), []), "the fully-backed business decision is flagged");
+
+  // 28.6 — R2 keys on the TURN, not the question. happy has t1 closed by the q1 decision (seq 2).
+  {
+    const offScript = threw(() => applyDiscoveryOp(happy, dec({ off_script: true }), ctx("t1")));
+    ok(offScript === null, `an off-script decision on the closed turn t1 was refused: ${offScript?.message} — off-script never closes, so R2 has nothing to refuse`);
+    const after = applyDiscoveryOp(happy, dec({ off_script: true, wrong_if: "the revisit was wrong" }), ctx("t1"));
+    const rec = after.ops.at(-1);
+    ok(rec.closes === false && rec.turn === "t1", `the off-script decision recorded closes: ${rec.closes} on turn ${rec.turn}`);
+    ok(rec.supersedes === 2, `the off-script decision on q1 supersedes ${rec.supersedes}, not the earlier q1 decision at seq 2`);
+    ok(happy.ops.length === 4 && after.ops.length === 5, "the supersede rule removed a record — both must stay");
+    // The LATEST earlier decision on the question, not the first.
+    const third = applyDiscoveryOp(after, dec({ off_script: true, wrong_if: "third time" }), ctx("t1")).ops.at(-1);
+    ok(third.supersedes === rec.seq, `a third decision on q1 supersedes ${third.supersedes}, not the latest (${rec.seq})`);
+    // A decision on a DIFFERENT question supersedes nothing.
+    ok(applyDiscoveryOp(happy, dec({ question_id: "q2", off_script: true }), ctx("t1")).ops.at(-1).supersedes === null, "a first decision on q2 claims to supersede something");
+    // Evidence never closes and may fire many times on a closed turn, recording that turn.
+    let s = happy;
+    for (let i = 0; i < 3; i += 1) s = applyDiscoveryOp(s, ev(), ctx("t1"));
+    ok(s.ops.length === 7 && s.ops.slice(4).every((r) => r.op === "file_evidence" && r.closes === false && r.turn === "t1"), "file_evidence ×3 on a closed turn did not record as three non-closing ops on t1");
+    ok(applyDiscoveryOp(happy, ev(), ctx(null)).ops.at(-1).turn === null, "file_evidence with no turn did not record turn: null");
+    // A new turn on the same question is a fresh slot — the counter keys on the turn.
+    const revisit = threw(() => applyDiscoveryOp(happy, openq({ question_id: "q1", answer_ref: "a4" }), ctx("t9")));
+    ok(revisit === null, `a banked open question for q1 on a NEW turn t9 was refused: ${revisit?.message}`);
+    ok(applyDiscoveryOp(happy, openq({ question_id: "q1", answer_ref: "a4" }), ctx("t9")).ops.at(-1).closes === true, "the revisit on t9 did not close t9");
+    // …and t9, once closed, refuses a second closer naming the first.
+    const closed9 = applyDiscoveryOp(happy, openq({ question_id: "q1", answer_ref: "a4" }), ctx("t9"));
+    ok(names(() => applyDiscoveryOp(closed9, dec({ question_id: "q1" }), ctx("t9")), 'turn "t9"', "op 5") === null, `a second closer on t9: ${names(() => applyDiscoveryOp(closed9, dec({ question_id: "q1" }), ctx("t9")), 'turn "t9"', "op 5")}`);
+  }
+
+  // 28.7 — the not-a-form arithmetic is possible from the record alone: reset on a closing
+  // decision or flag, +1 on a banked open question, off-script ignored — read from record.op,
+  // record.closes and record.params.source / params.off_script only. #285 owns the function; this
+  // asserts the fields it needs are there.
+  {
+    const fold = applyDiscoveryOps([
+      { ...ev(), turn: null },
+      { ...dec(), turn: "t1" },
+      { ...openq(), turn: "t2" },
+      { ...openq({ source: "off-script", question_id: null }), turn: "t2" },
+      { ...openq({ question_id: "q1", answer_ref: "a4" }), turn: "t3" },
+      { ...dec({ question_id: null, off_script: true }), turn: "t3" },
+      { ...weak(), turn: "t4" },
+    ], ctx());
+    let counter = 0;
+    const trail = [];
+    for (const r of fold.ops) {
+      if (r.op === "file_evidence") continue;
+      if (r.op === "open_question" && r.params.source === "off-script") continue;
+      if (r.op === "record_decision" && r.params.off_script) continue;
+      if (r.op === "open_question") counter += 1;
+      else if (r.closes) counter = 0;
+      trail.push(counter);
+    }
+    ok(same(trail, [0, 1, 2, 0]), `the not-a-form counter read ${JSON.stringify(trail)} from the records, not [0, 1, 2, 0] — a field #285 needs is missing or wrong`);
+    ok(fold.ops.filter((r) => r.closes).length === 4 && same(fold.ops.filter((r) => r.closes).map((r) => r.turn), ["t1", "t2", "t3", "t4"]), "coverage cannot be read from the closers' turns");
+  }
+
+  // 28.8 — totality over junk: a plain Error with a message, never a TypeError from inside the switch.
+  const plain = (fn, what) => {
+    const e = threw(fn);
+    ok(e instanceof Error && !(e instanceof TypeError) && typeof e.message === "string" && e.message.length > 0,
+      `${what}: ${e === null ? "did not throw" : `threw ${e.constructor.name} "${e?.message}"`}`);
+  };
+  for (const junk of [null, 1, "x", [], {}, { op: "record_decision" }, { op: 7 }, { op: "record_decision", params: null }, { op: "record_decision", params: [] }, { op: "record_decision", params: "x" }, { op: "file_evidence", params: { url: 1, ref: null, provenance: "assumption", claim_ref: null } }])
+    plain(() => applyDiscoveryOp(s1, junk, ctx("t1")), `junk op ${JSON.stringify(junk)}`);
+  // A Symbol cannot be interpolated into a message — the one junk value that turns a refusal into a
+  // TypeError unless it is typed BEFORE the message is built (PR #324 review, F1).
+  plain(() => applyDiscoveryOp(s1, { op: Symbol("record_decision"), params: {} }, ctx("t1")), "junk op { op: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, dec({ answer_ref: Symbol("a1") }), ctx("t1")), "junk op { answer_ref: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, dec({ level: Symbol("business") }), ctx("t1")), "junk op { level: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, ev({ provenance: Symbol("assumption") }), ctx()), "junk op { provenance: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, dec({ answer_ref: "a99" }), { answers: [{ ref: Symbol("a1") }], bank: BANK, turn: "t1" }), "an answer store holding a Symbol ref, listed in the refusal message");
+  for (const junkCtx of [undefined, null, {}, { answers: null }, { answers: [], bank: null }, { answers: [null], bank: [null], turn: 7 }, "x"])
+    plain(() => applyDiscoveryOp(s1, ev(), junkCtx), `junk ctx ${JSON.stringify(junkCtx)}`);
+  ok(threw(() => applyDiscoveryOp(s1, ev(), { answers: [null, { ref: "a1" }], bank: [null, { id: "q1" }], turn: null })) === null, "a null entry among the answers or the bank threw — entries are read with ?. so junk in the store cannot take the applier down");
+  for (const junkState of [null, {}, { ops: "x" }, { ops: null }])
+    plain(() => applyDiscoveryOp(junkState, ev(), ctx()), `junk state ${JSON.stringify(junkState)}`);
+  for (const junkItems of [null, "x", [null], [1], [{}], [{ op: "record_decision" }]])
+    plain(() => applyDiscoveryOps(junkItems, ctx()), `junk items ${JSON.stringify(junkItems)}`);
+
+  // 28.9 — the frozen fixture. The PRD says run 2's input is byte-frozen at this md5 and nothing
+  // checked it (the architecture's own finding). The mutation is what makes this a check rather
+  // than a constant comparison: the same bytes plus one newline must hash differently.
+  const FIXTURE = "docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md";
+  const FIXTURE_MD5 = "ab6eb0ee6cdd3b7802ecfcbe90db2377";
+  const bytes = readFileSync(join(ROOT, FIXTURE));
+  const md5 = (b) => createHash("md5").update(b).digest("hex");
+  ok(md5(bytes) === FIXTURE_MD5, `${FIXTURE} hashes to ${md5(bytes)}, not the frozen ${FIXTURE_MD5} — run 2's input was edited, and its score would mean nothing`);
+  ok(md5(Buffer.concat([bytes, Buffer.from("\n")])) !== FIXTURE_MD5, "the fixture plus one trailing newline still matches the frozen md5 — the compare cannot fail");
+
+  group("discovery ops", `OPS ↔ PARAMS the same four verbs in both directions, every list frozen BY MUTATION (a push refused and the length re-read), a VALID_FOR fixture per verb so a fifth verb with no fixture fails by name, the happy fold recording seq 1…4 with closes per the table and exact param key sets · determinism by deep-comparing two folds and purity by mutating the returned record and the op and re-reading both inputs · the four named throws each driven by a broken op — an unresolvable answer_ref naming the ref, a second closer naming the turn and the closing seq (R2), a question the bank lacks naming the id with its null twin ACCEPTED as off-script, a provenance outside the four naming all four · ${REFUSALS.length} further refusals (absent field, unknown param, exact envelope, string and dangling seqs, wrong-rung and wrong-kind parents, a parented business decision, both url/ref halves, empty strings and arrays, a closer with no turn) each matched on its message, and applyOps naming the failing index · both flag directions — [] and null RECORDED and flagged, filled not flagged, business never orphaned, both flags at once · R2 on the TURN: an off-script decision accepted on a closed turn with supersedes naming the LATEST earlier decision on its question and both records kept, evidence ×3 on a closed turn, a revisit on a new turn accepted and then guarded · the not-a-form counter and coverage derived from the records alone · totality over junk ops, junk ctx, junk state and junk items, a plain Error every time · the run-2 fixture pinned at md5 ${FIXTURE_MD5.slice(0, 8)} with the one-newline mutation that proves the compare can go red. The server that writes answers.jsonl, the transcript writer and the real bank are #284's and #282's, and this group cannot reach them`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -5256,5 +5522,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 28 groups pass");
+  console.log("\nbuild ✓  all 29 groups pass");
 }
