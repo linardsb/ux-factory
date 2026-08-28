@@ -46,8 +46,8 @@ V15/V20 fan-out, applied to diagnosis.)*
 ### 3. Review Recent History — when was it introduced?
 
 Check recent changes to the affected areas, and pin down when the bug entered:
-!`git log --oneline -20 -- [relevant-paths]`
 ```bash
+git log --oneline -20 -- <relevant-paths>    # recent changes to the affected areas
 git blame -L <start>,<end> <affected-file>   # who/when introduced the suspect lines
 ```
 Decide: a recent **regression** vs a **long-standing** bug vs **original** behavior — it changes both the fix and the risk.

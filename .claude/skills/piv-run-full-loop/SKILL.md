@@ -16,7 +16,14 @@ This skill chains the 4 core PIV-loop skills for autonomous feature development.
 
 Execute the priming workflow to understand the codebase.
 
-Run the `prime-codebase` skill (`.claude/skills/prime-codebase/SKILL.md`).
+**Prefer a project-specific prime skill when one exists.** Check the project's
+`.claude/skills/` for a `prime-*` skill (e.g. `prime-<project>`); if there is one, run that
+instead. A repo ships its own prime because the generic one is wrong there — commonly because
+`prime-codebase`'s file listing truncates to the first 200 tracked files and misses most of the
+tree, or because the repo has hooks, protected paths, or scope decisions a generic pass never
+discovers.
+
+Otherwise, run the `prime-codebase` skill (`.claude/skills/prime-codebase/SKILL.md`).
 
 ---
 

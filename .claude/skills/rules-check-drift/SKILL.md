@@ -15,7 +15,7 @@ rules file against what just changed and proposes the **smallest** edit that kee
 > need *no* edit at all — adding a wrong or verbose line makes it worse.
 
 ## Input
-- `$1` — optional diff range. Default: uncommitted + staged (`git diff HEAD`); fall back to `main...HEAD`.
+- `$ARGUMENTS` — optional diff range. Default: uncommitted + staged (`git diff HEAD`); fall back to `main...HEAD`.
 - **Scope: the project's rules file(s)** — `CLAUDE.md` and/or `AGENTS.md`, the root file + any package-level
   ones. (If `CLAUDE.md` is just a `@AGENTS.md` import, check `AGENTS.md`.) Ignore README, `docs/`, and `.claude/`
   agent/command/skill files. This skill exists to keep the *rules* honest, nothing else.

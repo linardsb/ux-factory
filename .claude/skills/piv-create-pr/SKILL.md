@@ -43,6 +43,64 @@ git log origin/{base}..HEAD --oneline
 - Linked ticket / issue: look for `ACC-…`, `#123`, `Fixes #…` in the commits/branch name.
 - PR template: if `.github/PULL_REQUEST_TEMPLATE.md` exists, fill it; else use the default below.
 
+## Phase 2.5 — The figures gate (BLOCKING)
+
+Numbers in a PR body are the surface that has gone wrong most often in this loop, and always by the
+same mechanism: a figure is copied plan → report → PR body → handoff note and re-derived at none of
+them. The provenance label is usually *present* — it just names a run that is no longer the current
+one. Two checks, both executable, because prose reminders about this have demonstrably not worked.
+
+**1. The validation block is generated, never typed.**
+
+```bash
+scripts/record-gate.sh <the project's gate command>
+# e.g. scripts/record-gate.sh pnpm turbo run typecheck lint test build --force
+```
+
+It runs the gate, stamps the result with the commit it describes, writes `.claude/last-gate.json`,
+and prints a Validation block. **Paste that block verbatim into the body.** Do not retype a count,
+a duration or a suite total by hand — that retyping is the defect.
+
+Then, before opening or updating the PR:
+
+```bash
+jq -r .head .claude/last-gate.json    # must equal:
+git rev-parse HEAD
+```
+
+| State | Action |
+|-------|--------|
+| No `.claude/last-gate.json` | STOP: run `record-gate.sh` first. |
+| `.head` ≠ current `HEAD` | STOP: the record describes a different tree. Re-run the gate. |
+| `.exit_code` ≠ 0 | STOP: the gate is red. Fix it, or open as `--draft` and say so in the body. |
+| Matches, exit 0 | PROCEED |
+
+Add `.claude/last-gate.json` to `.gitignore` — it is a per-run artifact, not a repo artifact.
+
+**2. Every other figure is checked for inheritance.**
+
+```bash
+scripts/inherited-figures.sh <draft-body.md> .claude/reports/<…>-report.md [<previous-body.md>]
+```
+
+Pass the implementation report always, and the PR's previous body whenever you are **updating** an
+existing PR (`gh pr view <n> --json body -q .body > prev-body.md`) — that is the case a rebase
+creates, and the one that has bitten hardest. Every measurement it prints is unaudited, not
+necessarily wrong. For each: re-derive it at this head, or state in the body why it is
+head-independent. Exit 1 is expected on a first run; the check has done its job when you have
+answered each line, not when it prints PASS.
+
+**Two things neither check catches, so do them by eye:**
+
+- **A right number under a wrong label.** #87 shipped a best-case interval labelled worst-case; the
+  arithmetic was correct. If a figure names a case (worst/typical/at the cap), verify the case, not
+  the digits.
+- **A claim with no numeral in it.** On 2026-08-18 a PR body asserted "GitHub retargets this to
+  `main` automatically when the base merges" — false for any repo with `deleteBranchOnMerge: false`,
+  and no check would have flagged it. Retire a claim by its **subject**: grep the noun, not the
+  sentence, and check the PR body too, which is the most-read surface and the only one not in the
+  working tree.
+
 ## Phase 3 — Push and open the PR
 
 ```bash
@@ -58,14 +116,15 @@ gh pr create --base "{base}" --title "{type}: {concise description}" --body "$(c
 {commit summaries}
 
 ## Validation
-- Tests / type-check / lint: {pass/fail from the implementation report or a fresh run}
-- Manual check: {what was exercised, or "pending review"}
+{the block record-gate.sh printed, pasted verbatim — counts, duration and the commit it ran at}
+- Manual check: {what was exercised, or "not run" — never leave this implied}
 
 ## Notes for the reviewer
 {documented deviations from the plan — intentional decisions — or "none"}
 
 ## Linked
-{ticket / issue refs, or "none"}
+{Closes #<n> — written bare, at the start of the line. Never wrap the closing keyword in backticks: GitHub
+does not parse closing keywords inside inline code, so the merge leaves the issue open. Or "none".}
 
 _Ready for review._
 EOF
@@ -77,8 +136,13 @@ EOF
 ## Output
 
 ```bash
-gh pr view --json number,url,title,baseRefName,headRefName
+gh pr view --json number,url,title,baseRefName,headRefName,closingIssuesReferences
 ```
+
+**If the work had a ticket and `closingIssuesReferences` is `[]`, GitHub did not link it** — the closing
+keyword is missing or backticked. Fix the body (`gh pr edit <n> --body-file …`), re-run the check, and only
+then report. Merging an unlinked PR leaves the issue open with no signal: #110 shipped with `Closes #108`
+inside backticks, and #108 sat open after the merge until someone noticed by hand.
 
 Report the PR number + URL, the base ← head branches, and **"Ready for review → run `piv-review-pr <number>`, then a
 human approves."** This is the handoff point: the agent's loop ends at an open PR; review and merge are the gates.

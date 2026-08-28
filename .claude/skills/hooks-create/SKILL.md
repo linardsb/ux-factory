@@ -101,6 +101,46 @@ everything if the goal is specific.
   session). The only intentional non-zero exit is the deliberate `exit 2` block.
 - Keep it lean and readable — the user will want to tweak the matched paths/commands later.
 - If a hook already exists for that event, **extend it** rather than overwrite (add your check; keep theirs).
+- **`Stop` / `SubagentStop` only:** check `stop_hook_active` first and `sys.exit(0)` when it is true. Without
+  that guard the hook blocks the stop, the agent works, tries to stop again, is blocked again — a loop.
+
+> ### ⚠️ Running a project command from a hook (read this before writing one)
+>
+> The hook itself runs under **`uv run`, in an isolated ephemeral environment**. Its interpreter is NOT the
+> project's interpreter and does NOT have the project's dependencies. So:
+>
+> - **NEVER** rebuild the command with `sys.executable` or a bare `["python", "-m", "pytest", ...]` list. That
+>   runs the *hook's* throwaway python, which has no pytest, no project packages, nothing. The command fails with
+>   `No module named …` **every single time** — so a "don't finish until tests pass" hook blocks on green as
+>   readily as on red, and reports a nonsense reason. It looks like it works. It does not.
+> - **DO** run the user's command **verbatim, as a shell string, in the project directory — with uv's ephemeral
+>   venv stripped from the environment.** `shell=True` alone is not enough: `uv run` puts its throwaway
+>   interpreter first on `PATH` and sets `VIRTUAL_ENV`, so even a shell command resolves `python` to the wrong
+>   one. Copy this helper as-is:
+>   ```python
+>   TEST_COMMAND = "python -m pytest -q"   # exactly what the user typed; the one line they'll edit
+>
+>   def _project_env() -> dict:
+>       """os.environ minus uv's ephemeral venv, so the project's own tools resolve."""
+>       env = os.environ.copy()
+>       venv = env.pop("VIRTUAL_ENV", None)
+>       if venv:
+>           drop = {os.path.join(venv, "Scripts"), os.path.join(venv, "bin")}
+>           env["PATH"] = os.pathsep.join(
+>               p for p in env.get("PATH", "").split(os.pathsep) if p not in drop
+>           )
+>       return env
+>
+>   result = subprocess.run(
+>       TEST_COMMAND, shell=True, capture_output=True, text=True,
+>       cwd=hook_input.get("cwd"),          # the project root Claude Code passes in
+>       env=_project_env(),
+>   )
+>   ```
+>   Put the command in a single named constant at the top of the file so the user can edit one obvious line.
+> - If the command must run from a **subdirectory** (a monorepo, or a project whose test config lives deeper —
+>   e.g. `app/backend/`), ask for that, and pass it: `cwd=Path(hook_input["cwd"]) / "app/backend"`. Getting this
+>   wrong produces a hook that always blocks, which the user will read as "hooks are broken."
 
 ### 5. Wire it into settings.json
 Edit `.claude/settings.json` (create it if absent). **Merge** into any existing `hooks` block — never clobber
@@ -116,11 +156,29 @@ other events or other hooks on the same event. Shape:
 }
 ```
 
-### 6. Explain, test, and warn
+### 6. Prove it yourself, then explain and warn
+
+**Run the hook before you hand it over.** Feed it a sample event on stdin and check the exit code — do not ship a
+hook you have only read. A hook that always blocks, or never blocks, looks identical to a working one until it
+fires at the wrong moment.
+
+```bash
+# should ALLOW (exit 0)
+echo '{"session_id":"t","cwd":"<project-root>","hook_event_name":"Stop","stop_hook_active":false}' | uv run .claude/hooks/stop.py; echo "exit=$?"
+```
+
+- For a **command-running hook** (tests/lint/types), this is mandatory and you must check **both** directions:
+  it exits 0 while the command passes, and exits 2 once it genuinely fails. If it exits 2 in both states, the
+  command is not resolving — re-read the warning in step 4 about `sys.executable`.
+- For a **blocking guard**, feed it one payload that should be blocked and one that should pass.
+- If a check comes back wrong, fix the script and re-run before reporting success.
+
+Then:
 - Tell the user **what you built**, in plain words: which event, what it guarantees, and the one line they'd
   change to adjust it.
-- Give them a **way to prove it**: for a blocking hook, an action that *should* be blocked ("ask me to read
-  `.env` — watch it refuse"); for an observe hook, where the output lands (the log file, the notification).
+- Give them a **way to prove it** in the agent: for a blocking hook, an action that *should* be blocked ("ask me
+  to read the env file — watch it refuse"); for an observe hook, where the output lands (the log, the notification).
+- Report what you verified, and say plainly if you could not verify something.
 - **Security note (always say this):** a hook runs arbitrary code automatically, with your credentials, on every
   matching event. Review hooks like you review CI config; only run hooks you trust. (Same caution as MCP
   servers.)
@@ -131,7 +189,11 @@ other events or other hooks on the same event. Shape:
   Stop / UserPromptSubmit) — not PostToolUse.
 - ✅ The **matcher is scoped** to what the user actually meant (not firing on everything by accident).
 - ✅ The script **fails open** — any error exits 0; the only `exit 2` is the intended block, with a clear stderr reason.
+- ✅ Any **project command runs verbatim via `shell=True` in the project `cwd`** — never rebuilt with
+  `sys.executable` or a bare `python` (the hook's own interpreter has none of the project's dependencies).
+- ✅ A `Stop` / `SubagentStop` hook honors **`stop_hook_active`** so it cannot loop.
 - ✅ `settings.json` was **merged**, not overwritten; existing hooks still present.
+- ✅ **You ran the hook** and confirmed it exits 0 when it should allow and 2 when it should block — not just read it.
 - ✅ The user got a **plain-English explanation + a test + the security note.**
 
 ## Notes
