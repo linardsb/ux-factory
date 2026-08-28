@@ -1,0 +1,141 @@
+[0.0s] handler: {"question_id":"q1","answer_ref":"a1","level":"business"} (question_id is string)
+[0.0s] handler: {"question_id":null,"answer_ref":"a2","level":"solution"} (question_id is JSON null)
+[0.0s] handler: {"question_id":"q1","answer_ref":"a9","level":"solution"} (question_id is string)
+[0.0s] preflight: {"P1_schema_nullable_enum_required":true,"P2_valid_call_filed_in_this_process":true,"P3_null_question_id_arrives_as_json_null":true,"P4_bad_answer_ref_refused_by_handler_as_isError":true,"P5_out_of_enum_refused_before_handler":true,"P6_missing_field_refused":true}
+
+PREFLIGHT {
+  "versions": {
+    "sdk": "0.1.77",
+    "zod": "4.4.3",
+    "node": "v20.20.2"
+  },
+  "preflight": {
+    "reachable": true,
+    "advertised": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "question_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "answer_ref": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "business",
+            "stakeholder",
+            "solution",
+            "transition"
+          ]
+        }
+      },
+      "required": [
+        "question_id",
+        "answer_ref",
+        "level"
+      ]
+    },
+    "calls": {
+      "valid": {
+        "content": [
+          {
+            "type": "text",
+            "text": "filed #1: business decision on q1 ← a1 (\"Two paying teams renew without a discount.\")"
+          }
+        ]
+      },
+      "nullQuestion": {
+        "content": [
+          {
+            "type": "text",
+            "text": "filed #2: solution decision on off-script ← a2 (\"We stop hand-writing PRDs.\")"
+          }
+        ]
+      },
+      "badRef": {
+        "content": [
+          {
+            "type": "text",
+            "text": "record_stub: answer_ref \"a9\" does not resolve — the store holds a1, a2"
+          }
+        ],
+        "isError": true
+      },
+      "outOfEnum": {
+        "content": [
+          {
+            "type": "text",
+            "text": "MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"business\",\n      \"stakeholder\",\n      \"solution\",\n      \"transition\"\n    ],\n    \"path\": [\n      \"level\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"business\\\"|\\\"stakeholder\\\"|\\\"solution\\\"|\\\"transition\\\"\"\n  }\n]"
+          }
+        ],
+        "isError": true
+      },
+      "missingRef": {
+        "content": [
+          {
+            "type": "text",
+            "text": "MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"answer_ref\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]"
+          }
+        ],
+        "isError": true
+      }
+    }
+  },
+  "filed": [
+    {
+      "question_id": "q1",
+      "answer_ref": "a1",
+      "level": "business",
+      "resolved": "Two paying teams renew without a discount."
+    },
+    {
+      "question_id": null,
+      "answer_ref": "a2",
+      "level": "solution",
+      "resolved": "We stop hand-writing PRDs."
+    }
+  ],
+  "handlerCalls": [
+    {
+      "pid": 85255,
+      "args": {
+        "question_id": "q1",
+        "answer_ref": "a1",
+        "level": "business"
+      }
+    },
+    {
+      "pid": 85255,
+      "args": {
+        "question_id": null,
+        "answer_ref": "a2",
+        "level": "solution"
+      }
+    },
+    {
+      "pid": 85255,
+      "args": {
+        "question_id": "q1",
+        "answer_ref": "a9",
+        "level": "solution"
+      }
+    }
+  ],
+  "P": {
+    "P1_schema_nullable_enum_required": true,
+    "P2_valid_call_filed_in_this_process": true,
+    "P3_null_question_id_arrives_as_json_null": true,
+    "P4_bad_answer_ref_refused_by_handler_as_isError": true,
+    "P5_out_of_enum_refused_before_handler": true,
+    "P6_missing_field_refused": true
+  }
+}

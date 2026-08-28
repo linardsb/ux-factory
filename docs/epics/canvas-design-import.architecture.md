@@ -90,7 +90,7 @@ and `groups/`, `proposals/`, `imports/` and the generated handoff sit beside the
 - **Text renders through the shared `renderMarkdown`** (`system/handoff-viewer.mjs:163`, exported at
   #215 for the catalog). Links are the one extension, made there so both existing mounts get them. The
   renderer stays a line walker with a bounded census; headings, blockquotes and ordered lists stay out.
-- **Portal dependencies:** the SDK, plus `zod` only if #280's verdict is the in-process tool. The Figma
+- **Portal dependencies:** the SDK, plus its peer `zod`, declared at #280's verdict (the in-process tool) for tool schemas only. The Figma
   house plugin is plain JavaScript with a manifest, no bundler, loaded from disk in Figma desktop.
 - **The compose agent's vocabulary context is generated at run time from `vocabulary.json`** (T13's idea
   in its minimal form), never hand-authored; the "not covered" escape is an explicit outcome in the prompt
@@ -193,7 +193,7 @@ variant  {key, overrides: {frameId: override}}
   fails validation is a visible refusal on the canvas and a `refused` line, never a retry.
 - **Transport inherits #280.** Spike C proved the recorded run reaches the MCP in process; whether the
   op itself reaches the applier through an in-process tool or the `board-op.mjs` CLI shape is #280's
-  verdict, still unposted. The spine assumes the in-process tool and the applier does not change either
+  verdict, posted 2026-08-28: the in-process tool. The spine assumes the in-process tool and the applier does not change either
   way.
 - **Ratify writes, gates, and stops at the diff (G6).** The click writes `system/specs/<name>.md`,
   appends the CSS block to `components.css` under the standard header, writes the template into

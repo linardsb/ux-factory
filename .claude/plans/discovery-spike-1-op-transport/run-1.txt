@@ -1,0 +1,248 @@
+[0.0s] handler: {"question_id":"q1","answer_ref":"a1","level":"business"} (question_id is string)
+[0.0s] handler: {"question_id":null,"answer_ref":"a2","level":"solution"} (question_id is JSON null)
+[0.0s] handler: {"question_id":"q1","answer_ref":"a9","level":"solution"} (question_id is string)
+[0.0s] preflight: {"P1_schema_nullable_enum_required":true,"P2_valid_call_filed_in_this_process":true,"P3_null_question_id_arrives_as_json_null":true,"P4_bad_answer_ref_refused_by_handler_as_isError":true,"P5_out_of_enum_refused_before_handler":true,"P6_missing_field_refused":true}
+[1.4s] init: model=claude-sonnet-5 tools=["mcp__discovery-spike__record_stub"] mcp_servers=[{"name":"discovery-spike","status":"connected"}]
+[6.0s] tool_use mcp__discovery-spike__record_stub {"question_id":"q1","answer_ref":"a1","level":"business"}
+[6.0s] handler: {"question_id":"q1","answer_ref":"a1","level":"business"} (question_id is string)
+[6.0s] PostToolUse mcp__discovery-spike__record_stub
+[8.0s] assistant: "filed #1: business decision on q1 ← a1 (\"Two paying teams renew without a discount.\")"
+[8.3s] tool_use mcp__discovery-spike__record_stub {"question_id":null,"answer_ref":"a9","level":"solution"}
+[8.3s] handler: {"question_id":null,"answer_ref":"a9","level":"solution"} (question_id is JSON null)
+[8.3s] PostToolUseFailure mcp__discovery-spike__record_stub
+[10.4s] assistant: "record_stub: answer_ref \"a9\" does not resolve — the store holds a1, a2"
+[10.7s] tool_use mcp__discovery-spike__record_stub {"question_id":"q1","answer_ref":"a2","level":"wrong"}
+[10.7s] PostToolUseFailure mcp__discovery-spike__record_stub
+[13.6s] assistant: "MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [{\"code\": \"invalid_value\",\"values\": [\"business\",\"stakeholder\",\"solution\",\"transition\"],\"path\": [\"level\"],\"message\": \"Invalid option: expected one of \\\"business\\\"|\\\"stakeholder\\\"|\\\"soluti
+[13.6s] result: {"subtype":"success","num_turns":4,"duration_ms":12243,"total_cost_usd":0.09224315,"text":"\"MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [{\\\"code\\\": \\\"invalid_value\\\",\\\"values\\\": [\\\"business\\\",\\\"stakeholder\\\",\\\"solution\\\",\\\"transition\\\"],\\\"path\\\": [\\\"level\\\"],\\\"message\\\": \\\"Invalid option: expected one of \\\\\\\"business\\\\\\\"|\\\\\\\"stakeholder\\\\\\\"|\\\\\\\"solution\\\\\\\"|\\\\\\\"transition\\\\\\\"\\\"}]\"\n\nDONE"}
+
+VERDICT {
+  "question": "in-process SDK tool end to end at the installed SDK?",
+  "works": true,
+  "versions": {
+    "sdk": "0.1.77",
+    "zod": "4.4.3",
+    "node": "v20.20.2"
+  },
+  "elapsedMs": 14188,
+  "result": {
+    "subtype": "success",
+    "num_turns": 4,
+    "duration_ms": 12243,
+    "total_cost_usd": 0.09224315,
+    "text": "\"MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [{\\\"code\\\": \\\"invalid_value\\\",\\\"values\\\": [\\\"business\\\",\\\"stakeholder\\\",\\\"solution\\\",\\\"transition\\\"],\\\"path\\\": [\\\"level\\\"],\\\"message\\\": \\\"Invalid option: expected one of \\\\\\\"business\\\\\\\"|\\\\\\\"stakeholder\\\\\\\"|\\\\\\\"solution\\\\\\\"|\\\\\\\"transition\\\\\\\"\\\"}]\"\n\nDONE"
+  },
+  "init": {
+    "model": "claude-sonnet-5",
+    "tools": [
+      "mcp__discovery-spike__record_stub"
+    ],
+    "mcp_servers": [
+      {
+        "name": "discovery-spike",
+        "status": "connected"
+      }
+    ],
+    "session_id": "ea2cb714-9f79-4583-812f-3135430cd2ce"
+  },
+  "preflight": {
+    "reachable": true,
+    "advertised": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "question_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "answer_ref": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "business",
+            "stakeholder",
+            "solution",
+            "transition"
+          ]
+        }
+      },
+      "required": [
+        "question_id",
+        "answer_ref",
+        "level"
+      ]
+    },
+    "calls": {
+      "valid": {
+        "content": [
+          {
+            "type": "text",
+            "text": "filed #1: business decision on q1 ← a1 (\"Two paying teams renew without a discount.\")"
+          }
+        ]
+      },
+      "nullQuestion": {
+        "content": [
+          {
+            "type": "text",
+            "text": "filed #2: solution decision on off-script ← a2 (\"We stop hand-writing PRDs.\")"
+          }
+        ]
+      },
+      "badRef": {
+        "content": [
+          {
+            "type": "text",
+            "text": "record_stub: answer_ref \"a9\" does not resolve — the store holds a1, a2"
+          }
+        ],
+        "isError": true
+      },
+      "outOfEnum": {
+        "content": [
+          {
+            "type": "text",
+            "text": "MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"business\",\n      \"stakeholder\",\n      \"solution\",\n      \"transition\"\n    ],\n    \"path\": [\n      \"level\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"business\\\"|\\\"stakeholder\\\"|\\\"solution\\\"|\\\"transition\\\"\"\n  }\n]"
+          }
+        ],
+        "isError": true
+      },
+      "missingRef": {
+        "content": [
+          {
+            "type": "text",
+            "text": "MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"answer_ref\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]"
+          }
+        ],
+        "isError": true
+      }
+    },
+    "filed": [
+      {
+        "question_id": "q1",
+        "answer_ref": "a1",
+        "level": "business",
+        "resolved": "Two paying teams renew without a discount."
+      },
+      {
+        "question_id": null,
+        "answer_ref": "a2",
+        "level": "solution",
+        "resolved": "We stop hand-writing PRDs."
+      }
+    ],
+    "handlerCalls": [
+      {
+        "pid": 85297,
+        "args": {
+          "question_id": "q1",
+          "answer_ref": "a1",
+          "level": "business"
+        }
+      },
+      {
+        "pid": 85297,
+        "args": {
+          "question_id": null,
+          "answer_ref": "a2",
+          "level": "solution"
+        }
+      },
+      {
+        "pid": 85297,
+        "args": {
+          "question_id": "q1",
+          "answer_ref": "a9",
+          "level": "solution"
+        }
+      }
+    ],
+    "P": {
+      "P1_schema_nullable_enum_required": true,
+      "P2_valid_call_filed_in_this_process": true,
+      "P3_null_question_id_arrives_as_json_null": true,
+      "P4_bad_answer_ref_refused_by_handler_as_isError": true,
+      "P5_out_of_enum_refused_before_handler": true,
+      "P6_missing_field_refused": true
+    }
+  },
+  "run": {
+    "filed": [
+      {
+        "question_id": "q1",
+        "answer_ref": "a1",
+        "level": "business",
+        "resolved": "Two paying teams renew without a discount."
+      }
+    ],
+    "handlerCalls": [
+      {
+        "pid": 85297,
+        "args": {
+          "question_id": "q1",
+          "answer_ref": "a1",
+          "level": "business"
+        }
+      },
+      {
+        "pid": 85297,
+        "args": {
+          "question_id": null,
+          "answer_ref": "a9",
+          "level": "solution"
+        }
+      }
+    ],
+    "fence": {
+      "canUseTool": [
+        "mcp__discovery-spike__record_stub",
+        "mcp__discovery-spike__record_stub",
+        "mcp__discovery-spike__record_stub"
+      ],
+      "preToolUse": [
+        "mcp__discovery-spike__record_stub",
+        "mcp__discovery-spike__record_stub",
+        "mcp__discovery-spike__record_stub"
+      ]
+    },
+    "toolReplies": [
+      {
+        "name": "mcp__discovery-spike__record_stub",
+        "response": "[{\"type\":\"text\",\"text\":\"filed #1: business decision on q1 ← a1 (\\\"Two paying teams renew without a discount.\\\")\"}]"
+      }
+    ],
+    "failures": [
+      {
+        "name": "mcp__discovery-spike__record_stub",
+        "error": "record_stub: answer_ref \"a9\" does not resolve — the store holds a1, a2"
+      },
+      {
+        "name": "mcp__discovery-spike__record_stub",
+        "error": "MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"business\",\n      \"stakeholder\",\n      \"solution\",\n      \"transition\"\n    ],\n    \"path\": [\n      \"level\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"business\\\"|\\\"stakeholder\\\"|\\\"solution\\\"|\\\"transition\\\"\"\n  }\n]"
+      }
+    ],
+    "assistant": [
+      "\"filed #1: business decision on q1 ← a1 (\\\"Two paying teams renew without a discount.\\\")\"",
+      "\"record_stub: answer_ref \\\"a9\\\" does not resolve — the store holds a1, a2\"",
+      "\"MCP error -32602: Input validation error: Invalid arguments for tool record_stub: [{\\\"code\\\": \\\"invalid_value\\\",\\\"values\\\": [\\\"business\\\",\\\"stakeholder\\\",\\\"solution\\\",\\\"transition\\\"],\\\"path\\\": [\\\"level\\\"],\\\"message\\\": \\\"Invalid option: expected one of \\\\\\\"business\\\\\\\"|\\\\\\\"stakeholder\\\\\\\"|\\\\\\\"solution\\\\\\\"|\\\\\\\"transition\\\\\\\"\\\"}]\"\n\nDONE"
+    ],
+    "B": {
+      "B1_tool_visible_and_server_connected": true,
+      "B2_handler_ran_in_this_process_and_resolved_a1": true,
+      "B3_handler_refusal_reached_the_agent": true,
+      "B4_canUseTool_saw_the_mcp_tool": true,
+      "B5_PreToolUse_saw_the_mcp_tool": true,
+      "B6_no_builtin_tools_leaked": true,
+      "B7_run_completed": true,
+      "I1_agent_quoted_the_enum_refusal": "yes"
+    }
+  }
+}
