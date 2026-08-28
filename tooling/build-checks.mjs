@@ -115,9 +115,16 @@
 //                     and both clamps, trackOffsets' gap rule, cellRect's footprint consistency,
 //                     visibleRange's round-trip, and the no-timer source pin over both new
 //                     modules (#221)
+//  28 bank           the discovery question bank as data: the count and per-stage counts pinned,
+//                     ids unique and stage-prefixed, every field on every entry, the twelve as an
+//                     ORDER assertion, each depth's exact documented set, purity and frozenness by
+//                     mutation, the C3 title-term list with its positive control, the zero-import /
+//                     no-page source pin, and every weak-answer note pinned to the research file by
+//                     its first thirty characters (#282)
 //
 //   node tooling/build-checks.mjs
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -168,6 +175,9 @@ import { cellRect, jumpFrom, mapView, trackOffsets, visibleRange } from "../syst
 import { makeFence } from "../portal/record-build.mjs";
 import { auditRefs, stampShell } from "../agent-layer/build-instance.mjs";
 import { curateTrace } from "./curate-trace.mjs";
+// #282's bank — a zero-import data module (discovery/, not system/), so there is no SDK anywhere
+// in its graph and CI's absence of portal/node_modules cannot touch it.
+import { DEPTHS, OPENING_SET, questionById, questionsForStage, QUESTIONS as BANK, selectDepth, STAGES } from "../discovery/bank.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -5094,6 +5104,151 @@ function scanSvg(svg, label) {
   group("minimap", "mapView in THREE conditions — at rest (the positive control), panned (the missing-scroll-term detector, expected offsets computed independently) and zoomed at 0,0 (the missing-divide detector, w === clientW/scale with h capped at the content box) — each the sole detector of one coordinate term · the far-edge clamp keeping the rect inside the content box · junk pinned to the HONEST WHOLE VIEW as a contract · jumpFrom's centering with the 0 floor and the max ceiling equal to the browser's own scrollLeft clamp range · trackOffsets' gap-before-next-start rule against a hand-computed fixture · a 2×3 cellRect equal to the union of its six 1×1 rects (footprint()'s definition drawn, not keyed) with the spanless 1×1 default · visibleRange round-tripping mapView's answer and refusing an edge-kissing column · totality throughout · and the no-timer source pin over BOTH #221 modules (rAF coalescing allowed and used, setInterval/setTimeout refused). The running map — the view rect tracking a real pan, the zoom-at-0,0 observer wiring, click-to-jump against the settled scroll, the keyboard path's announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's minimapPass, and this group cannot reach it");
 }
 
+// --- 28 · the discovery question bank (#282) --------------------------------------------------------
+//
+// discovery/bank.mjs is DATA plus three pure selectors, so the group is mostly pins: the counts,
+// the documented sets and the source file, each as a literal here so a bank edit that moves one of
+// them has to move the gate in the same PR. The next ticket to add a group takes 29 (#281).
+
+{
+  const LABELS = new Set(["OBSERVED", "DERIVED", "THIN"]);
+  const KEYS = new Set(["id", "stage", "text", "attribution", "label", "provenanceNote", "weakAnswer", "note"]);
+  const TWELVE = [
+    "s1-if-nobody-solves-this", "s1-how-addressed-today", "s6-process-as-it-runs",
+    "s1-what-would-have-to-be-true", "s2-riskiest-assumption", "s5-pain-budget-same-person",
+    "s4-appetite", "s4-rabbit-holes", "s4-out-of-bounds", "s6-accountable-when-wrong",
+    "s7-what-would-make-us-stop", "s8-eval",
+  ];
+  const SCOPE_CHECK = [
+    "s4-appetite", "s4-rabbit-holes", "s4-out-of-bounds",
+    "s7-goals-signals-metrics", "s7-kill-state-and-date", "s7-what-would-make-us-stop",
+  ];
+  const FULL_DISCOVERY = [
+    ...TWELVE,
+    "s1-choice-cascade", "s1-premortem", "s2-more-than-one-way", "s2-last-time-show-me",
+    "s2-switch-timeline", "s3-why-now", "s3-deliberately-not-doing", "s4-press-release",
+    "s4-four-risks", "s4-circuit-breaker", "s5-value-metric", "s5-willingness-to-pay",
+    "s6-audit-trail", "s6-coexist-with-incumbent", "s7-kill-state-and-date",
+    "s7-goes-up-doing-nothing", "s8-failure-who-pays", "s9-strength-of-evidence",
+  ];
+  const ids = (qs) => qs.map((q) => q.id);
+
+  // 1 · the count — 65 entries, 69 source bullets less two mottos, one cross-reference and one
+  //     fold (the module header's D2/D3), per stage 6·7·6·7·8·8·7·12·4, nine stages.
+  ok(BANK.length === 65, `the bank holds ${BANK.length} entries, not 65 — reconcile the docs and this pin with the module header`);
+  const perStage = [6, 7, 6, 7, 8, 8, 7, 12, 4];
+  perStage.forEach((n, i) => ok(questionsForStage(i + 1).length === n,
+    `stage ${i + 1} holds ${questionsForStage(i + 1).length} entries, not ${n}`));
+  ok(STAGES.length === 9 && STAGES.every((s, i) => s.n === i + 1), "STAGES must be 1–9 in order");
+  for (const q of BANK) ok(STAGES.some((s) => s.n === q.stage), `${q.id}: stage ${q.stage} names no STAGES entry`);
+
+  // 2 · ids — unique, stage-prefixed, and questionById answers the SAME object.
+  ok(new Set(ids(BANK)).size === BANK.length, "bank ids must be unique");
+  for (const q of BANK) {
+    ok(/^s[1-9]-[a-z0-9-]+$/.test(q.id), `${q.id}: not of the form s<stage>-<slug>`);
+    ok(Number(q.id[1]) === q.stage, `${q.id}: id prefix disagrees with stage ${q.stage}`);
+    ok(questionById(q.id) === q, `questionById("${q.id}") must answer the bank's own entry by identity`);
+  }
+  ok(questionById("nope") === null && questionById(undefined) === null && questionById(42) === null,
+    "questionById must answer null for anything the bank does not hold, never throw");
+
+  // 3 · fields — every entry carries the rubric, and nothing outside the documented key set.
+  const filled = (v) => typeof v === "string" && v.trim() === v && v.length > 0;
+  for (const q of BANK) {
+    ok(filled(q.text) && filled(q.attribution) && filled(q.weakAnswer),
+      `${q.id}: text, attribution and weakAnswer must all be non-empty trimmed strings`);
+    ok(LABELS.has(q.label), `${q.id}: label "${q.label}" is not OBSERVED | DERIVED | THIN`);
+    ok(Object.keys(q).every((k) => KEYS.has(k)), `${q.id}: carries an undocumented key (${Object.keys(q).filter((k) => !KEYS.has(k)).join(", ")})`);
+    ok(q.weakAnswer !== q.text, `${q.id}: weakAnswer is the text`);
+    for (const k of ["provenanceNote", "note"]) if (k in q) ok(filled(q[k]), `${q.id}: ${k} present but empty`);
+  }
+
+  // 4 · the twelve — as an ORDER assertion, verbatim against the documented set.
+  ok(OPENING_SET.length === 12 && new Set(OPENING_SET).size === 12, "OPENING_SET must be twelve unique ids");
+  ok(OPENING_SET.every((id) => questionById(id) !== null), "every OPENING_SET id must resolve");
+  ok(JSON.stringify(OPENING_SET) === JSON.stringify(TWELVE),
+    `OPENING_SET drifted from the documented twelve: ${JSON.stringify(OPENING_SET)}`);
+
+  // 5 · depths — each one's exact documented set, the twelve at the head of full discovery, no
+  //     orphan reference, no repeat inside a depth, and the junk-depth throw naming the value.
+  ok(JSON.stringify(ids(selectDepth("scope-check"))) === JSON.stringify(SCOPE_CHECK),
+    `scope-check drifted: ${JSON.stringify(ids(selectDepth("scope-check")))}`);
+  // DEPTHS["opening-set"].ids IS OPENING_SET today (bank.mjs aliases it); this guards a future de-aliasing.
+  ok(JSON.stringify(ids(selectDepth("opening-set"))) === JSON.stringify(OPENING_SET),
+    "opening-set must be OPENING_SET, same order");
+  ok(JSON.stringify(ids(selectDepth("full-discovery"))) === JSON.stringify(FULL_DISCOVERY),
+    `full-discovery drifted: ${JSON.stringify(ids(selectDepth("full-discovery")))}`);
+  ok(JSON.stringify(DEPTHS["full-discovery"].ids.slice(0, 12)) === JSON.stringify(TWELVE), "full discovery must start with the twelve");
+  for (const [k, d] of Object.entries(DEPTHS)) {
+    ok(filled(d.label) && filled(d.when), `depth ${k} needs a label and a when`);
+    ok(d.ids.every((id) => questionById(id) !== null), `depth ${k} references an id the bank does not hold`);
+    ok(new Set(d.ids).size === d.ids.length, `depth ${k} asks a question twice`);
+  }
+  for (const junk of ["junk", "", undefined, 42]) {
+    let msg = null;
+    try { selectDepth(junk); } catch (e) { msg = e.message; }
+    // "" is a substring of every message, so the empty case pins the throw's own wording instead.
+    const names = msg !== null && (junk === "" ? msg.includes("unknown depth") : msg.includes(String(junk)));
+    ok(names, `selectDepth(${JSON.stringify(junk) ?? "undefined"}) must throw naming the value, got ${JSON.stringify(msg)}`);
+  }
+
+  // 6 · purity + frozen — two calls agree, entries come back by identity, and a write is inert.
+  for (const k of Object.keys(DEPTHS)) {
+    ok(JSON.stringify(selectDepth(k)) === JSON.stringify(selectDepth(k)), `selectDepth("${k}") is not pure`);
+    ok(selectDepth(k).every((q) => questionById(q.id) === q), `selectDepth("${k}") must answer the bank's own entries`);
+  }
+  for (let n = 1; n <= 9; n += 1) ok(questionsForStage(n).every((q) => BANK.includes(q)), `questionsForStage(${n}) must answer the bank's own entries`);
+  ok(questionsForStage(10).length === 0 && questionsForStage("1").length === 0, "questionsForStage must answer [] for 10 and for \"1\" (strict number compare)");
+  ok(Object.isFrozen(BANK) && BANK.every(Object.isFrozen), "QUESTIONS and every entry must be frozen");
+  ok(Object.isFrozen(OPENING_SET) && Object.values(DEPTHS).every((d) => Object.isFrozen(d) && Object.isFrozen(d.ids)), "OPENING_SET and every DEPTHS[k].ids must be frozen");
+  const before = JSON.stringify(BANK);
+  try { BANK[0].text = "x"; } catch { /* strict mode throws on a frozen write; either way the compare below decides */ }
+  try { DEPTHS["scope-check"].ids.push("s1-premortem"); } catch { /* same */ }
+  ok(JSON.stringify(BANK) === before && DEPTHS["scope-check"].ids.length === 6, "a write to the bank must be inert");
+
+  // 7 · C3 — no role or seniority title anywhere in the module's strings. Plain profession nouns
+  //     inside a question's SUBSTANCE ("Can our engineers build…", "the support engineer who can
+  //     impersonate", "radiologists") name people a question is about, not a title for who is
+  //     asked, and are deliberately not listed. Positive control first: the regex must be able to
+  //     fire before its silence means anything.
+  const TITLE_TERMS = /\b(product manager|product owner|project manager|head of|chief \w+ officer|ceo|cto|cpo|cfo|coo|cxo|vp|vice president|director|senior|junior|mid-level|principal|staff (engineer|designer)|executive|leadership|founder|manager|designer|pm)\b/i;
+  ok(TITLE_TERMS.test("a senior product manager signs off"), "C3 positive control: the title regex must match a planted title");
+  ok(!TITLE_TERMS.test("can our engineers build it; the support engineer who can impersonate"), "C3: profession nouns inside a question's substance must NOT match");
+  for (const q of BANK) for (const [k, v] of Object.entries(q)) {
+    if (typeof v === "string" && TITLE_TERMS.test(v)) ok(false, `${q.id}.${k} carries a title: "${v.match(TITLE_TERMS)[0]}"`);
+  }
+  for (const s of STAGES) ok(!TITLE_TERMS.test(s.label), `STAGES ${s.n} label carries a title`);
+  for (const [k, d] of Object.entries(DEPTHS)) ok(!TITLE_TERMS.test(d.label) && !TITLE_TERMS.test(d.when), `depth ${k} label/when carries a title`);
+
+  // 8 · no page, no SDK, no DOM — the module has zero import lines and no DOM token, and nothing
+  //     shipped (a tracked .html, anything under system/) reaches for it.
+  const bankSrc = readFileSync(join(ROOT, "discovery/bank.mjs"), "utf8");
+  ok(!/^import /m.test(bankSrc), "discovery/bank.mjs must have zero import lines");
+  // A DOM REACH, not the word: the press-release note legitimately says "a document that…".
+  ok(!/\b(document|window)\s*[.[]|typeof\s+(document|window)\b/.test(bankSrc), "discovery/bank.mjs must not reach for document or window");
+  ok(/\b(document|window)\s*[.[]|typeof\s+(document|window)\b/.test("if (typeof document !== 'undefined') window.x = 1"), "DOM-reach positive control");
+  const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  const shipped = tracked.filter((p) => p.endsWith(".html") || p.startsWith("system/"));
+  for (const p of shipped) {
+    if (readFileSync(join(ROOT, p), "utf8").includes("discovery/bank")) ok(false, `${p} reaches discovery/bank — no page and no system/ module may read it`);
+  }
+  ok(shipped.length > 50, `the shipped-file sweep saw only ${shipped.length} files — is git ls-files answering?`);
+
+  // 9 · the source pin (D13) — every weak-answer note's first thirty characters occur verbatim in
+  //     the source file's stages 1–9 region, so a paraphrased or invented note goes red. Positive
+  //     control: the region must be able to NOT contain a string.
+  const source = readFileSync(join(ROOT, "docs/research/question-bank-source.md"), "utf8");
+  // Both headings must exist first: an indexOf of -1 would make slice run to the end of the file
+  // and the pin would get MORE permissive rather than red.
+  ok(source.includes("## Stage 1") && source.includes("## The twelve"), "case 9: a source heading moved (\"## Stage 1\" or \"## The twelve\")");
+  const region = source.slice(source.indexOf("## Stage 1"), source.indexOf("## The twelve"));
+  ok(region.length > 10000, `the source region is ${region.length} chars — did the stage headings move?`);
+  ok(!region.includes("a note nobody wrote"), "source-pin positive control: the region must be able to miss");
+  for (const q of BANK) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
+
+  group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — all review facts against that source file");
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -5101,5 +5256,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 27 groups pass");
+  console.log("\nbuild ✓  all 28 groups pass");
 }

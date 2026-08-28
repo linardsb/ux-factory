@@ -180,7 +180,7 @@ already states, that a guard reachable only by starting a real agent run is a gu
 
   ```
   discovery/
-    bank.mjs               the 66 questions + the depth/branch selectors
+    bank.mjs               the 65 questions + the depth/branch selectors
     ops.mjs                the op vocabulary + the pure applier
     README.md              the format  (mirrors traces/README.md, scenarios/README.md)
   discovery/<slug>/        fictional runs, committed (mirrors traces/, replay/, scenarios/)
@@ -313,7 +313,7 @@ already states, that a guard reachable only by starting a real agent run is a gu
 
 ## Missing pieces
 
-The bank as an edited module (66 questions, nine stages, four branches, the non-functional block, the
+The bank as an edited module (65 questions, nine stages, four branches, the non-functional block, the
 conditional AI-interaction module) · the op vocabulary + pure applier + its `build-checks` group · the
 answer store, `answer_ref` resolution and the transcript writer (agent text · filed ops · fence
 denials) · the session module (cursor, depth ladder, branch selection, escalation on repeated weak
