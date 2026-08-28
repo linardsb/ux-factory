@@ -2,9 +2,9 @@
 
 **Status:** intent, grilled 2026-08-27, awaiting architecture · **Epic:** TBD (created by `piv-slice-epic`) · **Created:** 2026-08-26
 **Inputs.** The question bank's research seed is `docs/research/question-bank-source.md` — §5 of a longer
-research file, extracted and parked in-repo: **stages 1–9, 66 attributed questions** each with a weak-answer
+research file, extracted and parked in-repo: **stages 1–9, 65 attributed questions** each with a weak-answer
 note and an OBSERVED / DERIVED / THIN label, plus the twelve-question opening set and the sources list. It is
-the research file's **Appendix D** — the unabridged bank — not the abridged §5 summary of the same material.
+the research file's **Appendix D** — the unabridged bank — not the abridged §5 summary of the same material. The bank module holds **65** — the source's 69 top-level bullets less two mottos with no weak-answer note, one cross-reference line and one duplicated press-release question, reconciled in #282; the pre-reconciliation number was 66.
 Stage 10 and the five-questions prefix are omitted on purpose and the file says why. The rest of that research
 file is hiring material with no bearing on the bank and is deliberately not carried in. The requirements-hierarchy source is `docs/research/requirements-hierarchy.md`
 (BABOK-derived: the requirements levels, the nine elicitation methods, transition requirements), parked in-repo
@@ -55,7 +55,7 @@ half the owner's next real product needs first.
 | The Faster Payment scoring key is **four** decisions, not 33 | `_portfolio/decisions.json` — `faster-payment` holds m-005…m-008 and 4 rejects. All four are **solution-level** (one action not a menu · name check before the amount screen · balance shown per account · full-screen stop before Send). Each carries a `because`, a `would_measure` and a `why_not`. **Every one has `jd_line: null` — not one names a parent requirement** |
 | The studio reads as an exhibit rather than a tool | Owner's verdict, 2026-08-10: /factory "feels random", not product-grade |
 | The current workflow lives outside the repo | `~/.claude/skills/think/SKILL.md:11` writes to `$FREDIS_VAULT/…/thinking/`. `think` and `grill-me` exist only as user-global skills; `plan-create-prd` exists in both `~/.claude/skills/` and the repo's `.claude/skills/`, the repo copy carrying local edits |
-| The question bank's research already exists | `docs/research/question-bank-source.md` — stages 1–9, **66** attributed questions, each with a weak-answer note and a provenance label; a twelve-question opening set; a sources list. The pre-grill draft said "ten stages, ~30 questions"; both were wrong, ~30 is a **selection** rather than the bank, and the draft was reading the abridged §5 rather than the full Appendix D |
+| The question bank's research already exists | `docs/research/question-bank-source.md` — stages 1–9, **65** attributed questions, each with a weak-answer note and a provenance label; a twelve-question opening set; a sources list. The pre-grill draft said "ten stages, ~30 questions"; both were wrong, ~30 is a **selection** rather than the bank, and the draft was reading the abridged §5 rather than the full Appendix D |
 | Skill discovery under the SDK is plausible but unproven | `@anthropic-ai/claude-agent-sdk@0.1.77` exposes `settingSources` (default `[]`) and its bundled CLI references a skills directory. Not proven end to end — and by G13 below, nothing depends on it |
 
 **Assumption — needs validation**
@@ -234,7 +234,7 @@ the terminal, ending in a PRD.**
    |---|---|---|
    | **Scope check** | ~6 — Stage 4 (appetite, rabbit holes, out of bounds) + Stage 7 (kill criteria, measurement) | A feature or change to something that exists; problem, user and market already known |
    | **Opening set** | **12** — the source's twelve, in its stated order | A new surface or a substantial bet inside a known product |
-   | **Full discovery** | **~30, selected** from the 66 in stages 1–9 — the twelve, plus the branch's own picks, plus the non-functional block, plus the conditional modules (AI-interaction, voice, platform) when they fire | A new product |
+   | **Full discovery** | **~30, selected** from the 65 in stages 1–9 — the twelve, plus the branch's own picks, plus the non-functional block, plus the conditional modules (AI-interaction, voice, platform) when they fire | A new product |
 
    Either entry mode can run at any depth: an existing PRD can be audited against six questions or against
    all thirty. The depth is chosen once at session start — the agent proposes, the human confirms — and D5's
@@ -248,7 +248,7 @@ the terminal, ending in a PRD.**
    would have been incoherent. All of it presupposes an organisation the wave-1 user does not have: nobody
    above them to agree with, no reporting stack to distrust, no sacred cow to name. It returns only if a path
    is ever built for someone running this on an organisation they have joined, which is unevidenced (see the
-   guest assumption). What remains is **stages 1–9: 66 attributed questions**, from which each depth selects.
+   guest assumption). What remains is **stages 1–9: 65 attributed questions**, from which each depth selects.
 
 6. **The posture.** One question at a time. The person answers; the agent scores the answer against
    that question's weak-answer note, pushes back once if it is thin, records the decision or a
@@ -338,7 +338,7 @@ the terminal, ending in a PRD.**
     run behind it · the existing-PRD entry mode was never specified · "parity" was promised across two front
     ends that produce different artefacts in different places · the five-questions prefix and Stage 10
     presupposed an organisation the user does not have · "full discovery, ~30, all ten stages" was wrong twice,
-    over a bank holding 66 questions in nine usable stages, in an appendix the draft had not read.
+    over a bank holding 65 questions in nine usable stages, in an appendix the draft had not read.
 
 14. **First slice — one question, one decision, one file.** Everything above is width. The spine is: the
     portal asks a single banked question, the person answers, the agent pushes back once if the answer is
@@ -428,7 +428,7 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
 the escape hatch's filing rule (MVP 9) · the scoring method for independently reached (MVP 12) ·
 whether the 44px bar applies to the CLI path (no CLI path exists — non-goals) · parking the inputs
 (Inputs, both parked under `docs/research/`) · skills under the Agent SDK (MVP 3 — nothing depends
-on the answer) · the transition-note contradiction (MVP 10) · the existing-PRD entry mode (MVP 2) · what "full discovery" means (MVP 5 — nine stages, ~30 selected from 66).
+on the answer) · the transition-note contradiction (MVP 10) · the existing-PRD entry mode (MVP 2) · what "full discovery" means (MVP 5 — nine stages, ~30 selected from 65).
 
 ## Architecture
 

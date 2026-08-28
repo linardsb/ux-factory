@@ -100,12 +100,13 @@ proto/                        the two data-connected prototype pages (vd-/fw- co
 proto/compositions/           COMMITTED composition proposals from real record-composition.mjs runs
 traces/                       committed real agent-run traces, raw + curated pairs (traces/README.md)
 replay/                       the studio's replay artifacts (replay/README.md) — brief · board · projection
+discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank + depth selectors; Node-only, no page reads it
 handoff/                      GENERATED handoff pack (verdant/) — committed, never edited by hand
 docs/epics/                   PRD + architecture decisions governing the platform build
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            27 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            28 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)

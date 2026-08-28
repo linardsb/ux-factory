@@ -2,13 +2,13 @@
 
 Load this when adding a gate, changing one, or working out why a green run proves less than it looks like it does. Per-module invariants are NOT here — they live in each module's own file header, which is what an editor sees. This file holds only what no single file owns: which gate covers what, and where each one's coverage stops.
 
-**The convention that makes the stack readable:** every gate STATES the boundary it cannot reach, and names the gate that owns the other side. Groups 9, 11, 13, 16, 18, 19, 23, 24, 25, 26 and 27 each carry that sentence, and so do the journey drivers. A gate that claims total coverage is the one to distrust — see [[the check that cannot fail]]: every #137 defect survived a green gate the same way, by skipping the thing it tested. Mutate the source; run the function, don't grep it.
+**The convention that makes the stack readable:** every gate STATES the boundary it cannot reach, and names the gate that owns the other side. Groups 9, 11, 13, 16, 18, 19, 23, 24, 25, 26, 27 and 28 each carry that sentence, and so do the journey drivers. A gate that claims total coverage is the one to distrust — see [[the check that cannot fail]]: every #137 defect survived a green gate the same way, by skipping the thing it tested. Mutate the source; run the function, don't grep it.
 
 **What runs in CI (`verify` job):** `build-checks.mjs`, the generator drift checks, token-lint, and the visual-regression gate. **Everything else is operator-run** — the journey drivers, `vt-verify`, `vt-stack-audit` — and is not a merge blocker.
 
 ---
 
-## `tooling/build-checks.mjs` — 27 pure groups, in CI
+## `tooling/build-checks.mjs` — 28 pure groups, in CI
 
 PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /build's pattern rules, slots, compositions against the real generated vocabulary, the share codec + its tamper battery, SVG escaping, and the one-application-point vetting invariant.
 
@@ -41,6 +41,8 @@ PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /b
 **Group 26 — the layers list's pure layer** (#221, `system/studio-layers.mjs`): `layerEntries` preserving input order because DOM order IS board order, the position sentences for a 1×1 slot, a spanning frame and a 1×1 frame, `selectable` false EXACTLY for kind "frame" — the frames-outside-the-selection tripwire — the one-junk-row-among-good-ones mutation proving the skipping rule real, `toggleId` proven to answer NEW arrays by mutate-and-re-derive, totality throughout.
 
 **Group 27 — the minimap's pure layer** (#221, `system/studio-minimap.mjs`): `mapView` in THREE conditions each the sole detector of one coordinate term — at rest, panned, zoomed-at-0,0 — the far-edge clamp, junk pinned to the honest whole view, `jumpFrom`'s centering with both clamps equal to the browser's own scroll clamp range, `trackOffsets`' gap-before-next-start rule, a 2×3 `cellRect` equal to the union of its six 1×1 rects, `visibleRange` round-tripping `mapView`'s answer, and the no-timer source pin over BOTH #221 modules.
+
+**Group 28 — the question bank** (#282, `discovery/bank.mjs`): the count and per-stage counts pinned, ids unique and stage-prefixed, every entry's text + attribution + weak-answer note + label, the twelve as an ORDER assertion, each depth's exact documented set and the junk-depth throw, purity and frozenness by mutation, the C3 title-term list with its positive control, the zero-import / no-page source pin, and every weak-answer note pinned to `docs/research/question-bank-source.md` by its first 30 characters. *Whether an entry's TEXT is the right bullet for its id, and the C2 slop pass, are review facts against that file; this group cannot reach them.*
 
 **Adding a pattern or component?** Group 3 asserts that EVERY generated vocabulary entry has a render path (widened from the emitted set by #211, which closed `demo-notice`'s gap and deleted the written-down exception). Every group iterates `PATTERNS`, so a new entry with no `BOARD_FOR` fixture fails loudly rather than being silently skipped.
 
