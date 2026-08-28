@@ -86,7 +86,7 @@ export class VdCareTaskRow extends HTMLElement {
   // DataContract path (care-task-row.contract.json): assign a full CareTask record.
   // Reflects to attributes so markup, property, and framework usage stay one model
   // (React 19 assigns this object prop as a DOM property — verified at plan time).
-  // `plantId` and `due` are accepted but never rendered (spec mapping table).
+  // `type` reflects to the `action` attribute; `plantId` and `due` are accepted but never rendered.
   get data() { return this.#data; }
   set data(record) {
     this.#data = record ?? null;
@@ -94,7 +94,7 @@ export class VdCareTaskRow extends HTMLElement {
       for (const a of ["action", "plant-name", "status", "task-id"]) this.removeAttribute(a);
       return;
     }
-    this.setAttribute("action", record.action);
+    this.setAttribute("action", record.type);
     this.setAttribute("plant-name", record.plantName);
     this.setAttribute("status", record.status);
     this.setAttribute("task-id", record.id);

@@ -84,7 +84,7 @@
       "children": [
         "status-chip"
       ],
-      "usage": "Component of the Verdant demo scenario (fictional product). One row of the \"Today\" list: a scheduled care action for one plant — check circle left, \"Water Monstera\" label centre, status-chip right. Use only in the today list between the stat-tiles and the primary-button; tapping anywhere on the row toggles `checked` (the primary-button commits the batch). One action per row — a plant needing water and fertiliser is two rows, not a compound row.",
+      "usage": "Component of the Verdant demo scenario (fictional product). One row of the \"Today\" list: a scheduled care action for one plant — check circle left, \"Water Monstera\" label centre, status-chip right. Use only in the today list between the stat-tiles and the primary-button; tapping anywhere on the row toggles `checked` (the primary-button commits the batch). One action per row — a plant needing water and fertiliser is two rows, not a compound row. `id` is not a render prop: it rides as `data-task-id` (wrapper attribute `task-id`) so the log-care commit can name the task. `checked` is owned by the list, not the row — the row flips and reports (`vd-toggle`) and never persists it.",
       "contract": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/care-task-row.contract.json",
