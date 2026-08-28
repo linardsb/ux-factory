@@ -5173,6 +5173,7 @@ function scanSvg(svg, label) {
   //     orphan reference, no repeat inside a depth, and the junk-depth throw naming the value.
   ok(JSON.stringify(ids(selectDepth("scope-check"))) === JSON.stringify(SCOPE_CHECK),
     `scope-check drifted: ${JSON.stringify(ids(selectDepth("scope-check")))}`);
+  // DEPTHS["opening-set"].ids IS OPENING_SET today (bank.mjs aliases it); this guards a future de-aliasing.
   ok(JSON.stringify(ids(selectDepth("opening-set"))) === JSON.stringify(OPENING_SET),
     "opening-set must be OPENING_SET, same order");
   ok(JSON.stringify(ids(selectDepth("full-discovery"))) === JSON.stringify(FULL_DISCOVERY),
@@ -5186,7 +5187,9 @@ function scanSvg(svg, label) {
   for (const junk of ["junk", "", undefined, 42]) {
     let msg = null;
     try { selectDepth(junk); } catch (e) { msg = e.message; }
-    ok(msg !== null && msg.includes(String(junk)), `selectDepth(${JSON.stringify(junk) ?? "undefined"}) must throw naming the value, got ${JSON.stringify(msg)}`);
+    // "" is a substring of every message, so the empty case pins the throw's own wording instead.
+    const names = msg !== null && (junk === "" ? msg.includes("unknown depth") : msg.includes(String(junk)));
+    ok(names, `selectDepth(${JSON.stringify(junk) ?? "undefined"}) must throw naming the value, got ${JSON.stringify(msg)}`);
   }
 
   // 6 · purity + frozen — two calls agree, entries come back by identity, and a write is inert.
@@ -5235,12 +5238,15 @@ function scanSvg(svg, label) {
   //     the source file's stages 1–9 region, so a paraphrased or invented note goes red. Positive
   //     control: the region must be able to NOT contain a string.
   const source = readFileSync(join(ROOT, "docs/research/question-bank-source.md"), "utf8");
+  // Both headings must exist first: an indexOf of -1 would make slice run to the end of the file
+  // and the pin would get MORE permissive rather than red.
+  ok(source.includes("## Stage 1") && source.includes("## The twelve"), "case 9: a source heading moved (\"## Stage 1\" or \"## The twelve\")");
   const region = source.slice(source.indexOf("## Stage 1"), source.indexOf("## The twelve"));
   ok(region.length > 10000, `the source region is ${region.length} chars — did the stage headings move?`);
   ok(!region.includes("a note nobody wrote"), "source-pin positive control: the region must be able to miss");
   for (const q of BANK) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
 
-  group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's TEXT is the right bullet for its id, and whether the C2 slop pass was run — both are review facts against that source file");
+  group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — all review facts against that source file");
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

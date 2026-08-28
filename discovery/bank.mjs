@@ -668,7 +668,10 @@ export const QUESTIONS = Object.freeze([
     weakAnswer: "confidence with no evidence type named.",
   },
   {
-    // The source's "most common misuse" sentence IS the weak-answer note (D5).
+    // The source's "most common misuse" sentence IS the weak-answer note (D5). It is the one of 65
+    // that opens as a capitalised standalone sentence rather than a fragment continuing "Weak
+    // answer: …" — kept verbatim because group 28 case 9 pins the opening to the source; a renderer
+    // that prefixes "Weak answer: " should render it as its own sentence.
     id: "s9-very-disappointed",
     stage: 9,
     text: "How would you feel if you could no longer use this product?",
