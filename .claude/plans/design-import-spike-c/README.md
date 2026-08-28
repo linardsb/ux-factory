@@ -103,4 +103,4 @@ Not done: no commit; no PNG on disk; no VR, no journey drivers, no loc-summary r
 
 ## Files
 
-`00-init.txt` · `01-knowledge.md` · `02-fixture.dsl.txt` · `03-blueprint.txt` · `03b-blueprint-collapsed.txt` · `03c-master-blueprint.txt` · `04-htmlflex.html` · `05-react.jsx` · `06.svg` · `08-spec-draft.md` · `09-css-block.css` · `10-renderer-template.mjs` · `11-tripwire-fixes.diff` · `12-sdk-reach-output.txt` · `spike-c-sdk-reach.mjs` · `build-checks-run1.log` · `build-checks-run2.log` · `timings.txt`
+`00-init.txt` · `01-knowledge.md` · `02-fixture.dsl.txt` · `03-blueprint.txt` · `03b-blueprint-collapsed.txt` · `03c-master-blueprint.txt` · `04-htmlflex.html` · `05-react.jsx` · `06.svg` · `08-spec-draft.md` · `09-css-block.css` · `10-renderer-template.txt` · `11-tripwire-fixes.diff` · `12-sdk-reach-output.txt` · `spike-c-sdk-reach.mjs` · `build-checks-run1.log` · `build-checks-run2.log` · `timings.txt`
