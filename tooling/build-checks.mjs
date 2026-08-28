@@ -5288,7 +5288,7 @@ function scanSvg(svg, label) {
   const weak = (over = {}) => ({ op: "flag_weak_answer", params: { question_id: "q2", answer_ref: "a2", missing: ["a number"], ...over } });
   const openq = (over = {}) => ({ op: "open_question", params: { source: "banked", question_id: "q2", answer_ref: "a3", reason: "needs a figure nobody in the room had", ...over } });
 
-  // 28.1 — the roster, both directions, and frozen BY MUTATION (a module in strict mode throws on
+  // 29.1 — the roster, both directions, and frozen BY MUTATION (a module in strict mode throws on
   // a push into a frozen array, and the length is re-read so a swallowed push cannot pass).
   ok(DISCOVERY_OPS.length === 4 && Object.keys(DISCOVERY_PARAMS).length === DISCOVERY_OPS.length
     && DISCOVERY_OPS.every((v) => Array.isArray(DISCOVERY_PARAMS[v]))
@@ -5325,7 +5325,7 @@ function scanSvg(svg, label) {
   ok(same(happy.ops.map((r) => r.flagged), [[], [], [], []]), `the happy fold flagged something: ${JSON.stringify(happy.ops.map((r) => r.flagged))}`);
   const s1 = applyDiscoveryOp(emptyRun(), ev(), ctx()); // seq 1 = one piece of evidence; the base for most cases below
 
-  // 28.2 — the positive control: deterministic and pure. The refusals below mean nothing unless
+  // 29.2 — the positive control: deterministic and pure. The refusals below mean nothing unless
   // the fixture applies cleanly first.
   ok(same(applyDiscoveryOps(HAPPY, ctx()), happy), "two folds of the same ops from emptyRun() differ — the applier is not deterministic");
   {
@@ -5347,7 +5347,7 @@ function scanSvg(svg, label) {
     ok(same(out.ops[1].params.evidence_refs, [1, 9]) && out.ops[1].params.wrong_if === "tampered", "mutating the op after applying reached the ledger — a later push on the agent's argument object would rewrite history without a write");
   }
 
-  // 28.3 — the four throws the architecture names, each driven by a broken op.
+  // 29.3 — the four throws the architecture names, each driven by a broken op.
   ok(names(() => applyDiscoveryOp(s1, dec({ answer_ref: "a99" }), ctx("t1")), "record_decision", "a99", "does not resolve") === null,
     `throw 1 (unresolvable answer_ref): ${names(() => applyDiscoveryOp(s1, dec({ answer_ref: "a99" }), ctx("t1")), "record_decision", "a99", "does not resolve")}`);
   ok(names(() => applyDiscoveryOp(happy, weak(), ctx("t1")), "flag_weak_answer", 'turn "t1"', "op 2", "R2") === null,
@@ -5363,7 +5363,7 @@ function scanSvg(svg, label) {
   ok(names(() => applyDiscoveryOp(s1, ev({ provenance: "vibes" }), ctx()), "file_evidence", "vibes", ...PROVENANCE) === null,
     `throw 4 (provenance outside the four): ${names(() => applyDiscoveryOp(s1, ev({ provenance: "vibes" }), ctx()), "file_evidence", "vibes", ...PROVENANCE)}`);
 
-  // 28.4 — the further refusals, each by a broken op, each message naming what it must.
+  // 29.4 — the further refusals, each by a broken op, each message naming what it must.
   const absent = dec();
   delete absent.params.evidence_refs;
   const REFUSALS = [
@@ -5408,7 +5408,7 @@ function scanSvg(svg, label) {
     `applyOps accepted an item carrying seq: ${names(() => applyDiscoveryOps([{ ...ev(), turn: null, seq: 9 }], ctx()), "op 0 (file_evidence):", 'unknown key "seq"')}`);
   ok(threw(() => applyDiscoveryOps([{ op: "file_evidence", params: ev().params }], ctx())) === null, "an item with no turn key was refused — turn is optional on an item (null when absent)");
 
-  // 28.5 — both flag directions: empty is RECORDED and flagged, never thrown; filled is not flagged.
+  // 29.5 — both flag directions: empty is RECORDED and flagged, never thrown; filled is not flagged.
   // A throw here is recorded as its own failure rather than crashing the group: s1 and happy are
   // shared fixtures, and a purity regression upstream would otherwise surface as a raw stack trace.
   const flagOf = (over, turn = "t1", from = s1) => {
@@ -5423,7 +5423,7 @@ function scanSvg(svg, label) {
   ok(same(flagOf({ level: "stakeholder", parent_id: null, evidence_refs: [] }), ["no-evidence", "orphan"]), "both flags at once are not recorded in FLAGS order");
   ok(same(flagOf({}), []), "the fully-backed business decision is flagged");
 
-  // 28.6 — R2 keys on the TURN, not the question. happy has t1 closed by the q1 decision (seq 2).
+  // 29.6 — R2 keys on the TURN, not the question. happy has t1 closed by the q1 decision (seq 2).
   {
     const offScript = threw(() => applyDiscoveryOp(happy, dec({ off_script: true }), ctx("t1")));
     ok(offScript === null, `an off-script decision on the closed turn t1 was refused: ${offScript?.message} — off-script never closes, so R2 has nothing to refuse`);
@@ -5451,7 +5451,7 @@ function scanSvg(svg, label) {
     ok(names(() => applyDiscoveryOp(closed9, dec({ question_id: "q1" }), ctx("t9")), 'turn "t9"', "op 5") === null, `a second closer on t9: ${names(() => applyDiscoveryOp(closed9, dec({ question_id: "q1" }), ctx("t9")), 'turn "t9"', "op 5")}`);
   }
 
-  // 28.7 — the not-a-form arithmetic is possible from the record alone: reset on a closing
+  // 29.7 — the not-a-form arithmetic is possible from the record alone: reset on a closing
   // decision or flag, +1 on a banked open question, off-script ignored — read from record.op,
   // record.closes and record.params.source / params.off_script only. #285 owns the function; this
   // asserts the fields it needs are there.
@@ -5479,7 +5479,7 @@ function scanSvg(svg, label) {
     ok(fold.ops.filter((r) => r.closes).length === 4 && same(fold.ops.filter((r) => r.closes).map((r) => r.turn), ["t1", "t2", "t3", "t4"]), "coverage cannot be read from the closers' turns");
   }
 
-  // 28.8 — totality over junk: a plain Error with a message, never a TypeError from inside the switch.
+  // 29.8 — totality over junk: a plain Error with a message, never a TypeError from inside the switch.
   const plain = (fn, what) => {
     const e = threw(fn);
     ok(e instanceof Error && !(e instanceof TypeError) && typeof e.message === "string" && e.message.length > 0,
@@ -5502,7 +5502,7 @@ function scanSvg(svg, label) {
   for (const junkItems of [null, "x", [null], [1], [{}], [{ op: "record_decision" }]])
     plain(() => applyDiscoveryOps(junkItems, ctx()), `junk items ${JSON.stringify(junkItems)}`);
 
-  // 28.9 — the frozen fixture. The PRD says run 2's input is byte-frozen at this md5 and nothing
+  // 29.9 — the frozen fixture. The PRD says run 2's input is byte-frozen at this md5 and nothing
   // checked it (the architecture's own finding). The mutation is what makes this a check rather
   // than a constant comparison: the same bytes plus one newline must hash differently.
   const FIXTURE = "docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md";

@@ -2,7 +2,7 @@
 
 Load this when adding a gate, changing one, or working out why a green run proves less than it looks like it does. Per-module invariants are NOT here — they live in each module's own file header, which is what an editor sees. This file holds only what no single file owns: which gate covers what, and where each one's coverage stops.
 
-**The convention that makes the stack readable:** every gate STATES the boundary it cannot reach, and names the gate that owns the other side. Groups 9, 11, 13, 16, 18, 19, 23, 24, 25, 26, 27 and 28 each carry that sentence, and so do the journey drivers. A gate that claims total coverage is the one to distrust — see [[the check that cannot fail]]: every #137 defect survived a green gate the same way, by skipping the thing it tested. Mutate the source; run the function, don't grep it.
+**The convention that makes the stack readable:** every gate STATES the boundary it cannot reach, and names the gate that owns the other side. Groups 9, 11, 13, 16, 18, 19, 23, 24, 25, 26, 27, 28 and 29 each carry that sentence, and so do the journey drivers. A gate that claims total coverage is the one to distrust — see [[the check that cannot fail]]: every #137 defect survived a green gate the same way, by skipping the thing it tested. Mutate the source; run the function, don't grep it.
 
 **What runs in CI (`verify` job):** `build-checks.mjs`, the generator drift checks, token-lint, and the visual-regression gate. **Everything else is operator-run** — the journey drivers, `vt-verify`, `vt-stack-audit` — and is not a merge blocker.
 

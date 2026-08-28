@@ -61,6 +61,10 @@ Findings from `.claude/code-reviews/pr-324-review.md`, all fixed in the follow-u
 
 README is 181 lines after Q1's sentence. `build ✓  all 28 groups pass`, `drift-check ✓` re-observed after the fixes.
 
+## Renumber (A5 fired)
+
+#282 merged first (PR #323 → 974a056), so its bank took group 28. The branch was rebased onto main and this ticket's group is **29** everywhere: the header entry, the `// --- 29 ·` block and its `29.x` case labels, the verdict `all 29 groups pass`, CLAUDE.md `29 PURE groups` + the op-verb bullet, gates.md `29 pure groups` + the boundary-sentence list, `ops.mjs`'s header and the README. Every "28" above this section is the pre-rebase history and stays as written.
+
 ## Issues encountered
 
 - `tooling/drift-check.mjs` fails in a fresh worktree until `cd tooling/style-dictionary && npm ci` (known: [[local-agent-visual-gate-notes]]). Not a regression; the syntax step (which covers `discovery/ops.mjs`) ran before the failure and again in the green run.
