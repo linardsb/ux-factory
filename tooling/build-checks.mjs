@@ -5402,10 +5402,19 @@ function scanSvg(svg, label) {
   // turn is lifted into ctx (the applier's exact envelope refuses it as a key, see above).
   ok(names(() => applyDiscoveryOps([{ ...ev(), turn: null }, { ...ev(), turn: null }, { ...dec({ answer_ref: "a99" }), turn: "t1" }], ctx()), "op 2 (record_decision):", "a99") === null,
     `applyOps did not rethrow with the index: ${names(() => applyDiscoveryOps([{ ...ev(), turn: null }, { ...ev(), turn: null }, { ...dec({ answer_ref: "a99" }), turn: "t1" }], ctx()), "op 2 (record_decision):", "a99")}`);
+  // …and the ITEM envelope is exact as well: a transcript line fed whole (seq, closes, flagged beside
+  // a valid op) is refused by name, so a hand-altered line cannot ride through the fold.
+  ok(names(() => applyDiscoveryOps([{ ...ev(), turn: null, seq: 9 }], ctx()), "op 0 (file_evidence):", 'unknown key "seq"') === null,
+    `applyOps accepted an item carrying seq: ${names(() => applyDiscoveryOps([{ ...ev(), turn: null, seq: 9 }], ctx()), "op 0 (file_evidence):", 'unknown key "seq"')}`);
+  ok(threw(() => applyDiscoveryOps([{ op: "file_evidence", params: ev().params }], ctx())) === null, "an item with no turn key was refused — turn is optional on an item (null when absent)");
 
   // 28.5 — both flag directions: empty is RECORDED and flagged, never thrown; filled is not flagged.
-  const flagOf = (over, turn = "t1", from = s1) => applyDiscoveryOp(from, dec(over), ctx(turn)).ops.at(-1).flagged;
-  ok(threw(() => flagOf({ evidence_refs: [] })) === null, "evidence_refs: [] was refused — empty must be recorded and flagged, or a session deadlocks on evidence not findable yet");
+  // A throw here is recorded as its own failure rather than crashing the group: s1 and happy are
+  // shared fixtures, and a purity regression upstream would otherwise surface as a raw stack trace.
+  const flagOf = (over, turn = "t1", from = s1) => {
+    try { return applyDiscoveryOp(from, dec(over), ctx(turn)).ops.at(-1).flagged; }
+    catch (e) { ok(false, `record_decision ${JSON.stringify(over)} was refused (${e.message}) — empty must be recorded and flagged, or a session deadlocks on evidence not findable yet`); return []; }
+  };
   ok(flagOf({ evidence_refs: [] }).includes("no-evidence"), "evidence_refs: [] recorded without the no-evidence flag — an unbacked decision passed silently");
   ok(!flagOf({ evidence_refs: [1] }).includes("no-evidence"), "evidence_refs: [1] carries the no-evidence flag");
   ok(flagOf({ level: "stakeholder", parent_id: null }).includes("orphan"), "a stakeholder decision with parent_id: null recorded without the orphan flag");
@@ -5478,6 +5487,13 @@ function scanSvg(svg, label) {
   };
   for (const junk of [null, 1, "x", [], {}, { op: "record_decision" }, { op: 7 }, { op: "record_decision", params: null }, { op: "record_decision", params: [] }, { op: "record_decision", params: "x" }, { op: "file_evidence", params: { url: 1, ref: null, provenance: "assumption", claim_ref: null } }])
     plain(() => applyDiscoveryOp(s1, junk, ctx("t1")), `junk op ${JSON.stringify(junk)}`);
+  // A Symbol cannot be interpolated into a message — the one junk value that turns a refusal into a
+  // TypeError unless it is typed BEFORE the message is built (PR #324 review, F1).
+  plain(() => applyDiscoveryOp(s1, { op: Symbol("record_decision"), params: {} }, ctx("t1")), "junk op { op: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, dec({ answer_ref: Symbol("a1") }), ctx("t1")), "junk op { answer_ref: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, dec({ level: Symbol("business") }), ctx("t1")), "junk op { level: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, ev({ provenance: Symbol("assumption") }), ctx()), "junk op { provenance: Symbol() }");
+  plain(() => applyDiscoveryOp(s1, dec({ answer_ref: "a99" }), { answers: [{ ref: Symbol("a1") }], bank: BANK, turn: "t1" }), "an answer store holding a Symbol ref, listed in the refusal message");
   for (const junkCtx of [undefined, null, {}, { answers: null }, { answers: [], bank: null }, { answers: [null], bank: [null], turn: 7 }, "x"])
     plain(() => applyDiscoveryOp(s1, ev(), junkCtx), `junk ctx ${JSON.stringify(junkCtx)}`);
   ok(threw(() => applyDiscoveryOp(s1, ev(), { answers: [null, { ref: "a1" }], bank: [null, { id: "q1" }], turn: null })) === null, "a null entry among the answers or the bank threw — entries are read with ?. so junk in the store cannot take the applier down");

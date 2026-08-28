@@ -57,7 +57,9 @@ an environment with no `portal/node_modules`.
 
 ## The op grammar
 
-An op is exactly `{ op, params }` — the envelope is exact, an unknown key throws. Four verbs, and
+An op is exactly `{ op, params }` — the envelope is exact, an unknown key throws. A fold item
+(`applyOps`) is exactly `{ op, params, turn }`, so a transcript line fed whole — its `seq`, `closes`
+or `flagged` beside a valid op — is refused by name rather than silently reduced. Four verbs, and
 the count is deliberate: parking a question is `open_question` with `source: banked`; an off-script
 exchange is `record_decision` with `off_script: true` or `open_question` with `source: off-script`.
 

@@ -8,7 +8,7 @@
 
 ## Tasks completed
 
-- Task 1+2 — vocabulary, enums, `checkOp`, `applyOp`, `applyOps`, `emptyRun` → `discovery/ops.mjs` (CREATE, 181 lines)
+- Task 1+2 — vocabulary, enums, `checkOp`, `applyOp`, `applyOps`, `emptyRun` → `discovery/ops.mjs` (CREATE, 226 lines after the review-round fixes; the first commit's 214 was mis-stated as 181)
 - Task 3 — header entry 28, `createHash` + aliased discovery imports, group 28 body, verdict `all 28 groups pass` → `tooling/build-checks.mjs` (UPDATE)
 - Task 4 — run-package format spec → `discovery/README.md` (CREATE, 179 lines)
 - Task 5 — map lines, `28 PURE groups`, the **New discovery op verb or run** bullet → `CLAUDE.md` (UPDATE); `28 pure groups` + group 28 paragraph + group-list sentence → `.claude/references/gates.md` (UPDATE); the one stale clause → `docs/epics/discovery-partner.architecture.md` (UPDATE, +1 −1)
@@ -48,6 +48,18 @@ Restored: `git checkout -- docs/epics/fixtures/…`, md5 back to `ab6eb0ee…`; 
 - **gates.md gained one extra edit**: the sentence listing which groups carry the boundary statement now includes 28. Same file, keeps it true.
 - **`applyOps` index prefix** asserted as `op 2 (record_decision):` with a three-item fold (board-ops' `op ${i}` is 0-based) — the plan's wording, made literal.
 - Refusal battery is 28 cases against the plan's ~15: level/off_script/wrong_if/source/reason/url/claim_ref/dangling-parent shapes added because each is a distinct branch in the switch.
+
+## Review round 1 (PR #324) — fixes applied
+
+Findings from `.claude/code-reviews/pr-324-review.md`, all fixed in the follow-up commit:
+
+- F1 (Medium) a `Symbol` op name or param value reached a template literal → `TypeError`, contradicting invariant 6's totality claim. `checkOp` now types `op.op` before any message is built and refuses a symbol-valued param; the refs listing in throw 1 goes through `String`. Group 28.8 gained five Symbol cases (observed: each a plain `Error`).
+- F2 (Low) report line count corrected (above).
+- F3 (Low) header citation `gen-loc-summary.mjs:22–24` → `:23`.
+- Q1 `applyOps` silently dropped extra item keys while the README called the envelope exact. The item envelope is now exact too (`{ op, params, turn }`, `turn` optional); group 28.4 asserts a `seq`-carrying item is refused by name, README says so.
+- R2 (diagnostics) 28.5's `flagOf` records a throw as its own failure instead of crashing the group.
+
+README is 181 lines after Q1's sentence. `build ✓  all 28 groups pass`, `drift-check ✓` re-observed after the fixes.
 
 ## Issues encountered
 

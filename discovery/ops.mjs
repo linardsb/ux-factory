@@ -7,7 +7,7 @@
 // substance (PRD MVP 6), and this file is where that sentence stops being a prompt and becomes a
 // property of the data: record_decision has no parameter for answer text at all.
 //
-// It lives in discovery/, not system/, for a measurable reason: agent-layer/gen-loc-summary.mjs:22–24
+// It lives in discovery/, not system/, for a measurable reason: agent-layer/gen-loc-summary.mjs:23
 // counts system/*.mjs as "design system" and renders the number on approach.html. A file here is
 // counted by nothing and churns nothing, and an agent's op grammar is not a view-time module.
 //
@@ -68,14 +68,18 @@ export function checkOp(op) {
   if (!op || typeof op !== "object" || Array.isArray(op)) throw new Error("an op must be an object { op, params }");
   for (const k of Object.keys(op))
     if (k !== "op" && k !== "params") throw new Error(`unknown key "${k}" on the op envelope — an op is exactly { op, params }`);
+  // typeof first: a Symbol cannot be interpolated into a message (that is a TypeError, not a refusal).
+  if (typeof op.op !== "string") throw new Error(`"op" must be a string naming one of ${OPS.join(" · ")} (got a ${typeof op.op})`);
   if (!OPS.includes(op.op)) throw new Error(`"${op.op}" is not an op — the vocabulary is ${OPS.join(" · ")}`);
   const params = op.params;
   if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error(`${op.op}: "params" must be an object`);
   const allowed = PARAMS[op.op];
   for (const k of Object.keys(params))
     if (!allowed.includes(k)) throw new Error(`${op.op}: unknown param "${k}" — it takes ${allowed.join(", ")}`);
-  for (const k of allowed)
+  for (const k of allowed) {
     if (params[k] === undefined) throw new Error(`${op.op}: "${k}" is required (absent is refused; empty is recorded and flagged)`);
+    if (typeof params[k] === "symbol") throw new Error(`${op.op}: "${k}" must be a JSON value (got a symbol)`);
+  }
   return params;
 }
 
@@ -98,7 +102,7 @@ export function applyOp(state, op, ctx) {
 
   // Throw 1 — the answer-by-reference rule's teeth.
   const resolveAnswer = (ref, field = "answer_ref") => {
-    if (!refs.has(ref)) throw new Error(`${name}: ${field} "${ref}" does not resolve — answers.jsonl holds ${[...refs].join(", ") || "nothing"}`);
+    if (!refs.has(ref)) throw new Error(`${name}: ${field} "${ref}" does not resolve — answers.jsonl holds ${[...refs].map(String).join(", ") || "nothing"}`);
     return ref;
   };
   // Throw 3 — a non-null question_id must be a question the bank holds; null means off-script.
@@ -203,12 +207,20 @@ export function applyOp(state, op, ctx) {
 
 // Fold applyOp over { op, params, turn } items, rethrowing with the item's index so a failure in a
 // long transcript names which one. Each item carries its own turn (the server's id at that moment).
+// The item envelope is exact too: a projected transcript line must be reduced to { op, params, turn }
+// by its reader before it comes here, so a line carrying an altered seq / closes / flagged beside a
+// valid op cannot ride through the fold unnoticed.
 export function applyOps(items, ctx, state = emptyRun()) {
   if (!Array.isArray(items)) throw new Error("applyOps: items must be an array of { op, params, turn }");
   let acc = state;
   items.forEach((item, i) => {
-    try { acc = applyOp(acc, { op: item?.op, params: item?.params }, { ...ctx, turn: item?.turn ?? null }); }
-    catch (e) { throw new Error(`op ${i} (${item?.op ?? "?"}): ${e.message}`); }
+    const label = typeof item?.op === "string" ? item.op : "?";
+    try {
+      if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("an item must be an object { op, params, turn }");
+      for (const k of Object.keys(item))
+        if (k !== "op" && k !== "params" && k !== "turn") throw new Error(`unknown key "${k}" on the item — an item is exactly { op, params, turn }`);
+      acc = applyOp(acc, { op: item.op, params: item.params }, { ...ctx, turn: item.turn ?? null });
+    } catch (e) { throw new Error(`op ${i} (${label}): ${e.message}`); }
   });
   return acc;
 }
