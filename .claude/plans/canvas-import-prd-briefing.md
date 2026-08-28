@@ -438,3 +438,109 @@ the handoff into the recorder (the CLI-shaped transport, #280's alternative) · 
   are desktop-only and stayed unused.
 - **Not exercised:** interactive states, a contract-token addition, VR, the write direction. The fixture
   stays on canvas `playground` (instance `1db1b29957b949ca`); the draft was reverted, admission is the epic's.
+
+---
+
+## 16. Where the canvas is decided — the file map (2026-08-28)
+
+Every place a decision or plan about the ux-factory canvas lives. Headers in code files are the
+specification (CLAUDE.md § Ground rules); the docs carry intent and the decisions behind them.
+
+### A. Governing docs — intent and decisions
+
+| File | What it decides |
+|---|---|
+| `docs/epics/prototype-studio.prd.md` | Epic #202's intent, hypothesis, WRONG-if, and the § Epic close audit (2026-08-27) |
+| `docs/epics/prototype-studio.architecture.md` | The canvas as built: grid slots, the bus as drive path, codec v2, replay, gates; the § Closing note |
+| `docs/epics/ai-first-ux-factory.prd.md` + `.architecture.md` | The platform the canvas sits in; most "new" pieces are already-decided Missing pieces |
+| `docs/epics/discovery-partner.prd.md` + `.architecture.md` | Wave 1 of the revamp; canvas (D6) and import (D7) named as non-goals; the owner's 2026-08-10 verdict recorded in its evidence table; § For slicing conventions |
+| `docs/epics/prototyping-feel-uplift.prd.md` + `.architecture.md` | The feel layer — the precedent for problem 4 |
+| `docs/epics/st-ux-fusion.prd.md` + `.architecture.md` | The systems-thinking layer over the Shape Up + Hooked spine the canvas compiles from |
+| `docs/epics/generative-prototyper.prd.md` + `.architecture.md` | Parked epic #86 — build-time bespoke prototype; the canvas's upstream idea |
+| `docs/epics/portfolio-v3-experience.*` | The v3 spine `/factory` lives in |
+| `~/Desktop/claude-code-second-brain/Fredis/Memory/thinking/2026-08-26-ux-factory-discovery-build-revamp.md` | **Vault, not in repo.** D6 (free canvas), D7 (import), D15 (waves), D18 (base vocabulary), D20 (platform), Q2b, Q6, Q7 |
+
+### B. The canvas as built — epic #202's plans, reports and reviews
+
+`.claude/plans/studio-<slug>-<ticket>.md` with a matching `.claude/reports/studio-<slug>-<ticket>-report.md`,
+and `.claude/code-reviews/pr-<N>-review.md` per PR. The canvas-critical ones:
+
+| Ticket | Plan | Owns |
+|---|---|---|
+| #203 | `studio-replay-recorder-203.md` | the recorder + replay artifact (the honesty path) |
+| #204 | `studio-canvas-stage-204.md` | **the substrate**: DOM stage, grid slots, pan by scroll, zoom table (`MAX_COLS`/`MAX_ROWS`, the five-entry zoom table — problems 2 and 3 start here) |
+| #205 | `studio-canvas-manipulation-205.md` | the verbs: move/resize/undo/redo through the bus; `stepSlot`/`groupStep` keyboard path |
+| #208 | `studio-share-codec-v2-208.md` | codec v2's `g` field + the tamper battery's coordinate family |
+| #209 | `studio-replay-driver-takeover-209.md` | replay over `agent.*`, take-over |
+| #212 | `studio-flows-places-screens-212.md` | places → screens, the flow surface |
+| #213 | `studio-gates-inp-vt-a11y-213.md` | the studio gates + the INP gate |
+| #217 | `studio-canvas-affordances-217.md` | marquee, guides, context menu (problem 4's surface) |
+| #221 | `studio-layers-minimap-221.md` | layers list + minimap (mirror the grid tables) |
+| #223 | `studio-epic-close-223.md` + `-report.md` | the desk audit; hallway round 3 never ran |
+| follow-ups | `studio-and-board-ops-quartet-225-231-232-236.md` · `studio-compiled-screens-overflow-251.md` · `studio-compile-identity-tripwire-253.md` · `studio-249-inp-gate-review-fixes.md` · `studio-adoptboard-cancel-264.md` | the recorded defects and their fixes |
+
+### C. The /build chain and the import path — epic #134 and #130
+
+`.claude/plans/build-*.md` (+ reports) · `hooked-shapeup-pattern-builder.md` · `build-page-import-act.md`
+(Act 0, the browser import) · `public-drop-to-reskin.md` (#130, `pack-import.mjs` as the ONE engine) ·
+`figma-token-import-handover.md` · `figma-import-scales-and-dock.md` · `figma-drop-portal-ui*.md` ·
+`docs/figma-runbook.md`.
+
+### D. The next epic — canvas + import
+
+`canvas-import-prd-briefing.md` (this file) · `design-import-epic-prd-handoff.md` · `design-import-spike-a/` ·
+`design-import-spike-c/`.
+
+### E. Code whose header is the spec
+
+`system/studio-canvas.mjs` (the three substrate calls) · `studio.css` (hand-mirrors the caps group 12
+pins) · `studio-verbs.mjs` · `studio-select.mjs` · `studio-flow.mjs` · `studio-compile.mjs` ·
+`studio-frames.mjs` · `studio-layers.mjs` · `studio-minimap.mjs` · `studio-keep.mjs` ·
+`studio-export.mjs` · `studio-method.mjs` · `studio-docs.mjs` · `studio.mjs` · `board-ops.mjs` (the op
+vocabulary + pure applier) · `build-share.mjs` (codec v2) · `replay-driver.mjs` · `action-bus.mjs` ·
+`agentic-renderer.mjs` · `pack-import.mjs` · `tooling/build-checks.mjs` (groups `canvas`, `verbs`,
+`select`, `minimap`, `analytics`, 11 for ops) · `tooling/studio-journey.mjs` · `replay/README.md` ·
+`traces/README.md` · `.claude/references/gates.md` · `.claude/references/token-system.md`.
+
+### F. Tracker
+
+GitHub `linardsb/ux-factory`: epic #202 (closed 2026-08-27) with #203–#222 and the close #223; absorbed
+follow-ups #225, #226, #229–#232, #236, #237, #249, #251, #253, #259, #262, #264, #273; #268 and #271
+closed 2026-08-27 unimplemented; epic #134 (the /build chain); epic #279 (discovery, #280–#293, all
+open); epic #86 (parked). PR #294 carries this briefing.
+
+---
+
+## 17. Session findings, 2026-08-27 → 28
+
+- **Sequence.** Do not serialise behind #279: its 14 tickets are untouched and its PRD names the canvas
+  a non-goal. Spike C ran first (§15) so the PRD cites facts instead of assumptions. Order now:
+  merge PR #294 → `plan-create-prd` → `plan-architecture` → `piv-slice-epic`.
+- **The PRD command.**
+  `/plan-create-prd canvas + design-import epic · .claude/plans/canvas-import-prd-briefing.md
+  .claude/plans/design-import-epic-prd-handoff.md .claude/plans/design-import-spike-c/README.md
+  docs/epics/prototype-studio.architecture.md <vault thinking doc path>` — the interview asks only
+  what the docs are silent on: D1, D2, D6 naming, Q2b, the hypothesis wording.
+- **Architecture: yes.** `plan-architecture` with D1, Q2b, Q6 as the named calls; it records spike
+  C's decisions (deterministic role mapping, in-process SDK transport, the three regens `gen-handoff`
+  does not run) and takes #280's transport verdict rather than re-running it.
+- **`/think` first: no.** The 2026-08-26 session, the handoff, the briefing and three spikes already
+  did it; another pass re-derives what is settled. One exception: if the **thesis** is in doubt (supply
+  loop / minutes-to-ratify vs "the studio reads as an exhibit"), that is a strategy question and a
+  scoped `/think` is right, because the hypothesis depends on it.
+- **Stripping redundant tech: as an evidence run, not a thinking session.** The canvas strip list is
+  D6's retire list (§4) — the 12-file blast radius — and belongs in the architecture as an explicit
+  deletion list with the baseline cascade named (loc-summary regen, the two approach baselines, VR).
+  Beyond the canvas, do not guess: the raw harnesses and reference packs are kept by decision; the
+  `.mcp.json` `tree-sister` entry, `tooling/wc-sandbox/` and `tooling/style-dictionary/` are
+  candidates. A jcodemunch pass (`find_dead_code`, `find_unused_paths`, `get_dependency_graph`) over
+  `system/`, `tooling/`, `portal/` plus `system-graph.json` gives a coded list labelled unused /
+  reference / exhibit. Offered, not run.
+- **Brilliant.** The four D7 tools are third-party and exist; only `lookup` + `export` read designs
+  (§12). No MCP server of ours is needed to read; the conversion tooling is ours on the repo side
+  (§13). Token-preserving writes exist via `create_modify_elements` under `designSystem:"default"`.
+- **PR #294.** Docs-only: the discovery PRD + architecture, the #223 close notes, spike A/B/C parked,
+  this briefing, the `plan-create-prd` retune. The branch was 5 behind main from the start; merged
+  `origin/main` in (`.gitignore` union, `cede6d2`); build-checks all 27 pass on the merged tree.
+- **Corrections carried (§11).** #271 closed unimplemented; #223 closed with the hallway round never
+  run; the retuned skill is now committed.
