@@ -9,9 +9,9 @@ stub (`record_stub`), the bank and answer store are two inline objects, and noth
 
 | Q | Verdict | Evidence |
 |---|---|---|
-| **Q1** Does an in-process SDK tool carry an op to an applier end to end at `@anthropic-ai/claude-agent-sdk@0.1.77`? | **Yes, first run, 12.2 s.** The CLI process listed the one tool and reported the `sdk`-type server `connected` (`run-1.txt:5`); the handler ran in the portal-side process — pid 85297, the same pid the pre-flight recorded (`run-1.txt:7,11`; `:142-166` vs `:186-203`); it resolved `a1` to the stored answer and the agent quoted the reply verbatim (`run-1.txt:9`); the handler's own refusal of `a9` reached the agent mid-turn and was quoted verbatim (`run-1.txt:12-13`); the run ended `success` in 4 turns (`run-1.txt:17`). `works: true` (`run-1.txt:21`). | `run-1.txt:1-17`, `:21`, `:237-246` |
+| **Q1** Does an in-process SDK tool carry an op to an applier end to end at `@anthropic-ai/claude-agent-sdk@0.1.77`? | **Yes, first run, 12.2 s.** The CLI process listed the one tool and reported the `sdk`-type server `connected` (`run-1.txt:5`); the handler ran in the portal-side process — pid 85297, the same pid the pre-flight recorded (`run-1.txt:144`, `:188`; `:142-166` vs `:186-203`); it resolved `a1` to the stored answer and the agent quoted the reply verbatim (`run-1.txt:9`); the handler's own refusal of `a9` reached the agent mid-turn and was quoted verbatim (`run-1.txt:12-13`); the run ended `success` in 4 turns (`run-1.txt:17`). `works: true` (`run-1.txt:21`). | `run-1.txt:1-17`, `:21`, `:237-246` |
 | **Q2** What does the schema actually require? | **A raw shape whose values are zod instances from the caller's own `zod` copy** — `{ question_id: z.string().nullable(), answer_ref: z.string(), level: z.enum([...]) }`, not `z.object(...)` and not a plain JSON schema. The SDK wraps it in its bundled zod and advertises draft-07: `question_id: anyOf [string, null]`, `level: enum` of four, `required` of three (`preflight.txt:14-46`). Out-of-enum and missing-field calls are refused by the schema layer *before* the handler with `MCP error -32602: Input validation error` (`preflight.txt:73-90`); a bad `answer_ref` is refused by the handler as an `isError` result (`preflight.txt:64-72`). `null` reaches the handler as JSON null (`preflight.txt:4`, P3). | `preflight.txt:13-139` |
-| **Q3** Which fence call sites see an MCP tool call that is not in `allowedTools`? | **Both, on every call.** `canUseTool` was consulted three times and the `PreToolUse` hook fired three times, once per call (`run-1.txt:204-215`). The permission fast path did not auto-allow the MCP tool. `tools: []` left no built-in in the init list (`run-1.txt:5`, B6). | `run-1.txt:204-215`, `:243` |
+| **Q3** Which fence call sites see an MCP tool call that is not in `allowedTools`? | **Both, on every call — consulted, not shown to block.** `canUseTool` was consulted three times and the `PreToolUse` hook fired three times, once per call (`run-1.txt:204-215`). The permission fast path did not auto-allow the MCP tool. All three calls were the one allowed tool, so neither deny branch (`spike-1-op-transport.mjs:144`, `:149`) ran: whether a `deny` from either half blocks an MCP call is unobserved here (#203 saw real denials, for built-in tools). #284's first fenced run exercises it. `tools: []` left no built-in in the init list (`run-1.txt:5`, B6). | `run-1.txt:204-215`, `:243` |
 
 **Decision-rule outcome, one line:** *works, and the peer dependency is on disk at 4.4.3, portal-only and
 confined to one transport file → the in-process tool; `zod` declared in `portal/package.json` and
@@ -20,7 +20,10 @@ CLAUDE.md's dependency line amended in this PR.*
 ## Setup
 
 - `@anthropic-ai/claude-agent-sdk` **0.1.77**, `zod` **4.4.3** (the SDK's peer, undeclared at run time;
-  declared after the verdict), node **v20.20.2** (`run-1.txt:22-26`). Claude Code CLI 2.1.245 on this Mac.
+  declared after the verdict), node **v20.20.2** (`run-1.txt:22-26`). The CLI the SDK spawned is its bundled `cli.js`, **2.0.77**: `query()` sets no
+  `pathToClaudeCodeExecutable`, so the SDK defaults to it (`sdk.mjs:8590`). Observed after the run with
+  `node portal/node_modules/@anthropic-ai/claude-agent-sdk/cli.js --version`; the script does not log it,
+  and the global `claude` (2.1.245) was not used.
 - Auth: the CLI's own login (`portal/.env` carries no `CLAUDE_CODE_OAUTH_TOKEN`), the same path every
   recorder in the repo uses. The run printed nothing about auth.
 - `query()` options that matter: `tools: []` (no built-ins), `allowedTools: []` (nothing pre-approved),
@@ -32,6 +35,10 @@ CLAUDE.md's dependency line amended in this PR.*
 
 ## The bar
 
+`works` gates on P1–P5 and B1, B2, B3, B7 (`spike-1-op-transport.mjs:189-191`); P6, B4, B5, B6 and I1 are
+informative, so a red B4 would not have flipped the verdict (the plan's Q4: either answer was acceptable).
+All thirteen rows were true this run.
+
 ### Pre-flight — deterministic, no tokens (`preflight.txt:4`, `:134-139`)
 
 The bundled `McpServer`'s own `tools/list` and `tools/call` handlers, called directly in this process.
@@ -39,7 +46,7 @@ The bundled `McpServer`'s own `tools/list` and `tools/call` handlers, called dir
 | # | Row | Result | Evidence |
 |---|---|---|---|
 | P1 | advertised schema: `question_id` nullable, `level` an enum of four, three fields required | **PASS** | `preflight.txt:14-46` |
-| P2 | a valid call is filed by the handler in this pid | **PASS** — `filed #1: business decision on q1 ← a1 ("Two paying teams renew without a discount.")`, pid 85297 | `preflight.txt:48-55`, `:91-108` |
+| P2 | a valid call is filed by the handler in this pid | **PASS** — `filed #1: business decision on q1 ← a1 ("Two paying teams renew without a discount.")`, pid 85255 | `preflight.txt:48-55`, `:91-108`, `:109` |
 | P3 | `question_id: null` arrives as JSON null | **PASS** — `filed #2: solution decision on off-script ← a2` | `preflight.txt:2`, `:56-63` |
 | P4 | a bad `answer_ref` is refused by the handler as `isError` | **PASS** — `record_stub: answer_ref "a9" does not resolve — the store holds a1, a2` | `preflight.txt:64-72` |
 | P5 | out-of-enum `level` is refused before the handler | **PASS** — `invalid_value … Invalid option: expected one of "business"\|"stakeholder"\|"solution"\|"transition"`; no handler line for `wrong` | `preflight.txt:73-81` |
@@ -95,12 +102,16 @@ The `tool_use.input` the model sent for each call (`run-1.txt:6`, `:10`, `:14`):
 
 ## Caveats and bounds
 
-- **One run, one model** (`claude-sonnet-5`), one CLI version (2.1.245), one Mac. The pre-flight
+- **One run, one model** (`claude-sonnet-5`), one CLI version (the SDK-bundled 2.0.77), one Mac. The pre-flight
   re-observes the schema half on every invocation, so a future SDK bump that breaks the cross-copy zod
   path goes red before a token is spent; the run half is observed once.
 - **The pre-flight reads a private API.** `server.instance.server._requestHandlers` is the MCP SDK
   `Protocol` class's handler map. If a later SDK renames it, `preflight.reachable` reads `false` and
   P1–P6 read `false`; the run's B-rows still decide on their own.
+- **P1 checks cardinality, not members** (`spike-1-op-transport.mjs:101`: `enum.length === 4`, `required.length === 3`).
+  A schema advertising four wrong enum values would pass P1; P5's refusal text names the real values
+  (`preflight.txt:73-81`). Left as run so the script stays the one that produced `run-1.txt`; #284's
+  transport pre-flight compares the arrays to `LEVELS` and the three field names.
 - **Handler refusals arrive as `PostToolUseFailure`, not `PostToolUse`** (`run-1.txt:12`, `:15`;
   `:216-231`). An `isError` result from the handler and a schema-layer refusal both surface on the
   failure hook, with the message verbatim in `error`; only the filed call surfaces on `PostToolUse`. A

@@ -22,6 +22,9 @@ is no parameter for answer text — the handler resolves the reference, the agen
 
 ## The bar
 
+`works` gates on P1–P5 and B1, B2, B3, B7; P6, B4, B5, B6 and I1 are informative, so a red B4 would not
+flip the verdict. All thirteen rows were true this run.
+
 Pre-flight — the bundled `McpServer`'s own `tools/list` and `tools/call` handlers called directly, zero
 tokens, deterministic:
 
@@ -59,9 +62,11 @@ SDK 0.1.77 · zod 4.4.3 · node v20.20.2. One call per turn, as instructed; no r
   The op *is* one tool call, so batching is impossible by construction.
 - **A refusal is an `isError` result, never a throw.** The agent receives the applier's message verbatim
   and corrects inside the turn. Throw only for a bug.
-- **Both fence halves see MCP calls.** `canUseTool` was consulted for every call to a tool absent from
-  `allowedTools`, and the `PreToolUse` hook fired for every call. #287's "one predicate, two places"
-  holds for MCP tools exactly as it does for built-ins; neither half is redundant.
+- **Both fence halves see MCP calls — consulted, not shown to block.** `canUseTool` was consulted for every
+  call to a tool absent from `allowedTools`, and the `PreToolUse` hook fired for every call, so #287's
+  "one predicate, two places" reaches MCP tools as it does built-ins. All three calls were the one allowed
+  tool: neither deny branch ran, and a blocked MCP call is unobserved here. #287 must not read a `deny`
+  from either half as shown for MCP tools; #284's first fenced run exercises it for free.
 - **The allow-list name shape** is `mcp__<server>__<tool>`; #287 carries `mcp__discovery__<op>` (or
   whatever server name #284 picks), and `tools: []` really does remove the built-ins.
 - **Transcript `op` lines come from two hooks, not one.** A filed op surfaces on `PostToolUse`

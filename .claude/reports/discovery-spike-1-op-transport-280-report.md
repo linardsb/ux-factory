@@ -46,7 +46,7 @@ No suite (CLAUDE.md). The spike's two stages are the test:
 ## Deviations from the plan
 - **No fallback fired.** The plan anticipated one deviation (a `tools: []` or schema fallback). Neither was needed: `tools: []` was honoured (B6) and the schema half was green in the pre-flight. Recorded so the reviewer does not look for one.
 - **Worktree cut from `origin/main`, not from the checkout's branch.** The main checkout was on `feature/discovery-bank-282` (another ticket's branch, with its untracked `discovery/` work in the tree), so the plan's Task 1 worktree was the right isolation; the untracked plan file was copied into the worktree so it rides in this PR.
-- **Two findings beyond the bar, carried into the verdict for #284/#287:** (a) handler refusals and schema-layer refusals both surface on `PostToolUseFailure`, not `PostToolUse` — a transcript recorder must listen on both; (b) `canUseTool` *is* consulted for an MCP tool absent from `allowedTools` (Q4 answered: consulted), so #287's two-place fence is not resting on the hook alone.
+- **Two findings beyond the bar, carried into the verdict for #284/#287:** (a) handler refusals and schema-layer refusals both surface on `PostToolUseFailure`, not `PostToolUse` — a transcript recorder must listen on both; (b) `canUseTool` *is* consulted for an MCP tool absent from `allowedTools` (Q4 answered: consulted) — on the allow path only; no deny branch ran, so a blocked MCP call is unobserved and #287 must not read it as shown.
 - **Q1 (CLAUDE.md:153)** amended with a scoped exception as the plan proposed; flagged in the verdict for the owner to confirm at review.
 
 ## Issues encountered
