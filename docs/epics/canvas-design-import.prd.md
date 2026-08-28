@@ -1,6 +1,6 @@
 # canvas-design-import.prd.md
 
-**Status:** intent, interviewed and grilled 2026-08-28 (G1–G33 below, all resolved), awaiting architecture · **Epic:** TBD (created by `piv-slice-epic`) · **Created:** 2026-08-28
+**Status:** intent, interviewed and grilled 2026-08-28 (G1–G33 below, all resolved), awaiting architecture · **Epic:** #295 (sliced 2026-08-28, 26 tickets #296–#321) · **Created:** 2026-08-28
 **Inputs.** `__canvas_planning_PRD.md` (the pre-PRD briefing, §1–§30) · `.claude/plans/design-import-epic-prd-handoff.md` (D1–D7, spikes A and B) · `.claude/plans/design-import-spike-c/README.md` (spike C, observed) · `docs/epics/prototype-studio.architecture.md` (the canvas as built, and its closing note) · `docs/epics/discovery-partner.prd.md` + `.architecture.md` (wave 1, the run package this consumes) · the vault thinking doc `2026-08-26-ux-factory-discovery-build-revamp` (D6, D7, D15, D18, D19, D20, Q2b, Q6, Q7 — cited, not committed).
 **Scope:** wave 2 of the revamp — the **build half**, in the portal, for the operator. Discovery (#279) produces a PRD and a run package; this epic turns that into a product flow with its states on a free canvas, using components that already exist when the build starts or arrive through import and in-canvas creation.
 
@@ -239,6 +239,15 @@ The thinnest line that can trip the wrong condition: **one real flow, with its s
 | G33 | One flow per canvas, or many? | One run, one flow per canvas; named A/B variants as lanes within it |
 
 **Closed during the 2026-08-28 interview:** the thesis (the build half after discovery, not a recruiter exhibit) · what "create a component" means (both compose-and-name and admission, compose-and-name the default) · the primitive set (eight plus icon and checkbox/radio; four deferred) · whether discovery composes anything (no; this epic does) · Q2b (reorder within grammar) · Q6 (the live canvas is a portal surface; `/factory` replays; `studio.html` stays the raw harness) · the import time bar (none; recorded, not judged) · the wrong condition (the switch, not a stopwatch) · D2 (moot: the owner's own product first; the public gallery is not this epic's).
+
+**Addendum 2026-08-28, after the slice — the owner drives.** Product calls made after reading the NUU case study
+(a designer driving Claude interactively, unrecorded) against this epic's posture (fenced, traced, one op per call,
+owner ratifies). The bet stays; the owner's control becomes granular: **D1** one inbox of everything waiting on the
+owner, across discovery and build · **D2** decisions have blast radius — re-record one and every screen built on it
+says so until the owner re-confirms · **D3** the owner briefs each turn · **D4** every proposal carries its one-line
+why, refused without it · **D5** at a fork the agent offers two and the owner picks · **B5** a written conventions
+file for the agent if S6 shows the vocabulary alone is not enough. Run 1 exercises all five. Mechanisms in the
+architecture doc's addendum; tickets #318–#321 plus amendments to #302, #308, #312, #316.
 
 ## Architecture
 
