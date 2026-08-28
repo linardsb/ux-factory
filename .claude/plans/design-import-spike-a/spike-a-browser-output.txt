@@ -1,0 +1,12 @@
+
+=== DROP: raw Polaris v7 merged export (rgba/rem, as published) ===
+status [data-state=error]: figma-pull: none of the 238 styles read is a colour, so there is no ramp to map roles onto. Read a page that carries the palette — --page Color — or pin the roles by hand with --map <file>.
+mapping report visible: false
+#build-stage inline style: (no inline styles — stage NOT re-skinned)
+screenshot → 01-act0-raw-refusal.png
+
+=== DROP: mechanically converted (rgba→hex, rem→px) ===
+status [data-state=error]: figma-pull: no near-grey ramp found for the neutral role — name one with --neutral <hue>. Ramps: color(chroma 0.149)
+mapping report visible: false
+#build-stage inline style: (no inline styles — stage NOT re-skinned)
+screenshot → 02-act0-converted-refusal.png

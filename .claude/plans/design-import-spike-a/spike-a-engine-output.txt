@@ -1,0 +1,232 @@
+
+==========================================================================================
+RUN: 1 — raw Polaris v7 export (rgba colours, rem dimensions), no conversion
+==========================================================================================
+entriesFromExport: 238 entries; by type: {"null":238}; parser notes: []
+→ REFUSED (thrown): figma-pull: none of the 238 styles read is a colour, so there is no ramp to map roles onto. Read a page that carries the palette — --page Color — or pin the roles by hand with --map <file>.
+
+[conversion pre-pass for run 2: 137 opaque rgba→#rrggbb, 0 alpha rgba→#rrggbbaa, 49 rem→px]
+
+==========================================================================================
+RUN: 2 — mechanical rgba→hex + rem→px conversion, no overrides
+==========================================================================================
+entriesFromExport: 238 entries; by type: {"dimension":49,"color":137,"null":52}; parser notes: []
+→ REFUSED (thrown): figma-pull: no near-grey ramp found for the neutral role — name one with --neutral <hue>. Ramps: color(chroma 0.149)
+
+==========================================================================================
+RUN: 3 — converted + explicit --neutral color --accent color overrides
+==========================================================================================
+entriesFromExport: 238 entries; by type: {"dimension":49,"color":137,"null":52}; parser notes: []
+→ MAPPED. tokenCount=64, auto-filled from contract defaults=29
+picked ramps: {"neutral":"color","accent":"color"}; available ramps: ["color"]
+
+--- placed (token ← source) ---
+  color-fg  ←  color/897 = "color-text-success-strong" (derived: rung 129 of 137, ordered by OKLCH lightness) (nearest rung to nominal /900)
+  color-fg-muted  ←  color/626 = "color-text-info" (negotiated from /500 for contrast)
+  color-bg  ←  (no white style in the file — #ffffff)
+  color-bg-surface  ←  color/50 = "color-bg-input" (derived: rung 1 of 137, ordered by OKLCH lightness)
+  color-border  ←  color/202 = "color-bg-interactive-subdued-hover" (derived: rung 24 of 137, ordered by OKLCH lightness) (nearest rung to nominal /200)
+  color-border-strong  ←  color/897 = "color-text-success-strong" (derived: rung 129 of 137, ordered by OKLCH lightness) (nearest rung to nominal /900)
+  color-white  ←  (no white style in the file — #ffffff)
+  color-accent  ←  color/626 = "color-text-info" (negotiated from /599 for contrast)
+  color-accent-fg  ←  (no white style in the file — #ffffff)
+  color-accent-secondary  ←  color/626 = "color-text-info" (negotiated from /599 for contrast)
+  color-accent-on-inverse  ←  color/401 = "color-bg-strong-hover" (derived: rung 54 of 137, ordered by OKLCH lightness) (nearest rung to nominal /400)
+  color-bg-inverse  ←  color/897 = "color-text-success-strong" (derived: rung 129 of 137, ordered by OKLCH lightness) (nearest rung to nominal /900)
+  color-fg-on-inverse  ←  color/103 = "color-bg-caution-subdued-hover" (derived: rung 9 of 137, ordered by OKLCH lightness) (nearest rung to nominal /100)
+  color-fg-on-inverse-strong  ←  (no white style in the file — #ffffff)
+  color-accent-hover  ←  color/725 = "color-border-primary" (derived: rung 103 of 137, ordered by OKLCH lightness) (color-accent 626 + 100)
+  color-accent-active  ←  color/824 = "color-text-primary-hover" (derived: rung 118 of 137, ordered by OKLCH lightness) (color-accent 626 + 200)
+  spacing-xs  ←  spacing rank 1 of 8 (smallest→largest, even spread across the offered range) = "space-025"
+  spacing-sm  ←  spacing rank 2 of 8 (smallest→largest, even spread across the offered range) = "space-1"
+  spacing-md  ←  spacing rank 3 of 8 (smallest→largest, even spread across the offered range) = "space-3"
+  spacing-lg  ←  spacing rank 4 of 8 (smallest→largest, even spread across the offered range) = "space-5"
+  spacing-xl  ←  spacing rank 5 of 8 (smallest→largest, even spread across the offered range) = "space-10"
+  spacing-2xl  ←  spacing rank 6 of 8 (smallest→largest, even spread across the offered range) = "space-16"
+  spacing-3xl  ←  spacing rank 7 of 8 (smallest→largest, even spread across the offered range) = "space-24"
+  spacing-4xl  ←  spacing rank 8 of 8 (smallest→largest, even spread across the offered range) = "space-32"
+  radius-sm  ←  radius rank 1 of 3 (smallest→largest, even spread across the offered range) = "border-radius-05"
+  radius-md  ←  radius rank 2 of 3 (smallest→largest, even spread across the offered range) = "border-radius-3"
+  radius-lg  ←  radius rank 3 of 3 (smallest→largest, even spread across the offered range) = "border-radius-6"
+  type-display  ←  type ramp rank 1 of 8 (largest→smallest, even spread across the offered range) = "font-line-height-7"
+  type-h1  ←  type ramp rank 2 of 8 (largest→smallest, even spread across the offered range) = "font-size-700"
+  type-h2  ←  type ramp rank 3 of 8 (largest→smallest, even spread across the offered range) = "font-size-600"
+  type-lead  ←  type ramp rank 4 of 8 (largest→smallest, even spread across the offered range) = "font-size-500"
+  type-h3  ←  type ramp rank 5 of 8 (largest→smallest, even spread across the offered range) = "font-size-300"
+  type-body  ←  type ramp rank 6 of 8 (largest→smallest, even spread across the offered range) = "font-size-200"
+  type-caption  ←  type ramp rank 7 of 8 (largest→smallest, even spread across the offered range) = "font-size-100"
+  type-eyebrow  ←  type ramp rank 8 of 8 (largest→smallest, even spread across the offered range) = "font-size-75"
+
+--- contrast negotiations (stepped) ---
+  color-fg-muted: color/500 (#d89b0d) → color/626 (#20828d)
+  color-accent: color/599 (#16a679) → color/626 (#20828d)
+  color-accent-secondary: color/599 (#16a679) → color/626 (#20828d)
+
+--- WCAG: 12/12 pairs pass ---
+
+--- scales ---
+  offered: true
+  imported: {
+  "spacing": {
+    "slots": 8,
+    "offered": 16,
+    "rule": "smallest→largest, even spread across the offered range",
+    "taken": [
+      {
+        "token": "spacing-xs",
+        "name": "space-025",
+        "value": "1px"
+      },
+      {
+        "token": "spacing-sm",
+        "name": "space-1",
+        "value": "4px"
+      },
+      {
+        "token": "spacing-md",
+        "name": "space-3",
+        "value": "12px"
+      },
+      {
+        "token": "spacing-lg",
+        "name": "space-5",
+        "value": "20px"
+      },
+      {
+        "token": "spacing-xl",
+        "name": "space-10",
+        "value": "40px"
+      },
+      {
+        "token": "spacing-2xl",
+        "name": "space-16",
+        "value": "64px"
+      },
+      {
+        "token": "spacing-3xl",
+        "name": "space-24",
+        "value": "96px"
+      },
+      {
+        "token": "spacing-4xl",
+        "name": "space-32",
+        "value": "128px"
+      }
+    ],
+    "dropped": [
+      "2px",
+      "8px",
+      "16px",
+      "24px",
+      "32px",
+      "48px",
+      "80px",
+      "112px"
+    ]
+  },
+  "radius": {
+    "slots": 3,
+    "offered": 7,
+    "rule": "smallest→largest, even spread across the offered range",
+    "taken": [
+      {
+        "token": "radius-sm",
+        "name": "border-radius-05",
+        "value": "2px"
+      },
+      {
+        "token": "radius-md",
+        "name": "border-radius-3",
+        "value": "12px"
+      },
+      {
+        "token": "radius-lg",
+        "name": "border-radius-6",
+        "value": "30px"
+      }
+    ],
+    "dropped": [
+      "4px",
+      "8px",
+      "16px",
+      "20px"
+    ]
+  },
+  "type": {
+    "slots": 8,
+    "offered": 9,
+    "rule": "largest→smallest, even spread across the offered range",
+    "taken": [
+      {
+        "token": "type-display",
+        "name": "font-line-height-7",
+        "value": "clamp(25px, 6vw, 48px)"
+      },
+      {
+        "token": "type-h1",
+        "name": "font-size-700",
+        "value": "clamp(23px, 4vw, 40px)"
+      },
+      {
+        "token": "type-h2",
+        "name": "font-size-600",
+        "value": "clamp(23px, 2.5vw, 32px)"
+      },
+      {
+        "token": "type-lead",
+        "name": "font-size-500",
+        "value": "clamp(23px, 1.5vw, 28px)"
+      },
+      {
+        "token": "type-h3",
+        "name": "font-size-300",
+        "value": "20px"
+      },
+      {
+        "token": "type-body",
+        "name": "font-size-200",
+        "value": "16px"
+      },
+      {
+        "token": "type-caption",
+        "name": "font-size-100",
+        "value": "14px"
+      },
+      {
+        "token": "type-eyebrow",
+        "name": "font-size-75",
+        "value": "12px"
+      }
+    ],
+    "dropped": [
+      "24px"
+    ]
+  }
+}
+  short (auto-filled families): [{"family":"shadow","offered":0,"needs":3}]
+  unclassified (read but not imported): [
+  "border-radius-full (pill sentinel, not a surface radius)",
+  "border-width-1",
+  "border-width-2",
+  "border-width-3",
+  "border-width-4",
+  "border-width-5",
+  "breakpoints-xs",
+  "breakpoints-sm",
+  "breakpoints-md",
+  "breakpoints-lg",
+  "breakpoints-xl"
+]
+  auto-filled tokens (29): color-accent-wash, color-fg-on-inverse-muted, color-fg-on-inverse-soft, color-inverse-line, color-inverse-wash, color-on-dark-border, font-display, font-body, font-mono, shadow-sm, shadow-md, shadow-lg, motion-fast, motion-base, motion-ambient, motion-ease, motion-slow, motion-stagger, motion-rise, motion-ease-spring, motion-bounce, motion-count, motion-ease-bounce, motion-ease-settle, motion-tab-glide, motion-skeleton-to-content, motion-icon-morph, maxw, gutter
+
+--- the pack header (the mapping report as the pack itself carries it) ---
+IMPORTED, NOT DESIGNED — every colour below is a real value read from the Figma file "polaris-v7.export.json (Shopify Polaris v7.0.0 public token export)" (key polaris-v7) by tooling/figma/figma-pull.mjs. It is that file's design work, not this repo's; the pack only maps its color/color ramps onto contract roles.
+ * Regenerate: spike harness (scratchpad/spike-a-engine.mjs) — not a committed pack
+ * Rung numbers DERIVED, not read: this file does not number these colours, so each ramp was ordered by OKLCH lightness and numbered from that order — color: /50 = "color-bg-input", /57 = "color-bg", /63 = "color-icon-on-color", /70 = "color-text-on-color", /76 = "color-bg-subdued", /83 = "color-bg-success-subdued-hover", /90 = "color-bg-primary-subdued", /96 = "color-bg-primary-subdued-selected", /103 = "color-bg-caution-subdued-hover", /110 = "color-bg-info-subdued-hover", /116 = "color-bg-critical-subdued-hover", /123 = "color-bg-interactive-subdued", /129 = "color-bg-interactive-selected", /136 = "color-bg-app", /143 = "color-bg-subdued-hover", /149 = "color-bg-inset", /156 = "color-bg-hover", /163 = "color-text-inverse", /169 = "color-bg-success-subdued", /176 = "color-bg-primary-subdued-hover", /182 = "color-bg-caution-subdued", /189 = "color-bg-magic-subdued", /196 = "color-bg-info-subdued", /202 = "color-bg-interactive-subdued-hover", /209 = "color-bg-subdued-active", /215 = "color-bg-disabled", /222 = "color-bg-interactive-disabled", /229 = "color-bg-app-hover", /235 = "color-bg-app-selected", /242 = "color-bg-active", /249 = "color-bg-critical-subdued", /255 = "color-bg-magic", /262 = "color-bg-magic-subdued-hover", /268 = "color-bg-caution-subdued-active", /275 = "color-bg-primary-subdued-active", /282 = "color-bg-success-subdued-active", /288 = "color-bg-strong", /295 = "color-bg-app-active", /301 = "color-border-disabled", /308 = "color-border-subdued", /315 = "color-border-interactive-disabled", /321 = "color-icon-inverse", /328 = "color-bg-info-subdued-active", /335 = "color-bg-info", /341 = "color-bg-magic-hover", /348 = "color-bg-magic-subdued-active", /354 = "color-bg-caution", /361 = "color-bg-success", /368 = "color-bg-warning", /374 = "color-bg-critical-subdued-active", /381 = "color-bg-critical", /388 = "color-bg-interactive-subdued-active", /394 = "color-border-interactive-subdued", /401 = "color-bg-strong-hover", /407 = "color-bg-strong-active", /414 = "color-border", /421 = "color-border-caution-subdued", /427 = "color-bg-magic-active", /434 = "color-border-info-subdued", /440 = "color-border-success-subdued", /447 = "color-border-input", /454 = "color-border-hover", /460 = "color-border-strong", /467 = "color-icon-disabled", /474 = "color-icon-interactive-disabled", /480 = "color-text-inverse-subdued", /487 = "color-border-info", /493 = "color-bg-caution-strong", /500 = "color-border-caution", /507 = "color-border-magic", /513 = "color-icon-warning", /520 = "color-border-critical-subdued", /526 = "color-bg-info-strong", /533 = "color-icon-info", /540 = "color-icon-interactive-inverse", /546 = "color-text-interactive-inverse", /553 = "color-bg-inverse-active", /560 = "color-border-strong-hover", /566 = "color-icon-subdued", /573 = "color-text-disabled", /579 = "color-text-interactive-disabled", /586 = "color-bg-success-strong", /593 = "color-border-success", /599 = "color-icon-success", /606 = "color-icon-caution", /613 = "color-border-interactive", /619 = "color-border-interactive-focus", /626 = "color-text-info", /632 = "color-bg-magic-strong", /639 = "color-border-magic-strong", /646 = "color-icon-magic", /652 = "color-bg-critical-strong", /659 = "color-border-critical", /665 = "color-icon-critical", /672 = "color-text-critical", /679 = "color-bg-inset-strong", /685 = "color-bg-inverse-hover", /692 = "color-border-input-hover", /699 = "color-border-inverse", /705 = "color-icon", /712 = "color-text-subdued", /718 = "color-bg-primary", /725 = "color-border-primary", /732 = "color-icon-primary", /738 = "color-text-success", /745 = "color-text-primary", /751 = "color-bg-interactive", /758 = "color-icon-interactive", /765 = "color-text-interactive", /771 = "color-text-caution", /778 = "color-bg-critical-strong-hover", /785 = "color-text-magic", /791 = "color-bg-interactive-hover", /798 = "color-border-interactive-hover", /804 = "color-icon-interactive-hover", /811 = "color-text-interactive-hover", /818 = "color-bg-primary-hover", /824 = "color-text-primary-hover", /831 = "color-bg-critical-strong-active", /838 = "color-border-critical-hover", /844 = "color-text-critical-active", /851 = "color-text-info-strong", /857 = "color-bg-interactive-active", /864 = "color-border-interactive-active", /871 = "color-icon-interactive-active", /877 = "color-text-interactive-active", /884 = "color-text-caution-strong", /890 = "color-bg-primary-active", /897 = "color-text-success-strong", /904 = "color-text-warning-strong", /910 = "color-text-magic-strong", /917 = "color-border-critical-active", /924 = "color-text-critical-strong", /930 = "color-bg-inverse", /937 = "color-icon-hover", /943 = "color-icon-active", /950 = "color-text" · color: /50 = "color-bg-input", /57 = "color-bg", /63 = "color-icon-on-color", /70 = "color-text-on-color", /76 = "color-bg-subdued", /83 = "color-bg-success-subdued-hover", /90 = "color-bg-primary-subdued", /96 = "color-bg-primary-subdued-selected", /103 = "color-bg-caution-subdued-hover", /110 = "color-bg-info-subdued-hover", /116 = "color-bg-critical-subdued-hover", /123 = "color-bg-interactive-subdued", /129 = "color-bg-interactive-selected", /136 = "color-bg-app", /143 = "color-bg-subdued-hover", /149 = "color-bg-inset", /156 = "color-bg-hover", /163 = "color-text-inverse", /169 = "color-bg-success-subdued", /176 = "color-bg-primary-subdued-hover", /182 = "color-bg-caution-subdued", /189 = "color-bg-magic-subdued", /196 = "color-bg-info-subdued", /202 = "color-bg-interactive-subdued-hover", /209 = "color-bg-subdued-active", /215 = "color-bg-disabled", /222 = "color-bg-interactive-disabled", /229 = "color-bg-app-hover", /235 = "color-bg-app-selected", /242 = "color-bg-active", /249 = "color-bg-critical-subdued", /255 = "color-bg-magic", /262 = "color-bg-magic-subdued-hover", /268 = "color-bg-caution-subdued-active", /275 = "color-bg-primary-subdued-active", /282 = "color-bg-success-subdued-active", /288 = "color-bg-strong", /295 = "color-bg-app-active", /301 = "color-border-disabled", /308 = "color-border-subdued", /315 = "color-border-interactive-disabled", /321 = "color-icon-inverse", /328 = "color-bg-info-subdued-active", /335 = "color-bg-info", /341 = "color-bg-magic-hover", /348 = "color-bg-magic-subdued-active", /354 = "color-bg-caution", /361 = "color-bg-success", /368 = "color-bg-warning", /374 = "color-bg-critical-subdued-active", /381 = "color-bg-critical", /388 = "color-bg-interactive-subdued-active", /394 = "color-border-interactive-subdued", /401 = "color-bg-strong-hover", /407 = "color-bg-strong-active", /414 = "color-border", /421 = "color-border-caution-subdued", /427 = "color-bg-magic-active", /434 = "color-border-info-subdued", /440 = "color-border-success-subdued", /447 = "color-border-input", /454 = "color-border-hover", /460 = "color-border-strong", /467 = "color-icon-disabled", /474 = "color-icon-interactive-disabled", /480 = "color-text-inverse-subdued", /487 = "color-border-info", /493 = "color-bg-caution-strong", /500 = "color-border-caution", /507 = "color-border-magic", /513 = "color-icon-warning", /520 = "color-border-critical-subdued", /526 = "color-bg-info-strong", /533 = "color-icon-info", /540 = "color-icon-interactive-inverse", /546 = "color-text-interactive-inverse", /553 = "color-bg-inverse-active", /560 = "color-border-strong-hover", /566 = "color-icon-subdued", /573 = "color-text-disabled", /579 = "color-text-interactive-disabled", /586 = "color-bg-success-strong", /593 = "color-border-success", /599 = "color-icon-success", /606 = "color-icon-caution", /613 = "color-border-interactive", /619 = "color-border-interactive-focus", /626 = "color-text-info", /632 = "color-bg-magic-strong", /639 = "color-border-magic-strong", /646 = "color-icon-magic", /652 = "color-bg-critical-strong", /659 = "color-border-critical", /665 = "color-icon-critical", /672 = "color-text-critical", /679 = "color-bg-inset-strong", /685 = "color-bg-inverse-hover", /692 = "color-border-input-hover", /699 = "color-border-inverse", /705 = "color-icon", /712 = "color-text-subdued", /718 = "color-bg-primary", /725 = "color-border-primary", /732 = "color-icon-primary", /738 = "color-text-success", /745 = "color-text-primary", /751 = "color-bg-interactive", /758 = "color-icon-interactive", /765 = "color-text-interactive", /771 = "color-text-caution", /778 = "color-bg-critical-strong-hover", /785 = "color-text-magic", /791 = "color-bg-interactive-hover", /798 = "color-border-interactive-hover", /804 = "color-icon-interactive-hover", /811 = "color-text-interactive-hover", /818 = "color-bg-primary-hover", /824 = "color-text-primary-hover", /831 = "color-bg-critical-strong-active", /838 = "color-border-critical-hover", /844 = "color-text-critical-active", /851 = "color-text-info-strong", /857 = "color-bg-interactive-active", /864 = "color-border-interactive-active", /871 = "color-icon-interactive-active", /877 = "color-text-interactive-active", /884 = "color-text-caution-strong", /890 = "color-bg-primary-active", /897 = "color-text-success-strong", /904 = "color-text-warning-strong", /910 = "color-text-magic-strong", /917 = "color-border-critical-active", /924 = "color-text-critical-strong", /930 = "color-bg-inverse", /937 = "color-icon-hover", /943 = "color-icon-active", /950 = "color-text". The numbers are this importer's; the colours are the file's.
+ * Scale imported from this file: spacing (8 of 16 value(s), smallest→largest, even spread across the offered range — dropped: 2px, 8px, 16px, 24px, 32px, 48px, 80px, 112px), radius (3 of 7 value(s), smallest→largest, even spread across the offered range — dropped: 4px, 8px, 16px, 20px), type ramp (8 of 9 value(s), largest→smallest, even spread across the offered range — dropped: 24px). The fluid clamp() shape and its vw term are this repo's contract; the numbers are the design's.
+ * Scale NOT imported, auto-filled from this repo's contract defaults: shadows (the design offered 0, the contract has 3 slots). These values are NOT the design's.
+ * Read but not classified into a family, so not imported: border-radius-full (pill sentinel, not a surface radius), border-width-1, border-width-2, border-width-3, border-width-4, border-width-5, breakpoints-xs, breakpoints-sm, breakpoints-md, breakpoints-lg, breakpoints-xl.
+ * WCAG (RULESET.wcagPairs, the same list derive() is held to): 12/12 pairs pass
+ * Contrast negotiated within the file's own ramps: color-fg-muted color/500→color/626, color-accent color/599→color/626, color-accent-secondary color/599→color/626
+
+--- engine notes ---
