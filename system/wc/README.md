@@ -28,7 +28,7 @@ Verdant is a fictional demo scenario — no real company, users, or data.
 <script type="module">
   import "./wc/vd-plant-card.mjs";
   document.querySelector("vd-plant-card").data =
-    { id: "p-014", name: "Monstera", species: "Monstera deliciosa", status: "due", lastWatered: "2026-07-14T08:30:00Z" };
+    { id: "plant-01", name: "Monstera", species: "Monstera deliciosa", status: "ok", lastWatered: "2026-07-11" };
 </script>
 ```
 
@@ -61,7 +61,7 @@ The modules are relative-import self-contained (`vd-plant-card.mjs` and
 | --- | --- | --- |
 | attribute | `action`, `plant-name`, `status`, `task-id` | label renders as capitalised action + plant name |
 | attribute | `checked` | boolean — presence = true; toggled by click/Space |
-| property | `data` | full `CareTask` record; `plantId`/`due` accepted, never rendered |
+| property | `data` | full `CareTask` record; maps `type→action`, `id→task-id`; `plantId`/`due` accepted, never rendered |
 | property | `checked` | boolean, reflects the attribute both directions |
 | event | `vd-toggle` | `bubbles + composed`, `detail: { id, checked }` |
 
