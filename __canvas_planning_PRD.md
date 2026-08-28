@@ -544,3 +544,150 @@ open); epic #86 (parked). PR #294 carries this briefing.
   `origin/main` in (`.gitignore` union, `cede6d2`); build-checks all 27 pass on the merged tree.
 - **Corrections carried (§11).** #271 closed unimplemented; #223 closed with the hallway round never
   run; the retuned skill is now committed.
+
+---
+
+## 18. The conversion pipeline end to end — what exists, what is missing (2026-08-28)
+
+One picture of the whole path a design takes from Brilliant or Figma to the ux-factory canvas. "Today"
+is observed in the repo; "this epic" is what the PRD scopes and the architecture places.
+
+| # | Stage | Today | This epic adds | Owner file |
+|---|---|---|---|---|
+| 1 | **Read the source** | Figma: `tooling/figma/figma-pull.mjs --from <export.json>` (plugin export — no token, no quota, no Enterprise gate) or the API read (`figma-read.mjs`, ~6 GET-file/month budget, cache in the `wt-figma` worktree, `--offline` re-runs free). Brilliant: `lookup(format:"blueprint")` + `export(htmlFlex\|svg)` through the MCP, reachable from the portal's Agent SDK run (7.8 s, spike C) | the Brilliant read as a **recorded run** — `portal/record-import.mjs`, the third recorder | `tooling/figma/*` · `system/brilliant-import.mjs` (new) |
+| 2 | **Tokens → a pack** | `system/pack-import.mjs` — ONE engine (CLI, portal drawer, home drop zone all import it); maps by ROLE, negotiates contrast, refuses with the CLI's message byte for byte; emits `system/tokens.<slug>.css` + a report | spike A's five fixes: `rgba()`/`rem` normalisation · semantic-name recognition before ramp inference · provenance/licence block · total drop list · wrong-but-green fidelity check | `system/pack-import.mjs` |
+| 3 | **Recognition** — is this shape already in the vocabulary? | human judgement: 0:16 in spike C (`ds-person-row`, not covered), under a minute in spike B (Badge → `status-chip`) | the D3 matcher in code: deterministic comparison against `handoff/verdant/vocabulary.json`, before any agent prose | `system/brilliant-import.mjs` |
+| 4 | **Admission draft** — spec `.md` (+ `.contract.json` if data-bound) + `components.css` block + `agentic-renderer.mjs` template (+ palette entry) | an agent writes them by hand: 1:45 of prose in spike C, nearly all of it the spec's Usage/Accessibility sentences | drafted FROM the blueprint by the recorder's agent, landing as a **proposal** through one fenced `component.propose` op — never directly in `system/specs/`; an **operator-editable role map** (rename, remap, drop) persisted with the run | `tooling/component-op.mjs` (new, the `board-op.mjs` shape) |
+| 5 | **Ratify** — props, states, behaviour, a11y | editing files | a portal ratification UI (owner prefers UI over CLI); **minutes-to-ratify** measured per component, ≤10 is D7's bar | `portal/lib/*` + `portal/public/` |
+| 6 | **Regenerate + gate** | `gen-handoff` (21 specs ✓) · `gen-vocabulary` · `gen-pack-bundle` · `gen-system-graph` · `build-checks` 27 groups (group 3: every vocabulary entry has a render path) | the admission tool runs **all four** regens — `gen-handoff` alone left three stale and turned 7 groups red (observed) | `agent-layer/*` |
+| 7 | **Compose onto the canvas** | `agentic-renderer.mjs` renders `{name,props,children}` from the vocabulary and refuses the rest; the studio's eight board ops arrange places on the 12×8 grid | D6's free x/y flow layer; `screen.compose` · `screen.set` · `annotate` ops; a Brilliant **frame** → recognised components + positions (positions are view state, never an op) | `system/studio-*.mjs` · `system/board-ops.mjs` |
+| 8 | **Provenance** | trace → `curate-trace` → `validate-trace`; `gen-replay` projects a build run | the import run committed and replayable, labelled "real run, curated" | `traces/` · `replay/` |
+
+The honesty frame over all eight stages is §8's: **projection, not reproduction** — exact values ride as
+pack tokens, structure becomes a spec, concepts the contract lacks drop, and the drop list is shown.
+Every import answers Mode 1 (joins the system) vs Mode 2 (frozen exhibit, labelled).
+
+---
+
+## 19. Brilliant — the full inventory and the observed facts
+
+**The 17 MCP tools**, by direction (the SDK saw exactly 17 in spike C):
+
+| Direction | Tools | Notes |
+|---|---|---|
+| Session | `init` · `list_projects` · `get_selection` · `send_feedback` | `init` binds the session and returns the session id, canvas id and the knowledge-key list; `project:` binds a project that is not on screen, headlessly |
+| **Read** | `lookup` · `export` | `lookup`: `format: summary\|blueprint`, `expandInstances`, `depth`, filters by name / text / type / fillColor / componentName. `export`: `svg` · `htmlFlex` · `react` · `html` · `htmlDoc` · png/jpeg/webp/pdf · mp4/mov |
+| **Write** | `create_html` · `create_modify_elements` · `execute_commands` | `create_html` is always sovereign (hex/rgb literals). `create_modify_elements` takes Blueprint DSL and `designSystem: default\|new\|none` (sticky); under `default` elements are token-bound |
+| Knowledge | `get_knowledge` | keys: `design-systems/{core,authoring,authoring-modes}` · `blueprint/{core,layout,layout-patterns,paint,text,styled-ranges,effects,vectors,components,libraries,lines,arcs,images,commands,directives}` · `design/*` · `design/blocks/*` · `effects/*` · `charts/*` · `images/*` · `recreation/*` · `svg/*` · `reference/*` · `webgl/*` (full list in `.claude/plans/design-import-spike-c/00-init.txt`) |
+| Generative | `generate_image` · `generate_svg` · `vectorize_image` | Google raster · Quiver vector · raster→vector |
+| Self-documentation, desktop-only, **irrelevant to import** | `capture_ui` · `render_ui` · `list_capture_targets` · `list_stagers` | screenshot Brilliant's own chrome / stagers — D7 named the first two by mistake |
+
+**Binding and transport facts (observed across sessions):** `init` binds to the focused window; a 120 s
+timeout means a stale binding — re-run `init` on a project switch. Mutations are at-least-once with a
+slow ack (a create timed out at 120 s but had applied — verify with `lookup`, never re-send; reads are
+fast). In the web editor `export` has no local filesystem: PNG returns inline, `outputPath` is refused
+outside `/tmp`. The Agent SDK does **not** read `~/.claude.json`; pass the server as `mcpServers`
+explicitly, and it connects in seconds.
+
+**Design-system facts:** the project carries Brilliant's `default` DS; the session defaults to sovereign
+(`none`), so a hand-drawn design is token-bound only if the designer chose the DS. Under `default`,
+token discipline is enforced (`$color.surface`, `$spacing.md`, `$font.size.lg`, `typography.body.md`).
+
+**Blueprint DSL, as read back (spike C):** `g(12:$spacing.md)` · `pad(8:$spacing.sm,12:$spacing.md,…)` ·
+`rd(6:$radius.md)` · `t(…,Manrope:$font.family,16:$font.size.md,sb,lh(1.5:$font.lineHeight.normal))` ·
+`w(1:$stroke.width.subtle)` · `tok(color.text.secondary,#575757,dark(#C6C6C6),high-contrast(#454545))` ·
+`al(h,y(c),g,pad)` · `s(360,hug)` / `s(fill,hug)` · `comp axes[state[active,away]]` ·
+`inst("…") at(state(active))` · `override(#id) t("…")` · `svg(icon:caret-right)`. Weight is a keyword,
+not a token. A drawing carries no props, states or behaviour — D7's rule, observed.
+
+**The three-way read of one instance** (`1db1b29957b949ca`):
+
+| facet | blueprint (`lookup`) | htmlFlex (`export`) | react (`export`) | svg |
+|---|---|---|---|---|
+| colour | role + literal per mode: `tok(color.success.container,#F1F7F2,dark(#003B12))` | light literal only | same literal | literal |
+| spacing | `g(12:$spacing.md)`, `pad(8:$spacing.sm,…)` | `gap:12px; padding:8px 12px…` | absolute `left/top` px | n/a |
+| type | family/size/line-height as tokens, weight a keyword | literals | same | font attrs + 3 base64 `@font-face` blocks |
+| layout | `al(h,y(c),g,pad)`, `hug`/`fill` — intent | semantic flex | `position:absolute` — geometry only | absolute |
+| component / instance | `inst("Spike List Row") at(state(active))`; master readable with both variants | `data-instance-of` + `data-component` | same | none |
+| override | explicit `override(#id) t("On call")` | resolved text | resolved | resolved |
+| variants / states | master `comp axes[state[active,away]]`, both subtrees | exported state only | same | same |
+| icon / vector | `svg(icon:caret-right)` — the Phosphor NAME | inline `<svg><path>` | same | path |
+| props / behaviour | none | none | none | none |
+
+---
+
+## 20. The component chain and the vocabulary as it stands
+
+**The vocabulary: 20 components in `system/specs/`, 4 with data contracts** — `card` · `care-task-row` ·
+`demo-notice` · `empty-state` · `ghost-button` · `list-row` · `metric-tile` · `modal-dialog` ·
+`nav-tabs` · `plant-card` · `primary-button` · `progress-indicator` · `screen-header` · `search-input` ·
+`select-field` · `sequence-step` · `stat-tile` · `status-chip` · `text-field` · `toggle-switch`.
+Verdant/Fieldwork-flavoured and enum-locked (the reason #13 added a generic `metric-tile`). **This, not
+the canvas, is the ceiling for "any product"** — D18's base vocabulary (layout containers, text, the
+input family, button, list, card, nav, dialog, toast, table, media, chart slot) is the one-off cost of
+agnosticism; product-specific components arrive only through import or `component.propose`.
+
+**The chain a component must complete** (CLAUDE.md § Where new code goes, restated so this file is
+complete): a spec `system/specs/<name>.md` (+ `.contract.json` if data-bound, per
+`.claude/references/kb-format.md`) → its `components.css` block (header
+`/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) → its
+`agentic-renderer.mjs` template → `node agent-layer/gen-handoff.mjs` (+ `gen-vocabulary`,
+`gen-pack-bundle`, `gen-system-graph`) → `build-checks` group 3 asserts every vocabulary entry has a
+render path. A spec with no block and no template is *documented but not composable* and a red build.
+The optional `example` head key must actually render. A new semantic token enters
+`tokens.source.json` (contract group) first, then `gen-token-css` **and** `gen-handoff`, or the pack
+goes stale and CI `verify` goes red. WC wrappers (`system/wc/vd-*`) are spec-first and ship in the pack.
+
+**Gates that fire on admission:** the 27 build-checks groups · VR baselines for any at-rest shipped-page
+change · `param-manifest.json` for a new live control · loc-summary regen for new tracked files (and the
+two approach baselines) · the docs-chain histogram pin (3/17 → 3/18, observed in spike C) ·
+`drift-check` syntax-checks every tracked `.mjs`, `.claude/plans/` included.
+
+**Recognition vs admission:** recognition (their `ListItem` is my `list-row`) is deterministic and can
+be automated; admission (a genuinely novel shape) always costs judgement — accumulation makes it rare,
+never free.
+
+---
+
+## 21. The canvas as built — modules, the op vocabulary, and what D6 changes
+
+**Modules** (roles from CLAUDE.md's index and the ticket plans; ~7,470 lines across them):
+
+| Module | Role |
+|---|---|
+| `system/studio-canvas.mjs` | the SUBSTRATE — native-scroll stage, zoom table, `data-col`/`data-row` (#204) |
+| `system/studio.css` | the studio's surface styles; hand-mirrors the caps group 12 pins |
+| `system/studio-verbs.mjs` | the MANIPULATION verbs — move, resize, undo/redo, all through the bus (#205) |
+| `system/studio-select.mjs` | selection, marquee, guides, context menu (#217) |
+| `system/studio-flow.mjs` | the flow's screen surface — renderScreen + wireFlow (#212) |
+| `system/studio-compile.mjs` | the compile beat; transform-only crossfades, no `view-transition-name` (#207, #171) |
+| `system/studio-method.mjs` | the METHOD BAND — the ten questions as cards, Hook loop, ethics verdict (#214) |
+| `system/studio-docs.mjs` | the DOCKED DOCS — mount 2 of `renderComponentDocs` (#218) |
+| `system/studio-frames.mjs` + `device-frame.mjs` | the two prototypes as real iframes; Verdant's resizable device frame (#219) |
+| `system/studio-layers.mjs` · `studio-minimap.mjs` | the LAYERS LIST and the MINIMAP with a live viewport rect (#221) |
+| `system/studio-keep.mjs` · `studio-export.mjs` | the keep rail; single-file export (#210) |
+| `system/studio.mjs` | the orchestrator behind `/factory` and `studio.html` (#206) |
+| `system/replay-driver.mjs` | plays a committed projection over the `agent.*` half; take-over (#209) |
+| `system/board-ops.mjs` | the BUILD-OP vocabulary + a pure applier (DOM-free; three layers need it) |
+| `system/build-share.mjs` | the whole build in the URL — codec v2 (`g` grid field) + the tamper battery (#208) |
+| `system/action-bus.mjs` | the one bidirectional action contract (agent / click / keyboard) |
+| `system/agentic-renderer.mjs` | vocabulary-validated `{name,props,children}` → real components; refuses the rest |
+| `system/bus-toggles.mjs` | Fieldwork's agentic-slot state commands — the only `agent.*` exerciser |
+| `tooling/board-op.mjs` | the fenced build agent's ONLY tool — one call, one op, the board printed back |
+| `tooling/build-checks.mjs` groups `canvas` · `verbs` · `select` · `minimap` · `analytics` · 11 (ops) | mirror the grid tables exhaustively |
+| `tooling/studio-journey.mjs` | the studio ×3 engines + the INP gate |
+| `studio.html` · `/factory` · `instance.html` | the raw harness · the shipped surface · the private-instance shell |
+
+**The op vocabulary.** Eight board ops today: `place.add` · `place.rename` · `place.remove` ·
+`affordance.add` · `affordance.rename` · `affordance.remove` · `connect` · `disconnect`. D6 adds four:
+`screen.compose` · `screen.set` · `annotate` · `component.propose` — twelve, one op per tool call. A new
+verb is a `board-ops.mjs` edit (the `OPS` list, its `PARAMS` entry and the switch, together) plus a
+build-checks group 11 case, never a generator special case. Arrows between frames ARE ops (`connect`);
+positions are view state saved with the run and never part of the honesty claim.
+
+**What D6 changes** (§4 in full): retires the 12×8 grid, spans-not-px, `clampSlot`/`stepSlot`, codec v2's
+`g` field (→ v3), the tamper battery's coordinate family, the "column 2, row 1" announcements and the
+grid tables in four build-checks groups — the 12-file blast radius. Keeps the DOM stage, native-scroll
+pan, the bus as the drive path, the vocabulary refusal, the live-region refusals, the docs mount, and
+one op per tool call. The `writes===1` inline-style gate does not reach a portal canvas; reused studio
+modules carry x/y as custom properties through one write path.
