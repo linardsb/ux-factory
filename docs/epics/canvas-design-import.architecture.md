@@ -193,7 +193,7 @@ variant  {key, overrides: {frameId: override}}
   fails validation is a visible refusal on the canvas and a `refused` line, never a retry.
 - **Transport inherits #280.** Spike C proved the recorded run reaches the MCP in process; whether the
   op itself reaches the applier through an in-process tool or the `board-op.mjs` CLI shape is #280's
-  verdict, still unposted. The spine assumes the in-process tool and the applier does not change either
+  verdict, posted 2026-08-28: the in-process tool. The spine assumes the in-process tool and the applier does not change either
   way.
 - **Ratify writes, gates, and stops at the diff (G6).** The click writes `system/specs/<name>.md`,
   appends the CSS block to `components.css` under the standard header, writes the template into

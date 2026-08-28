@@ -102,7 +102,7 @@ already states, that a guard reachable only by starting a real agent run is a gu
   declared one — so adopting it amends CLAUDE.md's "the portal's sole dependency is
   `@anthropic-ai/claude-agent-sdk`". The fallback is the proven `board-op.mjs` shape: a CLI the agent
   reaches through a fenced `Bash`, reading the answer store off disk. Reversible either way; the applier
-  and the grammar do not change.
+  and the grammar do not change. **Resolved 2026-08-28 (#280): in-process tool — see the verdict on #279.**
 - **Session model: resume-per-turn, keyed by run slug.** `chat.mjs`'s proven pattern (`resume:
   sessions[key]`), with `sessionId` recorded in the package meta the way `trace-recorder.mjs` records it
   on its meta line. Disk is authoritative, not memory, so a page reload resumes a session and a server
@@ -331,7 +331,7 @@ and its committed one-sentence input · the fixture's md5 case · the CLAUDE.md 
    Spike: one tool with three parameters, one cheap dry run against a stub bank — ~1 hour.
    Decision rule: works and the Zod peer dependency is acceptable → in-process tool, and CLAUDE.md's
    sole-dependency line is amended in the same PR. Does not work, or the dependency is refused → the
-   `board-op.mjs` CLI shape, with `answer_ref` resolved by the CLI reading the answer store.
+   `board-op.mjs` CLI shape, with `answer_ref` resolved by the CLI reading the answer store. **Resolved 2026-08-28 (#280): in-process tool — see the verdict on #279.**
 
 2. **The interactive op loop** *(the chosen approach's one real risk; MVP 14 is exactly this)*
    Question: under resume-per-turn, does the agent judge one answer, emit at most one closing op and
