@@ -1,6 +1,6 @@
 # Canvas + design-import — what to know before writing the PRD
 
-**Status:** pre-PRD briefing, written 2026-08-27; §11–§15 added the same evening after reading the Brilliant tool schemas and re-checking the tracker. Not a PRD. This exists so the PRD session starts from
+**Status:** pre-PRD briefing, written 2026-08-27; §11–§15 added the same evening after reading the Brilliant tool schemas and re-checking the tracker; §22–§30 added 2026-08-28 from the Brilliant source read, an eleven-agent research pass and the email-hub converter. Not a PRD. This exists so the PRD session starts from
 what is already settled instead of re-deriving it.
 
 **The one-line answer.** The PRD can be written **now**. Nothing blocks it — not epic #279, not spike C.
@@ -691,3 +691,366 @@ grid tables in four build-checks groups — the 12-file blast radius. Keeps the 
 pan, the bus as the drive path, the vocabulary refusal, the live-region refusals, the docs mount, and
 one op per tool call. The `writes===1` inline-style gate does not reach a portal canvas; reused studio
 modules carry x/y as custom properties through one write path.
+
+---
+
+## 22. Brilliant, read from its source — what "the same capabilities" means (2026-08-28)
+
+The playground DOM (screenshot, 09:26) says exactly what Brilliant is: Flutter web, `flt-renderer="skwasm"`
+(Skia compiled to WebAssembly, rendering on a worker thread when the page ships COOP/COEP headers),
+`flt-embedding="full-page"`, one GPU `<canvas id="brilliant-engine-canvas-0">` inside a `flt-platform-view`,
+a `flt-semantics-placeholder` ("Enable accessibility") that builds a shadow ARIA tree only when a reader
+opts in, a hidden `<textarea>` in `flt-text-editing-host` that every keystroke goes through, and a
+browser-painted boot skeleton that prefetches the canvas YAML + styles concurrently with the wasm boot.
+(The `eternl-dom-script` tag is a browser extension, not Brilliant.)
+
+**The finding that settles the rendering question:** those five things are the *price* Brilliant pays for
+painting pixels, not features. A DOM stage gets each of them free by construction: real text editing, real
+selection, real IME, a real accessibility tree, crawlable content, no SharedArrayBuffer headers. The two
+design tools that stayed DOM at scale (Framer, tldraw) both use transform-only positioning plus viewport
+culling; the ones that paint (Figma, Flutter, Excalidraw, Penpot's 2025 opt-in wasm path) all rebuild
+accessibility as a parallel structure and still call it inconsistent
+([Flutter web a11y](https://docs.flutter.dev/ui/accessibility/web-accessibility) ·
+[Penpot render](https://penpot.app/blog/penpots-new-rendering-system/) ·
+[Figma WebGPU](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/)). `studio-canvas.mjs` call 1
+("the stage is DOM") survives contact with the best-in-class competitor. Keep it.
+
+**What Brilliant has that matters**, mapped to the substrate:
+
+| Brilliant capability | ux-factory today (observed) | Gap | Right tech (§24) |
+|---|---|---|---|
+| Direct manipulation: drag, resize, marquee, guides, context menu, smooth zoom | #205/#217 verbs on a 12×8 grid; five-entry zoom table; `fit()` snaps | Free x/y (problem 1), continuous zoom (problem 3), feel (problem 4) | T2 · T4 · T7 |
+| Auto-layout frames: `al(h,y(c),g,pad)`, `s(fill,hug)` | The board's affordance order inside a place; no layout container in the vocabulary | One base layout primitive | T3 |
+| Components · variants · instances · overrides | 20 specs, enum-locked; `comp axes[state[…]]` has no equivalent | State variants as sibling frames (D6); D18 base vocabulary | T6 |
+| Tokens bound to a DS with per-mode values (`tok(role,#light,dark(),high-contrast())`) | Three-layer contract, one pack at a time | Per-mode values on one token | T11 |
+| Agent DSL + MCP (Blueprint, `lookup`, `export`, `create_modify_elements`) | `{name,props,children}` + twelve ops + the bus | Two-way projection between the vocabularies | T12 · T13 |
+| Pen, boolean ops, vectors, shaders, generative images | None | **None by decision** — not a general design tool (prototype-studio.prd non-goals) | reject |
+
+Everything in the first five rows is buildable on the existing substrate with zero dependencies. The
+sixth row is Brilliant's job, and the seam (T12) is how a designer's work in Brilliant lands here.
+
+---
+
+## 23. What exists, what the PRD produces, what is still open
+
+**Exists (observed, §21):** DOM stage · native-scroll pan · `transform: scale(var(--stx-scale))` with the
+scale set by a `data-zoom` table (`system/studio.css:30-89`) · eight board ops with a pure applier · the bus
+· the vocabulary-validated renderer · codec v2 · the replay driver · layers list, minimap, docked docs · the
+INP gate ×3 engines · 27 build-checks groups. ~7,470 lines, most of them coordinate-agnostic (§4).
+
+**The PRD produces (D6 + D7, settled):** the free flow layer (frames, state variants, annotations, arrows
+as `connect` ops, positions as view state) · the composed screen layer (real components in a frame's layout
+flow, no free styling) · twelve ops · the read-direction import (Brilliant `lookup` blueprint → recognition
+→ `component.propose` → ratify ≤10 min) · the operator edits the mapping, never the output · minutes-to-
+ratify as the metric.
+
+**Still open, and now answerable from the research:** Q2b (T3 answers it: reorder within grammar, because
+Brilliant itself is auto-layout-first) · Q6 (§25: the portal mounts the studio modules) · D1 · D2 · D6
+naming · the hypothesis wording.
+
+---
+
+## 24. Technology verdicts — right tech for the purpose, nothing more (T1–T16)
+
+Rule applied throughout: adopt only what the existing substrate cannot do; borrow ideas rather than
+libraries; zero runtime dependencies on shipped pages; the portal may carry a dependency only when the
+browser genuinely cannot do the job. Every "research" claim carries its source; "observed" means read in
+this repo.
+
+**T1 — Rendering: keep the DOM stage.** See §22. Reject Flutter/skwasm, CanvasKit, Vello (alpha), Rive,
+PixiJS, Konva, Fabric: each is a paradigm swap that costs accessibility and text editing to buy a GPU the
+stage does not need. The measured DOM mitigations are `content-visibility: auto` + `contain-intrinsic-size`
+on off-viewport frames (one tested case: 732 ms → 54 ms of render work,
+[web.dev](https://web.dev/articles/content-visibility)) and tldraw-style culling (`display: none`
+off-screen). Lighthouse's 800/1,400-node warnings are the ceiling signal to watch on the stage alone.
+
+**T2 — Zoom: continuous, one property.** The substrate already scales through `--stx-scale`
+(observed). Write the property directly instead of selecting it from a five-entry table: `fit()` fits
+exactly (problem 3), ⌘-wheel zooms to the cursor, and it stays compositor-only. Keep `transform: scale`,
+not CSS `zoom` — `zoom` reflows the whole subtree every tick
+([modern-css.com](https://modern-css.com/scaling-elements-without-transform-hacks/)). One known trap: a
+transformed stage does not grow its scroll container, so the scrollable extent is sized from stage × scale
+by the same write path. The `data-zoom` table survives as the keyboard's stepped path (SC 2.5.7).
+
+**T3 — Auto-layout inside a frame: CSS flexbox is the engine, and it already runs.** Figma now documents
+auto-layout as "a subset of flexbox" and reworked it toward flex semantics in July 2026
+([Figma](https://help.figma.com/hc/en-us/articles/42031586813719-Use-auto-layout-with-CSS-Flexbox-in-mind));
+Penpot's layout *is* CSS flex/grid. So Brilliant's `al(h,y(c),g,pad)` + `s(fill,hug)` converts losslessly:
+hug → `fit-content`, fill → `flex: 1` / `align-self: stretch`, fixed → px, gap/padding/align 1:1; the
+only partial cases are cross-axis fill inside wrap and absolute children, and CSS anchor positioning
+(Baseline 2026) narrows the second. **What the vocabulary lacks is one base primitive**: a `stack`
+(direction · gap · padding · align, every value a spacing token) — D18's "layout containers", the first
+entry the base vocabulary pays for. Reject Yoga/Taffy: a layout engine outside the browser only earns its
+keep for headless layout in Node, and nothing here needs that. **This closes Q2b:** reorder within the
+frame's flex grammar; pixel placement inside a frame would turn a composition into a picture and would be
+*less* faithful to Brilliant, not more.
+
+**T4 — Free x/y at the flow layer: custom properties + translate.** Frames carry `--x`/`--y` through the
+one write path D6 already allows; `transform: translate(var(--x), var(--y))` is compositor-only; native
+scroll pan is kept. Positions stay view state saved with the run (D6). Zero code from outside.
+
+**T5 — Connector arrows: Excalidraw's binding model, hand-written.** An arrow binds to a frame by id with
+a normalised 0–1 anchor per side and a `boundElements[]` back-reference, so moving a frame re-routes it and
+geometry is derived, never stored
+([Excalidraw bindings](https://deepwiki.com/excalidraw/excalidraw/3.2-element-binding-system)). One SVG
+overlay, ~100 lines. Arrows ARE the `connect` op (D6). Reject jsPlumb (GPL-dual) and leader-line
+(unmaintained). **Auto-arrange:** a hand-written rank layout (BFS from the entry frame → column per rank,
+row per index) covers 2–12 frames; dagre (MIT, ESM) is the portal-side fallback only if a real flow ever
+outgrows that — it never ships. elkjs is EPL/GPL; reject.
+
+**T6 — Frames, states, arrows: the data model.**
+`frame {id, screenId, stateKey, device:{mode, preset, safeArea}, composition}` · `stateKey` is an open enum
+whose required minimum is Scott Hurff's UI Stack (ideal · empty · error · partial · loading) with
+permission/offline/user-named states opt-in per screen
+([UI Stack](https://www.scotthurff.com/posts/why-your-user-interface-is-awkward-youre-ignoring-the-ui-stack/))
+· arrow `{from, to, trigger: click|load|timer|condition, guard?}` as the `connect` op's params
+(a `board-ops.mjs` edit + a group 11 case, never a generator special case) · **state completeness is a
+derived check, not a canvas property** — a build-checks group diffs each screen's frames against its
+required states, the way group 3 asserts render paths. No tool surveyed asserts this; the gate is the
+capability. Export is Mermaid `stateDiagram-v2` text in the handoff pack (zero-dep, human-readable). Device
+mode is per frame, not per screen (Figma's one-preset-per-page limit is not inherited).
+
+**T7 — The feel (problem 4): five platform wins, all zero-dep, all Baseline or fallback-safe.**
+
+| Feature | Buys | Support 2026 | Use as |
+|---|---|---|---|
+| Popover API + CSS anchor positioning | context menus, inspectors, handles pinned to elements; no position maths | Baseline (Chrome 125 · Safari 26 · Firefox 132/147) | primary |
+| `Element.moveBefore()` | drag a frame's child into another frame without losing iframe/focus state | Chrome 133 · Firefox 144 · **no Safari** | enhancement over `insertBefore` |
+| `scrollend` | "pan settled" for minimap sync, share-URL refresh | Baseline (Safari 26.2 closed it) | primary |
+| `getCoalescedEvents` | smooth drag at input rate | Pointer Events L3 is a W3C Rec (June 2026) | primary, degrades to `pointermove` |
+| `scheduler.yield()` | INP under long selection ops | Chrome 129 · Firefox · **no Safari** | enhancement only — WebKit is a gated engine |
+
+Sources: [anchor](https://caniuse.com/css-anchor-positioning) · [moveBefore](https://caniuse.com/mdn-api_element_movebefore)
+· [scrollend](https://webalur.com/en/blog/safari-version-26-2-introduces-scrollend) ·
+[PE L3](https://www.w3.org/news/2026/pointer-events-level-3-is-now-a-w3c-recommendation/) ·
+[yield](https://developer.chrome.com/blog/use-scheduler-yield). View Transitions stay reserved (#171 rule).
+
+**T8 — Inline text on the canvas: `contenteditable="plaintext-only"`** with a plain-`contenteditable`
+fallback for Firefox; a text edit re-emits the frame's `screen.compose` on blur (tldraw's "mark" batching:
+one undo entry per gesture, not per keystroke). Reject `EditContext` (Chromium-only) — it is Flutter's
+hidden-textarea problem, which a DOM stage does not have.
+
+**T9 — Undo: keep the snapshot stack.** Already decided (≈1 KB structured clone). Borrow tldraw's
+mark-batching. Origin-scoped undo (Yjs/Loro) only matters for concurrent agent + human edits, and take-over
+pauses the replay, so there is no concurrency. **Reject CRDTs outright** (Yjs, Automerge, Loro): one
+writer, one authoritative order — Figma's own model is LWW under a server-ordered log, which is what the
+bus already is ([Figma multiplayer](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)).
+
+**T10 — Share codec v3: `CompressionStream('deflate-raw')`** before any lz-string (Baseline since 2023,
+zero-dep). The ceiling is Cloudflare's 16 KB URL, not the browser's 32–64 KB
+([CF community](https://community.cloudflare.com/t/loadbalancing-url-length-16k-vs-32k/379870)). The
+tamper battery is integrity detection, not anti-forgery — a client-only codec cannot HMAC; say so in the
+codec header.
+
+**T11 — Import: deterministic role mapping on token references.** Spike C observed the blueprint carries
+`$spacing.md` and `tok(color.text.secondary,#575757,dark(#C6C6C6),high-contrast(#454545))`. The rules
+that make mapping deterministic, from the DTCG 2025.10 stable spec and the naming taxonomies
+([DTCG](https://www.designtokens.org/tr/2025.10/format/) ·
+[Spectrum name object](https://opensource.adobe.com/spectrum-design-data/spec/token-format)):
+match on the reference path, never the literal · require a type, never infer it from the value shape ·
+map foreign paths into a structured role (`property · component · variant · state · scheme · scale`)
+rather than whole-string similarity · carry the foreign name in `$extensions` as provenance · per-mode
+values ride one token as `light-dark()` for two modes plus a `prefers-contrast` rule for the third (the
+DTCG resolver module is still a draft; do not implement it). Unbound sources (session default is
+sovereign) fall back to `pack-import.mjs` by value with spike A's five fixes. Figma Variables REST is
+Enterprise-gated, so the Figma input contract stays a DTCG plugin export (`--from`), as today.
+
+**T12 — The seam with Brilliant, both directions, one vocabulary.** Read: `lookup(blueprint)` → converter
+(T11 + §28's matcher) → `component.propose`. Write: a `gen-blueprint.mjs` that projects the vocabulary
+(spec + CSS block + tokens) into Blueprint DSL components and writes them with `create_modify_elements`
+under `designSystem:"default"`, which spike C observed keeps token bindings. Then a designer draws in
+Brilliant with ux-factory's own parts, and the return trip recognises by *reference*, not by value — the
+match is exact-string. This is what "seamless" costs: one generator in the `gen-handoff` shape, not a
+platform. Wave 3, and cheaper than §13 assumed. Mutations are at-least-once with a slow ack (verify by
+`lookup`, never re-send — observed).
+
+**T13 — Agent context generated from the system of record.** Generate the composing agent's prompt from
+`vocabulary.json` (json-render's `catalog.prompt()` idea,
+[json-render](https://json-render.dev/docs/ai-sdk)) and a `DESIGN.md` from `tokens.source.json` +
+the specs (Google's Apr 2026 DESIGN.md format, machine YAML + human Markdown,
+[Atlassian's write-up](https://www.atlassian.com/blog/how-we-build/atlassians-design-md-is-here-what-we-learned-testing-portable-design-context-in-practice)),
+both drift-checked in CI. Every example in the wild is hand-authored; a derived, verified one is the
+honest version and makes the DS consumable by any agent (Claude Design, Stitch, Cursor) for free. Keep the
+refusal: A2UI's `UNALLOWED_PARENT`/`UNALLOWED_CHILD` error codes are the published prior art for
+"vocabulary-validated, visibly refused" ([A2UI](https://a2ui.org/specification/v1.0-a2ui/)). One test to
+add now: a vocabulary without an explicit "not covered" escape forces a wrong-but-valid component name —
+the "escape-less enum" failure. Streaming (A2UI's flat id list, json-render's JSONL patches) is not needed;
+one op per call already is the increment.
+
+**T14 — Guest sessions (D1 revised): Cloudflare primitives, composed, later.** AI Gateway spend limits
+scoped by custom metadata (open beta June 2026) give the per-guest budget directly
+([CF blog](https://blog.cloudflare.com/ai-gateway-spend-limits/)); a Worker holds the key; a signed
+short-lived invite token + Turnstile at redemption; SSE from the Worker before any Durable Object. Nothing
+first-party covers "invited but unauthenticated", so it is hand-composed — name it in the PRD, build it in
+wave 3.
+
+**T15 — One file shape for frames and research cards: JSON Canvas.** MIT, from Obsidian, four node fields
+and `fromNode`/`toNode` edges ([jsoncanvas.org](https://jsoncanvas.org/)). Extend `type` with
+`frame · evidence · decision · instrument` and edges with `relation: cites | embodies | tests` (IBIS's
+vocabulary, the 1980s design-rationale notation built for exactly "this node cites what resolved it"). It
+serialises the flow layer's view state and the discovery cards in one document, and no tool surveyed ships
+both an open format and research↔design links — this is closer to novel than to adopting a standard. The
+ops stay the truth; the canvas file is their arrangement.
+
+**T16 — Accessibility of free space.** The keyboard path compiles to the same ops as the pointer path
+(SC 2.5.7, already the discipline). Announcements move from "column 2, row 1" to tldraw's reading-order
+model: position in a row-major order of frames, plus px offsets on nudge — the one documented prior art,
+and it does not confirm move announcements, so this repo extends past it
+([tldraw a11y](https://tldraw.dev/sdk-features/accessibility)). Axe in the VR tool, light and dark (D11).
+
+---
+
+## 25. The unified flow — Discovery partner and the canvas on one surface
+
+`docs/epics/discovery-partner.architecture.md` already settled the discovery half in the same grammar as
+the canvas: the server sequences, the agent acts through four ops (`record_decision` · `flag_weak_answer`
+· `open_question` · `file_evidence`), the op carries `answer_ref` and never the answer, and the run
+package is `answers.jsonl` + `transcript.jsonl` + a PRD folded from the ops. The canvas half is twelve ops
+on the bus. **Unification is a link, not a merge:**
+
+1. **One run package, one canvas file.** D16's `runs/<slug>/` gains `canvas.json` (T15): frames and
+   cards with positions; ops stay in the transcript. Decision and evidence cards are read-only
+   projections of `record_decision`/`file_evidence` — edited only through a discovery turn, so the
+   honesty line holds on the canvas too.
+2. **The link is `annotate`.** D6's `annotate` gains `kind: note | cites` and a `ref` (a decision or
+   evidence id). A frame that embodies a decision is `annotate {frameId, kind:"cites", ref:"d12"}`; the
+   decision already carries `evidence_refs`. Lineage is then pixel → frame → decision → answer → evidence,
+   by ids, with no new verb. (**Q8** for the owner: `annotate` or a field on `screen.compose`? The
+   recommendation is `annotate` — fewer verbs, and a link is not a composition.)
+3. **The session is one arc, six phases (D4), one surface:** discover (interview; cards appear) → shape
+   (the board: places/affordances, already the /build chain) → prototype (`compile` projects the board to
+   frames, the operator fans out states and arranges freely; the agent proposes `screen.compose`,
+   refusals visible) → test (instruments only — hallway script, screener; task-success sink as a Pages
+   Function on a built prototype, no backend) → handoff (pack + PRD fold + Mermaid state diagram + drop
+   list + refusal ledger).
+4. **Q6 answered: the portal mounts the studio modules.** The gate-accumulation loop (every shipped
+   surface adds a gate and a baseline) and the "no live LLM at view time" rule both point the same way:
+   the live canvas is an operator surface in the portal (127.0.0.1, Agent SDK, no VR baseline), and
+   `/factory` replays selected runs. `studio.html` stays the raw harness. The studio modules are already
+   Node-import-safe and coordinate-agnostic (§4), so mounting them is a route in `portal.js`, not a port.
+5. **What the agent may do on the canvas in-session** is unchanged from D10: compose within the
+   vocabulary or propose a component; never free HTML; every op replayable. The Discovery partner's
+   Bar-Raiser posture carries over: it can say a screen is missing its error state (the T6 check says so
+   arithmetically); it cannot draw the content of that state without an op the human can see.
+
+---
+
+## 26. Outside the box — what no surveyed tool does, and this substrate can (O1–O9)
+
+- **O1 The refusal ledger as an exhibit.** A first-class "no valid composition" state on the canvas and
+  a published list of what the agent could not build against the vocabulary and why. Current tools
+  silently retry or hallucinate; nobody surfaces declined generations as a trust signal.
+- **O2 Lineage from a pixel to an interview answer** (§25 item 2). Checkpoint-restore tools (VS Code,
+  Zed, Lovable, Bolt) roll state back; none trace forward causally.
+- **O3 Counterfactual replay.** Re-run one brief with one answer changed; replay both runs side by side
+  on `/factory`. The portal can afford a real run each; vendors offer revert, not branching comparison.
+- **O4 The agent-context file generated and drift-checked** (T13), never hand-authored.
+- **O5 Brilliant as a thin front end for the same DS** (T12): project the pack + vocabulary into a
+  Brilliant design system, draw there, import by reference. Recognition becomes trivial because both
+  sides speak one vocabulary.
+- **O6 Wrong-but-green as a published method.** Mutate the source, prove which gate catches it, publish
+  what each gate cannot reach — the repo's own discipline (`.claude/references/gates.md`), generalised
+  into a shipped exhibit. No published method for this was found.
+- **O7 State completeness as a gate** (T6). No tool asserts the UI Stack.
+- **O8 Cross-engine visual proof bundled with the trace.** Every VLM-judge method found assumes one
+  browser; this repo already runs three.
+- **O9 Zero-LLM-at-view-time replay as the hiring proof itself.** Every tool surveyed needs a live model
+  to demonstrate anything; two searches found no designer or UXE publishing replayable agent traces as
+  proof of skill. Open ground.
+
+---
+
+## 27. Rejected, with the reason (R1–R10)
+
+| # | Rejected | Why |
+|---|---|---|
+| R1 | Flutter/skwasm · CanvasKit · Vello · Rive · Pixi · Konva · Fabric as the stage | paradigm swap; pays a shadow a11y tree and a hidden textarea to buy a GPU the DOM stage does not need (§22) |
+| R2 | tldraw · Excalidraw · xyflow · Penpot as engines | React peer deps; tldraw needs a commercial key since v4; Penpot is a ClojureScript app — a token-exchange neighbour at most |
+| R3 | Yoga · Taffy | the browser is the layout engine; nothing needs headless layout |
+| R4 | Yjs · Automerge · Loro | single writer, single order; take-over pauses the agent |
+| R5 | `EditContext` · File System Access · scroll-driven animations · `scheduler.yield` as primary paths | Safari/Firefox gaps; WebKit is a gated engine — enhancements only |
+| R6 | MCP Apps / MCP-UI raw-HTML iframes as a UI channel | the studio-frames dead end, standardised; the cited anti-pattern for "no free HTML" |
+| R7 | Synthetic users as research | NN/g: shallow, sycophantic ([NN/g](https://www.nngroup.com/videos/ai-generated-users/)); EU AI Act Art. 50 transparency duties from 2 Aug 2026 — fixtures only, labelled |
+| R8 | A VLM verification loop for import fidelity | email-hub built one and retired it (§28 E8); deterministic fixes closed the dominant defect class |
+| R9 | Lighthouse or an LLM judge as a CI gate | machine-dependent; operator-run only (D11) |
+| R10 | A second canvas app · an evidence database now | one board, one bus; the volume does not exist (D17) |
+
+---
+
+## 28. What email-hub gives us (E1–E9)
+
+`~/Desktop/email-hub/app/design_sync/` is a design→email converter with the same problem shape — a
+foreign design projected onto a constrained target with fidelity claims to keep honest. Ideas, not code:
+
+- **E1 A loss taxonomy that makes the drop list total.** `.agents/plans/52-converter-foundation.md`
+  names three classes: NEVER-PARSED · PARSED-THEN-DROPPED-AT-BRIDGE · CAPTURED-BUT-NEVER-EMITTED. Spike
+  A's fix 4 ("52 of 238 tokens appear nowhere in the report") is the first class undiagnosed. The import
+  report gets the three columns.
+- **E2 Staged diagnostics.** `diagnose/models.py` records `DataLossEvent {type, node_id, stage, detail}`
+  at every phase boundary — the trace shape for `portal/record-import.mjs`.
+- **E3 The matcher shape (D3).** `component_matcher.py:339`: independent signal predicates each append a
+  `(slug, score)` candidate → sort → threshold (0.5) → an explicit floor. The floor is the escape T13
+  needs: "not covered" is a real outcome, never a forced pick. Slot fills by a slug→builder dispatch;
+  default fills logged as warnings.
+- **E4 The wrong-but-green detector spike A lacks.** `visual_scorer.py:137`: per-pixel CIEDE2000 ΔE in
+  CIELAB (replacing grayscale SSIM, which scored a wrong brand colour at matching luminance as perfect),
+  aggregated by **MIN across sections, never mean**, with origin correction and resize-to-reference. And
+  the self-deceiving shape to avoid, verbatim from their retrospective: `sum(scores)/max(len,1)` scores
+  1.0 exactly when nothing was measured. Compare against Brilliant's `export(png)` of the source; #40's ΔE
+  exhibit is the repo's precedent.
+- **E5 The learning loop, gated.** `traces/correction.py`: human corrections diffed → pattern-hashed →
+  ≥5 occurrences and ≥0.9 agreement → a *suggested* rule with an explicit approve step; never auto-apply.
+  Maps onto "the operator edits the mapping, never the output": persisted role-map edits become suggested
+  matcher rules after N repeats. Later wave.
+- **E6 Quality contracts.** `quality_contracts.py:279`: pure post-conversion assertions that count
+  `<!-- section:ID -->` markers against the input — completeness by arithmetic, the build-checks idiom.
+- **E7 The token gate records its own fixes.** `token_transforms.py:731` returns structured
+  `TokenWarning {level, field, message, fixed_value}` — an `rgba()`→hex or `rem`→px normalisation (spike A
+  fix 1) is a warning row, never silent.
+- **E8 The retired loop.** `visual_verify.py` (render → ΔE pre-filter → VLM → allow-listed CSS
+  corrections → revert on regression) was retired 2026-06-12: triple-dead on the default path and unable
+  to fix the dominant defect class, which a deterministic pass then closed. Do not build a vision loop for
+  import (R8).
+- **E9 The contract on claims.** `docs/converter-fidelity-ceiling.md` voids every prior percentage:
+  "express progress by defect-class closure, never by a percentage." Adopt for the import report and the
+  minutes-to-ratify metric's presentation.
+
+---
+
+## 29. The answer in one paragraph
+
+Keep the DOM stage and native scroll; make zoom continuous through the custom property the sheet already
+reads; move frames with `--x/--y` + translate; add one base `stack` primitive so Brilliant's auto-layout
+converts to flexbox losslessly (which closes Q2b: reorder within grammar); draw arrows as Excalidraw-style
+bindings that emit the existing `connect` op; make state completeness a build-checks group over the UI
+Stack; use Popover + anchor positioning, `moveBefore`, `scrollend` and coalesced events for the feel;
+`CompressionStream` for the codec; JSON Canvas as the file shape for frames and research cards alike, with
+`annotate {kind:"cites"}` as the one link between them; map Brilliant tokens by reference, deterministically;
+take email-hub's matcher, ΔE-MIN fidelity and loss taxonomy for the converter; generate `DESIGN.md` and a
+Blueprint projection from the vocabulary so the same parts exist on both sides of the seam. Zero runtime
+dependencies on shipped pages; the portal hosts the live canvas; `/factory` replays. Nothing here is a
+platform — it is one primitive, one op-param change, one build-checks group, three generators and a
+handful of Baseline platform features.
+
+---
+
+## 30. Sequence and spikes (S1–S4), and what changes in §10
+
+§10 stands (merge #294 → `plan-create-prd` → `plan-architecture` → `piv-slice-epic`). The architecture
+step takes T1–T16 as named calls and runs four half-day spikes before slicing, each with a decision rule:
+
+| # | Spike | Question | Decision rule |
+|---|---|---|---|
+| S1 | Continuous zoom + translated frames on the existing substrate, ×3 engines under the INP gate | does `--stx-scale` + `--x/--y` hold ≤200 ms INP with ~30 frames and culling? | holds → T2/T4 as written · drops → `content-visibility` first, then defer line redraws during drag |
+| S2 | Blueprint → `stack` flex conversion on the spike C fixture (`1db1b29957b949ca`) | does `al(h,y(c),g,pad)` + `s(fill,hug)` land as one token-spaced flex container with no literal? | lossless → T3 + Q2b closed · a literal appears → name the token the contract lacks, drop it visibly |
+| S3 | ΔE-MIN fidelity against `export(png)` of the same element | does a deliberately wrong role map (green body text, spike A run 3) score red while 12/12 WCAG stays green? | red → the detector exists · green → the aggregation is wrong, not the idea |
+| S4 | `gen-blueprint` round trip: one vocabulary card → Brilliant under `designSystem:"default"` → `lookup` → recognised by reference | is the match exact-string? | yes → T12 is a generator, wave 3 · no → the write direction stays a non-goal |
+
+Owner questions this adds to §7: **Q8** (the link verb, §25) · **Q9** the first base primitives beyond
+`stack` (text · button · the input family · list · card · nav · dialog · toast · table · media · chart
+slot, per D18 — which three ship with the canvas epic and which wait for import).
+
+*Sources for §22–§30: eleven agent runs, 2026-08-28 — ten online (engines · GPU renderers · layout ·
+tokens · design↔code bridges · generative-UI protocols · prototyping state · discovery tooling · op logs
+and replay · the 2026 web platform · AI-native practice) and one local read of email-hub. URLs inline
+where a claim depends on them; a claim marked observed was read in this repo or in email-hub.*
