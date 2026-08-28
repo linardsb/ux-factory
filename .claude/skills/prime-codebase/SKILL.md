@@ -1,7 +1,7 @@
 ---
 name: prime-codebase
-description: Primes the agent with deep codebase understanding by analyzing structure, documentation, and key files. Use when starting work on a codebase, at the beginning of a session, or when you need a fast orientation before planning or implementing. Optionally pulls external task context from Jira issues and Confluence pages first.
-argument-hint: "[jira-issue-keys] [confluence-page-ids]"
+description: Primes the agent with deep codebase understanding by analyzing structure, documentation, and key files. Use when starting work on a codebase, at the beginning of a session, or when you need a fast orientation before planning or implementing. Optionally pulls external task context from GitHub Issues first.
+argument-hint: [github-issue-numbers]
 ---
 
 # Prime: Load Project Context
@@ -14,21 +14,14 @@ Build comprehensive understanding of the codebase by analyzing structure, docume
 
 ### Step 0: Load External Context
 
-**Run this step BEFORE the codebase analysis.** It accepts optional arguments: `[jira-issue-keys] [confluence-page-ids]`.
+**Run this step BEFORE the codebase analysis.** It accepts optional arguments: `[github-issue-numbers]`.
 
-- Jira keys may be a single key (`ACC-2`) or comma-separated (`ACC-2,ACC-3`).
-- Confluence page ids are numeric page ids.
+- Issue numbers may be a single number (`2`) or `#`-prefixed / comma-separated (`#2`, `2,3`).
 
-**If Jira issue keys are provided:**
+**If GitHub issue numbers are provided:**
 
-1. Call `mcp__atlassian__getAccessibleAtlassianResources` to obtain the `cloudId`.
-2. For each Jira key, call `mcp__atlassian__getJiraIssue` with that `cloudId`, the issue key, and `responseContentFormat: "markdown"`.
-3. Treat the returned issue summary, description, and acceptance criteria as the task context for everything that follows.
-
-**If Confluence page ids are provided:**
-
-1. Call `mcp__atlassian__getConfluencePage` for each page id with `contentFormat: "markdown"` (use the `cloudId` from above, fetching it via `mcp__atlassian__getAccessibleAtlassianResources` if it was not already retrieved).
-2. Treat the returned page content as supporting context (specs, design docs, requirements).
+1. For each issue number, run `gh issue view <n> --json number,title,body,labels,state` (this repo is GitHub-native — no Atlassian/Jira MCP is used).
+2. Treat the returned issue title, body, and acceptance criteria as the task context for everything that follows. If an issue is an epic (carries the `epic` label), read its linked child issues too so the priming is anchored to the whole slice graph.
 
 **If no arguments are provided:** Skip this step entirely and proceed to Step 1.
 
@@ -69,8 +62,7 @@ Check current branch and status:
 Provide a concise summary covering:
 
 ### External Task Context (if loaded)
-- Jira issue(s): key, title, one-line goal, acceptance criteria
-- Confluence page(s): title and what they specify
+- GitHub issue(s): number, title, one-line goal, acceptance criteria (and child issues if an epic)
 
 ### Project Overview
 - Purpose and type of application

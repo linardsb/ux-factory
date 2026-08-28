@@ -14,6 +14,27 @@ Direction / scope (what to fix now vs defer): $2
 
 If the Code-review is a file, **read the entire file first** so you understand every finding before triaging.
 
+## 0. Check the ground before you start
+
+Two things that are cheap to check now and expensive to discover at push time.
+
+**Is the PR still open?** Find it (`gh pr list --head "$(git branch --show-current)"`) and read its state:
+
+- **OPEN** → normal path; the fixes land on this PR at step 4.
+- **MERGED / CLOSED** → say so **now**. The fixes need their own branch and PR, or a direct commit if the
+  project allows one — settle which with the human before fixing, not after pushing. `piv-review-pr` guards
+  this too, but this skill runs *after* it, and a solo repo can merge in between.
+
+**Is the worktree actually yours?** `git status --porcelain`, plus a probe for an interrupted operation:
+
+```bash
+GD=$(git rev-parse --git-dir); ls "$GD"/MERGE_HEAD "$GD"/REBASE_HEAD "$GD"/CHERRY_PICK_HEAD 2>/dev/null
+```
+
+Use `git rev-parse --git-dir` — **in a worktree `.git` is a file, not a directory**, so `ls .git/MERGE_HEAD`
+gives a false negative. If another session left a half-finished merge or staged work in the index, resolve
+who owns it before committing; otherwise their work rides into your commit.
+
 ## 1. Triage first (the human's call)
 
 Sort the findings before touching code. Honor any direction in the scope argument; if it's unclear, surface the

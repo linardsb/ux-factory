@@ -1,24 +1,24 @@
 ---
 name: piv-plan-implementation
-description: Creates a comprehensive, context-rich implementation plan through deep codebase analysis and external research. Accepts a tracker ticket (a Jira/Linear/GitHub key or URL, fetched from the tracker) or a free-form feature request. Use when you have a ticket or feature and need a one-pass-ready plan before writing any code.
-argument-hint: "[ticket key/URL (fetched from your tracker), or a free-form feature description]"
+description: Creates a comprehensive, context-rich implementation plan through deep codebase analysis and external research. Accepts a GitHub issue number (#N) or a free-form feature description. Use when you have a ticket/feature request and need a one-pass-ready plan before writing any code.
+argument-hint: "[#<github-issue> | feature-description]"
 ---
 
 # Plan a new task
 
-## Feature: $ARGUMENTS
+## Input: $ARGUMENTS
 
-## Resolve the input first
+**Resolve the input first:**
 
-`$ARGUMENTS` is either a **tracker ticket** (a key like `ACC-30`, or a Jira / Linear / GitHub issue URL) or a
-**free-form feature description**. Tell them apart and handle each:
-
-- **A ticket** (a key such as `ABC-123`, or an issue URL): **fetch it from the tracker before you plan** (Jira via
-  the Atlassian MCP, GitHub via `gh issue view`, etc.). Read its summary, acceptance criteria, and per-ticket
-  context. Then **follow its links up to the epic and the epic's linked architecture page** (Confluence via the
-  Atlassian MCP) and inherit those decisions (see "Inherit, don't re-decide" below). Never plan from the bare key;
-  the ticket body plus its epic and architecture are the real input.
-- **A free-form description**: plan directly from it (greenfield or ad-hoc), asking clarifying questions as needed.
+- **If `$ARGUMENTS` is a GitHub issue** (a `#<n>` or a bare number): read it before anything else.
+  ```bash
+  gh issue view <n>                     # title, body, labels, comments
+  ```
+  The issue body is the ticket: its scope, acceptance criteria, per-ticket context, and `Depends on` links. If it
+  says `Part of epic #<E>`, **read the epic too** (`gh issue view <E>`) — its `## Architecture` decisions are
+  inherited, not re-decided (see "Inherit, don't re-decide" below). Record the issue number so the plan and the
+  eventual PR can link back with `Closes #<n>`.
+- **If `$ARGUMENTS` is a free-form description**: treat it as the feature request directly.
 
 ## Mission
 
@@ -28,7 +28,7 @@ Transform a feature request into a **comprehensive implementation plan** through
 
 **Key Philosophy**: Context is King. The plan must contain ALL information needed for implementation - patterns, mandatory reading, documentation, validation commands - so the execution agent succeeds on the first attempt.
 
-**Inherit, don't re-decide**: This is a **per-ticket** plan. If the ticket belongs to an epic that already has architecture decisions — a **linked architecture page** (e.g. a Confluence page from the `plan-architecture` skill, reached from the ticket's epic), an `## Architecture` / `## Engineering` section on the epic, or a local `architecture.md` / `engineering-plan.md` — **read it first** and treat its cross-cutting calls (stack & versions, data model, security boundaries, the seams new code plugs into) as **already decided**. Inherit them; don't reopen them. Plan only what's left at the ticket level: the specific files, the local patterns to mirror, the tests. If a ticket genuinely needs to break an epic-level decision, flag it in Open Questions rather than silently diverging.
+**Inherit, don't re-decide**: This is a **per-ticket** plan. If the ticket belongs to an epic that already has an engineering plan (an `## Architecture` section on the epic, or a `docs/epics/<slug>.architecture.md` doc from the `plan-architecture` skill), **read it first** and treat its cross-cutting calls — stack & versions, data model, security boundaries, the seams new code plugs into — as **already decided**. Inherit them; don't reopen them. Plan only what's left at the ticket level: the specific files, the local patterns to mirror, the tests. If a ticket genuinely needs to break an epic-level decision, flag it in Open Questions rather than silently diverging.
 
 ## Planning Process
 
@@ -202,7 +202,7 @@ So that <benefit/value>
 
 <Links between this plan and the work around it. Distinct from CONTEXT REFERENCES below (which lists files/docs to read for *this* implementation) — this is the plan's place in the larger graph.>
 
-**Implements**: <ticket id / link>   ·   **Epic**: <engineering-plan.md path or epic link — if this ticket inherits an epic's engineering plan (see Mission), record it here>
+**Implements**: <ticket id / link>   ·   **Epic**: <the epic's `<slug>.architecture.md` path or epic link — if this ticket inherits an epic's architecture doc (see Mission), record it here>
 
 **Back-references** (plans this builds on or inherits decisions from):
 
@@ -483,3 +483,24 @@ After creating the Plan, provide:
 - Complexity assessment
 - Key implementation risks or considerations
 - Estimated confidence score for one-pass success
+
+## Hand off — build brief (teach the plan)
+
+After the report, produce a **build brief**: one simple, self-contained HTML page that *teaches the user what
+this plan builds* — concepts first, plan second — so they genuinely understand the ideas behind the feature,
+not just the task list. Follow the `show-me` skill's conventions (smallest representation that makes the point,
+inline CSS, no frameworks, real names from this codebase).
+
+Content, in order:
+
+1. **What we're building and why** — 2–3 sentences, plain language.
+2. **The concepts this plan rests on** — the 2–5 ideas someone must understand to follow the build (the
+   pattern, protocol, algorithm, or library mechanism it leans on). For each: a one-paragraph plain-language
+   explanation, a tiny diagram or analogy (note where the analogy breaks), and why *this* plan needs it.
+3. **How the pieces fit** — one architecture sketch (Mermaid or simple HTML boxes) connecting those concepts
+   to this plan's phases.
+4. **The plan at a glance** — phase dependency graph, the new/changed file tree, and the acceptance criteria.
+5. **Go deeper** — per concept: "to properly learn this, run `/learn <concept>`".
+
+Save it beside the plan as `.claude/plans/<same-name>.html` and open it (`open <path>`). Keep it genuinely
+simple — a five-minute briefing, not a document to maintain. The markdown plan stays the single source of truth.
