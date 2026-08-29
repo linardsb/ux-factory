@@ -452,3 +452,28 @@ baked-in prototypes) · wiring elicited quality attributes into build-checks.
 [prototype-studio.prd.md](./prototype-studio.prd.md) (§Non-goals unamended by this epic) ·
 [st-ux-fusion.prd.md](./st-ux-fusion.prd.md) (the method spine this layers onto) ·
 `docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md` (run 2's frozen input)
+
+---
+
+## Amendments
+
+**2026-08-28 — execution order re-sequenced; nothing in this document changed.** The problem, the
+evidence, the thesis, the hypothesis, the MVP list, the metrics and the non-goals all stand as written.
+What was amended is epic #279's §Suggested execution order, and only that: the original waves reached a
+real session at wave 6 of 7, while this PRD's own success signal **is** a real session — *"the owner's
+next real discovery session starts in the UI rather than the terminal."* Five tickets (#283 branches,
+#285 session rules, #286 the other postures, #287 the read fence, #289 the three affordances) were
+specified from reasoning and scheduled before the one run that could say whether they are needed; they
+are deferred until after it, unchanged and unclosed, each carrying the specific question that run
+answers for it.
+
+The re-sequence also surfaced a gap in the ticket graph rather than in this document: **no ticket
+produced the session the hypothesis measures.** #291 is Faster Payment, a published pack used as a
+scoring key; #292 is the pre-grill fixture in audit mode. Both are pre-registered measurements against
+material that already exists, and neither is the owner's next real product. #338 (Run 0) was created for
+it, depending on #284 and #290 only, with `real` provenance — so it lands in the jobs folder and is
+never committed here (R1).
+
+The one finding that would justify amending this document rather than the order is Run 0 showing the
+bank asks the wrong questions or the op grammar cannot express something the product needed. That would
+be recorded here, dated, as a further amendment.
