@@ -179,3 +179,34 @@
   .portal-search { margin-left: 0; width: 100%; }
   .portal-form-row { grid-template-columns: 1fr; }
 }
+
+/* discovery drawer: the question, the answer, and what was recorded against it (#284) */
+.discovery-start {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-sm);
+}
+.discovery-start legend { font-size: var(--type-caption); color: var(--color-fg-muted); padding: 0 var(--spacing-xs); }
+.discovery-start[disabled] { opacity: 0.6; }
+
+#discovery-answer { font-family: var(--font-body); resize: vertical; }
+#discovery-question { margin: var(--spacing-xs) 0 0; }
+
+/* PRD Q4 — 44×44 minimum targets. The portal is not in the VR page set, so no gate covers this;
+   it is honoured here and recorded in the PR report. */
+#discovery-drawer .btn { min-height: 44px; }
+#discovery-drawer select, #discovery-drawer input { min-height: 44px; }
+
+.discovery-recorded-turn {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-sm); margin-top: var(--spacing-sm);
+}
+/* The person's own words, wrapped as typed — answers.jsonl stores them verbatim and this shows them
+   the same way. min-width:0 so a long unbroken line scrolls rather than blowing the drawer out. */
+.discovery-recorded-answer {
+  white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0;
+  font-size: var(--type-body); color: var(--color-fg); margin: 0 0 var(--spacing-xs);
+}
+.discovery-recorded-ops {
+  margin: 0; padding-left: var(--spacing-lg);
+  font-size: var(--type-caption); color: var(--color-fg-muted);
+}
