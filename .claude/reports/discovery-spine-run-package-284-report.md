@@ -137,7 +137,7 @@ denial (the README now says so).
 ## Validation results
 
 - `node tooling/build-checks.mjs` → `build ✓  all 30 groups pass` (observed, after restore).
-- `cd portal && node lib/discovery-transport.mjs --preflight` → 7/7 PASS, zero tokens (observed).
+- `cd portal && node lib/discovery-transport.mjs --preflight` → 8/8 PASS, zero tokens (observed; PF8 added in review round 2).
 - The plan's Task 20 assertion → `answers 3 lines 10 closers { t1: 1, t2: 1, t3: 1 } kinds [text, op, denied] ops [record_decision, flag_weak_answer, record_decision]`, `turnStats 3`, `endedAt` set (observed).
 - Every number above traces to `discovery/spine-meridian-1/run.json` or `transcript.jsonl`.
 
@@ -148,6 +148,19 @@ handler appends before it advances the holder (probed: an `EISDIR` append return
 the ledger at 0 ops) · F2 the allow-path sentence above now carries its provenance · F3 group 30 case
 16 drives `openSession`'s five refusals and proves a refused call writes no package (mutation: dropping
 the entryMode guard fails both assertions) · F4 the read and close routes assert provenance like the
-other two · F5 a truncated `run.json` / `.jsonl` throws naming the file and line. Found while probing
+other two · F5 a truncated `run.json` / `.jsonl` throws naming the file (and the line, for `.jsonl`). Found while probing
 F1: `onLine?.(appendTranscript(…))` short-circuits the argument, so with no listener nothing was
 written — latent (every caller passes one), fixed at all three sites.
+
+## Review round 2 (PR #339)
+
+Review at `.claude/code-reviews/pr-339-review-2.md`. Three findings, all fixed in this PR: F6 group 30
+case 16 no longer asserts a directory absent from the repo tree — the "refused before written" order is
+pinned from source the way case 12 pins imports (every guard call in `openSession`'s body indexes
+before its first `mkdirSync`), and the reserved slug is removed after the drives so a dropped guard
+leaves nothing behind (mutations: `mkdirSync` hoisted above the guards goes red on the pin; the
+entryMode guard dropped goes red on two assertions; no leftover either way, observed) · F7 the op
+handler's `onLine` call is wrapped to stderr like `fenceHooks`' `record()`, so a listener that throws
+no longer turns a filed op into an `isError` — pre-flight PF8 drives it with a listener that throws on
+every call (unwrapped, PF8 reads `isError true, holder at 1 op, 1 t2 op line on disk`: the defect
+verbatim, observed) · F8 the round-1 note above no longer claims a line number for `run.json`.

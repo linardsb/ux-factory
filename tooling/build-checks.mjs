@@ -5550,7 +5550,11 @@ function scanSvg(svg, label) {
 // deps in CI; the absence IS the check.
 //
 // Nothing under discovery/<slug>/ is read or written: every case that needs a package root uses a
-// temp directory, because a real run package may only ever be written by a real session.
+// temp directory, because a real run package may only ever be written by a real session. The one
+// repo-rooted call is case 16, which drives openSession's REFUSALS — each throws before mkdirSync,
+// and that order is pinned from source in the same case rather than by looking for the directory, so
+// a green run touches no disk and a stale directory of the reserved slug cannot go red on its own.
+// A dropped guard (a red run) could write the reserved slug; the case removes exactly that path after.
 {
   const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
   const names = (fn, ...needles) => {
@@ -5778,9 +5782,10 @@ function scanSvg(svg, label) {
   for (const junk of [null, "x", 7]) ok(threw(() => assertTurnWritable(junk, "t1")) !== null, `case 15: assertTurnWritable(${JSON.stringify(junk)}) must throw`);
   for (const junk of [null, "", 7]) ok(threw(() => assertTurnWritable([], junk)) !== null, `case 15: a junk turn id ${JSON.stringify(junk)} must throw`);
 
-  // 30.16 — openSession's refusals, each of which throws BEFORE mkdirSync, so a temp slug never
+  // 30.16 — openSession's refusals, each of which throws BEFORE mkdirSync, so a refused slug never
   // becomes a package. The create/resume branch writes a real root (repo or JOBS_DIR) and stays out of
-  // CI: a package may only be written by a real session.
+  // CI: a package may only be written by a real session. The slug below is RESERVED for this case —
+  // a fictional run cannot be named it (see the header on why the path is removed, not asserted absent).
   const openArgs = { slug: "ci-refused-never-written", provenance: "fictional", entryMode: "blank-idea", depth: "scope-check", branch: null, frontEnd: "portal", posture: "think" };
   const refusedOpen = (patch) => threw(() => openSession({ ...openArgs, ...patch }))?.message ?? null;
   ok(refusedOpen({ entryMode: "existing-prd" })?.includes("entryMode"), "case 16: an unknown entryMode must be refused by name");
@@ -5788,13 +5793,24 @@ function scanSvg(svg, label) {
   ok(refusedOpen({ posture: "shout" })?.includes("posture"), "case 16: an unknown posture must be refused by name");
   ok(refusedOpen({ depth: "no-such-depth" }) !== null, "case 16: an unknown depth must throw (the bank's own refusal)");
   ok(refusedOpen({ branch: "b2b" })?.includes("#283"), "case 16: a non-null branch must be refused naming #283");
-  ok(!existsSync(join(ROOT, "discovery", openArgs.slug)), `case 16: a refused openSession wrote discovery/${openArgs.slug}`);
+  rmSync(join(ROOT, "discovery", openArgs.slug), { recursive: true, force: true });
+  // The order, from SOURCE (case 12's method): every guard call in openSession's body indexes before
+  // its first mkdirSync. This is what proves "refused before written" without reading the repo tree —
+  // a disk assertion here went red on a stale leftover with no defect behind it (PR #339 F6).
+  const discoverySrc = readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8");
+  const openStart = discoverySrc.indexOf("export function openSession(");
+  const openBody = openStart === -1 ? "" : discoverySrc.slice(openStart, discoverySrc.indexOf("\n}\n", openStart));
+  const firstMkdir = openBody.indexOf("mkdirSync(");
+  const guardAt = [...openBody.matchAll(/\b(?:bad|selectDepth|assertRunSlug|assertProvenanceRoot)\(/g)].map((m) => m.index);
+  ok(openStart !== -1 && firstMkdir !== -1, "case 16: openSession or its mkdirSync is not where the source pin expects — re-pin before trusting the five refusals above");
+  ok(guardAt.length >= 7, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the seven pinned (slug, root, entryMode, frontEnd, posture, depth, branch)`);
+  ok(guardAt.every((i) => i < firstMkdir), `case 16: a guard in openSession sits AFTER mkdirSync — a refused call would already have created the package (guards at ${guardAt.join(",")}, mkdirSync at ${firstMkdir})`);
 
   // The temp package never reaches the repo; the roots case above proved where a real one WOULD go.
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven and proven to write no package. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

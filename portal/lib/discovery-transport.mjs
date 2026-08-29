@@ -102,7 +102,11 @@ export function buildOpServer({ root, turn, state, onLine }) {
         // `onLine?.(append())` short-circuits the ARGUMENT too — with no listener, nothing is written.
         const written = appendTranscript(root, opLine({ record }));
         state.current = next;
-        onLine?.(written);
+        // The listener is not the op: the file and the holder both have it by now, so a listener that
+        // throws (an SSE write racing a closed socket) is stderr, never an isError that tells the agent
+        // a filed op was refused. Same discipline as fenceHooks' record().
+        try { onLine?.(written); }
+        catch (e) { process.stderr.write(`discovery-transport: listener error (non-fatal): ${e.message}\n`); }
         const bits = [`filed seq ${record.seq}: ${op}`];
         if (record.closes) bits.push('(turn closed)');
         if (record.flagged.length) bits.push(`flagged ${record.flagged.join(', ')}`);
@@ -344,6 +348,20 @@ export async function preflightTransport() {
   const secondCloser = await call('flag_weak_answer', { question_id: 's4-rabbit-holes', answer_ref: 'a2', missing: ['a named risk'] });
   row('PF7', secondCloser?.isError === true && textOf(secondCloser).includes(turn) && /already closed/.test(textOf(secondCloser)),
     `isError ${secondCloser?.isError} — "${textOf(secondCloser).slice(0, 90)}"`);
+
+  // PF8 — a listener that throws does not refuse the op. A second server on the same root, its own
+  // holder and turn, with an onLine that throws on every call: the op is FILED (no isError), the
+  // holder advances, the op line is on disk, and the listener was actually reached.
+  const state2 = { current: emptyRun() };
+  let listenerCalls = 0;
+  const server2 = buildOpServer({ root, turn: 't2', state: state2, onLine: () => { listenerCalls += 1; throw new Error('pre-flight: the listener threw on purpose'); } });
+  const handlers2 = server2.instance?.server?._requestHandlers;
+  let throwingListener = { threw: 'handlers unreachable' };
+  try { throwingListener = await handlers2.get('tools/call')({ method: 'tools/call', params: { name: 'file_evidence', arguments: { url: 'https://example.test/second', ref: null, provenance: 'assumption', claim_ref: null } } }, extra); }
+  catch (e) { throwingListener = { threw: e.message }; }
+  const t2Lines = transcript().filter((l) => l.type === 'op' && l.turn === 't2');
+  row('PF8', !throwingListener?.isError && !throwingListener?.threw && state2.current.ops.length === 1 && t2Lines.length === 1 && listenerCalls === 1,
+    `isError ${throwingListener?.isError ?? false}, holder at ${state2.current.ops.length} op, ${t2Lines.length} t2 op line on disk, listener reached ${listenerCalls}×`);
 
   return { reachable: true, root, rows, handlerCalls: handlerCalls.length };
 }
