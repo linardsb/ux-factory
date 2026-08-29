@@ -43,8 +43,13 @@ import { POSTURES } from './discovery-postures.mjs';
 const bad = (msg) => { throw new Error(`discovery: ${msg}`); };
 
 const now = () => new Date().toISOString();
+// A truncated or half-written line surfaces naming the file and the line, not as a bare SyntaxError.
+const parseNamed = (text, file, at) => {
+  try { return JSON.parse(text); }
+  catch (e) { return bad(`${file}${at ? ` line ${at}` : ''} is not valid JSON (${e.message}) — the file is truncated or was edited by hand`); }
+};
 const readJsonl = (file) => (existsSync(file)
-  ? readFileSync(file, 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l))
+  ? readFileSync(file, 'utf8').split('\n').map((l, i) => [l, i + 1]).filter(([l]) => l.trim()).map(([l, i]) => parseNamed(l, file, i))
   : []);
 
 // --- the vocabulary -------------------------------------------------------------------------------
@@ -200,7 +205,7 @@ export const deniedLine = ({ turn, tool, input, error }) => ({ type: 'denied', t
 
 export function readRun(root) {
   const file = path.join(root, 'run.json');
-  return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
+  return existsSync(file) ? parseNamed(readFileSync(file, 'utf8'), file) : null;
 }
 
 export function writeRun(root, head) {

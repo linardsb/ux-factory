@@ -104,8 +104,10 @@ After restore: `node tooling/build-checks.mjs` → `build ✓  all 30 groups pas
 
 ## The fence — a bounded claim
 
-`tools: []` removed every built-in tool, `allowedTools: []` sent every MCP call through `canUseTool`,
-and the `PreToolUse` hook fired for each. **Only the allow path was observed**: every call in the run
+`tools: []` removed every built-in tool and `allowedTools: []` was set, so every MCP call was routed
+through `canUseTool` and the `PreToolUse` hook — **observed in spike 1 (#280), not re-observed here**:
+this run's hooks write only on `PostToolUse` / `PostToolUseFailure`, so nothing in
+`spine-meridian-1/` logs the allow path. **Only the allow path was exercised**: every call in the run
 was one of the four allowed op tools, so neither deny branch ran and a blocked MCP call remains
 **unproven**. #287 owns that proof; the run's one `denied` line is an applier refusal, not a fence
 denial (the README now says so).
@@ -138,3 +140,14 @@ denial (the README now says so).
 - `cd portal && node lib/discovery-transport.mjs --preflight` → 7/7 PASS, zero tokens (observed).
 - The plan's Task 20 assertion → `answers 3 lines 10 closers { t1: 1, t2: 1, t3: 1 } kinds [text, op, denied] ops [record_decision, flag_weak_answer, record_decision]`, `turnStats 3`, `endedAt` set (observed).
 - Every number above traces to `discovery/spine-meridian-1/run.json` or `transcript.jsonl`.
+
+## Review round 1 (PR #339)
+
+Review at `.claude/code-reviews/pr-339-review.md`. All five findings fixed in this PR: F1 the op
+handler appends before it advances the holder (probed: an `EISDIR` append returns `isError` and leaves
+the ledger at 0 ops) · F2 the allow-path sentence above now carries its provenance · F3 group 30 case
+16 drives `openSession`'s five refusals and proves a refused call writes no package (mutation: dropping
+the entryMode guard fails both assertions) · F4 the read and close routes assert provenance like the
+other two · F5 a truncated `run.json` / `.jsonl` throws naming the file and line. Found while probing
+F1: `onLine?.(appendTranscript(…))` short-circuits the argument, so with no listener nothing was
+written — latent (every caller passes one), fixed at all three sites.

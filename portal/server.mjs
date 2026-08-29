@@ -13,7 +13,7 @@ import { receiveExport, runFigmaPull } from './lib/figma.mjs';
 import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from './lib/builder.mjs';
 // #284's discovery session. Every export here is SDK-free; the SDK is reached only by runTurn's lazy
 // import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
-import { closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent } from './lib/discovery.mjs';
+import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent } from './lib/discovery.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
@@ -160,13 +160,18 @@ const server = createServer(async (req, res) => {
     if (p === '/api/discovery/session' && req.method === 'GET') {
       const slug = url.searchParams.get('slug');
       const provenance = url.searchParams.get('provenance');
-      return json(res, 200, sessionView(resolveRunRoot({ provenance, slug })));
+      // The same pair openSession and runTurn run: a route copied from this shape keeps the refusal.
+      const root = resolveRunRoot({ provenance, slug });
+      assertProvenanceRoot(provenance, root);
+      return json(res, 200, sessionView(root));
     }
     // Ends the session so endedAt lands. Its own route rather than a flag on the turn, because a
     // session is finished deliberately, not as a side effect of the last answer.
     if (p === '/api/discovery/close' && req.method === 'POST') {
       const b = await readBody(req);
-      return json(res, 200, closeSession(resolveRunRoot({ provenance: b.provenance, slug: b.slug })));
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      return json(res, 200, closeSession(root));
     }
     if (p === '/api/discovery/turn' && req.method === 'POST') {
       const body = await readBody(req);

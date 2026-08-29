@@ -95,9 +95,14 @@ export function buildOpServer({ root, turn, state, onLine }) {
     return tool(op, DESCRIPTIONS[op] ?? `File a ${op} op.`, zodFor(descriptor, op), async (args) => {
       try {
         const next = applyOp(state.current, { op, params: args }, ctx());
-        state.current = next;
         const record = next.ops[next.ops.length - 1];
-        onLine?.(appendTranscript(root, opLine({ record })));
+        // Disk first, holder second: if the append throws (ENOSPC, EACCES) the agent sees isError and
+        // the ledger still matches transcript.jsonl, so a same-turn retry is not refused as "already
+        // closed" for an op the file never received. The append is its own statement because
+        // `onLine?.(append())` short-circuits the ARGUMENT too — with no listener, nothing is written.
+        const written = appendTranscript(root, opLine({ record }));
+        state.current = next;
+        onLine?.(written);
         const bits = [`filed seq ${record.seq}: ${op}`];
         if (record.closes) bits.push('(turn closed)');
         if (record.flagged.length) bits.push(`flagged ${record.flagged.join(', ')}`);
@@ -129,7 +134,7 @@ function fenceHooks(root, turn, onLine) {
   // interrupt the agent, and a recording bug must never alter the run it observes
   // (trace-recorder.mjs's discipline).
   const record = (line) => {
-    try { onLine?.(appendTranscript(root, line)); }
+    try { const written = appendTranscript(root, line); onLine?.(written); }
     catch (e) { process.stderr.write(`discovery-transport: hook error (non-fatal): ${e.message}\n`); }
   };
 
@@ -195,7 +200,7 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
       // The agent's turn text is captured because MVP 6's "the agent may not say an answer is wrong"
       // is only falsifiable from prose. The sentence is kept so it can be checked.
       for (const block of msg.message?.content || []) {
-        if (block.type === 'text' && block.text) onLine?.(appendTranscript(root, textLine({ turn, text: block.text })));
+        if (block.type === 'text' && block.text) { const written = appendTranscript(root, textLine({ turn, text: block.text })); onLine?.(written); }
       }
     } else if (msg.type === 'result') {
       const u = msg.usage ?? {};
