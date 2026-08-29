@@ -671,6 +671,224 @@ $('#chat-form').addEventListener('submit', async (e) => {
   }
 });
 
+/* ---------- discovery: one banked question, one op, one run package (#284) ---------- */
+// Everything this drawer says about the bank, the depths and the postures is driven by
+// /api/discovery/config. What that route does NOT serve is each question's weak-answer note — it is
+// the AGENT's rubric, and showing it beside the question would tell the person the answer. The route
+// strips it server-side, so this surface cannot render it even by mistake; there is no discipline to
+// keep here, which is the point.
+//
+// The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
+// A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
+const discovery = { config: null, session: null, running: false };
+
+const discoveryEls = () => ({
+  slug: $('#discovery-slug').value.trim(),
+  provenance: $('#discovery-provenance').value,
+  depth: $('#discovery-depth').value,
+  posture: $('#discovery-posture').value,
+});
+
+$('#btn-discovery').addEventListener('click', async () => {
+  $('#discovery-drawer').hidden = false;
+  $('#discovery-slug').focus();
+  if (!discovery.config) await loadDiscoveryConfig();
+});
+for (const id of ['#discovery-cancel', '#discovery-cancel-2'])
+  $(id).addEventListener('click', () => { $('#discovery-drawer').hidden = true; });
+
+async function loadDiscoveryConfig() {
+  $('#discovery-start-status').textContent = 'Loading the bank…';
+  try {
+    discovery.config = await api('/api/discovery/config');
+  } catch (err) {
+    $('#discovery-start-status').textContent = `Could not load the bank: ${err.message}`;
+    return;
+  }
+  const c = discovery.config;
+  $('#discovery-provenance').innerHTML = c.provenances
+    .map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  $('#discovery-depth').innerHTML = c.depths
+    .map((d) => `<option value="${esc(d.id)}">${esc(d.label)} — ${d.count} questions</option>`).join('');
+  $('#discovery-posture').innerHTML = c.postures
+    .map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(p.model)})</option>`).join('');
+  renderDiscoveryNotes();
+  $('#discovery-start-status').textContent = c.hasToken
+    ? `Auth: token from portal/.env. ${c.questions.length} questions in the bank.`
+    : `Auth: the Claude CLI login on this Mac (no token in portal/.env). ${c.questions.length} questions in the bank.`;
+}
+
+// Provenance decides where the package lands, and it is the privacy boundary rather than a label —
+// so the surface states the consequence rather than the word.
+function renderDiscoveryNotes() {
+  const c = discovery.config;
+  const p = $('#discovery-provenance').value;
+  $('#discovery-provenance-note').textContent = p === 'fictional'
+    ? 'Fictional — the package is written to discovery/<slug>/ in this repo and committed as evidence.'
+    : 'Real — the package is written to the jobs folder, outside this repo, and is never committed here.';
+  const d = c.depths.find((x) => x.id === $('#discovery-depth').value);
+  $('#discovery-depth-note').textContent = d ? `${d.count} questions — for ${d.when}.` : '';
+}
+for (const id of ['#discovery-provenance', '#discovery-depth'])
+  $(id).addEventListener('change', renderDiscoveryNotes);
+
+$('#discovery-open').addEventListener('click', async () => {
+  const { slug, provenance, depth, posture } = discoveryEls();
+  if (!slug) { $('#discovery-start-status').textContent = 'A run slug is needed — it names the package directory.'; return; }
+  $('#discovery-start-status').textContent = 'Opening…';
+  try {
+    discovery.session = await api('/api/discovery/session', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug, provenance, entryMode: 'blank-idea', depth, branch: null, frontEnd: 'portal', posture }),
+    });
+  } catch (err) {
+    $('#discovery-start-status').textContent = `Refused: ${err.message}`;
+    return;
+  }
+  $('#discovery-start-status').textContent = discovery.session.answers.length
+    ? `Resumed ${slug} from disk — ${discovery.session.answers.length} answer(s) already recorded.`
+    : `Opened ${slug}.`;
+  $('#discovery-start').disabled = true;
+  renderDiscoverySession();
+});
+
+function renderDiscoverySession() {
+  const s = discovery.session;
+  if (!s) return;
+  $('#discovery-session').hidden = false;
+  const { cursor, head } = s;
+  const depth = discovery.config.depths.find((d) => d.id === head.depth);
+
+  if (head.endedAt) {
+    $('#discovery-position').textContent = `${head.slug} · finished ${head.endedAt}`;
+    $('#discovery-question').textContent = 'This session is closed.';
+    $('#discovery-attribution').textContent = `${cursor.index} of ${cursor.total} answered. The package is on disk at ${head.root}.`;
+  } else if (cursor.done) {
+    $('#discovery-position').textContent = `${head.slug} · ${esc(depth?.label ?? head.depth)}`;
+    $('#discovery-question').textContent = 'Every question in this depth has been answered.';
+    $('#discovery-attribution').textContent = 'Finish the session to record when it ended.';
+  } else {
+    $('#discovery-position').textContent =
+      `${head.slug} · ${depth?.label ?? head.depth} · question ${cursor.index + 1} of ${cursor.total} · turn ${cursor.turn}`;
+    $('#discovery-question').textContent = cursor.question.text;
+    $('#discovery-attribution').textContent = `Stage ${cursor.question.stage} · ${cursor.question.attribution}`;
+  }
+  const answerable = !head.endedAt && !cursor.done;
+  $('#discovery-answer').disabled = !answerable;
+  $('#discovery-submit').disabled = !answerable || discovery.running;
+  $('#discovery-finish').disabled = Boolean(head.endedAt);
+  renderDiscoveryRecorded();
+}
+
+// AC #10 — the turns already recorded, read from the package. Each answer is shown with what the
+// agent filed against it, so "what did it record about what I said" is answerable without opening a
+// JSONL. The answer text is the person's own and is shown verbatim; the ops are the applier's.
+function renderDiscoveryRecorded() {
+  const s = discovery.session;
+  const byRef = new Map();
+  for (const line of s.transcript) {
+    if (line.type !== 'op') continue;
+    const ref = line.params?.answer_ref;
+    if (!ref) continue;
+    if (!byRef.has(ref)) byRef.set(ref, []);
+    byRef.get(ref).push(line);
+  }
+  if (!s.answers.length) { $('#discovery-recorded').innerHTML = ''; return; }
+  $('#discovery-recorded').innerHTML = `
+    <h3 class="h3">Recorded so far</h3>
+    ${s.answers.map((a) => {
+      const ops = byRef.get(a.ref) || [];
+      return `
+        <div class="discovery-recorded-turn">
+          <p class="card-kicker">${esc(a.turn)} · ${esc(a.ref)} · ${esc(a.question_id ?? 'off-script')}</p>
+          <p class="discovery-recorded-answer">${esc(a.text)}</p>
+          ${ops.length
+            ? `<ul class="discovery-recorded-ops">${ops.map((o) => `<li>${esc(o.op)}${o.closes ? ' · closed the turn' : ''}${o.flagged?.length ? ` · flagged ${esc(o.flagged.join(', '))}` : ''}${o.supersedes ? ` · supersedes seq ${o.supersedes}` : ''}</li>`).join('')}</ul>`
+            : '<p class="muted">Nothing filed against this answer yet.</p>'}
+        </div>`;
+    }).join('')}`;
+}
+
+function discoveryLog(kind, text) {
+  const li = document.createElement('li');
+  li.className = `builder-log-line${kind === 'denied' ? ' is-denied' : ''}${kind === 'op' ? ' is-phase' : ''}`;
+  li.textContent = text;
+  $('#discovery-log').appendChild(li);
+  $('#discovery-log').scrollTop = $('#discovery-log').scrollHeight;
+}
+
+$('#discovery-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (discovery.running || !discovery.session) return;
+  const text = $('#discovery-answer').value;
+  if (!text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
+  const { slug, provenance } = discoveryEls();
+  const questionId = discovery.session.cursor.question.id;
+
+  discovery.running = true;
+  $('#discovery-submit').disabled = true;
+  $('#discovery-submit').textContent = 'Judging…';
+  $('#discovery-log').innerHTML = '';
+  $('#discovery-status').textContent = 'Your answer is on disk. The agent is judging it — this spends real tokens.';
+  try {
+    // No client timeout: a turn is seconds to a minute and the stream ends on `done` or `error`.
+    const res = await fetch('/api/discovery/turn', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug, provenance, questionId, text }),
+    });
+    if (!res.ok) throw new Error(res.statusText);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        if (!chunk.startsWith('data: ')) continue;
+        const ev = JSON.parse(chunk.slice(6));
+        if (ev.type === 'error') { $('#discovery-status').textContent = ev.message; continue; }
+        if (ev.type === 'done') { discovery.session = ev.view; continue; }
+        if (ev.type === 'text') discoveryLog('text', ev.text + (ev.truncated ? ' […the rest is in transcript.jsonl]' : ''));
+        if (ev.type === 'op') discoveryLog('op', `filed ${ev.op}${ev.closes ? ' · closed the turn' : ''}${ev.flagged?.length ? ` · flagged ${ev.flagged.join(', ')}` : ''}`);
+        if (ev.type === 'denied') discoveryLog('denied', `refused: ${ev.tool} — ${ev.error}`);
+      }
+    }
+    // Re-read from disk rather than trusting the stream's last word: the package is the state.
+    discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+    $('#discovery-answer').value = '';
+    $('#discovery-status').textContent = discovery.session.cursor.done
+      ? 'That was the last question in this depth.'
+      : 'Turn recorded. The next question is below.';
+  } catch (err) {
+    $('#discovery-status').textContent = `Failed: ${err.message}`;
+  } finally {
+    discovery.running = false;
+    $('#discovery-submit').textContent = 'Submit answer';
+    renderDiscoverySession();
+  }
+});
+
+// AC #11 — endedAt lands through a control rather than a direct call, so a real session can be
+// ended the way it was started.
+$('#discovery-finish').addEventListener('click', async () => {
+  if (discovery.running) return;
+  const { slug, provenance } = discoveryEls();
+  try {
+    await api('/api/discovery/close', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug, provenance }),
+    });
+    discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+    $('#discovery-status').textContent = `Session closed. The package is at ${discovery.session.head.root}.`;
+    renderDiscoverySession();
+  } catch (err) {
+    $('#discovery-status').textContent = `Could not close: ${err.message}`;
+  }
+});
+
 /* ---------- boot + routing ---------- */
 async function loadCards() { state.cards = await api('/api/cards'); }
 async function route() {

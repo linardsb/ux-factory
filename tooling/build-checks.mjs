@@ -9,15 +9,19 @@
 // inside function bodies, self-boot behind a `typeof document` guard), so if an import here starts
 // pulling `document`, the module has a bug and the module is what gets fixed.
 //
-// TWO NAMED EXCEPTIONS import portal/ code, which is build-time rather than shipped. Both are here
-// because a second gate file would be a gate nobody runs, and both are SDK-free for the same
-// reason: CI has no portal/node_modules, so an SDK import anywhere in either module's graph fails
+// THREE NAMED EXCEPTIONS import portal/ code, which is build-time rather than shipped. All are here
+// because a second gate file would be a gate nobody runs, and all are SDK-free for the same
+// reason: CI has no portal/node_modules, so an SDK import anywhere in any of their graphs fails
 // this job. Group 8's invariant is proven by that ABSENCE, which is why it cannot be checked by
 // adding something (see group 8's own comment before "fixing" it by installing portal deps in CI).
 //   · group 8 (#140) imports portal/lib/builder.mjs — it answers the SAME ten questions.
 //   · group 9 (#157) imports portal/lib/origin.mjs — and see its own comment for what that does
 //     NOT cover: the predicate is gated here, the WIRING is only ever proven against a running
 //     portal, because server.mjs reaches the SDK and so can never be imported in this job.
+//   · group 30 (#284) imports portal/lib/discovery.mjs and portal/lib/discovery-postures.mjs — the
+//     session module and the posture. Both are statically SDK-free AND zod-free; the SDK and zod
+//     live in portal/lib/discovery-transport.mjs, which this graph never reaches because
+//     discovery.mjs imports it LAZILY inside runTurn, after every guard.
 //
 //   1 pattern ids     the three rules, including the hub override and the empty board
 //   2 slots           counted from the board, never invented; every value a string
@@ -126,12 +130,19 @@
 //                     op, both flag directions, R2 on the turn, the supersede rule, totality over
 //                     junk, and the run-2 fixture's md5 pinned with the mutation that proves the
 //                     compare can fail (#281)
+//  30 discovery      the discovery SESSION (portal/lib/discovery.mjs + discovery-postures.mjs): the
+//     session       SSE projection's whitelist with its mutation and its cap, TOOL_SCHEMA against
+//                     PARAMS by NAME rather than cardinality, the provenance roots and the privacy
+//                     refusal, the slug guard, the ref allocator, the derived cursor, the three line
+//                     constructors, the Think posture's three pinned strings, allowsToolName
+//                     exhaustively, assertTurnWritable both directions, and the SDK/zod source pin
+//                     (#284)
 //
 //   node tooling/build-checks.mjs
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -188,6 +199,17 @@ import { DEPTHS, OPENING_SET, questionById, questionsForStage, QUESTIONS as BANK
 // counts nothing), with no SDK anywhere in its graph. OPS and PARAMS are aliased because OPS above
 // is board-ops.mjs's.
 import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, emptyRun, FLAGS, LEVELS, OPS as DISCOVERY_OPS, PARAMS as DISCOVERY_PARAMS, PROVENANCE, SOURCES } from "../discovery/ops.mjs";
+// #284's session module + posture — the THIRD named portal/ exception (see the header). Both are
+// statically SDK-free and zod-free; the SDK lives in discovery-transport.mjs, which discovery.mjs
+// imports LAZILY inside runTurn. CI's absence of portal/node_modules is what PROVES that, the same
+// way group 8's invariant is proven for builder.mjs — by ABSENCE, not by adding something.
+import {
+  allowsToolName, appendTranscript, assertProvenanceRoot, assertRunSlug as assertDiscoverySlug, assertTurnWritable,
+  deniedLine, discoveryConfig, ENTRY_MODES, FRONT_ENDS, MCP_SERVER, nextRef, openSession, opLine,
+  PROVENANCES, readAnswers, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
+  TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
+} from "../portal/lib/discovery.mjs";
+import { buildThinkTurn, LADDER_BRIEF, MVP6_LINE, POSTURES, YIELD_CONTRACT } from "../portal/lib/discovery-postures.mjs";
 
 const ROOT =resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -5515,6 +5537,254 @@ function scanSvg(svg, label) {
   group("discovery ops", `OPS ↔ PARAMS the same four verbs in both directions, every list frozen BY MUTATION (a push refused and the length re-read), a VALID_FOR fixture per verb so a fifth verb with no fixture fails by name, the happy fold recording seq 1…4 with closes per the table and exact param key sets · determinism by deep-comparing two folds and purity by mutating the returned record and the op and re-reading both inputs · the four named throws each driven by a broken op — an unresolvable answer_ref naming the ref, a second closer naming the turn and the closing seq (R2), a question the bank lacks naming the id with its null twin ACCEPTED as off-script, a provenance outside the four naming all four · ${REFUSALS.length} further refusals (absent field, unknown param, exact envelope, string and dangling seqs, wrong-rung and wrong-kind parents, a parented business decision, both url/ref halves, empty strings and arrays, a closer with no turn) each matched on its message, and applyOps naming the failing index · both flag directions — [] and null RECORDED and flagged, filled not flagged, business never orphaned, both flags at once · R2 on the TURN: an off-script decision accepted on a closed turn with supersedes naming the LATEST earlier decision on its question and both records kept, evidence ×3 on a closed turn, a revisit on a new turn accepted and then guarded · the not-a-form counter and coverage derived from the records alone · totality over junk ops, junk ctx, junk state and junk items, a plain Error every time · the run-2 fixture pinned at md5 ${FIXTURE_MD5.slice(0, 8)} with the one-newline mutation that proves the compare can go red. The server that writes answers.jsonl, the transcript writer and the real bank are #284's and #282's, and this group cannot reach them`);
 }
 
+// --- 30 · the discovery session -------------------------------------------------------------------
+// Drives portal/lib/discovery.mjs and portal/lib/discovery-postures.mjs — the THIRD named portal/
+// exception (see the header). Everything reachable with NO agent and NO token: the SSE projection,
+// the schema table, the roots, the slug guard, the ref allocator, the derived cursor, the line
+// constructors, the posture, the fence predicate and the turn guard.
+//
+// It never imports portal/lib/discovery-transport.mjs, portal/server.mjs or the SDK, and that is
+// proven the way group 8's invariant is proven — by ABSENCE. This job runs with no
+// portal/node_modules, so if discovery.mjs's graph ever reached zod or the Agent SDK, this group
+// would fail to import at all rather than fail an assertion. Do not "fix" that by installing portal
+// deps in CI; the absence IS the check.
+//
+// Nothing under discovery/<slug>/ is read or written: every case that needs a package root uses a
+// temp directory, because a real run package may only ever be written by a real session.
+{
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  const names = (fn, ...needles) => {
+    const e = threw(fn);
+    if (e === null) return "did not throw";
+    const missing = needles.filter((n) => !e.message.includes(n));
+    return missing.length ? `threw "${e.message}", which does not name ${missing.map((n) => JSON.stringify(n)).join(" or ")}` : null;
+  };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const keys = (o) => Object.keys(o).sort().join(",");
+
+  const TMP = mkdtempSync(join(tmpdir(), "g30-discovery-"));
+  const tmpRoot = (name) => { const d = join(TMP, name); mkdirSync(d, { recursive: true }); return d; };
+
+  // 30.1 — turnEvent, all four branches, each with its exact key set asserted.
+  const textIn = { type: "text", ts: "2026-01-01T00:00:00.000Z", turn: "t3", text: "That names a duration." };
+  const opIn = {
+    type: "op", ts: "2026-01-01T00:00:00.000Z", seq: 4, turn: "t3", op: "record_decision",
+    params: { question_id: "s4-appetite", answer_ref: "a3", level: "business", parent_id: null, evidence_refs: [], wrong_if: "the team runs past it", off_script: false },
+    closes: true, flagged: ["no-evidence"], supersedes: 2,
+  };
+  const deniedIn = { type: "denied", ts: "2026-01-01T00:00:00.000Z", turn: "t3", tool: "Write", input: { file_path: "x" }, error: "Write is not one of this run's op tools" };
+
+  const textEv = turnEvent(textIn);
+  ok(keys(textEv) === "text,truncated,turn,type" && textEv.turn === "t3" && textEv.text === textIn.text && textEv.truncated === false,
+    `case 1: the text projection is ${JSON.stringify(textEv)}`);
+  const opEv = turnEvent(opIn);
+  ok(keys(opEv) === "answerRef,closes,flagged,op,questionId,seq,supersedes,turn,type"
+    && opEv.seq === 4 && opEv.op === "record_decision" && opEv.closes === true
+    && same(opEv.flagged, ["no-evidence"]) && opEv.supersedes === 2
+    && opEv.questionId === "s4-appetite" && opEv.answerRef === "a3",
+  `case 1: the op projection is ${JSON.stringify(opEv)}`);
+  const denEv = turnEvent(deniedIn);
+  ok(keys(denEv) === "error,tool,turn,type" && denEv.tool === "Write" && denEv.error === deniedIn.error,
+    `case 1: the denied projection is ${JSON.stringify(denEv)}`);
+  for (const junk of [{ type: "meta", turn: "t1", sessionId: "x", cwd: "/Users/someone" }, null, undefined, "text", 7, [], { type: "result" }])
+    ok(turnEvent(junk) === null, `case 1: turnEvent(${JSON.stringify(junk)}) must be null — WHITELIST, never blacklist`);
+
+  // 30.2 — THE case that decides whether the whitelist is a whitelist. A field added to the
+  // transcript later must not start streaming by default, and the op's prose params (wrong_if,
+  // missing, reason) must never reach the wire — the surface reads the package after the turn, and
+  // streaming the prose would put a second, divergent copy on it.
+  const textSmuggled = turnEvent({ ...textIn, secret: "SMUGGLED" });
+  ok(!JSON.stringify(textSmuggled).includes("SMUGGLED"), `case 2: an unknown field on a text line reached the projection — ${JSON.stringify(textSmuggled)}`);
+  const opSmuggled = turnEvent({ ...opIn, secret: "SMUGGLED", params: { ...opIn.params, secret: "SMUGGLED" } });
+  ok(!JSON.stringify(opSmuggled).includes("SMUGGLED"), `case 2: an unknown field on an op line reached the projection — ${JSON.stringify(opSmuggled)}`);
+  ok(!JSON.stringify(opSmuggled).includes("the team runs past it"), "case 2: params.wrong_if reached the wire — the prose belongs in the package, not on the stream");
+  const weakSmuggled = turnEvent({ type: "op", seq: 1, turn: "t1", op: "flag_weak_answer", params: { question_id: "q", answer_ref: "a1", missing: ["SMUGGLED"] }, closes: true, flagged: [], supersedes: null });
+  ok(!JSON.stringify(weakSmuggled).includes("SMUGGLED"), "case 2: params.missing reached the wire");
+
+  // 30.3 — the cap. 4000, not stepEvent's 400: the agent's pushback prose IS what the person has to
+  // read, so a 400-char cap would break the loop rather than bound a progress log.
+  const long = turnEvent({ type: "text", turn: "t1", text: "x".repeat(9000) });
+  ok(long.text.length === TURN_EVENT_TEXT_MAX && long.truncated === true, `case 3: a 9000-char line projected ${long.text.length} chars, truncated ${long.truncated}`);
+  const short = turnEvent({ type: "text", turn: "t1", text: "y".repeat(800) });
+  ok(short.text.length === 800 && short.truncated === false, `case 3: an 800-char line projected ${short.text.length} chars, truncated ${short.truncated}`);
+  ok(turnEvent({ type: "denied", turn: "t1", tool: "Read", error: "z".repeat(9000) }).error.length === TURN_EVENT_TEXT_MAX, "case 3: the denied error is not capped");
+
+  // 30.4 — TOOL_SCHEMA against the grammar BY NAME, both directions. This exists because spike 1's
+  // pre-flight P1 compared by CARDINALITY (enum.length === 4, required.length === 3) and would have
+  // passed four WRONG enum values — the deferred F5 finding on #284. Compared here by member.
+  ok(same(Object.keys(TOOL_SCHEMA).sort(), [...DISCOVERY_OPS].sort()), `case 4: TOOL_SCHEMA names ${Object.keys(TOOL_SCHEMA).join(", ")}, OPS names ${DISCOVERY_OPS.join(", ")}`);
+  for (const op of DISCOVERY_OPS) {
+    ok(same(Object.keys(TOOL_SCHEMA[op]), DISCOVERY_PARAMS[op]),
+      `case 4: TOOL_SCHEMA.${op} keys [${Object.keys(TOOL_SCHEMA[op]).join(", ")}] != PARAMS.${op} [${DISCOVERY_PARAMS[op].join(", ")}] in order — the transport builds the zod shape from this order and the advertised "required" comes out in it`);
+    for (const [field, code] of Object.entries(TOOL_SCHEMA[op]))
+      ok(Array.isArray(code) ? code.length > 0 : TOOL_TYPES.includes(code), `case 4: ${op}.${field} type code ${JSON.stringify(code)} is not in TOOL_TYPES (${TOOL_TYPES.join(", ")})`);
+  }
+  ok(same(TOOL_SCHEMA.record_decision.level, LEVELS), `case 4: record_decision.level enum [${TOOL_SCHEMA.record_decision.level}] != LEVELS [${LEVELS}] BY MEMBER`);
+  ok(same(TOOL_SCHEMA.open_question.source, SOURCES), `case 4: open_question.source enum != SOURCES by member`);
+  ok(same(TOOL_SCHEMA.file_evidence.provenance, PROVENANCE), `case 4: file_evidence.provenance enum != PROVENANCE by member`);
+
+  // 30.5 — the tool names and the server name, pinned.
+  ok(MCP_SERVER === "discovery", `case 5: MCP_SERVER is "${MCP_SERVER}"`);
+  for (const op of DISCOVERY_OPS) ok(toolNameFor(op) === `mcp__discovery__${op}`, `case 5: toolNameFor(${op}) is "${toolNameFor(op)}"`);
+
+  // 30.6 — the roots and the provenance branch (R1). The privacy refusal is DRIVEN by handing it a
+  // root inside the repo, not asserted by construction: assertProvenanceRoot takes the root as an
+  // argument precisely so this case can exist (JOBS_DIR is an import-time const this job cannot
+  // repoint, so a version that re-derived the root internally would be the check that cannot fail).
+  ok(resolveRunRoot({ provenance: "fictional", slug: "x" }) === join(ROOT, "discovery", "x"),
+    `case 6: a fictional root resolves to ${resolveRunRoot({ provenance: "fictional", slug: "x" })}`);
+  ok(resolveRunRoot({ provenance: "real", slug: "x" }).endsWith(join("_discovery", "x")),
+    `case 6: a real root resolves to ${resolveRunRoot({ provenance: "real", slug: "x" })}, which does not end _discovery/x`);
+  ok(names(() => assertProvenanceRoot("real", join(ROOT, "discovery", "x")), "public", join(ROOT, "discovery", "x")) === null,
+    `case 6: a real run rooted inside the repo must throw naming the path and the reason — ${names(() => assertProvenanceRoot("real", join(ROOT, "discovery", "x")), "public")}`);
+  ok(assertProvenanceRoot("fictional", join(ROOT, "discovery", "x")) === join(ROOT, "discovery", "x"), "case 6: a fictional run inside the repo is the normal case and must be accepted");
+  ok(assertProvenanceRoot("real", join(TMP, "outside")) === join(TMP, "outside"), "case 6: a real run outside the repo must be accepted");
+  ok(names(() => resolveRunRoot({ provenance: "nope", slug: "x" }), "fictional", "real") === null,
+    `case 6: an unknown provenance must throw naming both — ${names(() => resolveRunRoot({ provenance: "nope", slug: "x" }), "fictional", "real")}`);
+  for (const [label, arr] of [["PROVENANCES", PROVENANCES], ["ENTRY_MODES", ENTRY_MODES], ["FRONT_ENDS", FRONT_ENDS], ["TOOL_TYPES", TOOL_TYPES]]) {
+    const n = arr.length;
+    ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n, `case 6: ${label} is not frozen — a push landed`);
+  }
+
+  // 30.7 — the slug guard. It names the run package directory, so it is a path guard.
+  ok(assertDiscoverySlug("spine-meridian-1") === "spine-meridian-1", "case 7: a good slug must come back");
+  for (const junk of ["", "A", "a/b", "../x", "a".repeat(49), "a b", "a_b", null, undefined, 7, {}]) {
+    const e = threw(() => assertDiscoverySlug(junk));
+    ok(e !== null && e.message.includes("run slug"), `case 7: assertRunSlug(${JSON.stringify(junk)}) must be refused naming the value — got ${e ? e.message : "no throw"}`);
+  }
+
+  // 30.8 — the ref allocator. Stable over a store whose refs are out of order, because it counts
+  // lines rather than parsing the refs it finds.
+  ok(nextRef([]) === "a1", `case 8: nextRef([]) is ${nextRef([])}`);
+  ok(nextRef([{ ref: "a1" }, { ref: "a2" }]) === "a3", `case 8: nextRef over two is ${nextRef([{ ref: "a1" }, { ref: "a2" }])}`);
+  ok(nextRef([{ ref: "a2" }, { ref: "a1" }]) === "a3", "case 8: nextRef must count lines, not read the refs");
+
+  // 30.9 — the cursor, DERIVED from the record and never stored. Synthetic transcripts, written to a
+  // temp root: a real package may only be written by a real session.
+  const cursorRoot = tmpRoot("cursor");
+  writeFileSync(join(cursorRoot, "run.json"), JSON.stringify({
+    slug: "cursor", provenance: "fictional", label: "Real run — fictional scenario", entryMode: "blank-idea",
+    depth: "scope-check", branch: null, frontEnd: "portal", model: "claude-sonnet-5", posture: "think",
+    sessionId: null, startedAt: "2026-01-01T00:00:00.000Z", endedAt: null, root: "discovery/cursor", turnStats: [],
+  }, null, 2));
+  writeFileSync(join(cursorRoot, "answers.jsonl"), "");
+  writeFileSync(join(cursorRoot, "transcript.jsonl"), "");
+  const depthIds = selectDepth("scope-check").map((q) => q.id);
+  const c0 = sessionView(cursorRoot).cursor;
+  ok(c0.index === 0 && c0.question.id === depthIds[0] && c0.turn === "t1" && c0.total === depthIds.length && c0.done === false,
+    `case 9: an empty transcript must sit at index 0 on ${depthIds[0]} — got ${JSON.stringify({ i: c0.index, q: c0.question?.id, t: c0.turn, done: c0.done })}`);
+  appendTranscript(cursorRoot, textLine({ turn: "t1", text: "a text line must not move the cursor" }));
+  ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a text line moved the cursor");
+  appendTranscript(cursorRoot, opLine({ record: { seq: 1, turn: "t1", op: "file_evidence", params: { url: "https://example.test", ref: null, provenance: "assumption", claim_ref: null }, closes: false, flagged: [], supersedes: null } }));
+  ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a NON-closing op moved the cursor — only closed turns advance it");
+  appendTranscript(cursorRoot, deniedLine({ turn: "t1", tool: "Write", input: null, error: "refused" }));
+  ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a denied line moved the cursor");
+  appendTranscript(cursorRoot, opLine({ record: { seq: 2, turn: "t1", op: "flag_weak_answer", params: { question_id: depthIds[0], answer_ref: "a1", missing: ["a number"] }, closes: true, flagged: [], supersedes: null } }));
+  const c1 = sessionView(cursorRoot).cursor;
+  ok(c1.index === 1 && c1.question.id === depthIds[1] && c1.turn === "t2", `case 9: one closing op must advance exactly one — got ${JSON.stringify({ i: c1.index, q: c1.question?.id, t: c1.turn })}`);
+  for (let i = 2; i <= depthIds.length; i += 1)
+    appendTranscript(cursorRoot, opLine({ record: { seq: i + 1, turn: `t${i}`, op: "flag_weak_answer", params: { question_id: depthIds[i - 1], answer_ref: "a1", missing: ["a number"] }, closes: true, flagged: [], supersedes: null } }));
+  const cEnd = sessionView(cursorRoot).cursor;
+  ok(cEnd.done === true && cEnd.question === null && cEnd.index === depthIds.length,
+    `case 9: past the end must read done with a null question — got ${JSON.stringify({ i: cEnd.index, q: cEnd.question, done: cEnd.done })}`);
+
+  // 30.10 — the three line constructors, against discovery/README.md's documented shapes, and the
+  // applier's fields copied through UNCHANGED. The alias check matters because applyOps refuses an
+  // item carrying seq/closes/flagged back in, and that refusal is the drift detector: an op line
+  // that aliased the caller's record could be rewritten without a write.
+  ok(keys(textLine({ turn: "t1", text: "x" })) === "text,ts,turn,type", `case 10: textLine keys are ${keys(textLine({ turn: "t1", text: "x" }))}`);
+  ok(keys(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e" })) === "error,input,tool,ts,turn,type", `case 10: deniedLine keys are ${keys(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e" }))}`);
+  const rec = { seq: 7, turn: "t2", op: "record_decision", params: { question_id: "q", answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, closes: true, flagged: ["no-evidence"], supersedes: 3 };
+  const line = opLine({ record: rec });
+  ok(keys(line) === "closes,flagged,op,params,seq,supersedes,ts,turn,type", `case 10: opLine keys are ${keys(line)}`);
+  ok(line.seq === 7 && line.closes === true && same(line.flagged, ["no-evidence"]) && line.supersedes === 3, "case 10: opLine altered the applier's fields");
+  rec.seq = 999; rec.closes = false; rec.flagged.push("smuggled"); rec.supersedes = null;
+  ok(line.seq === 7 && line.closes === true && line.supersedes === 3, `case 10: the op line ALIASES the record — mutating it after the call changed the line to seq ${line.seq}`);
+
+  // 30.11 + 30.16 — the Think posture. The three strings are exported SEPARATELY so spike 2's
+  // decision-rule branch 2 ("tighten the yield contract and re-run") is a one-line diff the gate
+  // notices, rather than an edit buried in a template literal.
+  ok(POSTURES.think && POSTURES.think.model === "claude-sonnet-5", `case 11: the Think posture's model is ${JSON.stringify(POSTURES.think?.model)}`);
+  ok(POSTURES.think.id === "think" && typeof POSTURES.think.build === "function", "case 11: the Think posture must carry its id and its builder");
+  const q0 = questionById(depthIds[0]);
+  const built = buildThinkTurn({ question: q0, answer: { ref: "a1", text: "Six weeks, one person." }, turn: "t1" });
+  ok(built.systemPrompt.includes(YIELD_CONTRACT), "case 16: YIELD_CONTRACT does not appear VERBATIM in the built system prompt — a tightening would then be invisible to this gate");
+  ok(built.systemPrompt.includes(MVP6_LINE), "case 16: MVP6_LINE does not appear VERBATIM in the built system prompt");
+  ok(built.systemPrompt.includes(LADDER_BRIEF), "case 16: LADDER_BRIEF does not appear VERBATIM in the built system prompt");
+  for (const [label, s] of [["YIELD_CONTRACT", YIELD_CONTRACT], ["MVP6_LINE", MVP6_LINE], ["LADDER_BRIEF", LADDER_BRIEF]])
+    ok(typeof s === "string" && s.trim().length > 40, `case 16: ${label} is empty or a stub`);
+  ok(/may not say the answer is wrong/i.test(MVP6_LINE) && /may not supply what is missing/i.test(MVP6_LINE),
+    "case 11: MVP6_LINE must state BOTH halves — the agent may not say the answer is wrong AND may not supply what is missing");
+  ok(built.prompt.includes("a1") && built.prompt.includes("Six weeks, one person.") && built.prompt.includes(q0.weakAnswer) && built.prompt.includes("t1"),
+    "case 11: the prompt must carry the answer's ref, the answer text, the question's weak-answer note and the turn");
+  ok(!built.systemPrompt.includes("undefined") && !built.prompt.includes("undefined"), "case 11: the built prompt contains \"undefined\"");
+  for (const junk of [{}, { question: q0 }, { question: q0, answer: {}, turn: "t1" }, { question: null, answer: { ref: "a1", text: "x" }, turn: "t1" }, { question: q0, answer: { ref: "a1", text: "x" }, turn: "" }])
+    ok(threw(() => buildThinkTurn(junk)) !== null, `case 11: buildThinkTurn(${JSON.stringify(junk).slice(0, 60)}) must throw rather than build a prompt with a hole in it`);
+  // The rubric never reaches the browser — a property of the wire, not a comment in a render
+  // function. The posture reads it server-side through questionById, so nothing is lost.
+  const served = JSON.stringify(discoveryConfig());
+  ok(!served.includes(q0.weakAnswer), "case 11: the config route serves the weak-answer note — that is the agent's rubric and showing it beside the question would tell the person the answer");
+  ok(!served.includes("weakAnswer"), "case 11: the config route serves a weakAnswer key at all");
+  ok(discoveryConfig().questions.length === BANK.length && discoveryConfig().depths.length === Object.keys(DEPTHS).length,
+    "case 11: the config route must serve the whole bank and every depth");
+  ok(same(Object.keys(discoveryConfig()).sort(), ["depths", "entryModes", "frontEnds", "hasToken", "ops", "postures", "provenances", "questions"]),
+    `case 11: discoveryConfig keys are ${Object.keys(discoveryConfig()).sort().join(",")}`);
+  ok(!JSON.stringify(discoveryConfig().postures).includes("systemPrompt"), "case 11: the config route serves a posture's prompt body");
+
+  // 30.12 — the source pin. Mirrors the bank group's zero-import pin. Matched on IMPORT LINES rather
+  // than the bare strings, because both modules NAME the SDK in their headers — that prose is the
+  // invariant being stated, and a substring match would make this case unable to distinguish it
+  // from the thing it forbids.
+  for (const rel of ["portal/lib/discovery.mjs", "portal/lib/discovery-postures.mjs"]) {
+    const src = readFileSync(join(ROOT, rel), "utf8");
+    ok(!/^\s*import\b[^\n]*claude-agent-sdk/m.test(src), `case 12: ${rel} imports the Agent SDK statically — CI has no portal/node_modules and group 30 would not load at all`);
+    ok(!/^\s*import\b[^\n]*['"]zod['"]/m.test(src), `case 12: ${rel} imports zod statically`);
+    ok(!/\bdocument\b|\bwindow\b/.test(src), `case 12: ${rel} references document or window — these are Node-only modules`);
+    ok(!/^\s*import\b[^\n]*discovery-transport/m.test(src), `case 12: ${rel} imports the transport STATICALLY — it must be reached only by the lazy import inside runTurn, after every guard`);
+  }
+  ok(/await import\(['"]\.\/discovery-transport\.mjs['"]\)/.test(readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8")),
+    "case 12: portal/lib/discovery.mjs no longer reaches the transport by a lazy import — the three-layer split is the whole architecture in one file boundary");
+
+  // 30.13 — purity. A projection that aliased its input could be rewritten without a write.
+  ok(same(turnEvent(opIn), turnEvent(opIn)), "case 13: turnEvent is not deterministic over the same line");
+  const mutable = turnEvent(opIn);
+  mutable.flagged.push("smuggled"); mutable.op = "changed";
+  ok(same(opIn.flagged, ["no-evidence"]) && opIn.op === "record_decision", "case 13: mutating turnEvent's return changed the input line");
+
+  // 30.14 — the fence predicate, exhaustively. Built by mapping OPS, so a renamed server fails and a
+  // fifth verb passes with no edit here. The PREDICATE is what this group proves; the WIRING —
+  // whether a deny from canUseTool or the PreToolUse hook actually blocks an MCP call — stays
+  // unobserved, because the spine runs tools: [] and there is nothing left to deny. #287 owns it.
+  for (const op of DISCOVERY_OPS) ok(allowsToolName(toolNameFor(op)) === true, `case 14: ${toolNameFor(op)} must be allowed`);
+  for (const junk of ["Write", "Edit", "Read", "Bash", "Grep", "Glob", "WebSearch", "WebFetch",
+    "mcp__discovery__record_stub", "mcp__other__record_decision", "mcp__discovery__", "mcp__discovery__record_decision ",
+    "", null, undefined, 7, {}, []])
+    ok(allowsToolName(junk) === false, `case 14: allowsToolName(${JSON.stringify(junk)}) must be false`);
+
+  // 30.15 — assertTurnWritable, both directions. The STRUCTURAL half of runTurn's
+  // lock → guards → append → run ordering: a guard cannot enforce a call order, but it can refuse
+  // the damage a wrong order causes. An answer landing on a closed turn is a phantom answer in an
+  // append-only file the honesty contract forbids you to clean up.
+  const closedByDecision = [{ type: "op", seq: 5, turn: "t4", op: "record_decision", closes: true, params: {} }];
+  const closedByWeak = [{ type: "op", seq: 6, turn: "t5", op: "flag_weak_answer", closes: true, params: {} }];
+  ok(assertTurnWritable([], "t1") === "t1", "case 15: an empty transcript must accept any turn");
+  ok(assertTurnWritable([{ type: "text", turn: "t1", text: "x" }], "t1") === "t1", "case 15: a turn carrying only a text line must be writable");
+  ok(assertTurnWritable([{ type: "op", seq: 1, turn: "t1", op: "file_evidence", closes: false, params: {} }], "t1") === "t1", "case 15: a turn carrying only a non-closing op must be writable");
+  ok(assertTurnWritable(closedByDecision, "t9") === "t9", "case 15: a DIFFERENT turn's closer must not block this one");
+  ok(names(() => assertTurnWritable(closedByDecision, "t4"), "t4", "5") === null,
+    `case 15: a turn closed by a record_decision must be refused naming the turn and the closing seq — ${names(() => assertTurnWritable(closedByDecision, "t4"), "t4", "5")}`);
+  ok(names(() => assertTurnWritable(closedByWeak, "t5"), "t5", "6") === null,
+    `case 15: a turn closed by a flag_weak_answer must be refused naming the turn and the closing seq — ${names(() => assertTurnWritable(closedByWeak, "t5"), "t5", "6")}`);
+  for (const junk of [null, "x", 7]) ok(threw(() => assertTurnWritable(junk, "t1")) !== null, `case 15: assertTurnWritable(${JSON.stringify(junk)}) must throw`);
+  for (const junk of [null, "", 7]) ok(threw(() => assertTurnWritable([], junk)) !== null, `case 15: a junk turn id ${JSON.stringify(junk)} must throw`);
+
+  // The temp package never reaches the repo; the roots case above proved where a real one WOULD go.
+  ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
+  rmSync(TMP, { recursive: true, force: true });
+
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq. What it cannot reach: the transport, the SDK, any live run, and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -5522,5 +5792,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 29 groups pass");
+  console.log("\nbuild ✓  all 30 groups pass");
 }

@@ -20,6 +20,7 @@
     <button class="btn btn-secondary" id="btn-chat" type="button">Chat</button>
     <button class="btn btn-secondary" id="btn-figma" type="button">Figma → pack</button>
     <button class="btn btn-secondary" id="btn-builder" type="button">Compose a view</button>
+    <button class="btn btn-secondary" id="btn-discovery" type="button">Discovery</button>
     <button class="btn btn-primary" id="btn-intake" type="button">New intake</button>
   </header>
 
@@ -137,6 +138,74 @@
       <p class="muted portal-form-status" id="builder-status" aria-live="polite"></p>
       <ol class="portal-phase-log" id="builder-log"></ol>
       <div id="builder-report"></div>
+    </form>
+  </div>
+
+  <!-- Discovery panel: one banked question, one op, one run package on disk (#284) -->
+  <div class="portal-drawer" id="discovery-drawer" hidden>
+    <form class="portal-form portal-form-wide" id="discovery-form">
+      <h2 class="h3">Discovery</h2>
+      <p class="muted">
+        One question from the bank at a time. You answer; an agent judges whether the answer has the
+        <strong>form</strong> the question asks for, pushes back once if it is thin, and files what it
+        heard. It never says an answer is wrong and never supplies what is missing.
+      </p>
+      <p class="muted">
+        Everything lands in a run package on disk — <code>run.json</code>, <code>answers.jsonl</code>,
+        <code>transcript.jsonl</code>. Your answers are stored verbatim and are the only thing the
+        agent can point at; it has no way to write words into them.
+      </p>
+
+      <fieldset class="discovery-start" id="discovery-start">
+        <legend>Start or resume a run</legend>
+        <div class="portal-form-row">
+          <!-- the hyphen is escaped: `pattern` compiles with the `v` flag, where a trailing bare "-"
+               in a character class is a syntax error and silently voids the whole attribute -->
+          <label>Run slug <input name="slug" id="discovery-slug" required pattern="[a-z0-9\-]{1,48}"
+            placeholder="spine-meridian-1" autocomplete="off" /></label>
+          <label>Provenance
+            <select name="provenance" id="discovery-provenance"></select>
+          </label>
+        </div>
+        <p class="muted" id="discovery-provenance-note" aria-live="polite"></p>
+        <div class="portal-form-row">
+          <label>Depth
+            <select name="depth" id="discovery-depth"></select>
+          </label>
+          <label>Posture
+            <select name="posture" id="discovery-posture"></select>
+          </label>
+        </div>
+        <p class="muted" id="discovery-depth-note"></p>
+        <div class="portal-form-actions">
+          <button class="btn btn-primary" type="button" id="discovery-open">Start or resume</button>
+        </div>
+      </fieldset>
+
+      <div id="discovery-session" hidden>
+        <p class="card-kicker" id="discovery-position"></p>
+        <h3 class="h3" id="discovery-question"></h3>
+        <p class="muted" id="discovery-attribution"></p>
+
+        <label>Your answer — stored verbatim, and never rewritten
+          <textarea name="answer" id="discovery-answer" rows="6"></textarea>
+        </label>
+
+        <div class="portal-form-actions">
+          <button class="btn btn-primary" type="submit" id="discovery-submit">Submit answer</button>
+          <button class="btn btn-secondary" type="button" id="discovery-finish">Finish</button>
+          <button class="btn btn-secondary" type="button" id="discovery-cancel">Close</button>
+        </div>
+        <p class="muted portal-form-status" id="discovery-status" aria-live="polite"></p>
+        <ol class="portal-phase-log" id="discovery-log"></ol>
+
+        <div id="discovery-recorded"></div>
+      </div>
+
+      <p class="muted portal-form-status" id="discovery-start-status" aria-live="polite"></p>
+      <div class="portal-form-actions" id="discovery-start-actions">
+        <button class="btn btn-secondary" type="button" id="discovery-cancel-2">Close</button>
+      </div>
     </form>
   </div>
 

@@ -1,0 +1,53 @@
+{
+  "slug": "spine-meridian-1",
+  "provenance": "fictional",
+  "label": "Real run — fictional scenario",
+  "entryMode": "blank-idea",
+  "depth": "scope-check",
+  "branch": null,
+  "frontEnd": "portal",
+  "model": "claude-sonnet-5",
+  "posture": "think",
+  "sessionId": "409e465f-9d51-43eb-9862-2ebc849c8b30",
+  "startedAt": "2026-08-29T08:25:39.262Z",
+  "endedAt": "2026-08-29T08:27:10.122Z",
+  "root": "discovery/spine-meridian-1",
+  "turnStats": [
+    {
+      "turn": "t1",
+      "numTurns": 2,
+      "durationMs": 21187,
+      "costUsd": 0.04293865,
+      "inputTokens": 4,
+      "outputTokens": 1545,
+      "cacheReadTokens": 5472,
+      "cacheCreationTokens": 1527,
+      "ok": true,
+      "ts": "2026-08-29T08:26:01.807Z"
+    },
+    {
+      "turn": "t2",
+      "numTurns": 2,
+      "durationMs": 10518,
+      "costUsd": 0.026488149999999995,
+      "inputTokens": 4,
+      "outputTokens": 579,
+      "cacheReadTokens": 8862,
+      "cacheCreationTokens": 929,
+      "ok": true,
+      "ts": "2026-08-29T08:26:24.623Z"
+    },
+    {
+      "turn": "t3",
+      "numTurns": 3,
+      "durationMs": 16400,
+      "costUsd": 0.03166235,
+      "inputTokens": 6,
+      "outputTokens": 845,
+      "cacheReadTokens": 16631,
+      "cacheCreationTokens": 1195,
+      "ok": true,
+      "ts": "2026-08-29T08:27:09.554Z"
+    }
+  ]
+}

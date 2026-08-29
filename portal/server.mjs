@@ -11,6 +11,9 @@ import { createIntake } from './lib/intake.mjs';
 import { streamChat } from './lib/chat.mjs';
 import { receiveExport, runFigmaPull } from './lib/figma.mjs';
 import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from './lib/builder.mjs';
+// #284's discovery session. Every export here is SDK-free; the SDK is reached only by runTurn's lazy
+// import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
+import { closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent } from './lib/discovery.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
@@ -134,6 +137,70 @@ const server = createServer(async (req, res) => {
       }
       return res.end();
     }
+    // --- the discovery session: one banked question, one op, one run package (#284) ---
+    // ONE route serves the bank, the depths, the postures and the op vocabulary, so the drawer cannot
+    // fork any of them. What it does NOT serve is each question's weak-answer note: that is the agent's
+    // rubric, and showing it beside the question would tell the person the answer. discoveryConfig()
+    // strips it, so the browser cannot receive it at all rather than being trusted not to render it.
+    if (p === '/api/discovery/config' && req.method === 'GET') return json(res, 200, discoveryConfig());
+
+    // Open or RESUME. Disk is authoritative: an existing run.json comes back untouched with its
+    // answers, its transcript and the derived cursor, which is what makes a page reload and a server
+    // restart lose nothing (AC #5). EVERY PARAMETER NAMED — see /api/build/run's comment below for why
+    // a spread is the wrong shape on a route a cross-origin page can POST to.
+    if (p === '/api/discovery/session' && req.method === 'POST') {
+      const b = await readBody(req);
+      return json(res, 200, openSession({
+        slug: b.slug, provenance: b.provenance, entryMode: b.entryMode, depth: b.depth,
+        branch: b.branch ?? null, frontEnd: b.frontEnd, posture: b.posture,
+      }));
+    }
+    // Read-only: the package as it stands. The drawer re-fetches this after a turn so the cursor and
+    // the recorded turns come from disk rather than from a second client-side copy.
+    if (p === '/api/discovery/session' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug');
+      const provenance = url.searchParams.get('provenance');
+      return json(res, 200, sessionView(resolveRunRoot({ provenance, slug })));
+    }
+    // Ends the session so endedAt lands. Its own route rather than a flag on the turn, because a
+    // session is finished deliberately, not as a side effect of the last answer.
+    if (p === '/api/discovery/close' && req.method === 'POST') {
+      const b = await readBody(req);
+      return json(res, 200, closeSession(resolveRunRoot({ provenance: b.provenance, slug: b.slug })));
+    }
+    if (p === '/api/discovery/turn' && req.method === 'POST') {
+      const body = await readBody(req);
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+      // A closed socket stops the WRITES, not the run — the same call /api/build/run makes, and the
+      // right one: the tokens are already spent, and the run package should still be written.
+      // withDiscoveryRunLock releases through its finally either way, so a disconnect cannot wedge the
+      // next turn.
+      let open = true;
+      res.on('close', () => { open = false; });
+      const send = (o) => { if (open && !res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); };
+      try {
+        // EVERY PARAMETER NAMED, never `{ ...body }` — the rule /api/build/run's comment states, and
+        // it binds harder here: runTurn's parameters reach an append-only file the honesty contract
+        // forbids anyone to clean up.
+        //
+        // turnEvent is discovery.mjs's exported whitelist and this route holds NO shape opinion of its
+        // own: a projection written inline here is one build-checks group 30 cannot reach, and it
+        // would drift from the one group 30 does check. It returns null for anything not projectable,
+        // so the send is simply skipped.
+        const view = await runTurn({
+          slug: body.slug, provenance: body.provenance, questionId: body.questionId,
+          kind: 'banked', text: body.text,
+          onLine: (line) => { const ev = turnEvent(line); if (ev) send(ev); },
+        });
+        send({ type: 'done', view });
+      } catch (e) {
+        // Not the catch-all's { error } body: SSE headers are already written, so a refusal is an
+        // event on the stream.
+        send({ type: 'error', message: e.message });
+      }
+      return res.end();
+    }
+
     if (p === '/api/chat' && req.method === 'POST') {
       const body = await readBody(req);
       if (!body.message) return json(res, 400, { error: 'message required' });
