@@ -201,8 +201,8 @@ already states, that a guard reachable only by starting a real agent run is a gu
   `<JOBS_DIR>/_discovery/<slug>/`, same shape. The first slice writes files somewhere either way, so the
   branch is cheaper now than as a migration on the day the metric is finally tested.
 - **The generated PRD is a pure fold over the ops**, not a second authored artefact — projected into the
-  house PRD shape and then edited by the human. Placement at slicing; the constraint is that it reads
-  the package and nothing else, so a PRD can never carry a claim the ops do not.
+  house PRD shape and then edited by the human. `discovery/prd-projection.mjs` (#290); the constraint is
+  that it reads the package and nothing else, so a PRD can never carry a claim the ops do not.
 
 ### Boundaries & contracts
 - **The read fence is an allow-list, and it runs twice.** The PRD records a `canUseTool` deny-list; this
@@ -357,8 +357,12 @@ and its committed one-sentence input · the fixture's md5 case · the CLAUDE.md 
 - [ ] **`unstable_v2_*` session API** — the shape this loop wants, behind an unstable prefix. Revisit
       when it stabilises; the resume-per-turn model is what it would replace, and disk stays authoritative
       either way.
-- [ ] **Where the PRD projection lives** and whether it earns its own module — at slicing, once the op
-      set has been exercised once.
+- [x] **Where the PRD projection lives** — closed by #290: `discovery/prd-projection.mjs`. Not
+      `agent-layer/gen-*.mjs`: `gen-loc-summary.mjs` counts `^agent-layer/[^/]+\.mjs$`, so a file there
+      changes `system/loc-summary.json`, changes the number `approach.html` renders and churns approach's
+      VR baselines — the tripwire §For slicing names. `discovery/` matches no loc group. It earns its own
+      module: a pure `projectPrd` the gate drives plus a thin filesystem shell, the same split
+      `gen-replay.mjs` uses.
 - [ ] Carried from the PRD, unchanged by this doc: three branches ship with no run behind them ·
       marketplace as a fifth branch · whether the scripted bank beats open conversation for completion ·
       the unguarded deadline risk.
