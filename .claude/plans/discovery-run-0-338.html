@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>#338 build brief — run 0, the owner's own product</title>
+<style>
+  :root{--ink:#14171a;--dim:#5b6470;--line:#dfe3e8;--bg:#fbfbfa;--card:#fff;--warn:#8a5a00;--warnbg:#fff8e8;--ok:#0f5f3f;--okbg:#eef7f2;--stop:#8a1c1c;--stopbg:#fdefef;--code:#f4f5f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  main{max-width:56rem;margin:0 auto;padding:3rem 1.25rem 6rem}
+  h1{font-size:1.9rem;line-height:1.2;margin:0 0 .4rem}
+  h2{font-size:1.25rem;margin:3rem 0 .75rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}
+  h3{font-size:1rem;margin:1.75rem 0 .4rem}
+  p,li{max-width:62ch}
+  .lede{color:var(--dim);font-size:1.05rem;margin:0 0 2rem}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  code{background:var(--code);padding:.1em .35em;border-radius:3px;font-size:.88em}
+  pre{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.9rem 1rem;overflow-x:auto;font-size:.82rem;line-height:1.5}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0}
+  .note{background:var(--warnbg);border-left:3px solid var(--warn);padding:.7rem 1rem;margin:.9rem 0;font-size:.92rem}
+  .note b{color:var(--warn)}
+  .good{background:var(--okbg);border-left:3px solid var(--ok);padding:.7rem 1rem;margin:.9rem 0;font-size:.92rem}
+  .stop{background:var(--stopbg);border-left:4px solid var(--stop);padding:1rem 1.15rem;margin:1.25rem 0}
+  .stop b{color:var(--stop)}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.88rem}
+  th,td{border:1px solid var(--line);padding:.45rem .6rem;text-align:left;vertical-align:top}
+  th{background:var(--code);font-weight:600}
+  .dim{color:var(--dim)}
+  .flow{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:1rem 0;font-size:.85rem}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.45rem .7rem;font-family:ui-monospace,monospace}
+  .box.hi{border-color:var(--ok);background:var(--okbg)}
+  .box.stopb{border-color:var(--stop);background:var(--stopbg)}
+  .arw{color:var(--dim)}
+  ul{padding-left:1.2rem}
+  .small{font-size:.85rem}
+</style></head><body><main>
+
+<h1>#338 — run 0: the owner's next real product, in the UI</h1>
+<p class="lede">A five-minute briefing. This one is unusual: the plan builds no code. It runs a session
+and reports what it showed. Full plan: <code>.claude/plans/discovery-run-0-338.md</code></p>
+
+<div class="stop">
+  <b>The one thing that matters.</b> The 30 answers are the measurement, and they must be the owner's own
+  words about the owner's own product. An agent that writes them has fabricated the experiment and destroyed
+  the ticket. Phase A is the agent's, <b>Phase B is the owner's alone</b>, Phase C is the agent reading files
+  and transcribing dictation.
+</div>
+
+<h2>1. What we're doing, and why</h2>
+<p>Epic #279 built a discovery half — a question bank, an op grammar, a session spine, a PRD projection — and
+staked itself on one falsifiable claim: that the owner's <em>next real discovery session</em> would start in
+the portal rather than the terminal. Every artifact built so far is fictional or an in-memory test fixture.
+Nothing has ever carried a real product through.</p>
+<p>This ticket is that session. It is deliberately <em>not</em> one of the measured runs (#291 scores against
+a sealed key; #292 fires the AI module against a fixture). It has a second job too: five tickets were deferred
+on reasoning alone, and running without them is the only way to find out whether the reasoning held.</p>
+
+<h2>2. The four concepts this rests on</h2>
+
+<h3>Concept 1 — a falsifiable hypothesis has a WRONG condition, and you must be able to reach it</h3>
+<p>The epic says: <em>right</em> if the next real session starts in the UI and reaches a PRD in one sitting;
+<em>wrong</em> if the owner opens a terminal and types <code>/think</code> instead. The terminal is deliberately
+left installed and unmodified — it is the control. Deleting it would let the UI win by having no alternative,
+which measures nothing.</p>
+<p><strong>Why this plan needs it:</strong> it is why AC3 asks for the owner's honest recollection rather than
+a metric, and why a WRONG verdict is recorded as a finding rather than treated as a failure to fix.</p>
+<div class="note"><b>The trap.</b> An experiment whose wrong condition cannot be reached is not an experiment.
+The plan makes WRONG explicitly acceptable so nobody is quietly incentivised to report RIGHT.</div>
+
+<h3>Concept 2 — pre-registration: fix the counters before you look</h3>
+<p>Deciding, after a long afternoon, whether five deferred tickets "hurt" produces opinion with a number
+attached. Pre-registration means writing down — <em>before the sitting</em> — exactly what observation would
+count as evidence for each one, and where in the package it would be read from.</p>
+<div class="flow">
+  <span class="box hi">write the counters</span><span class="arw">→</span>
+  <span class="box">run the sitting</span><span class="arw">→</span>
+  <span class="box">read the counters</span>
+  <span class="arw">|</span><span class="dim">never: run → invent a counter that fits</span>
+</div>
+<p><strong>Analogy:</strong> calling your shot in pool. Naming the pocket first is what makes the shot mean
+something. <span class="dim"><strong>Where it breaks:</strong> in pool you either sink it or you don't; here
+"no evidence either way" is a legitimate third outcome, and is itself the finding that the deferral was safe.</span></p>
+<p><strong>Why this plan needs it:</strong> AC4 is the ticket's second deliverable, and it is the half most
+likely to decay into vibes. Tables 1 and 2 in the plan are the pre-registration.</p>
+
+<h3>Concept 3 — provenance decides where the data lives (R1)</h3>
+<p>The run package's <code>run.json</code> carries a <code>provenance</code> field, and it is not a label —
+it is a routing decision made in code:</p>
+<div class="flow">
+  <span class="box">provenance: <b>fictional</b></span><span class="arw">→</span>
+  <span class="box">discovery/&lt;slug&gt;/ <span class="dim">— committed, public</span></span>
+</div>
+<div class="flow">
+  <span class="box stopb">provenance: <b>real</b></span><span class="arw">→</span>
+  <span class="box stopb">$JOBS_DIR/_discovery/&lt;slug&gt;/ <span class="dim">— never committed</span></span>
+</div>
+<p>This repo is public and inspectable. The owner's unreleased product must not enter it. That is why
+run 0 is <code>real</code>, why AC6 exists, and why the plan carries a script that scans the finished
+report for any eight-word span lifted verbatim from an answer.</p>
+<p><strong>Why this plan needs it:</strong> the single highest-consequence mistake available in this ticket is
+picking <code>fictional</code> in the drawer. The plan makes the operator read the note under the dropdown
+before pressing Start.</p>
+
+<h3>Concept 4 — the package is the evidence; memory is not</h3>
+<p>Every AC5 number is read from a named field, never recalled. A session leaves four things behind:</p>
+<table>
+  <tr><th>File</th><th>Holds</th><th>What the report reads from it</th></tr>
+  <tr><td><code>run.json</code></td><td>the header + <code>turnStats[]</code></td><td>cost, latency, SDK turns, tokens, wall-clock</td></tr>
+  <tr><td><code>answers.jsonl</code></td><td>the human's verbatim words <span class="dim">(server-written only)</span></td><td>a count — and the leak scan</td></tr>
+  <tr><td><code>transcript.jsonl</code></td><td>append-only <code>text</code> · <code>op</code> · <code>denied</code></td><td>answered / weak / abandoned, flags, denials</td></tr>
+  <tr><td><code>prd.md</code></td><td>the fold's output</td><td>AC2 — that it exists at all</td></tr>
+</table>
+<div class="note"><b>The number most likely to be misreported.</b> <code>numTurns</code> is the <em>model's</em>
+internal turns; the person's turns are closed banked-question turns, capped at 30. Similar names, different
+numbers. On the one existing package they are <b>7 and 3</b> (observed) — the derivation script emits both
+under distinct keys.</div>
+<div class="note"><b>The second one.</b> <em>Abandoned</em> (the agent filed <code>open_question</code>) is not
+<em>unreached</em> (the sitting stopped before the question). A session ending at 22 has 8 unreached and 0
+abandoned; reporting only the latter makes a short sitting look cleaner than it was. Both are in Table 1.</div>
+
+<h2>3. How the pieces fit</h2>
+<div class="card">
+<div class="flow">
+  <span class="box">the drawer <span class="dim">portal.js</span></span><span class="arw">→</span>
+  <span class="box">answers.jsonl <span class="dim">server writes</span></span><span class="arw">→</span>
+  <span class="box">Agent SDK turn <span class="dim">Think posture</span></span>
+</div>
+<div class="flow">
+  <span class="arw">↳</span>
+  <span class="box">one op via in-process tool</span><span class="arw">→</span>
+  <span class="box">ops.mjs applier <span class="dim">refuse / flag</span></span><span class="arw">→</span>
+  <span class="box">transcript.jsonl</span>
+</div>
+<div class="flow">
+  <span class="arw">↳</span>
+  <span class="box hi">prd-projection.mjs --root <span class="dim">CLI only</span></span><span class="arw">→</span>
+  <span class="box hi">prd.md</span>
+</div>
+</div>
+<p class="small dim">Phase A proves this whole chain on one throwaway turn. Phase B runs it 30 times.
+Phase C reads what it left behind.</p>
+
+<div class="note"><b>F1 — the gap this run will expose.</b> The projection is <b>CLI-only</b>; #290's PR says
+so outright. The <em>session</em> is entirely in the UI, but the PRD needs one terminal command afterwards.
+The plan takes the plain reading of AC1 and does <b>not</b> build a route — patching the gap before the run
+would mean run 0 no longer measures the thing as built. It logs a named finding instead, and that finding
+matters: the epic's secondary user, a guest with no terminal, cannot finish the workflow at all today.</div>
+
+<h2>4. The plan at a glance</h2>
+
+<h3>Phase dependency</h3>
+<div class="flow">
+  <span class="box">A · agent prepares</span><span class="arw">→</span>
+  <span class="box stopb">B · OWNER RUNS <span class="dim">hard stop</span></span><span class="arw">→</span>
+  <span class="box">C · agent derives + reports</span>
+</div>
+<p class="small">Strictly sequential. Nothing here parallelises — each phase reads the previous one's output.</p>
+
+<h3>Phase A — prove the mechanism before a 30-question sitting</h3>
+<ul class="small">
+  <li><code>node lib/discovery-transport.mjs --preflight</code> — real tool schema, zero tokens, zero cost</li>
+  <li>one throwaway turn at <code>scope-check</code>, provenance <code>real</code>, slug
+      <code>preflight-throwaway-338</code> — the only way to prove <code>costUsd</code> populates under
+      CLI-login auth (<code>HAS_TOKEN</code> is <b>false</b>, observed — though
+      <code>spine-meridian-1</code> did populate <code>costUsd</code> on this machine on 2026-08-29,
+      at ~<b>$0.034/turn</b>, so expect roughly <b>$1.50–3.00</b> for 30)</li>
+  <li>smoke-test Phase C's derivation script against <code>spine-meridian-1</code>, whose oracle is known
+      — proving it <em>before</em> it is needed at the end of a 30-question sitting</li>
+  <li><code>prd-projection.mjs --root … --stdout</code> — proves the <code>--root</code> form, which a real
+      package needs and a fictional one does not</li>
+  <li>delete the throwaway; fix the AC4/AC5 sheet</li>
+</ul>
+<div class="good"><b>Pre-registered fallback:</b> if <code>costUsd</code> comes back <code>null</code>, report
+the four token counts and name the cause. Decided now, not mid-sitting.</div>
+
+<h3>Phase B — the sitting</h3>
+<p class="small">Drawer settings, all verified against <code>run.json</code> afterwards rather than trusted:
+depth <code>full-discovery</code> (<b>30 questions — observed unique, no nulls</b>), provenance
+<code>real</code>, entry <code>blank-idea</code>, posture <b>Think</b>, branch <code>null</code>.
+Press <b>Finish</b> — it writes <code>endedAt</code>, which is the only thing that makes the wall-clock
+number exist.</p>
+<p class="small">Keep a running note of five things while answering — one per deferred ticket. They are the
+AC4 evidence and they are <em>not</em> recoverable from the package afterwards.</p>
+
+<h3>Phase C — what gets committed</h3>
+<table>
+  <tr><th>Path</th><th>Status</th></tr>
+  <tr><td><code>.claude/plans/discovery-run-0-338.md</code> · <code>.html</code></td><td>committed</td></tr>
+  <tr><td><code>.claude/reports/discovery-run-0-338-report.md</code></td><td>committed — the deliverable</td></tr>
+  <tr><td><code>$JOBS_DIR/_discovery/&lt;slug&gt;/</code></td><td><b>never committed</b> (AC6)</td></tr>
+  <tr><td>any source file</td><td><b>unchanged</b> — no code is in scope</td></tr>
+</table>
+
+<h3>Acceptance criteria</h3>
+<ul class="small">
+  <li><b>AC1</b> real session, started and finished in the UI — verified from <code>run.json</code>, not memory</li>
+  <li><b>AC2</b> a generated <code>prd.md</code> in one sitting</li>
+  <li><b>AC3</b> the hypothesis in the owner's quoted words — WRONG is a finding, not a failure</li>
+  <li><b>AC4</b> a verdict on #283 · #285 · #286 · #287 · #289 — <em>hurt / did not / no evidence either way</em></li>
+  <li><b>AC5</b> answered · abandoned · banked turns · SDK turns · latency · cost (or tokens) · wall-clock</li>
+  <li><b>AC6</b> nothing from the package committed — three checks, one of them a verbatim-span scan</li>
+</ul>
+
+<div class="note"><b>What no gate here can reach.</b> <code>build-checks</code> groups 29–31 drive the discovery
+modules over in-memory fixtures. <b>Nothing in the gate stack reads a run package on disk</b> — deliberately,
+because a directory on disk could be mistaken for a real one. So no green run proves this session happened,
+that a human answered it, or that the report is honest. The pre-registration and the three safety checks are
+what stand in for a gate, and the report says so rather than listing 31 green groups as if they covered it.</div>
+
+<h2>5. Go deeper</h2>
+<ul class="small">
+  <li>Falsifiable hypotheses and wrong conditions — <code>/learn falsifiable hypothesis</code></li>
+  <li>Pre-registration as a bias control — <code>/learn pre-registration</code></li>
+  <li>The BABOK requirements ladder the ops file against — <code>/learn requirements hierarchy</code>,
+      source at <code>docs/research/requirements-hierarchy.md</code></li>
+  <li>The op grammar and refuse-vs-flag — <code>discovery/README.md</code></li>
+</ul>
+
+</main></body></html>
