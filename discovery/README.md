@@ -208,6 +208,13 @@ applier's.
 (`*Replaces:* seq N`); the earlier one gets no block of its own. Nothing is removed — both records stay
 in the ops.
 
+**Two counted sets, and the page says which.** The ladder sections, Non-goals and the Requirement
+hierarchy's counts are over the LATEST decision per question. Success metrics, the Evidence gap list
+and the `**Ledger**` line are over the WHOLE ledger, replaced records included, because nothing is
+removed. Every whole-ledger surface marks a replaced record `superseded by seq N` and the Ledger line
+names its own set, so a higher count there than in the hierarchy is resolvable rather than a
+contradiction.
+
 **The transition note has two states.** A `transition` decision renders like any other; with none, the
 section is an explicit `**n/a**` naming what was not elicited, rather than a silent gap.
 

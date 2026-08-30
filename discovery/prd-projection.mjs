@@ -36,6 +36,14 @@
 // the same reason writePrd refuses to overwrite an existing prd.md without --force, and the refusal
 // message says so — it is the documentation most operators will ever read.
 //
+// TWO COUNTED SETS, and the page SAYS WHICH. `visible` — the latest decision per banked question,
+// plus every off-script one — selects the ladder sections, Non-goals and the Requirement hierarchy's
+// counts. The WHOLE ledger drives Success metrics, the Evidence gap list and the Ledger line, because
+// nothing is removed (discovery/README.md §Supersede) and a retracted kill criterion is part of the
+// record. Every over-the-whole-ledger surface MARKS a replaced record ("superseded by seq N") and the
+// Ledger line names its own set, so `orphan 2` beside `orphans 1` is resolvable rather than a
+// contradiction. Marking, never dropping: dropping would delete a record the ops still carry.
+//
 // NO CLOCK. Every date on the page comes from run.json; ordering is by seq or by SECTIONS order, never
 // by Object.keys iteration. NO LENGTH CAP: answers.jsonl is verbatim by contract (discovery/README.md),
 // and a truncated verbatim answer is a quietly altered one. portal/lib/discovery.mjs's
@@ -60,9 +68,19 @@ import { FLAGS, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from "./ops.mjs";
 // The `why` names what the RUN did not record, not what the reader should do.
 const tbd = (why) => `_TBD — ${why}._`;
 
+// FOLD ONTO ONE LINE. This is the containment for every AGENT-AUTHORED value and every run.json
+// field, because those reach the page as markdown STRUCTURE — `*Wrong if:* …`, a `#### ` heading, a
+// table cell — rather than inside a quote. ops.mjs validates wrong_if / reason / missing[] as
+// non-empty strings and a url by its scheme prefix, and folds nothing, so a newline inside one would
+// open a `## ` section the ops do not carry and a reader could not tell the projection had not
+// assigned that claim to that section. It is a 1:1 substitution, never a trim or a cap: no character
+// is removed, so it does not collide with the no-truncation rule above. A human's ANSWER never comes
+// through here — it goes through blockquote(), verbatim. Case 31.13 drives every param.
+const fold = (s) => String(s).replace(/\n/g, " ");
+
 // For table cells ONLY, and only for URLs, labels, seqs and op params — never for a human answer. A
-// `|` inside a cell splits the row, so it is escaped; a newline would end the table, so it is folded.
-const cell = (s) => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+// `|` inside a cell splits the row, so it is escaped on top of the fold above.
+const cell = (s) => fold(s).replace(/\|/g, "\\|");
 
 // THIS IS HOW ALL ARBITRARY HUMAN TEXT REACHES THE PAGE. A blockquote makes every hostile construct
 // inert: a leading `#` inside a `> ` line is not a heading, a leading `-` is not a list item that can
@@ -80,7 +98,7 @@ const blockquote = (text) => {
 const shown = (v) => (v === undefined ? "(absent)" : JSON.stringify(v));
 const field = (v) => {
   if (v === null || v === undefined) return "—";
-  if (typeof v === "string") return v.trim() === "" ? "—" : v;
+  if (typeof v === "string") return v.trim() === "" ? "—" : fold(v);
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "—";
 };
@@ -264,6 +282,31 @@ export function checkOpLines(lines) {
     if (line.op === "file_evidence" && !PROVENANCE.includes(params.provenance))
       throw new Error(`prd-projection: op line ${i} (file_evidence) carries provenance ${shown(params.provenance)}, which is not one of ${PROVENANCE.join(" · ")}`);
   });
+
+  // The cross-references, in a SECOND pass: a ref names an earlier seq, so the seq → verb map has to
+  // exist first. The applier refuses a wrong-kind parent at filing time; a corrupted or mis-filtered
+  // ledger is exactly what this guard exists for (see the header above), and rendering
+  // "*Parent:* seq 1 (undefined)" instead of refusing by name is the failure it forbids. An ABSENT
+  // seq stays tolerated ON PURPOSE — renderDecision's "not in this ledger" branch is deliberate, and
+  // this guard never re-derives history.
+  const kindOf = new Map(lines.map((l) => [l.seq, l.op]));
+  const crossRef = (i, verb, label, seq, want) => {
+    if (!Number.isInteger(seq))
+      throw new Error(`prd-projection: op line ${i} (${verb}) carries ${label} ${shown(seq)} — it is null or a seq`);
+    const got = kindOf.get(seq);
+    if (got !== undefined && got !== want)
+      throw new Error(`prd-projection: op line ${i} (${verb}) names ${label} ${seq}, which is a ${got}, not a ${want}`);
+  };
+  lines.forEach((line, i) => {
+    const p = line.params;
+    if (line.op === "record_decision") {
+      if (p.parent_id !== null) crossRef(i, line.op, "parent_id", p.parent_id, "record_decision");
+      if (!Array.isArray(p.evidence_refs))
+        throw new Error(`prd-projection: op line ${i} (record_decision) carries evidence_refs ${shown(p.evidence_refs)} — it must be an array of seqs`);
+      for (const seq of p.evidence_refs) crossRef(i, line.op, "evidence_ref", seq, "file_evidence");
+    }
+    if (line.op === "file_evidence" && p.claim_ref !== null) crossRef(i, line.op, "claim_ref", p.claim_ref, "record_decision");
+  });
   return [...lines];
 }
 
@@ -291,11 +334,15 @@ const questionFor = (id) => {
   return q ? { id: q.id, text: q.text, attribution: q.attribution, stage: q.stage, label: q.label } : null;
 };
 
+// The question id as a heading or line fragment. Folded: checkOpLines does not check an id against
+// the bank (the applier does), so a mis-filtered ledger can carry anything here.
+const qidLabel = (id) => (id === null || id === undefined ? "off-script" : `\`${fold(id)}\``);
+
 // One line naming the question a record was filed against, from the bank's DEFINITION of it.
 const questionLine = (id) => {
   if (id === null || id === undefined) return "*Question:* off-script — no banked question";
   const q = questionFor(id);
-  if (!q) return `*Question:* \`${id}\` — the bank does not hold this id`;
+  if (!q) return `*Question:* ${qidLabel(id)} — the bank does not hold this id`;
   return `*Question:* "${q.text}" — ${q.attribution} · ${q.label} (stage ${q.stage})`;
 };
 
@@ -327,7 +374,16 @@ function indexOps(ops) {
     return qid === null || latestByQuestion.get(qid)?.seq === d.seq;
   });
 
-  return { bySeq, decisions, evidence, opened, weak, latestByQuestion, visible };
+  // The reverse of the applier's `supersedes`: replaced seq → the seq that replaced it. THREE
+  // surfaces count over the WHOLE ledger rather than over `visible` — Success metrics, the Evidence
+  // gap list and the Ledger line — because nothing is removed (README §Supersede). Without this map
+  // they report a different number for the same fact than the hierarchy does, and a reader has no
+  // way to resolve `orphan 2` against `orphans 1`. Marked, not dropped: dropping would delete a
+  // record the ops still carry.
+  const supersededBy = new Map();
+  for (const d of decisions) if (d.supersedes !== null) supersededBy.set(d.supersedes, d.seq);
+
+  return { bySeq, decisions, evidence, opened, weak, latestByQuestion, visible, supersededBy };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -342,13 +398,12 @@ function indexOps(ops) {
 function renderDecision(rec, { answers, bySeq }) {
   const p = rec.params;
   const lines = [];
-  const qid = p.question_id === null ? "off-script" : `\`${p.question_id}\``;
-  lines.push(`#### seq ${rec.seq} · ${qid} — ${p.level}`);
+  lines.push(`#### seq ${rec.seq} · ${qidLabel(p.question_id)} — ${p.level}`);
   lines.push("");
   lines.push(answerBlock(answers, p.answer_ref));
   lines.push("");
   lines.push(questionLine(p.question_id));
-  lines.push(`*Wrong if:* ${p.wrong_if}`);
+  lines.push(`*Wrong if:* ${fold(p.wrong_if)}`);
 
   const above = LEVELS[LEVELS.indexOf(p.level) - 1] ?? null;
   let parent;
@@ -364,7 +419,7 @@ function renderDecision(rec, { answers, bySeq }) {
   const refs = p.evidence_refs.map((s) => {
     const e = bySeq.get(s);
     if (!e) return `seq ${s} — not in this ledger`;
-    const src = e.params.url !== null ? e.params.url : `answer ${e.params.ref}`;
+    const src = e.params.url !== null ? fold(e.params.url) : `answer ${fold(e.params.ref)}`;
     return `seq ${s} — ${e.params.provenance} — ${src}`;
   });
   let ev = refs.length ? `*Evidence:* ${refs.join(" · ")}` : "*Evidence:* none";
@@ -393,7 +448,7 @@ const rungSection = (level, state) => {
 };
 
 function renderEvidence(state) {
-  const { evidence, decisions } = state;
+  const { evidence, decisions, supersededBy } = state;
   const parts = [];
   if (!evidence.length) parts.push(SECTIONS.find((r) => r.id === "evidence").empty);
   else {
@@ -411,7 +466,8 @@ function renderEvidence(state) {
     parts.push(counted.join(" · "));
   }
   // ALWAYS, table or not: an unbacked decision is the thing this section exists to make visible.
-  const unbacked = decisions.filter((d) => d.flagged.includes("no-evidence")).map((d) => `seq ${d.seq}`);
+  const unbacked = decisions.filter((d) => d.flagged.includes("no-evidence"))
+    .map((d) => `seq ${d.seq}${supersededBy.has(d.seq) ? ` (superseded by seq ${supersededBy.get(d.seq)})` : ""}`);
   parts.push("");
   parts.push(`Decisions resting on no evidence: ${unbacked.length ? unbacked.join(", ") : "none"}.`);
   return parts.join("\n");
@@ -421,20 +477,24 @@ function renderHypothesis(state) {
   const rows = state.visible.filter((d) => d.params.level === "business" || d.params.level === "stakeholder");
   if (!rows.length) return null;
   return [
-    ...rows.map((d) => `- **We'll know we're WRONG if** ${d.params.wrong_if} — seq ${d.seq}`),
+    ...rows.map((d) => `- **We'll know we're WRONG if** ${fold(d.params.wrong_if)} — seq ${d.seq}`),
     "",
     '_The "We believe … will cause … resulting in" half is the human\'s to write: the ops carry falsifiers, not a belief statement._',
   ].join("\n");
 }
 
 function renderMetrics(state) {
-  const { decisions } = state;
+  const { decisions, supersededBy } = state;
   if (!decisions.length) return null;
+  // Both tables below are over EVERY decision, replaced ones included. The marker is what stops a
+  // retracted kill criterion sitting beside its live replacement with nothing to tell them apart —
+  // the `*Replaces:* seq N` line that resolves them is sections away.
+  const killOf = (d) => `${cell(d.params.wrong_if)}${supersededBy.has(d.seq) ? ` — superseded by seq ${supersededBy.get(d.seq)}` : ""}`;
   const parts = [];
   const staged = decisions.filter((d) => questionFor(d.params.question_id)?.stage === METRIC_STAGE);
   if (staged.length) {
     parts.push(["| seq | Question | Kill criterion |", "|---|---|---|",
-      ...staged.map((d) => `| ${d.seq} | ${cell(questionFor(d.params.question_id).text)} | ${cell(d.params.wrong_if)} |`)].join("\n"));
+      ...staged.map((d) => `| ${d.seq} | ${cell(questionFor(d.params.question_id).text)} | ${killOf(d)} |`)].join("\n"));
   } else {
     parts.push(`_No decision was recorded against a stage ${METRIC_STAGE} (${METRIC_STAGE_LABEL}) question._`);
   }
@@ -442,7 +502,7 @@ function renderMetrics(state) {
   parts.push("Every decision's kill criterion, by seq:");
   parts.push("");
   parts.push(["| seq | Level | Kill criterion |", "|---|---|---|",
-    ...decisions.map((d) => `| ${d.seq} | ${cell(d.params.level)} | ${cell(d.params.wrong_if)} |`)].join("\n"));
+    ...decisions.map((d) => `| ${d.seq} | ${cell(d.params.level)} | ${killOf(d)} |`)].join("\n"));
   return parts.join("\n");
 }
 
@@ -453,7 +513,7 @@ function renderNonGoals(state) {
   if (!rows.length) return null;
   return rows.map((d) => {
     const q = questionFor(d.params.question_id);
-    return `- seq ${d.seq} — ${q ? q.text : `\`${d.params.question_id}\``} (see ${headingForLevel(d.params.level)})`;
+    return `- seq ${d.seq} — ${q ? q.text : qidLabel(d.params.question_id)} (see ${headingForLevel(d.params.level)})`;
   }).join("\n");
 }
 
@@ -461,15 +521,14 @@ function renderOpenQuestions(state) {
   if (!state.opened.length) return null;
   return state.opened.map((r) => {
     const p = r.params;
-    const qid = p.question_id === null ? "off-script" : `\`${p.question_id}\``;
     return [
-      `#### seq ${r.seq} · ${p.source} · ${qid}`,
+      `#### seq ${r.seq} · ${p.source} · ${qidLabel(p.question_id)}`,
       "",
       questionLine(p.question_id),
       "",
       answerBlock(state.answers, p.answer_ref),
       "",
-      `*Parked because:* ${p.reason}`,
+      `*Parked because:* ${fold(p.reason)}`,
     ].join("\n");
   }).join("\n\n");
 }
@@ -479,14 +538,14 @@ function renderWeakAnswers(state) {
   return state.weak.map((r) => {
     const p = r.params;
     return [
-      `#### seq ${r.seq} · \`${p.question_id}\``,
+      `#### seq ${r.seq} · ${qidLabel(p.question_id)}`,
       "",
       questionLine(p.question_id),
       "",
       answerBlock(state.answers, p.answer_ref),
       "",
       "*Missing:*",
-      ...p.missing.map((m) => `- ${m}`),
+      ...p.missing.map((m) => `- ${fold(m)}`),
     ].join("\n");
   }).join("\n\n");
 }
@@ -499,7 +558,7 @@ function renderHierarchy(state) {
     const rows = visible.filter((d) => d.params.level === level);
     lines.push(`- **${level}** — ${rows.length}`);
     for (const d of rows) {
-      const qid = d.params.question_id === null ? "off-script" : `\`${d.params.question_id}\``;
+      const qid = qidLabel(d.params.question_id);
       const parent = level === "business" ? "no parent by definition"
         : d.params.parent_id === null ? "parent: none"
           : `parent: seq ${d.params.parent_id}`;
@@ -547,7 +606,7 @@ export function projectPrd(pkg) {
   const state = { run, answers, ...indexOps(checked) };
 
   const out = [];
-  out.push(`# ${run.slug} — PRD, projected from a discovery run`);
+  out.push(`# ${fold(run.slug)} — PRD, projected from a discovery run`);
   out.push("");
   // The honesty header — the one paragraph on the page that is not derived from a record. The link
   // LABEL is run.json's own `root` (relative in-repo for a fictional run, the jobs-folder path for a
@@ -557,7 +616,7 @@ export function projectPrd(pkg) {
   out.push("");
   out.push(`**Run** — \`${field(run.slug)}\` · ${field(run.provenance)} (${field(run.label)}) · entry ${field(run.entryMode)} · depth ${field(run.depth)} · branch ${run.branch === null || run.branch === undefined ? "none" : field(run.branch)} · front end ${field(run.frontEnd)} · model ${field(run.model)} · posture ${field(run.posture)} · started ${field(run.startedAt)} · ended ${run.endedAt === null || run.endedAt === undefined ? "open" : field(run.endedAt)} · ${Array.isArray(run.turnStats) ? run.turnStats.length : 0} turn(s)`);
   out.push("");
-  out.push(`**Ledger** — ${checked.length} op(s): ${OPS.map((v) => `${v} ${checked.filter((r) => r.op === v).length}`).join(" · ")} · flags: ${FLAGS.map((f) => `${f} ${checked.filter((r) => r.flagged.includes(f)).length}`).join(" · ")}`);
+  out.push(`**Ledger** (whole ledger, superseded records included) — ${checked.length} op(s): ${OPS.map((v) => `${v} ${checked.filter((r) => r.op === v).length}`).join(" · ")} · flags: ${FLAGS.map((f) => `${f} ${checked.filter((r) => r.flagged.includes(f)).length}`).join(" · ")}`);
 
   for (const row of SECTIONS) {
     const body = RENDERERS[row.id](state);
@@ -578,15 +637,23 @@ export function projectPrd(pkg) {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+// Each parsed line WITH its 1-based file line number. Blank lines are skipped, so an array index is
+// not a line number, and a refusal that named one would send an operator to the wrong line.
 function readJsonl(path) {
   if (!existsSync(path)) return []; // an absent answers.jsonl or transcript.jsonl reads as []
   const out = [];
   readFileSync(path, "utf8").split("\n").forEach((line, i) => {
     if (!line.trim()) return;
-    try { out.push(JSON.parse(line)); } catch (e) { throw new Error(`prd-projection: ${path} line ${i + 1} is not JSON — ${e.message}`); }
+    try { out.push({ n: i + 1, value: JSON.parse(line) }); } catch (e) { throw new Error(`prd-projection: ${path} line ${i + 1} is not JSON — ${e.message}`); }
   });
   return out;
 }
+
+// The three transcript line types (discovery/README.md §File shapes). A line outside them is REFUSED
+// rather than filtered away: `.filter(type === "op")` would drop a well-formed record whose type read
+// "opx" with no error and no count, and a missing decision that nothing reports is the worst failure
+// mode an honesty artefact has.
+const TRANSCRIPT_TYPES = Object.freeze(["text", "op", "denied"]);
 
 // The three files → what projectPrd takes. The transcript is filtered to `op` lines and stripped of
 // the writer's `type` and `ts`, so what reaches the fold is exactly the applier's record shape.
@@ -595,10 +662,20 @@ export function readPackage(root) {
   if (!existsSync(runPath)) throw new Error(`prd-projection: no run.json at ${runPath} — that is not a run package`);
   let run;
   try { run = JSON.parse(readFileSync(runPath, "utf8")); } catch (e) { throw new Error(`prd-projection: ${runPath} is not JSON — ${e.message}`); }
-  const answers = readJsonl(join(root, "answers.jsonl"));
-  const ops = readJsonl(join(root, "transcript.jsonl"))
-    .filter((l) => l && l.type === "op")
-    .map((l) => { const rec = { ...l }; delete rec.type; delete rec.ts; return rec; });
+  const answers = readJsonl(join(root, "answers.jsonl")).map((l) => l.value);
+  const tPath = join(root, "transcript.jsonl");
+  const ops = [];
+  for (const { n, value } of readJsonl(tPath)) {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error(`prd-projection: ${tPath} line ${n} is not an object (got ${shown(value)})`);
+    if (!TRANSCRIPT_TYPES.includes(value.type))
+      throw new Error(`prd-projection: ${tPath} line ${n} carries type ${shown(value.type)} — a transcript line is one of ${TRANSCRIPT_TYPES.join(" · ")} (discovery/README.md §File shapes)`);
+    if (value.type !== "op") continue;
+    const rec = { ...value };
+    delete rec.type;
+    delete rec.ts;
+    ops.push(rec);
+  }
   return { run, answers, ops };
 }
 
@@ -620,9 +697,15 @@ export function writePrd(root, { force = false } = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
   const rootAt = argv.indexOf("--root");
-  const rootArg = rootAt === -1 ? null : argv[rootAt + 1];
+  const rootArg = rootAt === -1 ? null : (argv[rootAt + 1] ?? null);
   const slug = argv.find((a, i) => !a.startsWith("--") && !(rootAt !== -1 && i === rootAt + 1)) ?? null;
   try {
+    // `--root --stdout` would otherwise report a directory literally named "--stdout", and a slug
+    // beside --root would be silently dropped. Both are the operator's typo, so both say so.
+    if (rootAt !== -1 && (rootArg === null || rootArg.startsWith("--")))
+      throw new Error(`--root takes a directory — the next argument is ${rootArg === null ? "absent" : JSON.stringify(rootArg)}`);
+    if (rootArg && slug)
+      throw new Error(`give a slug OR --root, not both — got slug ${JSON.stringify(slug)} and --root ${JSON.stringify(rootArg)}`);
     if (!rootArg && !slug)
       throw new Error("usage: node discovery/prd-projection.mjs <slug> [--stdout] [--force]  |  --root <dir> [--stdout] [--force]");
     const root = rootArg ? resolve(rootArg) : join(ROOT, "discovery", slug);
