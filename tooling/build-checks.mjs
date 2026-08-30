@@ -6252,7 +6252,7 @@ function scanSvg(svg, label) {
     // and a supersedes whose seq is absent but EARLIER is tolerated exactly as a dangling parent_id
     // is. Without these two, refusing everything would pass the battery above.
     const chain = [free(1), free(2, { supersedes: 1 }), free(3, { supersedes: 2 })];
-    ok(threw(() => checkOpLines(chain)) === null, `checkOpLines refused a legitimate A←B←C supersede chain, which is the shape the real applier builds — ${threw(() => checkOpLines(chain))?.message}`);
+    ok(threw(() => checkOpLines(chain)) === null, `checkOpLines refused a legitimate A←B←C supersede chain — each record naming its DIRECT predecessor is the chain the real applier builds from findLast, and these lines carry no parent_id or evidence_refs so only the supersedes rules are under test — ${threw(() => checkOpLines(chain))?.message}`);
     ok(threw(() => checkOpLines([free(1), free(7, { supersedes: 5 })])) === null, "checkOpLines refused a DANGLING supersedes — an absent-but-earlier seq is the same tolerated partial ledger as a dangling parent_id, and this guard never re-derives history");
     // Totality: junk in, a plain Error out. No taxonomy, no TypeError leaking from a destructure.
     const JUNK = [null, undefined, 0, "x", [], {}, { run: null }, { run: {} }, { run: { slug: "" } }, { run: { slug: "s" }, answers: null }, { run: { slug: "s" }, answers: [], ops: null }, { run: { slug: "s" }, answers: [], ops: [{}] }];
