@@ -209,7 +209,9 @@ applier's.
 in the ops.
 
 **Two counted sets, and the page says which.** The ladder sections, Non-goals and the Requirement
-hierarchy's counts are over the LATEST decision per question. Success metrics, the Evidence gap list
+hierarchy's counts are over the latest decision per BANKED question, plus EVERY off-script decision,
+each its own — an off-script decision names no question, so nothing can supersede it and none of them
+collapse into one. Success metrics, the Evidence gap list
 and the `**Ledger**` line are over the WHOLE ledger, replaced records included, because nothing is
 removed. Every whole-ledger surface marks a replaced record `superseded by seq N` and the Ledger line
 names its own set, so a higher count there than in the hierarchy is resolvable rather than a

@@ -5853,9 +5853,16 @@ function scanSvg(svg, label) {
   // one line, so "present" accepts every form. Absence assertions use !present for exactly the same
   // reason — an escaped or folded leak is still a leak.
   const esc = (s) => String(s).replace(/\|/g, "\\|");
-  const fold = (s) => String(s).replace(/\n/g, " ");
+  // CommonMark's three line endings, not just LF — the module folds on all three, so this copy has
+  // to, or `present()` builds its match set blind to CR and reports a leak as contained.
+  // Mirrors the module's fold EXACTLY — every line-ending CHARACTER, so a CRLF pair becomes TWO
+  // spaces. A one-space copy here would build a match set the page never contains.
+  const fold = (s) => String(s).replace(/[\r\n]/g, " ");
   const present = (md, s) => [String(s), esc(s), fold(s), esc(fold(s))].some((v) => md.includes(v));
-  const headings = (md) => [...md.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+  // `^` with /m anchors after CR as well as LF, so a bare-CR heading was already visible here. The
+  // blindness this widening closes is the INDENT: a fold that replaces CRLF with one space leaves
+  // " ## …", and ATX tolerates up to three leading spaces while /^## / does not see one.
+  const headings = (md) => [...md.matchAll(/^ {0,3}## (.+)$/gm)].map((m) => m[1]);
   const sectionBody = (md, heading) => {
     const open = `\n## ${heading}\n`;
     const at = md.indexOf(open);
@@ -6050,10 +6057,14 @@ function scanSvg(svg, label) {
 
   // 31.6 — the hierarchy and the supersede READ. Nothing is removed: both seqs stay in the ops.
   {
-    const body = sectionBody(doc, "Requirement hierarchy");
+    // sectionBody() answers null for a heading the page does not carry, and a `.find()` answers
+    // undefined — ok() records a failure and RETURNS, so an unguarded dereference here throws before
+    // group() prints and the whole gate reports nothing rather than one named failure.
+    const body = String(sectionBody(doc, "Requirement hierarchy"));
     for (const level of LEVELS) ok(body.includes(`**${level}**`), `the Requirement hierarchy does not name the "${level}" rung`);
     const child = PRD_RECORDS.find((r) => r.op === "record_decision" && r.params.parent_id !== null);
-    ok(body.includes(`parent: seq ${child.params.parent_id}`), `seq ${child.seq} does not name its parent's seq in the hierarchy (AC #3)`);
+    ok(child, "the fixture has no parented decision — the hierarchy's parent assertion below is then unreachable");
+    ok(body.includes(`parent: seq ${child?.params.parent_id}`), `seq ${child?.seq} does not name its parent's seq in the hierarchy (AC #3)`);
     ok(body.includes("⚠ orphan"), "the hierarchy marks no orphan, although the fixture carries one");
     const counts = LEVELS.map((l) => `${l} ${decisionsOf(PRD_RECORDS).filter((d) => d.params.level === l && (d.params.question_id === null || !PRD_RECORDS.some((o) => o.op === "record_decision" && o.params.question_id === d.params.question_id && o.seq > d.seq))).length}`).join(" · ");
     ok(body.includes(counts), `the hierarchy's counts line is not "${counts}" — ${JSON.stringify(body.split("\n").pop())}`);
@@ -6070,16 +6081,16 @@ function scanSvg(svg, label) {
     // different numbers for the same fact with nothing to resolve them (the `orphan 2` / `orphans 1`
     // contradiction, driven below).
     const mark = `superseded by seq ${later.seq}`;
-    const metricsRow = sectionBody(doc, "Success metrics").split("\n").find((l) => l.startsWith(`| ${later.supersedes} |`));
+    const metricsRow = String(sectionBody(doc, "Success metrics")).split("\n").find((l) => l.startsWith(`| ${later.supersedes} |`));
     ok(metricsRow, `Success metrics has no row for the replaced seq ${later.supersedes} — every decision's kill criterion is listed, replaced ones included`);
     ok(String(metricsRow).includes(mark), `Success metrics lists the retracted kill criterion beside its live replacement with no marker — ${JSON.stringify(metricsRow)}`);
     // The fixture's replaced decision DOES carry evidence, so the Evidence half is driven by flagging
     // it rather than by bending the committed fixture into the one shape this needs.
     const flagged = PRD_RECORDS.map((r) => (r.seq === later.supersedes ? { ...r, flagged: [...r.flagged, "no-evidence", "orphan"] } : r));
     const md = project(flagged);
-    ok(sectionBody(md, "Evidence").includes(`seq ${later.supersedes} (${mark})`), `a replaced decision resting on no evidence is listed as an outstanding evidence gap with no marker — ${JSON.stringify(sectionBody(md, "Evidence").split("\n").pop())}`);
+    ok(String(sectionBody(md, "Evidence")).includes(`seq ${later.supersedes} (${mark})`), `a replaced decision resting on no evidence is listed as an outstanding evidence gap with no marker — ${JSON.stringify(String(sectionBody(md, "Evidence")).split("\n").pop())}`);
     const ledger = md.split("\n").find((l) => l.startsWith("**Ledger**"));
-    const hier = sectionBody(md, "Requirement hierarchy").split("\n").pop();
+    const hier = String(sectionBody(md, "Requirement hierarchy")).split("\n").pop();
     ok(String(ledger).includes("orphan 2") && String(hier).includes("orphans 1"), `the two counted sets did not diverge (${JSON.stringify(String(ledger).slice(-40))} / ${JSON.stringify(hier)}) — without a divergence the assertion below proves nothing`);
     ok(String(ledger).startsWith("**Ledger** (whole ledger"), `the Ledger line reports "orphan 2" against the hierarchy's "orphans 1" without naming its own set — ${JSON.stringify(String(ledger).slice(0, 60))}`);
   }
@@ -6110,7 +6121,7 @@ function scanSvg(svg, label) {
     {
       const t = decisionsOf(PRD_RECORDS).find((d) => d.params.level === "transition");
       ok(t, "the fixture has no transition decision — AC #4 needs both directions");
-      ok(sectionBody(doc, "Transition note").includes(t.params.wrong_if) && !doc.includes("**n/a**"), "with a transition decision recorded, the note must render it and the **n/a** paragraph must not appear anywhere");
+      ok(String(sectionBody(doc, "Transition note")).includes(t.params.wrong_if) && !doc.includes("**n/a**"), "with a transition decision recorded, the note must render it and the **n/a** paragraph must not appear anywhere");
       const md = project(without("transition"));
       ok(md.includes("**n/a**") && md.includes("transition-level decision"), "with no transition decision, the note must be an explicit **n/a** naming the reason");
       ok(!present(md, t.params.wrong_if), "the transition decision's wrong_if survives after its op was deleted");
@@ -6123,13 +6134,13 @@ function scanSvg(svg, label) {
       const m = decisionsOf(PRD_RECORDS).find((d) => questionById(d.params.question_id)?.stage === METRIC_STAGE);
       ok(m, `the fixture has no decision against a stage ${METRIC_STAGE} question — the stage filter is then unreachable and this case proves nothing`);
       const fallback = `_No decision was recorded against a stage ${METRIC_STAGE}`;
-      const q = questionById(m.params.question_id);
-      const body = sectionBody(doc, "Success metrics");
-      ok(present(body, `| ${m.seq} | ${q.text}`), `Success metrics has no stage ${METRIC_STAGE} row for seq ${m.seq}, although the fixture holds one — the filter matched nothing`);
+      const q = questionById(m?.params.question_id);
+      const body = String(sectionBody(doc, "Success metrics"));
+      ok(present(body, `| ${m?.seq} | ${q?.text}`), `Success metrics has no stage ${METRIC_STAGE} row for seq ${m?.seq}, although the fixture holds one — the filter matched nothing`);
       ok(!body.includes(fallback), `Success metrics shows its no-stage-${METRIC_STAGE} fallback although the fixture holds a stage ${METRIC_STAGE} decision`);
-      const md = project(PRD_RECORDS.filter((r) => r.seq !== m.seq));
-      ok(sectionBody(md, "Success metrics").includes(fallback), `with the stage ${METRIC_STAGE} decision deleted, Success metrics must SAY there was none — the two states are the transition note's shape`);
-      ok(!present(md, m.params.wrong_if), `seq ${m.seq}'s wrong_if survives ANYWHERE after its op was deleted`);
+      const md = project(PRD_RECORDS.filter((r) => r.seq !== m?.seq));
+      ok(String(sectionBody(md, "Success metrics")).includes(fallback), `with the stage ${METRIC_STAGE} decision deleted, Success metrics must SAY there was none — the two states are the transition note's shape`);
+      ok(!present(md, m?.params.wrong_if), `seq ${m?.seq}'s wrong_if survives ANYWHERE after its op was deleted`);
     }
   }
 
@@ -6158,7 +6169,7 @@ function scanSvg(svg, label) {
     ok(hostile, "the hostile answer is not in the fixture");
     ok(same(headings(doc), SECTIONS.map((r) => r.heading)), "the hostile answer's `# ` and `## ` lines became headings");
     for (const line of HOSTILE.split("\n")) ok(doc.includes(line === "" ? "\n>\n" : `> ${line}`), `the hostile answer's line ${JSON.stringify(line)} is not inside a blockquote — a fence or a heading could escape`);
-    const evBody = sectionBody(doc, "Evidence");
+    const evBody = String(sectionBody(doc, "Evidence"));
     const rows = evBody.split("\n").filter((l) => l.startsWith("|"));
     const cells = rows.map((r) => r.split(/(?<!\\)\|/).length);
     ok(rows.length >= 3 && new Set(cells).size === 1, `the Evidence table's rows split into ${JSON.stringify(cells)} cells — a pipe inside a URL added a column`);
@@ -6185,6 +6196,9 @@ function scanSvg(svg, label) {
     const evSeq = PRD_RECORDS.find((r) => r.op === "file_evidence").seq;
     const patch = (seq, over) => { const r = rec(seq); return { ...r, ...over, params: { ...r.params, ...(over.params ?? {}) } }; };
     const paramless = (seq, drop) => { const r = rec(seq); delete r.params[drop]; return r; };
+    // A decision line free of BOTH other cross-references, so re-seqing it for the supersedes cases
+    // below cannot make its own evidence_refs or parent_id resolve somewhere new and refuse first.
+    const free = (seq, over = {}) => { const r = rec(decSeq); return { ...r, seq, supersedes: null, ...over, params: { ...r.params, parent_id: null, evidence_refs: [] } }; };
     // The two transcript line types readPackage filters out, copied from discovery/README.md §File shapes.
     const TEXT_LINE = { type: "text", ts: "2026-08-29T09:00:00.000Z", turn: "t7", text: "…what the agent said…" };
     const DENIED_LINE = { type: "denied", ts: "2026-08-29T09:00:00.000Z", turn: "t7", tool: "Read", input: { file_path: "…" }, error: "…the fence's message…" };
@@ -6214,6 +6228,16 @@ function scanSvg(svg, label) {
       ["a claim_ref naming a file_evidence", [rec(evSeq), patch(evSeq, { seq: 2, params: { claim_ref: 1 } })], ["op line 1", "claim_ref 1", "file_evidence", "record_decision"]],
       ["a string parent_id", [patch(decSeq, { params: { parent_id: "1" } })], ["record_decision", "parent_id", '"1"']],
       ["a non-array evidence_refs", [patch(decSeq, { params: { evidence_refs: "1" } })], ["record_decision", "evidence_refs", "array"]],
+      // `supersedes` is the cross-reference that DRIVES the three whole-ledger surfaces' markers, so
+      // it is checked like the three above plus two rules the others do not need: the applier builds
+      // it from findLast over the ops already filed, so it is always strictly earlier, and no two
+      // records can name the same one. The collision is the sharp case — supersededBy is a Map, so
+      // last-write-wins would leave the loser's kill criterion in Success metrics unmarked, which is
+      // the very failure the markers exist to prevent.
+      ["a supersedes naming a file_evidence", [rec(evSeq), free(2, { supersedes: 1 })], ["op line 1", "supersedes 1", "file_evidence", "record_decision"]],
+      ["a self-supersede", [free(1, { supersedes: 1 })], ["op line 0", "seq 1", "supersedes 1", "EARLIER"]],
+      ["a forward supersedes", [free(1, { supersedes: 9 })], ["op line 0", "supersedes 9", "EARLIER"]],
+      ["two records superseding the same seq", [free(1), free(2, { supersedes: 1 }), free(3, { supersedes: 1 })], ["op line 2", "seq 3", "supersedes 1", "seq 2 already supersedes"]],
     ];
     for (const [label, lines, needles] of REFUSALS) {
       const r = names(() => checkOpLines(lines), ...needles);
@@ -6223,6 +6247,13 @@ function scanSvg(svg, label) {
     // An ABSENT seq stays tolerated: renderDecision's "not in this ledger" branch is deliberate and
     // this guard never re-derives history. Only the WRONG KIND is refused.
     ok(threw(() => checkOpLines([patch(decSeq, { params: { parent_id: 99, evidence_refs: [98] } })])) === null, "checkOpLines refused a DANGLING parent_id / evidence_ref — an absent seq renders as \"not in this ledger\" on purpose, and only a wrong-KIND reference is a corruption");
+    // The POSITIVE CONTROLS for the four supersedes refusals, so the new rules cannot be silently
+    // over-tight: the applier's own shape is a CHAIN (A←B←C, each naming its direct predecessor),
+    // and a supersedes whose seq is absent but EARLIER is tolerated exactly as a dangling parent_id
+    // is. Without these two, refusing everything would pass the battery above.
+    const chain = [free(1), free(2, { supersedes: 1 }), free(3, { supersedes: 2 })];
+    ok(threw(() => checkOpLines(chain)) === null, `checkOpLines refused a legitimate A←B←C supersede chain, which is the shape the real applier builds — ${threw(() => checkOpLines(chain))?.message}`);
+    ok(threw(() => checkOpLines([free(1), free(7, { supersedes: 5 })])) === null, "checkOpLines refused a DANGLING supersedes — an absent-but-earlier seq is the same tolerated partial ledger as a dangling parent_id, and this guard never re-derives history");
     // Totality: junk in, a plain Error out. No taxonomy, no TypeError leaking from a destructure.
     const JUNK = [null, undefined, 0, "x", [], {}, { run: null }, { run: {} }, { run: { slug: "" } }, { run: { slug: "s" }, answers: null }, { run: { slug: "s" }, answers: [], ops: null }, { run: { slug: "s" }, answers: [], ops: [{}] }];
     for (const j of JUNK) {
@@ -6273,7 +6304,14 @@ function scanSvg(svg, label) {
   // of every record and every string field of run.json, so a renderer that interpolates a NEW value
   // raw fails here rather than shipping. Containment is a fold OR a refusal by name — both count.
   {
-    const SMUGGLE = "\n\n## Smuggled section\n\n#### seq 99 · a smuggled block\n\n- a claim no op carries";
+    // Driven over ALL THREE of CommonMark's line endings. A fold that strips only LF leaves CR and
+    // CRLF opening real headings, and CRLF is worse than a miss: the space the fold inserts becomes
+    // ONE leading space before `##`, which ATX tolerates. That is not an adversarial string — it is
+    // what any answer pasted from Word, Outlook or a Windows editor carries, and ops.mjs validates
+    // wrong_if / reason / missing[] as non-empty strings and judges their text never.
+    const EOLS = [["LF", "\n"], ["CR", "\r"], ["CRLF", "\r\n"]];
+    const smuggle = (eol) => `${eol}${eol}## Smuggled section${eol}${eol}#### seq 99 · a smuggled block${eol}${eol}- a claim no op carries`;
+    const SMUGGLE = smuggle("\n");
     const WANT = SECTIONS.map((r) => r.heading);
     // Containment is EXACT and it is two-sided: none of the payload's lines may BEGIN a line of the
     // output (that is what makes it structure), and the payload must still be THERE (folding contains
@@ -6281,41 +6319,56 @@ function scanSvg(svg, label) {
     // enough: a smuggled `#### ` would forge a decision block, and asserting the block COUNT is not
     // enough either, because injecting into a question_id legitimately re-keys the supersede rule.
     const STRUCTURE = ["## Smuggled section", "#### seq 99", "- a claim no op carries"];
-    const opened = (md) => md.split("\n").filter((l) => STRUCTURE.some((x) => l.startsWith(x)));
+    // Split on all three line endings and tolerate ATX's up-to-three leading spaces, for the same
+    // reason `headings()` above does: a CRLF payload folded to " ## …" is structure a reader obeys,
+    // and a splitter that only knows `\n` cannot see a bare-CR line at all.
+    const opened = (md) => md.split(/\r\n|\r|\n/).filter((l) => STRUCTURE.some((x) => l.replace(/^ {1,3}/, "").startsWith(x)));
     ok(same(headings(doc), WANT) && opened(doc).length === 0 && doc.includes("## Smuggled section"), `the fixture's own multi-line reason is not contained-and-kept — headings ${JSON.stringify(headings(doc))}, opened ${JSON.stringify(opened(doc))}, present ${doc.includes("## Smuggled section")}. Every case below is meaningless until the happy page holds`);
-    let folded = 0;
-    let refused = 0;
-    PRD_RECORDS.forEach((r, i) => {
-      for (const [k, v] of Object.entries(r.params)) {
-        const hostile = typeof v === "string" ? `${v}${SMUGGLE}`
-          : Array.isArray(v) && v.length && v.every((x) => typeof x === "string") ? [...v.slice(0, -1), `${v[v.length - 1]}${SMUGGLE}`]
-            : null;
-        if (hostile === null) continue;
-        const ops = PRD_RECORDS.map((o, j) => (j === i ? { ...o, params: { ...o.params, [k]: hostile } } : o));
-        let md;
-        // A refusal BY NAME is containment; a renderer crashing is not, and counting one as the
-        // other would make this case pass for exactly the reason it exists to rule out.
-        try { md = project(ops); } catch (e) {
-          ok(e.constructor === Error && String(e.message).startsWith("prd-projection:"), `seq ${r.seq}'s "${k}" made the projection throw a ${e.constructor.name} that does not name itself — ${JSON.stringify(String(e.message).slice(0, 120))}. A crash is not containment`);
-          refused += 1;
-          continue;
+    for (const [name, eol] of EOLS) {
+      const PAYLOAD = smuggle(eol);
+      let folded = 0;
+      let refused = 0;
+      PRD_RECORDS.forEach((r, i) => {
+        for (const [k, v] of Object.entries(r.params)) {
+          const hostile = typeof v === "string" ? `${v}${PAYLOAD}`
+            : Array.isArray(v) && v.length && v.every((x) => typeof x === "string") ? [...v.slice(0, -1), `${v[v.length - 1]}${PAYLOAD}`]
+              : null;
+          if (hostile === null) continue;
+          const ops = PRD_RECORDS.map((o, j) => (j === i ? { ...o, params: { ...o.params, [k]: hostile } } : o));
+          let md;
+          // A refusal BY NAME is containment; a renderer crashing is not, and counting one as the
+          // other would make this case pass for exactly the reason it exists to rule out.
+          try { md = project(ops); } catch (e) {
+            ok(e.constructor === Error && String(e.message).startsWith("prd-projection:"), `seq ${r.seq}'s "${k}" (${name}) made the projection throw a ${e.constructor.name} that does not name itself — ${JSON.stringify(String(e.message).slice(0, 120))}. A crash is not containment`);
+            refused += 1;
+            continue;
+          }
+          folded += 1;
+          ok(same(headings(md), WANT), `seq ${r.seq}'s "${k}" opened a "## " heading with ${name} line endings — ${JSON.stringify(headings(md))}. An op param must be folded onto one line before it reaches the page, and CommonMark has three line endings, not one`);
+          ok(opened(md).length === 0, `seq ${r.seq}'s "${k}" put ${JSON.stringify(opened(md))} at the START of a line with ${name} line endings — folded text is inert, structure at column 0 (or under ATX's three-space indent) is not`);
+          ok(md.includes("## Smuggled section"), `seq ${r.seq}'s "${k}" (${name}) lost the injected text entirely — the fold CONTAINS a claim, it never deletes one (R3)`);
         }
-        folded += 1;
-        ok(same(headings(md), WANT), `seq ${r.seq}'s "${k}" opened a "## " heading — ${JSON.stringify(headings(md))}. An op param must be folded onto one line before it reaches the page`);
-        ok(opened(md).length === 0, `seq ${r.seq}'s "${k}" put ${JSON.stringify(opened(md))} at the START of a line — folded text is inert, structure at column 0 is not`);
-        ok(md.includes("## Smuggled section"), `seq ${r.seq}'s "${k}" lost the injected text entirely — the fold CONTAINS a claim, it never deletes one (R3)`);
+      });
+      ok(folded >= 25 && refused >= 10, `with ${name} line endings only ${folded} param(s) reached a renderer and ${refused} were refused — this case ITERATES the params, so a new one must be driven (the three enums are the refusals)`);
+      // run.json's header is the same class and is not an op at all: field() interpolates it raw, and
+      // the title at the top of the page does not even go through field().
+      for (const k of ["slug", "root", "label", "provenance", "entryMode", "depth", "frontEnd", "model", "posture"]) {
+        const md = projectPrd({ run: { ...PRD_RUN, [k]: `${PRD_RUN[k]}${PAYLOAD}` }, answers: PRD_ANSWERS, ops: PRD_RECORDS });
+        ok(same(headings(md), WANT) && opened(md).length === 0, `run.${k} opened ${JSON.stringify(opened(md))} with ${name} line endings — the run header is interpolated raw too, and the page title does not even go through field()`);
       }
-    });
-    ok(folded >= 25 && refused >= 10, `only ${folded} param(s) reached a renderer and ${refused} were refused — this case ITERATES the params, so a new one must be driven (the three enums are the refusals)`);
-    // run.json's header is the same class and is not an op at all: field() interpolates it raw, and
-    // the title at the top of the page does not even go through field().
-    for (const k of ["slug", "root", "label", "provenance", "entryMode", "depth", "frontEnd", "model", "posture"]) {
-      const md = projectPrd({ run: { ...PRD_RUN, [k]: `${PRD_RUN[k]}${SMUGGLE}` }, answers: PRD_ANSWERS, ops: PRD_RECORDS });
-      ok(same(headings(md), WANT) && opened(md).length === 0, `run.${k} opened ${JSON.stringify(opened(md))} — the run header is interpolated raw too, and the page title does not even go through field()`);
+    }
+    // The human's ANSWER is the other half and it does NOT go through fold() — blockquote() is its
+    // containment, and it split on `\n` alone for the same reason fold() did. A bare CR inside an
+    // answer escaped the quote entirely.
+    for (const [name, eol] of EOLS) {
+      const hostile = PRD_ANSWERS.map((a, i) => (i === 0 ? { ...a, text: `${a.text}${smuggle(eol)}` } : a));
+      const md = projectPrd({ run: PRD_RUN, answers: hostile, ops: PRD_RECORDS });
+      ok(same(headings(md), WANT) && opened(md).length === 0, `an answer carrying ${name} line endings opened ${JSON.stringify(opened(md))} / headings ${JSON.stringify(headings(md))} — blockquote() is the containment for ALL arbitrary human text, on every line ending`);
+      ok(md.includes("## Smuggled section"), `the ${name} answer lost its injected text — the blockquote CONTAINS text, it never deletes it`);
     }
   }
 
-  group("prd projection", `SECTIONS frozen at BOTH levels by mutation with eleven DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · twenty-three corrupted-ledger refusals each matched against the value it must name, the last five naming a cross-reference by the KIND it resolves to with a DANGLING one proven tolerated, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package, which does not exist until #289 lands, so the fixture is hand-authored and labelled as such in the file`);
+  group("prd projection", `SECTIONS frozen at BOTH levels by mutation with eleven DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · 27 corrupted-ledger refusals each matched against the value it must name, the cross-references — parent_id, evidence_refs, claim_ref and supersedes — each naming the KIND it resolves to with a DANGLING one of each proven TOLERATED, and supersedes additionally refused when it names itself, names a later seq or is claimed by a second record, against a legitimate A←B←C chain proven to still pass, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, over ALL THREE of CommonMark's line endings (LF, CR and the CRLF pair — CRLF is the sharp one, because folding only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still reads as a heading), each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too, plus the human ANSWER half driven over the same three endings because blockquote(), not the fold, is its containment. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package, which does not exist until #289 lands, so the fixture is hand-authored and labelled as such in the file`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

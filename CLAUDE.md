@@ -107,7 +107,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            29 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            31 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -174,7 +174,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 27 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 31 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

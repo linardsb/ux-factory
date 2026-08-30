@@ -76,7 +76,15 @@ const tbd = (why) => `_TBD — ${why}._`;
 // assigned that claim to that section. It is a 1:1 substitution, never a trim or a cap: no character
 // is removed, so it does not collide with the no-truncation rule above. A human's ANSWER never comes
 // through here — it goes through blockquote(), verbatim. Case 31.13 drives every param.
-const fold = (s) => String(s).replace(/\n/g, " ");
+//
+// EVERY line-ending CHARACTER, not just LF. CommonMark's line ending is a line feed, a carriage
+// return not followed by one, or the CRLF pair, and stripping only the first left the other two
+// opening real headings. CRLF was worse than a miss: replacing its `\n` alone left the `\r` as a
+// bare line ending AND inserted the one leading space that lets ATX still read `## `. The character
+// class rather than /\r\n|\r|\n/ is what keeps the 1:1 claim above literally true — a CRLF pair
+// becomes two spaces, so nothing is removed, and afterwards no line terminator survives at all.
+const LINE_ENDING = /\r\n|\r|\n/;
+const fold = (s) => String(s).replace(/[\r\n]/g, " ");
 
 // For table cells ONLY, and only for URLs, labels, seqs and op params — never for a human answer. A
 // `|` inside a cell splits the row, so it is escaped on top of the fold above.
@@ -86,9 +94,13 @@ const cell = (s) => fold(s).replace(/\|/g, "\\|");
 // inert: a leading `#` inside a `> ` line is not a heading, a leading `-` is not a list item that can
 // break the surrounding structure, a `|` is not a cell boundary, and a fence cannot escape the quote.
 const blockquote = (text) => {
-  const s = typeof text === "string" ? text.replace(/\n+$/, "") : "";
+  // Split on LOGICAL line endings (the CRLF pair is ONE break, not two) — fold()'s character class
+  // is the wrong tool here, because an extra break would add a `>` line the human never wrote. A
+  // bare CR was the hole: with a `\n`-only split, `"answer\r\r## X"` stayed one string, so `## X`
+  // reached the page OUTSIDE the quote — the exact escape this function exists to make impossible.
+  const s = typeof text === "string" ? text.replace(/(?:\r\n|\r|\n)+$/, "") : "";
   if (s.trim() === "") return "> _[no text]_";
-  return s.split("\n").map((l) => (l === "" ? ">" : `> ${l}`)).join("\n");
+  return s.split(LINE_ENDING).map((l) => (l === "" ? ">" : `> ${l}`)).join("\n");
 };
 
 // A value that may be absent or null, for the run header. run.json is NOT a closed shape — the real
@@ -306,6 +318,29 @@ export function checkOpLines(lines) {
       for (const seq of p.evidence_refs) crossRef(i, line.op, "evidence_ref", seq, "file_evidence");
     }
     if (line.op === "file_evidence" && p.claim_ref !== null) crossRef(i, line.op, "claim_ref", p.claim_ref, "record_decision");
+  });
+
+  // `supersedes` is the same kind of value as the three above — applier-computed, re-read from a
+  // possibly corrupted transcript — and it is LOAD-BEARING: supersededBy below is built from it, and
+  // the three whole-ledger surfaces render "superseded by seq N" off that map. Left unchecked, a
+  // decision could claim to replace a piece of evidence, and worse, two records could claim the same
+  // seq — the Map is last-write-wins, so the loser's kill criterion sits in Success metrics
+  // indistinguishable from a live one. That is the exact failure the supersede markers exist to
+  // prevent, reachable through the one cross-reference the first pass did not cover.
+  //
+  // The applier sets `supersedes` only on record_decision (from findLast over the ops already
+  // filed), so it is always a record_decision, always STRICTLY EARLIER, and never claimed twice —
+  // all three are checked here rather than assumed. An ABSENT seq stays tolerated, exactly as
+  // parent_id is: this guard refuses corruption, it never re-derives history.
+  const claimedBy = new Map();
+  lines.forEach((line, i) => {
+    if (line.op !== "record_decision" || line.supersedes === null) return;
+    crossRef(i, line.op, "supersedes", line.supersedes, "record_decision");
+    if (line.supersedes >= line.seq)
+      throw new Error(`prd-projection: op line ${i} (record_decision) at seq ${line.seq} supersedes ${line.supersedes} — a decision replaces an EARLIER one, never itself or a later one`);
+    if (claimedBy.has(line.supersedes))
+      throw new Error(`prd-projection: op line ${i} (record_decision) at seq ${line.seq} supersedes ${line.supersedes}, which seq ${claimedBy.get(line.supersedes)} already supersedes — one record is replaced by exactly one other, and the later claim would silently drop the earlier`);
+    claimedBy.set(line.supersedes, line.seq);
   });
   return [...lines];
 }

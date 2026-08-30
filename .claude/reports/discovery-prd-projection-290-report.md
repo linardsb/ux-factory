@@ -22,7 +22,7 @@ applier.
 - 8 the filesystem shell and CLI → same file (`readPackage`, `writePrd`, the `pathToFileURL` guard,
   `<slug>` / `--root` / `--stdout` / `--force`)
 - 9–15 the gate → `tooling/build-checks.mjs` (UPDATE): header index entry, the import, group 31 cases
-  31.1–31.12, the closing `group("prd projection", …)` line, and `all 30 groups pass` → `31`
+  31.1–31.13, the closing `group("prd projection", …)` line, and `all 30 groups pass` → `31`
 - 16 → `discovery/README.md` (UPDATE): the honesty bullet, the Files line, a new `## The PRD projection`
   section, the Workflow command
 - 17 → `docs/epics/discovery-partner.architecture.md` (UPDATE): §Open questions' *"Where the PRD
@@ -34,7 +34,7 @@ applier.
 ## Tests added
 
 No test suite exists in this repo (CLAUDE.md §Ground rules). The unit-equivalent is **`build-checks`
-group 31**, twelve cases over an in-memory fixture:
+group 31**, thirteen cases over an in-memory fixture:
 
 | Case | What it drives |
 |---|---|
@@ -48,8 +48,9 @@ group 31**, twelve cases over an in-memory fixture:
 | 31.8 | `weakAnswer` / `note` / `provenanceNote` absent, with `text` / `attribution` / `label` as the positive control |
 | 31.9 | hostile answer text inert; a pipe inside an applier-accepted URL adds no table column |
 | 31.10 | byte-identical determinism; every ISO date pinned to `run.json`'s; purity by JSON compare |
-| 31.11 | eighteen corrupted-ledger refusals (incl. a real `text` and a real `denied` line), twelve junk inputs, the unresolvable-ref marker |
+| 31.11 | 27 corrupted-ledger refusals (incl. a real `text` and a real `denied` line), all four cross-references refused by KIND with a dangling one of each tolerated, twelve junk inputs, the unresolvable-ref marker |
 | 31.12 | five `run.json` fields stripped in turn, `undefined` never on the page, with a positive control |
+| 31.13 | **an op param cannot add a section** — a `## ` / `#### ` / `- ` payload in every string-ish param and every `run.json` string field, over all three of CommonMark's line endings, plus the answer half through `blockquote()` |
 
 **The gate was proven able to fail** — four mutations of the module, each reverted:
 
@@ -105,7 +106,7 @@ The transcript's `denied` line was skipped, as required.
 
 **Run** — `spine-meridian-1` · fictional (Real run — fictional scenario) · entry blank-idea · depth scope-check · branch none · front end portal · model claude-sonnet-5 · posture think · started 2026-08-29T08:25:39.262Z · ended 2026-08-29T08:27:10.122Z · 3 turn(s)
 
-**Ledger** — 3 op(s): record_decision 2 · flag_weak_answer 1 · open_question 0 · file_evidence 0 · flags: no-evidence 2 · orphan 2
+**Ledger** (whole ledger, superseded records included) — 3 op(s): record_decision 2 · flag_weak_answer 1 · open_question 0 · file_evidence 0 · flags: no-evidence 2 · orphan 2
 
 ## Problem
 
@@ -248,9 +249,10 @@ which is the only reading that matches what CI `verify` will do.
    `type` rather than falling through to a confusing message about a `seq` it never had.
 8. **`renderDecision` carries a catch-all `*Flags:*` line** for any future `FLAGS` member the two
    specific inline markers do not cover, so a fifth flag can never be silently dropped from its record.
-9. **Case 31.11 drives eighteen refusals, not the plan's eleven-plus-two.** The extra cases are a
-   non-integer `seq`, a non-array `flagged`, a string `supersedes`, a non-object line and a non-array
-   ledger — each a distinct branch in `checkOpLines` that would otherwise be unexercised.
+9. **Case 31.11 drives 27 refusals, not the plan's eleven-plus-two.** The extra cases are a
+   non-integer `seq`, a non-array `flagged`, a string `supersedes`, a non-object line, a non-array
+   ledger and the four `supersedes` cross-reference rules added in review round 3 — each a distinct
+   branch in `checkOpLines` that would otherwise be unexercised.
 
 ## Issues encountered
 
@@ -264,10 +266,10 @@ which is the only reading that matches what CI `verify` will do.
   specification and the README is the format contract for an operator, so I left it as the repo's
   established pattern rather than deviating. Flagging it so a reviewer can decide. The **placement**
   reasoning, the section table and the CLI live in one place each, as R12 requires.
-- **Pre-existing, not fixed** (out of scope, Surgical Changes): `CLAUDE.md:148` says a discovery op verb
-  needs "its build-checks group 28 fixture" — group 28 is the bank, group 29 is the ops applier.
-  Group 29's internal case comments are likewise still numbered `28.x`, and `build-checks.mjs:4` still
-  says "Twenty-three groups". All three predate this ticket and the plan lists them under
-  "Noted, not fixed".
+- **Pre-existing.** Three were listed here as "noted, not fixed"; review rounds 2 and 3 closed two of
+  them inside this PR — `CLAUDE.md:148` now names group 29's `VALID_FOR` fixture and group 31's
+  section home, and `build-checks.mjs:4` now says "Thirty-one groups". **Still open:** group 29's
+  internal case comments are numbered `28.x` (9 of them). That one predates this ticket and stays
+  out of scope.
 - `.claude/plans/discovery-prd-projection-290.html` and four sibling `.html` plan renders are untracked
   in this shared worktree from other sessions. Not staged — this PR stages only the plan's named paths.
