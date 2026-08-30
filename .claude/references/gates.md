@@ -8,7 +8,7 @@ Load this when adding a gate, changing one, or working out why a green run prove
 
 ---
 
-## `tooling/build-checks.mjs` — 29 pure groups, in CI
+## `tooling/build-checks.mjs` — 31 pure groups, in CI
 
 PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /build's pattern rules, slots, compositions against the real generated vocabulary, the share codec + its tamper battery, SVG escaping, and the one-application-point vetting invariant.
 
@@ -45,6 +45,10 @@ PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /b
 **Group 28 — the question bank** (#282, `discovery/bank.mjs`): the count and per-stage counts pinned, ids unique and stage-prefixed, every entry's text + attribution + weak-answer note + label, the twelve as an ORDER assertion, each depth's exact documented set and the junk-depth throw, purity and frozenness by mutation, the C3 title-term list with its positive control, the zero-import / no-page source pin, and every weak-answer note pinned to `docs/research/question-bank-source.md` by its first 30 characters. *Only `weakAnswer` is pinned to the source: whether an entry's `text`, `attribution`, `note` or `provenanceNote` is the source's wording for its id, and the C2 slop pass, are review facts against that file; this group cannot reach them.*
 
 **Group 29 — discovery ops** (#281, `discovery/ops.mjs`): every refusal driven by a broken op, both flag directions, R2 keyed on the turn, the supersede rule, and the run-2 fixture's md5 with the mutation that proves it can fail. SDK-free like group 8 and for the same reason. *Cannot reach: the server's answer store, the transcript writer, the real bank.*
+
+**Group 30 — the discovery spine** (#284): not yet written up here — #284's debt, not #290's. The gate itself runs; only its entry is missing.
+
+**Group 31 — the PRD projection** (#290, `discovery/prd-projection.mjs`): `SECTIONS` frozen at both levels and iterated against `LEVELS` and `OPS` in both directions, so a fifth rung or a fifth verb with no section home fails BY NAME · a positive-control fixture built by running the REAL applier over hand-authored ops · the vanishing claim — each rung deleted in turn and its wrong_if proven gone from the WHOLE document · the supersede READ and the three whole-ledger surfaces driven to a real `orphan 2` / `orphans 1` divergence · the corrupted-ledger refusals, each matched against the value it must name, with the cross-references (`parent_id`, `evidence_refs`, `claim_ref`, `supersedes`) refused by the KIND they resolve to, a dangling one proven TOLERATED, and `supersedes` additionally refused when it is not strictly earlier or when two records claim the same seq · byte-identical determinism and purity by JSON compare · and AN OP PARAM CANNOT ADD A SECTION: a `## ` / `#### ` / `- ` payload injected into every string-ish param of every record and every string field of run.json, over all three of CommonMark's line endings (LF, CR and CRLF — the fold and the blockquote both handle all three, and the gate's own `headings()` tolerates ATX's up-to-three-space indent so a CRLF payload cannot hide under one). *Cannot reach: the filesystem half — `readPackage`, `writePrd`, its refuse-to-overwrite rule and the CLI — deliberately not imported and exercised by a `mktemp -d` run instead; and a FULL-WIDTH run package, which does not exist until #289 lands.*
 
 **Adding a pattern or component?** Group 3 asserts that EVERY generated vocabulary entry has a render path (widened from the emitted set by #211, which closed `demo-notice`'s gap and deleted the written-down exception). Every group iterates `PATTERNS`, so a new entry with no `BOARD_FOR` fixture fails loudly rather than being silently skipped.
 

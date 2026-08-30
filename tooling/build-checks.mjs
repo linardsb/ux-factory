@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Twenty-three groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Thirty-one groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -137,6 +137,14 @@
 //                     constructors, the Think posture's three pinned strings, allowsToolName
 //                     exhaustively, assertTurnWritable both directions, and the SDK/zod source pin
 //                     (#284)
+//  31 prd projection the run package → PRD fold (discovery/prd-projection.mjs): SECTIONS iterated
+//                     against LEVELS and OPS in both directions, the happy projection over a fixture
+//                     package built by running the REAL applier, byte-identical determinism, the
+//                     vanishing-claim mutations (delete an op, watch its section empty), the bank's
+//                     rubric and research notes proven ABSENT, hostile text kept inert through BOTH
+//                     routes — a human answer in a blockquote and an op param folded onto one line —
+//                     the Run and Ledger lines pinned whole, the whole-ledger surfaces proven to mark
+//                     a superseded record, and the corrupted-ledger refusals each driven (#290)
 //
 //   node tooling/build-checks.mjs
 
@@ -210,6 +218,10 @@ import {
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
 import { buildThinkTurn, LADDER_BRIEF, MVP6_LINE, POSTURES, YIELD_CONTRACT } from "../portal/lib/discovery-postures.mjs";
+// #290's PRD projection — a zero-portal-dependency module in discovery/ (it imports only ops.mjs,
+// bank.mjs and node:fs/path/url), so this group loads in an environment with no portal/node_modules.
+// readPackage / writePrd are deliberately NOT imported: group 31 is in memory (see its closing line).
+import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, SECTIONS } from "../discovery/prd-projection.mjs";
 
 const ROOT =resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -5813,6 +5825,552 @@ function scanSvg(svg, label) {
   group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
 }
 
+// --- group 31: the PRD projection (#290) -------------------------------------------------------------
+// THE FIXTURE IS A GATE FIXTURE, NOT A RUN. Nothing produces a full-width run package until #289
+// lands, so this group drives a HAND-AUTHORED one: the ops, the answers and the run header below are
+// written by hand for this gate. It is NOT run output, it must never be presented as one, and it must
+// never be copied into a run package — discovery/README.md forbids a hand-written answer, transcript
+// or op, and that rule is why this fixture lives INLINE here rather than as a discovery/<slug>/
+// directory on disk that could later be mistaken for a real package.
+//
+// Only the ops, the answers and run.json are hand-written. The RECORDS are produced by running the
+// real applier over them, so seq / closes / flagged / supersedes are discovery/ops.mjs's output and
+// this group cannot drift from the applier's flagging rules.
+//
+// It is in memory on purpose: the projection's pure half is the whole of what this group can reach,
+// and readPackage / writePrd / the CLI are deliberately NOT imported (see the closing line).
+{
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  const msg = (fn) => threw(fn)?.message ?? null;
+  const names = (fn, ...needles) => {
+    const m = msg(fn);
+    if (m === null) return "did not throw";
+    const missing = needles.filter((n) => !m.includes(String(n)));
+    return missing.length ? `threw "${m}", which does not name ${missing.map((n) => JSON.stringify(n)).join(" or ")}` : null;
+  };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // A claim reaches a table cell with its pipes escaped and an op param reaches the page folded onto
+  // one line, so "present" accepts every form. Absence assertions use !present for exactly the same
+  // reason — an escaped or folded leak is still a leak.
+  const esc = (s) => String(s).replace(/\|/g, "\\|");
+  // CommonMark's three line endings, not just LF — the module folds on all three, so this copy has
+  // to, or `present()` builds its match set blind to CR and reports a leak as contained.
+  // Mirrors the module's fold EXACTLY — every line-ending CHARACTER, so a CRLF pair becomes TWO
+  // spaces. A one-space copy here would build a match set the page never contains.
+  const fold = (s) => String(s).replace(/[\r\n]/g, " ");
+  const present = (md, s) => [String(s), esc(s), fold(s), esc(fold(s))].some((v) => md.includes(v));
+  // `^` with /m anchors after CR as well as LF, so a bare-CR heading was already visible here. The
+  // blindness this widening closes is the INDENT: a fold that replaces CRLF with one space leaves
+  // " ## …", and ATX tolerates up to three leading spaces while /^## / does not see one.
+  const headings = (md) => [...md.matchAll(/^ {0,3}## (.+)$/gm)].map((m) => m[1]);
+  const sectionBody = (md, heading) => {
+    const open = `\n## ${heading}\n`;
+    const at = md.indexOf(open);
+    if (at === -1) return null;
+    const from = at + open.length;
+    const next = md.indexOf("\n## ", from);
+    return md.slice(from, next === -1 ? md.length : next).replace(/\nArchitecture: _TBD[^\n]*\n?$/, "").trim();
+  };
+  const blockOf = (md, seq) => {
+    const head = `#### seq ${seq} · `;
+    const at = md.indexOf(head);
+    if (at === -1) return null;
+    const rest = md.slice(at);
+    const stops = [rest.indexOf("\n#### "), rest.indexOf("\n## ")].filter((n) => n !== -1);
+    return rest.slice(0, stops.length ? Math.min(...stops) : rest.length);
+  };
+
+  // One answer carries hostile markdown on purpose (R7): a `|`, a line starting `# `, one starting
+  // `## `, one starting `- `, and a fenced code block. All of it must render inert.
+  const HOSTILE = [
+    "We are deliberately not doing the shared-account half, and the committee agreed. Their note, pasted:",
+    "# Not doing",
+    "## Also not doing",
+    "- shared logins",
+    "- a native app",
+    "Rota columns in their sheet: plot | holder | slot",
+    "```",
+    "const NOT_DOING = [\"shared logins\", \"a native app\"];",
+    "```",
+    "That list is the whole of it — anything not on it is in scope.",
+  ].join("\n");
+  // A URL the applier accepts (it prefix-checks http(s):// and nothing else) whose query string holds
+  // pipes — the one route hostile text has into a TABLE cell.
+  const HOSTILE_URL = "https://meridian.test/allotment-survey-2026?cols=plot|holder|slot";
+  // THE OTHER ROUTE, and the one blockquote() cannot cover: an op param is AGENT-AUTHORED text that
+  // reaches the page as markdown STRUCTURE rather than inside a quote. ops.mjs validates a `reason`
+  // as a non-empty string and folds nothing, so an agent paraphrasing a multi-line answer is the
+  // EXPECTED path here, not an attack. It rides its own op — bolting a newline onto an existing
+  // fixture op would slice sectionBody()/blockOf() and report a missing claim instead of this.
+  const INJECT_REASON = [
+    "Raised off-script while answering something else, so it is parked rather than filed. Their words:",
+    "",
+    "## Smuggled section",
+    "",
+    "- away mode frees the slot for the week, or for the whole season",
+  ].join("\n");
+
+  const PRD_ANSWERS = [
+    { ref: "a1", text: "Every spring the allotment committee re-types the same rota into a paper ledger, and by June nobody trusts it. Two plots were double-let last year and one holder gave up their plot over it." },
+    { ref: "a2", text: "From the 2026 committee minutes: \"of 84 plots, 31 changed hands or slot mid-season and 9 of those were recorded late or not at all.\"" },
+    { ref: "a3", text: "The plot holder wants to know, on their phone, which slot is theirs this week and who to swap with if they cannot make it. The secretary wants one place that is right." },
+    { ref: "a4", text: "Out of bounds: no payments, no messaging between holders, and no change to how slots are allocated. Away mode only moves a slot, it does not reassign a plot." },
+    { ref: "a5", text: HOSTILE },
+    { ref: "a6", text: "By 1 March the paper ledger is retired and the secretary works from the digital rota only. If the digital rota is not live by then we go back to paper for the season and stop." },
+    { ref: "a7", text: "Nothing new really, it is mostly a table and some dates. We will sort out whatever comes up as we go." },
+    { ref: "a8", text: "I do not know what the one number is. Plots filled? Late records? Probably late records but I would be guessing." },
+    { ref: "a9", text: "Actually, hold on — the out-of-bounds answer I gave sits under the holder's need, not under the appetite. I want to refile it there." },
+    { ref: "a10", text: "One more before we stop: away mode. If a holder is away their slot frees up, but nobody has said whether it frees for that week only or for the rest of the season." },
+  ];
+
+  // Hand-authored ops, in filing order, using REAL bank ids so questionById resolves. Turn discipline:
+  // every closing op gets its own turn (R2 refuses a second closer on a turn); file_evidence never
+  // closes and an off-script op never closes, so t8 is legitimately shared by the last three.
+  const PRD_OPS = [
+    { turn: null, op: "file_evidence", params: { url: HOSTILE_URL, ref: null, provenance: "secondary-source", claim_ref: null } },
+    { turn: "t1", op: "record_decision", params: { question_id: "s1-if-nobody-solves-this", answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [1], wrong_if: "Plots stop being double-let without any software, because the committee's new paper process already fixed it.", off_script: false } },
+    { turn: null, op: "file_evidence", params: { url: null, ref: "a2", provenance: "assumption", claim_ref: 2 } },
+    { turn: "t2", op: "record_decision", params: { question_id: "s3-user-need-map", answer_ref: "a3", level: "stakeholder", parent_id: 2, evidence_refs: [3], wrong_if: "Holders never look at the rota between sessions, so a phone view changes nothing about late records.", off_script: false } },
+    { turn: "t3", op: "record_decision", params: { question_id: "s4-out-of-bounds", answer_ref: "a4", level: "solution", parent_id: 4, evidence_refs: [1], wrong_if: "Holders cannot use the rota at all without messaging each other, so excluding messaging kills the swap.", off_script: false } },
+    { turn: "t4", op: "record_decision", params: { question_id: "s3-deliberately-not-doing", answer_ref: "a5", level: "solution", parent_id: null, evidence_refs: [], wrong_if: "Shared logins turn out to be the only way the secretary can hand over at year end, and the exclusion blocks handover entirely.", off_script: false } },
+    { turn: "t5", op: "record_decision", params: { question_id: "s7-kill-state-and-date", answer_ref: "a6", level: "transition", parent_id: 5, evidence_refs: [3], wrong_if: "The paper ledger is still in use on 1 March and nobody stops, so the date was never a real kill state.", off_script: false } },
+    { turn: "t6", op: "flag_weak_answer", params: { question_id: "s4-rabbit-holes", answer_ref: "a7", missing: ["any named unknown in the slot-swap flow", "a decision settled in advance rather than deferred to build time", "whether a design solution is being assumed"] } },
+    { turn: "t7", op: "open_question", params: { source: "banked", question_id: "s7-north-star", answer_ref: "a8", reason: "The holder could not name one number and said so — parked rather than recorded as a guess." } },
+    { turn: "t8", op: "open_question", params: { source: "off-script", question_id: null, answer_ref: "a9", reason: "Raised off-script mid-turn: whether the out-of-bounds list belongs under the holder need rather than the appetite." } },
+    // Its wrong_if is DELIBERATELY distinct from seq 5's: a verbatim copy would let 31.6's "the
+    // replaced decision vanished from the page entirely" pass on the REPLACEMENT's own block.
+    { turn: "t8", op: "record_decision", params: { question_id: "s4-out-of-bounds", answer_ref: "a4", level: "solution", parent_id: 4, evidence_refs: [1, 3], wrong_if: "The exclusions belong under the appetite after all, so refiling them under the holder need misplaces every one of them.", off_script: true } },
+    { turn: "t8", op: "open_question", params: { source: "off-script", question_id: null, answer_ref: "a10", reason: INJECT_REASON } },
+  ];
+
+  const PRD_RUN = {
+    slug: "gate-fixture",
+    provenance: "fictional",
+    label: "Gate fixture — hand-authored for build-checks group 31, not a run",
+    entryMode: "blank-idea",
+    depth: "full-discovery",
+    branch: null,
+    frontEnd: "portal",
+    model: "claude-sonnet-5",
+    posture: "think",
+    sessionId: null,
+    startedAt: "2026-08-29T09:00:00.000Z",
+    endedAt: "2026-08-29T09:40:00.000Z",
+    root: "discovery/gate-fixture",
+    turnStats: [{ turn: "t1", numTurns: 2, durationMs: 1000, costUsd: 0.01, ok: true, ts: "2026-08-29T09:01:00.000Z" }],
+  };
+
+  const PRD_RECORDS = applyDiscoveryOps(PRD_OPS, { answers: PRD_ANSWERS, bank: BANK }).ops;
+  const project = (ops = PRD_RECORDS) => projectPrd({ run: PRD_RUN, answers: PRD_ANSWERS, ops });
+  const doc = project();
+  const decisionsOf = (ops) => ops.filter((r) => r.op === "record_decision");
+  const without = (level) => PRD_RECORDS.filter((r) => !(r.op === "record_decision" && r.params.level === level));
+
+  // 31.1 — the table: frozen at BOTH levels by mutation, the exact key set, and eleven DISTINCT
+  // declared empty states (a copy-pasted one would make 31.7.1 pass for the wrong reason).
+  {
+    const n = SECTIONS.length;
+    ok(Object.isFrozen(SECTIONS) && threw(() => SECTIONS.push({ id: "smuggled" })) !== null && SECTIONS.length === n, "SECTIONS is not frozen — a push landed");
+    const firstId = SECTIONS[0].id;
+    ok(SECTIONS.every(Object.isFrozen) && threw(() => { SECTIONS[0].id = "tampered"; }) !== null && SECTIONS[0].id === firstId, "a SECTIONS row is not frozen — Object.freeze is shallow and a writable row lets the frozen case pass for the wrong reason");
+    const KEYS = ["id", "heading", "axis", "from", "why", "empty"];
+    for (const row of SECTIONS) {
+      ok(same(Object.keys(row).slice().sort(), KEYS.slice().sort()), `SECTIONS row "${row.id}" carries ${Object.keys(row).join(", ")} — every row is exactly ${KEYS.join(", ")}`);
+      ok(["ladder", "op-kind", "cross-ref", "derived"].includes(row.axis), `SECTIONS row "${row.id}" has axis "${row.axis}" — the axes are ladder · op-kind · cross-ref · derived`);
+      ok(typeof row.why === "string" && row.why.length > 20, `SECTIONS row "${row.id}" has no real "why" sentence — the table is documentation as well as a dispatch map`);
+      ok(typeof row.empty === "string" && row.empty.trim().length > 0, `SECTIONS row "${row.id}" has no declared "empty" string — an inferred empty state is what 31.7.1 exists to avoid`);
+      ok(typeof row.heading === "string" && row.heading.trim().length > 0, `SECTIONS row "${row.id}" has no heading`);
+    }
+    ok(new Set(SECTIONS.map((r) => r.id)).size === n, "two SECTIONS rows share an id");
+    ok(new Set(SECTIONS.map((r) => r.heading)).size === n, "two SECTIONS rows share a heading");
+    ok(new Set(SECTIONS.map((r) => r.empty)).size === n, `two SECTIONS rows declare the same "empty" string — the eleven must be distinct or 31.7.1 cannot tell them apart`);
+  }
+
+  // 31.2 — the coverage rules, BOTH directions. A fifth rung or a fifth verb with no home fails here
+  // BY NAME rather than being silently dropped from the artefact (the VALID_FOR idiom, group 29).
+  {
+    const ladder = SECTIONS.filter((r) => r.axis === "ladder");
+    for (const level of LEVELS) {
+      const rows = ladder.filter((r) => r.from === level);
+      ok(rows.length === 1, `LEVELS holds "${level}" but ${rows.length} ladder row(s) claim it — every rung renders in exactly one section`);
+    }
+    for (const row of ladder) ok(LEVELS.includes(row.from), `ladder row "${row.id}" names rung "${row.from}", which is not in LEVELS (${LEVELS.join(" · ")})`);
+    const opKind = SECTIONS.filter((r) => r.axis === "op-kind");
+    for (const verb of DISCOVERY_OPS) {
+      if (verb === "record_decision") {
+        ok(ladder.length > 0, "no ladder row claims record_decision — decisions would be dropped from the projection entirely");
+        continue;
+      }
+      const rows = opKind.filter((r) => r.from === verb);
+      ok(rows.length === 1, `OPS holds "${verb}" but ${rows.length} op-kind row(s) claim it — a verb with no home is a silent drop, the worst failure mode an honesty artefact has`);
+    }
+    for (const row of opKind) ok(DISCOVERY_OPS.includes(row.from) && row.from !== "record_decision", `op-kind row "${row.id}" names "${row.from}", which is not one of the three non-decision verbs`);
+    ok(NON_GOAL_QUESTIONS.length === 2 && Object.isFrozen(NON_GOAL_QUESTIONS), "NON_GOAL_QUESTIONS is not two frozen ids");
+    for (const id of NON_GOAL_QUESTIONS) ok(questionById(id) !== null, `NON_GOAL_QUESTIONS names "${id}", which the bank does not hold — a rename would silently empty the Non-goals section`);
+    ok(STAGES.some((s) => s.n === METRIC_STAGE), `METRIC_STAGE ${METRIC_STAGE} names a stage the bank does not hold — Success metrics would silently empty`);
+  }
+
+  // 31.3 — the positive control. Every refusal below means nothing unless the fixture projects first.
+  {
+    ok(typeof doc === "string" && doc.length > 500, `the fixture projected ${typeof doc} of length ${doc?.length} — nothing below is meaningful`);
+    ok(doc.endsWith("\n") && !doc.endsWith("\n\n"), "the projection does not end in exactly one newline");
+    ok(doc.startsWith("# gate-fixture — PRD, projected from a discovery run\n"), `the page does not open with its slug heading — it opens ${JSON.stringify(doc.slice(0, 60))}`);
+    ok(same(headings(doc), SECTIONS.map((r) => r.heading)), `the "## " headings are ${JSON.stringify(headings(doc))} — SECTIONS says ${JSON.stringify(SECTIONS.map((r) => r.heading))}`);
+    ok(doc.includes("**Projected, not authored.**") && doc.includes("`discovery/gate-fixture`") && doc.includes("refuses to overwrite it"), "the honesty header does not say it was projected, link the package, and say re-running refuses to overwrite (AC #5)");
+    ok(doc.includes("Architecture: _TBD — see plan-architecture_"), "the house architecture cross-link placeholder is missing");
+    ok(PRD_RECORDS.length === PRD_OPS.length && PRD_RECORDS.every((r, i) => r.seq === i + 1), "the applier did not record one seq-ordered record per fixture op");
+  }
+
+  // 31.4 — EVERY op reaches the page. Iterated over the RECORDS, so an op kind with no renderer fails
+  // by name rather than being skipped.
+  {
+    const DISTINCT = {
+      record_decision: (p) => p.wrong_if,
+      flag_weak_answer: (p) => p.missing[0],
+      open_question: (p) => p.reason,
+      file_evidence: (p) => (p.url !== null ? p.url : `answer ${p.ref}`),
+    };
+    for (const verb of DISCOVERY_OPS) ok(DISTINCT[verb], `no DISTINCT projector for "${verb}" — every verb needs one here, or this case iterates OPS in name only`);
+    ok(new Set(PRD_RECORDS.map((r) => r.op)).size === DISCOVERY_OPS.length, "the fixture does not exercise every verb");
+    for (const r of PRD_RECORDS) ok(present(doc, DISTINCT[r.op](r.params)), `seq ${r.seq} (${r.op}) does not reach the page — ${JSON.stringify(String(DISTINCT[r.op](r.params)).slice(0, 60))} is absent`);
+    ok(!doc.includes("is not in answers.jsonl"), "an answer_ref did not resolve in the happy projection");
+    for (const r of PRD_RECORDS) {
+      if (r.op === "flag_weak_answer") for (const m of r.params.missing) ok(present(doc, m), `seq ${r.seq}: missing[] entry ${JSON.stringify(m)} was dropped — nothing here is truncated (R3)`);
+    }
+    // Nothing is truncated: the longest verbatim answer reaches the page whole.
+    const longest = PRD_ANSWERS.map((a) => a.text).sort((a, b) => b.length - a.length)[0];
+    ok(doc.includes(longest.split("\n")[0]), "the longest answer's first line is not on the page — a verbatim answer must never be capped (R3)");
+  }
+
+  // 31.5 — the flags render INLINE on the record that carries them, and are READ from `flagged`
+  // rather than re-derived. The mutation is what proves the read: blank the field, watch them vanish.
+  {
+    const both = PRD_RECORDS.find((r) => r.op === "record_decision" && r.flagged.includes("orphan") && r.flagged.includes("no-evidence"));
+    ok(both, "the fixture has no decision carrying BOTH flags — parent_id: null with evidence_refs: [] is the case this proves");
+    const block = blockOf(doc, both.seq);
+    ok(block && block.includes("orphan") && block.includes("no-evidence"), `seq ${both.seq}'s block does not carry both flag markers inline — ${JSON.stringify(String(block).slice(0, 160))}`);
+    for (const f of FLAGS) ok(doc.includes(f), `FLAGS member "${f}" never appears in the projection — a flag with no rendering is a dropped flag`);
+    const blanked = PRD_RECORDS.map((r) => (r.seq === both.seq ? { ...r, flagged: [] } : r));
+    const after = blockOf(project(blanked), both.seq);
+    ok(after && !after.includes("orphan") && !after.includes("no-evidence"), `blanking seq ${both.seq}'s flagged left its markers on the page — the projection RE-DERIVES the flags instead of reading them (R2), and a second copy of the applier's rule drifts`);
+  }
+
+  // 31.6 — the hierarchy and the supersede READ. Nothing is removed: both seqs stay in the ops.
+  {
+    // sectionBody() answers null for a heading the page does not carry, and a `.find()` answers
+    // undefined — ok() records a failure and RETURNS, so an unguarded dereference here throws before
+    // group() prints and the whole gate reports nothing rather than one named failure.
+    const body = String(sectionBody(doc, "Requirement hierarchy"));
+    for (const level of LEVELS) ok(body.includes(`**${level}**`), `the Requirement hierarchy does not name the "${level}" rung`);
+    const child = PRD_RECORDS.find((r) => r.op === "record_decision" && r.params.parent_id !== null);
+    ok(child, "the fixture has no parented decision — the hierarchy's parent assertion below is then unreachable");
+    ok(body.includes(`parent: seq ${child?.params.parent_id}`), `seq ${child?.seq} does not name its parent's seq in the hierarchy (AC #3)`);
+    ok(body.includes("⚠ orphan"), "the hierarchy marks no orphan, although the fixture carries one");
+    const counts = LEVELS.map((l) => `${l} ${decisionsOf(PRD_RECORDS).filter((d) => d.params.level === l && (d.params.question_id === null || !PRD_RECORDS.some((o) => o.op === "record_decision" && o.params.question_id === d.params.question_id && o.seq > d.seq))).length}`).join(" · ");
+    ok(body.includes(counts), `the hierarchy's counts line is not "${counts}" — ${JSON.stringify(body.split("\n").pop())}`);
+    const later = PRD_RECORDS.find((r) => r.op === "record_decision" && r.supersedes !== null);
+    ok(later, "the fixture has no supersede pair — an off-script decision on an already-decided question is the case this proves");
+    ok(doc.includes(`*Replaces:* seq ${later.supersedes}`), `seq ${later.seq} does not name the decision it replaced`);
+    ok(blockOf(doc, later.seq) !== null, `the LATEST decision (seq ${later.seq}) does not render its own block`);
+    ok(blockOf(doc, later.supersedes) === null, `the REPLACED decision (seq ${later.supersedes}) rendered its own block — a decision must appear in exactly one place`);
+    const replaced = PRD_RECORDS[later.supersedes - 1];
+    ok(replaced.params.wrong_if !== later.params.wrong_if, "the superseding op copies the replaced one's wrong_if — the assertion below would then pass on the REPLACEMENT's own block, and flipping renderMetrics to `visible` would stay green");
+    ok(present(doc, replaced.params.wrong_if), "the replaced decision vanished from the page entirely — both records stay, nothing is removed (README §Supersede)");
+    // Three surfaces count over the WHOLE ledger, not over `visible`: Success metrics, the Evidence
+    // gap list and the Ledger line. Each must MARK a replaced record, or one page reports two
+    // different numbers for the same fact with nothing to resolve them (the `orphan 2` / `orphans 1`
+    // contradiction, driven below).
+    const mark = `superseded by seq ${later.seq}`;
+    const metricsRow = String(sectionBody(doc, "Success metrics")).split("\n").find((l) => l.startsWith(`| ${later.supersedes} |`));
+    ok(metricsRow, `Success metrics has no row for the replaced seq ${later.supersedes} — every decision's kill criterion is listed, replaced ones included`);
+    ok(String(metricsRow).includes(mark), `Success metrics lists the retracted kill criterion beside its live replacement with no marker — ${JSON.stringify(metricsRow)}`);
+    // The fixture's replaced decision DOES carry evidence, so the Evidence half is driven by flagging
+    // it rather than by bending the committed fixture into the one shape this needs.
+    const flagged = PRD_RECORDS.map((r) => (r.seq === later.supersedes ? { ...r, flagged: [...r.flagged, "no-evidence", "orphan"] } : r));
+    const md = project(flagged);
+    ok(String(sectionBody(md, "Evidence")).includes(`seq ${later.supersedes} (${mark})`), `a replaced decision resting on no evidence is listed as an outstanding evidence gap with no marker — ${JSON.stringify(String(sectionBody(md, "Evidence")).split("\n").pop())}`);
+    const ledger = md.split("\n").find((l) => l.startsWith("**Ledger**"));
+    const hier = String(sectionBody(md, "Requirement hierarchy")).split("\n").pop();
+    ok(String(ledger).includes("orphan 2") && String(hier).includes("orphans 1"), `the two counted sets did not diverge (${JSON.stringify(String(ledger).slice(-40))} / ${JSON.stringify(hier)}) — without a divergence the assertion below proves nothing`);
+    ok(String(ledger).startsWith("**Ledger** (whole ledger"), `the Ledger line reports "orphan 2" against the hierarchy's "orphans 1" without naming its own set — ${JSON.stringify(String(ledger).slice(0, 60))}`);
+  }
+
+  // 31.7 — THE VANISHING CLAIM (AC #6). A claim not in the ops cannot appear, proven by deleting the
+  // op and checking the WHOLE document — a leak into a different section is what this catches.
+  {
+    // 31.7.1 — section by section, all four ladder rungs, transition included. The comparison is
+    // against the row's own declared `empty`, so this loop has no branch for the **n/a** paragraph.
+    for (const row of SECTIONS.filter((r) => r.axis === "ladder")) {
+      const gone = decisionsOf(PRD_RECORDS).filter((d) => d.params.level === row.from);
+      const md = project(without(row.from));
+      ok(sectionBody(md, row.heading) === row.empty, `with no ${row.from} decision, "${row.heading}" renders ${JSON.stringify(String(sectionBody(md, row.heading)).slice(0, 120))} — its row declares ${JSON.stringify(row.empty.slice(0, 120))}`);
+      for (const d of gone) ok(!present(md, d.params.wrong_if), `seq ${d.seq}'s wrong_if survives ANYWHERE in the document after its op was deleted — a claim the ops do not carry reached the page`);
+    }
+    // 31.7.2 — the empty run. Every heading, and NO claim and NO answer, although every answer is
+    // still passed in: an answer reaches the page only through an op that references it.
+    {
+      const md = project([]);
+      ok(same(headings(md), SECTIONS.map((r) => r.heading)), "the empty-run projection lost a section heading");
+      for (const r of PRD_RECORDS) {
+        const p = r.params;
+        for (const claim of [p.wrong_if, p.reason, p.missing?.[0], p.url].filter(Boolean)) ok(!present(md, claim), `the empty-run projection carries seq ${r.seq}'s ${JSON.stringify(String(claim).slice(0, 50))} — with no ops, no claim may survive`);
+      }
+      for (const a of PRD_ANSWERS) ok(!present(md, a.text.split("\n")[0]), `the empty-run projection carries answer ${a.ref}'s text — an answer reaches the page only through an op that references it`);
+    }
+    // 31.7.3 — the transition note, BOTH directions (AC #4).
+    {
+      const t = decisionsOf(PRD_RECORDS).find((d) => d.params.level === "transition");
+      ok(t, "the fixture has no transition decision — AC #4 needs both directions");
+      ok(String(sectionBody(doc, "Transition note")).includes(t.params.wrong_if) && !doc.includes("**n/a**"), "with a transition decision recorded, the note must render it and the **n/a** paragraph must not appear anywhere");
+      const md = project(without("transition"));
+      ok(md.includes("**n/a**") && md.includes("transition-level decision"), "with no transition decision, the note must be an explicit **n/a** naming the reason");
+      ok(!present(md, t.params.wrong_if), "the transition decision's wrong_if survives after its op was deleted");
+    }
+    // 31.7.4 — Success metrics' STAGE filter, both directions. Its fallback is the one state nothing
+    // else on the page can see: every other assertion over a stage-7 decision is satisfied by that
+    // decision's own ladder block or by the all-decisions table below the staged one, so a filter
+    // that matched nothing would render the fallback and stay green everywhere else.
+    {
+      const m = decisionsOf(PRD_RECORDS).find((d) => questionById(d.params.question_id)?.stage === METRIC_STAGE);
+      ok(m, `the fixture has no decision against a stage ${METRIC_STAGE} question — the stage filter is then unreachable and this case proves nothing`);
+      const fallback = `_No decision was recorded against a stage ${METRIC_STAGE}`;
+      const q = questionById(m?.params.question_id);
+      const body = String(sectionBody(doc, "Success metrics"));
+      ok(present(body, `| ${m?.seq} | ${q?.text}`), `Success metrics has no stage ${METRIC_STAGE} row for seq ${m?.seq}, although the fixture holds one — the filter matched nothing`);
+      ok(!body.includes(fallback), `Success metrics shows its no-stage-${METRIC_STAGE} fallback although the fixture holds a stage ${METRIC_STAGE} decision`);
+      const md = project(PRD_RECORDS.filter((r) => r.seq !== m?.seq));
+      ok(String(sectionBody(md, "Success metrics")).includes(fallback), `with the stage ${METRIC_STAGE} decision deleted, Success metrics must SAY there was none — the two states are the transition note's shape`);
+      ok(!present(md, m?.params.wrong_if), `seq ${m?.seq}'s wrong_if survives ANYWHERE after its op was deleted`);
+    }
+  }
+
+  // 31.8 — the bank's EXCLUDED fields. The rubric and the research commentary are about the question,
+  // not about this product, so they have no route to a PRD. Positive control beside it, so this cannot
+  // pass because the bank was never read. (Mirrors group 30 case 11's "the rubric never reaches the
+  // browser".)
+  {
+    const ids = [...new Set(PRD_RECORDS.map((r) => r.params.question_id).filter((id) => typeof id === "string"))];
+    ok(ids.length >= 5, `the fixture only names ${ids.length} banked question(s) — too few to prove an exclusion`);
+    for (const id of ids) {
+      const q = questionById(id);
+      ok(q, `the fixture names "${id}", which the bank does not hold`);
+      ok(!present(doc, q.weakAnswer), `"${id}"'s weakAnswer — the agent's scoring rubric — reached the PRD`);
+      if (q.note) ok(!present(doc, q.note), `"${id}"'s note — the researcher's commentary about the question — reached the PRD`);
+      if (q.provenanceNote) ok(!present(doc, q.provenanceNote), `"${id}"'s provenanceNote reached the PRD`);
+      ok(present(doc, q.text) && present(doc, q.attribution) && doc.includes(q.label), `"${id}"'s text, attribution or label is ABSENT — the exclusions above would then pass because the bank was never read`);
+    }
+    ok(!doc.includes("weakAnswer") && !doc.includes("provenanceNote"), "a bank field NAME appears on the page — the projection is spilling the entry rather than narrowing it");
+  }
+
+  // 31.9 — hostile answer text stays inert. All human text renders as a blockquote, and the one route
+  // into a table (a `|` inside an applier-accepted URL) keeps its column count.
+  {
+    const hostile = PRD_ANSWERS.find((a) => a.text === HOSTILE);
+    ok(hostile, "the hostile answer is not in the fixture");
+    ok(same(headings(doc), SECTIONS.map((r) => r.heading)), "the hostile answer's `# ` and `## ` lines became headings");
+    for (const line of HOSTILE.split("\n")) ok(doc.includes(line === "" ? "\n>\n" : `> ${line}`), `the hostile answer's line ${JSON.stringify(line)} is not inside a blockquote — a fence or a heading could escape`);
+    const evBody = String(sectionBody(doc, "Evidence"));
+    const rows = evBody.split("\n").filter((l) => l.startsWith("|"));
+    const cells = rows.map((r) => r.split(/(?<!\\)\|/).length);
+    ok(rows.length >= 3 && new Set(cells).size === 1, `the Evidence table's rows split into ${JSON.stringify(cells)} cells — a pipe inside a URL added a column`);
+    ok(evBody.includes(esc(HOSTILE_URL)), "the pipe-carrying URL is not escaped in the Evidence table");
+  }
+
+  // 31.10 — determinism and purity. The clock is the determinism trap, so every ISO date on the page
+  // must be one run.json already carried.
+  {
+    ok(project() === project(), "two projections of the same package are not byte-identical");
+    const runJson = JSON.stringify(PRD_RUN);
+    for (const m of doc.match(/\d{4}-\d{2}-\d{2}T[\d:.]*Z?/g) ?? []) ok(runJson.includes(m), `the page carries the date ${m}, which run.json does not — a clock crept into the projection (R5)`);
+    const before = [JSON.stringify(PRD_RUN), JSON.stringify(PRD_ANSWERS), JSON.stringify(PRD_RECORDS)];
+    project();
+    ok(same(before, [JSON.stringify(PRD_RUN), JSON.stringify(PRD_ANSWERS), JSON.stringify(PRD_RECORDS)]), "projectPrd mutated its input");
+  }
+
+  // 31.11 — the refusals and totality. Each broken line is matched against the value it must name; a
+  // gate that throws the right number of times with the wrong messages is a gate nobody can debug.
+  {
+    const rec = (seq) => JSON.parse(JSON.stringify(PRD_RECORDS.find((r) => r.seq === seq)));
+    const decSeq = PRD_RECORDS.find((r) => r.op === "record_decision").seq;
+    const openSeq = PRD_RECORDS.find((r) => r.op === "open_question").seq;
+    const evSeq = PRD_RECORDS.find((r) => r.op === "file_evidence").seq;
+    const patch = (seq, over) => { const r = rec(seq); return { ...r, ...over, params: { ...r.params, ...(over.params ?? {}) } }; };
+    const paramless = (seq, drop) => { const r = rec(seq); delete r.params[drop]; return r; };
+    // A decision line free of BOTH other cross-references, so re-seqing it for the supersedes cases
+    // below cannot make its own evidence_refs or parent_id resolve somewhere new and refuse first.
+    const free = (seq, over = {}) => { const r = rec(decSeq); return { ...r, seq, supersedes: null, ...over, params: { ...r.params, parent_id: null, evidence_refs: [] } }; };
+    // The two transcript line types readPackage filters out, copied from discovery/README.md §File shapes.
+    const TEXT_LINE = { type: "text", ts: "2026-08-29T09:00:00.000Z", turn: "t7", text: "…what the agent said…" };
+    const DENIED_LINE = { type: "denied", ts: "2026-08-29T09:00:00.000Z", turn: "t7", tool: "Read", input: { file_path: "…" }, error: "…the fence's message…" };
+    const REFUSALS = [
+      ["a seq of 0", [patch(evSeq, { seq: 0 })], ["op line 0", "seq 0"]],
+      ["a repeated seq", [patch(evSeq, { seq: 1 }), patch(evSeq, { seq: 1 })], ["op line 1", "seq 1"]],
+      ["a decreasing seq", [patch(evSeq, { seq: 2 }), patch(evSeq, { seq: 1 })], ["op line 1", "seq 1", "seq 2"]],
+      ["a non-integer seq", [patch(evSeq, { seq: 1.5 })], ["op line 0", "1.5"]],
+      ["an unknown verb", [patch(evSeq, { op: "record_vibes" })], ["op line 0", "record_vibes", ...DISCOVERY_OPS]],
+      ["an absent param key", [paramless(decSeq, "wrong_if")], ["record_decision", "wrong_if", "absent"]],
+      ["an extra param key", [patch(decSeq, { params: { smuggled: 1 } })], ["record_decision", "smuggled", "unknown"]],
+      ["a level off the ladder", [patch(decSeq, { params: { level: "vibes" } })], ["record_decision", "vibes", ...LEVELS]],
+      ["a provenance off the list", [patch(evSeq, { params: { provenance: "vibes" } })], ["file_evidence", "vibes", ...PROVENANCE]],
+      ["a source off the list", [patch(openSeq, { params: { source: "vibes" } })], ["open_question", "vibes", ...SOURCES]],
+      ["a smuggled flag", [patch(evSeq, { flagged: ["smuggled"] })], ["op line 0", "smuggled", ...FLAGS]],
+      ["a non-array flagged", [patch(evSeq, { flagged: "orphan" })], ["op line 0", "flagged"]],
+      ["a non-boolean closes", [patch(evSeq, { closes: "yes" })], ["op line 0", "closes"]],
+      ["a string supersedes", [patch(evSeq, { supersedes: "1" })], ["op line 0", "supersedes"]],
+      ["a real text line", [TEXT_LINE], ["op line 0", '"text"', "not one of"]],
+      ["a real denied line", [DENIED_LINE], ["op line 0", '"denied"', "not one of"]],
+      ["a non-object line", [null], ["op line 0"]],
+      ["a non-array ledger", "nope", ["array"]],
+      // The CROSS-REFERENCES. Rendering "*Parent:* seq 1 (undefined)" is the failure these forbid:
+      // the guard's whole point is refusing by name rather than projecting nonsense.
+      ["a parent_id naming a file_evidence", [rec(evSeq), patch(decSeq, { seq: 2, params: { parent_id: 1 } })], ["op line 1", "parent_id 1", "file_evidence", "record_decision"]],
+      ["an evidence_ref naming a record_decision", [rec(evSeq), patch(decSeq, { seq: 2, params: { evidence_refs: [2] } })], ["op line 1", "evidence_ref 2", "record_decision", "file_evidence"]],
+      ["a claim_ref naming a file_evidence", [rec(evSeq), patch(evSeq, { seq: 2, params: { claim_ref: 1 } })], ["op line 1", "claim_ref 1", "file_evidence", "record_decision"]],
+      ["a string parent_id", [patch(decSeq, { params: { parent_id: "1" } })], ["record_decision", "parent_id", '"1"']],
+      ["a non-array evidence_refs", [patch(decSeq, { params: { evidence_refs: "1" } })], ["record_decision", "evidence_refs", "array"]],
+      // `supersedes` is the cross-reference that DRIVES the three whole-ledger surfaces' markers, so
+      // it is checked like the three above plus two rules the others do not need: the applier builds
+      // it from findLast over the ops already filed, so it is always strictly earlier, and no two
+      // records can name the same one. The collision is the sharp case — supersededBy is a Map, so
+      // last-write-wins would leave the loser's kill criterion in Success metrics unmarked, which is
+      // the very failure the markers exist to prevent.
+      ["a supersedes naming a file_evidence", [rec(evSeq), free(2, { supersedes: 1 })], ["op line 1", "supersedes 1", "file_evidence", "record_decision"]],
+      ["a self-supersede", [free(1, { supersedes: 1 })], ["op line 0", "seq 1", "supersedes 1", "EARLIER"]],
+      ["a forward supersedes", [free(1, { supersedes: 9 })], ["op line 0", "supersedes 9", "EARLIER"]],
+      ["two records superseding the same seq", [free(1), free(2, { supersedes: 1 }), free(3, { supersedes: 1 })], ["op line 2", "seq 3", "supersedes 1", "seq 2 already supersedes"]],
+    ];
+    for (const [label, lines, needles] of REFUSALS) {
+      const r = names(() => checkOpLines(lines), ...needles);
+      ok(r === null, `checkOpLines must refuse ${label}: ${r}`);
+    }
+    ok(same(checkOpLines(PRD_RECORDS), PRD_RECORDS) && checkOpLines(PRD_RECORDS) !== PRD_RECORDS, "checkOpLines must return the same lines as a NEW array — the positive control for every refusal above");
+    // An ABSENT seq stays tolerated: renderDecision's "not in this ledger" branch is deliberate and
+    // this guard never re-derives history. Only the WRONG KIND is refused.
+    ok(threw(() => checkOpLines([patch(decSeq, { params: { parent_id: 99, evidence_refs: [98] } })])) === null, "checkOpLines refused a DANGLING parent_id / evidence_ref — an absent seq renders as \"not in this ledger\" on purpose, and only a wrong-KIND reference is a corruption");
+    // The POSITIVE CONTROLS for the four supersedes refusals, so the new rules cannot be silently
+    // over-tight: the applier's own shape is a CHAIN (A←B←C, each naming its direct predecessor),
+    // and a supersedes whose seq is absent but EARLIER is tolerated exactly as a dangling parent_id
+    // is. Without these two, refusing everything would pass the battery above.
+    const chain = [free(1), free(2, { supersedes: 1 }), free(3, { supersedes: 2 })];
+    ok(threw(() => checkOpLines(chain)) === null, `checkOpLines refused a legitimate A←B←C supersede chain — each record naming its DIRECT predecessor is the chain the real applier builds from findLast, and these lines carry no parent_id or evidence_refs so only the supersedes rules are under test — ${threw(() => checkOpLines(chain))?.message}`);
+    ok(threw(() => checkOpLines([free(1), free(7, { supersedes: 5 })])) === null, "checkOpLines refused a DANGLING supersedes — an absent-but-earlier seq is the same tolerated partial ledger as a dangling parent_id, and this guard never re-derives history");
+    // Totality: junk in, a plain Error out. No taxonomy, no TypeError leaking from a destructure.
+    const JUNK = [null, undefined, 0, "x", [], {}, { run: null }, { run: {} }, { run: { slug: "" } }, { run: { slug: "s" }, answers: null }, { run: { slug: "s" }, answers: [], ops: null }, { run: { slug: "s" }, answers: [], ops: [{}] }];
+    for (const j of JUNK) {
+      const e = threw(() => projectPrd(j));
+      ok(e !== null && e.constructor === Error, `projectPrd(${JSON.stringify(j)}) ${e === null ? "did not throw" : `threw a ${e.constructor.name}, not a plain Error`}`);
+    }
+    // An unresolvable answer_ref is an explicit marker, never silence — silence would hide a
+    // corrupted package behind a plausible PRD.
+    {
+      const md = projectPrd({ run: PRD_RUN, answers: [], ops: PRD_RECORDS });
+      ok(md.includes("is not in answers.jsonl"), "an answer_ref that does not resolve rendered as silence rather than an explicit marker");
+    }
+  }
+
+  // 31.12 — run.json is NOT a closed shape. The real spine package carries a `posture` the README does
+  // not document, and branch / endedAt / sessionId are legitimately null. Interpolating a missing
+  // field is the likeliest visible bug this module can ship (R6).
+  {
+    for (const key of ["posture", "branch", "endedAt", "model", "turnStats"]) {
+      const run = { ...PRD_RUN };
+      delete run[key];
+      const md = projectPrd({ run, answers: PRD_ANSWERS, ops: PRD_RECORDS });
+      ok(same(headings(md), SECTIONS.map((r) => r.heading)), `stripping run.${key} lost a section heading`);
+      ok(!/\bundefined\b/.test(md), `stripping run.${key} put "undefined" on the page`);
+    }
+    ok(!/\bundefined\b/.test(doc), 'the happy projection carries "undefined" — the same one-line guard, on the happy path');
+    for (const k of ["slug", "label", "entryMode", "depth", "frontEnd"]) ok(doc.includes(String(PRD_RUN[k])), `run.${k} is not on the page — the tolerance above would then pass because the header is never rendered`);
+    ok(doc.includes("branch none") && doc.includes("ended 2026-08-29T09:40:00.000Z"), "a null branch must read `none` and a set endedAt must render — an `open` here would mean the field is not read");
+    // The two summary lines pinned WHOLE, built from the fixture. Pinning five of the header's twelve
+    // fields left provenance / model / posture / the turn count free to be replaced with anything,
+    // and the document's own summary of its ledger was read by nothing at all.
+    const line = (prefix) => doc.split("\n").find((l) => l.startsWith(prefix)) ?? null;
+    const runLine = `**Run** — \`${PRD_RUN.slug}\` · ${PRD_RUN.provenance} (${PRD_RUN.label}) · entry ${PRD_RUN.entryMode}`
+      + ` · depth ${PRD_RUN.depth} · branch none · front end ${PRD_RUN.frontEnd} · model ${PRD_RUN.model}`
+      + ` · posture ${PRD_RUN.posture} · started ${PRD_RUN.startedAt} · ended ${PRD_RUN.endedAt} · ${PRD_RUN.turnStats.length} turn(s)`;
+    ok(line("**Run**") === runLine, `the Run line is ${JSON.stringify(line("**Run**"))} — every field run.json carries must be on it: ${JSON.stringify(runLine)}`);
+    const count = (fn) => PRD_RECORDS.filter(fn).length;
+    const ledgerLine = `**Ledger** (whole ledger, superseded records included) — ${PRD_RECORDS.length} op(s): ${DISCOVERY_OPS.map((v) => `${v} ${count((r) => r.op === v)}`).join(" · ")}`
+      + ` · flags: ${FLAGS.map((f) => `${f} ${count((r) => r.flagged.includes(f))}`).join(" · ")}`;
+    ok(line("**Ledger**") === ledgerLine, `the Ledger line is ${JSON.stringify(line("**Ledger**"))} — the document's own summary of its ledger must count every op and every flag: ${JSON.stringify(ledgerLine)}`);
+    ok(projectPrd({ run: { ...PRD_RUN, endedAt: null }, answers: PRD_ANSWERS, ops: PRD_RECORDS }).includes("ended open"), "a null endedAt must read `open`");
+  }
+
+  // 31.13 — AN OP PARAM CANNOT ADD A SECTION. blockquote() covers the human's answer; an op param is
+  // AGENT-AUTHORED and reaches the page as markdown STRUCTURE (`*Wrong if:* …`, a `#### ` heading, a
+  // table cell), so a newline inside one opens a heading the ops do not carry, and a reader cannot
+  // tell the projection did not assign that claim to that section. Driven over EVERY string-ish param
+  // of every record and every string field of run.json, so a renderer that interpolates a NEW value
+  // raw fails here rather than shipping. Containment is a fold OR a refusal by name — both count.
+  {
+    // Driven over ALL THREE of CommonMark's line endings. A fold that strips only LF leaves CR and
+    // CRLF opening real headings, and CRLF is worse than a miss: the space the fold inserts becomes
+    // ONE leading space before `##`, which ATX tolerates. That is not an adversarial string — it is
+    // what any answer pasted from Word, Outlook or a Windows editor carries, and ops.mjs validates
+    // wrong_if / reason / missing[] as non-empty strings and judges their text never.
+    const EOLS = [["LF", "\n"], ["CR", "\r"], ["CRLF", "\r\n"]];
+    const smuggle = (eol) => `${eol}${eol}## Smuggled section${eol}${eol}#### seq 99 · a smuggled block${eol}${eol}- a claim no op carries`;
+    const SMUGGLE = smuggle("\n");
+    const WANT = SECTIONS.map((r) => r.heading);
+    // Containment is EXACT and it is two-sided: none of the payload's lines may BEGIN a line of the
+    // output (that is what makes it structure), and the payload must still be THERE (folding contains
+    // a claim, it never deletes one — the no-truncation rule). Counting "## " headings alone is not
+    // enough: a smuggled `#### ` would forge a decision block, and asserting the block COUNT is not
+    // enough either, because injecting into a question_id legitimately re-keys the supersede rule.
+    const STRUCTURE = ["## Smuggled section", "#### seq 99", "- a claim no op carries"];
+    // Split on all three line endings and tolerate ATX's up-to-three leading spaces, for the same
+    // reason `headings()` above does: a CRLF payload folded to " ## …" is structure a reader obeys,
+    // and a splitter that only knows `\n` cannot see a bare-CR line at all.
+    const opened = (md) => md.split(/\r\n|\r|\n/).filter((l) => STRUCTURE.some((x) => l.replace(/^ {1,3}/, "").startsWith(x)));
+    ok(same(headings(doc), WANT) && opened(doc).length === 0 && doc.includes("## Smuggled section"), `the fixture's own multi-line reason is not contained-and-kept — headings ${JSON.stringify(headings(doc))}, opened ${JSON.stringify(opened(doc))}, present ${doc.includes("## Smuggled section")}. Every case below is meaningless until the happy page holds`);
+    for (const [name, eol] of EOLS) {
+      const PAYLOAD = smuggle(eol);
+      let folded = 0;
+      let refused = 0;
+      PRD_RECORDS.forEach((r, i) => {
+        for (const [k, v] of Object.entries(r.params)) {
+          const hostile = typeof v === "string" ? `${v}${PAYLOAD}`
+            : Array.isArray(v) && v.length && v.every((x) => typeof x === "string") ? [...v.slice(0, -1), `${v[v.length - 1]}${PAYLOAD}`]
+              : null;
+          if (hostile === null) continue;
+          const ops = PRD_RECORDS.map((o, j) => (j === i ? { ...o, params: { ...o.params, [k]: hostile } } : o));
+          let md;
+          // A refusal BY NAME is containment; a renderer crashing is not, and counting one as the
+          // other would make this case pass for exactly the reason it exists to rule out.
+          try { md = project(ops); } catch (e) {
+            ok(e.constructor === Error && String(e.message).startsWith("prd-projection:"), `seq ${r.seq}'s "${k}" (${name}) made the projection throw a ${e.constructor.name} that does not name itself — ${JSON.stringify(String(e.message).slice(0, 120))}. A crash is not containment`);
+            refused += 1;
+            continue;
+          }
+          folded += 1;
+          ok(same(headings(md), WANT), `seq ${r.seq}'s "${k}" opened a "## " heading with ${name} line endings — ${JSON.stringify(headings(md))}. An op param must be folded onto one line before it reaches the page, and CommonMark has three line endings, not one`);
+          ok(opened(md).length === 0, `seq ${r.seq}'s "${k}" put ${JSON.stringify(opened(md))} at the START of a line with ${name} line endings — folded text is inert, structure at column 0 (or under ATX's three-space indent) is not`);
+          ok(md.includes("## Smuggled section"), `seq ${r.seq}'s "${k}" (${name}) lost the injected text entirely — the fold CONTAINS a claim, it never deletes one (R3)`);
+        }
+      });
+      ok(folded >= 25 && refused >= 10, `with ${name} line endings only ${folded} param(s) reached a renderer and ${refused} were refused — this case ITERATES the params, so a new one must be driven (the three enums are the refusals)`);
+      // run.json's header is the same class and is not an op at all: field() interpolates it raw, and
+      // the title at the top of the page does not even go through field().
+      for (const k of ["slug", "root", "label", "provenance", "entryMode", "depth", "frontEnd", "model", "posture"]) {
+        const md = projectPrd({ run: { ...PRD_RUN, [k]: `${PRD_RUN[k]}${PAYLOAD}` }, answers: PRD_ANSWERS, ops: PRD_RECORDS });
+        ok(same(headings(md), WANT) && opened(md).length === 0, `run.${k} opened ${JSON.stringify(opened(md))} with ${name} line endings — the run header is interpolated raw too, and the page title does not even go through field()`);
+      }
+    }
+    // The human's ANSWER is the other half and it does NOT go through fold() — blockquote() is its
+    // containment, and it split on `\n` alone for the same reason fold() did. A bare CR inside an
+    // answer escaped the quote entirely.
+    for (const [name, eol] of EOLS) {
+      const hostile = PRD_ANSWERS.map((a, i) => (i === 0 ? { ...a, text: `${a.text}${smuggle(eol)}` } : a));
+      const md = projectPrd({ run: PRD_RUN, answers: hostile, ops: PRD_RECORDS });
+      ok(same(headings(md), WANT) && opened(md).length === 0, `an answer carrying ${name} line endings opened ${JSON.stringify(opened(md))} / headings ${JSON.stringify(headings(md))} — blockquote() is the containment for ALL arbitrary human text, on every line ending`);
+      ok(md.includes("## Smuggled section"), `the ${name} answer lost its injected text — the blockquote CONTAINS text, it never deletes it`);
+    }
+  }
+
+  group("prd projection", `SECTIONS frozen at BOTH levels by mutation with eleven DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · 27 corrupted-ledger refusals each matched against the value it must name, the cross-references — parent_id, evidence_refs, claim_ref and supersedes — each naming the KIND it resolves to with a DANGLING one of each proven TOLERATED, and supersedes additionally refused when it names itself, names a later seq or is claimed by a second record, against a legitimate A←B←C chain proven to still pass, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, over ALL THREE of CommonMark's line endings (LF, CR and the CRLF pair — CRLF is the sharp one, because folding only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still reads as a heading), each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too, plus the human ANSWER half driven over the same three endings because blockquote(), not the fold, is its containment. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package, which does not exist until #289 lands, so the fixture is hand-authored and labelled as such in the file`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -5820,5 +6378,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 30 groups pass");
+  console.log("\nbuild ✓  all 31 groups pass");
 }
