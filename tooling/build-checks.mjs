@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Thirty-one groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Thirty-two groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -145,6 +145,14 @@
 //                     routes — a human answer in a blockquote and an op param folded onto one line —
 //                     the Run and Ledger lines pinned whole, the whole-ledger surfaces proven to mark
 //                     a superseded record, and the corrupted-ledger refusals each driven (#290)
+//  32 parenting      the parenting fixture — discovery/instrument-loans-1/, a REAL opening-set run
+//                     recorded through the drawer: auditParenting proven to DETECT a miss on synthetic
+//                     records first, the package's op lines RE-FOLDED through the real applier and
+//                     matched record by record, every turn stamped with the CURRENT prompt-surface
+//                     fingerprint so a prompt edit makes the recording stale BY NAME, eligible ≥ 1
+//                     and missed 0 with every named parent in its candidate set at the moment of
+//                     filing, and the projected hierarchy carrying a real parent line. Fails by name
+//                     when the package is absent — it never skips (#341)
 //
 //   node tooling/build-checks.mjs
 
@@ -206,7 +214,7 @@ import { DEPTHS, OPENING_SET, questionById, questionsForStage, QUESTIONS as BANK
 // #281's op grammar + applier — a zero-import module in discovery/ (not system/, so gen-loc-summary
 // counts nothing), with no SDK anywhere in its graph. OPS and PARAMS are aliased because OPS above
 // is board-ops.mjs's.
-import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, emptyRun, FLAGS, LEVELS, OPS as DISCOVERY_OPS, PARAMS as DISCOVERY_PARAMS, PROVENANCE, SOURCES } from "../discovery/ops.mjs";
+import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, auditParenting, emptyRun, FLAGS, LEVELS, OPS as DISCOVERY_OPS, PARAMS as DISCOVERY_PARAMS, parentCandidates, PROVENANCE, SOURCES } from "../discovery/ops.mjs";
 // #284's session module + posture — the THIRD named portal/ exception (see the header). Both are
 // statically SDK-free and zod-free; the SDK lives in discovery-transport.mjs, which discovery.mjs
 // imports LAZILY inside runTurn. CI's absence of portal/node_modules is what PROVES that, the same
@@ -217,11 +225,12 @@ import {
   PROVENANCES, readAnswers, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
-import { buildThinkTurn, LADDER_BRIEF, MVP6_LINE, POSTURES, YIELD_CONTRACT } from "../portal/lib/discovery-postures.mjs";
+import { buildThinkTurn, FINGERPRINT_INPUTS, fingerprintOf, LADDER_BRIEF, ledgerBrief, MVP6_LINE, PARENT_RULE, POSTURES, TOOL_DESCRIPTIONS, YIELD_CONTRACT } from "../portal/lib/discovery-postures.mjs";
 // #290's PRD projection — a zero-portal-dependency module in discovery/ (it imports only ops.mjs,
 // bank.mjs and node:fs/path/url), so this group loads in an environment with no portal/node_modules.
-// readPackage / writePrd are deliberately NOT imported: group 31 is in memory (see its closing line).
-import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, SECTIONS } from "../discovery/prd-projection.mjs";
+// writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
+// is imported for group 32 alone, because its subject IS the on-disk package (#341).
+import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
 
 const ROOT =resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -5442,6 +5451,57 @@ function scanSvg(svg, label) {
     `applyOps accepted an item carrying seq: ${names(() => applyDiscoveryOps([{ ...ev(), turn: null, seq: 9 }], ctx()), "op 0 (file_evidence):", 'unknown key "seq"')}`);
   ok(threw(() => applyDiscoveryOps([{ op: "file_evidence", params: ev().params }], ctx())) === null, "an item with no turn key was refused — turn is optional on an item (null when absent)");
 
+  // 28.5a — parentCandidates and auditParenting (#341), the two pure reads beside the applier, and
+  // the wrong-rung refusal turned into a CORRECTION. The rehearsal's agent was refused five times
+  // naming the rung and re-filed null five times, because a rung is not a seq: the refusal now names
+  // this run's seqs at the required rung (or says there are none yet and to pass null), and the
+  // audit is what group 32 reads over the committed fixture — so it is proven here to DETECT a miss,
+  // to keep a structural orphan structural after a later stakeholder lands (candidates at the MOMENT
+  // OF FILING, never the final ledger), and to be total over junk. happy has one business decision
+  // at seq 2 on t1.
+  {
+    ok(same(parentCandidates(happy.ops, "stakeholder"), [2]), `parentCandidates(happy, stakeholder) is ${JSON.stringify(parentCandidates(happy.ops, "stakeholder"))}, not [2] — the business decision at seq 2 is the one candidate`);
+    ok(same(parentCandidates(happy.ops, "solution"), []), "parentCandidates(happy, solution) is not [] — no stakeholder decision exists yet");
+    ok(same(parentCandidates(happy.ops, "business"), []), "parentCandidates(happy, business) is not [] — business has nothing above it by definition");
+    ok(same(parentCandidates([], "stakeholder"), []), "parentCandidates over an empty ledger is not []");
+    ok(names(() => parentCandidates(happy.ops, "vibes"), 'level "vibes"', ...LEVELS) === null, `parentCandidates on a level off the ladder: ${names(() => parentCandidates(happy.ops, "vibes"), 'level "vibes"', ...LEVELS)} — a silent [] would read as "no candidates" and license a null`);
+    ok(names(() => parentCandidates(null, "solution"), "parentCandidates", "ops") === null, `parentCandidates(null): ${names(() => parentCandidates(null, "solution"), "parentCandidates", "ops")}`);
+    // A stakeholder decision under the business one — seq 5 on t9.
+    const withStake = applyDiscoveryOp(happy, dec({ level: "stakeholder", parent_id: 2, question_id: "q2" }), ctx("t9"));
+    ok(withStake.ops.at(-1).seq === 5 && withStake.ops.at(-1).params.level === "stakeholder", "the stakeholder fixture did not land at seq 5");
+    // The refusal WITH candidates names them and says re-file; WITHOUT candidates it says none yet, null.
+    ok(names(() => applyDiscoveryOp(withStake, dec({ level: "solution", parent_id: 2, question_id: "q2" }), ctx("t10")), "parent_id 2", "business", "stakeholder", "seq 5", "re-file") === null,
+      `the wrong-rung refusal with a candidate in the ledger: ${names(() => applyDiscoveryOp(withStake, dec({ level: "solution", parent_id: 2, question_id: "q2" }), ctx("t10")), "parent_id 2", "business", "stakeholder", "seq 5", "re-file")}`);
+    ok(names(() => applyDiscoveryOp(happy, dec({ level: "solution", parent_id: 2, question_id: "q2" }), ctx("t9")), "parent_id 2", "no stakeholder decision yet", "null") === null,
+      `the wrong-rung refusal with no candidate: ${names(() => applyDiscoveryOp(happy, dec({ level: "solution", parent_id: 2, question_id: "q2" }), ctx("t9")), "parent_id 2", "no stakeholder decision yet", "null")}`);
+    // The refusal's candidate set IS the acceptance set: every seq it names is accepted as a parent.
+    for (const seq of parentCandidates(withStake.ops, "solution"))
+      ok(threw(() => applyDiscoveryOp(withStake, dec({ level: "solution", parent_id: seq, question_id: "q2" }), ctx("t10"))) === null, `parentCandidates named seq ${seq} for a solution decision and the applier refused it — the brief would lie by inclusion`);
+    // auditParenting, all three lists, on applier-shaped records.
+    ok(same(auditParenting(happy.ops), { eligible: [], missed: [], structural: [] }), `audit over one business decision is ${JSON.stringify(auditParenting(happy.ops))} — a business decision appears in no list`);
+    ok(same(auditParenting(withStake.ops), { eligible: [5], missed: [], structural: [] }), `audit over business + parented stakeholder is ${JSON.stringify(auditParenting(withStake.ops))}`);
+    const missedRun = applyDiscoveryOp(withStake, dec({ level: "solution", parent_id: null, question_id: "q2" }), ctx("t10"));
+    ok(same(auditParenting(missedRun.ops), { eligible: [5, 6], missed: [6], structural: [] }), `THE MISS: a solution filed null with a stakeholder at seq 5 in the ledger audits as ${JSON.stringify(auditParenting(missedRun.ops))}, not missed [6] — the detector cannot detect`);
+    const parented = applyDiscoveryOp(withStake, dec({ level: "solution", parent_id: 5, question_id: "q2" }), ctx("t10"));
+    ok(same(auditParenting(parented.ops), { eligible: [5, 6], missed: [], structural: [] }), `a solution naming seq 5 audits as ${JSON.stringify(auditParenting(parented.ops))} — a named parent must clear the miss`);
+    // The structural orphan: a solution filed before any stakeholder exists (cause B's shape).
+    const orphanFirst = applyDiscoveryOp(s1, dec({ level: "solution", parent_id: null }), ctx("t1"));
+    ok(same(auditParenting(orphanFirst.ops), { eligible: [], missed: [], structural: [2] }), `a solution with nothing above it audits as ${JSON.stringify(auditParenting(orphanFirst.ops))}, not structural [2]`);
+    // The moment-of-filing rule: a stakeholder landing LATER does not make seq 2 a miss retroactively
+    // (seq 3 is itself structural — no business decision exists in this ledger); a solution filed
+    // AFTER it IS a miss, because seq 3 existed when it filed.
+    const later = applyDiscoveryOp(orphanFirst, dec({ level: "stakeholder", parent_id: null, question_id: "q2" }), ctx("t2"));
+    ok(same(auditParenting(later.ops), { eligible: [], missed: [], structural: [2, 3] }), `after a later stakeholder lands the audit reads ${JSON.stringify(auditParenting(later.ops))}, not structural [2, 3] — candidates must be read at the MOMENT OF FILING (ops.slice(0, i)), never from the final ledger`);
+    const afterLater = applyDiscoveryOp(later, dec({ level: "solution", parent_id: null, question_id: "q2" }), ctx("t3"));
+    ok(same(auditParenting(afterLater.ops), { eligible: [4], missed: [4], structural: [2, 3] }), `a solution filed null after seq 3 existed audits as ${JSON.stringify(auditParenting(afterLater.ops))}, not missed [4]`);
+    ok(names(() => auditParenting(null), "auditParenting", "ops") === null, `auditParenting(null): ${names(() => auditParenting(null), "auditParenting", "ops")}`);
+    ok(same(auditParenting([]), { eligible: [], missed: [], structural: [] }), "auditParenting([]) is not three empty lists");
+    // Purity: the audit and the candidate read leave the ledger untouched.
+    const before = JSON.stringify(afterLater);
+    auditParenting(afterLater.ops); parentCandidates(afterLater.ops, "transition");
+    ok(JSON.stringify(afterLater) === before, "auditParenting or parentCandidates mutated the ledger it read");
+  }
+
   // 28.5 — both flag directions: empty is RECORDED and flagged, never thrown; filled is not flagged.
   // A throw here is recorded as its own failure rather than crashing the group: s1 and happy are
   // shared fixtures, and a purity regression upstream would otherwise surface as a raw stack trace.
@@ -5546,7 +5606,7 @@ function scanSvg(svg, label) {
   ok(md5(bytes) === FIXTURE_MD5, `${FIXTURE} hashes to ${md5(bytes)}, not the frozen ${FIXTURE_MD5} — run 2's input was edited, and its score would mean nothing`);
   ok(md5(Buffer.concat([bytes, Buffer.from("\n")])) !== FIXTURE_MD5, "the fixture plus one trailing newline still matches the frozen md5 — the compare cannot fail");
 
-  group("discovery ops", `OPS ↔ PARAMS the same four verbs in both directions, every list frozen BY MUTATION (a push refused and the length re-read), a VALID_FOR fixture per verb so a fifth verb with no fixture fails by name, the happy fold recording seq 1…4 with closes per the table and exact param key sets · determinism by deep-comparing two folds and purity by mutating the returned record and the op and re-reading both inputs · the four named throws each driven by a broken op — an unresolvable answer_ref naming the ref, a second closer naming the turn and the closing seq (R2), a question the bank lacks naming the id with its null twin ACCEPTED as off-script, a provenance outside the four naming all four · ${REFUSALS.length} further refusals (absent field, unknown param, exact envelope, string and dangling seqs, wrong-rung and wrong-kind parents, a parented business decision, both url/ref halves, empty strings and arrays, a closer with no turn) each matched on its message, and applyOps naming the failing index · both flag directions — [] and null RECORDED and flagged, filled not flagged, business never orphaned, both flags at once · R2 on the TURN: an off-script decision accepted on a closed turn with supersedes naming the LATEST earlier decision on its question and both records kept, evidence ×3 on a closed turn, a revisit on a new turn accepted and then guarded · the not-a-form counter and coverage derived from the records alone · totality over junk ops, junk ctx, junk state and junk items, a plain Error every time · the run-2 fixture pinned at md5 ${FIXTURE_MD5.slice(0, 8)} with the one-newline mutation that proves the compare can go red. The server that writes answers.jsonl, the transcript writer and the real bank are #284's and #282's, and this group cannot reach them`);
+  group("discovery ops", `OPS ↔ PARAMS the same four verbs in both directions, every list frozen BY MUTATION (a push refused and the length re-read), a VALID_FOR fixture per verb so a fifth verb with no fixture fails by name, the happy fold recording seq 1…4 with closes per the table and exact param key sets · determinism by deep-comparing two folds and purity by mutating the returned record and the op and re-reading both inputs · the four named throws each driven by a broken op — an unresolvable answer_ref naming the ref, a second closer naming the turn and the closing seq (R2), a question the bank lacks naming the id with its null twin ACCEPTED as off-script, a provenance outside the four naming all four · ${REFUSALS.length} further refusals (absent field, unknown param, exact envelope, string and dangling seqs, wrong-rung and wrong-kind parents, a parented business decision, both url/ref halves, empty strings and arrays, a closer with no turn) each matched on its message, and applyOps naming the failing index · both flag directions — [] and null RECORDED and flagged, filled not flagged, business never orphaned, both flags at once · R2 on the TURN: an off-script decision accepted on a closed turn with supersedes naming the LATEST earlier decision on its question and both records kept, evidence ×3 on a closed turn, a revisit on a new turn accepted and then guarded · the not-a-form counter and coverage derived from the records alone · totality over junk ops, junk ctx, junk state and junk items, a plain Error every time · the run-2 fixture pinned at md5 ${FIXTURE_MD5.slice(0, 8)} with the one-newline mutation that proves the compare can go red · parentCandidates by rung with the two junk throws and its candidate set proven to BE the applier's acceptance set, the wrong-rung refusal naming this run's candidate seqs (or "no … decision yet — re-file with parent_id null"), and auditParenting's three lists driven on applier-shaped records — a miss detected, a parent accepted, the structural orphan kept structural after a later stakeholder lands and the decision filed after it caught as a miss (#341). The server that writes answers.jsonl, the transcript writer and the real bank are #284's and #282's, and this group cannot reach them`);
 }
 
 // --- 30 · the discovery session -------------------------------------------------------------------
@@ -5723,18 +5783,26 @@ function scanSvg(svg, label) {
   ok(POSTURES.think && POSTURES.think.model === "claude-sonnet-5", `case 11: the Think posture's model is ${JSON.stringify(POSTURES.think?.model)}`);
   ok(POSTURES.think.id === "think" && typeof POSTURES.think.build === "function", "case 11: the Think posture must carry its id and its builder");
   const q0 = questionById(depthIds[0]);
-  const built = buildThinkTurn({ question: q0, answer: { ref: "a1", text: "Six weeks, one person." }, turn: "t1" });
+  const built = buildThinkTurn({ question: q0, answer: { ref: "a1", text: "Six weeks, one person." }, turn: "t1", ledger: [] });
   ok(built.systemPrompt.includes(YIELD_CONTRACT), "case 16: YIELD_CONTRACT does not appear VERBATIM in the built system prompt — a tightening would then be invisible to this gate");
   ok(built.systemPrompt.includes(MVP6_LINE), "case 16: MVP6_LINE does not appear VERBATIM in the built system prompt");
   ok(built.systemPrompt.includes(LADDER_BRIEF), "case 16: LADDER_BRIEF does not appear VERBATIM in the built system prompt");
-  for (const [label, s] of [["YIELD_CONTRACT", YIELD_CONTRACT], ["MVP6_LINE", MVP6_LINE], ["LADDER_BRIEF", LADDER_BRIEF]])
+  ok(built.systemPrompt.includes(PARENT_RULE), "case 16: PARENT_RULE does not appear VERBATIM in the built system prompt — the #341 tightening would be invisible to this gate");
+  for (const [label, s] of [["YIELD_CONTRACT", YIELD_CONTRACT], ["MVP6_LINE", MVP6_LINE], ["LADDER_BRIEF", LADDER_BRIEF], ["PARENT_RULE", PARENT_RULE]])
     ok(typeof s === "string" && s.trim().length > 40, `case 16: ${label} is empty or a stub`);
   ok(/may not say the answer is wrong/i.test(MVP6_LINE) && /may not supply what is missing/i.test(MVP6_LINE),
     "case 11: MVP6_LINE must state BOTH halves — the agent may not say the answer is wrong AND may not supply what is missing");
+  // An INSTRUCTION, not a permission: the rehearsal ran on "if no such decision exists yet, pass null"
+  // and read it as standing permission (18 of 18 eligible decisions filed null).
+  ok(/one rung above/i.test(PARENT_RULE) && /re-file/i.test(PARENT_RULE) && /null only when/i.test(PARENT_RULE),
+    "case 16: PARENT_RULE must instruct (one rung above · re-file on refusal · null ONLY when nothing above) — a permission is what the rehearsal ran on");
   ok(built.prompt.includes("a1") && built.prompt.includes("Six weeks, one person.") && built.prompt.includes(q0.weakAnswer) && built.prompt.includes("t1"),
     "case 11: the prompt must carry the answer's ref, the answer text, the question's weak-answer note and the turn");
   ok(!built.systemPrompt.includes("undefined") && !built.prompt.includes("undefined"), "case 11: the built prompt contains \"undefined\"");
-  for (const junk of [{}, { question: q0 }, { question: q0, answer: {}, turn: "t1" }, { question: null, answer: { ref: "a1", text: "x" }, turn: "t1" }, { question: q0, answer: { ref: "a1", text: "x" }, turn: "" }])
+  // The ledger is REQUIRED ([] on turn 1): a caller that forgets it must fail loudly rather than
+  // quietly regress to the rehearsal's behaviour, where parenting was a recollection (#341).
+  for (const junk of [{}, { question: q0 }, { question: q0, answer: {}, turn: "t1", ledger: [] }, { question: null, answer: { ref: "a1", text: "x" }, turn: "t1", ledger: [] }, { question: q0, answer: { ref: "a1", text: "x" }, turn: "", ledger: [] },
+    { question: q0, answer: { ref: "a1", text: "x" }, turn: "t1" }, { question: q0, answer: { ref: "a1", text: "x" }, turn: "t1", ledger: "x" }])
     ok(threw(() => buildThinkTurn(junk)) !== null, `case 11: buildThinkTurn(${JSON.stringify(junk).slice(0, 60)}) must throw rather than build a prompt with a hole in it`);
   // The rubric never reaches the browser — a property of the wire, not a comment in a render
   // function. The posture reads it server-side through questionById, so nothing is lost.
@@ -5746,6 +5814,77 @@ function scanSvg(svg, label) {
   ok(same(Object.keys(discoveryConfig()).sort(), ["depths", "entryModes", "frontEnds", "hasToken", "ops", "postures", "provenances", "questions"]),
     `case 11: discoveryConfig keys are ${Object.keys(discoveryConfig()).sort().join(",")}`);
   ok(!JSON.stringify(discoveryConfig().postures).includes("systemPrompt"), "case 11: the config route serves a posture's prompt body");
+
+  // 30.17 — the ledger brief (#341): this run's decisions by rung and the parent candidates per rung,
+  // in the TURN prompt and never the system prompt (the system prompt is byte-stable across a session
+  // so its cache holds). The ledger is built through the REAL applier over the REAL bank, so the seqs
+  // and levels the brief reads are the applier's. The recency line names parent_id LAST.
+  {
+    const empty = ledgerBrief([]);
+    ok(empty.includes("none") && empty.includes("pass parent_id null"), `case 17: the empty-ledger brief is "${empty}" — it must say none and tell the agent to pass null`);
+    const decision = (question_id, answer_ref, level, parent_id, turn) => ({ op: "record_decision", params: { question_id, answer_ref, level, parent_id, evidence_refs: [], wrong_if: `wrong if ${question_id}`, off_script: false }, turn });
+    const briefCtx = { answers: [{ ref: "a1" }, { ref: "a2" }, { ref: "a3" }], bank: BANK };
+    const three = applyDiscoveryOps([
+      decision("s1-if-nobody-solves-this", "a1", "business", null, "t1"),
+      decision("s5-pain-budget-same-person", "a2", "stakeholder", 1, "t2"),
+      decision("s4-appetite", "a3", "solution", 2, "t3"),
+    ], briefCtx).ops;
+    const brief = ledgerBrief(three);
+    for (const line of ["business: seq 1 (s1-if-nobody-solves-this)", "stakeholder: seq 2 (s5-pain-budget-same-person)", "solution: seq 3 (s4-appetite)", "transition: none",
+      "filing at stakeholder → parent_id one of 1", "filing at solution → parent_id one of 2", "filing at transition → parent_id one of 3"])
+      ok(brief.includes(line), `case 17: the three-rung brief lacks "${line}" — got:\n${brief}`);
+    const two = three.slice(0, 2);
+    ok(ledgerBrief(two).includes("filing at transition → parent_id null (no solution decision yet)"), `case 17: with no solution decision the transition line must say null and why — got:\n${ledgerBrief(two)}`);
+    const withOff = applyDiscoveryOps([decision("s1-if-nobody-solves-this", "a1", "business", null, "t1"), decision(null, "a2", "stakeholder", 1, "t1")].map((d, i) => (i === 1 ? { ...d, params: { ...d.params, off_script: true } } : d)), briefCtx).ops;
+    ok(ledgerBrief(withOff).includes("stakeholder: seq 2 (off-script)"), `case 17: an off-script decision must render as (off-script) — got:\n${ledgerBrief(withOff)}`);
+    ok(threw(() => ledgerBrief(null)) !== null && threw(() => ledgerBrief("x")) !== null, "case 17: ledgerBrief over junk must throw");
+    const builtWithLedger = buildThinkTurn({ question: q0, answer: { ref: "a4", text: "Two weeks." }, turn: "t4", ledger: three });
+    ok(builtWithLedger.prompt.includes(brief), "case 17: the built turn prompt does not carry the brief VERBATIM");
+    ok(!builtWithLedger.systemPrompt.includes("Decisions in this run"), "case 17: the brief reached the SYSTEM prompt — it changes every turn and would break the cache the system prompt exists to hold");
+    ok(/take parent_id from the "Parent candidates" line/.test(builtWithLedger.prompt), "case 17: the closing line does not name parent_id");
+    ok(builtWithLedger.prompt.indexOf('take parent_id from the "Parent candidates" line') > builtWithLedger.prompt.indexOf(brief), "case 17: the parent instruction must sit AFTER the brief — the last instruction is the one a model is most likely to act on");
+    // The brief's candidate line and the applier's refusal read ONE function: the seq the brief
+    // offers is the seq the applier accepts, and the seq it does not offer is refused naming the same.
+    const envelope = (parent_id) => { const { op, params } = decision("s4-rabbit-holes", "a3", "transition", parent_id, "t4"); return { op, params }; };
+    ok(threw(() => applyDiscoveryOp({ ops: three }, envelope(3), { ...briefCtx, turn: "t4" })) === null, "case 17: the brief offered seq 3 for a transition decision and the applier refused it");
+    ok(names(() => applyDiscoveryOp({ ops: three }, envelope(2), { ...briefCtx, turn: "t4" }), "seq 3", "re-file") === null, `case 17: the refusal for a wrong-rung parent must name the seq the brief offers — ${names(() => applyDiscoveryOp({ ops: three }, envelope(2), { ...briefCtx, turn: "t4" }), "seq 3", "re-file")}`);
+  }
+
+  // 30.18 — TOOL_DESCRIPTIONS (#341): prompt text the agent reads at call time, so it lives with the
+  // rest of the prompt text where this group can pin it and the fingerprint can cover it. Frozen by
+  // mutation; keyed as OPS in order; record_decision's names where parent_id comes from.
+  {
+    ok(Object.isFrozen(TOOL_DESCRIPTIONS) && threw(() => { TOOL_DESCRIPTIONS.fifth = "x"; }) !== null && !("fifth" in TOOL_DESCRIPTIONS), "case 18: TOOL_DESCRIPTIONS is not frozen — a fifth description landed");
+    ok(same(Object.keys(TOOL_DESCRIPTIONS), [...DISCOVERY_OPS]), `case 18: TOOL_DESCRIPTIONS is keyed ${Object.keys(TOOL_DESCRIPTIONS).join(", ")}, not OPS ${DISCOVERY_OPS.join(", ")} in order`);
+    for (const op of DISCOVERY_OPS) {
+      ok(typeof TOOL_DESCRIPTIONS[op] === "string" && TOOL_DESCRIPTIONS[op].trim().length > 40, `case 18: TOOL_DESCRIPTIONS.${op} is empty or a stub`);
+      ok(!TOOL_DESCRIPTIONS[op].includes("undefined"), `case 18: TOOL_DESCRIPTIONS.${op} contains "undefined"`);
+    }
+    ok(/parent_id[^.]*one rung above/.test(TOOL_DESCRIPTIONS.record_decision) && /candidates/.test(TOOL_DESCRIPTIONS.record_decision) && /null only when/i.test(TOOL_DESCRIPTIONS.record_decision),
+      "case 18: record_decision's description must say parent_id is the seq one rung above, taken from the candidate line, null only when it says none");
+  }
+
+  // 30.19 — the prompt-surface fingerprint (#341). Deterministic; MOVED by mutation of the model, the
+  // system prompt and the turn template; computed over FIXED inputs the bank cannot touch. Group 32
+  // compares the committed fixture's per-turn stamps to this hash, so this case is what decides
+  // whether that compare can go red.
+  {
+    const fp = POSTURES.think.fingerprint;
+    ok(/^[0-9a-f]{32}$/.test(fp), `case 19: the Think fingerprint is ${JSON.stringify(fp)}, not a 32-hex md5`);
+    ok(fingerprintOf(POSTURES.think) === fp, "case 19: fingerprintOf over the posture does not reproduce its own stored fingerprint — not deterministic");
+    ok(fingerprintOf({ ...POSTURES.think, model: "other-model" }) !== fp, "case 19: a different model did not move the fingerprint");
+    ok(fingerprintOf({ model: POSTURES.think.model, build: (a) => { const b = buildThinkTurn(a); return { ...b, systemPrompt: `${b.systemPrompt} ` }; } }) !== fp, "case 19: one trailing space on the system prompt did not move the fingerprint");
+    ok(fingerprintOf({ model: POSTURES.think.model, build: (a) => { const b = buildThinkTurn(a); return { ...b, prompt: b.prompt.replace("Parent candidates", "Parent options") }; } }) !== fp, "case 19: a reworded turn template did not move the fingerprint");
+    // Fixed inputs, exported frozen: the hash is over exactly these, and a bank edit cannot reach it.
+    ok(Object.isFrozen(FINGERPRINT_INPUTS) && Object.isFrozen(FINGERPRINT_INPUTS.question) && Object.isFrozen(FINGERPRINT_INPUTS.ledger) && Array.isArray(FINGERPRINT_INPUTS.ledger) && FINGERPRINT_INPUTS.ledger.length === 3,
+      "case 19: FINGERPRINT_INPUTS must be a frozen question + answer + turn + three-rung ledger");
+    ok(BANK.every((q) => q.id !== FINGERPRINT_INPUTS.question.id), `case 19: the fingerprint's question id "${FINGERPRINT_INPUTS.question.id}" is IN the bank — a bank edit could then move the hash`);
+    const recomputed = createHash("md5").update([POSTURES.think.model, buildThinkTurn(FINGERPRINT_INPUTS).systemPrompt, buildThinkTurn(FINGERPRINT_INPUTS).prompt, JSON.stringify(TOOL_DESCRIPTIONS)].join("\n \n")).digest("hex");
+    ok(recomputed === fp, `case 19: the fingerprint recomputed from FINGERPRINT_INPUTS is ${recomputed.slice(0, 8)}, the module's is ${fp.slice(0, 8)} — the hash is not over the inputs it exports`);
+    const altered = { ...FINGERPRINT_INPUTS, question: { ...FINGERPRINT_INPUTS.question, text: "A DIFFERENT question text." } };
+    ok(buildThinkTurn(altered).prompt !== buildThinkTurn(FINGERPRINT_INPUTS).prompt && fingerprintOf(POSTURES.think) === fp,
+      "case 19: the fingerprint must be built from the FIXED inputs only — a build over altered inputs differs, and the module's hash does not follow it");
+  }
 
   // 30.12 — the source pin. Mirrors the bank group's zero-import pin. Matched on IMPORT LINES rather
   // than the bare strings, because both modules NAME the SDK in their headers — that prose is the
@@ -5760,6 +5899,17 @@ function scanSvg(svg, label) {
   }
   ok(/await import\(['"]\.\/discovery-transport\.mjs['"]\)/.test(readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8")),
     "case 12: portal/lib/discovery.mjs no longer reaches the transport by a lazy import — the three-layer split is the whole architecture in one file boundary");
+  // The transport, read as TEXT and never imported (it is the one SDK import): the ledger reaches the
+  // prompt, the tool text has ONE copy (the pinned one), and the fingerprint stamp is read off the
+  // posture rather than recomputed (#341). A transport that dropped the ledger would regress to the
+  // rehearsal's behaviour with every pure gate green.
+  {
+    const transportSrc = readFileSync(join(ROOT, "portal/lib/discovery-transport.mjs"), "utf8");
+    ok(/posture\.build\(\{[^)]*\bledger:\s*state\.current\.ops\b/.test(transportSrc), "case 12: discovery-transport.mjs does not pass ledger: state.current.ops to posture.build — the brief would be built over nothing and parenting is a recollection again");
+    ok(!/^\s*const DESCRIPTIONS\b/m.test(transportSrc), "case 12: discovery-transport.mjs still carries its own DESCRIPTIONS — two copies of the tool text drift, and only the postures copy is pinned and fingerprinted");
+    ok(/^\s*import\b[^\n]*\bTOOL_DESCRIPTIONS\b[^\n]*discovery-postures/m.test(transportSrc), "case 12: discovery-transport.mjs does not import TOOL_DESCRIPTIONS from discovery-postures.mjs");
+    ok(/postureFingerprint:\s*posture\.fingerprint/.test(transportSrc), "case 12: the turnStats stamp is not read off the posture (postureFingerprint: posture.fingerprint) — recomputing it here would be a second record of one fact");
+  }
 
   // 30.13 — purity. A projection that aliased its input could be rewritten without a write.
   ok(same(turnEvent(opIn), turnEvent(opIn)), "case 13: turnEvent is not deterministic over the same line");
@@ -5822,7 +5972,7 @@ function scanSvg(svg, label) {
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------
@@ -6371,6 +6521,104 @@ function scanSvg(svg, label) {
   group("prd projection", `SECTIONS frozen at BOTH levels by mutation with eleven DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · 27 corrupted-ledger refusals each matched against the value it must name, the cross-references — parent_id, evidence_refs, claim_ref and supersedes — each naming the KIND it resolves to with a DANGLING one of each proven TOLERATED, and supersedes additionally refused when it names itself, names a later seq or is claimed by a second record, against a legitimate A←B←C chain proven to still pass, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, over ALL THREE of CommonMark's line endings (LF, CR and the CRLF pair — CRLF is the sharp one, because folding only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still reads as a heading), each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too, plus the human ANSWER half driven over the same three endings because blockquote(), not the fold, is its containment. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package, which does not exist until #289 lands, so the fixture is hand-authored and labelled as such in the file`);
 }
 
+// --- 32 · the parenting fixture (#341) ------------------------------------------------------------
+// THE FIXTURE IS ON DISK, where group 31's is inline, and the difference is the point. Group 31's
+// fixture is hand-authored ops and must never look like a run, so it lives in this file. This one IS
+// a run — discovery/instrument-loans-1/, a real opening-set session recorded through the portal's
+// drawer over the answer sheet pre-registered in .claude/plans/discovery-parent-id-341.md — and
+// hand-authoring it would be the honesty violation discovery/README.md forbids. Nothing here writes
+// under discovery/; the group only reads.
+//
+// WHAT IT PROVES: in one recorded session, the agent named a parent every time one existed at the
+// rung above (auditParenting's `missed` is empty and `eligible` is not), every named parent was in its
+// candidate set at the moment of filing, the committed op lines are exactly what the applier
+// produces over the committed answers, every turn ran under the prompt surface in the tree, and the
+// projected Requirement hierarchy renders as a ladder from a real run. The rehearsal this ticket
+// answers filed null on 18 of 18 eligible decisions with every pure gate green.
+//
+// WHAT IT CANNOT: the model's behaviour under an UNCHANGED prompt on a later date, or under a newer
+// SDK. It observes ONE recording. The fingerprint (32.2a) makes a prompt edit fail here by name until
+// the fixture is re-recorded; the operator-run probe (discovery-transport.mjs --probe-parenting) is
+// the one-turn re-observation for everything the fingerprint cannot see. Re-record procedure:
+// discovery/README.md §The parenting fixture.
+{
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const FIXTURE_SLUG = "instrument-loans-1";
+  const root = join(ROOT, "discovery", FIXTURE_SLUG);
+
+  // 32.1 — the detector can fail: the audit over applier-shaped SYNTHETIC records, a miss reported
+  // before the fixture is trusted (group 11 / 28.9's mutation idiom). Legitimate test input the way
+  // group 29's rows are, and nothing here is presented as a run.
+  {
+    const ctx = { answers: [{ ref: "a1" }, { ref: "a2" }, { ref: "a3" }], bank: [{ id: "q1" }, { id: "q2" }] };
+    const d = (question_id, answer_ref, level, parent_id, turn) => ({ op: "record_decision", params: { question_id, answer_ref, level, parent_id, evidence_refs: [], wrong_if: `wrong if ${turn}`, off_script: false }, turn });
+    const missed = applyDiscoveryOps([d("q1", "a1", "business", null, "t1"), d("q2", "a2", "stakeholder", 1, "t2"), d("q1", "a3", "solution", null, "t3")], ctx).ops;
+    ok(same(auditParenting(missed), { eligible: [2, 3], missed: [3], structural: [] }), `32.1: a solution filed null with a stakeholder at seq 2 in the ledger audits as ${JSON.stringify(auditParenting(missed))} — the detector cannot detect, so the fixture below proves nothing`);
+    const parented = applyDiscoveryOps([d("q1", "a1", "business", null, "t1"), d("q2", "a2", "stakeholder", 1, "t2"), d("q1", "a3", "solution", 2, "t3")], ctx).ops;
+    ok(same(auditParenting(parented), { eligible: [2, 3], missed: [], structural: [] }), `32.1: a solution naming seq 2 audits as ${JSON.stringify(auditParenting(parented))} — a named parent must clear the miss`);
+  }
+
+  // 32.2 — the package exists and describes itself as the fixture. FAILS BY NAME when absent — never
+  // skips: a skipped fixture is the check that cannot fail.
+  ok(existsSync(join(root, "run.json")), `no run package at discovery/${FIXTURE_SLUG} — record it through the drawer per .claude/plans/discovery-parent-id-341.md Phase 4; this group never skips`);
+  const pkg = existsSync(join(root, "run.json")) ? readPackage(root) : null;
+  if (pkg) {
+    const run = pkg.run;
+    ok(run.slug === FIXTURE_SLUG && run.provenance === "fictional" && run.root === `discovery/${FIXTURE_SLUG}` && run.depth === "opening-set" && run.frontEnd === "portal" && run.posture === "think" && typeof run.endedAt === "string",
+      `32.2: run.json does not describe the fixture — want slug ${FIXTURE_SLUG} · fictional · opening-set · portal · think · ended; got ${JSON.stringify({ slug: run.slug, provenance: run.provenance, root: run.root, depth: run.depth, frontEnd: run.frontEnd, posture: run.posture, endedAt: run.endedAt })}`);
+    // 32.2a — THE FRESHNESS TRIPWIRE. Every turn ran under the CURRENT prompt surface, or the
+    // recording proves nothing about the prompt in the tree. Twelve turns closed, one hash. A
+    // re-submit on a turn the agent yielded without closing (R2 permits it) adds an entry for the same
+    // turn, so the count is of DISTINCT turns, not entries.
+    const turnStats = run.turnStats ?? [];
+    const wantTurns = selectDepth("opening-set").map((_, i) => `t${i + 1}`);
+    ok(same([...new Set(turnStats.map((t) => t.turn))], wantTurns), `32.2a: the fixture's turnStats cover turns ${[...new Set(turnStats.map((t) => t.turn))].join(", ")}, not ${wantTurns.join(", ")} — a turn is missing or the run was not finished`);
+    const stamps = turnStats.map((t) => t.postureFingerprint);
+    ok(stamps.every((s) => s === POSTURES.think.fingerprint), `32.2a: the Think prompt surface changed since the fixture was recorded (fixture ${[...new Set(stamps)].map((s) => String(s).slice(0, 8)).join(", ")} vs current ${POSTURES.think.fingerprint.slice(0, 8)}) — run the probe, then re-record it (discovery/README.md §The parenting fixture)`);
+    // 32.3 — the ledger is the applier's, not a hand's: re-fold { op, params, turn } through the REAL
+    // applier over the package's own answers and the REAL bank, and compare record by record with
+    // the committed op lines (the README's drift detector). It catches a line the applier would not
+    // produce — a wrong-rung parent, a dangling ref, a derived field out of step with its params. A
+    // valid-to-valid param edit re-folds clean and is NOT caught here: the applier reproduces what it
+    // is handed, so that class is the server's write and the git history's to guard (PR #342 F1).
+    const refold = threw(() => applyDiscoveryOps(pkg.ops.map(({ op, params, turn }) => ({ op, params, turn })), { answers: pkg.answers, bank: BANK }));
+    ok(refold === null, `32.3: the committed op lines do not re-fold through the applier — ${refold?.message}`);
+    if (refold === null) {
+      const records = applyDiscoveryOps(pkg.ops.map(({ op, params, turn }) => ({ op, params, turn })), { answers: pkg.answers, bank: BANK }).ops;
+      ok(records.length === pkg.ops.length, `32.3: the re-fold produced ${records.length} records for ${pkg.ops.length} op lines`);
+      records.forEach((r, i) => ok(same(r, pkg.ops[i]), `32.3: committed op line ${i} (seq ${pkg.ops[i]?.seq}) is not what the applier produces over the committed answers — a line was edited into something the applier would not produce, or the applier changed under the fixture:\n      committed ${JSON.stringify(pkg.ops[i])}\n      applier   ${JSON.stringify(r)}`));
+    }
+    // 32.4 — the claim. Non-vacuous first, then zero misses, then every eligible parent in its
+    // candidate set at the moment of filing, then enough decisions for the run to say anything.
+    const audit = auditParenting(pkg.ops);
+    ok(audit.eligible.length >= 1, "32.4: the fixture exercises no parenting at all (eligible 0) — every decision was business or filed before anything above it existed; re-record");
+    ok(audit.missed.length === 0, `32.4: ${audit.missed.length} decision(s) filed null while a valid parent existed: seq ${audit.missed.join(", ")} — the prompt did not hold; tighten PARENT_RULE and re-record`);
+    for (const seq of audit.eligible) {
+      const i = pkg.ops.findIndex((r) => r.seq === seq);
+      const rec = pkg.ops[i];
+      ok(rec.params.parent_id === null || parentCandidates(pkg.ops.slice(0, i), rec.params.level).includes(rec.params.parent_id), `32.4: seq ${seq} names parent ${rec.params.parent_id}, not one of its candidates at the moment of filing (${parentCandidates(pkg.ops.slice(0, i), rec.params.level).join(", ")})`);
+    }
+    const decisions = pkg.ops.filter((r) => r.op === "record_decision").length;
+    ok(decisions >= 6, `32.4: only ${decisions} record_decision op(s) in twelve turns — a run of weak-answer flags proves nothing about parenting`);
+    // 32.5 — the ladder renders as a ladder from a REAL run: the projection's hierarchy carries at
+    // least one "parent: seq N" line, and the committed prd.md IS the projection's bytes — the
+    // README's "never edited by hand" is a gate fact, not a statement (group 31 proves the fold
+    // byte-deterministic, so the compare is free).
+    const md = threw(() => projectPrd(pkg)) === null ? projectPrd(pkg) : "";
+    ok(md.length > 0, `32.5: the fixture does not project — ${threw(() => projectPrd(pkg))?.message}`);
+    ok(/parent: seq \d+/.test(md), "32.5: the projected Requirement hierarchy has no parented decision");
+    ok(existsSync(join(root, "prd.md")), `32.5: discovery/${FIXTURE_SLUG}/prd.md is missing — generate it with node discovery/prd-projection.mjs ${FIXTURE_SLUG}`);
+    if (existsSync(join(root, "prd.md"))) ok(readFileSync(join(root, "prd.md"), "utf8") === md, `32.5: discovery/${FIXTURE_SLUG}/prd.md is not the projection's bytes — the fixture's prd.md is never edited by hand; regenerate it with node discovery/prd-projection.mjs ${FIXTURE_SLUG} --force`);
+    // The denied lines are the receipt of any in-turn correction; counted for the ✓ line, never
+    // asserted — zero corrections and one correction are both honest recordings.
+    const corrections = readTranscript(root).filter((l) => l.type === "denied" && /parent_id/.test(l.error ?? "")).length;
+    group("parenting", `auditParenting proven to DETECT a miss on synthetic applier-shaped records before the fixture is trusted · discovery/${FIXTURE_SLUG} read as a package (fictional, opening-set, portal, think, ended), its ${pkg.ops.length} op lines RE-FOLDED through the real applier over the committed answers and the real bank and matched record by record · ${turnStats.length} turnStats entries over ${wantTurns.length} distinct turns, every one stamped with the CURRENT prompt-surface fingerprint ${POSTURES.think.fingerprint.slice(0, 8)}, so a prompt edit makes this recording stale BY NAME · ${decisions} decisions filed, ${audit.eligible.length} eligible for a parent, ${audit.missed.length} missed, ${audit.structural.length} structural orphan(s) (seq ${audit.structural.join(", ") || "none"}), every named parent in its candidate set at the moment of filing, ${corrections} in-turn parent correction(s) receipted as denied lines · the projected hierarchy carrying a real "parent: seq" line, prd.md the projection's bytes. What it cannot reach: a valid-to-valid param edit to a committed op line (the applier reproduces what it is handed — the server's write and the git history are that guard), and the model's behaviour under an UNCHANGED prompt on a later date, or under a newer SDK — this is one recorded session; the operator-run probe (portal/lib/discovery-transport.mjs --probe-parenting) is the one-turn re-observation for that`);
+  } else {
+    group("parenting", "");   // unreachable on the ✓ path: the ok() above already recorded the failure
+  }
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -6378,5 +6626,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 31 groups pass");
+  console.log("\nbuild ✓  all 32 groups pass");
 }

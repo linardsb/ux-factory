@@ -27,15 +27,19 @@
 //      is instant, so it does not apply here. Noted because it is the trap the next handler will hit.
 //
 // Zero-token pre-flight:  cd portal && node lib/discovery-transport.mjs --preflight
+// One-turn parenting probe (PAID, ~$0.04–0.10):  cd portal && node lib/discovery-transport.mjs --probe-parenting
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { applyOp } from '../../discovery/ops.mjs';
-import { QUESTIONS } from '../../discovery/bank.mjs';
+import { applyOp, emptyRun, parentCandidates } from '../../discovery/ops.mjs';
+import { QUESTIONS, questionById } from '../../discovery/bank.mjs';
 import {
   allowsToolName, appendTranscript, deniedLine, MCP_SERVER, opLine, OPS,
   readAnswers, recordSessionId, textLine, TOOL_SCHEMA, toolNameFor,
 } from './discovery.mjs';
+// The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
+// the one group 30 pins and the fingerprint covers. POSTURES is here for the probe only.
+import { POSTURES, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
 
 // A per-turn cap, not a session cap. Resume-per-turn means every turn is a fresh query(), so session
 // length is governed by the depth ladder rather than by this number. chat.mjs's 40 is for an open
@@ -67,13 +71,6 @@ export function zodFor(descriptor, op = '?') {
   return shape;
 }
 
-const DESCRIPTIONS = {
-  record_decision: 'File one decision the person has made, BY REFERENCE. answer_ref names a stored answer and the tool resolves it — there is no parameter for answer text. Closes the turn when off_script is false.',
-  flag_weak_answer: 'Record that an answer lacks the form the question asks for. "missing" names what the form lacks, never what the right answer would be. answer_ref names a stored answer; there is no parameter for answer text. Closes the turn.',
-  open_question: 'Record that the question is not answerable yet. answer_ref names the stored answer that says so; there is no parameter for answer text. Closes the turn when source is "banked".',
-  file_evidence: 'File a piece of evidence — exactly one of url or ref (ref names a stored answer). Never closes the turn, and may be called more than once.',
-};
-
 // --- the server -----------------------------------------------------------------------------------
 
 // `state` is a mutable holder ({ current }) because the applier is pure and each accepted op produces a
@@ -92,7 +89,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
     // A fifth verb with no TOOL_SCHEMA entry fails loudly here rather than being silently skipped —
     // the same rule discovery/ops.mjs's invariant 2 states.
     if (!descriptor) throw new Error(`discovery-transport: "${op}" is in OPS with no TOOL_SCHEMA entry — the verb, its params and its schema move together`);
-    return tool(op, DESCRIPTIONS[op] ?? `File a ${op} op.`, zodFor(descriptor, op), async (args) => {
+    return tool(op, TOOL_DESCRIPTIONS[op] ?? `File a ${op} op.`, zodFor(descriptor, op), async (args) => {
       try {
         const next = applyOp(state.current, { op, params: args }, ctx());
         const record = next.ops[next.ops.length - 1];
@@ -165,7 +162,9 @@ function fenceHooks(root, turn, onLine) {
 // --- the turn -------------------------------------------------------------------------------------
 
 export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, onLine }) {
-  const { systemPrompt, prompt } = posture.build({ question, answer, turn });
+  // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
+  // brief and the applier read one ledger.
+  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops });
   const server = buildOpServer({ root, turn, state, onLine });
 
   const q = query({
@@ -220,6 +219,10 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
         cacheReadTokens: u.cache_read_input_tokens ?? null,
         cacheCreationTokens: u.cache_creation_input_tokens ?? null,
         ok: msg.subtype === 'success',
+        // Which prompt surface this turn ran under (#341) — build-checks group 32 compares it to the
+        // current one, so a prompt edit makes the fixture stale by name. Read off the posture passed
+        // in, never recomputed here: one record of one fact.
+        postureFingerprint: posture.fingerprint,
         ts: new Date().toISOString(),
       };
     }
@@ -366,15 +369,100 @@ export async function preflightTransport() {
   return { reachable: true, root, rows, handlerCalls: handlerCalls.length };
 }
 
+// --- the parenting probe (one PAID turn) ---------------------------------------------------------
+
+// The pre-flight's PAID sibling (#341): ONE real turn that observes whether the agent, shown a ledger
+// with a candidate at every rung, names a parent. It exists because the spine's defect survived every
+// pure gate — the applier, the projection and the prompt strings were all correct and the agent still
+// filed null 18 times — so the one thing worth observing before a twelve-turn fixture is spent is the
+// agent's own choice, once, for ~$0.04–0.10 (the first run after a prompt edit is the cold-cache one).
+// Run it before recording the fixture and after ANY edit to the prompt surface; group 32's
+// fingerprint tells you when that is.
+//
+// The temp root holds four STUB answers and a three-rung ledger the REAL applier built (business →
+// stakeholder → solution), written through appendTranscript so the on-disk transcript and the holder
+// agree — exactly what buildOpServer's handler does. A minimal run.json is there only so the init
+// message's recordSessionId has a head to write into (it is non-fatal without one, but noisy). The
+// root is deleted on exit, throw or not (a bank rename throws at the stubs, before the SDK is
+// reached): it is not a run package and is never presented as one.
+//
+// It SPENDS TOKENS. Nothing imports it — not build-checks, not the pre-flight, not the session module;
+// only the --probe-parenting CLI branch below reaches it.
+export async function probeParenting() {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const pathMod = await import('node:path');
+
+  const root = mkdtempSync(pathMod.join(tmpdir(), 'discovery-probe-'));
+  try {
+    const stub = (ref, turn, question_id, text) => JSON.stringify({ ref, ts: '2026-01-01T00:00:00.000Z', turn, question_id, kind: 'banked', text });
+    const appetite = 'Two weeks of one developer, fixed before scope. If it does not fit we ship the handover only.';
+    writeFileSync(pathMod.join(root, 'answers.jsonl'), [
+      stub('a1', 't1', 's1-if-nobody-solves-this', 'The same two days a term and the same losses go every year.'),
+      stub('a2', 't2', 's5-pain-budget-same-person', 'Three people, not one: the coordinator has the pain, the business manager has the budget.'),
+      stub('a3', 't3', 's4-rabbit-holes', 'One assumption to settle now: the parent app can embed a read-only page.'),
+      stub('a4', 't4', 's4-appetite', appetite),
+    ].join('\n') + '\n');
+    writeFileSync(pathMod.join(root, 'transcript.jsonl'), '');
+    writeFileSync(pathMod.join(root, 'run.json'), `${JSON.stringify({ slug: 'parenting-probe', provenance: 'fictional', label: 'PROBE — a temp root, deleted on exit, never a run package', sessionId: null, turnStats: [] }, null, 2)}\n`);
+
+    const state = { current: emptyRun() };
+    const file = (turn, params) => {
+      state.current = applyOp(state.current, { op: 'record_decision', params }, { answers: readAnswers(root), bank: QUESTIONS, turn });
+      appendTranscript(root, opLine({ record: state.current.ops.at(-1) }));
+    };
+    file('t1', { question_id: 's1-if-nobody-solves-this', answer_ref: 'a1', level: 'business', parent_id: null, evidence_refs: [], wrong_if: 'the losses stop on their own', off_script: false });
+    file('t2', { question_id: 's5-pain-budget-same-person', answer_ref: 'a2', level: 'stakeholder', parent_id: 1, evidence_refs: [], wrong_if: 'the budget holder turns out to be the coordinator', off_script: false });
+    file('t3', { question_id: 's4-rabbit-holes', answer_ref: 'a3', level: 'solution', parent_id: 2, evidence_refs: [], wrong_if: 'the parent app cannot embed a page', off_script: false });
+    const before = state.current.ops;
+
+    const lines = [];
+    let stats = null;
+    let error = null;
+    try {
+      ({ stats } = await runDiscoveryTurn({
+        root, head: { sessionId: null }, question: questionById('s4-appetite'), answer: { ref: 'a4', text: appetite },
+        turn: 't4', posture: POSTURES.think, state, onLine: (l) => lines.push(l),
+      }));
+    } catch (e) { error = e.message; }
+
+    const closer = lines.find((l) => l.type === 'op' && l.closes) ?? null;
+    const p = closer?.params ?? null;
+    let verdict = 'INCONCLUSIVE';
+    if (closer?.op === 'record_decision' && p.level !== 'business') {
+      if (p.parent_id === null) verdict = 'MISSED';
+      else if (parentCandidates(before, p.level).includes(p.parent_id)) verdict = 'PARENTED';
+    }
+    const corrections = lines.filter((l) => l.type === 'denied' && /parent_id/.test(l.error ?? '')).length;
+    const text = lines.filter((l) => l.type === 'text').map((l) => l.text);
+    return { verdict, closer, corrections, text, stats, error, fingerprint: POSTURES.think.fingerprint };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // --- standalone ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) {
-  if (!process.argv.includes('--preflight')) {
-    console.error('usage: node lib/discovery-transport.mjs --preflight   (run from portal/)');
+  const wantPreflight = process.argv.includes('--preflight');
+  const wantProbe = process.argv.includes('--probe-parenting');
+  if (wantPreflight === wantProbe) {
+    console.error('usage: node lib/discovery-transport.mjs --preflight | --probe-parenting   (run from portal/; the probe spends ONE paid turn)');
     process.exit(2);
   }
   const { readFileSync } = await import('node:fs');
   const v = (name) => JSON.parse(readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), 'utf8')).version;
+  if (wantProbe) {
+    const r = await probeParenting();
+    console.log(`discovery parenting probe — sdk ${v('@anthropic-ai/claude-agent-sdk')} · node ${process.version} · prompt surface ${r.fingerprint}`);
+    if (r.error) console.log(`turn error: ${r.error}`);
+    for (const t of r.text) console.log(`agent: ${t}`);
+    console.log(`filed: ${r.closer ? `${r.closer.op} seq ${r.closer.seq}${r.closer.op === 'record_decision' ? ` at ${r.closer.params.level}, parent_id ${JSON.stringify(r.closer.params.parent_id)}` : ''}` : '(no closing op)'}`);
+    console.log(`in-turn parent corrections (denied lines naming parent_id): ${r.corrections}`);
+    console.log(`cost ${r.stats?.costUsd ?? '?'} USD · ${r.stats?.durationMs ?? '?'} ms · ${r.stats?.numTurns ?? '?'} SDK turns`);
+    console.log(`\nprobe ${r.verdict}`);
+    process.exit(r.verdict === 'PARENTED' ? 0 : r.verdict === 'MISSED' ? 2 : 3);
+  }
   const result = await preflightTransport();
   console.log(`discovery transport pre-flight — sdk ${v('@anthropic-ai/claude-agent-sdk')} · zod ${v('zod')} · node ${process.version}`);
   console.log(`temp root: ${result.root ?? '(none)'}\n`);

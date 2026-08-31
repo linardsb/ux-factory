@@ -32,6 +32,10 @@
 //      the caller (the server, the gate, the projection). #282's export names are not this
 //      module's business, and CI's absence of portal/node_modules cannot touch it.
 //
+// Two pure reads over a ledger sit beside the applier — `parentCandidates` and `auditParenting`
+// (#341) — because the refusal, the prompt and the gate must all answer "who could this decision's
+// parent be?" identically.
+//
 // Node-import-safe and side-effect-free. No imports at all.
 
 // The op vocabulary, in one place. Frozen: a consumer that wants a new verb edits this list, PARAMS
@@ -55,6 +59,45 @@ export const LEVELS = Object.freeze(["business", "stakeholder", "solution", "tra
 export const PROVENANCE = Object.freeze(["real-interview", "secondary-source", "assumption", "fictional-scenario"]);
 export const SOURCES = Object.freeze(["banked", "off-script"]);
 export const FLAGS = Object.freeze(["no-evidence", "orphan"]);
+
+// The seqs a decision at `level` may name as its parent: every earlier record_decision exactly
+// one rung above it. [] for business (nothing above it) and for a rung nobody has filed at yet.
+// Exported because two callers need the SAME answer (#341): the applier's wrong-rung refusal names
+// these seqs so a retry has something to retry with, and the posture's turn prompt lists them per
+// rung so the agent's parent is a LOOKUP over what this run holds rather than a recollection from a
+// resumed session — the rehearsal filed null on 18 of 18 eligible decisions because the ledger was
+// never in front of it. Superseded decisions ARE candidates: the applier accepts any earlier decision
+// at the rung above, and the candidate list must equal the acceptance set or the brief lies by
+// omission. Total over junk: a level off the ladder is a throw, never [] (a silent [] would read as
+// "no candidates" and license a null).
+export function parentCandidates(ops, level) {
+  if (!Array.isArray(ops)) throw new Error("parentCandidates: ops must be the ledger's records array");
+  if (!LEVELS.includes(level)) throw new Error(`parentCandidates: level "${level}" is not on the ladder — ${LEVELS.join(" · ")}`);
+  if (level === LEVELS[0]) return [];
+  const above = LEVELS[LEVELS.indexOf(level) - 1];
+  return ops.filter((r) => r?.op === "record_decision" && r.params?.level === above).map((r) => r.seq);
+}
+
+// The parenting audit — a pure read over a ledger, the way the not-a-form counter is arithmetic
+// over the records (#285). For every non-business decision: did the rung above hold a decision
+// WHEN THIS ONE WAS FILED (ops.slice(0, i), never the final ledger), and did it name one?
+// `eligible` had candidates; `missed` ⊂ eligible passed null (the agent did not look); `structural`
+// had none and passed null (the honest orphan — the bank serves a solution-eligible question before
+// the first stakeholder one, #341 cause B). A decision filed before the first stakeholder one stays
+// structural even if a stakeholder decision lands later. A business decision never appears in any
+// list. This is the read build-checks group 32 makes over the committed fixture run, and the read
+// that turned the rehearsal's "19 orphans" into 18 missed + 1 structural.
+export function auditParenting(ops) {
+  if (!Array.isArray(ops)) throw new Error("auditParenting: ops must be the ledger's records array");
+  const eligible = [], missed = [], structural = [];
+  ops.forEach((r, i) => {
+    if (r?.op !== "record_decision" || r.params?.level === LEVELS[0]) return;
+    const candidates = parentCandidates(ops.slice(0, i), r.params.level);
+    if (candidates.length) { eligible.push(r.seq); if (r.params.parent_id === null) missed.push(r.seq); }
+    else if (r.params.parent_id === null) structural.push(r.seq);
+  });
+  return { eligible, missed, structural };
+}
 
 // The state is the op ledger and nothing else. "Closed" is derived from it (ops.some(closes && turn))
 // rather than kept beside it — two records of one fact drift.
@@ -144,8 +187,15 @@ export function applyOp(state, op, ctx) {
       if (p.parent_id !== null) {
         if (p.level === "business") throw new Error(`${name}: a business decision has no parent — parent_id must be null, got ${JSON.stringify(p.parent_id)}`);
         const parent = earlier(p.parent_id, "record_decision", "parent_id");
-        if (LEVELS.indexOf(parent.params.level) !== LEVELS.indexOf(p.level) - 1)
-          throw new Error(`${name}: parent_id ${p.parent_id} is a ${parent.params.level} decision — a ${p.level} decision's parent sits one rung above, at ${LEVELS[LEVELS.indexOf(p.level) - 1]}`);
+        if (LEVELS.indexOf(parent.params.level) !== LEVELS.indexOf(p.level) - 1) {
+          const above = LEVELS[LEVELS.indexOf(p.level) - 1];
+          const candidates = parentCandidates(state.ops, p.level);
+          // The refusal is a CORRECTION, not only a verdict (#341): the rehearsal's agent was told the
+          // rung five times and re-filed null five times, because a rung is not a seq. Name the seqs.
+          throw new Error(`${name}: parent_id ${p.parent_id} is a ${parent.params.level} decision — a ${p.level} decision's parent sits one rung above, at ${above}. ${candidates.length
+            ? `This run's ${above} decisions are seq ${candidates.join(", ")} — re-file naming one of them`
+            : `This run holds no ${above} decision yet — re-file with parent_id null`}`);
+        }
       }
       closes = !p.off_script;
       if (closes) closeTurn();
