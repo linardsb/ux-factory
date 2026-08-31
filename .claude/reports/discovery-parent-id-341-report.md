@@ -214,11 +214,29 @@ No suite (CLAUDE.md §Testing). Gate cases:
 ## What the gate cannot reach
 
 Group 32 observes one recording made under one prompt surface. A prompt edit is caught by name (the
-fingerprint); a hand-edited op line is caught by name (the re-fold). What it cannot see is the model
-changing its behaviour under an *unchanged* prompt — a model update, an SDK change in how tool results
-are presented. The probe (`--probe-parenting`, one paid turn) is the operator-run re-observation for
+fingerprint); an op line edited into something the applier would not produce — a wrong-rung parent,
+a dangling ref, a derived field out of step with its params — is caught by name (the re-fold). A
+valid-to-valid param edit is not, and cannot be: the applier reproduces what it is handed, so the
+only guard for that is the server's write and the git history (PR #342 review F1 reproduced the pass
+on a scratch copy). What it also cannot see is the model changing its behaviour under an
+*unchanged* prompt — a model update, an SDK change in how tool results are presented. The probe (`--probe-parenting`, one paid turn) is the operator-run re-observation for
 that and is listed in `gates.md` beside the journey drivers. A token-spending gate in CI is not
 available (no SDK, no token) and would not be deterministic if it were.
+
+## Review round 1 (PR #342, `.claude/code-reviews/pr-342-review.md`)
+
+Five findings, all fixed in this PR; none touches the prompt surface, so the fingerprint
+`df6fbc35…` and the fixture stand.
+
+- **F1** (high) — the re-fold's guarantee was overclaimed in four places; each now states the
+  valid-to-valid gap and names the server's write + git history as the only guard for it.
+- **F2** (medium) — the fingerprint is the prompt surface, not "everything the agent reads";
+  `TOOL_SCHEMA`, the deny text and the SDK preset are named as outside it (docblock, README, PR body).
+- **F3** (low) — 32.5 now asserts `prd.md` IS the projection's bytes (D5 is a gate fact); proven
+  able to fail by a transient one-byte edit, restored `cmp`-identical.
+- **F4** (low) — the probe's temp root is freed in a `finally`; proven by a bank-swap loader hook
+  that makes the real `probeParenting` throw before the SDK (leaked on the old code, freed on the new).
+- **F5** (low) — the probe's price reads `~$0.04–0.10`, the report's own cold/warm figures.
 
 ## Ready for the next step
 

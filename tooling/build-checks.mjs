@@ -6578,13 +6578,16 @@ function scanSvg(svg, label) {
     ok(stamps.every((s) => s === POSTURES.think.fingerprint), `32.2a: the Think prompt surface changed since the fixture was recorded (fixture ${[...new Set(stamps)].map((s) => String(s).slice(0, 8)).join(", ")} vs current ${POSTURES.think.fingerprint.slice(0, 8)}) — run the probe, then re-record it (discovery/README.md §The parenting fixture)`);
     // 32.3 — the ledger is the applier's, not a hand's: re-fold { op, params, turn } through the REAL
     // applier over the package's own answers and the REAL bank, and compare record by record with
-    // the committed op lines (the README's drift detector).
+    // the committed op lines (the README's drift detector). It catches a line the applier would not
+    // produce — a wrong-rung parent, a dangling ref, a derived field out of step with its params. A
+    // valid-to-valid param edit re-folds clean and is NOT caught here: the applier reproduces what it
+    // is handed, so that class is the server's write and the git history's to guard (PR #342 F1).
     const refold = threw(() => applyDiscoveryOps(pkg.ops.map(({ op, params, turn }) => ({ op, params, turn })), { answers: pkg.answers, bank: BANK }));
     ok(refold === null, `32.3: the committed op lines do not re-fold through the applier — ${refold?.message}`);
     if (refold === null) {
       const records = applyDiscoveryOps(pkg.ops.map(({ op, params, turn }) => ({ op, params, turn })), { answers: pkg.answers, bank: BANK }).ops;
       ok(records.length === pkg.ops.length, `32.3: the re-fold produced ${records.length} records for ${pkg.ops.length} op lines`);
-      records.forEach((r, i) => ok(same(r, pkg.ops[i]), `32.3: committed op line ${i} (seq ${pkg.ops[i]?.seq}) is not what the applier produces over the committed answers — a line was edited by hand, or the applier changed under the fixture:\n      committed ${JSON.stringify(pkg.ops[i])}\n      applier   ${JSON.stringify(r)}`));
+      records.forEach((r, i) => ok(same(r, pkg.ops[i]), `32.3: committed op line ${i} (seq ${pkg.ops[i]?.seq}) is not what the applier produces over the committed answers — a line was edited into something the applier would not produce, or the applier changed under the fixture:\n      committed ${JSON.stringify(pkg.ops[i])}\n      applier   ${JSON.stringify(r)}`));
     }
     // 32.4 — the claim. Non-vacuous first, then zero misses, then every eligible parent in its
     // candidate set at the moment of filing, then enough decisions for the run to say anything.
@@ -6599,15 +6602,18 @@ function scanSvg(svg, label) {
     const decisions = pkg.ops.filter((r) => r.op === "record_decision").length;
     ok(decisions >= 6, `32.4: only ${decisions} record_decision op(s) in twelve turns — a run of weak-answer flags proves nothing about parenting`);
     // 32.5 — the ladder renders as a ladder from a REAL run: the projection's hierarchy carries at
-    // least one "parent: seq N" line, and prd.md exists beside the package.
+    // least one "parent: seq N" line, and the committed prd.md IS the projection's bytes — the
+    // README's "never edited by hand" is a gate fact, not a statement (group 31 proves the fold
+    // byte-deterministic, so the compare is free).
     const md = threw(() => projectPrd(pkg)) === null ? projectPrd(pkg) : "";
     ok(md.length > 0, `32.5: the fixture does not project — ${threw(() => projectPrd(pkg))?.message}`);
     ok(/parent: seq \d+/.test(md), "32.5: the projected Requirement hierarchy has no parented decision");
     ok(existsSync(join(root, "prd.md")), `32.5: discovery/${FIXTURE_SLUG}/prd.md is missing — generate it with node discovery/prd-projection.mjs ${FIXTURE_SLUG}`);
+    if (existsSync(join(root, "prd.md"))) ok(readFileSync(join(root, "prd.md"), "utf8") === md, `32.5: discovery/${FIXTURE_SLUG}/prd.md is not the projection's bytes — the fixture's prd.md is never edited by hand; regenerate it with node discovery/prd-projection.mjs ${FIXTURE_SLUG} --force`);
     // The denied lines are the receipt of any in-turn correction; counted for the ✓ line, never
     // asserted — zero corrections and one correction are both honest recordings.
     const corrections = readTranscript(root).filter((l) => l.type === "denied" && /parent_id/.test(l.error ?? "")).length;
-    group("parenting", `auditParenting proven to DETECT a miss on synthetic applier-shaped records before the fixture is trusted · discovery/${FIXTURE_SLUG} read as a package (fictional, opening-set, portal, think, ended), its ${pkg.ops.length} op lines RE-FOLDED through the real applier over the committed answers and the real bank and matched record by record · ${turnStats.length} turnStats entries over ${wantTurns.length} distinct turns, every one stamped with the CURRENT prompt-surface fingerprint ${POSTURES.think.fingerprint.slice(0, 8)}, so a prompt edit makes this recording stale BY NAME · ${decisions} decisions filed, ${audit.eligible.length} eligible for a parent, ${audit.missed.length} missed, ${audit.structural.length} structural orphan(s) (seq ${audit.structural.join(", ") || "none"}), every named parent in its candidate set at the moment of filing, ${corrections} in-turn parent correction(s) receipted as denied lines · the projected hierarchy carrying a real "parent: seq" line, prd.md present. What it cannot reach: the model's behaviour under an UNCHANGED prompt on a later date, or under a newer SDK — this is one recorded session; the operator-run probe (portal/lib/discovery-transport.mjs --probe-parenting) is the one-turn re-observation for that`);
+    group("parenting", `auditParenting proven to DETECT a miss on synthetic applier-shaped records before the fixture is trusted · discovery/${FIXTURE_SLUG} read as a package (fictional, opening-set, portal, think, ended), its ${pkg.ops.length} op lines RE-FOLDED through the real applier over the committed answers and the real bank and matched record by record · ${turnStats.length} turnStats entries over ${wantTurns.length} distinct turns, every one stamped with the CURRENT prompt-surface fingerprint ${POSTURES.think.fingerprint.slice(0, 8)}, so a prompt edit makes this recording stale BY NAME · ${decisions} decisions filed, ${audit.eligible.length} eligible for a parent, ${audit.missed.length} missed, ${audit.structural.length} structural orphan(s) (seq ${audit.structural.join(", ") || "none"}), every named parent in its candidate set at the moment of filing, ${corrections} in-turn parent correction(s) receipted as denied lines · the projected hierarchy carrying a real "parent: seq" line, prd.md the projection's bytes. What it cannot reach: a valid-to-valid param edit to a committed op line (the applier reproduces what it is handed — the server's write and the git history are that guard), and the model's behaviour under an UNCHANGED prompt on a later date, or under a newer SDK — this is one recorded session; the operator-run probe (portal/lib/discovery-transport.mjs --probe-parenting) is the one-turn re-observation for that`);
   } else {
     group("parenting", "");   // unreachable on the ✓ path: the ok() above already recorded the failure
   }

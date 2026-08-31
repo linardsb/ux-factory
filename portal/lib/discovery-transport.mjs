@@ -27,7 +27,7 @@
 //      is instant, so it does not apply here. Noted because it is the trap the next handler will hit.
 //
 // Zero-token pre-flight:  cd portal && node lib/discovery-transport.mjs --preflight
-// One-turn parenting probe (PAID, ~$0.05):  cd portal && node lib/discovery-transport.mjs --probe-parenting
+// One-turn parenting probe (PAID, ~$0.04–0.10):  cd portal && node lib/discovery-transport.mjs --probe-parenting
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -375,14 +375,16 @@ export async function preflightTransport() {
 // with a candidate at every rung, names a parent. It exists because the spine's defect survived every
 // pure gate — the applier, the projection and the prompt strings were all correct and the agent still
 // filed null 18 times — so the one thing worth observing before a twelve-turn fixture is spent is the
-// agent's own choice, once, for ~$0.05. Run it before recording the fixture and after ANY edit to the
-// prompt surface; group 32's fingerprint tells you when that is.
+// agent's own choice, once, for ~$0.04–0.10 (the first run after a prompt edit is the cold-cache one).
+// Run it before recording the fixture and after ANY edit to the prompt surface; group 32's
+// fingerprint tells you when that is.
 //
 // The temp root holds four STUB answers and a three-rung ledger the REAL applier built (business →
 // stakeholder → solution), written through appendTranscript so the on-disk transcript and the holder
 // agree — exactly what buildOpServer's handler does. A minimal run.json is there only so the init
 // message's recordSessionId has a head to write into (it is non-fatal without one, but noisy). The
-// root is deleted on exit: it is not a run package and is never presented as one.
+// root is deleted on exit, throw or not (a bank rename throws at the stubs, before the SDK is
+// reached): it is not a run package and is never presented as one.
 //
 // It SPENDS TOKENS. Nothing imports it — not build-checks, not the pre-flight, not the session module;
 // only the --probe-parenting CLI branch below reaches it.
@@ -392,48 +394,51 @@ export async function probeParenting() {
   const pathMod = await import('node:path');
 
   const root = mkdtempSync(pathMod.join(tmpdir(), 'discovery-probe-'));
-  const stub = (ref, turn, question_id, text) => JSON.stringify({ ref, ts: '2026-01-01T00:00:00.000Z', turn, question_id, kind: 'banked', text });
-  const appetite = 'Two weeks of one developer, fixed before scope. If it does not fit we ship the handover only.';
-  writeFileSync(pathMod.join(root, 'answers.jsonl'), [
-    stub('a1', 't1', 's1-if-nobody-solves-this', 'The same two days a term and the same losses go every year.'),
-    stub('a2', 't2', 's5-pain-budget-same-person', 'Three people, not one: the coordinator has the pain, the business manager has the budget.'),
-    stub('a3', 't3', 's4-rabbit-holes', 'One assumption to settle now: the parent app can embed a read-only page.'),
-    stub('a4', 't4', 's4-appetite', appetite),
-  ].join('\n') + '\n');
-  writeFileSync(pathMod.join(root, 'transcript.jsonl'), '');
-  writeFileSync(pathMod.join(root, 'run.json'), `${JSON.stringify({ slug: 'parenting-probe', provenance: 'fictional', label: 'PROBE — a temp root, deleted on exit, never a run package', sessionId: null, turnStats: [] }, null, 2)}\n`);
-
-  const state = { current: emptyRun() };
-  const file = (turn, params) => {
-    state.current = applyOp(state.current, { op: 'record_decision', params }, { answers: readAnswers(root), bank: QUESTIONS, turn });
-    appendTranscript(root, opLine({ record: state.current.ops.at(-1) }));
-  };
-  file('t1', { question_id: 's1-if-nobody-solves-this', answer_ref: 'a1', level: 'business', parent_id: null, evidence_refs: [], wrong_if: 'the losses stop on their own', off_script: false });
-  file('t2', { question_id: 's5-pain-budget-same-person', answer_ref: 'a2', level: 'stakeholder', parent_id: 1, evidence_refs: [], wrong_if: 'the budget holder turns out to be the coordinator', off_script: false });
-  file('t3', { question_id: 's4-rabbit-holes', answer_ref: 'a3', level: 'solution', parent_id: 2, evidence_refs: [], wrong_if: 'the parent app cannot embed a page', off_script: false });
-  const before = state.current.ops;
-
-  const lines = [];
-  let stats = null;
-  let error = null;
   try {
-    ({ stats } = await runDiscoveryTurn({
-      root, head: { sessionId: null }, question: questionById('s4-appetite'), answer: { ref: 'a4', text: appetite },
-      turn: 't4', posture: POSTURES.think, state, onLine: (l) => lines.push(l),
-    }));
-  } catch (e) { error = e.message; }
+    const stub = (ref, turn, question_id, text) => JSON.stringify({ ref, ts: '2026-01-01T00:00:00.000Z', turn, question_id, kind: 'banked', text });
+    const appetite = 'Two weeks of one developer, fixed before scope. If it does not fit we ship the handover only.';
+    writeFileSync(pathMod.join(root, 'answers.jsonl'), [
+      stub('a1', 't1', 's1-if-nobody-solves-this', 'The same two days a term and the same losses go every year.'),
+      stub('a2', 't2', 's5-pain-budget-same-person', 'Three people, not one: the coordinator has the pain, the business manager has the budget.'),
+      stub('a3', 't3', 's4-rabbit-holes', 'One assumption to settle now: the parent app can embed a read-only page.'),
+      stub('a4', 't4', 's4-appetite', appetite),
+    ].join('\n') + '\n');
+    writeFileSync(pathMod.join(root, 'transcript.jsonl'), '');
+    writeFileSync(pathMod.join(root, 'run.json'), `${JSON.stringify({ slug: 'parenting-probe', provenance: 'fictional', label: 'PROBE — a temp root, deleted on exit, never a run package', sessionId: null, turnStats: [] }, null, 2)}\n`);
 
-  const closer = lines.find((l) => l.type === 'op' && l.closes) ?? null;
-  const p = closer?.params ?? null;
-  let verdict = 'INCONCLUSIVE';
-  if (closer?.op === 'record_decision' && p.level !== 'business') {
-    if (p.parent_id === null) verdict = 'MISSED';
-    else if (parentCandidates(before, p.level).includes(p.parent_id)) verdict = 'PARENTED';
+    const state = { current: emptyRun() };
+    const file = (turn, params) => {
+      state.current = applyOp(state.current, { op: 'record_decision', params }, { answers: readAnswers(root), bank: QUESTIONS, turn });
+      appendTranscript(root, opLine({ record: state.current.ops.at(-1) }));
+    };
+    file('t1', { question_id: 's1-if-nobody-solves-this', answer_ref: 'a1', level: 'business', parent_id: null, evidence_refs: [], wrong_if: 'the losses stop on their own', off_script: false });
+    file('t2', { question_id: 's5-pain-budget-same-person', answer_ref: 'a2', level: 'stakeholder', parent_id: 1, evidence_refs: [], wrong_if: 'the budget holder turns out to be the coordinator', off_script: false });
+    file('t3', { question_id: 's4-rabbit-holes', answer_ref: 'a3', level: 'solution', parent_id: 2, evidence_refs: [], wrong_if: 'the parent app cannot embed a page', off_script: false });
+    const before = state.current.ops;
+
+    const lines = [];
+    let stats = null;
+    let error = null;
+    try {
+      ({ stats } = await runDiscoveryTurn({
+        root, head: { sessionId: null }, question: questionById('s4-appetite'), answer: { ref: 'a4', text: appetite },
+        turn: 't4', posture: POSTURES.think, state, onLine: (l) => lines.push(l),
+      }));
+    } catch (e) { error = e.message; }
+
+    const closer = lines.find((l) => l.type === 'op' && l.closes) ?? null;
+    const p = closer?.params ?? null;
+    let verdict = 'INCONCLUSIVE';
+    if (closer?.op === 'record_decision' && p.level !== 'business') {
+      if (p.parent_id === null) verdict = 'MISSED';
+      else if (parentCandidates(before, p.level).includes(p.parent_id)) verdict = 'PARENTED';
+    }
+    const corrections = lines.filter((l) => l.type === 'denied' && /parent_id/.test(l.error ?? '')).length;
+    const text = lines.filter((l) => l.type === 'text').map((l) => l.text);
+    return { verdict, closer, corrections, text, stats, error, fingerprint: POSTURES.think.fingerprint };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
-  const corrections = lines.filter((l) => l.type === 'denied' && /parent_id/.test(l.error ?? '')).length;
-  const text = lines.filter((l) => l.type === 'text').map((l) => l.text);
-  rmSync(root, { recursive: true, force: true });
-  return { verdict, closer, corrections, text, stats, error, fingerprint: POSTURES.think.fingerprint };
 }
 
 // --- standalone ------------------------------------------------------------------------------------

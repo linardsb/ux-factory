@@ -245,23 +245,31 @@ observed what the agent actually chose against a real ledger.
 
 **What `build-checks` group 32 asserts over it:** `auditParenting` (in `ops.mjs`) is first proven to
 detect a miss on synthetic records; then the package is read, its op lines are re-folded through the
-real applier over the committed answers and matched record by record (a hand-edited line goes red by
-name); every `turnStats` entry carries the CURRENT `POSTURES.think.fingerprint`; the audit reports
-`eligible ≥ 1` and `missed 0` with every named parent in its candidate set at the moment of filing;
-and the projected Requirement hierarchy renders at least one `parent: seq N` line.
+real applier over the committed answers and matched record by record — an edit that makes a line
+INVALID (a wrong-rung parent, a dangling ref, a derived field out of step with its params) goes red
+by name; a valid-to-valid param edit does not and cannot (the applier reproduces what it is handed),
+so the only guard for that is the server's write and the git history; every `turnStats` entry
+carries the CURRENT `POSTURES.think.fingerprint`; the audit reports `eligible ≥ 1` and `missed 0`
+with every named parent in its candidate set at the moment of filing; the projected Requirement
+hierarchy renders at least one `parent: seq N` line; and `prd.md` is byte-equal to the projection.
 
-**The fingerprint tripwire, and its price.** Any edit to what the agent reads — a word in
+**The fingerprint tripwire, and its price.** Any edit to the prompt surface — a word in
 `PARENT_RULE`, a comma in `MVP6_LINE`, a tool description, the turn template, the model — moves the
 fingerprint, and group 32 goes red naming the old and new hashes until the fixture is re-recorded.
+Three things the agent also reads sit OUTSIDE the hash and do not move it: the tool input schemas
+(`TOOL_SCHEMA`, pinned by group 30, so they move only under the op-verb lock), the fence's deny text
+and the SDK's own preset — an edit to one of those is the probe's to re-observe, not the
+fingerprint's to name.
 That is the honest cost of a recording that proves the prompt in the tree (~$0.60 and about four
 minutes per re-record). **The limit:** the gate observes one recorded session. The model's behaviour
 under an *unchanged* prompt on a later date, or under a newer SDK, is the probe's to re-observe.
 
 **Re-record procedure** (after any prompt-surface edit):
 
-1. `cd portal && node lib/discovery-transport.mjs --probe-parenting` — one paid turn (~$0.05) over
-   a temp root with a three-rung applier-built ledger. Repeat until it reports `PARENTED` twice in a
-   row; a `MISSED` means tighten `PARENT_RULE` (that string only) and probe again.
+1. `cd portal && node lib/discovery-transport.mjs --probe-parenting` — one paid turn (~$0.04–0.10;
+   the first run after a prompt edit is the cold one) over a temp root with a three-rung
+   applier-built ledger. Repeat until it reports `PARENTED` twice in a row; a `MISSED` means
+   tighten `PARENT_RULE` (that string only) and probe again.
 2. `rm -rf discovery/instrument-loans-1` — a slug is never re-run without deleting first
    (`openSession` resumes an existing `run.json`).
 3. `cd portal && PORT=4748 npm start` — a fresh port, so no stale process can be serving the drawer.
