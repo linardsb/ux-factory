@@ -27,10 +27,19 @@ package is what it left behind.
 - The agent's turn text is captured as `text` lines, because MVP 6's "the agent may not say an
   answer is wrong" is only falsifiable from prose. The sentence is kept so it can be checked.
 - A refused write is a `denied` line — a fence denial, an applier refusal, or a schema-layer
-  refusal — with the tool named. The receipt is kept — a tool the run tried and was refused is
-  the governance story, not something to hide. Why one line type for all three: a refusal surfaces
-  on the SDK's `PostToolUseFailure` hook, and that hook is the only record point a schema-layer
-  refusal has (#280's finding), so the recorder listens there and does not distinguish.
+  refusal — with the tool named, and it is **the discovery agent's own call, in the main session,
+  being refused** (#343). The receipt is kept — a tool the run tried and was refused is the
+  governance story, not something to hide. Why one line type for all three: a refusal surfaces on
+  the SDK's `PostToolUseFailure` hook, and that hook is the only record point a schema-layer
+  refusal has (#280's finding), so the recorder listens there and does not distinguish. What is
+  **not** a `denied` line: the CLI's own subagent warmup. Every Claude Code start pre-warms its
+  built-in Explore, Plan and Bash agents with a "Warmup" prompt, and Explore runs `pwd`, `ls`,
+  `find` and Glob on the cwd; those calls reach the fence, are denied, and leave no line, because the
+  recorder brackets them between the SDK's `SubagentStart` and `SubagentStop` hooks (a hook input
+  alone cannot tell a sidechain call from the main session's). **Packages recorded before #343 carry
+  those warmup denials as `denied` lines** — `instrument-loans-1` has three on `t12` (Bash ×2, Glob,
+  all within one millisecond) that the discovery agent never made. They stay: a transcript is never
+  edited, and the git history dates them.
 - `run.json` states the run's provenance, and **provenance decides the root (R1)**: `fictional` →
   `discovery/<slug>/`, committed here as evidence; `real` → `<JOBS_DIR>/_discovery/<slug>/`, same
   shape, never committed (this repo is public and inspectable; `portal/lib/builder.mjs`'s
@@ -236,7 +245,9 @@ about the question, not about this product).
 
 `discovery/instrument-loans-1/` is a real `opening-set` run (#341) over a fictional product — an
 instrument-loan register for a school music department — recorded through the drawer like any other
-package. Its twelve answers were written by the planning agent and pre-registered in
+package. Its transcript carries three `denied` lines on `t12` (Bash ×2, Glob) that predate #343 — the
+CLI's subagent warmup, not the agent (honesty rules, above); they stay, because a transcript is never
+edited. Its twelve answers were written by the planning agent and pre-registered in
 `.claude/plans/discovery-parent-id-341.md` before the run, so they cannot be tuned to the agent's
 behaviour after the fact; the ticket's report discloses this. It exists because the full-depth
 rehearsal that preceded it filed `parent_id: null` on 18 of 18 eligible decisions while every pure

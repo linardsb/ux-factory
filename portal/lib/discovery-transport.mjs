@@ -34,8 +34,8 @@ import { z } from 'zod';
 import { applyOp, emptyRun, parentCandidates } from '../../discovery/ops.mjs';
 import { QUESTIONS, questionById } from '../../discovery/bank.mjs';
 import {
-  allowsToolName, appendTranscript, deniedLine, MCP_SERVER, opLine, OPS,
-  readAnswers, recordSessionId, textLine, TOOL_SCHEMA, toolNameFor,
+  allowsToolName, appendTranscript, denyReason, fenceHooks, MCP_SERVER, opLine, OPS,
+  readAnswers, readTranscript, recordSessionId, textLine, TOOL_SCHEMA,
 } from './discovery.mjs';
 // The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
 // the one group 30 pins and the fingerprint covers. POSTURES is here for the probe only.
@@ -122,42 +122,12 @@ export function buildOpServer({ root, turn, state, onLine }) {
 
 // --- the fence ------------------------------------------------------------------------------------
 
-// allowsToolName lives in discovery.mjs, not here, so group 30 can drive it in CI — and it is the seam
-// #287 widens into the per-run read allow-list. Called from BOTH call sites below.
-//
-// BOUNDED CLAIM: `tools: []` removes every built-in, so at run time there is nothing left for the deny
-// branch to deny. Spike 1 observed both sites CONSULTED for MCP calls and neither ever BLOCKING one.
-// The predicate is gated exhaustively in CI; the wiring stays unobserved. #287 owns that half.
-const denyReason = (name) => `${name} is not one of this run's op tools (${OPS.map(toolNameFor).join(', ')}) — the discovery session has no write tools and no read tools.`;
-
-function fenceHooks(root, turn, onLine) {
-  // Every recording hook is try/caught and always returns { continue: true }: a thrown hook can
-  // interrupt the agent, and a recording bug must never alter the run it observes
-  // (trace-recorder.mjs's discipline).
-  const record = (line) => {
-    try { const written = appendTranscript(root, line); onLine?.(written); }
-    catch (e) { process.stderr.write(`discovery-transport: hook error (non-fatal): ${e.message}\n`); }
-  };
-
-  return {
-    // Fails CLOSED, and unlike the recording hook it MAY alter the run — blocking out-of-fence calls
-    // is its job. The permission fast path can auto-allow without ever consulting canUseTool, so
-    // canUseTool alone cannot enforce the fence.
-    PreToolUse: [{ hooks: [async (input) => {
-      if (allowsToolName(input.tool_name)) return { continue: true };
-      const reason = denyReason(input.tool_name);
-      record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error: reason }));
-      return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } };
-    }] }],
-    // Observation 3: the ONLY record point for a refusal, handler or schema-layer. PostToolUse is
-    // deliberately NOT registered — the filed line is written by the handler, which holds the seq.
-    PostToolUseFailure: [{ hooks: [async (input) => {
-      const error = String(input.error ?? JSON.stringify(input.tool_response ?? null));
-      record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error }));
-      return { continue: true };
-    }] }],
-  };
-}
+// allowsToolName, denyReason and fenceHooks all live in discovery.mjs, not here, so group 30 can drive
+// the predicate AND run the hook functions in CI (#343) — and the predicate is the seam #287 widens into
+// the per-run read allow-list. What the deny branch actually denies at run time (the CLI's subagent
+// warmup, never the main session under `tools: []`) is stated above fenceHooks there. canUseTool below
+// is the second call site: the permission fast path can auto-allow without consulting it, which is why
+// the hook exists at all.
 
 // --- the turn -------------------------------------------------------------------------------------
 
@@ -435,7 +405,10 @@ export async function probeParenting() {
     }
     const corrections = lines.filter((l) => l.type === 'denied' && /parent_id/.test(l.error ?? '')).length;
     const text = lines.filter((l) => l.type === 'text').map((l) => l.text);
-    return { verdict, closer, corrections, text, stats, error, fingerprint: POSTURES.think.fingerprint };
+    // The on-disk transcript, read back before the root is deleted: every denied line's tool. A Bash
+    // or Glob here is the CLI's warmup recorded as the agent's refusal — the defect #343 closed.
+    const denied = readTranscript(root).filter((l) => l.type === 'denied').map((l) => l.tool);
+    return { verdict, closer, corrections, denied, text, stats, error, fingerprint: POSTURES.think.fingerprint };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -459,6 +432,7 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
     for (const t of r.text) console.log(`agent: ${t}`);
     console.log(`filed: ${r.closer ? `${r.closer.op} seq ${r.closer.seq}${r.closer.op === 'record_decision' ? ` at ${r.closer.params.level}, parent_id ${JSON.stringify(r.closer.params.parent_id)}` : ''}` : '(no closing op)'}`);
     console.log(`in-turn parent corrections (denied lines naming parent_id): ${r.corrections}`);
+    console.log(`denied lines on the temp root's transcript: ${r.denied.length}${r.denied.length ? ` (${r.denied.join(', ')})` : ''}`);
     console.log(`cost ${r.stats?.costUsd ?? '?'} USD · ${r.stats?.durationMs ?? '?'} ms · ${r.stats?.numTurns ?? '?'} SDK turns`);
     console.log(`\nprobe ${r.verdict}`);
     process.exit(r.verdict === 'PARENTED' ? 0 : r.verdict === 'MISSED' ? 2 : 3);
