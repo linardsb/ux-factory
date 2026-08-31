@@ -168,12 +168,100 @@ follow-up ticket.*
 
 **F2** — above. *Candidate follow-up ticket.*
 
+**F4 — the #287 pre-registered counter rests on a false premise, and is corrected here BEFORE run 0.**
+§PRE-REGISTERED READINGS table 2 predicts `denied: 0` for #287, reasoning that `tools: []` plus
+`allowedTools: []` *"leave nothing to deny, so the fence has no work in this run."* The full-depth
+rehearsal below observed **17 denied lines, 12 of them the agent calling `Bash`** to `ls` the run
+directory, each refused with `Bash is not one of this run's op tools`. Built-in tools are reachable
+and the refusal is doing real work every turn.
+
+The correction is made **now, before the measured run**, and only because the premise is factually
+false rather than because the number came out inconvenient — changing a counter after run 0 to suit
+its result would be the exact failure pre-registration exists to prevent. **Corrected counter for
+#287: `denied` lines split by tool — refusals of built-ins (expected non-zero, the fence working) vs
+refusals of op calls (the applier correcting the grammar). A zero in the first column would be the
+surprise, not a non-zero.** *Re-scope — belongs on #279 as an amendment.*
+
+**F5 — the agent never fills `parent_id`; the requirement hierarchy does not work end to end.**
+Filed as **[#341](https://github.com/linardsb/ux-factory/issues/341)**. In the 30-turn rehearsal, all
+29 `record_decision` ops passed `parent_id: null`. Ten are correct (business has no parent); of the
+other 19, **14 had a valid stakeholder parent available in the ledger and filed null anyway**. The
+agent tried five times and named the wrong rung every time — four of the five named a *sibling*
+`solution` decision — and its recovery after each refusal was `null`, never a retry at the rung the
+applier's error message names.
+
+No gate can see this: group 29 drives the applier over fixtures that already carry `parent_id`, group
+31 projects a populated hierarchy, and group 30 pins the prompt as strings without running a turn.
+The applier, the projection and the tests are all correct and the feature is inert in practice — the
+same shape as [[check-that-cannot-fail]]. *Follow-up ticket, filed.*
+
+**F6 — no answer produced evidence, so all 29 decisions rest on nothing.** Zero `file_evidence` ops
+across 30 substantive answers, and the Evidence section renders its empty state followed by a line
+naming all 29 unbacked decisions. `file_evidence` takes a `url`, so an answer that *describes* its
+evidence in prose files nothing — the rehearsal's answer to `s2-last-time-show-me` named a
+spreadsheet and a WhatsApp thread and produced no row. This is partly an operator lesson (paste real
+URLs) and partly the #289 evidence path having no route other than a URL appearing in free text.
+*Re-scope — belongs on #279 as an amendment.*
+
 **F3 — the drawer's provenance control defaults to `fictional`, which is the committing one.**
 Observed on the freshly opened drawer: `#discovery-provenance` opens on `fictional`, whose note reads
 *"the package is written to `discovery/<slug>/` in this repo and committed as evidence."* For a real
 product that default writes an unreleased product's discovery session into a public repo, and the only
 thing preventing it is the operator noticing. The safer default for a control whose wrong value is
 unrecoverable-by-git would be `real`. *Re-scope — belongs on #279 as an amendment.*
+
+---
+
+## The full-depth rehearsal — NOT run 0
+
+After Phase A was committed (`93dfb57`), the owner ran a complete 30-question `full-discovery`
+session to see the chain work at depth before spending a sitting on their real product. **It is not
+run 0 and is not reported as such:** the answers describe a fictional product (a controlled-drugs
+register reconciliation tool), written by the agent at the owner's request and pasted in by the
+owner. It satisfies no acceptance criterion. It is recorded here because it is where F4, F5 and F6
+came from, and because it de-risks the real sitting.
+
+Package: `<JOBS_DIR>/_discovery/my-product-name` — never committed.
+
+| Number | Value | Kind |
+|---|---|---|
+| Answers stored | 30 of 30 | observed |
+| Banked turns closed | 30 · unreached 0 | observed |
+| Decisions filed | 29 (`record_decision`) | observed |
+| Weak-flagged | 1 (`s6-audit-trail`) | observed |
+| Abandoned (`open_question`) | 0 | observed |
+| Evidence filed | 0 | observed |
+| Flagged `no-evidence` | 29 | observed |
+| Flagged `orphan` | 19 | observed |
+| Denied lines | 17 (12 `Bash`, 5 parent-rung) | observed |
+| Ladder spread | business 10 · stakeholder 3 · solution 15 · transition 1 | observed |
+| SDK turns (model-internal) | 67 | derived |
+| Per-turn latency | min 7.2s · median 10.1s · max 21.9s · Σ 5m 41s | derived |
+| Total cost | **$1.488** over 30 turns | derived |
+| Wall-clock | not meaningful — Finish was pressed the next morning | — |
+
+**The cost estimate held.** Phase A extrapolated $2.80 from a single cold turn; the real figure is
+**$1.49**, about half, because cache reads dominate once the session is warm. The pre-registered
+$1.50–3.00 band was correct at its lower bound. For run 0, **expect roughly $1.50**, not $2.80.
+
+**The projection works, and does more than bucket answers.** 463 lines, 11 sections, all four ladder
+rungs populated. `Hypothesis` folded the `wrong_if` of every business and stakeholder decision into 13
+named falsifiers, then declared its own limit rather than inventing the rest: *"The 'We believe … will
+cause … resulting in' half is the human's to write: the ops carry falsifiers, not a belief
+statement."* `Non-goals` cross-referenced both exclusion questions to the sections that already held
+them instead of re-rendering the text twice.
+
+**Two operator lessons for the real sitting**, both cheap to avoid:
+
+- **Press Finish when you actually finish.** It was not pressed; `endedAt` was null until the session
+  was closed the following morning, which makes the wall-clock figure 967 minutes and worthless. It
+  cannot be reconstructed from file mtimes honestly, so the number is simply lost for this run.
+- **Paste real URLs.** See F6 — prose about evidence files nothing.
+
+**One shape to avoid repeating:** provenance was set to `real` while the content was fictional, so
+`run.json` carries `label: "Real run — real product"` over invented answers. Nothing leaked, because
+`real` keeps it outside the repo. But the package is self-describing and it describes itself wrongly,
+which is why it is named here as a rehearsal in as many words.
 
 ---
 
