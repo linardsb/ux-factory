@@ -47,8 +47,10 @@ package is what it left behind.
   instead; #349's observation run showed the CLI delivers `SubagentStart` on the session's first
   turn only — 0 of 11 resumed turns — so the bracket never held past `t1`.) **Packages recorded
   before #349 carry warmup denials as `denied` lines** — `instrument-loans-1` has four (Bash, on
-  `t4` and `t6`), its 2026-08-31 recording had three and its 42cca5e recording seventy-nine, and
-  `bracket-trace-1` has seven. They stay: a transcript is never edited, and the git history dates
+  `t4` and `t6`), its 2026-08-31 recording had three and its 42cca5e recording seventy-nine,
+  `bracket-trace-1` has seven, and `allergen-matrix-1` has fifteen (Bash ×11, Glob ×3,
+  `ListMcpResourcesTool` ×1) — every one a built-in, not one an op tool, so none is the agent's.
+  They stay: a transcript is never edited, and the git history dates
   them. Read one against its `tool`: an op tool is the agent, a built-in is the CLI.
 - `run.json` states the run's provenance, and **provenance decides the root (R1)**: `fictional` →
   `discovery/<slug>/`, committed here as evidence; `real` → `<JOBS_DIR>/_discovery/<slug>/`, same
@@ -76,6 +78,7 @@ discovery/
   instrument-loans-1/    the PARENTING FIXTURE — a real opening-set run build-checks group 32 reads (#341)
   bracket-trace-1/       #349's OBSERVATION run — the fixture's twelve answers with the fence trace armed; the last package to carry warmup denials
   bracket-trace-2/       #349's VERIFICATION run — the same twelve under the tool-name gate; no built-in denied line, the trace showing the warmup did call tools
+  allergen-matrix-1/     the FULL-DEPTH exhibit — the only committed full-discovery run, 30 of 30 answered (§The full-depth run)
 ```
 
 `ops.mjs` has no imports at all — no SDK, no filesystem, no bank. The context it needs (the parsed
@@ -339,6 +342,30 @@ under an *unchanged* prompt on a later date, or under a newer SDK, is the probe'
 4. Drive the drawer at `http://localhost:4748` with the pre-registered sheet, slug
    `instrument-loans-1`, provenance `fictional`, depth `opening-set`, posture `think`; press Finish.
 5. `node discovery/prd-projection.mjs instrument-loans-1`, then `node tooling/build-checks.mjs`.
+
+## The full-depth run (allergen-matrix-1)
+
+`discovery/allergen-matrix-1/` is the only committed **full-discovery** package: 30 banked
+questions, all 30 answered and closed, recorded through the drawer on 2026-08-31 (`blank-idea`,
+`think`, `claude-sonnet-5`, 39 minutes wall clock, $1.683 over 30 turns — per-turn latency min
+10.5 s, median 15.5 s, max 26.8 s, zero failed turns). Fictional throughout: an allergen-matrix
+product, no real company and no real evidence. It is committed as the depth exhibit — every other
+package is `opening-set` — and its `prd.md` is the projection's own bytes, verified by re-running
+`prd-projection.mjs --stdout` and comparing (byte-identical).
+
+What it shows, and what it does not:
+
+- **30 `record_decision`, no other verb** — business 5 · stakeholder 4 · solution 10 · transition
+  11. `parent_id` is filled on 25 of the 30 and nothing is flagged `orphan`: the requirement
+  hierarchy #341 built does hold at depth.
+- **Every decision is flagged `no-evidence`.** Zero `file_evidence` ops, so all 30 rest on the
+  answer alone. That is #338's F6 standing in the record, not a defect of this run.
+- **Its fifteen `denied` lines are all the CLI's warmup**, and none carries `via`: the run predates
+  both #349's tool-name gate and #287's fence. Under today's rule it would carry zero. See the
+  warmup note above — a transcript is never edited to match a later rule.
+- **Its posture fingerprint is `df6fbc35`, not today's.** The prompt surface moved at #347 after
+  this recording, so the package is dated by its fingerprint. No gate reads it: group 32 names
+  `instrument-loans-1` and nothing else.
 
 ## The fence observation and its verification (#349)
 
