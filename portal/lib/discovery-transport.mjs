@@ -407,7 +407,8 @@ export async function probeParenting() {
     const corrections = lines.filter((l) => l.type === 'denied' && /parent_id/.test(l.error ?? '')).length;
     const text = lines.filter((l) => l.type === 'text').map((l) => l.text);
     // The on-disk transcript, read back before the root is deleted: every denied line's tool. A Bash
-    // or Glob here is the CLI's warmup recorded as the agent's refusal — the defect #343 closed.
+    // or Glob here is the CLI's warmup recorded as the agent's refusal; since #349 the recorder gates
+    // on the tool name, so a built-in here means the gate broke or `tools: []` stopped holding.
     const denied = readTranscript(root).filter((l) => l.type === 'denied').map((l) => l.tool);
     return { verdict, closer, corrections, denied, text, stats, error, fingerprint: POSTURES.think.fingerprint };
   } finally {

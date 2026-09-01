@@ -256,15 +256,18 @@ export function fenceHooks(root, turn, onLine) {
     catch (e) { process.stderr.write(`discovery: hook error (non-fatal): ${e.message}\n`); }
   };
 
-  // THE FENCE TRACE (#349) — OFF unless DISCOVERY_FENCE_TRACE names a file outside the run root. Read
-  // per call, i.e. per turn's query(), so an operator can arm it for one recording without a restart,
-  // and so group 30 can drive it. Every denial lands there with its tool and whether it was recorded:
-  // a recording with zero built-in `denied` lines proves nothing if the warmup happened to be quiet,
-  // and the unrecorded denials here are what show the warmup DID call tools. NEVER through
-  // appendTranscript — transcript.jsonl has three typed line types (discovery/README.md §File shapes)
-  // and the SSE projection's whitelist is asserted by mutation, so a fourth type would be a format
-  // change wearing a debug flag. Swallowed on failure: an observation that can disturb the run it
-  // observes is worse than no observation.
+  // THE FENCE TRACE (#349) — OFF unless DISCOVERY_FENCE_TRACE names a file. Point it OUTSIDE the run
+  // root: a package is committed with a fixed file set, so an armed path inside one puts a fourth file
+  // in it. That is operator discipline, NOT enforced here — a resolve-and-refuse guard would null the
+  // very path group 30's case 22 arms to prove the swallow below, and the case would go on passing
+  // while testing nothing. Read per call, i.e. per turn's query(), so an operator can arm it for one
+  // recording without a restart, and so group 30 can drive it. Every denial lands there with its tool
+  // and whether it was recorded: a recording with zero built-in `denied` lines proves nothing if the
+  // warmup happened to be quiet, and the unrecorded denials here are what show the warmup DID call
+  // tools. NEVER through appendTranscript — transcript.jsonl has three typed line types
+  // (discovery/README.md §File shapes) and the SSE projection's whitelist is asserted by mutation,
+  // so a fourth type would be a format change wearing a debug flag. Swallowed on failure: an
+  // observation that can disturb the run it observes is worse than no observation.
   const traceTo = process.env.DISCOVERY_FENCE_TRACE || null;
   const trace = (event) => {
     if (!traceTo) return;

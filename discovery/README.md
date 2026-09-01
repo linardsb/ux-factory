@@ -359,6 +359,7 @@ import); their headers are the specification.
 node tooling/build-checks.mjs                      # group 29 drives every applier rule, group 30 the session, group 31 the projection, group 32 the parenting fixture — SDK-free
 cd portal && node lib/discovery-transport.mjs --preflight   # the transport's eight rows, zero tokens, before a real run
 cd portal && node lib/discovery-transport.mjs --probe-parenting   # ONE paid turn: does the agent name a parent when the ledger shows one? run after any prompt edit
+cd portal && DISCOVERY_FENCE_TRACE=<path outside every run root> npm start   # arms the fence trace (#349) for the recordings this server serves: every denial with its tool and whether it was recorded. Off by default; the path is operator discipline, nothing enforces it
 node discovery/prd-projection.mjs <slug> [--stdout] [--force]   # the run package → prd.md (#290); group 31 drives the pure half
 # never a file anyone types. Provenance is declared at session start and the root follows it.
 ```
