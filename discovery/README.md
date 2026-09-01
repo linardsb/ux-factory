@@ -245,14 +245,38 @@ about the question, not about this product).
 
 `discovery/instrument-loans-1/` is a real `opening-set` run (#341) over a fictional product — an
 instrument-loan register for a school music department — recorded through the drawer like any other
-package. Its transcript carries three `denied` lines on `t12` (Bash ×2, Glob) that predate #343 — the
-CLI's subagent warmup, not the agent (honesty rules, above); they stay, because a transcript is never
-edited. Its twelve answers were written by the planning agent and pre-registered in
-`.claude/plans/discovery-parent-id-341.md` before the run, so they cannot be tuned to the agent's
-behaviour after the fact; the ticket's report discloses this. It exists because the full-depth
-rehearsal that preceded it filed `parent_id: null` on 18 of 18 eligible decisions while every pure
-gate stayed green: the applier, the projection and the prompt strings were all correct, and no gate
-observed what the agent actually chose against a real ledger.
+package. It was **re-recorded on 2026-09-01** after #338 F6 added `EVIDENCE_RULE` to the Think
+prompt: that moved the fingerprint, group 32 went red by name, and the tripwire did its job. The
+twelve answers are the SAME twelve — they were fixed before the prompt edit and re-supplied through
+the drawer verbatim, so they cannot have been tuned to the new prompt's behaviour. (They are the
+sheet of record; `.claude/plans/discovery-parent-id-341.md` describes the pre-registration but does
+not carry the text, so the answers themselves live only in this package's `answers.jsonl`.)
+
+**Its transcript carries 79 `denied` lines, and they are NOT the agent's.** Every one is the CLI's
+own warmup — `git status`, `pwd`, `ls`, `git log`, and an Explore agent grepping the repo for the
+string "warmup" — and not one is an op-tool refusal. The 2026-08-31 recording carried three; the
+difference is how much the CLI's warmup happened to do that day, not a change in the fence. **This
+is the first real observation of the gap #343 named and could not reach:** `mainSession()` was true
+for all 79, so the bracket was not open when the hook ran. *Why* is not observed and this run cannot
+tell — either `SubagentStart` had not fired before the warmup agent's first tool call, or the bracket
+had already closed on its LAST stop while warmup agents kept calling. The claim that a `denied` line
+means the discovery agent itself was refused is therefore **not true of this package today**;
+`portal/lib/discovery.mjs`'s header owns that invariant and now states the observation. They stay,
+because a transcript is never edited. Read a `denied` line against its `tool`: an op tool is the
+agent, a built-in is the CLI.
+
+**One more thing this package describes wrongly.** All four `file_evidence` ops carry
+`provenance: "real-interview"`, so `prd.md`'s Evidence table reads `real-interview: 4` over a
+fictional product answered from a pre-written sheet. `fictional-scenario` is one of `PROVENANCE`'s
+four values and would have been the true one — but the run's provenance lives in `run.json` and
+reaches neither prompt, so the agent has no way to know which run it is sitting in. Recorded as #338
+F8; not corrected, because an op line is never edited by hand.
+
+It exists because the full-depth rehearsal that preceded it filed `parent_id: null` on 18 of 18
+eligible decisions while every pure gate stayed green: the applier, the projection and the prompt
+strings were all correct, and no gate observed what the agent actually chose against a real ledger.
+The same shape reappeared for evidence — 0 `file_evidence` ops over 30 substantive answers (#338 F6),
+now 4 over these twelve.
 
 **What `build-checks` group 32 asserts over it:** `auditParenting` (in `ops.mjs`) is first proven to
 detect a miss on synthetic records; then the package is read, its op lines are re-folded through the
@@ -271,8 +295,9 @@ Three things the agent also reads sit OUTSIDE the hash and do not move it: the t
 (`TOOL_SCHEMA`, pinned by group 30, so they move only under the op-verb lock), the fence's deny text
 and the SDK's own preset — an edit to one of those is the probe's to re-observe, not the
 fingerprint's to name.
-That is the honest cost of a recording that proves the prompt in the tree (~$0.60 and about four
-minutes per re-record). **The limit:** the gate observes one recorded session. The model's behaviour
+That is the honest cost of a recording that proves the prompt in the tree: the 2026-09-01
+re-record cost **$0.637** over twelve turns and about eight minutes wall-clock, plus **$0.139** for
+the two probe turns that precede it (observed). **The limit:** the gate observes one recorded session. The model's behaviour
 under an *unchanged* prompt on a later date, or under a newer SDK, is the probe's to re-observe.
 
 **Re-record procedure** (after any prompt-surface edit):

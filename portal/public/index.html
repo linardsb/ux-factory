@@ -180,6 +180,8 @@
         <div class="portal-form-actions">
           <button class="btn btn-primary" type="button" id="discovery-open">Start or resume</button>
         </div>
+        <!-- which commit this PROCESS booted from, against the tree's HEAD (#338 F2) -->
+        <p class="muted" id="discovery-portal-build" aria-live="polite"></p>
       </fieldset>
 
       <div id="discovery-session" hidden>
@@ -194,6 +196,8 @@
         <div class="portal-form-actions">
           <button class="btn btn-primary" type="submit" id="discovery-submit">Submit answer</button>
           <button class="btn btn-secondary" type="button" id="discovery-finish">Finish</button>
+          <!-- the PRD without a terminal (#338 F1): the fold runs server-side and writes nothing -->
+          <button class="btn btn-secondary" type="button" id="discovery-prd">Download PRD</button>
           <button class="btn btn-secondary" type="button" id="discovery-cancel">Close</button>
         </div>
         <p class="muted portal-form-status" id="discovery-status" aria-live="polite"></p>

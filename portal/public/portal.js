@@ -706,16 +706,36 @@ async function loadDiscoveryConfig() {
     return;
   }
   const c = discovery.config;
-  $('#discovery-provenance').innerHTML = c.provenances
-    .map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  // NO DEFAULT (#338 F3). The select used to open on `fictional`, which is the COMMITTING one — a
+  // real product's discovery session lands in a public repo, and the only thing preventing it is the
+  // operator noticing a control they never touched. The placeholder carries an empty value, so the
+  // guard in the Start handler and the server's own resolveRunRoot both refuse it; picking is an act.
+  $('#discovery-provenance').innerHTML = [
+    '<option value="" selected>Choose one — it decides where the package lands</option>',
+    ...c.provenances.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`),
+  ].join('');
   $('#discovery-depth').innerHTML = c.depths
     .map((d) => `<option value="${esc(d.id)}">${esc(d.label)} — ${d.count} questions</option>`).join('');
   $('#discovery-posture').innerHTML = c.postures
     .map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(p.model)})</option>`).join('');
   renderDiscoveryNotes();
+  await renderDiscoveryBuild();
   $('#discovery-start-status').textContent = c.hasToken
     ? `Auth: token from portal/.env. ${c.questions.length} questions in the bank.`
     : `Auth: the Claude CLI login on this Mac (no token in portal/.env). ${c.questions.length} questions in the bank.`;
+}
+
+// Which commit the PROCESS booted from, against the tree's HEAD (#338 F2). Run 0's Phase A found a
+// portal serving pre-review code for two days; nothing surfaced it, and the operator had to read `ps`
+// start times against a git log to see it. A stale portal now says so before a session is started.
+async function renderDiscoveryBuild() {
+  const el = $('#discovery-portal-build');
+  let h;
+  try { h = await api('/api/health'); } catch { el.textContent = 'Portal build: unknown — /api/health did not answer.'; return; }
+  if (!h.bootSha) { el.textContent = 'Portal build: unknown — this checkout is not a git repository.'; return; }
+  el.textContent = h.stale
+    ? `⚠ This portal is running code from ${h.bootSha.slice(0, 7)}; the tree is on ${h.headSha.slice(0, 7)}. Node caches modules at import, so restarting it is the only way to pick the tree up — a run recorded now is a run against the older code.`
+    : `Portal build: ${h.bootSha.slice(0, 7)} — the commit this process booted from, and the tree's HEAD.`;
 }
 
 // Provenance decides where the package lands, and it is the privacy boundary rather than a label —
@@ -723,9 +743,14 @@ async function loadDiscoveryConfig() {
 function renderDiscoveryNotes() {
   const c = discovery.config;
   const p = $('#discovery-provenance').value;
+  // THREE branches, not two: with the placeholder selected, a two-branch ternary would fall through
+  // to the `real` note and tell the operator their package is safe outside the repo before they have
+  // chosen anything (#338 F3).
   $('#discovery-provenance-note').textContent = p === 'fictional'
     ? 'Fictional — the package is written to discovery/<slug>/ in this repo and committed as evidence.'
-    : 'Real — the package is written to the jobs folder, outside this repo, and is never committed here.';
+    : p === 'real'
+      ? 'Real — the package is written to the jobs folder, outside this repo, and is never committed here.'
+      : 'Provenance has no default, because the wrong one is not recoverable by git: fictional commits the package into this public repo, real writes it outside. Pick one.';
   const d = c.depths.find((x) => x.id === $('#discovery-depth').value);
   $('#discovery-depth-note').textContent = d ? `${d.count} questions — for ${d.when}.` : '';
 }
@@ -735,6 +760,7 @@ for (const id of ['#discovery-provenance', '#discovery-depth'])
 $('#discovery-open').addEventListener('click', async () => {
   const { slug, provenance, depth, posture } = discoveryEls();
   if (!slug) { $('#discovery-start-status').textContent = 'A run slug is needed — it names the package directory.'; return; }
+  if (!provenance) { $('#discovery-start-status').textContent = 'Pick a provenance before starting — fictional commits the package into this repo, real writes it to the jobs folder outside. There is no default (#338 F3).'; return; }
   $('#discovery-start-status').textContent = 'Opening…';
   try {
     discovery.session = await api('/api/discovery/session', {
@@ -871,6 +897,35 @@ $('#discovery-form').addEventListener('submit', async (e) => {
   }
 });
 
+// The PRD, without a terminal (#338 F1). #290 shipped the fold CLI-only, so the honest description of
+// the chain was "the session is entirely in the UI, and one terminal command afterwards produces the
+// PRD" — which the epic's secondary user, an invited guest with no terminal, cannot complete at all.
+// The route folds and streams; nothing is written into the package, so this control cannot damage a
+// run. Fetched rather than navigated to, so a refusal is readable prose in the drawer instead of a
+// downloaded JSON error.
+$('#discovery-prd').addEventListener('click', async () => {
+  const { slug, provenance } = discoveryEls();
+  if (!slug || !provenance) { $('#discovery-status').textContent = 'A slug and a provenance are needed to find the package.'; return; }
+  $('#discovery-status').textContent = 'Projecting the PRD…';
+  try {
+    const res = await fetch(`/api/discovery/prd?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { msg = (await res.json()).error ?? msg; } catch { /* not JSON — keep the status text */ }
+      throw new Error(msg);
+    }
+    const md = await res.text();
+    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `${slug}-prd.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    $('#discovery-status').textContent = `PRD projected — ${md.split('\n').length} lines. The package on disk is unchanged; this route only reads it.`;
+  } catch (err) {
+    $('#discovery-status').textContent = `Could not project the PRD: ${err.message}`;
+  }
+});
+
 // AC #11 — endedAt lands through a control rather than a direct call, so a real session can be
 // ended the way it was started.
 $('#discovery-finish').addEventListener('click', async () => {
@@ -900,7 +955,8 @@ window.addEventListener('hashchange', route);
 (async () => {
   try {
     const h = await api('/api/health');
-    $('#health').textContent = `${h.cards} cards · chat ${h.hasToken ? 'ready (token)' : 'via CLI login'}`;
+    const build = h.bootSha ? `${h.stale ? '⚠ stale ' : ''}${h.bootSha.slice(0, 7)}` : 'no git';
+    $('#health').textContent = `${h.cards} cards · chat ${h.hasToken ? 'ready (token)' : 'via CLI login'} · ${build}`;
   } catch { $('#health').textContent = 'server error'; }
   await loadCards();
   await route();
