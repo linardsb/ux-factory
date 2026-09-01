@@ -13,11 +13,15 @@
 // module and runs in CI with no portal/node_modules, so an SDK import here takes that job down. The
 // one Node built-in it reaches (node:crypto, for the fingerprint) is not a dependency.
 //
-// The four constants below are exported SEPARATELY rather than written inline in the template,
+// The five constants below are exported SEPARATELY rather than written inline in the template,
 // because spike 2's decision rule has a branch that reads "tighten to an explicit yield contract in
 // the posture prompt and re-run". Keeping each in one exported place makes that tightening a one-line
-// diff the gate notices (group 30 case 16 pins all four as appearing verbatim in the built prompt),
+// diff the gate notices (group 30 case 16 pins all five as appearing verbatim in the built prompt),
 // rather than an edit buried in a template literal where nothing can see it.
+//
+// ORDER INSIDE THE SYSTEM PROMPT IS LOAD-BEARING. PARENT_RULE is LAST because the last instruction is
+// the one a model is most likely to act on, and #341 bought that tail with a paid recording.
+// EVIDENCE_RULE (#338 F6) was therefore inserted BEFORE it, not appended after it.
 //
 // Two things #341 added, and why they are here rather than in the transport: the LEDGER BRIEF —
 // this run's decisions by rung and the parent candidates per rung — goes into the TURN prompt, so a
@@ -50,6 +54,15 @@ transition — how the organisation gets from today to that solution, sitting un
 // line), when null is allowed (only when that line says none), and what to do on a refusal (re-file
 // with a seq from the line). Pinned verbatim by group 30 case 16; a tightening is a one-line diff.
 export const PARENT_RULE = `A business decision has no parent (parent_id null). Every other decision names a parent: the seq of the decision ONE RUNG ABOVE it that it serves — stakeholder under business, solution under stakeholder, transition under solution. parent_id is not "a related decision": a decision at the same rung is a sibling and is refused. The turn prompt lists this run's decisions by rung and the parent candidates for the rung you are filing at — read the parent from that list; do not recall it. Pass null ONLY when that list says the rung above holds nothing yet; it records with an "orphan" flag, which is honest. If a filing is refused naming the rung, re-file once with a seq from that rung's candidate line, or null if the line says none.`;
+
+// The evidence trigger (#338 F6). Over 30 substantive answers the rehearsal filed ZERO file_evidence
+// ops, so every decision it recorded rendered under the projection's "Decisions resting on no
+// evidence" line. The applier was never the obstacle — file_evidence has taken a `ref` naming a
+// stored answer since #281 — and neither was the vocabulary, which the system prompt lists. What was
+// missing is the TRIGGER: nothing told the agent that an answer naming a document is a file_evidence
+// call. Exported and pinned by group 30 case 16 for the reason the header gives — a load-bearing
+// prompt string lives in one place, so a tightening is a one-line diff the gate notices.
+export const EVIDENCE_RULE = `When the answer NAMES something that could be checked — a document, a spreadsheet, a thread, a ticket, a dashboard, a recording, a report, a number someone measured — file it with file_evidence BEFORE your closing op. file_evidence does not close the turn and may be called more than once. Pass url when the answer gives a link; otherwise pass ref naming the stored answer that describes it, and claim_ref null. An answer that names no such thing files no evidence — do not invent one, and do not ask for one.`;
 
 const opVocabulary = () => OPS.map((op) => `- ${op}(${PARAMS[op].join(', ')})`).join('\n');
 
@@ -118,6 +131,8 @@ person's mouth.
 The ladder a decision's "level" names, in order:
 
 ${LADDER_BRIEF}
+
+${EVIDENCE_RULE}
 
 ${PARENT_RULE}
 

@@ -225,7 +225,9 @@ import {
   PROVENANCES, readAnswers, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
-import { buildThinkTurn, FINGERPRINT_INPUTS, fingerprintOf, LADDER_BRIEF, ledgerBrief, MVP6_LINE, PARENT_RULE, POSTURES, TOOL_DESCRIPTIONS, YIELD_CONTRACT } from "../portal/lib/discovery-postures.mjs";
+// #338 F2 — the boot stamp. Pure helper only; BOOT_SHA itself shells out to git and is source-pinned.
+import { isStale } from "../portal/lib/version.mjs";
+import { buildThinkTurn, EVIDENCE_RULE, FINGERPRINT_INPUTS, fingerprintOf, LADDER_BRIEF, ledgerBrief, MVP6_LINE, PARENT_RULE, POSTURES, TOOL_DESCRIPTIONS, YIELD_CONTRACT } from "../portal/lib/discovery-postures.mjs";
 // #290's PRD projection — a zero-portal-dependency module in discovery/ (it imports only ops.mjs,
 // bank.mjs and node:fs/path/url), so this group loads in an environment with no portal/node_modules.
 // writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
@@ -5838,7 +5840,8 @@ function scanSvg(svg, label) {
   ok(built.systemPrompt.includes(MVP6_LINE), "case 16: MVP6_LINE does not appear VERBATIM in the built system prompt");
   ok(built.systemPrompt.includes(LADDER_BRIEF), "case 16: LADDER_BRIEF does not appear VERBATIM in the built system prompt");
   ok(built.systemPrompt.includes(PARENT_RULE), "case 16: PARENT_RULE does not appear VERBATIM in the built system prompt — the #341 tightening would be invisible to this gate");
-  for (const [label, s] of [["YIELD_CONTRACT", YIELD_CONTRACT], ["MVP6_LINE", MVP6_LINE], ["LADDER_BRIEF", LADDER_BRIEF], ["PARENT_RULE", PARENT_RULE]])
+  ok(built.systemPrompt.includes(EVIDENCE_RULE), "case 16: EVIDENCE_RULE does not appear VERBATIM in the built system prompt — the #338 F6 trigger would be invisible to this gate");
+  for (const [label, s] of [["YIELD_CONTRACT", YIELD_CONTRACT], ["MVP6_LINE", MVP6_LINE], ["LADDER_BRIEF", LADDER_BRIEF], ["PARENT_RULE", PARENT_RULE], ["EVIDENCE_RULE", EVIDENCE_RULE]])
     ok(typeof s === "string" && s.trim().length > 40, `case 16: ${label} is empty or a stub`);
   ok(/may not say the answer is wrong/i.test(MVP6_LINE) && /may not supply what is missing/i.test(MVP6_LINE),
     "case 11: MVP6_LINE must state BOTH halves — the agent may not say the answer is wrong AND may not supply what is missing");
@@ -5846,6 +5849,21 @@ function scanSvg(svg, label) {
   // and read it as standing permission (18 of 18 eligible decisions filed null).
   ok(/one rung above/i.test(PARENT_RULE) && /re-file/i.test(PARENT_RULE) && /null only when/i.test(PARENT_RULE),
     "case 16: PARENT_RULE must instruct (one rung above · re-file on refusal · null ONLY when nothing above) — a permission is what the rehearsal ran on");
+  // The #338 F6 trigger. Over 30 substantive answers the rehearsal filed ZERO file_evidence ops with
+  // every pure gate green: the applier accepted `ref` throughout and the vocabulary was listed, so
+  // what was missing was the TRIGGER — nothing said an answer naming a document is a file_evidence
+  // call. Asserted to NAME both routes (url and ref) and to forbid inventing one, so a rewrite that
+  // dropped either half goes red rather than quietly re-opening the finding.
+  ok(/file_evidence/.test(EVIDENCE_RULE) && /\bref\b/.test(EVIDENCE_RULE) && /\burl\b/.test(EVIDENCE_RULE),
+    "case 16: EVIDENCE_RULE must name file_evidence and BOTH of its routes — a rule that names only url leaves a prose citation with nowhere to go");
+  ok(/do not invent/i.test(EVIDENCE_RULE) && /before your closing op/i.test(EVIDENCE_RULE),
+    "case 16: EVIDENCE_RULE must say the evidence op comes BEFORE the closing op and that an absent one is not invented — MVP 6 forbids supplying what is missing");
+  // ORDER IS LOAD-BEARING, and this is the assertion that keeps it. PARENT_RULE is last in the system
+  // prompt because the last instruction is the one a model is most likely to act on, and #341 bought
+  // that tail with a paid recording; a later prompt string APPENDED rather than inserted would take
+  // it away silently, and only a re-record would find out.
+  ok(built.systemPrompt.indexOf(EVIDENCE_RULE) < built.systemPrompt.indexOf(PARENT_RULE),
+    "case 16: EVIDENCE_RULE sits AFTER PARENT_RULE in the system prompt — that displaces the parent rule's recency tail, which #341 paid for");
   ok(built.prompt.includes("a1") && built.prompt.includes("Six weeks, one person.") && built.prompt.includes(q0.weakAnswer) && built.prompt.includes("t1"),
     "case 11: the prompt must carry the answer's ref, the answer text, the question's weak-answer note and the turn");
   ok(!built.systemPrompt.includes("undefined") && !built.prompt.includes("undefined"), "case 11: the built prompt contains \"undefined\"");
@@ -5936,15 +5954,94 @@ function scanSvg(svg, label) {
       "case 19: the fingerprint must be built from the FIXED inputs only — a build over altered inputs differs, and the module's hash does not follow it");
   }
 
+  // 30.20 — THE PROVENANCE HAS NO DEFAULT (#338 F3). The drawer's select used to open on `fictional`,
+  // which is the COMMITTING one: a real product's discovery session written into a public repo, with
+  // nothing but the operator's attention between the two. There are two lines of defence and this case
+  // drives both.
+  //
+  // The SERVER is the one that can be run here, so it goes first: an empty provenance is not in
+  // PROVENANCES, so resolveRunRoot refuses it BY NAME and no browser drift can open a session on a
+  // blank. That refusal is what makes the placeholder safe rather than decorative.
+  //
+  // The BROWSER half is a SOURCE PIN, because portal.js touches the DOM at module scope and cannot
+  // be imported into a Node gate. A source pin is weak, so it carries both controls: the pattern must
+  // match a planted string, and it must NOT match the pre-change shape — otherwise a green here would
+  // mean only that the regex is unfalsifiable.
+  {
+    for (const junk of ["", null, undefined]) {
+      const e = threw(() => resolveRunRoot({ provenance: junk, slug: "x" }));
+      ok(e !== null && e.message.includes("fictional") && e.message.includes("real"),
+        `case 20: resolveRunRoot with provenance ${JSON.stringify(junk)} must refuse naming both provenances, got ${JSON.stringify(e?.message)}`);
+    }
+    const js = readFileSync(join(ROOT, "portal/public/portal.js"), "utf8");
+    const PLACEHOLDER = /<option value=""[^>]*>[^<]*<\/option>/;
+    ok(PLACEHOLDER.test('<option value="" selected>Choose one</option>'), "case 20: placeholder positive control — the pattern must match a planted empty-valued option");
+    ok(!PLACEHOLDER.test('c.provenances.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`)'), "case 20: placeholder NEGATIVE control — the pattern must not match the pre-change shape, or a green here means nothing");
+    ok(PLACEHOLDER.test(js), "case 20: portal.js builds no empty-valued placeholder option — the provenance select would open on a real value again, and the committing one is first in PROVENANCES");
+    // The placeholder must be FIRST in the list it builds, or the select still opens on a value.
+    const listAt = js.indexOf("$('#discovery-provenance').innerHTML");
+    ok(listAt !== -1, "case 20: the provenance select's option list is not where this pin expects — re-pin before trusting it");
+    const list = js.slice(listAt, listAt + 400);
+    ok(list.indexOf('value=""') !== -1 && list.indexOf('value=""') < list.indexOf("c.provenances"), `case 20: the placeholder does not precede the provenances map — the select would still open on ${PROVENANCES[0]}`);
+    // And the Start handler refuses a blank BEFORE it POSTs, so the refusal is prose in the drawer
+    // rather than a 500 from the server's guard.
+    const openAt = js.indexOf("$('#discovery-open').addEventListener");
+    const postAt = js.indexOf("'/api/discovery/session'", openAt);
+    const guardAt = js.indexOf("if (!provenance)", openAt);
+    ok(openAt !== -1 && postAt !== -1, "case 20: the Start handler is not where this pin expects — re-pin before trusting it");
+    ok(guardAt !== -1 && guardAt < postAt, "case 20: the Start handler POSTs without refusing a blank provenance first — the operator would meet the server's throw instead of a sentence naming the consequence");
+    // The note is THREE-way. A two-branch ternary renders the `real` note under the placeholder and
+    // tells the operator their package is safe outside the repo before they have chosen anything.
+    const noteAt = js.indexOf("$('#discovery-provenance-note').textContent");
+    ok(noteAt !== -1, "case 20: the provenance note is not where this pin expects — re-pin before trusting it");
+    const note = js.slice(noteAt, noteAt + 700);
+    ok((note.match(/\?/g) || []).length >= 2 && note.includes("p === 'real'"), "case 20: the provenance note is not three-way — with the placeholder selected a two-branch ternary falls through to the `real` note, which is the opposite of true");
+  }
+
+  // 30.21 — THE BOOT STAMP (#338 F2). Run 0's Phase A found the portal serving code from before two
+  // review rounds, for two days, discoverable only by reading `ps` start times against a git log.
+  // BOOT_SHA must be read at MODULE SCOPE: Node caches modules at import, so an import-time read is
+  // the commit the process actually loaded, while a per-request rev-parse reports the TREE's HEAD and
+  // would call the stale process fresh — the same lie with a version number on it. Source-pinned
+  // because a gate cannot observe another process's import time; isStale is pure and is run.
+  {
+    ok(isStale("aaa", "bbb") === true, "case 21: two different shas must read as stale");
+    for (const [b, h] of [["aaa", "aaa"], [null, "bbb"], ["aaa", null], [null, null]])
+      ok(isStale(b, h) === false, `case 21: isStale(${JSON.stringify(b)}, ${JSON.stringify(h)}) must be false — unknown is not stale, or a checkout with no git raises a false alarm every boot`);
+    const vsrc = readFileSync(join(ROOT, "portal/lib/version.mjs"), "utf8");
+    ok(/^export const BOOT_SHA = sha\(\);$/m.test(vsrc), "case 21: BOOT_SHA is not a module-scope call — read per request it reports the TREE's HEAD, and a stale process reads as fresh");
+    ok(/^export const headSha = sha;$/m.test(vsrc), "case 21: headSha is not the re-reading function — with both shas frozen at import, `stale` can never be true");
+    const ssrc = readFileSync(join(ROOT, "portal/server.mjs"), "utf8");
+    ok(/bootSha: BOOT_SHA/.test(ssrc) && /stale: isStale\(BOOT_SHA, head\)/.test(ssrc), "case 21: /api/health does not carry bootSha and stale — the finding was that nothing surfaced it");
+    // The PRD route (#338 F1) READS. writePrd is the projection's only writer and it must not be
+    // reachable from HTTP: a request that could overwrite a package's prd.md would discard the hand
+    // edits the projection's own refusal exists to protect.
+    ok(/import \{ projectPrd, readPackage \}/.test(ssrc), "case 21: server.mjs does not import the fold's read half");
+    // A REACH, not the word: the route's own comment states the invariant ("writePrd is deliberately
+    // not imported here"), and a substring match would make this case unable to tell the statement
+    // from the thing it forbids — the same trap case 12 and group 28.8 already document.
+    ok(!/^\s*import\b[^\n]*\bwritePrd\b/m.test(ssrc) && !/\bwritePrd\s*\(/.test(ssrc),
+      "case 21: server.mjs imports or calls writePrd — no HTTP request may write into a run package");
+    const prdAt = ssrc.indexOf("'/api/discovery/prd'");
+    ok(prdAt !== -1, "case 21: the PRD route is not where this pin expects — re-pin before trusting it");
+    const prdRoute = ssrc.slice(prdAt, prdAt + 900);
+    ok(prdRoute.includes("resolveRunRoot(") && prdRoute.includes("assertProvenanceRoot("), "case 21: the PRD route skips the provenance guard pair every other discovery route runs — a `real` root must be refused here the same way");
+  }
+
   // 30.12 — the source pin. Mirrors the bank group's zero-import pin. Matched on IMPORT LINES rather
   // than the bare strings, because both modules NAME the SDK in their headers — that prose is the
   // invariant being stated, and a substring match would make this case unable to distinguish it
   // from the thing it forbids.
+  const DOM_REACH = /\b(document|window)\s*[.[]|typeof\s+(document|window)\b/;
   for (const rel of ["portal/lib/discovery.mjs", "portal/lib/discovery-postures.mjs"]) {
     const src = readFileSync(join(ROOT, rel), "utf8");
     ok(!/^\s*import\b[^\n]*claude-agent-sdk/m.test(src), `case 12: ${rel} imports the Agent SDK statically — CI has no portal/node_modules and group 30 would not load at all`);
     ok(!/^\s*import\b[^\n]*['"]zod['"]/m.test(src), `case 12: ${rel} imports zod statically`);
-    ok(!/\bdocument\b|\bwindow\b/.test(src), `case 12: ${rel} references document or window — these are Node-only modules`);
+    // A DOM REACH, not the word — group 28.8's idiom, and for the same reason: EVIDENCE_RULE's
+    // trigger list legitimately says "a document, a spreadsheet, a thread" (#338 F6), and a bare
+    // word match cannot tell that prose from the thing it forbids. Positive control first.
+    ok(DOM_REACH.test("if (typeof document !== 'undefined') window.x = 1"), "case 12: DOM-reach positive control");
+    ok(!DOM_REACH.test(src), `case 12: ${rel} REACHES for document or window — these are Node-only modules`);
     ok(!/^\s*import\b[^\n]*discovery-transport/m.test(src), `case 12: ${rel} imports the transport STATICALLY — it must be reached only by the lazy import inside runTurn, after every guard`);
   }
   ok(/await import\(['"]\.\/discovery-transport\.mjs['"]\)/.test(readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8")),
@@ -6100,7 +6197,7 @@ function scanSvg(svg, label) {
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook in the CLI's firing order over a temp root — a main-session denial recorded once with denyReason's text, three warmup agents bracketed by SubagentStart/SubagentStop with Bash, Glob and a Bash PostToolUseFailure inside DENIED and unrecorded, an op-tool PostToolUseFailure inside the SAME bracket recorded verbatim — that hook is gated by the tool, not the bracket, so a warmup in flight cannot swallow the agent's own refusal (PR #344 F1) — the bracket a SET (two stops of three leave it open), the last stop recording again, an applier refusal verbatim, a main-session non-op PostToolUseFailure unrecorded, every op tool passing, junk bracket events harmless, PostToolUse pinned ABSENT (#343). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether the CLI fires SubagentStart before a warmup agent's first tool call — which gates PreToolUse's record only, an op-tool refusal being kept regardless (derived from cli.js, where the start hook is awaited before the sub-loop; observable only on a paid probe whose warmup Explore agent actually calls a tool — 4 of 24 did on the fixture's sidechains, and the #343 probe's three made none), and whether a fence DENY actually blocks an MCP call — the predicate and the hook are gated here, the wiring is #287's`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook in the CLI's firing order over a temp root — a main-session denial recorded once with denyReason's text, three warmup agents bracketed by SubagentStart/SubagentStop with Bash, Glob and a Bash PostToolUseFailure inside DENIED and unrecorded, an op-tool PostToolUseFailure inside the SAME bracket recorded verbatim — that hook is gated by the tool, not the bracket, so a warmup in flight cannot swallow the agent's own refusal (PR #344 F1) — the bracket a SET (two stops of three leave it open), the last stop recording again, an applier refusal verbatim, a main-session non-op PostToolUseFailure unrecorded, every op tool passing, junk bracket events harmless, PostToolUse pinned ABSENT (#343) · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether the CLI fires SubagentStart before a warmup agent's first tool call — which gates PreToolUse's record only, an op-tool refusal being kept regardless (derived from cli.js, where the start hook is awaited before the sub-loop; NOW OBSERVED, and the answer is that the bracket does not hold: the 2026-09-01 re-recording of the group-32 fixture drew 79 denied lines, every one a built-in and none an op-tool refusal, so mainSession() was true throughout — whether that is SubagentStart firing late or the bracket closing early on a LAST stop is what the run still cannot distinguish, and is #338 F7), and whether a fence DENY actually blocks an MCP call — the predicate and the hook are gated here, the wiring is #287's; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------

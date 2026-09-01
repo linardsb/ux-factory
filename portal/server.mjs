@@ -15,6 +15,11 @@ import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from '.
 // import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
 import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent } from './lib/discovery.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
+// The PRD fold (#290). Pure — no clock, no network, no SDK — and it WRITES NOTHING here: the route
+// below calls projectPrd over readPackage and streams the bytes, never writePrd. See #338 F1.
+import { projectPrd, readPackage } from '../discovery/prd-projection.mjs';
+// Which commit this process booted from, against where the tree is now (#338 F2).
+import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -60,7 +65,16 @@ const server = createServer(async (req, res) => {
       return json(res, 403, { error: `cross-origin request refused — the portal answers ${allowedOrigins(PORT).join(' and ')} only` });
 
     // --- API ---
-    if (p === '/api/health') return json(res, 200, { ok: true, hasToken: HAS_TOKEN, jobsDir: JOBS_DIR, cards: listCards().length });
+    // bootSha is read at IMPORT and headSha on every call, so `stale` answers the question run 0's
+    // Phase A had to answer with `ps` and a git log: is this process running the code in the tree?
+    // (#338 F2 — a portal served pre-review code for two days and nothing surfaced it.)
+    if (p === '/api/health') {
+      const head = headSha();
+      return json(res, 200, {
+        ok: true, hasToken: HAS_TOKEN, jobsDir: JOBS_DIR, cards: listCards().length,
+        bootSha: BOOT_SHA, headSha: head, stale: isStale(BOOT_SHA, head),
+      });
+    }
     if (p === '/api/cards' && req.method === 'GET') return json(res, 200, listCards());
     const cardMatch = p.match(/^\/api\/cards\/([a-z0-9-]+)$/);
     if (cardMatch && req.method === 'GET') {
@@ -173,6 +187,26 @@ const server = createServer(async (req, res) => {
       assertProvenanceRoot(b.provenance, root);
       return json(res, 200, closeSession(root));
     }
+    // The PRD, in the UI (#338 F1). #290 shipped the fold CLI-only, so an operator who never opens a
+    // terminal — the epic's secondary user, an invited guest — could run the whole session and never
+    // get the artifact it exists to produce. READ-ONLY BY CONSTRUCTION: projectPrd over readPackage
+    // returns a string, and writePrd is deliberately not imported here, so no request can write into
+    // a run package. The same resolveRunRoot + assertProvenanceRoot pair every other discovery route
+    // runs guards it, so a `real` root is refused the same way and is never written to either.
+    // Content-disposition carries the slug, which assertRunSlug has already restricted to
+    // [a-z0-9-]{1,48} — there is no route to a header injection through it.
+    if (p === '/api/discovery/prd' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug');
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug });
+      assertProvenanceRoot(provenance, root);
+      const md = projectPrd(readPackage(root));
+      res.writeHead(200, {
+        'content-type': 'text/markdown; charset=utf-8',
+        'content-disposition': `attachment; filename="${slug}-prd.md"`,
+      });
+      return res.end(md);
+    }
     if (p === '/api/discovery/turn' && req.method === 'POST') {
       const body = await readBody(req);
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -235,4 +269,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`ux-factory portal → http://localhost:${PORT}`);
   console.log(`kb: ${JOBS_DIR}`);
   console.log(`chat auth: ${HAS_TOKEN ? 'token from .env' : 'no token — falling back to the CLI login on this Mac'}`);
+  console.log(`booted from: ${BOOT_SHA ? BOOT_SHA.slice(0, 7) : 'unknown (not a git checkout)'}`);
 });
