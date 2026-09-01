@@ -84,7 +84,7 @@ exchange is `record_decision` with `off_script: true` or `open_question` with `s
 | `record_decision` | `question_id` (nullable) · `answer_ref` · `level` · `parent_id` · `evidence_refs[]` · `wrong_if` · `off_script` | when `off_script: false` |
 | `flag_weak_answer` | `question_id` · `answer_ref` · `missing[]` | yes |
 | `open_question` | `source` (`banked` / `off-script`) · `question_id` (nullable) · `answer_ref` · `reason` | when `source: banked` |
-| `file_evidence` | `url` **or** `ref` · `provenance` · `claim_ref` | never |
+| `file_evidence` | `url` **or** `ref` · `name` (nullable — a label for an artefact with an identity of its own, only beside a `ref`; #347) · `provenance` · `claim_ref` | never |
 
 `level` is the BABOK ladder in order — `business` · `stakeholder` · `solution` · `transition`
 (`docs/research/requirements-hierarchy.md`). `provenance` is one of `real-interview` ·
@@ -115,7 +115,8 @@ definition and is never orphaned; a non-null parent on one is refused.
   the required rung, or says there are none yet and to pass null (#341); an `evidence_refs` entry
   that is not an earlier `file_evidence`; a `claim_ref` that is not an earlier decision;
 - an empty `wrong_if`, `reason` or `missing[]`; `url` and `ref` both set or both null; a `url`
-  that is not `http(s)://`.
+  that is not `http(s)://`; a `name` beside a `url`, or an empty or non-string `name` (#347 — a URL is
+  its own identity, and a nameless name is no filing).
 
 **R2 — one closing op per banked-question turn, keyed on the turn.** The server hands the applier
 its turn id (`ctx.turn`). A closing op requires one and refuses if an earlier record already closed
@@ -265,18 +266,21 @@ means the discovery agent itself was refused is therefore **not true of this pac
 because a transcript is never edited. Read a `denied` line against its `tool`: an op tool is the
 agent, a built-in is the CLI.
 
-**One more thing this package describes wrongly.** All four `file_evidence` ops carry
-`provenance: "real-interview"`, so `prd.md`'s Evidence table reads `real-interview: 4` over a
-fictional product answered from a pre-written sheet. `fictional-scenario` is one of `PROVENANCE`'s
-four values and would have been the true one — but the run's provenance lives in `run.json` and
-reaches neither prompt, so the agent has no way to know which run it is sitting in. Recorded as #338
-F8; not corrected, because an op line is never edited by hand.
+**#338 F8, closed by #347 on this recording.** The 08:23 recording's four `file_evidence` ops carried
+`provenance: "real-interview"` on a fictional run — `fictional-scenario` was the true label, but the
+run's provenance lived in `run.json` and reached neither prompt, so the agent had no way to know which
+run it was sitting in. The system prompt now carries `PROVENANCE_RULE[provenance]`
+(`portal/lib/discovery-postures.mjs`, read off `run.json` by the transport), and this recording's
+three evidence rows all read `fictional-scenario`, each with a `name` for the artefact the answer
+named (#347's other half: before it, "the paper loan book" had no row of its own, only a pointer at
+the sentence that mentioned it). The earlier package is in the git history; nothing in it was edited.
 
 It exists because the full-depth rehearsal that preceded it filed `parent_id: null` on 18 of 18
 eligible decisions while every pure gate stayed green: the applier, the projection and the prompt
 strings were all correct, and no gate observed what the agent actually chose against a real ledger.
 The same shape reappeared for evidence — 0 `file_evidence` ops over 30 substantive answers (#338 F6),
-now 4 over these twelve.
+then 4 over these twelve on the 08:23 recording (all mislabelled `real-interview`), now 3 on this one,
+each named and labelled `fictional-scenario` (#347).
 
 **What `build-checks` group 32 asserts over it:** `auditParenting` (in `ops.mjs`) is first proven to
 detect a miss on synthetic records; then the package is read, its op lines are re-folded through the
@@ -297,7 +301,8 @@ and the SDK's own preset — an edit to one of those is the probe's to re-observ
 fingerprint's to name.
 That is the honest cost of a recording that proves the prompt in the tree: the 2026-09-01
 re-record cost **$0.637** over twelve turns and about eight minutes wall-clock, plus **$0.139** for
-the two probe turns that precede it (observed). **The limit:** the gate observes one recorded session. The model's behaviour
+the two probe turns that precede it; the #347 re-record the same day cost **$0.424** over twelve
+turns and about four minutes, plus **$0.139** for its two probes (observed). **The limit:** the gate observes one recorded session. The model's behaviour
 under an *unchanged* prompt on a later date, or under a newer SDK, is the probe's to re-observe.
 
 **Re-record procedure** (after any prompt-surface edit):

@@ -134,7 +134,8 @@ export function buildOpServer({ root, turn, state, onLine }) {
 export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, onLine }) {
   // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
   // brief and the applier read one ledger.
-  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops });
+  // The run's provenance goes INTO the system prompt (#347): read off run.json's head, never guessed.
+  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance });
   const server = buildOpServer({ root, turn, state, onLine });
 
   const q = query({
@@ -286,7 +287,7 @@ export async function preflightTransport() {
   row('PF2', pf2.length === 0, pf2.length ? pf2.join(' · ') : 'every required array and every enum matches the grammar by name, order and member');
 
   // PF3 — question_id: null reaches the handler as JSON null, not the string.
-  const evidence = await call('file_evidence', { url: 'https://example.test/source', ref: null, provenance: 'assumption', claim_ref: null });
+  const evidence = await call('file_evidence', { url: 'https://example.test/source', ref: null, name: null, provenance: 'assumption', claim_ref: null });
   const filedEvidence = state.current.ops.find((o) => o.op === 'file_evidence');
   row('PF3', filedEvidence?.params.ref === null && filedEvidence?.params.claim_ref === null && !evidence?.isError,
     `null params arrived as ${JSON.stringify(filedEvidence?.params.ref)} / ${JSON.stringify(filedEvidence?.params.claim_ref)}`);
@@ -330,7 +331,7 @@ export async function preflightTransport() {
   const server2 = buildOpServer({ root, turn: 't2', state: state2, onLine: () => { listenerCalls += 1; throw new Error('pre-flight: the listener threw on purpose'); } });
   const handlers2 = server2.instance?.server?._requestHandlers;
   let throwingListener = { threw: 'handlers unreachable' };
-  try { throwingListener = await handlers2.get('tools/call')({ method: 'tools/call', params: { name: 'file_evidence', arguments: { url: 'https://example.test/second', ref: null, provenance: 'assumption', claim_ref: null } } }, extra); }
+  try { throwingListener = await handlers2.get('tools/call')({ method: 'tools/call', params: { name: 'file_evidence', arguments: { url: 'https://example.test/second', ref: null, name: null, provenance: 'assumption', claim_ref: null } } }, extra); }
   catch (e) { throwingListener = { threw: e.message }; }
   const t2Lines = transcript().filter((l) => l.type === 'op' && l.turn === 't2');
   row('PF8', !throwingListener?.isError && !throwingListener?.threw && state2.current.ops.length === 1 && t2Lines.length === 1 && listenerCalls === 1,
@@ -391,7 +392,7 @@ export async function probeParenting() {
     let error = null;
     try {
       ({ stats } = await runDiscoveryTurn({
-        root, head: { sessionId: null }, question: questionById('s4-appetite'), answer: { ref: 'a4', text: appetite },
+        root, head: { sessionId: null, provenance: 'fictional' }, question: questionById('s4-appetite'), answer: { ref: 'a4', text: appetite },
         turn: 't4', posture: POSTURES.think, state, onLine: (l) => lines.push(l),
       }));
     } catch (e) { error = e.message; }

@@ -143,7 +143,7 @@ already states, that a guard reachable only by starting a real agent run is a gu
   | `record_decision` | `question_id` (nullable) · `answer_ref` · `level` (business / stakeholder / solution / transition) · `parent_id` · `evidence_refs` · `wrong_if` · `off_script` | when `off_script: false` |
   | `flag_weak_answer` | `question_id` · `answer_ref` · `missing[]` | yes |
   | `open_question` | `source` (banked / off-script) · `question_id` (nullable) · `answer_ref` · `reason` | when `source: banked` |
-  | `file_evidence` | `url` or `ref` · `provenance` (real-interview / secondary-source / assumption / fictional-scenario) · `claim_ref` | no |
+  | `file_evidence` | `url` or `ref` · `name` (nullable; a label for an artefact with an identity of its own, only beside a `ref` — #347) · `provenance` (real-interview / secondary-source / assumption / fictional-scenario) · `claim_ref` | no |
 
   MVP 8's parked question and MVP 9's off-script filing are **not** their own ops: parking is
   `open_question` with `source: banked`, and an off-script exchange is either `record_decision` with
