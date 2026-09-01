@@ -321,10 +321,16 @@ function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
   // in it. That is operator discipline, NOT enforced here — a resolve-and-refuse guard would null the
   // very path group 30's case 22 arms to prove the swallow below, and the case would go on passing
   // while testing nothing. Read per call, i.e. per turn's query(), so an operator can arm it for one
-  // recording without a restart, and so group 30 can drive it. Every denial lands there with its tool,
-  // its site (the event name) and whether it was recorded: a recording with zero built-in `denied`
-  // lines proves nothing if the warmup happened to be quiet, and the unrecorded denials here are what
-  // show the warmup DID call tools. NEVER through appendTranscript — transcript.jsonl has three typed
+  // recording without a restart, and so group 30 can drive it. Every DECISION on a tool that is not one
+  // of this run's op tools lands there — ALLOW as well as deny (#287) — with its tool, its site (the
+  // event name) and whether it wrote a transcript line: a recording with zero built-in `denied` lines
+  // proves nothing if the warmup happened to be quiet, and these lines are what show the warmup DID
+  // call tools. Denials alone stopped being enough when the read fence started admitting an in-root
+  // Read/Grep/Glob: bracket-trace-1's committed trace holds three warmup Globs on the cwd, and under a
+  // deny-only trace those three — the very class #287 opened — would leave no line at all. The agent's
+  // OWN op calls are deliberately not traced: those are transcript.jsonl's job, and tracing them would
+  // bury the warmup in the noise of a normal run. `recorded` says a `denied` line was written, so it is
+  // false on every allow. NEVER through appendTranscript — transcript.jsonl has three typed
   // line types (discovery/README.md §File shapes) and the SSE projection's whitelist is asserted by
   // mutation, so a fourth type would be a format change wearing a debug flag. Swallowed on failure: an
   // observation that can disturb the run it observes is worse than no observation.
@@ -335,17 +341,21 @@ function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
     catch { /* see above: a broken instrument must not break the recording */ }
   };
 
-  const decide = (tool, input) => {
-    try { return fenceDecision(allowSet, tool, input); }
-    catch (e) { return { allow: false, reason: `the fence could not evaluate ${String(tool)} (${e.message}) — denied, fail closed` }; }
-  };
   const isRecorded = (tool) => isMcpToolName(tool) || (Array.isArray(mainTools) && mainTools.includes(tool));
-  // One denial, one site: traced whenever armed, recorded when it is the agent's. Returns the reason
-  // so each site hands the SDK the same text it wrote.
+  // ONE decision, one site, traced whenever armed. The trace hangs here rather than on the refusal so
+  // that an ALLOWED built-in is observed too (see above); an op tool is the agent's own vocabulary and
+  // is never traced, allow or deny.
+  const decide = (site, tool, input) => {
+    let d;
+    try { d = fenceDecision(allowSet, tool, input); }
+    catch (e) { d = { allow: false, reason: `the fence could not evaluate ${String(tool)} (${e.message}) — denied, fail closed` }; }
+    if (!allowsToolName(tool)) trace({ event: `${site}.${d.allow ? 'allow' : 'deny'}`, tool: tool ?? null, recorded: d.allow ? false : isRecorded(tool) });
+    return d;
+  };
+  // The denial's transcript line, written when the denial is the agent's. Returns the reason so each
+  // site hands the SDK the same text it wrote.
   const deny = (site, tool, input, reason) => {
-    const recorded = isRecorded(tool);
-    trace({ event: `${site}.deny`, tool: tool ?? null, recorded });
-    if (recorded) record(deniedLine({ turn, tool, input: input ?? null, error: reason, via: site }));
+    if (isRecorded(tool)) record(deniedLine({ turn, tool, input: input ?? null, error: reason, via: site }));
     return reason;
   };
   return { record, decide, deny };
@@ -358,7 +368,7 @@ function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
 export function fenceCanUseTool(root, turn, onLine, opts = {}) {
   const site = fenceSite({ root, turn, onLine, ...opts });
   return async (tool, input) => {
-    const d = site.decide(tool, input);
+    const d = site.decide('canUseTool', tool, input);
     if (d.allow) return { behavior: 'allow', updatedInput: input };
     return { behavior: 'deny', message: site.deny('canUseTool', tool, input, d.reason) };
   };
@@ -405,7 +415,7 @@ export function fenceHooks(root, turn, onLine, opts = {}) {
     // permission flow, canUseTool included, still runs behind it.
     PreToolUse: [{ hooks: [async (input) => {
       const tool = input?.tool_name;
-      const d = site.decide(tool, input?.tool_input);
+      const d = site.decide('PreToolUse', tool, input?.tool_input);
       if (d.allow) return { continue: true };
       const reason = site.deny('PreToolUse', tool, input?.tool_input, d.reason);
       return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } };

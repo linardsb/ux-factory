@@ -124,3 +124,59 @@ the hash), so nothing moved and no fixture is stale.
 The worktree needed `portal/node_modules` and `tooling/style-dictionary/node_modules`; both are
 symlinked to the main worktree's and excluded via `.git/info/exclude` (a symlink is not matched by
 `.gitignore`'s `node_modules/`).
+
+## Review round 1 (PR #354) — resolution
+
+`.claude/code-reviews/pr-354-review.md`, two Medium and one Low. All three addressed here; nothing
+deferred.
+
+**F1 — the fence trace went blind for the calls it exists to prove happened. Fixed, and neither of
+the two resolutions the review offered.** The review left the call between (a) documenting the
+narrowed instrument and (b) tracing both branches, leaning (a) on the grounds that tracing every
+allowed call is noisy during a real run. A third reading settles it and beats both: **trace the
+DECISION, but only for a tool that is not one of this run's own op tools.** Under `tools: []` the
+agent's calls are all `mcp__` op tools, so this traces exactly the CLI warmup — the instrument's
+stated purpose — and adds no noise at all. `trace()` moved from `deny()` into `decide()`, gated on
+`!allowsToolName(tool)`; `deny()` now only writes the transcript line. `recorded` stays the same
+field with the same five keys, false on every allow.
+
+What makes (a) untenable is a fact neither the review nor the plan had: **`bracket-trace-1`'s
+committed trace holds three warmup `Glob`s on the cwd** (`Bash` ×7, `Glob` ×3). Those are exactly the
+class this fence now admits, so under a deny-only trace that recording would have gone from ten
+traced denials to seven, silently. The blindness is not hypothetical — it already has an observed
+instance in this repo's own evidence.
+
+Gated in group 30 case 22: a second armed drive under a real allow-set, asserting two
+`PreToolUse.allow` lines (an in-root `Read`, a path-less `Glob`) and one `PreToolUse.deny` (`Bash`),
+the op call traced not at all, the transcript left empty. **Mutation (observed):** `trace()` restored
+to deny-only → `build ✗ 2 failure(s)`, both naming case 22, the trace holding only the `Bash` line.
+Restored → `build ✓ all 32 groups pass`. Nothing above that point in case 22 could reach the allow
+branch — the earlier drives carry no allow-set, which is why the gap was untested rather than
+merely unwritten.
+
+**F2 — the cwd ↔ allow-set coupling now has a tripwire. Fixed, tighter than the review's line.** The
+review's suggested pin was `/cwd:\s*root\b/.test(transportSrc)` over the whole file. That check
+cannot fail: `--probe-fence` carries a second `cwd: root` at line 493, so pointing the real turn's
+query at `REPO_DIR` left it green (observed). The pin is scoped to the run query's own options block,
+with `resume: head.sessionId` as the positive control that the block matched is the resume-per-turn
+one. **Mutation (observed):** line 157 → `cwd: REPO_DIR` → `build ✗ 1 failure(s)` naming the cwd
+rule; restored → green.
+
+**F3 — `reads` named as the trust boundary.** `discovery/README.md` §run.json now says it plainly:
+an absolute path anywhere is accepted, so `reads` is as wide as whoever opens the session makes it,
+and the fence bounds the **agent** — which cannot influence the field — never the operator. No code
+change; the review's own analysis was that the behaviour is correct as built.
+
+**Prose carried with the change.** The `fenceSite` header's trace rationale, group 30's description
+string (it claimed "no allowed call"), the README §The read fence, and the `DISCOVERY_FENCE_TRACE`
+command comment. The README also states that a trace's line count is comparable only across
+recordings under the same rule — the sixteen denials quoted for `bracket-trace-2` were counted under
+a deny-only trace and before the path fence.
+
+**The committed probe artifacts are unchanged and stay dated.** `probe-fence.trace.jsonl`'s three
+`Read` denials were recorded under the old rule; a re-run would now carry allow lines beside them.
+The probe was not re-run — it is paid, and the fix is to the instrument, not to the fence it observed.
+
+**Gates re-run after the fixes (observed):** `node tooling/build-checks.mjs` → `build ✓ all 32 groups
+pass` · `node tooling/drift-check.mjs` → twelve checks · `cd portal && node
+lib/discovery-transport.mjs --preflight` → 8 rows, zero tokens.

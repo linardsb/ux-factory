@@ -200,7 +200,10 @@ refusal). Packages recorded before #287 carry no `via`; they are never edited.
   read beyond its own package and `discovery/bank.mjs`. Run 2 names its frozen fixture here; run 1
   names nothing. The allow-set is rebuilt from this field on every turn, so a resumed session after a
   server restart runs under the same fence it was opened with. Refused by name at session start if
-  it is not an array of non-empty strings.
+  it is not an array of non-empty strings. It is the **trust boundary**, not a sandboxed field: an
+  absolute path anywhere is accepted, so `reads` is as wide as whoever opens the session makes it.
+  The fence bounds the **agent**, never the operator — the agent cannot influence `reads` (it is set
+  once at `openSession`, never mutated, and no op verb touches it).
 - `endedAt` is `null` while the session is open or resumable.
 - `turnStats` holds one entry per agent turn — `numTurns`, `durationMs`, `costUsd`, the token counts,
   `ok`. It is there because the 30-question read is a latency and turn-count read, not a price: the
@@ -383,6 +386,14 @@ the path allow-list never touches them; whether they are open is MVP 7's afforda
 `build-checks` group 30 asserts the path fence cannot close it. Every denial is a `denied` line
 with `via` naming the site.
 
+The fence trace (#349, `DISCOVERY_FENCE_TRACE`) records the **decision**, not only the refusal: an
+allowed in-root `Read` / `Grep` / `Glob` leaves no other evidence it ran, and the warmup's path calls
+are real — `bracket-trace-1`'s trace holds three warmup `Glob`s on the cwd, which this fence now
+admits. The agent's own op calls are not traced; those are `transcript.jsonl`'s. So a trace's line
+count is comparable only across recordings under the same rule: the sixteen denials quoted above
+were counted under a deny-only trace and before the path fence, and a fresh recording will carry
+`PreToolUse.allow` lines they do not have.
+
 Real runs advertise no built-in tool (`tools: []`), so today the only reads that reach the fence
 are the CLI's warmup; the fence is wired now so that the run-2 ticket's widening to `['Read']` is
 one array edit with the gate and the probe already in place. The transport rebuilds the allow-set
@@ -425,7 +436,7 @@ node tooling/build-checks.mjs                      # group 29 drives every appli
 cd portal && node lib/discovery-transport.mjs --preflight   # the transport's eight rows, zero tokens, before a real run
 cd portal && node lib/discovery-transport.mjs --probe-parenting   # ONE paid turn: does the agent name a parent when the ledger shows one? run after any prompt edit
 cd portal && node lib/discovery-transport.mjs --probe-fence   # THREE paid turns: the read fence holding at each call site ALONE (#287); run after any edit to the fence or the transport's wiring
-cd portal && DISCOVERY_FENCE_TRACE=<path outside every run root> npm start   # arms the fence trace (#349) for the recordings this server serves: every denial with its tool and whether it was recorded. Off by default; the path is operator discipline, nothing enforces it
+cd portal && DISCOVERY_FENCE_TRACE=<path outside every run root> npm start   # arms the fence trace (#349) for the recordings this server serves: every decision on a tool outside the run's op vocabulary — allow as well as deny — with its tool and whether it wrote a transcript line. Off by default; the path is operator discipline, nothing enforces it
 node discovery/prd-projection.mjs <slug> [--stdout] [--force]   # the run package → prd.md (#290); group 31 drives the pure half
 # never a file anyone types. Provenance is declared at session start and the root follows it.
 ```
