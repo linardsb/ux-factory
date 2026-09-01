@@ -73,7 +73,7 @@ No shipped page changes and `portal/` is never deployed: no visual-regression ru
 
 ## Cost (for the owner, so nothing surprises)
 
-- Observed: the sonnet parenting fixture cost $1.488 over 30 turns = $0.0496/turn.
+- Observed on the real run `<JOBS_DIR>/_discovery/my-product-name/run.json` (full-discovery, think, claude-sonnet-5; real provenance, never committed): $1.488 summed over its `costUsd` fields, 30 distinct turns = $0.0496/turn. The tracked fixture `discovery/instrument-loans-1/` (12 turns) sums to $0.637 = $0.053/turn, consistent. (Corrected in review round 1: the plan first credited this figure to the parenting fixture, which is the 12-turn run.)
 - Derived: 65 sonnet turns ≈ $3.20.
 - Expected: Opus 5 is 2.5× sonnet 5 per token ($5/$25 vs $2/$10 per Mtok) → 65 opus turns ≈ $8,
   more once adaptive thinking's output tokens land. Not observed; no run in this PR.

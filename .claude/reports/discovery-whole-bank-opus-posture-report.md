@@ -1,6 +1,6 @@
 # Implementation Report — a whole-bank discovery depth and a Think-on-Opus posture
 
-**Plan**: `.claude/plans/discovery-whole-bank-opus-posture.md`   **Branch**: `feat/discovery-full-bank-opus-posture` (off `origin/main` at `9c48054`)   **Status**: COMPLETE, no run recorded (by design)
+**Plan**: `.claude/plans/discovery-whole-bank-opus-posture.md`   **Branch**: `feat/discovery-full-bank-opus-posture` (off `origin/main` at `9c48054`; `origin/main` `234e776` (#345) merged in at `4fcbbaf`)   **Status**: COMPLETE, no run recorded (by design)
 **Epic**: #279 · no ticket · **Fixture**: `discovery/instrument-loans-1/` — read by group 32, never edited
 
 *Observed* means read from the named command's output on 2026-09-01, on this machine, Node v20.20.2,
@@ -12,9 +12,11 @@ SDK 0.1.77. *Derived* shows the arithmetic or the source line. *Expected* is an 
 (`Object.freeze(QUESTIONS.map((q) => q.id))`) — 65 in source order, which is stage order. The literal
 65-id list lives in `tooling/build-checks.mjs` group 28 as `WHOLE_BANK`, beside `TWELVE`, `SCOPE_CHECK`
 and `FULL_DISCOVERY`. `portal/lib/discovery-postures.mjs` gains a second posture, `think-opus`, on
-`claude-opus-5` over the SAME `buildThinkTurn` as `think`; `THINK_MODEL` stays `claude-sonnet-5` and
-`POSTURES.think.fingerprint` is unchanged at `df6fbc35…` (observed in group 32's line). The drawer needed
-no change: it renders `discoveryConfig().depths` and `.postures` from the modules.
+`claude-opus-5` over the SAME `buildThinkTurn` as `think`; `THINK_MODEL` stays `claude-sonnet-5`, so this PR
+does not move `POSTURES.think.fingerprint`. On the merged tree (`4fcbbaf`, after #345 inserted `EVIDENCE_RULE`)
+it is `fba70f00…`, equal to the re-recorded fixture's 12 stamps (observed in group 32's line; it was
+`df6fbc35…` before the merge). The drawer needed no change: it renders `discoveryConfig().depths` and
+`.postures` from the modules.
 
 ## What changed
 
@@ -47,8 +49,10 @@ No other deviation. Nothing under `discovery/<slug>/` was read for writing or ed
 
 ## Validation (observed)
 
+- Base moved during review: `origin/main` `234e776` (#345) merged in at `4fcbbaf`; every gate below was re-run
+  on that merged tree (the pre-merge runs on `51359c1` were also green).
 - `node tooling/build-checks.mjs` — `build ✓  all 32 groups pass`; group 32's line reads
-  `every one stamped with the CURRENT prompt-surface fingerprint df6fbc35` (unchanged).
+  `every one stamped with the CURRENT prompt-surface fingerprint fba70f00` — #345's stamp, not moved by this PR.
 - `node tooling/drift-check.mjs` — ✓ (`syntax · token-css · … · replay`); no generated file changed
   (`git status` shows only the four edited files). `loc-summary` counts `system/`, root/`proto/` pages
   and `agent-layer/` only, so `discovery/` and `portal/` edits cannot move it (derived from
@@ -72,7 +76,7 @@ No other deviation. Nothing under `discovery/<slug>/` was read for writing or ed
 
 ## Cost of a whole-bank run (not run here)
 
-- Observed (prior fixture): $1.488 over 30 sonnet turns = $0.0496/turn.
+- Observed on the real run `<JOBS_DIR>/_discovery/my-product-name/run.json` (full-discovery, think, claude-sonnet-5; real provenance, never committed): $1.488 summed over its `costUsd` fields, 30 distinct turns = $0.0496/turn. The tracked fixture `discovery/instrument-loans-1/` (12 turns) sums to $0.637 = $0.053/turn, consistent.
 - Derived: 65 sonnet turns ≈ $3.20.
 - Expected: Opus 5 is 2.5× sonnet 5 per token ($5/$25 vs $2/$10 per Mtok) → 65 opus turns ≈ $8, more
   once adaptive thinking's output tokens land. A comparison is two runs, so ≈ $11 expected in total.
@@ -80,8 +84,9 @@ No other deviation. Nothing under `discovery/<slug>/` was read for writing or ed
 ## Open
 
 - A whole-bank run on either posture is the owner's paid decision. When one is recorded, `run.json`
-  carries `"model": "claude-opus-5"` and every turn's `postureFingerprint` is `593035e6…` (observed from
-  the module) for think-opus, so the two postures' packages are distinguishable by name.
+  carries `"model": "claude-opus-5"` and every turn's `postureFingerprint` is think-opus's (`cda7390b…` on
+  `4fcbbaf`, observed from the module; it follows the prompt surface, so it moves with every prompt edit),
+  so the two postures' packages are distinguishable by name.
 - `docs/epics/discovery-partner.architecture.md` says Think runs `claude-sonnet-5` and a heavier model
   gains nothing across thirty turns; `think` stays there. `think-opus` is the measurement that claim has
   not had. Not a contradiction; flagged so the doc can cite the comparison once it exists.
