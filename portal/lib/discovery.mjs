@@ -222,8 +222,20 @@ export const denyReason = (name) => `${name} is not one of this run's op tools (
 // only SubagentStop names an agent_transcript_path. So the hook cannot tell a sidechain call apart from
 // its input; the bracket does. SubagentStart adds the agent_id to a set, SubagentStop removes it, and a
 // PreToolUse denial is RECORDED only while the set is empty — DENIED either way, the fence stays closed.
-// A `denied` line therefore means the discovery agent itself was refused; the CLI's warmup agents leave
-// no line. A set, not a boolean: the three warmup agents (Explore, Plan, Bash) start together and the
+// A `denied` line was therefore INTENDED to mean the discovery agent itself was refused, with the CLI's
+// warmup agents leaving no line.
+//
+// THAT IS NOT WHAT HAPPENS TODAY, and this header states it because the header is the specification.
+// The 2026-09-01 re-recording of discovery/instrument-loans-1 (#338) drew 79 `denied` lines and NOT ONE
+// is an op-tool refusal: Bash 53, Glob 9, Grep 7, ListMcpResourcesTool 6, ReadMcpResourceTool 3, Read 1,
+// running `git status`, `pwd`, `git log` and — an Explore agent grepping the repo for the string
+// "warmup". The bracket was not open when mainSession() ran, and the run cannot say why: either
+// SubagentStart had not fired before the warmup agent's first tool call, or the bracket had already
+// closed on a LAST stop while warmup agents kept calling tools. The two produce identical evidence.
+// Until that is settled (#343's, not this file's — do not "fix" fenceHooks from this comment), read a
+// `denied` line against its `tool`: an op tool is the agent, a built-in is the CLI.
+//
+// A set, not a boolean: the three warmup agents (Explore, Plan, Bash) start together and the
 // bracket closes on the LAST stop. The state is per call, i.e. per turn's query(), so a SubagentStop
 // that never fires suppresses PreToolUse's recording only for the rest of that turn — and under
 // `tools: []` the main session's PreToolUse has nothing to suppress. PostToolUseFailure is gated by the
