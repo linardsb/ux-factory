@@ -349,9 +349,10 @@ under an *unchanged* prompt on a later date, or under a newer SDK, is the probe'
 questions, all 30 answered and closed, recorded through the drawer on 2026-08-31 (`blank-idea`,
 `think`, `claude-sonnet-5`, 39 minutes wall clock, $1.683 over 30 turns — per-turn latency min
 10.5 s, median 15.5 s, max 26.8 s, zero failed turns). Fictional throughout: an allergen-matrix
-product, no real company and no real evidence. It is committed as the depth exhibit — every other
-package is `opening-set` — and its `prd.md` is the projection's own bytes, verified by re-running
-`prd-projection.mjs --stdout` and comparing (byte-identical).
+product, no real company and no real evidence. It is committed as the depth exhibit: no other
+committed package reaches this depth (three are `opening-set`, `spine-meridian-1` is `scope-check`).
+Its `prd.md` is the projection's own bytes, verified by re-running `prd-projection.mjs --stdout` and
+comparing (byte-identical).
 
 What it shows, and what it does not:
 
@@ -360,6 +361,10 @@ What it shows, and what it does not:
   hierarchy #341 built does hold at depth.
 - **Every decision is flagged `no-evidence`.** Zero `file_evidence` ops, so all 30 rest on the
   answer alone. That is #338's F6 standing in the record, not a defect of this run.
+- **It is NOT the rehearsal §The parenting fixture describes.** That one is also full depth, also 30
+  answers and also zero `file_evidence`, which makes the two easy to conflate — but it ran BEFORE
+  #341, filed `parent_id: null` on 18 of 18 eligible decisions, and lives under `JOBS_DIR` as
+  `my-product-name`, never committed. This run is the day after, with parenting working.
 - **Its fifteen `denied` lines are all the CLI's warmup**, and none carries `via`: the run predates
   both #349's tool-name gate and #287's fence. Under today's rule it would carry zero. See the
   warmup note above — a transcript is never edited to match a later rule.
