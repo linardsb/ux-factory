@@ -128,6 +128,7 @@ paid check, so no second probe was run. Group 30's summary and the plan's R1 say
   produces cannot fail for the right reason.
 - D4 The bracket also gates `PostToolUseFailure`, not only PreToolUse: same rule, one place, so a
   subagent's own tool failure never lands as the agent's refusal either. Case 20 asserts it.
+  **Reversed in review round 1** (F1, below): that hook is now gated by the tool name, not the bracket.
 - D5 `probeParenting` gained a `denied` field and one print line so the paid check is observable from
   its output rather than from a deleted temp root. Nothing else in the probe changed.
 - D6 The transport's `fenceHooks` stderr prefix changed from `discovery-transport:` to `discovery:` with
@@ -135,17 +136,49 @@ paid check, so no second probe was run. Group 30's summary and the plan's R1 say
 
 ## What the gate cannot reach
 
-Whether the CLI fires SubagentStart before a warmup agent's first tool call (derived, above); whether a
+Whether the CLI fires SubagentStart before a warmup agent's first tool call (derived, above — and since
+round 1 it bounds PreToolUse's record only; an op-tool refusal is kept regardless); whether a
 fence deny blocks an MCP call (#287's); the model's behaviour under an unchanged prompt on a later date or
 a newer SDK (the transport header's standing caveat — a later SDK adding `agent_id` to PreToolUse inputs
 would leave the bracket working). A `SubagentStop` that never fires suppresses recording only for the rest
-of that turn's `query()`; under `tools: []` the main session has nothing to suppress.
+of that turn's `query()`; under `tools: []` the main session's PreToolUse has nothing to suppress, and its
+`PostToolUseFailure` — the applier refusals — is no longer under the bracket at all.
 
 ## Not touched
 
 `portal/lib/discovery-postures.mjs`; every `transcript.jsonl`, `answers.jsonl`, `run.json`;
 `discovery/allergen-matrix-1/` (another session's untracked run) and the rest of the tree's untracked
 files. Staged by explicit path.
+
+## Review round 1 (PR #344, `.claude/code-reviews/pr-344-review.md`)
+
+Two findings, both fixed in this PR; neither touches the prompt surface, so the fingerprint
+`df6fbc35…` and the fixture stand.
+
+- **F1** (medium) — `PostToolUseFailure` was gated by the bracket (D4), so an applier refusal landing
+  while a warmup agent was still in flight (the fixture's warmup sidechains were still open ~7 s after
+  CLI start) was dropped silently. It is now gated by the tool: `allowsToolName(input.tool_name)`
+  records, the bracket is not consulted. A discovery-agent refusal is always on an op tool and a warmup
+  failure never is; and `cli.js` fires the event from the tool's execution catch only (one call site,
+  `MG7`), never for a PreToolUse deny, so a non-op failure records nothing in either session. Case 20
+  gained both assertions — an op-tool refusal inside the bracket recorded verbatim, a main-session Bash
+  failure unrecorded — and the first was proven red under the old gate before the fix:
+
+  ```
+  $ node tooling/build-checks.mjs          # PostToolUseFailure gated by mainSession(), case 20 as now
+  build discovery      ✗  4 failure(s)
+      · case 20: an applier refusal landing INSIDE a warmup bracket must still be recorded — PostToolUseFailure is gated by the tool, not the bracket (disk 1, heard 1)
+      · case 20: with one warmup agent still in flight a denial must still record nothing (disk 1)
+      · case 20: after the last SubagentStop a denial must be recorded again (disk 2, heard 2)
+      · case 20: a main-session applier refusal must be recorded VERBATIM on PostToolUseFailure
+  build ✗  4 failure(s)
+  ```
+  (observed 2026-09-01; the last three are the count cascade behind the first.)
+
+  D4 is thereby reversed for this hook; the SubagentStart-before-first-PreToolUse residual now bounds
+  PreToolUse's record only.
+- **F2** (low) — `discovery-postures.mjs`'s fingerprint docblock named `denyReason` as the transport's;
+  it moved to `discovery.mjs` in this PR. One word, outside the hash.
 
 ## Next step
 

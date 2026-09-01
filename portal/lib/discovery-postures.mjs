@@ -176,8 +176,8 @@ Judge it, then file your one op against question_id "${question.id}" and answer_
 // it). It is the PROMPT SURFACE, not everything the agent reads: the tool input schemas (TOOL_SCHEMA
 // in discovery.mjs — pinned by group 30 to PARAMS/LEVELS/SOURCES/PROVENANCE, so they move only under
 // the op-verb lock; and discovery.mjs imports this module, so hashing them here would be a cycle
-// with TOOL_SCHEMA in TDZ when POSTURES computes), the fence's deny text (denyReason, the
-// transport's) and the SDK's own preset sit OUTSIDE it — an edit to one of those does not make the
+// with TOOL_SCHEMA in TDZ when POSTURES computes), the fence's deny text (denyReason,
+// discovery.mjs's) and the SDK's own preset sit OUTSIDE it — an edit to one of those does not make the
 // fixture stale by name. Group 32 compares the committed fixture's per-turn fingerprint to this one:
 // a prompt edit makes the recording stale BY NAME rather than leaving a green gate over a run the
 // current prompt never produced. Exported frozen so group 30 case 19 can prove the hash is computed

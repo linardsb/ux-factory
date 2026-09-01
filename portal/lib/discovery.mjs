@@ -221,12 +221,13 @@ export const denyReason = (name) => `${name} is not one of this run's op tools (
 // are the MAIN session's for a subagent's call too — cli.js builds them from the global session id, and
 // only SubagentStop names an agent_transcript_path. So the hook cannot tell a sidechain call apart from
 // its input; the bracket does. SubagentStart adds the agent_id to a set, SubagentStop removes it, and a
-// denial is RECORDED only while the set is empty — DENIED either way, the fence stays closed. A `denied`
-// line therefore means the discovery agent itself was refused; the CLI's warmup agents leave no line.
-// A set, not a boolean: the three warmup agents (Explore, Plan, Bash) start together and the bracket
-// closes on the LAST stop. The state is per call, i.e. per turn's query(), so a SubagentStop that never
-// fires suppresses recording only for the rest of that turn — and under `tools: []` the main session
-// has nothing to suppress.
+// PreToolUse denial is RECORDED only while the set is empty — DENIED either way, the fence stays closed.
+// A `denied` line therefore means the discovery agent itself was refused; the CLI's warmup agents leave
+// no line. A set, not a boolean: the three warmup agents (Explore, Plan, Bash) start together and the
+// bracket closes on the LAST stop. The state is per call, i.e. per turn's query(), so a SubagentStop
+// that never fires suppresses PreToolUse's recording only for the rest of that turn — and under
+// `tools: []` the main session's PreToolUse has nothing to suppress. PostToolUseFailure is gated by the
+// TOOL, not the bracket (below), so the bracket's timing can never cost the agent's own refusal.
 export function fenceHooks(root, turn, onLine) {
   const record = (line) => {
     try { const written = appendTranscript(root, line); onLine?.(written); }
@@ -249,10 +250,15 @@ export function fenceHooks(root, turn, onLine) {
     }] }],
     // The ONLY record point for a refusal, handler or schema-layer (the transport's observation 3).
     // PostToolUse is deliberately NOT registered — the filed line is written by the handler, which
-    // holds the seq.
+    // holds the seq. Gated by the TOOL, not the bracket (PR #344 review F1): the discovery agent's
+    // refusal is always on an op tool and a warmup agent's failure never is, so an applier refusal
+    // that lands while a warmup bracket is still open is kept, and this hook does not lean on the
+    // SubagentStart-before-first-PreToolUse ordering. A non-op failure records nothing in either
+    // session: cli.js fires this event from the tool's execution catch only, never for a PreToolUse
+    // deny, so a non-op tool that reached execution was never the main session's.
     PostToolUseFailure: [{ hooks: [async (input) => {
       const error = String(input.error ?? JSON.stringify(input.tool_response ?? null));
-      if (mainSession()) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error }));
+      if (allowsToolName(input.tool_name)) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error }));
       return { continue: true };
     }] }],
   };
