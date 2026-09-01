@@ -723,12 +723,19 @@ export const OPENING_SET = Object.freeze([
   "s8-eval",
 ]);
 
-// The three depths. Scope check is Stage 4's three scoping questions plus Stage 7's measurement
+// The four depths. Scope check is Stage 4's three scoping questions plus Stage 7's measurement
 // (HEART's goals → signals → metrics) and two kill criteria. Full discovery is the twelve, then
 // eighteen more in stage order following the source's own rule — questions cheap to ask cold go
 // early, questions needing a specific proposal to bite go late; Stage 9's Jobs and Chesky entries
 // are exercises rather than interview questions and stay out. #283 re-tunes this list when the
 // branches land and owns keeping it at about thirty.
+//
+// Whole bank is every entry in source order (which IS stage order), DERIVED from QUESTIONS rather
+// than retyped: the depth is the bank, so a literal here would be a second copy that drifts. The
+// literal 65-id list is pinned in tooling/build-checks.mjs group 28 (WHOLE_BANK) instead, beside the
+// other three depths, and the depth menu itself is pinned there by name. It re-admits the Stage 9
+// exercises full discovery leaves out, so its label says what it is — a stress test of the bank and
+// a way to compare two postures on one answer set — and never an interview.
 export const DEPTHS = Object.freeze({
   "scope-check": Object.freeze({
     label: "Scope check",
@@ -771,6 +778,11 @@ export const DEPTHS = Object.freeze({
       "s8-failure-who-pays",
       "s9-strength-of-evidence",
     ]),
+  }),
+  "whole-bank": Object.freeze({
+    label: "Whole bank (stress test)",
+    when: "comparing two postures on one answer set; a stress test of the bank, not an interview",
+    ids: Object.freeze(QUESTIONS.map((q) => q.id)),
   }),
 });
 

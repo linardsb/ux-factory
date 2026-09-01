@@ -5186,6 +5186,30 @@ function scanSvg(svg, label) {
     "s6-audit-trail", "s6-coexist-with-incumbent", "s7-kill-state-and-date",
     "s7-goes-up-doing-nothing", "s8-failure-who-pays", "s9-strength-of-evidence",
   ];
+  // The whole bank as a LITERAL, in source order — bank.mjs derives its whole-bank depth from
+  // QUESTIONS, so this is the one place the 65 ids are written out, and an entry added, dropped or
+  // reordered has to move this list in the same PR.
+  const WHOLE_BANK = [
+    "s1-choice-cascade", "s1-what-would-have-to-be-true", "s1-premortem", "s1-how-addressed-today",
+    "s1-why-who-how-what", "s1-if-nobody-solves-this",
+    "s2-more-than-one-way", "s2-why-do-you-want-it", "s2-riskiest-assumption", "s2-last-time-show-me",
+    "s2-switch-timeline", "s2-four-forces", "s2-kano-pair",
+    "s3-why-now", "s3-user-need-map", "s3-where-is-the-inertia", "s3-beachhead",
+    "s3-deliberately-not-doing", "s3-what-winning-earns",
+    "s4-appetite", "s4-breadboard-elements", "s4-rabbit-holes", "s4-out-of-bounds",
+    "s4-circuit-breaker", "s4-press-release", "s4-four-risks",
+    "s5-value-metric", "s5-willingness-to-pay", "s5-monetisation-failure", "s5-pain-budget-same-person",
+    "s5-net-revenue-retention", "s5-gross-margin", "s5-pricing-model-story", "s5-free-tier-cost",
+    "s6-process-as-it-runs", "s6-accountable-when-wrong", "s6-permission-model", "s6-audit-trail",
+    "s6-where-data-lives", "s6-coexist-with-incumbent", "s6-edge-cases-or-refusals", "s6-integration-surface",
+    "s7-goals-signals-metrics", "s7-north-star", "s7-counter-metric", "s7-kill-state-and-date",
+    "s7-what-would-make-us-stop", "s7-abandonment", "s7-goes-up-doing-nothing",
+    "s8-eval", "s8-validate-the-validators", "s8-system-or-model", "s8-failure-who-pays",
+    "s8-human-in-the-loop", "s8-reversibility-blast-radius", "s8-cost-per-successful-action",
+    "s8-latency-budget", "s8-product-or-feature", "s8-data-flywheel", "s8-trust-budget",
+    "s8-source-opening-rate",
+    "s9-customer-experience-backwards", "s9-eleven-star", "s9-strength-of-evidence", "s9-very-disappointed",
+  ];
   const ids = (qs) => qs.map((q) => q.id);
 
   // 1 · the count — 65 entries, 69 source bullets less two mottos, one cross-reference and one
@@ -5234,6 +5258,19 @@ function scanSvg(svg, label) {
   ok(JSON.stringify(ids(selectDepth("full-discovery"))) === JSON.stringify(FULL_DISCOVERY),
     `full-discovery drifted: ${JSON.stringify(ids(selectDepth("full-discovery")))}`);
   ok(JSON.stringify(DEPTHS["full-discovery"].ids.slice(0, 12)) === JSON.stringify(TWELVE), "full discovery must start with the twelve");
+  // The whole bank: the literal above, equal to the bank in SOURCE order (which is stage order) —
+  // the module derives the depth from QUESTIONS, so this is the copy that can disagree. Its label
+  // must say stress test, never interview: it re-admits the Stage 9 exercises full discovery leaves out.
+  ok(WHOLE_BANK.length === 65 && new Set(WHOLE_BANK).size === 65, "WHOLE_BANK must be 65 unique ids");
+  ok(JSON.stringify(ids(selectDepth("whole-bank"))) === JSON.stringify(WHOLE_BANK),
+    `whole-bank drifted from the documented 65: ${JSON.stringify(ids(selectDepth("whole-bank")))}`);
+  ok(JSON.stringify(ids(BANK)) === JSON.stringify(WHOLE_BANK), "whole-bank must be the bank in source order — the literal here and QUESTIONS disagree");
+  ok(/stress test/i.test(DEPTHS["whole-bank"].label) && !/interview/i.test(DEPTHS["whole-bank"].label),
+    `whole-bank's label must read as a stress test, not an interview: ${JSON.stringify(DEPTHS["whole-bank"].label)}`);
+  // The MENU pinned by name: the four depths above are each pinned to a literal, and a fifth with
+  // no literal would otherwise pass the generic loops below silently.
+  ok(JSON.stringify(Object.keys(DEPTHS)) === JSON.stringify(["scope-check", "opening-set", "full-discovery", "whole-bank"]),
+    `the depth menu is ${JSON.stringify(Object.keys(DEPTHS))} — a depth was added, dropped or reordered without a literal pin here`);
   for (const [k, d] of Object.entries(DEPTHS)) {
     ok(filled(d.label) && filled(d.when), `depth ${k} needs a label and a when`);
     ok(d.ids.every((id) => questionById(id) !== null), `depth ${k} references an id the bank does not hold`);
@@ -5301,7 +5338,7 @@ function scanSvg(svg, label) {
   ok(!region.includes("a note nobody wrote"), "source-pin positive control: the region must be able to miss");
   for (const q of BANK) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
 
-  group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — all review facts against that source file");
+  group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, the whole bank as the 65 in source order (the literal lives here, the module derives it) with its label pinned to stress test and the four-entry menu pinned by name, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — all review facts against that source file");
 }
 
 // --- 29 · the discovery applier -------------------------------------------------------------------
@@ -5784,6 +5821,19 @@ function scanSvg(svg, label) {
   // notices, rather than an edit buried in a template literal.
   ok(POSTURES.think && POSTURES.think.model === "claude-sonnet-5", `case 11: the Think posture's model is ${JSON.stringify(POSTURES.think?.model)}`);
   ok(POSTURES.think.id === "think" && typeof POSTURES.think.build === "function", "case 11: the Think posture must carry its id and its builder");
+  // Think on Opus: the SAME prompt under claude-opus-5, so the two can be compared on one answer set.
+  // The model string is the whole difference — no per-posture SDK option exists, and the key set is
+  // pinned so one cannot appear without moving this gate: fingerprintOf hashes model + prompt surface +
+  // tool descriptions and nothing else, so an option added beside `model` would never move a fixture's
+  // stamp (the gap discovery-postures.mjs's header names).
+  ok(POSTURES["think-opus"] && POSTURES["think-opus"].model === "claude-opus-5", `case 11: the Think-on-Opus posture's model is ${JSON.stringify(POSTURES["think-opus"]?.model)}`);
+  ok(POSTURES["think-opus"].id === "think-opus" && POSTURES["think-opus"].build === POSTURES.think.build, "case 11: think-opus must build with the SAME buildThinkTurn as think — a different prompt would make the comparison a reading of two prompts");
+  ok(POSTURES["think-opus"].fingerprint !== POSTURES.think.fingerprint && fingerprintOf(POSTURES["think-opus"]) === POSTURES["think-opus"].fingerprint, "case 11: think-opus's fingerprint must differ from think's (the model is hashed) and reproduce from the posture");
+  for (const [k, p] of Object.entries(POSTURES)) {
+    ok(p.id === k && same(Object.keys(p).sort(), ["build", "fingerprint", "id", "label", "model"]),
+      `case 11: posture ${k} carries keys ${Object.keys(p).sort().join(",")} — a per-posture option sits OUTSIDE fingerprintOf's hash, so widen the hash (and this pin) or do not add it`);
+    ok(!("maxThinkingTokens" in p) && !("thinking" in p), `case 11: posture ${k} carries a thinking budget — budget_tokens is removed on claude-opus-5 and the SDK's maxThinkingTokens is that shape`);
+  }
   const q0 = questionById(depthIds[0]);
   const built = buildThinkTurn({ question: q0, answer: { ref: "a1", text: "Six weeks, one person." }, turn: "t1", ledger: [] });
   ok(built.systemPrompt.includes(YIELD_CONTRACT), "case 16: YIELD_CONTRACT does not appear VERBATIM in the built system prompt — a tightening would then be invisible to this gate");
