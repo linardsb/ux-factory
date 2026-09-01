@@ -477,3 +477,18 @@ never committed here (R1).
 The one finding that would justify amending this document rather than the order is Run 0 showing the
 bank asks the wrong questions or the op grammar cannot express something the product needed. That would
 be recorded here, dated, as a further amendment.
+
+**2026-09-01 — the op grammar could not express two things `file_evidence` needed; amended under the
+op-verb lock (#347). Intent unchanged.** The trigger the entry above reserved fired on #338's
+full-depth rehearsal and its F6 re-record. (1) An artefact with an identity of its own — "the Q3
+dispensing spreadsheet" — had no row of its own: `file_evidence` took `url` or `ref`, and `ref` names a
+stored answer, so a named artefact was only a pointer at the sentence that mentioned it. It now takes
+`name`, a label the agent gives, accepted only beside a `ref`; MVP 6's invariant holds — no parameter
+carries answer text. (2) The run's provenance is a session-start choice in `run.json` and reached
+neither prompt, so the re-recorded parenting fixture filed four `real-interview` rows on a fictional
+run — the strongest honest label an agent that cannot see which run it is in can give. The system prompt
+now carries the run's provenance (`PROVENANCE_RULE`), and the fixture re-recorded under it files
+`fictional-scenario`. Decided against for now: an applier refusal of `real-interview` on a fictional
+run — it changes the ctx contract for every applier caller, and the prompt was observed sufficient on
+the re-record; it is the fallback if a later run shows otherwise. The MVP list, the metrics and the
+non-goals stand as written.

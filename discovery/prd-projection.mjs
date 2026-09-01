@@ -293,6 +293,12 @@ export function checkOpLines(lines) {
       throw new Error(`prd-projection: op line ${i} (open_question) carries source ${shown(params.source)}, which is not one of ${SOURCES.join(" · ")}`);
     if (line.op === "file_evidence" && !PROVENANCE.includes(params.provenance))
       throw new Error(`prd-projection: op line ${i} (file_evidence) carries provenance ${shown(params.provenance)}, which is not one of ${PROVENANCE.join(" · ")}`);
+    // `name` (#347): null or a non-empty string, and only beside a ref — the applier's rule, re-checked
+    // here so a corrupted line cannot render "undefined (answer a6)" or a named URL.
+    if (line.op === "file_evidence" && !(params.name === null || (typeof params.name === "string" && params.name.trim().length > 0)))
+      throw new Error(`prd-projection: op line ${i} (file_evidence) carries name ${shown(params.name)} — it is null or a non-empty string`);
+    if (line.op === "file_evidence" && params.name !== null && params.url !== null)
+      throw new Error(`prd-projection: op line ${i} (file_evidence) carries a name beside a url — a name rides on a ref, a URL is its own identity`);
   });
 
   // The cross-references, in a SECOND pass: a ref names an earlier seq, so the seq → verb map has to
@@ -454,7 +460,7 @@ function renderDecision(rec, { answers, bySeq }) {
   const refs = p.evidence_refs.map((s) => {
     const e = bySeq.get(s);
     if (!e) return `seq ${s} — not in this ledger`;
-    const src = e.params.url !== null ? fold(e.params.url) : `answer ${fold(e.params.ref)}`;
+    const src = evidenceSource(e.params, fold);
     return `seq ${s} — ${e.params.provenance} — ${src}`;
   });
   let ev = refs.length ? `*Evidence:* ${refs.join(" · ")}` : "*Evidence:* none";
@@ -482,13 +488,18 @@ const rungSection = (level, state) => {
   return rows.map((d) => renderDecision(d, state)).join("\n\n");
 };
 
+// One rendering of an evidence row's source for both surfaces (#347): a URL is itself; a named
+// artefact is its name with the answer that named it in brackets; a bare ref is the answer. `f` is the
+// caller's escape — renderDecision folds, the table cell()s.
+const evidenceSource = (p, f) => (p.url !== null ? f(p.url) : p.name !== null ? `${f(p.name)} (answer ${f(p.ref)})` : `answer ${f(p.ref)}`);
+
 function renderEvidence(state) {
   const { evidence, decisions, supersededBy } = state;
   const parts = [];
   if (!evidence.length) parts.push(SECTIONS.find((r) => r.id === "evidence").empty);
   else {
     const rows = evidence.map((e) => {
-      const src = e.params.url !== null ? `[${e.params.url}](${e.params.url})` : `answer ${e.params.ref}`;
+      const src = e.params.url !== null ? `[${e.params.url}](${e.params.url})` : evidenceSource(e.params, (s) => s);
       const backs = e.params.claim_ref === null ? "—" : `seq ${e.params.claim_ref}`;
       return `| ${e.seq} | ${cell(src)} | ${cell(e.params.provenance)} | ${cell(backs)} |`;
     });

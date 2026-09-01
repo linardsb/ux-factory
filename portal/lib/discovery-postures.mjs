@@ -13,15 +13,23 @@
 // module and runs in CI with no portal/node_modules, so an SDK import here takes that job down. The
 // one Node built-in it reaches (node:crypto, for the fingerprint) is not a dependency.
 //
-// The five constants below are exported SEPARATELY rather than written inline in the template,
+// The six constants below are exported SEPARATELY rather than written inline in the template,
 // because spike 2's decision rule has a branch that reads "tighten to an explicit yield contract in
 // the posture prompt and re-run". Keeping each in one exported place makes that tightening a one-line
-// diff the gate notices (group 30 case 16 pins all five as appearing verbatim in the built prompt),
+// diff the gate notices (group 30 case 16 pins all six as appearing verbatim in the built prompt),
 // rather than an edit buried in a template literal where nothing can see it.
 //
 // ORDER INSIDE THE SYSTEM PROMPT IS LOAD-BEARING. PARENT_RULE is LAST because the last instruction is
 // the one a model is most likely to act on, and #341 bought that tail with a paid recording.
-// EVIDENCE_RULE (#338 F6) was therefore inserted BEFORE it, not appended after it.
+// EVIDENCE_RULE (#338 F6) was therefore inserted BEFORE it, not appended after it, and PROVENANCE_RULE
+// (#347) before EVIDENCE_RULE, which it qualifies.
+//
+// THE RUN'S PROVENANCE IS IN THE SYSTEM PROMPT (#347, the #338 F8 half). It is a session-start choice
+// written to run.json, and until #347 it reached neither prompt — so the re-recorded fixture filed all
+// four of its evidence rows as "real-interview" on a fictional run, the strongest honest label an agent
+// that cannot see which run it is in can give. It goes in the SYSTEM prompt because both are per
+// session: the prompt stays byte-stable across the session and its cache holds. It is a build INPUT,
+// so FINGERPRINT_INPUTS carries one and the hash covers the rule's text.
 //
 // Two things #341 added, and why they are here rather than in the transport: the LEDGER BRIEF —
 // this run's decisions by rung and the parent candidates per rung — goes into the TURN prompt, so a
@@ -62,7 +70,16 @@ export const PARENT_RULE = `A business decision has no parent (parent_id null). 
 // missing is the TRIGGER: nothing told the agent that an answer naming a document is a file_evidence
 // call. Exported and pinned by group 30 case 16 for the reason the header gives — a load-bearing
 // prompt string lives in one place, so a tightening is a one-line diff the gate notices.
-export const EVIDENCE_RULE = `When the answer NAMES something that could be checked — a document, a spreadsheet, a thread, a ticket, a dashboard, a recording, a report, a number someone measured — file it with file_evidence BEFORE your closing op. file_evidence does not close the turn and may be called more than once. Pass url when the answer gives a link; otherwise pass ref naming the stored answer that describes it, and claim_ref null. An answer that names no such thing files no evidence — do not invent one, and do not ask for one.`;
+export const EVIDENCE_RULE = `When the answer NAMES something that could be checked — a document, a spreadsheet, a thread, a ticket, a dashboard, a recording, a report, a number someone measured — file it with file_evidence BEFORE your closing op. file_evidence does not close the turn and may be called more than once. Pass url when the answer gives a link; otherwise pass ref naming the stored answer that describes it. When the thing has an identity of its own — a named spreadsheet, a particular thread, a report someone could fetch — pass name with a short label for it, beside the ref and never with a url; otherwise pass name null. Pass claim_ref null. An answer that names no such thing files no evidence — do not invent one, and do not ask for one.`;
+
+// Which kind of run the agent is sitting in (#347). Keyed by the run's provenance as run.json records
+// it — the two roots of discovery/README.md R1 — and rendered into the system prompt by that key.
+// Each value says what the four evidence labels mean IN THIS RUN, because the label the agent picks
+// for "the person told me this" depends on it and nothing else in the prompt says which it is.
+export const PROVENANCE_RULE = Object.freeze({
+  fictional: `This run's provenance is FICTIONAL: the product and every answer in this session are a fictional scenario, and the package says so. Evidence the person gives you from the session — a document, a thread, a number they measured — is filed with provenance "fictional-scenario", never "real-interview". A link to a real published source is "secondary-source"; something the person believes but has not checked is "assumption".`,
+  real: `This run's provenance is REAL: the product is real and the person answering is its owner. Evidence the person gives you from the session — a document, a thread, a number they measured — is filed with provenance "real-interview". A link to a published source is "secondary-source"; something the person believes but has not checked is "assumption"; "fictional-scenario" is never true in this run.`,
+});
 
 const opVocabulary = () => OPS.map((op) => `- ${op}(${PARAMS[op].join(', ')})`).join('\n');
 
@@ -100,10 +117,10 @@ export const TOOL_DESCRIPTIONS = Object.freeze({
   record_decision: 'File one decision the person has made, BY REFERENCE. answer_ref names a stored answer and the tool resolves it — there is no parameter for answer text. Closes the turn when off_script is false. parent_id is the seq of the decision one rung above, taken from the turn prompt\'s "Parent candidates" line; null only when that line says none.',
   flag_weak_answer: 'Record that an answer lacks the form the question asks for. "missing" names what the form lacks, never what the right answer would be. answer_ref names a stored answer; there is no parameter for answer text. Closes the turn.',
   open_question: 'Record that the question is not answerable yet. answer_ref names the stored answer that says so; there is no parameter for answer text. Closes the turn when source is "banked".',
-  file_evidence: 'File a piece of evidence — exactly one of url or ref (ref names a stored answer). Never closes the turn, and may be called more than once.',
+  file_evidence: 'File a piece of evidence — exactly one of url or ref (ref names a stored answer). name is a short label for an artefact with an identity of its own, passed beside a ref and never with a url; null otherwise. Never closes the turn, and may be called more than once.',
 });
 
-const SYSTEM = `You are the discovery partner inside a local workbench. You are handed ONE banked
+const systemFor = (provenance) => `You are the discovery partner inside a local workbench. You are handed ONE banked
 question, ONE person's answer to it, and that question's own weak-answer note. Your job is to judge
 whether the answer has the FORM the question asks for, and to record what you heard.
 
@@ -132,6 +149,8 @@ The ladder a decision's "level" names, in order:
 
 ${LADDER_BRIEF}
 
+${PROVENANCE_RULE[provenance]}
+
 ${EVIDENCE_RULE}
 
 ${PARENT_RULE}
@@ -153,8 +172,9 @@ function need(value, what) {
 // system prompt: the system prompt stays byte-stable across the session so its cache holds, and the
 // ledger changes every turn. A caller that forgets it must fail loudly rather than quietly regress to
 // the rehearsal's behaviour, where parenting was a recollection (#341).
-export function buildThinkTurn({ question, answer, turn, ledger }) {
+export function buildThinkTurn({ question, answer, turn, ledger, provenance }) {
   if (!question || typeof question !== 'object') throw new Error('discovery-postures: a question entry is required');
+  if (!Object.hasOwn(PROVENANCE_RULE, provenance)) throw new Error(`discovery-postures: provenance must be one of ${Object.keys(PROVENANCE_RULE).join(' · ')} (got ${JSON.stringify(provenance)}) — the run's provenance is a prompt input, so the agent knows which evidence label is true here (#347)`);
   if (!answer || typeof answer !== 'object') throw new Error('discovery-postures: an answer record is required');
   need(question.id, 'question.id');
   need(question.text, 'question.text');
@@ -185,14 +205,15 @@ ${ledgerBrief(ledger)}
 
 Judge it, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`;
 
-  return { systemPrompt: SYSTEM, prompt };
+  return { systemPrompt: systemFor(provenance), prompt };
 }
 
 // What the agent READS, hashed, so a recording can say which prompt it was made under (#341).
 // Built over FIXED synthetic inputs — a question object that is not in the bank, one answer, a
-// three-rung ledger — so the hash moves when the system prompt, the turn template, the brief's
-// format, a tool description or the model moves, and for nothing else (a bank edit must not move
-// it). It is the PROMPT SURFACE, not everything the agent reads: the tool input schemas (TOOL_SCHEMA
+// three-rung ledger, the fictional provenance — so the hash moves when the system prompt (either
+// provenance's rule text: both are in the module, one is rendered, and the real one is asserted by
+// group 30 rather than hashed), the turn template, the brief's format, a tool description or the
+// model moves, and for nothing else (a bank edit must not move it). It is the PROMPT SURFACE, not everything the agent reads: the tool input schemas (TOOL_SCHEMA
 // in discovery.mjs — pinned by group 30 to PARAMS/LEVELS/SOURCES/PROVENANCE, so they move only under
 // the op-verb lock; and discovery.mjs imports this module, so hashing them here would be a cycle
 // with TOOL_SCHEMA in TDZ when POSTURES computes), the fence's deny text (denyReason,
@@ -209,6 +230,7 @@ export const FINGERPRINT_INPUTS = Object.freeze({
   question: Object.freeze({ id: 'fp-question', stage: 0, attribution: 'FIXED', text: 'A fixed question for the fingerprint.', weakAnswer: 'A fixed weak-answer note.' }),
   answer: Object.freeze({ ref: 'fp1', text: 'A fixed answer.' }),
   turn: 'fp',
+  provenance: 'fictional',
   ledger: Object.freeze([
     Object.freeze({ seq: 1, op: 'record_decision', params: Object.freeze({ level: 'business', question_id: 'fp-b' }) }),
     Object.freeze({ seq: 2, op: 'record_decision', params: Object.freeze({ level: 'stakeholder', question_id: 'fp-s' }) }),

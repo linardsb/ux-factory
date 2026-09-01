@@ -15,7 +15,10 @@
 //
 //   1. NO PARAMETER CARRIES ANSWER TEXT. `answer_ref` (and file_evidence's `ref`) resolve against
 //      ctx.answers — the parsed answers.jsonl, which only the server writes. An unresolvable ref is
-//      a throw, so the agent has no route to put words in the human's mouth.
+//      a throw, so the agent has no route to put words in the human's mouth. file_evidence's `name`
+//      (#347) is the one string the agent authors — a LABEL for an artefact the answer names, never
+//      the answer's words — and it is accepted only beside a `ref`, so the row still points at the
+//      sentence that named it.
 //   2. THE FOUR VERBS MOVE TOGETHER: an OPS entry, its PARAMS entry, its switch case and its
 //      build-checks group 29 fixture, in one edit, under the epic's op-verb lock.
 //   3. ABSENT IS REFUSED, EMPTY IS FLAGGED. A missing field throws naming the op and the field;
@@ -50,7 +53,7 @@ export const PARAMS = Object.freeze({
   record_decision: Object.freeze(["question_id", "answer_ref", "level", "parent_id", "evidence_refs", "wrong_if", "off_script"]),
   flag_weak_answer: Object.freeze(["question_id", "answer_ref", "missing"]),
   open_question: Object.freeze(["source", "question_id", "answer_ref", "reason"]),
-  file_evidence: Object.freeze(["url", "ref", "provenance", "claim_ref"]),
+  file_evidence: Object.freeze(["url", "ref", "name", "provenance", "claim_ref"]),
 });
 
 // The BABOK ladder in order (docs/research/requirements-hierarchy.md): a decision's parent sits
@@ -240,11 +243,20 @@ export function applyOp(state, op, ctx) {
       if (hasUrl && !(typeof p.url === "string" && /^https?:\/\//.test(p.url)))
         throw new Error(`${name}: url ${JSON.stringify(p.url)} must be a string starting http:// or https://`);
       if (hasRef) resolveAnswer(p.ref, "ref");
+      // `name` (#347, the #338 F6 second half): an artefact with its OWN identity — "the Q3 dispensing
+      // spreadsheet" — that is neither a URL nor an answer. Before it, such a thing had no row of its
+      // own, only a pointer at the sentence that mentioned it. A name rides on a `ref` (the answer that
+      // named it) and never on a `url` (a URL is its own identity); empty is refused, not flagged —
+      // a nameless name is not a partial filing, it is no filing.
+      if (p.name !== null) {
+        if (!nonEmptyString(p.name)) throw new Error(`${name}: "name" must be null or a non-empty string naming the artefact (got ${JSON.stringify(p.name)})`);
+        if (hasUrl) throw new Error(`${name}: "name" rides on a ref, never a url — a URL is its own identity, so pass name null with a url`);
+      }
       // Throw 4 — a provenance label outside the four.
       if (!PROVENANCE.includes(p.provenance))
         throw new Error(`${name}: provenance "${p.provenance}" is not one of ${PROVENANCE.join(" · ")}`);
       if (p.claim_ref !== null) earlier(p.claim_ref, "record_decision", "claim_ref");
-      params = { url: p.url, ref: p.ref, provenance: p.provenance, claim_ref: p.claim_ref };
+      params = { url: p.url, ref: p.ref, name: p.name, provenance: p.provenance, claim_ref: p.claim_ref };
       break;
     }
     default:

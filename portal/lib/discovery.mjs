@@ -117,7 +117,7 @@ export const TOOL_SCHEMA = Object.freeze({
   }),
   flag_weak_answer: Object.freeze({ question_id: 'string', answer_ref: 'string', missing: 'string[]' }),
   open_question: Object.freeze({ source: SOURCES, question_id: 'string|null', answer_ref: 'string', reason: 'string' }),
-  file_evidence: Object.freeze({ url: 'string|null', ref: 'string|null', provenance: PROVENANCE, claim_ref: 'int|null' }),
+  file_evidence: Object.freeze({ url: 'string|null', ref: 'string|null', name: 'string|null', provenance: PROVENANCE, claim_ref: 'int|null' }),
 });
 
 export const TOOL_TYPES = Object.freeze(['string', 'string|null', 'int|null', 'int[]', 'string[]', 'boolean']);
