@@ -221,7 +221,7 @@ import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, auditParent
 // way group 8's invariant is proven for builder.mjs — by ABSENCE, not by adding something.
 import {
   allowsToolName, appendTranscript, assertProvenanceRoot, assertRunSlug as assertDiscoverySlug, assertTurnWritable,
-  deniedLine, discoveryConfig, ENTRY_MODES, FRONT_ENDS, MCP_SERVER, nextRef, openSession, opLine,
+  deniedLine, denyReason, discoveryConfig, ENTRY_MODES, fenceHooks, FRONT_ENDS, MCP_SERVER, nextRef, openSession, opLine,
   PROVENANCES, readAnswers, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
@@ -5613,7 +5613,7 @@ function scanSvg(svg, label) {
 // Drives portal/lib/discovery.mjs and portal/lib/discovery-postures.mjs — the THIRD named portal/
 // exception (see the header). Everything reachable with NO agent and NO token: the SSE projection,
 // the schema table, the roots, the slug guard, the ref allocator, the derived cursor, the line
-// constructors, the posture, the fence predicate and the turn guard.
+// constructors, the posture, the fence predicate, the fence hooks and the turn guard.
 //
 // It never imports portal/lib/discovery-transport.mjs, portal/server.mjs or the SDK, and that is
 // proven the way group 8's invariant is proven — by ABSENCE. This job runs with no
@@ -5918,14 +5918,92 @@ function scanSvg(svg, label) {
   ok(same(opIn.flagged, ["no-evidence"]) && opIn.op === "record_decision", "case 13: mutating turnEvent's return changed the input line");
 
   // 30.14 — the fence predicate, exhaustively. Built by mapping OPS, so a renamed server fails and a
-  // fifth verb passes with no edit here. The PREDICATE is what this group proves; the WIRING —
-  // whether a deny from canUseTool or the PreToolUse hook actually blocks an MCP call — stays
-  // unobserved, because the spine runs tools: [] and there is nothing left to deny. #287 owns it.
+  // fifth verb passes with no edit here. The PREDICATE is proven here and the HOOK in case 20; the
+  // WIRING — whether a deny from canUseTool or the PreToolUse hook actually blocks an MCP call — stays
+  // unobserved. What the deny branch does block at run time is the CLI's subagent warmup (#343), not
+  // "nothing", as this comment used to say. #287 owns the wiring.
   for (const op of DISCOVERY_OPS) ok(allowsToolName(toolNameFor(op)) === true, `case 14: ${toolNameFor(op)} must be allowed`);
   for (const junk of ["Write", "Edit", "Read", "Bash", "Grep", "Glob", "WebSearch", "WebFetch",
     "mcp__discovery__record_stub", "mcp__other__record_decision", "mcp__discovery__", "mcp__discovery__record_decision ",
     "", null, undefined, 7, {}, []])
     ok(allowsToolName(junk) === false, `case 14: allowsToolName(${JSON.stringify(junk)}) must be false`);
+
+  // 30.20 — the fence HOOKS, run (#343). The deny branch's one real caller is the CLI's own subagent
+  // warmup: every start pre-warms the built-in Explore, Plan and Bash agents (cli.js p$9), and Explore
+  // runs pwd / ls / find / Glob on the cwd. Those hit the fence and were recorded as the agent's
+  // refusals — 3 on instrument-loans-1's t12, 15 and 17 on two uncommitted runs. A PreToolUse input
+  // cannot tell them apart (session_id, transcript_path and cwd are the MAIN session's for a sidechain
+  // call too), so fenceHooks brackets them: SubagentStart adds the agent_id to a set, SubagentStop
+  // removes it, and a PreToolUse denial is RECORDED only while the set is empty — DENIED either way.
+  // PostToolUseFailure is gated by the TOOL, not the bracket (PR #344 review F1): an op-tool refusal
+  // landing while a warmup is still in flight is the agent's own and is kept; a non-op failure is
+  // never new information and leaves no line in either session. Driven
+  // against the real writer over a temp root, hook by hook, in the order the CLI fires them; the
+  // on-disk line count and the listener's count are the assertions. With the guard absent this case
+  // was red at "inside the bracket" (the #343 report has the run).
+  {
+    const fenceRoot = tmpRoot("fence");
+    const heard = [];
+    const hooks = fenceHooks(fenceRoot, "t2", (l) => heard.push(l));
+    ok(keys(hooks) === "PostToolUseFailure,PreToolUse,SubagentStart,SubagentStop", `case 20: fenceHooks must register exactly those four events and never PostToolUse (got ${keys(hooks)})`);
+    for (const ev of Object.keys(hooks)) ok(hooks[ev].length === 1 && typeof hooks[ev][0].hooks?.[0] === "function", `case 20: ${ev} must carry one matcher with one hook function`);
+    const fire = (ev, input) => hooks[ev][0].hooks[0]({ session_id: "s1", transcript_path: join(fenceRoot, "s1.jsonl"), cwd: fenceRoot, hook_event_name: ev, ...input });
+    const denied = (r) => r?.hookSpecificOutput?.hookEventName === "PreToolUse" && r.hookSpecificOutput.permissionDecision === "deny";
+    const onDisk = () => readTranscript(fenceRoot);
+
+    // Outside any bracket: the main session's own out-of-fence call — denied AND recorded.
+    const r1 = await fire("PreToolUse", { tool_name: "Bash", tool_input: { command: "pwd" }, tool_use_id: "u1" });
+    ok(denied(r1) && r1.hookSpecificOutput.permissionDecisionReason === denyReason("Bash"), "case 20: a main-session Bash call must be denied with denyReason's text");
+    ok(onDisk().length === 1 && onDisk()[0].type === "denied" && onDisk()[0].tool === "Bash" && onDisk()[0].turn === "t2" && same(onDisk()[0].input, { command: "pwd" }) && onDisk()[0].error === denyReason("Bash") && heard.length === 1,
+      `case 20: a main-session denial must record exactly one denied line and reach the listener once (disk ${onDisk().length}, heard ${heard.length})`);
+
+    // Inside the bracket: the warmup — three agents start, one runs tools; denied, NOT recorded.
+    ok(same(await fire("SubagentStart", { agent_id: "a1", agent_type: "Explore" }), { continue: true }), "case 20: SubagentStart must return { continue: true }");
+    await fire("SubagentStart", { agent_id: "a2", agent_type: "Plan" });
+    await fire("SubagentStart", { agent_id: "a3", agent_type: "Bash" });
+    const r2 = await fire("PreToolUse", { tool_name: "Bash", tool_input: { command: "ls -la" }, tool_use_id: "u2" });
+    const r3 = await fire("PreToolUse", { tool_name: "Glob", tool_input: { pattern: "**/*.md" }, tool_use_id: "u3" });
+    ok(denied(r2) && denied(r3) && r3.hookSpecificOutput.permissionDecisionReason === denyReason("Glob"), "case 20: a sidechain call outside the fence must STILL be denied — the fence stays closed");
+    ok(onDisk().length === 1 && heard.length === 1, `case 20: a denial inside a SubagentStart…SubagentStop bracket must record NO line — it is the CLI's warmup, not the discovery agent (disk ${onDisk().length}, heard ${heard.length})`);
+    const r4 = await fire("PostToolUseFailure", { tool_name: "Bash", tool_input: { command: "ls -la" }, tool_use_id: "u2", error: "denied" });
+    ok(same(r4, { continue: true }) && onDisk().length === 1, `case 20: a sidechain PostToolUseFailure must record no line either (disk ${onDisk().length})`);
+    // The agent's OWN refusal while the warmup is still in flight (PR #344 review F1): an op-tool
+    // PostToolUseFailure inside the bracket is the discovery agent's — a warmup agent never calls the
+    // private in-process server — and must be kept, verbatim. Red under the bracket gate, green under
+    // the tool gate (the #343 report's round-1 section has the run).
+    const r4b = await fire("PostToolUseFailure", { tool_name: toolNameFor("record_decision"), tool_input: { answer_ref: "a1" }, tool_use_id: "u2b", error: "answer_ref a1 does not resolve" });
+    ok(same(r4b, { continue: true }) && onDisk().length === 2 && onDisk()[1].tool === toolNameFor("record_decision") && same(onDisk()[1].input, { answer_ref: "a1" }) && onDisk()[1].error === "answer_ref a1 does not resolve" && heard.length === 2,
+      `case 20: an applier refusal landing INSIDE a warmup bracket must still be recorded — PostToolUseFailure is gated by the tool, not the bracket (disk ${onDisk().length}, heard ${heard.length})`);
+
+    // A set, not a boolean: two of three agents stopping leaves the bracket OPEN.
+    await fire("SubagentStop", { agent_id: "a2", stop_hook_active: false, agent_transcript_path: join(fenceRoot, "agent-a2.jsonl") });
+    await fire("SubagentStop", { agent_id: "a3", stop_hook_active: false, agent_transcript_path: join(fenceRoot, "agent-a3.jsonl") });
+    ok(denied(await fire("PreToolUse", { tool_name: "Bash", tool_input: { command: "find ." }, tool_use_id: "u4" })) && onDisk().length === 2,
+      `case 20: with one warmup agent still in flight a denial must still record nothing (disk ${onDisk().length})`);
+
+    // The last stop closes the bracket: the next denial is the main session's again.
+    ok(same(await fire("SubagentStop", { agent_id: "a1", stop_hook_active: false, agent_transcript_path: join(fenceRoot, "agent-a1.jsonl") }), { continue: true }), "case 20: SubagentStop must return { continue: true }");
+    const r5 = await fire("PreToolUse", { tool_name: "Read", tool_input: { file_path: "x" }, tool_use_id: "u5" });
+    ok(denied(r5) && onDisk().length === 3 && onDisk()[2].tool === "Read" && heard.length === 3, `case 20: after the last SubagentStop a denial must be recorded again (disk ${onDisk().length}, heard ${heard.length})`);
+    const r6 = await fire("PostToolUseFailure", { tool_name: toolNameFor("record_decision"), tool_input: { answer_ref: "a9" }, tool_use_id: "u6", error: "answer_ref a9 does not resolve" });
+    ok(same(r6, { continue: true }) && onDisk().length === 4 && onDisk()[3].tool === toolNameFor("record_decision") && onDisk()[3].error === "answer_ref a9 does not resolve",
+      "case 20: a main-session applier refusal must be recorded VERBATIM on PostToolUseFailure");
+    // A non-op failure in the main session leaves no line either: cli.js fires this event from the
+    // tool's execution catch only, never for a PreToolUse deny, and a non-op call never reaches
+    // execution — so such a line could only ever be a duplicate or a stranger's.
+    const r6b = await fire("PostToolUseFailure", { tool_name: "Bash", tool_input: { command: "pwd" }, tool_use_id: "u6b", error: "denied" });
+    ok(same(r6b, { continue: true }) && onDisk().length === 4, `case 20: a main-session non-op PostToolUseFailure must record nothing — the hook records op-tool refusals only (disk ${onDisk().length})`);
+
+    // An in-fence call passes and records nothing.
+    for (const op of DISCOVERY_OPS) ok(same(await fire("PreToolUse", { tool_name: toolNameFor(op), tool_input: {}, tool_use_id: "u7" }), { continue: true }), `case 20: ${toolNameFor(op)} must pass the hook`);
+    ok(onDisk().length === 4, `case 20: an allowed call must record nothing (disk ${onDisk().length})`);
+
+    // A stop for an agent that never started, and a start with no agent_id, must not wedge the set.
+    await fire("SubagentStop", { agent_id: "never-started", stop_hook_active: false, agent_transcript_path: "" });
+    await fire("SubagentStart", { agent_type: "Explore" });
+    ok(denied(await fire("PreToolUse", { tool_name: "Bash", tool_input: { command: "pwd" }, tool_use_id: "u8" })) && onDisk().length === 5,
+      `case 20: junk bracket events must leave the main session recording (disk ${onDisk().length})`);
+  }
 
   // 30.15 — assertTurnWritable, both directions. The STRUCTURAL half of runTurn's
   // lock → guards → append → run ordering: a guard cannot enforce a call order, but it can refuse
@@ -5972,7 +6050,7 @@ function scanSvg(svg, label) {
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), and whether a fence DENY actually blocks an MCP call — the predicate is gated here, the wiring is #287's`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook in the CLI's firing order over a temp root — a main-session denial recorded once with denyReason's text, three warmup agents bracketed by SubagentStart/SubagentStop with Bash, Glob and a Bash PostToolUseFailure inside DENIED and unrecorded, an op-tool PostToolUseFailure inside the SAME bracket recorded verbatim — that hook is gated by the tool, not the bracket, so a warmup in flight cannot swallow the agent's own refusal (PR #344 F1) — the bracket a SET (two stops of three leave it open), the last stop recording again, an applier refusal verbatim, a main-session non-op PostToolUseFailure unrecorded, every op tool passing, junk bracket events harmless, PostToolUse pinned ABSENT (#343). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether the CLI fires SubagentStart before a warmup agent's first tool call — which gates PreToolUse's record only, an op-tool refusal being kept regardless (derived from cli.js, where the start hook is awaited before the sub-loop; observable only on a paid probe whose warmup Explore agent actually calls a tool — 4 of 24 did on the fixture's sidechains, and the #343 probe's three made none), and whether a fence DENY actually blocks an MCP call — the predicate and the hook are gated here, the wiring is #287's`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------
