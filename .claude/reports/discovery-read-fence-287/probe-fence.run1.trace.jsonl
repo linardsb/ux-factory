@@ -1,0 +1,3 @@
+{"ts":"2026-09-01T15:50:04.386Z","turn":"t1","event":"PreToolUse.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-01T15:50:19.700Z","turn":"t1","event":"canUseTool.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-01T15:50:35.259Z","turn":"t1","event":"PreToolUse.deny","tool":"Read","recorded":true}

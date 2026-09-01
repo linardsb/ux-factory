@@ -8,7 +8,7 @@
 // closing op through an in-process tool, and yields. What is left behind — run.json, answers.jsonl,
 // transcript.jsonl — is the whole state.
 //
-// FOUR INVARIANTS a future editor must keep:
+// FIVE INVARIANTS a future editor must keep:
 //
 //   1. THIS FILE IS STATICALLY SDK-FREE AND ZOD-FREE. tooling/build-checks.mjs group 30 imports it and
 //      runs in CI, where portal/node_modules does not exist — so a static
@@ -27,6 +27,14 @@
 //   4. THE CURSOR IS DERIVED, NEVER STORED. It is a fold over the transcript's closed turns. Two
 //      records of one fact drift — discovery/ops.mjs's emptyRun() comment says exactly this about
 //      "closed", and a stored cursor is the same shape of mistake.
+//   5. THE READ FENCE IS ONE PREDICATE, CALLED FROM TWO PLACES, FAILING CLOSED (#287; architecture
+//      §Boundaries & contracts). allowsPath over a PER-RUN allow-set built from run.json — the run's
+//      own package, the bank, and what `reads` names, nothing else — called from canUseTool AND from
+//      the PreToolUse hook, because the permission fast path can auto-allow without consulting
+//      canUseTool. Both sites deny on a throw. Every denial is a `denied` line naming the site that
+//      refused it (`via`). Under `tools: []` no real run advertises a read tool yet; the fence is
+//      wired now so that widening MAIN_TOOLS in the transport is one array edit, and the fence probe
+//      (discovery-transport.mjs --probe-fence) is the run-time proof that each site holds alone.
 //
 // The head's `root` and the resolved filesystem root are TWO DIFFERENT VALUES and one name (plan M7):
 // resolveRunRoot() returns an absolute path; run.json's `root` is repo-relative for fictional runs, per
@@ -135,8 +143,8 @@ export const toolNameFor = (op) => `mcp__${MCP_SERVER}__${op}`;
 // cwd. Those calls hit this fence and are denied with denyReason's text (observed as their is_error
 // tool_result in the agent-*.jsonl sidechains) — and they are not the discovery agent's, which is why
 // fenceHooks below records a denial only on an mcp__ tool name (#349; the bracket it replaced is told
-// there). Whether a deny from canUseTool or the hook actually blocks an MCP call stays unobserved;
-// #287 owns that half.
+// there). Whether a deny at either site actually STOPS a call is a run-time fact no CI group can see;
+// the fence probe (discovery-transport.mjs --probe-fence, #287) observes it with each site holding alone.
 const ALLOWED_TOOL_NAMES = new Set(OPS.map(toolNameFor));
 export function allowsToolName(name) {
   return typeof name === 'string' && ALLOWED_TOOL_NAMES.has(name);
@@ -148,6 +156,65 @@ export function allowsToolName(name) {
 // this CLI version has not got yet is still the CLI's.
 export function isMcpToolName(name) {
   return typeof name === 'string' && name.startsWith('mcp__');
+}
+
+// --- the read fence (#287) ------------------------------------------------------------------------
+
+// The bank is a file the run may read; everything else it may read is the package and `reads`.
+export const BANK_PATH = path.join(REPO_DIR, 'discovery', 'bank.mjs');
+
+// The built-in tools that carry a path, and the input field it travels in. This table is the whole
+// reach of the path allow-list: a tool not in it is decided by NAME (op tools allowed, the rest
+// denied), so WebSearch / WebFetch — MVP 7's look-it-up path, a separate fence that stays open — can
+// never be closed by a path rule. Group 30 pins the key set, so adding one here goes red by name.
+export const READ_TOOLS = Object.freeze({ Read: 'file_path', Grep: 'path', Glob: 'path' });
+
+// Where a `denied` line was refused: the two fence call sites, and the record point for an applier
+// or schema-layer refusal (the transport's observation 3).
+export const FENCE_SITES = Object.freeze(['PreToolUse', 'canUseTool', 'PostToolUseFailure']);
+
+// The per-run allow-set, built from run.json so a resumed session after a server restart rebuilds
+// the same fence (invariant 2 — a fence held only in memory would silently widen). `reads` is stored
+// as given (repo-relative for a committed fixture) and resolved against REPO_DIR here. Why per run
+// rather than one static list: run 2 must admit docs/epics/fixtures/<fixture> while refusing
+// docs/epics/discovery-partner.prd.md one directory above it, and run 1 reads nothing beyond its
+// package — no one list serves both.
+export function allowSetFor({ root, reads = [] } = {}) {
+  if (typeof root !== 'string' || !path.isAbsolute(root)) bad(`allowSetFor needs the run root as an absolute path (got ${JSON.stringify(root) ?? String(root)})`);
+  if (!Array.isArray(reads) || reads.some((r) => typeof r !== 'string' || !r.trim()))
+    bad(`"reads" must be an array of non-empty path strings — each names a file or directory this run may read beyond its package and the bank (got ${JSON.stringify(reads) ?? String(reads)})`);
+  const resolvedRoot = path.resolve(root);
+  return Object.freeze({ root: resolvedRoot, paths: Object.freeze([resolvedRoot, BANK_PATH, ...reads.map((r) => path.resolve(REPO_DIR, r))]) });
+}
+
+// THE PREDICATE. Pure over its two arguments — no fs, no SDK — so group 30 drives both run shapes in
+// CI. A path is allowed iff, resolved against the run root, it IS an entry or lies UNDER one
+// (entry + sep, so `<root>-evil/x` is not under `<root>`). Junk in either argument is a DENIAL, never
+// a throw: the predicate's own fail-closed. Symlink-blind by design (resolve, not realpath): the
+// roots are real paths (the repo or JOBS_DIR) and the probe hands the agent real paths too.
+export function allowsPath(allowSet, p) {
+  const paths = allowSet?.paths;
+  if (typeof allowSet?.root !== 'string' || !path.isAbsolute(allowSet.root) || !Array.isArray(paths) || paths.length === 0)
+    return { allow: false, reason: 'this run has no read allow-set — denied, fail closed' };
+  if (typeof p !== 'string' || !p.trim())
+    return { allow: false, reason: `no path was named (got ${JSON.stringify(p) ?? String(p)}) — denied, fail closed` };
+  const abs = path.resolve(allowSet.root, p);
+  const hit = paths.find((a) => typeof a === 'string' && (abs === a || abs.startsWith(a + path.sep)));
+  if (hit) return { allow: true, reason: `${abs} is under ${hit}` };
+  return { allow: false, reason: `${abs} is outside this run's read allow-set — a run may read its own package, the bank and what its run.json names in "reads" (here: ${paths.join(', ')}), nothing else` };
+}
+
+// ONE decision for both call sites. An op tool passes by name; a path tool passes by allowsPath over
+// the field READ_TOOLS names (Grep and Glob search the cwd when no path is given, and the cwd is the
+// run root; Read must name a file); anything else is denied by name — Write, Edit and Bash stay
+// closed whatever path they carry, which is the "no write tools" line carried from the spine.
+export function fenceDecision(allowSet, tool, input) {
+  if (allowsToolName(tool)) return { allow: true, reason: `${tool} is one of this run's op tools` };
+  if (typeof tool === 'string' && Object.hasOwn(READ_TOOLS, tool)) {
+    const named = input?.[READ_TOOLS[tool]];
+    return allowsPath(allowSet, named ?? (tool === 'Read' ? undefined : '.'));
+  }
+  return { allow: false, reason: denyReason(tool) };
 }
 
 // --- the answer store -----------------------------------------------------------------------------
@@ -212,16 +279,105 @@ export const opLine = ({ record }) => ({
 // A refused write — a fence denial, an applier refusal, or a schema-layer refusal. Widened from the
 // README's original "a fence denial" by this ticket: spike 1 proved refusals surface on
 // PostToolUseFailure, so that hook is the only record point a schema-layer refusal has, and a refused
-// op is exactly the receipt the honesty contract keeps.
-export const deniedLine = ({ turn, tool, input, error }) => ({ type: 'denied', ts: now(), turn, tool, input: input ?? null, error });
+// op is exactly the receipt the honesty contract keeps. `via` names WHERE it was refused (#287): the
+// fence's refusals are part of the auditable record, and "which site caught it" is the fact the
+// two-site design exists to make checkable.
+export const deniedLine = ({ turn, tool, input, error, via }) => {
+  if (!FENCE_SITES.includes(via)) bad(`deniedLine needs "via" naming the site that refused the call — one of ${FENCE_SITES.join(' · ')} (got ${JSON.stringify(via) ?? String(via)})`);
+  return { type: 'denied', ts: now(), turn, tool, input: input ?? null, error, via };
+};
 
-// --- the fence hooks ------------------------------------------------------------------------------
+// --- the fence: the two call sites ----------------------------------------------------------------
 
-// The deny text both call sites use — the PreToolUse hook below and canUseTool in the transport.
-export const denyReason = (name) => `${name} is not one of this run's op tools (${OPS.map(toolNameFor).join(', ')}) — the discovery session has no write tools and no read tools.`;
+// The deny text both call sites use for a tool that is neither an op tool nor a fenced read tool.
+export const denyReason = (name) => `${name} is not one of this run's op tools (${OPS.map(toolNameFor).join(', ')}) — the discovery session has no write tools, and Read, Grep and Glob are fenced to the run's read allow-set.`;
 
-// The SDK `hooks` option's value, built HERE rather than in the transport so group 30 can run the hook
-// functions in CI (#343). Plain objects and async functions in the SDK's shape — no SDK import.
+// What ONE call site needs: the fail-closed decision, the record gate, the transcript writer and the
+// trace. Built once per site per turn; fenceHooks and fenceCanUseTool below are the two sites and
+// nothing else — a third caller of fenceDecision would be a third fence.
+//
+// FAIL CLOSED. fenceDecision is pure and answers junk with a denial, but a bug in it — or a hostile
+// allow-set; group 30 drives one whose `paths` getter throws — must DENY, not escape as an exception
+// the SDK turns into an interrupted turn or, worse, into a tool that ran. The try/catch here is the
+// ticket's "denied when the predicate is not reached".
+//
+// THE RECORD GATE (#349, widened by one term here). A denial is the discovery agent's — and so a
+// `denied` line — iff the tool is an mcp__ name (isMcpToolName) OR a built-in the MAIN session is
+// actually advertised (`mainTools`, the transport's `tools` array). Under `tools: []` the second term
+// is empty and #349's rule is byte-identical: every built-in denial is the CLI's warmup, unrecorded.
+// When a run advertises Read (the fence probe today; the run-2 ticket tomorrow) a Read denial is the
+// agent's. What the widened rule cannot see: a warmup agent's Read OUTSIDE the allow-set on such a
+// run would be recorded as the agent's — a false receipt. Every observed warmup read is of the cwd
+// (bracket-trace-1/-2's traces), which the allow-set admits, so none is expected; the fence trace
+// shows it if one ever lands.
+function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
+  const record = (line) => {
+    try { const written = appendTranscript(root, line); onLine?.(written); }
+    catch (e) { process.stderr.write(`discovery: hook error (non-fatal): ${e.message}\n`); }
+  };
+
+  // THE FENCE TRACE (#349) — OFF unless DISCOVERY_FENCE_TRACE names a file. Point it OUTSIDE the run
+  // root: a package is committed with a fixed file set, so an armed path inside one puts a fourth file
+  // in it. That is operator discipline, NOT enforced here — a resolve-and-refuse guard would null the
+  // very path group 30's case 22 arms to prove the swallow below, and the case would go on passing
+  // while testing nothing. Read per call, i.e. per turn's query(), so an operator can arm it for one
+  // recording without a restart, and so group 30 can drive it. Every DECISION on a tool that is not one
+  // of this run's op tools lands there — ALLOW as well as deny (#287) — with its tool, its site (the
+  // event name) and whether it wrote a transcript line: a recording with zero built-in `denied` lines
+  // proves nothing if the warmup happened to be quiet, and these lines are what show the warmup DID
+  // call tools. Denials alone stopped being enough when the read fence started admitting an in-root
+  // Read/Grep/Glob: bracket-trace-1's committed trace holds three warmup Globs on the cwd, and under a
+  // deny-only trace those three — the very class #287 opened — would leave no line at all. The agent's
+  // OWN op calls are deliberately not traced: those are transcript.jsonl's job, and tracing them would
+  // bury the warmup in the noise of a normal run. `recorded` says a `denied` line was written, so it is
+  // false on every allow. NEVER through appendTranscript — transcript.jsonl has three typed
+  // line types (discovery/README.md §File shapes) and the SSE projection's whitelist is asserted by
+  // mutation, so a fourth type would be a format change wearing a debug flag. Swallowed on failure: an
+  // observation that can disturb the run it observes is worse than no observation.
+  const traceTo = process.env.DISCOVERY_FENCE_TRACE || null;
+  const trace = (event) => {
+    if (!traceTo) return;
+    try { appendFileSync(traceTo, `${JSON.stringify({ ts: now(), turn, ...event })}\n`); }
+    catch { /* see above: a broken instrument must not break the recording */ }
+  };
+
+  const isRecorded = (tool) => isMcpToolName(tool) || (Array.isArray(mainTools) && mainTools.includes(tool));
+  // ONE decision, one site, traced whenever armed. The trace hangs here rather than on the refusal so
+  // that an ALLOWED built-in is observed too (see above); an op tool is the agent's own vocabulary and
+  // is never traced, allow or deny.
+  const decide = (site, tool, input) => {
+    let d;
+    try { d = fenceDecision(allowSet, tool, input); }
+    catch (e) { d = { allow: false, reason: `the fence could not evaluate ${String(tool)} (${e.message}) — denied, fail closed` }; }
+    if (!allowsToolName(tool)) trace({ event: `${site}.${d.allow ? 'allow' : 'deny'}`, tool: tool ?? null, recorded: d.allow ? false : isRecorded(tool) });
+    return d;
+  };
+  // The denial's transcript line, written when the denial is the agent's. Returns the reason so each
+  // site hands the SDK the same text it wrote.
+  const deny = (site, tool, input, reason) => {
+    if (isRecorded(tool)) record(deniedLine({ turn, tool, input: input ?? null, error: reason, via: site }));
+    return reason;
+  };
+  return { record, decide, deny };
+}
+
+// SITE 2 — canUseTool, the SDK's permission callback. The transport passes this where it used to hold
+// an inline copy of the name check. `{ behavior, updatedInput | message }` is runtimeTypes.d.ts's
+// PermissionResult; updatedInput is the input handed back UNCHANGED, never a rewrite. Consulted only
+// when the CLI's permission flow asks — the fast path may not ask, which is why site 1 exists.
+export function fenceCanUseTool(root, turn, onLine, opts = {}) {
+  const site = fenceSite({ root, turn, onLine, ...opts });
+  return async (tool, input) => {
+    const d = site.decide('canUseTool', tool, input);
+    if (d.allow) return { behavior: 'allow', updatedInput: input };
+    return { behavior: 'deny', message: site.deny('canUseTool', tool, input, d.reason) };
+  };
+}
+
+// SITE 1 — the SDK `hooks` option's value, built HERE rather than in the transport so group 30 can run
+// the hook functions in CI (#343). Plain objects and async functions in the SDK's shape — no SDK
+// import. `opts` is `{ allowSet, mainTools }`; called with none (as group 30's older cases do) it is
+// the #349 name fence with every path tool failing closed for want of an allow-set.
 //
 // Every recording hook is try/caught and always returns { continue: true }: a thrown hook can interrupt
 // the agent, and a recording bug must never alter the run it observes (trace-recorder.mjs's discipline).
@@ -250,41 +406,18 @@ export const denyReason = (name) => `${name} is not one of this run's op tools (
 //
 // What this rule cannot see: an SDK that stopped honouring `tools: []`. The agent's own Bash call
 // would then be denied and unrecorded — a lost receipt, not a false one. The preflight is the check.
-export function fenceHooks(root, turn, onLine) {
-  const record = (line) => {
-    try { const written = appendTranscript(root, line); onLine?.(written); }
-    catch (e) { process.stderr.write(`discovery: hook error (non-fatal): ${e.message}\n`); }
-  };
-
-  // THE FENCE TRACE (#349) — OFF unless DISCOVERY_FENCE_TRACE names a file. Point it OUTSIDE the run
-  // root: a package is committed with a fixed file set, so an armed path inside one puts a fourth file
-  // in it. That is operator discipline, NOT enforced here — a resolve-and-refuse guard would null the
-  // very path group 30's case 22 arms to prove the swallow below, and the case would go on passing
-  // while testing nothing. Read per call, i.e. per turn's query(), so an operator can arm it for one
-  // recording without a restart, and so group 30 can drive it. Every denial lands there with its tool
-  // and whether it was recorded: a recording with zero built-in `denied` lines proves nothing if the
-  // warmup happened to be quiet, and the unrecorded denials here are what show the warmup DID call
-  // tools. NEVER through appendTranscript — transcript.jsonl has three typed line types
-  // (discovery/README.md §File shapes) and the SSE projection's whitelist is asserted by mutation,
-  // so a fourth type would be a format change wearing a debug flag. Swallowed on failure: an
-  // observation that can disturb the run it observes is worse than no observation.
-  const traceTo = process.env.DISCOVERY_FENCE_TRACE || null;
-  const trace = (event) => {
-    if (!traceTo) return;
-    try { appendFileSync(traceTo, `${JSON.stringify({ ts: now(), turn, ...event })}\n`); }
-    catch { /* see above: a broken instrument must not break the recording */ }
-  };
-
+export function fenceHooks(root, turn, onLine, opts = {}) {
+  const site = fenceSite({ root, turn, onLine, ...opts });
   return {
     // Fails CLOSED, and unlike the recording hooks it MAY alter the run — blocking out-of-fence calls
     // is its job. The permission fast path can auto-allow without ever consulting canUseTool, so
-    // canUseTool alone cannot enforce the fence.
+    // canUseTool alone cannot enforce the fence. An allow adds no opinion ({ continue: true }): the
+    // permission flow, canUseTool included, still runs behind it.
     PreToolUse: [{ hooks: [async (input) => {
-      if (allowsToolName(input.tool_name)) return { continue: true };
-      const reason = denyReason(input.tool_name);
-      const recorded = isMcpToolName(input.tool_name);
-      trace({ event: 'PreToolUse.deny', tool: input.tool_name ?? null, recorded });
-      if (recorded) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error: reason }));
+      const tool = input?.tool_name;
+      const d = site.decide('PreToolUse', tool, input?.tool_input);
+      if (d.allow) return { continue: true };
+      const reason = site.deny('PreToolUse', tool, input?.tool_input, d.reason);
       return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } };
     }] }],
     // The ONLY record point for a refusal, handler or schema-layer (the transport's observation 3).
@@ -295,7 +428,7 @@ export function fenceHooks(root, turn, onLine) {
     // that reached execution was never the main session's.
     PostToolUseFailure: [{ hooks: [async (input) => {
       const error = String(input.error ?? JSON.stringify(input.tool_response ?? null));
-      if (allowsToolName(input.tool_name)) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error }));
+      if (allowsToolName(input.tool_name)) site.record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error, via: 'PostToolUseFailure' }));
       return { continue: true };
     }] }],
   };
@@ -317,10 +450,13 @@ const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run �
 
 // Resume or open. DISK IS AUTHORITATIVE: an existing run.json is returned untouched, which is what
 // makes a page reload and a server restart lose nothing (AC #5).
-export function openSession({ slug, provenance, entryMode, depth, branch = null, frontEnd, posture }) {
+export function openSession({ slug, provenance, entryMode, depth, branch = null, frontEnd, posture, reads = [] }) {
   assertRunSlug(slug);
   const root = resolveRunRoot({ provenance, slug });
   assertProvenanceRoot(provenance, root);
+  // The read fence's input, refused by name before anything is written (#287). Stored as given
+  // below; the transport rebuilds the allow-set from run.json on every turn.
+  allowSetFor({ root, reads });
   if (!ENTRY_MODES.includes(entryMode)) bad(`entryMode "${entryMode}" is not one of ${ENTRY_MODES.join(' · ')} (#286 adds the others)`);
   if (!FRONT_ENDS.includes(frontEnd)) bad(`frontEnd "${frontEnd}" is not one of ${FRONT_ENDS.join(' · ')} — it is how the Switch metric is measured, so it is recorded rather than inferred`);
   if (!Object.hasOwn(POSTURES, posture)) bad(`posture "${posture}" is not one of ${Object.keys(POSTURES).join(' · ')}`);
@@ -333,7 +469,7 @@ export function openSession({ slug, provenance, entryMode, depth, branch = null,
   if (existing) return sessionView(root);
 
   writeRun(root, {
-    slug, provenance, label: LABEL[provenance], entryMode, depth, branch,
+    slug, provenance, label: LABEL[provenance], entryMode, depth, branch, reads,
     frontEnd, model: POSTURES[posture].model, posture, sessionId: null,
     startedAt: now(), endedAt: null, root: headRoot(provenance, root), turnStats: [],
   });

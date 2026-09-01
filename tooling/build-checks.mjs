@@ -136,7 +136,11 @@
 //                     refusal, the slug guard, the ref allocator, the derived cursor, the three line
 //                     constructors, the Think posture's three pinned strings, allowsToolName
 //                     exhaustively, assertTurnWritable both directions, and the SDK/zod source pin
-//                     (#284)
+//                     (#284) · the READ FENCE (#287): allowSetFor + allowsPath over run 1's and
+//                     run 2's shapes, fenceDecision by name and by path with WebSearch/WebFetch
+//                     proven independent of the set, and BOTH call sites driven — each recording
+//                     via itself, each failing closed on a throw, the transport pinned to hand one
+//                     fence object to both
 //  31 prd projection the run package → PRD fold (discovery/prd-projection.mjs): SECTIONS iterated
 //                     against LEVELS and OPS in both directions, the happy projection over a fixture
 //                     package built by running the REAL applier, byte-identical determinism, the
@@ -220,9 +224,9 @@ import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, auditParent
 // imports LAZILY inside runTurn. CI's absence of portal/node_modules is what PROVES that, the same
 // way group 8's invariant is proven for builder.mjs — by ABSENCE, not by adding something.
 import {
-  allowsToolName, appendTranscript, assertProvenanceRoot, assertRunSlug as assertDiscoverySlug, assertTurnWritable,
-  deniedLine, denyReason, discoveryConfig, ENTRY_MODES, fenceHooks, FRONT_ENDS, isMcpToolName, MCP_SERVER, nextRef, openSession, opLine,
-  PROVENANCES, readAnswers, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
+  allowSetFor, allowsPath, allowsToolName, appendTranscript, assertProvenanceRoot, assertRunSlug as assertDiscoverySlug, assertTurnWritable,
+  BANK_PATH, deniedLine, denyReason, discoveryConfig, ENTRY_MODES, fenceCanUseTool, fenceDecision, fenceHooks, FRONT_ENDS, isMcpToolName, MCP_SERVER, nextRef, openSession, opLine,
+  PROVENANCES, readAnswers, READ_TOOLS, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
 // #338 F2 — the boot stamp. Pure helper only; BOOT_SHA itself shells out to git and is source-pinned.
@@ -5804,7 +5808,7 @@ function scanSvg(svg, label) {
   ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a text line moved the cursor");
   appendTranscript(cursorRoot, opLine({ record: { seq: 1, turn: "t1", op: "file_evidence", params: { url: "https://example.test", ref: null, name: null, provenance: "assumption", claim_ref: null }, closes: false, flagged: [], supersedes: null } }));
   ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a NON-closing op moved the cursor — only closed turns advance it");
-  appendTranscript(cursorRoot, deniedLine({ turn: "t1", tool: "Write", input: null, error: "refused" }));
+  appendTranscript(cursorRoot, deniedLine({ turn: "t1", tool: "Write", input: null, error: "refused", via: "PreToolUse" }));
   ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a denied line moved the cursor");
   appendTranscript(cursorRoot, opLine({ record: { seq: 2, turn: "t1", op: "flag_weak_answer", params: { question_id: depthIds[0], answer_ref: "a1", missing: ["a number"] }, closes: true, flagged: [], supersedes: null } }));
   const c1 = sessionView(cursorRoot).cursor;
@@ -5820,7 +5824,12 @@ function scanSvg(svg, label) {
   // item carrying seq/closes/flagged back in, and that refusal is the drift detector: an op line
   // that aliased the caller's record could be rewritten without a write.
   ok(keys(textLine({ turn: "t1", text: "x" })) === "text,ts,turn,type", `case 10: textLine keys are ${keys(textLine({ turn: "t1", text: "x" }))}`);
-  ok(keys(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e" })) === "error,input,tool,ts,turn,type", `case 10: deniedLine keys are ${keys(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e" }))}`);
+  ok(keys(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e", via: "PreToolUse" })) === "error,input,tool,ts,turn,type,via", `case 10: deniedLine keys are ${keys(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e", via: "PreToolUse" }))}`);
+  // `via` is REQUIRED (#287): a denied line that does not say which site refused the call would make
+  // the two-site design uncheckable from the record it exists to produce.
+  ok(names(() => deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e" }), "via") === null, "case 10: deniedLine without via must be refused naming via");
+  for (const junk of ["nowhere", "pretooluse", "", null, 7]) ok(names(() => deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e", via: junk }), "via") === null, `case 10: via ${JSON.stringify(junk)} must be refused naming via`);
+  for (const site of ["PreToolUse", "canUseTool", "PostToolUseFailure"]) ok(deniedLine({ turn: "t1", tool: "Read", input: {}, error: "e", via: site }).via === site, `case 10: via ${site} must be accepted`);
   const rec = { seq: 7, turn: "t2", op: "record_decision", params: { question_id: "q", answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, closes: true, flagged: ["no-evidence"], supersedes: 3 };
   const line = opLine({ record: rec });
   ok(keys(line) === "closes,flagged,op,params,seq,supersedes,ts,turn,type", `case 10: opLine keys are ${keys(line)}`);
@@ -6092,6 +6101,19 @@ function scanSvg(svg, label) {
     ok(!/^\s*const DESCRIPTIONS\b/m.test(transportSrc), "case 12: discovery-transport.mjs still carries its own DESCRIPTIONS — two copies of the tool text drift, and only the postures copy is pinned and fingerprinted");
     ok(/^\s*import\b[^\n]*\bTOOL_DESCRIPTIONS\b[^\n]*discovery-postures/m.test(transportSrc), "case 12: discovery-transport.mjs does not import TOOL_DESCRIPTIONS from discovery-postures.mjs");
     ok(/postureFingerprint:\s*posture\.fingerprint/.test(transportSrc), "case 12: the turnStats stamp is not read off the posture (postureFingerprint: posture.fingerprint) — recomputing it here would be a second record of one fact");
+    // The read fence's WIRING (#287): one fence object, both call sites, the allow-set rebuilt from
+    // run.json, and no inline copy of the name check left behind.
+    ok(/canUseTool:\s*fenceCanUseTool\(root, turn, onLine, fence\)/.test(transportSrc) && /hooks:\s*fenceHooks\(root, turn, onLine, fence\)/.test(transportSrc), "case 12: the transport must hand ONE fence object to BOTH call sites (#287) — canUseTool: fenceCanUseTool(root, turn, onLine, fence) and hooks: fenceHooks(root, turn, onLine, fence)");
+    ok(/allowSetFor\(\{ root, reads: head\.reads \?\? \[\] \}\)/.test(transportSrc), "case 12: the transport must rebuild the allow-set from run.json's reads (allowSetFor({ root, reads: head.reads ?? [] })) — a fence held only in memory would silently widen on resume");
+    // Scoped to the RUN query's own options block, not the whole file — --probe-fence carries a second
+    // `cwd: root` further down, so a file-wide regex would match while the real turn ran anywhere at
+    // all (observed: pointing line 157 at REPO_DIR left the file-wide form green). `resume:
+    // head.sessionId` is the positive control that the block matched IS the resume-per-turn one.
+    const runQuery = /const q = query\(\{[\s\S]*?\n {2}\}\);/.exec(transportSrc)?.[0] ?? "";
+    ok(/resume:\s*head\.sessionId/.test(runQuery), `case 12: the block matched for the cwd pin below is not the real turn's query — it must carry resume: head.sessionId (got ${runQuery.slice(0, 120)})`);
+    ok(/cwd:\s*root\b/.test(runQuery), "case 12: the real turn's query must set cwd to the run root (cwd: root) — fenceDecision substitutes '.' for a path-less Grep/Glob and allowsPath resolves it against the ALLOW-SET root, so a cwd that is not the run root silently widens the fence to everything under it (#287, PR #354 review F2)");
+    ok(!/canUseTool:\s*async/.test(transportSrc) && !/^\s*import\b[^\n]*\ballowsToolName\b/m.test(transportSrc), "case 12: the transport still carries an inline canUseTool or imports allowsToolName — a second copy of the fence is a second fence");
+    ok(/tools:\s*MAIN_TOOLS/.test(transportSrc) && /const MAIN_TOOLS = Object\.freeze\(\[\]\)/.test(transportSrc) && /mainTools:\s*MAIN_TOOLS/.test(transportSrc), "case 12: the query's tools and the fence's mainTools must be ONE record (MAIN_TOOLS, frozen at [] for real runs)");
   }
 
   // 30.13 — purity. A projection that aliased its input could be rewritten without a write.
@@ -6150,7 +6172,9 @@ function scanSvg(svg, label) {
     // calling tools. Denied — the fence stays closed — and NOT recorded. Red under the bracket.
     const r2 = await fire("PreToolUse", { tool_name: "Bash", tool_input: { command: "pwd" }, tool_use_id: "u2" });
     const r3 = await fire("PreToolUse", { tool_name: "Glob", tool_input: { pattern: "**/*.md" }, tool_use_id: "u3" });
-    ok(denied(r2) && denied(r3) && r3.hookSpecificOutput.permissionDecisionReason === denyReason("Glob"), "case 20: a built-in call outside the fence must STILL be denied — the fence stays closed");
+    // Bash by NAME; Glob is a path tool since #287 and, with no allow-set handed to these hooks, fails
+    // closed for want of one — denied either way, the fence stays closed.
+    ok(denied(r2) && denied(r3) && r2.hookSpecificOutput.permissionDecisionReason === denyReason("Bash") && /fail closed/.test(r3.hookSpecificOutput.permissionDecisionReason), "case 20: a built-in call outside the fence must STILL be denied — Bash by name, Glob for want of an allow-set (fail closed) — the fence stays closed");
     ok(onDisk().length === 1 && heard.length === 1, `case 20: a built-in denied with no SubagentStart ever delivered must record NO line — it is the CLI's warmup, and the CLI does not deliver SubagentStart on a resumed turn (disk ${onDisk().length}, heard ${heard.length})`);
     for (const t of ["Grep", "Read", "ListMcpResourcesTool", "ReadMcpResourceTool"])
       ok(denied(await fire("PreToolUse", { tool_name: t, tool_input: {}, tool_use_id: `u3-${t}` })) && onDisk().length === 1, `case 20: ${t} (one of the six built-ins the 79-line recording named) must be denied and unrecorded (disk ${onDisk().length})`);
@@ -6214,6 +6238,32 @@ function scanSvg(svg, label) {
     ok(at(0).event === "PreToolUse.deny" && at(0).tool === "Bash" && at(0).recorded === false && at(0).turn === "t2", "case 22: a built-in's denial must trace recorded false — the line that shows the warmup called tools");
     ok(at(1).event === "PreToolUse.deny" && at(1).tool === "mcp__other__x" && at(1).recorded === true, "case 22: a foreign MCP tool's denial must trace recorded true");
 
+    // ARMED, WITH AN ALLOW-SET (#287, PR #354 review F1). The read fence admits an in-root Read/Grep/
+    // Glob, so a deny-only trace goes blind for exactly the warmup calls the instrument exists to catch
+    // — bracket-trace-1's committed trace holds three of them, Globs on the cwd, which under a
+    // deny-only rule would leave no line at all. Every decision on a tool that is NOT this run's own op
+    // vocabulary must land, ALLOW as well as deny; the op calls themselves must not, or a normal run
+    // buries the warmup. Nothing above this point can reach the allow branch — the earlier drives carry
+    // no allow-set, so every path tool fails closed there.
+    const allowPath = join(TMP, "fence-trace-allow.jsonl");
+    const allowedRoot = tmpRoot("trace-allowed");
+    arm(allowPath);
+    await drive(fenceHooks(allowedRoot, "t3", () => {}, { allowSet: allowSetFor({ root: allowedRoot, reads: [] }), mainTools: [] }), [
+      ["PreToolUse", { tool_name: "Read", tool_input: { file_path: join(allowedRoot, "answers.jsonl") } }],
+      ["PreToolUse", { tool_name: "Glob", tool_input: { pattern: "**/*" } }],
+      ["PreToolUse", { tool_name: toolNameFor("record_decision"), tool_input: {} }],
+      ["PreToolUse", bash],
+    ]);
+    const a = existsSync(allowPath) ? readFileSync(allowPath, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+    const seen = a.map((l) => `${l.event} ${l.tool}`);
+    ok(same(seen, ["PreToolUse.allow Read", "PreToolUse.allow Glob", "PreToolUse.deny Bash"]),
+      `case 22: two ALLOWED in-root built-ins and one denial must trace three lines naming each decision and its tool — an allowed read leaves no other evidence it ran (got ${JSON.stringify(seen)})`);
+    ok(a.length === 3 && a.every((l) => keys(l) === "event,recorded,tool,ts,turn" && l.turn === "t3") && a[0]?.recorded === false && a[1]?.recorded === false,
+      `case 22: an allow line must carry the same five keys with recorded false — nothing was written to the transcript (got ${JSON.stringify(a)})`);
+    ok(!seen.some((l) => l.includes("mcp__")), "case 22: an op tool must NOT be traced, allowed or not — the agent's own calls are transcript.jsonl's job and would bury the warmup");
+    ok(readTranscript(allowedRoot).length === 0, "case 22: an allowed call and an unrecorded built-in denial must leave transcript.jsonl empty — the trace is the only evidence either happened");
+    arm(tracePath);
+
     // The trace is NOT a transcript line: transcript.jsonl has three typed shapes and the SSE
     // whitelist is asserted by mutation (case 2). Everything written above is `denied` and nothing else.
     ok(readTranscript(traceRoot).every((l) => l.type === "denied"), "case 22: the fence trace must never reach transcript.jsonl");
@@ -6230,6 +6280,201 @@ function scanSvg(svg, label) {
     ok(res?.hookSpecificOutput?.permissionDecision === "deny" && heardBroken.length === 1,
       "case 22: a trace write that throws must leave the denial and its recorded line intact — an observation may not disturb what it observes");
     arm(before ?? null);
+  }
+
+  // 30.23 — THE READ FENCE's predicate (#287): allowSetFor + allowsPath, driven over the two run
+  // shapes the ticket names. PURE — no fs — so the roots are invented paths; what is asserted is the
+  // arithmetic of "equal to an entry or under one (entry + sep)", resolved against the run root.
+  {
+    const JOBS = "/jobs";
+    const run1 = allowSetFor({ root: `${JOBS}/_discovery/run-1`, reads: [] });
+    const FIX = "docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md";
+    const run2 = allowSetFor({ root: join(ROOT, "discovery", "run-2"), reads: [FIX] });
+    const allow = (set, p) => allowsPath(set, p).allow === true;
+    const deny = (set, p) => { const d = allowsPath(set, p); return d.allow === false && typeof d.reason === "string" && d.reason.length > 0; };
+    // The shape of the set: the root first, the bank second, then reads resolved against the repo.
+    ok(same(run1.paths, [`${JOBS}/_discovery/run-1`, BANK_PATH]) && run1.root === `${JOBS}/_discovery/run-1`, `case 23: run 1's allow-set is ${JSON.stringify(run1)}`);
+    ok(same(run2.paths, [join(ROOT, "discovery", "run-2"), BANK_PATH, join(ROOT, FIX)]), `case 23: run 2's allow-set is ${JSON.stringify(run2.paths)}`);
+    ok(BANK_PATH === join(ROOT, "discovery", "bank.mjs"), `case 23: BANK_PATH is ${BANK_PATH}`);
+    ok(Object.isFrozen(run1) && Object.isFrozen(run1.paths), "case 23: the allow-set must be frozen at both levels");
+    // Run 1's shape: its package and the bank allowed; the two scoring keys under JOBS_DIR denied.
+    ok(allow(run1, `${JOBS}/_discovery/run-1/answers.jsonl`), "case 23: run 1 must read its own package");
+    ok(allow(run1, "answers.jsonl") && allow(run1, "./transcript.jsonl"), "case 23: a relative path resolves against the run root");
+    ok(allow(run1, BANK_PATH), "case 23: run 1 must read the bank");
+    ok(deny(run1, `${JOBS}/_portfolio/decisions.json`), "case 23: run 1 must NOT read _portfolio/decisions.json — the run-1 key");
+    ok(deny(run1, `${JOBS}/_portfolio/pre-registration.sealed.md`), "case 23: run 1 must NOT read the sealed pre-registration");
+    ok(deny(run1, `${JOBS}/_discovery/run-2/answers.jsonl`), "case 23: run 1 must NOT read another run's package");
+    ok(deny(run1, `${JOBS}/_discovery/run-1-evil/x`), "case 23: `<root>-evil/x` is not under `<root>` — the entry + sep rule");
+    ok(deny(run1, `${JOBS}/_discovery`), "case 23: the run root's PARENT is not under the root");
+    ok(deny(run1, "../x") && deny(run1, `${JOBS}/_discovery/run-1/../run-2/x`), "case 23: `..` is normalised before the compare, so a traversal out of the root is denied");
+    // Run 2's shape: the fixture allowed; the PRD one directory above it — the run-2 key — denied,
+    // and so is everything else beside the fixture.
+    ok(allow(run2, join(ROOT, FIX)), "case 23: run 2 must read its fixture");
+    // A RELATIVE path resolves against the run root — the cwd the SDK's Read resolves against — never
+    // the repo: the repo-relative spelling of the fixture lands UNDER the package and is allowed for
+    // that reason alone, which is why `reads` is resolved against REPO_DIR at build time instead.
+    ok(allowsPath(run2, FIX).allow === true && allowsPath(run2, FIX).reason.includes(join(ROOT, "discovery", "run-2", FIX)), "case 23: a relative path resolves against the run root, not the repo");
+    ok(deny(run2, join(ROOT, "docs/epics/discovery-partner.prd.md")), "case 23: run 2 must NOT read docs/epics/discovery-partner.prd.md — the findings list, one directory above the fixture");
+    ok(deny(run2, join(ROOT, "docs/epics/fixtures")) && deny(run2, join(ROOT, "docs/epics/fixtures/other.md")), "case 23: a fixture entry admits that FILE, not its directory or its siblings");
+    ok(deny(run2, join(ROOT, "discovery/run-2", "..", "..", "docs/epics/discovery-partner.prd.md")), "case 23: run 2's key reached through `..` from the root is still denied");
+    ok(allow(run2, join(ROOT, "discovery/run-2/transcript.jsonl")) && allow(run2, BANK_PATH), "case 23: run 2 reads its package and the bank");
+    ok(deny(run2, join(ROOT, "discovery/bank.mjs.bak")) && deny(run2, join(ROOT, "discovery/ops.mjs")), "case 23: the bank entry admits bank.mjs and nothing beside it");
+    // The reason names the path and, on a denial, the set — the transcript's `denied` line is the
+    // auditable record and "denied" alone would not say what was asked for.
+    const d = allowsPath(run2, join(ROOT, "docs/epics/discovery-partner.prd.md"));
+    ok(d.reason.includes(join(ROOT, "docs/epics/discovery-partner.prd.md")) && d.reason.includes(join(ROOT, FIX)), `case 23: a denial must name the path and the allow-set — "${d.reason.slice(0, 120)}"`);
+    ok(allowsPath(run2, join(ROOT, FIX)).reason.includes(join(ROOT, FIX)), "case 23: an allow names the resolved path");
+    // Junk denies, never throws — the predicate's own fail-closed. Every junk path against a real set,
+    // then every junk set against a real path.
+    for (const junk of ["", " ", null, undefined, 7, {}, [], true])
+      ok(threw(() => allowsPath(run1, junk)) === null && deny(run1, junk) && /fail closed/.test(allowsPath(run1, junk).reason), `case 23: allowsPath(set, ${JSON.stringify(junk)}) must deny with "fail closed", not throw`);
+    for (const junk of [null, undefined, {}, [], "x", 7, { root: "/x" }, { paths: ["/x"] }, { root: "/x", paths: [] }, { root: "relative", paths: ["/x"] }, { root: "/x", paths: "not-an-array" }])
+      ok(threw(() => allowsPath(junk, "/x/y")) === null && deny(junk, "/x/y") && /fail closed/.test(allowsPath(junk, "/x/y").reason), `case 23: allowsPath(${JSON.stringify(junk)}, path) must deny with "fail closed", not throw`);
+    // allowSetFor REFUSES by name — it runs at session start, before anything is written (case 16).
+    ok(names(() => allowSetFor({ root: "discovery/x", reads: [] }), "absolute") === null, "case 23: a relative root must be refused naming absolute");
+    for (const junk of ["x", null, [""], ["  "], [7], [null], [{}]])
+      ok(names(() => allowSetFor({ root: "/x", reads: junk }), "reads") === null, `case 23: reads ${JSON.stringify(junk)} must be refused naming reads`);
+    ok(threw(() => allowSetFor()) !== null && threw(() => allowSetFor({})) !== null, "case 23: allowSetFor with no root must throw");
+    // Purity: two calls, one answer; the caller's array untouched.
+    const reads = [FIX];
+    const twice = [allowSetFor({ root: "/x", reads }), allowSetFor({ root: "/x", reads })];
+    ok(same(twice[0], twice[1]) && same(reads, [FIX]), "case 23: allowSetFor must be deterministic and must not touch its input");
+    ok(same(allowsPath(run2, FIX), allowsPath(run2, FIX)), "case 23: allowsPath must be deterministic");
+  }
+
+  // 30.24 — fenceDecision, the ONE decision both sites call (#287). Op tools by name under ANY
+  // allow-set; path tools by allowsPath over READ_TOOLS' field; everything else by name, whatever
+  // path it carries. WebSearch / WebFetch are proven independent of the allow-set — the assertion
+  // that keeps MVP 7's look-it-up path out of reach of a later path tightening (AC #5).
+  {
+    const set = allowSetFor({ root: "/x/run", reads: ["docs/f.md"] });
+    const EVERYTHING = allowSetFor({ root: "/", reads: [] });   // the whole filesystem is "under /"
+    const EMPTY = { root: "/x/run", paths: [] };               // fails closed for every path
+    for (const op of DISCOVERY_OPS) for (const s of [set, null, EMPTY]) ok(fenceDecision(s, toolNameFor(op), {}).allow === true, `case 24: ${toolNameFor(op)} must pass under ${JSON.stringify(s)}`);
+    ok(same(Object.keys(READ_TOOLS).sort(), ["Glob", "Grep", "Read"]) && Object.isFrozen(READ_TOOLS), `case 24: READ_TOOLS names ${Object.keys(READ_TOOLS).join(",")} — adding a path tool here widens the path allow-list's reach, and WebFetch must never be one`);
+    ok(READ_TOOLS.Read === "file_path" && READ_TOOLS.Grep === "path" && READ_TOOLS.Glob === "path", "case 24: READ_TOOLS' fields are the SDK's input names");
+    ok(fenceDecision(set, "Read", { file_path: "/x/run/answers.jsonl" }).allow === true, "case 24: Read inside the root passes");
+    ok(fenceDecision(set, "Read", { file_path: join(ROOT, "docs/f.md") }).allow === true, "case 24: Read of a reads entry passes");
+    ok(fenceDecision(set, "Read", { file_path: "/x/other" }).allow === false, "case 24: Read outside the set is denied");
+    ok(fenceDecision(set, "Read", {}).allow === false && /fail closed/.test(fenceDecision(set, "Read", {}).reason), "case 24: Read with no file_path is denied, fail closed");
+    ok(fenceDecision(set, "Read", null).allow === false && fenceDecision(set, "Read", "junk").allow === false, "case 24: Read with junk input is denied");
+    ok(fenceDecision(set, "Grep", { pattern: "x" }).allow === true && fenceDecision(set, "Glob", { pattern: "**/*" }).allow === true, "case 24: Grep and Glob with no path search the cwd, which is the root — allowed");
+    ok(fenceDecision(set, "Grep", { pattern: "x", path: "/x" }).allow === false && fenceDecision(set, "Glob", { pattern: "*", path: "/x/other" }).allow === false, "case 24: Grep and Glob with a path outside the set are denied");
+    ok(fenceDecision(set, "Glob", { pattern: "*", path: "sub" }).allow === true, "case 24: a relative Glob path resolves against the root");
+    // No write tools, whatever path they carry — carried from the spine, re-asserted here (AC #6).
+    for (const t of ["Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"]) {
+      const dd = fenceDecision(EVERYTHING, t, { file_path: "/x/run/answers.jsonl", command: "cat /x/run/answers.jsonl" });
+      ok(dd.allow === false && dd.reason === denyReason(t), `case 24: ${t} must be denied BY NAME even under an allow-everything set and an in-root path (got ${JSON.stringify(dd)})`);
+    }
+    // WebSearch / WebFetch: not path tools; the decision is the SAME under an empty set, a real one,
+    // the whole filesystem and no set at all, and it is the NAME gate's text — never allowsPath's. A
+    // later tightening that put either in READ_TOOLS, or routed the web tools through allowsPath,
+    // fails here by name.
+    for (const t of ["WebSearch", "WebFetch"]) {
+      ok(!Object.hasOwn(READ_TOOLS, t), `case 24: ${t} must not be a path tool`);
+      const input = { query: "x", url: "https://example.test/x", prompt: "y" };
+      const under = [EMPTY, set, EVERYTHING, null].map((s) => fenceDecision(s, t, input));
+      ok(under.every((dd) => same(dd, under[0])), `case 24: ${t}'s decision must not depend on the allow-set (got ${under.map((dd) => dd.allow).join(",")})`);
+      ok(under.every((dd) => dd.reason === denyReason(t) && !/fail closed|outside|\//.test(dd.reason)), `case 24: ${t} must be decided by NAME, never by the path allow-list (got "${under[0].reason.slice(0, 80)}")`);
+    }
+    // Junk tool names deny by name and never throw.
+    for (const junk of ["", null, undefined, 7, {}, [], "read", "READ", " Read", "mcp__other__x"]) ok(threw(() => fenceDecision(set, junk, {})) === null && fenceDecision(set, junk, {}).allow === false, `case 24: fenceDecision(set, ${JSON.stringify(junk)}) must deny, not throw`);
+    // The RAW predicate throws on a hostile set — so case 25's try/catch is proven to be doing the
+    // catching, rather than nothing having thrown.
+    const hostile = { root: "/x/run", get paths() { throw new Error("hostile allow-set"); } };
+    ok(threw(() => fenceDecision(hostile, "Read", { file_path: "/x/run/a" }))?.message === "hostile allow-set", "case 24: the raw fenceDecision must THROW on a hostile allow-set (positive control for case 25's fail-closed)");
+    ok(threw(() => fenceDecision(hostile, toolNameFor("record_decision"), {})) === null, "case 24: an op tool never reaches the allow-set");
+  }
+
+  // 30.25 — THE TWO CALL SITES (#287): fenceHooks' PreToolUse and fenceCanUseTool, driven over a temp
+  // root with the SAME fence object the transport builds, and compared to each other on every input.
+  // Each records a `denied` line naming ITSELF in `via`; each denies on a throw; each still passes an
+  // op tool with no allow-set at all. What this case cannot reach — whether the SDK actually stops a
+  // call either site denied, and whether the CLI consults canUseTool for a read at all — is the fence
+  // probe's (discovery-transport.mjs --probe-fence), which observes each site holding ALONE.
+  {
+    const siteRoot = tmpRoot("sites");
+    const OUT = "/x/outside/key.md";
+    const IN = join(siteRoot, "answers.jsonl");
+    const fence = { allowSet: allowSetFor({ root: siteRoot, reads: [] }), mainTools: ["Read"] };
+    const heard = [];
+    const hooks = fenceHooks(siteRoot, "t3", (l) => heard.push(l), fence);
+    const pre = (input) => hooks.PreToolUse[0].hooks[0]({ session_id: "s1", transcript_path: join(siteRoot, "s1.jsonl"), cwd: siteRoot, hook_event_name: "PreToolUse", tool_use_id: "u1", ...input });
+    const can = fenceCanUseTool(siteRoot, "t3", (l) => heard.push(l), fence);
+    const onDisk = () => readTranscript(siteRoot);
+    const denied = (r) => r?.hookSpecificOutput?.hookEventName === "PreToolUse" && r.hookSpecificOutput.permissionDecision === "deny";
+
+    // Site 1, the hook: Read outside → denied AND recorded, via PreToolUse, the path kept in input.
+    const h1 = await pre({ tool_name: "Read", tool_input: { file_path: OUT } });
+    ok(denied(h1) && /outside this run's read allow-set/.test(h1.hookSpecificOutput.permissionDecisionReason), `case 25: the hook must deny a Read outside the set with allowsPath's reason (got ${JSON.stringify(h1)})`);
+    ok(onDisk().length === 1 && onDisk()[0].type === "denied" && onDisk()[0].via === "PreToolUse" && onDisk()[0].tool === "Read" && onDisk()[0].input?.file_path === OUT && onDisk()[0].turn === "t3" && onDisk()[0].error === h1.hookSpecificOutput.permissionDecisionReason && heard.length === 1,
+      `case 25: the hook's denial must be ONE denied line via PreToolUse carrying the path and the reason the SDK was given (disk ${JSON.stringify(onDisk())})`);
+    ok(same(await pre({ tool_name: "Read", tool_input: { file_path: IN } }), { continue: true }) && onDisk().length === 1, "case 25: the hook must pass a Read inside the root and record nothing");
+    ok(denied(await pre({ tool_name: "Bash", tool_input: { command: `cat ${OUT}` } })) && onDisk().length === 1, "case 25: the hook still denies Bash by name and still does not record it (the warmup rule)");
+    // Site 2, canUseTool: the same battery, the SDK's PermissionResult shape, via canUseTool.
+    const c1 = await can("Read", { file_path: OUT });
+    ok(c1.behavior === "deny" && /outside this run's read allow-set/.test(c1.message) && onDisk().length === 2 && onDisk()[1].via === "canUseTool" && onDisk()[1].tool === "Read" && onDisk()[1].input?.file_path === OUT && onDisk()[1].error === c1.message && heard.length === 2,
+      `case 25: canUseTool must deny a Read outside the set and record ONE denied line via canUseTool with the same reason (got ${JSON.stringify(c1)}, disk ${onDisk().length})`);
+    const allowIn = { file_path: IN };
+    const c2 = await can("Read", allowIn);
+    ok(c2.behavior === "allow" && c2.updatedInput === allowIn && onDisk().length === 2, "case 25: canUseTool must allow a Read inside the root, hand the input back UNCHANGED (same object) and record nothing");
+    const c3 = await can("Bash", { command: "pwd" });
+    ok(c3.behavior === "deny" && c3.message === denyReason("Bash") && onDisk().length === 2, "case 25: canUseTool denies Bash by name, unrecorded");
+    for (const op of DISCOVERY_OPS) ok((await can(toolNameFor(op), { a: 1 })).behavior === "allow", `case 25: canUseTool must allow ${toolNameFor(op)}`);
+    // ONE predicate: on every input in the battery the two sites decide the same way, for the same reason.
+    const battery = [["Read", { file_path: OUT }], ["Read", { file_path: IN }], ["Read", {}], ["Glob", { pattern: "*" }], ["Glob", { pattern: "*", path: "/x" }], ["Grep", { pattern: "k", path: OUT }], ["Write", { file_path: IN }], ["Bash", { command: "ls" }], ["WebFetch", { url: "https://e.test" }], [toolNameFor("file_evidence"), {}], ["mcp__other__x", {}], [undefined, {}]];
+    for (const [t, i] of battery) {
+      const viaHook = await pre({ tool_name: t, tool_input: i });
+      const viaCan = await can(t, i);
+      const hookAllows = !denied(viaHook);
+      ok(hookAllows === (viaCan.behavior === "allow"), `case 25: the two sites disagree on ${JSON.stringify(t)} ${JSON.stringify(i)} — hook ${hookAllows ? "allows" : "denies"}, canUseTool ${viaCan.behavior}`);
+      if (!hookAllows) ok(viaHook.hookSpecificOutput.permissionDecisionReason === viaCan.message, `case 25: the two sites give different reasons for ${JSON.stringify(t)}`);
+    }
+    // mainTools: []: the same Read denial is DENIED but not recorded — #349's warmup attribution,
+    // unchanged for every real run today. An mcp__ denial is still recorded.
+    const quietRoot = tmpRoot("sites-quiet");
+    const quietHeard = [];
+    const quietOpts = { allowSet: allowSetFor({ root: quietRoot }), mainTools: [] };
+    const quiet = fenceHooks(quietRoot, "t4", (l) => quietHeard.push(l), quietOpts);
+    const q1 = await quiet.PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: OUT } });
+    ok(denied(q1) && readTranscript(quietRoot).length === 0 && quietHeard.length === 0, "case 25: under mainTools: [] a Read denial is denied and NOT recorded — a built-in the main session is not advertised is the CLI's");
+    const q2 = await fenceCanUseTool(quietRoot, "t4", (l) => quietHeard.push(l), quietOpts)("Read", { file_path: OUT });
+    ok(q2.behavior === "deny" && readTranscript(quietRoot).length === 0, "case 25: canUseTool under mainTools: [] denies and does not record either");
+    ok(denied(await quiet.PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: "mcp__other__x", tool_input: {} })) && readTranscript(quietRoot).length === 1 && readTranscript(quietRoot)[0].via === "PreToolUse", "case 25: an mcp__ denial is still recorded under mainTools: [] (#349's rule, byte-identical)");
+    // FAIL CLOSED, both sites: a hostile allow-set makes the raw predicate throw (case 24); each site
+    // must turn that into a denial that says so, and neither may let the exception escape.
+    const hostile = { allowSet: { root: siteRoot, get paths() { throw new Error("hostile allow-set"); } }, mainTools: ["Read"] };
+    const hostileRoot = tmpRoot("sites-hostile");
+    let escaped = null, hr = null;
+    try { hr = await fenceHooks(hostileRoot, "t5", null, hostile).PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: IN } }); }
+    catch (e) { escaped = e.message; }
+    ok(escaped === null && denied(hr) && /fail closed/.test(hr.hookSpecificOutput.permissionDecisionReason) && /hostile allow-set/.test(hr.hookSpecificOutput.permissionDecisionReason),
+      `case 25: the hook must DENY when the predicate throws, naming the throw and "fail closed", and must not let it escape (escaped ${escaped}, got ${JSON.stringify(hr)})`);
+    let cEscaped = null, cr = null;
+    try { cr = await fenceCanUseTool(hostileRoot, "t5", null, hostile)("Read", { file_path: IN }); }
+    catch (e) { cEscaped = e.message; }
+    ok(cEscaped === null && cr?.behavior === "deny" && /fail closed/.test(cr.message), `case 25: canUseTool must DENY when the predicate throws (escaped ${cEscaped}, got ${JSON.stringify(cr)})`);
+    ok(readTranscript(hostileRoot).length === 2 && readTranscript(hostileRoot).every((l) => /fail closed/.test(l.error)), `case 25: both fail-closed denials must be recorded (disk ${readTranscript(hostileRoot).length})`);
+    ok((await fenceHooks(hostileRoot, "t5", null, hostile).PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: toolNameFor("record_decision"), tool_input: {} })).continue === true, "case 25: an op tool passes even under a hostile allow-set — it never reaches it");
+    // NO allow-set at all (opts omitted, as every pre-#287 caller passes): every path tool fails
+    // closed, op tools pass, Bash is denied by name — the #349 fence, exactly.
+    const bareRoot = tmpRoot("sites-bare");
+    const bare = fenceHooks(bareRoot, "t6", null);
+    for (const t of Object.keys(READ_TOOLS)) ok(denied(await bare.PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: t, tool_input: { file_path: IN, path: bareRoot } })), `case 25: with no allow-set ${t} must be denied even inside the root — fail closed`);
+    ok((await fenceCanUseTool(bareRoot, "t6", null)("Read", { file_path: IN })).behavior === "deny", "case 25: with no allow-set canUseTool denies Read too");
+    ok((await fenceCanUseTool(bareRoot, "t6", null)(toolNameFor("open_question"), {})).behavior === "allow", "case 25: with no allow-set an op tool still passes canUseTool");
+    // The site is in the trace's event name, so an armed trace tells the two apart without a field.
+    const traceFile = join(TMP, "sites-trace.jsonl");
+    const beforeTrace = process.env.DISCOVERY_FENCE_TRACE;
+    process.env.DISCOVERY_FENCE_TRACE = traceFile;
+    await fenceHooks(tmpRoot("sites-traced"), "t7", null, fence).PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: OUT } });
+    await fenceCanUseTool(tmpRoot("sites-traced"), "t7", null, fence)("Read", { file_path: OUT });
+    if (beforeTrace === undefined) delete process.env.DISCOVERY_FENCE_TRACE; else process.env.DISCOVERY_FENCE_TRACE = beforeTrace;
+    // existsSync first: under a predicate that allows everything nothing is denied, nothing is traced,
+    // and the assertion below must fail BY NAME rather than the gate dying on ENOENT (seen on the
+    // allow-everything mutation in the #287 report).
+    const traced = existsSync(traceFile) ? readFileSync(traceFile, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+    ok(traced.length === 2 && traced[0].event === "PreToolUse.deny" && traced[1].event === "canUseTool.deny" && traced.every((l) => l.recorded === true && keys(l) === "event,recorded,tool,ts,turn"), `case 25: the trace must name the site in its event and keep case 22's key set (got ${JSON.stringify(traced)})`);
   }
 
   // 30.15 — assertTurnWritable, both directions. The STRUCTURAL half of runTurn's
@@ -6260,6 +6505,8 @@ function scanSvg(svg, label) {
   ok(refusedOpen({ posture: "shout" })?.includes("posture"), "case 16: an unknown posture must be refused by name");
   ok(refusedOpen({ depth: "no-such-depth" }) !== null, "case 16: an unknown depth must throw (the bank's own refusal)");
   ok(refusedOpen({ branch: "b2b" })?.includes("#283"), "case 16: a non-null branch must be refused naming #283");
+  // The read fence's input (#287), refused by name before the package exists.
+  ok(refusedOpen({ reads: "docs/x.md" })?.includes("reads") && refusedOpen({ reads: [""] })?.includes("reads") && refusedOpen({ reads: [7] })?.includes("reads"), "case 16: a junk reads must be refused naming reads");
   rmSync(join(ROOT, "discovery", openArgs.slug), { recursive: true, force: true });
   // The order, from SOURCE (case 12's method): every guard call in openSession's body indexes before
   // its first mkdirSync. This is what proves "refused before written" without reading the repo tree —
@@ -6268,16 +6515,16 @@ function scanSvg(svg, label) {
   const openStart = discoverySrc.indexOf("export function openSession(");
   const openBody = openStart === -1 ? "" : discoverySrc.slice(openStart, discoverySrc.indexOf("\n}\n", openStart));
   const firstMkdir = openBody.indexOf("mkdirSync(");
-  const guardAt = [...openBody.matchAll(/\b(?:bad|selectDepth|assertRunSlug|assertProvenanceRoot)\(/g)].map((m) => m.index);
-  ok(openStart !== -1 && firstMkdir !== -1, "case 16: openSession or its mkdirSync is not where the source pin expects — re-pin before trusting the five refusals above");
-  ok(guardAt.length >= 7, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the seven pinned (slug, root, entryMode, frontEnd, posture, depth, branch)`);
+  const guardAt = [...openBody.matchAll(/\b(?:bad|selectDepth|assertRunSlug|assertProvenanceRoot|allowSetFor)\(/g)].map((m) => m.index);
+  ok(openStart !== -1 && firstMkdir !== -1, "case 16: openSession or its mkdirSync is not where the source pin expects — re-pin before trusting the six refusals above");
+  ok(guardAt.length >= 8, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the eight pinned (slug, root, reads, entryMode, frontEnd, posture, depth, branch)`);
   ok(guardAt.every((i) => i < firstMkdir), `case 16: a guard in openSession sits AFTER mkdirSync — a refused call would already have created the package (guards at ${guardAt.join(",")}, mkdirSync at ${firstMkdir})`);
 
   // The temp package never reaches the repo; the roots case above proved where a real one WOULD go.
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every denial with its tool and recorded flag and no allowed call, absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually blocks an MCP call — the predicate and the hook are gated here, the wiring is #287's; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------
