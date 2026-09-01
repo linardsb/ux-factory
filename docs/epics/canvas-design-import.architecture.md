@@ -375,8 +375,27 @@ pre-slice item lives) · `canvas-spike-s1-substrate-load.md` · `canvas-plusui-r
 `canvas-grammar-children-many.md` · `canvas-swap-pr-brief.md` (incl. the T10 deferral) ·
 `canvas-baseline-cascade.md`.
 
+## Addendum 2026-08-28 (after the slice): the owner drives
+
+Decided with the owner after reading the NUU design-system case study (a human driving Claude interactively,
+unrecorded) against this design (fenced, traced, one op per call, owner ratifies). The reframe: not "human in
+the loop" but **agent in the owner's loop** — the decision record is the product; PRD, screens and pack are
+projections. Six calls, each changing one paragraph above; tickets on epic #295.
+
+| Call | What changes above | Ticket |
+|---|---|---|
+| **D1 One inbox.** A read-only "waiting on you" surface across discovery and build: open questions, missing states, unlinked and stale frames, proposals pending ratify, unbound imports, agent proposals awaiting a verdict; every row a link to its verb; no percentage | § Placement: `portal/lib/inbox.mjs`, a pure fold over the run packages, and one SPA hash route (`#/inbox`) — the CLAUDE.md rule, because the inbox spans both phases and is not `canvas.html`'s | #319 |
+| **D2 Decisions have blast radius.** `frame.decisionRefs` pins `{id, seq}`; a later `record_decision` with the same `question_id` supersedes; `staleFrames(doc, transcript)` is derived, never stored; re-confirm is a `frame.link` (owner op); the decision card lists the frames that embody it; no auto-propagation | § Data model: the `frame` shape and `lineage.json` gain `seq` and `stale`. Discovery side: the supersede rule, requested on #281/#290; #318 adds it if they merge without it | #318 |
+| **D3 The owner briefs the turn.** One instruction before a turn, recorded as the owner's text line in `transcript.jsonl` (`source: owner`), never an op, never rewritten; a turn with no brief is recorded as such | § Boundaries, the compose loop | #312 |
+| **D4 A `why` on every `screen.compose`**, required; the applier refuses a compose without it, owner's or agent's; the proposal card shows it | § Data model, the op vocabulary (`PARAMS` for `screen.compose`) | #302, #312 |
+| **D5 Options at forks.** On a decision the projection lists as open, one turn yields two alternatives for one screen (an alternatives tag on `screen.compose`, no new op); the owner picks; the other is `refused: not-picked`; falls back to one proposal if S6's numbers say two runs past the yield contract | § Boundaries, the compose loop; G33's lanes are the mechanism | #320 |
+| **B5 `DESIGN.md` pulled forward if S6 says so.** T13's committed conventions file, read by the compose prompt at run time, versioned, drift-checked against `vocabulary.json`; not rendered by a shipped page | § Stack: "a committed `DESIGN.md` … is wave 3" becomes conditional on S6's branch | #321, #308 |
+
+The op count stays fourteen. Run 1 (#316) exercises D1–D5. The principle the six share: the owner initiates
+and admits; the agent drafts inside fences.
+
 ---
-*Decided interactively with the PRD holder, 2026-08-28 — one round on the shape (in-place swap vs
+*Decided interactively with the PRD holder, 2026-08-28 (addendum the same day, after the slice) — one round on the shape (in-place swap vs
 board-first vs a second canvas), one on the four calls that change the slicing (the ops' home, the portal
 mount, the override shape, the Figma source), with T1–T16 taken as named calls and T10 deferred on
 evidence. Next: slice with `piv-slice-epic` (feed this doc + the PRD), running S1 before the swap PR and
