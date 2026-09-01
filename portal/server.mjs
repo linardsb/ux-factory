@@ -167,6 +167,9 @@ const server = createServer(async (req, res) => {
       return json(res, 200, openSession({
         slug: b.slug, provenance: b.provenance, entryMode: b.entryMode, depth: b.depth,
         branch: b.branch ?? null, frontEnd: b.frontEnd, posture: b.posture,
+        // The read fence's per-run input (#287): what this run may read beyond its package and the
+        // bank. The drawer sends none yet (#286 will, for an existing PRD); refused by name if junk.
+        reads: b.reads ?? [],
       }));
     }
     // Read-only: the package as it stands. The drawer re-fetches this after a turn so the cursor and
