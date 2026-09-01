@@ -1,9 +1,13 @@
 // portal/lib/discovery-postures.mjs — a posture is a prompt (epic #279, ticket #284;
 // docs/epics/discovery-partner.prd.md MVP 6 — the agent judges FORM, never substance).
 //
-// One posture ships in the spine: Think. #286 adds Grill and Create-PRD and the existing-PRD audit
-// entry mode. Nothing shipped reads this file — it is build-time only, reached from
-// portal/lib/discovery.mjs and portal/lib/discovery-transport.mjs.
+// Two postures ship: Think on claude-sonnet-5 (the spine's, and the one group 32's fixture was
+// recorded under) and Think on Opus — the SAME buildThinkTurn prompt under claude-opus-5, so sonnet and
+// opus can be compared on one answer set. The model string is the whole difference: on Opus 5 thinking
+// is adaptive and on by default, and the fixed budget (budget_tokens; the SDK's maxThinkingTokens is
+// that shape) is removed and returns 400, so no per-posture SDK option exists here. #286 adds Grill and
+// Create-PRD and the existing-PRD audit entry mode. Nothing shipped reads this file — it is build-time
+// only, reached from portal/lib/discovery.mjs and portal/lib/discovery-transport.mjs.
 //
 // Pure strings. STATICALLY SDK-FREE AND ZOD-FREE: tooling/build-checks.mjs group 30 imports this
 // module and runs in CI with no portal/node_modules, so an SDK import here takes that job down. The
@@ -178,7 +182,11 @@ Judge it, then file your one op against question_id "${question.id}" and answer_
 // the op-verb lock; and discovery.mjs imports this module, so hashing them here would be a cycle
 // with TOOL_SCHEMA in TDZ when POSTURES computes), the fence's deny text (denyReason,
 // discovery.mjs's) and the SDK's own preset sit OUTSIDE it — an edit to one of those does not make the
-// fixture stale by name. Group 32 compares the committed fixture's per-turn fingerprint to this one:
+// fixture stale by name. So would any per-posture SDK option: today a posture is exactly id, label,
+// model, build and fingerprint (group 30 pins that key set), and the two postures differ by model
+// alone, which IS hashed; a posture that grows an option (an effort level, a thinking setting) must
+// widen the join below in the same edit, or that option's edits never move a stamp. Group 32
+// compares the committed fixture's per-turn fingerprint to this one:
 // a prompt edit makes the recording stale BY NAME rather than leaving a green gate over a run the
 // current prompt never produced. Exported frozen so group 30 case 19 can prove the hash is computed
 // over exactly these inputs.
@@ -197,7 +205,10 @@ export function fingerprintOf({ build, model }) {
   return createHash('md5').update([model, systemPrompt, prompt, JSON.stringify(TOOL_DESCRIPTIONS)].join('\n \n')).digest('hex');
 }
 
+// THINK_MODEL stays where the fixture was recorded: moving it moves POSTURES.think.fingerprint and
+// makes group 32's parenting fixture stale for no reason. The Opus comparison is a SECOND posture.
 const THINK_MODEL = 'claude-sonnet-5';
+const THINK_OPUS_MODEL = 'claude-opus-5';
 
 export const POSTURES = Object.freeze({
   think: Object.freeze({
@@ -207,5 +218,14 @@ export const POSTURES = Object.freeze({
     build: buildThinkTurn,
     // The prompt-surface fingerprint the transport stamps on every turnStats entry (#341).
     fingerprint: fingerprintOf({ build: buildThinkTurn, model: THINK_MODEL }),
+  }),
+  // The same prompt under Opus 5. The drawer renders `${label} (${model})`, so the label carries no
+  // model string of its own. No thinking budget: see the header.
+  'think-opus': Object.freeze({
+    id: 'think-opus',
+    label: 'Think on Opus',
+    model: THINK_OPUS_MODEL,
+    build: buildThinkTurn,
+    fingerprint: fingerprintOf({ build: buildThinkTurn, model: THINK_OPUS_MODEL }),
   }),
 });
