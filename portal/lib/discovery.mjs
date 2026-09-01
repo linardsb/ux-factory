@@ -134,11 +134,20 @@ export const toolNameFor = (op) => `mcp__${MCP_SERVER}__${op}`;
 // and Bash agents with a "Warmup" prompt (cli.js p$9), and Explore runs pwd, ls, find and Glob on the
 // cwd. Those calls hit this fence and are denied with denyReason's text (observed as their is_error
 // tool_result in the agent-*.jsonl sidechains) — and they are not the discovery agent's, which is why
-// fenceHooks below records a denial only outside a SubagentStart…SubagentStop bracket. Whether a deny
-// from canUseTool or the hook actually blocks an MCP call stays unobserved; #287 owns that half.
+// fenceHooks below records a denial only on an mcp__ tool name (#349; the bracket it replaced is told
+// there). Whether a deny from canUseTool or the hook actually blocks an MCP call stays unobserved;
+// #287 owns that half.
 const ALLOWED_TOOL_NAMES = new Set(OPS.map(toolNameFor));
 export function allowsToolName(name) {
   return typeof name === 'string' && ALLOWED_TOOL_NAMES.has(name);
+}
+
+// Could the MAIN session have made this call at all? Under `tools: []` its only tools are MCP tools,
+// and the SDK prefixes every one of those mcp__<server>__<tool>; the CLI's warmup agents have none.
+// The record gate for a PreToolUse denial (#349) — a predicate, not a list of built-ins, so a built-in
+// this CLI version has not got yet is still the CLI's.
+export function isMcpToolName(name) {
+  return typeof name === 'string' && name.startsWith('mcp__');
 }
 
 // --- the answer store -----------------------------------------------------------------------------
@@ -220,54 +229,70 @@ export const denyReason = (name) => `${name} is not one of this run's op tools (
 // WHO IS BEING REFUSED. A PreToolUse input carries session_id, transcript_path and cwd, and all three
 // are the MAIN session's for a subagent's call too — cli.js builds them from the global session id, and
 // only SubagentStop names an agent_transcript_path. So the hook cannot tell a sidechain call apart from
-// its input; the bracket does. SubagentStart adds the agent_id to a set, SubagentStop removes it, and a
-// PreToolUse denial is RECORDED only while the set is empty — DENIED either way, the fence stays closed.
-// A `denied` line was therefore INTENDED to mean the discovery agent itself was refused, with the CLI's
-// warmup agents leaving no line.
+// its input. #343 tried to tell it from TIMING — a SubagentStart…SubagentStop bracket, a denial
+// recorded only while no subagent was open — and #349's paid observation (discovery/bracket-trace-1,
+// the trace beside its report) showed why that never held: the CLI delivered SubagentStart on the
+// session's CREATE turn only, 0 of 11 RESUMED turns, while SubagentStop arrived on every turn. Every
+// turn after the first is a resume (the transport's resume-per-turn), so the bracket was structurally
+// absent for the whole run, and the count of recorded warmup denials was simply how busy the warmup
+// was that day (3, 79, 4, 7 across four recordings of one answer sheet). WHY the CLI drops the start
+// hook on a resumed session is inside cli.js and NOT observed; nothing here depends on it any more.
 //
-// THAT IS NOT WHAT HAPPENS TODAY, and this header states it because the header is the specification.
-// The 2026-09-01 re-recording of discovery/instrument-loans-1 (#338) drew 79 `denied` lines and NOT ONE
-// is an op-tool refusal: Bash 53, Glob 9, Grep 7, ListMcpResourcesTool 6, ReadMcpResourceTool 3, Read 1,
-// running `git status`, `pwd`, `git log` and — an Explore agent grepping the repo for the string
-// "warmup". The bracket was not open when mainSession() ran, and the run cannot say why: either
-// SubagentStart had not fired before the warmup agent's first tool call, or the bracket had already
-// closed on a LAST stop while warmup agents kept calling tools. The two produce identical evidence.
-// Until that is settled (#343's, not this file's — do not "fix" fenceHooks from this comment), read a
-// `denied` line against its `tool`: an op tool is the agent, a built-in is the CLI.
+// Both recording hooks are therefore gated by the TOOL NAME, which needs no ordering at all. Under
+// `tools: []` the main session is advertised the op server's mcp__ tools and nothing else (the init
+// message's tool list; the preflight's PF1 compares it to OPS), so an mcp__ name is the only name the
+// discovery agent can call; the CLI's warmup agents run with mcpClients: [] and the built-in set
+// (cli.js p$9 → BP0), so a built-in is the only name THEY can call. A PreToolUse denial is RECORDED
+// only for an mcp__ name (isMcpToolName) — DENIED either way, the fence stays closed. A `denied` line
+// naming a built-in is never written now; the ones in packages recorded before this rule
+// (instrument-loans-1 at 42cca5e and at 7efdde37's recording, bracket-trace-1) are the CLI's and
+// stay, dated by the git history. PostToolUseFailure has been gated by the tool since PR #344 F1.
 //
-// A set, not a boolean: the three warmup agents (Explore, Plan, Bash) start together and the
-// bracket closes on the LAST stop. The state is per call, i.e. per turn's query(), so a SubagentStop
-// that never fires suppresses PreToolUse's recording only for the rest of that turn — and under
-// `tools: []` the main session's PreToolUse has nothing to suppress. PostToolUseFailure is gated by the
-// TOOL, not the bracket (below), so the bracket's timing can never cost the agent's own refusal.
+// What this rule cannot see: an SDK that stopped honouring `tools: []`. The agent's own Bash call
+// would then be denied and unrecorded — a lost receipt, not a false one. The preflight is the check.
 export function fenceHooks(root, turn, onLine) {
   const record = (line) => {
     try { const written = appendTranscript(root, line); onLine?.(written); }
     catch (e) { process.stderr.write(`discovery: hook error (non-fatal): ${e.message}\n`); }
   };
-  const subagents = new Set();
-  const mainSession = () => subagents.size === 0;
+
+  // THE FENCE TRACE (#349) — OFF unless DISCOVERY_FENCE_TRACE names a file. Point it OUTSIDE the run
+  // root: a package is committed with a fixed file set, so an armed path inside one puts a fourth file
+  // in it. That is operator discipline, NOT enforced here — a resolve-and-refuse guard would null the
+  // very path group 30's case 22 arms to prove the swallow below, and the case would go on passing
+  // while testing nothing. Read per call, i.e. per turn's query(), so an operator can arm it for one
+  // recording without a restart, and so group 30 can drive it. Every denial lands there with its tool
+  // and whether it was recorded: a recording with zero built-in `denied` lines proves nothing if the
+  // warmup happened to be quiet, and the unrecorded denials here are what show the warmup DID call
+  // tools. NEVER through appendTranscript — transcript.jsonl has three typed line types
+  // (discovery/README.md §File shapes) and the SSE projection's whitelist is asserted by mutation,
+  // so a fourth type would be a format change wearing a debug flag. Swallowed on failure: an
+  // observation that can disturb the run it observes is worse than no observation.
+  const traceTo = process.env.DISCOVERY_FENCE_TRACE || null;
+  const trace = (event) => {
+    if (!traceTo) return;
+    try { appendFileSync(traceTo, `${JSON.stringify({ ts: now(), turn, ...event })}\n`); }
+    catch { /* see above: a broken instrument must not break the recording */ }
+  };
 
   return {
-    SubagentStart: [{ hooks: [async (input) => { if (input?.agent_id) subagents.add(input.agent_id); return { continue: true }; }] }],
-    SubagentStop: [{ hooks: [async (input) => { subagents.delete(input?.agent_id); return { continue: true }; }] }],
     // Fails CLOSED, and unlike the recording hooks it MAY alter the run — blocking out-of-fence calls
     // is its job. The permission fast path can auto-allow without ever consulting canUseTool, so
     // canUseTool alone cannot enforce the fence.
     PreToolUse: [{ hooks: [async (input) => {
       if (allowsToolName(input.tool_name)) return { continue: true };
       const reason = denyReason(input.tool_name);
-      if (mainSession()) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error: reason }));
+      const recorded = isMcpToolName(input.tool_name);
+      trace({ event: 'PreToolUse.deny', tool: input.tool_name ?? null, recorded });
+      if (recorded) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error: reason }));
       return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } };
     }] }],
     // The ONLY record point for a refusal, handler or schema-layer (the transport's observation 3).
     // PostToolUse is deliberately NOT registered — the filed line is written by the handler, which
-    // holds the seq. Gated by the TOOL, not the bracket (PR #344 review F1): the discovery agent's
-    // refusal is always on an op tool and a warmup agent's failure never is, so an applier refusal
-    // that lands while a warmup bracket is still open is kept, and this hook does not lean on the
-    // SubagentStart-before-first-PreToolUse ordering. A non-op failure records nothing in either
-    // session: cli.js fires this event from the tool's execution catch only, never for a PreToolUse
-    // deny, so a non-op tool that reached execution was never the main session's.
+    // holds the seq. Gated by the TOOL (PR #344 review F1): the discovery agent's refusal is always on
+    // an op tool and a warmup agent's failure never is. A non-op failure records nothing: cli.js fires
+    // this event from the tool's execution catch only, never for a PreToolUse deny, so a non-op tool
+    // that reached execution was never the main session's.
     PostToolUseFailure: [{ hooks: [async (input) => {
       const error = String(input.error ?? JSON.stringify(input.tool_response ?? null));
       if (allowsToolName(input.tool_name)) record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error }));

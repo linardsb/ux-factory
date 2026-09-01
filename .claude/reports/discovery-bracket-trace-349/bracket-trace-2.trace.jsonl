@@ -1,0 +1,16 @@
+{"ts":"2026-09-01T12:17:51.141Z","turn":"t2","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:17:51.141Z","turn":"t2","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:17:51.141Z","turn":"t2","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:18:08.480Z","turn":"t3","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:18:08.480Z","turn":"t3","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:18:08.480Z","turn":"t3","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:18:11.939Z","turn":"t3","event":"PreToolUse.deny","tool":"ListMcpResourcesTool","recorded":false}
+{"ts":"2026-09-01T12:18:20.572Z","turn":"t4","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:18:20.572Z","turn":"t4","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:18:23.457Z","turn":"t4","event":"PreToolUse.deny","tool":"ListMcpResourcesTool","recorded":false}
+{"ts":"2026-09-01T12:19:05.068Z","turn":"t7","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:19:05.069Z","turn":"t7","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:19:05.069Z","turn":"t7","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:19:34.203Z","turn":"t10","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:19:34.203Z","turn":"t10","event":"PreToolUse.deny","tool":"Bash","recorded":false}
+{"ts":"2026-09-01T12:19:34.204Z","turn":"t10","event":"PreToolUse.deny","tool":"Bash","recorded":false}
