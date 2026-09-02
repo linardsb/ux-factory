@@ -7421,9 +7421,17 @@ function scanSvg(svg, label) {
       ok(!/allowSetFor/.test(src), "33.9: the author harness must NOT call allowSetFor — that builder puts BANK_PATH into every set it makes, because a discovery RUN may read the bank. The author is not a discovery run");
       ok(/paths:\s*Object\.freeze\(\[\s*authorRoot\s*\]\)/.test(src), "33.9: the author's allow-set must be built by hand with paths of length 1 holding the author root and nothing else");
       ok(/root:\s*authorRoot/.test(src), "33.9: the author's allow-set root must be the author root");
-      const at = src.indexOf("query({");
-      ok(at !== -1, "33.9: the harness must call query({ ... })");
+      // SCOPED TO THE AUTHORING QUERY. The harness holds a SECOND query({ ... }) — probeAuthorFence's —
+      // and it satisfies every assertion below, so a file-wide match would stay green with the
+      // authoring query pointed anywhere. That is PR #354 review F2 in group 30, verbatim: --probe-fence
+      // carried a second `cwd: root` and the real turn's pin stopped meaning anything. The prompt line
+      // is the anchor that says WHICH query this is.
+      const fn = src.indexOf("async function authorOne");
+      ok(fn !== -1, "33.9: the harness must hold authorOne, the one fenced query per question");
+      const at = src.indexOf("query({", fn);
+      ok(at !== -1, "33.9: authorOne must call query({ ... })");
       const block = at === -1 ? "" : src.slice(at, src.indexOf("for await", at));
+      ok(/prompt: promptFor\(brief, q\)/.test(block), "33.9: the pinned block must be the AUTHORING query — the probe's query satisfies every assertion below, so without this anchor the pin cannot say which one it read");
       ok(/cwd:\s*authorRoot/.test(block), "33.9: options.cwd MUST be the author root — allowsPath resolves against allowSet.root and the SDK resolves against cwd, so a mismatch green-lights the bank and records nothing (the cwd trap)");
       ok(/tools:\s*AUTHOR_TOOLS/.test(block), "33.9: the query must advertise AUTHOR_TOOLS — under tools: [] a denied Read is denied and UNRECORDED, and the fence's receipt would not exist (the receipts trap)");
       ok(/canUseTool:\s*fenceCanUseTool\(authorRoot/.test(block) && /hooks:\s*fenceHooks\(authorRoot/.test(block), "33.9: both fence sites must be wired, each rooted at the author root");

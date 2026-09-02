@@ -232,7 +232,9 @@ export async function recordGradedAnswers({ out, dry = false, only = null, budge
   // key.json is sealed.
   const partialPath = path.join(fixtureDir, 'key.partial.jsonl');
   const done = new Map();
-  if (!dry && existsSync(partialPath)) {
+  // NOT under --only: that flag exists to RE-AUTHOR one question, and loading the partial would skip it
+  // and merge the stale answer straight back.
+  if (!dry && !only && existsSync(partialPath)) {
     for (const line of readFileSync(partialPath, 'utf8').split('\n').filter((l) => l.trim())) {
       const rec = JSON.parse(line);
       done.set(rec.question_id, rec);

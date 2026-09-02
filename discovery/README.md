@@ -390,11 +390,15 @@ number, a hedge, an artefact cited from memory), K2 is thin against the question
 not know yet and why. The author is a fenced Agent SDK run (`portal/record-graded-answers.mjs`) whose read
 allow-set is its own output directory and **nothing else**: `discovery/bank.mjs`,
 `docs/research/question-bank-source.md`, the PRD, the architecture doc and every committed package are
-denied, and the denials land as `denied` lines in the author's own transcript. The 195 answers and their
-expected closing ops are committed at `docs/epics/fixtures/graded-answers/` (`brief.md` · `draw.json` ·
-`key.json` · `author/transcript.jsonl`) **before any run is opened**, and the key is never edited
-afterwards — a re-authored key is a new commit that REPLACES it and voids every package recorded against
-the old one.
+denied, and the denials land as `denied` lines in the author's own transcript.
+
+On disk today: `brief.md` (the author's literal prompt preamble), `draw.json` (sealed, with its seed) and
+`author/transcript.jsonl` (the fence receipt — four leak paths attempted, four refused via `PreToolUse`).
+**`key.json` is not written yet**: the authoring run halted at question 28 of 65 when the API account ran
+out of credit. The key holds 195 answers and their expected closing ops, it is written only when all 195
+validate — sealed complete or not at all — and it is committed **before any run is opened**. Once
+committed it is never edited: a re-authored key is a new commit that REPLACES it and voids every package
+recorded against the old one.
 
 **The draw** (`draw.json`) is a Latin square with a per-question hash offset from a committed seed: across
 a posture's three runs every question meets all three kinds, and no run column is a uniform or cyclic

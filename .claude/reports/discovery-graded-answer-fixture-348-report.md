@@ -40,7 +40,7 @@ step in this ticket spends money, so all of them are blocked on the same thing. 
 | B3 the sealed key | not written — the key is sealed complete or not at all | ⛔ BLOCKED |
 | C0 the run driver | `portal/record-graded-run.mjs` | CREATE |
 | D3 the README section | `discovery/README.md` §The graded answer fixture (#348) | UPDATE |
-| B4 commit Phase B | `476dd51` (the fence receipt + the harness hardening) | ✅ |
+| B4 commit Phase B | `476dd51` — the fence receipt and the harness hardening only | PARTIAL: **the seal is outstanding** |
 | C1–C3, D1–D2 | **not run** — blocked, and behind the plan's paid gate | ⛔ |
 
 ## Validation results
@@ -254,6 +254,13 @@ git add docs/epics/fixtures/graded-answers/key.json && git commit    # the seal;
 Then Phase C's smoke turns (`C1`, ≈$0.15) behind a running portal, and **stop at the plan's ⛔ HARD STOP**
 for the call on C2 (2 runs, 130 turns, ≈$17) versus C2+C3 (6 runs, 390 turns, ≈$51).
 
+**One step the plan names that is not done and cannot be done yet.** A6's GOTCHA has a second half:
+*"then make it required in the same PR's final commit."* Case 33.15 is `existsSync`-gated today, so a
+deleted or never-recorded package goes quiet rather than red — the opposite of group 32's stated
+precedent (*"fails by name when the package is absent — it never skips"*). **After C3 lands, drop the
+gate and make the six packages required**, in the same PR. Until then the group's ✓ line prints
+`PENDING` and names what is missing, which is the honest interim.
+
 **One sequencing note.** PR #358 (#352's `strictMcpConfig` on the real turn, #353's group 30 relabel) is
 open and mergeable and is **not** in this branch. Neither moves a fingerprint, so neither invalidates a
 package. Group 33 lands at the end of `build-checks.mjs` and #358 edits group 30, so there is no textual
@@ -262,10 +269,22 @@ final report which tree the packages were recorded on.
 
 ## Issues encountered
 
-Besides the credit halt and the two defects it exposed: `parseAnswers`' first regex truncated every
+Three, besides the credit halt and the two defects it exposed.
+
+`parseAnswers`' first regex truncated every
 multi-line answer at its first newline (`$` under the `m` flag matches every line end, not the end of
 input). Caught by the dry run's printed output, fixed with an end-of-input lookahead, and exercised on
 multi-line, bold-labelled and quote-wrapped replies.
+
+Group 33 case 9's query-block pin matched the FIRST `query({` in the harness, and after `--probe` landed
+there were two — and the probe's block satisfies every assertion in the case. A file-wide match would
+have stayed green with the authoring query pointed anywhere, which is PR #354 review F2 in group 30
+verbatim. The block is now sliced from `authorOne` and anchored on `prompt: promptFor(brief, q)`, and
+both directions are driven: mutating the authoring `cwd` goes red, mutating the probe's does not
+(observed).
+
+`--only` was defeated by the resume partial — `done.has(q.id)` skipped the very question the flag exists
+to re-author and merged the stale answer back. The partial is not loaded under `--only`.
 
 ## Repo state
 
@@ -278,5 +297,5 @@ Two commits on `feat/348-graded-answer-fixture`, nothing pushed, no PR opened.
 
 `portal/lib/discovery-postures.mjs` untouched; both fingerprints unmoved (`7efdde37…` / `cadb3811…`,
 observed). `discovery/instrument-loans-1/` untouched. Total spend this session: **$1.13** (observed —
-$0.110 dry run + $0.052 + $0.052 probes + $0.919 author run).
+$0.110 dry run + $0.048 and $0.052 for the two probe runs + $0.919 author run).
 
