@@ -7518,7 +7518,11 @@ function scanSvg(svg, label) {
       const spans = new Set();
       for (const e of key.entries) for (let i = 0; i + 30 <= e.answer.length; i += 1) spans.add(e.answer.slice(i, i + 30));
       ok(spans.size > 100, `33.13: only ${spans.size} spans came off the key — is it populated?`);
-      for (const q of BANK) for (const field of ["text", "weakAnswer", "note", "provenanceNote"]) {
+      // The three RUBRIC fields, and deliberately NOT `text`. The risk this guards is a later ticket
+      // tuning a weak-answer note FROM the fixture's own K2 prose, which would make every future score
+      // circular. An answer echoing thirty characters of the question it answers is normal — the author
+      // is shown the question text — so including `text` would buy a false positive and no coverage.
+      for (const q of BANK) for (const field of ["weakAnswer", "note", "provenanceNote"]) {
         const v = q[field];
         if (typeof v !== "string") continue;
         for (let i = 0; i + 30 <= v.length; i += 1) {
