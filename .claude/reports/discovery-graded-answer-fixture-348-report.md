@@ -2,8 +2,9 @@
 
 **Plan**: `.claude/plans/discovery-graded-answer-fixture-348.md`
 **Branch**: `feat/348-graded-answer-fixture` (from `origin/main` at `977ab11`)
-**Status**: PARTIAL — **Phases A and B complete; C1 passed; stopped at the plan's ⛔ HARD STOP awaiting
-the owner's paid call on C2.** The key is sealed at `6401754`. Nothing under `discovery/` is recorded.
+**Status**: **COMPLETE for the scope the owner chose — C2 only.** Phases A, B, C1 and C2 done, scored and
+committed. C3's four runs were deliberately not run (see §The C3 decision). D1's score, D2's MVP 6 read
+and D3's README are below.
 
 Every row below is labelled *observed* (I ran it), *derived* (arithmetic, shown) or *expected*
 (assumption).
@@ -16,7 +17,8 @@ them because build-checks group 33 source-pins the harness's fence, and a gate c
 file the same PR adds later is a gate case nobody reads. The author's fence was then proved at run time,
 not only from source, and the 195 answers were authored blind and sealed.
 
-What has **not** happened: the six runs. Phase C's money sits behind the plan's own hard stop.
+What has **not** happened: C3's four runs. The owner chose C2 alone — a complete two-posture reading on
+one answer set — over per-question coverage.
 
 **The most important result of this session is that the FIRST sealed fixture was void, and a subagent
 audit caught it before a penny of Phase C was spent.** See §The fixture that was thrown away.
@@ -239,14 +241,138 @@ restored (observed).
 **V13 — `--turns` was added to the driver for C1.** The plan's C1 asks for one turn per posture and the
 driver walked to completion. Unbounded by default; a full recording never passes it.
 
+## D1 — THE SCORE
+
+Both runs, 65 turns each, `whole-bank`, draw column `a`, the SAME 65 sealed answers. `buildThinkTurn` is
+identical across the two; the model string is the whole difference, which is what makes this a comparison.
+**No target was set.**
+
+### The confusion matrix — expected × what closed the turn
+
+**`graded-think-a` · `think` · claude-sonnet-5 · $3.24 · 12 min · `7efdde37…`**
+
+| expected | record_decision | flag_weak_answer | open_question | no close (filed) | no close (silent) |
+|---|---|---|---|---|---|
+| K1 → record_decision | **14** | 1 | 4 | 0 | 0 |
+| K2 → flag_weak_answer | 2 | **8** | 8 | 0 | 0 |
+| K3 → open_question | 0 | 2 | **26** | 0 | 0 |
+
+**`graded-opus-a` · `think-opus` · claude-opus-5 · $3.89 · 16 min · `cadb3811…`**
+
+| expected | record_decision | flag_weak_answer | open_question | no close (filed) | no close (silent) |
+|---|---|---|---|---|---|
+| K1 → record_decision | **14** | 2 | 3 | 0 | 0 |
+| K2 → flag_weak_answer | 0 | **11** | 7 | 0 | 0 |
+| K3 → open_question | 0 | 1 | **27** | 0 | 0 |
+
+Both matrices sum to 65 of 65 turns (observed). `file_evidence` is counted beside them and never in them:
+**14 ops over 14 turns on sonnet, 35 over 32 on opus.**
+
+| | think | think-opus |
+|---|---|---|
+| overall | 48/65 — **74%** | 52/65 — **80%** |
+| K1 (has the form) | 14/19 — 74% | 14/19 — 74% |
+| K2 (thin) | 8/18 — **44%** | 11/18 — **61%** |
+| K3 (does not know) | 26/28 — 93% | 27/28 — 96% |
+| turns that closed | 65/65 | 65/65 |
+
+Chance over three verbs is 33%.
+
+**Per-kind totals only, not per-stage × per-kind** (the plan's F3): with one run per posture every question
+meets exactly one kind, so a cross-tab would publish cells of n=0–3 — stage 9 holds four questions in
+total. The per-stage breakdown the scorer prints is per-stage **overall**, not per-stage per-kind, and it
+is in the tool's output rather than repeated here. The per-question cross-tab needs C3.
+
+### What the number says
+
+**F1 — the judge's dominant failure is PARKING, on both postures.** 12 of sonnet's 17 misses and 10 of
+opus's 13 are a turn filed as `open_question` when the key expected something else — 8 of 18 thin answers
+and 4 of 19 well-formed ones on sonnet. Faced with an answer it is unsure of, this prompt surface reaches
+for *"you do not know yet"* rather than *"your answer names no number."* **This is the thing to tighten,
+and doing so is a new PR and a re-run, never an edit** — the fingerprints must stay byte-stable or the
+packages stop being comparable.
+
+**F2 — opus's entire gain is in K2.** K1 is identical at 14/19 and K3 differs by one. The 6-point overall
+gap is 8/18 → 11/18 on thin answers alone.
+
+**F3 — opus never recorded a decision on a thin answer** (0 vs sonnet's 2). Of the two error kinds,
+accepting a thin answer as a decision is the one that puts an unsupported claim into the PRD projection;
+opus made none.
+
+**F4 — opus files 2.5× the evidence** (35 ops / 32 turns vs 14 / 14). `EVIDENCE_RULE` (#338 F6) lands much
+harder on opus. Counted, never scored.
+
+**F5 — zero non-closing turns in 130.** Every turn filed exactly one closing op. That is a pipeline-health
+reading, not a quality one.
+
+### What the number does NOT say
+
+- **The K2/K3 boundary is the fixture's softest seam.** The substance audit flagged **11 of 65 K2 answers
+  as borderline** — taking the easy half of a question and refusing the hard half — and 7–8 of the K2
+  mismatches sit inside that band. **This score cannot separate "the judge mis-graded" from "the answer
+  genuinely sat on the boundary", and no run of this fixture can.** A judge that parks a genuinely
+  ambiguous answer is not obviously wrong.
+- **It is a form-judgement reading taken under the realism gap** (§THE REALISM GAP): the answers are
+  authored, not real. Real answers wander, contradict themselves and arrive out of order.
+- **And under a second gap the plan did not name: the STREAM is artificial.** A real session is a coherent
+  interview whose ledger accumulates. This walks 65 questions about one company answered alternately
+  well/thin/unknown in a hash-scrambled order. No real interview produces that stream, and the judge sees
+  it in every turn prompt via `ledgerBrief`.
+- **`allergen-matrix-1`'s 30/30 and `my-product-name`'s op counts are NOT quality readings** and are not
+  cited as one anywhere in this report. They prove the transport, the applier, the projection and the
+  fingerprint tripwire; they say nothing about judge quality, because their answers were written to have
+  the form the questions ask for.
+- **A run of turns with no decision in a projected `prd.md` may be a DRAW ARTIFACT.** The hash offset
+  produces stretches of three or four same-kind draws, and a stretch of K2/K3 is exactly what #285's
+  not-a-form counter is built to notice. Check the draw column before quoting it as a finding.
+
+## D2 — the MVP 6 read (AC5)
+
+**Mechanical shortlist, human verdict, and the report says which is which.**
+
+`--mvp6` over both packages' `text` lines with the committed pattern set: **0 candidates from sonnet's 109
+lines, 3 from opus's 130.** All three read as false positives:
+
+| turn | matched | why it is not a violation |
+|---|---|---|
+| `t36` | `\bwrong\b` | matched the QUESTION ID `s6-accountable-when-wrong` |
+| `t6` | `\bwrong\b` | describes the answer's subject — *"the feeling before anything goes wrong"* |
+| `t47` | `\bwrong\b` | quotes the person's own hedge back — *"you say you may have the number wrong"* |
+
+**Verdict (human, over 3 shortlisted of 239 text lines across 130 turns): the judge never told a person
+their answer was wrong and never supplied what was missing.** The shortlist does not prove MVP 6 and this
+report does not claim it does; it made the read tractable.
+
+## The C3 decision
+
+C2 cost **$7.13**, not the plan's ≈$17. At that rate C3's four runs are ≈$14 and all six ≈$21 rather than
+≈$51. The owner chose C2 anyway, on the reasoning that C3 buys per-question coverage — a refinement of a
+validation — while the unmeasured product question is **which questions a session should ask**, which is
+branch inference and a different ticket.
+
+What C3 would add if run later: every question meeting all three kinds, which makes a per-stage × per-kind
+cross-tab meaningful and removes the draw's per-column kind imbalance (column `a` is K3-heavy: 28 K3 / 19
+K2 / 18 K1). The key, the draw and the driver are all committed, so C3 is `record-graded-run.mjs` four
+more times.
+
+## Cost, observed — final
+
+| | |
+|---|---|
+| Phase B — dry runs, probes, three author runs, three `--only` re-authors | $8.49 |
+| C1 smoke turns | $0.109 |
+| C2 — `graded-think-a` $3.24 + `graded-opus-a` $3.89 | $7.13 |
+| **total** | **$15.73** |
+
+The plan expected ≈$2 for Phase B and ≈$17 for C2. Phase B overran 4× because the first fixture was void
+and had to be re-authored; C2 came in at 42% of estimate.
+
 ## What is outstanding
 
-1. **The owner's paid call** — C2 (≈$17) or C2+C3 (≈$51). This is the plan's ⛔ hard stop.
-2. C2/C3, then D1's score and report, D2's MVP 6 read, D3's README update with the real numbers.
-3. **After C3: make group 33 case 15 REQUIRED.** It is `existsSync`-gated today, so a deleted or
-   never-recorded package goes quiet rather than red — the opposite of group 32's stated precedent. A6's
-   GOTCHA names this and it is the last thing to do before the PR.
-4. The PR, with `Closes #348`, the plan, this report and the review.
+1. **C3's four runs**, if the owner ever wants per-question coverage (≈$14).
+2. **The PR**, with `Closes #348`, the plan, this report and the review.
+3. A prompt tightening on the back of F1 (the parking bias) is **a new ticket, a new PR and a re-run** —
+   never an edit to this one.
 
 ## Open questions for the owner
 
@@ -258,7 +384,7 @@ model family) — unchanged, and weaker for `graded-think-*` than for `graded-op
 
 ## Repo state
 
-Six commits on `feat/348-graded-answer-fixture`, nothing pushed, no PR.
+Ten commits on `feat/348-graded-answer-fixture`, nothing pushed, no PR.
 
 ```
 76287a4 --turns bounds the driver's walk, and C1's smoke turns pass on both postures

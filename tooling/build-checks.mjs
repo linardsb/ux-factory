@@ -7575,10 +7575,20 @@ function scanSvg(svg, label) {
   {
     const keyPath = join(FIXTURE, "key.json");
     const drawPath = join(FIXTURE, "draw.json");
+    // REQUIRED vs OPTIONAL, and the difference is what C2 bought. graded-think-a and graded-opus-a are
+    // recorded and committed, so they FAIL BY NAME when absent — group 32's rule ("it never skips"),
+    // which is the whole point of A6's "make it required in the same PR's final commit". The other four
+    // are C3's and were not run; they are checked in full IF present and named as absent otherwise, so
+    // the ✓ line always says which of the six exist rather than going quiet.
+    const REQUIRED = ["graded-think-a", "graded-opus-a"];
     const ready = existsSync(keyPath) && existsSync(drawPath);
+    ok(ready, "33.15: the sealed key and draw must both exist — the packages are scored against them");
+    for (const slug of REQUIRED) ok(existsSync(join(ROOT, "discovery", slug, "run.json")), `33.15: no run package at discovery/${slug} — C2's two recordings are committed and this case never skips them; re-record per .claude/plans/discovery-graded-answer-fixture-348.md Phase C`);
     const present = GRADED_SLUGS.filter((s) => existsSync(join(ROOT, "discovery", s, "run.json")));
+    const missing = GRADED_SLUGS.filter((s) => !present.includes(s));
+    if (missing.length) pending33.push(`C3 not recorded: ${missing.join(", ")}`);
     if (!ready || present.length === 0) {
-      pending33.push(`33.15 the six recorded packages PENDING — ${present.length}/${GRADED_SLUGS.length} on disk, key ${existsSync(keyPath) ? "sealed" : "not yet authored"}`);
+      pending33.push("33.15 no package is readable");
     } else {
       const draw = checkDraw(JSON.parse(readFileSync(drawPath, "utf8")), IDS);
       const keyIndex = checkKey(JSON.parse(readFileSync(keyPath, "utf8")), IDS);

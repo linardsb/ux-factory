@@ -381,8 +381,36 @@ an agent wrote answers that had exactly the form the question asks for, and the 
 nearly every turn. That says the pipeline moves. It does not say the judge can tell a good answer from a
 thin one.
 
-**Status: the design is sealed and no package has been recorded yet.** Phase C spends real money and is
-gated on the owner's call. What is committed today is the sealed half.
+**Status: two of the six are recorded.** `graded-think-a` and `graded-opus-a` (65 turns each, draw column
+`a`, recorded 2026-09-02) are committed and scored. `-b` and `-c` on both postures were not run — the
+owner took the two-posture reading and stopped, because the remaining four buy per-question coverage
+rather than a different answer. The key, the draw and the driver are all committed, so they are
+`portal/record-graded-run.mjs` four more times.
+
+**The reading, and no target was set.** Same 65 sealed answers, same draw column, the same
+`buildThinkTurn` — the model string is the whole difference. Chance over three verbs is 33%.
+
+| | turns | overall | K1 has the form | K2 thin | K3 does not know |
+|---|---|---|---|---|---|
+| `graded-think-a` · sonnet-5 | 65 | 48/65 — **74%** | 14/19 | 8/18 | 26/28 |
+| `graded-opus-a` · opus-5 | 65 | 52/65 — **80%** | 14/19 | 11/18 | 27/28 |
+
+**The judge's dominant failure is PARKING, on both postures**: 12 of sonnet's 17 misses and 10 of opus's
+13 are a turn filed as `open_question` when the key expected something else. Opus's entire gain is in K2
+(8/18 → 11/18); K1 is identical and K3 differs by one. Opus never recorded a decision on a thin answer
+(sonnet did twice) and files 2.5× the evidence (35 ops over 32 turns vs 14 over 14). Zero non-closing
+turns in 130. **Tightening the prompt on the back of this is a new ticket, a new PR and a re-run — never
+an edit**, because both fingerprints must stay byte-stable or the packages stop being comparable.
+
+**MVP 6 held.** Over 239 agent text lines the mechanical shortlist returned three candidates, all false
+positives on inspection (one matched the question id `s6-accountable-when-wrong`). Across 130 turns the
+judge never said an answer was wrong and never supplied what was missing. The shortlist is mechanical;
+that verdict is a human read, and the distinction is the point.
+
+**The softest seam, stated rather than buried:** the substance audit flagged 11 of 65 K2 answers as
+borderline — taking the easy half of a question and refusing the hard half — and 7–8 of the K2 mismatches
+sit inside that band. **This score cannot separate "the judge mis-graded" from "the answer genuinely sat on
+the boundary."** A judge that parks a genuinely ambiguous answer is not obviously wrong.
 
 **How they are made.** For each of the bank's 65 questions three answers were authored **blind to that
 question's weak-answer note** — K1 carries the form (badly, the way a person does: a range instead of a
@@ -423,6 +451,17 @@ column, and `think` / `opus` is its posture.
   of order. The brief pushes K1 toward that register deliberately, and it is still not the same thing.
   The score is a form-judgement reading taken **under that realism gap**, and closing it needs real
   interview transcripts, which is a later ticket.
+- **The STREAM is artificial too, and that gap is not in the ticket.** A real session is a coherent
+  interview whose ledger accumulates toward one product. This walks 65 questions answered alternately
+  well / thin / unknown in a hash-scrambled order, and the judge sees that ledger in every turn prompt
+  through `ledgerBrief`. No interview produces it.
+- **The first fixture was VOID and was thrown away.** Its 195 answers were sortable at 85.6% by a
+  three-rule regex written before reading one of them: K2 named a person in 0/65 where K1 named one in
+  50/65, and K2 was shorter than its own K1 in 64/65. The brief had told a stateless author to "never
+  write in the same register twice in a row", which it cannot obey. The fix was a mechanism — a speaker
+  rotated by question index, and mechanical refusal of banned phrasings and short K2s. After it the same
+  classifier scores 41% against a 33% chance floor. Recorded here because a fixture that looks fine and
+  measures nothing is the failure mode this whole package exists to avoid.
 - **Group 32 does not read them.** It names `instrument-loans-1` and nothing else. Group 33 reads them,
   and only group 33: no other tracked source file may name a `graded-` slug in code, which that group
   sweeps for.
