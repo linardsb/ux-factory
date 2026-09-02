@@ -67,6 +67,8 @@ With the fix in, `build-checks` is green. With the bracket put back — a `Set`,
 - `case 20: fenceHooks must register exactly PreToolUse and PostToolUseFailure … (got PostToolUseFailure,PreToolUse,SubagentStart,SubagentStop)`
 - `case 20: a built-in denied with no SubagentStart ever delivered must record NO line — it is the CLI's warmup, and the CLI does not deliver SubagentStart on a resumed turn (disk 3, heard 3)`
 
+> Renumbering note (2026-09-02, #353): the fence-hooks block quoted above is now `30.26` / `case 26:` — its `30.20` label collided with the provenance case at the same number. The quotes keep the `case 20:` wording they carried when this mutation ran.
+
 That second line is the case the bracket gate could never fail, because #343's case 20 always fired
 the start first — the ticket's "check that cannot fail". Restored to the fix: green.
 
