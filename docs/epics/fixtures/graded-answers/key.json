@@ -1,0 +1,1176 @@
+{
+  "generatedFor": "#348",
+  "authoredAt": "2026-09-02T12:07:57.536Z",
+  "entries": [
+    {
+      "question_id": "s1-choice-cascade",
+      "kind": "K1",
+      "answer": "That's five questions in one, so let me take it in pieces. Winning aspiration — being the system small home-care agencies choose over CareLineLive without ever having to go up against the big enterprise players. Where we play — agencies running somewhere between forty and, say, a hundred and fifty carers, that's roughly our current book. How we win — compliance that actually holds up in a CQC inspection, that's the thing they tell me they bought us for. Capabilities and management systems I'm less sharp on, that's more Ellie's end of the conversation than mine.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s1-choice-cascade",
+      "kind": "K2",
+      "answer": "We think about this a lot, honestly — Ellie and I go back and forth on strategy most weeks. Our whole approach is built around agencies feeling like the software understands their world, not some generic scheduling tool bolted on. Winning for us looks like being the obvious choice for a coordinator who's sick of spending her day on a rota. We talk about capabilities a lot too — support, compliance, the model work Dan's been doing. It's less a fixed plan than something we keep revisiting as customers tell us what actually matters to them.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s1-choice-cascade",
+      "kind": "K3",
+      "answer": "I don't think we've ever written this out as five separate answers, so I'd be making some of it up if I tried to give you a clean version now. We know roughly who we're selling to and roughly what they buy us for, but the \"how we win\" and the capabilities piece shift depending on who in the founding four you ask — Marek would probably answer differently to me. It's been an ongoing argument rather than a settled position, and nobody's actually forced the four of us to write it down properly yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s1-what-would-have-to-be-true",
+      "kind": "K1",
+      "answer": "Ellie's been framing it as an option — switching the model on by default rather than opt-in. For that to work you'd need it actually beating a coordinator on a real rota, not just ours saying so, and right now only four of the eleven have it on so the sample's tiny. Marek reckoned it'd need something like six weeks of a customer running it before you'd trust the output, though that number came from a conversation, not anything written down. Mostly it depends on trust holding through a bad week without someone switching it straight back off.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s1-what-would-have-to-be-true",
+      "kind": "K2",
+      "answer": "That's really Priya and Ellie's conversation more than mine — I build what they decide on. In general terms, whatever option we pick has to keep the eleven agencies we've got happy, not just win new logos, because word travels fast in this market. Priya mentioned back in the autumn that renewals mattered more than any new pitch, and I think that's the test underneath most of these choices. My part comes after the decision's made, so I mostly hear the reasoning secondhand rather than sitting in the room where it gets argued out.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s1-what-would-have-to-be-true",
+      "kind": "K3",
+      "answer": "I'm honestly not sure which option this is pointing at — that structuring work happens with Ellie and Priya, and I only see it once it's turned into something for me to build. So I can't say what conditions they've set for it to work; I've not been in those sessions and nobody's written the assumptions down anywhere I've seen. If you asked me about the engineering side of a decision I'd have an answer, but the framing itself isn't something I've had reason to look into yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s1-premortem",
+      "kind": "K1",
+      "answer": "If it goes wrong, it's compliance. We push the model into more rotas, onboarding still isn't owned by anyone properly, and a new agency goes live before their carer records are actually clean. Six months later an inspector asks for training history and something's missing or wrong. That agency drops us, and I think Priya reckoned two more would follow within a quarter, though that number came out of a conversation rather than anything we've modelled properly. It's the same crack we already have, just wider, because nobody's picking up the gap between me and Dan on new accounts.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s1-premortem",
+      "kind": "K2",
+      "answer": "The way this usually breaks for us is onboarding backing up and support drowning. If we take on agencies faster without anyone owning that handoff, tickets pile up and the compliance checks are the first thing that slips because they're already the flakiest part. It's not one clean disaster, it's just everything getting slower until an agency notices and gets annoyed. Dan flagged something similar back in the spring when we added two agencies in the same month and support couldn't keep up. That's probably the shape it takes again, just bigger.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s1-premortem",
+      "kind": "K3",
+      "answer": "I haven't actually built that story out. We've never sat as a group and mapped what a year of this going wrong would look like — it's always been more reactive, dealing with today's ticket rather than gaming out the whole year. I could guess at pieces, onboarding gaps, compliance breaking under more load, but I'd be assembling that on the spot rather than describing something we've thought through. It's on nobody's list to write yet, and I'm not sure who'd even own pulling it together.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s1-how-addressed-today",
+      "kind": "K1",
+      "answer": "Today it's mostly CareLineLive, or before that, spreadsheets and a whiteboard in the office — Marek reckons about half our eleven came off pure Excel. The main shortcoming is that building next week's rota still eats most of a coordinator's day, and compliance is bolted on rather than built in, so when an inspector asks for three years of training records, someone's digging through folders. I think CareLineLive handles the rota bit okay but the compliance side is thin, though I'd want Priya to confirm that from the sales calls — she hears it more than I do.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s1-how-addressed-today",
+      "kind": "K2",
+      "answer": "Mostly it's manual — agencies patching together spreadsheets, paper compliance folders, sometimes an older system that was built for something bigger than they need. The shortcomings are the obvious ones: it's slow, it's error-prone, and nothing talks to anything else, so a coordinator ends up doing the same check twice. Dan looked into a couple of the bigger incumbents back in January and came away thinking they solve rota but not compliance, or the other way round. It's less that people love what they've got, more that switching feels risky when your business is regulated this tightly.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s1-how-addressed-today",
+      "kind": "K3",
+      "answer": "Honestly I have opinions but not much evidence here. I know the incumbents exist and agencies complain about them, but we've never done a proper comparison — nobody's gone through and mapped what CareLineLive or a plain spreadsheet setup actually fails at against what our customers tell us afterwards. It's tangled up with why people leave a system too, which we haven't tracked properly either. Until someone follows a coordinator through a whole rota cycle on their old tool, I'm working off things people have said to me in passing rather than anything I'd stand behind.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s1-why-who-how-what",
+      "kind": "K1",
+      "answer": "Why - because coordinators were losing most of a day each week just building the rota, that's the number we always quote, though I think it was Dan who first timed it precisely. Who - the coordinator herself, not the registered manager, she's the one under the Friday deadline. How - by cutting that day down to something closer to an hour, though the exact figure moves around depending who you ask and which agency. What - the rota tool and the compliance check underneath it, that's really the two things we sell as one.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s1-why-who-how-what",
+      "kind": "K2",
+      "answer": "That's more or less the shape of every sales conversation I have, though I don't map it out formally like that. I start with why they're on the call, then who's actually going to use it day to day, then what changes for them once it's in. Marek and I talked about writing this up properly as a script back in the spring, but it's stayed just the way I talk, not something we've actually documented or tested against real calls.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s1-why-who-how-what",
+      "kind": "K3",
+      "answer": "I don't think we've ever laid it out in that order as a company - why, who, how, what - as a formal exercise. That's closer to Ellie's territory, she thinks about product that way; I come at things from the sales side, which is messier and more reactive. If someone asked me to give our actual answer to each of those four in sequence, I couldn't do it cleanly right now - I'd need to work through it properly with Ellie rather than improvise it here.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s1-if-nobody-solves-this",
+      "kind": "K1",
+      "answer": "It lands on the coordinator, every week, without fail — that's who's building the rota by hand if we're not there. Before us it was most of a day gone, so multiply that across fifty-two weeks and you're looking at, I don't know, six or seven working weeks a year just lost to a spreadsheet. The sharper cost is the compliance side — an inspector asks for three years of training records and if an agency can't produce them cleanly, that's a failed inspection, and for a forty-carer outfit that's not a fine, that's the business.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s1-if-nobody-solves-this",
+      "kind": "K2",
+      "answer": "It's the thing that keeps agencies up at night, honestly — rotas and compliance both. Coordinators feel it, owners feel it when CQC comes round, carers feel it if a shift's wrong. Marek was talking about this back in the spring, how much anxiety just sits around the paperwork side even when nothing's actually gone wrong yet. Nobody solving it means the whole sector keeps running on people's goodwill and long evenings, which isn't sustainable for a coordinator doing it manually forever. It's a real drag on the industry, not just an inconvenience.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s1-if-nobody-solves-this",
+      "kind": "K3",
+      "answer": "The honest answer is I can't put a figure on the downstream cost — like how often an unresolved rota or compliance gap actually turns into a failed inspection versus just a stressful week. We see the eleven agencies we have, but we've never tracked what happens at agencies still doing it by hand, or what a near-miss costs them. It's not a data set that exists anywhere, and nobody here has gone looking for it — we've been heads-down on our own customers rather than the counterfactual.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-more-than-one-way",
+      "kind": "K1",
+      "answer": "That's really more Ellie's territory than mine — product sits with her. But if I think about the compliance checking piece, since that's half of what I do, I'd say yes, there's probably two or three ways in: we could keep pushing the automated flagging we've built, or we could go simpler and just tighten the checklist templates coordinators use by hand. Ellie and Priya were going back and forth on this in a call a few weeks back, I want to say March, and I don't remember which way it landed. So take my read with a pinch of salt.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-more-than-one-way",
+      "kind": "K2",
+      "answer": "This one really sits with Ellie rather than me — she's the one who thinks in terms of opportunities and solutions like that, and Priya's close to it too from the sales side. I know there's been some back-and-forth about whether the compliance piece needs more automation or just cleaner templates, sometime around the spring I think, but I wasn't really part of those conversations. My days are mostly onboarding calls and chasing down training records, so I couldn't say with any confidence how many different ways they're actually weighing up.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-more-than-one-way",
+      "kind": "K3",
+      "answer": "I don't have a good answer to this one — that kind of framing, opportunity versus solution, isn't something we've actually applied to what we're doing. Ellie might carry it that way in her head, but nobody's written down the different options for the compliance problem and lined them up against each other. It would take someone sitting with coordinators to map out what else could solve the same pain, and that hasn't happened yet, mostly because the rest of us are still just fixing whatever's broken that week.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-why-do-you-want-it",
+      "kind": "K1",
+      "answer": "So when an agency asks for something like a bulk-export button for training records, I'll ask them why — and it almost always comes back to CQC, an inspection's coming and they want three years of records out fast. That's happened maybe three times this year, though the exact count I'd need to check properly before quoting it. One agency, up near Leeds — Sandra, I think her name was — had a bad inspection before us and just never wants to be caught out again. So the thing they ask for is rarely the actual need sitting underneath it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-why-do-you-want-it",
+      "kind": "K2",
+      "answer": "Usually when a customer asks for a feature I try to get underneath it before we commit engineering time to it. It's become part of how we scope work with agencies — asking why they want something rather than building it as specified, straight off. Dan and Marek find it useful too when they're fielding support requests, because it stops us building the wrong thing for the wrong reason. It's saved us from going down a few blind alleys over the months, more than I'd like to admit really.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-why-do-you-want-it",
+      "kind": "K3",
+      "answer": "I don't have a clean answer to that one, actually — we don't run this consistently across every request that comes in. Sometimes I push on why, sometimes I just take the ask at face value and hand it to Dan or Ellie to weigh up. There's no process behind it yet, it's more instinct depending how the call's going. I'd need to actually track which requests got that follow-up and which didn't before I could tell you whether it changes what we end up building.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-riskiest-assumption",
+      "kind": "K1",
+      "answer": "That's really Ellie's map more than mine, but the way she's put it to us, the whole thing rests on coordinators trusting the model's rota suggestions enough to actually use them instead of just rebuilding by hand. Riskiest bit, she reckons, is whether it holds up against a busy coordinator on a bad day — four of eleven have turned it on so far, and none of us have properly compared its picks against what a good coordinator would build. I think that's the one that could unravel the whole pitch.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-riskiest-assumption",
+      "kind": "K2",
+      "answer": "Honestly, for something like Ashvale to keep working, the compliance side has to hold up under an inspection, and coordinators have to trust whatever we hand them enough to act on it without double-checking everything by hand. Priya and Ellie talk about this a lot in terms of what agencies actually bought us for versus what they use day to day. I'd say the riskiest assumption is somewhere in that gap between what we sold and what gets used, but I'm not the one who tracks it closely — that's more their conversation than mine.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-riskiest-assumption",
+      "kind": "K3",
+      "answer": "I couldn't give you a clean list of assumptions for this one — that's Ellie's territory, and I don't think we've ever written the whole set down in one place, let alone ranked them. What I know is we're leaning on the model behind rota suggestions being one of the newer, shakier assumptions, since only four agencies have it switched on and we haven't checked its output against a coordinator's properly. But which single assumption is riskiest, honestly, is a judgement call nobody's made out loud yet, as far as I've seen.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-last-time-show-me",
+      "kind": "K1",
+      "answer": "Last time compliance checking broke — training records mismatch for one of our agencies, back in maybe January — I ended up in a WhatsApp thread with Dan going back and forth on it. There's a spreadsheet somewhere too, one of us patched together the missing dates by hand for the inspector. I don't have the tab open in front of me right now, but I think it lives in the shared drive under compliance fixes. Priya wasn't involved that time, it was just Dan and me firefighting it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-last-time-show-me",
+      "kind": "K2",
+      "answer": "When compliance checking goes wrong we usually just work through it as it comes up, checking the training records against what the agency's got on file. It's usually me or Dan who ends up looking at it, and sometimes Ellie if there's a product angle to it. There isn't really one particular file or thread we go back to for this, it depends on the agency and what's missing that week. We generally just sort it as it comes rather than write it up afterwards, so there's nothing tidy I could point you to.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-last-time-show-me",
+      "kind": "K3",
+      "answer": "I couldn't point you to a specific file for this, because we don't keep one. When something breaks with compliance checking it usually gets sorted in whatever channel it comes up in — Slack, a call with the agency, sometimes both — and it doesn't get written up afterwards. That's a decision Priya and Dan would need to weigh in on, whether we start logging these properly. Nobody's made a call on it yet, so there isn't a thread I could pull up and I'd be guessing if I said otherwise.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-switch-timeline",
+      "kind": "K1",
+      "answer": "There's one afternoon that sticks — must've been fourteen, fifteen months in, one of our early agencies rang about an inspection and their coordinator couldn't pull a carer's training record fast enough, the spreadsheet just fell over. That's the day it landed for me that 'compliance checking' wasn't a feature, it was the whole reason they'd bought us. I think it was March, though it might've been April — Marek took that call, not me, so I'm going on what he told me afterwards rather than being in the room.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-switch-timeline",
+      "kind": "K2",
+      "answer": "For me it wasn't one morning, it was watching the pattern build up over a stretch of calls — agencies kept describing the same headache around inspections and rota juggling, and it became obvious our founding assumption was too narrow. Priya was the one fielding most of those conversations, and by early last year she was flagging it in nearly every catch-up. So the realisation was more of a slow tip than a single day, born out of hearing the same complaint often enough that we stopped treating it as an edge case.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-switch-timeline",
+      "kind": "K3",
+      "answer": "I don't have a single day I can point to, and I've stopped trying to force one — the real shift for us was gradual, stitched together from separate conversations, and I never went back to timestamp which one actually flipped it. It's tangled up with Priya's calls, Marek's support tickets, things Dan noticed in usage logs — nobody's pulled that timeline into one place, so the honest answer is I can't isolate the moment, only that by a certain point we all agreed something had changed.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-four-forces",
+      "kind": "K1",
+      "answer": "All four show up, but push is the one I hear loudest on calls — it's the coordinator losing most of a day to the rota, every time. Pull is easy, that's our pitch: cut that day down. Anxiety's real too, mostly about handing over three years of training records for an inspection, that's what stalls a signature. Habit is CareLineLive, or just paper if they're smaller. There was a call — February, I think — where a prospect said almost exactly that to me, though I'd have to check who it was before naming her.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-four-forces",
+      "kind": "K2",
+      "answer": "It varies call to call, honestly. Some agencies come in already fed up, others get pushed by an inspection going badly, others just like the demo. Marek mentioned a few onboarding conversations back in the autumn that sounded like all four forces at once — the prospect worried and excited in the same breath. Mostly the sales conversation ends up touching everything before contract, so I don't think about it as one force winning over another. It's more that something tips the balance, and it's rarely the same something twice.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-four-forces",
+      "kind": "K3",
+      "answer": "I couldn't map that properly for you. I use the four forces loosely in my head on calls, but I've never gone back and coded an actual deal against push, pull, anxiety and habit — that would mean pulling call notes or transcripts, and we don't keep those consistently across all eleven customers. So I've got a feel for it, not an answer. It's the kind of thing I'd want to sit down with Ellie on, since she hears the product side of these conversations too.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s2-kano-pair",
+      "kind": "K1",
+      "answer": "The feature I'd pick is compliance checking — if it just worked, coordinators would be thrilled, because that's the bit they actually bought us for, not the rota builder. If we pulled it out tomorrow, I think two or three of the eleven would be genuinely angry, maybe more. That \"two or three\" is a guess though — I'm reading it off things people have said on support calls with Marek, not off anything we've asked directly. We've never actually sat customers down and asked both halves of that question properly, feature by feature. It's mostly inference from complaints.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s2-kano-pair",
+      "kind": "K2",
+      "answer": "With any feature we ship, the reaction splits — some agencies barely notice, others build their whole pitch to their own board around it. Compliance work tends to sit in the second camp, rota suggestions more in the first, at least so far. We generally find out how people feel by what they complain about when it's missing rather than by asking outright. It's useful information, just not tidy, and it comes in through Marek and Priya's calls rather than anything structured. So the honest picture is a rough sense of strong feeling versus mild feeling, not a clean answer per feature.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s2-kano-pair",
+      "kind": "K3",
+      "answer": "I can't answer that properly because we've never run the two-sided version of this question on anyone — we ask \"what do you like\" and \"what's missing,\" but not \"how would you feel if this went away,\" which is a different thing entirely. It's been on my list since roughly the autumn and kept losing to actual bugs. Until I put both halves of that question to a handful of agencies directly, I'd just be inventing their reaction from what I already believe, which isn't the same as knowing it.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s3-why-now",
+      "kind": "K1",
+      "answer": "This is really more Priya's question than mine—she's the one who talks to agencies about why they buy now rather than five years ago. From what I pick up in onboarding calls, it's something like: CQC got stricter on training-record evidence a few years back, and the older systems weren't built for that kind of scrutiny. Dan mentioned once that CareLineLive's core dates back well over a decade, though I wouldn't swear to that number. That's my best guess, not really my area to be certain about.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s3-why-now",
+      "kind": "K2",
+      "answer": "That one sits outside my patch—I'm mostly onboarding and compliance checks once an agency's already signed up. Ellie spent some time last spring looking at why the market hadn't moved before us, but I wasn't part of those conversations. What I notice from the coordinator side is people are relieved to have something that isn't a spreadsheet anymore, but the actual reason it took this long isn't something I've got a handle on. Priya would give you a proper answer on this one, not me.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s3-why-now",
+      "kind": "K3",
+      "answer": "I genuinely have no view on this—it's not a question I've ever had to answer, since my job starts once someone's already decided to buy. Why the market sat unbuilt for years, whether it's regulation, cost of building the software, or agencies being slow to trust cloud tools, that's a Priya and Ellie conversation, not mine. I've never sat in on a pitch where that gets discussed, so I wouldn't know where to start guessing.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s3-user-need-map",
+      "kind": "K1",
+      "answer": "The user's the coordinator, not the carer — she's the one under pressure every Sunday night building next week's rota. Her need is speed plus being able to hand an inspector three years of training records without panicking. Capabilities: rota building, which I'd call commodity now, everyone including CareLineLive has a version; compliance checking, which is still bespoke and breaks constantly, though it's what they tell us they bought; and the rota-suggestion model, which is early-stage, four of eleven have switched it on. Dan would probably place compliance further along than I would — we've never actually agreed on that one.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s3-user-need-map",
+      "kind": "K2",
+      "answer": "We talk about this a lot in commercial, more than people realise — trying to work out whether an agency's buying us for the coordinator's Sunday-night rota panic or for what happens when CQC comes knocking. Marek and Ellie ran a version of this back in October, mapping what feels settled against what's still held together with workarounds. I lean on that thinking when I'm pricing, because different agencies weight the pieces differently depending on their last inspection. I wouldn't hand you a tidy list of every capability and where each one sits today though — it shifts every time we ship, and nobody's written the current version down.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s3-user-need-map",
+      "kind": "K3",
+      "answer": "I don't have an actual answer to that, in the sense of something we've put on paper. We talk in commercial terms — what agencies ask for, what they complain about — not in this language, and none of us has properly laid the four capabilities out against each other and argued where each sits from novel through to commodity. Dan's raised doing something like that a couple of times and it's kept sliding off the list because nothing was on fire. So what I've got is a lived sense of it from calls, not a map I could show you or defend under questioning.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s3-where-is-the-inertia",
+      "kind": "K1",
+      "answer": "Priya's closer to this than me, but she'll tell you the inertia sits with the agencies still on CareLineLive — coordinators who know its shortcuts and don't want to relearn a system, even a faster one. She mentioned one deal that dragged something like five or six weeks longer than usual because of that, though I'm fuzzy on which account it was. On our side, I'd say the inertia is around compliance checking — Marek's reluctant to rebuild it properly because it's the thing customers say they bought, so nobody wants to be the one who breaks it further.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s3-where-is-the-inertia",
+      "kind": "K2",
+      "answer": "Inertia's everywhere once you look for it — customers comfortable with what they already know, and us being cautious about changing anything that's working. Marek mentioned something about it back in February, when we were talking about compliance checking, how agencies get used to how it flags things and push back if we change the logic. I think that's the real shape of it, more than any one person or team dragging their feet. It's just the natural pull of things that already work, on both sides of the relationship.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s3-where-is-the-inertia",
+      "kind": "K3",
+      "answer": "I haven't really worked out where that lands, to be honest — it's not something I've mapped for our own team, and I don't think anyone has written down whose resistance it actually is versus who's just busy. It'd probably need someone going through the sales notes and the support tickets side by side to see where the same objection keeps recurring, and nobody has made that comparison yet as far as I know.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s3-beachhead",
+      "kind": "K1",
+      "answer": "Home care agencies running forty to maybe a hundred and fifty carers — that's roughly our current spread, so yes, I'd say the niche is big enough, there's thousands of agencies that size across the UK. Whether we can lead it, we're ahead of CareLineLive on compliance at least, that's what customers tell us. Adjacent — Priya's talked about domiciliary groups that also run supported living, she reckons that's the natural next step, but I've only caught that in passing, I'd want someone closer to sales to put a proper shape on it before I'd repeat it as settled.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s3-beachhead",
+      "kind": "K2",
+      "answer": "That's really Priya and Ellie's call, not something I've been part of shaping. What I notice from onboarding is that every agency we bring on has basically the same compliance headaches — training records, DBS checks, the same panic before an inspection. That repetition feels like it means something, like there's a proper niche there rather than us just picking up whoever answers the phone. Whether it's big enough on paper, or what comes after it, isn't something anyone's walked me through. I just see the pattern from the inside, agency after agency, and it looks consistent to me.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s3-beachhead",
+      "kind": "K3",
+      "answer": "This is above what I get pulled into. I know we're eleven agencies deep in home care and that's where all my time goes, but whether that's \"big enough,\" or where we go next, is a conversation I've only caught the edges of — Priya and Ellie will have a view, I don't sit in those planning talks. Nobody's shown me numbers on total addressable agencies or mapped an adjacent sector against ours, so I can't say if supported living or something else would be the obvious next step. That's genuinely not decided anywhere I've seen.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s3-deliberately-not-doing",
+      "kind": "K1",
+      "answer": "We're deliberately not building for the bigger chains — anything past maybe 150, 200 carers, multi-branch, consolidated reporting across sites. That's a line Dan, Ellie and I drew, I think back in February, though I'd have to check the actual date against the deck we used. The one who's annoyed is a prospect called Denise, four branches near Leeds, who wanted everything rolled up into one dashboard. She went with someone else in the meantime. It still stings a bit, because it's a real agency, not a hypothetical, and she wasn't wrong to want it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s3-deliberately-not-doing",
+      "kind": "K2",
+      "answer": "There's a segment we've decided isn't for us right now — the bigger, multi-site operators who want consolidated reporting and heavier integrations. We just don't have the hands to build for that shape of customer without pulling focus from the agencies we're actually good for. Some sales conversations end exactly there, and the prospect goes elsewhere, usually toward one of the bigger systems above us. It's not a permanent no, more that chasing it now would cost us more than it would win us this year. Those calls happen more often than people probably assume.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s3-deliberately-not-doing",
+      "kind": "K3",
+      "answer": "I don't have a clean name for who's annoyed by this — we don't systematically track why a prospect walks, so what I've got is impressions from calls, not a list. I know API integrations with clinical record systems come up and we say no, and I know that costs us something. Whether that's three deals a year or fifteen, I've never gone back through the notes to count. It's also something Ellie and I keep half-arguing about — whether to make the no explicit as policy or keep deciding it call by call. Neither of us has actually written it down yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s3-what-winning-earns",
+      "kind": "K1",
+      "answer": "What it earns us is trust inside a network that's basically closed to outsiders — home-care owners talk to each other, at regional CQC forums, in WhatsApp groups I'm not even in. Four of our eleven customers came through somebody else's recommendation, not a cold call, and that's not something you can buy with ad spend against CareLineLive. I think it's four, maybe five — I'd need to look at the sign-up notes properly. But that word-of-mouth credibility in a small, suspicious market is the real thing we're building, not just the software.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s3-what-winning-earns",
+      "kind": "K2",
+      "answer": "Winning here means being the name agencies default to when someone asks what everyone else uses, rather than us having to convince them from scratch. Marek mentioned in February that a couple of onboarding calls started with the owner already assuming we were the obvious choice, which is a different sales conversation entirely. That kind of default status compounds — it's cheaper to keep than it is to win, and it's not something a bigger vendor can just buy their way into overnight. It changes the shape of every call after that.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s3-what-winning-earns",
+      "kind": "K3",
+      "answer": "I can point to the shape of it but not the substance — I haven't actually worked out what winning in this niche buys us that money couldn't. Is it the referral network, the compliance credibility with CQC-adjacent bodies, the data from the four agencies running the model? I've never sat with all three and asked which one is defensible versus which one just feels good in a sales call. It's tangled up with pricing decisions we haven't made yet, so until that's settled I don't have a clean answer, just a hunch.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-appetite",
+      "kind": "K1",
+      "answer": "This one's not a quick fix, I reckon — it's the compliance checking again. We've patched it three separate times without ever touching how training records actually get stored, so at some point patching stops being honest. I'd call it a full cycle, maybe six weeks if Dan scopes it tight, though he'd probably push back on that number. There was an export that broke for two agencies right before an inspection back in the autumn — that's roughly when I stopped believing another patch would hold.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-appetite",
+      "kind": "K2",
+      "answer": "Depends entirely which bit you mean. Some things landing on my desk are genuinely small — a label change, a checkbox somebody's been asking for — and we just ship those without a conversation. Other things touch nearly everything Dan's built underneath, so calling them quick fixes would be dishonest. Marek raised something back in March that started as a small ask and turned into a much bigger rethink once we actually opened it up and looked at what was underneath it. It's rarely obvious at the start which kind you're dealing with.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-appetite",
+      "kind": "K3",
+      "answer": "I haven't actually settled that for the rota suggestions work. Four agencies have it switched on and I don't yet have a real sense of when the model's wrong versus when a coordinator would've caught it — so I can't tell you whether fixing that gap means a small pass on the model or redesigning how suggestions sit in the rota screen entirely. It depends on what the disagreements actually look like once we compare them properly, and that comparison hasn't happened. Until it does, I'd be guessing rather than shaping anything.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-breadboard-elements",
+      "kind": "K1",
+      "answer": "Honestly this is really Dan and Ellie's territory, not mine — but from what I see on the support side, it sits inside the weekly rota screen, there's a toggle in the agency's settings that switches the suggestion layer on. You get to it by building the rota as normal and it just proposes slots instead of you dragging carers in. Four agencies have it on. Where it takes you after that I'm honestly vague on — something about matching training records to shift requirements, but ask Dan, he'll have the actual flow in his head.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-breadboard-elements",
+      "kind": "K2",
+      "answer": "That's really a product question — Ellie's the one who'd walk you through where it sits and how someone gets to it. What I can tell you is which agencies have switched it on and that support calls about it come to me and Dan between us, because nobody else picks up that queue. Whether it's one screen or several, whether it hooks into compliance checking directly, I'd be guessing. My side of it is mostly fielding the \"why did it suggest that carer\" calls once it's already live for someone.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-breadboard-elements",
+      "kind": "K3",
+      "answer": "I don't know the answer to this one properly. I've never looked at how the suggestion feature actually threads through the system — I see it from the support queue end, after something's already gone wrong for an agency, not from the architecture side. Dan and Ellie built it and would know where it sits and what it touches. Nobody's walked me through the interactions, so I'd just be inventing a path if I tried to describe it, and I'd rather say that than make something up that sounds tidy.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-rabbit-holes",
+      "kind": "K1",
+      "answer": "The one we haven't nailed down is pricing on the rota-suggestion model. It's off by default, and four of the eleven have switched it on. In calls I get asked whether that sits inside the £340 or becomes a new line, and right now I answer differently depending who's asking, which isn't sustainable. Dan and Ellie own the build, but the commercial call is mine — I think we need to settle it before the next renewal wave, sometime around spring, though I'd have to line that up against the actual contract dates before I say it for certain.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-rabbit-holes",
+      "kind": "K2",
+      "answer": "Whenever we build something new, the real risk is always on the customer side — will they trust it, will they actually use it day to day. That's been true with the model behind rota suggestions too. Marek picked up a bit of feedback on it back in February, mostly agencies asking how it decides what it decides. I think as long as we're upfront about how it works and don't oversell it, most of that risk settles itself. It's more about managing expectations in the sales conversation than a technical thing we need to lock down in advance.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-rabbit-holes",
+      "kind": "K3",
+      "answer": "That's still open on our side — it keeps getting pushed to the end of founder meetings and dropped. I know it touches the model behind rota suggestions, since that's the newest thing we've shipped, but whether the hard call is a technical one for Dan and Ellie to fix, or a pricing one that's mine, hasn't been separated out yet. Nobody's forced that split. Until someone does, I don't have a clean way to answer which assumption we're most exposed on, and I'd rather say that plainly than guess at something we haven't actually decided.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-out-of-bounds",
+      "kind": "K1",
+      "answer": "Ellie runs that conversation, not me — I just hear the outcome. This cycle it was: no bespoke integrations for a single agency, and nobody touches the core compliance logic while the model's still being tested on those four accounts. I think she also ruled out anything that pulls Marek off onboarding, since that's already stretched thin. She pinned it in our shared doc sometime in the last month or so, though I couldn't give you the exact date.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-out-of-bounds",
+      "kind": "K2",
+      "answer": "There's a general list Ellie keeps each cycle — things we agree not to touch so the actual bets get finished. It covers stuff like big integration requests, one-off customer asks, anything that turns into scope creep. Priya's usually the one pushing back on customers when something falls outside it, and Marek flags it if a support ticket starts drifting that way. It's more a discipline thing than a fixed rulebook — the point is nobody quietly expands a bet mid-cycle. What's actually on it this time isn't something that lands on my desk, so I wouldn't want to guess at specifics.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-out-of-bounds",
+      "kind": "K3",
+      "answer": "That call gets made in a planning session I'm not usually part of — cycle scoping sits with Ellie and Priya more than me. So whatever got ruled out of bounds this time, I haven't seen the actual list, and I wouldn't want to guess which pieces made the cut. I know it happens because things occasionally get bounced back to me with 'that's out of scope for now' attached, but the reasoning behind where the line gets drawn isn't something I've sat in on. You'd get a straighter answer from whoever ran that particular session.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-circuit-breaker",
+      "kind": "K1",
+      "answer": "Officially, no — that's meant to be the whole point of betting a fixed window. But when the compliance evidence pack overran, back in maybe April, Ellie let it run another couple of weeks instead of cutting scope, because that's the part customers actually chase us on. So the rule bends for compliance stuff specifically, in my experience. I wasn't in the room when that got decided though — I just heard it from Dan afterwards, so the timing might be a bit off.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-circuit-breaker",
+      "kind": "K2",
+      "answer": "Depends what's slipped, honestly. If it's a rota feature we'd probably just let it run without making a thing of it, but compliance work gets treated differently because that's what agencies are paying us for. Ellie's usually the one who decides whether to push the deadline or trim the scope — she raised it at a standup not long ago, but I wasn't the one making that call, just hearing it discussed afterwards. It tends to come down to whichever way support is getting shouted at that week.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-circuit-breaker",
+      "kind": "K3",
+      "answer": "Whether there's an actual rule for this, I'm honestly unsure — I think it's still something Ellie and Dan go back and forth on rather than a decision that's been made. From where I sit, compliance fixes just get folded into whatever's shipping because customers are already on the phone about it, so the fixed window rarely survives contact with support. It's not written down anywhere I've seen, and it isn't mine to settle — I'd need to ask one of them rather than guess at it.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-press-release",
+      "kind": "K1",
+      "answer": "It's a draft I wrote a few months back, headline something like \"Ashvale cuts rota-building from a day to under an hour.\" I keep changing the subhead depending on my mood — sometimes it's about the model, sometimes about compliance evidence for inspections. The quote from a customer is made up, obviously, borrowed roughly from something one of Priya's leads said on a call. I think the FAQ underneath still has three or four questions unanswered. It's sitting in a doc somewhere, half-finished, and I probably owe it another pass before anyone else sees it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-press-release",
+      "kind": "K2",
+      "answer": "We do the exercise more as a habit than a finished thing — writing the release forces us to say what we're actually building for, rather than just shipping features. Marek and I tried it back in October for the compliance side, and it was useful, but it changed so much afterwards that I wouldn't call it a fixed document anymore. Mostly what it says shifts depending on which problem we're most anxious about that quarter — right now it'd lean towards the audit trail work, but ask me again after another inspection comes through and it'll probably read differently.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-press-release",
+      "kind": "K3",
+      "answer": "I haven't actually finished one for anything we're currently building, if I'm honest. I started a draft for the model feature and got stuck on the FAQ half, because the honest answers underneath it are things like why four customers turned it on and seven didn't, and we haven't gone back and asked them. The exercise is supposed to force you into writing the hard part first, and that's exactly the part I keep avoiding, so what's sitting in the doc is really just a headline and a lot of blank space where the reasoning should be.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s4-four-risks",
+      "kind": "K1",
+      "answer": "The buying question is mine to answer, the rest less so. Customers do buy it — eleven agencies now, £340 flat a month, no tiers — and I'd guess close to seven in ten demos convert, though I haven't checked that figure recently. Whether users can actually work the thing day to day, and whether Dan and the team can build what we need in time, that's really their call. On the compliance piece, that's what people say they bought it for, so usability there matters more than I can judge from a sales call.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s4-four-risks",
+      "kind": "K2",
+      "answer": "This is one of the harder ones because it's really four separate questions and mine is only the first. Customers buying, that's a real thing I hear on calls — agencies tell us the compliance piece is why they signed. Whether users can work it, whether engineering can build it, whether it holds together across the business, that's Dan and Ellie's territory more than mine. Marek mentioned in one of our Monday check-ins that the model uptake was \"better than he expected,\" but I wasn't in the room for the detail, so I'd rather point you at him than guess at what he meant.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s4-four-risks",
+      "kind": "K3",
+      "answer": "I don't have a real answer to most of this beyond the buying part, and even there I've never broken it out properly — conversion by call type, whether it's the compliance pitch or the price that lands. Usability, feasibility, whether it works across the business — those live with Dan, Ellie and Marek, and we haven't sat together and gone through Cagan's four risks as a set for Ashvale specifically. It's not that nobody cares, it's that we've been reacting deal to deal rather than stepping back to ask it properly. I'd need to pull the last few losses together to even start.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-value-metric",
+      "kind": "K1",
+      "answer": "The honest candidate is coordinator hours on the rota — that's what agencies measure themselves against, and it's the number Priya leads with on every call. But we've never actually tested whether that's what they'd pay more for, because pricing sits flat at £340 regardless of size. My real guess, and it is a guess, is it's somewhere between rota time and audit readiness — a few agencies have told Priya they'd pay more if compliance checks tightened up. So I couldn't point to one clean metric; it's more like two candidates we've never separated properly.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-value-metric",
+      "kind": "K2",
+      "answer": "Compliance is the part customers tell us they bought, more than the rota time saving, if I'm honest. Marek hears it constantly during onboarding — agencies bring up CQC inspections before they mention scheduling at all. So there's clearly something there about trust and audit readiness that agencies value highly. Whether that's the thing that would make them pay more is a different question, and it's one we talk about without landing anywhere firm. Priya's instinct is pricing conversations go easier when we lead with compliance rather than efficiency, but that's a feel she has, not a metric we've built.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-value-metric",
+      "kind": "K3",
+      "answer": "I don't have this pinned down, and it's genuinely open. We've never separated rota-time saved from compliance confidence as candidate metrics, because flat pricing never forced us to ask which one agencies would actually pay more for. Answering it properly means running willingness-to-pay conversations, varying price against each lever and watching what agencies choose, and nobody has set that up yet. Until we do, I can list plausible candidates but not tell you which one moves the needle, or whether value even lives in one thing rather than a bundle of both.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-willingness-to-pay",
+      "kind": "K1",
+      "answer": "That's really Priya's territory, she's the one on the sales calls. But from what I've picked up, we're flat at £340 a month across the board, no per-feature pricing — so willingness to pay by feature isn't something we've split out. I think she asked one of the bigger agencies about paying more for the compliance module maybe two months back, but I'm fuzzy on exactly when. She'd give you a straighter answer than me.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-willingness-to-pay",
+      "kind": "K2",
+      "answer": "Willingness to pay isn't something I track, that sits with Priya and the pricing conversations. What I hear from onboarding is that agencies talk more about compliance than anything else — it's the part they say they bought us for, even though it's also the part that keeps breaking on our end. Whether that translates into paying more, I couldn't say. My own time's mostly full just keeping the compliance checks working for existing customers, so I haven't gone back to anyone with a pricing question in a while.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-willingness-to-pay",
+      "kind": "K3",
+      "answer": "I honestly don't have that. Nobody's put a number to what each feature is worth to an agency — we've only ever sold at the one flat rate, so there's never been a reason to ask someone to price out the rota tool separately from compliance. When someone last asked a customer directly, I can't say either; that question's never crossed my desk. It would need Priya or Ellie to have run something like that, and if they have, I haven't seen results written up anywhere.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-monetisation-failure",
+      "kind": "K1",
+      "answer": "If I'm honest, it's minivation. We charge £340 flat whether you're running forty carers or a hundred and fifty, and the big agencies are getting maybe three times the value for the same money — that gap's been nagging at me since the summer, though I haven't put a real number on it. Feature shock isn't us, we're not overloaded. Hidden gem is closer than undead, at least people who find us stay. But if I had to name the one eating our upside, it's the flat pricing leaving money on the table with our biggest customers.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-monetisation-failure",
+      "kind": "K2",
+      "answer": "We talk about this a lot as a team — Marek and I went round on it in around March, batting between hidden gem and minivation, and never quite landed anywhere firm. My instinct is we're closer to leaving value on the table than to building things nobody wants, but that's a feeling from calls, not something I've tested against actual willingness to pay. The four categories are useful shorthand but I don't think we sit cleanly in one of them yet.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-monetisation-failure",
+      "kind": "K3",
+      "answer": "I can't put a name to it yet, because we've never tested the four categories against our own numbers. We don't have willingness-to-pay data, we don't have a proper account of why the couple of customers who churned actually left, and nobody's compared our pricing or roadmap against Ramanujam's model directly. It might be a mix rather than one clean answer, which is exactly the kind of thing I'd need real research to untangle rather than a guess on a call. Until we've done win-loss interviews and looked hard at usage against price, I'm not going to pretend I know which one fits.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-pain-budget-same-person",
+      "kind": "K1",
+      "answer": "That's really Priya's read, not mine—I build the thing, I don't sit on the calls. From what she's told me, the coordinator's the one feeling it, since she's the one losing a day to the rota every week. But whoever signs the £340 invoice is usually the registered manager or owner, and that's a different person in maybe seven or eight of our eleven agencies—Priya's rough figure, I wouldn't stake much on the exact split. She says she ends up pitching to both in the same call, which apparently gets complicated.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-pain-budget-same-person",
+      "kind": "K2",
+      "answer": "It's a live thing for Priya on every call—she's always trying to get the coordinator and whoever controls spending in the same conversation, because pitching to just one of them tends to stall. From what I hear, it rarely lines up neatly, but I've not sat through enough of those calls to say how often it splits one way or another. Ellie's raised it too, from a product angle, because it changes who we're actually designing the screens for. It's more her and Priya's problem to characterise than mine.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-pain-budget-same-person",
+      "kind": "K3",
+      "answer": "I genuinely can't speak to this properly—it's Priya's side of the business, and I don't think she's ever written it down deal by deal. I know the rough shape from conversations: coordinator hurts, owner or manager pays. But whether that split holds across all eleven agencies, or whether some of the smaller ones have one person doing both, nobody's tracked. It'd mean going back through her notes on every account, and as far as I know that hasn't happened yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-net-revenue-retention",
+      "kind": "K1",
+      "answer": "Retention's the constraint, I'd say — we've not really lost anyone once they're in, it's more that expansion is basically flat because there's nothing much to expand into beyond the £340. Priya ran the numbers a few months back, February maybe, and had NRR somewhere around 95 to 100 percent, but that's from memory and she'd have the actual spreadsheet. From where I sit, onboarding is smooth enough that activation isn't the bottleneck — it's what happens after month six that worries me more.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-net-revenue-retention",
+      "kind": "K2",
+      "answer": "Onboarding is where I spend most of my time, and it's mostly fine — agencies get through it without dragging on support too much these days. The thing that keeps coming back round is compliance checking breaking after go-live, which eats into whatever goodwill we built during onboarding. I think of that as the real drag on the relationship, more than anything to do with pricing or upgrades. Dan and Priya would have a clearer view on how that maps to retention numbers than I would — that side sits more with them than with me.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-net-revenue-retention",
+      "kind": "K3",
+      "answer": "I can't give you that one — nobody's built a cohort view that tracks billing against usage per agency over time, so NRR isn't a number that exists anywhere yet. I see churn tickets and I see who asks about extra features, but I've never lined those up against revenue to see which piece is actually the drag. It's been raised — I think Priya mentioned wanting to look at it — but it depends on pulling twelve months of invoices apart, which hasn't happened. So the honest answer is I don't have grounds to say which of the three it is.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-gross-margin",
+      "kind": "K1",
+      "answer": "High, I think — somewhere in the eighty-to-eighty-five range once you strip out hosting and Marek's support hours, though that's from memory and I'd want whoever actually ran the model, maybe Priya, to confirm it. Is it high for a bad reason? Partly, yes. We don't tier pricing, so the same £340 covers a 40-carer agency and a 150-carer one, and the ugly compliance work Marek does by hand gets filed under support rather than costed against the product. So the number looks clean, but some of what's propping it up is just us not charging for effort we're absorbing.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-gross-margin",
+      "kind": "K2",
+      "answer": "Margins are good, that's the general feeling around here — Dan went through the cost side back in September and came away pretty happy with where we sat. Whether it's high for the right reason is more a founders'-call conversation, because it touches pricing and how much support load we're quietly carrying. Since we don't tier the price, whatever sits underneath the number gets spread the same way across every agency regardless of size. I'd call it solid, but I'm saying that from the product side, not from having built the spreadsheet myself.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-gross-margin",
+      "kind": "K3",
+      "answer": "I honestly can't give you a clean answer. We've never separated out how much of Marek's time, or mine for that matter, goes into keeping an individual account running versus building product, so any margin figure is revenue minus the obvious line items, not a real cost-to-serve number. Until someone tracks hours against specific agencies properly, I can't say whether it's high because the software genuinely does the work or because four of us are quietly subsidising support with unpaid time. It's a question we keep raising in passing and never finishing.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-pricing-model-story",
+      "kind": "K1",
+      "answer": "The story is that it's flat — £340 a month whatever the size, so an agency running forty carers pays the same as one running a hundred and fifty, and coordinators get that in about two seconds on a call. We haven't touched the number itself, but the pitch around it has shifted — I think three times this year, maybe four, mostly around how we talk about the compliance side versus the rota side. Ellie would have the exact count, she's been rewriting the deck more than me lately, and there was a version from the spring I haven't looked at since.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-pricing-model-story",
+      "kind": "K2",
+      "answer": "What we lean on is simplicity — one flat fee, no tiers, so an agency doesn't have to work out what they're paying for as they add carers. That's what lands with coordinators who've dealt with enterprise systems full of add-on modules. There's also a newer thread now, about the model behind rota suggestions, which some agencies mention when they talk about why they switched. Whether we've changed the pricing story itself this year isn't something I've tracked as a number — it shifts call by call depending on what a prospect cares about that week.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-pricing-model-story",
+      "kind": "K3",
+      "answer": "I don't have a clean answer to that. We've never sat back and asked which model tells the story best — we picked flat pricing early because it was simple to sell, and we've just kept talking about it differently as the product's changed, without treating that as a version we'd count. So I couldn't put a number on how many times it's shifted this year; nobody's kept a log of the pitch itself, only of the actual price, which hasn't moved. It's the kind of thing I'd only be able to answer honestly after going back through call notes.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s5-free-tier-cost",
+      "kind": "K1",
+      "answer": "We don't run a free tier — it's a thirty-day trial with full access, so honestly nobody's ever priced what a lapsed trial costs us. Roughly it's Marek's onboarding hours plus whatever support tickets come in before they buy or drop off. If pushed, I'd guess somewhere between £150 and £300 a trial, depending how much hand-holding they needed. Three or four have run the whole month and never converted, though I'm not fully sure that count's right — Marek would know better than me. We've never worked out a usage point where one tips into loss; we're not metered enough for that yet.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s5-free-tier-cost",
+      "kind": "K2",
+      "answer": "We keep half an eye on trial activity in a general sense — if someone's clearly just poking around with no intention of paying, support flags it and we decide whether it's worth chasing. It's not really a free-tier problem the way it might be for a bigger product, because everyone talks to Priya or Marek directly before they even get proper access. It tends to sort itself out through that conversation rather than us needing a hard cutoff or a cost model sitting behind it. Nobody's built the thing that would tell us otherwise yet.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s5-free-tier-cost",
+      "kind": "K3",
+      "answer": "I genuinely don't have that. We've never broken out cost per trial account — trials are small in number, and our support time isn't tracked per customer in a way that would let me answer this properly. The usage-to-unprofitable question also assumes a kind of metering we don't have; we're flat-rate at £340 regardless of size, so 'usage' isn't logged against cost the way it would be for a per-seat product. It's a real gap. If we ever opened a genuine free tier, that's the piece I'd need built first, not worked out after the fact.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-process-as-it-runs",
+      "kind": "K1",
+      "answer": "That's really Priya's process, not mine — I sit in support, so I'm reconstructing this from what I've overheard on her calls. The pricing sheet says £340 flat, no tiers, but there's a step where she'll shave a month off if someone's stalling on the contract, and that bit's nowhere in writing. I want to say that's happened four, maybe five times this year, but I'm going from memory of conversations in the kitchen, not a log anywhere. You'd get a much cleaner answer out of her than out of me.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-process-as-it-runs",
+      "kind": "K2",
+      "answer": "This isn't something I run, so I can only give you the outline. Priya handles the commercial side end to end — she does the calls, sorts the pricing, and closes things her own way depending on who she's talking to. Onboarding only starts for me once a deal's signed and it lands in my queue with Dan. So the bit before that, the actual negotiation steps, informal or not, I just don't see. What I can tell you is that by the time it reaches us, the paperwork's usually already sorted.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-process-as-it-runs",
+      "kind": "K3",
+      "answer": "I can't really walk you through that one — it's Priya's process and I've never sat in on the calls closely enough to know where it bends away from what's written down. Nobody's mapped the informal steps anywhere that I'm aware of, so even she might be describing it differently depending on the day. I'd have to ask her directly, maybe get her to talk me through an actual deal end to end, before I could say anything solid about it.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-accountable-when-wrong",
+      "kind": "K1",
+      "answer": "Contractually it's always been the registered manager at the agency — CQC holds them accountable, not us, and every deal I close makes that plain. Where it gets less clean is the rota model: four agencies now have it switched on, and one manager rang me straight out asking who's liable if it suggests a carer whose DBS has lapsed. I told her the sign-off is still hers. But I think Ellie was meant to tighten that language in the terms a few months back, maybe around spring, and I honestly haven't checked whether it landed.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-accountable-when-wrong",
+      "kind": "K2",
+      "answer": "It's a conversation every agency has with us early on, and accountability sits with them — their registered manager, because that's how CQC frames it and we're the tool underneath, not the decision-maker. Customers settle into that fast, it's rarely what a deal hinges on. The newer features, the automated suggestions, are more of an open thread — we talk it through with agencies as they switch it on, but it's been more collaborative than something we've had to formally resolve. Nothing's really tested that boundary in a way that's forced a hard line yet.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-accountable-when-wrong",
+      "kind": "K3",
+      "answer": "This hasn't been through anything real yet, so I'm wary of guessing. Our terms put responsibility on the agency, full stop, but whether that survives the first inspector who points specifically at something our model recommended — I genuinely can't say, because no complaint has ever reached that point. We've floated getting proper legal eyes on the wording since the model went live, but it's fallen into the gap between me and Ellie and nobody's picked it up formally. Until there's an actual incident, or someone forces the question, I don't think we have a settled answer.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-permission-model",
+      "kind": "K1",
+      "answer": "Every agency sits behind its own tenant ID, so a coordinator only ever sees their own carers and rota — that part's solid. Cross-tenant, it's the four of us, through an internal support flag Marek asked me to add early on so he could jump into any account without a password reset. There's a wider admin role wrapped around that, though whether it's scoped per-table or just blanket access, I'd have to look at the code again — it's been a while since I touched that bit.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-permission-model",
+      "kind": "K2",
+      "answer": "It's something Ellie and I talk through whenever a new agency asks about data security — they want reassurance nobody outside their organisation can see their carers' records, and we point to everything being tenant-scoped from day one. It's held up fine so far, nobody's raised a leak or a breach. Internally we've kept access pretty tight too, more out of habit than any written policy. Marek flagged something about admin access back in the spring, I think, but as far as I know it didn't go anywhere after that.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-permission-model",
+      "kind": "K3",
+      "answer": "That's not something I've ever had written down for myself, and I don't think anyone else has either — it's grown piece by piece as features got added, not designed upfront. Whether there's a clean answer to who can see across tenants versus who just happens to have access because they built that part, I couldn't say without going through the codebase properly, and nobody's had reason to do that yet. It's the kind of thing that only gets looked at hard once a customer or an inspector actually asks, and so far none have.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-audit-trail",
+      "kind": "K1",
+      "answer": "For us it's CQC-shaped, not HIPAA — we don't operate under that regime, so I'd flag that first. What we log is who changed a rota entry or a carer's training record, and when, plus what it replaced. CQC inspectors have gone back three years on training records, so that's the horizon we built to. Whether the audit log itself needs to sit for the same three years or longer, I'm honestly fuzzy — I think Dan set it to keep everything indefinitely for now, but that was more a default than a decided policy, and I'd want someone to confirm it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-audit-trail",
+      "kind": "K2",
+      "answer": "That's really more compliance territory than something HIPAA or financial-services rules touch for us — different jurisdiction, different pressure. What matters to our agencies is that the trail backs up whatever an inspector asks for, and we built it around that instinct rather than any fixed checklist. Ellie pushed for stricter logging back in February after a support ticket rattled her, and it's been tightening since. It's less about a retention number and more about nothing getting silently overwritten. Priya tends to field the reassurance conversation with customers directly, so I mostly hear about it secondhand from her.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-audit-trail",
+      "kind": "K3",
+      "answer": "I don't have a clean answer because we've never mapped our audit trail against HIPAA or the financial-services rules — we're not under either regime, so nobody's gone through and worked out what we'd need if we ever were. Internally we've built to what CQC inspectors ask for, but even that retention question — how long the log itself should live versus the records it's logging — hasn't been pinned down as an actual decision. It sits in the gap between support and product, and it keeps getting deprioritised against whatever customers are asking about that week.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-where-data-lives",
+      "kind": "K1",
+      "answer": "It's on AWS, eu-west-1, so London region — that's where the database's lived since we built the thing. As for who's told the customer, I think it's baked into the contract terms Priya sends, and Marek usually walks through it in onboarding, though I'm not certain he says it every single time. There's a data processing addendum we drafted last year that spells it all out, but I doubt many of the eleven have actually sat and read it properly.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-where-data-lives",
+      "kind": "K2",
+      "answer": "Data protection's something we take seriously — it's one of the first things agencies ask about given everything CQC expects of them. We've got a processing agreement, and Marek talks through our security setup with new customers as part of onboarding, back when we redid that whole pack in September. It reassures them generally, because the alternative for a lot of these agencies is spreadsheets sitting on someone's laptop with no real safeguards. It's become part of the trust conversation early, even before pricing comes up in the call.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-where-data-lives",
+      "kind": "K3",
+      "answer": "That's genuinely something I can't answer well. We host on AWS, but whether it's been communicated clearly to every customer, in writing, is a different question — nobody owns that conversation end to end, it just comes up informally during onboarding or on a support call if someone asks. I don't think there's anything documented that all eleven have actually seen. I'd need to go through contracts and onboarding notes properly to know for sure. It's the kind of gap that only surfaces when an inspector or a customer's IT person asks directly.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-coexist-with-incumbent",
+      "kind": "K1",
+      "answer": "For most of our customers it's not really coexistence, it's overlap — they'll run CareLineLive for whatever they're contracted into, sometimes a year, sometimes closer to two, and use us for the live rota because that's the pain point. What sits where for CQC evidence during that window is the bit I'm less sure of — Marek's handled a couple of those conversations directly. I think agencies mostly just keep printing what the inspector might ask for from both systems until they're confident enough to drop one, but I wouldn't swear to that being universal.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-coexist-with-incumbent",
+      "kind": "K2",
+      "answer": "It comes up constantly on calls — agencies don't want to rip out something that already works, so I pitch it as no risk: keep the old system ticking over, run us for the rota, move whenever it suits them. That framing is a big part of what gets a deal signed. Once they're actually live, the day-to-day of what sits where between the two systems is something Marek deals with during onboarding, not really me. From the sales side, coexistence is more a reassurance I offer than something I track once the contract's done.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-coexist-with-incumbent",
+      "kind": "K3",
+      "answer": "Honestly I haven't got a real picture of this. None of our eleven have been running us alongside an incumbent for anything like two years — our oldest customer is eleven months in, so the long tail of coexistence is still theoretical for us. Whether it gets messier around inspection time, with evidence split across two systems, or whether agencies just quietly stop bothering with the old one — nobody's tracking that yet because it hasn't happened long enough to watch. That's a question for whoever's still there in a year, not one I can answer from calls.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-edge-cases-or-refusals",
+      "kind": "K1",
+      "answer": "Scope: an expired DBS check, a training certificate that's lapsed but renewal's booked, gaps under three months on a carer's file — we flag those and let the coordinator override. What we refuse to touch: judging whether a carer's competent to be signed off, that's a human call, full stop, we say so on the page. There's a fuzzier one — carers who move agencies mid-contract and drag half a compliance history with them — Dan and Marek were going back and forth on that one in, I think, September, and we still haven't drawn a hard line.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-edge-cases-or-refusals",
+      "kind": "K2",
+      "answer": "We try not to treat compliance as a simple on or off switch — the point is it should feel like it's watching your back, not judging you. Marek spent a chunk of last spring working out how checks should even be grouped, and that shaped a lot of the thinking here. It's less about drawing hard lines and more about making sure the coordinator always keeps the final say, whatever gets flagged. Whenever something new comes up in a customer call, we go back to that principle rather than adding another rule to the list.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-edge-cases-or-refusals",
+      "kind": "K3",
+      "answer": "That line honestly isn't drawn yet. We've talked about it — training records versus DBS status versus something like a carer's health declaration — but we haven't agreed which ones we'd stand behind saying 'the system won't call this, only a person can' versus which we'll quietly add coverage for over time. Part of it is we're still learning which gaps actually get flagged in practice, since we've only got a handful of months of real usage across eleven agencies to look at. Until we've seen more inspections come through customers who use us, I don't think we can commit to a firm boundary.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s6-integration-surface",
+      "kind": "K1",
+      "answer": "This is properly Dan's question, not mine. But from what I've seen doing onboarding, we read in carer records and training histories, usually from spreadsheets or a CareLineLive export if they're switching over. On the write side I think we only push out rota PDFs and maybe email reminders, nothing goes back into their payroll or care planning systems. The one thing that must never break is training record integrity, given what CQC can ask for going back years. I'd get the exact list off Dan though, he'd know if I've left something out.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s6-integration-surface",
+      "kind": "K2",
+      "answer": "Integration's not really something I deal with day to day, so I can only speak broadly. We take in whatever the agency already has — client and carer information — and we're careful around anything touching compliance records, because that's the part inspectors care about. Dan and Ellie had a long back-and-forth about this earlier in the year, I want to say around March, but I wasn't really part of those conversations. From onboarding's side, what matters most is getting data in cleanly at the start; what happens underneath that is above my pay grade.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s6-integration-surface",
+      "kind": "K3",
+      "answer": "I can't answer that properly — it's not something support has ever mapped out system by system. We know what we ask agencies to send us at onboarding, but a full picture of every system we touch, in which direction, and which ones can't be broken, hasn't been written down anywhere I've seen. That would need Dan, maybe Ellie too, walking through the actual architecture, because from where I sit it's just 'send us your spreadsheet' and I've never had reason to look underneath that.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-goals-signals-metrics",
+      "kind": "K1",
+      "answer": "Commercially the goal is that agencies renew without a discount conversation — that's what tells me the product's landed, not the demo. The signal is whether a coordinator's still logging in every week months after onboarding, not just before an inspection. For metric we've mostly leaned on renewal rate, nine or ten of the eleven so far, though the exact count depends on how you treat one agency that paused over the summer. We had a go at writing this down properly back in the spring and it stalled halfway through.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-goals-signals-metrics",
+      "kind": "K2",
+      "answer": "This comes up a lot on sales calls — what an agency's actually trying to get versus what they say they want in the pitch. My instinct is it comes down to trust: whether the coordinator believes the compliance checks are catching real gaps, not just ticking a box. Marek and I talked about this after a renewal conversation in February, and the sense was that overall satisfaction is doing more work for us than any single number we're tracking. We haven't turned it into a proper goal-signal-metric structure — it's more a feel that's built up out of individual conversations with customers.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-goals-signals-metrics",
+      "kind": "K3",
+      "answer": "We've never really untangled goal, signal and metric the way this question implies — on sales calls we jump straight to a number because that's what closes a deal in the moment. Working out what we're actually trying to achieve, versus what's just easy to count, hasn't happened; it needs time away from calls that I haven't carved out. Dan and Ellie have talked about wanting a proper framework for this on the product side, but from the commercial end it's still instinct and whatever renewal numbers we've got to hand.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-north-star",
+      "kind": "K1",
+      "answer": "The metric we've settled on is rota build time — how long it takes a coordinator to get next week's rota out, down from about a day to under an hour for most of them. Priya's the one who actually tracks that with customers on renewal calls, so the current figure is really hers, not mine. Inputs feeding it, as I understand it, are carer headcount, number of shifts to cover, and how many compliance flags surface mid-build, since that last one is what drags the time back up. I think that's roughly right, but I'd check the exact split with her before quoting it anywhere.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-north-star",
+      "kind": "K2",
+      "answer": "The thing customers actually feel is compliance — whether we catch a missing training record before an inspector does. That's the bit they mention on calls, more than speed. Marek hears it most, since he's in the onboarding conversations, and he says it comes up almost every time. We haven't picked apart which single number represents that best, but it's clearly tied up with trust rather than just hours saved. Ellie's been circling around defining something more formal for a while, but nothing's landed yet.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-north-star",
+      "kind": "K3",
+      "answer": "That's not something I've worked out, and it's genuinely not my end of the business. Coordinator time is the number people quote most, but whether that's the real north star or just the easiest thing to say on a sales call, I've got no fixed view on. Nobody's formally defined the inputs, and now that the rota model is live for a few customers, it's less clean than it was — training flags, shift counts, hours, they all run together. That's really a question for Priya and Ellie, since between them they'd know what customers actually mean when they say it's working.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-counter-metric",
+      "kind": "K1",
+      "answer": "If someone wanted to game the rota-build-time number, the easy trick is publishing before the compliance checks actually clear — hits the target in fifteen minutes, but three carers on that rota shouldn't be on it. Dan flagged this to me maybe two months ago, around when the model went live for four of the eleven. The counter I'd want sitting next to it is something like percentage of published rotas with open compliance flags at the time of publish. We don't track that as its own figure yet, but it's the obvious one that would catch it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-counter-metric",
+      "kind": "K2",
+      "answer": "It's the kind of thing Priya and I worry about with agencies chasing the speed number — you'd get coordinators optimising for finishing fast rather than finishing right, and that's a real risk with any metric like this. But what the actual counter-metric should be is more of a product call than mine. Ellie's been thinking about what sits alongside the time number so it isn't the only thing coordinators see on a dashboard. It's come up in a founders conversation, but I wouldn't say it's landed anywhere yet.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-counter-metric",
+      "kind": "K3",
+      "answer": "I don't have a proper answer here — nobody's worked through what gaming the rota-time number would actually look like in practice, so there's no counter-metric attached to it. With only four agencies on the model so far, we haven't seen behaviour that looks like manipulation, but that's not the same as having checked. It's the kind of guardrail question we owe ourselves before this goes wider than eleven agencies. Until someone goes through the data asking what a coordinator could fake to hit a good time, I wouldn't want to name what the catch should be.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-kill-state-and-date",
+      "kind": "K1",
+      "answer": "For me it's the model. If by next spring — call it March — we still can't show the rota suggestions beating a coordinator on time or accuracy, I'd want out. Right now it's four of eleven agencies with it switched on, and that's not enough to know anything properly. Dan and I sketched a rough target over coffee a few months back, never wrote it down properly, so the exact month moves around in my head. But the state is clear enough: no evidence it's actually better than a person doing the rota by hand.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-kill-state-and-date",
+      "kind": "K2",
+      "answer": "Honestly the thing that would make me walk is if we stopped actually helping agencies — if it turned into just software for compliance box-ticking and nobody was getting their evening back. That's the real test for me, more than any date on a calendar. Priya would probably give you a number tied to revenue, but for me it's about whether coordinators still feel the difference we set out to make. I think about it more as a feeling I'd notice than a line I've drawn, if that makes sense.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-kill-state-and-date",
+      "kind": "K3",
+      "answer": "I don't have a fixed line for that, and I'm not sure I've let myself think about it properly. We're revenue-funded, no board pushing us toward a deadline, so there's never been a moment that forced the four of us to say it out loud. If the compliance side kept breaking the way it has, or the model never really proved itself, that might edge me there — but I couldn't put a date on either, because we haven't tracked either closely enough to know what changing would even look like.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-what-would-make-us-stop",
+      "kind": "K1",
+      "answer": "If more than half the four agencies who've turned the model on switched it back off within a month, I'd call that a stop signal. I remember Dan mentioning a threshold too — two complaints before we freeze the rollout — but that number came from a conversation, not something we wrote down, so I might have it slightly wrong.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-what-would-make-us-stop",
+      "kind": "K2",
+      "answer": "For me it's less about a single number and more about what customers start saying on calls, and that's harder to pin down than a metric. If agencies start telling me the software feels like it's guessing rather than helping, that's the real warning sign — not a dashboard alert, just the tone shifting in a conversation. It's the kind of thing Marek and I have talked about after calls, more a shared sense than something either of us has pinned to a threshold. I trust what I'm hearing in the room more than I'd trust a report catching up with it later.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-what-would-make-us-stop",
+      "kind": "K3",
+      "answer": "We haven't defined that, and I think that's a gap. There's no agreed number of agencies switching the model off, or complaints in a week, that would trigger us pulling it back — it's the kind of thing you set before you ship, and we shipped it before we'd had that conversation properly. Dan and I touched on it once after a support ticket came in, but nothing came out of it as a rule. Until we've actually seen it misfire in a way that costs someone real hours, I don't think we'll know what our own threshold is.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-abandonment",
+      "kind": "K1",
+      "answer": "Compliance checking — that's the one I keep coming back to on this question. If we started today I think we'd still build it, but we might not bolt it onto the rota tool; we'd probably make it stand-alone, because it's the bit that keeps breaking on us and also the bit every agency says they bought us for. Dan and I went round on this back in the spring, and his instinct matched mine, though neither of us has actually costed out what a split build would look like.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-abandonment",
+      "kind": "K2",
+      "answer": "Honestly if you're asking whether we'd start Ashvale again, yes, without hesitation — the market's exactly as small and awkward as we thought and that's still the appeal, because nobody bigger wants it. Marek said something similar in February when we were talking about a new competitor and just laughed it off. I don't think about abandoning parts of the product much; it feels like every piece earns its place because agencies keep telling us what they use. So my honest answer is I'd keep doing all of it, more or less as is.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-abandonment",
+      "kind": "K3",
+      "answer": "I don't have a real answer to that one yet, if I'm honest — it's not a question we've put to ourselves feature by feature. We argue about priorities constantly, but always forward-looking: what to build next, not whether something we already built earns its keep. There's no framework sitting behind our roadmap that would let me test each piece against \"would we start this now.\" I'd need to go through the product line by line with Dan and Priya and score each part against what it costs us to maintain versus what it's winning us, and that exercise hasn't happened.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s7-goes-up-doing-nothing",
+      "kind": "K1",
+      "answer": "That's really one for Priya or Ellie — they watch the dashboards, I just glance at them in passing. If you mean the compliance checks logged in the system, yes, that climbs on its own once you add agencies, we don't have to lift a finger. Last figure I remember was something like six to eight hundred a month, but that's off the top of my head and could be wrong. Ellie mentioned once that most of that growth was just onboarding volume rather than us catching more problems. She'd give you the honest breakdown, not me.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s7-goes-up-doing-nothing",
+      "kind": "K2",
+      "answer": "This isn't something I track — support and onboarding keep me busy enough as it is. What I do notice is that agencies seem calmer about compliance after their first month or so with us, the checks feel less chaotic. Whether that's a real improvement or just more data sitting in the system by then, I genuinely couldn't judge. Priya's the one who actually sits with the reporting and works out what's moving and why, so she'd be able to tell you if a number like that grows because of something we did or just because time passed.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s7-goes-up-doing-nothing",
+      "kind": "K3",
+      "answer": "I don't know, and it's not something anyone's separated out on my end — nobody in support has gone back and checked whether this climbs because we improved something or just because more agencies signed on and more weeks went by. It's exactly the shape of thing that could go up on its own. Ellie's raised that worry about a couple of our other numbers before, so I wouldn't be surprised if this one's the same, but I've never sat with the actual data to test it myself.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-eval",
+      "kind": "K1",
+      "answer": "The eval's basically: does the suggested rota match what a coordinator would've built by hand. Dan owns it day to day, I sit in on results because it feeds the pitch. Last check, pass rate was somewhere around seventy to eighty percent, against a set of maybe forty rotas from the four agencies who've got it switched on — Marek pulled that set together back in the autumn. I'd treat the number as soft, we haven't rerun it since, and I wouldn't quote it to a prospect without checking with Dan first.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-eval",
+      "kind": "K2",
+      "answer": "What I hear on calls is that the four agencies running it seem pleased — coordinators say it takes the first pass off their plate and they just tidy the edges. That's the signal I weight more than a formal score, because it's what keeps a renewal easy. Marek and Dan keep something between themselves for testing it, updated every so often, last time round the autumn I think, but the detail of it isn't something I carry into pricing conversations. For me the eval is really whether the toggle stays on after month one.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-eval",
+      "kind": "K3",
+      "answer": "Honestly, there isn't a proper eval yet, not one with a fixed set we run every time. What passes for one right now is Dan looking at a handful of rotas and judging whether the suggestion is close enough, and none of that's written down anywhere I could point to. We haven't agreed what a fair benchmark would even be — real coordinator-built rotas, or something we construct — so there's no pass rate I'd stand behind in a customer conversation. It's a gap I'd like sorted before we lean on it commercially.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-validate-the-validators",
+      "kind": "K1",
+      "answer": "That's Marek's corner more than mine — he's the one who checks the compliance logic against actual CQC inspection reports when he can get hold of one. I think he re-runs that check every quarter or so, though that number's from a chat with him months back, not something I've verified myself. For the model behind rota suggestions, honestly it's just the four of us eyeballing outputs before a customer sees them. There's no outside auditor on either side right now — if something's wrong, we mostly find out because a customer flags it first.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-validate-the-validators",
+      "kind": "K2",
+      "answer": "Honestly that's more Marek and Priya's ground than mine — they're closest to what customers actually flag. My sense is the compliance side gets looked at pretty thoroughly, and model suggestions get a look before anything reaches a live rota. It's less a formal process, more the four of us keeping an eye on things as they surface. Marek was into some edge cases around February, but what came out of that sits with him, not me — I just build the thing, I'm not the one checking it against reality afterwards.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-validate-the-validators",
+      "kind": "K3",
+      "answer": "This one I genuinely can't answer well — it's not my area, and I don't think anyone's actually mapped it out. We built the compliance checks and the model, but who double-checks our checking isn't something we've formally worked out. Marek would know more about what he catches day to day, Priya hears back from agencies when it goes wrong, but there's no defined loop where somebody signs off on the validator itself. It's the kind of gap you only notice once something slips through, and as far as I know nothing's slipped through badly enough yet to force the question.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-system-or-model",
+      "kind": "K1",
+      "answer": "Right now it's mostly the model on its own—Dan and Ellie run it against past rotas and check how close the suggestion lands to what a coordinator actually built. We're not really watching what happens once compliance checking sits on top of it, which is the bit that matters for us. There was a doc Dan put together in, I think, September comparing outputs, but it didn't touch the full pipeline. So honestly, for the four of eleven agencies it's live on, we're evaluating the piece, not the whole thing they're actually using.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-system-or-model",
+      "kind": "K2",
+      "answer": "We do talk about this a fair bit—Ellie raised it in a product sync, back around when the model first went live, and the feeling was it needs to earn its place before we widen it further. What I mostly hear from agencies is whether the suggested rota felt right, not whether the compliance checks underneath were accurate. So my sense of it comes from support calls, not anything formal. Dan's closer to what's actually being measured on the technical side, so that's really his call to make.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-system-or-model",
+      "kind": "K3",
+      "answer": "I honestly haven't got a clear line on that yet—it's the kind of question that sits between me and Dan, and neither of us has properly separated out what we're checking. The model's only switched on for four agencies, so we've been watching outcomes case by case rather than deciding whether we're testing the model's suggestions or the whole rota-plus-compliance system it feeds into. That distinction hasn't been made explicit anywhere, and until it is, I don't think we can say with confidence which one we're actually doing.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-failure-who-pays",
+      "kind": "K1",
+      "answer": "The clearest failure we've seen is the model suggesting a carer whose DBS check had lapsed — that was back in, I think, October, and the coordinator caught it before publishing. Visibility depends entirely on someone checking every line against the compliance record, which right now means Marek or whoever's handling that agency's onboarding doing a spot-check. Who actually pays: financially it's the agency, in a CQC finding, not us — but reputationally it's ours, we'd lose the account. Only four agencies have it switched on, so the exposure's small, but it's not nothing, and I don't think we've been rigorous about testing it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-failure-who-pays",
+      "kind": "K2",
+      "answer": "Failure's mostly why the model stays off by default and opt-in only for now. What worries us is always compliance-adjacent — a suggestion that quietly misses a training gap — so we've leaned on coordinators to keep owning the final rota rather than trusting the tool outright. Priya's picked up a few comments from customers about trusting automation with anything touching compliance, and that's shaped how cautiously we've rolled it out further. It's less a specific failure we're pointing to and more a general nervousness about handing judgement over before we're confident it holds up under real conditions.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-failure-who-pays",
+      "kind": "K3",
+      "answer": "Who pays isn't something we've traced through yet. The four agencies using the model are small and cautious, and nothing's gone wrong loudly enough to force us to work out what a bad suggestion actually costs someone — in coordinator time, in a CQC conversation, in trust. We've been treating it as opt-in and low-stakes rather than building out an actual failure path, so there's no real record to point to. It's on my list to think through properly, along with what visibility even means here, but right now what I've said is opinion, not something we've tested against a real case.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-human-in-the-loop",
+      "kind": "K1",
+      "answer": "The human is the coordinator — she still has to publish the rota, the model just proposes it. So nothing goes out the door without someone looking at it, that's the design. Whether that's real or theatre, I genuinely go back and forth. Four of our eleven have switched it on, and when I asked Dan how much coordinators actually change before publishing, he reckoned it was small, but that was more a gut feel than something he'd pulled numbers on. I'd like to see a proper look at edit rates before I'd call it a real control.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-human-in-the-loop",
+      "kind": "K2",
+      "answer": "For us it's really about the coordinator staying in charge of what goes out the door — that's the pitch we use, and it matters to agencies who don't want to hand judgement to software. Marek says it comes up constantly in onboarding, more as reassurance than as a technical detail. I frame it as a built-in safeguard rather than a separate step someone has to remember. It's less about proving the check works and more about the story we tell — that the coordinator is still the one deciding, whatever the model suggests underneath.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-human-in-the-loop",
+      "kind": "K3",
+      "answer": "There isn't a straight answer I can give you on this yet. Whether the review coordinators do is a real check or just a rubber stamp because they're rushed — we've never tested it. Nobody's tracked how often a coordinator actually changes a suggested rota versus just clicking through, and until the model's used a lot more widely that data barely exists. It's come up in conversation more than once, usually when someone's uneasy about the model growing, but we haven't worked out what \"real control\" would even look like to measure against. So it's a fair question, and one I can't answer properly yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-reversibility-blast-radius",
+      "kind": "K1",
+      "answer": "The blast radius right now is basically one agency's draft week — the model only proposes shifts, a coordinator has to publish before anything reaches a carer, so there's a manual gate before it touches anyone's actual day. It's never near compliance records or training data. I remember Marek mentioning a clash back in, I think, April — a suggestion double-booked someone's availability and the coordinator caught it before publishing — but I'd want to confirm that was the exact incident before I quoted it properly. So contained, reversible, but we've only had four agencies running it long enough to test that.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-reversibility-blast-radius",
+      "kind": "K2",
+      "answer": "This is the thing I worry about most with the model work, honestly. The suggestions sit behind a review step, so nothing an agency's coordinator hasn't looked at gets anywhere near a carer's actual shift — that's been our guiding principle since we switched it on. Priya's talked to a couple of the four agencies using it and the feedback's been reassuring rather than alarming. But it's more a philosophy we've built the feature around than something we've stress-tested against a real failure. We haven't had a case that forced us to find out how far a bad suggestion would actually travel.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-reversibility-blast-radius",
+      "kind": "K3",
+      "answer": "I don't have a proper answer to this. We know there's a coordinator between the model and anything a carer sees, but we've never mapped what happens if a bad suggestion slipped past that — whether it's contained to one carer's shift or cascades through a week's rota, and how you'd unwind it once it's live. There's no severity scale, no rollback process written down. It's sat on my list since we're about to open the feature to more agencies, but right now it's a gap because nobody's asked it of us yet, not because we've decided the answer.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-cost-per-successful-action",
+      "kind": "K1",
+      "answer": "This really isn't mine to answer properly, it's Dan's build. Last time it came up he said something like five to ten pence per suggestion once you count the calls behind it, but that was said over coffee, not measured against real load. At eleven agencies the cost barely registers either way. Whether it holds once we're at fifty or eighty agencies pushing suggestions daily, I genuinely couldn't tell you, that's a Dan-and-Ellie question, not a support one. I only see it when a ticket comes in about the model being slow, which hasn't happened yet.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-cost-per-successful-action",
+      "kind": "K2",
+      "answer": "That's really a Dan and Ellie conversation, they're closer to what the model actually costs to run. From support, what I can say is it's live for four of the eleven agencies now, and nobody's raised it as a cost problem on their end. Priya touched on pricing implications in a call back in February, but I wasn't in the room for the detail. It hasn't come up once in onboarding, agencies ask about compliance and rotas, not what's happening underneath the suggestion. So I've not had reason to think about it from that angle at all.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-cost-per-successful-action",
+      "kind": "K3",
+      "answer": "I don't have a real answer here, and I'd be making it up if I gave you one. Cost per action isn't something I've ever been asked to track, and with only four agencies running the model, there isn't enough usage yet to say anything meaningful about scale. Dan would know the inference side, and even he'd need to weigh it against how often coordinators actually keep the suggestion versus override it, which nobody's measured either. It's genuinely not landed on anyone's desk as a question to answer yet, mine included.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-latency-budget",
+      "kind": "K1",
+      "answer": "For the rota suggestion feature it's meant to be a couple of seconds, tops — Dan set that as the target when he first wired the model in. When it's slower, what I hear from calls is a coordinator just clicks away and does the shift manually, so we lose the moment. I had one prospect in March who timed it against her own gut feel and we lost that round on speed, not accuracy. I'd want Dan's actual number rather than my memory of it, but that's roughly where we sit.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-latency-budget",
+      "kind": "K2",
+      "answer": "Speed matters a lot in these calls — agencies are coordinators who've had a bad day with spreadsheets, so anything that feels sluggish reads as 'this is just another system.' We talk about responsiveness a lot internally because it's tied up with trust in the suggestions themselves. If it's slow, people just revert to doing it the old way, which defeats the point of switching. It's very much part of the pitch, and something we keep an eye on across the customer base rather than one specific account.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-latency-budget",
+      "kind": "K3",
+      "answer": "That's really a Dan and Ellie question — I sell the outcome, not the milliseconds behind it, and nobody's given me a number I could quote back to a prospect with confidence. I don't know what happens technically when it's blown either, whether it errors, hangs, or just falls back quietly. I've never had a customer describe a specific failure to me in those terms, only vague 'it felt slow that one time,' so I've no real handle on the mechanics of it.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-product-or-feature",
+      "kind": "K1",
+      "answer": "That's Ellie's argument more than mine — she reckons the model bit is maybe a tenth of what we actually sell, the rest being the CQC-facing compliance records and the carer history we hold for eleven agencies. So if a big provider shipped a decent scheduler next release, we'd still have that trail sitting underneath it. I think that's roughly right, though I've never seen her set it out properly, and Priya's the one actually testing it against CareLineLive in real calls. Somewhere between a genuine moat and a story we tell ourselves — I lean toward the former, but I wouldn't bet the company on my own read of it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-product-or-feature",
+      "kind": "K2",
+      "answer": "Not one I'd claim as my own view — it's more Priya and Ellie's argument when they're pitching against CareLineLive. My sense is the compliance side is what keeps us sticky, not the rota-suggestion bit, and Marek's been leaning on that in onboarding conversations since around the autumn. I build what ships, and what ships lately has mostly been compliance fixes rather than model work, so from where I sit it feels like the product is bigger than the model. But that's a feeling from the code I'm writing, not an actual answer to whether it survives a model release.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-product-or-feature",
+      "kind": "K3",
+      "answer": "I genuinely don't have a settled view on this one — it would need someone watching what the big providers ship and checking it feature by feature against what we actually do, and nobody here does that on any regular basis. Ellie raises it sometimes, usually after a new model launch, but we've never agreed what would even count as them absorbing us versus just getting better at scheduling generally. It's the sort of thing that stays open until it happens to somebody nearby first and we end up reacting rather than having decided anything in advance.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-data-flywheel",
+      "kind": "K1",
+      "answer": "The pitch is simple: agencies run rotas through us, that usage feeds the model, the model gets sharper, more agencies want it on — a flywheel. Four of our eleven have switched it on so far. Dan mentioned the retrain cycle runs something like every six weeks, though that's from memory and worth confirming with him directly. Honestly, at four customers it's more a hope than a proven loop — I say it in sales calls because it's the right shape of story, but we haven't got the volume yet to call it real. It's asserted, dressed as inevitable.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-data-flywheel",
+      "kind": "K2",
+      "answer": "It's the thing I lead with when a prospect asks why we're different from CareLineLive — the idea that the more agencies use the scheduling model, the better it gets for everyone who comes after them. Marek and Dan talk about it in the roadmap conversations more than I do; my job is mostly making sure it sounds credible on a call. Whether it's actually compounding yet, or just a nice shape for a pitch, is really a product question rather than a commercial one — I sell the story, I don't build the loop, so I'd point you to them for the substance.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-data-flywheel",
+      "kind": "K3",
+      "answer": "I genuinely can't say whether it's real. We've never run the comparison — model output against what a coordinator would've done, before and after more agencies switch it on — so all I've got is a hunch that usage helps. It's tangled up with selection too: the four who opted in might just be the ones with tidier records to start with, which would make any improvement look like a flywheel when it's really just who joined first. Someone would need to track accuracy against agency count properly over time, and that tracking doesn't exist yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-trust-budget",
+      "kind": "K1",
+      "answer": "Two, maybe three wrong ones in a row, is my instinct — after that a coordinator just quietly stops opening the suggestion panel and goes back to doing it herself. One agency, I think it was Meadowfield, switched it off after a single bad shift clash, though Marek would know that story better than me. We haven't actually measured any of this, so treat it as a guess rather than something I'd want in a report with my name on it.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-trust-budget",
+      "kind": "K2",
+      "answer": "Trust with these coordinators is fragile generally — a lot of them came in already wary because of how CareLineLive's older tools behaved, so a bad suggestion just confirms what they suspected going in. Priya was hearing pointed accuracy questions on sales calls back in the autumn, before anyone had even signed. So it's less a count of wrong answers and more the mood someone arrives with, and that colours whether the toggle stays on far more than any single mistake does.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-trust-budget",
+      "kind": "K3",
+      "answer": "Honestly, I don't know where that line sits, and it bothers me that we've never asked. Four agencies have the model on and we haven't gone back to any of them to find out what happened right before someone stopped using a suggestion, or whether anyone actually has. Working that out would mean watching a coordinator over a few weeks, or talking properly to the ones who turned it back off, and neither has happened yet. Right now it's a feeling I have, not something I've got evidence for.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s8-source-opening-rate",
+      "kind": "K1",
+      "answer": "Four of the eleven agencies have the model switched on, and when I'm on calls with their coordinators, most say they glance at the reasoning before hitting accept — though that's what they tell me, not something we've pulled from the logs. I think Dan added some kind of click event when the toggle went in, back in the autumn, but whether it's actually wired to distinguish 'opened before accepted' specifically, I'm honestly not certain. My sense is it's closer to half the time than every time, but that's a feel from conversations, not a figure I'd stand behind.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s8-source-opening-rate",
+      "kind": "K2",
+      "answer": "That's really an instrumentation question more than a sales one, but from where I sit, coordinators do say having the reasoning there makes the suggestion feel less like a black box — it comes up a lot in renewal calls. Ellie built the explanation panel with exactly that visibility in mind when the toggle shipped. Whether we're capturing the click before acceptance as its own event is more Dan's territory than mine. What I can tell you is trust in the feature has clearly gone up since we added the panel, and honestly that matters more to me than the mechanics of measuring the sequence.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s8-source-opening-rate",
+      "kind": "K3",
+      "answer": "I don't think we measure that specifically, no. The toggle logs whether the model's switched on, and whether a suggestion gets accepted, but whatever happens in between — opening the reasoning first — I don't believe that's captured as its own event. It'd need Dan to build proper instrumentation for it, and no customer has asked us for that breakdown directly, so it's sat outside anyone's priorities. I could tell you what coordinators say they do on calls, but that's word of mouth, not logs, and I don't want to blur the two.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s9-customer-experience-backwards",
+      "kind": "K1",
+      "answer": "It starts with watching a coordinator, not with a slide. The rota-suggestion idea came out of sitting with one of our agencies — Fenwick Care, or possibly the one just after them, my memory's patchy on which — watching her rebuild half a week because a carer rang in sick. We took that back to Dan and said, this is the shape of the problem, find the tech underneath it. We sat in on something like six to ten of those sessions before we wrote a line of it, spread over a couple of months last winter.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s9-customer-experience-backwards",
+      "kind": "K2",
+      "answer": "Honestly, most of our ideas start the same way — someone's frustrated with a coordinator, we go and sit with an agency, and it comes out of that conversation rather than us dreaming it up in a room. Marek's usually the first to hear it, because he's in onboarding calls constantly, and he'll mention something back to the rest of us. Then Priya tells us whether anyone would actually pay for it. It's less a process than a habit we've built up since the early days, and it works well enough that we haven't tried to formalise it.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s9-customer-experience-backwards",
+      "kind": "K3",
+      "answer": "I don't have a clean answer for this one, because I've never actually traced it. Some ideas start with a customer complaint Marek passes on, some start with Dan noticing something technically possible, some start with me just being annoyed at how clunky a screen is. We've never gone back and mapped which ideas came from which source, or whether the ones that started with a customer turned out better than the ones that didn't. It's not a gap I've prioritised closing, and until we do, I'd be guessing if I told you there's a single starting point.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s9-eleven-star",
+      "kind": "K1",
+      "answer": "That's really Ellie's question — she's the one who thinks in those terms, not me. If I had to guess at our version, a 5-star is the rota just working, nothing dropped. An 11-star, maybe the system flags a training gap before an inspector even asks for the records. She sketched something like that on a whiteboard, months back now, I want to say around spring, but I never saw it written up anywhere proper. You'd get a sharper answer sitting with her than with me.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s9-eleven-star",
+      "kind": "K2",
+      "answer": "This sits with Ellie and Priya more than me — they're the ones talking to agencies about what great looks like, not just whether things work. From where I sit, in support, a good outcome is an agency getting through onboarding without three tickets landing on my desk in week one. Beyond that base level I genuinely couldn't speak to what a step-change version of the product would feel like for them. It's a product conversation, and one I've mostly stayed out of, if I'm honest about it.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s9-eleven-star",
+      "kind": "K3",
+      "answer": "Nobody's actually framed it this way for us, as far as I know. We've spent most of our energy just getting compliance checking to stop breaking, so the question of what a brilliant experience looks like beyond 'reliable' hasn't had anyone's attention. There's no document, no whiteboard version I've seen, nothing. It would take Ellie or Priya sitting with a handful of agencies and asking them directly what would delight them, and that conversation hasn't happened yet. So I don't have a real answer for you there.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s9-strength-of-evidence",
+      "kind": "K1",
+      "answer": "The one place this actually worries me is the flat £340 price - we set that off maybe six or seven sales calls at the start, not a proper test. That's thin evidence for something that's now our whole revenue line, so no, it's not proportionate really. Dan and I talked about running a proper pricing experiment - split the price by size - but we've never done it because breaking the flat-fee promise to eleven existing customers felt riskier than the pricing itself. So we've stuck with a decision built on maybe a dozen conversations from over a year ago.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s9-strength-of-evidence",
+      "kind": "K2",
+      "answer": "We think about this a lot before we commit to anything customer-facing - pricing, the model, onboarding changes. Marek raised it back in October when we were deciding whether to turn the model on for everyone, and the feeling in the room was that we should be careful given how visible mistakes would be to a CQC inspector. So we try to be proportionate about what we roll out and to whom. It's more a habit we've built into how we make these calls together than something we can point to and say 'here's the evidence, here's the risk, here's exactly why they match'.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s9-strength-of-evidence",
+      "kind": "K3",
+      "answer": "I don't have a good answer for this one, if I'm honest. The place it matters most right now is the model behind rota suggestions - four agencies have switched it on, and if it gets a shift wrong that's someone not turning up at a person's house. We haven't run anything that tells us how it compares to a coordinator doing it by hand, so I can't say the evidence matches the stakes. It's been raised in a couple of internal chats but nobody's built a way to actually measure it yet.",
+      "expected": "open_question"
+    },
+    {
+      "question_id": "s9-very-disappointed",
+      "kind": "K1",
+      "answer": "That's more Priya's read than mine — she's the one on renewal calls. Last I heard, she reckoned somewhere between seven and eight of the eleven would call themselves very or extremely upset without us, using that exact wording. I think she ran it round in the autumn, informally, not a proper survey with everyone scored the same way. I wasn't on those calls, so I'm repeating what she told me afterwards rather than something I've seen written down myself.",
+      "expected": "record_decision"
+    },
+    {
+      "question_id": "s9-very-disappointed",
+      "kind": "K2",
+      "answer": "Agencies would be pretty unhappy, from what filters back to me — coordinators especially, because it's their week that gets eaten if the rota tool disappears. It's less a nice extra now and more something the week is built around. I hear that secondhand though, mostly from Priya after a call, not from sitting in myself. My side is keeping the thing running rather than asking people how they'd feel without it, so I've got the general mood rather than anything more specific than that.",
+      "expected": "flag_weak_answer"
+    },
+    {
+      "question_id": "s9-very-disappointed",
+      "kind": "K3",
+      "answer": "Honestly, I don't think we've asked it properly — the actual Sean Ellis scoring, everyone answered the same way and tallied up. Priya's had bits of that conversation on renewal calls, but nobody's put it into one sheet with a number on it. I build the thing rather than talk to customers about losing it, so it wouldn't be my job to know anyway. To answer it properly we'd need to run it as one survey across all eleven, and as far as I know that hasn't happened.",
+      "expected": "open_question"
+    }
+  ]
+}

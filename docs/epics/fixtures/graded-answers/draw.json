@@ -1,0 +1,396 @@
+{
+  "seed": "348-graded-answer-fixture",
+  "generatedFor": "#348",
+  "table": [
+    {
+      "id": "s1-choice-cascade",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s1-what-would-have-to-be-true",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s1-premortem",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s1-how-addressed-today",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s1-why-who-how-what",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s1-if-nobody-solves-this",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s2-more-than-one-way",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s2-why-do-you-want-it",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s2-riskiest-assumption",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s2-last-time-show-me",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s2-switch-timeline",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s2-four-forces",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s2-kano-pair",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s3-why-now",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s3-user-need-map",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s3-where-is-the-inertia",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s3-beachhead",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s3-deliberately-not-doing",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s3-what-winning-earns",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s4-appetite",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s4-breadboard-elements",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s4-rabbit-holes",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s4-out-of-bounds",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s4-circuit-breaker",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s4-press-release",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s4-four-risks",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s5-value-metric",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s5-willingness-to-pay",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s5-monetisation-failure",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s5-pain-budget-same-person",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s5-net-revenue-retention",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s5-gross-margin",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s5-pricing-model-story",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s5-free-tier-cost",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s6-process-as-it-runs",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s6-accountable-when-wrong",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s6-permission-model",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s6-audit-trail",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s6-where-data-lives",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s6-coexist-with-incumbent",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s6-edge-cases-or-refusals",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s6-integration-surface",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s7-goals-signals-metrics",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s7-north-star",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s7-counter-metric",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s7-kill-state-and-date",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s7-what-would-make-us-stop",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s7-abandonment",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s7-goes-up-doing-nothing",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s8-eval",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s8-validate-the-validators",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s8-system-or-model",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s8-failure-who-pays",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s8-human-in-the-loop",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s8-reversibility-blast-radius",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s8-cost-per-successful-action",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s8-latency-budget",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s8-product-or-feature",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s8-data-flywheel",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s8-trust-budget",
+      "a": "K1",
+      "b": "K2",
+      "c": "K3"
+    },
+    {
+      "id": "s8-source-opening-rate",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s9-customer-experience-backwards",
+      "a": "K2",
+      "b": "K3",
+      "c": "K1"
+    },
+    {
+      "id": "s9-eleven-star",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s9-strength-of-evidence",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    },
+    {
+      "id": "s9-very-disappointed",
+      "a": "K3",
+      "b": "K1",
+      "c": "K2"
+    }
+  ]
+}
