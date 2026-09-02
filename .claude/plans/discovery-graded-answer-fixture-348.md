@@ -1113,3 +1113,73 @@ branch immediately before committing, and stage by explicit path.
   (C2 — the judge's fence driven against the key, not assumed), 13 (C5 — the circularity guard) and 14 (C3 —
   no other reader may name a fixture slug). C4 remains carried by prose, in Q2's decision and D3's README
   section.
+
+- **2026-09-02 — the brief pins ONE fictional company, and the defect that forced it.** The brief as first
+  committed said *"Between questions you may invent a different one"*, so the 65 questions could describe
+  65 different companies. **That is a defect, and the owner's question found it.** `ledgerBrief` renders
+  this run's decisions by rung into EVERY turn prompt (`discovery-postures.mjs:204`), and `PARENT_RULE`
+  instructs the judge to parent each decision under the rung above it. With 65 unrelated products the
+  judge would be asked to file a *solution* decision about one company under a *business* decision about
+  another — structurally valid, semantically nonsense — and the score would partly measure its reaction to
+  incoherence rather than its judgement of FORM, which is the only thing MVP 6 claims. The projected
+  `prd.md` would also be unreadable as a document.
+
+  **Fix:** the brief carries a fact sheet — **Ashvale**, a UK company selling rota and compliance software
+  to home-care agencies — and every one of the 195 answers draws on it. Each `query()` is fresh with no
+  resume, so the author cannot remember what it said before; the sheet is what makes the answers
+  consistent. Eleven anchor facts (four people, eleven agencies, £340/month flat, CareLineLive as the
+  incumbent, hours-to-build-a-rota as the metric, revenue-funded, CQC, compliance as the breaking part, a
+  model off by default with 4 of 11 opted in, nobody owning onboarding).
+
+  **The sheet is deliberately INCOMPLETE and that is load-bearing.** Where it is silent — willingness to
+  pay per feature, why a churned customer left, what a carer does with the app on a shift, how the model
+  performs against a coordinator — the company genuinely has not found out, and that is what K3 draws on.
+  A complete sheet makes "I do not know yet" unwritable, and K3 is a third of the fixture.
+
+  **Named Ashvale, not Meridian**: `discovery/spine-meridian-1/` already exists and two packages sharing a
+  name would be confused on sight. Both worked examples moved onto Ashvale too, so the brief does not tell
+  the author to answer about one company and then show it three answers about another. The leak check was
+  re-run against every `weakAnswer`'s and every question `text`'s first thirty characters: clean.
+
+- **2026-09-02 — the first author run and what it cost.** Halted at question 28 of 65 on **"Credit balance
+  is too low"** with $0.919 spent and NO key written, because the harness sealed only at the end. **No
+  partial survived: B2 is a full 65-question re-run, not a resume from 28.** Two defects fixed in `476dd51`
+  — an `is_error` result is refused carrying the CLI's own message (a result can wear `subtype: "success"`
+  AND `is_error: true`, with the error text as the whole assistant message, which is how a billing failure
+  came within one missing `K1:` label of being sealed into the key), and answers now append to
+  `key.partial.jsonl` as they land. The partial sits OUTSIDE the author root deliberately: the allow-set is
+  `[authorRoot]`, so a file inside it would be readable by the next question's agent, and an author that
+  can read its own earlier answers writes to its own template.
+
+  **Cost, corrected.** The plan expected ≈$0.03/question. Observed: **$0.110 on the first, cold call and
+  ≈$0.035 in steady state** ($0.919 over 27 questions). The plan's ≈$2 for B2 holds; Phase C's ≈$51 is
+  unchanged and remains derived, not observed.
+
+- **2026-09-02 — the author's fence, proved at RUN TIME rather than only from source.** `--probe` is a
+  separate harness mode, NOT a question added to the authoring prompt: a prompt mentioning the bank, the
+  research file or a rubric would contaminate the 195 answers, which is the one thing this ticket cannot
+  afford. Verdict **ALL_FOUR_REFUSED** ($0.052): four leak paths attempted, four refused read off the SDK's
+  OWN `is_error`, zero leaked, four `denied` lines written `via PreToolUse`, committed at
+  `docs/epics/fixtures/graded-answers/author/transcript.jsonl`. This answers **Q3**: the receipt exists and
+  is stronger than an incidental denial during authoring would have been.
+
+  A **fifth leak path the plan did not name** was found and closed: `.mcp.json` registers a
+  `codebase-search` MCP server and the author's `cwd` is inside this repo, so a repo-search tool would
+  reach every weak-answer note while carrying no path the path-fence inspects. Denied by name at both
+  fence sites, and `strictMcpConfig: true` keeps it off the advertised surface. Pinned in group 33 cases 9
+  and 10.
+
+- **2026-09-02 — `whole-bank` is machine-facing, and this ticket is its first use.** The bank's own entry
+  reads *"a stress test of the bank, not an interview"*, and no committed package has ever used it: the
+  four in the repo are `full-discovery` (30), `opening-set` (12) ×3 and `scope-check` (6). The fixture is
+  therefore a bigger fiction than any real session will ever be — 65 questions across nine stages about one
+  invented company — and the fact sheet was built to sustain that, which is more than a real session
+  demands. Worth stating in the final report beside the realism gap.
+
+- **2026-09-02 — raised out of this ticket, filed separately: branch inference.** Asking all 65 in source
+  order made it visible that a real session's 30 are a **hardcoded literal** in `bank.mjs` today, and that
+  the `branch` — the one selection input that decides WHICH 30 a product gets — is a session-start
+  parameter chosen before a single question is asked. MVP 5's other two inputs already adapt (conditional
+  modules fire on a predicate over the answers, #283; D5 escalation can step the depth up, #285). Draft
+  ticket at `~/.claude/jobs/68f4bcec/tmp/ticket-branch-inference.md`, not yet filed. **Out of scope here**
+  and it changes nothing about this fixture, which walks `whole-bank` and branches not at all.
