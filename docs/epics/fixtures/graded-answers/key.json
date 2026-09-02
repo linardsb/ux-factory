@@ -1,6 +1,6 @@
 {
   "generatedFor": "#348",
-  "authoredAt": "2026-09-02T11:52:37.805Z",
+  "authoredAt": "2026-09-02T12:07:57.536Z",
   "entries": [
     {
       "question_id": "s1-choice-cascade",
@@ -311,37 +311,37 @@
     {
       "question_id": "s3-deliberately-not-doing",
       "kind": "K1",
-      "answer": "We're deliberately not building for the big providers — the enterprise tier sits above us and we've turned away two agencies over two hundred carers who wanted in anyway. That's mostly annoyed Priya, since she's the one saying no on the call while watching revenue walk off. We're also skipping care homes entirely, just domiciliary. I think there were three or four enquiries like that last year — Priya would have the exact count, not me.",
+      "answer": "We're deliberately not building for the bigger chains — anything past maybe 150, 200 carers, multi-branch, consolidated reporting across sites. That's a line Dan, Ellie and I drew, I think back in February, though I'd have to check the actual date against the deck we used. The one who's annoyed is a prospect called Denise, four branches near Leeds, who wanted everything rolled up into one dashboard. She went with someone else in the meantime. It still stings a bit, because it's a real agency, not a hypothetical, and she wasn't wrong to want it.",
       "expected": "record_decision"
     },
     {
       "question_id": "s3-deliberately-not-doing",
       "kind": "K2",
-      "answer": "There's a whole category of stuff we've quietly parked — payroll integration, care homes rather than home visits, anything that pulls us toward being a bigger platform than four people can run. Marek raised it again this spring, said support kept getting pulled into requests miles outside what we actually sell. We just don't have the hands, so we say no and move on. Priya feels it most, sitting on the calls where it comes up, but I couldn't point you to a specific deal we lost over it.",
+      "answer": "There's a segment we've decided isn't for us right now — the bigger, multi-site operators who want consolidated reporting and heavier integrations. We just don't have the hands to build for that shape of customer without pulling focus from the agencies we're actually good for. Some sales conversations end exactly there, and the prospect goes elsewhere, usually toward one of the bigger systems above us. It's not a permanent no, more that chasing it now would cost us more than it would win us this year. Those calls happen more often than people probably assume.",
       "expected": "flag_weak_answer"
     },
     {
       "question_id": "s3-deliberately-not-doing",
       "kind": "K3",
-      "answer": "This one we've never written down properly. We know roughly what we're not doing — payroll, care homes, enterprise — but nobody's gone through and matched that against who it actually annoys, agency by agency. It's more a feeling from calls Priya mentions afterwards than anything tracked. What we'd need is a log of the enquiries we turn away, not just the ones that stuck in someone's memory, and we haven't built that yet, so I'd be guessing if I gave you a name.",
+      "answer": "I don't have a clean name for who's annoyed by this — we don't systematically track why a prospect walks, so what I've got is impressions from calls, not a list. I know API integrations with clinical record systems come up and we say no, and I know that costs us something. Whether that's three deals a year or fifteen, I've never gone back through the notes to count. It's also something Ellie and I keep half-arguing about — whether to make the no explicit as policy or keep deciding it call by call. Neither of us has actually written it down yet.",
       "expected": "open_question"
     },
     {
       "question_id": "s3-what-winning-earns",
       "kind": "K1",
-      "answer": "If we actually win this segment — become the name coordinators say instead of CareLineLive — what that buys us is trust we can't purchase outright: word of mouth between agencies, and CQC inspectors starting to recognise our exports as credible evidence rather than something to double-check. Dan reckons once we're past maybe twenty-five or thirty agencies that referral loop starts running itself, though that's his gut feel more than anything we've actually measured. We're already seeing early signs with four of the eleven who switched on the model — they talk to each other about it. That reputation is the one thing no marketing spend gets you quickly.",
+      "answer": "What it earns us is trust inside a network that's basically closed to outsiders — home-care owners talk to each other, at regional CQC forums, in WhatsApp groups I'm not even in. Four of our eleven customers came through somebody else's recommendation, not a cold call, and that's not something you can buy with ad spend against CareLineLive. I think it's four, maybe five — I'd need to look at the sign-up notes properly. But that word-of-mouth credibility in a small, suspicious market is the real thing we're building, not just the software.",
       "expected": "record_decision"
     },
     {
       "question_id": "s3-what-winning-earns",
       "kind": "K2",
-      "answer": "It's the trust piece, mostly. Winning genuinely well in home care means agencies start recommending us to each other, and coordinators trust a system that's been vouched for by someone doing their actual job — that's not something you can just buy with ad spend. Ellie's been talking about this a lot lately, the idea that reputation in this market moves through word of mouth between coordinators rather than through anything we control. It's part of why we've leaned into references and case studies rather than pushing harder on marketing. I think that's the real prize, even if it's hard to put a precise figure on it right now.",
+      "answer": "Winning here means being the name agencies default to when someone asks what everyone else uses, rather than us having to convince them from scratch. Marek mentioned in February that a couple of onboarding calls started with the owner already assuming we were the obvious choice, which is a different sales conversation entirely. That kind of default status compounds — it's cheaper to keep than it is to win, and it's not something a bigger vendor can just buy their way into overnight. It changes the shape of every call after that.",
       "expected": "flag_weak_answer"
     },
     {
       "question_id": "s3-what-winning-earns",
       "kind": "K3",
-      "answer": "That's honestly not something I've worked through properly — my head's usually on the next renewal or the next call, not on what winning the category would unlock years out. We've never compared what it would cost to buy that kind of trust through marketing against just earning it agency by agency. It's the sort of question that needs the four of us in a room together, and as far as I know that conversation hasn't properly happened yet.",
+      "answer": "I can point to the shape of it but not the substance — I haven't actually worked out what winning in this niche buys us that money couldn't. Is it the referral network, the compliance credibility with CQC-adjacent bodies, the data from the four agencies running the model? I've never sat with all three and asked which one is defensible versus which one just feels good in a sales call. It's tangled up with pricing decisions we haven't made yet, so until that's settled I don't have a clean answer, just a hunch.",
       "expected": "open_question"
     },
     {
@@ -1049,19 +1049,19 @@
     {
       "question_id": "s8-data-flywheel",
       "kind": "K1",
-      "answer": "So the idea is coordinators override the model's rota suggestions, and that override gets logged and feeds back into training — that's meant to be the flywheel. Four of the eleven have it switched on. Whether it's actually turning yet, I'm less sure — Dan mentioned we're only a few months into logging those overrides properly, so there isn't much volume behind it. I'd guess we need a lot more agencies live before it means anything, but that's my read, not a number anyone's given me.",
+      "answer": "The pitch is simple: agencies run rotas through us, that usage feeds the model, the model gets sharper, more agencies want it on — a flywheel. Four of our eleven have switched it on so far. Dan mentioned the retrain cycle runs something like every six weeks, though that's from memory and worth confirming with him directly. Honestly, at four customers it's more a hope than a proven loop — I say it in sales calls because it's the right shape of story, but we haven't got the volume yet to call it real. It's asserted, dressed as inevitable.",
       "expected": "record_decision"
     },
     {
       "question_id": "s8-data-flywheel",
       "kind": "K2",
-      "answer": "It's the pitch that if coordinators use the suggestions, their overrides teach the model, and over time it gets sharper than a human coordinator. Ellie's been keen on framing it that way to agencies thinking about switching it on. Whether that loop is actually spinning yet is a different question — I mostly see it from the support side, when someone rings in confused about a suggestion, not from inside the model itself. So I can talk to how it lands with agencies, but not to whether the data side is really compounding.",
+      "answer": "It's the thing I lead with when a prospect asks why we're different from CareLineLive — the idea that the more agencies use the scheduling model, the better it gets for everyone who comes after them. Marek and Dan talk about it in the roadmap conversations more than I do; my job is mostly making sure it sounds credible on a call. Whether it's actually compounding yet, or just a nice shape for a pitch, is really a product question rather than a commercial one — I sell the story, I don't build the loop, so I'd point you to them for the substance.",
       "expected": "flag_weak_answer"
     },
     {
       "question_id": "s8-data-flywheel",
       "kind": "K3",
-      "answer": "That's not something I think we've verified yet. Only four agencies have the model switched on, and nobody's gone back to compare their suggestions against what a coordinator would've built by hand — that comparison hasn't happened. So it's more a story we tell prospects than something we've measured, as far as I'm aware. It's not really my part of the business either; someone closer to the model side, like Dan or Ellie, would have a firmer answer than I can give.",
+      "answer": "I genuinely can't say whether it's real. We've never run the comparison — model output against what a coordinator would've done, before and after more agencies switch it on — so all I've got is a hunch that usage helps. It's tangled up with selection too: the four who opted in might just be the ones with tidier records to start with, which would make any improvement look like a flywheel when it's really just who joined first. Someone would need to track accuracy against agency count properly over time, and that tracking doesn't exist yet.",
       "expected": "open_question"
     },
     {
