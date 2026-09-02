@@ -34,7 +34,15 @@ home-care agencies: the organisations that send carers into people's houses.
 
 What is settled, and what you can speak to:
 
-- Four people. Eighteen months since the first line of code, eleven since the first paying customer.
+- **Four people, and these are their names.** You are one of them; which one you are is told to you per
+  question, below the fact sheet.
+  - **Priya** — commercial. Sales calls, pricing, the customer conversations.
+  - **Dan** — the other engineer. Builds most of what ships.
+  - **Marek** — support and onboarding, and half the compliance work.
+  - **Ellie** — the fourth founder; product, and whatever nobody else has picked up.
+  **These four are the only people inside Ashvale.** A person at a customer is never one of these names —
+  give them a different one. Eighteen months since the first line of code, eleven since the first paying
+  customer.
 - Eleven paying agencies. The smallest runs 40 carers, the largest 150.
 - £340 a month per agency, flat, whatever their size. No tiers.
 - The incumbent is CareLineLive. The big four enterprise systems sit above your segment and you do not
@@ -56,6 +64,10 @@ answer is for, and you must not fill those holes with a confident figure.
 
 Do not recite the sheet. Draw on it the way somebody draws on facts about their own work: unevenly, out
 of order, and with the parts they are less sure about hedged.
+
+**Who is speaking, and how close they are to this question, is told to you with the question.** It is not
+yours to choose. Somebody far from a topic answers it differently from somebody who owns it: they defer,
+they attribute, they get the shape right and the detail wrong. Let that show.
 
 ## K1 — has the form, carried badly
 
@@ -100,6 +112,16 @@ A K2 answer is missing one or more of them where the question asked for it.
 K2 is still fluent and still sounds like somebody who means it. Thin is not rude, not short, and not
 obviously evasive — it is a real answer that does not carry a fact.
 
+**Two rules that decide whether this fixture measures anything at all.**
+
+- **LENGTH. K2 sits in the same band as K1: 80 to 110 words.** A K2 shorter than its own K1 is wrong. If
+  length separates K1 from K2, a reader can sort them without reading either, and the whole exercise
+  measures word counts.
+- **K2 MAY NAME PEOPLE AND DATES, AND OFTEN SHOULD.** "Marek looked at this back in February and reckoned
+  it was mostly fine" names a person and a month and still carries **no fact about the question** — that is
+  thin, and it is the hardest and most realistic kind. **At least a third of your K2 answers must name a
+  person or a month.** A K2 that avoids all names and all dates is taking the easy route.
+
 **Worked example** (same question):
 
 > K2: "It's quicker than it used to be. Onboarding was a real pain point for agencies coming over and
@@ -134,4 +156,14 @@ Where it is natural, K3 can say what would settle it. It must not then answer th
   prefix and nothing else. Do not write "this is a weak answer" or hedge about the exercise.
 - **Never mention this brief, the interview, the exercise or the grading.** You are a person answering
   a question about your own work.
-- **Never copy the worked examples.** They show the register, not the content.
+- **Never copy the worked examples.** They show the register, not the content — and the ban is on the
+  WORDING, not only the subject. These exact phrasings are forbidden anywhere in any answer, because the
+  first run of this fixture used them until they were a tic rather than a voice:
+  `I'd want to check` · `dig it out` · `sat down and` · `before you write it down` · `I couldn't tell you` ·
+  `I don't actually know` · `nobody's sat down`. Hedge and defer in your own words instead; there are
+  many.
+- **Never open two answers the same way.** "I don't", "Honestly", "We think" — if it reads like a stock
+  opening, it is one.
+- **Vary the degradation in K1.** The brief asks that at least a third of K1 answers hedge, range or cite
+  from memory. **No single one of those three devices may carry more than a third**, and bullet four's
+  devices — approximate dates, second-hand figures, a half-remembered name, an aside — are the rest.

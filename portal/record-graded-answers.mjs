@@ -78,17 +78,59 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const bad = (msg) => { throw new Error(`record-graded-answers: ${msg}`); };
 
+// WHO IS SPEAKING, ROTATED BY QUESTION INDEX. The first run's brief told the author "never write in the
+// same register twice in a row" while every query() is fresh with no resume — a stateless author cannot
+// obey that, and it duly produced one voice on a loop ("I'd want to check" in 31 of 65 K1 answers, 51 of
+// 65 K3 answers opening with one of five stock phrases). Varying register needs a MECHANISM, not an
+// instruction. This is that mechanism, and it is a pure function of the question's INDEX — no state, no
+// resume, no contamination, and the gate can recompute it. The four founders are the fact sheet's.
+const VOICES = Object.freeze([
+  Object.freeze({ who: 'Priya', role: 'commercial — sales calls, pricing, the customer conversations', near: 'You own this area. Answer from your own work.' }),
+  Object.freeze({ who: 'Dan', role: 'the other engineer — builds most of what ships', near: 'This is not your area. You know the shape of it and you attribute the detail to whoever does own it.' }),
+  Object.freeze({ who: 'Marek', role: 'support and onboarding, and half the compliance work', near: 'You are close to this but not the decision-maker on it.' }),
+  Object.freeze({ who: 'Ellie', role: 'product, and whatever nobody else has picked up', near: 'You have opinions here and less evidence than you would like.' }),
+  Object.freeze({ who: 'Priya', role: 'commercial — sales calls, pricing, the customer conversations', near: 'This is adjacent to your work. You defer on the numbers.' }),
+  Object.freeze({ who: 'Ellie', role: 'product, and whatever nobody else has picked up', near: 'You own this area. Answer from your own work.' }),
+  Object.freeze({ who: 'Marek', role: 'support and onboarding, and half the compliance work', near: 'This is not your area at all. Somebody else would answer it better and you say so.' }),
+]);
+export const voiceFor = (i) => VOICES[i % VOICES.length];
+
+// Phrasings the FIRST run turned into a tic. Checked mechanically rather than trusted to the prompt: a
+// banned phrase is a re-run of that one question, never a hand-edit. Lower-cased compare.
+export const BANNED = Object.freeze([
+  "i'd want to check", 'dig it out', 'sat down and', 'before you write it down',
+  "i couldn't tell you", "i don't actually know", "nobody's sat down",
+]);
+
+const words = (s) => s.trim().split(/\s+/).length;
+
+// The three checks the audit turned into rules. A failure re-runs the question; it is never repaired here.
+export function checkAnswers(a, id) {
+  for (const kind of ['K1', 'K2', 'K3']) {
+    const low = a[kind].toLowerCase();
+    const hit = BANNED.find((b) => low.includes(b));
+    if (hit) bad(`${id} ${kind}: uses the banned phrasing "${hit}" — the first run made it a tic; re-run this question`);
+    if (words(a[kind]) > 120) bad(`${id} ${kind}: ${words(a[kind])} words, over the brief's 120-word cap`);
+  }
+  // THE LEAK THE AUDIT FOUND: K2 was shorter than its own K1 in 64 of 65, so length alone sorted the
+  // fixture and no judge had to read for form. The floor is the fix.
+  if (words(a.K2) < 80) bad(`${id} K2: ${words(a.K2)} words, under the 80-word floor — a K2 shorter than its K1 lets a reader sort the fixture without reading it`);
+  return a;
+}
+
 // Exactly forTheBrowser's field list (portal/lib/discovery.mjs) — weakAnswer, note and provenanceNote
 // are never here, and a field added to this object is a leak.
 const forTheAuthor = (q) => ({ id: q.id, stage: q.stage, text: q.text, attribution: q.attribution, label: q.label });
 
-export function promptFor(brief, q) {
+export function promptFor(brief, q, voice) {
   const seen = forTheAuthor(q);
   return `${brief}
 
 ---
 
 Here is the question. Write K1, K2 and K3 for it, and nothing else.
+
+You are ${voice.who}, ${voice.role}. ${voice.near}
 
 Stage ${seen.stage} of the interview.
 Attributed to: ${seen.attribution}
@@ -116,14 +158,14 @@ export function parseAnswers(text, id) {
 
 // ONE fenced query for ONE question. The turn id is the question id, so a `denied` line says which
 // question's authoring refused what.
-async function authorOne({ authorRoot, brief, q, onLine }) {
+async function authorOne({ authorRoot, brief, q, voice, onLine }) {
   // BY HAND, never allowSetFor — see the header. Frozen at both levels.
   const allowSet = Object.freeze({ root: authorRoot, paths: Object.freeze([authorRoot]) });
   const fence = { allowSet, mainTools: AUTHOR_TOOLS };
   const turn = q.id;
   const text = [];
   const qy = query({
-    prompt: promptFor(brief, q),
+    prompt: promptFor(brief, q, voice),
     options: {
       cwd: authorRoot,
       model: AUTHOR_MODEL,
@@ -150,7 +192,7 @@ async function authorOne({ authorRoot, brief, q, onLine }) {
     }
   }
   if (!stats) bad(`${q.id}: the SDK stream ended with no result message — the CLI died mid-turn`);
-  return { answers: parseAnswers(text.join('\n'), q.id), stats };
+  return { answers: checkAnswers(parseAnswers(text.join('\n'), q.id), q.id), stats };
 }
 
 // THE FENCE RECEIPT (plan Q3). An author that never attempts a fenced read leaves a transcript with no
@@ -256,11 +298,12 @@ export async function recordGradedAnswers({ out, dry = false, only = null, budge
       // ONE retry, for a malformed reply only. A refused result already threw with the CLI's own message
       // (a billing failure must halt at once, not be retried 65 times), and a hand-fix is never an option.
       let r;
-      try { r = await authorOne({ authorRoot, brief, q, onLine }); }
+      const voice = voiceFor(i);
+      try { r = await authorOne({ authorRoot, brief, q, voice, onLine }); }
       catch (e) {
         if (/error result/.test(e.message)) throw e;
         console.log(`  retrying ${q.id} — ${e.message}`);
-        r = await authorOne({ authorRoot, brief, q, onLine });
+        r = await authorOne({ authorRoot, brief, q, voice, onLine });
       }
       for (const kind of ['K1', 'K2', 'K3']) entries.push({ question_id: q.id, kind, answer: r.answers[kind], expected: null });
       if (!dry) appendFileSync(partialPath, `${JSON.stringify({ question_id: q.id, ...r.answers })}\n`);

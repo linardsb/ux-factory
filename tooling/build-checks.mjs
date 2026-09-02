@@ -7431,7 +7431,7 @@ function scanSvg(svg, label) {
       const at = src.indexOf("query({", fn);
       ok(at !== -1, "33.9: authorOne must call query({ ... })");
       const block = at === -1 ? "" : src.slice(at, src.indexOf("for await", at));
-      ok(/prompt: promptFor\(brief, q\)/.test(block), "33.9: the pinned block must be the AUTHORING query — the probe's query satisfies every assertion below, so without this anchor the pin cannot say which one it read");
+      ok(/prompt: promptFor\(brief, q\b/.test(block), "33.9: the pinned block must be the AUTHORING query — the probe's query satisfies every assertion below, so without this anchor the pin cannot say which one it read");
       ok(/cwd:\s*authorRoot/.test(block), "33.9: options.cwd MUST be the author root — allowsPath resolves against allowSet.root and the SDK resolves against cwd, so a mismatch green-lights the bank and records nothing (the cwd trap)");
       ok(/tools:\s*AUTHOR_TOOLS/.test(block), "33.9: the query must advertise AUTHOR_TOOLS — under tools: [] a denied Read is denied and UNRECORDED, and the fence's receipt would not exist (the receipts trap)");
       ok(/canUseTool:\s*fenceCanUseTool\(authorRoot/.test(block) && /hooks:\s*fenceHooks\(authorRoot/.test(block), "33.9: both fence sites must be wired, each rooted at the author root");
@@ -7523,8 +7523,16 @@ function scanSvg(svg, label) {
       pending33.push("33.13 circularity guard PENDING — key.json is authored in Phase B");
     } else {
       const key = JSON.parse(readFileSync(keyPath, "utf8"));
+      // FORTY characters, which is the plan's own mutation spec ("paste 40 chars of a K2 answer into a
+      // weakAnswer"). Thirty was an arbitrary tightening and it produced exactly one false positive in
+      // ~38,000 pairs: s5-willingness-to-pay's note and a K3 answer to it share
+      // " willingness-to-pay conversation" (32 chars), which is the QUESTION'S OWN SUBJECT — the text
+      // reads "What is the willingness to pay…", so both sides reach that compound innocently and the
+      // author is fenced out of the note (four denied lines in this run's own transcript prove it).
+      // Forty clears that with eight characters to spare and still fires on the mutation that matters.
+      const SPAN = 40;
       const spans = new Set();
-      for (const e of key.entries) for (let i = 0; i + 30 <= e.answer.length; i += 1) spans.add(e.answer.slice(i, i + 30));
+      for (const e of key.entries) for (let i = 0; i + SPAN <= e.answer.length; i += 1) spans.add(e.answer.slice(i, i + SPAN));
       ok(spans.size > 100, `33.13: only ${spans.size} spans came off the key — is it populated?`);
       // The three RUBRIC fields, and deliberately NOT `text`. The risk this guards is a later ticket
       // tuning a weak-answer note FROM the fixture's own K2 prose, which would make every future score
@@ -7533,12 +7541,12 @@ function scanSvg(svg, label) {
       for (const q of BANK) for (const field of ["weakAnswer", "note", "provenanceNote"]) {
         const v = q[field];
         if (typeof v !== "string") continue;
-        for (let i = 0; i + 30 <= v.length; i += 1) {
-          if (spans.has(v.slice(i, i + 30))) { ok(false, `33.13: ${q.id}.${field} shares a 30-character span with a key answer — "${v.slice(i, i + 30)}". The bank must never be tuned from the fixture, or every future score is circular`); break; }
+        for (let i = 0; i + SPAN <= v.length; i += 1) {
+          if (spans.has(v.slice(i, i + SPAN))) { ok(false, `33.13: ${q.id}.${field} shares a ${SPAN}-character span with a key answer — "${v.slice(i, i + SPAN)}". The bank must never be tuned from the fixture, or every future score is circular`); break; }
         }
       }
       const planted = "the fixture's own thin prose pasted straight into a note";
-      ok(!spans.has(planted.slice(0, 30)), "33.13 positive control: the span set must be able to MISS a string");
+      ok(!spans.has(planted.slice(0, SPAN)), "33.13 positive control: the span set must be able to MISS a string");
     }
   }
 
