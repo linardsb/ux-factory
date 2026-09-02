@@ -163,6 +163,11 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
       tools: MAIN_TOOLS,
       allowedTools: [],   // nothing pre-approved, so canUseTool is consulted for the MCP tools
       mcpServers: { [MCP_SERVER]: server },
+      // The op server above is this run's WHOLE MCP surface (#352): a fictional run's cwd is
+      // discovery/<slug> — inside this repo, one directory below .mcp.json's codebase-search server —
+      // and without this flag whether the CLI merges that file into the advertised tools is the SDK's
+      // call, not ours. Fenced by option, not by luck; group 30 pins it inside this block.
+      strictMcpConfig: true,
       // The two call sites of ONE predicate (#287) — discovery.mjs invariant 5.
       canUseTool: fenceCanUseTool(root, turn, onLine, fence),
       hooks: fenceHooks(root, turn, onLine, fence),
