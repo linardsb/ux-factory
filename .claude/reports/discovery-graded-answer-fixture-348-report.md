@@ -305,6 +305,17 @@ harder on opus. Counted, never scored.
 **F5 — zero non-closing turns in 130.** Every turn filed exactly one closing op. That is a pipeline-health
 reading, not a quality one.
 
+### Which tree the packages were recorded on (the plan's assumption A5)
+
+Both packages were recorded on `feat/348-graded-answer-fixture` **before PR #358 merged**, so the tree at
+recording time did NOT carry #352's `strictMcpConfig: true` on `runDiscoveryTurn`. That option sits
+OUTSIDE `fingerprintOf`, so it does not move a posture fingerprint and does not make either package
+stale — confirmed by group 33 case 15 passing on the merged tree, which compares every `turnStats` entry
+to the module's current fingerprint. #358's own paid probe observed that SDK 0.1.77 merges nothing from
+the project `.mcp.json` even by default, so the flag pins a default rather than closing an active leak
+and the recorded runs were never exposed to one. Stated because a reader six months from now cannot
+recover it from the git history alone.
+
 ### What the number does NOT say
 
 - **The K2/K3 boundary is the fixture's softest seam.** The substance audit flagged **11 of 65 K2 answers
