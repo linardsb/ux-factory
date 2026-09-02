@@ -2,9 +2,8 @@
 
 **Plan**: `.claude/plans/discovery-graded-answer-fixture-348.md`
 **Branch**: `feat/348-graded-answer-fixture` (from `origin/main` at `977ab11`)
-**Status**: PARTIAL — Phase A complete and committed; Phase B's code complete and its fence proved at
-run time; **the authoring run and every paid step after it are BLOCKED — the API account is out of
-credit.**
+**Status**: PARTIAL — **Phases A and B complete; C1 passed; stopped at the plan's ⛔ HARD STOP awaiting
+the owner's paid call on C2.** The key is sealed at `6401754`. Nothing under `discovery/` is recorded.
 
 Every row below is labelled *observed* (I ran it), *derived* (arithmetic, shown) or *expected*
 (assumption).
@@ -17,9 +16,10 @@ them because build-checks group 33 source-pins the harness's fence, and a gate c
 file the same PR adds later is a gate case nobody reads. The author's fence was then proved at run time,
 not only from source, and the 195 answers were authored blind and sealed.
 
-What has **not** happened: the 195 answers are not sealed and the six runs are not recorded. The
-authoring run halted at question 28 of 65 on **"Credit balance is too low"** (observed). Every remaining
-step in this ticket spends money, so all of them are blocked on the same thing. See §The blocker.
+What has **not** happened: the six runs. Phase C's money sits behind the plan's own hard stop.
+
+**The most important result of this session is that the FIRST sealed fixture was void, and a subagent
+audit caught it before a penny of Phase C was spent.** See §The fixture that was thrown away.
 
 ## Tasks completed
 
@@ -35,9 +35,9 @@ step in this ticket spends money, so all of them are blocked on the same thing. 
 | A7 the cascade sites | `CLAUDE.md` · `.claude/references/gates.md` · 3 sites inside `build-checks.mjs` | UPDATE |
 | A8 commit Phase A | `20f7150` | ✅ |
 | B1 the fenced author harness | `portal/record-graded-answers.mjs` | CREATE |
-| B1 the fence receipt | `docs/epics/fixtures/graded-answers/author/transcript.jsonl` | CREATE ✅ |
-| B2 the author run | halted at 28/65 — out of credit | ⛔ BLOCKED |
-| B3 the sealed key | not written — the key is sealed complete or not at all | ⛔ BLOCKED |
+| B1 the fence receipt | `author/transcript.jsonl` — 10 denied reads | CREATE ✅ |
+| B2 the author run | 65 questions, blind, **twice** (the first was void) | ✅ |
+| B3 the sealed key | `key.json`, 195 entries, `6401754` | CREATE ✅ |
 | C0 the run driver | `portal/record-graded-run.mjs` | CREATE |
 | D3 the README section | `discovery/README.md` §The graded answer fixture (#348) | UPDATE |
 | B4 commit Phase B | `476dd51` — the fence receipt and the harness hardening only | PARTIAL: **the seal is outstanding** |
@@ -58,7 +58,7 @@ node agent-layer/gen-loc-summary.mjs --check   → loc summary ✓  3 groups —
 ```
 node tooling/discovery-score.mjs --check-draw  → draw ✓  65 questions × 3 runs, every question meets all three kinds
 node tooling/discovery-score.mjs --selftest    → all five columns exercised, matrix sums to 5
-node tooling/discovery-score.mjs --check-key   → refuses: key.json does not exist (correct — B3 never ran)
+node tooling/discovery-score.mjs --check-key   → key ✓  195 answers, 65 questions × 3 kinds, every expected op derived
 ```
 
 **Level 5 — the mutation sweep.** Eight mutations driven, each red naming the right thing, each
@@ -110,192 +110,165 @@ surface entirely. Both are asserted in 33.9 and 33.10.
 transcript — all four denied — with the run's package and the bank allowed as the positive control and a
 widened-`reads` set shown to reach the key, so the case can fail.
 
-## The author run, and the blocker
+## The fixture that was thrown away, and why that is the session's real result
 
-**What ran** (observed): 27 of 65 questions authored, $0.919 spent, then
-`Claude Code process exited with code 1` at question 28 (`s5-willingness-to-pay`). Re-running that one
-question alone reproduced it, which looked like a question-specific defect. It was not. Reading the
-result message directly:
+The first 195 answers were authored, validated, and **void**. A subagent audit found it before Phase C
+spent anything.
 
-```
-RESULT: {"subtype":"success","cost":0,"err":"Credit balance is too low","isErr":true,"numTurns":1}
-```
+**A three-rule classifier the auditor wrote before reading a single answer scored 85.6% on it, with zero
+K2→K1 confusions.** The separators were not form:
 
-**The account is out of API credit.** Nothing about question 28 is special; it is simply where the
-balance ran out. Every remaining step — the other 38 authoring questions, C1's smoke turns, C2's and
-C3's six recorded runs — is blocked on the same thing and on nothing else.
+| | first run | after the fix |
+|---|---|---|
+| surface classifier (chance = 33%) | **85.6%** | **41%** |
+| K2 names a person | **0/65** | 61/65 |
+| K2 names a month | **0/65** | 29/65 |
+| K2 shorter than its own K1 | 64/65 | 29/65 |
+| `"I'd want to check"` in K1 | 31/65 | **0** |
+| K1 / K2 / K3 median words | 91 / 61 / 77 | 96 / 95 / 93 |
 
-**The 27 answers are gone.** The harness wrote `key.json` only at the end, so a halt lost the run. That
-is a defect of mine, it cost $0.919, and it is fixed (see §Two defects). It will not cost that twice.
+Categorical absence across 65 attempts is a mechanical rule, not thin writing. Scoring C2 against that
+would have produced a flattering number measuring whether a grader can spot a name and a word count.
 
-**What the 27 showed before it stopped** (observed, from the run's own log and the dry run's full text):
-every answer landed on the brief. K1 carried the form badly — a hedge ("Priya sized it last year, I'd
-want to check her exact numbers"), a range ("fifty to a hundred and fifty carers"), an artefact cited
-from memory ("there's a deck somewhere, I could dig it out"). K2 was thin without being short or rude
-("simpler than the competition", "the usual ones", no number and no named user). K3 said the person had
-not found out and why ("bits of it live in me and my co-founder's heads and they don't fully agree").
-Word counts ran 36–100, inside the brief's 120-word cap on every one of the 81 answers written. **This
-is a read of 27 of 65 questions and it is not the ten-across-stages spot-check B2 asks for** — that
-still has to be done against the sealed key.
+**The root cause was the brief, not the author.** It said *"you do not remember the previous ones"* and
+*"never write in the same register twice in a row"* — a stateless author cannot obey that, so the
+instruction was decorative. And 48% of K1 answers reused a phrase lifted from the brief's **own worked
+example**, under a rule that said never to copy it.
 
-**Cost, corrected.** The plan expected ≈$0.03/question. The first, cold call was $0.110; the steady
-state was **≈$0.035** (derived: $0.919 over 27 questions, minus the cold first call). The plan's ≈$2 for
-B2 holds. Phase C's ≈$51 is unchanged — nothing observed here moves it.
+**Varying register needed a mechanism, not an instruction:**
 
-## Two defects the halt exposed, both fixed (`476dd51`)
+- `VOICES` rotates the speaker and their distance from the topic **by question index** — a pure function,
+  no state, no resume, no contamination, recomputable by the gate. The four founders are pinned on the
+  fact sheet by name and role, which also fixed the first run's Priya-is-both-a-founder-and-a-customer
+  collision.
+- `checkAnswers` refuses the seven phrasings the first run turned into tics and refuses a K2 under 80
+  words. **Mechanical, because a prompt instruction is exactly what failed.** A failure re-runs that one
+  question; nothing is hand-repaired.
+- The brief now says K2 **may** name people and dates and often should — *"Marek looked at this in
+  February and reckoned it was mostly fine"* names both and carries no fact about the question. That is
+  the hardest and most realistic kind of thin, and the first run produced none of it.
 
-**D1 — an error result was being treated as an answer.** A result can carry `subtype: "success"` AND
-`is_error: true`, with the CLI's own message as the whole assistant text. "Credit balance is too low"
-arrived looking like a normal turn, and only `parseAnswers` failing to find a `K1:` label stopped it
-becoming an answer. Under a different error message it would have sealed error prose into the key. The
-harness now refuses any `is_error` result, carrying the CLI's message, so a billing failure reads as
-itself rather than as `process exited with code 1`.
+K1 and K2 are now inseparable on surface (median 96w vs 95w, names a person 91% vs 94%), which is the
+discrimination MVP 6 actually claims. K3 stays recognisable, and that is faithful: an answer saying "I
+have not found this out" *should* be.
 
-**D2 — a halt cost the whole run.** Each question's three answers are now appended to
-`key.partial.jsonl` as they land, and a re-run skips what is already there. The partial sits **outside**
-the author root on purpose: the allow-set is `[authorRoot]`, so a file inside it would be readable by
-the next question's agent, and an author that can read its own earlier answers writes to its own
-template — the failure mode "one `query()` per question" exists to prevent. It is removed the moment
-`key.json` validates. A `--budget` ceiling (default $15) is checked after each question.
+## The second audit — substance
+
+A second subagent read all 65 questions **slot-first**, writing down which slot each question reaches for
+before reading either answer. Verdict **PASS**:
+
+- **K1 wins its slot 65/65. No inversions.** Stripping the fact sheet's own figures, K1 carries a new
+  checkable quantity in ~60/65 and K2 in ~4/65.
+- **51/65 K2s are cleanly thin**, 11 borderline, and **3 carried K1's substance minus a number** —
+  `s8-data-flywheel`, `s3-what-winning-earns`, `s3-deliberately-not-doing`. Re-authored through `--only`
+  (a machine re-run merged by the harness and re-validated by `checkKey`, never a hand edit), one roll
+  each, accepted as it came, $0.233. All three changed and read thinner.
+- **No K3 sneaks an answer.** Cast holds at four founders, none reused for a customer. Zero banned
+  phrasings, zero over the word cap, no invented company.
+- Its estimate — **a careful human judge separates ~85% of K1/K2 pairs** — is labelled a read, not a
+  measurement, and the auditor said so: it read each K1 immediately before its K2 with labels visible.
+
+**The circularity worry, closed from the other direction.** Several K2s converge on the bank's
+weak-answer notes almost exactly, which would be fatal had the author seen them. It did not:
+`author/transcript.jsonl` records **ten denied reads** — `bank.mjs`, `question-bank-source.md`, the PRD, a
+prior run's transcript, and five mid-run attempts on `brief.md` itself — every one refused at
+`PreToolUse`. The alignment is convergence, and that is the strongest evidence this fixture could have
+produced.
+
+## C1 — the smoke turns (PAID, $0.109 observed)
+
+| slug | posture | model | filed | expected | cost | duration | fingerprint |
+|---|---|---|---|---|---|---|---|
+| `smoke-think-348-a` | think | claude-sonnet-5 | `flag_weak_answer` | `flag_weak_answer` | $0.0597 | 20.5s | `7efdde37…` ✓ |
+| `smoke-opus-348-a` | think-opus | claude-opus-5 | `flag_weak_answer` | `flag_weak_answer` | $0.0491 | 13.9s | `cadb3811…` ✓ |
+
+Both packages deleted; `discovery/` holds no smoke package (observed).
+
+- **Both fingerprints match the module's current values exactly**, so the six packages would record on the
+  prompt surface in the tree rather than one about to move.
+- **Byte-equality holds end to end.** The text the server wrote to `answers.jsonl` is EXACTLY the sealed
+  K2 for `s1-choice-cascade` under draw column `a` — the property `assertAnswersSealed` exists to check,
+  observed through the real route rather than argued.
+- The sonnet turn's `missing` list is **form-only**: *"a where-will-we-play choice stated separately from
+  the how-we-win reason"*, *"a specific management system, process, or cadence"*. It names what the answer
+  does not carry and never that it is wrong. **That is MVP 6, on one turn — a wiring proof, not a reading.**
+- **Opus was cheaper AND faster than sonnet on turn 1**, against the plan's expected ~2.5×. One cold turn
+  is not the curve, so the ≈$12/opus-run estimate stands — but the first evidence points down.
+
+## Cost, observed
+
+| | |
+|---|---|
+| dry runs (2) | $0.214 |
+| fence probes (2) | $0.100 |
+| author run 1 — halted out of credit at 28/65, lost | $0.919 |
+| author run 2 — void, thrown away on the audit | $2.476 |
+| author run 3 — **the sealed key** | $4.550 |
+| three K2 re-authors (`--only`) | $0.233 |
+| C1 smoke turns | $0.109 |
+| **total** | **$8.60** |
+
+Against the plan's ≈$2 for Phase B. The overrun bought the knowledge that the fixture design was
+measuring the wrong thing — cheap against C2's $17 or C2+C3's $51.
+
+Steady-state authoring cost is **≈$0.070/question** (derived: $4.550 over 65), up from the first run's
+$0.035 because the brief is longer and two questions retried on the mechanical checks.
 
 ## Deviations from the plan
 
-Each is a deliberate decision, not a slip.
+V1–V9 are unchanged from the earlier version of this report (the `author/transcript.jsonl` path; Phase A
+and B's code in one commit; the fifth leak path; the five matrix columns; case 13's rubric-field scope;
+absolute paths in cases 10 and 12; `--probe` as its own mode; the A1 validator as `.mjs`; `prd.md`
+generated). Four more since:
 
-**V1 — `author-transcript.jsonl` became `author/transcript.jsonl`.** `appendTranscript` hardcodes the
-filename, and inventing a second writer to get a different name would be a second copy of the append
-rule. Making the author root a *subdirectory* of the fixture directory is strictly better than either:
-the allow-set is now narrower than the fixture directory, so a re-run of the author cannot read the
-`key.json` or `draw.json` a previous run left beside it. Gate case 33.12 pins the new path.
+**V10 — the brief was tightened and the bank re-authored, which the plan anticipates but does not
+budget.** The plan's B2 says *"If the register is uniform, tighten the brief and re-run — never edit an
+answer."* That is exactly what happened, and it cost a second $2.476 run. The plan assumed one run.
 
-**V2 — Phase A and Phase B's code landed in ONE commit rather than two.** Group 33 case 9 source-pins
-`portal/record-graded-answers.mjs`. A Phase-A-only commit would have shipped a gate case pending against
-a file the same PR adds later. Both harnesses are free code and both had to exist before a word was
-authored, which is the property the phase split protects.
+**V11 — the register fix is a HARNESS change, not only a brief change.** `VOICES` and `checkAnswers` are
+new code in `record-graded-answers.mjs`. The plan scoped B1 as a single-shot harness; making a stateless
+author vary its register is not achievable in prose.
 
-**V3 — a fifth leak path, named and closed.** The plan's §THE CONTROL names four. `.mcp.json` registers
-a `codebase-search` MCP server and the author's `cwd` is inside this repo, so a repo-search tool would
-reach every weak-answer note while carrying no path the path-fence inspects. It is denied by name at
-both fence sites, and `strictMcpConfig: true` keeps it off the advertised surface. Asserted in 33.9 and
-33.10. This is an addition to a new file, not an edit to `discovery-postures.mjs`.
+**V12 — group 33 case 13's span threshold is 40, not 30.** Forty is the plan's own mutation spec
+(*"paste 40 chars of a K2 answer into a weakAnswer"*). Thirty was my arbitrary tightening and produced
+exactly one false positive in ~38,000 pairs: `s5-willingness-to-pay`'s note and a K3 answer share
+`" willingness-to-pay conversation"` (32 chars) — the question's own subject, reached innocently from
+both sides. Forty clears it by eight characters and still goes red on the plan's mutation, driven and
+restored (observed).
 
-**V4 — the matrix's fourth column was ambiguous in the plan** (A4 called it "other closing op"; the
-NOTES section said it exists for filings that close *nothing*). Resolved as **one mutually-exclusive
-cell per turn, keyed on what closed it**: the three closing verbs, then `no_close_filed` (the turn filed
-ops, none closing) and `no_close_silent` (the turn filed nothing). The matrix then sums to the turn count
-by construction, which is what case 33.7 asserts. Stated in the scorer's header.
+**V13 — `--turns` was added to the driver for C1.** The plan's C1 asks for one turn per posture and the
+driver walked to completion. Unbounded by default; a full recording never passes it.
 
-**V5 — group 33 case 13 checks the three RUBRIC fields, not `text`.** The circularity risk the plan
-names is a later ticket tuning a `weakAnswer` note *from* the fixture's K2 prose. An answer echoing
-thirty characters of the question it answers is normal — the author is shown the question text — so
-including `text` bought a false positive and no coverage. Narrowed before the key existed, not after a
-red.
+## What is outstanding
 
-**V6 — cases 10 and 12 pass ABSOLUTE paths.** `allowsPath` resolves a relative path against
-`allowSet.root`, so `allowsPath(authorSet, "discovery/bank.mjs")` resolves *under* the author root and
-returns ALLOW. Written the obvious way, both cases would have passed while proving the exact opposite of
-their claim — the plan's own `cwd` trap, biting the gate instead of the harness.
-
-**V7 — `--probe` is its own mode, not a question in the authoring prompt.** The plan's B2 remedy for
-zero denials was to add a probe question to the prompt. A prompt that mentions the bank, the research
-file or a rubric contaminates the 195 answers, which is the one thing this ticket cannot afford.
-
-**V8 — the plan's A1 validation one-liner does not run** (`require` beside a top-level `await import`
-in `node -e`). Written as an `.mjs`; result unchanged and reported above.
-
-**V9 — the six packages carry a `prd.md`** (the plan's F5, left to me). Generated: it keeps the fixture
-packages format-identical to every other committed package, and case 33.15 then asserts `prd.md` is the
-projection's bytes exactly as group 32 does for `instrument-loans-1` — a free hand-edit detector. The
-driver runs the projection at the end of every run.
+1. **The owner's paid call** — C2 (≈$17) or C2+C3 (≈$51). This is the plan's ⛔ hard stop.
+2. C2/C3, then D1's score and report, D2's MVP 6 read, D3's README update with the real numbers.
+3. **After C3: make group 33 case 15 REQUIRED.** It is `existsSync`-gated today, so a deleted or
+   never-recorded package goes quiet rather than red — the opposite of group 32's stated precedent. A6's
+   GOTCHA names this and it is the last thing to do before the PR.
+4. The PR, with `Closes #348`, the plan, this report and the review.
 
 ## Open questions for the owner
 
-**Q1 — the driver, or hand-driving? (recommend and proceed, per the plan.)** The ticket asks for six
-real runs *through the drawer* AND `answers.jsonl` byte-equal to the sealed answers. Those are jointly
-satisfiable only through a driver: `appendAnswer` stores verbatim into an append-only file nobody is
-allowed to clean up, so one stray character from a paste is a permanent wrong line. `portal/record-graded-run.mjs`
-POSTs to `/api/discovery/turn` — the same route the drawer POSTs to, the same `runTurn`, the same
-guards, the same server-side write. **Proceeding on the driver.** The cheap way to close the "through
-the drawer" clause is to drive **turn 1 of run 1 by hand in the browser** and the remaining 389 through
-the driver, and say exactly that. Say if you would rather sit six sessions at the drawer; everything
-else stands either way.
-
-**Q2 — the fixture packages will be stamped `frontEnd: "portal"`,** because that is the only value a
-driver can send. Six packages stamped `portal` read as UI sessions somebody chose, and Switch is the
-epic hypothesis's RIGHT condition, read row by row at #317's close-out. The spine has no field that
-marks a package as a fixture and this ticket did not add one. The marker is the `graded-` slug prefix
-plus `discovery/README.md`'s new section, which states the exclusion. Flagged loudly rather than
-silently dropped. (The plan's amendment records **O3** — a `sandbox: true` flag redirecting the root to
-`discovery/_sandbox/<slug>` — as the better boundary, available as its own small ticket.)
-
-**Q3 — zero author denials, answered.** The plan worried the author might never attempt a fenced read,
-leaving no receipt. It did not attempt one during authoring (0 denied lines across 27 questions). The
-`--probe` mode is the receipt instead, and it is a stronger one: four leak paths attempted, four refused,
-read off the SDK's own `is_error` rather than off the fence that claims the refusal.
-
-**Q4 — the author and the `think` judge share a model family** (`claude-sonnet-5`). This is residual
-self-play the plan does not name: it is weaker for `graded-think-*` than for `graded-opus-*`, where the
-judge is a different model from the author. Worth stating in the final report; not worth re-authoring
-for, since the author is fenced and the judge sees only the answer.
-
-## The blocker, and what unblocks it
-
-**Top up the API credit.** Then, in order:
-
-```bash
-cd portal && node record-graded-answers.mjs --out ../docs/epics/fixtures/graded-answers   # ≈$2, resumable
-node tooling/discovery-score.mjs --check-key            # → key ✓  195 answers
-node tooling/build-checks.mjs                           # → 33 groups, case 13 now live
-# spot-check ten questions across stages against the brief; a uniform register means a tighter brief
-# and a RE-RUN, never an edited answer
-git add docs/epics/fixtures/graded-answers/key.json && git commit    # the seal; note the sha
-```
-
-Then Phase C's smoke turns (`C1`, ≈$0.15) behind a running portal, and **stop at the plan's ⛔ HARD STOP**
-for the call on C2 (2 runs, 130 turns, ≈$17) versus C2+C3 (6 runs, 390 turns, ≈$51).
-
-**One step the plan names that is not done and cannot be done yet.** A6's GOTCHA has a second half:
-*"then make it required in the same PR's final commit."* Case 33.15 is `existsSync`-gated today, so a
-deleted or never-recorded package goes quiet rather than red — the opposite of group 32's stated
-precedent (*"fails by name when the package is absent — it never skips"*). **After C3 lands, drop the
-gate and make the six packages required**, in the same PR. Until then the group's ✓ line prints
-`PENDING` and names what is missing, which is the honest interim.
-
-**One sequencing note.** PR #358 (#352's `strictMcpConfig` on the real turn, #353's group 30 relabel) is
-open and mergeable and is **not** in this branch. Neither moves a fingerprint, so neither invalidates a
-package. Group 33 lands at the end of `build-checks.mjs` and #358 edits group 30, so there is no textual
-conflict — but merge `main` and re-run the gate before claiming green if #358 lands first, and say in the
-final report which tree the packages were recorded on.
-
-## Issues encountered
-
-Three, besides the credit halt and the two defects it exposed.
-
-`parseAnswers`' first regex truncated every
-multi-line answer at its first newline (`$` under the `m` flag matches every line end, not the end of
-input). Caught by the dry run's printed output, fixed with an end-of-input lookahead, and exercised on
-multi-line, bold-labelled and quote-wrapped replies.
-
-Group 33 case 9's query-block pin matched the FIRST `query({` in the harness, and after `--probe` landed
-there were two — and the probe's block satisfies every assertion in the case. A file-wide match would
-have stayed green with the authoring query pointed anywhere, which is PR #354 review F2 in group 30
-verbatim. The block is now sliced from `authorOne` and anchored on `prompt: promptFor(brief, q)`, and
-both directions are driven: mutating the authoring `cwd` goes red, mutating the probe's does not
-(observed).
-
-`--only` was defeated by the resume partial — `done.has(q.id)` skipped the very question the flag exists
-to re-author and merged the stale answer back. The partial is not loaded under `--only`.
+Q1 (the driver) — **proceeding on the driver**, per the plan's own recommendation; C1 proved byte-equality
+through the real route. Q2 (`frontEnd: "portal"` and #317's Switch read) — unchanged, carried by the
+`graded-` prefix and the README section. Q3 (zero author denials) — **answered**: ten denied reads, and
+`--probe` is a stronger receipt than an incidental denial. Q4 (the author and the `think` judge share a
+model family) — unchanged, and weaker for `graded-think-*` than for `graded-opus-*`.
 
 ## Repo state
 
-Two commits on `feat/348-graded-answer-fixture`, nothing pushed, no PR opened.
+Six commits on `feat/348-graded-answer-fixture`, nothing pushed, no PR.
 
 ```
-476dd51 discovery: the author fence proved at run time, and the author harness made resumable (#348)
-20f7150 discovery: the graded fixture's sealed design and its two harnesses, before a word is authored (#348)
+76287a4 --turns bounds the driver's walk, and C1's smoke turns pass on both postures
+2b4a7ce three K2 answers re-authored on the substance audit's finding
+6401754 195 answers authored blind and SEALED, after the first run was found to be sortable by regex
+1463346 the brief pins ONE fictional company, so the judge's ledger is coherent
+0ec6596 review fixes — the README stops asserting a key that does not exist
+20f7150 the sealed design and its two harnesses, before a word is authored
 ```
 
-`portal/lib/discovery-postures.mjs` untouched; both fingerprints unmoved (`7efdde37…` / `cadb3811…`,
-observed). `discovery/instrument-loans-1/` untouched. Total spend this session: **$1.13** (observed —
-$0.110 dry run + $0.048 and $0.052 for the two probe runs + $0.919 author run).
-
+`build ✓ all 33 groups pass` · `drift-check ✓` · `gen-loc-summary --check` clean.
+`portal/lib/discovery-postures.mjs` untouched; both fingerprints unmoved and confirmed against a live
+turn. `discovery/instrument-loans-1/` untouched. `discovery/` holds no graded or smoke package.
