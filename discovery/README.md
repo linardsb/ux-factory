@@ -372,6 +372,67 @@ What it shows, and what it does not:
   this recording, so the package is dated by its fingerprint. No gate reads it: group 32 names
   `instrument-loans-1` and nothing else.
 
+## The graded answer fixture (#348)
+
+`discovery/graded-think-{a,b,c}/` and `discovery/graded-opus-{a,b,c}/` are **fixture runs, not
+interviews**. They exist to put a number on one PRD claim — MVP 6, that the agent judges the FORM of an
+answer and never its substance — which no run before them measured. Every earlier package is self-play:
+an agent wrote answers that had exactly the form the question asks for, and the judge filed a decision on
+nearly every turn. That says the pipeline moves. It does not say the judge can tell a good answer from a
+thin one.
+
+**Status: the design is sealed and no package has been recorded yet.** Phase C spends real money and is
+gated on the owner's call. What is committed today is the sealed half.
+
+**How they are made.** For each of the bank's 65 questions three answers were authored **blind to that
+question's weak-answer note** — K1 carries the form (badly, the way a person does: a range instead of a
+number, a hedge, an artefact cited from memory), K2 is thin against the question, K3 says the person does
+not know yet and why. The author is a fenced Agent SDK run (`portal/record-graded-answers.mjs`) whose read
+allow-set is its own output directory and **nothing else**: `discovery/bank.mjs`,
+`docs/research/question-bank-source.md`, the PRD, the architecture doc and every committed package are
+denied, and the denials land as `denied` lines in the author's own transcript. The 195 answers and their
+expected closing ops are committed at `docs/epics/fixtures/graded-answers/` (`brief.md` · `draw.json` ·
+`key.json` · `author/transcript.jsonl`) **before any run is opened**, and the key is never edited
+afterwards — a re-authored key is a new commit that REPLACES it and voids every package recorded against
+the old one.
+
+**The draw** (`draw.json`) is a Latin square with a per-question hash offset from a committed seed: across
+a posture's three runs every question meets all three kinds, and no run column is a uniform or cyclic
+stream the judge could pattern-match instead of reading the answer. There is **one** table, shared by both
+postures — `graded-think-a` and `graded-opus-a` answer the SAME 65 answers, which is the only thing that
+makes the sonnet/opus comparison a comparison. Which package is which: the slug's suffix is its draw
+column, and `think` / `opus` is its posture.
+
+**What they are NOT, and this half matters more than the first:**
+
+- **They are excluded from the Switch, completion and not-a-form metric reads.** Their `frontEnd` is
+  `"portal"` because that is the only value a driver POSTing to `/api/discovery/turn` can send — it is the
+  driver's, never a person's choice. Six packages stamped `portal` read as UI sessions somebody chose, and
+  Switch is the epic hypothesis's RIGHT condition, read row by row at close-out (#317). The spine has no
+  field that marks a package as a fixture and this ticket did not add one (that would be a spine change);
+  the marker is the **`graded-` slug prefix** and this section.
+- **A run of turns with no decision may be a DRAW ARTIFACT, not a run-quality finding.** The hash offset
+  produces stretches of three or four same-kind draws, and a stretch of K2/K3 is exactly what #285's
+  not-a-form counter is built to notice. Before quoting a package's consecutive-no-decision count as a
+  finding, check the draw column.
+- **They are authored answers, not real ones.** Real answers wander, contradict themselves and arrive out
+  of order. The brief pushes K1 toward that register deliberately, and it is still not the same thing.
+  The score is a form-judgement reading taken **under that realism gap**, and closing it needs real
+  interview transcripts, which is a later ticket.
+- **Group 32 does not read them.** It names `instrument-loans-1` and nothing else. Group 33 reads them,
+  and only group 33: no other tracked source file may name a `graded-` slug in code, which that group
+  sweeps for.
+
+**The scorer** is `tooling/discovery-score.mjs` — pure, zero-dependency, no clock and no randomness — and
+it is a post-hoc JUDGE that is never part of an agent prompt. It diffs each turn's closing op against the
+key and reports a 3×5 confusion matrix (the three closing verbs, plus `no_close_filed` and
+`no_close_silent`, one cell per turn) with the `file_evidence` count beside it, never in it. **No target
+is set.** A prompt tightening on the back of the number is a new PR and a re-run, never an edit — the
+fingerprints must be byte-stable across all six recordings or the packages are not comparable.
+
+    node tooling/discovery-score.mjs --slug graded-think-a --run a
+    node tooling/discovery-score.mjs --slug graded-think-a --mvp6      # a shortlist; the verdict is a human read
+
 ## The fence observation and its verification (#349)
 
 `discovery/bracket-trace-1/` and `discovery/bracket-trace-2/` are two more real `opening-set` runs

@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Thirty-two groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Thirty-three groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -157,6 +157,15 @@
 //                     and missed 0 with every named parent in its candidate set at the moment of
 //                     filing, and the projected hierarchy carrying a real parent line. Fails by name
 //                     when the package is absent — it never skips (#341)
+//  33 graded fixture the graded answer fixture's PURE half (#348): the sealed draw over the real 65
+//                     ids with drawFor's arity pinned so ONE table serves both postures, checkKey's
+//                     refusal battery, EXPECTED and CLOSES_WHEN iterated against OPS in both
+//                     directions, closingOpOf's five columns with the off_script and off-script
+//                     non-closers, the matrix proven to sum to the turn count, assertAnswersSealed
+//                     both ways, THE AUTHOR'S FENCE source-pinned and driven through the real
+//                     allowsPath over ABSOLUTE leak paths, the mirror fence denying the key to the
+//                     judge, the circularity guard and the no-other-reader sweep. The six recorded
+//                     packages gate on existsSync and the line says pending until Phase C lands
 //
 //   node tooling/build-checks.mjs
 
@@ -237,6 +246,14 @@ import { buildThinkTurn, EVIDENCE_RULE, FINGERPRINT_INPUTS, fingerprintOf, LADDE
 // writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
 // is imported for group 32 alone, because its subject IS the on-disk package (#341).
 import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
+// #348's graded answer fixture — the sealed draw, the key's validator and the scorer. Zero-portal
+// dependency for the same reason as the projection above: it imports only node built-ins plus
+// discovery/bank.mjs and discovery/ops.mjs, both import-free. The FENCED author harness
+// (portal/record-graded-answers.mjs) imports the SDK and is read as TEXT by group 33, never imported.
+import {
+  assertAnswersSealed, checkDraw, checkKey, closingOpOf, CLOSES_WHEN, COLUMNS, drawFor, EXPECTED,
+  evidenceCountOf, KINDS, kindFor, mvp6Shortlist, readGradedPackage, RUNS, scorePackage,
+} from "./discovery-score.mjs";
 
 const ROOT =resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
@@ -7174,6 +7191,403 @@ function scanSvg(svg, label) {
   }
 }
 
+
+// --- 33 · the graded answer fixture (#348) --------------------------------------------------------
+// The PURE half of .claude/plans/discovery-graded-answer-fixture-348.md: the sealed draw, the sealed
+// key's validator, the scorer, the byte-equality check, and — the part that is a control rather than a
+// mechanism — the ANSWER AUTHOR'S FENCE, source-pinned, plus the mirror fence that keeps the key away
+// from the judge.
+//
+// WHY A CONTROL NEEDS A GATE. The fixture's whole worth rests on the answer author never having seen a
+// question's weak-answer note. An author who has seen it writes K2 answers thin in exactly the way the
+// note names, and the score then measures the author rather than the judge. That is a property of a
+// build-time script's wiring, which nothing else in this repo can see, so it is pinned here from
+// source and driven through the real allowsPath.
+//
+// SDK-free like groups 8, 29 and 30, and for the same reason: tooling/discovery-score.mjs imports only
+// node built-ins plus discovery/bank.mjs and discovery/ops.mjs, both import-free, so this group loads
+// where portal/node_modules does not exist. portal/record-graded-answers.mjs DOES import the SDK and is
+// therefore read here as TEXT, never as a module.
+//
+// WHAT IT CANNOT REACH: whether the author agent actually obeyed the brief, and whether a K2 answer is
+// thin in the way its own weak-answer note names — both are review facts against the committed key. Nor
+// whether a fence DENY stopped a call at run time: that is the author run's own `denied` lines, the same
+// standard --probe-fence sets. Nor the MVP 6 verdict, which is a human read of the shortlist.
+{
+  const threw33 = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  const same33 = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const IDS = selectDepth("whole-bank").map((q) => q.id);
+  const FIXTURE = join(ROOT, "docs/epics/fixtures/graded-answers");
+  const GRADED_SLUGS = ["graded-think-a", "graded-think-b", "graded-think-c", "graded-opus-a", "graded-opus-b", "graded-opus-c"];
+  // Whole-line comments and block comments only — a trailing comment on a code line survives, so the
+  // pinned tokens below are never written as trailing comments in the files they pin.
+  const decomment = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  const pending33 = [];
+
+  // 33.1 — THE DRAW IS A LATIN SQUARE AND IT IS SHARED ACROSS POSTURES. Over the real 65 ids: every
+  //        row holds all three kinds (coverage), every column holds all three (no uniform stream the
+  //        judge could read instead of the answer), and the committed draw.json re-derives from its own
+  //        seed byte for byte. The ARITY pin is the load-bearing one: drawFor takes (seed, ids) and no
+  //        posture, so graded-think-a and graded-opus-a resolve to the SAME column and therefore the
+  //        same 65 answers — which is what makes the posture comparison a one-answer-set comparison.
+  //        Mutations: change one row's `b` in draw.json → red naming the id; add a posture parameter →
+  //        red here.
+  ok(drawFor.length === 2, `33.1: drawFor takes ${drawFor.length} parameters, not 2 — one draw table serves BOTH postures, so a posture argument (or a default value, which stops Function.length) would give think and opus different answer sets and no gate downstream could see it`);
+  {
+    const d = drawFor("gate-seed", IDS);
+    ok(d.table.length === IDS.length, `33.1: the draw over the real bank has ${d.table.length} rows, not ${IDS.length}`);
+    for (const row of d.table) ok(new Set(RUNS.map((r) => row[r])).size === KINDS.length, `33.1: ${row.id} does not meet all three kinds across the three runs (${RUNS.map((r) => row[r]).join(", ")})`);
+    for (const r of RUNS) ok(new Set(d.table.map((row) => row[r])).size === KINDS.length, `33.1: run column ${r} holds only ${[...new Set(d.table.map((row) => row[r]))].join(", ")} — a uniform column lets the judge read the stream rather than the answer`);
+    ok(existsSync(join(FIXTURE, "draw.json")), "33.1: docs/epics/fixtures/graded-answers/draw.json is missing — generate it with node tooling/discovery-score.mjs --draw --seed <seed>");
+    if (existsSync(join(FIXTURE, "draw.json"))) {
+      const committed = JSON.parse(readFileSync(join(FIXTURE, "draw.json"), "utf8"));
+      const e = threw33(() => checkDraw(committed, IDS));
+      ok(e === null, `33.1: the committed draw does not match its own seed — ${e?.message}`);
+      for (const row of committed.table) ok(new Set(RUNS.map((r) => row[r])).size === KINDS.length, `33.1: committed draw row ${row.id} does not meet all three kinds`);
+      for (const r of RUNS) ok(new Set(committed.table.map((row) => row[r])).size === KINDS.length, `33.1: committed run column ${r} is uniform`);
+    }
+  }
+
+  // 33.2 — deterministic and frozen at BOTH levels. Object.freeze is shallow, and a pushable row would
+  //        make the frozen-by-mutation case pass for the wrong reason (ops.mjs PARAMS' own comment).
+  {
+    ok(same33(drawFor("s", IDS), drawFor("s", IDS)), "33.2: two calls with the same seed must be deep-equal — the draw is re-derived by the gate from a committed seed");
+    ok(!same33(drawFor("s", IDS).table, drawFor("t", IDS).table), "33.2: two DIFFERENT seeds produced the same table — the seed does nothing");
+    const d = drawFor("s", IDS);
+    const before = JSON.stringify(d);
+    try { d.table.push({ id: "x", a: "K1", b: "K1", c: "K1" }); } catch { /* strict mode throws on a frozen write; the compare below decides either way */ }
+    try { d.table[0].a = "K9"; } catch { /* same */ }
+    try { d.seed = "other"; } catch { /* same */ }
+    ok(JSON.stringify(d) === before && d.table.length === IDS.length, "33.2: a write into the draw or one of its rows must be inert");
+  }
+
+  // 33.3 — checkKey REFUSES, each on its own message. The refusal battery style is group 29's.
+  {
+    const good = IDS.flatMap((id) => KINDS.map((k) => ({ question_id: id, kind: k, answer: `${id} ${k} answer`, expected: EXPECTED[k] })));
+    const wrap = (entries) => ({ generatedFor: "#348", authoredAt: "2026-01-01T00:00:00.000Z", entries });
+    ok(threw33(() => checkKey(wrap(good), IDS)) === null, `33.3: a well-formed key must validate — ${threw33(() => checkKey(wrap(good), IDS))?.message}`);
+    ok(checkKey(wrap(good), IDS).size === IDS.length * KINDS.length, "33.3: checkKey must index every (question, kind) pair");
+    const refusals = [
+      ["a missing pair", wrap(good.slice(0, -1)), /entries, not 195|no entry for/],
+      ["a duplicate pair", wrap([...good.slice(0, -1), { ...good[0] }]), /appears twice|no entry for/],
+      ["an id not in the bank", wrap(good.map((e, i) => (i === 0 ? { ...e, question_id: "s9-not-a-question" } : e))), /is not in the bank/],
+      ["a kind off KINDS", wrap(good.map((e, i) => (i === 0 ? { ...e, kind: "K4" } : e))), /is not one of K1/],
+      ["an expected that disagrees", wrap(good.map((e, i) => (i === 0 ? { ...e, expected: "file_evidence" } : e))), /the expectation is never authored/],
+      ["an empty answer", wrap(good.map((e, i) => (i === 0 ? { ...e, answer: "" } : e))), /must be a non-empty string/],
+      ["a whitespace-only answer", wrap(good.map((e, i) => (i === 0 ? { ...e, answer: "   \n\t " } : e))), /must be a non-empty string/],
+      ["a non-string answer", wrap(good.map((e, i) => (i === 0 ? { ...e, answer: 42 } : e))), /must be a non-empty string/],
+      ["an unknown entry key", wrap(good.map((e, i) => (i === 0 ? { ...e, note: "x" } : e))), /unknown key "note"/],
+      ["a missing entry key", wrap(good.map((e, i) => (i === 0 ? { question_id: e.question_id, kind: e.kind, expected: e.expected } : e))), /"answer" is required/],
+      ["an unknown top-level key", { ...wrap(good), seed: "x" }, /unknown key "seed"/],
+      ["a missing top-level key", { generatedFor: "#348", entries: good }, /missing "authoredAt"/],
+      ["a bare array", good, /must be an object/],
+    ];
+    for (const [label, payload, want] of refusals) {
+      const e = threw33(() => checkKey(payload, IDS));
+      ok(e !== null, `33.3: ${label} must be refused`);
+      if (e) ok(want.test(e.message), `33.3: ${label} was refused with the wrong message — ${e.message}`);
+    }
+  }
+
+  // 33.4 — EXPECTED and CLOSES_WHEN are THE op table, iterated against OPS in both directions, so a
+  //        fifth verb or a renamed one fails here BY NAME rather than silently. file_evidence is
+  //        asserted as the one op no kind expects, by name.
+  {
+    ok(same33(Object.keys(EXPECTED), [...KINDS]), `33.4: EXPECTED is keyed ${Object.keys(EXPECTED).join(", ")}, not ${KINDS.join(", ")}`);
+    for (const kind of KINDS) ok(DISCOVERY_OPS.includes(EXPECTED[kind]), `33.4: ${kind} expects "${EXPECTED[kind]}", which is not one of ${DISCOVERY_OPS.join(" · ")}`);
+    ok(new Set(Object.values(EXPECTED)).size === KINDS.length, "33.4: two kinds expect the same op — the three kinds must map to three distinct closing verbs");
+    ok(same33([...DISCOVERY_OPS].sort(), Object.keys(CLOSES_WHEN).sort()), `33.4: CLOSES_WHEN is keyed ${Object.keys(CLOSES_WHEN).sort().join(", ")}, not ${[...DISCOVERY_OPS].sort().join(", ")} — a verb with no closing rule would default to "does not close"`);
+    const unexpected = DISCOVERY_OPS.filter((op) => !Object.values(EXPECTED).includes(op));
+    ok(same33(unexpected, ["file_evidence"]), `33.4: the ops no kind expects are ${unexpected.join(", ")} — it must be exactly file_evidence, which is non-closing and is counted beside the matrix rather than in it`);
+    ok(CLOSES_WHEN.file_evidence({}) === false, "33.4: file_evidence must never close a turn");
+    ok(CLOSES_WHEN.flag_weak_answer({}) === true, "33.4: flag_weak_answer always closes");
+    ok(CLOSES_WHEN.record_decision({ off_script: false }) === true && CLOSES_WHEN.record_decision({ off_script: true }) === false, "33.4: record_decision closes only when off_script is false");
+    ok(CLOSES_WHEN.open_question({ source: "banked" }) === true && CLOSES_WHEN.open_question({ source: "off-script" }) === false, "33.4: open_question closes only from a banked source");
+    ok(same33(COLUMNS, [...Object.values(EXPECTED), "no_close_filed", "no_close_silent"]), `33.4: COLUMNS is ${COLUMNS.join(", ")} — five columns, the three closing verbs plus the two ways a turn fails to close`);
+  }
+
+  // 33.5/33.6 — closingOpOf over a hand-built synthetic transcript covering every branch, and the
+  //        `closes` disagreement throw. The synthetic records are applier-SHAPED and nothing here is
+  //        presented as a run (group 29's rows and group 32's case 1 are the same shape of input).
+  //        Mutation: drop the off_script term from CLOSES_WHEN → the off-script decision counts as a
+  //        close → red.
+  {
+    const rec = (seq, turn, op, params) => ({ seq, turn, op, params, closes: CLOSES_WHEN[op](params), flagged: [], supersedes: null });
+    const ops = [
+      rec(1, "t1", "file_evidence", { url: null, ref: "a1", name: "a thread", provenance: "fictional-scenario", claim_ref: null }),
+      rec(2, "t1", "record_decision", { question_id: "q1", answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [1], wrong_if: "x", off_script: false }),
+      rec(3, "t2", "flag_weak_answer", { question_id: "q2", answer_ref: "a2", missing: ["a number"] }),
+      rec(4, "t3", "open_question", { source: "banked", question_id: "q3", answer_ref: "a3", reason: "not yet" }),
+      rec(5, "t4", "record_decision", { question_id: null, answer_ref: "a4", level: "business", parent_id: null, evidence_refs: [], wrong_if: "y", off_script: true }),
+      rec(6, "t4", "open_question", { source: "off-script", question_id: null, answer_ref: "a4", reason: "an aside" }),
+      rec(7, "t5", "file_evidence", { url: "https://example.test/x", ref: null, name: null, provenance: "secondary-source", claim_ref: null }),
+    ];
+    ok(closingOpOf(ops, "t1") === "record_decision", "33.5: a banked record_decision closes its turn");
+    ok(closingOpOf(ops, "t2") === "flag_weak_answer", "33.5: flag_weak_answer closes its turn");
+    ok(closingOpOf(ops, "t3") === "open_question", "33.5: a banked open_question closes its turn");
+    ok(closingOpOf(ops, "t4") === null, "33.5: an off_script decision and an off-script open_question close NOTHING — a turn holding only those did not close");
+    ok(closingOpOf(ops, "t5") === null, "33.5: file_evidence never closes a turn");
+    ok(closingOpOf(ops, "t6") === null, "33.5: a turn with no op lines at all closes nothing");
+    ok(evidenceCountOf(ops, "t1") === 1 && evidenceCountOf(ops, "t2") === 0 && evidenceCountOf(ops, "t5") === 1, "33.5: file_evidence must be counted per turn");
+    // 33.6 — the hand-edit detector, in both directions.
+    const lie = ops.map((r) => (r.seq === 5 ? { ...r, closes: true } : r));
+    const e1 = threw33(() => closingOpOf(lie, "t4"));
+    ok(e1 !== null && /seq 5/.test(e1.message) && /hand edit/.test(e1.message), `33.6: a record whose closes disagrees with its params must throw naming its seq — got ${e1?.message ?? "no throw"}`);
+    const lie2 = ops.map((r) => (r.seq === 3 ? { ...r, closes: false } : r));
+    const e2 = threw33(() => closingOpOf(lie2, "t2"));
+    ok(e2 !== null && /seq 3/.test(e2.message), `33.6: a flag_weak_answer recorded as not closing must throw — got ${e2?.message ?? "no throw"}`);
+    const two = [...ops, rec(8, "t2", "open_question", { source: "banked", question_id: "q2", answer_ref: "a2", reason: "r" })];
+    const e3 = threw33(() => closingOpOf(two, "t2"));
+    ok(e3 !== null && /2 closing ops/.test(e3.message), `33.6: two closing ops on one turn breaks R2 and must throw — got ${e3?.message ?? "no throw"}`);
+    ok(threw33(() => closingOpOf([{ seq: 1, turn: "t1", op: "record_hunch", params: {} }], "t1")) !== null, "33.6: an op line naming a verb outside OPS must throw");
+  }
+
+  // 33.7 — scorePackage's matrix SUMS TO THE TURN COUNT over a package covering all five columns, with
+  //        file_evidence counted separately and ABSENT from the matrix. Mutation: fold file_evidence
+  //        into the matrix → the sum exceeds the turn count → red.
+  {
+    const sids = IDS.slice(0, 5);
+    ok(sids.length === 5 && new Set(sids.map((id) => BANK.find((q) => q.id === id)?.stage)).size >= 1, `33.7: the synthetic package needs five real bank ids (found ${sids.length}) — the per-stage breakdown resolves them through the bank`);
+    const rec = (seq, turn, op, params) => ({ seq, turn, op, params, closes: CLOSES_WHEN[op](params), flagged: [], supersedes: null });
+    const pkg = {
+      run: { slug: "synthetic", depth: "whole-bank" },
+      answers: sids.map((id, i) => ({ ref: `a${i + 1}`, turn: `t${i + 1}`, question_id: id, kind: "banked", text: `text ${i + 1}` })),
+      ops: [
+        rec(1, "t1", "file_evidence", { url: null, ref: "a1", name: "n", provenance: "fictional-scenario", claim_ref: null }),
+        rec(2, "t1", "file_evidence", { url: "https://example.test/y", ref: null, name: null, provenance: "secondary-source", claim_ref: null }),
+        rec(3, "t1", "record_decision", { question_id: sids[0], answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [1], wrong_if: "x", off_script: false }),
+        rec(4, "t2", "flag_weak_answer", { question_id: sids[1], answer_ref: "a2", missing: ["a number"] }),
+        rec(5, "t3", "open_question", { source: "banked", question_id: sids[2], answer_ref: "a3", reason: "r" }),
+        rec(6, "t4", "record_decision", { question_id: null, answer_ref: "a4", level: "business", parent_id: null, evidence_refs: [], wrong_if: "y", off_script: true }),
+      ],
+      texts: [], denied: [],
+    };
+    const draw = { seed: "synthetic", table: sids.map((id, i) => ({ id, a: KINDS[i % 3], b: KINDS[(i + 1) % 3], c: KINDS[(i + 2) % 3] })) };
+    const keyIndex = new Map(sids.flatMap((id, i) => KINDS.map((k) => [`${id}::${k}`, { question_id: id, kind: k, answer: `text ${i + 1}`, expected: EXPECTED[k] }])));
+    const score = scorePackage(pkg, keyIndex, draw, "a", sids);
+    const cells = KINDS.reduce((s, k) => s + COLUMNS.reduce((t, c) => t + score.matrix[k][c], 0), 0);
+    ok(cells === score.turns && score.turns === sids.length, `33.7: the matrix sums to ${cells} over ${score.turns} turns — every turn must land in exactly ONE cell, or an off_script decision and a silent turn vanish from the score`);
+    ok(same33(score.rows.map((r) => r.column), ["record_decision", "flag_weak_answer", "open_question", "no_close_filed", "no_close_silent"]), `33.7: the synthetic package must exercise all five columns, got ${score.rows.map((r) => r.column).join(", ")}`);
+    ok(score.evidence.ops === 2 && score.evidence.turnsWithAny === 1, `33.7: file_evidence must be counted (got ${score.evidence.ops} op(s) over ${score.evidence.turnsWithAny} turn(s))`);
+    const evidenceCells = KINDS.reduce((s, k) => s + (score.matrix[k].file_evidence ?? 0), 0);
+    ok(evidenceCells === 0 && !COLUMNS.includes("file_evidence"), "33.7: file_evidence must never appear in the matrix — it is non-closing, and folding it in makes the sum exceed the turn count");
+    ok(score.totals.match + score.totals.mismatch + score.totals.no_close === score.turns, `33.7: the outcome totals sum to ${score.totals.match + score.totals.mismatch + score.totals.no_close}, not ${score.turns}`);
+    ok(Object.values(score.byStage).reduce((s, b) => s + b.turns, 0) === score.turns, "33.7: the per-stage breakdown must cover every turn");
+    // The MVP 6 shortlist is mechanical and reproducible; the verdict is a human read and this asserts
+    // only the first half.
+    const list = mvp6Shortlist([{ turn: "t1", text: "That answer is wrong. It names no number." }, { turn: "t2", text: "It names no user." }]);
+    ok(list.hits.length === 1 && /wrong/.test(list.hits[0].sentence), `33.7: the MVP 6 shortlist must catch a planted "wrong" sentence and leave a clean one alone — got ${JSON.stringify(list.hits)}`);
+    ok(same33(mvp6Shortlist([{ turn: "t1", text: "You should name a number." }]), mvp6Shortlist([{ turn: "t1", text: "You should name a number." }])), "33.7: the shortlist must be reproducible");
+  }
+
+  // 33.8 — assertAnswersSealed in BOTH directions. This is the check that makes the driver necessary
+  //        rather than convenient: 390 hand-pastes cannot deliver byte-equality into an append-only
+  //        file nobody is allowed to clean up.
+  {
+    const sids = IDS.slice(0, 4);
+    const draw = { seed: "sealed", table: sids.map((id, i) => ({ id, a: KINDS[i % 3], b: KINDS[(i + 1) % 3], c: KINDS[(i + 2) % 3] })) };
+    const keyIndex = new Map(sids.flatMap((id, i) => KINDS.map((k) => [`${id}::${k}`, { question_id: id, kind: k, answer: `${k} answer for ${i}`, expected: EXPECTED[k] }])));
+    const answers = sids.map((id, i) => ({ ref: `a${i + 1}`, turn: `t${i + 1}`, question_id: id, kind: "banked", text: keyIndex.get(`${id}::${kindFor(draw, id, "a")}`).answer }));
+    const good = { run: {}, answers, ops: [] };
+    ok(threw33(() => assertAnswersSealed(good, keyIndex, draw, "a", sids)) === null, `33.8: a package whose texts equal the key must pass — ${threw33(() => assertAnswersSealed(good, keyIndex, draw, "a", sids))?.message}`);
+    const oneByte = { run: {}, answers: answers.map((a, i) => (i === 2 ? { ...a, text: `${a.text} ` } : a)), ops: [] };
+    const e1 = threw33(() => assertAnswersSealed(oneByte, keyIndex, draw, "a", sids));
+    ok(e1 !== null && /a3/.test(e1.message) && /sealed/.test(e1.message), `33.8: one trailing space in one answer must throw naming its ref — got ${e1?.message ?? "no throw"}`);
+    const extra = { run: {}, answers: [...answers, { ...answers[3], ref: "a5" }], ops: [] };
+    const e2 = threw33(() => assertAnswersSealed(extra, keyIndex, draw, "a", sids));
+    ok(e2 !== null && /append-only/.test(e2.message), `33.8: a duplicate answer line (a re-submitted turn) must be a HARD failure, not a warning — got ${e2?.message ?? "no throw"}`);
+    const gap = { run: {}, answers: answers.map((a, i) => (i === 1 ? { ...a, ref: "a9" } : a)), ops: [] };
+    ok(/positional and gapless/.test(threw33(() => assertAnswersSealed(gap, keyIndex, draw, "a", sids))?.message ?? ""), "33.8: a ref out of position must throw");
+    const dupTurn = { run: {}, answers: answers.map((a, i) => (i === 1 ? { ...a, turn: "t1" } : a)), ops: [] };
+    ok(threw33(() => assertAnswersSealed(dupTurn, keyIndex, draw, "a", sids)) !== null, "33.8: two answers on one turn must throw — the turn did not close and the answer was re-submitted");
+    const wrongOrder = { run: {}, answers: [answers[1], answers[0], answers[2], answers[3]].map((a, i) => ({ ...a, ref: `a${i + 1}` })), ops: [] };
+    ok(/walked a different question order/.test(threw33(() => assertAnswersSealed(wrongOrder, keyIndex, draw, "a", sids))?.message ?? ""), "33.8: an answer against the wrong question in the depth order must throw");
+    const wrongColumn = threw33(() => assertAnswersSealed(good, keyIndex, draw, "b", sids));
+    ok(wrongColumn !== null, "33.8: scoring a package against the WRONG draw column must throw rather than produce a wrong matrix — a mis-typed --run fails loudly");
+  }
+
+  // 33.9 — THE AUTHOR FENCE, SOURCE-PINNED. This is the control as a gate rather than a review fact.
+  //        Read as TEXT (the file imports the SDK, which CI has not got). Comments are stripped first,
+  //        so a header sentence explaining the rule cannot fail its own pin. Mutation: point cwd at the
+  //        repo root → red naming the cwd; that is the trap that would silently void the whole ticket,
+  //        because allowsPath resolves a relative path against allowSet.root while the SDK resolves it
+  //        against options.cwd, so Read("discovery/bank.mjs") would be checked under the author root and
+  //        ALLOWED while the SDK read the real bank.
+  {
+    const HARNESS = join(ROOT, "portal/record-graded-answers.mjs");
+    ok(existsSync(HARNESS), "33.9: portal/record-graded-answers.mjs is missing — the fenced author harness is what the key's blindness rests on");
+    if (existsSync(HARNESS)) {
+      const src = decomment(readFileSync(HARNESS, "utf8"));
+      ok(!/allowSetFor/.test(src), "33.9: the author harness must NOT call allowSetFor — that builder puts BANK_PATH into every set it makes, because a discovery RUN may read the bank. The author is not a discovery run");
+      ok(/paths:\s*Object\.freeze\(\[\s*authorRoot\s*\]\)/.test(src), "33.9: the author's allow-set must be built by hand with paths of length 1 holding the author root and nothing else");
+      ok(/root:\s*authorRoot/.test(src), "33.9: the author's allow-set root must be the author root");
+      const at = src.indexOf("query({");
+      ok(at !== -1, "33.9: the harness must call query({ ... })");
+      const block = at === -1 ? "" : src.slice(at, src.indexOf("for await", at));
+      ok(/cwd:\s*authorRoot/.test(block), "33.9: options.cwd MUST be the author root — allowsPath resolves against allowSet.root and the SDK resolves against cwd, so a mismatch green-lights the bank and records nothing (the cwd trap)");
+      ok(/tools:\s*AUTHOR_TOOLS/.test(block), "33.9: the query must advertise AUTHOR_TOOLS — under tools: [] a denied Read is denied and UNRECORDED, and the fence's receipt would not exist (the receipts trap)");
+      ok(/canUseTool:\s*fenceCanUseTool\(authorRoot/.test(block) && /hooks:\s*fenceHooks\(authorRoot/.test(block), "33.9: both fence sites must be wired, each rooted at the author root");
+      ok(/allowedTools:\s*\[\]/.test(block), "33.9: nothing may be pre-approved, or canUseTool is never consulted");
+      ok(/strictMcpConfig:\s*true/.test(block), "33.9: strictMcpConfig must be true — the author's cwd is inside this repo, below .mcp.json's codebase-search server, and a repo-search tool is a fifth route to the weak-answer notes");
+      ok(/mainTools:\s*AUTHOR_TOOLS/.test(src), "33.9: the fence's mainTools must be the SAME array the query advertises, or the record gate and the tool surface disagree");
+      ok(/const AUTHOR_TOOLS = Object\.freeze\(\['Read', 'Grep', 'Glob'\]\)/.test(src), "33.9: AUTHOR_TOOLS must be exactly ['Read', 'Grep', 'Glob']");
+      ok(!/weakAnswer|provenanceNote/.test(src), "33.9: the harness must never name weakAnswer or provenanceNote — it interpolates forTheBrowser's field list and nothing else");
+      ok(/const forTheAuthor = \(q\) => \(\{ id: q\.id, stage: q\.stage, text: q\.text, attribution: q\.attribution, label: q\.label \}\)/.test(src), "33.9: the author's view of a question must be exactly forTheBrowser's five fields");
+    }
+  }
+
+  // 33.10 — THE AUTHOR'S ALLOW-SET DENIES EVERY LEAK PATH, driven through the REAL allowsPath rather
+  //        than asserted. ABSOLUTE paths throughout: allowsPath resolves a RELATIVE path against
+  //        allowSet.root, so a relative leak path would resolve UNDER the author root and be ALLOWED —
+  //        the case would pass while proving the exact opposite of its claim. The positive control is
+  //        the same four paths under a run's own allow-set rooted at the repo, which must ALLOW them:
+  //        without it the case could pass because allowsPath denies everything.
+  {
+    const authorRoot = join(FIXTURE, "author");
+    const authorSet = Object.freeze({ root: authorRoot, paths: Object.freeze([authorRoot]) });
+    const LEAKS = {
+      "the bank": BANK_PATH,
+      "the notes upstream": join(ROOT, "docs/research/question-bank-source.md"),
+      "the PRD": join(ROOT, "docs/epics/discovery-partner.prd.md"),
+      "the architecture doc": join(ROOT, "docs/epics/discovery-partner.architecture.md"),
+      "judged prose from a past run": join(ROOT, "discovery/instrument-loans-1/transcript.jsonl"),
+      "the fixture directory above the author root": join(FIXTURE, "key.json"),
+    };
+    for (const [label, p] of Object.entries(LEAKS)) ok(allowsPath(authorSet, p).allow === false, `33.10: the author's allow-set ALLOWS ${label} (${p}) — the key's blindness rests on this denial`);
+    ok(allowsPath(authorSet, authorRoot).allow === true && allowsPath(authorSet, join(authorRoot, "transcript.jsonl")).allow === true, "33.10: the author must be able to reach its own root, or the denials above prove only that allowsPath denies everything");
+    const repoSet = allowSetFor({ root: ROOT, reads: [] });
+    for (const [label, p] of Object.entries(LEAKS)) ok(allowsPath(repoSet, p).allow === true, `33.10 positive control: an allow-set rooted at the repo must ALLOW ${label} — otherwise the denials above are vacuous`);
+    // The fifth route is a TOOL NAME, not a path: a repo-search MCP server is denied by name at both
+    // fence sites whatever path it carries, the same way Write, Edit and Bash are.
+    for (const tool of ["mcp__codebase-search__search", "Write", "Edit", "Bash", "NotebookEdit"])
+      ok(fenceDecision(authorSet, tool, { file_path: join(authorRoot, "x") }).allow === false, `33.10: ${tool} must be denied BY NAME under the author's fence, whatever path it carries`);
+    for (const tool of ["Read", "Grep", "Glob"])
+      ok(fenceDecision(authorSet, tool, { file_path: join(authorRoot, "x"), path: authorRoot }).allow === true, `33.10: ${tool} inside the author root must be allowed, or the author cannot be REFUSED in a way the transcript records`);
+    ok(fenceDecision(authorSet, "Read", { file_path: BANK_PATH }).allow === false, "33.10: a Read of the bank must be refused at the fence decision, not merely absent from the allow-set");
+  }
+
+  // 33.11 — THE PURITY PIN. tooling/discovery-score.mjs is imported by this file in CI, where
+  //        portal/node_modules does not exist, and the draw must be re-derivable from its committed seed
+  //        alone. Comments stripped first, for the reason 33.9 gives. Mutation: add a clock call → red.
+  {
+    const src = decomment(readFileSync(join(ROOT, "tooling/discovery-score.mjs"), "utf8"));
+    const imports = src.split("\n").filter((l) => /^import /.test(l.trim()));
+    ok(imports.length > 0, "33.11: the scorer's import lines must be readable");
+    for (const line of imports) ok(/from "node:|from "\.\.\/discovery\//.test(line), `33.11: the scorer may import only node built-ins and discovery/ modules — found ${line.trim()}`);
+    ok(!/@anthropic-ai|claude-agent-sdk|from "zod"|require\("zod"\)/.test(src), "33.11: the scorer must not reach the SDK or zod — it runs in CI where portal/node_modules does not exist");
+    ok(!/Date\.now\(\)|new Date\(/.test(src), "33.11: the scorer must hold no clock — a judge whose output moves with the wall clock cannot be re-run against a committed package");
+    ok(!/Math\.random\(\)/.test(src), "33.11: the scorer must hold no randomness — the draw is re-derived by this gate from a committed seed");
+    ok(!/writeFileSync|appendFileSync|mkdirSync|rmSync/.test(src), "33.11: the scorer READS packages and never writes — its outputs are stdout and its return values");
+    ok(/Date\.now\(\)/.test("const t = Date.now()"), "33.11 positive control: the clock pattern must be able to match");
+  }
+
+  // 33.12 — THE JUDGE'S FENCE DENIES THE KEY, driven rather than assumed (#291's rule verbatim:
+  //        OMISSION IS NOT A FENCE). A recorded run's own allow-set is allowSetFor({ root: the package,
+  //        reads: [] }) — its package and the bank and nothing else — so the sealed answers, the draw,
+  //        the brief and the author's transcript are all outside it. Without this case the key's
+  //        exclusion rests on reads happening to be empty. ABSOLUTE paths, for 33.10's reason.
+  //        Mutation: add the fixture directory to `reads` → red.
+  {
+    const pkgRoot = join(ROOT, "discovery", GRADED_SLUGS[0]);
+    const runSet = allowSetFor({ root: pkgRoot, reads: [] });
+    const SEALED = {
+      "the key": join(FIXTURE, "key.json"),
+      "the draw": join(FIXTURE, "draw.json"),
+      "the brief": join(FIXTURE, "brief.md"),
+      "the author's transcript": join(FIXTURE, "author/transcript.jsonl"),
+      "the fixture directory itself": FIXTURE,
+    };
+    for (const [label, p] of Object.entries(SEALED)) ok(allowsPath(runSet, p).allow === false, `33.12: a recorded run's own allow-set ALLOWS ${label} (${p}) — the judge must never be able to read the answers it is being scored against`);
+    ok(allowsPath(runSet, pkgRoot).allow === true && allowsPath(runSet, BANK_PATH).allow === true, "33.12 positive control: the run's own package and the bank must be ALLOWED, or the denials above are vacuous");
+    const widened = allowSetFor({ root: pkgRoot, reads: ["docs/epics/fixtures/graded-answers"] });
+    ok(allowsPath(widened, join(FIXTURE, "key.json")).allow === true, "33.12: the mutation control — a run whose reads named the fixture directory WOULD reach the key, which is why reads stays empty and why this case drives it rather than assuming it");
+  }
+
+  // 33.13 — THE BANK NEVER LEARNS FROM THE FIXTURE (the circularity guard). If a later ticket
+  //        "improves" a weak-answer note using the fixture's own K2 prose, the score becomes circular
+  //        FOREVER and every future reading is void — and nobody would ever notice. Cheap, exact, and
+  //        the mirror of the brief-leak check. Gated on the key existing, because the key is authored in
+  //        Phase B and Phase A commits before it. Mutation: paste 40 characters of a K2 answer into a
+  //        weakAnswer → red naming the question id.
+  {
+    const keyPath = join(FIXTURE, "key.json");
+    if (!existsSync(keyPath)) {
+      pending33.push("33.13 circularity guard PENDING — key.json is authored in Phase B");
+    } else {
+      const key = JSON.parse(readFileSync(keyPath, "utf8"));
+      const spans = new Set();
+      for (const e of key.entries) for (let i = 0; i + 30 <= e.answer.length; i += 1) spans.add(e.answer.slice(i, i + 30));
+      ok(spans.size > 100, `33.13: only ${spans.size} spans came off the key — is it populated?`);
+      for (const q of BANK) for (const field of ["text", "weakAnswer", "note", "provenanceNote"]) {
+        const v = q[field];
+        if (typeof v !== "string") continue;
+        for (let i = 0; i + 30 <= v.length; i += 1) {
+          if (spans.has(v.slice(i, i + 30))) { ok(false, `33.13: ${q.id}.${field} shares a 30-character span with a key answer — "${v.slice(i, i + 30)}". The bank must never be tuned from the fixture, or every future score is circular`); break; }
+        }
+      }
+      const planted = "the fixture's own thin prose pasted straight into a note";
+      ok(!spans.has(planted.slice(0, 30)), "33.13 positive control: the span set must be able to MISS a string");
+    }
+  }
+
+  // 33.14 — NOTHING BUT THE SCORER TOUCHES A FIXTURE PACKAGE. Group 28's shape ("no tracked page or
+  //        system/ module reaching the bank"), applied to the six graded packages: they are a fixture for
+  //        one reading and must stay out of every future reader BY CONSTRUCTION rather than by everyone
+  //        remembering. Comments stripped, so a usage line in a header is not a violation. Mutation:
+  //        reference graded-think-a from discovery/prd-projection.mjs → red naming the file.
+  {
+    const SLUG_RE = /graded-(think|opus)-[abc]/;
+    const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+    const readers = tracked.filter((p) => (p.endsWith(".mjs") || p.endsWith(".html") || p.endsWith(".js")) && p !== "tooling/discovery-score.mjs" && p !== "tooling/build-checks.mjs");
+    ok(readers.length > 50, `33.14: the source sweep saw only ${readers.length} files — is git ls-files answering?`);
+    for (const p of readers) {
+      const abs = join(ROOT, p);
+      if (!existsSync(abs)) continue;
+      if (SLUG_RE.test(decomment(readFileSync(abs, "utf8")))) ok(false, `33.14: ${p} names a graded fixture slug in code — only tooling/discovery-score.mjs may read a fixture package, and it takes the slug as an argument`);
+    }
+    ok(SLUG_RE.test("const x = 'graded-opus-c'"), "33.14 positive control: the slug pattern must be able to match");
+  }
+
+  // 33.15 — THE RECORDED PACKAGES. Phase A commits before Phase C spends a penny, so these gate on the
+  //        package existing and the group's line says pending until they land. Once a package is on
+  //        disk this is the byte-equality claim, the matrix arithmetic, the one-fingerprint claim and the
+  //        prd.md-is-the-projection's-bytes compare group 32 already runs for its own fixture.
+  {
+    const keyPath = join(FIXTURE, "key.json");
+    const drawPath = join(FIXTURE, "draw.json");
+    const ready = existsSync(keyPath) && existsSync(drawPath);
+    const present = GRADED_SLUGS.filter((s) => existsSync(join(ROOT, "discovery", s, "run.json")));
+    if (!ready || present.length === 0) {
+      pending33.push(`33.15 the six recorded packages PENDING — ${present.length}/${GRADED_SLUGS.length} on disk, key ${existsSync(keyPath) ? "sealed" : "not yet authored"}`);
+    } else {
+      const draw = checkDraw(JSON.parse(readFileSync(drawPath, "utf8")), IDS);
+      const keyIndex = checkKey(JSON.parse(readFileSync(keyPath, "utf8")), IDS);
+      for (const slug of present) {
+        const root = join(ROOT, "discovery", slug);
+        const run = slug.slice(-1);
+        const posture = slug.includes("opus") ? "think-opus" : "think";
+        const pkg = readGradedPackage(root);
+        ok(pkg.run.slug === slug && pkg.run.provenance === "fictional" && pkg.run.depth === "whole-bank" && pkg.run.posture === posture && typeof pkg.run.endedAt === "string",
+          `33.15: ${slug}/run.json does not describe the fixture — want ${slug} · fictional · whole-bank · ${posture} · ended; got ${JSON.stringify({ slug: pkg.run.slug, provenance: pkg.run.provenance, depth: pkg.run.depth, posture: pkg.run.posture, endedAt: pkg.run.endedAt })}`);
+        const depthIds = selectDepth(pkg.run.depth).map((q) => q.id);
+        const sealed = threw33(() => assertAnswersSealed(pkg, keyIndex, draw, run, depthIds));
+        ok(sealed === null, `33.15: ${slug}'s answers are not the sealed ones — ${sealed?.message}`);
+        const stamps = [...new Set((pkg.run.turnStats ?? []).map((t) => t.postureFingerprint))];
+        ok(same33(stamps, [POSTURES[posture].fingerprint]), `33.15: ${slug} carries fingerprint(s) ${stamps.map((s) => String(s).slice(0, 8)).join(", ")}, not the current ${posture} surface ${POSTURES[posture].fingerprint.slice(0, 8)} — the prompt moved under the recording and the package is stale; re-record`);
+        if (sealed === null) {
+          const score = scorePackage(pkg, keyIndex, draw, run, depthIds);
+          const cells = KINDS.reduce((s, k) => s + COLUMNS.reduce((t, c) => t + score.matrix[k][c], 0), 0);
+          ok(cells === score.turns && score.turns === depthIds.length, `33.15: ${slug}'s matrix sums to ${cells} over ${score.turns} of ${depthIds.length} turns`);
+        }
+        const md = projectPrd(readPackage(root));
+        ok(existsSync(join(root, "prd.md")) && readFileSync(join(root, "prd.md"), "utf8") === md, `33.15: discovery/${slug}/prd.md is not the projection's bytes — regenerate it with node discovery/prd-projection.mjs ${slug} --force`);
+      }
+    }
+  }
+
+  group("graded fixture", `the sealed draw over the REAL 65 ids — a Latin square with a per-question offset, every question meeting all three kinds and no column uniform, the committed draw.json re-derived from its own seed "${existsSync(join(FIXTURE, "draw.json")) ? JSON.parse(readFileSync(join(FIXTURE, "draw.json"), "utf8")).seed : "?"}" and compared row by row, drawFor's ARITY pinned at 2 so one table serves BOTH postures and graded-think-a and graded-opus-a answer the same 65 answers, deterministic and frozen at both levels by an inert write · checkKey's 13 refusals each matched against the value it names, with "expected" derived from the kind and never authored · EXPECTED and CLOSES_WHEN iterated against OPS in BOTH directions with file_evidence named as the one op no kind expects, so a fifth verb fails here rather than silently · closingOpOf over a synthetic transcript covering all five columns — an off_script decision and an off-script open_question proven NOT to close — plus the hand-edit detectors (a closes field disagreeing with its params, and two closers on one turn) · the matrix proven to sum to the turn count with file_evidence counted beside it and ABSENT from it · assertAnswersSealed in both directions: one trailing space throws naming its ref, a duplicate line is a HARD failure, a wrong draw column throws rather than scoring · THE AUTHOR'S FENCE source-pinned from portal/record-graded-answers.mjs (no allowSetFor, a hand-built allow-set of length 1, cwd EQUAL to the author root — the trap that would silently void the ticket — tools advertised so a denial is recorded, both sites wired, strictMcpConfig true, and the question view pinned to forTheBrowser's five fields) and DRIVEN through the real allowsPath: six leak paths denied as ABSOLUTE paths with an allow-set rooted at the repo allowing all six as the positive control, and a repo-search MCP name denied BY NAME · THE MIRROR: a recorded run's own allow-set proven to deny the key, the draw, the brief and the author's transcript, with the widened-reads mutation showing the case can fail — omission is not a fence · the circularity guard (no 30-character span shared between the bank's prose and any key answer) · and no tracked source file outside the scorer naming a fixture slug in code${pending33.length ? ` · PENDING: ${pending33.join(" · ")}` : ""}. What it cannot reach: whether the author obeyed the brief, whether a K2 answer is thin in the way its own weak-answer note names (both review facts against the committed key), whether a fence DENY stopped a call at run time (the author run's own denied lines are that receipt, the standard --probe-fence sets), and the MVP 6 verdict, which is a human read of a mechanical shortlist`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -7181,5 +7595,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 32 groups pass");
+  console.log("\nbuild ✓  all 33 groups pass");
 }

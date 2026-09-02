@@ -107,7 +107,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            32 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            33 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
