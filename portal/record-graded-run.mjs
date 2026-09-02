@@ -93,7 +93,10 @@ async function postTurn(base, { slug, provenance, questionId, text }, onEvent) {
   return view;
 }
 
-export async function recordGradedRun({ slug, posture, run, port = 4747, from = null, dry = false }) {
+// `turns` bounds the walk for the SMOKE run (Phase C1): two throwaway slugs, one turn each, deleted
+// after — run 0's Phase A shape, catching an auth surprise, a fingerprint surprise and a driver bug for
+// 1/200 of a full run's cost. Unbounded for a real recording.
+export async function recordGradedRun({ slug, posture, run, port = 4747, from = null, dry = false, turns = Infinity }) {
   if (!RUNS.includes(run)) bad(`--run must be one of ${RUNS.join(' · ')} — it names the draw column`);
   // A mis-typed --run cannot produce a wrong matrix: assertAnswersSealed compares the stored text
   // against the key for THIS column and throws naming the first ref. The suffix check makes the failure
@@ -134,7 +137,8 @@ export async function recordGradedRun({ slug, posture, run, port = 4747, from = 
     bad(`--from ${from} does not match the server's cursor (${view.cursor.index}) — disk is authoritative; re-read the package and pass the cursor it actually holds, or omit --from`);
 
   const started = Date.now();
-  while (!view.cursor.done) {
+  let walked = 0;
+  while (!view.cursor.done && walked < turns) {
     const before = view.cursor.index;
     const q = view.cursor.question;
     const a = answerFor(q.id);
@@ -146,8 +150,13 @@ export async function recordGradedRun({ slug, posture, run, port = 4747, from = 
     console.log(`  ${String(before + 1).padStart(2)}/${view.cursor.total}  ${q.id.padEnd(34)} ${a.kind}  ${ops} op(s)  ${((Date.now() - t0) / 1000).toFixed(1)}s  $${(last.costUsd ?? 0).toFixed(4)}  ${closed ? 'closed' : 'DID NOT CLOSE'}`);
     if (!closed)
       bad(`turn ${before + 1} (${q.id}) did not close — the cursor is still at ${view.cursor.index}. NOT RETRYING: a re-submit would append a second answers.jsonl line for this question and break byte-equality permanently in an append-only file. Re-submit this one answer by hand at the drawer, or abandon slug "${slug}" (delete discovery/${slug} and retire the slug) and re-run under a new one.`);
+    walked += 1;
   }
 
+  if (walked >= turns && !view.cursor.done) {
+    const stats = view.head.turnStats ?? [];
+    return { slug, posture, run, turns: walked, smoke: true, cost: stats.reduce((s, t) => s + (t.costUsd ?? 0), 0), minutes: (Date.now() - started) / 60000, fingerprints: [...new Set(stats.map((t) => t.postureFingerprint))], stats };
+  }
   await api(base, '/api/discovery/close', 'POST', { slug, provenance });
   const cost = (view.head.turnStats ?? []).reduce((s, t) => s + (t.costUsd ?? 0), 0);
   const prints = execFileSync('node', [path.join(REPO, 'discovery/prd-projection.mjs'), slug, '--force'], { cwd: REPO, encoding: 'utf8' });
@@ -161,11 +170,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const slug = flag('--slug');
     const posture = flag('--posture');
-    if (!slug || !posture) throw new Error('usage: node portal/record-graded-run.mjs --slug <slug> --posture <think|think-opus> --run <a|b|c> [--port 4747] [--from <n>] [--dry]');
+    if (!slug || !posture) throw new Error('usage: node portal/record-graded-run.mjs --slug <slug> --posture <think|think-opus> --run <a|b|c> [--port 4747] [--from <n>] [--turns <n>] [--dry]');
     const r = await recordGradedRun({
       slug, posture, run: flag('--run'),
       port: Number(flag('--port') ?? 4747),
       from: flag('--from') === null ? null : Number(flag('--from')),
+      turns: flag('--turns') === null ? Infinity : Number(flag('--turns')),
       dry: argv.includes('--dry'),
     });
     if (!r.dry) console.log(`\nrun ✓  ${r.slug} · ${r.turns} turns · $${r.cost.toFixed(2)} · ${r.minutes.toFixed(0)} min · fingerprint(s) ${r.fingerprints.join(', ')}`);
