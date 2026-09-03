@@ -1,6 +1,6 @@
 # Implementation Report — run 0: the owner's next real product, in the UI (#338)
 
-**Plan**: `.claude/plans/discovery-run-0-338.md`   **Branch**: `chore/338-run-0`   **Status**: COMPLETE — Phase A, the rehearsal, Phase B (the owner's sitting, 2026-09-02) and Phase C
+**Plan**: `.claude/plans/discovery-run-0-338.md`   **Branch**: `chore/338-run-0` (Phase A + the rehearsal, PR #356) · `chore/338-run-0-phase-c` (Phase B + C, PR #362)   **Status**: COMPLETE — Phase A, the rehearsal, Phase B (the owner's sitting, 2026-09-02) and Phase C
 **Epic**: #279 · **Run package**: `<JOBS_DIR>/_discovery/<slug>/` (real provenance, never committed)
 
 > This ticket is an operational run, not a code change. Nothing in `system/`, `portal/`,
@@ -335,12 +335,13 @@ posture; Think on Opus is the same prompt on another model). Owner's note: *"not
 **#287 — the read fence.** F4's corrected counter, `denied` lines split by tool: built-ins refused
 **0**, op-tool refusals **0** (observed; `reads: []`). The rehearsal's agent tried `Bash` twelve
 times; this run's agent never reached for a tool it did not have, and the CLI's warmup agents left no
-line either — F7's 79 did not recur. A fence with nothing to catch is not evidence the fence works,
+line either — F7's 79 (`.claude/reports/discovery-finding-fixes-338-report.md`) did not recur. A
+fence with nothing to catch is not evidence the fence works,
 so the counter reads *no evidence either way* on the mechanism; the owner's note is the only signal
 on the need. Owner's note: *"not sure"*. Verdict: **no evidence either way**.
 
 **#289 — look it up, park it, the escape hatch.** Counters (observed): `open_question` **0**;
-`file_evidence` **10** across three turns, all filed by answer reference — **0** carry a URL, and
+`file_evidence` **10** across four turns (3, 4, 8 and 16), all filed by answer reference — **0** carry a URL, and
 **0** of the thirty answers contain one; `off_script` **0**; the drawer has no park control. Owner's
 note: *"not sure"*, and from AC7's walk *"all landed"*, so nothing needed parking. Verdict: **did
 not hurt** on the park half — no question on this run needed a park control; **no evidence either
@@ -391,7 +392,8 @@ session and re-reads its whole history — cache read grows from 3.8k tokens on 
 for the tail twice.
 
 **Latency.** Median 11.5s against the rehearsal's 10.1s; the two slowest turns (27.8s, 29.3s) are
-the evidence-filing turns 3 and 4, where the agent made five and four tool calls.
+the evidence-filing turns 3 and 4, where the agent made four and three tool calls (five and four SDK
+turns; the count is tool calls + 1, see F10).
 
 ### AC2 — the PRD
 
@@ -402,7 +404,9 @@ and 23 read `none · no-evidence`**. Sections by rung: Problem 8 business, Targe
 stakeholder, MVP 10 solution, Transition note 7 transition; Open questions and Weak answers render
 their empty states. So AC2's "every decision carrying its evidence link and kill criterion" holds
 for the kill criterion outright and for the evidence *link* as a slot that 23 decisions leave empty —
-the projection says so on each of them rather than hiding it.
+the projection says so on each of them rather than hiding it. Closing #338 on this report accepts
+that reading as a decision, not a pass: the evidence-link half of AC2 is met as a slot and unmet in
+substance on this run, and F11 carries the substance to #289 rather than leaving it here as met.
 
 **The owner got the PRD without a terminal.** F1's Download PRD control was used from the drawer.
 The downloaded file and `node discovery/prd-projection.mjs --root … --stdout` were byte-identical
@@ -437,8 +441,8 @@ more facets"* — stays untested by this run.
 
 **Would the facets have predicted each miss?** D1's "what it fires" column maps the tail this way
 (expected — the modules are not in `bank.mjs` yet, so this is the doc's table read against the
-ids, not a selection run): `s5-value-metric` and `s5-willingness-to-pay` sit on `orgBuys` and are
-dropped by `internal`; `s6-audit-trail` on `regulated`; `s6-coexist-with-incumbent` on
+ids, not a selection run): `s5-value-metric` and `s5-willingness-to-pay` sit on `orgBuys`, and
+`internal` drops willingness-to-pay; `s6-audit-trail` on `regulated`; `s6-coexist-with-incumbent` on
 `replacesAProcess`; `s8-failure-who-pays` on `hasModel`; `s6-process-as-it-runs` (in the twelve) on
 `internal` / `replacesAProcess`. The other thirteen tail questions — `s1-choice-cascade`,
 `s1-premortem`, `s2-more-than-one-way`, `s2-last-time-show-me`, `s2-switch-timeline`, `s3-why-now`,
@@ -452,12 +456,17 @@ here — a single data point, and the bank finding the ticket asked for is "none
 
 ## Findings — continued from F8
 
-**F9 — the agent judged aloud on 2 of 30 turns; on the other 28 its only prose is the filing
-confirmation.** Text lines per turn (observed, lengths and masked shapes only): turns 1 and 30 carry
+F1–F6 are above. F7 (the CLI's 79 warmup denials) and F8 (evidence provenance) are in
+`.claude/reports/discovery-finding-fixes-338-report.md`, landed by PR #345; the numbering continues
+from there.
+
+**F9 — the agent judged aloud on 2 of 30 turns; on 27 its only prose is the filing confirmation,
+and turn 16 has none.** Text lines per turn (observed, lengths and masked shapes only): turns 1 and 30 carry
 a judgement paragraph (471 and 538 characters) plus the confirmation; turns 3, 4 and 8 carry a single
-133–156 character confirmation that also names the evidence rows filed; the remaining 25 turns carry
-exactly one line, 57–62 characters, of the shape `Filed as a <rung>-level decision (seq N), parent
-seq N.` A scan for the form-gap vocabulary MVP 6 licenses ("does not name", "no number", "not
+133–156 character confirmation that also names the evidence rows filed; 24 turns carry exactly one
+line of the shape `Filed as a <rung>-level decision (seq N), parent seq N.` (57–62 characters on 23 of
+them; turn 2's longer parent clause takes it to 83), and turn 16 carries none, because the cap fell
+before the confirmation (F10). A scan for the form-gap vocabulary MVP 6 licenses ("does not name", "no number", "not
 stated" and kin) hits **0** lines. `YIELD_CONTRACT` opens *"Judge this one answer. Push back at most
 once, in prose"*, and on 28 turns there is no prose to have pushed back in. This is not a claim the agent judged badly — it may have judged well and
 silently — but `discovery/README.md` keeps the agent's text *because MVP 6 is only falsifiable from
@@ -472,11 +481,20 @@ ops.*
 `turnStats[15]`: `numTurns: 6`, `ok: false`, `$0.072` (observed). The transcript for that turn holds
 four `file_evidence` ops and one `record_decision`, seq 22–26, the decision closing the turn; the
 cursor advanced; there is no text line for the turn, because the cap fell before the confirmation.
-`ok` is `msg.subtype === 'success'` in `discovery-transport.mjs`, and six tool calls in a six-turn
-cap is not success to the SDK. The cap was sized before `EVIDENCE_RULE` (#338 F6) made
-multi-evidence turns likely; this is the first real turn to show the two colliding. *Follow-up
-ticket: size the cap to the evidence rule (or make it evidence-aware), and decide what `ok: false`
-with a complete transcript should mean to the drawer.* The owner saw no error on question 16 (*"i did not see any
+`ok` is `msg.subtype === 'success'` in `discovery-transport.mjs`. The count that trips it is not "six
+tool calls": `numTurns` is tool calls + 1 on every one of the thirty turns (observed: `run.json`
+against the transcript's ops, 0 exceptions; turn 3's four calls read 5, turn 4's three read 4, turn
+8's two read 3, the twenty-six single-call turns read 2), and the +1 is the closing message. Turn
+16's five calls made that message the sixth unit and the cap fell on it; the SDK session record
+(observed, block types and counts only) holds a `<synthetic>` record in its place, and its 29
+thinking blocks change none of the counts. So at `MAX_TURNS = 6` the cap admits `MAX_TURNS − 2` =
+four tool calls per turn, three evidence rows plus the decision; the fifth trips it, and turn 3 sat
+one call under it. The cap was sized before `EVIDENCE_RULE` (#338 F6) made multi-evidence turns
+likely; this is the first real turn to show the two colliding. *Follow-up ticket: size the cap from
+the counted rule, `MAX_TURNS − 2` tool calls per turn, to the evidence rule (or make it
+evidence-aware), and decide what `ok: false` with a complete transcript should mean to the drawer,
+which cannot show it today: the server's discovery `done` event carries only `view`
+(`portal/server.mjs`).* The owner saw no error on question 16 (*"i did not see any
 error"*), so `ok: false` is a package-only fact today: the stream ended on `done` and the status
 line read as on any other turn.
 
