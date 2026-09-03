@@ -1042,10 +1042,13 @@ export function questionsForStage(n) {
 
 const FACET_IDS = FACETS.map((f) => f.id);
 
-// The vector, normalised: null for NO VECTOR (undefined, null or {} — every committed package and
-// every one-argument caller), a frozen five-key boolean record otherwise (a missing key reads false,
-// so a preset or a partial object composes). Junk throws by name on EVERY depth, so no run.json can
-// ever carry a vector the bank would not read.
+// The vector, normalised: null for NO VECTOR (undefined, null, {} — every committed package and
+// every one-argument caller — and anything else carrying no OWN facet key), a frozen five-key
+// boolean record otherwise. Every read is OWN-key only: a key reached through the prototype chain
+// is not a declaration, so Object.create(defaults) composes from what its caller actually set and a
+// missing key reads false — which is how a preset or a partial object composes. Junk — an own key
+// that is not one of the five, or is not a boolean — throws by name on EVERY depth, so no run.json
+// can ever carry a vector the bank would not read.
 function normaliseFacets(facets) {
   if (facets === undefined || facets === null) return null;
   if (typeof facets !== "object" || Array.isArray(facets))
@@ -1056,14 +1059,17 @@ function normaliseFacets(facets) {
     if (!FACET_IDS.includes(k)) throw new Error(`bank: unknown facet "${k}" — the five are ${FACET_IDS.join(" · ")}`);
     if (typeof facets[k] !== "boolean") throw new Error(`bank: facet "${k}" must be true or false, got ${JSON.stringify(facets[k])}`);
   }
-  return Object.freeze(Object.fromEntries(FACET_IDS.map((id) => [id, facets[id] === true])));
+  return Object.freeze(Object.fromEntries(FACET_IDS.map((id) => [id, Object.hasOwn(facets, id) && facets[id] === true])));
 }
 
 // What a vector composes, as a VALUE (D1a: overflow is shown, never resolved silently). Total and
-// pure. fired = the ticked facets in FACETS order; fits = the prefix of fired whose budgets, after the
-// twelve and the block, stay inside FULL_DISCOVERY_BUDGET; overflow = the rest, in order. count is the
-// length of the list that fits — a session's length only when overflow is empty. Undeclared → the
-// unfaceted list's count and nothing fired.
+// pure. fired = the ticked facets in FACETS order; fits = those of fired that a GREEDY walk in FACETS
+// order admits — each id tested against the running count after the twelve and the block, and a later
+// smaller module may still be admitted after an earlier one overflowed, so fits is not necessarily a
+// prefix of fired; overflow = the rest, in order. count is the length of the list that fits — a
+// session's length only when overflow is empty. Undeclared → nothing fired and full discovery's own
+// unfaceted count, which is the ONLY depth this plan describes: facetPlan takes no depth, so a
+// scope-check or a fuller-picture session must not read count as its own length (#285, #288).
 export function facetPlan(facets) {
   const v = normaliseFacets(facets);
   if (v === null) return Object.freeze({ declared: false, fired: Object.freeze([]), fits: Object.freeze([]), overflow: Object.freeze([]), count: DEPTHS["full-discovery"].ids.length, budget: FULL_DISCOVERY_BUDGET });
