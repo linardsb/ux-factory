@@ -79,7 +79,7 @@ Every figure below is **observed** unless labelled otherwise.
 | `node agent-layer/gen-loc-summary.mjs --check` (after `git add`) | see below |
 | `node --check` on all four new/edited `.mjs` | clean |
 | portal on `PORT=4791`, `/api/health` | answers |
-| `discovery-proposer.mjs --dry` | 7 rows pass, zero tokens |
+| `discovery-proposer.mjs --dry` | 7/7 on a package with no proposals; **6/7 on `allergen-matrix-1` now**, DR5 reporting the 8 committed lines — the second-run guard working, not a regression. Zero tokens either way. |
 
 **AC #4 — `prd.md` byte-identical across the proposal run.** T0's table, re-read after everything:
 
@@ -225,6 +225,12 @@ own `ts`, and the marker still names the one that superseded it.
 talks about how to label evidence the person gives you — a proposal run files no evidence. The plan
 requires it be **imported, never copied** (#347), and case 34.13 pins that, so the wart is the price
 of one copy of the rule. It still carries the load-bearing fact: this run is fictional.
+
+**A figure in this report went stale during the ticket, and the pre-PR audit caught it.** `--dry`
+reported 7/7 at T9. After T12's run it reports **6/7** on `allergen-matrix-1`, because DR5 now sees
+the eight committed proposal lines and says a second run needs `--force` — the guard doing its job.
+The table above states both. Recorded because this is exactly the copy-forward mechanism the figures
+gate exists to catch, and it caught it on the surface with the widest readership.
 
 **`hasToken: false`** on this machine — there is no `portal/.env`, and the SDK authenticates through
 the Mac CLI login. The run worked; the flag only reports the absence of a token file.
