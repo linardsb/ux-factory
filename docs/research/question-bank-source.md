@@ -14,9 +14,10 @@ is hiring research with no bearing on the bank and is deliberately not carried h
 - **"The five questions before the twelve"** are cut for the same reason; four of the five come out of
   Stage 10.
 
-Stages 1–9 hold **65** bank entries (69 top-level bullets; two mottos with no weak-answer note, one cross-reference line and one duplicate are not entries — see `discovery/bank.mjs`'s header). Full discovery selects roughly 30 of them: the twelve below,
-plus the branch's own picks, plus the non-functional block, plus the AI-interaction module when the product
-has a model in it.
+Stages 1–9 hold **65** bank entries (69 top-level bullets; two mottos with no weak-answer note, one cross-reference line and one duplicate are not entries — see `discovery/bank.mjs`'s header). Full discovery selects roughly 30: the twelve below, then the
+facet modules the person ticks at intake (at most two fit the budget), then the non-functional block; the
+AI-interaction module fires on the `hasModel` facet. The ten questions those two blocks add live in
+`discovery/bank.mjs` (its D7), not in this file.
 
 Per C3 of the PRD, no role or seniority title appears in the bank, the UI, the run package or the generated
 PRD. The attributions below name people and publications, which is what they were always for.

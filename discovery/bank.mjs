@@ -9,11 +9,13 @@
 // it, and it has zero imports: no SDK, no DOM, nothing a CI job without portal/node_modules cannot
 // load. tooling/build-checks.mjs group 28 pins all of that.
 //
-// Three readers share one definition, which is the point of the module:
+// Four readers share one definition, which is the point of the module:
 //   · tooling/build-checks.mjs  — group 28, the shape and the sets (CI)
 //   · portal/lib/discovery.mjs  — selectDepth, walked with the session cursor (#285)
 //   · discovery/ops.mjs         — questionById, resolving an op's question_id (#281)
-// #283 extends QUESTIONS with the product-type branches and adds their selectors here.
+//   · tooling/discovery-score.mjs — selectDepth("whole-bank"), the graded fixture's 65-id key space (#348)
+// #283 extends QUESTIONS with the ten it added (D7) and adds the facet modules, presets and the
+// two-argument selectDepth beside them; docs/epics/discovery-question-selection.architecture.md is the spec.
 //
 // Editorial rules — what a reviewer checks an entry against, with the source open beside it:
 //
@@ -48,6 +50,18 @@
 //       (Cagan, verbatim) and "the support engineer who can impersonate" STAY: a profession named
 //       inside a question's substance is not a title for who is asked. The gate's term list is
 //       written so both survive.
+//   D7  THE ADDED TEN (#283) ARE OUTSIDE THE SOURCE AND OUTSIDE whole-bank. Four non-functional
+//       questions (s4-performance-budget · s4-availability-expectation · s4-accessibility-target ·
+//       s4-security-boundary) and six AI-interaction questions (s8-prompt-instruction ·
+//       s8-conversational-memory · s8-agentic-controls · s8-grounding-sources · s8-response-patterns ·
+//       s8-safety-and-trust). Each names a PRIMARY source with a URL inside attribution — Amershi et
+//       al. (CHI 2019) and Google PAIR for the six; WCAG 2.2, Google SRE ch. 4, web.dev INP and the
+//       Threat Modeling Manifesto for the four — never a secondary re-cut. They sit in stages 4 and 8
+//       so every id pin holds, and the source pin (group 28 case 9) is scoped to whole-bank's 65 so
+//       these ten are never asked to appear in a file they are not from. whole-bank NEVER includes
+//       them: it is a frozen literal, and graded-think-a / graded-opus-a (130 real turns) are only
+//       scoreable while it does not move. The non-functional block ELICITS AND RECORDS AND ENFORCES
+//       NOTHING — wiring an elicited answer into a gate is a later epic.
 //
 // Ids are hand-chosen and stable (s<stage>-<slug>), never derived from text: answers.jsonl,
 // transcript.jsonl and every run package key on them, and a C2 rewording must not move a key.
@@ -58,8 +72,10 @@
 //
 // Selectors: questionById is total (null for anything the bank does not hold — the op applier
 // decides what null means); questionsForStage compares the stage number strictly ([] for 10 or
-// "1"); selectDepth throws a plain Error naming an unknown depth, because a depth is a
-// session-start choice from a closed menu and an unknown one is a programming error.
+// "1"); selectDepth throws a plain Error naming an unknown depth, an unknown or non-boolean facet,
+// and a vector that overflows full discovery's budget (facetPlan is the total form that reports
+// instead of throwing), because a depth and a facet vector are session-start choices from a closed
+// menu and an unknown one is a programming error.
 
 export const STAGES = Object.freeze([
   { n: 1, id: "problem-framing", label: "Problem framing" },
@@ -318,6 +334,41 @@ export const QUESTIONS = Object.freeze([
     label: "OBSERVED",
     note: "Value, usability, feasibility and business viability — the last covering go-to-market, legal, acquisition cost, monetisation, brand.",
     weakAnswer: "three of four addressed and business viability skipped, which is where legal, sales compensation and support cost live.",
+  },
+
+  // ---------- #283 · the non-functional block (D7) — every declared full discovery asks these; recorded only ----------
+  {
+    id: "s4-performance-budget",
+    stage: 4,
+    text: "What is the performance budget — the slowest acceptable interaction, on which device and network, at which percentile — and what is measured against it today?",
+    attribution: "Derived, supported by Google's Core Web Vitals thresholds (Interaction to Next Paint good at or under 200 ms at the 75th percentile) — https://web.dev/articles/inp",
+    label: "DERIVED",
+    note: "This repo gates INP at 200 ms and never asks a product what its own budget is; the answer is recorded as a decision with a wrong-if line and enforces nothing.",
+    weakAnswer: "\"it should be fast\" — no number, no device, no percentile.",
+  },
+  {
+    id: "s4-availability-expectation",
+    stage: 4,
+    text: "What availability does the customer expect, what does an hour down cost them, and who is paged when it is missed?",
+    attribution: "Derived, from the SRE practice of a service level objective with an error budget (Google, Site Reliability Engineering, chapter 4) — https://sre.google/sre-book/service-level-objectives/",
+    label: "DERIVED",
+    weakAnswer: "\"99.9%\" quoted with no answer on what an outage costs the customer or who wakes up.",
+  },
+  {
+    id: "s4-accessibility-target",
+    stage: 4,
+    text: "What accessibility target do we commit to — which WCAG conformance level, which assistive technologies are tested — and who checks it before launch?",
+    attribution: "Derived, from W3C's WCAG 2.2 conformance levels (A, AA, AAA; Recommendation, December 2024) — https://www.w3.org/TR/WCAG22/",
+    label: "DERIVED",
+    weakAnswer: "\"we'll make it accessible\" — no level named, nothing tested with a screen reader, and nobody's name on the check.",
+  },
+  {
+    id: "s4-security-boundary",
+    stage: 4,
+    text: "What is the security boundary — what must never cross it, who is the attacker we design against, and what do we refuse to store at all?",
+    attribution: "Derived, from the Threat Modeling Manifesto's four questions (what are we working on, what can go wrong, what are we going to do about it, did we do a good enough job) — https://www.threatmodelingmanifesto.org/",
+    label: "DERIVED",
+    weakAnswer: "\"we use encryption\" — a control named with no boundary drawn and no attacker described.",
   },
 
   // ---------- Stage 5 — Business model, especially SaaS ----------
@@ -634,6 +685,64 @@ export const QUESTIONS = Object.freeze([
     weakAnswer: "an accuracy figure with no behavioural counterpart. A source-opening rate near zero means the citations are decoration and the trust is unearned.",
   },
 
+  // ---------- #283 · the AI-interaction module (D7) — fired by facets.hasModel; Amershi et al. (HAX) and Google PAIR are the primary sources ----------
+  {
+    id: "s8-prompt-instruction",
+    stage: 8,
+    text: "How does a person instruct the model — what does the product make clear about what it can do and how well, and how do they refine a request that came back wrong?",
+    attribution: "Amershi et al., Guidelines for Human-AI Interaction (CHI 2019), G1 Make clear what the system can do, G2 Make clear how well the system can do what it can do, G9 Support efficient correction — https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/",
+    label: "OBSERVED",
+    provenanceNote: "on the guidelines; the question's wording is the researcher's",
+    weakAnswer: "a blank box with a placeholder that says \"ask anything\" — no statement of what it can do, and refining means retyping.",
+  },
+  {
+    id: "s8-conversational-memory",
+    stage: 8,
+    text: "In a conversation, what does the model remember from earlier turns, what does it forget, and what tone and social norms does it hold?",
+    attribution: "Amershi et al., Guidelines for Human-AI Interaction (CHI 2019), G12 Remember recent interactions and G5 Match relevant social norms — https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/; Google PAIR, People + AI Guidebook, Mental Models, \"Account for user expectations of human-like interaction\" — https://pair.withgoogle.com/chapter/mental-models/",
+    label: "OBSERVED",
+    provenanceNote: "on the guidelines; the question's wording is the researcher's",
+    weakAnswer: "\"it's a chat\" — memory and tone left to the model's defaults, so nobody can say what it knows about the last five minutes.",
+  },
+  {
+    id: "s8-agentic-controls",
+    stage: 8,
+    text: "When the model acts rather than answers, how does a person see what it is about to do, stop it while it runs, and undo what it did?",
+    attribution: "Amershi et al., Guidelines for Human-AI Interaction (CHI 2019), G16 Convey the consequences of user actions, G17 Provide global controls, G8 Support efficient dismissal — https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/; Google PAIR, People + AI Guidebook, Feedback + Control, \"Balance control & automation\" — https://pair.withgoogle.com/chapter/feedback-controls/",
+    label: "OBSERVED",
+    provenanceNote: "on the guidelines; the question's wording is the researcher's",
+    note: "The bank's s8-human-in-the-loop asks whether a control is real; this asks what the interface shows before, during and after an action.",
+    weakAnswer: "\"it asks before anything risky\" with no list of what counts as risky, no stop control while it runs and no undo after.",
+  },
+  {
+    id: "s8-grounding-sources",
+    stage: 8,
+    text: "What is an answer grounded in — which sources, shown where, with what confidence — and can a person open the source from the answer?",
+    attribution: "Google PAIR, People + AI Guidebook, Explainability + Trust, \"Articulate data sources\" and \"Decide how best to show model confidence\" — https://pair.withgoogle.com/chapter/explainability-trust/; Amershi et al., Guidelines for Human-AI Interaction (CHI 2019), G11 Make clear why the system did what it did — https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/",
+    label: "OBSERVED",
+    provenanceNote: "on the guidelines; the question's wording is the researcher's",
+    note: "s8-source-opening-rate measures whether people open the source; this asks whether there is one to open, and where it sits.",
+    weakAnswer: "\"it uses retrieval\" — an architecture with no visible source at the point of the answer, and a confidence number nobody can act on.",
+  },
+  {
+    id: "s8-response-patterns",
+    stage: 8,
+    text: "What does the product show while the model works, when it is unsure, when it partly succeeds and when it fails — and can a person regenerate a response or say what was wrong with it?",
+    attribution: "Google PAIR, People + AI Guidebook, Errors + Graceful Failure, \"Provide paths forward from failure\" — https://pair.withgoogle.com/chapter/errors-failing/; Amershi et al., Guidelines for Human-AI Interaction (CHI 2019), G10 Scope services when in doubt and G15 Encourage granular feedback — https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/",
+    label: "OBSERVED",
+    provenanceNote: "on the guidelines; the question's wording is the researcher's",
+    weakAnswer: "a spinner, then the answer. No unsure state, no partial state, and failure is a generic error.",
+  },
+  {
+    id: "s8-safety-and-trust",
+    stage: 8,
+    text: "What will the product refuse to do, what does it never send to the model or keep from a session, and how does a person report a harmful or wrong answer and see what happened to the report?",
+    attribution: "Google PAIR, People + AI Guidebook, Explainability + Trust, \"Help users calibrate their trust\" — https://pair.withgoogle.com/chapter/explainability-trust/, and Feedback + Control, \"Communicate value & time to impact\" — https://pair.withgoogle.com/chapter/feedback-controls/; Amershi et al., Guidelines for Human-AI Interaction (CHI 2019), G6 Mitigate social biases and G18 Notify users about changes — https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/",
+    label: "OBSERVED",
+    provenanceNote: "on the guidelines; the question's wording is the researcher's",
+    weakAnswer: "a thumbs-down that goes nowhere, and a privacy policy in place of a boundary.",
+  },
+
   // ---------- Stage 9 — The famous killer questions, with provenance checked ----------
   // Press release: folded into s4-press-release (D3). "Three more from earlier stages": a
   // cross-reference to s3-why-now, s1-what-would-have-to-be-true and s7-abandonment (D2).
@@ -724,18 +833,22 @@ export const OPENING_SET = Object.freeze([
 ]);
 
 // The four depths. Scope check is Stage 4's three scoping questions plus Stage 7's measurement
-// (HEART's goals → signals → metrics) and two kill criteria. Full discovery is the twelve, then
-// eighteen more in stage order following the source's own rule — questions cheap to ask cold go
-// early, questions needing a specific proposal to bite go late; Stage 9's Jobs and Chesky entries
-// are exercises rather than interview questions and stay out. #283 re-tunes this list when the
-// branches land and owns keeping it at about thirty.
+// (HEART's goals → signals → metrics) and two kill criteria. Full discovery's ids are the UNFACETED
+// list: the twelve, then eighteen more in stage order following the source's own rule — questions
+// cheap to ask cold go early, questions needing a specific proposal to bite go late; Stage 9's Jobs
+// and Chesky entries are exercises rather than interview questions and stay out. #283 FROZE this list
+// rather than re-tuning it: every committed full-discovery package walked it (allergen-matrix-1, and
+// run 0 — thirty of thirty landed for one real product), and the faceted composition is a separate
+// list built by selectDepth(depth, facets) from OPENING_SET, MODULES and NON_FUNCTIONAL_BLOCK below.
 //
-// Whole bank is every entry in source order (which IS stage order), DERIVED from QUESTIONS rather
-// than retyped: the depth is the bank, so a literal here would be a second copy that drifts. The
-// literal 65-id list is pinned in tooling/build-checks.mjs group 28 (WHOLE_BANK) instead, beside the
-// other three depths, and the depth menu itself is pinned there by name. It re-admits the Stage 9
-// exercises full discovery leaves out, so its label says what it is — a stress test of the bank and
-// a way to compare two postures on one answer set — and never an interview.
+// Whole bank is a FROZEN LITERAL of the 65 source-backed ids in source order (which IS stage order),
+// and it is deliberately NOT derived from QUESTIONS: a stress test's whole value is that it does not
+// move between recordings, and graded-think-a / graded-opus-a (#348, 65 turns each) are comparable
+// only while it holds. The ten D7 entries are never in it; widening the corpus is a second depth and
+// a second fixture, never an edit here. tooling/build-checks.mjs group 28 holds a second copy of the
+// 65 and asserts that every QUESTIONS entry outside this list is one D7 names — the check that can
+// fail. Its label says what it is — a stress test of the bank and a way to compare two postures on
+// one answer set — and never an interview.
 export const DEPTHS = Object.freeze({
   "scope-check": Object.freeze({
     label: "Scope check",
@@ -782,9 +895,138 @@ export const DEPTHS = Object.freeze({
   "whole-bank": Object.freeze({
     label: "Whole bank (stress test)",
     when: "comparing two postures on one answer set; a stress test of the bank, not an interview",
-    ids: Object.freeze(QUESTIONS.map((q) => q.id)),
+    ids: Object.freeze([
+      "s1-choice-cascade", "s1-what-would-have-to-be-true", "s1-premortem", "s1-how-addressed-today",
+      "s1-why-who-how-what", "s1-if-nobody-solves-this",
+      "s2-more-than-one-way", "s2-why-do-you-want-it", "s2-riskiest-assumption", "s2-last-time-show-me",
+      "s2-switch-timeline", "s2-four-forces", "s2-kano-pair",
+      "s3-why-now", "s3-user-need-map", "s3-where-is-the-inertia", "s3-beachhead",
+      "s3-deliberately-not-doing", "s3-what-winning-earns",
+      "s4-appetite", "s4-breadboard-elements", "s4-rabbit-holes", "s4-out-of-bounds",
+      "s4-circuit-breaker", "s4-press-release", "s4-four-risks",
+      "s5-value-metric", "s5-willingness-to-pay", "s5-monetisation-failure",
+      "s5-pain-budget-same-person", "s5-net-revenue-retention", "s5-gross-margin",
+      "s5-pricing-model-story", "s5-free-tier-cost",
+      "s6-process-as-it-runs", "s6-accountable-when-wrong", "s6-permission-model", "s6-audit-trail",
+      "s6-where-data-lives", "s6-coexist-with-incumbent", "s6-edge-cases-or-refusals",
+      "s6-integration-surface",
+      "s7-goals-signals-metrics", "s7-north-star", "s7-counter-metric", "s7-kill-state-and-date",
+      "s7-what-would-make-us-stop", "s7-abandonment", "s7-goes-up-doing-nothing",
+      "s8-eval", "s8-validate-the-validators", "s8-system-or-model", "s8-failure-who-pays",
+      "s8-human-in-the-loop", "s8-reversibility-blast-radius", "s8-cost-per-successful-action",
+      "s8-latency-budget", "s8-product-or-feature", "s8-data-flywheel", "s8-trust-budget",
+      "s8-source-opening-rate",
+      "s9-customer-experience-backwards", "s9-eleven-star", "s9-strength-of-evidence",
+      "s9-very-disappointed",
+    ]),
   }),
 });
+
+// --- the width (#283; docs/epics/discovery-question-selection.architecture.md D1, D1a) ------------
+
+// The non-functional block: four quality attributes every DECLARED full discovery asks, LAST, because
+// each bites only once a shape exists. Not facet-gated. Recorded as decisions with a wrong-if line
+// like any other, and enforced nowhere — wiring an elicited answer into a gate is a later epic.
+export const NON_FUNCTIONAL_BLOCK = Object.freeze([
+  "s4-performance-budget",
+  "s4-availability-expectation",
+  "s4-accessibility-target",
+  "s4-security-boundary",
+]);
+
+// Five facts about a product, not categories for it (D1). `question` is what the person is asked at
+// intake (#288 renders it beside a checkbox); the order here is the order modules fire in.
+export const FACETS = Object.freeze([
+  { id: "hasModel", question: "Does a model run in the user's path?", fires: "the AI-interaction module" },
+  { id: "regulated", question: "Can a regulator, auditor or statutory duty inspect what this does?", fires: "Stage 6's audit-trail and accountability tail" },
+  { id: "internal", question: "Do the users work for the organisation that builds it?", fires: "the process and workflow tail; it does not ask willingness-to-pay" },
+  { id: "orgBuys", question: "Is the payer someone other than the user?", fires: "Stage 5's value-metric and pain-budget tail" },
+  { id: "replacesAProcess", question: "Does it change how an organisation already works?", fires: "the transition-requirements tail MVP 10 already requires" },
+].map(Object.freeze));
+
+// One module per facet: a NAMED, ORDERED group of bank ids with its own declared budget. Selection,
+// not new research — the only new text in the bank is D7's ten. Modules are DISJOINT from each other,
+// from OPENING_SET and from NON_FUNCTIONAL_BLOCK (group 28 pins it), so a composition never repeats.
+// Budgets: 7 · 6 · 6 · 6 · 6 — any two fit inside FULL_DISCOVERY_BUDGET with the twelve and the
+// block (12 + 4 + 13 = 29), any three overflow it (12 + 4 + 18 = 34). That arithmetic is D1a's rule
+// and group 28 drives every pair and every triple.
+export const MODULES = Object.freeze({
+  hasModel: Object.freeze({
+    label: "AI interaction",
+    budget: 7,
+    ids: Object.freeze([
+      "s8-failure-who-pays",
+      "s8-prompt-instruction",
+      "s8-conversational-memory",
+      "s8-agentic-controls",
+      "s8-grounding-sources",
+      "s8-response-patterns",
+      "s8-safety-and-trust",
+    ]),
+  }),
+  regulated: Object.freeze({
+    label: "Regulated",
+    budget: 6,
+    ids: Object.freeze([
+      "s4-four-risks",
+      "s6-audit-trail",
+      "s6-permission-model",
+      "s6-where-data-lives",
+      "s6-edge-cases-or-refusals",
+      "s9-strength-of-evidence",
+    ]),
+  }),
+  internal: Object.freeze({
+    label: "Internal",
+    budget: 6,
+    ids: Object.freeze([
+      "s1-why-who-how-what",
+      "s2-why-do-you-want-it",
+      "s2-last-time-show-me",
+      "s6-integration-surface",
+      "s7-abandonment",
+      "s7-goes-up-doing-nothing",
+    ]),
+  }),
+  orgBuys: Object.freeze({
+    label: "Organisation buys",
+    budget: 6,
+    ids: Object.freeze([
+      "s5-value-metric",
+      "s5-willingness-to-pay",
+      "s5-monetisation-failure",
+      "s5-net-revenue-retention",
+      "s5-gross-margin",
+      "s5-pricing-model-story",
+    ]),
+  }),
+  replacesAProcess: Object.freeze({
+    label: "Replaces a process",
+    budget: 6,
+    ids: Object.freeze([
+      "s1-premortem",
+      "s2-switch-timeline",
+      "s2-four-forces",
+      "s3-where-is-the-inertia",
+      "s3-deliberately-not-doing",
+      "s6-coexist-with-incumbent",
+    ]),
+  }),
+});
+
+// The PRD's four names as PRESETS over the vector — a starting point the person adjusts, never a
+// cell (MVP 4 as amended 2026-09-02). Every preset carries all five keys so #288 can set five
+// checkboxes from one object. Consumer is the DECLARED all-false vector — it composes (twelve +
+// block, 16) — and is not the same input as {} (no vector; today's unfaceted 30).
+export const PRESETS = Object.freeze([
+  { id: "regulated", label: "Regulated", facets: { hasModel: false, regulated: true, internal: false, orgBuys: false, replacesAProcess: false } },
+  { id: "b2b-saas", label: "B2B SaaS", facets: { hasModel: false, regulated: false, internal: false, orgBuys: true, replacesAProcess: false } },
+  { id: "internal-tool", label: "Internal tool", facets: { hasModel: false, regulated: false, internal: true, orgBuys: true, replacesAProcess: false } },
+  { id: "consumer", label: "Consumer", facets: { hasModel: false, regulated: false, internal: false, orgBuys: false, replacesAProcess: false } },
+].map((p) => Object.freeze({ ...p, facets: Object.freeze(p.facets) })));
+
+// MVP 5's ~30 as a budget the person spends (D1a), not a number width can quietly exceed.
+export const FULL_DISCOVERY_BUDGET = 30;
 
 // The entry for an id, or null. Total: anything the bank does not hold — an unknown id, a
 // non-string — answers null, and the caller decides what null means.
@@ -798,9 +1040,58 @@ export function questionsForStage(n) {
   return QUESTIONS.filter((q) => q.stage === n);
 }
 
-// The entries of a depth, in the depth's order. Throws for a depth the menu does not hold.
-export function selectDepth(depth) {
+const FACET_IDS = FACETS.map((f) => f.id);
+
+// The vector, normalised: null for NO VECTOR (undefined, null or {} — every committed package and
+// every one-argument caller), a frozen five-key boolean record otherwise (a missing key reads false,
+// so a preset or a partial object composes). Junk throws by name on EVERY depth, so no run.json can
+// ever carry a vector the bank would not read.
+function normaliseFacets(facets) {
+  if (facets === undefined || facets === null) return null;
+  if (typeof facets !== "object" || Array.isArray(facets))
+    throw new Error(`bank: facets must be an object of booleans keyed by ${FACET_IDS.join(" · ")}, got ${JSON.stringify(facets)}`);
+  const keys = Object.keys(facets);
+  if (keys.length === 0) return null;
+  for (const k of keys) {
+    if (!FACET_IDS.includes(k)) throw new Error(`bank: unknown facet "${k}" — the five are ${FACET_IDS.join(" · ")}`);
+    if (typeof facets[k] !== "boolean") throw new Error(`bank: facet "${k}" must be true or false, got ${JSON.stringify(facets[k])}`);
+  }
+  return Object.freeze(Object.fromEntries(FACET_IDS.map((id) => [id, facets[id] === true])));
+}
+
+// What a vector composes, as a VALUE (D1a: overflow is shown, never resolved silently). Total and
+// pure. fired = the ticked facets in FACETS order; fits = the prefix of fired whose budgets, after the
+// twelve and the block, stay inside FULL_DISCOVERY_BUDGET; overflow = the rest, in order. count is the
+// length of the list that fits — a session's length only when overflow is empty. Undeclared → the
+// unfaceted list's count and nothing fired.
+export function facetPlan(facets) {
+  const v = normaliseFacets(facets);
+  if (v === null) return Object.freeze({ declared: false, fired: Object.freeze([]), fits: Object.freeze([]), overflow: Object.freeze([]), count: DEPTHS["full-discovery"].ids.length, budget: FULL_DISCOVERY_BUDGET });
+  const fired = FACET_IDS.filter((id) => v[id]);
+  const fits = [];
+  const overflow = [];
+  let count = OPENING_SET.length + NON_FUNCTIONAL_BLOCK.length;
+  for (const id of fired) {
+    if (count + MODULES[id].budget <= FULL_DISCOVERY_BUDGET) { fits.push(id); count += MODULES[id].budget; }
+    else overflow.push(id);
+  }
+  return Object.freeze({ declared: true, fired: Object.freeze(fired), fits: Object.freeze(fits), overflow: Object.freeze(overflow), count, budget: FULL_DISCOVERY_BUDGET });
+}
+
+// The entries of a depth, in the depth's order. Throws for a depth the menu does not hold. TOTAL over
+// all four depths in its second argument (D1b): only full-discovery composes from a declared vector —
+// OPENING_SET in its order, then each fired module's ids in FACETS order, then the block — so a module
+// can only ever extend the tail. The other three answer their literal for every vector. No vector
+// (undefined, null, {}) answers today's list on every depth, byte for byte: every committed package
+// and every existing caller is that case. A vector that overflows the budget THROWS naming what fits
+// and what does not — never a silent truncation and never a 45-question session; facetPlan is the
+// form that reports instead (#288 shows it, #285 refuses on it).
+export function selectDepth(depth, facets) {
   const d = typeof depth === "string" && Object.hasOwn(DEPTHS, depth) ? DEPTHS[depth] : null;
   if (!d) throw new Error(`bank: unknown depth "${depth}"`);
-  return d.ids.map((id) => questionById(id));
+  const plan = facetPlan(facets);
+  if (depth !== "full-discovery" || !plan.declared) return d.ids.map((id) => questionById(id));
+  if (plan.overflow.length)
+    throw new Error(`bank: the facet vector overflows full discovery's ${plan.budget} — ${plan.fits.join(" + ") || "nothing"} fit (${plan.count}); ${plan.overflow.map((id) => `${id} (${MODULES[id].budget})`).join(", ")} does not; drop a facet or run whole-bank`);
+  return [...OPENING_SET, ...plan.fits.flatMap((id) => MODULES[id].ids), ...NON_FUNCTIONAL_BLOCK].map((id) => questionById(id));
 }

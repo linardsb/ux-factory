@@ -121,10 +121,15 @@
 //                     modules (#221)
 //  28 bank           the discovery question bank as data: the count and per-stage counts pinned,
 //                     ids unique and stage-prefixed, every field on every entry, the twelve as an
-//                     ORDER assertion, each depth's exact documented set, purity and frozenness by
-//                     mutation, the C3 title-term list with its positive control, the zero-import /
-//                     no-page source pin, and every weak-answer note pinned to the research file by
-//                     its first thirty characters (#282)
+//                     ORDER assertion, each depth's exact documented set with whole-bank pinned as a
+//                     FROZEN LITERAL in both files and QUESTIONS minus it asserted to be exactly
+//                     D7's ten, purity and frozenness by mutation, the C3 title-term list with its
+//                     positive control, the zero-import / no-page source pin, and every source-backed
+//                     weak-answer note pinned to the research file by its first thirty characters
+//                     (#282) · the width (#283): the five facets, the five facet modules as
+//                     documented literals with budgets, the four presets, selectDepth's TOTALITY
+//                     driven over the three absent forms and all 32 vectors on all four depths, the
+//                     composition and its budget overflow, and junk vectors refused by name
 //  29 discovery ops  the discovery applier (discovery/ops.mjs): OPS iterated against PARAMS and a
 //                     VALID_FOR fixture per verb, the four named throws each driven by a broken
 //                     op, both flag directions, R2 on the turn, the supersede rule, totality over
@@ -223,7 +228,7 @@ import { auditRefs, stampShell } from "../agent-layer/build-instance.mjs";
 import { curateTrace } from "./curate-trace.mjs";
 // #282's bank — a zero-import data module (discovery/, not system/), so there is no SDK anywhere
 // in its graph and CI's absence of portal/node_modules cannot touch it.
-import { DEPTHS, OPENING_SET, questionById, questionsForStage, QUESTIONS as BANK, selectDepth, STAGES } from "../discovery/bank.mjs";
+import { DEPTHS, FACETS, facetPlan, FULL_DISCOVERY_BUDGET, MODULES, NON_FUNCTIONAL_BLOCK, OPENING_SET, PRESETS, questionById, questionsForStage, QUESTIONS as BANK, selectDepth, STAGES } from "../discovery/bank.mjs";
 // #281's op grammar + applier — a zero-import module in discovery/ (not system/, so gen-loc-summary
 // counts nothing), with no SDK anywhere in its graph. OPS and PARAMS are aliased because OPS above
 // is board-ops.mjs's.
@@ -5207,9 +5212,9 @@ function scanSvg(svg, label) {
     "s6-audit-trail", "s6-coexist-with-incumbent", "s7-kill-state-and-date",
     "s7-goes-up-doing-nothing", "s8-failure-who-pays", "s9-strength-of-evidence",
   ];
-  // The whole bank as a LITERAL, in source order — bank.mjs derives its whole-bank depth from
-  // QUESTIONS, so this is the one place the 65 ids are written out, and an entry added, dropped or
-  // reordered has to move this list in the same PR.
+  // The whole bank as a LITERAL, in source order — SECOND copy: #283 froze the depth in bank.mjs
+  // too, so the two literals are what can disagree, loudly, and a source entry added, dropped or
+  // reordered has to move both in the same PR.
   const WHOLE_BANK = [
     "s1-choice-cascade", "s1-what-would-have-to-be-true", "s1-premortem", "s1-how-addressed-today",
     "s1-why-who-how-what", "s1-if-nobody-solves-this",
@@ -5231,12 +5236,21 @@ function scanSvg(svg, label) {
     "s8-source-opening-rate",
     "s9-customer-experience-backwards", "s9-eleven-star", "s9-strength-of-evidence", "s9-very-disappointed",
   ];
+  // The ten #283 added OUTSIDE the source and OUTSIDE whole-bank (bank.mjs D7). Case 10 asserts
+  // QUESTIONS minus WHOLE_BANK is exactly this list — the statement that can fail once whole-bank
+  // is a literal.
+  const ADDED_283 = [
+    "s4-performance-budget", "s4-availability-expectation", "s4-accessibility-target", "s4-security-boundary",
+    "s8-prompt-instruction", "s8-conversational-memory", "s8-agentic-controls", "s8-grounding-sources",
+    "s8-response-patterns", "s8-safety-and-trust",
+  ];
   const ids = (qs) => qs.map((q) => q.id);
 
-  // 1 · the count — 65 entries, 69 source bullets less two mottos, one cross-reference and one
-  //     fold (the module header's D2/D3), per stage 6·7·6·7·8·8·7·12·4, nine stages.
-  ok(BANK.length === 65, `the bank holds ${BANK.length} entries, not 65 — reconcile the docs and this pin with the module header`);
-  const perStage = [6, 7, 6, 7, 8, 8, 7, 12, 4];
+  // 1 · the count — 75 entries: 65 source entries per stage 6·7·6·7·8·8·7·12·4 (69 source bullets
+  //     less two mottos, one cross-reference and one fold — the module header's D2/D3), plus D7's
+  //     four in stage 4 and six in stage 8, over the same nine stages.
+  ok(BANK.length === 75, `the bank holds ${BANK.length} entries, not 75 — 65 source-backed plus the ten of D7`);
+  const perStage = [6, 7, 6, 11, 8, 8, 7, 18, 4];
   perStage.forEach((n, i) => ok(questionsForStage(i + 1).length === n,
     `stage ${i + 1} holds ${questionsForStage(i + 1).length} entries, not ${n}`));
   ok(STAGES.length === 9 && STAGES.every((s, i) => s.n === i + 1), "STAGES must be 1–9 in order");
@@ -5279,13 +5293,18 @@ function scanSvg(svg, label) {
   ok(JSON.stringify(ids(selectDepth("full-discovery"))) === JSON.stringify(FULL_DISCOVERY),
     `full-discovery drifted: ${JSON.stringify(ids(selectDepth("full-discovery")))}`);
   ok(JSON.stringify(DEPTHS["full-discovery"].ids.slice(0, 12)) === JSON.stringify(TWELVE), "full discovery must start with the twelve");
-  // The whole bank: the literal above, equal to the bank in SOURCE order (which is stage order) —
-  // the module derives the depth from QUESTIONS, so this is the copy that can disagree. Its label
-  // must say stress test, never interview: it re-admits the Stage 9 exercises full discovery leaves out.
+  // The whole bank: the literal above, equal to the FROZEN LITERAL bank.mjs now carries (#283) —
+  // two copies in two files, which is the point: this one is what can disagree. The 65 source-backed
+  // entries must also keep source order INSIDE QUESTIONS, and the depth must never go back to being
+  // derived, because a derived depth moves the moment a question is added. Its label must say stress
+  // test, never interview: it re-admits the Stage 9 exercises full discovery leaves out.
   ok(WHOLE_BANK.length === 65 && new Set(WHOLE_BANK).size === 65, "WHOLE_BANK must be 65 unique ids");
   ok(JSON.stringify(ids(selectDepth("whole-bank"))) === JSON.stringify(WHOLE_BANK),
     `whole-bank drifted from the documented 65: ${JSON.stringify(ids(selectDepth("whole-bank")))}`);
-  ok(JSON.stringify(ids(BANK)) === JSON.stringify(WHOLE_BANK), "whole-bank must be the bank in source order — the literal here and QUESTIONS disagree");
+  ok(JSON.stringify(ids(BANK).filter((id) => WHOLE_BANK.includes(id))) === JSON.stringify(WHOLE_BANK),
+    "the 65 source-backed entries must keep source order inside QUESTIONS");
+  ok(!/QUESTIONS\.map\(\(q\) => q\.id\)/.test(readFileSync(join(ROOT, "discovery/bank.mjs"), "utf8")),
+    "whole-bank must be a LITERAL in bank.mjs, never derived from QUESTIONS — a derived depth moves when a question is added and the graded fixture stops being scoreable");
   ok(/stress test/i.test(DEPTHS["whole-bank"].label) && !/interview/i.test(DEPTHS["whole-bank"].label),
     `whole-bank's label must read as a stress test, not an interview: ${JSON.stringify(DEPTHS["whole-bank"].label)}`);
   // The MENU pinned by name: the four depths above are each pinned to a literal, and a fifth with
@@ -5332,6 +5351,9 @@ function scanSvg(svg, label) {
   }
   for (const s of STAGES) ok(!TITLE_TERMS.test(s.label), `STAGES ${s.n} label carries a title`);
   for (const [k, d] of Object.entries(DEPTHS)) ok(!TITLE_TERMS.test(d.label) && !TITLE_TERMS.test(d.when), `depth ${k} label/when carries a title`);
+  for (const f of FACETS) ok(!TITLE_TERMS.test(f.question) && !TITLE_TERMS.test(f.fires), `facet ${f.id} carries a title`);
+  for (const [k, m] of Object.entries(MODULES)) ok(!TITLE_TERMS.test(m.label), `module ${k} label carries a title`);
+  for (const p of PRESETS) ok(!TITLE_TERMS.test(p.label), `preset ${p.id} label carries a title`);
 
   // 8 · no page, no SDK, no DOM — the module has zero import lines and no DOM token, and nothing
   //     shipped (a tracked .html, anything under system/) reaches for it.
@@ -5347,8 +5369,10 @@ function scanSvg(svg, label) {
   }
   ok(shipped.length > 50, `the shipped-file sweep saw only ${shipped.length} files — is git ls-files answering?`);
 
-  // 9 · the source pin (D13) — every weak-answer note's first thirty characters occur verbatim in
-  //     the source file's stages 1–9 region, so a paraphrased or invented note goes red. Positive
+  // 9 · the source pin (D13) — every SOURCE-BACKED weak-answer note's first thirty characters occur
+  //     verbatim in the source file's stages 1–9 region, so a paraphrased or invented note goes red.
+  //     Scoped to whole-bank's 65 since #283: D7's ten are not from that file and are never asked to
+  //     appear in it — and the loop under it proves that scoping is not doing nothing. Positive
   //     control: the region must be able to NOT contain a string.
   const source = readFileSync(join(ROOT, "docs/research/question-bank-source.md"), "utf8");
   // Both headings must exist first: an indexOf of -1 would make slice run to the end of the file
@@ -5357,9 +5381,124 @@ function scanSvg(svg, label) {
   const region = source.slice(source.indexOf("## Stage 1"), source.indexOf("## The twelve"));
   ok(region.length > 10000, `the source region is ${region.length} chars — did the stage headings move?`);
   ok(!region.includes("a note nobody wrote"), "source-pin positive control: the region must be able to miss");
-  for (const q of BANK) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
+  for (const q of BANK) if (WHOLE_BANK.includes(q.id)) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
+  for (const id of ADDED_283) ok(!region.includes(questionById(id).weakAnswer.slice(0, 30)), `${id}: a D7 entry's weak-answer opening is IN the source region — it is not from that file, so the scoping above is doing nothing`);
 
-  group("bank", "65 entries pinned with the per-stage counts 6·7·6·7·8·8·7·12·4 and nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, the whole bank as the 65 in source order (the literal lives here, the module derives it) with its label pinned to stress test and the four-entry menu pinned by name, no orphan and no repeat, the junk-depth throw naming the value · purity by double call, entries by identity, frozenness at every level by an inert write · the C3 title-term list with its positive control and the profession-noun exemption stated · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — all review facts against that source file");
+  // 10 · the added ten (D7) — QUESTIONS minus whole-bank is EXACTLY this list, both directions; each
+  //      resolves, sits in the stage its prefix names, cites a primary source by URL, and the six
+  //      AI-interaction entries name Amershi or PAIR. The block is the first four; the six the rest.
+  const outside = ids(BANK).filter((id) => !WHOLE_BANK.includes(id));
+  ok(JSON.stringify(outside) === JSON.stringify(ADDED_283), `QUESTIONS minus whole-bank is ${JSON.stringify(outside)}, not D7's ten — an entry was added without joining this list, or one of the ten fell into whole-bank`);
+  ok(ADDED_283.every((id) => questionById(id) !== null && !WHOLE_BANK.includes(id)), "every D7 id must resolve and stay OUT of whole-bank");
+  for (const id of ADDED_283) ok(/https:\/\/\S+/.test(questionById(id).attribution), `${id}: attribution carries no URL — D7 entries cite a primary source by URL`);
+  const AI_SIX = ADDED_283.slice(4);
+  ok(JSON.stringify(NON_FUNCTIONAL_BLOCK) === JSON.stringify(ADDED_283.slice(0, 4)), `NON_FUNCTIONAL_BLOCK is ${JSON.stringify(NON_FUNCTIONAL_BLOCK)}, not D7's first four`);
+  for (const id of AI_SIX) ok(/Amershi|PAIR/.test(questionById(id).attribution) && questionById(id).label === "OBSERVED", `${id}: the AI-interaction module cites HAX (Amershi) or PAIR as a PRIMARY source, OBSERVED`);
+  ok(/enforces nothing|enforced nowhere/i.test(bankSrc), "the block's header must state it elicits and records and enforces nothing");
+
+  // 11 · the five facets, in the documented order, each with the intake question and a fires line;
+  //      frozen at both levels by an inert write.
+  ok(JSON.stringify(FACETS.map((f) => f.id)) === JSON.stringify(["hasModel", "regulated", "internal", "orgBuys", "replacesAProcess"]), `FACETS is ${JSON.stringify(FACETS.map((f) => f.id))} — the five, in D1's order`);
+  for (const f of FACETS) ok(filled(f.question) && f.question.endsWith("?") && filled(f.fires), `facet ${f.id} needs a question ending in ? and a fires line`);
+  ok(Object.isFrozen(FACETS) && FACETS.every(Object.isFrozen), "FACETS must be frozen at both levels");
+
+  // 12 · the modules — keyed exactly by FACETS, each a documented literal with a declared budget equal
+  //      to its length, every id resolving, DISJOINT from each other, from the twelve and from the
+  //      block, and hasModel carrying the six. Budgets pinned so any two fit and any three overflow.
+  const MODULE_IDS = {
+    hasModel: ["s8-failure-who-pays", ...AI_SIX],
+    regulated: ["s4-four-risks", "s6-audit-trail", "s6-permission-model", "s6-where-data-lives", "s6-edge-cases-or-refusals", "s9-strength-of-evidence"],
+    internal: ["s1-why-who-how-what", "s2-why-do-you-want-it", "s2-last-time-show-me", "s6-integration-surface", "s7-abandonment", "s7-goes-up-doing-nothing"],
+    orgBuys: ["s5-value-metric", "s5-willingness-to-pay", "s5-monetisation-failure", "s5-net-revenue-retention", "s5-gross-margin", "s5-pricing-model-story"],
+    replacesAProcess: ["s1-premortem", "s2-switch-timeline", "s2-four-forces", "s3-where-is-the-inertia", "s3-deliberately-not-doing", "s6-coexist-with-incumbent"],
+  };
+  ok(JSON.stringify(Object.keys(MODULES)) === JSON.stringify(FACETS.map((f) => f.id)), `MODULES is keyed ${JSON.stringify(Object.keys(MODULES))}, not by FACETS`);
+  for (const f of FACETS) {
+    const m = MODULES[f.id];
+    ok(m && filled(m.label) && Number.isInteger(m.budget) && Array.isArray(m.ids), `module ${f.id} needs label, budget and ids`);
+    ok(JSON.stringify(m.ids) === JSON.stringify(MODULE_IDS[f.id]), `module ${f.id} drifted: ${JSON.stringify(m.ids)}`);
+    ok(m.budget === m.ids.length && m.budget >= 6 && m.budget <= 7, `module ${f.id}: budget ${m.budget} must equal its ${m.ids.length} ids and sit in 6..7 (any two fit, any three overflow)`);
+    ok(m.ids.every((id) => questionById(id) !== null), `module ${f.id} references an id the bank does not hold`);
+    ok(m.ids.every((id) => !OPENING_SET.includes(id) && !NON_FUNCTIONAL_BLOCK.includes(id)), `module ${f.id} repeats a twelve or block id`);
+    ok(Object.isFrozen(m) && Object.isFrozen(m.ids), `module ${f.id} must be frozen`);
+  }
+  const allModuleIds = FACETS.flatMap((f) => MODULES[f.id].ids);
+  ok(new Set(allModuleIds).size === allModuleIds.length, "two modules share an id — a composition would ask it twice");
+  ok(!MODULES.internal.ids.includes("s5-willingness-to-pay"), "internal must not carry willingness-to-pay (D1)");
+  ok(Object.isFrozen(MODULES), "MODULES must be frozen");
+
+  // 13 · the presets — the PRD's four names, each carrying all five keys, each composing without
+  //      overflow; consumer is the declared all-false vector and is NOT the same as {}.
+  ok(JSON.stringify(PRESETS.map((p) => [p.id, p.label])) === JSON.stringify([["regulated", "Regulated"], ["b2b-saas", "B2B SaaS"], ["internal-tool", "Internal tool"], ["consumer", "Consumer"]]), `PRESETS drifted: ${JSON.stringify(PRESETS.map((p) => [p.id, p.label]))}`);
+  const ticked = (p) => FACETS.map((f) => f.id).filter((id) => p.facets[id]);
+  ok(JSON.stringify(PRESETS.map(ticked)) === JSON.stringify([["regulated"], ["orgBuys"], ["internal", "orgBuys"], []]), `the presets tick ${JSON.stringify(PRESETS.map(ticked))}, not D1's combinations`);
+  for (const p of PRESETS) {
+    ok(JSON.stringify(Object.keys(p.facets).sort()) === JSON.stringify(FACETS.map((f) => f.id).sort()) && Object.values(p.facets).every((v) => typeof v === "boolean"), `preset ${p.id} must carry all five facets as booleans`);
+    ok(facetPlan(p.facets).declared && facetPlan(p.facets).overflow.length === 0, `preset ${p.id} must compose without overflow`);
+    ok(Object.isFrozen(p) && Object.isFrozen(p.facets), `preset ${p.id} must be frozen`);
+  }
+  ok(selectDepth("full-discovery", PRESETS[3].facets).length === 16 && selectDepth("full-discovery", {}).length === 30, "consumer (declared all-false) is twelve + block = 16; {} is NO vector and answers the unfaceted 30");
+
+  // 14 · TOTALITY (D1b) — the three ABSENT forms and every one of the 32 vectors, driven against all
+  //      four literals: the three non-composing depths never move, and no vector answers today's
+  //      list on full-discovery except the absent forms. Byte-identical means JSON-identical here.
+  const LITERALS = { "scope-check": SCOPE_CHECK, "opening-set": OPENING_SET, "full-discovery": FULL_DISCOVERY, "whole-bank": WHOLE_BANK };
+  const vectors = [];
+  for (let bits = 0; bits < 32; bits += 1) vectors.push(Object.fromEntries(FACETS.map((f, i) => [f.id, Boolean(bits & (1 << i))])));
+  for (const k of Object.keys(DEPTHS)) {
+    ok(JSON.stringify(ids(selectDepth(k))) === JSON.stringify(LITERALS[k]), `selectDepth("${k}") with ONE argument moved: ${JSON.stringify(ids(selectDepth(k)))}`);
+    for (const absent of [undefined, null, {}]) ok(JSON.stringify(ids(selectDepth(k, absent))) === JSON.stringify(LITERALS[k]), `selectDepth("${k}", ${JSON.stringify(absent) ?? "undefined"}) must be byte-identical to today's list`);
+    if (k !== "full-discovery") for (const v of vectors) ok(JSON.stringify(ids(selectDepth(k, v))) === JSON.stringify(LITERALS[k]), `depth ${k} moved under vector ${JSON.stringify(v)} — only full-discovery composes`);
+  }
+  ok(facetPlan(undefined).declared === false && facetPlan({}).declared === false && facetPlan(PRESETS[3].facets).declared === true, "facetPlan must read undefined and {} as NO vector and an all-false object as a declared one");
+
+  // 15 · the COMPOSITION — for every vector: the stable prefix asserted for full-discovery ONLY (whole
+  //      bank's first twelve are source order and are deliberately not asserted), the fired modules in
+  //      FACETS order, the block LAST exactly once, no repeat, the count arithmetic; every pair fits,
+  //      every triple / quad / quint overflows — reported by facetPlan and THROWN by selectDepth naming
+  //      the facet that does not fit and the whole-bank escape.
+  ok(JSON.stringify(ids(selectDepth("whole-bank")).slice(0, 12)) !== JSON.stringify(TWELVE), "positive control: whole-bank's first twelve are NOT the opening set, so the prefix assertion below must stay scoped to full-discovery");
+  let pairs = 0, overflows = 0;
+  for (const v of vectors) {
+    const fired = FACETS.map((f) => f.id).filter((id) => v[id]);
+    const plan = facetPlan(v);
+    ok(JSON.stringify(plan.fired) === JSON.stringify(fired), `facetPlan fired ${JSON.stringify(plan.fired)} for ${JSON.stringify(fired)}`);
+    const want = 12 + 4 + fired.reduce((s, id) => s + MODULES[id].budget, 0);
+    if (fired.length <= 2) {
+      ok(plan.overflow.length === 0 && plan.count === want && want <= FULL_DISCOVERY_BUDGET, `${fired.join("+") || "consumer"} must fit: plan ${JSON.stringify(plan)}`);
+      const list = ids(selectDepth("full-discovery", v));
+      ok(JSON.stringify(list.slice(0, 12)) === JSON.stringify(TWELVE), `full-discovery under ${fired.join("+") || "no facet"} does not start with the twelve in OPENING_SET's order`);
+      ok(JSON.stringify(list.slice(12, 12 + want - 16)) === JSON.stringify(fired.flatMap((id) => MODULES[id].ids)), `the modules must follow the twelve in FACETS order under ${fired.join("+")}`);
+      ok(JSON.stringify(list.slice(-4)) === JSON.stringify(NON_FUNCTIONAL_BLOCK) && list.filter((id) => NON_FUNCTIONAL_BLOCK.includes(id)).length === 4, `the block must be LAST, once, under ${fired.join("+") || "no facet"}`);
+      ok(list.length === want && new Set(list).size === list.length, `full-discovery under ${fired.join("+") || "no facet"} is ${list.length} long with ${new Set(list).size} distinct — want ${want}`);
+      ok(selectDepth("full-discovery", v).every((q) => questionById(q.id) === q), "a composed list must answer the bank's own entries");
+      if (fired.length === 2) pairs += 1;
+    } else {
+      ok(plan.overflow.length >= 1 && plan.fits.length === 2 && plan.count <= FULL_DISCOVERY_BUDGET, `${fired.join("+")} must overflow with exactly two fitting: plan ${JSON.stringify(plan)}`);
+      let msg = null;
+      try { selectDepth("full-discovery", v); } catch (e) { msg = e.message; }
+      ok(msg !== null && plan.overflow.every((id) => msg.includes(id)) && msg.includes("whole-bank") && msg.includes(String(FULL_DISCOVERY_BUDGET)), `an overflowing vector must THROW naming every facet that does not fit, the budget and the whole-bank escape — got ${JSON.stringify(msg)}`);
+      overflows += 1;
+    }
+  }
+  ok(pairs === 10 && overflows === 16, `drove ${pairs} pairs and ${overflows} overflowing vectors — want 10 and 16`);
+  ok(JSON.stringify(selectDepth("full-discovery", { regulated: true })) === JSON.stringify(selectDepth("full-discovery", PRESETS[0].facets)), "a partial vector and the full-key preset it equals must compose the same list");
+
+  // 16 · junk vectors refused BY NAME on every depth — a vector no run.json may ever carry.
+  const JUNK_FACETS = [["x", "facets must be"], [[], "facets must be"], [42, "facets must be"], [{ marketplace: true }, "marketplace"], [{ hasModel: "yes" }, "hasModel"], [{ hasModel: 1 }, "hasModel"], [{ regulated: null }, "regulated"]];
+  for (const k of Object.keys(DEPTHS)) for (const [junk, needle] of JUNK_FACETS) {
+    let msg = null;
+    try { selectDepth(k, junk); } catch (e) { msg = e.message; }
+    ok(msg !== null && msg.includes(needle), `selectDepth("${k}", ${JSON.stringify(junk)}) must throw naming ${JSON.stringify(needle)}, got ${JSON.stringify(msg)}`);
+  }
+
+  // 17 · purity of the new surface — two calls agree, the plan is frozen, a write to a composed list's
+  //      source arrays is inert, and the composition never aliases MODULES.
+  ok(JSON.stringify(facetPlan(PRESETS[2].facets)) === JSON.stringify(facetPlan(PRESETS[2].facets)) && Object.isFrozen(facetPlan(PRESETS[2].facets)), "facetPlan must be pure and answer a frozen plan");
+  ok(Object.isFrozen(NON_FUNCTIONAL_BLOCK) && Object.isFrozen(PRESETS), "NON_FUNCTIONAL_BLOCK and PRESETS must be frozen");
+  { const before = JSON.stringify(MODULES); try { MODULES.hasModel.ids.push("s1-premortem"); } catch { /* strict-mode throw; the compare decides */ } ok(JSON.stringify(MODULES) === before, "a write to a module must be inert"); }
+
+  group("bank", "75 entries — 65 source-backed pinned per stage 6·7·6·7·8·8·7·12·4 plus D7's four in stage 4 and six in stage 8 — over nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, the whole bank as the 65 in source order (a FROZEN LITERAL in both files, with QUESTIONS minus whole-bank asserted to be exactly D7's ten) with its label pinned to stress test and the four-entry menu pinned by name, no orphan and no repeat, the junk-depth throw naming the value · the five facets in D1's order, each with its intake question and what it fires · the five modules as documented literals, budgets equal to their lengths and pinned to 6..7, every id resolving, disjoint from each other, from the twelve and from the block · the four presets ticking D1's combinations and composing without overflow, consumer as the declared all-false vector distinct from {} · TOTALITY driven over the three absent forms and all 32 vectors against all four literals · the composition per vector — the twelve first (asserted for full-discovery ONLY, with whole-bank as the positive control), the modules in FACETS order, the block LAST exactly once, the count arithmetic, ten pairs fitting and sixteen overflowing vectors THROWING by facet name with the budget and the whole-bank escape · seven junk vectors refused BY NAME on every depth · purity by double call, entries by identity, frozenness at every level by an inert write, over the new surface as well as the old · the C3 title-term list with its positive control and the profession-noun exemption stated, swept over the facet questions and the module and preset labels too · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every SOURCE-BACKED weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md, with D7's ten proven ABSENT from that region so the scoping is not vacuous. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — both review facts against that source file; whether a module's selection is the RIGHT selection for its facet — an editorial fact the second, faceted full-discovery run reads (decision doc D4); and whether a person can answer a facet box without having done the discovery (D2's wrong-if), which only a real intake can show");
 }
 
 // --- 29 · the discovery applier -------------------------------------------------------------------

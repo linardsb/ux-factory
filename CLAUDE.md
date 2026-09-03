@@ -100,7 +100,7 @@ proto/                        the two data-connected prototype pages (vd-/fw- co
 proto/compositions/           COMMITTED composition proposals from real record-composition.mjs runs
 traces/                       committed real agent-run traces, raw + curated pairs (traces/README.md)
 replay/                       the studio's replay artifacts (replay/README.md) — brief · board · projection
-discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank + depth selectors · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) · prd-projection.mjs: the run package → prd.md, a pure fold over the ops (no clock, no SDK) · README.md: the run-package format; Node-only, no page reads it
+discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank (65 source-backed + #283's ten) + the depth selectors, five facet modules, presets and the ~30 budget (whole-bank is a frozen literal) · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) · prd-projection.mjs: the run package → prd.md, a pure fold over the ops (no clock, no SDK) · README.md: the run-package format; Node-only, no page reads it
 discovery/<slug>/             committed FICTIONAL run packages — run.json · answers.jsonl (server-written only) · transcript.jsonl (text · op · denied) · prd.md
 handoff/                      GENERATED handoff pack (verdant/) — committed, never edited by hand
 docs/epics/                   PRD + architecture decisions governing the platform build
