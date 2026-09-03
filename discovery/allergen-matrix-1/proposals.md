@@ -4,85 +4,93 @@
 
 **Run** — `allergen-matrix-1` · fictional (Real run — fictional scenario) · depth full-discovery · ended 2026-08-31T14:48:19.263Z · package [`discovery/allergen-matrix-1`](./)
 
-**Proposals** — 8: proposed 8 · accepted 0 · refused 0 · parked 0
+**Proposals** — 8: proposed 0 · accepted 8 · refused 0 · parked 0
 
 ## Awaiting a verdict
 
-#### p1 — proposed
+_No proposal is awaiting a verdict._
+
+## Accepted
+
+#### p1 — accepted
 
 **Title:** Porter delivery-note capture: one photo, pending change, dishes marked unverified
 *Rests on:* seq 4 (solution · `s1-what-would-have-to-be-true`) · seq 5 (transition · `s2-riskiest-assumption`) · seq 8 (transition · `s4-rabbit-holes`) · seq 3 (stakeholder · `s6-process-as-it-runs`) · seq 29 (solution · `s8-failure-who-pays`)
 *Wrong if:* The two-site four-week test shows porter-captured substitutions below 80% against the wholesaler's own substitution log and moving the capture point to the driver or the wholesaler feed does not lift it above 80% by end of October (seq 11) — or porters do capture, but chefs re-enter the substitutions themselves anyway (seq 4).
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.138Z
+*Verdict:* **accepted** — Capturing at the delivery note is the whole bet of this run, and the chef-in-the-loop version already failed at two trial sites. The 80% line against the wholesaler's own log keeps it honest. · 2026-09-03T20:24:09.149Z
 
 > The run puts the whole design on one condition: a substitution is captured where it enters the building, at the delivery note, by the porter who signs it (seq 4, seq 5), because the chef-in-the-loop version is exactly what the two trial sites abandoned (seq 2). Seq 8 settles the hard part in advance: a porter's photo creates a pending change that immediately marks affected dishes "unverified" on the floor rather than waiting silently for a chef. Seq 3 shows why: the substitution line is signed for at seven and read by nobody, and the person who sees it is not the person who edits the sheet. What this makes possible is a single-screen porter app — photograph the note, done, no fields — that produces a ledger entry and a floor-visible unverified state within minutes, plus the bounce-back path from seq 29 so an unreadable photo returns to the porter's phone rather than vanishing. It is the first thing the four-week two-site capture test in seq 5 would exercise.
 
-#### p2 — proposed
+#### p2 — accepted
 
 **Title:** Append-only substitution ledger, no edit path for anyone including the owner
 *Rests on:* seq 10 (solution · `s6-accountable-when-wrong`) · seq 25 (solution · `s6-audit-trail`) · seq 19 (solution · `s3-deliberately-not-doing`) · seq 7 (solution · `s4-appetite`)
 *Wrong if:* Any ledger entry can be altered, deleted or annotated after the fact by anyone, including the owner (seq 10, seq 19) — or records become unreadable or are purged before six years from the entry date, or any diner-identifying data ends up in the trail (seq 25).
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.154Z
+*Verdict:* **accepted** — A ledger anyone can tidy is worth nothing to an inspector, so no edit path, including for me. Six years is the retention the record needs, and software enforces it better than a handbook. · 2026-09-03T20:24:09.165Z
 
 > Seq 10 makes non-editability a hard commitment enforced in the software, not the handbook, on the grounds that the moment the owner can tidy the ledger before an inspector sees it, it is worthless as evidence. Seq 19 names this as the one annoyance that must never be resolved, and seq 13 restates it as a management rule. Seq 7 makes the timestamped record the last thing cut under the scope hammer, and seq 22 confirms the ledger is never in the cut order. Seq 25 sets what each entry must carry: the photo as taken with its hash, the read substitution line with the model version, the spec sheet and the email it arrived in, before/after dish status with who confirmed and how long it sat unverified, the may-contain policy version in force, and the actual printed PDF that went on each wall — retained six years, with no owner ability to shorten it. Seq 10 also fixes the wording boundary: the system states what was recorded and who last confirmed it, never that a dish is safe.
 
-#### p3 — proposed
+#### p3 — accepted
 
 **Title:** Diff-first chef confirmation that cannot be cleared without opening the change
 *Rests on:* seq 14 (transition · `s1-premortem`) · seq 28 (transition · `s7-goes-up-doing-nothing`) · seq 21 (transition · `s4-four-risks`) · seq 10 (solution · `s6-accountable-when-wrong`) · seq 30 (transition · `s9-strength-of-evidence`)
 *Wrong if:* Chefs given the diff view still batch-clear — or confirmations get counted as valid without the change having been opened (seq 28) — or the diff view measurably slows confirmation to the point that unverified dwell time rises rather than falls.
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.167Z
+*Verdict:* **accepted** — The Monday batch-clear is how this fails quietly, and the premortem already named it. A confirmation only counts if the chef opened the change, so that is the only version worth building. · 2026-09-03T20:24:09.173Z
 
 > The premortem in seq 14 names the failure precisely: chefs learn to clear unverified flags in one go every Monday without opening a single change, the confirmation becomes a click, and the ledger looks pristine while the wall is wrong. Seq 28 turns that into a counting rule — a confirmation only counts if the chef opened the change — and seq 21 states the usability requirement that the confirmation must show what changed in one glance, not a list of flags. Seq 10 makes the chef's confirmation the act of record, so what it displays at the moment of confirming is itself evidence. What this makes possible is a confirmation surface built as a before/after diff of the affected dish, with no bulk-clear affordance, and a ledger entry that records what was shown and that it was opened. Seq 30 puts pre-print chef confirmation among the three things that must exist before any self-printing sheet goes on a wall.
 
-#### p4 — proposed
+#### p4 — accepted
 
 **Title:** Self-reprinting stamped laminate, with the print itself filed as evidence
 *Rests on:* seq 4 (solution · `s1-what-would-have-to-be-true`) · seq 9 (solution · `s4-out-of-bounds`) · seq 26 (transition · `s6-coexist-with-incumbent`) · seq 25 (solution · `s6-audit-trail`) · seq 20 (solution · `s4-press-release`)
 *Wrong if:* Seq 14's trust inversion shows up: front of house trusts the stamped sheet more than the old one while its underlying truth has not improved — or unstamped laminates keep appearing at monthly checks with no action following (seq 26) — or a sheet prints without the zero-missed-contains eval, pre-print chef confirmation and weekly spot-check all in place (seq 30).
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.179Z
+*Verdict:* **accepted** — Two sites are running different laminate versions today. A stamped self-reprint is the cheapest fix that does not need a front-of-house screen this cycle; the monthly check will show whether trust outruns truth. · 2026-09-03T20:24:09.178Z
 
 > Seq 3 and seq 16 record two sites running different laminate versions, v6 on the wall against v7 in the head chef's personal Drive. Seq 4 requires that either front of house reads a screen or the laminate reprints itself at every site the moment something changes, and seq 9 rules the front-of-house screen out of bounds for this cycle — the laminate reprint is the chosen path, with a tablet as the next bet. Seq 20 puts "the sheet at every site reprints itself" in the press release. Seq 26 adds the coexistence mechanism: the printed sheet carries a version stamp, the owner's policy names the system as the record, and any unstamped laminate is the site manager's problem at the monthly check. Seq 25 requires each print to be filed — which version, which wall, which site, what time, as the actual PDF — because the sheet on the wall is what the waiter read.
 
-#### p5 — proposed
+#### p5 — accepted
 
 **Title:** Supplier-product to recipe-ingredient matching layer, unmatched surfaces as unverified
 *Rests on:* seq 8 (transition · `s4-rabbit-holes`) · seq 21 (transition · `s4-four-risks`) · seq 29 (solution · `s8-failure-who-pays`) · seq 12 (solution · `s8-eval`) · seq 22 (transition · `s4-circuit-breaker`)
 *Wrong if:* The spike is skipped and the six-week spine build starts anyway (seq 8, seq 21) — or matching lands below 95% on the flagship menu set and unmatched lines are dropped silently rather than raised as unverified (seq 12, seq 29).
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.192Z
+*Verdict:* **accepted** — Without the matching layer, a substitution never reaches a dish. Accepted on the condition the one-week spike runs first, and a miss there kills the six-week build rather than extending it. · 2026-09-03T20:24:09.184Z
 
 > Seq 8 names this as the assumption nobody has drawn: the note says "Pesto Genovese 1kg, brand B", the recipe says "pesto", the costing system says something else again, and if those cannot be tied together the ledger records substitutions that never reach a dish. Seq 21 puts the matching layer as the main feasibility risk in the six-week spine, and seq 22 rules that a missing matching layer is not an extension case but a sign the spike was wrong. Seq 29 classes a match failure as one of the invisible failures and prescribes the mitigation: unmatched lines surface as unverified rather than disappearing. Seq 12 sets the bar — 95% on every product-to-ingredient pair on the flagship site's menu, with every unmatched line surfaced. What this makes possible is the one-week spike from seq 8 and seq 21, run before the cycle, and a matching component whose default behaviour on doubt is to flag rather than drop.
 
-#### p6 — proposed
+#### p6 — accepted
 
 **Title:** Chef-owned eval harness with an asymmetric, zero-missed-contains release gate
 *Rests on:* seq 12 (solution · `s8-eval`) · seq 29 (solution · `s8-failure-who-pays`) · seq 30 (transition · `s9-strength-of-evidence`) · seq 13 (business · `s1-choice-cascade`)
 *Wrong if:* A release ships with even one missed "contains" on the eval set, or the eval is run and reported by engineering rather than by the flagship head chef (seq 12) — or the two labelling chefs disagree so widely that no meaningful pass bar can be set.
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.205Z
+*Verdict:* **accepted** — The release gate has to be asymmetric and chef-owned, or nobody on the floor will trust the sheet it prints. Zero missed "contains" is non-negotiable; 5% over-warning is a price I will pay. · 2026-09-03T20:24:09.189Z
 
 > Seq 12 specifies it in full: three model steps each with their own eval, a set of two hundred real supplier spec sheets including the scanned, multi-page and footnoted ones, the delivery-note photos the capture test produces, and every product-to-ingredient pair on the flagship menu, each labelled independently by two head chefs so chef-to-chef disagreement is known as the ceiling on "correct". Pass rates are asymmetric — zero missed "contains", up to 5% false positives, 95% on match — run against the whole pipeline, re-run on every supplier and model change, owned and run by the flagship head chef, with the number reported monthly to the owner. Seq 13 makes that monthly eval a management system. Seq 29 supplies the reason for the asymmetry: a false positive is visible in the hour and costs trust, a missed "contains" is invisible until a diner reacts. Seq 30 makes the eval one of the three conditions separating "enough to learn" from "enough to ship".
 
-#### p7 — proposed
+#### p7 — accepted
 
 **Title:** Owner operating dashboard: capture rate against the wholesaler's log, verified days, confirmation-lag distribution
 *Rests on:* seq 13 (business · `s1-choice-cascade`) · seq 23 (solution · `s5-value-metric`) · seq 28 (transition · `s7-goes-up-doing-nothing`) · seq 14 (transition · `s1-premortem`) · seq 27 (transition · `s7-kill-state-and-date`)
 *Wrong if:* Capture rate ends up computed from our own counts because wholesaler substitution logs cannot be obtained per site (seq 28) — or "days since an incident" appears on an owner-facing screen — or a site sits below 90% verified days for a quarter without being flagged (seq 23).
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.219Z
+*Verdict:* **accepted** — Capture rate has to be measured against the wholesaler's log or the number is decorative, and "days since an incident" stays off every screen. Getting that log per site is the first risk to check. · 2026-09-03T20:24:09.194Z
 
 > Seq 13 names one operating number per site, the capture rate. Seq 23 names verified days as the value metric to report on the first screen while explicitly refusing to meter on it, and sets a churn signal at any site under 90% verified days for a quarter. Seq 28 supplies the anti-gaming rules: capture is measured against the wholesaler's own substitution log rather than our count, absolute substitutions per site sit beside it, confirmation lag is reported as a distribution so a Monday nine-o'clock spike shows as a spike rather than diligence, and "days since an incident" never appears on any screen because it goes up beautifully when nothing is done. Seq 14 explains why monthly self-reported figures are not enough — the flagship porter left, capture halved, and nobody noticed because the site's chef said it was fine. Seq 27 makes these the numbers the whole restaurant product is judged on at 30 June 2027.
 
-#### p8 — proposed
+#### p8 — accepted
 
 **Title:** Group may-contain policy as a versioned object, and a one-way menu import
 *Rests on:* seq 8 (transition · `s4-rabbit-holes`) · seq 4 (solution · `s1-what-would-have-to-be-true`) · seq 9 (solution · `s4-out-of-bounds`) · seq 26 (transition · `s6-coexist-with-incumbent`) · seq 25 (solution · `s6-audit-trail`)
 *Wrong if:* The product ends up writing back into the EPOS or costing system rather than only importing (seq 9, seq 26) — or a chef is asked to re-key a menu because the import cannot read the costing system's export (seq 4) — or a group refuses a single may-contain rule and demands per-site or per-chef judgement (seq 8).
 *Proposed by:* claude-opus-5 · prompt surface `d37633011f127c85b560d333d26e3259` · 2026-09-03T14:03:12.231Z
+*Verdict:* **accepted** — One may-contain rule for the group ends the same sauce being a nut risk at one site and not another. Import only, never write back; anything else drags EPOS and costing into scope. · 2026-09-03T20:24:09.200Z
 
 > Seq 2 records the same sauce being a nut risk at one site and not another because each chef judges "may contain" alone. Seq 8 settles it as a hard decision to make before the cycle — "may contain" is treated as "contains" for the matrix, decided once for the group — and notes it changes the data model and every dish's status. Seq 25 requires the policy in force at each moment to be stored as a version, because a dish's status only makes sense against the rule of the day. Seq 4 pairs this with the other precondition: dishes import once from the recipe-costing system and nobody re-keys a menu, which is what killed the abandoned tool (seq 2). Seq 9 and seq 26 fix the direction permanently — import only, ever, at every menu change, never writing back, with the EPOS allergen field declared in writing not to be the record. Seq 20 makes both the whole of onboarding: import the menu, set the may-contain rule once, hand the porter a phone.
-
-## Accepted
-
-_The owner accepted none of them._
 
 ## Refused
 
