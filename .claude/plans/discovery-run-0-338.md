@@ -757,4 +757,10 @@ throwaway is recognisable as a signal rather than accepted quietly.
 
 ## AMENDMENTS
 
-_(empty at creation)_
+- **2026-09-02 — AC7 arrived after this plan.** The ticket gained AC7 (the transcript read as facet
+  evidence) with the question-selection architecture (`14f7421`), after this plan and Phase A were
+  written. No plan task covers it; the report carries an AC7 section derived from the same package
+  with the same rule (ids and counts only), and the owner's walk closed it with zero misses. The
+  facet vector was not declared and is recorded as not declared.
+- **2026-09-02 — the #287 counter reads on F4's corrected split**, refusals of built-ins against
+  refusals of op calls, as the Phase A report pre-registered; both were 0 on run 0.

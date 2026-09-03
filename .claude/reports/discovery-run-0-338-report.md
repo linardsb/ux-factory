@@ -1,12 +1,13 @@
 # Implementation Report — run 0: the owner's next real product, in the UI (#338)
 
-**Plan**: `.claude/plans/discovery-run-0-338.md`   **Branch**: `chore/338-run-0`   **Status**: PARTIAL — Phase A complete, Phase B (the sitting) is the owner's and has not run
+**Plan**: `.claude/plans/discovery-run-0-338.md`   **Branch**: `chore/338-run-0` (Phase A + the rehearsal, PR #356) · `chore/338-run-0-phase-c` (Phase B + C, PR #362)   **Status**: COMPLETE — Phase A, the rehearsal, Phase B (the owner's sitting, 2026-09-02) and Phase C
 **Epic**: #279 · **Run package**: `<JOBS_DIR>/_discovery/<slug>/` (real provenance, never committed)
 
 > This ticket is an operational run, not a code change. Nothing in `system/`, `portal/`,
 > `discovery/` or `agent-layer/` is edited by it. Phase A proves the mechanism, Phase B is the
 > owner's sitting and the agent does not touch the drawer or any package file, Phase C derives the
-> numbers and writes the judgement. **This report is written up to the hard stop after Phase A.**
+> numbers and writes the judgement. **Phase A and the rehearsal are recorded above as they were
+> written; Phase B and C follow, written on 2026-09-02 after the sitting.**
 
 ## Summary
 
@@ -18,6 +19,14 @@ not edited after Phase A ran.
 
 One defect was found and fixed before the sitting: the portal serving the drawer was running code
 from before both PR #339 review rounds. See F2.
+
+**Run 0 ran on 2026-09-02, and the hypothesis reads RIGHT.** Asked whether the session started in
+the UI or with `/think`, the owner's whole answer was *"UI"*. Thirty of thirty questions answered in
+the drawer, a 901-line PRD projected in the same sitting, 41 minutes wall-clock, $1.64. On the five
+deferred tickets the owner's note is *"not sure"* and the package's counters give no evidence that
+running without any of them hurt; two of those counters cannot detect harm at all today (F9). Four
+findings, F9–F12, of which F9 — the agent wrote a judgement on 2 of 30 turns — is the one that
+changes what the epic should do next.
 
 ## Phase A — the mechanism, proved
 
@@ -265,9 +274,276 @@ which is why it is named here as a rehearsal in as many words.
 
 ---
 
-## Phase B — NOT RUN. The owner's sitting.
+## Phase B — the sitting. Owner only, 2026-09-02
 
-The agent stops here. Phase C's sections (AC3 verdict, AC4 judgement on the five, AC5 numbers, AC6
-attestation) are written only after `run.json` carries a non-null `endedAt`.
+The owner answered all thirty questions in the drawer in one sitting, on their own unreleased
+product. The agent did not touch the drawer, the textarea or any package file. Every figure below is
+read from the package by the plan's derivation script or by a counting script that prints ids and
+numbers only; no answer text, no agent prose and no product detail was read into this report.
 
-## Phase C — NOT RUN.
+### What ran
+
+| Field | Value | Source |
+|---|---|---|
+| Slug | `run0-2026-09-02` | `run.json` |
+| Provenance | `real` — package at `<JOBS_DIR>/_discovery/run0-2026-09-02/`, never committed | `run.json`, `ls` |
+| Entry mode · depth · branch | `blank-idea` · `full-discovery` · none | `run.json` |
+| Front end · model · posture | `portal` · `claude-sonnet-5` · `think`, fingerprint `7efdde37…` | `run.json`, `turnStats[].postureFingerprint` |
+| Portal build | `14f7421`, the tree's HEAD — `/api/health` reported `stale: false` | observed before the first turn |
+| Started · ended | `2026-09-02T16:24:46Z` · `2026-09-02T17:05:20Z` | `run.json` |
+| Last turn's stamp | `17:03:34Z` — Finish was pressed 1m46s after it | `turnStats[29].ts` |
+
+**F2's field earned its keep on its first real outing.** The process holding port 4747 when the
+sitting was set up had booted from `7084c37`; `/api/health` said `stale: true` and the drawer would
+have shown the warning. It was stopped by PID and restarted from `14f7421` before Start was pressed
+(observed). The one commit between the two shas was documentation, so the code would have been
+identical — the point is that this time the fact was a field rather than a `ps` archaeology.
+
+### AC3 — the hypothesis, answered
+
+**RIGHT.** Asked *"did you start in the UI, or reach for `/think`?"*, the owner answered, in full:
+**"UI"**. The session started in the drawer, ran to thirty in the drawer, and ended in a projected
+PRD in one sitting; `/think` was not reached for. That is the owner's word, unparaphrased — the
+answer was one word, and it is recorded as one word.
+
+### AC4 — the judgement on the five deferred tickets
+
+The pre-registered counters (plan §PRE-REGISTERED READINGS table 2, corrected for #287 by F4)
+filled from the package, paired with the owner's note from the sitting. Verdict vocabulary: hurt /
+did not hurt / no evidence either way.
+
+**#283 — bank width.** Counter: questions asking for a quality attribute, structurally **0** (the
+non-functional block is #283's and is not in `bank.mjs`); `off_script` ops as a proxy for wanting
+one, **0** (observed). Owner's note: *"not sure"* — the owner's whole note on all five (Q3) — and, from
+AC7's walk, *"all landed"*. Verdict: **did not hurt** on the questions-asked half — by the owner's
+walk no question read wrong for this product; **no evidence either way** on the quality-attribute
+half — an absence the owner did not miss is not proof it was not needed.
+
+**#285 — session rules.** Counters (observed): `flag_weak_answer` **0**; longest run of consecutive
+closed turns with no `record_decision` **0**; repeat weak flags on one `question_id` **none**. Every
+one of the thirty turns closed with a `record_decision`. The "not a form" counter is therefore
+saturated in the direction the epic did not expect: the ladder never stepped down, never asked twice,
+never parked. Two readings fit the package and it cannot choose between them — thirty strong answers
+from the person who owns the product, or a posture that files whatever it is given when the answer
+is long and fluent (median 305 words; see F9). Owner's note: *"not sure"*. Verdict: **no evidence either way** — and
+the counter cannot currently detect harm (F9), so this row is not decidable from a Think run until
+the yield contract requires the judgement in prose.
+
+**#286 — postures.** Counter: alternatives available **0** by construction (Think is the shipped
+posture; Think on Opus is the same prompt on another model). Owner's note: *"not sure"*. Verdict: **no evidence either way**.
+
+**#287 — the read fence.** F4's corrected counter, `denied` lines split by tool: built-ins refused
+**0**, op-tool refusals **0** (observed; `reads: []`). The rehearsal's agent tried `Bash` twelve
+times; this run's agent never reached for a tool it did not have, and the CLI's warmup agents left no
+line either — F7's 79 (`.claude/reports/discovery-finding-fixes-338-report.md`) did not recur. A
+fence with nothing to catch is not evidence the fence works,
+so the counter reads *no evidence either way* on the mechanism; the owner's note is the only signal
+on the need. Owner's note: *"not sure"*. Verdict: **no evidence either way**.
+
+**#289 — look it up, park it, the escape hatch.** Counters (observed): `open_question` **0**;
+`file_evidence` **10** across four turns (3, 4, 8 and 16), all filed by answer reference — **0** carry a URL, and
+**0** of the thirty answers contain one; `off_script` **0**; the drawer has no park control. Owner's
+note: *"not sure"*, and from AC7's walk *"all landed"*, so nothing needed parking. Verdict: **did
+not hurt** on the park half — no question on this run needed a park control; **no evidence either
+way** on the evidence half — F11's 23 unbacked decisions are the number the route will be judged
+against.
+
+### AC5 — the numbers
+
+The plan's derivation script, run unchanged against the package (observed unless marked derived):
+
+| Number | Value |
+|---|---|
+| Questions in the depth | 30 |
+| Answers stored | 30, all `banked` |
+| Banked turns closed · unreached | 30 · 0 |
+| — answered (`record_decision`) | 30 |
+| — weak-flagged · abandoned | 0 · 0 |
+| Evidence filed | 10 (`real-interview` 9 · `assumption` 1), 0 by URL |
+| Decisions flagged `no-evidence` | 23 of 30 |
+| Decisions flagged `orphan` | 0 — `parent_id` filled on all 22 non-business decisions |
+| Ladder | business 8 · stakeholder 5 · solution 10 · transition 7 |
+| Denied lines · text lines | 0 · 31 |
+| SDK turns (model-internal) | 70 (derived, Σ `numTurns`) |
+| Per-turn latency | min 7.7s · median 11.5s · max 29.3s · Σ 6m 45s (derived) |
+| Total cost | **$1.6355**, no missing turns (derived, Σ `costUsd`) |
+| Tokens | in 124 · out 27,564 · cache read 2,012,221 · cache create 72,202 (derived) |
+| Wall-clock, `endedAt − startedAt` | **41 min** (derived) |
+| Started to last turn | 39 min (derived) |
+
+**Two turn numbers, not one.** Thirty banked turns; seventy model-internal turns. Twenty-six of the
+thirty ran in exactly two SDK turns (judge, file); the four that ran longer are the four
+evidence-filing turns, 3, 4, 8 and 16, one tool call per evidence row (turn 16 is F10).
+
+**Wall-clock, and what it holds.** The owner's estimate for the sitting is 45 minutes, against the
+package's 41 (`startedAt` is stamped at Start, after the slug and provenance were chosen). The owner
+states the answers were written in the sitting, not beforehand (Q5, in full: *"no, it took 45
+mins"*). The thirty answers total 9,228 words (min 183, median 305, max 448; derived from
+`answers.jsonl` word counts). The agent's share of the 41 minutes is 6m 45s, which leaves about 34
+minutes of owner time for the thirty, or roughly 270 words a minute (derived). That is dictation
+speed rather than typing speed; the package records what was submitted and nothing about how it was
+composed, so the owner's statement stands and the arithmetic sits beside it.
+
+**Cost.** $1.64 against the rehearsal's $1.49 and Phase A's cold-turn extrapolation of $2.80 — inside
+the pre-registered $1.50–3.00 band. The per-turn cost drifts up rather than holding flat: the first
+ten turns average $0.053 and the last ten $0.060 (derived), because every turn resumes the same SDK
+session and re-reads its whole history — cache read grows from 3.8k tokens on turn 1 to 125k on turn
+30. Cache reads are cheap, so a 30-turn run is linear enough; the 65-question `whole-bank` depth pays
+for the tail twice.
+
+**Latency.** Median 11.5s against the rehearsal's 10.1s; the two slowest turns (27.8s, 29.3s) are
+the evidence-filing turns 3 and 4, where the agent made four and three tool calls (five and four SDK
+turns; the count is tool calls + 1, see F10).
+
+### AC2 — the PRD
+
+`prd.md` is in the package: **901 lines, 11 sections, 40 ops folded** (observed:
+`prd ✓ run0-2026-09-02 → 11 sections, 40 ops`, `exit=0`). Thirty decision blocks, one per answer;
+**30 of 30 carry a `Wrong if` line**; 30 of 30 carry an `Evidence` line, of which **7 name evidence
+and 23 read `none · no-evidence`**. Sections by rung: Problem 8 business, Target user and JTBD 5
+stakeholder, MVP 10 solution, Transition note 7 transition; Open questions and Weak answers render
+their empty states. So AC2's "every decision carrying its evidence link and kill criterion" holds
+for the kill criterion outright and for the evidence *link* as a slot that 23 decisions leave empty —
+the projection says so on each of them rather than hiding it. Closing #338 on this report accepts
+that reading as a decision, not a pass: the evidence-link half of AC2 is met as a slot and unmet in
+substance on this run, and F11 carries the substance to #289 rather than leaving it here as met.
+
+**The owner got the PRD without a terminal.** F1's Download PRD control was used from the drawer.
+The downloaded file and `node discovery/prd-projection.mjs --root … --stdout` were byte-identical
+(observed, `cmp`), and after Finish the only diff between the download and the package's `prd.md`
+is the run header's `ended` field (observed, `diff`: one line).
+
+### AC7 — the transcript as facet evidence
+
+This run is unbranched and carries no `facets` field, so it exercises nothing in the
+question-selection architecture; what it offers is the first real material. The machine reading
+first, then the owner's walk.
+
+**The machine reading is empty.** No question was abandoned and none was weak-flagged, so the
+package alone names zero misses. D4's "asked what mattered" row is saturated: decision rate on the
+twelve **12 of 12**, on the eighteen-question tail **18 of 18**. A counter that cannot go down cannot
+rank the tail against the twelve, which is F9's point from the other side.
+
+**Candidates from the answers, by phrasing only.** A scan for do-not-know / not-sure / never-asked
+phrasing (counts and ids, no text) marks **7** answers: `s6-process-as-it-runs`,
+`s1-what-would-have-to-be-true`, `s4-rabbit-holes`, `s1-choice-cascade`, `s2-more-than-one-way`,
+`s3-deliberately-not-doing`, `s5-willingness-to-pay`. A not-applicable scan marks **0**. Every
+answer is 183 words or longer, so no question was waved through. A do-not-know phrase inside a
+300-word answer is a weak proxy — it can be an honest "not yet" inside a decision that landed — which
+is why the list below is the owner's, not the scan's.
+
+**The owner's walk.** *"all landed"* — zero misses. The seven phrasing candidates above were
+honest not-yets inside decisions that landed, and the facet check has no miss to predict.
+
+**The owner's facet vector for this product** was not declared in this sitting. With zero misses
+the vector has no prediction to make, and D1's falsifier — *"a real product routinely ticks three or
+more facets"* — stays untested by this run.
+
+**Would the facets have predicted each miss?** D1's "what it fires" column maps the tail this way
+(expected — the modules are not in `bank.mjs` yet, so this is the doc's table read against the
+ids, not a selection run): `s5-value-metric` and `s5-willingness-to-pay` sit on `orgBuys`, and
+`internal` drops willingness-to-pay; `s6-audit-trail` on `regulated`; `s6-coexist-with-incumbent` on
+`replacesAProcess`; `s8-failure-who-pays` on `hasModel`; `s6-process-as-it-runs` (in the twelve) on
+`internal` / `replacesAProcess`. The other thirteen tail questions — `s1-choice-cascade`,
+`s1-premortem`, `s2-more-than-one-way`, `s2-last-time-show-me`, `s2-switch-timeline`, `s3-why-now`,
+`s3-deliberately-not-doing`, `s4-press-release`, `s4-four-risks`, `s4-circuit-breaker`,
+`s7-kill-state-and-date`, `s7-goes-up-doing-nothing`, `s9-strength-of-evidence` — are not
+facet-gated in D1, so a miss on any of them is a bank finding or a sixth-facet candidate by the
+ticket's own rule. With no miss on the owner's walk there is nothing to read against the map; it is left here for
+the second, faceted run. What this run does say to #283: thirty unfaceted questions all landed for
+one real product, so the unfaceted `full-discovery` list is not visibly asking the wrong questions
+here — a single data point, and the bank finding the ticket asked for is "none found".
+
+## Findings — continued from F8
+
+F1–F6 are above. F7 (the CLI's 79 warmup denials) and F8 (evidence provenance) are in
+`.claude/reports/discovery-finding-fixes-338-report.md`, landed by PR #345; the numbering continues
+from there.
+
+**F9 — the agent judged aloud on 2 of 30 turns; on 27 its only prose is the filing confirmation,
+and turn 16 has none.** Text lines per turn (observed, lengths and masked shapes only): turns 1 and 30 carry
+a judgement paragraph (471 and 538 characters) plus the confirmation; turns 3, 4 and 8 carry a single
+133–156 character confirmation that also names the evidence rows filed; 24 turns carry exactly one
+line of the shape `Filed as a <rung>-level decision (seq N), parent seq N.` (57–62 characters on 23 of
+them; turn 2's longer parent clause takes it to 83), and turn 16 carries none, because the cap fell
+before the confirmation (F10). A scan for the form-gap vocabulary MVP 6 licenses ("does not name", "no number", "not
+stated" and kin) hits **0** lines. `YIELD_CONTRACT` opens *"Judge this one answer. Push back at most
+once, in prose"*, and on 28 turns there is no prose to have pushed back in. This is not a claim the agent judged badly — it may have judged well and
+silently — but `discovery/README.md` keeps the agent's text *because MVP 6 is only falsifiable from
+prose*, and on 25 of 30 real turns there is nothing to falsify. Paired with #285's counters (0 weak
+flags, 0 open questions, 30 decisions), the package cannot tell a strong answer set from a
+rubber-stamping posture. *Re-scope — belongs on #279 as an amendment, and it is the precise thing
+`discovery-postures.mjs` says gets tightened: the yield contract should require the judgement as a
+text line before the op, so a turn with no judgement is dirty by the same rule as a turn with two
+ops.*
+
+**F10 — turn 16 hit `MAX_TURNS = 6` and is recorded `ok: false` although every op landed.**
+`turnStats[15]`: `numTurns: 6`, `ok: false`, `$0.072` (observed). The transcript for that turn holds
+four `file_evidence` ops and one `record_decision`, seq 22–26, the decision closing the turn; the
+cursor advanced; there is no text line for the turn, because the cap fell before the confirmation.
+`ok` is `msg.subtype === 'success'` in `discovery-transport.mjs`. The count that trips it is not "six
+tool calls": `numTurns` is tool calls + 1 on every one of the thirty turns (observed: `run.json`
+against the transcript's ops, 0 exceptions; turn 3's four calls read 5, turn 4's three read 4, turn
+8's two read 3, the twenty-six single-call turns read 2), and the +1 is the closing message. Turn
+16's five calls made that message the sixth unit and the cap fell on it; the SDK session record
+(observed, block types and counts only) holds a `<synthetic>` record in its place, and its 29
+thinking blocks change none of the counts. So at `MAX_TURNS = 6` the cap admits `MAX_TURNS − 2` =
+four tool calls per turn, three evidence rows plus the decision; the fifth trips it, and turn 3 sat
+one call under it. The cap was sized before `EVIDENCE_RULE` (#338 F6) made multi-evidence turns
+likely; this is the first real turn to show the two colliding. *Follow-up ticket: size the cap from
+the counted rule, `MAX_TURNS − 2` tool calls per turn, to the evidence rule (or make it
+evidence-aware), and decide what `ok: false` with a complete transcript should mean to the drawer,
+which cannot show it today: the server's discovery `done` event carries only `view`
+(`portal/server.mjs`).* The owner saw no error on question 16 (*"i did not see any
+error"*), so `ok: false` is a package-only fact today: the stream ended on `done` and the status
+line read as on any other turn.
+
+**F11 — on a `blank-idea` product the evidence is people and conversations, and the URL route is the
+wrong shape for it.** Ten evidence rows were filed, nine as `real-interview` and one as `assumption`,
+all by answer reference with a name; none by URL, and none of the thirty answers contains a URL
+(observed). The rehearsal's lesson was "paste real URLs"; this sitting shows why the owner could not
+— for a product that does not exist yet there is little on the web to point at, and what there is
+lives in messages and memory. `EVIDENCE_RULE` (F6) handled that honestly, filing what was named
+rather than nothing, and #347's provenance rule labelled it correctly on a real run (`real-interview`
+is now a true statement, where F8's fixture wore it falsely). What remains is that 23 of 30 decisions
+rest on nothing the ledger can name. *Re-scope — #289's evidence path needs a non-URL form for
+`blank-idea` runs, and the "23 unbacked" line is the number it should be measured against.*
+
+**F12 — the downloaded PRD landed inside the public repo's working tree.** The browser saved
+`run0-2026-09-02-prd.md` to the repo root, where `git status` showed it untracked — one `git add -A`
+from committing a real product's PRD. It was moved to
+`<JOBS_DIR>/_discovery/run0-2026-09-02-prd.download.md` before anything was staged (observed:
+`git status --short` shows no such file). The portal cannot choose where a browser saves, but the
+drawer's status line after a download can say where the package lives and that the file must not be
+saved inside the repo. *Candidate follow-up ticket.*
+
+## AC6 — attestation
+
+| Check | Result |
+|---|---|
+| 1. Nothing from the package staged or present in the repo | observed — `git status --short` carries no package path and `ls discovery/` lists only the committed fictional packages and the three modules. The plan's grep matches one untracked filename, `__run0_discovery_worksheet.md`: that is the empty thirty-question sheet, 134 lines, unchanged since 2026-08-31 and holding no answer text (observed); it is not part of the package and stays untracked |
+| 2. No verbatim answer span in this report | observed — the plan's 8-word span scan over all 30 answers against the final text: `no verbatim answer span in the report` |
+| 3. What the report may say about the product | owner's sign-off, in full: *"report should be named after product slug"* — the report refers to the product by its run slug and names neither the product nor its domain; `run0-2026-09-02` is the only handle, throughout |
+
+## Validation results — Phase C
+
+| Gate | Result |
+|---|---|
+| `node discovery/prd-projection.mjs --root "$R"` | ✅ `prd ✓ 11 sections, 40 ops`, `exit=0`, 901 lines (observed) |
+| Derivation script (plan, unchanged) | ✅ ran; every AC5 row above is its output (observed) |
+| `cmp` download vs `--stdout` projection | ✅ identical (observed) |
+| `node tooling/build-checks.mjs` | ✅ `build ✓ all 33 groups pass` (observed, 2026-09-02) |
+| `node tooling/drift-check.mjs` | ✅ green across all twelve checks (observed, 2026-09-02) |
+| Publication-safety check 1 | ✅ clean (observed) |
+
+## Deviations from the plan — Phase C
+
+**D4 — Finish was pressed after the PRD was downloaded, not before.** The download happened at
+`18:03` local with `endedAt` null; Finish landed at `17:05:20Z`, 1m46s after the last turn. The
+plan's wall-clock number survives because the lag is under two minutes and is stated; the package
+`prd.md` was projected *after* Finish, so it carries the end stamp and the download does not (one-line
+diff, observed). Nothing was re-run.
+
+**D5 — the projection was written from the CLI after the UI download.** The plan's Phase C step
+writes `prd.md` into the root with the CLI; F1's control made the UI download possible first. Both
+were done and compared; the CLI write is the one the package keeps.
