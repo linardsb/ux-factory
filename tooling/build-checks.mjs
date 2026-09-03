@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Thirty-three groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Thirty-four groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -171,6 +171,13 @@
 //                     allowsPath over ABSOLUTE leak paths, the mirror fence denying the key to the
 //                     judge, the circularity guard and the no-other-reader sweep. The six recorded
 //                     packages gate on existsSync and the line says pending until Phase C lands
+//  34 proposals      feature proposals from a finished run package (discovery/proposals.mjs, #359):
+//                     the vocabulary frozen at both levels, PROPOSAL_SECTIONS iterated against
+//                     STATUSES in both directions, the four refusals each on its own message with
+//                     the mutation that turns it red, the derived status with every verdict kept,
+//                     the vanishing-claim loop over this fold, group 31's injection battery re-run
+//                     as a CENSUS over PROPOSAL_KEYS and VERDICT_KEYS, prd.md proven byte-identical
+//                     with and without proposal lines, and the SDK half read as TEXT
 //
 //   node tooling/build-checks.mjs
 
@@ -251,6 +258,16 @@ import { buildThinkTurn, EVIDENCE_RULE, FINGERPRINT_INPUTS, fingerprintOf, LADDE
 // writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
 // is imported for group 32 alone, because its subject IS the on-disk package (#341).
 import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
+// #359's proposal half — the same zero-portal-dependency shape (it imports ops.mjs, bank.mjs,
+// prd-projection.mjs and node built-ins, nothing else), so group 34 loads with no
+// portal/node_modules. PROPOSAL_SECTIONS is named that way rather than SECTIONS precisely to avoid a
+// sixth alias in this file. The SDK half (portal/lib/discovery-proposer.mjs) reaches the SDK and is
+// read as TEXT by case 34.12, never imported.
+import {
+  checkProposalLines, foldProposals, LINE_TYPES, MAX_PROPOSALS, nextProposalId, OPS_DISJOINT,
+  PROPOSAL_ID_RE, PROPOSAL_KEYS, PROPOSAL_SECTIONS, PROPOSED_BY_MODEL, projectProposals,
+  proposalsView, readProposalPackage, STATUSES, statusCounts, statusOf, VERDICT_KEYS, VERDICTS,
+} from "../discovery/proposals.mjs";
 // #348's graded answer fixture — the sealed draw, the key's validator and the scorer. Zero-portal
 // dependency for the same reason as the projection above: it imports only node built-ins plus
 // discovery/bank.mjs and discovery/ops.mjs, both import-free. The FENCED author harness
@@ -6650,6 +6667,65 @@ function scanSvg(svg, label) {
     // allow-everything mutation in the #287 report).
     const traced = existsSync(traceFile) ? readFileSync(traceFile, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
     ok(traced.length === 2 && traced[0].event === "PreToolUse.deny" && traced[1].event === "canUseTool.deny" && traced.every((l) => l.recorded === true && keys(l) === "event,recorded,tool,ts,turn"), `case 25: the trace must name the site in its event and keep case 22's key set (got ${JSON.stringify(traced)})`);
+
+    // --- extraTools and write (#359): ONE fence, TWO KINDS OF RUN ---------------------------------
+    // The proposal run cannot build its own predicate — case 12 already refuses exactly that on the
+    // transport ("a second copy of the fence is a second fence"), and a duplicate would carry no
+    // run-time proof, because whether a deny STOPS a call is a fact no CI group can see. So the
+    // parameters are driven here, in the block that already drives both sites over a temp root, and
+    // --probe-fence's existing paid observation covers the proposal run too.
+    const PROPOSE_TOOL_NAME = "mcp__proposals__propose";
+
+    // THE MIRROR CASE, and it is what makes "no existing behaviour changed" a RESULT rather than a
+    // claim: over case 25's whole twelve-input battery, `extraTools` absent, [] and undefined must
+    // agree with each other in DECISION and in REASON, at both sites.
+    for (const [t, i] of battery) {
+      const bare = fenceDecision(fence.allowSet, t, i);
+      for (const [label, arg] of [["[]", []], ["undefined", undefined]]) {
+        const with_ = fenceDecision(fence.allowSet, t, i, arg);
+        ok(bare.allow === with_.allow && bare.reason === with_.reason, `case 25: extraTools ${label} changed fenceDecision on ${JSON.stringify(t)} — ${JSON.stringify(bare)} vs ${JSON.stringify(with_)}. A defaulted parameter must be byte-identical to its absence, or the fence widened silently`);
+      }
+    }
+    // extraTools allows THAT NAME AND ONLY IT. A near-miss on either half of the mcp__ triple is
+    // denied, and the write-and-shell tools stay denied by name whatever path they carry.
+    const withExtra = [PROPOSE_TOOL_NAME];
+    ok(fenceDecision(fence.allowSet, PROPOSE_TOOL_NAME, {}, withExtra).allow === true, `case 25: extraTools did not admit ${PROPOSE_TOOL_NAME} — a proposal run could not call its own tool`);
+    ok(/one of this run's tools/.test(fenceDecision(fence.allowSet, PROPOSE_TOOL_NAME, {}, withExtra).reason), `case 25: the extraTools allow does not say why — ${JSON.stringify(fenceDecision(fence.allowSet, PROPOSE_TOOL_NAME, {}, withExtra).reason)}`);
+    for (const near of ["mcp__proposals__other", "mcp__other__propose", "propose", "mcp__proposals__", ""])
+      ok(fenceDecision(fence.allowSet, near, {}, withExtra).allow === false, `case 25: extraTools admitted ${JSON.stringify(near)} — it is an exact name list, not a prefix`);
+    for (const op of DISCOVERY_OPS) ok(fenceDecision(fence.allowSet, toolNameFor(op), {}, withExtra).allow === true, `case 25: ${toolNameFor(op)} stopped passing under extraTools — the op tools are the name gate's, not the list's`);
+    for (const t of ["Write", "Edit", "Bash"]) ok(fenceDecision(fence.allowSet, t, { file_path: IN, command: "ls", path: siteRoot }, withExtra).allow === false && fenceDecision(fence.allowSet, t, { file_path: IN }, withExtra).reason === denyReason(t), `case 25: ${t} must stay denied BY NAME under extraTools, whatever path it carries`);
+    // allowsToolName itself is NOT widened — case 14's statement stays true.
+    ok(allowsToolName(PROPOSE_TOOL_NAME) === false, "case 25: allowsToolName was widened to the proposal tool — case 14 drives it as the statement \"the discovery SESSION's vocabulary is the four op verbs\", and a per-call widening belongs on fenceDecision, not on the set");
+    // Junk in extraTools DENIES rather than throwing — fenceDecision's own fail-closed.
+    for (const junk of [null, "x", 7, {}, [1, 2], [null]])
+      ok(threw(() => fenceDecision(fence.allowSet, PROPOSE_TOOL_NAME, {}, junk)) === null && fenceDecision(fence.allowSet, PROPOSE_TOOL_NAME, {}, junk).allow === false, `case 25: extraTools ${JSON.stringify(junk)} must DENY, not throw`);
+    // isRecorded rests on the mcp__ PREFIX, so a rename that dropped it would make a proposal run's
+    // refusals invisible. Pinned here so that fails by name instead.
+    ok(isMcpToolName(PROPOSE_TOOL_NAME) === true, `case 25: ${PROPOSE_TOOL_NAME} is not an mcp__ name — isRecorded gates on that prefix, so a rename dropping it makes every proposal-run refusal invisible`);
+
+    // `write` receives the line and appendTranscript is NOT called.
+    const writeRoot = tmpRoot("sites-write");
+    const streamed = [];
+    const streamHeard = [];
+    const streamFence = { allowSet: allowSetFor({ root: writeRoot, reads: [] }), mainTools: ["Read"], extraTools: withExtra, write: (l) => { streamed.push(l); return l; } };
+    const w1 = await fenceHooks(writeRoot, "proposal", (l) => streamHeard.push(l), streamFence).PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: OUT } });
+    ok(denied(w1) && streamed.length === 1 && streamHeard.length === 1 && readTranscript(writeRoot).length === 0, `case 25: with a write the denial must be STREAMED and transcript.jsonl must stay empty (streamed ${streamed.length}, disk ${readTranscript(writeRoot).length}) — a proposal run appends nothing to the session's files`);
+    // The POSITIVE CONTROL: the same denial with write: null lands in the transcript, so the case
+    // above cannot be passing because nothing was denied at all.
+    const controlRoot = tmpRoot("sites-write-control");
+    await fenceHooks(controlRoot, "proposal", null, { allowSet: allowSetFor({ root: controlRoot, reads: [] }), mainTools: ["Read"], extraTools: withExtra, write: null }).PreToolUse[0].hooks[0]({ session_id: "s1", hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: OUT } });
+    ok(readTranscript(controlRoot).length === 1 && readTranscript(controlRoot)[0].type === "denied", `case 25: with write: null the same denial must land in transcript.jsonl (disk ${readTranscript(controlRoot).length}) — otherwise the write case above proves nothing`);
+    // THE TWO CALLERS HAND onLine THE SAME SHAPE, `ts` included. That is what the stamp-before-the-
+    // branch rule buys, and asserting it is what stops a later edit undoing it silently.
+    ok(same(keys(streamHeard[0]), keys(readTranscript(controlRoot)[0])), `case 25: a streamed line's keys are ${keys(streamHeard[0])} and a written line's are ${keys(readTranscript(controlRoot)[0])} — one shape on one wire, so ts is stamped BEFORE the write/append branch`);
+    ok(typeof streamHeard[0].ts === "string" && streamHeard[0].ts.length > 0, `case 25: a streamed line carries no ts (${JSON.stringify(streamHeard[0].ts)}) — appendTranscript's own stamp is bypassed by write, so fenceSite stamps it`);
+    // A PostToolUseFailure on the run's OWN tool is recorded (here: streamed) exactly as an op tool's
+    // is — the schema-layer and handler refusals' only record point.
+    const pf = await fenceHooks(writeRoot, "proposal", (l) => streamHeard.push(l), streamFence).PostToolUseFailure[0].hooks[0]({ tool_name: PROPOSE_TOOL_NAME, tool_input: { title: "x" }, error: "proposals: refused" });
+    ok(pf.continue === true && streamed.length === 2 && streamed[1].via === "PostToolUseFailure" && streamed[1].error === "proposals: refused" && readTranscript(writeRoot).length === 0, `case 25: a PostToolUseFailure on the run's own tool must be recorded through write (streamed ${streamed.length}, disk ${readTranscript(writeRoot).length}) — a refused proposal is exactly the receipt the honesty contract keeps`);
+    const pfNon = await fenceHooks(writeRoot, "proposal", null, streamFence).PostToolUseFailure[0].hooks[0]({ tool_name: "Bash", tool_input: {}, error: "boom" });
+    ok(pfNon.continue === true && streamed.length === 2, `case 25: a PostToolUseFailure on a tool that is not this run's must record nothing (streamed ${streamed.length}) — it was never the main session's`);
   }
 
   // 30.15 — assertTurnWritable, both directions. The STRUCTURAL half of runTurn's
@@ -6699,7 +6775,7 @@ function scanSvg(svg, label) {
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, set strictMcpConfig: true so the repo's .mcp.json never joins a run's advertised surface (#352), and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2). What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, set strictMcpConfig: true so the repo's .mcp.json never joins a run's advertised surface (#352), and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2) · ONE FENCE, TWO KINDS OF RUN (#359): extraTools and write, both defaulted, with the MIRROR case proving extraTools absent, [] and undefined byte-identical over case 25's whole twelve-input battery in DECISION and REASON, the proposal tool name admitted and only it (five near-misses denied, the op tools still passing by the name gate, Write/Edit/Bash still denied BY NAME, six junk values denying rather than throwing), allowsToolName proven NOT widened so case 14's statement still holds, the mcp__ prefix isRecorded rests on pinned, and write proven to STREAM a denial with transcript.jsonl left empty against the write: null positive control that lands one — plus the two callers proven to hand onLine the SAME key set with ts present, because the stamp sits before the write/append branch, and a PostToolUseFailure on the run's OWN tool streamed while one on a foreign tool records nothing. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------
@@ -7776,6 +7852,622 @@ function scanSvg(svg, label) {
   group("graded fixture", `the sealed draw over the REAL 65 ids — a Latin square with a per-question offset, every question meeting all three kinds and no column uniform, the committed draw.json re-derived from its own seed "${existsSync(join(FIXTURE, "draw.json")) ? JSON.parse(readFileSync(join(FIXTURE, "draw.json"), "utf8")).seed : "?"}" and compared row by row, drawFor's ARITY pinned at 2 so one table serves BOTH postures and graded-think-a and graded-opus-a answer the same 65 answers, deterministic and frozen at both levels by an inert write · checkKey's 13 refusals each matched against the value it names, with "expected" derived from the kind and never authored · EXPECTED and CLOSES_WHEN iterated against OPS in BOTH directions with file_evidence named as the one op no kind expects, so a fifth verb fails here rather than silently · closingOpOf over a synthetic transcript covering all five columns — an off_script decision and an off-script open_question proven NOT to close — plus the hand-edit detectors (a closes field disagreeing with its params, and two closers on one turn) · the matrix proven to sum to the turn count with file_evidence counted beside it and ABSENT from it · assertAnswersSealed in both directions: one trailing space throws naming its ref, a duplicate line is a HARD failure, a wrong draw column throws rather than scoring · THE AUTHOR'S FENCE source-pinned from portal/record-graded-answers.mjs (no allowSetFor, a hand-built allow-set of length 1, cwd EQUAL to the author root — the trap that would silently void the ticket — tools advertised so a denial is recorded, both sites wired, strictMcpConfig true, and the question view pinned to forTheBrowser's five fields) and DRIVEN through the real allowsPath: six leak paths denied as ABSOLUTE paths with an allow-set rooted at the repo allowing all six as the positive control, and a repo-search MCP name denied BY NAME · THE MIRROR: a recorded run's own allow-set proven to deny the key, the draw, the brief and the author's transcript, with the widened-reads mutation showing the case can fail — omission is not a fence · the circularity guard (no 40-character span shared between the bank's prose and any key answer) · and no tracked source file outside the scorer naming a fixture slug in code${pending33.length ? ` · PENDING: ${pending33.join(" · ")}` : ""}. What it cannot reach: whether the author obeyed the brief, whether a K2 answer is thin in the way its own weak-answer note names (both review facts against the committed key), whether a fence DENY stopped a call at run time (the author run's own denied lines are that receipt, the standard --probe-fence sets), and the MVP 6 verdict, which is a human read of a mechanical shortlist`);
 }
 
+// --- 34 · feature proposals (#359) ----------------------------------------------------------------
+// THE FIXTURE IS A GATE FIXTURE, NOT A RUN, and it stays INLINE for group 31's reason (:6706-6711):
+// discovery/README.md forbids a hand-written answer, transcript or op, and an on-disk hand-authored
+// package could later be mistaken for a real one.
+//
+// Only the ops, the answers, run.json and the PROPOSAL LINES are hand-written. The op RECORDS are
+// produced by running the REAL applier over the ops, so seq / closes / flagged / supersedes are
+// discovery/ops.mjs's output and this group cannot drift from the applier's flagging rules. The
+// proposal and verdict lines are hand-authored because THEY are the subject under test — the same
+// exception group 33 case 33.5 makes for the same reason.
+//
+// This group imports discovery/ only. The SDK half is read as TEXT (case 34.12), never imported:
+// importing it would pull @anthropic-ai/claude-agent-sdk into a CI job that has no
+// portal/node_modules and take the whole job down.
+{
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  const msg = (fn) => threw(fn)?.message ?? null;
+  const names = (fn, ...needles) => {
+    const m = msg(fn);
+    if (m === null) return "did not throw";
+    const missing = needles.filter((n) => !m.includes(String(n)));
+    return missing.length ? `threw "${m}", which does not name ${missing.map((n) => JSON.stringify(n)).join(" or ")}` : null;
+  };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // Local copies, and the duplication is DELIBERATE (:6728-6734's reasoning): the assertion side has
+  // to mirror the module's containment independently or it builds a match set the page never
+  // contains. A one-space copy of fold here would make every leak read as contained.
+  const esc = (s) => String(s).replace(/\|/g, "\\|");
+  const fold = (s) => String(s).replace(/[\r\n]/g, " ");
+  const present = (md, s) => [String(s), esc(s), fold(s), esc(fold(s))].some((v) => md.includes(v));
+  // A multi-line value reaches the page through blockquote(), which prefixes every line with `> ` —
+  // so it is never present as ONE string, and present() alone would report a rendered `why` as
+  // absent AND a leaked one as contained. Every non-blank LINE of it must be there (or gone).
+  const linesOf = (s) => String(s).split(/\r\n|\r|\n/).filter((l) => l.trim());
+  const presentAll = (md, s) => linesOf(s).every((l) => present(md, l));
+  const presentAny = (md, s) => linesOf(s).some((l) => present(md, l));
+  const headings = (md) => [...md.matchAll(/^ {0,3}## (.+)$/gm)].map((m) => m[1]);
+  const sectionBody = (md, heading) => {
+    const open = `\n## ${heading}\n`;
+    const at = md.indexOf(open);
+    if (at === -1) return null;
+    const from = at + open.length;
+    const next = md.indexOf("\n## ", from);
+    return md.slice(from, next === -1 ? md.length : next).trim();
+  };
+  const blockOf = (md, id) => {
+    const head = `#### ${id} — `;
+    const at = md.indexOf(head);
+    if (at === -1) return null;
+    const rest = md.slice(at);
+    const stops = [rest.indexOf("\n#### "), rest.indexOf("\n## ")].filter((n) => n !== -1);
+    return rest.slice(0, stops.length ? Math.min(...stops) : rest.length);
+  };
+  const decomment = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+
+  const P_ANSWERS = [
+    { ref: "a1", text: "Every spring the committee re-types the same rota and by June nobody trusts it. Two plots were double-let last year." },
+    { ref: "a2", text: "The plot holder wants to know on their phone which slot is theirs this week, and who to swap with if they cannot make it." },
+    { ref: "a3", text: "Out of bounds: no payments, no messaging between holders, and no change to how slots are allocated." },
+    { ref: "a4", text: "Nothing new really, it is mostly a table and some dates. We will sort out whatever comes up as we go." },
+  ];
+
+  // The ledger the proposals rest on. It needs at least two record_decisions at DIFFERENT rungs (so a
+  // proposal can name more than one), one file_evidence and one flag_weak_answer, so refusal 1's
+  // wrong-kind branch has a real seq of each to name rather than a hypothetical one.
+  const P_OPS = [
+    { turn: null, op: "file_evidence", params: { url: "https://example.test/minutes?cols=plot|holder|slot", ref: null, name: null, provenance: "secondary-source", claim_ref: null } },
+    { turn: "t1", op: "record_decision", params: { question_id: "s1-if-nobody-solves-this", answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [1], wrong_if: "Plots stop being double-let with no software at all, because the committee's new paper process already fixed it.", off_script: false } },
+    { turn: "t2", op: "record_decision", params: { question_id: "s3-user-need-map", answer_ref: "a2", level: "stakeholder", parent_id: 2, evidence_refs: [1], wrong_if: "Holders never look at the rota between sessions, so a phone view changes nothing about late records.", off_script: false } },
+    { turn: "t3", op: "record_decision", params: { question_id: "s4-out-of-bounds", answer_ref: "a3", level: "solution", parent_id: 3, evidence_refs: [], wrong_if: "Holders cannot use the rota at all without messaging each other, so excluding messaging kills the swap.", off_script: false } },
+    { turn: "t4", op: "flag_weak_answer", params: { question_id: "s4-rabbit-holes", answer_ref: "a4", missing: ["any named unknown in the slot-swap flow", "a decision settled in advance rather than deferred to build time"] } },
+  ];
+
+  const P_RUN = {
+    slug: "gate-fixture-proposals",
+    provenance: "fictional",
+    label: "Gate fixture — hand-authored for build-checks group 34, not a run",
+    entryMode: "blank-idea",
+    depth: "full-discovery",
+    frontEnd: "portal",
+    model: "claude-sonnet-5",
+    posture: "think",
+    sessionId: null,
+    startedAt: "2026-09-01T09:00:00.000Z",
+    endedAt: "2026-09-01T09:40:00.000Z",
+    root: "discovery/gate-fixture-proposals",
+    turnStats: [],
+  };
+
+  const P_RECORDS = applyDiscoveryOps(P_OPS, { answers: P_ANSWERS, bank: BANK }).ops;
+  // seq 1 file_evidence · seq 2 business · seq 3 stakeholder · seq 4 solution · seq 5 flag_weak_answer.
+  const SEQ_EVIDENCE = 1;
+  const SEQ_WEAK = 5;
+
+  const FP = "0123456789abcdef0123456789abcdef";
+  const proposal = (id, patch = {}) => ({
+    type: "proposal", ts: `2026-09-01T10:0${id.slice(1)}:00.000Z`, id,
+    title: `Proposal ${id}`, why: `Why ${id} — the model's prose.`, rests_on: [2],
+    wrong_if: `${id} is wrong if nobody uses it.`, model: "claude-opus-5", fingerprint: FP, ...patch,
+  });
+  const verdict = (proposalId, v, patch = {}) => ({
+    type: "verdict", ts: `2026-09-01T11:0${proposalId.slice(1)}:00.000Z`, proposal_id: proposalId,
+    verdict: v, reason: `The owner's reason for ${v} on ${proposalId}.`, ...patch,
+  });
+
+  // FOUR proposals and FOUR verdicts, so every one of the four derived statuses has a live example on
+  // the happy page (case 34.3's positive control would otherwise never see three of the five
+  // sections' bodies), and so ONE proposal carries TWO verdicts and exercises the supersede marking.
+  const P_LINES = [
+    proposal("p1", { title: "Batch the season's slot changes", rests_on: [2], why: "The committee re-types the rota because nothing accumulates the changes.\n\nA batch view would.", wrong_if: "Holders change slots so rarely that a batch view is emptier than the single-change one." }),
+    proposal("p2", { title: "A holder's own week view", rests_on: [3, 4], why: "The holder's need names one week and one slot.", wrong_if: "Holders want the whole season at once and a week view hides the swap they were looking for." }),
+    proposal("p3", { title: "A swap request with no messaging", rests_on: [4], why: "The exclusion rules out messaging, so a swap needs a shape that is not a message.", wrong_if: "Every swap needs a conversation and a structured request is refused every time." }),
+    proposal("p4", { title: "An away-mode toggle", rests_on: [3], why: "Away mode frees a slot without reassigning a plot.", wrong_if: "Nobody sets it in advance, so the slot frees only after the session it would have covered." }),
+    verdict("p1", "accepted"),
+    verdict("p2", "refused", { ts: "2026-09-01T11:20:00.000Z" }),
+    verdict("p2", "parked", { ts: "2026-09-01T11:40:00.000Z", reason: "Parked after all — the exclusion may move." }),
+    verdict("p3", "refused", { ts: "2026-09-01T11:50:00.000Z" }),
+  ];
+
+  const pkg = (proposals = P_LINES, ops = P_RECORDS, run = P_RUN) => ({ run, ops, proposals });
+  const project = (proposals = P_LINES, ops = P_RECORDS, run = P_RUN) => projectProposals(pkg(proposals, ops, run));
+  const doc = project();
+  const WANT = PROPOSAL_SECTIONS.map((r) => r.heading);
+
+  // 34.1 — THE TABLES, each frozen BY MUTATION (attempt a push, re-read the length), not by
+  // Object.isFrozen: the frozen-ness that matters is the one a consumer would actually hit.
+  {
+    const frozenByMutation = (arr) => {
+      const before = arr.length;
+      try { arr.push("x"); } catch { /* strict mode throws; both outcomes are the same fact */ }
+      return arr.length === before;
+    };
+    for (const [name, arr] of [["VERDICTS", VERDICTS], ["STATUSES", STATUSES], ["LINE_TYPES", LINE_TYPES], ["PROPOSAL_KEYS", PROPOSAL_KEYS], ["VERDICT_KEYS", VERDICT_KEYS], ["PROPOSED_BY_MODEL", PROPOSED_BY_MODEL], ["PROPOSAL_SECTIONS", PROPOSAL_SECTIONS]])
+      ok(frozenByMutation(arr), `34.1: ${name} accepted a push — it must be frozen, or every roster assertion below can be widened by a consumer`);
+    // Frozen at BOTH levels: Object.freeze is shallow, and a writable row would let this case pass
+    // for the wrong reason.
+    for (const row of PROPOSAL_SECTIONS) {
+      const was = row.heading;
+      try { row.heading = "mutated"; } catch { /* see above */ }
+      ok(row.heading === was, `34.1: PROPOSAL_SECTIONS row "${row.id}" is writable — Object.freeze is shallow, so the rows must be frozen too`);
+      ok(same(Object.keys(row).sort(), ["axis", "empty", "from", "heading", "id"]), `34.1: PROPOSAL_SECTIONS row "${row.id}" carries ${Object.keys(row).join(", ")} — a row is exactly axis, empty, from, heading, id`);
+    }
+    // FIVE DISTINCT empty strings. A copy-pasted one would make 34.8's fallback assertions pass for
+    // the wrong reason — the same trap :6847-6865 names for SECTIONS.
+    const empties = PROPOSAL_SECTIONS.map((r) => r.empty);
+    ok(new Set(empties).size === empties.length, `34.1: PROPOSAL_SECTIONS has ${new Set(empties).size} distinct empty states over ${empties.length} rows — each section says what ITS OWN emptiness means, or 34.8 cannot tell one fallback from another`);
+    ok(STATUSES[0] === "proposed" && !VERDICTS.includes("proposed"), `34.1: "proposed" must be STATUSES[0] and must NOT be a VERDICT — it is the ABSENCE of a verdict line and is never written to one (got STATUSES ${JSON.stringify(STATUSES)}, VERDICTS ${JSON.stringify(VERDICTS)})`);
+    ok(MAX_PROPOSALS > 0 && Number.isInteger(MAX_PROPOSALS), `34.1: MAX_PROPOSALS is ${JSON.stringify(MAX_PROPOSALS)} — a named ceiling the prompt, the tool's refusal and this gate all read`);
+    // The id allocator counts from the MAX ID, never the array length — the file interleaves two line
+    // types, so a length-based counter collides the moment the first verdict lands.
+    ok(nextProposalId(P_LINES) === "p5", `34.1: nextProposalId over 4 proposals + 4 verdicts answered ${JSON.stringify(nextProposalId(P_LINES))} — it must count from the max id (p5), not the array length (which would say p9)`);
+    ok(nextProposalId([]) === "p1" && nextProposalId(null) === "p1", `34.1: nextProposalId over an empty and a junk store answered ${JSON.stringify(nextProposalId([]))} / ${JSON.stringify(nextProposalId(null))} — both are p1`);
+    ok(nextProposalId([proposal("p7"), verdict("p7", "accepted")]) === "p8", `34.1: nextProposalId after a gap answered ${JSON.stringify(nextProposalId([proposal("p7"), verdict("p7", "accepted")]))} — it continues from the max, so ids never collide after a re-run`);
+    for (const junk of ["p0", "p01", "P1", "p", "1", "p1a", ""])
+      ok(!PROPOSAL_ID_RE.test(junk), `34.1: PROPOSAL_ID_RE accepted ${JSON.stringify(junk)} — an id is p<n> with n a 1-based integer and no leading zero, because the heading renders it UNFOLDED`);
+    ok(PROPOSAL_ID_RE.test("p1") && PROPOSAL_ID_RE.test("p42"), "34.1: PROPOSAL_ID_RE rejected a legitimate id — the positive control for the seven refusals above");
+  }
+
+  // 34.2 — COVERAGE, BOTH DIRECTIONS. This is 31.2's rule applied to this fold: a fifth status with
+  // no section home must fail BY NAME rather than being silently dropped from the page.
+  {
+    for (const s of STATUSES)
+      ok(PROPOSAL_SECTIONS.some((r) => r.axis === "status" && r.from === s), `34.2: status "${s}" has no PROPOSAL_SECTIONS home — every status a proposal can hold renders somewhere, or a proposal vanishes from the page`);
+    for (const row of PROPOSAL_SECTIONS.filter((r) => r.axis === "status"))
+      ok(STATUSES.includes(row.from), `34.2: PROPOSAL_SECTIONS row "${row.id}" selects status "${row.from}", which is not one of ${STATUSES.join(" · ")}`);
+    ok(PROPOSAL_SECTIONS.filter((r) => r.axis === "status").length === STATUSES.length, `34.2: ${PROPOSAL_SECTIONS.filter((r) => r.axis === "status").length} status rows for ${STATUSES.length} statuses — one each, so nothing renders twice`);
+    // The mutation that proves the loop can go red: a sixth status with no home.
+    const withSixth = [...STATUSES, "deferred"];
+    ok(!withSixth.every((s) => PROPOSAL_SECTIONS.some((r) => r.axis === "status" && r.from === s)), "34.2: a synthetic sixth status found a section home — the coverage loop above cannot go red and is proving nothing");
+    ok(PROPOSAL_SECTIONS.some((r) => r.axis === "cross-ref"), "34.2: no cross-ref row — the rested-on section is what makes a proposal's grounding visible on the page");
+  }
+
+  // 34.3 — THE POSITIVE CONTROL, FIRST. Every refusal below means nothing unless this passes.
+  {
+    ok(same(headings(doc), WANT), `34.3: the fixture projects headings ${JSON.stringify(headings(doc))} — it must be one "## " per PROPOSAL_SECTIONS row, in table order: ${JSON.stringify(WANT)}`);
+    ok(doc.startsWith("# gate-fixture-proposals — feature proposals from a discovery run\n"), `34.3: the title line is ${JSON.stringify(doc.split("\n")[0])}`);
+    ok(doc.endsWith("\n") && !doc.endsWith("\n\n"), "34.3: the page must end in exactly one newline");
+    // The honesty header, clause by clause — it is the one paragraph not derived from a record, and
+    // each clause is a promise the rest of the ticket keeps.
+    for (const clause of ["OPTIONS, never truth", "`prd.md` does not carry them and never will", "accepted** proposal is NOT a decision", "REGENERATED on every verdict", "answer a banked question in a session"])
+      ok(doc.includes(clause), `34.3: the honesty header does not carry ${JSON.stringify(clause)} — the header states who wrote each half, that these are options, that prd.md never carries them, that accepted is not a decision, and that a hand edit is lost`);
+    // The run line and the proposals line, each pinned WHOLE.
+    const line = (prefix) => doc.split("\n").find((l) => l.startsWith(prefix)) ?? null;
+    ok(line("**Run**") === "**Run** — `gate-fixture-proposals` · fictional (Gate fixture — hand-authored for build-checks group 34, not a run) · depth full-discovery · ended 2026-09-01T09:40:00.000Z · package [`discovery/gate-fixture-proposals`](./)", `34.3: the Run line is ${JSON.stringify(line("**Run**"))}`);
+    ok(line("**Proposals**") === "**Proposals** — 4: proposed 1 · accepted 1 · refused 1 · parked 1", `34.3: the Proposals line is ${JSON.stringify(line("**Proposals**"))} — it counts the fold, in STATUSES order`);
+    // Every proposal renders EXACTLY ONCE, under its own status's section.
+    const HOME = { p1: "Accepted", p2: "Parked", p3: "Refused", p4: "Awaiting a verdict" };
+    for (const [id, heading] of Object.entries(HOME)) {
+      const occurrences = doc.split(`#### ${id} — `).length - 1;
+      ok(occurrences === 1, `34.3: ${id}'s block appears ${occurrences} time(s) — a proposal renders once, in its status's section and nowhere else`);
+      ok((sectionBody(doc, heading) ?? "").includes(`#### ${id} — `), `34.3: ${id} is not under "${heading}" — the derived status selects the section`);
+    }
+    // Every field of every proposal is on the page, iterated over the LINES so a renderer that drops
+    // one fails by name.
+    for (const row of foldProposals(P_LINES)) {
+      const block = blockOf(doc, row.proposal.id);
+      ok(block !== null, `34.3: ${row.proposal.id} has no block at all`);
+      for (const [k, v] of Object.entries(row.proposal)) {
+        if (k === "type" || k === "id" || k === "rests_on") continue;
+        ok(presentAll(block ?? "", v), `34.3: ${row.proposal.id}'s "${k}" (${JSON.stringify(String(v).slice(0, 40))}) is not in its block — every model-authored and server-assigned field renders, and nothing is truncated. A multi-line value reaches the page one line at a time through blockquote()`);
+      }
+      for (const seq of row.proposal.rests_on)
+        ok((block ?? "").includes(`seq ${seq} (`), `34.3: ${row.proposal.id}'s rests_on seq ${seq} is not named in its block with the rung it resolves to`);
+      for (const v of row.verdicts)
+        ok(present(block ?? "", v.reason) && (block ?? "").includes(`**${v.verdict}**`), `34.3: ${row.proposal.id}'s ${v.verdict} verdict and its reason are not both in its block`);
+    }
+    // The supersede MARKING — p2 carries two verdicts, and the earlier one is marked rather than
+    // dropped, the rule prd-projection.mjs states for a replaced decision.
+    const p2 = blockOf(doc, "p2") ?? "";
+    ok((p2.match(/\*Verdict:\*/g) ?? []).length === 2, `34.3: p2's block holds ${(p2.match(/\*Verdict:\*/g) ?? []).length} verdict line(s) — both are kept, because the owner changing their mind is part of the record`);
+    ok(p2.includes("(superseded by the verdict of 2026-09-01T11:40:00.000Z)"), `34.3: p2's earlier verdict is not marked as superseded — marking, never dropping`);
+    // The rested-on table, and the FOUR decisions in the ledger that no proposal rests on must NOT
+    // appear in it (a table that listed every decision would not be a cross-reference).
+    const rested = sectionBody(doc, "The decisions these rest on") ?? "";
+    ok(rested.startsWith("| seq | Level | Question | Rested on by |"), `34.3: the rested-on section does not open with its table header — ${JSON.stringify(rested.slice(0, 80))}`);
+    for (const seq of [2, 3, 4]) ok(rested.includes(`| ${seq} | `), `34.3: seq ${seq} is rested on by a proposal but has no row in the rested-on table`);
+    ok(!rested.includes(`| ${SEQ_EVIDENCE} | `) && !rested.includes(`| ${SEQ_WEAK} | `), `34.3: the rested-on table names a seq no proposal rests on — it is a cross-reference over rests_on, not a dump of the ledger`);
+  }
+
+  // 34.4 — REFUSAL 3, THREE WAYS: a proposal can never become a record_decision. Structural, not a
+  // runtime check, so it is asserted as a value, EXECUTED, and source-pinned.
+  {
+    // (a) the vocabularies are disjoint, and no proposal field is a record_decision param.
+    ok(same(OPS_DISJOINT, []), `34.4a: LINE_TYPES ∩ OPS is ${JSON.stringify(OPS_DISJOINT)} — a line type that is also an op verb would give a proposal a name the applier answers to`);
+    // `wrong_if` IS in both key sets, and that is the design rather than a leak: every claim in this
+    // system carries a kill criterion, which is refusal 2's own argument. What must never be shared
+    // are the six params that make a record_decision a record_decision — a proposal carrying any of
+    // them would be an op wearing a proposal's type, and the exact-key-set check refuses each by
+    // name (with refusal 3 quoted in the message).
+    const DECISION_ONLY = DISCOVERY_PARAMS.record_decision.filter((k) => k !== "wrong_if");
+    const overlap = PROPOSAL_KEYS.filter((k) => DECISION_ONLY.includes(k));
+    ok(same(overlap, []), `34.4a: ${JSON.stringify(overlap)} is both a proposal key and a record_decision-only param — a shared field is the first step of a migration this ticket forbids`);
+    ok(DECISION_ONLY.length === 6 && !DECISION_ONLY.includes("wrong_if"), `34.4a: the decision-only param list is ${JSON.stringify(DECISION_ONLY)} — six params, wrong_if excluded because it is deliberately shared`);
+    for (const k of DECISION_ONLY)
+      ok(names(() => checkProposalLines([{ ...proposal("p1"), [k]: null }], P_RECORDS), k, "refusal 3") === null, `34.4a: a proposal line carrying record_decision's "${k}" is not refused naming refusal 3 — ${names(() => checkProposalLines([{ ...proposal("p1"), [k]: null }], P_RECORDS), k, "refusal 3")}`);
+    // (b) EXECUTED, not grepped — the repo's own rule: mutate the source, run the function.
+    const ctx = { answers: P_ANSWERS, bank: BANK, turn: null };
+    const line = proposal("p1");
+    ok(names(() => applyDiscoveryOps([line], ctx), "unknown key") === null, `34.4b: applyOps accepted a proposal line as an item — ${names(() => applyDiscoveryOps([line], ctx), "unknown key")}`);
+    ok(names(() => applyDiscoveryOp(emptyRun(), line, ctx), "op") === null, `34.4b: applyOp accepted a proposal line as an op envelope — ${names(() => applyDiscoveryOp(emptyRun(), line, ctx), "op")}`);
+    // And the reverse: an op record fed to checkProposalLines is refused naming its type.
+    ok(names(() => checkProposalLines([{ ...P_RECORDS[1], type: "op" }], P_RECORDS), "type", "op") === null, `34.4b: checkProposalLines accepted an op record as a proposal line — ${names(() => checkProposalLines([{ ...P_RECORDS[1], type: "op" }], P_RECORDS), "type", "op")}`);
+    // (c) the source pin: no applier import, no exported name naming record_decision.
+    const src = decomment(readFileSync(join(ROOT, "discovery/proposals.mjs"), "utf8"));
+    ok(!/\bapplyOps?\b/.test(src), "34.4c: discovery/proposals.mjs names applyOp or applyOps — there is no route from a proposal into the applier, and an import is the first half of one");
+    ok(!/^\s*export\b[^\n]*\b(record_decision|applyOp)/m.test(src), "34.4c: discovery/proposals.mjs exports a name matching record_decision or applyOp");
+    ok(/from "\.\/ops\.mjs"/.test(src) && /\bPARAMS\b/.test(src), "34.4c: the pin above is vacuous — proposals.mjs must import from ops.mjs (it reads PARAMS to name refusal 3), so a regex that matched nothing would pass forever");
+    // The MUTATION that turns the pin red, so it cannot pass because it never matched.
+    ok(/\bapplyOps?\b/.test(`${src}\napplyOps(x);`), "34.4c: the applier-import regex does not match even when the name IS present — the pin is broken");
+  }
+
+  // 34.5 — REFUSAL 4, BYTE-IDENTICAL: a proposal never appears in prd.md.
+  {
+    const prdPkg = { run: P_RUN, answers: P_ANSWERS, ops: P_RECORDS };
+    const before = projectPrd(prdPkg);
+    // (a) the same package carrying proposal lines, then carrying verdicts too — byte-identical.
+    const withProposals = projectPrd({ ...prdPkg, proposals: P_LINES.filter((l) => l.type === "proposal") });
+    const withEverything = projectPrd({ ...prdPkg, proposals: P_LINES });
+    ok(before === withProposals, "34.5a: prd.md's bytes moved when proposal lines were added to the package — prd.md is a fold over run.json, answers.jsonl and the transcript's op lines, and nothing else has a route");
+    ok(before === withEverything, "34.5a: prd.md's bytes moved when verdict lines were added to the package");
+    for (const l of P_LINES) {
+      for (const k of ["title", "why", "wrong_if", "reason"]) {
+        if (typeof l[k] !== "string") continue;
+        ok(!presentAny(before, l[k]), `34.5a: a proposal's "${k}" (${JSON.stringify(l[k].slice(0, 40))}) is on the projected prd.md — refusal 4`);
+      }
+    }
+    // (b) the source pin, over DECOMMENTED source: the three exported containment helpers are named
+    // in prd-projection.mjs's comments by design (#359's T1), and a comment is not a route.
+    const prdSrc = decomment(readFileSync(join(ROOT, "discovery/prd-projection.mjs"), "utf8"));
+    ok(!/proposals/i.test(prdSrc), `34.5b: discovery/prd-projection.mjs's code names "proposals" — it must not import, read or render the proposal half in either direction`);
+    ok(/readPackage/.test(prdSrc), "34.5b: the pin above is vacuous — prd-projection.mjs's decommented source must still hold its code");
+    const filenames = [...prdSrc.matchAll(/join\(root, "([^"]+)"\)/g)].map((m) => m[1]);
+    ok(same([...new Set(filenames)].sort(), ["answers.jsonl", "prd.md", "run.json", "transcript.jsonl"]), `34.5b: prd-projection.mjs reaches ${JSON.stringify([...new Set(filenames)].sort())} under the run root — it reads three files and writes one, and proposals.jsonl is not among them`);
+    // (c) the MUTATION that turns the compare red, so 34.5a cannot be testing nothing — the exact
+    // failure mode every #137 defect shared.
+    ok(before !== `${before}${P_LINES[0].title}`, "34.5c: the byte compare cannot distinguish a page with a proposal's title concatenated onto it — 34.5a is proving nothing");
+  }
+
+  // 34.6 — REFUSAL 1 and REFUSAL 2, each on its own message, each with the mutation that turns it red.
+  {
+    const check = (patch) => () => checkProposalLines([proposal("p1", patch)], P_RECORDS);
+    // THE POSITIVE CONTROL FIRST: the same proposal with one valid rests_on and a non-blank wrong_if
+    // is ACCEPTED, so no refusal below can be passing because everything is refused.
+    ok(threw(check({})) === null, `34.6: the happy proposal was refused — ${msg(check({}))}. Every refusal below is meaningless until this passes`);
+    // REFUSAL 1 — five branches, each naming rests_on and its refusal.
+    const R1 = [
+      ["empty", { rests_on: [] }],
+      ["absent", (() => { const p = proposal("p1"); delete p.rests_on; return p; })()],
+      ["not an array", { rests_on: 2 }],
+      ["a dangling seq", { rests_on: [99] }],
+      ["a file_evidence seq", { rests_on: [SEQ_EVIDENCE] }],
+      ["a flag_weak_answer seq", { rests_on: [SEQ_WEAK] }],
+      ["seq 0", { rests_on: [0] }],
+      ["a negative seq", { rests_on: [-1] }],
+      ["a float seq", { rests_on: [1.5] }],
+      ["a string seq", { rests_on: ["2"] }],
+    ];
+    for (const [label, patch] of R1) {
+      const fn = patch.type === "proposal" ? () => checkProposalLines([patch], P_RECORDS) : check(patch);
+      ok(names(fn, "rests_on") === null, `34.6: rests_on ${label} — ${names(fn, "rests_on")}`);
+      // "absent" is caught one guard earlier, by the exact-key-set check, so it names rests_on but
+      // not refusal 1. Every branch that reaches the rests_on validators names the refusal.
+      if (label !== "absent") ok(names(fn, "rests_on", "refusal 1") === null, `34.6: rests_on ${label} does not name refusal 1 — ${names(fn, "rests_on", "refusal 1")}`);
+    }
+    // The wrong-kind branches must name the KIND they resolved to, not just the field.
+    ok(names(check({ rests_on: [SEQ_EVIDENCE] }), "file_evidence", "not a record_decision", "refusal 1") === null, `34.6: a file_evidence seq's refusal does not name the kind — ${names(check({ rests_on: [SEQ_EVIDENCE] }), "file_evidence", "not a record_decision", "refusal 1")}`);
+    ok(names(check({ rests_on: [SEQ_WEAK] }), "flag_weak_answer", "refusal 1") === null, `34.6: a flag_weak_answer seq's refusal does not name the kind — ${names(check({ rests_on: [SEQ_WEAK] }), "flag_weak_answer", "refusal 1")}`);
+    ok(names(check({ rests_on: [99] }), "99", "does not carry", "refusal 1") === null, `34.6: a DANGLING seq must be REFUSED here, unlike checkOpLines' tolerated dangling parent_id — a proposal run reads a FINISHED package and every seq it names was in the brief. ${names(check({ rests_on: [99] }), "99", "does not carry", "refusal 1")}`);
+    // REFUSAL 2 — wrong_if, six branches.
+    for (const [label, v] of [["absent", undefined], ["null", null], ["empty", ""], ["blank", "   "], ["a number", 7], ["an array", ["x"]]]) {
+      const p = proposal("p1");
+      if (v === undefined) delete p.wrong_if; else p.wrong_if = v;
+      const fn = () => checkProposalLines([p], P_RECORDS);
+      ok(names(fn, "wrong_if") === null, `34.6: wrong_if ${label} — ${names(fn, "wrong_if")}`);
+      if (v !== undefined) ok(names(fn, "wrong_if", "refusal 2") === null, `34.6: wrong_if ${label} does not name refusal 2 — ${names(fn, "wrong_if", "refusal 2")}`);
+    }
+    // The ordinary shape refusals, each naming the value.
+    const shapes = [
+      ["an unknown type", [{ ...proposal("p1"), type: "proposalx" }], ["type", "proposalx"]],
+      ["an unknown key", [{ ...proposal("p1"), level: "business" }], ["level", "refusal 3"]],
+      ["an absent key", [(() => { const p = proposal("p1"); delete p.model; return p; })()], ["absent", "model"]],
+      ["a bad id", [proposal("p1", { id: "px" })], ["id"]],
+      ["a repeated id", [proposal("p1"), proposal("p1")], ["repeats"]],
+      ["ids out of order", [proposal("p2"), proposal("p1")], ["strictly increasing"]],
+      ["a blank title", [proposal("p1", { title: "  " })], ["title"]],
+      ["a blank why", [proposal("p1", { why: "" })], ["why"]],
+      ["a blank fingerprint", [proposal("p1", { fingerprint: "" })], ["fingerprint"]],
+      ["a non-string ts", [proposal("p1", { ts: 7 })], ["ts"]],
+      ["a verdict naming no proposal", [proposal("p1"), verdict("p9", "accepted")], ["p9"]],
+      ["a verdict outside VERDICTS", [proposal("p1"), verdict("p1", "maybe")], ["verdict", "maybe"]],
+      ["a blank verdict reason", [proposal("p1"), verdict("p1", "accepted", { reason: " " })], ["reason"]],
+      ["a verdict with an unknown key", [proposal("p1"), { ...verdict("p1", "accepted"), id: "p1" }], ["id"]],
+      ["a non-array store", "x", ["array"]],
+      ["a non-object line", [null], ["not an object"]],
+    ];
+    for (const [label, lines, needles] of shapes) {
+      const fn = () => checkProposalLines(lines, P_RECORDS);
+      ok(names(fn, ...needles) === null, `34.6: ${label} — ${names(fn, ...needles)}`);
+      const e = threw(fn);
+      ok(e !== null && e.constructor === Error && String(e.message).startsWith("proposals: "), `34.6: ${label} threw a ${e?.constructor?.name} whose message does not name the module — ${JSON.stringify(String(e?.message).slice(0, 90))}`);
+    }
+    // Total, and it returns a COPY: a caller cannot alias the checked array.
+    const checked = checkProposalLines(P_LINES, P_RECORDS);
+    ok(checked !== P_LINES && same(checked, P_LINES), "34.6: checkProposalLines returned its input array rather than a copy — a caller could rewrite the checked lines after the check");
+    ok(threw(() => checkProposalLines([], [])) === null, "34.6: an empty store over an empty ledger was refused — an absent proposals.jsonl reads as [] and is a legitimate state");
+  }
+
+  // 34.7 — THE DERIVED STATUS. Never stored, the LAST verdict wins, and every verdict is kept.
+  {
+    const p = proposal("p1");
+    ok(statusOf("p1", [p]) === "proposed", `34.7: no verdict answered ${JSON.stringify(statusOf("p1", [p]))} — "proposed" is the ABSENCE of a verdict`);
+    for (const v of VERDICTS)
+      ok(statusOf("p1", [p, verdict("p1", v)]) === v, `34.7: one ${v} verdict answered ${JSON.stringify(statusOf("p1", [p, verdict("p1", v)]))}`);
+    const three = [p, verdict("p1", "accepted"), verdict("p1", "refused"), verdict("p1", "parked")];
+    ok(statusOf("p1", three) === "parked", `34.7: three verdicts answered ${JSON.stringify(statusOf("p1", three))} — the LAST one wins`);
+    const folded = foldProposals(three);
+    ok(folded[0].verdicts.length === 3 && same(folded[0].verdicts.map((v) => v.verdict), ["accepted", "refused", "parked"]), `34.7: three verdicts folded to ${JSON.stringify(folded[0].verdicts.map((v) => v.verdict))} — all three are kept, in FILE ORDER, because the owner changing their mind is part of the record`);
+    ok(statusOf("p9", three) === "proposed", `34.7: statusOf over an unknown id answered ${JSON.stringify(statusOf("p9", three))} — a selector answers over junk rather than throwing`);
+    const counts = statusCounts(P_LINES);
+    ok(same(Object.keys(counts), [...STATUSES]), `34.7: statusCounts' keys are ${JSON.stringify(Object.keys(counts))} — always all of STATUSES, in order, so a caller rendering a zero need not distinguish "none" from "absent"`);
+    ok(STATUSES.reduce((n, s) => n + counts[s], 0) === foldProposals(P_LINES).length, `34.7: statusCounts sums to ${STATUSES.reduce((n, s) => n + counts[s], 0)} over ${foldProposals(P_LINES).length} proposals`);
+    ok(same(foldProposals(P_LINES).map((r) => r.proposal.id), ["p1", "p2", "p3", "p4"]), `34.7: foldProposals answered ${JSON.stringify(foldProposals(P_LINES).map((r) => r.proposal.id))} — file order, never sorted`);
+    ok(same(foldProposals(P_LINES).map((r) => r.seq), [1, 2, 3, 4]), "34.7: foldProposals' seq is not the 1-based file ordinal");
+    // PURITY: call it twice and deep-compare, then mutate the return and re-read the input.
+    ok(same(foldProposals(P_LINES), foldProposals(P_LINES)), "34.7: two folds of the same lines differ — foldProposals is not deterministic");
+    const snapshot = JSON.stringify(P_LINES);
+    const out = foldProposals(P_LINES);
+    out[0].proposal.title = "mutated";
+    out[0].proposal.rests_on.push(99);
+    out[1].verdicts[0].reason = "mutated";
+    out[1].verdicts.push(verdict("p2", "accepted"));
+    ok(JSON.stringify(P_LINES) === snapshot, "34.7: mutating foldProposals' return changed the input lines — the fold must COPY the proposal, its rests_on and its verdicts, or a consumer can rewrite an append-only record without a write (group 30 case 13's trap)");
+    ok(foldProposals(P_LINES)[0].proposal.title !== "mutated", "34.7: a second fold sees the first fold's mutation");
+    ok(same(foldProposals(null), []) && same(foldProposals("x"), []), "34.7: foldProposals threw or answered non-[] over junk — every selector below checkProposalLines is total");
+  }
+
+  // 34.8 — THE VANISHING CLAIM, this fold's version. Delete a proposal and its claims leave the WHOLE
+  // document; delete every one and every heading survives carrying no claim.
+  {
+    for (const target of foldProposals(P_LINES)) {
+      const id = target.proposal.id;
+      const without = P_LINES.filter((l) => !(l.type === "proposal" && l.id === id) && !(l.type === "verdict" && l.proposal_id === id));
+      const md = project(without);
+      ok(same(headings(md), WANT), `34.8: deleting ${id} changed the heading list to ${JSON.stringify(headings(md))} — the headings are PROPOSAL_SECTIONS' and nothing can add or remove one`);
+      for (const k of ["title", "why", "wrong_if"])
+        ok(!presentAny(md, target.proposal[k]), `34.8: ${id}'s "${k}" survives its deletion — a claim on the page must resolve to a line in proposals.jsonl and nothing else. presentAny, not present: a multi-line value leaks one line at a time`);
+      for (const v of target.verdicts)
+        ok(!presentAny(md, v.reason), `34.8: ${id}'s verdict reason survives its deletion`);
+      ok(!md.includes(`#### ${id} — `), `34.8: ${id}'s block survives its deletion`);
+      // The section it lived in falls back to its OWN declared empty string when it was the only one
+      // there — five distinct strings (34.1), so this cannot pass on a neighbour's fallback.
+      const row = PROPOSAL_SECTIONS.find((r) => r.axis === "status" && r.from === target.status);
+      const others = foldProposals(without).filter((r) => r.status === target.status);
+      if (!others.length) ok(sectionBody(md, row.heading) === row.empty, `34.8: "${row.heading}" did not fall back to its own declared empty state after ${id} left it — got ${JSON.stringify(sectionBody(md, row.heading))}, want ${JSON.stringify(row.empty)}`);
+    }
+    // Every proposal gone: every heading survives, every declared empty renders, no claim remains.
+    const bare = project([]);
+    ok(same(headings(bare), WANT), `34.8: the empty projection's headings are ${JSON.stringify(headings(bare))}`);
+    for (const row of PROPOSAL_SECTIONS)
+      ok(sectionBody(bare, row.heading) === row.empty, `34.8: "${row.heading}" over an empty store rendered ${JSON.stringify(sectionBody(bare, row.heading))} rather than its declared ${JSON.stringify(row.empty)}`);
+    for (const l of P_LINES)
+      for (const k of ["title", "why", "wrong_if", "reason"])
+        if (typeof l[k] === "string") ok(!presentAny(bare, l[k]), `34.8: the empty projection carries a ${l.type}'s "${k}" although no line was passed in`);
+    ok(bare.includes("**Proposals** — 0: proposed 0 · accepted 0 · refused 0 · parked 0"), "34.8: the empty projection's Proposals line does not read all zeroes");
+    // The whole ledger empty too — the projection still renders every heading and no claim.
+    const noLedger = project([], []);
+    ok(same(headings(noLedger), WANT), `34.8: an empty LEDGER changed the heading list to ${JSON.stringify(headings(noLedger))}`);
+  }
+
+  // 34.9 — THE INJECTION BATTERY, re-run on this fold. Nothing model-authored may reach column 0 as
+  // markdown STRUCTURE, over all three of CommonMark's line endings. CRLF is the sharp one: folding
+  // only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still
+  // reads as a heading.
+  //
+  // The assertion is a CENSUS over the KEY LISTS, not a floor. 31.13's `folded >= 25 && refused >= 10`
+  // counts refusals that come from three closed-set enum params this shape does not have, so a copied
+  // floor would be red on day one. Iterating the key lists is strictly stronger: a field added to
+  // either list must land in one column or the case fails BY NAME.
+  {
+    const EOLS = [["LF", "\n"], ["CR", "\r"], ["CRLF", "\r\n"]];
+    const smuggle = (eol) => `${eol}${eol}## Smuggled section${eol}${eol}#### p99 — a smuggled block${eol}${eol}- a claim no proposal carries`;
+    const STRUCTURE = ["## Smuggled section", "#### p99", "- a claim no proposal carries"];
+    const opened = (md) => md.split(/\r\n|\r|\n/).filter((l) => STRUCTURE.some((x) => l.replace(/^ {1,3}/, "").startsWith(x)));
+    // The happy page holds a multi-line `why` already, so the machinery is proven on it first.
+    ok(same(headings(doc), WANT) && opened(doc).length === 0, `34.9: the fixture's own multi-line why is not contained — headings ${JSON.stringify(headings(doc))}, opened ${JSON.stringify(opened(doc))}. Every case below is meaningless until the happy page holds`);
+    // GUARD 1 — the key lists cover the fixture. Without it, a field present in the data but missing
+    // from PROPOSAL_KEYS is never driven AND never counted, and the census still balances.
+    for (const l of P_LINES) {
+      const want = l.type === "proposal" ? PROPOSAL_KEYS : VERDICT_KEYS;
+      ok(same(Object.keys(l).sort(), [...want].sort()), `34.9: fixture ${l.type} line carries ${Object.keys(l).join(", ")} but its key list is ${want.join(", ")} — a field in the data and not in the list is never driven here`);
+    }
+    const stringKeys = (line) => (line.type === "proposal" ? PROPOSAL_KEYS : VERDICT_KEYS).filter((k) => typeof line[k] === "string");
+    const expected = P_LINES.reduce((n, l) => n + stringKeys(l).length, 0);
+    // GUARD 2 — the census is non-trivial, so a fixture reduced to one line cannot pass it.
+    ok(expected >= 20, `34.9: only ${expected} string fields across the fixture — the census needs a fixture wide enough to mean something`);
+    for (const [name, eol] of EOLS) {
+      const PAYLOAD = smuggle(eol);
+      let folded = 0;
+      let refused = 0;
+      P_LINES.forEach((l, i) => {
+        for (const k of stringKeys(l)) {
+          const lines = P_LINES.map((x, j) => (j === i ? { ...x, [k]: `${x[k]}${PAYLOAD}` } : x));
+          let md;
+          // A refusal BY NAME is containment; a crash is NOT, and counting one as the other would
+          // make this case pass for exactly the reason it exists to rule out.
+          try { md = project(lines); } catch (e) {
+            ok(e.constructor === Error && String(e.message).startsWith("proposals: "), `34.9: ${l.type} ${i}'s "${k}" (${name}) made the projection throw a ${e.constructor.name} that does not name itself — ${JSON.stringify(String(e.message).slice(0, 120))}. A crash is not containment`);
+            refused += 1;
+            continue;
+          }
+          folded += 1;
+          ok(same(headings(md), WANT), `34.9: ${l.type} ${i}'s "${k}" opened a "## " heading with ${name} line endings — ${JSON.stringify(headings(md))}`);
+          ok(opened(md).length === 0, `34.9: ${l.type} ${i}'s "${k}" put ${JSON.stringify(opened(md))} at the START of a line with ${name} line endings — folded text is inert, structure at column 0 (or under ATX's three-space indent) is not`);
+          ok(md.includes("## Smuggled section"), `34.9: ${l.type} ${i}'s "${k}" (${name}) lost the injected text entirely — a fold CONTAINS a claim, it never deletes one`);
+        }
+      });
+      ok(folded + refused === expected, `34.9: ${folded} folded + ${refused} refused of ${expected} string fields with ${name} line endings — this case ITERATES PROPOSAL_KEYS and VERDICT_KEYS, so a field added to either must be driven here`);
+      ok(folded > 0 && refused > 0, `34.9: neither column may be empty — folded ${folded}, refused ${refused}. If refused is 0 the validators are not running; if folded is 0 nothing reached a renderer`);
+      // run.json's header is the same class: field() interpolates it raw, and the page title does not
+      // even go through field().
+      for (const k of ["slug", "root", "label", "provenance", "depth", "endedAt"]) {
+        const md = project(P_LINES, P_RECORDS, { ...P_RUN, [k]: `${P_RUN[k]}${PAYLOAD}` });
+        ok(same(headings(md), WANT) && opened(md).length === 0, `34.9: run.${k} opened ${JSON.stringify(opened(md))} with ${name} line endings — the run header is interpolated raw too`);
+      }
+    }
+    // The `|` route: a pipe in model-authored text must not add a column to any table row.
+    const columnsOf = (md) => md.split("\n").filter((l) => l.startsWith("| ")).map((l) => l.split("|").length);
+    const baseline = columnsOf(doc);
+    for (const k of ["title", "why", "wrong_if", "model", "fingerprint"]) {
+      const md = project(P_LINES.map((l, i) => (i === 0 && typeof l[k] === "string" ? { ...l, [k]: `${l[k]} a | b | c` } : l)));
+      ok(same(columnsOf(md), baseline), `34.9: a pipe in a proposal's "${k}" changed the table shape from ${JSON.stringify(baseline)} to ${JSON.stringify(columnsOf(md))} — anything reaching a table cell goes through cell()`);
+    }
+    // The positive control for the pipe route: a pipe in the value that DOES reach a cell — the bank
+    // question's text arrives through cell() — and the ledger's own url, which carries one already.
+    ok(doc.split("\n").filter((l) => l.startsWith("| ")).length >= 3, "34.9: the rested-on table has fewer than three rows, so the pipe assertions above have almost nothing to protect");
+  }
+
+  // 34.10 — THE BANK'S EXCLUDED FIELDS. weakAnswer is the agent's rubric, note and provenanceNote are
+  // the researcher's commentary about the question: none is a statement about this product.
+  {
+    const ids = P_RECORDS.filter((r) => r.op === "record_decision").map((r) => r.params.question_id).filter(Boolean);
+    ok(ids.length >= 2, `34.10: the fixture's decisions name ${ids.length} banked question(s) — this case needs at least two, or the exclusions below are barely driven`);
+    let checkedAny = false;
+    for (const id of ids) {
+      const q = questionById(id);
+      ok(q, `34.10: the fixture names bank id ${JSON.stringify(id)}, which the bank does not hold — a bank rename must fail HERE by name`);
+      if (!q) continue;
+      for (const k of ["weakAnswer", "note", "provenanceNote"])
+        if (typeof q[k] === "string" && q[k].trim()) { checkedAny = true; ok(!presentAny(doc, q[k]), `34.10: ${id}'s "${k}" is on proposals.md — it is the rubric or the researcher's commentary, never a claim about the product`); }
+      // The POSITIVE CONTROL, so the absences above cannot pass because the bank was never read.
+      ok(present(doc, q.text) && present(doc, q.attribution) && present(doc, q.label), `34.10: ${id}'s text / attribution / label are not all on the page — the exclusions above would then pass because nothing was rendered at all`);
+    }
+    ok(checkedAny, "34.10: not one excluded field was non-empty across the fixture's questions — the exclusion assertions never ran");
+  }
+
+  // 34.11 — DETERMINISM, PURITY, NO CLOCK, and the committed artefact.
+  {
+    ok(project() === project(), "34.11: two projections of the same package differ — the fold is not deterministic");
+    const snapshot = JSON.stringify({ run: P_RUN, ops: P_RECORDS, proposals: P_LINES });
+    project();
+    ok(JSON.stringify({ run: P_RUN, ops: P_RECORDS, proposals: P_LINES }) === snapshot, "34.11: projectProposals mutated its input");
+    // NO CLOCK: every ISO date on the page is one run.json or a line already carried.
+    const known = new Set([P_RUN.startedAt, P_RUN.endedAt, ...P_LINES.map((l) => l.ts)]);
+    for (const stamp of doc.match(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g) ?? [])
+      ok(known.has(stamp), `34.11: ${stamp} is on the page and is not run.json's or any line's own ts — the fold calls no clock`);
+    ok((doc.match(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g) ?? []).length >= 5, "34.11: fewer than five ISO stamps on the page — the no-clock loop above has almost nothing to check");
+    // proposalsView — the portal's whitelist, driven here rather than left as a shape in the route.
+    const view = proposalsView(pkg());
+    ok(same(Object.keys(view).sort(), ["counts", "decisions", "head", "proposals"]), `34.11: proposalsView answers ${Object.keys(view).join(", ")} — it is a WHITELIST, so a field added to the package must not start reaching the browser by default`);
+    ok(same(Object.keys(view.head).sort(), ["depth", "endedAt", "label", "provenance", "root", "slug"]), `34.11: proposalsView's head carries ${Object.keys(view.head).join(", ")} — turnStats, model, posture, sessionId and reads are deliberately not on the wire`);
+    ok(view.decisions.length === 3 && same(view.decisions.map((d) => d.seq), [2, 3, 4]), `34.11: proposalsView's decisions are ${JSON.stringify(view.decisions.map((d) => d.seq))} — every record_decision, and only those`);
+    for (const d of view.decisions)
+      ok(same(Object.keys(d).sort(), ["level", "question", "question_id", "seq", "wrong_if"]), `34.11: a decision row carries ${Object.keys(d).join(", ")}`);
+    for (const id of P_RECORDS.filter((r) => r.op === "record_decision").map((r) => r.params.question_id).filter(Boolean)) {
+      const q = questionById(id);
+      for (const k of ["weakAnswer", "note", "provenanceNote"])
+        if (typeof q?.[k] === "string" && q[k].trim()) ok(!JSON.stringify(view).includes(q[k]), `34.11: proposalsView puts ${id}'s "${k}" on the wire — the rubric never reaches the browser (plan M6's rule)`);
+    }
+    ok(names(() => proposalsView({ run: P_RUN, ops: P_RECORDS, proposals: [proposal("p1", { rests_on: [] })] }), "rests_on", "refusal 1") === null, `34.11: proposalsView served a corrupted store without refusing — it calls checkProposalLines, so the route refuses by name rather than rendering junk`);
+    // THE COMMITTED ARTEFACT, gated on existence the way case 33.15 does.
+    const runRoot = join(ROOT, "discovery/allergen-matrix-1");
+    if (existsSync(join(runRoot, "proposals.jsonl"))) {
+      const committed = join(runRoot, "proposals.md");
+      ok(existsSync(committed), "34.11: discovery/allergen-matrix-1/proposals.jsonl exists with no proposals.md beside it — the page is regenerated on every verdict, so it is always present");
+      if (existsSync(committed)) {
+        const want = projectProposals(readProposalPackage(runRoot));
+        ok(readFileSync(committed, "utf8") === want, "34.11: discovery/allergen-matrix-1/proposals.md is not the projection's bytes — regenerate it with node discovery/proposals.mjs allergen-matrix-1");
+      }
+    }
+  }
+
+  // 34.12 — THE SDK HALF, SOURCE-PINNED. Read as TEXT and never imported: it reaches the SDK, and CI
+  // has no portal/node_modules. Every regex carries a positive control, because a pin that never
+  // matched passes forever.
+  {
+    const PROPOSER = join(ROOT, "portal/lib/discovery-proposer.mjs");
+    if (!existsSync(PROPOSER)) ok(false, "34.12: portal/lib/discovery-proposer.mjs does not exist — the SDK half is what protects AC #4 and AC #5, and this case is its only CI-reachable guard");
+    else {
+      const src = decomment(readFileSync(PROPOSER, "utf8"));
+      // MUST NOT: every one of these would move run.json, transcript.jsonl or a posture fingerprint.
+      // A proposer importing recordTurnStats adds a turnStats entry, and projectPrd renders
+      // run.turnStats.length as "N turn(s)" — AC #4, gone, with a green gate over it.
+      for (const forbidden of ["recordTurnStats", "writeRun", "mutateHead", "closeSession", "appendTranscript", "appendAnswer", "allowsToolName", "TOOL_DESCRIPTIONS", "fingerprintOf", "FINGERPRINT_INPUTS", "POSTURES"])
+        ok(!new RegExp(`\\b${forbidden}\\b`).test(src), `34.12: discovery-proposer.mjs names ${forbidden} — the proposal run writes NOTHING to run.json, transcript.jsonl or answers.jsonl, and it never touches the posture prompt surface`);
+      // The positive control for the loop above: the same regex shape DOES match a name that is there.
+      ok(/\bcheckProposalLines\b/.test(src), "34.12: the must-not loop is vacuous — its regex shape does not match even a name that IS present");
+      // MUST: one fence object, wired to BOTH sites (case 12's rule, :6290 — a second copy of the
+      // fence is a second fence), with `write:` so refusals stream instead of landing in the
+      // transcript.
+      for (const [needle, why] of [
+        [/\bfenceHooks\b/, "the PreToolUse site"],
+        [/\bfenceCanUseTool\b/, "the canUseTool site"],
+        [/\bwrite:/, "the recorder that streams instead of appending to transcript.jsonl"],
+        [/\bextraTools:/, "this run's own tool name, admitted through the ONE predicate"],
+        [/\bcheckProposalLines\b/, "the refusals, called before the append"],
+        [/\bnextProposalId\b/, "the server-assigned id"],
+        [/\bMAX_PROPOSALS\b/, "the ceiling"],
+        [/\bPROVENANCE_RULE\b/, "the imported provenance rule (#347), never a copy"],
+        [/\bis_error\b/, "the result check [[sdk-error-result-wears-success]]"],
+      ]) ok(needle.test(src), `34.12: discovery-proposer.mjs does not carry ${needle} — ${why}`);
+      // ONE fence object handed to both sites, and both from the SAME variable.
+      const fenceVar = src.match(/const\s+(\w+)\s*=\s*\{[^}]*\ballowSet\b[^}]*\bextraTools\b[^}]*\}/s)?.[1] ?? null;
+      ok(fenceVar !== null, "34.12: no single object literal carries allowSet and extraTools together — one fence, two call sites, or the two sites can drift apart");
+      if (fenceVar) {
+        ok(new RegExp(`fenceCanUseTool\\([^)]*\\b${fenceVar}\\b`).test(src) && new RegExp(`fenceHooks\\([^)]*\\b${fenceVar}\\b`).test(src), `34.12: fenceCanUseTool and fenceHooks are not both handed ${fenceVar} — a second copy of the fence is a second fence (case 12's rule)`);
+      }
+      // strictMcpConfig, scoped to the query's own options block — a file-wide match stayed green on
+      // the transport with the real turn pointed elsewhere (PR #354 review F2).
+      const queryBlock = src.match(/query\(\{[\s\S]*?\n\s*\}\);/)?.[0] ?? "";
+      ok(/strictMcpConfig:\s*true/.test(queryBlock), "34.12: strictMcpConfig: true is not inside the query's own options block — the repo's .mcp.json must never join this run's advertised surface (#352)");
+      ok(/mcpServers:/.test(queryBlock) && /maxTurns:/.test(queryBlock), "34.12: the query-block match is vacuous — it did not capture the real options object");
+      // The MCP server name is its OWN, not the session's, so the session's tool names stay the
+      // session's and isRecorded's mcp__ prefix still holds for this run.
+      ok(!new RegExp(`\\bMCP_SERVER\\b`).test(src), "34.12: discovery-proposer.mjs reads MCP_SERVER — the proposal run advertises its own server, never the session's");
+      const serverName = src.match(/PROPOSER_MCP_SERVER\s*=\s*'([^']+)'/)?.[1] ?? src.match(/PROPOSER_MCP_SERVER\s*=\s*"([^"]+)"/)?.[1] ?? null;
+      ok(serverName !== null && serverName !== MCP_SERVER, `34.12: the proposer's MCP server name is ${JSON.stringify(serverName)} — it must exist and must not be the session's ${JSON.stringify(MCP_SERVER)}`);
+      // Exactly ONE tool, and its zod shape is exactly PROPOSED_BY_MODEL by name AND order.
+      ok((src.match(/\btool\(/g) ?? []).length === 1, `34.12: ${(src.match(/\btool\(/g) ?? []).length} tool( calls — one proposal run advertises exactly one tool`);
+      const shape = [...src.matchAll(/^\s*(\w+):\s*z\./gm)].map((m) => m[1]);
+      ok(same(shape, [...PROPOSED_BY_MODEL]), `34.12: the zod shape is ${JSON.stringify(shape)} — it must be exactly PROPOSED_BY_MODEL ${JSON.stringify([...PROPOSED_BY_MODEL])}, by name AND order, because the advertised "required" array comes out in that order`);
+      // `tools` and `mainTools` read ONE frozen record, as case 12 pins for the transport.
+      const mainVar = src.match(/const\s+(\w+)\s*=\s*Object\.freeze\(\[\]\)/)?.[1] ?? null;
+      ok(mainVar !== null, "34.12: no Object.freeze([]) main-tools record — the query's `tools` and the fence's record gate must read ONE list, or a widening moves one and not the other");
+      if (mainVar) ok(new RegExp(`tools:\\s*${mainVar}`).test(src) && new RegExp(`mainTools:\\s*${mainVar}`).test(src), `34.12: tools: and mainTools: do not both read ${mainVar}`);
+      // The refusal runs BEFORE the append — the ordering is the whole guarantee.
+      const at = (needle) => src.indexOf(needle);
+      ok(at("checkProposalLines") !== -1 && at("checkProposalLines") < at("appendFileSync"), `34.12: checkProposalLines is not called before the append (${at("checkProposalLines")} vs ${at("appendFileSync")}) — an unchecked line reaching an append-only file cannot be taken back`);
+    }
+  }
+
+  // 34.13 — THE FINGERPRINTS CANNOT MOVE THROUGH THIS TICKET'S CODE. Deliberately NOT a hex literal:
+  // group 32 case 2a and group 33 case 15 already compare a recording's stamps to the LIVE
+  // POSTURES[...].fingerprint, so a legitimate future prompt edit is meant to fail THERE, by name. A
+  // literal here would block it for no reason. Assert the CAUSE instead.
+  {
+    const PROPOSER = join(ROOT, "portal/lib/discovery-proposer.mjs");
+    if (existsSync(PROPOSER)) {
+      const src = decomment(readFileSync(PROPOSER, "utf8"));
+      const postureImports = [...src.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]*discovery-postures\.mjs['"]/g)]
+        .flatMap((m) => m[1].split(",").map((x) => x.trim()).filter(Boolean));
+      ok(same(postureImports, ["PROVENANCE_RULE"]), `34.13: discovery-proposer.mjs imports ${JSON.stringify(postureImports)} from discovery-postures.mjs — exactly PROVENANCE_RULE and nothing else. fingerprintOf hashes JSON.stringify(TOOL_DESCRIPTIONS), so one added key moves BOTH shipped posture fingerprints and makes discovery/instrument-loans-1/ stale under group 32`);
+      ok(postureImports.length > 0, "34.13: the import-line regex matched nothing — the pin would pass forever, and it is the only thing standing between a future edit and a silently broken AC #5");
+      // The proposer's own fingerprint is its own: node:crypto and nothing borrowed.
+      ok(/createHash/.test(src) && /node:crypto/.test(src), "34.13: discovery-proposer.mjs does not compute its own hash from node:crypto — its fingerprint must move when ITS prompt moves and never when the session's does");
+    }
+    // And the posture table itself is untouched by this ticket: both shipped fingerprints are still
+    // computed from the live module, and the two are distinct (the model is the only difference).
+    ok(POSTURES.think.fingerprint === fingerprintOf({ build: buildThinkTurn, model: POSTURES.think.model }), "34.13: POSTURES.think.fingerprint is not the live hash of its own build and model");
+    ok(POSTURES["think-opus"].fingerprint !== POSTURES.think.fingerprint, "34.13: the two shipped postures share a fingerprint — the model is hashed, so they must differ");
+    ok(same(Object.keys(POSTURES).sort(), ["think", "think-opus"]), `34.13: POSTURES holds ${Object.keys(POSTURES).join(", ")} — this ticket adds no third posture, because a proposal tool description in TOOL_DESCRIPTIONS would move both fingerprints (D2)`);
+  }
+
+  const pending34 = existsSync(join(ROOT, "discovery/allergen-matrix-1/proposals.jsonl")) ? [] : ["the recorded run: discovery/allergen-matrix-1/proposals.jsonl"];
+  group("proposals", `the vocabulary — VERDICTS, STATUSES, LINE_TYPES, both key sets, PROPOSED_BY_MODEL and PROPOSAL_SECTIONS — each frozen BY MUTATION, the section rows frozen at BOTH levels with an exact key set and ${PROPOSAL_SECTIONS.length} DISTINCT declared empty states, "proposed" proven to be STATUSES[0] and NOT a verdict, and the id allocator counting from the MAX id rather than the array length (the collision the two interleaved line types would otherwise cause after the first verdict) with seven junk ids refused by the regex · PROPOSAL_SECTIONS iterated against STATUSES in BOTH directions, one row per status so nothing renders twice, and a synthetic sixth status proven to find no home so the loop can go red · the positive control FIRST: the fixture — hand-authored ops through the REAL applier, hand-authored proposal lines because THEY are the subject — projecting one "## " per row in table order, the honesty header's five clauses each present, the Run and Proposals lines pinned WHOLE, every proposal rendered EXACTLY ONCE under its derived status, every field of every line asserted present by iteration, both of p2's verdicts kept with the earlier one MARKED superseded, and the rested-on table proven to name only the seqs a proposal rests on · REFUSAL 3 three ways: LINE_TYPES ∩ OPS empty and no proposal key a record_decision param, EXECUTED — a real proposal line refused by applyOp AND applyOps and an op record refused by checkProposalLines — and source-pinned with the mutation that proves the pin can match · REFUSAL 4 byte-identical: prd.md's bytes unmoved with proposal lines and then with verdict lines added to the same package, every model-authored string proven absent from it, prd-projection.mjs's DECOMMENTED source proven never to name "proposals" and to reach exactly run.json · answers.jsonl · transcript.jsonl · prd.md under the run root, with the concatenation mutation proving the compare can fail · REFUSAL 1 over ten branches (empty, absent, not an array, a dangling seq, a file_evidence seq, a flag_weak_answer seq, seq 0, a negative, a float and a string) each naming rests_on, the two wrong-kind branches naming the KIND, the dangling one refused where checkOpLines tolerates it and the reason stated; REFUSAL 2 over six; sixteen ordinary shape refusals each naming its value and each a plain Error prefixed "proposals: "; the happy proposal ACCEPTED as the positive control; and the returned array proven a COPY · the DERIVED status: no verdict reading "proposed", one verdict reading itself, three verdicts reading the LAST with all three KEPT in file order, statusCounts summing to the fold, purity by double call and by mutating the return, and the ALIAS trap driven — mutating the returned proposal, its rests_on and its verdicts leaves the input lines untouched · THE VANISHING CLAIM: each proposal deleted in turn, its title, why, wrong_if and every verdict reason gone from the WHOLE document and its section falling back to its OWN declared empty string, plus the empty store and the empty LEDGER each keeping every heading and carrying no claim · THE INJECTION BATTERY re-run on this fold as a CENSUS: a "## " / "#### " / "- " payload injected into every string field of every proposal line, every verdict line and six run.json fields, over ALL THREE of CommonMark's line endings, each contained by a fold or refused by name, asserted three ways (the heading list unchanged, nothing at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one) — and the count asserted as folded + refused === the fixture's own string-field total, iterated from PROPOSAL_KEYS and VERDICT_KEYS with two guards (the key lists cover the fixture; the total is at least 20) so a field added to either list must be classified or this case fails BY NAME, which is strictly stronger than 31.13's floors and is why they were not copied · the pipe route over five model-authored fields, proven not to change any table row's shape · the bank's weakAnswer, note and provenanceNote proven ABSENT with text / attribution / label present as the positive control · determinism, no mutation of the input, and NO CLOCK — every ISO stamp on the page pinned to run.json's or a line's own ts · proposalsView pinned as a WHITELIST by key set, its decisions rows exact, the rubric proven off the wire, and a corrupted store proven to refuse rather than render · and THE SDK HALF read as TEXT, never imported: eleven names proven ABSENT (recordTurnStats, writeRun, mutateHead, closeSession, appendTranscript, appendAnswer, allowsToolName, TOOL_DESCRIPTIONS, fingerprintOf, FINGERPRINT_INPUTS, POSTURES — the first six would move a package file and the last five would move a posture fingerprint), nine present, ONE fence object proven handed to BOTH call sites from the same variable, strictMcpConfig scoped to the query's own block, its own MCP server name, exactly one tool, its zod shape equal to PROPOSED_BY_MODEL by name and order, tools and mainTools reading one frozen record, checkProposalLines proven to precede the append, and the posture import pinned to PROVENANCE_RULE ALONE with both shipped fingerprints re-derived live${pending34.length ? ` · PENDING: ${pending34.join(" · ")}` : ""}. What it cannot reach: whether the SDK half BEHAVES at all — CI has no portal/node_modules, so case 34.12 is a source pin over text rather than a run, the proposer's --dry preflight is the substitute and the recorded run is the observation; whether a fence DENY actually STOPS a call at run time — --probe-fence is that standard, and after this ticket's extraTools/write parameters it covers the proposal run too, because there is ONE predicate at the same two sites; and whether the model's proposals are any GOOD, which is a human read of the verdict distribution and for which this ticket sets no target`);
+}
+
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -7783,5 +8475,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 33 groups pass");
+  console.log("\nbuild ✓  all 34 groups pass");
 }
