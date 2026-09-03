@@ -198,12 +198,19 @@
           <button class="btn btn-secondary" type="button" id="discovery-finish">Finish</button>
           <!-- the PRD without a terminal (#338 F1): the fold runs server-side and writes nothing -->
           <button class="btn btn-secondary" type="button" id="discovery-prd">Download PRD</button>
+          <!-- #359: ONE fenced run over a FINISHED package. It writes proposals.jsonl and
+               proposals.md and nothing else, so prd.md is byte-identical across it. -->
+          <button class="btn btn-secondary" type="button" id="discovery-propose">Propose features</button>
+          <button class="btn btn-secondary" type="button" id="discovery-proposals-md">Download proposals</button>
           <button class="btn btn-secondary" type="button" id="discovery-cancel">Close</button>
         </div>
         <p class="muted portal-form-status" id="discovery-status" aria-live="polite"></p>
         <ol class="portal-phase-log" id="discovery-log"></ol>
 
         <div id="discovery-recorded"></div>
+        <!-- #359: the proposals and the owner's verdict on each. A model wrote the proposals; the
+             verdicts are the owner's, and neither has a route into the requirement record. -->
+        <div id="discovery-proposals"></div>
       </div>
 
       <p class="muted portal-form-status" id="discovery-start-status" aria-live="polite"></p>

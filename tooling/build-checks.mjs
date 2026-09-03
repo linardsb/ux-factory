@@ -8413,7 +8413,11 @@ function scanSvg(svg, label) {
         [/\bis_error\b/, "the result check [[sdk-error-result-wears-success]]"],
       ]) ok(needle.test(src), `34.12: discovery-proposer.mjs does not carry ${needle} — ${why}`);
       // ONE fence object handed to both sites, and both from the SAME variable.
-      const fenceVar = src.match(/const\s+(\w+)\s*=\s*\{[^}]*\ballowSet\b[^}]*\bextraTools\b[^}]*\}/s)?.[1] ?? null;
+      // The initialiser holds nested braces — allowSetFor({ root, reads: [] }) — so the window is
+      // bounded by the two field names rather than by the closing brace.
+      // …and the window must not cross a `;`, or the match starts at an earlier const and walks into
+      // the fence object two statements later, naming the wrong variable.
+      const fenceVar = src.match(/const\s+(\w+)\s*=\s*\{[^;]{0,400}?\ballowSet:[^;]{0,400}?\bextraTools:/)?.[1] ?? null;
       ok(fenceVar !== null, "34.12: no single object literal carries allowSet and extraTools together — one fence, two call sites, or the two sites can drift apart");
       if (fenceVar) {
         ok(new RegExp(`fenceCanUseTool\\([^)]*\\b${fenceVar}\\b`).test(src) && new RegExp(`fenceHooks\\([^)]*\\b${fenceVar}\\b`).test(src), `34.12: fenceCanUseTool and fenceHooks are not both handed ${fenceVar} — a second copy of the fence is a second fence (case 12's rule)`);
@@ -8436,9 +8440,13 @@ function scanSvg(svg, label) {
       const mainVar = src.match(/const\s+(\w+)\s*=\s*Object\.freeze\(\[\]\)/)?.[1] ?? null;
       ok(mainVar !== null, "34.12: no Object.freeze([]) main-tools record — the query's `tools` and the fence's record gate must read ONE list, or a widening moves one and not the other");
       if (mainVar) ok(new RegExp(`tools:\\s*${mainVar}`).test(src) && new RegExp(`mainTools:\\s*${mainVar}`).test(src), `34.12: tools: and mainTools: do not both read ${mainVar}`);
-      // The refusal runs BEFORE the append — the ordering is the whole guarantee.
-      const at = (needle) => src.indexOf(needle);
-      ok(at("checkProposalLines") !== -1 && at("checkProposalLines") < at("appendFileSync"), `34.12: checkProposalLines is not called before the append (${at("checkProposalLines")} vs ${at("appendFileSync")}) — an unchecked line reaching an append-only file cannot be taken back`);
+      // The refusal runs BEFORE the append — the ordering IS the guarantee, and it is measured inside
+      // the tool HANDLER rather than over the whole file: the first appendFileSync in the file is the
+      // import line, so a file-wide indexOf would compare two import positions and prove nothing.
+      const handler = src.slice(src.indexOf("tool(")); 
+      const at = (needle) => handler.indexOf(needle);
+      ok(at("checkProposalLines") !== -1 && at("appendFileSync") !== -1 && at("checkProposalLines") < at("appendFileSync"), `34.12: checkProposalLines is not called before the append inside the handler (${at("checkProposalLines")} vs ${at("appendFileSync")}) — an unchecked line reaching an append-only file cannot be taken back`);
+      ok(handler.length > 0 && handler.length < src.length, "34.12: the handler slice is the whole file — the ordering assertion above would be measuring the imports");
     }
   }
 

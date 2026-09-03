@@ -680,7 +680,7 @@ $('#chat-form').addEventListener('submit', async (e) => {
 //
 // The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
 // A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
-const discovery = { config: null, session: null, running: false };
+const discovery = { config: null, session: null, running: false, proposals: null };
 
 const discoveryEls = () => ({
   slug: $('#discovery-slug').value.trim(),
@@ -776,6 +776,8 @@ $('#discovery-open').addEventListener('click', async () => {
     : `Opened ${slug}.`;
   $('#discovery-start').disabled = true;
   renderDiscoverySession();
+  // A resumed package may already carry proposals; read them from disk rather than waiting for a run.
+  await loadProposals();
 });
 
 function renderDiscoverySession() {
@@ -804,6 +806,12 @@ function renderDiscoverySession() {
   $('#discovery-submit').disabled = !answerable || discovery.running;
   $('#discovery-finish').disabled = Boolean(head.endedAt);
   renderDiscoveryRecorded();
+  renderProposals();
+  // Both #359 controls need a FINISHED package: the propose route refuses an open one by name, and
+  // there is nothing to download before a run. Disabled rather than hidden, because `el.hidden` is a
+  // no-op wherever a CSS rule sets display and this drawer sets plenty.
+  $('#discovery-propose').disabled = discovery.running || !head.endedAt;
+  $('#discovery-proposals-md').disabled = !head.endedAt;
 }
 
 // AC #10 — the turns already recorded, read from the package. Each answer is shown with what the
@@ -834,6 +842,153 @@ function renderDiscoveryRecorded() {
         </div>`;
     }).join('')}`;
 }
+
+/* ---------- #359: the proposals and the owner's verdict ---------- */
+
+// Read from DISK, never from a stream's last word: the package is the state. The route serves
+// proposals.mjs's exported whitelist, so this function holds no shape opinion of its own.
+async function loadProposals() {
+  const { slug, provenance } = discoveryEls();
+  if (!slug || !provenance) { discovery.proposals = null; return; }
+  try { discovery.proposals = await api(`/api/discovery/proposals?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`); }
+  catch { discovery.proposals = null; }
+  renderProposals();
+}
+
+// A model wrote the title, the why, the rests_on and the wrong_if; the verdict is the owner's. The
+// page says so, and so does this. Every string through esc().
+function renderProposals() {
+  const v = discovery.proposals;
+  const mount = $('#discovery-proposals');
+  if (!mount) return;
+  if (!v || !v.proposals?.length) { mount.innerHTML = ''; return; }
+  const bySeq = new Map((v.decisions ?? []).map((d) => [d.seq, d]));
+  const counts = v.counts ?? {};
+  mount.innerHTML = `
+    <h3 class="h3">Proposals — ${v.proposals.length}</h3>
+    <p class="muted">A model proposed these from what the run recorded. They are options: nothing here
+    is a decision, none of it is in <code>prd.md</code>, and accepting one records that you liked it
+    and nothing more. ${Object.keys(counts).map((k) => `${esc(k)} ${counts[k]}`).join(' · ')}</p>
+    ${v.proposals.map((row) => {
+      const p = row.proposal;
+      const rests = (p.rests_on ?? []).map((seq) => {
+        const d = bySeq.get(seq);
+        return `seq ${seq}${d ? ` (${esc(d.level)} · ${esc(d.question_id ?? 'off-script')})` : ' — not in this ledger'}`;
+      }).join(' · ');
+      return `
+        <div class="discovery-proposal" data-proposal="${esc(p.id)}">
+          <p class="card-kicker">${esc(p.id)} · ${esc(row.status)} · ${esc(p.model)}</p>
+          <p><strong>${esc(p.title)}</strong></p>
+          <p class="discovery-proposal-why">${esc(p.why)}</p>
+          <p class="discovery-proposal-meta">Rests on: ${rests || 'none'}<br>Wrong if: ${esc(p.wrong_if)}</p>
+          ${(row.verdicts ?? []).map((x) => `<p class="discovery-proposal-meta">Verdict: <strong>${esc(x.verdict)}</strong> — ${esc(x.reason)} · ${esc(x.ts)}</p>`).join('')}
+          <div class="discovery-verdict-row">
+            <input type="text" placeholder="Why — the reason is the record" data-reason="${esc(p.id)}">
+            ${Object.keys(counts).filter((k) => k !== 'proposed').map((k) => `<button class="btn btn-secondary" type="button" data-verdict="${esc(k)}" data-for="${esc(p.id)}">${esc(k)}</button>`).join('')}
+          </div>
+        </div>`;
+    }).join('')}`;
+}
+
+// ONE fenced run over a FINISHED package. The proposals stream as they are filed and every refusal
+// streams too — refusals are kept nowhere else, so the log is where the operator reads them.
+$('#discovery-propose').addEventListener('click', async () => {
+  if (discovery.running) return;
+  const { slug, provenance } = discoveryEls();
+  if (!slug || !provenance) { $('#discovery-status').textContent = 'A slug and a provenance are needed to find the package.'; return; }
+  discovery.running = true;
+  $('#discovery-propose').disabled = true;
+  $('#discovery-log').innerHTML = '';
+  $('#discovery-status').textContent = 'Proposing from the finished package — this spends real tokens. Nothing in the run record is written.';
+  try {
+    const res = await fetch('/api/discovery/propose', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug, provenance }),
+    });
+    if (!res.ok) throw new Error(res.statusText);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    let done = null;
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buf += dec.decode(chunk.value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        if (!frame.startsWith('data: ')) continue;
+        const ev = JSON.parse(frame.slice(6));
+        if (ev.type === 'error') { $('#discovery-status').textContent = ev.message; continue; }
+        if (ev.type === 'done') { done = ev; continue; }
+        if (ev.type === 'proposal') discoveryLog('op', `filed ${ev.id}: ${ev.title} (rests on seq ${(ev.rests_on ?? []).join(', ')})`);
+        if (ev.type === 'refused') discoveryLog('denied', `refused: ${ev.error}`);
+        if (ev.type === 'denied') discoveryLog('denied', `fence refused: ${ev.tool} — ${ev.error}`);
+        if (ev.type === 'text') discoveryLog('text', ev.text);
+      }
+    }
+    const s = done?.stats;
+    $('#discovery-status').textContent = s
+      ? `Run ${s.ok ? 'complete' : 'FAILED'} — ${s.numTurns} turn(s), $${(s.costUsd ?? 0).toFixed(4)}, ${done.refusals.length} refusal(s). The refusals are in the log above and nowhere else.`
+      : 'The run produced no result message.';
+  } catch (err) {
+    $('#discovery-status').textContent = `Could not propose: ${err.message}`;
+  } finally {
+    discovery.running = false;
+    await loadProposals();
+    renderDiscoverySession();
+  }
+});
+
+// The verdict, server-written on a click: the client sends the id, the verdict and the reason, and
+// `type` and `ts` are the server's. Disabled while in flight — a double click would append two
+// verdict lines to an append-only file.
+$('#discovery-proposals').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-verdict]');
+  if (!btn || btn.disabled) return;
+  const id = btn.dataset.for;
+  const { slug, provenance } = discoveryEls();
+  const reason = $(`input[data-reason="${id}"]`)?.value ?? '';
+  if (!reason.trim()) { $('#discovery-status').textContent = `A reason is needed for ${id} — the reason is the record.`; return; }
+  const row = btn.closest('.discovery-proposal');
+  for (const b of row.querySelectorAll('button[data-verdict]')) b.disabled = true;
+  try {
+    // Re-read from disk rather than trusting the response: the package is the state.
+    await api('/api/discovery/verdict', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug, provenance, proposalId: id, verdict: btn.dataset.verdict, reason }),
+    });
+    await loadProposals();
+    $('#discovery-status').textContent = `${id} — ${btn.dataset.verdict}. proposals.md is regenerated on every verdict.`;
+  } catch (err) {
+    $('#discovery-status').textContent = `Could not record the verdict: ${err.message}`;
+    for (const b of row.querySelectorAll('button[data-verdict]')) b.disabled = false;
+  }
+});
+
+// The page, without a terminal — the PRD control's reasoning, applied to the second artefact.
+// Fetched rather than navigated to, so a refusal is readable prose in the drawer.
+$('#discovery-proposals-md').addEventListener('click', async () => {
+  const { slug, provenance } = discoveryEls();
+  if (!slug || !provenance) { $('#discovery-status').textContent = 'A slug and a provenance are needed to find the package.'; return; }
+  try {
+    const res = await fetch(`/api/discovery/proposals.md?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+    if (!res.ok) {
+      let m = res.statusText;
+      try { m = (await res.json()).error ?? m; } catch { /* not JSON — keep the status text */ }
+      throw new Error(m);
+    }
+    const md = await res.text();
+    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `${slug}-proposals.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    $('#discovery-status').textContent = `Proposals projected — ${md.split('\n').length} lines. The package on disk is unchanged; this route only reads it.`;
+  } catch (err) {
+    $('#discovery-status').textContent = `Could not project the proposals: ${err.message}`;
+  }
+});
 
 function discoveryLog(kind, text) {
   const li = document.createElement('li');

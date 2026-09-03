@@ -2,7 +2,7 @@
 // Zero-dep HTTP core; the Claude Agent SDK powers /api/chat and /api/build/run (#140) — and in
 // both cases it is reached through a lib module, never from here.
 import { createServer } from 'node:http';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { appendFileSync, readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { PORT, REPO_DIR, JOBS_DIR, PORTAL_DIR, HAS_TOKEN } from './lib/env.mjs';
 import { allowedOrigins, originAllowed } from './lib/origin.mjs';
@@ -13,11 +13,15 @@ import { receiveExport, runFigmaPull } from './lib/figma.mjs';
 import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from './lib/builder.mjs';
 // #284's discovery session. Every export here is SDK-free; the SDK is reached only by runTurn's lazy
 // import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
-import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent } from './lib/discovery.mjs';
+import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent, withDiscoveryRunLock } from './lib/discovery.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 // The PRD fold (#290). Pure — no clock, no network, no SDK — and it WRITES NOTHING here: the route
 // below calls projectPrd over readPackage and streams the bytes, never writePrd. See #338 F1.
 import { projectPrd, readPackage } from '../discovery/prd-projection.mjs';
+// The proposal half (#359). Pure, and every SDK reach is behind the propose route's lazy import of
+// ./lib/discovery-proposer.mjs, after every guard — the shape runTurn already uses. `proposalsView` is
+// the exported WHITELIST the routes serve, so no route below holds a shape opinion of its own.
+import { checkProposalLines, projectProposals, proposalsView, readProposalPackage, VERDICTS, writeProposalsMd } from '../discovery/proposals.mjs';
 // Which commit this process booted from, against where the tree is now (#338 F2).
 import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 
@@ -209,6 +213,91 @@ const server = createServer(async (req, res) => {
         'content-disposition': `attachment; filename="${slug}-prd.md"`,
       });
       return res.end(md);
+    }
+    // The proposals a finished package carries, and the decisions they may rest on (#359). READ-ONLY:
+    // proposalsView is pure over a read package and this route writes nothing. The same
+    // resolveRunRoot + assertProvenanceRoot pair every other discovery route runs guards it, so a
+    // `real` root is refused identically.
+    if (p === '/api/discovery/proposals' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug');
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug });
+      assertProvenanceRoot(provenance, root);
+      return json(res, 200, proposalsView(readProposalPackage(root)));
+    }
+    // The proposals.md page, for the same reason the PRD route exists (#338 F1): an operator who never
+    // opens a terminal must still get the artefact. Read-only — projectProposals returns a string, and
+    // writeProposalsMd is reached only by the verdict route below.
+    if (p === '/api/discovery/proposals.md' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug');
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug });
+      assertProvenanceRoot(provenance, root);
+      const md = projectProposals(readProposalPackage(root));
+      res.writeHead(200, {
+        'content-type': 'text/markdown; charset=utf-8',
+        'content-disposition': `attachment; filename="${slug}-proposals.md"`,
+      });
+      return res.end(md);
+    }
+    // ONE fenced proposal run over a FINISHED package. It writes proposals.jsonl and proposals.md and
+    // NOTHING ELSE in the package — run.json, answers.jsonl and transcript.jsonl are untouched, which
+    // is what keeps prd.md byte-identical across a proposal run (#359 AC #4). SSE, mirroring
+    // /api/discovery/turn: a refusal after the headers are written is an event on the stream.
+    if (p === '/api/discovery/propose' && req.method === 'POST') {
+      const body = await readBody(req);
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+      let open = true;
+      res.on('close', () => { open = false; });
+      const send = (o) => { if (open && !res.writableEnded) res.write(`data: ${JSON.stringify(o)}\n\n`); };
+      try {
+        // EVERY PARAMETER NAMED, never `{ ...body }` — the rule /api/discovery/turn's comment states.
+        const slug = body.slug;
+        const provenance = body.provenance;
+        const force = body.force === true;
+        const root = resolveRunRoot({ provenance, slug });
+        assertProvenanceRoot(provenance, root);
+        const pkg = readProposalPackage(root);
+        // A FINISHED package, refused by name if it is still open: proposing from a run that is still
+        // being answered would rest on a ledger the next turn can still supersede.
+        if (!pkg.run.endedAt) throw new Error(`run "${slug}" is still open — close the session first. A proposal rests on a FINISHED ledger, because the next turn can still supersede a decision it named`);
+        if (pkg.proposals.length && !force) throw new Error(`run "${slug}" already carries ${pkg.proposals.length} proposal line(s). proposals.jsonl is append-only, so a second run would interleave two runs' proposals with nothing on the page to tell them apart — pass force to do it anyway`);
+        // The run lock, for the reason runTurn takes it: two concurrent runs would append to the same
+        // append-only file, and the tokens are spent either way.
+        const out = await withDiscoveryRunLock(async () => {
+          // THE SDK ENTERS HERE and nowhere earlier — after every guard above has passed.
+          const { runProposalRun } = await import('./lib/discovery-proposer.mjs');
+          const r = await runProposalRun({
+            root, run: pkg.run, ops: pkg.ops, answers: pkg.answers,
+            onLine: (ev) => send(ev),
+          });
+          // The page is regenerated from the file, never from the run's return value: the file is the
+          // state, and a page built from memory could disagree with it.
+          writeProposalsMd(root);
+          return r;
+        });
+        send({ type: 'done', stats: out.stats, refusals: out.refusals, view: proposalsView(readProposalPackage(root)) });
+      } catch (e) {
+        send({ type: 'error', message: e.message });
+      }
+      return res.end();
+    }
+    // The owner's verdict, SERVER-WRITTEN on a click: the client sends proposalId, verdict and reason,
+    // and `type` and `ts` are the server's — the same rule that keeps a proposal's id out of the
+    // model's hands. Then proposals.md is regenerated, because a verdict changes the page.
+    if (p === '/api/discovery/verdict' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      const pkg = readProposalPackage(root);
+      if (!VERDICTS.includes(b.verdict)) return json(res, 400, { error: `verdict "${b.verdict}" is not one of ${VERDICTS.join(' · ')}` });
+      const line = { type: 'verdict', ts: new Date().toISOString(), proposal_id: b.proposalId, verdict: b.verdict, reason: b.reason };
+      // Checked BEFORE the append, over the whole store: proposals.jsonl is append-only, so a verdict
+      // naming no proposal cannot be taken back once it is on disk.
+      checkProposalLines([...pkg.proposals, line], pkg.ops);
+      appendFileSync(path.join(root, 'proposals.jsonl'), `${JSON.stringify(line)}\n`);
+      writeProposalsMd(root);
+      return json(res, 200, proposalsView(readProposalPackage(root)));
     }
     if (p === '/api/discovery/turn' && req.method === 'POST') {
       const body = await readBody(req);
