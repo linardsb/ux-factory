@@ -264,7 +264,7 @@ import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage
 // sixth alias in this file. The SDK half (portal/lib/discovery-proposer.mjs) reaches the SDK and is
 // read as TEXT by case 34.12, never imported.
 import {
-  checkProposalLines, foldProposals, LINE_TYPES, MAX_PROPOSALS, nextProposalId, OPS_DISJOINT,
+  checkProposalLines, foldProposals, LINE_TYPES, MAX_PROPOSALS, nextProposalId, OPS_DISJOINT, seedProposalStore,
   PROPOSAL_ID_RE, PROPOSAL_KEYS, PROPOSAL_SECTIONS, PROPOSED_BY_MODEL, projectProposals,
   proposalsView, readProposalPackage, STATUSES, statusCounts, statusOf, VERDICT_KEYS, VERDICTS,
 } from "../discovery/proposals.mjs";
@@ -8005,6 +8005,18 @@ function scanSvg(svg, label) {
     ok(nextProposalId(P_LINES) === "p5", `34.1: nextProposalId over 4 proposals + 4 verdicts answered ${JSON.stringify(nextProposalId(P_LINES))} — it must count from the max id (p5), not the array length (which would say p9)`);
     ok(nextProposalId([]) === "p1" && nextProposalId(null) === "p1", `34.1: nextProposalId over an empty and a junk store answered ${JSON.stringify(nextProposalId([]))} / ${JSON.stringify(nextProposalId(null))} — both are p1`);
     ok(nextProposalId([proposal("p7"), verdict("p7", "accepted")]) === "p8", `34.1: nextProposalId after a gap answered ${JSON.stringify(nextProposalId([proposal("p7"), verdict("p7", "accepted")]))} — it continues from the max, so ids never collide after a re-run`);
+    // AND THE SEED THE ALLOCATOR READS, which is where PR #364's F1 lived: the sentence above is true
+    // of nextProposalId and says nothing about the store handed to it. runProposalRun seeded `[]`, so
+    // over a package that already held p1 it re-issued p1, the in-memory guard passed, and the append
+    // landed in a file every later read then threw on. Drive the seed itself.
+    const seeded = seedProposalStore(P_LINES, P_RECORDS);
+    ok(same(seeded, P_LINES) && seeded !== P_LINES, "34.1: seedProposalStore did not return a checked COPY of the package's lines — a run whose store aliased the package could rewrite an append-only record without a write");
+    ok(nextProposalId(seeded) === "p5", `34.1: nextProposalId over the seeded store answered ${JSON.stringify(nextProposalId(seeded))} — a run seeded from a 4-proposal package must allocate p5`);
+    // THE MUTATION THAT PROVES THIS CASE CAN GO RED: the empty seed IS the defect, and it answers p1
+    // over the very same package. If these two ever agree, the assertion above is proving nothing.
+    ok(nextProposalId(seedProposalStore([], P_RECORDS)) !== nextProposalId(seeded), "34.1: an EMPTY seed and the package's own seed allocate the same id — the seed assertion above cannot fail and is proving nothing");
+    ok(seedProposalStore(undefined, P_RECORDS).length === 0 && seedProposalStore(null, P_RECORDS).length === 0, "34.1: seedProposalStore over an absent store did not answer [] — an absent proposals.jsonl is a legitimate state and is the FIRST run's seed");
+    ok(names(() => seedProposalStore([proposal("p1"), proposal("p1")], P_RECORDS), "p1", "repeats id") === null, `34.1: seedProposalStore accepted a corrupted store — it is checkProposalLines' boundary, so a package already unreadable must be refused BEFORE a paid run appends to it (${names(() => seedProposalStore([proposal("p1"), proposal("p1")], P_RECORDS), "p1", "repeats id")})`);
     for (const junk of ["p0", "p01", "P1", "p", "1", "p1a", ""])
       ok(!PROPOSAL_ID_RE.test(junk), `34.1: PROPOSAL_ID_RE accepted ${JSON.stringify(junk)} — an id is p<n> with n a 1-based integer and no leading zero, because the heading renders it UNFOLDED`);
     ok(PROPOSAL_ID_RE.test("p1") && PROPOSAL_ID_RE.test("p42"), "34.1: PROPOSAL_ID_RE rejected a legitimate id — the positive control for the seven refusals above");
@@ -8408,6 +8420,7 @@ function scanSvg(svg, label) {
         [/\bextraTools:/, "this run's own tool name, admitted through the ONE predicate"],
         [/\bcheckProposalLines\b/, "the refusals, called before the append"],
         [/\bnextProposalId\b/, "the server-assigned id"],
+        [/\bseedProposalStore\b/, "the run's store, seeded from the package's own proposals.jsonl"],
         [/\bMAX_PROPOSALS\b/, "the ceiling"],
         [/\bPROVENANCE_RULE\b/, "the imported provenance rule (#347), never a copy"],
         [/\bis_error\b/, "the result check [[sdk-error-result-wears-success]]"],
@@ -8447,6 +8460,20 @@ function scanSvg(svg, label) {
       const at = (needle) => handler.indexOf(needle);
       ok(at("checkProposalLines") !== -1 && at("appendFileSync") !== -1 && at("checkProposalLines") < at("appendFileSync"), `34.12: checkProposalLines is not called before the append inside the handler (${at("checkProposalLines")} vs ${at("appendFileSync")}) — an unchecked line reaching an append-only file cannot be taken back`);
       ok(handler.length > 0 && handler.length < src.length, "34.12: the handler slice is the whole file — the ordering assertion above would be measuring the imports");
+      // THE SEED, SCOPED TO runProposalRun's OWN BODY (PR #364 F1). 34.1 drives seedProposalStore as
+      // a pure function; this is the half that says the paid path CALLS it. The scope matters: the
+      // dry run legitimately keeps `lines: []` — it never reaches tools/call — so a file-wide pin
+      // would have to choose between failing on the dry run and passing on the real one.
+      const runAt = src.indexOf("async function runProposalRun");
+      const dryAt = src.indexOf("async function dryProposalRun");
+      ok(runAt !== -1 && dryAt !== -1 && runAt < dryAt, `34.12: runProposalRun/dryProposalRun are not both present in that order (${runAt} vs ${dryAt}) — the window below would be measuring the wrong function`);
+      const runBody = runAt !== -1 && dryAt > runAt ? src.slice(runAt, dryAt) : "";
+      ok(/\bproposals\b/.test(src.slice(runAt, src.indexOf(")", runAt))), "34.12: runProposalRun takes no `proposals` parameter — the route holds the package and the run cannot seed itself from a file it does not read");
+      ok(/=\s*seedProposalStore\(/.test(runBody), "34.12: runProposalRun's store is not initialised from seedProposalStore — an empty seed re-issues p1 over a package that already holds p1, and proposals.jsonl is append-only with no sanctioned repair");
+      ok(!/lines:\s*\[\s*\]/.test(runBody), "34.12: runProposalRun still initialises `lines: []` — that IS the defect, whatever else the body also calls");
+      // The positive control for the scoping: the dry run's body DOES carry the bare literal, so the
+      // regex above can match and the window is genuinely separating the two functions.
+      ok(/lines:\s*\[\s*\]/.test(src.slice(dryAt)), "34.12: the `lines: []` pin found no match even in dryProposalRun, which has one — the scoped assertion above cannot go red");
     }
   }
 
@@ -8472,8 +8499,91 @@ function scanSvg(svg, label) {
     ok(same(Object.keys(POSTURES).sort(), ["think", "think-opus"]), `34.13: POSTURES holds ${Object.keys(POSTURES).join(", ")} — this ticket adds no third posture, because a proposal tool description in TOOL_DESCRIPTIONS would move both fingerprints (D2)`);
   }
 
+  // 34.14 — THE ROUTE, SOURCE-PINNED (PR #364 F1). server.mjs is the only place that decides whether a
+  // second proposal run may happen at all, and it reaches the SDK by dynamic import, so it is read as
+  // TEXT here for case 34.12's reason. A PACKAGE GETS ONE PROPOSAL RUN: `model` and `fingerprint` are
+  // the same two constants on every line, so a second run's proposals would interleave with the
+  // first's with nothing on the page to tell them apart. The override is deleted, not defaulted off.
+  {
+    // DECOMMENTED, for case 34.12's reason and this one's own: every pin below matches a field name,
+    // and the comments beside these routes name every field they guard. A raw match would let the
+    // prose that STATES the invariant stand in for the code that holds it.
+    const ssrc = decomment(readFileSync(join(ROOT, "portal/server.mjs"), "utf8"));
+    const at = ssrc.indexOf("'/api/discovery/propose'");
+    ok(at !== -1, "34.14: the propose route is not where this pin expects — re-pin before trusting it");
+    if (at !== -1) {
+      // Bounded by the NEXT route marker rather than a character count: a fixed window either falls
+      // short of runProposalRun (this case's own first run) or overruns into the verdict route, and
+      // then `force` would be read out of a neighbour's code.
+      const end = ssrc.indexOf("'/api/discovery/", at + 1);
+      const route = ssrc.slice(at, end === -1 ? ssrc.length : end);
+      ok(end !== -1 && route.length < ssrc.length, `34.14: the propose route's window is the whole file (${route.length} of ${ssrc.length}) — every assertion below would be reading other routes`);
+      ok(/runProposalRun\(/.test(route), "34.14: the route slice does not reach runProposalRun — the window does not cover the route body and every assertion below would pass vacuously");
+      ok(!/\bforce\b/.test(route), "34.14: the propose route still names `force` — a package gets ONE proposal run and the override is deleted, not defaulted off; a bad run is fixed by DISCARDING proposals.jsonl and re-running");
+      ok(/proposals:\s*pkg\.proposals/.test(route), "34.14: the route does not hand runProposalRun the package's own proposals — the run would seed empty and re-issue an id the append-only file already carries");
+      ok(/pkg\.proposals\.length/.test(route) && /endedAt/.test(route), "34.14: the route drops one of its two guards — a FINISHED package (endedAt) that carries NO proposals is the only state a paid run may start from");
+    }
+    // THE VERDICT ROUTE'S BOUNDARY (PR #364 F3). All three fields are client-supplied, so all three
+    // are refused with a 400 that names the offending value. checkProposalLines is still the append
+    // guard behind them — a throw there is a 500 through the boundary catch-all, which is the right
+    // status for a corrupted file and the wrong one for a blank reason.
+    const vAt = ssrc.indexOf("'/api/discovery/verdict'");
+    ok(vAt !== -1, "34.14: the verdict route is not where this pin expects — re-pin before trusting it");
+    if (vAt !== -1) {
+      const vEnd = ssrc.indexOf("'/api/discovery/", vAt + 1);
+      const vRoute = ssrc.slice(vAt, vEnd === -1 ? ssrc.length : vEnd);
+      ok(/appendFileSync\(/.test(vRoute) && vRoute.length < ssrc.length, `34.14: the verdict route's window does not reach its append (${vRoute.length} of ${ssrc.length}) — every assertion below would pass vacuously`);
+      // `b.<field>` — the READ of the client's own value — and a 400 after it, so a mention of the
+      // field in a neighbouring guard cannot stand in for its own.
+      for (const field of ["verdict", "proposalId", "reason"])
+        ok(new RegExp(`\\bb\\.${field}\\b[\\s\\S]{0,200}?json\\(res, 400`).test(vRoute), `34.14: the verdict route does not refuse a bad ${field} with a 400 — it falls to checkProposalLines and surfaces as a 500 through the boundary catch-all, which is a server error for a request error`);
+      ok((vRoute.match(/json\(res, 400/g) ?? []).length >= 3, `34.14: the verdict route carries ${(vRoute.match(/json\(res, 400/g) ?? []).length} 400 guard(s) — one per client-supplied field`);
+      const cAt = vRoute.indexOf("checkProposalLines");
+      const aAt = vRoute.indexOf("appendFileSync");
+      ok(cAt !== -1 && aAt !== -1 && cAt < aAt, `34.14: checkProposalLines does not precede the append in the verdict route (${cAt} vs ${aAt}) — the 400s above are a boundary courtesy, never the append guard`);
+    }
+  }
+
+  // 34.15 — WHERE A REFUSAL POINTS (PR #364 F2). readProposalsJsonl SKIPS BLANK LINES, so an array
+  // index is not a file line and the two diverge from the first blank onwards — prd-projection.mjs:693
+  // states the same rule for its own reader, and this module named the index anyway. It matters more
+  // here than anywhere else in the package: proposals.jsonl is the one file nobody may tidy up
+  // afterwards, so a refusal that sends an operator to the wrong line sends them nowhere.
+  //
+  // Driven through the REAL reader over a REAL file with a blank line in it, not asserted over a
+  // hand-passed array — the numbers have to come from the thing that produces them.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "g34-lines-"));
+    try {
+      writeFileSync(join(dir, "run.json"), JSON.stringify({ slug: "gate-line-numbers", provenance: "fictional" }));
+      // ONE BLANK LINE at file line 2. From there on index + 1 is wrong by one, and the bad line is
+      // at FILE line 4 while its array index is 2 — two different numbers, which is the whole case.
+      const rows = [proposal("p1"), proposal("p2"), proposal("p3", { ts: 7 })];
+      writeFileSync(join(dir, "proposals.jsonl"), `${JSON.stringify(rows[0])}\n\n${JSON.stringify(rows[1])}\n${JSON.stringify(rows[2])}\n`);
+      const readPkg = readProposalPackage(dir);
+      ok(same(readPkg.proposalLines, [1, 3, 4]), `34.15: readProposalPackage answered proposalLines ${JSON.stringify(readPkg.proposalLines)} over a file with one blank line — it must be the 1-based FILE lines [1, 3, 4], not the indices`);
+      ok(readPkg.proposalLines.length === readPkg.proposals.length, "34.15: proposalLines and proposals are different lengths — they are parallel arrays and a mismatch mis-numbers every refusal after the gap");
+      // `msg` is the group's own helper (the message or null); locals are named apart from it.
+      const fileMsg = msg(() => projectProposals(readPkg));
+      ok(fileMsg !== null && fileMsg.includes("proposal line 4"), `34.15: the refusal on the third parsed line does not name FILE line 4 — ${fileMsg}`);
+      // The mutation is built in: array index 2 and index + 1 = 3 are BOTH wrong here, and naming
+      // either is the defect. If the message carries one of them this case fails.
+      ok(fileMsg !== null && !/proposal line [23]\b/.test(fileMsg), `34.15: the refusal names the array index (2) or index+1 (3) rather than the file line (4) — ${fileMsg}`);
+      // NO file line: the in-memory append every writer makes BEFORE the write. It must say so rather
+      // than print a number that names nothing on disk.
+      const bare = msg(() => checkProposalLines(readPkg.proposals, readPkg.ops));
+      ok(bare !== null && bare.includes("the proposal line being appended"), `34.15: with no line numbers the refusal does not say the line is being appended — ${bare}`);
+      ok(bare !== null && !/proposal line \d/.test(bare), `34.15: with no line numbers the refusal printed a line number anyway — ${bare}`);
+      // A VERDICT is located the same way its proposal is (F2's second half: PASS 2 named a proposal
+      // by id and a verdict by index, in the same function).
+      const vnums = [...readPkg.proposalLines.slice(0, 2), 9];
+      const vMsg = msg(() => checkProposalLines([rows[0], rows[1], verdict("p1", "nope")], readPkg.ops, vnums));
+      ok(vMsg !== null && vMsg.includes("proposal line 9") && vMsg.includes("(verdict)"), `34.15: a verdict refusal does not name its own file line — ${vMsg}`);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+
   const pending34 = existsSync(join(ROOT, "discovery/allergen-matrix-1/proposals.jsonl")) ? [] : ["the recorded run: discovery/allergen-matrix-1/proposals.jsonl"];
-  group("proposals", `the vocabulary — VERDICTS, STATUSES, LINE_TYPES, both key sets, PROPOSED_BY_MODEL and PROPOSAL_SECTIONS — each frozen BY MUTATION, the section rows frozen at BOTH levels with an exact key set and ${PROPOSAL_SECTIONS.length} DISTINCT declared empty states, "proposed" proven to be STATUSES[0] and NOT a verdict, and the id allocator counting from the MAX id rather than the array length (the collision the two interleaved line types would otherwise cause after the first verdict) with seven junk ids refused by the regex · PROPOSAL_SECTIONS iterated against STATUSES in BOTH directions, one row per status so nothing renders twice, and a synthetic sixth status proven to find no home so the loop can go red · the positive control FIRST: the fixture — hand-authored ops through the REAL applier, hand-authored proposal lines because THEY are the subject — projecting one "## " per row in table order, the honesty header's five clauses each present, the Run and Proposals lines pinned WHOLE, every proposal rendered EXACTLY ONCE under its derived status, every field of every line asserted present by iteration, both of p2's verdicts kept with the earlier one MARKED superseded, and the rested-on table proven to name only the seqs a proposal rests on · REFUSAL 3 three ways: LINE_TYPES ∩ OPS empty and no proposal key a record_decision param, EXECUTED — a real proposal line refused by applyOp AND applyOps and an op record refused by checkProposalLines — and source-pinned with the mutation that proves the pin can match · REFUSAL 4 byte-identical: prd.md's bytes unmoved with proposal lines and then with verdict lines added to the same package, every model-authored string proven absent from it, prd-projection.mjs's DECOMMENTED source proven never to name "proposals" and to reach exactly run.json · answers.jsonl · transcript.jsonl · prd.md under the run root, with the concatenation mutation proving the compare can fail · REFUSAL 1 over ten branches (empty, absent, not an array, a dangling seq, a file_evidence seq, a flag_weak_answer seq, seq 0, a negative, a float and a string) each naming rests_on, the two wrong-kind branches naming the KIND, the dangling one refused where checkOpLines tolerates it and the reason stated; REFUSAL 2 over six; sixteen ordinary shape refusals each naming its value and each a plain Error prefixed "proposals: "; the happy proposal ACCEPTED as the positive control; and the returned array proven a COPY · the DERIVED status: no verdict reading "proposed", one verdict reading itself, three verdicts reading the LAST with all three KEPT in file order, statusCounts summing to the fold, purity by double call and by mutating the return, and the ALIAS trap driven — mutating the returned proposal, its rests_on and its verdicts leaves the input lines untouched · THE VANISHING CLAIM: each proposal deleted in turn, its title, why, wrong_if and every verdict reason gone from the WHOLE document and its section falling back to its OWN declared empty string, plus the empty store and the empty LEDGER each keeping every heading and carrying no claim · THE INJECTION BATTERY re-run on this fold as a CENSUS: a "## " / "#### " / "- " payload injected into every string field of every proposal line, every verdict line and six run.json fields, over ALL THREE of CommonMark's line endings, each contained by a fold or refused by name, asserted three ways (the heading list unchanged, nothing at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one) — and the count asserted as folded + refused === the fixture's own string-field total, iterated from PROPOSAL_KEYS and VERDICT_KEYS with two guards (the key lists cover the fixture; the total is at least 20) so a field added to either list must be classified or this case fails BY NAME, which is strictly stronger than 31.13's floors and is why they were not copied · the pipe route over five model-authored fields, proven not to change any table row's shape · the bank's weakAnswer, note and provenanceNote proven ABSENT with text / attribution / label present as the positive control · determinism, no mutation of the input, and NO CLOCK — every ISO stamp on the page pinned to run.json's or a line's own ts · proposalsView pinned as a WHITELIST by key set, its decisions rows exact, the rubric proven off the wire, and a corrupted store proven to refuse rather than render · and THE SDK HALF read as TEXT, never imported: eleven names proven ABSENT (recordTurnStats, writeRun, mutateHead, closeSession, appendTranscript, appendAnswer, allowsToolName, TOOL_DESCRIPTIONS, fingerprintOf, FINGERPRINT_INPUTS, POSTURES — the first six would move a package file and the last five would move a posture fingerprint), nine present, ONE fence object proven handed to BOTH call sites from the same variable, strictMcpConfig scoped to the query's own block, its own MCP server name, exactly one tool, its zod shape equal to PROPOSED_BY_MODEL by name and order, tools and mainTools reading one frozen record, checkProposalLines proven to precede the append, and the posture import pinned to PROVENANCE_RULE ALONE with both shipped fingerprints re-derived live${pending34.length ? ` · PENDING: ${pending34.join(" · ")}` : ""}. What it cannot reach: whether the SDK half BEHAVES at all — CI has no portal/node_modules, so case 34.12 is a source pin over text rather than a run, the proposer's --dry preflight is the substitute and the recorded run is the observation; whether a fence DENY actually STOPS a call at run time — --probe-fence is that standard, and after this ticket's extraTools/write parameters it covers the proposal run too, because there is ONE predicate at the same two sites; and whether the model's proposals are any GOOD, which is a human read of the verdict distribution and for which this ticket sets no target`);
+  group("proposals", `the vocabulary — VERDICTS, STATUSES, LINE_TYPES, both key sets, PROPOSED_BY_MODEL and PROPOSAL_SECTIONS — each frozen BY MUTATION, the section rows frozen at BOTH levels with an exact key set and ${PROPOSAL_SECTIONS.length} DISTINCT declared empty states, "proposed" proven to be STATUSES[0] and NOT a verdict, and the id allocator counting from the MAX id rather than the array length (the collision the two interleaved line types would otherwise cause after the first verdict) with seven junk ids refused by the regex, and THE SEED IT READS driven beside it — seedProposalStore returning a checked COPY of the package's own lines, allocating p5 over the 4-proposal fixture where an EMPTY seed allocates p1 (the two asserted to DIFFER, so the case cannot pass vacuously), answering [] for an absent store and refusing a corrupted one before a paid run can append to it · PROPOSAL_SECTIONS iterated against STATUSES in BOTH directions, one row per status so nothing renders twice, and a synthetic sixth status proven to find no home so the loop can go red · the positive control FIRST: the fixture — hand-authored ops through the REAL applier, hand-authored proposal lines because THEY are the subject — projecting one "## " per row in table order, the honesty header's five clauses each present, the Run and Proposals lines pinned WHOLE, every proposal rendered EXACTLY ONCE under its derived status, every field of every line asserted present by iteration, both of p2's verdicts kept with the earlier one MARKED superseded, and the rested-on table proven to name only the seqs a proposal rests on · REFUSAL 3 three ways: LINE_TYPES ∩ OPS empty and no proposal key a record_decision param, EXECUTED — a real proposal line refused by applyOp AND applyOps and an op record refused by checkProposalLines — and source-pinned with the mutation that proves the pin can match · REFUSAL 4 byte-identical: prd.md's bytes unmoved with proposal lines and then with verdict lines added to the same package, every model-authored string proven absent from it, prd-projection.mjs's DECOMMENTED source proven never to name "proposals" and to reach exactly run.json · answers.jsonl · transcript.jsonl · prd.md under the run root, with the concatenation mutation proving the compare can fail · REFUSAL 1 over ten branches (empty, absent, not an array, a dangling seq, a file_evidence seq, a flag_weak_answer seq, seq 0, a negative, a float and a string) each naming rests_on, the two wrong-kind branches naming the KIND, the dangling one refused where checkOpLines tolerates it and the reason stated; REFUSAL 2 over six; sixteen ordinary shape refusals each naming its value and each a plain Error prefixed "proposals: "; the happy proposal ACCEPTED as the positive control; and the returned array proven a COPY · the DERIVED status: no verdict reading "proposed", one verdict reading itself, three verdicts reading the LAST with all three KEPT in file order, statusCounts summing to the fold, purity by double call and by mutating the return, and the ALIAS trap driven — mutating the returned proposal, its rests_on and its verdicts leaves the input lines untouched · THE VANISHING CLAIM: each proposal deleted in turn, its title, why, wrong_if and every verdict reason gone from the WHOLE document and its section falling back to its OWN declared empty string, plus the empty store and the empty LEDGER each keeping every heading and carrying no claim · THE INJECTION BATTERY re-run on this fold as a CENSUS: a "## " / "#### " / "- " payload injected into every string field of every proposal line, every verdict line and six run.json fields, over ALL THREE of CommonMark's line endings, each contained by a fold or refused by name, asserted three ways (the heading list unchanged, nothing at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one) — and the count asserted as folded + refused === the fixture's own string-field total, iterated from PROPOSAL_KEYS and VERDICT_KEYS with two guards (the key lists cover the fixture; the total is at least 20) so a field added to either list must be classified or this case fails BY NAME, which is strictly stronger than 31.13's floors and is why they were not copied · the pipe route over five model-authored fields, proven not to change any table row's shape · the bank's weakAnswer, note and provenanceNote proven ABSENT with text / attribution / label present as the positive control · determinism, no mutation of the input, and NO CLOCK — every ISO stamp on the page pinned to run.json's or a line's own ts · proposalsView pinned as a WHITELIST by key set, its decisions rows exact, the rubric proven off the wire, and a corrupted store proven to refuse rather than render · and THE SDK HALF read as TEXT, never imported: eleven names proven ABSENT (recordTurnStats, writeRun, mutateHead, closeSession, appendTranscript, appendAnswer, allowsToolName, TOOL_DESCRIPTIONS, fingerprintOf, FINGERPRINT_INPUTS, POSTURES — the first six would move a package file and the last five would move a posture fingerprint), nine present, ONE fence object proven handed to BOTH call sites from the same variable, strictMcpConfig scoped to the query's own block, its own MCP server name, exactly one tool, its zod shape equal to PROPOSED_BY_MODEL by name and order, tools and mainTools reading one frozen record, checkProposalLines proven to precede the append, runProposalRun's own store pinned to seedProposalStore and proven NOT to carry lines: [] inside its own body with dryProposalRun's legitimate one as the scoping control, and the posture import pinned to PROVENANCE_RULE ALONE with both shipped fingerprints re-derived live · THE ROUTES, read DECOMMENTED so prose cannot stand in for a guard: the propose route bounded by the next route marker and proven to name force NOWHERE (a package gets ONE proposal run and the override is deleted, not defaulted off), to hand runProposalRun the package's own proposals, and to keep both its guards; the verdict route proven to refuse each of its three CLIENT-SUPPLIED fields with a 400 naming the value — matched on the field's own b.<field> read and not the bare word — with checkProposalLines still preceding the append behind them · WHERE A REFUSAL POINTS, driven through the REAL reader over a REAL file with a blank line in it: proposalLines answering the 1-based FILE lines [1, 3, 4] where the indices say [0, 1, 2], the refusal on the third parsed line naming file line 4 and proven NOT to name the index or index+1, a verdict located the same way its proposal is, and the no-numbers case — the in-memory append every writer makes before the write — saying the line is being appended rather than printing a number that names nothing on disk${pending34.length ? ` · PENDING: ${pending34.join(" · ")}` : ""}. What it cannot reach: whether the SDK half BEHAVES at all — CI has no portal/node_modules, so case 34.12 is a source pin over text rather than a run, the proposer's --dry preflight is the substitute and the recorded run is the observation; whether a fence DENY actually STOPS a call at run time — --probe-fence is that standard, and after this ticket's extraTools/write parameters it covers the proposal run too, because there is ONE predicate at the same two sites; and whether the model's proposals are any GOOD, which is a human read of the verdict distribution and for which this ticket sets no target`);
 }
 
 // --- the verdict ------------------------------------------------------------------------------------

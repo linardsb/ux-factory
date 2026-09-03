@@ -10,8 +10,8 @@
 // case 34.5 asserts prd-projection.mjs never names "proposals" at all.
 //
 // TWO HALVES, prd-projection.mjs's split:
-//   · a PURE core — checkProposalLines, foldProposals, projectProposals, proposalsView and the
-//     renderers. No filesystem, no clock, no network, no SDK, no zod. Same input, byte-identical
+//   · a PURE core — checkProposalLines, seedProposalStore, foldProposals, projectProposals,
+//     proposalsView and the renderers. No filesystem, no clock, no network, no SDK, no zod. Same input, byte-identical
 //     output, which is what lets tooling/build-checks.mjs group 34 drive every rule in CI.
 //   · a THIN filesystem shell — readProposalPackage / writeProposalsMd / the CLI guard. It reads four
 //     files and writes one, and nothing in it decides what the page says.
@@ -140,18 +140,29 @@ export function nextProposalId(lines) {
 // Two passes, checkOpLines' split and for its reason: a cross-reference needs the id and seq maps to
 // exist first. Returns a COPY of the array, so a caller cannot alias the checked lines.
 // ---------------------------------------------------------------------------------------------------
-export function checkProposalLines(lines, ops) {
+export function checkProposalLines(lines, ops, lineNums) {
   if (!Array.isArray(lines)) bad(`the proposal lines must be an array (got ${shown(lines)})`);
   if (!Array.isArray(ops)) bad(`the ledger must be the run's op records array (got ${shown(ops)})`);
+
+  // WHERE A REFUSAL POINTS. An array index is NOT a file line — readProposalsJsonl skips blanks, so
+  // the two diverge the moment one appears, and a refusal naming an index would send an operator to
+  // the wrong line of a file the honesty contract forbids anyone to tidy up (prd-projection.mjs:693
+  // states the same rule for its own reader). `lineNums` is that reader's 1-based numbers, parallel
+  // to `lines`; where a line has none — the in-memory append every caller makes BEFORE the write —
+  // it says so rather than printing a number that names nothing on disk.
+  const where = (i) => {
+    const n = Array.isArray(lineNums) ? lineNums[i] : undefined;
+    return Number.isInteger(n) ? `proposal line ${n}` : "the proposal line being appended";
+  };
 
   // PASS 1 — the shapes.
   let prevId = 0;
   const seen = new Set();
   lines.forEach((line, i) => {
     if (!line || typeof line !== "object" || Array.isArray(line))
-      bad(`proposal line ${i} is not an object (got ${shown(line)})`);
+      bad(`${where(i)} is not an object (got ${shown(line)})`);
     if (typeof line.type !== "string" || !LINE_TYPES.includes(line.type))
-      bad(`proposal line ${i} carries type ${shown(line.type)}, which is not one of ${LINE_TYPES.join(" · ")} — a line outside the two types is REFUSED rather than filtered away, because a proposal nothing reports is the worst failure an honesty artefact has`);
+      bad(`${where(i)} carries type ${shown(line.type)}, which is not one of ${LINE_TYPES.join(" · ")} — a line outside the two types is REFUSED rather than filtered away, because a proposal nothing reports is the worst failure an honesty artefact has`);
 
     const want = line.type === "proposal" ? PROPOSAL_KEYS : VERDICT_KEYS;
     const got = Object.keys(line);
@@ -162,20 +173,20 @@ export function checkProposalLines(lines, ops) {
       // wearing an op's parameters is a proposal trying to become a decision. Name the reason so a
       // future editor sees it rather than reading this as a typo check.
       const opish = extra.filter((k) => PARAMS.record_decision.includes(k));
-      bad(`proposal line ${i} (${line.type}) carries ${got.join(", ") || "no keys"} — a ${line.type} line is exactly ${want.join(", ")}${extra.length ? `; unknown: ${extra.join(", ")}` : ""}${absent.length ? `; absent: ${absent.join(", ")}` : ""}${opish.length ? `. ${opish.join(", ")} ${opish.length === 1 ? "is a" : "are"} record_decision param${opish.length === 1 ? "" : "s"}: a proposal is never an op and has no route into the requirement hierarchy (refusal 3)` : ""}`);
+      bad(`${where(i)} (${line.type}) carries ${got.join(", ") || "no keys"} — a ${line.type} line is exactly ${want.join(", ")}${extra.length ? `; unknown: ${extra.join(", ")}` : ""}${absent.length ? `; absent: ${absent.join(", ")}` : ""}${opish.length ? `. ${opish.join(", ")} ${opish.length === 1 ? "is a" : "are"} record_decision param${opish.length === 1 ? "" : "s"}: a proposal is never an op and has no route into the requirement hierarchy (refusal 3)` : ""}`);
     }
     if (typeof line.ts !== "string")
-      bad(`proposal line ${i} (${line.type}) carries ts ${shown(line.ts)} — the server stamps it as a string`);
+      bad(`${where(i)} (${line.type}) carries ts ${shown(line.ts)} — the server stamps it as a string`);
 
     if (line.type === "proposal") {
       if (typeof line.id !== "string" || !PROPOSAL_ID_RE.test(line.id))
-        bad(`proposal line ${i} carries id ${shown(line.id)} — an id is p<n> with n a 1-based integer, assigned by the server (refusal 3's other half: the model authors ${PROPOSED_BY_MODEL.join(", ")} and nothing else)`);
+        bad(`${where(i)} carries id ${shown(line.id)} — an id is p<n> with n a 1-based integer, assigned by the server (refusal 3's other half: the model authors ${PROPOSED_BY_MODEL.join(", ")} and nothing else)`);
       if (seen.has(line.id))
-        bad(`proposal line ${i} repeats id ${JSON.stringify(line.id)} — one id names one proposal`);
+        bad(`${where(i)} repeats id ${JSON.stringify(line.id)} — one id names one proposal`);
       seen.add(line.id);
       const n = Number(line.id.slice(1));
       if (n <= prevId)
-        bad(`proposal line ${i} carries id ${JSON.stringify(line.id)} after p${prevId} — ids are strictly increasing, because the server counts from the max existing one`);
+        bad(`${where(i)} carries id ${JSON.stringify(line.id)} after p${prevId} — ids are strictly increasing, because the server counts from the max existing one`);
       prevId = n;
       if (!nonEmptyString(line.title))
         bad(`proposal ${JSON.stringify(line.id)} carries title ${shown(line.title)} — a proposal names what it is`);
@@ -196,11 +207,11 @@ export function checkProposalLines(lines, ops) {
         bad(`proposal ${JSON.stringify(line.id)} carries fingerprint ${shown(line.fingerprint)} — the server records which prompt surface proposed it`);
     } else {
       if (!VERDICTS.includes(line.verdict))
-        bad(`proposal line ${i} (verdict) carries verdict ${shown(line.verdict)}, which is not one of ${VERDICTS.join(" · ")} — "proposed" is the ABSENCE of a verdict and is never written to a line`);
+        bad(`${where(i)} (verdict) carries verdict ${shown(line.verdict)}, which is not one of ${VERDICTS.join(" · ")} — "proposed" is the ABSENCE of a verdict and is never written to a line`);
       if (typeof line.proposal_id !== "string" || !PROPOSAL_ID_RE.test(line.proposal_id))
-        bad(`proposal line ${i} (verdict) carries proposal_id ${shown(line.proposal_id)} — it names a proposal by its p<n> id`);
+        bad(`${where(i)} (verdict) carries proposal_id ${shown(line.proposal_id)} — it names a proposal by its p<n> id`);
       if (!nonEmptyString(line.reason))
-        bad(`proposal line ${i} (verdict on ${JSON.stringify(line.proposal_id)}) carries reason ${shown(line.reason)} — the owner says why, and the reason is the record`);
+        bad(`${where(i)} (verdict on ${JSON.stringify(line.proposal_id)}) carries reason ${shown(line.reason)} — the owner says why, and the reason is the record`);
     }
   });
 
@@ -218,10 +229,23 @@ export function checkProposalLines(lines, ops) {
       return;
     }
     if (!seen.has(line.proposal_id))
-      bad(`proposal line ${i} (verdict) names proposal_id ${JSON.stringify(line.proposal_id)}, which this package does not carry — a verdict is the owner's answer to a proposal that exists`);
+      bad(`${where(i)} (verdict) names proposal_id ${JSON.stringify(line.proposal_id)}, which this package does not carry — a verdict is the owner's answer to a proposal that exists`);
   });
 
   return [...lines];
+}
+
+// ---------------------------------------------------------------------------------------------------
+// seedProposalStore — the store a proposal run STARTS from, which is the package's EXISTING lines and
+// never an empty array. A run that seeded itself empty would allocate p1 over a file that already
+// holds p1: nextProposalId and checkProposalLines would both pass in memory while the append-only file
+// they guard went permanently unreadable, and proposals.jsonl has no sanctioned repair. Pure, so
+// group 34 can drive the seed itself rather than only the allocator one level below it.
+//
+// The checked COPY is what the caller gets, so the run's store cannot alias the package's array.
+// ---------------------------------------------------------------------------------------------------
+export function seedProposalStore(proposals, ops, lineNums) {
+  return checkProposalLines(Array.isArray(proposals) ? proposals : [], ops, lineNums);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -411,13 +435,15 @@ const PROPOSAL_RENDERERS = Object.freeze({
 export function projectProposals(pkg) {
   if (!pkg || typeof pkg !== "object" || Array.isArray(pkg))
     bad(`projectProposals takes { run, ops, proposals } (got ${shown(pkg)})`);
-  const { run, ops, proposals } = pkg;
+  // proposalLines is OPTIONAL — readProposalPackage supplies it so a refusal names a file line; a
+  // hand-built package (the gate's fixtures) has no file behind it and gets the appended wording.
+  const { run, ops, proposals, proposalLines } = pkg;
   if (!run || typeof run !== "object" || Array.isArray(run))
     bad(`"run" must be the parsed run.json object (got ${shown(run)})`);
   if (typeof run.slug !== "string" || run.slug.trim() === "")
     bad(`run.slug must be a non-empty string (got ${shown(run.slug)})`);
   if (!Array.isArray(ops)) bad(`"ops" must be the run's op records array (got ${shown(ops)})`);
-  const checked = checkProposalLines(proposals, ops);
+  const checked = checkProposalLines(proposals, ops, proposalLines);
   const folded = foldProposals(checked);
   const counts = statusCounts(checked);
   const state = { run, ops, folded, bySeq: new Map(ops.map((r) => [r?.seq, r])) };
@@ -459,10 +485,11 @@ export function projectProposals(pkg) {
 export function proposalsView(pkg) {
   if (!pkg || typeof pkg !== "object" || Array.isArray(pkg))
     bad(`proposalsView takes { run, ops, proposals } (got ${shown(pkg)})`);
-  const { run, ops, proposals } = pkg;
+  const { run, ops, proposals, proposalLines } = pkg; // proposalLines optional — see projectProposals
+
   if (!run || typeof run !== "object" || Array.isArray(run)) bad(`"run" must be the parsed run.json object (got ${shown(run)})`);
   if (!Array.isArray(ops)) bad(`"ops" must be the run's op records array (got ${shown(ops)})`);
-  const checked = checkProposalLines(proposals, ops);
+  const checked = checkProposalLines(proposals, ops, proposalLines);
   return {
     head: {
       slug: run.slug ?? null,
@@ -511,8 +538,11 @@ function readProposalsJsonl(path) {
 // type read "proposalx", and checkProposalLines refuses it by name instead.
 export function readProposalPackage(root) {
   const { run, answers, ops } = readPackage(root);
-  const proposals = readProposalsJsonl(join(root, "proposals.jsonl")).map((l) => l.value);
-  return { run, answers, ops, proposals };
+  // The 1-based FILE line of each parsed line, carried beside it: readProposalsJsonl skips blanks, so
+  // an array index is not a line number, and every refusal below points at proposals.jsonl — the one
+  // file in a package nobody is allowed to tidy up afterwards.
+  const read = readProposalsJsonl(join(root, "proposals.jsonl"));
+  return { run, answers, ops, proposals: read.map((l) => l.value), proposalLines: read.map((l) => l.n) };
 }
 
 // Project and write <root>/proposals.md. ALWAYS OVERWRITES, and that is the deliberate difference from

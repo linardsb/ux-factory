@@ -45,7 +45,7 @@ import { z } from 'zod';
 import { LEVELS } from '../../discovery/ops.mjs';
 import { questionById } from '../../discovery/bank.mjs';
 import {
-  checkProposalLines, MAX_PROPOSALS, nextProposalId, PROPOSED_BY_MODEL,
+  checkProposalLines, MAX_PROPOSALS, nextProposalId, PROPOSED_BY_MODEL, seedProposalStore,
 } from '../../discovery/proposals.mjs';
 import { allowSetFor, fenceCanUseTool, fenceHooks } from './discovery.mjs';
 import { PROVENANCE_RULE } from './discovery-postures.mjs';
@@ -229,9 +229,16 @@ export function buildProposalServer({ root, model, fingerprint, state, onLine })
 
 // --- the run --------------------------------------------------------------------------------------
 
-export async function runProposalRun({ root, run, ops, answers, model = PROPOSER_MODEL, onLine }) {
+export async function runProposalRun({ root, run, ops, answers, proposals = [], proposalLines, model = PROPOSER_MODEL, onLine }) {
   const { systemPrompt, prompt } = buildProposalRun({ run, ops, answers });
-  const state = { lines: [], ops, refusals: [] };
+  // SEEDED FROM THE PACKAGE'S OWN proposals.jsonl, never `[]`. The append-guard below runs over
+  // `state.lines`, so a store that did not start as the file would guard memory while the file it
+  // names went unreadable — nextProposalId would re-issue p1 and every later read of the package
+  // would throw on the duplicate, in an append-only file with no sanctioned repair. The route
+  // refuses a second run outright, so this is normally the empty array; the seed is what makes the
+  // guarantee STRUCTURAL rather than something a guard two files away happens to hold.
+  const seeded = seedProposalStore(proposals, ops, proposalLines);
+  const state = { lines: [...seeded], ops, refusals: [] };
   const server = buildProposalServer({ root, model, fingerprint: PROPOSER_FINGERPRINT, state, onLine });
 
   // THE SAME TWO SITES THE SESSION USES, from ONE fence object. `reads: []` is unchanged from the
@@ -287,7 +294,9 @@ export async function runProposalRun({ root, run, ops, answers, model = PROPOSER
 
   // THE STATS ARE RETURNED AND STREAMED, AND WRITTEN TO NO FILE IN THE PACKAGE. A proposalStats field
   // on run.json is exactly what the prd.md guarantee forbids.
-  return { proposals: state.lines.filter((l) => l.type === 'proposal'), refusals: [...state.refusals], stats };
+  // THIS run's proposals, sliced past the seed — the seeded lines are the package's, not this run's,
+  // and a caller counting them would over-report what was just proposed.
+  return { proposals: state.lines.slice(seeded.length).filter((l) => l.type === 'proposal'), refusals: [...state.refusals], stats };
 }
 
 // --- the zero-token dry run -----------------------------------------------------------------------
@@ -300,6 +309,10 @@ export async function dryProposalRun({ root }) {
   const { readProposalPackage } = await import('../../discovery/proposals.mjs');
   const { run, ops, answers, proposals } = readProposalPackage(root);
   const { systemPrompt, prompt } = buildProposalRun({ run, ops, answers });
+  // NOT seeded, deliberately: this path never reaches tools/call, so nothing is ever allocated or
+  // appended, and seedProposalStore THROWS on a corrupted file — which would abort the diagnostic
+  // instead of reporting its rows. DR5 below is where a package that already carries proposals is
+  // reported, and it reports rather than throws.
   const state = { lines: [], ops, refusals: [] };
   const server = buildProposalServer({ root, model: PROPOSER_MODEL, fingerprint: PROPOSER_FINGERPRINT, state, onLine: null });
 
@@ -321,7 +334,7 @@ export async function dryProposalRun({ root }) {
   const props = Object.keys(listed[0]?.inputSchema?.properties ?? {});
   row('DR3', sameArr(props.slice().sort(), [...PROPOSED_BY_MODEL].sort()), `properties [${props.join(', ')}] — the model authors these four fields and no other; id, ts, model and fingerprint are the server's`);
   row('DR4', ops.filter((r) => r?.op === 'record_decision').length > 0 && prompt.includes('seq '), `the brief carries ${ops.filter((r) => r?.op === 'record_decision').length} decision(s) by seq — this is why the run needs no read tool`);
-  row('DR5', !existsSync(path.join(root, 'proposals.jsonl')) || proposals.length === 0, `proposals.jsonl holds ${proposals.length} line(s) — a real run over a package that already carries proposals needs --force`);
+  row('DR5', !existsSync(path.join(root, 'proposals.jsonl')) || proposals.length === 0, `proposals.jsonl holds ${proposals.length} line(s) — a package gets ONE proposal run and the route refuses a second with no override; discard the file and re-run if the run was bad`);
   row('DR6', prompt.includes(String(run.slug)) && systemPrompt.includes(PROVENANCE_RULE[run.provenance].slice(0, 40)), "the run's slug is in the turn prompt and its provenance rule is in the system prompt, imported rather than copied (#347)");
   row('DR7', typeof PROPOSER_FINGERPRINT === 'string' && PROPOSER_FINGERPRINT.length === 32, `the proposer's own fingerprint is ${PROPOSER_FINGERPRINT} — its own inputs, so it moves when THIS prompt moves and never when the session's does`);
   return { reachable: true, rows, systemPrompt, prompt };

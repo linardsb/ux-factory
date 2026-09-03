@@ -254,21 +254,25 @@ const server = createServer(async (req, res) => {
         // EVERY PARAMETER NAMED, never `{ ...body }` — the rule /api/discovery/turn's comment states.
         const slug = body.slug;
         const provenance = body.provenance;
-        const force = body.force === true;
         const root = resolveRunRoot({ provenance, slug });
         assertProvenanceRoot(provenance, root);
         const pkg = readProposalPackage(root);
         // A FINISHED package, refused by name if it is still open: proposing from a run that is still
         // being answered would rest on a ledger the next turn can still supersede.
         if (!pkg.run.endedAt) throw new Error(`run "${slug}" is still open — close the session first. A proposal rests on a FINISHED ledger, because the next turn can still supersede a decision it named`);
-        if (pkg.proposals.length && !force) throw new Error(`run "${slug}" already carries ${pkg.proposals.length} proposal line(s). proposals.jsonl is append-only, so a second run would interleave two runs' proposals with nothing on the page to tell them apart — pass force to do it anyway`);
+        // A PACKAGE GETS ONE PROPOSAL RUN, and there is no override. proposals.jsonl is append-only,
+        // and `model` and `fingerprint` are the same two constants on every line, so a second run's
+        // proposals would interleave with the first's and nothing on the page could tell them apart.
+        // A bad run is fixed the way a bad trace is: DISCARD the file (`git checkout` it, or delete
+        // it) and re-run — never by editing it, and never by appending a second run beside it.
+        if (pkg.proposals.length) throw new Error(`run "${slug}" already carries ${pkg.proposals.length} proposal line(s), and a package gets ONE proposal run. proposals.jsonl is append-only and every line carries the same model and fingerprint, so a second run would interleave with the first with nothing on the page to tell them apart — discard proposals.jsonl and re-run if the run was bad`);
         // The run lock, for the reason runTurn takes it: two concurrent runs would append to the same
         // append-only file, and the tokens are spent either way.
         const out = await withDiscoveryRunLock(async () => {
           // THE SDK ENTERS HERE and nowhere earlier — after every guard above has passed.
           const { runProposalRun } = await import('./lib/discovery-proposer.mjs');
           const r = await runProposalRun({
-            root, run: pkg.run, ops: pkg.ops, answers: pkg.answers,
+            root, run: pkg.run, ops: pkg.ops, answers: pkg.answers, proposals: pkg.proposals, proposalLines: pkg.proposalLines,
             onLine: (ev) => send(ev),
           });
           // The page is regenerated from the file, never from the run's return value: the file is the
@@ -290,11 +294,23 @@ const server = createServer(async (req, res) => {
       const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
       assertProvenanceRoot(b.provenance, root);
       const pkg = readProposalPackage(root);
+      // ALL THREE CLIENT-SUPPLIED FIELDS VALIDATED HERE, each with a 400 naming the offending value.
+      // checkProposalLines below still refuses over the WHOLE store — it is the append-guard and the
+      // authority on the file's shape — but a throw there surfaces through the boundary catch-all as
+      // a 500, and a client that sent a blank reason has made a request error, not a server one
+      // (PR #364 review F3).
       if (!VERDICTS.includes(b.verdict)) return json(res, 400, { error: `verdict "${b.verdict}" is not one of ${VERDICTS.join(' · ')}` });
+      if (typeof b.proposalId !== 'string' || !pkg.proposals.some((l) => l.type === 'proposal' && l.id === b.proposalId))
+        return json(res, 400, { error: `proposalId ${JSON.stringify(b.proposalId ?? null)} names no proposal in run "${b.slug}" — a verdict is the owner's answer to a proposal that exists` });
+      if (typeof b.reason !== 'string' || b.reason.trim() === '')
+        return json(res, 400, { error: `reason ${JSON.stringify(b.reason ?? null)} is empty — the owner says why, and the reason is the record` });
       const line = { type: 'verdict', ts: new Date().toISOString(), proposal_id: b.proposalId, verdict: b.verdict, reason: b.reason };
       // Checked BEFORE the append, over the whole store: proposals.jsonl is append-only, so a verdict
       // naming no proposal cannot be taken back once it is on disk.
-      checkProposalLines([...pkg.proposals, line], pkg.ops);
+      // The file's own line numbers are passed so a refusal on a COMMITTED line names where it is;
+      // the appended line has no entry, so its own refusals say "the proposal line being appended"
+      // rather than printing an index that names nothing on disk.
+      checkProposalLines([...pkg.proposals, line], pkg.ops, pkg.proposalLines);
       appendFileSync(path.join(root, 'proposals.jsonl'), `${JSON.stringify(line)}\n`);
       writeProposalsMd(root);
       return json(res, 200, proposalsView(readProposalPackage(root)));

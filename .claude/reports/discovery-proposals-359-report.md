@@ -77,7 +77,7 @@ Every figure below is **observed** unless labelled otherwise.
 | `node tooling/drift-check.mjs` | ✓ twelve checks |
 | `node tooling/token-lint.mjs` | ✓ 63 contract tokens · 0 undeclared · 0 orphan |
 | `node agent-layer/gen-loc-summary.mjs --check` (after `git add`) | see below |
-| `node --check` on all four new/edited `.mjs` | clean |
+| `node --check` on all six new/edited `.mjs` | clean |
 | portal on `PORT=4791`, `/api/health` | answers |
 | `discovery-proposer.mjs --dry` | 7/7 on a package with no proposals; **6/7 on `allergen-matrix-1` now**, DR5 reporting the 8 committed lines — the second-run guard working, not a regression. Zero tokens either way. |
 
@@ -228,16 +228,90 @@ of one copy of the rule. It still carries the load-bearing fact: this run is fic
 
 **A figure in this report went stale during the ticket, and the pre-PR audit caught it.** `--dry`
 reported 7/7 at T9. After T12's run it reports **6/7** on `allergen-matrix-1`, because DR5 now sees
-the eight committed proposal lines and says a second run needs `--force` — the guard doing its job.
+the eight committed proposal lines and says a package gets one proposal run — the guard doing its job.
 The table above states both. Recorded because this is exactly the copy-forward mechanism the figures
 gate exists to catch, and it caught it on the surface with the widest readership.
 
 **`hasToken: false`** on this machine — there is no `portal/.env`, and the SDK authenticates through
 the Mac CLI login. The run worked; the flag only reports the absence of a token file.
 
+## Review round 1 — the four findings, fixed
+
+`.claude/code-reviews/pr-364-review.md` requested changes on **F1** alone. All four are fixed on this
+PR. Every figure below is **observed** on this tree.
+
+**F1 (High) — a second proposal run corrupted `proposals.jsonl`.** `runProposalRun` seeded its store
+`{ lines: [] }` while the file it guards was on disk, so `nextProposalId` re-issued `p1` over a
+package that already held one; the in-memory append-guard passed and every later read of the package
+threw, permanently, in a file with no sanctioned repair.
+
+Fixed both ways the review offered, because they answer different halves:
+
+- **The seed.** New pure export `seedProposalStore(proposals, ops, lineNums)` in
+  `discovery/proposals.mjs` — the package's own lines, checked, as a copy. `runProposalRun` takes
+  `proposals` and seeds from it, and returns *this* run's proposals sliced past the seed.
+  `dryProposalRun` deliberately does **not** seed, and says why: it never reaches `tools/call`, and a
+  throwing seed would abort the diagnostic instead of reporting DR5.
+- **The override.** `force` is **deleted** from `POST /api/discovery/propose`. A package gets one
+  proposal run. `model` and `fingerprint` are the same two constants on every line, so a second run's
+  proposals would interleave with the first's with nothing on the page to tell them apart — the
+  route's own comment argued this and now the code holds it. A bad run is fixed the way a bad trace
+  is: discard `proposals.jsonl` and re-run. `discovery/README.md` and `CLAUDE.md` say so.
+
+Observed against the committed `allergen-matrix-1` (8 lines): `nextProposalId(seed(pkg))` → **`p9`**,
+where the old empty seed gave `p1`.
+
+**F2 (Medium) — a refusal named a 0-based array index.** `readProposalsJsonl` skips blank lines, so an
+index is not a file line, and `prd-projection.mjs:693` warns against exactly this three lines above
+its own reader. `checkProposalLines(lines, ops, lineNums)` now takes the reader's 1-based file
+numbers; all eleven locators read `where(i)`, which answers `proposal line N` or — for the in-memory
+append every writer makes before the write — `the proposal line being appended`, never a number that
+names nothing on disk. `readProposalPackage` carries `proposalLines` through; `projectProposals`,
+`proposalsView`, the verdict route and the run all forward it.
+
+Observed through the **real route** on a package with a blank line at file line 2: a corrupt line at
+**file line 5** (array index 3) refused as `proposal line 5`. It would have said `line 3` before.
+
+**F3 (Low) — one field validated, two falling to the catch-all.** Two more `400` guards beside the
+`VERDICTS` one. Observed on a live portal, all six probes now **400** (was 400 / 500 / 500), and
+`proposals.jsonl` byte-unchanged after every one:
+
+| probe | status |
+|---|---|
+| `verdict: "p99"` | 400 |
+| `proposalId` absent · blank · `"p99"` | 400 · 400 · 400 |
+| `reason` absent · blank | 400 · 400 |
+
+`checkProposalLines` still runs before the append — the 400s are a boundary courtesy, never the guard.
+
+**F4 (Low) — three miscounts.** Re-derived against the merge base `3dfcce3` at this tree: **15**
+`case 25:` `ok()` lines added (the PR body said 13), **five** live sites carry the group count (it
+said six), **six** `.mjs` changed (the table above said four — corrected). No live site still says 33.
+
+### The gate, and the mutations that prove it can go red
+
+Four new/extended sub-cases. Each was proven by mutating the source and running the function, per
+[[the check that cannot fail]] — not by grepping for a name.
+
+| case | what it drives | mutation | result |
+|---|---|---|---|
+| 34.1 | `seedProposalStore` — a checked copy, `p5` over the fixture, `[]` for an absent store, a corrupt store refused | seed returns `[]` | **RED, 4 named** |
+| 34.1 | the empty seed and the package's seed asserted to **differ** | — | the case cannot pass vacuously |
+| 34.12 | `runProposalRun`'s own body pinned to `seedProposalStore`, and proven not to carry `lines: []` — scoped past `dryProposalRun`, which legitimately does | seed back to `lines: []` | **RED, 2 named** |
+| 34.14 | the propose route: `force` named nowhere, `pkg.proposals` handed over, both guards kept | `force` put back | **RED, 1 named** |
+| 34.14 | the verdict route: a `400` per client-supplied field, matched on the field's own `b.<field>` read | drop the `reason` guard | **RED, 2 named** |
+| 34.15 | `readProposalPackage` over a REAL file with a blank line → `[1, 3, 4]`; the refusal naming file line 4 and proven not to name the index or index+1 | `where()` back to the index | **RED, 5 named** |
+| 34.15 | same | reader returns indices | **RED, 3 named** |
+
+34.14 reads `server.mjs` **decommented**: the first draft of the per-field pin matched the comment
+that *states* the invariant rather than the guard that holds it, and the mutation caught it — the
+same trap 34.12 documents.
+
+**No new group.** Sub-cases only, so the group count stays 34 and no count site moves.
+
 ## Ready for the next step
 
-`piv-commit` (phases 1–3 are already committed on the branch), then `piv-create-pr` with
-`Closes #359` in the body, then `piv-review-pr`.
+`piv-commit` (phases 1–3 and the review-fix round are on the branch), then `piv-review-pr` re-runs on
+the updated PR.
 
 **The one thing the PR needs from the owner:** eight verdicts through the drawer, per D-A.

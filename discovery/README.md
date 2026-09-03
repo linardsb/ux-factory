@@ -696,10 +696,11 @@ node discovery/prd-projection.mjs <slug> [--stdout] [--force]   # the run packag
 cd portal && node lib/discovery-proposer.mjs --dry --slug <slug> --provenance fictional   # the proposal run's seven preflight rows + the whole brief printed, ZERO tokens (#359); run before every paid attempt
 node discovery/proposals.mjs <slug> [--stdout]     # proposals.jsonl → proposals.md (#359); ALWAYS overwrites, because a verdict changes the page
 # A PROPOSAL RUN and a VERDICT are drawer controls, never a file anyone types: "Propose features" runs
-# one fenced pass over the FINISHED package (refused by name while it is still open, and refused a
-# second time without force), and each verdict button appends one server-written line and regenerates
-# proposals.md. proposals.jsonl is append-only — a bad run is fixed by tightening ONE prompt constant
-# in portal/lib/discovery-proposer.mjs and re-running, never by an edit.
+# one fenced pass over the FINISHED package (refused by name while it is still open, and refused again
+# if the package already carries proposals — a package gets ONE run and there is no override), and each
+# verdict button appends one server-written line and regenerates proposals.md. proposals.jsonl is
+# append-only — a bad run is fixed by tightening ONE prompt constant in portal/lib/discovery-proposer.mjs,
+# DISCARDING proposals.jsonl and re-running, never by an edit and never by a second run beside the first.
 # never a file anyone types. Provenance is declared at session start and the root follows it.
 ```
 
