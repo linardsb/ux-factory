@@ -290,14 +290,15 @@ said six), **six** `.mjs` changed (the table above said four — corrected). No 
 
 ### The gate, and the mutations that prove it can go red
 
-Four new/extended sub-cases. Each was proven by mutating the source and running the function, per
-[[the check that cannot fail]] — not by grepping for a name.
+Each was proven by mutating the source and running the function, per [[the check that cannot fail]] —
+not by grepping for a name.
 
 | case | what it drives | mutation | result |
 |---|---|---|---|
 | 34.1 | `seedProposalStore` — a checked copy, `p5` over the fixture, `[]` for an absent store, a corrupt store refused | seed returns `[]` | **RED, 4 named** |
 | 34.1 | the empty seed and the package's seed asserted to **differ** | — | the case cannot pass vacuously |
-| 34.12 | `runProposalRun`'s own body pinned to `seedProposalStore`, and proven not to carry `lines: []` — scoped past `dryProposalRun`, which legitimately does | seed back to `lines: []` | **RED, 2 named** |
+| 34.12 | `runProposalRun`'s own body proven not to carry `lines: []` — scoped past `dryProposalRun`, which legitimately does | seed back to `lines: []` | **RED, 1 named** |
+| 34.12 | the same body pinned to `seedProposalStore` — the other half, and independently red-able | the call dropped, an equivalent seed shape kept | **RED, 1 named** |
 | 34.14 | the propose route: `force` named nowhere, `pkg.proposals` handed over, both guards kept | `force` put back | **RED, 1 named** |
 | 34.14 | the verdict route: a `400` per client-supplied field, matched on the field's own `b.<field>` read | drop the `reason` guard | **RED, 2 named** |
 | 34.15 | `readProposalPackage` over a REAL file with a blank line → `[1, 3, 4]`; the refusal naming file line 4 and proven not to name the index or index+1 | `where()` back to the index | **RED, 5 named** |
@@ -309,9 +310,66 @@ same trap 34.12 documents.
 
 **No new group.** Sub-cases only, so the group count stays 34 and no count site moves.
 
+## Round 2 of the review — F5–F8
+
+`.claude/code-reviews/pr-364-review-round2.md`, head `d2cf3a4`. **Verdict: approve**, four Lows, none
+blocking. F5 and F6 were miscounts, F8 a stale entry, F7 the only code.
+
+**F5 (Low) — the 34.12 mutation row said "RED, 2 named"; the run says 1.** The row described two pins
+that are independently red-able at one failure each, so it is now two rows, which is what it always
+described. Same shape as F4, one round later, in the same document.
+
+**F6 (Low) — the PR body called `1434f93` "this PR's head".** The head is `d2cf3a4`; the figures under
+that heading were genuinely recorded at `1434f93` and still hold. Re-pointed at round 1 in the body.
+
+**F7 (Low) — the store is seeded, and two of its three readers still treated it as this-run-only.**
+All three are unreachable while a package gets ONE run, so the route's refusal is what keeps them
+dead — which is exactly the kind of guarantee held one file away that F1 was raised about.
+
+- **F7.1, the return slice: nothing to fix.** `state.lines.slice(seeded.length)` is correct — the
+  handler reassigns rather than pushes and `checkProposalLines` returns `[...lines]` in order, so the
+  seed stays at the front. It is *ungated*, and it cannot be gated here: 34.12 is a source pin over
+  text because CI has no `portal/node_modules`, so the review's suggested "assert the returned length
+  equals the run's own appends" has nowhere to run. Named in the group's *cannot reach* clause and in
+  `gates.md` instead.
+- **F7.2, the ceiling: fixed.** `filed` counted the whole store, so a seeded run spent its budget on
+  the package's own proposals and said *"this run has already filed 8"* about a run that had filed
+  two. `seedCount` now travels down beside `proposalLines` — the handler is lexically inside
+  `buildProposalServer`, so neither `seeded` nor `runProposalRun`'s own parameter is in scope there,
+  which is why both fixes are one options-object field each.
+- **F7.3, the append guard: fixed.** `checkProposalLines([...state.lines, line], state.ops)` now
+  passes `proposalLines`, so the two writers to `proposals.jsonl` — this handler and the verdict
+  route — hand the same numbers to the same checker.
+
+**Driven, not read** (the real handler through the bundled server's own `tools/call`, a 6-proposal
+seed against `MAX_PROPOSALS = 8`, `mktemp -d` root):
+
+| ceiling | calls that filed | the refusal |
+|---|---|---|
+| F7.2 put back — the pre-fix count | **2** | *"this run has already filed 8 proposals"* — it had filed two |
+| at HEAD with the fix | **8** | *"already filed 8"*, on call 9, naming the run's own count |
+
+**F8 (Low) — group 34's `gates.md` entry was written by this PR and not updated by its fix commit.**
+One paragraph appended, the way #359's group 30 paragraph was, naming the seed, the deleted `force`,
+the verdict route's two `400`s, `proposalLines`, and the seeded path's remaining gate boundary.
+
+### Three more 34.12 pins, each mutated red
+
+| case | what it pins | mutation | result |
+|---|---|---|---|
+| 34.12 | the ceiling reads `state.lines.slice(seedCount)` | the whole-store count put back | **RED, 1 named** |
+| 34.12 | the handler's `checkProposalLines` passes `proposalLines` | the third argument dropped | **RED, 1 named** |
+| 34.12 | `runProposalRun` hands `buildProposalServer` both fields | the two dropped from the call | **RED, 1 named** |
+
+Scoped to `buildProposalServer`'s own body, with the window guarded: `dryProposalRun` builds the same
+server and legitimately passes neither, so a file-wide pin would have to choose between failing on the
+dry run and passing on the real one — the same scoping the `lines: []` pin needed.
+
+**Still no new group.** Sub-cases only; the count stays 34.
+
 ## Ready for the next step
 
-`piv-commit` (phases 1–3 and the review-fix round are on the branch), then `piv-review-pr` re-runs on
-the updated PR.
+`piv-commit` (phases 1–3 and both review-fix rounds are on the branch), then `piv-review-pr` re-runs
+on the updated PR.
 
 **The one thing the PR needs from the owner:** eight verdicts through the drawer, per D-A.

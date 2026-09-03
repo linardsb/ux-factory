@@ -185,7 +185,7 @@ export const PROPOSER_FINGERPRINT = (() => {
 // array comes out in it (the transport's plan-M5 lesson: .optional() silently drops a field from
 // `required`, and nullable is never optional). The other five keys of a proposal line are the
 // server's, the way an op's seq / closes / flagged are the applier's.
-export function buildProposalServer({ root, model, fingerprint, state, onLine }) {
+export function buildProposalServer({ root, model, fingerprint, state, onLine, seedCount = 0, proposalLines }) {
   if (!state || !Array.isArray(state.lines)) bad('buildProposalServer needs the holder { lines: [] } — the applier is pure and each accepted line produces a NEW store the next call folds onto');
   const file = path.join(root, 'proposals.jsonl');
   const one = tool(PROPOSE_TOOL, PROPOSE_DESCRIPTION, {
@@ -195,7 +195,11 @@ export function buildProposalServer({ root, model, fingerprint, state, onLine })
     wrong_if: z.string(),
   }, async (args) => {
     try {
-      const filed = state.lines.filter((l) => l.type === 'proposal').length;
+      // PAST THE SEED. `state.lines` opens as the package's own proposals (runProposalRun seeds it), so a
+      // count over the whole store would spend this run's budget on lines it did not file and then report
+      // the package's total as "this run has already filed N" — a count of the PACKAGE reported as a count
+      // of the RUN. It is the same reasoning the return slice below already carries, applied here too.
+      const filed = state.lines.slice(seedCount).filter((l) => l.type === 'proposal').length;
       if (filed >= MAX_PROPOSALS)
         return { isError: true, content: [{ type: 'text', text: `discovery-proposer: this run has already filed ${filed} proposals, which is the ceiling (MAX_PROPOSALS). Stop — file no more.` }] };
       const line = {
@@ -212,7 +216,7 @@ export function buildProposalServer({ root, model, fingerprint, state, onLine })
       // THE REFUSALS RUN BEFORE THE APPEND. proposals.jsonl is append-only, so an unchecked line
       // reaching it cannot be taken back — and the refusal reaches the agent as a RESULT, verbatim,
       // so it corrects inside the same turn (the transport's observation 2).
-      const next = checkProposalLines([...state.lines, line], state.ops);
+      const next = checkProposalLines([...state.lines, line], state.ops, proposalLines);
       appendFileSync(file, `${JSON.stringify(line)}\n`);
       state.lines = next;
       try { onLine?.({ type: 'proposal', id: line.id, title: line.title, rests_on: [...line.rests_on] }); }
@@ -239,7 +243,12 @@ export async function runProposalRun({ root, run, ops, answers, proposals = [], 
   // guarantee STRUCTURAL rather than something a guard two files away happens to hold.
   const seeded = seedProposalStore(proposals, ops, proposalLines);
   const state = { lines: [...seeded], ops, refusals: [] };
-  const server = buildProposalServer({ root, model, fingerprint: PROPOSER_FINGERPRINT, state, onLine });
+  // `seedCount` and `proposalLines` BOTH travel down: the handler is lexically inside buildProposalServer,
+  // so neither `seeded` nor this function's own parameter is in scope there. Without them the ceiling
+  // counts the package's proposals as the run's, and a refusal on a SEEDED line — one already on disk —
+  // reads "the proposal line being appended", which is the same defect the verdict route fixed by passing
+  // pkg.proposalLines (server.mjs). Both are unreachable while a package gets ONE run; both are wrong.
+  const server = buildProposalServer({ root, model, fingerprint: PROPOSER_FINGERPRINT, state, onLine, seedCount: seeded.length, proposalLines });
 
   // THE SAME TWO SITES THE SESSION USES, from ONE fence object. `reads: []` is unchanged from the
   // session's run 1 shape — the brief carries the package, so this run needs no read tool — and
