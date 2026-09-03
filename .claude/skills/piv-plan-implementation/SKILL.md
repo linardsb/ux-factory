@@ -488,19 +488,27 @@ After creating the Plan, provide:
 
 After the report, produce a **build brief**: one simple, self-contained HTML page that *teaches the user what
 this plan builds* — concepts first, plan second — so they genuinely understand the ideas behind the feature,
-not just the task list. Follow the `show-me` skill's conventions (smallest representation that makes the point,
-inline CSS, no frameworks, real names from this codebase).
+not just the task list. Inline CSS, no frameworks, real names from this codebase.
+
+**Register: load the `show-me` skill and write to its `### explaining a concept` section.** The audience is a
+bright 18-year-old who has never seen this repo, even though the reader is the owner. Technical terms are
+allowed where the idea needs them, and every one is glossed the first time it appears. The budgets there are
+hard: at most 60 words of prose per concept, under 300 words of prose for the whole page (sketches, file
+trees and tables don't count). Ticket, group and invariant numbers, "where the analogy breaks" notes, traps
+and code snippets stay in the markdown plan — link it once at the top.
 
 Content, in order:
 
-1. **What we're building and why** — 2–3 sentences, plain language.
-2. **The concepts this plan rests on** — the 2–5 ideas someone must understand to follow the build (the
-   pattern, protocol, algorithm, or library mechanism it leans on). For each: a one-paragraph plain-language
-   explanation, a tiny diagram or analogy (note where the analogy breaks), and why *this* plan needs it.
-3. **How the pieces fit** — one architecture sketch (Mermaid or simple HTML boxes) connecting those concepts
-   to this plan's phases.
-4. **The plan at a glance** — phase dependency graph, the new/changed file tree, and the acceptance criteria.
-5. **Go deeper** — per concept: "to properly learn this, run `/learn <concept>`".
+1. **What we're building and why** — two sentences: what is missing today, what exists after.
+2. **The concepts this plan rests on** — two to four ideas someone must understand to follow the build. Each:
+   what it is in everyday words, one analogy or a sketch of at most five lines, and why *this* plan needs it.
+3. **How the pieces fit** — one sketch (Mermaid or simple HTML boxes), at most six boxes, labels in plain
+   words, connecting the concepts to the plan's phases.
+4. **The plan at a glance** — one plain line per phase with its dependency, the new/changed file tree with a
+   one-phrase comment per file, and the acceptance criteria as one line each (no "proven by" column).
+5. **Go deeper** — one `/learn <concept>` row per concept, each with a **copy button** that copies the prompt
+   verbatim. Implement `### copyable prompts` from the `show-me` skill exactly — `data-prompt` on the row, the
+   delegated listener, the `catch` fallback. A brief whose `/learn` rows have no copy button is not finished.
 
 Save it beside the plan as `.claude/plans/<same-name>.html` and open it (`open <path>`). Keep it genuinely
-simple — a five-minute briefing, not a document to maintain. The markdown plan stays the single source of truth.
+simple — a two-minute briefing, not a document to maintain. The markdown plan stays the single source of truth.
