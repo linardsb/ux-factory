@@ -4,7 +4,7 @@
 **Inputs.** The question bank's research seed is `docs/research/question-bank-source.md` — §5 of a longer
 research file, extracted and parked in-repo: **stages 1–9, 65 attributed questions** each with a weak-answer
 note and an OBSERVED / DERIVED / THIN label, plus the twelve-question opening set and the sources list. It is
-the research file's **Appendix D** — the unabridged bank — not the abridged §5 summary of the same material. The bank module holds **65** — the source's 69 top-level bullets less two mottos with no weak-answer note, one cross-reference line and one duplicated press-release question, reconciled in #282; the pre-reconciliation number was 66.
+the research file's **Appendix D** — the unabridged bank — not the abridged §5 summary of the same material. The bank module holds **65** — the source's 69 top-level bullets less two mottos with no weak-answer note, one cross-reference line and one duplicated press-release question, reconciled in #282; the pre-reconciliation number was 66. #283 added ten entries outside that count and outside `whole-bank` — the non-functional block and the AI-interaction module — so the module holds 75 and the graded fixture's key space stays 65.
 Stage 10 and the five-questions prefix are omitted on purpose and the file says why. The rest of that research
 file is hiring material with no bearing on the bank and is deliberately not carried in. The requirements-hierarchy source is `docs/research/requirements-hierarchy.md`
 (BABOK-derived: the requirements levels, the nine elicitation methods, transition requirements), parked in-repo

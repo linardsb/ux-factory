@@ -100,7 +100,7 @@ proto/                        the two data-connected prototype pages (vd-/fw- co
 proto/compositions/           COMMITTED composition proposals from real record-composition.mjs runs
 traces/                       committed real agent-run traces, raw + curated pairs (traces/README.md)
 replay/                       the studio's replay artifacts (replay/README.md) — brief · board · projection
-discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank + depth selectors · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) · prd-projection.mjs: the run package → prd.md, a pure fold over the ops (no clock, no SDK) · README.md: the run-package format; Node-only, no page reads it
+discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank (65 source-backed + #283's ten) + the depth selectors, five facet modules, presets and the ~30 budget (whole-bank is a frozen literal) · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) · prd-projection.mjs: the run package → prd.md, a pure fold over the ops (no clock, no SDK) · README.md: the run-package format; Node-only, no page reads it
 discovery/<slug>/             committed FICTIONAL run packages — run.json · answers.jsonl (server-written only) · transcript.jsonl (text · op · denied) · prd.md
 handoff/                      GENERATED handoff pack (verdant/) — committed, never edited by hand
 docs/epics/                   PRD + architecture decisions governing the platform build
@@ -174,7 +174,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 32 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 33 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.
