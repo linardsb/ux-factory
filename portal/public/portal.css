@@ -210,3 +210,22 @@
   margin: 0; padding-left: var(--spacing-lg);
   font-size: var(--type-caption); color: var(--color-fg-muted);
 }
+/* #359 — one proposal, mirroring .discovery-recorded-turn. The model's prose gets the same
+   wrapped-as-written treatment the person's own answer does, for the same reason: it is quoted
+   text, not a label. */
+.discovery-proposal {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-sm); margin-top: var(--spacing-sm);
+}
+.discovery-proposal-why {
+  white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0;
+  font-size: var(--type-body); color: var(--color-fg); margin: 0 0 var(--spacing-xs);
+}
+.discovery-proposal-meta {
+  margin: 0 0 var(--spacing-xs);
+  font-size: var(--type-caption); color: var(--color-fg-muted);
+}
+.discovery-verdict-row {
+  display: flex; flex-wrap: wrap; gap: var(--spacing-xs); align-items: center;
+}
+.discovery-verdict-row input { flex: 1 1 12rem; min-width: 0; }

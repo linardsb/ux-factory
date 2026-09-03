@@ -83,17 +83,24 @@ const tbd = (why) => `_TBD — ${why}._`;
 // bare line ending AND inserted the one leading space that lets ATX still read `## `. The character
 // class rather than /\r\n|\r|\n/ is what keeps the 1:1 claim above literally true — a CRLF pair
 // becomes two spaces, so nothing is removed, and afterwards no line terminator survives at all.
+// EXPORTED for discovery/proposals.mjs (#359), which folds the same way onto proposals.md: the
+// CRLF hole above was found and closed once, and a second PRODUCTION copy would let one be fixed
+// while the other stayed broken. LINE_ENDING stays module-private — the sibling needs the
+// functions, not the regex.
 const LINE_ENDING = /\r\n|\r|\n/;
-const fold = (s) => String(s).replace(/[\r\n]/g, " ");
+export const fold = (s) => String(s).replace(/[\r\n]/g, " ");
 
 // For table cells ONLY, and only for URLs, labels, seqs and op params — never for a human answer. A
-// `|` inside a cell splits the row, so it is escaped on top of the fold above.
-const cell = (s) => fold(s).replace(/\|/g, "\\|");
+// `|` inside a cell splits the row, so it is escaped on top of the fold above. Exported for the same
+// reason as fold above (#359): one production implementation, so the battery hardens the real thing.
+export const cell = (s) => fold(s).replace(/\|/g, "\\|");
 
 // THIS IS HOW ALL ARBITRARY HUMAN TEXT REACHES THE PAGE. A blockquote makes every hostile construct
 // inert: a leading `#` inside a `> ` line is not a heading, a leading `-` is not a list item that can
 // break the surrounding structure, a `|` is not a cell boundary, and a fence cannot escape the quote.
-const blockquote = (text) => {
+// Exported for discovery/proposals.mjs (#359), which quotes a proposal's `why` through it: the
+// bare-CR hole below is the second hole this repo found once, and the same argument applies.
+export const blockquote = (text) => {
   // Split on LOGICAL line endings (the CRLF pair is ONE break, not two) — fold()'s character class
   // is the wrong tool here, because an extra break would add a `>` line the human never wrote. A
   // bare CR was the hole: with a `\n`-only split, `"answer\r\r## X"` stayed one string, so `## X`

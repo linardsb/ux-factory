@@ -208,8 +208,14 @@ export function allowsPath(allowSet, p) {
 // the field READ_TOOLS names (Grep and Glob search the cwd when no path is given, and the cwd is the
 // run root; Read must name a file); anything else is denied by name — Write, Edit and Bash stay
 // closed whatever path they carry, which is the "no write tools" line carried from the spine.
-export function fenceDecision(allowSet, tool, input) {
+// `extraTools` (#359) is a PER-CALL widening the caller opts into: one name, this run's own vocabulary.
+// allowsToolName itself is deliberately NOT widened — case 14 drives it exhaustively as the statement
+// "the discovery SESSION's vocabulary is the four op verbs", and that statement stays true. Defaulted
+// to [], which case 25's mirror proves byte-identical to the argument being absent, so no existing
+// caller changes behaviour. Junk in it denies rather than throwing, this function's own fail-closed.
+export function fenceDecision(allowSet, tool, input, extraTools = []) {
   if (allowsToolName(tool)) return { allow: true, reason: `${tool} is one of this run's op tools` };
+  if (Array.isArray(extraTools) && extraTools.includes(tool)) return { allow: true, reason: `${tool} is one of this run's tools` };
   if (typeof tool === 'string' && Object.hasOwn(READ_TOOLS, tool)) {
     const named = input?.[READ_TOOLS[tool]];
     return allowsPath(allowSet, named ?? (tool === 'Read' ? undefined : '.'));
@@ -310,9 +316,18 @@ export const denyReason = (name) => `${name} is not one of this run's op tools (
 // run would be recorded as the agent's — a false receipt. Every observed warmup read is of the cwd
 // (bracket-trace-1/-2's traces), which the allow-set admits, so none is expected; the fence trace
 // shows it if one ever lands.
-function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
+//
+// TWO KINDS OF RUN, ONE FENCE (#359). `extraTools` names this run's OWN tool — the discovery session
+// passes none, a proposal run passes one — and `write` replaces the transcript append for a caller
+// whose refusals do not belong in transcript.jsonl (a proposal run appends nothing to the session's
+// files, which is what protects #359's AC #4). Both default to today's behaviour.
+function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [], extraTools = [], write = null }) {
+  // `ts` is stamped HERE rather than left to appendTranscript, because `write` bypasses it and a
+  // streamed line with no ts would be a second shape on the same wire. appendTranscript's own
+  // `line.ts ?? now()` then finds one already present and is a no-op — one shape, one clock.
   const record = (line) => {
-    try { const written = appendTranscript(root, line); onLine?.(written); }
+    const stamped = { ...line, ts: line.ts ?? now() };
+    try { const written = write ? write(stamped) : appendTranscript(root, stamped); onLine?.(written); }
     catch (e) { process.stderr.write(`discovery: hook error (non-fatal): ${e.message}\n`); }
   };
 
@@ -342,14 +357,18 @@ function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
   };
 
   const isRecorded = (tool) => isMcpToolName(tool) || (Array.isArray(mainTools) && mainTools.includes(tool));
+  // A run's OWN tool is never traced, whichever list it comes from — the same reason an op tool is
+  // not: the trace exists to show what the CLI's warmup did, and burying that in a normal run's own
+  // calls is what a deny-only trace already got wrong once (#349).
+  const isOwnTool = (tool) => allowsToolName(tool) || (Array.isArray(extraTools) && extraTools.includes(tool));
   // ONE decision, one site, traced whenever armed. The trace hangs here rather than on the refusal so
   // that an ALLOWED built-in is observed too (see above); an op tool is the agent's own vocabulary and
   // is never traced, allow or deny.
   const decide = (site, tool, input) => {
     let d;
-    try { d = fenceDecision(allowSet, tool, input); }
+    try { d = fenceDecision(allowSet, tool, input, extraTools); }
     catch (e) { d = { allow: false, reason: `the fence could not evaluate ${String(tool)} (${e.message}) — denied, fail closed` }; }
-    if (!allowsToolName(tool)) trace({ event: `${site}.${d.allow ? 'allow' : 'deny'}`, tool: tool ?? null, recorded: d.allow ? false : isRecorded(tool) });
+    if (!isOwnTool(tool)) trace({ event: `${site}.${d.allow ? 'allow' : 'deny'}`, tool: tool ?? null, recorded: d.allow ? false : isRecorded(tool) });
     return d;
   };
   // The denial's transcript line, written when the denial is the agent's. Returns the reason so each
@@ -358,7 +377,7 @@ function fenceSite({ root, turn, onLine, allowSet = null, mainTools = [] }) {
     if (isRecorded(tool)) record(deniedLine({ turn, tool, input: input ?? null, error: reason, via: site }));
     return reason;
   };
-  return { record, decide, deny };
+  return { record, decide, deny, isOwnTool };
 }
 
 // SITE 2 — canUseTool, the SDK's permission callback. The transport passes this where it used to hold
@@ -376,8 +395,10 @@ export function fenceCanUseTool(root, turn, onLine, opts = {}) {
 
 // SITE 1 — the SDK `hooks` option's value, built HERE rather than in the transport so group 30 can run
 // the hook functions in CI (#343). Plain objects and async functions in the SDK's shape — no SDK
-// import. `opts` is `{ allowSet, mainTools }`; called with none (as group 30's older cases do) it is
-// the #349 name fence with every path tool failing closed for want of an allow-set.
+// import. `opts` is `{ allowSet, mainTools, extraTools, write }`; called with none (as group 30's older
+// cases do) it is the #349 name fence with every path tool failing closed for want of an allow-set.
+// `extraTools` admits this run's own tool by name and `write` diverts the recorder for a caller whose
+// refusals do not belong in transcript.jsonl — both #359's, both defaulted to today's behaviour.
 //
 // Every recording hook is try/caught and always returns { continue: true }: a thrown hook can interrupt
 // the agent, and a recording bug must never alter the run it observes (trace-recorder.mjs's discipline).
@@ -428,7 +449,7 @@ export function fenceHooks(root, turn, onLine, opts = {}) {
     // that reached execution was never the main session's.
     PostToolUseFailure: [{ hooks: [async (input) => {
       const error = String(input.error ?? JSON.stringify(input.tool_response ?? null));
-      if (allowsToolName(input.tool_name)) site.record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error, via: 'PostToolUseFailure' }));
+      if (site.isOwnTool(input.tool_name)) site.record(deniedLine({ turn, tool: input.tool_name, input: input.tool_input ?? null, error, via: 'PostToolUseFailure' }));
       return { continue: true };
     }] }],
   };
