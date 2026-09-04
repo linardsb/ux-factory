@@ -29,6 +29,7 @@
 // Zero-token pre-flight:  cd portal && node lib/discovery-transport.mjs --preflight
 // One-turn parenting probe (PAID, ~$0.04–0.10):  cd portal && node lib/discovery-transport.mjs --probe-parenting
 // Three-turn fence probe (PAID, ~$0.2–0.5):  cd portal && node lib/discovery-transport.mjs --probe-fence
+// One-turn audit probe (PAID, ~$0.05–0.15):  cd portal && node lib/discovery-transport.mjs --probe-audit [--model claude-opus-5]
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -39,8 +40,9 @@ import {
   readAnswers, readTranscript, recordSessionId, textLine, TOOL_SCHEMA,
 } from './discovery.mjs';
 // The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
-// the one group 30 pins and the fingerprint covers. POSTURES is here for the probe only.
-import { POSTURES, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
+// the one group 30 pins and the fingerprint covers. POSTURES and resolvePosture are here for the
+// probes only.
+import { POSTURES, resolvePosture, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
 
 // A per-turn cap, not a session cap. Resume-per-turn means every turn is a fresh query(), so session
 // length is governed by the depth ladder rather than by this number. chat.mjs's 40 is for an open
@@ -52,8 +54,9 @@ const MAX_TURNS = 6;
 // The built-in tools a REAL run advertises to the main session — runtimeTypes.d.ts: "[] (empty array)
 // - Disable all built-in tools". One record, two readers: the query's `tools`, and the fence's record
 // gate (a denial of a tool in this list is the agent's, not the CLI's warmup — discovery.mjs
-// fenceSite). The run-2 ticket widens this to ['Read'] so the agent can read its fixture; the read
-// fence is already wired for that day (#287) and the fence probe below is its proof.
+// fenceSite). An existing-prd audit carries its document in the system prompt (#286), so run 2 needs
+// no read tool either; the read fence stays wired (#287) for the day a run does, and the fence probe
+// below is its proof.
 const MAIN_TOOLS = Object.freeze([]);
 
 // --- the schema -----------------------------------------------------------------------------------
@@ -145,7 +148,9 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
   // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
   // brief and the applier read one ledger.
   // The run's provenance goes INTO the system prompt (#347): read off run.json's head, never guessed.
-  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance });
+  // The entry mode too (#286): it chooses Grill's template, and a posture that has no template for it
+  // refuses by name. Packages recorded before #286 all carry blank-idea; the default is belt.
+  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea' });
   const server = buildOpServer({ root, turn, state, onLine });
   // The read fence's input, rebuilt from run.json on EVERY turn (disk is authoritative): a resumed
   // session after a restart runs under the same allow-set the session was opened with.
@@ -433,6 +438,106 @@ export async function probeParenting() {
   }
 }
 
+// --- the audit probe (ONE PAID turn) ---------------------------------------------------------------
+
+// The audit mode's run-time observation (#286 D2, D8). Group 30 pins the audit TEMPLATE — the document
+// in the system prompt, the verdict rule, the wrong-if rule — but whether a MODEL reaches the verdict
+// the rule names, quotes the document's own wrong-if rather than writing one, and judges in prose
+// before it files, is a paid fact no CI group can see. One runDiscoveryTurn over a temp root holding
+// ONE document line — a short synthetic PRD fragment (fictional) that states one decision on
+// s4-appetite with a wrong-if sentence of its own and a URL, and says nothing on s4-out-of-bounds —
+// an empty transcript and an existing-prd head, asking s4-appetite under Grill on the chosen model.
+//
+// What it reads: the VERDICT off the closer (ANSWERED — a record_decision with evidence rows;
+// UNEVIDENCED — one with []; DODGED — a flag_weak_answer; ABSENT — an open_question; else
+// INCONCLUSIVE); for a decision, the WRONG_IF classified against the document with case and whitespace
+// folded on both sides — QUOTED when it is a substring, PARAPHRASED when at least 60% of its tokens
+// of four letters or more occur in the document, AUTHORED otherwise (D2: an authored one erases the
+// finding the audit exists to report); and whether a text line preceded the first op (JUDGEMENT_RULE,
+// D8). Exits 0 on ANSWERED / UNEVIDENCED with QUOTED / PARAPHRASED, or DODGED; 2 on ABSENT (the
+// document does address it) or AUTHORED (AUDIT_WRONG_IF_RULE is the constant to tighten); 3 on
+// INCONCLUSIVE. The root is deleted on exit, throw or not: it is not a run package.
+//
+// It SPENDS TOKENS (~$0.05–0.15). Nothing imports it; only the --probe-audit CLI branch reaches it.
+export const PROBE_DOCUMENT = `# Plot rota — a one-page PRD (fictional; the audit probe's synthetic fragment, never a run)
+
+## Problem
+
+Every spring the allotment committee re-types the plot rota into a paper ledger, and by June nobody
+trusts it. Two plots were double-let last season and one holder gave up their plot over it.
+
+## Appetite
+
+This is worth one cycle and no more: six weeks of one developer, fixed before scope, and if the digital
+rota is not live by 1 March we go back to paper for the season and stop. We are not redesigning the
+allocation process to fit it. This is wrong if the committee cannot name a single week in which the
+paper ledger was trusted less than the digital one. The double-lettings are recorded in the committee
+minutes at https://example.test/minutes/2026-committee.
+
+## Target user
+
+The plot holder wants to know, on their phone, which slot is theirs this week and who to swap with if
+they cannot make it. The secretary wants one place that is right.
+`;
+
+export async function probeAudit({ model = null } = {}) {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const pathMod = await import('node:path');
+
+  const posture = resolvePosture({ posture: 'grill', model });
+  const root = mkdtempSync(pathMod.join(tmpdir(), 'discovery-audit-probe-'));
+  try {
+    const answer = { ref: 'a1', ts: '2026-01-01T00:00:00.000Z', turn: null, question_id: null, kind: 'document', text: PROBE_DOCUMENT };
+    writeFileSync(pathMod.join(root, 'answers.jsonl'), `${JSON.stringify(answer)}\n`);
+    writeFileSync(pathMod.join(root, 'transcript.jsonl'), '');
+    writeFileSync(pathMod.join(root, 'run.json'), `${JSON.stringify({ slug: 'audit-probe', provenance: 'fictional', label: 'PROBE — a temp root, deleted on exit, never a run package', entryMode: 'existing-prd', posture: 'grill', model: posture.model, sessionId: null, turnStats: [] }, null, 2)}\n`);
+
+    const state = { current: emptyRun() };
+    const lines = [];
+    let stats = null;
+    let error = null;
+    try {
+      ({ stats } = await runDiscoveryTurn({
+        root, head: { sessionId: null, provenance: 'fictional', entryMode: 'existing-prd' }, question: questionById('s4-appetite'), answer,
+        turn: 't1', posture, state, onLine: (l) => lines.push(l),
+      }));
+    } catch (e) { error = e.message; }
+
+    const closer = lines.find((l) => l.type === 'op' && l.closes) ?? null;
+    const p = closer?.params ?? null;
+    const evidence = lines.filter((l) => l.type === 'op' && l.op === 'file_evidence');
+    let verdict = 'INCONCLUSIVE';
+    if (closer?.op === 'record_decision') verdict = Array.isArray(p.evidence_refs) && p.evidence_refs.length ? 'ANSWERED' : 'UNEVIDENCED';
+    else if (closer?.op === 'flag_weak_answer') verdict = 'DODGED';
+    else if (closer?.op === 'open_question') verdict = 'ABSENT';
+    // The wrong-if read (D2), for a decision only.
+    const fold = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+    let wrongIf = null;
+    if (closer?.op === 'record_decision') {
+      const doc = fold(PROBE_DOCUMENT);
+      const w = fold(p.wrong_if);
+      const tokens = w.split(/[^a-z0-9]+/).filter((t) => t.length >= 4);
+      const hits = tokens.filter((t) => doc.includes(t)).length;
+      const read = doc.includes(w) ? 'QUOTED' : tokens.length && hits / tokens.length >= 0.6 ? 'PARAPHRASED' : 'AUTHORED';
+      wrongIf = { text: p.wrong_if, read, tokens: tokens.length, hits };
+    }
+    // The judgement read (D8): a text line before the first op — and only when an op was filed at all,
+    // so an error turn (the API's refusal arrives as a text line) cannot read as a judgement.
+    const firstOp = lines.findIndex((l) => l.type === 'op');
+    const firstText = lines.findIndex((l) => l.type === 'text');
+    const judgedFirst = firstOp !== -1 && firstText !== -1 && firstText < firstOp;
+    const text = lines.filter((l) => l.type === 'text').map((l) => l.text);
+    const denied = readTranscript(root).filter((l) => l.type === 'denied').map((l) => l.tool);
+    const answerRefs = [...new Set(lines.filter((l) => l.type === 'op').map((l) => l.params?.answer_ref ?? l.params?.ref ?? null).filter(Boolean))];
+    const pass = ((verdict === 'ANSWERED' || verdict === 'UNEVIDENCED') && wrongIf && wrongIf.read !== 'AUTHORED') || verdict === 'DODGED';
+    const exit = pass ? 0 : (verdict === 'ABSENT' || wrongIf?.read === 'AUTHORED') ? 2 : 3;
+    return { verdict, exit, closer, evidence: evidence.length, wrongIf, judgedFirst, answerRefs, denied, text, stats, error, model: posture.model, fingerprint: posture.fingerprint };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // --- the fence probe (three PAID one-shot turns) ---------------------------------------------------
 
 // The read fence's run-time proof (#287). Group 30 drives the predicate and BOTH call-site functions
@@ -560,12 +665,27 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   const wantPreflight = process.argv.includes('--preflight');
   const wantProbe = process.argv.includes('--probe-parenting');
   const wantFence = process.argv.includes('--probe-fence');
-  if ([wantPreflight, wantProbe, wantFence].filter(Boolean).length !== 1) {
-    console.error('usage: node lib/discovery-transport.mjs --preflight | --probe-parenting | --probe-fence   (run from portal/; the parenting probe spends ONE paid turn, the fence probe THREE)');
+  const wantAudit = process.argv.includes('--probe-audit');
+  if ([wantPreflight, wantProbe, wantFence, wantAudit].filter(Boolean).length !== 1) {
+    console.error('usage: node lib/discovery-transport.mjs --preflight | --probe-parenting | --probe-fence | --probe-audit [--model <string>]   (run from portal/; the parenting and audit probes spend ONE paid turn each, the fence probe THREE)');
     process.exit(2);
   }
   const { readFileSync } = await import('node:fs');
   const v = (name) => JSON.parse(readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), 'utf8')).version;
+  if (wantAudit) {
+    const at = process.argv.indexOf('--model');
+    const r = await probeAudit({ model: at === -1 ? null : process.argv[at + 1] ?? null });
+    console.log(`discovery audit probe — sdk ${v('@anthropic-ai/claude-agent-sdk')} · node ${process.version} · model ${r.model} · prompt surface ${r.fingerprint}`);
+    if (r.error) console.log(`turn error: ${r.error}`);
+    for (const t of r.text) console.log(`agent: ${t}`);
+    console.log(`judgement in prose before the first op: ${r.judgedFirst ? 'yes' : 'NO'}`);
+    console.log(`filed: ${r.closer ? `${r.closer.op} seq ${r.closer.seq}${r.closer.op === 'record_decision' ? ` at ${r.closer.params.level}, evidence_refs ${JSON.stringify(r.closer.params.evidence_refs)}` : ''}` : '(no closing op)'} · file_evidence rows ${r.evidence} · answer refs named ${r.answerRefs.join(', ') || '(none)'}`);
+    if (r.wrongIf) console.log(`wrong_if ${r.wrongIf.read} (${r.wrongIf.hits}/${r.wrongIf.tokens} tokens in the document): "${r.wrongIf.text}"`);
+    console.log(`denied lines on the temp root's transcript: ${r.denied.length}${r.denied.length ? ` (${r.denied.join(', ')})` : ''}`);
+    console.log(`cost ${r.stats?.costUsd ?? '?'} USD · ${r.stats?.durationMs ?? '?'} ms · ${r.stats?.numTurns ?? '?'} SDK turns`);
+    console.log(`\nprobe ${r.verdict}${r.wrongIf ? ` · wrong_if ${r.wrongIf.read}` : ''}`);
+    process.exit(r.exit);
+  }
   if (wantFence) {
     const r = await probeFence();
     const which = (t, p) => (p === t.targets.key ? 'KEY' : p === t.targets.fixture ? 'fixture' : p === t.targets.bank ? 'bank' : p === t.targets.own ? 'own package' : p ?? '(no path)');
