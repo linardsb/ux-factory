@@ -23,7 +23,9 @@
 //   3. ANSWER BY REFERENCE. No op parameter carries answer text (discovery/ops.mjs invariant 1). The
 //      server writes answers.jsonl and allocates every ref; the agent names a ref and the applier
 //      resolves it. An agent has no route to put words in the human's mouth, and that is a property of
-//      the data rather than a line in a prompt.
+//      the data rather than a line in a prompt. An existing-prd AUDIT (#286) is this invariant applied
+//      unchanged: the audited document is the run's one kind: "document" answer line, server-written
+//      at openSession from what the person supplied, and every audit op names it by ref.
 //   4. THE CURSOR IS DERIVED, NEVER STORED. It is a fold over the transcript's closed turns. Two
 //      records of one fact drift — discovery/ops.mjs's emptyRun() comment says exactly this about
 //      "closed", and a stored cursor is the same shape of mistake.
@@ -36,7 +38,7 @@
 //      wired now so that widening MAIN_TOOLS in the transport is one array edit, and the fence probe
 //      (discovery-transport.mjs --probe-fence) is the run-time proof that each site holds alone.
 //
-// The rules layer (#285) — the tables and the four pure reads — sits before openSession; every one of
+// The rules layer (#285, #286) — the tables and the pure reads — sits before openSession; every one of
 // them is driven by group 30 with no agent and no token.
 //
 // The head's `root` and the resolved filesystem root are TWO DIFFERENT VALUES and one name (plan M7):
@@ -44,12 +46,13 @@
 // discovery/README.md's example, because an absolute home-dir path must never be committed. head.root
 // is never fed to node:fs — every path is re-resolved from { slug, provenance }.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { DEPTHS, FACETS, facetPlan, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
 import { applyOps, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
-import { POSTURES } from './discovery-postures.mjs';
+import { MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
 
 const bad = (msg) => { throw new Error(`discovery: ${msg}`); };
 
@@ -66,8 +69,9 @@ const readJsonl = (file) => (existsSync(file)
 // --- the vocabulary -------------------------------------------------------------------------------
 
 export const PROVENANCES = Object.freeze(['fictional', 'real']);
-// #286 adds 'existing-prd'. One mode ships in the spine.
-export const ENTRY_MODES = Object.freeze(['blank-idea']);
+// The two entry modes (PRD MVP 2; #286 added the second). A blank idea is interviewed; an existing
+// PRD is AUDITED — its document stored once and judged against every question of the depth.
+export const ENTRY_MODES = Object.freeze(['blank-idea', 'existing-prd']);
 // How the PRD's Switch metric is measured — recorded per run rather than inferred (README §run.json).
 export const FRONT_ENDS = Object.freeze(['portal', 'terminal']);
 export const MCP_SERVER = 'discovery';
@@ -259,6 +263,33 @@ export function appendAnswer(root, { turn, questionId, kind, text }) {
   const record = { ref: nextRef(answers), ts: now(), turn, question_id: questionId ?? null, kind, text };
   appendFileSync(path.join(root, 'answers.jsonl'), `${JSON.stringify(record)}\n`);
   return record;
+}
+
+// The audited document (#286 D1): ONE server-written answer line per existing-prd run, kind
+// "document", turn and question_id null (it answers every question), written at openSession and
+// never through appendAnswer — whose kind guard stays banked | off-script, so a banked turn can never
+// write one by accident. VERBATIM for appendAnswer's reason: no trim, no normalisation, redact.mjs
+// deliberately not applied; a paste may carry whatever line endings the person's editor gave it, and
+// the md5 sessionView reports is over exactly these bytes (run 2's freeze check, D6).
+export function appendDocument(root, text) {
+  if (typeof text !== 'string' || !text.trim()) bad('the document must be a non-empty string — it is stored exactly as supplied, so there is nothing to fall back to');
+  const answers = readAnswers(root);
+  const already = documentOf(answers);
+  if (already) bad(`this run already holds a document (ref ${already.ref}) — one document per audit run`);
+  const record = { ref: nextRef(answers), ts: now(), turn: null, question_id: null, kind: 'document', text };
+  appendFileSync(path.join(root, 'answers.jsonl'), `${JSON.stringify(record)}\n`);
+  return record;
+}
+
+// The one document line in a store, or null. Total over junk, like the projection's resolvers.
+export const documentOf = (answers) => (Array.isArray(answers) ? answers.find((a) => a?.kind === 'document') ?? null : null);
+
+// What an audit turn judges: the stored document, read off the view. Exported so group 30 drives it;
+// runTurn only calls it. A missing line is a corrupt package, not a turn to run.
+export function auditAnswerFor(view) {
+  const found = documentOf(view?.answers);
+  if (!found) bad(`run "${view?.head?.slug}" is an existing-prd audit but answers.jsonl holds no document line — the package is corrupt; a session is opened with its document`);
+  return found;
 }
 
 // --- the transcript -------------------------------------------------------------------------------
@@ -488,7 +519,22 @@ export const ESCALATES = Object.freeze({ 'scope-check': 'opening-set' });
 // approach C the server is the sequencing side, so the proposal is a table the gate can drive and it
 // costs no token. blank-idea is MVP 5's "a new product". #286 adds a row per entry mode it adds —
 // group 30 iterates ENTRY_MODES against this table both ways, so a mode with no row fails by name.
-export const DEPTH_PROPOSAL = Object.freeze({ 'blank-idea': 'full-discovery' });
+// existing-prd (#286 D7): a document that already describes a product can be audited at any depth
+// (MVP 5), so the proposal is the full ladder, as for a blank idea.
+export const DEPTH_PROPOSAL = Object.freeze({ 'blank-idea': 'full-discovery', 'existing-prd': 'full-discovery' });
+
+// Which postures may open which entry mode (#286; MVP 1, MVP 2). A blank idea takes any of the four;
+// an existing PRD starts at Grill and nowhere else — the audit is Grill's second template. Group 30
+// iterates this table against ENTRY_MODES and POSTURES in both directions.
+export const ENTRY_POSTURES = Object.freeze({
+  'blank-idea': Object.freeze(['think', 'think-opus', 'create-prd', 'grill']),
+  'existing-prd': Object.freeze(['grill']),
+});
+
+// Whether the hold rule applies per entry mode (#286 D7). A document cannot answer twice, so an audit
+// never holds a question for a second ask: every question is judged once and the cursor moves on.
+// deriveCursor reads this beside LADDER.
+export const RE_ASKS = Object.freeze({ 'blank-idea': true, 'existing-prd': false });
 
 // Which depths compose from a facet vector (D1b). Asserted by DRIVING the bank, never by reading this
 // list: group 30 proves selectDepth(d, <declared vector>) differs from selectDepth(d) iff d is here.
@@ -519,9 +565,12 @@ const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l
 // closer, not counting closers, is what keeps every package recorded before this rule consistent with
 // itself — graded-think-a holds eleven weak flags the record then moved past, and each reads as
 // settled because a later closer sits on a later question. The turn id counts closers, not positions,
-// so a held question gets a fresh turn id and R2 keeps one closer per turn.
-export function deriveCursor({ depth, questions, transcript }) {
+// so a held question gets a fresh turn id and R2 keeps one closer per turn. The hold is also OFF in
+// an existing-prd audit (RE_ASKS, #286): a document cannot answer twice. `entryMode` defaults to
+// blank-idea so every caller and every package recorded before #286 reads exactly as before.
+export function deriveCursor({ depth, questions, transcript, entryMode = 'blank-idea' }) {
   if (!Array.isArray(questions) || !Array.isArray(transcript)) bad('deriveCursor needs the depth\'s question list and the parsed transcript');
+  if (!ENTRY_MODES.includes(entryMode)) bad(`entryMode "${entryMode}" is not one of ${ENTRY_MODES.join(' · ')} — the hold rule reads it (RE_ASKS)`);
   const closers = closersOf(transcript);
   const turn = `t${closers.length + 1}`;
   const at = (index, ask) => ({ index, ask, question: questions[index] ?? null, turn, total: questions.length, done: index >= questions.length });
@@ -531,7 +580,7 @@ export function deriveCursor({ depth, questions, transcript }) {
   const pos = questions.findIndex((q) => q.id === qid);
   if (pos === -1) bad(`transcript op ${last.seq} closes "${qid}", which is not in depth "${depth}"'s list — the record and the list disagree (was run.json edited after the fact?)`);
   const asks = closers.filter((c) => c.params?.question_id === qid).length;
-  const held = LADDER.includes(depth) && last.op === 'flag_weak_answer' && asks < 2;
+  const held = RE_ASKS[entryMode] && LADDER.includes(depth) && last.op === 'flag_weak_answer' && asks < 2;
   return held ? at(pos, 2) : at(pos + 1, 1);
 }
 
@@ -571,7 +620,7 @@ const tally = (closers, ids) => {
 // took), while `weak` and the D4 tallies count CLOSERS — the PRD's own D4 wording, "a turn closed by
 // record_decision counts". So a question held then decided reads coverage 1 asked / 1 decided beside
 // closed 2 / decided 1 / rate 0.5. Case 29 pins the pair so the per-turn reading cannot drift.
-export function runMetrics({ depth, facets = null, questions, transcript }) {
+export function runMetrics({ depth, facets = null, questions, transcript, entryMode = 'blank-idea' }) {
   const closers = closersOf(transcript);
   // Not a form (MVP 8): a decision or a weak-answer note resets, a parked question increments.
   let streak = 0, longest = 0;
@@ -580,7 +629,9 @@ export function runMetrics({ depth, facets = null, questions, transcript }) {
   // Coverage of the twelve from the OPS, not the cursor: a question skipped is not a question covered.
   const asked = new Set(closers.map((c) => c.params?.question_id));
   const decided = new Set(closers.filter((c) => c.op === 'record_decision').map((c) => c.params?.question_id));
-  const cursor = deriveCursor({ depth, questions, transcript });
+  // The same entry mode the view's cursor reads — without it completion.done disagrees with the
+  // cursor on an audit's last question (#286).
+  const cursor = deriveCursor({ depth, questions, transcript, entryMode });
   const twelve = new Set(OPENING_SET);
   return {
     completion: { settled: cursor.index, total: questions.length, done: cursor.done, turns: closers.length },
@@ -600,16 +651,46 @@ const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run �
 // makes a page reload and a server restart lose nothing (AC #5). `facets` is recorded normalised (five
 // booleans or null) and `proposedDepth` beside the confirmed `depth` — MVP 5's agent-proposes /
 // human-confirms, recorded rather than inferred.
-export function openSession({ slug, provenance, entryMode, depth, facets = null, frontEnd, posture, reads = [] }) {
+//
+// #286: `model` is a per-run override (Grill only — resolvePosture refuses it elsewhere by name) and
+// run.json records the EFFECTIVE model; `document` (the text) or `documentPath` (a file the server
+// reads, resolved against REPO_DIR — run 2's frozen fixture, so the stored bytes hash to the file's
+// own md5) is an existing-prd session's one document, exactly one of the two, refused on a blank
+// idea. Like `reads`, the path is the OPERATOR's trust boundary and is not sandboxed: the fence
+// bounds the agent, never the operator. Every guard is before mkdirSync (case 16 pins that from
+// source); the document line is appended AFTER writeRun, on the create path only, so a throw leaves
+// no half-package and a resume never appends a second.
+export function openSession({ slug, provenance, entryMode, depth, facets = null, frontEnd, posture, model = null, document: documentText = null, documentPath = null, reads = [] }) {
   assertRunSlug(slug);
   const root = resolveRunRoot({ provenance, slug });
   assertProvenanceRoot(provenance, root);
   // The read fence's input, refused by name before anything is written (#287). Stored as given
   // below; the transport rebuilds the allow-set from run.json on every turn.
   allowSetFor({ root, reads });
-  if (!ENTRY_MODES.includes(entryMode)) bad(`entryMode "${entryMode}" is not one of ${ENTRY_MODES.join(' · ')} (#286 adds the others)`);
+  if (!ENTRY_MODES.includes(entryMode)) bad(`entryMode "${entryMode}" is not one of ${ENTRY_MODES.join(' · ')}`);
   if (!FRONT_ENDS.includes(frontEnd)) bad(`frontEnd "${frontEnd}" is not one of ${FRONT_ENDS.join(' · ')} — it is how the Switch metric is measured, so it is recorded rather than inferred`);
   if (!Object.hasOwn(POSTURES, posture)) bad(`posture "${posture}" is not one of ${Object.keys(POSTURES).join(' · ')}`);
+  if (!ENTRY_POSTURES[entryMode].includes(posture)) bad(`posture "${posture}" cannot open an ${entryMode} session — it admits ${ENTRY_POSTURES[entryMode].join(' · ')} (MVP 2: an existing PRD starts at Grill)`);
+  // Its own refusals name the posture and the model (an override on a pinned posture, an unknown model).
+  const resolved = resolvePosture({ posture, model });
+  // The document: exactly one of the two on an existing PRD, neither on a blank idea.
+  let text = null;
+  if (entryMode === 'existing-prd') {
+    if (documentText !== null && documentPath !== null) bad('an existing-prd session takes ONE document — either "document" (the text, stored verbatim) or "documentPath" (a file the server reads), not both');
+    if (documentText === null && documentPath === null) bad('an existing-prd session needs its document — pass "document" (the text, stored verbatim) or "documentPath" (a repo-relative or absolute file the server reads); the audit judges that document against every question, so there is nothing to start without one (MVP 2)');
+    if (documentText !== null) {
+      if (typeof documentText !== 'string' || !documentText.trim()) bad('"document" must be a non-empty string — it is stored verbatim as the audit\'s one answer line');
+      text = documentText;
+    } else {
+      if (typeof documentPath !== 'string' || !documentPath.trim()) bad(`"documentPath" must be a path string (got ${JSON.stringify(documentPath)})`);
+      const file = path.resolve(REPO_DIR, documentPath);
+      if (!existsSync(file) || !statSync(file).isFile()) bad(`documentPath "${documentPath}" (${file}) is not a file the server can read`);
+      text = readFileSync(file, 'utf8');
+      if (!text.trim()) bad(`documentPath "${documentPath}" is an empty file — there is nothing to audit`);
+    }
+  } else if (documentText !== null || documentPath !== null) {
+    bad(`a ${entryMode} session takes no document — "document" and "documentPath" belong to an existing-prd session (got ${documentText !== null ? '"document"' : '"documentPath"'})`);
+  }
   const declared = declareFacets(facets);   // the bank's own throw names an unknown or non-boolean facet
   // The bank's own throw names an unknown depth — and a vector that overflows full discovery's budget,
   // naming what fits and what does not (D1a). Nothing here trims a vector to fit: the session module
@@ -622,7 +703,7 @@ export function openSession({ slug, provenance, entryMode, depth, facets = null,
 
   writeRun(root, {
     slug, provenance, label: LABEL[provenance], entryMode, depth, proposedDepth: DEPTH_PROPOSAL[entryMode], facets: declared, reads,
-    frontEnd, model: POSTURES[posture].model, posture, sessionId: null,
+    frontEnd, model: resolved.model, posture, sessionId: null,
     startedAt: now(), endedAt: null, root: headRoot(provenance, root), turnStats: [],
   });
   // Both files exist from the start, so a reader never has to distinguish "absent" from "empty".
@@ -630,6 +711,9 @@ export function openSession({ slug, provenance, entryMode, depth, facets = null,
     const file = path.join(root, f);
     if (!existsSync(file)) writeFileSync(file, '');
   }
+  // The audited document, ONCE, after the head exists (#286 D1). The create path only — a resume
+  // returned above — and appendDocument's own one-per-run refusal is the belt.
+  if (entryMode === 'existing-prd') appendDocument(root, text);
   return sessionView(root);
 }
 
@@ -666,14 +750,21 @@ export function sessionView(root) {
   const answers = readAnswers(root);
   const transcript = readTranscript(root);
   const facets = head.facets ?? null;   // packages before #285 carry no field and read as the unfaceted list
+  const entryMode = head.entryMode ?? 'blank-idea';   // every committed package carries one; the default is belt
   const questions = selectDepth(head.depth, facets);
+  // The audited document as the drawer and run 2's freeze check read it (#286): its ref, its length
+  // and the md5 of its stored bytes — never the text, which the recorded view renders by pointer.
+  // Null on a blank-idea package. This view consults no posture table: disk is authoritative, and a
+  // package is never made unreadable by a table edit.
+  const doc = documentOf(answers);
   return {
     head,
     answers,
     transcript,
-    cursor: deriveCursor({ depth: head.depth, questions, transcript }),
+    cursor: deriveCursor({ depth: head.depth, questions, transcript, entryMode }),
     escalation: escalationFor({ depth: head.depth, transcript }),
-    metrics: runMetrics({ depth: head.depth, facets, questions, transcript }),
+    metrics: runMetrics({ depth: head.depth, facets, questions, transcript, entryMode }),
+    document: doc ? { ref: doc.ref, chars: doc.text.length, md5: createHash('md5').update(doc.text).digest('hex') } : null,
   };
 }
 
@@ -702,8 +793,12 @@ export function discoveryConfig() {
     provenances: PROVENANCES,
     entryModes: ENTRY_MODES,
     frontEnds: FRONT_ENDS,
-    // id, label and model — never the prompt body.
-    postures: Object.values(POSTURES).map((p) => ({ id: p.id, label: p.label, model: p.model })),
+    // id, label, model and whether a run may override the model (#286) — never the prompt body.
+    postures: Object.values(POSTURES).map((p) => ({ id: p.id, label: p.label, model: p.model, modelSettable: MODEL_SETTABLE.includes(p.id) })),
+    // What a settable posture's model may be, and which postures each entry mode admits (#286) — the
+    // drawer builds its selects from these and holds no second copy.
+    models: MODELS,
+    entryPostures: ENTRY_POSTURES,
     ops: OPS,
     // So the UI can say whether a session can start before one is attempted (AC #6), the way
     // /api/build/config does it.
@@ -785,6 +880,12 @@ function stateFromTranscript(transcript, answers) {
 //
 // The append is BEFORE the agent turn because the ref must exist when the applier resolves it. An agent
 // turn that began before the append would make every answer_ref throw.
+//
+// An existing-prd AUDIT turn (#286) skips the APPEND: the answer is the document stored at openSession,
+// resolved off the view, and a submitted text is refused by name — nothing is appended, so
+// answers.jsonl holds exactly one line for the whole audit. The posture is resolved with the run's
+// recorded model, so a Grill run on Opus stamps Opus's fingerprint; a pre-#286 package's model equals
+// its posture's, so its posture comes back by identity.
 export async function runTurn({ slug, provenance, questionId, kind = 'banked', text, onLine }) {
   return withDiscoveryRunLock(async () => {
     const root = resolveRunRoot({ provenance, slug });
@@ -795,10 +896,16 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', t
     if (cursor.done) bad(`run "${slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to ask`);
     if (questionId !== cursor.question.id)
       bad(`"${questionId}" is not the question on the table — the cursor is at ${cursor.index + 1} of ${cursor.total}, which is "${cursor.question.id}"`);
-    if (typeof text !== 'string' || !text.trim()) bad('an answer is required');
-
     const turn = cursor.turn;
-    const answer = appendAnswer(root, { turn, questionId, kind, text });
+    const audit = head.entryMode === 'existing-prd';
+    let answer;
+    if (audit) {
+      if (typeof text === 'string' && text.trim()) bad('an audit turn takes no answer — the document is the answer, stored once at session start, and this turn judges it against the question on the table');
+      answer = auditAnswerFor(view);
+    } else {
+      if (typeof text !== 'string' || !text.trim()) bad('an answer is required');
+      answer = appendAnswer(root, { turn, questionId, kind, text });
+    }
 
     // The SDK enters HERE and nowhere earlier — after every guard above has passed. See invariant 1.
     const { runDiscoveryTurn } = await import('./discovery-transport.mjs');
@@ -809,7 +916,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', t
       question: questionById(questionId),
       answer,
       turn,
-      posture: POSTURES[head.posture],
+      posture: resolvePosture({ posture: head.posture, model: head.model }),
       // The HOLDER the server mutates ({ current }), not the bare run — buildOpServer throws otherwise.
       state: { current: stateFromTranscript(readTranscript(root), answers) },
       onLine,

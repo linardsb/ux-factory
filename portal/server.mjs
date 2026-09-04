@@ -173,8 +173,15 @@ const server = createServer(async (req, res) => {
       return json(res, 200, openSession({
         slug: b.slug, provenance: b.provenance, entryMode: b.entryMode, depth: b.depth,
         facets: b.facets ?? null, frontEnd: b.frontEnd, posture: b.posture,
+        // #286's three. `model` is Grill's per-run override (refused by name on any other posture);
+        // `document` is an existing PRD's text, stored verbatim once; `documentPath` is the OPERATOR
+        // naming a file the server reads instead (run 2's frozen fixture), so the stored bytes hash to
+        // the file's own md5. Like `reads`, the path is the operator's trust boundary, not a sandboxed
+        // field — the fence bounds the agent, never the operator.
+        model: b.model ?? null, document: b.document ?? null, documentPath: b.documentPath ?? null,
         // The read fence's per-run input (#287): what this run may read beyond its package and the
-        // bank. The drawer sends none yet (#286 will, for an existing PRD); refused by name if junk.
+        // bank. The drawer sends none (an existing PRD is carried in the prompt, #286); refused by
+        // name if junk.
         reads: b.reads ?? [],
       }));
     }

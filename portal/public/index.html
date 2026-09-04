@@ -169,6 +169,11 @@
         </div>
         <p class="muted" id="discovery-provenance-note" aria-live="polite"></p>
         <div class="portal-form-row">
+          <!-- #286: the entry mode drives which postures the select offers, whether a document is
+               wanted and which depth is proposed — all from /api/discovery/config -->
+          <label>Entry
+            <select name="entryMode" id="discovery-entry"></select>
+          </label>
           <label>Depth
             <select name="depth" id="discovery-depth"></select>
           </label>
@@ -177,6 +182,23 @@
           </label>
         </div>
         <p class="muted" id="discovery-depth-note"></p>
+        <!-- #286: Grill's model is a per-run choice, recorded in run.json; the other postures pin theirs -->
+        <div class="portal-form-row" id="discovery-model-row" hidden>
+          <label>Grill's model
+            <select name="model" id="discovery-model"></select>
+          </label>
+        </div>
+        <!-- #286: an existing PRD's one document — stored verbatim, once, as the audit's answer line.
+             The path is the operator naming a file the server reads (run 2's frozen fixture), so the
+             stored bytes hash to the file's own md5 -->
+        <div id="discovery-document-row" hidden>
+          <label>The document to audit — stored verbatim, once
+            <textarea name="document" id="discovery-document" rows="8"></textarea>
+          </label>
+          <label>…or a repo-relative path the server reads (run 2's frozen fixture)
+            <input name="documentPath" id="discovery-document-path" autocomplete="off" placeholder="docs/epics/fixtures/…md" />
+          </label>
+        </div>
         <div class="portal-form-actions">
           <button class="btn btn-primary" type="button" id="discovery-open">Start or resume</button>
         </div>
@@ -191,7 +213,8 @@
         <!-- D5's proposal as a value (#285): shown only once a scoping question was weak on both asks -->
         <p class="muted" id="discovery-escalation" aria-live="polite" hidden></p>
 
-        <label>Your answer — stored verbatim, and never rewritten
+        <!-- hidden in an audit (#286): the document is the answer, and it was stored at session start -->
+        <label id="discovery-answer-label">Your answer — stored verbatim, and never rewritten
           <textarea name="answer" id="discovery-answer" rows="6"></textarea>
         </label>
 

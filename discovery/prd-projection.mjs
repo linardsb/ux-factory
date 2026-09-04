@@ -47,7 +47,11 @@
 // NO CLOCK. Every date on the page comes from run.json; ordering is by seq or by SECTIONS order, never
 // by Object.keys iteration. NO LENGTH CAP: answers.jsonl is verbatim by contract (discovery/README.md),
 // and a truncated verbatim answer is a quietly altered one. portal/lib/discovery.mjs's
-// TURN_EVENT_TEXT_MAX caps the SSE wire, not the package — it is not copied here.
+// TURN_EVENT_TEXT_MAX caps the SSE wire, not the package — it is not copied here. The ONE answer that
+// renders as a pointer rather than a blockquote is a kind: "document" line (#286's existing-prd audit),
+// and it is chosen BY KIND, never by length: thirty decisions each quoting a 24 KB document is a page
+// nobody reads, and the document is one line in answers.jsonl a reader can open. Its text is off the
+// page entirely, so a heading inside it cannot become one here either.
 //
 // Standalone:  node discovery/prd-projection.mjs <slug> [--stdout] [--force]
 //              node discovery/prd-projection.mjs --root <dir> [--stdout] [--force]
@@ -379,7 +383,11 @@ const answerText = (answers, ref) => {
   const a = Array.isArray(answers) ? answers.find((x) => x && x.ref === ref) : null;
   return a && typeof a.text === "string" ? a.text : null;
 };
+// A document-kind answer (#286) renders as a POINTER — see the header's "NO LENGTH CAP" note.
 const answerBlock = (answers, ref) => {
+  const a = Array.isArray(answers) ? answers.find((x) => x && x.ref === ref) : null;
+  if (a && a.kind === "document" && typeof a.text === "string")
+    return `_[the audited document — answer ${cell(ref)}, ${a.text.length} characters, verbatim in answers.jsonl]_`;
   const t = answerText(answers, ref);
   return t === null ? `_[answer ${cell(ref)} is not in answers.jsonl]_` : blockquote(t);
 };

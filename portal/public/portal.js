@@ -681,13 +681,19 @@ $('#chat-form').addEventListener('submit', async (e) => {
 // The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
 // A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
 const discovery = { config: null, session: null, running: false, proposals: null };
-const DISCOVERY_ENTRY_MODE = 'blank-idea'; // the one entry mode the drawer ships (#286 adds the others)
 
+// #286: the entry mode, Grill's model and the audited document are read off the form like the rest —
+// the server refuses what it will not take, by name. `documentText` is the textarea's value; it goes
+// on the wire as `document`, the field openSession names.
 const discoveryEls = () => ({
   slug: $('#discovery-slug').value.trim(),
   provenance: $('#discovery-provenance').value,
+  entryMode: $('#discovery-entry').value,
   depth: $('#discovery-depth').value,
   posture: $('#discovery-posture').value,
+  model: $('#discovery-model').value || null,
+  documentText: $('#discovery-document').value || null,
+  documentPath: $('#discovery-document-path').value.trim() || null,
 });
 
 $('#btn-discovery').addEventListener('click', async () => {
@@ -717,12 +723,14 @@ async function loadDiscoveryConfig() {
   ].join('');
   $('#discovery-depth').innerHTML = c.depths
     .map((d) => `<option value="${esc(d.id)}">${esc(d.label)} — ${d.count} questions</option>`).join('');
-  // The proposal (#285; MVP 5: the agent proposes, the human confirms). Confirming is pressing Start;
-  // changing it is picking another option.
-  $('#discovery-depth').value = c.depthProposals[DISCOVERY_ENTRY_MODE] ?? c.depths[0].id;
-  $('#discovery-posture').innerHTML = c.postures
-    .map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(p.model)})</option>`).join('');
-  renderDiscoveryNotes();
+  // The two entry modes (#286): a blank idea first, as before; an existing PRD is the audit.
+  $('#discovery-entry').innerHTML = c.entryModes
+    .map((m) => `<option value="${esc(m)}">${esc(m === 'existing-prd' ? 'An existing PRD — audit it' : 'A blank idea — interview')}</option>`).join('');
+  $('#discovery-model').innerHTML = c.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  // The postures the mode admits, the proposed depth (#285; MVP 5: the agent proposes, the human
+  // confirms — confirming is pressing Start, changing it is picking another option), the document
+  // row and the model row all follow the entry mode.
+  renderDiscoveryEntry();
   await renderDiscoveryBuild();
   $('#discovery-start-status').textContent = c.hasToken
     ? `Auth: token from portal/.env. ${c.questions.length} questions in the bank.`
@@ -742,6 +750,33 @@ async function renderDiscoveryBuild() {
     : `Portal build: ${h.bootSha.slice(0, 7)} — the commit this process booted from, and the tree's HEAD.`;
 }
 
+// The entry mode drives the rest of the start form (#286): which postures it admits (an existing PRD
+// starts at Grill, MVP 2), whether a document is wanted, whether the posture's model may be chosen,
+// and which depth is proposed — every list read from the config, none held here.
+function renderDiscoveryEntry() {
+  const c = discovery.config;
+  const mode = $('#discovery-entry').value;
+  const admitted = c.entryPostures[mode] ?? [];
+  const current = $('#discovery-posture').value;
+  $('#discovery-posture').innerHTML = c.postures.filter((p) => admitted.includes(p.id))
+    .map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(p.model)})</option>`).join('');
+  if (admitted.includes(current)) $('#discovery-posture').value = current;
+  $('#discovery-document-row').hidden = mode !== 'existing-prd';
+  $('#discovery-depth').value = c.depthProposals[mode] ?? c.depths[0].id;
+  renderDiscoveryModel();
+  renderDiscoveryNotes();
+}
+
+// Grill's model is a per-run choice (#286; architecture §Boundaries leaves it open); every other
+// posture pins its own, so the row shows only where the config says the model is settable, and it
+// opens on the posture's own default.
+function renderDiscoveryModel() {
+  const c = discovery.config;
+  const posture = c.postures.find((p) => p.id === $('#discovery-posture').value);
+  $('#discovery-model-row').hidden = !posture?.modelSettable;
+  $('#discovery-model').value = posture?.model ?? c.models[0];
+}
+
 // Provenance decides where the package lands, and it is the privacy boundary rather than a label —
 // so the surface states the consequence rather than the word.
 function renderDiscoveryNotes() {
@@ -756,23 +791,33 @@ function renderDiscoveryNotes() {
       ? 'Real — the package is written to the jobs folder, outside this repo, and is never committed here.'
       : 'Provenance has no default, because the wrong one is not recoverable by git: fictional commits the package into this public repo, real writes it outside. Pick one.';
   const d = c.depths.find((x) => x.id === $('#discovery-depth').value);
-  const proposed = c.depthProposals[DISCOVERY_ENTRY_MODE];
+  const mode = $('#discovery-entry').value;
+  const proposed = c.depthProposals[mode];
+  const forWhat = mode === 'existing-prd' ? 'an existing PRD' : 'a blank idea';
   $('#discovery-depth-note').textContent = d
-    ? `${d.count} questions${d.composes ? ' before any facet vector — a declared vector moves this count (#288)' : ''} — for ${d.when}. ${d.id === proposed ? 'Proposed for a blank idea; Start confirms it.' : `The proposal for a blank idea was ${proposed}; you are overriding it.`}`
+    ? `${d.count} questions${d.composes ? ' before any facet vector — a declared vector moves this count (#288)' : ''} — for ${d.when}. ${d.id === proposed ? `Proposed for ${forWhat}; Start confirms it.` : `The proposal for ${forWhat} was ${proposed}; you are overriding it.`}`
     : '';
 }
 for (const id of ['#discovery-provenance', '#discovery-depth'])
   $(id).addEventListener('change', renderDiscoveryNotes);
+$('#discovery-entry').addEventListener('change', renderDiscoveryEntry);
+$('#discovery-posture').addEventListener('change', renderDiscoveryModel);
 
 $('#discovery-open').addEventListener('click', async () => {
-  const { slug, provenance, depth, posture } = discoveryEls();
+  const { slug, provenance, entryMode, depth, posture, model, documentText, documentPath } = discoveryEls();
   if (!slug) { $('#discovery-start-status').textContent = 'A run slug is needed — it names the package directory.'; return; }
   if (!provenance) { $('#discovery-start-status').textContent = 'Pick a provenance before starting — fictional commits the package into this repo, real writes it to the jobs folder outside. There is no default (#338 F3).'; return; }
+  // #286: an audit with nothing to audit is refused here as prose rather than as the server's throw.
+  // Both fields sent together are the server's refusal (it names both); a resume ignores them, because
+  // the document stored at session start is the one the audit runs on.
+  if (entryMode === 'existing-prd' && !documentText && !documentPath) { $('#discovery-start-status').textContent = 'An existing PRD needs its document — paste it, or name a repo-relative path the server reads. Without one there is nothing to audit.'; return; }
   $('#discovery-start-status').textContent = 'Opening…';
   try {
     discovery.session = await api('/api/discovery/session', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, provenance, entryMode: DISCOVERY_ENTRY_MODE, depth, frontEnd: 'portal', posture }),
+      // Every field named (#286: entryMode, model, document, documentPath); the server refuses what it
+      // will not take, by name.
+      body: JSON.stringify({ slug, provenance, entryMode, depth, frontEnd: 'portal', posture, model, document: documentText, documentPath }),
     });
   } catch (err) {
     $('#discovery-start-status').textContent = `Refused: ${err.message}`;
@@ -793,6 +838,11 @@ function renderDiscoverySession() {
   $('#discovery-session').hidden = false;
   const { cursor, head } = s;
   const depth = discovery.config.depths.find((d) => d.id === head.depth);
+  // An audit (#286): the document is the answer, stored once, so the answer field is hidden and the
+  // submit reads as what it does.
+  const audit = head.entryMode === 'existing-prd';
+  $('#discovery-answer-label').hidden = audit;
+  $('#discovery-submit').textContent = audit ? 'Audit this question' : 'Submit answer';
 
   if (head.endedAt) {
     $('#discovery-position').textContent = `${head.slug} · finished ${head.endedAt}`;
@@ -804,7 +854,7 @@ function renderDiscoverySession() {
     $('#discovery-attribution').textContent = 'Finish the session to record when it ended.';
   } else {
     $('#discovery-position').textContent =
-      `${head.slug} · ${depth?.label ?? head.depth} · question ${cursor.index + 1} of ${cursor.total}${cursor.ask > 1 ? ' · asked again' : ''} · turn ${cursor.turn}`;
+      `${head.slug} · ${depth?.label ?? head.depth} · question ${cursor.index + 1} of ${cursor.total}${cursor.ask > 1 ? ' · asked again' : ''} · turn ${cursor.turn}${audit ? ` · audit of ${s.document?.ref ?? 'the document'} (${s.document?.chars ?? '?'} characters, md5 ${s.document?.md5?.slice(0, 8) ?? '?'})` : ''}`;
     $('#discovery-question').textContent = cursor.question.text;
     $('#discovery-attribution').textContent = `Stage ${cursor.question.stage} · ${cursor.question.attribution}`;
   }
@@ -845,13 +895,16 @@ function renderDiscoveryRecorded() {
     <h3 class="h3">Recorded so far</h3>
     ${s.answers.map((a) => {
       const ops = byRef.get(a.ref) || [];
+      // The audited document (#286) is one answer line every verdict names: it renders as a pointer,
+      // and its ops are listed by question so thirty verdicts read by question rather than by seq.
+      const isDoc = a.kind === 'document';
       return `
         <div class="discovery-recorded-turn">
-          <p class="card-kicker">${esc(a.turn)} · ${esc(a.ref)} · ${esc(a.question_id ?? 'off-script')}</p>
-          <p class="discovery-recorded-answer">${esc(a.text)}</p>
+          <p class="card-kicker">${isDoc ? 'the audited document' : esc(a.turn)} · ${esc(a.ref)} · ${isDoc ? 'every question' : esc(a.question_id ?? 'off-script')}</p>
+          <p class="discovery-recorded-answer">${isDoc ? `The audited document — ${a.text.length} characters, stored verbatim as ${esc(a.ref)}.` : esc(a.text)}</p>
           ${ops.length
-            ? `<ul class="discovery-recorded-ops">${ops.map((o) => `<li>${esc(o.op)}${o.closes ? ' · closed the turn' : ''}${o.flagged?.length ? ` · flagged ${esc(o.flagged.join(', '))}` : ''}${o.supersedes ? ` · supersedes seq ${o.supersedes}` : ''}</li>`).join('')}</ul>`
-            : '<p class="muted">Nothing filed against this answer yet.</p>'}
+            ? `<ul class="discovery-recorded-ops">${ops.map((o) => `<li>${esc(o.op)}${isDoc && o.params?.question_id ? ` · ${esc(o.params.question_id)}` : ''}${o.closes ? ' · closed the turn' : ''}${o.flagged?.length ? ` · flagged ${esc(o.flagged.join(', '))}` : ''}${o.supersedes ? ` · supersedes seq ${o.supersedes}` : ''}</li>`).join('')}</ul>`
+            : `<p class="muted">${isDoc ? 'Nothing filed against the document yet.' : 'Nothing filed against this answer yet.'}</p>`}
         </div>`;
     }).join('')}`;
 }
@@ -1014,21 +1067,26 @@ function discoveryLog(kind, text) {
 $('#discovery-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (discovery.running || !discovery.session) return;
-  const text = $('#discovery-answer').value;
-  if (!text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
+  // An audit turn (#286) sends no text: the document stored at session start is the answer, and the
+  // server refuses a text by name if one arrives.
+  const audit = discovery.session.head.entryMode === 'existing-prd';
+  const text = audit ? undefined : $('#discovery-answer').value;
+  if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
   const { slug, provenance } = discoveryEls();
   const questionId = discovery.session.cursor.question.id;
 
   discovery.running = true;
   $('#discovery-submit').disabled = true;
-  $('#discovery-submit').textContent = 'Judging…';
+  $('#discovery-submit').textContent = audit ? 'Auditing…' : 'Judging…';
   $('#discovery-log').innerHTML = '';
-  $('#discovery-status').textContent = 'Your answer is on disk. The agent is judging it — this spends real tokens.';
+  $('#discovery-status').textContent = audit
+    ? 'Auditing the document against this question — this spends real tokens.'
+    : 'Your answer is on disk. The agent is judging it — this spends real tokens.';
   try {
     // No client timeout: a turn is seconds to a minute and the stream ends on `done` or `error`.
     const res = await fetch('/api/discovery/turn', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, provenance, questionId, text }),
+      body: JSON.stringify(audit ? { slug, provenance, questionId } : { slug, provenance, questionId, text }),
     });
     if (!res.ok) throw new Error(res.statusText);
     const reader = res.body.getReader();
@@ -1060,7 +1118,7 @@ $('#discovery-form').addEventListener('submit', async (e) => {
     $('#discovery-status').textContent = `Failed: ${err.message}`;
   } finally {
     discovery.running = false;
-    $('#discovery-submit').textContent = 'Submit answer';
+    // renderDiscoverySession restores the label for the mode (#286): "Audit this question" or "Submit answer".
     renderDiscoverySession();
   }
 });
