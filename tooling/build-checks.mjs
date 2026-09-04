@@ -6830,7 +6830,7 @@ function scanSvg(svg, label) {
   const firstMkdir = openBody.indexOf("mkdirSync(");
   const guardAt = [...openBody.matchAll(/\b(?:bad|selectDepth|declareFacets|assertRunSlug|assertProvenanceRoot|allowSetFor|resolvePosture)\(/g)].map((m) => m.index);
   ok(openStart !== -1 && firstMkdir !== -1, "case 16: openSession or its mkdirSync is not where the source pin expects — re-pin before trusting the refusals above");
-  ok(guardAt.length >= 9, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the nine pinned (slug, root, reads, entryMode, frontEnd, posture, the entry mode's postures, the model, facets, depth)`);
+  ok(guardAt.length >= 17, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the seventeen pinned (eleven bad() refusals plus assertRunSlug, assertProvenanceRoot, allowSetFor, resolvePosture, declareFacets, selectDepth; PR #369 F4 raised the floor from nine, which admitted eight dropped guards)`);
   ok(guardAt.every((i) => i < firstMkdir), `case 16: a guard in openSession sits AFTER mkdirSync — a refused call would already have created the package (guards at ${guardAt.join(",")}, mkdirSync at ${firstMkdir})`);
   // What the create branch WRITES, pinned from source (the branch itself stays out of CI): the vector
   // normalised, the proposal beside the confirmed depth, and no `branch` anywhere in the module.
