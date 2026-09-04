@@ -159,6 +159,38 @@ function checkReplay() {
     );
 }
 
+// 7. Group-count drift — build-checks' own pass line, CLAUDE.md's map and gates.md all state a group
+// count, and all three have gone stale behind a ticket that added a group. Two figures are read from the
+// source: the number of group("…") CALLS and the number of DISTINCT names. A group called from both arms
+// of an if/else is one group, so the two differ by exactly the known duplicates — counting distinct names
+// alone would miss a new group that REUSES an existing name, which is the cheapest way for this leg to go
+// hollow. Each claim is its own row: folding two claims into one alternation hides the loss of either.
+// Anyone making the ✓ line self-computing must drop its row from `claims` in the same edit.
+function checkGroupCount() {
+  const src = readFileSync(join(ROOT, "tooling/build-checks.mjs"), "utf8");
+  const calls = [...src.matchAll(/group\s*\(\s*["'`]([^"'`]+)/g)].map((m) => m[1]);
+  const n = new Set(calls).size;
+  const DUPES = ["parenting"]; // called from both arms of one if/else
+  const claude = readFileSync(join(ROOT, "CLAUDE.md"), "utf8");
+  const claims = [
+    ["tooling/build-checks.mjs", src, /all (\d+) groups pass/g],
+    ["CLAUDE.md (architecture map)", claude, /(\d+) PURE groups/g],
+    ["CLAUDE.md (on-demand context)", claude, /build-checks' (\d+) groups/g],
+    [".claude/references/gates.md", readFileSync(join(ROOT, ".claude/references/gates.md"), "utf8"), /(\d+) pure groups/g],
+  ];
+  const stale = [];
+  if (calls.length - DUPES.length !== n)
+    stale.push(
+      `tooling/build-checks.mjs: ${calls.length} group() calls, ${n} distinct names, ${DUPES.length} known duplicate (${DUPES.join(", ")}) — a new group reused an existing name, or a duplicate went away; update DUPES`
+    );
+  for (const [file, text, re] of claims) {
+    const found = [...text.matchAll(re)].map((m) => Number(m[1]));
+    if (!found.length) stale.push(`${file}: states no group count (the claim was reworded — re-pin this leg)`);
+    for (const c of found) if (c !== n) stale.push(`${file}: says ${c} groups, build-checks defines ${n}`);
+  }
+  if (stale.length) throw new Error(`group-count drift: ${stale.join("; ")}`);
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     checkSyntax();
@@ -173,7 +205,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkScenarios();
     checkTraces();
     checkReplay();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay");
+    checkGroupCount();
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);
