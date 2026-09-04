@@ -566,7 +566,11 @@ const tally = (closers, ids) => {
 // The two counters, coverage and the D4 read — ARITHMETIC over the closers (architecture §Data model
 // R2), never judgement, so group 30 drives every value at 0/1/2/3/4. Only closers count: file_evidence
 // never closes and no off-script op does, so neither can touch a number here. Reported, never passed —
-// a target on a counter invites tuning the bank to it (decision doc D4).
+// a target on a counter invites tuning the bank to it (decision doc D4). Two counting bases, on
+// purpose: `coverage` dedupes by QUESTION (a question asked is covered once, however many turns it
+// took), while `weak` and the D4 tallies count CLOSERS — the PRD's own D4 wording, "a turn closed by
+// record_decision counts". So a question held then decided reads coverage 1 asked / 1 decided beside
+// closed 2 / decided 1 / rate 0.5. Case 29 pins the pair so the per-turn reading cannot drift.
 export function runMetrics({ depth, facets = null, questions, transcript }) {
   const closers = closersOf(transcript);
   // Not a form (MVP 8): a decision or a weak-answer note resets, a parked question increments.

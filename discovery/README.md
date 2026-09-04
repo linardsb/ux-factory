@@ -229,8 +229,12 @@ refusal). Packages recorded before #287 carry no `via`; they are never edited.
   (MVP 5: the agent proposes, the human confirms — `DEPTH_PROPOSAL` in `portal/lib/discovery.mjs`);
   `facets` is the declared vector, normalised to `bank.mjs`'s five `FACETS` keys, or `null` when none
   was declared (#285). Packages recorded before #285 carry `branch: null` and neither field; they are
-  never edited and read as the unfaceted list. A vector on a depth that does not compose is recorded
-  and ignored (D1b). `entryMode` is #286's; the values shown are today's names, not a contract.
+  never edited and read as the unfaceted list. The hold rule reaches them too, because the cursor is
+  read from the LAST closer: a pre-#285 package whose last closer is a first `flag_weak_answer` on a
+  ladder depth reads as held (`ask 2`, one short of done). A closed one stays closed — no turn can run
+  on it, and the proposals route gates on `endedAt`, not `completion.done`, so it still accepts the
+  package; what moves is the drawer's closed line and `metrics.completion`. A vector on a depth that
+  does not compose is recorded and ignored (D1b). `entryMode` is #286's; the values shown are today's names, not a contract.
 - `reads` (#287) is the read fence's per-run input: paths, repo-relative or absolute, this run may
   read beyond its own package and `discovery/bank.mjs`. Run 2 names its frozen fixture here; run 1
   names nothing. The allow-set is rebuilt from this field on every turn, so a resumed session after a

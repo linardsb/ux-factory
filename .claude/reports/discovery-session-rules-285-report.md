@@ -58,3 +58,45 @@ No suite (CLAUDE.md §Testing). Gate cases, all in `tooling/build-checks.mjs`:
 ## Issues encountered
 
 None. The gate went green on the first full run after all phases; the three mutation checks above are what show the new cases can fail.
+
+## Review round 1 — F1–F3 fixed, F4–F6 logged
+
+`.claude/code-reviews/pr-365-review.md` approved with one Medium finding. F1–F3 land on this PR;
+F4–F6 and F3's script half are logged, not fixed here. Every figure below is **observed** on this
+tree unless marked.
+
+**F1 (Medium) — the hold rule re-reads a real pre-#285 package, and nothing said so.** The rule is
+the ticket's; the missing part was the sentence. `deriveCursor` reads the LAST closer, so it reaches
+every package on disk, not only the seven Level 3 checked. The one real pre-#285 package in the jobs
+folder, `negative-control-1` (scope-check, six consecutive first flags on six different questions,
+closed 2026-08-31), read 6/6 done before this PR (derived: six closers counted) and now reads index
+5/6, `ask 2`, `completion.done false`, question six held (observed: `sessionView` on
+`<JOBS_DIR>/_discovery/negative-control-1`). It is closed, so no turn can run on it, and the
+proposals route gates on `endedAt` rather than `completion.done`, so it still accepts the package;
+what changes is the drawer's closed line ("5 of 6 answered") and `metrics.completion`, which #293
+reads. Its `escalation` is `null`, and that is correct rather than a miss: D5 reads "repeated" as
+the SAME question weak on both asks (MVP 6, plan Q2), and six different questions each weak once
+repeat nothing. Fixed in `discovery/README.md` §`run.json` (the pre-#285 reading, one sentence) and
+here. No code change.
+
+**F2 (Low) — two counting bases inside one `runMetrics` return.** `coverage` dedupes by question;
+`weak` and the D4 tallies count closers, the PRD's own D4 wording ("a turn closed by
+record_decision counts"). A decision to pin, not a bug: the `runMetrics` header now states it, and
+case 29 gains a held-then-decided pair on a question of the twelve — after the first flag the
+cursor reads `ask 2` and coverage 9 asked / 2 decided; after the decision, coverage 9 / 3 beside
+`twelve { closed 10, decided 3 }` and `weak { flagged 2, closed 12 }`. Mutation: `coverage.asked`
+switched to count closers → `build discovery ✗ 1 failure(s)`, case 29 by name with `asked 10`;
+restored byte-for-byte. Case 29 exercised no repeated question id before this.
+
+**F3 (Low) — the PR body's validation block.** The gate did run: `.claude/last-gate.json` records
+exit 0 at 38adc90 over 13 s. `record-gate.sh` prints `$*`, which drops the quotes around the
+`bash -c` string, and its counts block knows turbo, jest and vitest only, so this repo's gate
+prints an empty block. The body is corrected to the command as invoked plus the run's own summary
+lines; the script is #368, untouched here.
+
+**Logged, not fixed on this PR:** F3's script → #368 · F4, the re-ask invisible to the agent's
+turn prompt → #366 · F5, `declareFacets` re-implementing `normaliseFacets`' expression → #367 ·
+F6, resume ignoring a differing POST → a comment on #288, where the checkboxes land.
+
+Gates on this tree: `drift-check ✓` · `token-lint ✓ 63 contract tokens · 0 undeclared · 0 orphan` ·
+`build ✓ all 34 groups pass` · portal smoke on a private port, `/api/health` ok, PID killed.

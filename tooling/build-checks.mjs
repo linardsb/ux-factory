@@ -6907,6 +6907,14 @@ function scanSvg(svg, label) {
     // questions the regulated list does not hold, and deriveCursor would rightly refuse them).
     ok(same(runMetrics({ depth: "full-discovery", facets: PRESETS[0].facets, questions: selectDepth("full-discovery", PRESETS[0].facets), transcript: T.filter((l) => l.seq <= 11) }).askedWhatMattered.modules, ["regulated"]), "case 29: the modules that composed are reported beside the rates (D4's dropped-module read)");
     for (const d of ["scope-check", "opening-set", "whole-bank"]) ok(runMetrics({ depth: d, questions: selectDepth(d), transcript: [] }).askedWhatMattered === null, `case 29: ${d} must report asked-what-mattered as null — full-discovery only`);
+    // Two counting bases, on purpose (the runMetrics header): a question of the twelve HELD then decided
+    // is ONE question to coverage and TWO closers to the D4 tally and the weak rate.
+    op(14, "t11", "flag_weak_answer", { question_id: qs[9].id, answer_ref: "a11", missing: ["x"] }, true);
+    ok(deriveCursor({ depth: "full-discovery", questions: qs, transcript: T }).ask === 2 && m().coverage.asked === 9 && m().coverage.decided === 2, `case 29: a first weak flag holds the question and covers it once — got ${JSON.stringify(m().coverage)}`);
+    op(15, "t12", "record_decision", { question_id: qs[9].id, answer_ref: "a12", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, true);
+    const held = m();
+    ok(held.coverage.asked === 9 && held.coverage.decided === 3 && held.askedWhatMattered.twelve.closed === 10 && held.askedWhatMattered.twelve.decided === 3 && held.weak.flagged === 2 && held.weak.closed === 12 && Math.abs(held.weak.rate - 2 / 12) < 1e-9,
+      `case 29: held-then-decided is ONE question to coverage and TWO closers to the tally and the rate — got ${JSON.stringify({ coverage: held.coverage, twelve: held.askedWhatMattered.twelve, weak: held.weak })}`);
     // Purity.
     const before = JSON.stringify(T); m(); ok(JSON.stringify(T) === before && same(m(), m()), "case 29: runMetrics must not touch its input and must be deterministic");
   }
