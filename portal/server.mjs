@@ -165,12 +165,14 @@ const server = createServer(async (req, res) => {
     // Open or RESUME. Disk is authoritative: an existing run.json comes back untouched with its
     // answers, its transcript and the derived cursor, which is what makes a page reload and a server
     // restart lose nothing (AC #5). EVERY PARAMETER NAMED — see /api/build/run's comment below for why
-    // a spread is the wrong shape on a route a cross-origin page can POST to.
+    // a spread is the wrong shape on a route a cross-origin page can POST to. `facets` (#285) is the
+    // declared vector or absent; the drawer sends none until #288, so it opens unfaceted sessions; the
+    // server accepts a vector today.
     if (p === '/api/discovery/session' && req.method === 'POST') {
       const b = await readBody(req);
       return json(res, 200, openSession({
         slug: b.slug, provenance: b.provenance, entryMode: b.entryMode, depth: b.depth,
-        branch: b.branch ?? null, frontEnd: b.frontEnd, posture: b.posture,
+        facets: b.facets ?? null, frontEnd: b.frontEnd, posture: b.posture,
         // The read fence's per-run input (#287): what this run may read beyond its package and the
         // bank. The drawer sends none yet (#286 will, for an existing PRD); refused by name if junk.
         reads: b.reads ?? [],

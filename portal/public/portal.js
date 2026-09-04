@@ -681,6 +681,7 @@ $('#chat-form').addEventListener('submit', async (e) => {
 // The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
 // A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
 const discovery = { config: null, session: null, running: false, proposals: null };
+const DISCOVERY_ENTRY_MODE = 'blank-idea'; // the one entry mode the drawer ships (#286 adds the others)
 
 const discoveryEls = () => ({
   slug: $('#discovery-slug').value.trim(),
@@ -716,6 +717,9 @@ async function loadDiscoveryConfig() {
   ].join('');
   $('#discovery-depth').innerHTML = c.depths
     .map((d) => `<option value="${esc(d.id)}">${esc(d.label)} — ${d.count} questions</option>`).join('');
+  // The proposal (#285; MVP 5: the agent proposes, the human confirms). Confirming is pressing Start;
+  // changing it is picking another option.
+  $('#discovery-depth').value = c.depthProposals[DISCOVERY_ENTRY_MODE] ?? c.depths[0].id;
   $('#discovery-posture').innerHTML = c.postures
     .map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(p.model)})</option>`).join('');
   renderDiscoveryNotes();
@@ -743,7 +747,7 @@ async function renderDiscoveryBuild() {
 function renderDiscoveryNotes() {
   const c = discovery.config;
   const p = $('#discovery-provenance').value;
-  // THREE branches, not two: with the placeholder selected, a two-branch ternary would fall through
+  // THREE arms, not two: with the placeholder selected, a two-arm ternary would fall through
   // to the `real` note and tell the operator their package is safe outside the repo before they have
   // chosen anything (#338 F3).
   $('#discovery-provenance-note').textContent = p === 'fictional'
@@ -752,7 +756,10 @@ function renderDiscoveryNotes() {
       ? 'Real — the package is written to the jobs folder, outside this repo, and is never committed here.'
       : 'Provenance has no default, because the wrong one is not recoverable by git: fictional commits the package into this public repo, real writes it outside. Pick one.';
   const d = c.depths.find((x) => x.id === $('#discovery-depth').value);
-  $('#discovery-depth-note').textContent = d ? `${d.count} questions — for ${d.when}.` : '';
+  const proposed = c.depthProposals[DISCOVERY_ENTRY_MODE];
+  $('#discovery-depth-note').textContent = d
+    ? `${d.count} questions${d.composes ? ' before any facet vector — a declared vector moves this count (#288)' : ''} — for ${d.when}. ${d.id === proposed ? 'Proposed for a blank idea; Start confirms it.' : `The proposal for a blank idea was ${proposed}; you are overriding it.`}`
+    : '';
 }
 for (const id of ['#discovery-provenance', '#discovery-depth'])
   $(id).addEventListener('change', renderDiscoveryNotes);
@@ -765,7 +772,7 @@ $('#discovery-open').addEventListener('click', async () => {
   try {
     discovery.session = await api('/api/discovery/session', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, provenance, entryMode: 'blank-idea', depth, branch: null, frontEnd: 'portal', posture }),
+      body: JSON.stringify({ slug, provenance, entryMode: DISCOVERY_ENTRY_MODE, depth, frontEnd: 'portal', posture }),
     });
   } catch (err) {
     $('#discovery-start-status').textContent = `Refused: ${err.message}`;
@@ -797,10 +804,16 @@ function renderDiscoverySession() {
     $('#discovery-attribution').textContent = 'Finish the session to record when it ended.';
   } else {
     $('#discovery-position').textContent =
-      `${head.slug} · ${depth?.label ?? head.depth} · question ${cursor.index + 1} of ${cursor.total} · turn ${cursor.turn}`;
+      `${head.slug} · ${depth?.label ?? head.depth} · question ${cursor.index + 1} of ${cursor.total}${cursor.ask > 1 ? ' · asked again' : ''} · turn ${cursor.turn}`;
     $('#discovery-question').textContent = cursor.question.text;
     $('#discovery-attribution').textContent = `Stage ${cursor.question.stage} · ${cursor.question.attribution}`;
   }
+  // D5's proposal (#285) is a VALUE on the view: shown when present, and it forces nothing — the how
+  // text says stepping up is a new run. textContent is emptied as well as hidden, the belt to
+  // portal.css's [hidden] rule.
+  const esc$ = $('#discovery-escalation');
+  esc$.textContent = s.escalation ? `Step up? ${s.escalation.how}` : '';
+  esc$.hidden = !s.escalation;
   const answerable = !head.endedAt && !cursor.done;
   $('#discovery-answer').disabled = !answerable;
   $('#discovery-submit').disabled = !answerable || discovery.running;

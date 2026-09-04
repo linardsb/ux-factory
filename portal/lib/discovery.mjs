@@ -1,5 +1,5 @@
 // portal/lib/discovery.mjs — the discovery session: the run package on disk, and the one loop that
-// fills it (epic #279, ticket #284; docs/epics/discovery-partner.architecture.md §Recommended
+// fills it (epic #279, tickets #284, #285; docs/epics/discovery-partner.architecture.md §Recommended
 // approach — approach C, answer-by-reference, two files so the separation is visible;
 // discovery/README.md is the format spec this module conforms to).
 //
@@ -36,6 +36,9 @@
 //      wired now so that widening MAIN_TOOLS in the transport is one array edit, and the fence probe
 //      (discovery-transport.mjs --probe-fence) is the run-time proof that each site holds alone.
 //
+// The rules layer (#285) — the tables and the four pure reads — sits before openSession; every one of
+// them is driven by group 30 with no agent and no token.
+//
 // The head's `root` and the resolved filesystem root are TWO DIFFERENT VALUES and one name (plan M7):
 // resolveRunRoot() returns an absolute path; run.json's `root` is repo-relative for fictional runs, per
 // discovery/README.md's example, because an absolute home-dir path must never be committed. head.root
@@ -43,7 +46,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { DEPTHS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
+import { DEPTHS, FACETS, facetPlan, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
 import { applyOps, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
 import { POSTURES } from './discovery-postures.mjs';
@@ -137,8 +140,8 @@ export const toolNameFor = (op) => `mcp__${MCP_SERVER}__${op}`;
 // OPS, so a renamed server fails and a fifth verb is covered with no edit here.
 //
 // WHAT THE DENY BRANCH DENIES (#343, correcting the earlier claim that `tools: []` left it nothing): the
-// main session's model is advertised the four op tools and nothing else, so IT never reaches the branch
-// — the CLI's own subagent warmup does. On every start Claude Code pre-warms its built-in Explore, Plan
+// main session's model is advertised the four op tools and nothing else, so IT never reaches the deny
+// path — the CLI's own subagent warmup does. On every start Claude Code pre-warms its built-in Explore, Plan
 // and Bash agents with a "Warmup" prompt (cli.js p$9), and Explore runs pwd, ls, find and Glob on the
 // cwd. Those calls hit this fence and are denied with denyReason's text (observed as their is_error
 // tool_result in the agent-*.jsonl sidechains) — and they are not the discovery agent's, which is why
@@ -467,11 +470,133 @@ export function writeRun(root, head) {
   return head;
 }
 
+// --- the rules layer (#285; PRD MVP 5, MVP 6, MVP 8; decision doc D1b, D3, D4, D5) ------------------
+
+// The interview rungs in order (MVP 5's table). whole-bank is OFF the ladder: a stress test of the
+// bank whose 65 sealed answers are pasted one per question (#348's protocol), so it never holds a
+// question for a second ask and never proposes a step up. Group 30 pins LADDER ∪ { whole-bank } to
+// the depth menu, so a fifth depth is placed here by name rather than falling on one side by default.
+export const LADDER = Object.freeze(['scope-check', 'opening-set', 'full-discovery']);
+
+// D5's rule, as a table: which rung proposes which. ONE row, because MVP 5 writes it for Scope check
+// alone ("a repeated weak answer at Scope check means proposing a step up, never grinding on"). Not
+// derived from LADDER, so a rung escalates only where the PRD says it does; group 30 pins each row to
+// the rung immediately above its key.
+export const ESCALATES = Object.freeze({ 'scope-check': 'opening-set' });
+
+// What the server proposes per entry mode (MVP 5: the agent proposes, the human confirms). Under
+// approach C the server is the sequencing side, so the proposal is a table the gate can drive and it
+// costs no token. blank-idea is MVP 5's "a new product". #286 adds a row per entry mode it adds —
+// group 30 iterates ENTRY_MODES against this table both ways, so a mode with no row fails by name.
+export const DEPTH_PROPOSAL = Object.freeze({ 'blank-idea': 'full-discovery' });
+
+// Which depths compose from a facet vector (D1b). Asserted by DRIVING the bank, never by reading this
+// list: group 30 proves selectDepth(d, <declared vector>) differs from selectDepth(d) iff d is here.
+export const COMPOSES = Object.freeze(['full-discovery']);
+
+// PRD §Success metrics, "Not a form": never more than 3 consecutive questions with no decision and no
+// weak-answer note. A target the metric reports against, not a guard that stops a session.
+export const NOT_A_FORM_MAX = 3;
+
+// The vector as run.json records it: null for NO vector (undefined, null, {} — every package before
+// #285 and every one-argument caller), else all five keys as booleans in FACETS order. So a reader
+// sees five keys or null, and the consumer preset (all false, DECLARED) is distinguishable from
+// "nothing declared" (D1b). Junk — an unknown key, a non-boolean — throws by the bank's own name, so
+// no run.json can carry a vector the bank would not read. Own keys only, as the bank reads them.
+export function declareFacets(facets) {
+  const plan = facetPlan(facets);
+  if (!plan.declared) return null;
+  return Object.freeze(Object.fromEntries(FACETS.map((f) => [f.id, Object.hasOwn(facets, f.id) && facets[f.id] === true])));
+}
+
+const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l.closes === true);
+
+// THE CURSOR — derived from the record (invariant 4), read from the LAST closer rather than counted:
+// its question's position in the list, plus one unless that question is HELD for a second ask. A
+// question is held when the depth is on the ladder, its last closer is a flag_weak_answer and it has
+// been asked only once — MVP 6's "pushes back once", the README's "a revisited question on a new turn
+// is a fresh slot". A second closer of ANY kind settles it: never a third ask. Reading from the last
+// closer, not counting closers, is what keeps every package recorded before this rule consistent with
+// itself — graded-think-a holds eleven weak flags the record then moved past, and each reads as
+// settled because a later closer sits on a later question. The turn id counts closers, not positions,
+// so a held question gets a fresh turn id and R2 keeps one closer per turn.
+export function deriveCursor({ depth, questions, transcript }) {
+  if (!Array.isArray(questions) || !Array.isArray(transcript)) bad('deriveCursor needs the depth\'s question list and the parsed transcript');
+  const closers = closersOf(transcript);
+  const turn = `t${closers.length + 1}`;
+  const at = (index, ask) => ({ index, ask, question: questions[index] ?? null, turn, total: questions.length, done: index >= questions.length });
+  if (!closers.length) return at(0, 1);
+  const last = closers[closers.length - 1];
+  const qid = last.params?.question_id ?? null;
+  const pos = questions.findIndex((q) => q.id === qid);
+  if (pos === -1) bad(`transcript op ${last.seq} closes "${qid}", which is not in depth "${depth}"'s list — the record and the list disagree (was run.json edited after the fact?)`);
+  const asks = closers.filter((c) => c.params?.question_id === qid).length;
+  const held = LADDER.includes(depth) && last.op === 'flag_weak_answer' && asks < 2;
+  return held ? at(pos, 2) : at(pos + 1, 1);
+}
+
+// D5: at a rung ESCALATES names, a question flagged weak on BOTH of its asks proposes the rung above.
+// A VALUE on the view, never a mutation — run.json's depth is written once (D3) and the cursor has
+// already settled the question, so the session continues. The person confirms by starting a new run at
+// the proposed depth, or declines by carrying on. Null everywhere else, and null while the second ask
+// is still open (one flag is a pushback, not a repeat).
+export function escalationFor({ depth, transcript }) {
+  const to = ESCALATES[depth];
+  if (!to) return null;
+  const byQuestion = new Map();
+  for (const c of closersOf(transcript).filter((c) => c.op === 'flag_weak_answer'))
+    byQuestion.set(c.params.question_id, [...(byQuestion.get(c.params.question_id) ?? []), c]);
+  const because = [...byQuestion].filter(([, cs]) => cs.length >= 2)
+    .map(([questionId, cs]) => ({ questionId, turns: cs.map((c) => c.turn), seqs: cs.map((c) => c.seq) }));
+  if (!because.length) return null;
+  return {
+    from: depth, to, because,
+    how: `A scoping question weak on both asks says the problem is not yet known, and "${to}" asks it. A run's depth is recorded once: to step up, start a new run at "${to}"; to decline, carry on — nothing here forces it.`,
+  };
+}
+
+const rateOf = (part, whole) => (whole ? part / whole : null);
+const tally = (closers, ids) => {
+  const set = new Set(ids);
+  const mine = closers.filter((c) => set.has(c.params?.question_id));
+  const decided = mine.filter((c) => c.op === 'record_decision').length;
+  return { closed: mine.length, decided, rate: rateOf(decided, mine.length) };
+};
+
+// The two counters, coverage and the D4 read — ARITHMETIC over the closers (architecture §Data model
+// R2), never judgement, so group 30 drives every value at 0/1/2/3/4. Only closers count: file_evidence
+// never closes and no off-script op does, so neither can touch a number here. Reported, never passed —
+// a target on a counter invites tuning the bank to it (decision doc D4).
+export function runMetrics({ depth, facets = null, questions, transcript }) {
+  const closers = closersOf(transcript);
+  // Not a form (MVP 8): a decision or a weak-answer note resets, a parked question increments.
+  let streak = 0, longest = 0;
+  for (const c of closers) { streak = c.op === 'open_question' ? streak + 1 : 0; longest = Math.max(longest, streak); }
+  const flagged = closers.filter((c) => c.op === 'flag_weak_answer').length;
+  // Coverage of the twelve from the OPS, not the cursor: a question skipped is not a question covered.
+  const asked = new Set(closers.map((c) => c.params?.question_id));
+  const decided = new Set(closers.filter((c) => c.op === 'record_decision').map((c) => c.params?.question_id));
+  const cursor = deriveCursor({ depth, questions, transcript });
+  const twelve = new Set(OPENING_SET);
+  return {
+    completion: { settled: cursor.index, total: questions.length, done: cursor.done, turns: closers.length },
+    notAForm: { streak, longest, max: NOT_A_FORM_MAX, tripped: longest > NOT_A_FORM_MAX },
+    weak: { flagged, closed: closers.length, rate: rateOf(flagged, closers.length) },
+    coverage: { asked: OPENING_SET.filter((id) => asked.has(id)).length, decided: OPENING_SET.filter((id) => decided.has(id)).length, of: OPENING_SET.length, missing: OPENING_SET.filter((id) => !asked.has(id)) },
+    // D4, full-discovery only: the facet-selected tail against the twelve, plus which modules composed.
+    askedWhatMattered: COMPOSES.includes(depth)
+      ? { twelve: tally(closers, OPENING_SET), tail: tally(closers, questions.map((q) => q.id).filter((id) => !twelve.has(id))), modules: facetPlan(facets).fits }
+      : null,
+  };
+}
+
 const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run — real product' };
 
 // Resume or open. DISK IS AUTHORITATIVE: an existing run.json is returned untouched, which is what
-// makes a page reload and a server restart lose nothing (AC #5).
-export function openSession({ slug, provenance, entryMode, depth, branch = null, frontEnd, posture, reads = [] }) {
+// makes a page reload and a server restart lose nothing (AC #5). `facets` is recorded normalised (five
+// booleans or null) and `proposedDepth` beside the confirmed `depth` — MVP 5's agent-proposes /
+// human-confirms, recorded rather than inferred.
+export function openSession({ slug, provenance, entryMode, depth, facets = null, frontEnd, posture, reads = [] }) {
   assertRunSlug(slug);
   const root = resolveRunRoot({ provenance, slug });
   assertProvenanceRoot(provenance, root);
@@ -481,16 +606,18 @@ export function openSession({ slug, provenance, entryMode, depth, branch = null,
   if (!ENTRY_MODES.includes(entryMode)) bad(`entryMode "${entryMode}" is not one of ${ENTRY_MODES.join(' · ')} (#286 adds the others)`);
   if (!FRONT_ENDS.includes(frontEnd)) bad(`frontEnd "${frontEnd}" is not one of ${FRONT_ENDS.join(' · ')} — it is how the Switch metric is measured, so it is recorded rather than inferred`);
   if (!Object.hasOwn(POSTURES, posture)) bad(`posture "${posture}" is not one of ${Object.keys(POSTURES).join(' · ')}`);
-  selectDepth(depth);   // the bank's own throw names an unknown depth
-  // branch is null in the spine — the branch selectors are #283's and do not exist in bank.mjs yet.
-  if (branch !== null) bad('branch selection is #283 and is not in the spine — pass null');
+  const declared = declareFacets(facets);   // the bank's own throw names an unknown or non-boolean facet
+  // The bank's own throw names an unknown depth — and a vector that overflows full discovery's budget,
+  // naming what fits and what does not (D1a). Nothing here trims a vector to fit: the session module
+  // resolves nothing on the person's behalf; #288's control is where the person does.
+  selectDepth(depth, declared);
 
   mkdirSync(root, { recursive: true });
   const existing = readRun(root);
   if (existing) return sessionView(root);
 
   writeRun(root, {
-    slug, provenance, label: LABEL[provenance], entryMode, depth, branch, reads,
+    slug, provenance, label: LABEL[provenance], entryMode, depth, proposedDepth: DEPTH_PROPOSAL[entryMode], facets: declared, reads,
     frontEnd, model: POSTURES[posture].model, posture, sessionId: null,
     startedAt: now(), endedAt: null, root: headRoot(provenance, root), turnStats: [],
   });
@@ -525,28 +652,24 @@ export const recordTurnStats = (root, stats) =>
 
 // --- the cursor -----------------------------------------------------------------------------------
 
-// DERIVED from the record, never stored (invariant 4). A turn that did NOT close — the agent yielded
-// without filing — leaves the cursor where it is, so the next submit re-uses the same question on the
-// SAME turn id. R2 permits that, because the turn was never closed; do not invent a new turn id for it.
+// DERIVED from the record, never stored (invariant 4) — from the LAST closer, by deriveCursor above,
+// which is also where the one re-ask lives. A turn that did NOT close — the agent yielded without
+// filing — leaves the cursor where it is, so the next submit re-uses the same question on the SAME
+// turn id. R2 permits that, because the turn was never closed; do not invent a new turn id for it.
 export function sessionView(root) {
   const head = readRun(root);
   if (!head) bad(`no run.json under "${root}" — open the session first`);
   const answers = readAnswers(root);
   const transcript = readTranscript(root);
-  const questions = selectDepth(head.depth);
-  const closedTurns = new Set(transcript.filter((l) => l?.type === 'op' && l.closes).map((l) => l.turn));
-  const index = closedTurns.size;
+  const facets = head.facets ?? null;   // packages before #285 carry no field and read as the unfaceted list
+  const questions = selectDepth(head.depth, facets);
   return {
     head,
     answers,
     transcript,
-    cursor: {
-      index,
-      question: questions[index] ?? null,
-      turn: `t${index + 1}`,
-      total: questions.length,
-      done: index >= questions.length,
-    },
+    cursor: deriveCursor({ depth: head.depth, questions, transcript }),
+    escalation: escalationFor({ depth: head.depth, transcript }),
+    metrics: runMetrics({ depth: head.depth, facets, questions, transcript }),
   };
 }
 
@@ -562,7 +685,16 @@ const forTheBrowser = (q) => ({ id: q.id, stage: q.stage, text: q.text, attribut
 export function discoveryConfig() {
   return {
     questions: QUESTIONS.map(forTheBrowser),
-    depths: Object.entries(DEPTHS).map(([id, d]) => ({ id, label: d.label, when: d.when, count: d.ids.length })),
+    depths: Object.entries(DEPTHS).map(([id, d]) => ({
+      id, label: d.label, when: d.when,
+      // The UNFACETED length, for every depth. Where `composes` is true a declared vector moves it
+      // (D1b), and the count cannot know the vector before one exists — so the route says so rather
+      // than reporting a number the confirmed vector will change.
+      count: d.ids.length, composes: COMPOSES.includes(id),
+    })),
+    facets: FACETS,
+    presets: PRESETS,
+    depthProposals: DEPTH_PROPOSAL,
     provenances: PROVENANCES,
     entryModes: ENTRY_MODES,
     frontEnds: FRONT_ENDS,
