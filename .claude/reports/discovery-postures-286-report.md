@@ -1,6 +1,6 @@
 # Implementation Report — The three postures + the existing-PRD audit mode (#286)
 
-**Plan**: `.claude/plans/discovery-postures-286.md`   **Branch**: `feat/286-postures` (cut from `origin/main` at 985c807, the #365 merge)   **Status**: PARTIAL — every code, gate and docs task is complete and green; the two PAID levels (the throwaway's agent turns, the two probes) are BLOCKED by the API account's usage limit, not observed.
+**Plan**: `.claude/plans/discovery-postures-286.md`   **Branch**: `feat/286-postures` (cut from `origin/main` at 985c807, the #365 merge)   **Status**: COMPLETE — every code, gate and docs task green at PR #369; the two PAID levels were blocked by the owner's own Console spend limit on the morning of 2026-09-04 and observed the same afternoon under #370 (§#370 below).
 
 ## Summary
 
@@ -23,7 +23,7 @@
 - Task 12 — case 31.14 + the group 31 summary; case 34.13 widened to the four with the `TOOL_DESCRIPTIONS` key pin; the group 34 summary → `tooling/build-checks.mjs` (UPDATE)
 - Task 13 — the entry select, the model row, the document row, the answer label id → `portal/public/index.html` (UPDATE); `DISCOVERY_ENTRY_MODE` deleted, `discoveryEls()` widened, `renderDiscoveryEntry()` / `renderDiscoveryModel()`, the depth note, the open handler's document refusal after the pinned provenance guard, the audit submit, the pointer view → `portal/public/portal.js` (UPDATE)
 - Task 14 — §Files, §The audit mode (existing-prd, #286), §File shapes (the third line, the `entryMode` and `model` bullets), §Workflow → `discovery/README.md` (UPDATE); group 30 / 31 / 34 entries and **The audit probe** paragraph → `.claude/references/gates.md` (UPDATE); the one clause on the run bullet → `CLAUDE.md` (UPDATE)
-- Task 15 — PARTIAL: the portal smoke and the drawer check done; the throwaway audit opened and reached the SDK; the agent turns are blocked (see Validation)
+- Task 15 — PARTIAL at PR #369: the portal smoke and the drawer check done; the throwaway audit opened and reached the SDK; the agent turns were blocked (see Validation) and are observed under #370 (§#370 below)
 - Task 16 — BLOCKED: both probes ran and were refused by the API (see Validation)
 - Task 17 — not yet: the two issue comments are posted at PR time with `piv-create-pr`, quoting the PR number
 
@@ -58,10 +58,10 @@ All in `tooling/build-checks.mjs`, all green (observed: `build ✓ all 34 groups
 - **Level 1** — `node --check` on the seven files: ok (observed). `grep '^import' discovery/prd-projection.mjs | grep -c portal` → 0 (observed). Think's stamps `7efdde37…` / `cadb3811…` reproduce (observed). `diff think-before.txt think-after.txt` → empty (observed).
 - **Level 2** — `node tooling/build-checks.mjs` → `build ✓ all 34 groups pass`; `node tooling/drift-check.mjs` → `drift-check ✓`; `node tooling/token-lint.mjs` → `token-lint ✓ 63 contract tokens · 0 undeclared · 0 orphan` (all observed, on the final tree).
 - **Level 3** — six committed `prd.md` files byte-identical via `--stdout | diff -q` (observed; `spine-meridian-1` has no `prd.md`, see Deviations). `cd portal && node lib/discovery-transport.mjs --preflight` → `pre-flight ✓ all 8 rows pass, zero tokens` (observed).
-- **Level 4 (partial)** — portal on `PORT=4799` (PID 72053, killed by PID after): `/api/health` ok; `/api/discovery/config` served four postures (`grill` alone `modelSettable`), two entry modes, `models`, `entryPostures` (observed). Headless Chromium (Playwright) over the drawer: on `blank-idea` all four postures, the document and model rows `display: none`; picking Grill shows the model row on `claude-sonnet-5`; on `existing-prd` the posture list is `["grill"]`, the document row shows, the depth note reads "Proposed for an existing PRD"; Start with no document is refused as prose and **no POST** is made; zero page errors (observed). Through the API: `audit-throwaway-286` opened `entryMode existing-prd · posture grill · model claude-sonnet-5`, `answers.jsonl` one `kind: "document"` line, the view's `document.md5` equal to `md5 -q` of the pasted file (`4cfa20c2…`, 1180 chars); an audit turn with a `text` refused naming "takes no answer"; a resume with a different document returned the stored one (still one line); the first audit turn resolved the document and reached the SDK **without appending** (answers stayed at 1); `Download PRD` rendered `entry existing-prd · … · posture grill`; `posture-throwaway-286` opened under `create-prd` and reached the SDK. D6: `fixture-throwaway-286` opened by `documentPath: docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md` with `model: claude-opus-5` stored 24355 characters (the view's `chars`; 24560 bytes on disk) hashing to **`ab6eb0ee6cdd3b7802ecfcbe90db2377`**, the plan's expected value, with `run.json.model` = `claude-opus-5` (observed). **The agent turns did not run:** every SDK turn returned `API Error: 400 … You have reached your specified API usage limits. You will regain access on 2026-10-01 at 00:00 UTC` as a text line and exited 1; cost recorded $0 (observed). So the six verdicts, the wrong-if classification and the JUDGEMENT prose are **not observed**. All three throwaways deleted; `git status --short discovery/` shows only this ticket's two edits (observed).
+- **Level 4 (partial)** — portal on `PORT=4799` (PID 72053, killed by PID after): `/api/health` ok; `/api/discovery/config` served four postures (`grill` alone `modelSettable`), two entry modes, `models`, `entryPostures` (observed). Headless Chromium (Playwright) over the drawer: on `blank-idea` all four postures, the document and model rows `display: none`; picking Grill shows the model row on `claude-sonnet-5`; on `existing-prd` the posture list is `["grill"]`, the document row shows, the depth note reads "Proposed for an existing PRD"; Start with no document is refused as prose and **no POST** is made; zero page errors (observed). Through the API: `audit-throwaway-286` opened `entryMode existing-prd · posture grill · model claude-sonnet-5`, `answers.jsonl` one `kind: "document"` line, the view's `document.md5` equal to `md5 -q` of the pasted file (`4cfa20c2…`, 1180 chars); an audit turn with a `text` refused naming "takes no answer"; a resume with a different document returned the stored one (still one line); the first audit turn resolved the document and reached the SDK **without appending** (answers stayed at 1); `Download PRD` rendered `entry existing-prd · … · posture grill`; `posture-throwaway-286` opened under `create-prd` and reached the SDK. D6: `fixture-throwaway-286` opened by `documentPath: docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md` with `model: claude-opus-5` stored 24355 characters (the view's `chars`; 24560 bytes on disk) hashing to **`ab6eb0ee6cdd3b7802ecfcbe90db2377`**, the plan's expected value, with `run.json.model` = `claude-opus-5` (observed). **The agent turns did not run:** every SDK turn returned `API Error: 400 … You have reached your specified API usage limits. You will regain access on 2026-10-01 at 00:00 UTC` as a text line and exited 1; cost recorded $0 (observed). So the six verdicts, the wrong-if classification and the JUDGEMENT prose were **not observed** at this head; they are observed under #370 (§#370 below). All three throwaways deleted; `git status --short discovery/` shows only this ticket's two edits (observed).
 - **Level 5 (blocked)** — `--probe-audit` on `claude-sonnet-5` (surface `76b7847d…`) and `--model claude-opus-5` (surface `ba124c3c…`) both ran to `probe INCONCLUSIVE`, exit 3, with the same 400 (observed). The probe's code path works end to end; the verdict is a model fact the account cannot buy today.
 
-**What is owed once access returns (after 2026-10-01, or sooner if the limit is raised):** the six audit turns and the Create PRD turn of Task 15 on fresh throwaways (then deleted), the verdict spread and the QUOTED / PARAPHRASED / AUTHORED read recorded here; `--probe-audit` on both models (Task 16) — exit 2 on AUTHORED means tighten `AUDIT_WRONG_IF_RULE`, re-probe, at most three paid attempts. Expected cost ~$0.5–1.0: Run 0's $0.03–0.07 per turn × 9 turns is $0.27–0.63 (derived); the rest is the ~6–7k-token document's cache read on every turn (expected, not quantified).
+**What was owed once access returned (paid 2026-09-04 under #370, §#370 below; the protocol as written):** the six audit turns and the Create PRD turn of Task 15 on fresh throwaways (then deleted), the verdict spread and the QUOTED / PARAPHRASED / AUTHORED read recorded here; `--probe-audit` on both models (Task 16) — exit 2 on AUTHORED means tighten `AUDIT_WRONG_IF_RULE`, re-probe, at most three paid attempts. Expected cost ~$0.5–1.0: Run 0's $0.03–0.07 per turn × 9 turns is $0.27–0.63 (derived); the rest is the ~6–7k-token document's cache read on every turn (expected, not quantified).
 
 ## Deviations from the plan
 
@@ -76,7 +76,7 @@ All in `tooling/build-checks.mjs`, all green (observed: `build ✓ all 34 groups
 
 ## Issues encountered
 
-- **The API usage limit** (above) — the one thing that made this PARTIAL. Nothing in the ticket's code path caused it; the transport recorded it exactly as `sdk-error-result-wears-success` describes. Saved as a memory so the next paid step is planned after 2026-10-01.
+- **The API usage limit** (above) — the one thing that made this PARTIAL. Nothing in the ticket's code path caused it; the transport recorded it exactly as `sdk-error-result-wears-success` describes. Saved as a memory so the next paid step is planned after 2026-10-01. Resolved the same day: the 400 was the owner's self-set Console spend limit, raised under Billing › Spend limits (#370).
 - The first background run of `--probe-audit` on sonnet printed only `exit 1` with no output; the immediate re-run printed the full report and exited 3 as designed. Cause not established (it ran concurrently with the portal boot); every later run behaved.
 - `case 16` forbids the word `branch` anywhere in `portal/lib/discovery.mjs` and `case 12` forbids `document.` / `document[` / `typeof document` in both session modules (a DOM-reach pin); two comments and the `document` parameter's internal name were worded around them. Neither pin is in the plan; both are now in this report for the next editor.
 - **#366 stays open for Think by name** — the re-ask brief lands on Create PRD and Grill only; Think's second ask stays blind until a ticket re-records the five stamped fixtures. **Run 0's F10** (`MAX_TURNS = 6` admitting four tool calls per turn) is untouched; the audit turn prompt scopes evidence to "on this question", which is the mitigation available without a cap change.
@@ -120,3 +120,69 @@ Gates on this tree: `build ✓ all 34 groups pass` · `drift-check ✓` · `toke
 tokens · 0 undeclared · 0 orphan` · `pre-flight ✓ all 8 rows pass, zero tokens` (each exit 0) ·
 portal smoke on port 4798, `/api/health` 200, `/api/discovery/config` four postures and two entry
 modes, PID killed.
+
+## #370 — the owed paid observations, run 2026-09-04
+
+The 400 was the owner's own Console spend limit, raised the same afternoon. Every figure below is
+**observed** unless marked. Each throwaway was copied to the session scratchpad and then deleted;
+nothing under `discovery/` or in the copies was hand-written or edited. The two sessions were
+driven through the portal API on private ports (4799, 4798) with `frontEnd terminal`, the honest
+value for a scripted run, and each portal was killed by PID.
+
+**The audit probe, both models** (`--probe-audit`, temp root). Sonnet: `probe ANSWERED · wrong_if
+QUOTED` (12/12 tokens), judgement in prose before the first op yes, `record_decision seq 2 at
+business, evidence_refs [1]`, answer refs `a1`, one denied line (`mcp__discovery__file_evidence`),
+$0.121 · 17.8 s · 4 SDK turns, exit 0, prompt surface `76b7847d…`. Opus (`--model claude-opus-5`):
+`probe ANSWERED · wrong_if PARAPHRASED` (14/14 tokens), judgement yes, the same op shape, no denied
+line, $0.055 · 16.3 s · 3 SDK turns, exit 0, surface `ba124c3c…`. The opus PARAPHRASED is the
+classifier, not the model: the `wrong_if` string carried the document's sentence inside quote marks
+with its leading "This is wrong if", and the substring test folds case and whitespace only, so all
+fourteen tokens matched without a bare substring hit. Exit 0 either way; folding punctuation is a
+one-line tightening for whoever next touches the probe.
+
+**The six audit turns** (`audit-throwaway-286`: `existing-prd · grill · scope-check ·
+claude-sonnet-5`; a 16-line fictional "Rota Ledger" PRD fragment pasted as `document`, stating one
+decision with its own wrong-if and a URL and saying nothing on `s7-kill-state-and-date`; the view's
+`document` read `chars 1187 · md5 517a2b91…`, the file's own md5; `answers.jsonl` one
+`kind: "document"` line at open and still one after six turns; fingerprint `76b7847d…`, the probe's
+surface):
+
+| turn | question | closer | verdict | wrong_if |
+|---|---|---|---|---|
+| 1 | s4-appetite | file_evidence 1 · record_decision 2 (business, evidence_refs [1]) | ANSWERED | QUOTED 15/15 |
+| 2 | s4-rabbit-holes | flag_weak_answer 3 (missing ×2) | DODGED | – |
+| 3 | s4-out-of-bounds | flag_weak_answer 4 (missing ×1) | DODGED | – |
+| 4 | s7-goals-signals-metrics | flag_weak_answer 5 (missing ×1) | DODGED | – |
+| 5 | s7-kill-state-and-date | flag_weak_answer 6 (missing ×2) | DODGED | – |
+| 6 | s7-what-would-make-us-stop | file_evidence 7 · record_decision 8 (business, evidence_refs [7]) | ANSWERED | QUOTED 15/15 |
+
+A `text` line before the first op on all six (JUDGEMENT_RULE); exactly one closer per turn; every
+closer's `answer_ref` is `a1` (`file_evidence` carries none by `PARAMS`); denied lines 0; the
+cursor advanced one step per turn with `ask` staying 1 on the flagged turns and `done true` after
+the sixth, so the audit cursor never held. Spread: ANSWERED 2 · UNEVIDENCED 0 · DODGED 4 · ABSENT
+0. Both wrong-ifs are the document's own sentence verbatim ("the ward cannot name a single
+double-booked shift in the last quarter that a live ledger would have caught"), so D2 holds: no
+AUTHORED wrong-if, no re-run, `AUDIT_WRONG_IF_RULE` untouched. Cost $0.337 (the sum of `costUsd`
+over the six `turnStats` entries) · 117.9 s · 14 SDK turns.
+
+`Download PRD`: the Run line reads `entry existing-prd · depth scope-check · unfaceted · front end
+terminal · model claude-sonnet-5 · posture grill · … · 6 turn(s)`; both decisions and all four
+weak-answer blocks carry the pointer line `_[the audited document — answer a1, 1187 characters,
+verbatim in answers.jsonl]_`; "Rota Ledger" and "photographed each evening" are absent from the
+page.
+
+Two readings for #292, reported not judged: (1) ABSENT never fired — on `s7-kill-state-and-date`,
+the one question the fragment says nothing on, the model filed DODGED, reading the six-week
+appetite as touching it; (2) turn 6 re-filed the appetite's URL (seq 7) and wrong-if (seq 8) under
+`s7-what-would-make-us-stop`, so the Hypothesis section lists the same sentence twice. Neither is a
+protocol trigger; both are what run 2's reader will meet.
+
+**The Create PRD turn** (`posture-throwaway-286`: `blank-idea · create-prd · scope-check`, model
+`claude-sonnet-5` recorded as the posture's own): the cursor asked `s4-appetite`; one operator
+answer (`a1`, banked); the agent's first text line named the section before filing — "This answer
+feeds the MVP section (solution-level boundary-setting under Shape Up's 'set boundaries' step)…" —
+then `record_decision` seq 1 at `solution`, `parent_id null`, `evidence_refs []`, flagged
+`no-evidence` and `orphan`, then a closing text line. MVP is the `SECTIONS` row a solution-level
+decision renders under, which is the row `sectionBrief()` lists. $0.054 · 13.5 s · 2 SDK turns.
+
+**Total paid:** $0.567 (derived: 0.337 + 0.054 + 0.055 + 0.121), inside the expected $0.5–1.0.
