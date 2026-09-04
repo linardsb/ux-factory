@@ -246,8 +246,8 @@ import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, auditParent
 // way group 8's invariant is proven for builder.mjs — by ABSENCE, not by adding something.
 import {
   allowSetFor, allowsPath, allowsToolName, appendTranscript, assertProvenanceRoot, assertRunSlug as assertDiscoverySlug, assertTurnWritable,
-  BANK_PATH, deniedLine, denyReason, discoveryConfig, ENTRY_MODES, fenceCanUseTool, fenceDecision, fenceHooks, FRONT_ENDS, isMcpToolName, MCP_SERVER, nextRef, openSession, opLine,
-  PROVENANCES, readAnswers, READ_TOOLS, readTranscript, resolveRunRoot, sessionView, textLine, TOOL_SCHEMA,
+  BANK_PATH, COMPOSES, declareFacets, deniedLine, denyReason, DEPTH_PROPOSAL, deriveCursor, discoveryConfig, ENTRY_MODES, ESCALATES, escalationFor, fenceCanUseTool, fenceDecision, fenceHooks, FRONT_ENDS, isMcpToolName, LADDER, MCP_SERVER, nextRef, NOT_A_FORM_MAX, openSession, opLine,
+  PROVENANCES, readAnswers, READ_TOOLS, readTranscript, resolveRunRoot, runMetrics, sessionView, textLine, TOOL_SCHEMA,
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
 // #338 F2 — the boot stamp. Pure helper only; BOOT_SHA itself shells out to git and is source-pinned.
@@ -5859,7 +5859,9 @@ function scanSvg(svg, label) {
 // Drives portal/lib/discovery.mjs and portal/lib/discovery-postures.mjs — the THIRD named portal/
 // exception (see the header). Everything reachable with NO agent and NO token: the SSE projection,
 // the schema table, the roots, the slug guard, the ref allocator, the derived cursor, the line
-// constructors, the posture, the fence predicate, the fence hooks and the turn guard.
+// constructors, the posture, the fence predicate, the fence hooks, the turn guard, and the rules
+// layer — the depth proposal, the facet vector's read side, the re-ask, D5's proposal and the two
+// counters (#285).
 //
 // It never imports portal/lib/discovery-transport.mjs, portal/server.mjs or the SDK, and that is
 // proven the way group 8's invariant is proven — by ABSENCE. This job runs with no
@@ -5986,12 +5988,12 @@ function scanSvg(svg, label) {
   const cursorRoot = tmpRoot("cursor");
   writeFileSync(join(cursorRoot, "run.json"), JSON.stringify({
     slug: "cursor", provenance: "fictional", label: "Real run — fictional scenario", entryMode: "blank-idea",
-    depth: "scope-check", branch: null, frontEnd: "portal", model: "claude-sonnet-5", posture: "think",
+    depth: "scope-check", facets: null, frontEnd: "portal", model: "claude-sonnet-5", posture: "think",
     sessionId: null, startedAt: "2026-01-01T00:00:00.000Z", endedAt: null, root: "discovery/cursor", turnStats: [],
   }, null, 2));
   writeFileSync(join(cursorRoot, "answers.jsonl"), "");
   writeFileSync(join(cursorRoot, "transcript.jsonl"), "");
-  const depthIds = selectDepth("scope-check").map((q) => q.id);
+  const depthIds = selectDepth("scope-check").map((q) => q.id);   // six ids — the sequence below fits exactly
   const c0 = sessionView(cursorRoot).cursor;
   ok(c0.index === 0 && c0.question.id === depthIds[0] && c0.turn === "t1" && c0.total === depthIds.length && c0.done === false,
     `case 9: an empty transcript must sit at index 0 on ${depthIds[0]} — got ${JSON.stringify({ i: c0.index, q: c0.question?.id, t: c0.turn, done: c0.done })}`);
@@ -6001,14 +6003,41 @@ function scanSvg(svg, label) {
   ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a NON-closing op moved the cursor — only closed turns advance it");
   appendTranscript(cursorRoot, deniedLine({ turn: "t1", tool: "Write", input: null, error: "refused", via: "PreToolUse" }));
   ok(sessionView(cursorRoot).cursor.index === 0, "case 9: a denied line moved the cursor");
+  // A weak flag on a LADDER depth HOLDS the question for one fresh slot — MVP 6's "pushes back once" (#285).
   appendTranscript(cursorRoot, opLine({ record: { seq: 2, turn: "t1", op: "flag_weak_answer", params: { question_id: depthIds[0], answer_ref: "a1", missing: ["a number"] }, closes: true, flagged: [], supersedes: null } }));
   const c1 = sessionView(cursorRoot).cursor;
-  ok(c1.index === 1 && c1.question.id === depthIds[1] && c1.turn === "t2", `case 9: one closing op must advance exactly one — got ${JSON.stringify({ i: c1.index, q: c1.question?.id, t: c1.turn })}`);
-  for (let i = 2; i <= depthIds.length; i += 1)
-    appendTranscript(cursorRoot, opLine({ record: { seq: i + 1, turn: `t${i}`, op: "flag_weak_answer", params: { question_id: depthIds[i - 1], answer_ref: "a1", missing: ["a number"] }, closes: true, flagged: [], supersedes: null } }));
+  ok(c1.index === 0 && c1.ask === 2 && c1.question.id === depthIds[0] && c1.turn === "t2", `case 9: a first weak flag must HOLD the question on a fresh turn (index 0, ask 2, t2) — got ${JSON.stringify({ i: c1.index, a: c1.ask, q: c1.question?.id, t: c1.turn })}`);
+  // A second closer of ANY kind settles it — never a third ask. The second flag here; a decision and a
+  // parked question each advance one below.
+  appendTranscript(cursorRoot, opLine({ record: { seq: 3, turn: "t2", op: "flag_weak_answer", params: { question_id: depthIds[0], answer_ref: "a2", missing: ["a number"] }, closes: true, flagged: [], supersedes: null } }));
+  const c2 = sessionView(cursorRoot).cursor;
+  ok(c2.index === 1 && c2.ask === 1 && c2.question.id === depthIds[1] && c2.turn === "t3", `case 9: a second weak flag must SETTLE the question — got ${JSON.stringify({ i: c2.index, a: c2.ask, q: c2.question?.id, t: c2.turn })}`);
+  // A decision and a parked question each advance exactly one, first time.
+  appendTranscript(cursorRoot, opLine({ record: { seq: 4, turn: "t3", op: "record_decision", params: { question_id: depthIds[1], answer_ref: "a3", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, closes: true, flagged: ["no-evidence"], supersedes: null } }));
+  ok(sessionView(cursorRoot).cursor.index === 2, "case 9: a decision must advance exactly one");
+  appendTranscript(cursorRoot, opLine({ record: { seq: 5, turn: "t4", op: "open_question", params: { source: "banked", question_id: depthIds[2], answer_ref: "a4", reason: "parked" }, closes: true, flagged: [], supersedes: null } }));
+  ok(sessionView(cursorRoot).cursor.index === 3 && sessionView(cursorRoot).cursor.turn === "t5", "case 9: a parked question must advance exactly one, on the next turn id");
+  // THE RECORDED-BEFORE-#285 SHAPE: a weak flag the record then moved past reads as settled, because the
+  // cursor reads from the LAST closer. graded-think-a holds eleven of these; this is what keeps it done.
+  appendTranscript(cursorRoot, opLine({ record: { seq: 6, turn: "t5", op: "flag_weak_answer", params: { question_id: depthIds[3], answer_ref: "a5", missing: ["x"] }, closes: true, flagged: [], supersedes: null } }));
+  appendTranscript(cursorRoot, opLine({ record: { seq: 7, turn: "t6", op: "record_decision", params: { question_id: depthIds[4], answer_ref: "a6", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, closes: true, flagged: ["no-evidence"], supersedes: null } }));
+  const c6 = sessionView(cursorRoot).cursor;
+  ok(c6.index === 5 && c6.ask === 1 && c6.turn === "t7", `case 9: a weak flag the record moved past must read as settled (index 5) — got ${JSON.stringify({ i: c6.index, a: c6.ask, t: c6.turn })}`);
+  // Past the end.
+  appendTranscript(cursorRoot, opLine({ record: { seq: 8, turn: "t7", op: "record_decision", params: { question_id: depthIds[5], answer_ref: "a7", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, closes: true, flagged: ["no-evidence"], supersedes: null } }));
   const cEnd = sessionView(cursorRoot).cursor;
   ok(cEnd.done === true && cEnd.question === null && cEnd.index === depthIds.length,
     `case 9: past the end must read done with a null question — got ${JSON.stringify({ i: cEnd.index, q: cEnd.question, done: cEnd.done })}`);
+  // whole-bank is OFF the ladder: a weak flag advances one, never holds (#348's one-answer-per-question protocol).
+  const wbRoot = tmpRoot("cursor-wb");
+  writeFileSync(join(wbRoot, "run.json"), JSON.stringify({ slug: "wb", provenance: "fictional", entryMode: "blank-idea", depth: "whole-bank", frontEnd: "portal", model: "claude-sonnet-5", posture: "think", sessionId: null, startedAt: "2026-01-01T00:00:00.000Z", endedAt: null, root: "discovery/wb", turnStats: [] }, null, 2));
+  writeFileSync(join(wbRoot, "answers.jsonl"), ""); writeFileSync(join(wbRoot, "transcript.jsonl"), "");
+  const wbIds = selectDepth("whole-bank").map((q) => q.id);
+  appendTranscript(wbRoot, opLine({ record: { seq: 1, turn: "t1", op: "flag_weak_answer", params: { question_id: wbIds[0], answer_ref: "a1", missing: ["x"] }, closes: true, flagged: [], supersedes: null } }));
+  ok(sessionView(wbRoot).cursor.index === 1 && sessionView(wbRoot).cursor.ask === 1, "case 9: whole-bank must never hold a question — a weak flag advances one");
+  // A closer whose question is not in the list is refused by name (a run.json edited after the fact).
+  writeFileSync(join(wbRoot, "run.json"), JSON.stringify({ ...JSON.parse(readFileSync(join(wbRoot, "run.json"), "utf8")), depth: "scope-check" }, null, 2));
+  ok(names(() => sessionView(wbRoot), "op 1", "scope-check") === null, "case 9: a closer on a question outside the depth's list must be refused naming the seq and the depth");
 
   // 30.10 — the three line constructors, against discovery/README.md's documented shapes, and the
   // applier's fields copied through UNCHANGED. The alias check matters because applyOps refuses an
@@ -6111,9 +6140,17 @@ function scanSvg(svg, label) {
   ok(!served.includes("weakAnswer"), "case 11: the config route serves a weakAnswer key at all");
   ok(discoveryConfig().questions.length === BANK.length && discoveryConfig().depths.length === Object.keys(DEPTHS).length,
     "case 11: the config route must serve the whole bank and every depth");
-  ok(same(Object.keys(discoveryConfig()).sort(), ["depths", "entryModes", "frontEnds", "hasToken", "ops", "postures", "provenances", "questions"]),
+  ok(same(Object.keys(discoveryConfig()).sort(), ["depthProposals", "depths", "entryModes", "facets", "frontEnds", "hasToken", "ops", "postures", "presets", "provenances", "questions"]),
     `case 11: discoveryConfig keys are ${Object.keys(discoveryConfig()).sort().join(",")}`);
   ok(!JSON.stringify(discoveryConfig().postures).includes("systemPrompt"), "case 11: the config route serves a posture's prompt body");
+  // #285: every depth carries its UNFACETED count and says whether a vector moves it — asserted by
+  // DRIVING the bank, not by reading COMPOSES.
+  for (const d of discoveryConfig().depths) {
+    ok(d.count === DEPTHS[d.id].ids.length, `case 11: depth ${d.id} reports count ${d.count}, the literal has ${DEPTHS[d.id].ids.length} — the config states the UNFACETED count`);
+    const moved = JSON.stringify(selectDepth(d.id, PRESETS[0].facets).map((q) => q.id)) !== JSON.stringify(selectDepth(d.id).map((q) => q.id));
+    ok(d.composes === moved && COMPOSES.includes(d.id) === moved, `case 11: depth ${d.id} says composes ${d.composes}, but a declared vector ${moved ? "MOVES" : "does not move"} its list`);
+  }
+  ok(same(discoveryConfig().facets, FACETS) && same(discoveryConfig().presets, PRESETS) && same(discoveryConfig().depthProposals, DEPTH_PROPOSAL), "case 11: the config route must serve the bank's FACETS and PRESETS and the session's DEPTH_PROPOSAL — the UI holds no second copy");
 
   // 30.17 — the ledger brief (#341): this run's decisions by rung and the parent candidates per rung,
   // in the TURN prompt and never the system prompt (the system prompt is byte-stable across a session
@@ -6749,13 +6786,25 @@ function scanSvg(svg, label) {
   // becomes a package. The create/resume branch writes a real root (repo or JOBS_DIR) and stays out of
   // CI: a package may only be written by a real session. The slug below is RESERVED for this case —
   // a fictional run cannot be named it (see the header on why the path is removed, not asserted absent).
-  const openArgs = { slug: "ci-refused-never-written", provenance: "fictional", entryMode: "blank-idea", depth: "scope-check", branch: null, frontEnd: "portal", posture: "think" };
+  const openArgs = { slug: "ci-refused-never-written", provenance: "fictional", entryMode: "blank-idea", depth: "scope-check", frontEnd: "portal", posture: "think" };
   const refusedOpen = (patch) => threw(() => openSession({ ...openArgs, ...patch }))?.message ?? null;
   ok(refusedOpen({ entryMode: "existing-prd" })?.includes("entryMode"), "case 16: an unknown entryMode must be refused by name");
   ok(refusedOpen({ frontEnd: "cli" })?.includes("frontEnd"), "case 16: an unknown frontEnd must be refused by name");
   ok(refusedOpen({ posture: "shout" })?.includes("posture"), "case 16: an unknown posture must be refused by name");
   ok(refusedOpen({ depth: "no-such-depth" }) !== null, "case 16: an unknown depth must throw (the bank's own refusal)");
-  ok(refusedOpen({ branch: "b2b" })?.includes("#283"), "case 16: a non-null branch must be refused naming #283");
+  // The facet vector (#285, replacing the spine's "non-null branch refused naming #283"): junk refused
+  // by the BANK's name, an overflowing vector refused naming what does not fit and the whole-bank
+  // escape — never trimmed. Acceptance of a good vector is a write and is pinned from source below.
+  ok(refusedOpen({ facets: { marketplace: true } })?.includes("unknown facet"), "case 16: an unknown facet must be refused by the bank's name");
+  ok(refusedOpen({ facets: { hasModel: "yes" } })?.includes("true or false"), "case 16: a non-boolean facet must be refused by the bank's name");
+  ok(refusedOpen({ facets: [true] })?.includes("facets must be"), "case 16: a non-object vector must be refused by the bank's name");
+  const over = refusedOpen({ depth: "full-discovery", facets: { hasModel: true, regulated: true, internal: true } });
+  ok(over?.includes("overflows") && over.includes("internal (6)") && over.includes("whole-bank"), `case 16: an overflowing vector must be refused naming the facet that does not fit and the whole-bank escape — got ${JSON.stringify(over)}`);
+  // ACCEPTANCE is asserted through declareFacets, never through openSession: a good vector on the
+  // reserved slug would reach mkdirSync and write a package.
+  ok(declareFacets({}) === null && declareFacets(undefined) === null && declareFacets(null) === null, "case 16: {} / undefined / null are NO vector (D1b) and open an unfaceted session");
+  ok(same(declareFacets({ regulated: true }), { hasModel: false, regulated: true, internal: false, orgBuys: false, replacesAProcess: false }) && same(declareFacets(PRESETS[3].facets), PRESETS[3].facets), "case 16: a declared vector normalises to all five keys in FACETS order; the consumer preset stays DECLARED");
+  ok(Object.isFrozen(declareFacets({ regulated: true })), "case 16: the recorded vector is frozen");
   // The read fence's input (#287), refused by name before the package exists.
   ok(refusedOpen({ reads: "docs/x.md" })?.includes("reads") && refusedOpen({ reads: [""] })?.includes("reads") && refusedOpen({ reads: [7] })?.includes("reads"), "case 16: a junk reads must be refused naming reads");
   rmSync(join(ROOT, "discovery", openArgs.slug), { recursive: true, force: true });
@@ -6766,16 +6815,115 @@ function scanSvg(svg, label) {
   const openStart = discoverySrc.indexOf("export function openSession(");
   const openBody = openStart === -1 ? "" : discoverySrc.slice(openStart, discoverySrc.indexOf("\n}\n", openStart));
   const firstMkdir = openBody.indexOf("mkdirSync(");
-  const guardAt = [...openBody.matchAll(/\b(?:bad|selectDepth|assertRunSlug|assertProvenanceRoot|allowSetFor)\(/g)].map((m) => m.index);
-  ok(openStart !== -1 && firstMkdir !== -1, "case 16: openSession or its mkdirSync is not where the source pin expects — re-pin before trusting the six refusals above");
-  ok(guardAt.length >= 8, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the eight pinned (slug, root, reads, entryMode, frontEnd, posture, depth, branch)`);
+  const guardAt = [...openBody.matchAll(/\b(?:bad|selectDepth|declareFacets|assertRunSlug|assertProvenanceRoot|allowSetFor)\(/g)].map((m) => m.index);
+  ok(openStart !== -1 && firstMkdir !== -1, "case 16: openSession or its mkdirSync is not where the source pin expects — re-pin before trusting the refusals above");
+  ok(guardAt.length >= 8, `case 16: openSession's body carries ${guardAt.length} guard calls, fewer than the eight pinned (slug, root, reads, entryMode, frontEnd, posture, facets, depth)`);
   ok(guardAt.every((i) => i < firstMkdir), `case 16: a guard in openSession sits AFTER mkdirSync — a refused call would already have created the package (guards at ${guardAt.join(",")}, mkdirSync at ${firstMkdir})`);
+  // What the create branch WRITES, pinned from source (the branch itself stays out of CI): the vector
+  // normalised, the proposal beside the confirmed depth, and no `branch` anywhere in the module.
+  const writeAt = openBody.indexOf("writeRun(root, {");
+  const writeLit = openBody.slice(writeAt, openBody.indexOf("});", writeAt));
+  ok(writeAt !== -1 && /\bfacets: declared\b/.test(writeLit) && /\bproposedDepth: DEPTH_PROPOSAL\[entryMode\]/.test(writeLit), `case 16: openSession's writeRun literal must record facets: declared and proposedDepth — got ${JSON.stringify(writeLit.slice(0, 200))}`);
+  ok(!/\bbranch\b/.test(discoverySrc), "case 16: `branch` must not appear in portal/lib/discovery.mjs — it stopped existing as a parameter (decision doc D5)");
+
+  // 30.27 — THE TABLES (#285). Each iterated against the vocabulary it indexes in BOTH directions, so
+  // a fifth depth, a second entry mode or a stray row fails by name.
+  ok(same([...LADDER, "whole-bank"].sort(), Object.keys(DEPTHS).sort()), `case 27: LADDER ∪ { whole-bank } is ${[...LADDER, "whole-bank"].join(",")} and the depth menu is ${Object.keys(DEPTHS).join(",")} — a new depth is placed on or off the ladder by name`);
+  ok(same(Object.keys(DEPTH_PROPOSAL).sort(), [...ENTRY_MODES].sort()), `case 27: DEPTH_PROPOSAL keys ${Object.keys(DEPTH_PROPOSAL)} != ENTRY_MODES ${ENTRY_MODES} — every entry mode proposes a depth (MVP 5)`);
+  for (const [mode, d] of Object.entries(DEPTH_PROPOSAL)) ok(LADDER.includes(d), `case 27: DEPTH_PROPOSAL[${mode}] = ${d} is not an interview rung — whole-bank is a stress test and is never proposed`);
+  for (const [from, to] of Object.entries(ESCALATES)) ok(LADDER.indexOf(to) === LADDER.indexOf(from) + 1, `case 27: ESCALATES[${from}] = ${to} is not the rung immediately above`);
+  ok(same(Object.keys(ESCALATES), ["scope-check"]), `case 27: ESCALATES has rows for ${Object.keys(ESCALATES)} — MVP 5 writes the rule for Scope check alone; a second row is a PRD amendment`);
+  ok(NOT_A_FORM_MAX === 3, `case 27: NOT_A_FORM_MAX is ${NOT_A_FORM_MAX}, the PRD says 3`);
+  for (const t of [LADDER, ESCALATES, DEPTH_PROPOSAL, COMPOSES]) ok(Object.isFrozen(t), "case 27: a rules table is not frozen");
+
+  // 30.28 — THE FACETED READ SIDE and D5's PROPOSAL, over temp roots. The write side is case 16's pin.
+  {
+    const mk = (name, head) => { const r = tmpRoot(name); writeFileSync(join(r, "run.json"), JSON.stringify({ slug: name, provenance: "fictional", entryMode: "blank-idea", frontEnd: "portal", model: "claude-sonnet-5", posture: "think", sessionId: null, startedAt: "2026-01-01T00:00:00.000Z", endedAt: null, root: `discovery/${name}`, turnStats: [], ...head }, null, 2)); writeFileSync(join(r, "answers.jsonl"), ""); writeFileSync(join(r, "transcript.jsonl"), ""); return r; };
+    const ids = (root) => { const v = sessionView(root); return selectDepth(v.head.depth, v.head.facets ?? null).map((q) => q.id); };
+    // A declared vector drives the walk; absent, null and {} read as today's list; a non-composing depth ignores it.
+    const faceted = mk("faceted", { depth: "full-discovery", facets: PRESETS[0].facets });
+    ok(same(ids(faceted), selectDepth("full-discovery", PRESETS[0].facets).map((q) => q.id)) && sessionView(faceted).cursor.total === 22, `case 28: a faceted run.json must walk the composed list (regulated: 12 + 6 + 4 = 22) — got ${sessionView(faceted).cursor.total}`);
+    for (const absent of [{}, { facets: null }]) { const r = mk(`unfaceted-${Object.keys(absent).length}`, { depth: "full-discovery", ...absent }); ok(sessionView(r).cursor.total === 30 && same(ids(r), selectDepth("full-discovery").map((q) => q.id)), "case 28: no facets field / facets: null must read as the unfaceted 30"); }
+    const ignored = mk("ignored", { depth: "scope-check", facets: PRESETS[2].facets });
+    ok(sessionView(ignored).cursor.total === 6, "case 28: a vector on scope-check is recorded and ignored — the literal six (D1b totality)");
+    ok(threw(() => sessionView(mk("junk", { depth: "full-discovery", facets: { marketplace: true } })))?.message.includes("unknown facet"), "case 28: a run.json carrying a facet the bank does not know must throw by the bank's name");
+    // The cursor at a re-ask names the second ask; the metrics see one closer.
+    const sc = mk("escalate", { depth: "scope-check" });
+    const six = selectDepth("scope-check").map((q) => q.id);
+    const weak = (seq, turn, qid) => appendTranscript(sc, opLine({ record: { seq, turn, op: "flag_weak_answer", params: { question_id: qid, answer_ref: `a${seq}`, missing: ["x"] }, closes: true, flagged: [], supersedes: null } }));
+    ok(sessionView(sc).escalation === null, "case 28: an empty scope-check proposes nothing");
+    weak(1, "t1", six[0]);
+    ok(sessionView(sc).escalation === null && sessionView(sc).cursor.ask === 2, "case 28: ONE weak flag is a pushback, not a repeat — no proposal while the second ask is open");
+    weak(2, "t2", six[0]);
+    const e = sessionView(sc).escalation;
+    ok(e?.from === "scope-check" && e.to === "opening-set" && same(e.because, [{ questionId: six[0], turns: ["t1", "t2"], seqs: [1, 2] }]) && /new run/.test(e.how),
+      `case 28: two weak flags on one scoping question must PROPOSE opening-set naming the question and both turns — got ${JSON.stringify(e)}`);
+    ok(sessionView(sc).cursor.index === 1 && sessionView(sc).head.depth === "scope-check" && JSON.parse(readFileSync(join(sc, "run.json"), "utf8")).depth === "scope-check", "case 28: the proposal FORCES nothing — the cursor moved on and run.json's depth is untouched");
+    // The same two flags on the other three depths propose nothing (ESCALATES has one row).
+    for (const d of ["opening-set", "full-discovery", "whole-bank"]) {
+      const r = mk(`no-esc-${d}`, { depth: d }); const q = selectDepth(d)[0].id;
+      appendTranscript(r, opLine({ record: { seq: 1, turn: "t1", op: "flag_weak_answer", params: { question_id: q, answer_ref: "a1", missing: ["x"] }, closes: true, flagged: [], supersedes: null } }));
+      appendTranscript(r, opLine({ record: { seq: 2, turn: "t2", op: "flag_weak_answer", params: { question_id: d === "whole-bank" ? selectDepth(d)[1].id : q, answer_ref: "a2", missing: ["x"] }, closes: true, flagged: [], supersedes: null } }));
+      ok(sessionView(r).escalation === null, `case 28: ${d} must propose nothing — only ESCALATES' rows propose`);
+    }
+    // Purity: the same input twice, and the returned value is not the transcript's own array.
+    ok(same(sessionView(sc), sessionView(sc)), "case 28: sessionView must be deterministic over one package");
+  }
+
+  // 30.29 — THE COUNTERS at 0/1/2/3/4 across every op kind, including the two that must not move them.
+  {
+    const qs = selectDepth("full-discovery");
+    const T = [];
+    const op = (seq, turn, kind, params, closes) => T.push({ type: "op", ts: "2026-01-01T00:00:00.000Z", seq, turn, op: kind, params, closes, flagged: [], supersedes: null });
+    const m = () => runMetrics({ depth: "full-discovery", facets: null, questions: qs, transcript: T });
+    ok(m().notAForm.streak === 0 && m().notAForm.longest === 0 && m().notAForm.tripped === false && m().weak.rate === null && m().coverage.asked === 0 && same(m().coverage.missing, [...OPENING_SET]) && m().askedWhatMattered.twelve.rate === null, `case 29: the empty run reads all zeros and null rates — got ${JSON.stringify(m())}`);
+    // 1, 2, 3, 4 parked in a row: the streak climbs and trips at 4 (PRD MVP 8: parking counts as neither).
+    for (let i = 0; i < 4; i += 1) {
+      op(i + 1, `t${i + 1}`, "open_question", { source: "banked", question_id: qs[i].id, answer_ref: `a${i + 1}`, reason: "later" }, true);
+      ok(m().notAForm.streak === i + 1 && m().notAForm.longest === i + 1 && m().notAForm.tripped === (i + 1 > NOT_A_FORM_MAX), `case 29: after ${i + 1} parked, streak ${m().notAForm.streak}, tripped ${m().notAForm.tripped}`);
+    }
+    // The two that must NOT move it: file_evidence (never closes) and every off-script op.
+    op(5, "t5", "file_evidence", { url: "https://x.test", ref: null, name: null, provenance: "assumption", claim_ref: null }, false);
+    op(6, "t5", "record_decision", { question_id: null, answer_ref: "a5", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: true }, false);
+    op(7, "t5", "open_question", { source: "off-script", question_id: null, answer_ref: "a5", reason: "aside" }, false);
+    ok(m().notAForm.streak === 4 && m().completion.turns === 4 && m().coverage.asked === 4, `case 29: file_evidence and off-script ops moved a counter — ${JSON.stringify(m())}`);
+    // A decision resets to 0; a weak flag resets to 0; longest stays 4.
+    op(8, "t5", "record_decision", { question_id: qs[4].id, answer_ref: "a5", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, true);
+    ok(m().notAForm.streak === 0 && m().notAForm.longest === 4, "case 29: a decision must reset the streak and keep longest");
+    op(9, "t6", "open_question", { source: "banked", question_id: qs[5].id, answer_ref: "a6", reason: "later" }, true);
+    op(10, "t7", "flag_weak_answer", { question_id: qs[6].id, answer_ref: "a7", missing: ["x"] }, true);
+    ok(m().notAForm.streak === 0 && m().weak.flagged === 1 && m().weak.closed === 7 && Math.abs(m().weak.rate - 1 / 7) < 1e-9, `case 29: a weak flag must reset the streak and count in the RATE — ${JSON.stringify(m().weak)}`);
+    // Coverage from the OPS, not the cursor: skip a question by closing the one after it.
+    op(11, "t8", "record_decision", { question_id: qs[8].id, answer_ref: "a8", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, true);   // qs[7] skipped
+    const cov = m().coverage;
+    ok(cov.asked === 8 && cov.decided === 2 && cov.of === 12 && same(cov.missing, [qs[7].id, ...qs.slice(9, 12).map((q) => q.id)]), `case 29: coverage must be read from the ops — a skipped question is not covered — got ${JSON.stringify(cov)}`);
+    ok(deriveCursor({ depth: "full-discovery", questions: qs, transcript: T }).index === 9 && cov.asked === 8, "case 29: the cursor says 9 settled and coverage says 8 asked — the two reads differ, which is the point");
+    // Asked what mattered: the twelve against the tail, full-discovery only.
+    op(12, "t9", "record_decision", { question_id: qs[12].id, answer_ref: "a9", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, true);
+    op(13, "t10", "open_question", { source: "banked", question_id: qs[13].id, answer_ref: "a10", reason: "later" }, true);
+    const awm = m().askedWhatMattered;
+    ok(awm.twelve.closed === 8 && awm.twelve.decided === 2 && awm.tail.closed === 2 && awm.tail.decided === 1 && awm.tail.rate === 0.5 && same(awm.modules, []), `case 29: asked-what-mattered must tally the twelve and the tail separately — got ${JSON.stringify(awm)}`);
+    // Over the FACETED list, with the closers that sit on the twelve only (ops 12–13 close unfaceted-tail
+    // questions the regulated list does not hold, and deriveCursor would rightly refuse them).
+    ok(same(runMetrics({ depth: "full-discovery", facets: PRESETS[0].facets, questions: selectDepth("full-discovery", PRESETS[0].facets), transcript: T.filter((l) => l.seq <= 11) }).askedWhatMattered.modules, ["regulated"]), "case 29: the modules that composed are reported beside the rates (D4's dropped-module read)");
+    for (const d of ["scope-check", "opening-set", "whole-bank"]) ok(runMetrics({ depth: d, questions: selectDepth(d), transcript: [] }).askedWhatMattered === null, `case 29: ${d} must report asked-what-mattered as null — full-discovery only`);
+    // Two counting bases, on purpose (the runMetrics header): a question of the twelve HELD then decided
+    // is ONE question to coverage and TWO closers to the D4 tally and the weak rate.
+    op(14, "t11", "flag_weak_answer", { question_id: qs[9].id, answer_ref: "a11", missing: ["x"] }, true);
+    ok(deriveCursor({ depth: "full-discovery", questions: qs, transcript: T }).ask === 2 && m().coverage.asked === 9 && m().coverage.decided === 2, `case 29: a first weak flag holds the question and covers it once — got ${JSON.stringify(m().coverage)}`);
+    op(15, "t12", "record_decision", { question_id: qs[9].id, answer_ref: "a12", level: "business", parent_id: null, evidence_refs: [], wrong_if: "w", off_script: false }, true);
+    const held = m();
+    ok(held.coverage.asked === 9 && held.coverage.decided === 3 && held.askedWhatMattered.twelve.closed === 10 && held.askedWhatMattered.twelve.decided === 3 && held.weak.flagged === 2 && held.weak.closed === 12 && Math.abs(held.weak.rate - 2 / 12) < 1e-9,
+      `case 29: held-then-decided is ONE question to coverage and TWO closers to the tally and the rate — got ${JSON.stringify({ coverage: held.coverage, twelve: held.askedWhatMattered.twelve, weak: held.weak })}`);
+    // Purity.
+    const before = JSON.stringify(T); m(); ok(JSON.stringify(T) === before && same(m(), m()), "case 29: runMetrics must not touch its input and must be deterministic");
+  }
 
   // The temp package never reaches the repo; the roots case above proved where a real one WOULD go.
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, one closer advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's five refusals (entryMode, frontEnd, posture, depth, non-null branch) each driven, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, set strictMcpConfig: true so the repo's .mcp.json never joins a run's advertised surface (#352), and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2) · ONE FENCE, TWO KINDS OF RUN (#359): extraTools and write, both defaulted, with the MIRROR case proving extraTools absent, [] and undefined byte-identical over case 25's whole twelve-input battery in DECISION and REASON, the proposal tool name admitted and only it (five near-misses denied, the op tools still passing by the name gate, Write/Edit/Bash still denied BY NAME, six junk values denying rather than throwing), allowsToolName proven NOT widened so case 14's statement still holds, the mcp__ prefix isRecorded rests on pinned, and write proven to STREAM a denial with transcript.jsonl left empty against the write: null positive control that lands one — plus the two callers proven to hand onLine the SAME key set with ts present, because the stamp sits before the write/append branch, and a PostToolUseFailure on the run's OWN tool streamed while one on a foreign tool records nothing. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here`);
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, a decision and a parked question each advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's six refusals (entryMode, frontEnd, posture, depth, a junk facet by the bank's name, an overflowing vector naming what does not fit) each driven, {} proven to be NO vector, the write literal pinned to record facets: declared and proposedDepth, and branch proven absent from the module, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, set strictMcpConfig: true so the repo's .mcp.json never joins a run's advertised surface (#352), and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2) · ONE FENCE, TWO KINDS OF RUN (#359): extraTools and write, both defaulted, with the MIRROR case proving extraTools absent, [] and undefined byte-identical over case 25's whole twelve-input battery in DECISION and REASON, the proposal tool name admitted and only it (five near-misses denied, the op tools still passing by the name gate, Write/Edit/Bash still denied BY NAME, six junk values denying rather than throwing), allowsToolName proven NOT widened so case 14's statement still holds, the mcp__ prefix isRecorded rests on pinned, and write proven to STREAM a denial with transcript.jsonl left empty against the write: null positive control that lands one — plus the two callers proven to hand onLine the SAME key set with ts present, because the stamp sits before the write/append branch, and a PostToolUseFailure on the run's OWN tool streamed while one on a foreign tool records nothing · #285 added THE RULES LAYER: LADDER ∪ whole-bank pinned to the depth menu, DEPTH_PROPOSAL ↔ ENTRY_MODES both ways with every proposal an interview rung, ESCALATES one row pinned to the rung immediately above, COMPOSES proven by driving the bank, the config's per-depth UNFACETED count and composes flag · the cursor read from the LAST closer — a first weak flag HOLDS the question for one fresh turn, a second closer of any kind settles it, whole-bank never holds, a weak flag the record moved past reads as settled (the shape graded-think-a holds eleven times), a closer outside the list refused naming the seq · D5's proposal as a VALUE: null on one flag, present with the question and both turns on two, run.json's depth untouched, null on the three depths ESCALATES does not name · the counters at 0/1/2/3/4 with file_evidence and both off-script ops proven not to move them, the weak-answer RATE, coverage from the ops diverging from the cursor on a skipped question, and asked-what-mattered tallying the twelve and the tail with the composed modules. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here; and whether the drawer shows the re-asked question and the proposal — portal.js touches the DOM at module scope; the portal smoke is the check`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------
@@ -6903,7 +7051,7 @@ function scanSvg(svg, label) {
     label: "Gate fixture — hand-authored for build-checks group 31, not a run",
     entryMode: "blank-idea",
     depth: "full-discovery",
-    branch: null,
+    facets: null,
     frontEnd: "portal",
     model: "claude-sonnet-5",
     posture: "think",
@@ -7225,10 +7373,10 @@ function scanSvg(svg, label) {
   }
 
   // 31.12 — run.json is NOT a closed shape. The real spine package carries a `posture` the README does
-  // not document, and branch / endedAt / sessionId are legitimately null. Interpolating a missing
+  // not document, and facets / endedAt / sessionId are legitimately null. Interpolating a missing
   // field is the likeliest visible bug this module can ship (R6).
   {
-    for (const key of ["posture", "branch", "endedAt", "model", "turnStats"]) {
+    for (const key of ["posture", "facets", "endedAt", "model", "turnStats"]) {
       const run = { ...PRD_RUN };
       delete run[key];
       const md = projectPrd({ run, answers: PRD_ANSWERS, ops: PRD_RECORDS });
@@ -7237,15 +7385,20 @@ function scanSvg(svg, label) {
     }
     ok(!/\bundefined\b/.test(doc), 'the happy projection carries "undefined" — the same one-line guard, on the happy path');
     for (const k of ["slug", "label", "entryMode", "depth", "frontEnd"]) ok(doc.includes(String(PRD_RUN[k])), `run.${k} is not on the page — the tolerance above would then pass because the header is never rendered`);
-    ok(doc.includes("branch none") && doc.includes("ended 2026-08-29T09:40:00.000Z"), "a null branch must read `none` and a set endedAt must render — an `open` here would mean the field is not read");
+    ok(doc.includes("unfaceted") && doc.includes("ended 2026-08-29T09:40:00.000Z"), "a null facets must read `unfaceted` and a set endedAt must render — an `open` here would mean the field is not read");
     // The two summary lines pinned WHOLE, built from the fixture. Pinning five of the header's twelve
     // fields left provenance / model / posture / the turn count free to be replaced with anything,
     // and the document's own summary of its ledger was read by nothing at all.
     const line = (prefix) => doc.split("\n").find((l) => l.startsWith(prefix)) ?? null;
     const runLine = `**Run** — \`${PRD_RUN.slug}\` · ${PRD_RUN.provenance} (${PRD_RUN.label}) · entry ${PRD_RUN.entryMode}`
-      + ` · depth ${PRD_RUN.depth} · branch none · front end ${PRD_RUN.frontEnd} · model ${PRD_RUN.model}`
+      + ` · depth ${PRD_RUN.depth} · unfaceted · front end ${PRD_RUN.frontEnd} · model ${PRD_RUN.model}`
       + ` · posture ${PRD_RUN.posture} · started ${PRD_RUN.startedAt} · ended ${PRD_RUN.endedAt} · ${PRD_RUN.turnStats.length} turn(s)`;
     ok(line("**Run**") === runLine, `the Run line is ${JSON.stringify(line("**Run**"))} — every field run.json carries must be on it: ${JSON.stringify(runLine)}`);
+    // The facet label on three shapes (#285), and `branch` off the page for a package recorded before it.
+    const withVector = projectPrd({ run: { ...PRD_RUN, facets: { hasModel: false, regulated: true, internal: false, orgBuys: true, replacesAProcess: false } }, answers: PRD_ANSWERS, ops: PRD_RECORDS });
+    ok(withVector.includes("· facets regulated + orgBuys ·"), "a declared vector must render its ticked facets in FACETS order on the Run line");
+    ok(projectPrd({ run: { ...PRD_RUN, facets: { hasModel: false, regulated: false, internal: false, orgBuys: false, replacesAProcess: false } }, answers: PRD_ANSWERS, ops: PRD_RECORDS }).includes("· facets none ticked ·"), "a declared all-false vector (the consumer preset) must read `facets none ticked`, not `unfaceted` — D1b's distinction");
+    ok(projectPrd({ run: { ...PRD_RUN, branch: null }, answers: PRD_ANSWERS, ops: PRD_RECORDS }).includes("· unfaceted ·") && !projectPrd({ run: { ...PRD_RUN, branch: null }, answers: PRD_ANSWERS, ops: PRD_RECORDS }).includes("branch"), "a package recorded before #285 (branch: null, no facets) must read `unfaceted` and never `branch`");
     const count = (fn) => PRD_RECORDS.filter(fn).length;
     const ledgerLine = `**Ledger** (whole ledger, superseded records included) — ${PRD_RECORDS.length} op(s): ${DISCOVERY_OPS.map((v) => `${v} ${count((r) => r.op === v)}`).join(" · ")}`
       + ` · flags: ${FLAGS.map((f) => `${f} ${count((r) => r.flagged.includes(f))}`).join(" · ")}`;
