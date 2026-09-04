@@ -192,9 +192,51 @@
 #discovery-question { margin: var(--spacing-xs) 0 0; }
 
 /* PRD Q4 — 44×44 minimum targets. The portal is not in the VR page set, so no gate covers this;
-   it is honoured here and recorded in the PR report. */
-#discovery-drawer .btn { min-height: 44px; }
-#discovery-drawer select, #discovery-drawer input { min-height: 44px; }
+   it is honoured here, measured in a real browser, and recorded in the PR report. #288's controls —
+   the three flow buttons, the four presets, the clear control and the six checkboxes — extend it:
+   min-WIDTH was never set, and a numbered button ("1. Think") is narrow enough to want it. */
+#discovery-drawer .btn { min-height: 44px; min-width: 44px; }
+/* The checkbox is scoped OUT of the 44px input rule — it would swell the box itself into a 44px
+   square. The 44px hit area comes from .discovery-check, the label, below. Decided once, here. */
+#discovery-drawer select, #discovery-drawer input:not([type="checkbox"]) { min-height: 44px; }
+
+/* #288 — the stance and the facet vector. The LABEL is the target: a native checkbox renders at
+   ~13px, so sizing the input alone leaves a sub-44px hit area whatever the box measures. */
+.discovery-flow, .discovery-facets {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm); display: flex; flex-direction: column; gap: var(--spacing-xs);
+}
+.discovery-flow legend, .discovery-facets legend { font-size: var(--type-caption); color: var(--color-fg-muted); padding: 0 var(--spacing-xs); }
+.discovery-flow-steps, .discovery-presets { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.discovery-checks { display: flex; flex-direction: column; }
+.discovery-check {
+  display: flex; align-items: center; gap: var(--spacing-sm);
+  min-height: 44px; cursor: pointer; min-width: 0;
+}
+.discovery-check input { width: 22px; height: 22px; flex: none; }
+
+/* #288 — the package view, mirroring .discovery-recorded-turn. The model's wrong-if and reason lines
+   are prose and can be long, so they wrap as written and min-width:0 keeps the drawer from blowing
+   out on one unbroken string. */
+.discovery-package-row {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-xs); margin-top: var(--spacing-xs);
+}
+.discovery-package-row.is-superseded { opacity: 0.6; }
+.discovery-package-prose {
+  white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0;
+  font-size: var(--type-body); color: var(--color-fg); margin: 0 0 var(--spacing-xs);
+}
+.discovery-package-meta {
+  white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0;
+  margin: 0 0 var(--spacing-xs);
+  font-size: var(--type-caption); color: var(--color-fg-muted);
+}
+.discovery-chip {
+  display: inline-block; padding: 0 var(--spacing-xs); border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border); background: var(--color-bg-surface);
+  font-size: var(--type-caption); color: var(--color-fg-muted);
+}
 
 .discovery-recorded-turn {
   border-top: 1px solid var(--color-border);

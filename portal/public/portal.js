@@ -680,21 +680,71 @@ $('#chat-form').addEventListener('submit', async (e) => {
 //
 // The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
 // A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
-const discovery = { config: null, session: null, running: false, proposals: null };
+// #288: `step` is the selected posture FLOW step (a stance) and `vectorDeclared` is D1b's distinction
+// — {} is no vector (the unfaceted thirty), a declared all-false vector is the consumer preset (16).
+// Both are selection state for controls the config drives; neither is a copy of a rule.
+const discovery = { config: null, session: null, running: false, proposals: null, step: null, vectorDeclared: false };
 
 // #286: the entry mode, Grill's model and the audited document are read off the form like the rest —
 // the server refuses what it will not take, by name. `documentText` is the textarea's value; it goes
 // on the wire as `document`, the field openSession names.
+//
+// #288: `posture` is no longer a select — it is the chosen flow step's default posture, or its variant
+// when the variant box is ticked. `facets` is the five-key vector, or null when nothing was declared.
 const discoveryEls = () => ({
   slug: $('#discovery-slug').value.trim(),
   provenance: $('#discovery-provenance').value,
   entryMode: $('#discovery-entry').value,
   depth: $('#discovery-depth').value,
-  posture: $('#discovery-posture').value,
+  posture: postureOfStep(),
+  facets: declaredVector(),
   model: $('#discovery-model').value || null,
   documentText: $('#discovery-document').value || null,
   documentPath: $('#discovery-document-path').value.trim() || null,
 });
+
+// The steps this entry mode admits, in POSTURE_FLOW's order, each with the postures the mode allows.
+// Read from the config both ways: a step whose postures the mode admits none of is dropped whole.
+function admittedSteps() {
+  const c = discovery.config;
+  if (!c) return [];
+  const admitted = c.entryPostures[$('#discovery-entry').value] ?? [];
+  return c.postureFlow
+    .map((row) => ({ ...row, postures: row.postures.filter((id) => admitted.includes(id)) }))
+    .filter((row) => row.postures.length);
+}
+
+const stepRow = () => admittedSteps().find((r) => r.step === discovery.step) ?? admittedSteps()[0] ?? null;
+
+// The posture on the wire: the step's default, or its variant when the box is ticked and the mode
+// admits one. A step is a stance; a posture is a prompt, and Think has two of them.
+function postureOfStep() {
+  const row = stepRow();
+  if (!row) return '';
+  return $('#discovery-variant').checked && row.postures.length > 1 ? row.postures[1] : row.postures[0];
+}
+
+// D1b's distinction, as a value: null when the person declared nothing, else all five keys as booleans.
+const declaredVector = () => {
+  const c = discovery.config;
+  if (!c || !discovery.vectorDeclared) return null;
+  return Object.fromEntries(c.facets.map((f) => [f.id, Boolean($(`input[data-facet="${f.id}"]`)?.checked)]));
+};
+
+// THE ONE DERIVED LINE IN THIS DRAWER (#288 A5): the plan table's key, spelled the same way the server
+// spells it — a join over config.facets IN ORDER, never a literal id list. Everything else about the
+// vector's consequences is a LOOKUP into config.facetPlans, because composing the greedy walk here
+// would be a second copy of D1a and facetPlan's own comment warns that `fits` is not a prefix of `fired`.
+const facetKeyOf = (v) => (v === null ? '' : discovery.config.facets.map((f) => (v[f.id] === true ? '1' : '0')).join(''));
+
+// The plan for what is currently ticked. Read, never computed.
+const facetPlanNow = () => discovery.config.facetPlans[facetKeyOf(declaredVector())];
+
+// Whether the chosen depth composes from a vector (D1b). facetPlan is DEPTH-BLIND — every row in
+// facetPlans describes full discovery — so no count and no overflow refusal may be shown where this
+// is false, or a legal scope-check session with three facets ticked is refused a session the server
+// would happily open (bank.mjs:1098 only throws at full discovery).
+const depthComposes = () => discovery.config.depths.find((d) => d.id === $('#discovery-depth').value)?.composes === true;
 
 $('#btn-discovery').addEventListener('click', async () => {
   $('#discovery-drawer').hidden = false;
@@ -727,6 +777,7 @@ async function loadDiscoveryConfig() {
   $('#discovery-entry').innerHTML = c.entryModes
     .map((m) => `<option value="${esc(m)}">${esc(m === 'existing-prd' ? 'An existing PRD — audit it' : 'A blank idea — interview')}</option>`).join('');
   $('#discovery-model').innerHTML = c.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  renderFacetControls();
   // The postures the mode admits, the proposed depth (#285; MVP 5: the agent proposes, the human
   // confirms — confirming is pressing Start, changing it is picking another option), the document
   // row and the model row all follow the entry mode.
@@ -756,23 +807,49 @@ async function renderDiscoveryBuild() {
 function renderDiscoveryEntry() {
   const c = discovery.config;
   const mode = $('#discovery-entry').value;
-  const admitted = c.entryPostures[mode] ?? [];
-  const current = $('#discovery-posture').value;
-  $('#discovery-posture').innerHTML = c.postures.filter((p) => admitted.includes(p.id))
-    .map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(p.model)})</option>`).join('');
-  if (admitted.includes(current)) $('#discovery-posture').value = current;
+  renderDiscoveryFlow();
   $('#discovery-document-row').hidden = mode !== 'existing-prd';
   $('#discovery-depth').value = c.depthProposals[mode] ?? c.depths[0].id;
   renderDiscoveryModel();
   renderDiscoveryNotes();
 }
 
+// MVP 1's three buttons (#288), rendered from config.postureFlow and filtered by the entry mode's
+// entryPostures — so an existing PRD shows the one step it admits rather than three with two refused.
+// The selection is a step, not a posture: the variant checkbox picks the prompt's model within it.
+// ONE delegated listener on the row, the shape renderProposals already uses.
+function renderDiscoveryFlow() {
+  const c = discovery.config;
+  const rows = admittedSteps();
+  if (!rows.some((r) => r.step === discovery.step)) discovery.step = rows[0]?.step ?? null;
+  const row = stepRow();
+  $('#discovery-flow').innerHTML = rows.map((r) => `
+    <button class="btn ${r.step === discovery.step ? 'btn-primary' : 'btn-secondary'}" type="button"
+      data-step="${esc(r.step)}" aria-pressed="${r.step === discovery.step}">${r.order}. ${esc(r.label)}</button>`).join('');
+  const variant = row && row.postures.length > 1 ? row.postures[1] : null;
+  $('#discovery-variant-row').hidden = !variant;
+  if (!variant) $('#discovery-variant').checked = false;
+  else $('#discovery-variant-label').textContent = c.postureVariantLabels[variant] ?? variant;
+  const posture = c.postures.find((p) => p.id === postureOfStep());
+  $('#discovery-flow-note').textContent = row
+    ? `${row.what} Runs as ${posture?.label ?? postureOfStep()} on ${posture?.model ?? 'its own model'}. The stance is recorded once in run.json and stands for the whole run — pressing the next one is the next RUN, over what this one produced.`
+    : 'No stance admits this entry mode.';
+}
+$('#discovery-flow').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-step]');
+  if (!btn || btn.disabled) return;
+  discovery.step = btn.dataset.step;
+  renderDiscoveryFlow();
+  renderDiscoveryModel();
+});
+$('#discovery-variant').addEventListener('change', () => { renderDiscoveryFlow(); renderDiscoveryModel(); });
+
 // Grill's model is a per-run choice (#286; architecture §Boundaries leaves it open); every other
 // posture pins its own, so the row shows only where the config says the model is settable, and it
 // opens on the posture's own default.
 function renderDiscoveryModel() {
   const c = discovery.config;
-  const posture = c.postures.find((p) => p.id === $('#discovery-posture').value);
+  const posture = c.postures.find((p) => p.id === postureOfStep());
   $('#discovery-model-row').hidden = !posture?.modelSettable;
   $('#discovery-model').value = posture?.model ?? c.models[0];
 }
@@ -794,30 +871,92 @@ function renderDiscoveryNotes() {
   const mode = $('#discovery-entry').value;
   const proposed = c.depthProposals[mode];
   const forWhat = mode === 'existing-prd' ? 'an existing PRD' : 'a blank idea';
+  // #288: where the depth composes AND a vector is declared, the count is the PLAN's — read from the
+  // config's table, never recomputed. Where it does not compose the unfaceted count stands, because
+  // facetPlan is depth-blind and its number would describe a different session.
+  const plan = d ? facetPlanNow() : null;
+  const faceted = d && d.composes && plan?.declared && plan.overflow.length === 0;
   $('#discovery-depth-note').textContent = d
-    ? `${d.count} questions${d.composes ? ' before any facet vector — a declared vector moves this count (#288)' : ''} — for ${d.when}. ${d.id === proposed ? `Proposed for ${forWhat}; Start confirms it.` : `The proposal for ${forWhat} was ${proposed}; you are overriding it.`}`
+    ? `${faceted ? plan.count : d.count} questions${faceted ? ' with the vector below' : d.composes ? ' before any facet vector — a declared vector moves this count (#288)' : ''} — for ${d.when}. ${d.id === proposed ? `Proposed for ${forWhat}; Start confirms it.` : `The proposal for ${forWhat} was ${proposed}; you are overriding it.`}`
     : '';
+  renderFacetPlan();
 }
+
+// D1/D2 (#288): the five facts and the four presets, both built from the config. The label carries
+// FACETS[i].question — the bank says so at its own definition — and the module a facet fires is the
+// muted line under it. Every string through esc(), config-served or not.
+function renderFacetControls() {
+  const c = discovery.config;
+  $('#discovery-presets').innerHTML = [
+    ...c.presets.map((p) => `<button class="btn btn-secondary" type="button" data-preset="${esc(p.id)}">${esc(p.label)}</button>`),
+    '<button class="btn btn-secondary" type="button" data-preset="">Clear — run unfaceted</button>',
+  ].join('');
+  $('#discovery-facets').innerHTML = c.facets.map((f) => `
+    <label class="discovery-check">
+      <input type="checkbox" data-facet="${esc(f.id)}" />
+      <span>${esc(f.question)} <span class="muted">— fires ${esc(f.fires)}</span></span>
+    </label>`).join('');
+  renderFacetPlan();
+}
+
+// The note under the checkboxes. A LOOKUP into config.facetPlans, in a branch order that is
+// LOAD-BEARING: the non-composing depths are answered FIRST and with NO count, because every row in
+// the table describes full discovery (bank.mjs's own warning names #288) and whole-bank is the depth
+// a person is most likely to tick facets against expecting them to matter.
+function renderFacetPlan() {
+  const c = discovery.config;
+  const el = $('#discovery-facet-note');
+  if (!el || !c) return;
+  const named = (ids) => ids.map((id) => `${c.modules[id]?.label ?? id} (${c.modules[id]?.budget ?? '?'})`).join(', ');
+  const plan = facetPlanNow();
+  if (!depthComposes()) {
+    el.textContent = `This depth runs its own fixed list. The vector is recorded in run.json and does not change which questions are asked (D1b) — only full discovery composes from it.`;
+    return;
+  }
+  if (!plan.declared) { el.textContent = 'No vector declared — full discovery runs its unfaceted 30. Tick a fact, or press a preset, to compose from the bank\'s modules.'; return; }
+  el.textContent = plan.overflow.length === 0
+    ? `${plan.count} of ${plan.budget} — the twelve, ${named(plan.fits) || 'no module'}, and the non-functional block.`
+    : `${named(plan.fits) || 'Nothing'} fits (${plan.count} of ${plan.budget}); ${named(plan.overflow)} does not. Untick one, or run whole-bank. Nothing is truncated and the session will not start until you choose (D1a).`;
+}
+
+$('#discovery-presets').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-preset]');
+  if (!btn || btn.disabled) return;
+  const c = discovery.config;
+  const preset = c.presets.find((p) => p.id === btn.dataset.preset) ?? null;
+  // The clear control is the ONLY route back to "nothing declared" — D1b's other state, and the one a
+  // ticked-then-unticked box does not reach: five false boxes are the consumer preset, not no vector.
+  discovery.vectorDeclared = Boolean(preset);
+  for (const f of c.facets) $(`input[data-facet="${f.id}"]`).checked = Boolean(preset?.facets[f.id]);
+  renderDiscoveryNotes();
+});
+$('#discovery-facets').addEventListener('change', () => { discovery.vectorDeclared = true; renderDiscoveryNotes(); });
 for (const id of ['#discovery-provenance', '#discovery-depth'])
   $(id).addEventListener('change', renderDiscoveryNotes);
 $('#discovery-entry').addEventListener('change', renderDiscoveryEntry);
-$('#discovery-posture').addEventListener('change', renderDiscoveryModel);
 
 $('#discovery-open').addEventListener('click', async () => {
-  const { slug, provenance, entryMode, depth, posture, model, documentText, documentPath } = discoveryEls();
+  const { slug, provenance, entryMode, depth, posture, facets, model, documentText, documentPath } = discoveryEls();
   if (!slug) { $('#discovery-start-status').textContent = 'A run slug is needed — it names the package directory.'; return; }
   if (!provenance) { $('#discovery-start-status').textContent = 'Pick a provenance before starting — fictional commits the package into this repo, real writes it to the jobs folder outside. There is no default (#338 F3).'; return; }
   // #286: an audit with nothing to audit is refused here as prose rather than as the server's throw.
   // Both fields sent together are the server's refusal (it names both); a resume ignores them, because
   // the document stored at session start is the one the audit runs on.
   if (entryMode === 'existing-prd' && !documentText && !documentPath) { $('#discovery-start-status').textContent = 'An existing PRD needs its document — paste it, or name a repo-relative path the server reads. Without one there is nothing to audit.'; return; }
+  // D1a's refusal, in the drawer, with the plan's own message. GATED ON `composes`, matching
+  // selectDepth's own condition (bank.mjs:1098): a refusal wider than the server's would reject a
+  // legal scope-check session with three facets ticked. selectDepth's throw is the belt.
+  const plan = facetPlanNow();
+  if (depthComposes() && plan.overflow.length) { $('#discovery-facet-note').scrollIntoView({ block: 'nearest' }); $('#discovery-start-status').textContent = `The vector overflows full discovery's ${plan.budget}: ${$('#discovery-facet-note').textContent}`; return; }
   $('#discovery-start-status').textContent = 'Opening…';
   try {
     discovery.session = await api('/api/discovery/session', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       // Every field named (#286: entryMode, model, document, documentPath); the server refuses what it
       // will not take, by name.
-      body: JSON.stringify({ slug, provenance, entryMode, depth, frontEnd: 'portal', posture, model, document: documentText, documentPath }),
+      // #288 sends `facets` — the declared five-key vector, or null for the unfaceted list. A resume
+      // that names another depth or another vector comes back 409 and its message renders below.
+      body: JSON.stringify({ slug, provenance, entryMode, depth, facets, frontEnd: 'portal', posture, model, document: documentText, documentPath }),
     });
   } catch (err) {
     $('#discovery-start-status').textContent = `Refused: ${err.message}`;
@@ -868,7 +1007,14 @@ function renderDiscoverySession() {
   $('#discovery-answer').disabled = !answerable;
   $('#discovery-submit').disabled = !answerable || discovery.running;
   $('#discovery-finish').disabled = Boolean(head.endedAt);
+  // The stance this run is actually on, off DISK rather than off the form — a resume returns the
+  // recorded posture whatever the buttons say. The controls themselves need no disabling loop: they
+  // are inside #discovery-start, the fieldset the Start handler disables, and a fieldset's disable
+  // propagates natively.
+  const step = discovery.config.postureFlow.find((r) => r.postures.includes(head.posture));
+  $('#discovery-flow-note').textContent = `This run is recorded at ${step ? `step ${step.order}, ${step.label}` : 'an unlisted step'} — posture ${head.posture} on ${head.model}. One posture per run: the next stance is the next run, over what this one produced.`;
   renderDiscoveryRecorded();
+  renderPackageView();
   renderProposals();
   // Both #359 controls need a FINISHED package: the propose route refuses an open one by name, and
   // there is nothing to download before a run. Disabled rather than hidden, because `el.hidden` is a
@@ -907,6 +1053,59 @@ function renderDiscoveryRecorded() {
             : `<p class="muted">${isDoc ? 'Nothing filed against the document yet.' : 'Nothing filed against this answer yet.'}</p>`}
         </div>`;
     }).join('')}`;
+}
+
+// AC #4 (#288) — what the package HOLDS, not what was typed at it. Every number, marker and flag on
+// this surface is READ from `session.ledger`, discovery/ops.mjs's ledgerView folded server-side: no
+// count is recomputed here, no parent chain is re-resolved, no flag is re-derived. That is the whole
+// reason the fold lives in ops.mjs rather than in this file — a fold written here is a claim no gate
+// can reach, and the epic rests on the record being the truth and the surface being a reader of it.
+//
+// A superseded decision is MARKED and dimmed, never removed (discovery/README.md §Supersede).
+function renderPackageView() {
+  const s = discovery.session;
+  const mount = $('#discovery-package');
+  if (!mount || !s) return;
+  const l = s.ledger;
+  if (!l) { mount.innerHTML = ''; return; }
+  const doc = s.document
+    ? `<p class="muted">Auditing ${esc(s.document.ref)} — ${s.document.chars} characters, md5 ${esc(s.document.md5.slice(0, 8))}. A resume ignores a document in the POST body; this md5 says which one the audit actually runs on.</p>`
+    : '';
+  if (!l.total) {
+    mount.innerHTML = `<h3 class="h3">The package</h3>${doc}
+      <p class="muted">Nothing filed yet — the package holds ${s.answers.length} answer(s) and no ops.</p>`;
+    return;
+  }
+  const chip = (t) => `<span class="discovery-chip">${esc(t)}</span>`;
+  const at = (r) => `seq ${r.seq}${r.turn ? ` · ${esc(r.turn)}` : ''}`;
+  const refs = (list) => (list.length ? list.map((n) => `seq ${n}`).join(', ') : 'none');
+  mount.innerHTML = `
+    <h3 class="h3">The package — ${l.total} op(s)</h3>
+    ${doc}
+    <p class="muted">${discovery.config.ops.map((op) => `${esc(op)} ${l.counts[op]}`).join(' · ')} · flags ${Object.keys(l.flags).map((f) => `${esc(f)} ${l.flags[f]}`).join(' · ')}. Counted over the whole ledger, superseded records included — nothing here is removed, only marked.</p>
+    ${l.decisions.length ? `<h4 class="card-kicker">Decisions</h4>${l.decisions.map((d) => `
+      <div class="discovery-package-row${d.latest ? '' : ' is-superseded'}">
+        <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script' : ''}${d.supersededBy ? ` · superseded by seq ${d.supersededBy}` : ''}</p>
+        <p class="discovery-package-prose">Wrong if: ${esc(d.wrongIf ?? '—')}</p>
+        <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${d.parentId}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${d.supersedes}` : ''}</p>
+        ${d.flagged.map(chip).join(' ')}
+      </div>`).join('')}` : ''}
+    ${l.weak.length ? `<h4 class="card-kicker">Weak answers</h4>${l.weak.map((w) => `
+      <div class="discovery-package-row">
+        <p class="card-kicker">${at(w)} · ${esc(w.questionId ?? 'off-script')} · answer ${esc(w.answerRef ?? '—')}</p>
+        <p class="discovery-package-prose">Missing: ${esc(w.missing.join(' · ')) || '—'}</p>
+      </div>`).join('')}` : ''}
+    ${l.openQuestions.length ? `<h4 class="card-kicker">Open questions</h4>${l.openQuestions.map((q) => `
+      <div class="discovery-package-row">
+        <p class="card-kicker">${at(q)} · ${esc(q.source ?? '?')} · ${esc(q.questionId ?? 'off-script')}</p>
+        <p class="discovery-package-prose">${esc(q.reason ?? '—')}</p>
+      </div>`).join('')}` : ''}
+    ${l.evidence.length ? `<h4 class="card-kicker">Evidence</h4>${l.evidence.map((e) => `
+      <div class="discovery-package-row">
+        <p class="card-kicker">${at(e)} ${chip(e.provenance ?? 'no provenance')}</p>
+        <p class="discovery-package-prose">${esc(e.url ?? e.name ?? e.ref ?? '—')}${e.name && e.ref ? ` — named in answer ${esc(e.ref)}` : ''}</p>
+        <p class="discovery-package-meta">claim: ${e.claimRef === null ? 'no decision named' : `seq ${e.claimRef}`}</p>
+      </div>`).join('')}` : ''}`;
 }
 
 /* ---------- #359: the proposals and the owner's verdict ---------- */

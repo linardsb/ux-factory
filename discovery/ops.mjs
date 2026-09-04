@@ -35,9 +35,15 @@
 //      the caller (the server, the gate, the projection). #282's export names are not this
 //      module's business, and CI's absence of portal/node_modules cannot touch it.
 //
-// Two pure reads over a ledger sit beside the applier — `parentCandidates` and `auditParenting`
-// (#341) — because the refusal, the prompt and the gate must all answer "who could this decision's
-// parent be?" identically.
+// Three pure reads over a ledger sit beside the applier — `parentCandidates` and `auditParenting`
+// (#341), because the refusal, the prompt and the gate must all answer "who could this decision's
+// parent be?" identically; and `ledgerView` (#288), whose consumer is sessionView → the drawer's
+// package view, for the same reason one rung down: a fold written inline in the browser is a
+// claim-generating surface no gate can reach. ledgerView MIRRORS prd-projection.mjs's visible and
+// supersede rules rather than importing them (that module imports the bank, and invariant 6 is what
+// lets this one load in CI with no portal/node_modules), and build-checks group 29 compares the two
+// readers on one committed package. A PURE READ IS NOT A VERB: it does not take the epic's op-verb
+// lock, and it may not add, rename or reinterpret anything in OPS, PARAMS or the switch.
 //
 // Node-import-safe and side-effect-free. No imports at all.
 
@@ -100,6 +106,70 @@ export function auditParenting(ops) {
     else if (r.params.parent_id === null) structural.push(r.seq);
   });
   return { eligible, missed, structural };
+}
+
+// WHAT THE PACKAGE HOLDS, as a value (#288; AC #4). The drawer renders this and derives nothing of
+// its own — every count, flag and marker below is read, so the surface can never show a claim the ops
+// do not hold. Four rules a future editor must keep:
+//
+//   · `counts` is keyed by OPS and `flags` by FLAGS, ALWAYS. A verb nobody filed reads 0 rather than
+//     being absent, so a fifth verb shows up here as a missing key rather than as a silently absent row.
+//   · Flags are counted over the WHOLE ledger, superseded records included — prd-projection.mjs's
+//     stated reason (README §Supersede): three surfaces already count that way, and a fourth counting
+//     differently gives a reader two numbers for one fact.
+//   · `latest` mirrors the projection's `visible` set exactly — every off-script decision, plus the
+//     latest decision per banked question_id — and `supersededBy` is the reverse of the applier's
+//     `supersedes`. NOTHING IS DROPPED: a superseded record is MARKED and still rendered.
+//   · TOTAL OVER JUNK. A non-array argument, a null item, an item with no params, an unknown op —
+//     skipped, or the empty shape. This is a VIEW: a view that throws takes the whole drawer down over
+//     a record the applier already accepted, which is the opposite of applyOp's job (it throws by design).
+//
+// Every array is COPIED, never aliased — the same trap opLine's own comment names: a projection that
+// handed out a committed record's array would let a consumer rewrite the record without a write.
+export function ledgerView(ops) {
+  const list = Array.isArray(ops) ? ops.filter((r) => r && typeof r === "object" && OPS.includes(r.op)) : [];
+  const counts = Object.fromEntries(OPS.map((op) => [op, 0]));
+  const flags = Object.fromEntries(FLAGS.map((f) => [f, 0]));
+  for (const r of list) {
+    counts[r.op] += 1;
+    if (Array.isArray(r.flagged)) for (const f of r.flagged) if (Object.hasOwn(flags, f)) flags[f] += 1;
+  }
+  const decisionsRaw = list.filter((r) => r.op === "record_decision");
+  // The projection's rule, mirrored: latest per banked question_id, and every off-script one its own.
+  const latestByQuestion = new Map();
+  for (const d of decisionsRaw) { const q = d.params?.question_id ?? null; if (q !== null) latestByQuestion.set(q, d.seq); }
+  const supersededBy = new Map();
+  for (const d of decisionsRaw) if (d.supersedes !== null && d.supersedes !== undefined) supersededBy.set(d.supersedes, d.seq);
+  const at = (r) => ({ seq: r.seq ?? null, turn: r.turn ?? null });
+  return {
+    total: list.length,
+    counts,
+    flags,
+    decisions: decisionsRaw.map((r) => {
+      const p = r.params ?? {};
+      const qid = p.question_id ?? null;
+      return {
+        ...at(r), questionId: qid, answerRef: p.answer_ref ?? null, level: p.level ?? null,
+        parentId: p.parent_id ?? null, evidenceRefs: Array.isArray(p.evidence_refs) ? [...p.evidence_refs] : [],
+        wrongIf: p.wrong_if ?? null, offScript: p.off_script === true,
+        flagged: Array.isArray(r.flagged) ? [...r.flagged] : [],
+        supersedes: r.supersedes ?? null, supersededBy: supersededBy.get(r.seq) ?? null,
+        latest: qid === null || latestByQuestion.get(qid) === r.seq,
+      };
+    }),
+    weak: list.filter((r) => r.op === "flag_weak_answer").map((r) => ({
+      ...at(r), questionId: r.params?.question_id ?? null, answerRef: r.params?.answer_ref ?? null,
+      missing: Array.isArray(r.params?.missing) ? [...r.params.missing] : [],
+    })),
+    openQuestions: list.filter((r) => r.op === "open_question").map((r) => ({
+      ...at(r), source: r.params?.source ?? null, questionId: r.params?.question_id ?? null,
+      answerRef: r.params?.answer_ref ?? null, reason: r.params?.reason ?? null,
+    })),
+    evidence: list.filter((r) => r.op === "file_evidence").map((r) => ({
+      ...at(r), url: r.params?.url ?? null, ref: r.params?.ref ?? null, name: r.params?.name ?? null,
+      provenance: r.params?.provenance ?? null, claimRef: r.params?.claim_ref ?? null,
+    })),
+  };
 }
 
 // The state is the op ledger and nothing else. "Closed" is derived from it (ops.some(closes && turn))
