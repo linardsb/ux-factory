@@ -49,8 +49,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { DEPTHS, FACETS, facetPlan, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
-import { applyOps, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
+import { DEPTHS, FACETS, facetPlan, MODULES, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
+import { applyOps, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
 import { MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
 
@@ -531,6 +531,36 @@ export const ENTRY_POSTURES = Object.freeze({
   'existing-prd': Object.freeze(['grill']),
 });
 
+// MVP 1's three buttons, in the order they are pressed. A STEP is a stance; a POSTURE is a prompt, and
+// Think has two — the same buildThinkTurn under two models, which is a comparison rather than a fourth
+// stance, so it rides its own step as a variant. The FIRST entry of `postures` is the step's default.
+// "Pressable in order" is a flow ACROSS RUNS: run.json records ONE posture and runTurn resolves it from
+// head.posture, and turnStats stamps that posture's fingerprint on every turn — a package whose turns
+// ran under three fingerprints could not state what prompt surface produced it. So a step is chosen at
+// session start and stands for the session; Think's run, then Create PRD, then Grill over the PRD it
+// produced. Group 30 iterates this table against POSTURES and ENTRY_POSTURES in both directions, so a
+// fifth posture with no step, or a step naming a posture POSTURES does not hold, fails by name rather
+// than falling off a menu. `order` is redundant with array position ON PURPOSE — the gate asserts they
+// agree, so a reorder that forgets one fails instead of silently renumbering the buttons.
+export const POSTURE_FLOW = Object.freeze([
+  Object.freeze({
+    step: 'think', label: 'Think', order: 1, postures: Object.freeze(['think', 'think-opus']),
+    what: 'Interview a blank idea against the bank. Answers first — the shape comes later.',
+  }),
+  Object.freeze({
+    step: 'create-prd', label: 'Create PRD', order: 2, postures: Object.freeze(['create-prd']),
+    what: 'Judge each answer against the PRD section it will render into.',
+  }),
+  Object.freeze({
+    step: 'grill', label: 'Grill', order: 3, postures: Object.freeze(['grill']),
+    what: 'Run the weak-answer note as a checklist — and the one stance an existing PRD opens at.',
+  }),
+]);
+
+// The variant a step offers beyond its default, keyed by posture. Rendered as a checkbox on the step's
+// own row, so the second posture is reachable without a fourth button (MVP 1 says three).
+export const POSTURE_VARIANT_LABEL = Object.freeze({ 'think-opus': 'on Opus — the same prompt, the other model' });
+
 // Whether the hold rule applies per entry mode (#286 D7). A document cannot answer twice, so an audit
 // never holds a question for a second ask: every question is judged once and the cursor moves on.
 // deriveCursor reads this beside LADDER.
@@ -717,6 +747,42 @@ export function openSession({ slug, provenance, entryMode, depth, facets = null,
   return sessionView(root);
 }
 
+// The ticked ids of a normalised vector, as prose — so the 409 names what is on disk rather than
+// printing an object. The declared all-false vector (the consumer preset) is DISTINGUISHABLE from no
+// vector by D1b, and the message says which, because the two open different sessions.
+const facetsPhrase = (v) => {
+  if (v === null || v === undefined) return 'no facet vector';
+  const on = FACETS.map((f) => f.id).filter((id) => v[id] === true);
+  return on.length ? `the vector ${on.join(' + ')}` : 'a declared vector with nothing ticked';
+};
+
+// PR #365 review F6, made reachable by #288's facet control. DISK IS AUTHORITATIVE and stays so — this
+// does not change what a resume returns, it refuses to return it SILENTLY. Opening an existing slug at
+// another depth or with another vector answered the disk state with no signal, so a scope-check POST
+// over a full-discovery run read as a session somebody else had started.
+//
+// Compares NORMALISED forms, so {} / null / undefined all read as "no vector" and a five-key preset
+// does not false-positive against the same vector spelled with fewer keys. JSON.stringify is safe here
+// ONLY because declareFacets returns the five keys in FACETS order on both sides and head.facets was
+// written by declareFacets — never compare raw POST bodies, and never compare key counts (a duplicate
+// spelling passes that). Returns null when the POST agrees with the record — always the case on a
+// CREATE, where the head was written FROM the posted values — else the message the route sends as 409.
+//
+// The route calls it on openSession's RETURN, so every one of openSession's guards has already refused
+// junk by name. Called directly with a junk vector it throws the bank's own error, which is the honest
+// answer and what group 30 drives. Total over a junk head: a route that grew a different caller must
+// not take the drawer down. `posture`, `model` and `entryMode` are deliberately NOT compared — the
+// owner's 2026-09-03 comment names the depth and the vector, and widening a refusal is theirs to call.
+export function resumeMismatch(head, posted) {
+  if (!head || typeof head !== 'object' || Array.isArray(head)) return null;
+  const wantDepth = posted?.depth ?? null;
+  const wantFacets = declareFacets(posted?.facets ?? null);
+  const hasDepth = head.depth ?? null;
+  const hasFacets = head.facets ?? null;
+  if (hasDepth === wantDepth && JSON.stringify(hasFacets) === JSON.stringify(wantFacets)) return null;
+  return `run "${head.slug}" is already on disk at depth "${hasDepth}" with ${facetsPhrase(hasFacets)}; this request asked for depth "${wantDepth}" with ${facetsPhrase(wantFacets)}. A resume returns the RECORDED session — disk is authoritative and #284's design keeps it that way — so nothing was changed and nothing was written. Open it by posting its own depth and vector, or start a new slug.`;
+}
+
 const mutateHead = (root, patch) => {
   const head = readRun(root);
   if (!head) bad(`no run.json under "${root}" — open the session first`);
@@ -765,6 +831,17 @@ export function sessionView(root) {
     escalation: escalationFor({ depth: head.depth, transcript }),
     metrics: runMetrics({ depth: head.depth, facets, questions, transcript, entryMode }),
     document: doc ? { ref: doc.ref, chars: doc.text.length, md5: createHash('md5').update(doc.text).digest('hex') } : null,
+    // AC #4 (#288) — what the package HOLDS, folded from the op ledger and nothing else. ledgerView is
+    // discovery/ops.mjs's exported pure read, so the drawer holds no shape opinion and the gate reaches
+    // the fold with no browser. The transcript's op lines carry the applier's record verbatim (opLine),
+    // so this is the same input prd-projection.mjs's readPackage builds — one package, two readers, and
+    // group 29 compares them on one committed fixture rather than trusting they agree.
+    //
+    // FILTERED here, where readPackage REFUSES a line whose type is outside the three. The two differ ON
+    // PURPOSE and neither should be "fixed" to match the other: readPackage folds a finished package and
+    // a silently dropped record would be a lie in prd.md, while this is a live view over a file being
+    // appended to and a throw would take the drawer down mid-session.
+    ledger: ledgerView(transcript.filter((l) => l?.type === 'op').map(({ type, ts, ...rec }) => rec)),
   };
 }
 
@@ -776,6 +853,26 @@ export function sessionView(root) {
 // stripped here and the posture reads it server-side through questionById. `note` and `provenanceNote`
 // go with it: neither is the person's to read mid-question.
 const forTheBrowser = (q) => ({ id: q.id, stage: q.stage, text: q.text, attribution: q.attribution, label: q.label });
+
+// Every vector's plan, PRECOMPUTED — the 32 declared vectors keyed by the five booleans in FACETS
+// order as a bit string ("00000" … "11111"), plus "" for NO vector. The drawer's overflow message is a
+// LOOKUP: composing it in the browser would be a second copy of D1a's greedy walk, and facetPlan's own
+// comment warns that `fits` is not necessarily a prefix of `fired` — exactly the subtlety a second
+// implementation gets wrong. facetPlan is pure and takes no depth, so the table is static and is folded
+// once at module scope rather than per request. 33 rows is ~4 KB on a 127.0.0.1 route; do not paginate it.
+//
+// Exported so the gate can drive BOTH sides of the key and the drawer needs no import: the browser
+// hand-writes the same one-line join over config.facets, which is the ONE derived line in the drawer,
+// and group 30 case 41 source-pins that it maps the config rather than a literal id list.
+export const facetKey = (v) => (v === null || v === undefined ? '' : FACETS.map((f) => (v[f.id] === true ? '1' : '0')).join(''));
+
+const FACET_PLANS = Object.freeze(Object.fromEntries([
+  ['', facetPlan(null)],
+  ...Array.from({ length: 2 ** FACETS.length }, (_, n) => {
+    const v = Object.fromEntries(FACETS.map((f, i) => [f.id, Boolean((n >> i) & 1)]));
+    return [facetKey(v), facetPlan(v)];
+  }),
+]));
 
 export function discoveryConfig() {
   return {
@@ -799,6 +896,15 @@ export function discoveryConfig() {
     // drawer builds its selects from these and holds no second copy.
     models: MODELS,
     entryPostures: ENTRY_POSTURES,
+    // MVP 1's three buttons in the order they are pressed, and the variant a step offers beyond its
+    // default (#288). The drawer renders one button per step the entry mode admits and holds no order,
+    // no label and no copy of its own.
+    postureFlow: POSTURE_FLOW,
+    postureVariantLabels: POSTURE_VARIANT_LABEL,
+    // Each facet's module, so the overflow message NAMES what does not fit rather than printing an id.
+    // Ids and budgets only — no question objects, so the rubric forTheBrowser strips cannot ride in here.
+    modules: Object.fromEntries(FACETS.map((f) => [f.id, { label: MODULES[f.id].label, budget: MODULES[f.id].budget }])),
+    facetPlans: FACET_PLANS,
     ops: OPS,
     // So the UI can say whether a session can start before one is attempted (AC #6), the way
     // /api/build/config does it.
