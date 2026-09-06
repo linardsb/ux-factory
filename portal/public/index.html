@@ -192,8 +192,10 @@
         <!-- MVP 1's three buttons, in order, from /api/discovery/config's postureFlow. The step is the
              run's posture and is recorded once in run.json; "pressable in order" is a flow ACROSS RUNS
              — Think, then Create PRD, then Grill — and an existing PRD opens at Grill alone (#286's
-             entryPostures). The buttons are DISABLED once a session is open, never hidden: `.btn` is
-             display:inline-flex, so `hidden` on one is a silent no-op. -->
+             entryPostures). The buttons are DISABLED once a session is open, never hidden. Hiding
+             would WORK here — portal.css's unscoped `[hidden]{display:none!important}` beats `.btn`'s
+             display:inline-flex — but a vanished step erases the flow this band exists to teach, and a
+             disabled control still tells a screen reader the step is there and closed. -->
         <fieldset class="discovery-flow" id="discovery-flow-row">
           <legend>The stance for this run</legend>
           <div class="discovery-flow-steps" id="discovery-flow"></div>

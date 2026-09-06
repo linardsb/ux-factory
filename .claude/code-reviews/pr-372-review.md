@@ -361,3 +361,86 @@ Validation green · **0 critical · 0 high · 1 medium · 7 low · 1 nit**. **Ap
 
 Recommended before merge (optional, both cheap): **F1**'s one-line regex scope, and **F3**'s comment correction.
 Everything else is a note for the next editor.
+
+---
+
+## Resolution (owner triage, applied on this branch)
+
+Six findings fixed in this PR, four filed. Every figure below was observed at the fixed HEAD.
+
+| | Finding | Disposition |
+|---|---|---|
+| F1 | Medium — the cross-reader `blocks` count | **Fixed**, not with the sketched regex — see below |
+| F2 | gates.md's detached #288 paragraph | **Fixed** — folded into Group 30's paragraph |
+| F3 | the false `hidden` rationale | **Fixed in both copies** (index.html and #359's twin) |
+| F4 | `facetKey({})` maps to the wrong plan row | **Fixed with its gate case** (case 38) |
+| F5 | six unescaped `seq ${…}` interpolations | **Fixed**, plus two pre-existing twins (see below) |
+| F6 | the inert `btn.disabled` guard | **No change.** Correct as written for a directly-disabled button; the fieldset case it appears to cover is already handled by the browser refusing to dispatch. Removing it would trade a redundant guard for a missing one |
+| F7 | two writers to `#discovery-flow-note` | **Filed — #373** |
+| F8 + Q2 | the resume 409's scope | **Filed — #374.** Q2 decided: leave the 409 at depth + vector |
+| F9 | `bank.mjs:1098` off by one | **Fixed at five sites, not two** (see below) |
+
+### F1 — the seq set, not the regex
+
+The review's suggested fix (`/^#### seq \d+ · .* — (business|…)$/`) works but pins the gate to `renderDecision`'s
+exact heading format. Took the review's own second option instead: assert **which** decisions rendered, per seq,
+since seqs are unique across all four verbs (`seq = state.ops.length + 1`).
+
+```js
+for (const d of lv.decisions) {
+  const rendered = new RegExp(`^#### seq ${d.seq} · `, "m").test(md);
+  ok(rendered === d.latest, `28.10: the projection ${rendered ? "renders" : "omits"} a block for seq ${d.seq} …`);
+}
+ok(lv.decisions.some((d) => !d.latest), "28.10: the cross-reader case is vacuous …");
+```
+
+`rows = state.visible.filter(…)` (`prd-projection.mjs:511`) is what this rests on — a superseded decision emits no
+`####` heading at all. The anti-vacuity guard now states the real condition (something is superseded) rather than
+inferring it from a count, so it too survives a fixture edit.
+
+**Driven on the review's own scenario** — 2 decisions on one question (seq 1 superseded by seq 2) + 1
+`flag_weak_answer`:
+
+| | old assertion | new assertion |
+|---|---|---|
+| correct code | **RED** (`blocks` 2 vs latest 1), anti-vacuity **RED** | **GREEN**, anti-vacuity GREEN |
+| under the `latest: true` mutation | **GREEN** — the regression ships undetected | **RED**, naming seq 1 |
+
+Re-confirmed in the real gate: mutating `ledgerView`'s `latest` to `true` gives `build ✗ 4 failure(s)`, one of them
+`28.10: the projection omits a block for seq 1 and ledgerView reads latest true — the mirrored visible rule has
+drifted from indexOps`.
+
+### F4 — the guard mirrors `normaliseFacets`, and its case can fail
+
+`facetKey`'s absent forms now match `normaliseFacets` (`bank.mjs:1053,1057`) exactly: `undefined`, `null` **and** an
+object with no own keys all key `""`. The browser's `facetKeyOf` got the mirror-image fix. Case 38 extended to
+`facetKey({}) === ""`; reverting the guard gives `build ✗ 1 failure(s)` naming it.
+
+The 33-row table is **byte-identical** before and after — `FACET_PLANS` is built from full five-key vectors, so no
+row moved. Driven off the live route: 33 rows, `""` → 30 undeclared, `"00000"` → 16 declared, still two rows.
+
+### F5 and F9 — the twins went too
+
+F5 named six sites in `renderPackageView`. Fixed those plus **two pre-existing twins** carrying the identical shape:
+`renderDiscoveryRecorded` (`:1053`, #359) and the proposals `rests_on` join (`:1142`, #359). `esc` is
+`String(s ?? '')`, so wrapping an integer is safe. `discoveryLog` (`:1190`) needs nothing — it writes `textContent`.
+
+F9 named two citations of `bank.mjs:1098`. There were **five** in tracked source and docs:
+`tooling/build-checks.mjs:7498` · `:7528` · `portal/public/portal.js:746` · `:947` · `.claude/references/gates.md:51`.
+All five now cite `selectDepth`'s own throw and carry no line number, per this repo's own system review: *"a code
+comment cites the symbol, never the line, because the line rots and the symbol does not."*
+
+### Validation at the fixed HEAD (observed)
+
+| Leg | Result |
+|---|---|
+| `node tooling/build-checks.mjs` | **exit 0** · `build ✓ all 34 groups pass` |
+| `node tooling/drift-check.mjs` | **exit 0** |
+| `node tooling/token-lint.mjs` | **exit 0** · `63 contract tokens · 0 undeclared · 0 orphan` |
+| portal smoke (`PORT=4791`) | `/api/health` **200**, `bootSha` == HEAD, `stale:false` |
+| `/api/discovery/config` | `facetPlans 33 · flow 3 · modules 5 · facets 5` · `1 Think · 2 Create PRD · 3 Grill` |
+| `/api/discovery/session` (`instrument-loans-1`) | `total 15 · record_decision 12 · file_evidence 3 · no-evidence 10 · orphan 0` — the review's figures unchanged |
+| `git status --porcelain discovery/` | empty — the committed packages are byte-untouched |
+
+Visual-regression and the journey drivers were correctly not run: no shipped page changed, and the portal is in
+neither set.
