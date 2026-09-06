@@ -134,7 +134,12 @@
 //                     VALID_FOR fixture per verb, the four named throws each driven by a broken
 //                     op, both flag directions, R2 on the turn, the supersede rule, totality over
 //                     junk, and the run-2 fixture's md5 pinned with the mutation that proves the
-//                     compare can fail (#281)
+//                     compare can fail (#281) · ledgerView (#288), the fold the drawer's package view
+//                     renders: counts keyed by OPS and flags by FLAGS, latest/supersededBy over a
+//                     superseding ledger with nothing dropped, flags counted over the WHOLE ledger,
+//                     and the CROSS-READER case — prd-projection.mjs's own Ledger line and visible
+//                     set compared against the fold, so the mirrored rule drifting from indexOps
+//                     fails here rather than showing the drawer and prd.md two numbers
 //  30 discovery      the discovery SESSION (portal/lib/discovery.mjs + discovery-postures.mjs): the
 //     session       SSE projection's whitelist with its mutation and its cap, TOOL_SCHEMA against
 //                     PARAMS by NAME rather than cardinality, the provenance roots and the privacy
@@ -145,7 +150,11 @@
 //                     run 2's shapes, fenceDecision by name and by path with WebSearch/WebFetch
 //                     proven independent of the set, and BOTH call sites driven — each recording
 //                     via itself, each failing closed on a throw, the transport pinned to hand one
-//                     fence object to both
+//                     fence object to both · THE WIDTH (#288): POSTURE_FLOW both ways against
+//                     POSTURES and ENTRY_POSTURES, resumeMismatch on every branch including the
+//                     never-on-a-create case, the config's three new keys with facetPlans' 33 rows
+//                     each compared by DRIVING facetPlan, sessionView.ledger over a temp root, the
+//                     route's 409 after openSession, and the drawer + portal.css source-pinned
 //  31 prd projection the run package → PRD fold (discovery/prd-projection.mjs): SECTIONS iterated
 //                     against LEVELS and OPS in both directions, the happy projection over a fixture
 //                     package built by running the REAL applier, byte-identical determinism, the
@@ -239,15 +248,15 @@ import { DEPTHS, FACETS, facetPlan, FULL_DISCOVERY_BUDGET, MODULES, NON_FUNCTION
 // #281's op grammar + applier — a zero-import module in discovery/ (not system/, so gen-loc-summary
 // counts nothing), with no SDK anywhere in its graph. OPS and PARAMS are aliased because OPS above
 // is board-ops.mjs's.
-import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, auditParenting, emptyRun, FLAGS, LEVELS, OPS as DISCOVERY_OPS, PARAMS as DISCOVERY_PARAMS, parentCandidates, PROVENANCE, SOURCES } from "../discovery/ops.mjs";
+import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps, auditParenting, emptyRun, FLAGS, ledgerView, LEVELS, OPS as DISCOVERY_OPS, PARAMS as DISCOVERY_PARAMS, parentCandidates, PROVENANCE, SOURCES } from "../discovery/ops.mjs";
 // #284's session module + posture — the THIRD named portal/ exception (see the header). Both are
 // statically SDK-free and zod-free; the SDK lives in discovery-transport.mjs, which discovery.mjs
 // imports LAZILY inside runTurn. CI's absence of portal/node_modules is what PROVES that, the same
 // way group 8's invariant is proven for builder.mjs — by ABSENCE, not by adding something.
 import {
   allowSetFor, allowsPath, allowsToolName, appendAnswer, appendDocument, appendTranscript, assertProvenanceRoot, assertRunSlug as assertDiscoverySlug, assertTurnWritable, auditAnswerFor,
-  BANK_PATH, COMPOSES, declareFacets, deniedLine, denyReason, DEPTH_PROPOSAL, deriveCursor, discoveryConfig, documentOf, ENTRY_MODES, ENTRY_POSTURES, ESCALATES, escalationFor, fenceCanUseTool, fenceDecision, fenceHooks, FRONT_ENDS, isMcpToolName, LADDER, MCP_SERVER, nextRef, NOT_A_FORM_MAX, openSession, opLine,
-  PROVENANCES, RE_ASKS, readAnswers, READ_TOOLS, readTranscript, resolveRunRoot, runMetrics, sessionView, textLine, TOOL_SCHEMA,
+  BANK_PATH, COMPOSES, declareFacets, deniedLine, denyReason, DEPTH_PROPOSAL, deriveCursor, discoveryConfig, documentOf, ENTRY_MODES, ENTRY_POSTURES, ESCALATES, escalationFor, facetKey, fenceCanUseTool, fenceDecision, fenceHooks, FRONT_ENDS, isMcpToolName, LADDER, MCP_SERVER, nextRef, NOT_A_FORM_MAX, openSession, opLine,
+  POSTURE_FLOW, POSTURE_VARIANT_LABEL, PROVENANCES, RE_ASKS, readAnswers, READ_TOOLS, readTranscript, resolveRunRoot, resumeMismatch, runMetrics, sessionView, textLine, TOOL_SCHEMA,
   TOOL_TYPES, toolNameFor, TURN_EVENT_TEXT_MAX, turnEvent,
 } from "../portal/lib/discovery.mjs";
 // #338 F2 — the boot stamp. Pure helper only; BOOT_SHA itself shells out to git and is source-pinned.
@@ -5855,7 +5864,136 @@ function scanSvg(svg, label) {
   ok(md5(bytes) === FIXTURE_MD5, `${FIXTURE} hashes to ${md5(bytes)}, not the frozen ${FIXTURE_MD5} — run 2's input was edited, and its score would mean nothing`);
   ok(md5(Buffer.concat([bytes, Buffer.from("\n")])) !== FIXTURE_MD5, "the fixture plus one trailing newline still matches the frozen md5 — the compare cannot fail");
 
-  group("discovery ops", `OPS ↔ PARAMS the same four verbs in both directions, every list frozen BY MUTATION (a push refused and the length re-read), a VALID_FOR fixture per verb so a fifth verb with no fixture fails by name, the happy fold recording seq 1…4 with closes per the table and exact param key sets · determinism by deep-comparing two folds and purity by mutating the returned record and the op and re-reading both inputs · the four named throws each driven by a broken op — an unresolvable answer_ref naming the ref, a second closer naming the turn and the closing seq (R2), a question the bank lacks naming the id with its null twin ACCEPTED as off-script, a provenance outside the four naming all four · ${REFUSALS.length} further refusals (absent field, unknown param, exact envelope, string and dangling seqs, wrong-rung and wrong-kind parents, a parented business decision, both url/ref halves, a name beside a url and an empty or non-string name (#347), empty strings and arrays, a closer with no turn) each matched on its message, a named artefact RECORDED on a ref with PARAMS' exact key set, and applyOps naming the failing index · both flag directions — [] and null RECORDED and flagged, filled not flagged, business never orphaned, both flags at once · R2 on the TURN: an off-script decision accepted on a closed turn with supersedes naming the LATEST earlier decision on its question and both records kept, evidence ×3 on a closed turn, a revisit on a new turn accepted and then guarded · the not-a-form counter and coverage derived from the records alone · totality over junk ops, junk ctx, junk state and junk items, a plain Error every time · the run-2 fixture pinned at md5 ${FIXTURE_MD5.slice(0, 8)} with the one-newline mutation that proves the compare can go red · parentCandidates by rung with the two junk throws and its candidate set proven to BE the applier's acceptance set, the wrong-rung refusal naming this run's candidate seqs (or "no … decision yet — re-file with parent_id null"), and auditParenting's three lists driven on applier-shaped records — a miss detected, a parent accepted, the structural orphan kept structural after a later stakeholder lands and the decision filed after it caught as a miss (#341). The server that writes answers.jsonl, the transcript writer and the real bank are #284's and #282's, and this group cannot reach them`);
+  // 28.10 — ledgerView (#288): the fold the drawer's package view renders and derives nothing from.
+  // Driven, never grepped. Its whole claim is "the surface can never show a claim the ops do not
+  // hold", so every rule below is a run against the applier's own output rather than a shape check.
+  {
+    // The empty shape: every verb keyed at 0 and every flag keyed at 0, so a fifth verb shows up
+    // later as a MISSING KEY rather than as a silently absent row.
+    const empty = ledgerView([]);
+    ok(same(Object.keys(empty.counts).sort(), [...DISCOVERY_OPS].sort()) && DISCOVERY_OPS.every((v) => empty.counts[v] === 0),
+      `28.10: ledgerView([]).counts is ${JSON.stringify(empty.counts)} — it must be keyed by OPS with every verb at 0`);
+    ok(same(Object.keys(empty.flags).sort(), [...FLAGS].sort()) && FLAGS.every((f) => empty.flags[f] === 0),
+      `28.10: ledgerView([]).flags is ${JSON.stringify(empty.flags)} — it must be keyed by FLAGS with both at 0`);
+    ok(empty.total === 0 && same(empty.decisions, []) && same(empty.weak, []) && same(empty.openQuestions, []) && same(empty.evidence, []),
+      "28.10: the empty ledger must fold to four empty arrays and a total of 0");
+
+    // The happy fold, against the applier's OWN records rather than against a hand-typed expectation.
+    const RECS = applyDiscoveryOps([
+      { ...ev(), turn: null },
+      { ...dec({ evidence_refs: [1] }), turn: "t1" },
+      { ...weak(), turn: "t2" },
+      { ...openq({ question_id: null, source: "off-script" }), turn: null },
+    ], ctx()).ops;
+    const v = ledgerView(RECS);
+    ok(v.total === RECS.length, `28.10: total ${v.total} against ${RECS.length} records`);
+    for (const verb of DISCOVERY_OPS)
+      ok(v.counts[verb] === RECS.filter((r) => r.op === verb).length, `28.10: counts.${verb} is ${v.counts[verb]}, the ledger holds ${RECS.filter((r) => r.op === verb).length}`);
+    for (const f of FLAGS)
+      ok(v.flags[f] === RECS.filter((r) => r.flagged.includes(f)).length, `28.10: flags["${f}"] is ${v.flags[f]}, the ledger holds ${RECS.filter((r) => r.flagged.includes(f)).length}`);
+    ok(v.decisions.length === 1 && v.weak.length === 1 && v.openQuestions.length === 1 && v.evidence.length === 1,
+      `28.10: the four arrays are ${[v.decisions.length, v.weak.length, v.openQuestions.length, v.evidence.length].join("/")}, not 1/1/1/1`);
+    ok(same(v.decisions[0].evidenceRefs, [1]) && v.decisions[0].wrongIf === RECS[1].params.wrong_if && v.decisions[0].answerRef === "a1",
+      "28.10: the decision row must carry the applier's own params — evidence_refs, wrong_if and answer_ref");
+    ok(same(v.weak[0].missing, RECS[2].params.missing) && v.openQuestions[0].source === "off-script" && v.evidence[0].provenance === RECS[0].params.provenance,
+      "28.10: the weak, open-question and evidence rows must carry the applier's own params");
+
+    // `latest`, `supersededBy`, and NOTHING DROPPED. A second decision on the same banked question
+    // makes the first latest:false and names its replacement; an off-script decision is always latest.
+    const SUP = applyDiscoveryOps([
+      { ...dec({ evidence_refs: [] }), turn: "t1" },
+      { ...dec({ evidence_refs: [], wrong_if: "the replacement's own line" }), turn: "t2" },
+      { ...dec({ evidence_refs: [], question_id: null, off_script: true }), turn: null },
+    ], ctx()).ops;
+    const sv = ledgerView(SUP);
+    ok(sv.decisions.length === 3, `28.10: a superseded decision must be KEPT — the fold returned ${sv.decisions.length} of 3 (README §Supersede)`);
+    ok(sv.decisions[0].latest === false && sv.decisions[0].supersededBy === 2, `28.10: seq 1 reads latest ${sv.decisions[0].latest} / supersededBy ${sv.decisions[0].supersededBy}, not false / 2`);
+    ok(sv.decisions[1].latest === true && sv.decisions[1].supersedes === 1 && sv.decisions[1].supersededBy === null, "28.10: seq 2 must be the latest on its question and name what it replaced");
+    ok(sv.decisions[2].latest === true && sv.decisions[2].questionId === null && sv.decisions[2].offScript === true, "28.10: an off-script decision is always latest — it supersedes nothing and is superseded by nothing");
+
+    // Flags counted over the WHOLE ledger, superseded records included — three surfaces already count
+    // that way, and a fourth counting differently gives a reader two numbers for one fact. Driven with
+    // the flag on the SUPERSEDED record and NOT on its replacement, so counting `latest` alone reads 0.
+    const FL = applyDiscoveryOps([
+      { ...ev(), turn: null },
+      { ...dec({ evidence_refs: [] }), turn: "t1" },  // no evidence → flagged no-evidence
+      { ...dec({ evidence_refs: [1] }), turn: "t2" }, // its replacement is backed
+    ], ctx()).ops;
+    const fv = ledgerView(FL);
+    ok(fv.flags["no-evidence"] === 1 && fv.decisions[0].latest === false && fv.decisions[0].flagged.includes("no-evidence"),
+      `28.10: the no-evidence total is ${fv.flags["no-evidence"]} — a flag on a SUPERSEDED record must still count, or the drawer and prd.md report two numbers for one fact`);
+
+    // THE CROSS-READER CASE. prd-projection.mjs computes the same two facts through indexOps, which
+    // ledgerView MIRRORS rather than imports. This is what catches the mirror drifting: the Ledger
+    // line's counts, and the number of decisions that get a block of their own (`visible`), both read
+    // off the projection's rendered bytes and compared against the fold. Driven on a SUPERSEDING
+    // ledger, so the visible/latest half is not vacuous.
+    {
+      const RUN = {
+        slug: "gate-ledgerview", provenance: "fictional", label: "Real run — fictional scenario",
+        entryMode: "blank-idea", depth: "opening-set", proposedDepth: "full-discovery", facets: null,
+        frontEnd: "portal", model: "claude-sonnet-5", posture: "think", sessionId: null,
+        startedAt: "2026-09-04T09:00:00.000Z", endedAt: "2026-09-04T09:40:00.000Z",
+        root: "discovery/gate-ledgerview", turnStats: [],
+      };
+      const md = projectPrd({ run: RUN, answers: ANSWERS, ops: SUP });
+      const line = md.split("\n").find((l) => l.startsWith("**Ledger**")) ?? "";
+      const lv = ledgerView(SUP);
+      for (const verb of DISCOVERY_OPS)
+        ok(line.includes(`${verb} ${lv.counts[verb]}`), `28.10: the projection's Ledger line does not carry "${verb} ${lv.counts[verb]}" — the two readers disagree about the same package (${JSON.stringify(line)})`);
+      for (const f of FLAGS)
+        ok(line.includes(`${f} ${lv.flags[f]}`), `28.10: the projection's Ledger line does not carry "${f} ${lv.flags[f]}" — the two readers disagree about the same package (${JSON.stringify(line)})`);
+      const blocks = (md.match(/^#### seq /gm) || []).length;
+      ok(blocks === lv.decisions.filter((d) => d.latest).length,
+        `28.10: the projection renders ${blocks} decision block(s) and ledgerView calls ${lv.decisions.filter((d) => d.latest).length} of them latest — the mirrored visible rule has drifted from indexOps`);
+      ok(blocks < lv.decisions.length, "28.10: the cross-reader case is vacuous — the fixture must supersede something, or `visible` and `every decision` are the same set");
+    }
+
+    // The same comparison over a COMMITTED package, so the mirror is checked against real recorded ops.
+    {
+      const pkg = readPackage("discovery/instrument-loans-1");
+      const lv = ledgerView(pkg.ops);
+      const line = projectPrd(pkg).split("\n").find((l) => l.startsWith("**Ledger**")) ?? "";
+      ok(lv.total === pkg.ops.length, `28.10: ledgerView folded ${lv.total} of instrument-loans-1's ${pkg.ops.length} ops`);
+      for (const verb of DISCOVERY_OPS) ok(line.includes(`${verb} ${lv.counts[verb]}`), `28.10: instrument-loans-1 — the readers disagree on ${verb} (${JSON.stringify(line)})`);
+      for (const f of FLAGS) ok(line.includes(`${f} ${lv.flags[f]}`), `28.10: instrument-loans-1 — the readers disagree on ${f} (${JSON.stringify(line)})`);
+    }
+
+    // PURITY and the ALIAS TRAP (the group 30 case 13 shape): two calls deep-equal, and mutating the
+    // return's arrays leaves the input's untouched. A projection that handed out a committed record's
+    // own array would let a consumer rewrite the record without a write.
+    ok(same(ledgerView(RECS), ledgerView(RECS)), "28.10: two ledgerView calls over one ledger differ — the fold is not pure");
+    {
+      const before = JSON.stringify(RECS);
+      const out = ledgerView(RECS);
+      out.decisions[0].evidenceRefs.push(99);
+      out.decisions[0].flagged.push("smuggled");
+      out.weak[0].missing.push("smuggled");
+      out.counts.record_decision = 999;
+      ok(JSON.stringify(RECS) === before, "28.10: mutating ledgerView's return changed the ledger it read — an array was aliased, not copied");
+      ok(ledgerView(RECS).counts.record_decision === 1, "28.10: a mutated return leaked back into the next fold");
+    }
+
+    // TOTALITY. A view that throws takes the whole drawer down over a record the applier accepted —
+    // the opposite of applyOp's job, which is to throw. Every junk shape answers the empty-or-skipped
+    // form and NEVER throws.
+    for (const junk of [null, undefined, 42, "x", {}, [null], [undefined], [42], [{}], [{ op: "nope", params: {} }], [{ op: "record_decision" }], [{ op: "record_decision", params: null }]]) {
+      const e = threw(() => ledgerView(junk));
+      ok(e === null, `28.10: ledgerView(${JSON.stringify(junk)}) threw ${e?.message} — a VIEW is total over junk`);
+      const out = ledgerView(junk);
+      ok(same(Object.keys(out.counts).sort(), [...DISCOVERY_OPS].sort()) && same(Object.keys(out.flags).sort(), [...FLAGS].sort()),
+        `28.10: ledgerView(${JSON.stringify(junk)}) lost a counts or flags key — the shape is the same whatever it is handed`);
+    }
+    // A record with no params is SKIPPED as a decision row's source but still counted by its verb —
+    // and the row it yields carries nulls rather than reaching into undefined.
+    {
+      const out = ledgerView([{ seq: 1, turn: "t1", op: "record_decision", flagged: ["orphan"] }]);
+      ok(out.counts.record_decision === 1 && out.flags.orphan === 1 && out.decisions[0].questionId === null && out.decisions[0].level === null && out.decisions[0].latest === true,
+        `28.10: a paramless record must still count and must render as nulls, got ${JSON.stringify(out.decisions[0])}`);
+    }
+  }
+
+  group("discovery ops", `OPS ↔ PARAMS the same four verbs in both directions, every list frozen BY MUTATION (a push refused and the length re-read), a VALID_FOR fixture per verb so a fifth verb with no fixture fails by name, the happy fold recording seq 1…4 with closes per the table and exact param key sets · determinism by deep-comparing two folds and purity by mutating the returned record and the op and re-reading both inputs · the four named throws each driven by a broken op — an unresolvable answer_ref naming the ref, a second closer naming the turn and the closing seq (R2), a question the bank lacks naming the id with its null twin ACCEPTED as off-script, a provenance outside the four naming all four · ${REFUSALS.length} further refusals (absent field, unknown param, exact envelope, string and dangling seqs, wrong-rung and wrong-kind parents, a parented business decision, both url/ref halves, a name beside a url and an empty or non-string name (#347), empty strings and arrays, a closer with no turn) each matched on its message, a named artefact RECORDED on a ref with PARAMS' exact key set, and applyOps naming the failing index · both flag directions — [] and null RECORDED and flagged, filled not flagged, business never orphaned, both flags at once · R2 on the TURN: an off-script decision accepted on a closed turn with supersedes naming the LATEST earlier decision on its question and both records kept, evidence ×3 on a closed turn, a revisit on a new turn accepted and then guarded · the not-a-form counter and coverage derived from the records alone · totality over junk ops, junk ctx, junk state and junk items, a plain Error every time · the run-2 fixture pinned at md5 ${FIXTURE_MD5.slice(0, 8)} with the one-newline mutation that proves the compare can go red · parentCandidates by rung with the two junk throws and its candidate set proven to BE the applier's acceptance set, the wrong-rung refusal naming this run's candidate seqs (or "no … decision yet — re-file with parent_id null"), and auditParenting's three lists driven on applier-shaped records — a miss detected, a parent accepted, the structural orphan kept structural after a later stakeholder lands and the decision filed after it caught as a miss (#341) · #288 added ledgerView, the fold the drawer's package view renders: counts keyed by OPS and flags by FLAGS with every key present at zero on an empty ledger, the happy fold's counts, flags and four arrays compared against the applier's OWN records rather than a typed expectation, latest and supersededBy driven over a superseding ledger with BOTH records kept, an off-script decision always latest, a flag on a SUPERSEDED record still counted (the whole-ledger rule three surfaces already keep), THE CROSS-READER CASE — prd-projection.mjs's rendered Ledger line and its "#### seq" block count compared against the fold on a superseding fixture (with the vacuity guard that the fixture must actually supersede) and again on the committed instrument-loans-1 package, so the MIRRORED visible/supersede rule going out of step with indexOps fails here rather than showing the drawer and prd.md two numbers for one package — purity by double call and the alias trap by mutating every returned array, and TOTALITY over twelve junk shapes each answering the empty-or-skipped form and never throwing, because a view that throws takes the drawer down over a record the applier accepted. The server that writes answers.jsonl, the transcript writer and the real bank are #284's and #282's, and this group cannot reach them; nor can it reach whether the DRAWER renders the fold it is handed — portal.js touches the DOM at module scope, so #288's package view is a source pin in group 30 and the portal smoke is the only run`);
 }
 
 // --- 30 · the discovery session -------------------------------------------------------------------
@@ -6141,9 +6279,14 @@ function scanSvg(svg, label) {
   const served = JSON.stringify(discoveryConfig());
   ok(!served.includes(q0.weakAnswer), "case 11: the config route serves the weak-answer note — that is the agent's rubric and showing it beside the question would tell the person the answer");
   ok(!served.includes("weakAnswer"), "case 11: the config route serves a weakAnswer key at all");
+  // #288 added three keys (postureFlow, modules, facetPlans); none of them may reintroduce the three
+  // stripped fields. Extended here rather than in a second case, so there is ONE place that says what
+  // the wire may not carry — MODULES contributes ids and budgets, never question objects.
+  for (const k of ["note", "provenanceNote"])
+    ok(!served.includes(`"${k}"`), `case 11: the config route serves a ${k} key — neither is the person's to read mid-question, and #288's new keys must not carry one back in`);
   ok(discoveryConfig().questions.length === BANK.length && discoveryConfig().depths.length === Object.keys(DEPTHS).length,
     "case 11: the config route must serve the whole bank and every depth");
-  ok(same(Object.keys(discoveryConfig()).sort(), ["depthProposals", "depths", "entryModes", "entryPostures", "facets", "frontEnds", "hasToken", "models", "ops", "postures", "presets", "provenances", "questions"]),
+  ok(same(Object.keys(discoveryConfig()).sort(), ["depthProposals", "depths", "entryModes", "entryPostures", "facetPlans", "facets", "frontEnds", "hasToken", "models", "modules", "ops", "postureFlow", "postureVariantLabels", "postures", "presets", "provenances", "questions"]),
     `case 11: discoveryConfig keys are ${Object.keys(discoveryConfig()).sort().join(",")}`);
   ok(!JSON.stringify(discoveryConfig().postures).includes("systemPrompt"), "case 11: the config route serves a posture's prompt body");
   // #285: every depth carries its UNFACETED count and says whether a vector moves it — asserted by
@@ -7160,7 +7303,229 @@ function scanSvg(svg, label) {
   ok(readAnswers(tmpRoot("empty")).length === 0 && readTranscript(tmpRoot("empty")).length === 0, "case 9: an absent file must read as [] rather than throw");
   rmSync(TMP, { recursive: true, force: true });
 
-  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, a decision and a parked question each advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's six refusals (entryMode, frontEnd, posture, depth, a junk facet by the bank's name, an overflowing vector naming what does not fit) each driven, {} proven to be NO vector, the write literal pinned to record facets: declared and proposedDepth, and branch proven absent from the module, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, set strictMcpConfig: true so the repo's .mcp.json never joins a run's advertised surface (#352), and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2) · ONE FENCE, TWO KINDS OF RUN (#359): extraTools and write, both defaulted, with the MIRROR case proving extraTools absent, [] and undefined byte-identical over case 25's whole twelve-input battery in DECISION and REASON, the proposal tool name admitted and only it (five near-misses denied, the op tools still passing by the name gate, Write/Edit/Bash still denied BY NAME, six junk values denying rather than throwing), allowsToolName proven NOT widened so case 14's statement still holds, the mcp__ prefix isRecorded rests on pinned, and write proven to STREAM a denial with transcript.jsonl left empty against the write: null positive control that lands one — plus the two callers proven to hand onLine the SAME key set with ts present, because the stamp sits before the write/append branch, and a PostToolUseFailure on the run's OWN tool streamed while one on a foreign tool records nothing · #285 added THE RULES LAYER: LADDER ∪ whole-bank pinned to the depth menu, DEPTH_PROPOSAL ↔ ENTRY_MODES both ways with every proposal an interview rung, ESCALATES one row pinned to the rung immediately above, COMPOSES proven by driving the bank, the config's per-depth UNFACETED count and composes flag · the cursor read from the LAST closer — a first weak flag HOLDS the question for one fresh turn, a second closer of any kind settles it, whole-bank never holds, a weak flag the record moved past reads as settled (the shape graded-think-a holds eleven times), a closer outside the list refused naming the seq · D5's proposal as a VALUE: null on one flag, present with the question and both turns on two, run.json's depth untouched, null on the three depths ESCALATES does not name · the counters at 0/1/2/3/4 with file_evidence and both off-script ops proven not to move them, the weak-answer RATE, coverage from the ops diverging from the cursor on a skipped question, and asked-what-mattered tallying the twelve and the tail with the composed modules · #286 added THE THREE POSTURES AND THE AUDIT MODE: POSTURES pinned to think · think-opus · create-prd · grill with Think and Create-PRD on claude-sonnet-5 by name and every model in MODELS, MODEL_SETTABLE = grill alone, resolvePosture returning the posture itself on its own model and a five-key copy with a RECOMPUTED fingerprint on an override, and refusing an override on a pinned posture and an unknown model by name · the one-input-set fingerprint join proven unchanged and Think's stamp pinned to the five recordings' literal · the shared contract driven over all three new builds — YIELD_CONTRACT, MVP6_LINE, JUDGEMENT_RULE, LADDER_BRIEF, the provenance rule for its own run only, EVIDENCE_RULE and PARENT_RULE each VERBATIM, PARENT_RULE last, the ledger brief in the turn prompt and absent from the system prompt, nine junk builds refused, Think and Create-PRD refusing an existing-prd build naming Grill · Create PRD's section brief derived from the projection's SECTIONS rows and every ladder row present · the re-ask brief present with the first flag's seq and missing list on the second ask and absent otherwise (#366, for the two new postures; Think's stays blind by name) · the AUDIT build with the document VERBATIM in the system prompt, ABSENT from the turn prompt, the ref named, AUDIT_VERDICT_RULE naming all four verbs and four verdicts, AUDIT_WRONG_IF_RULE naming the document's own condition, the document before PARENT_RULE, the wrong answer kind refused both ways, and the audit template proven INSIDE Grill's fingerprint by mutation with Think's unmoved · ENTRY_MODES, ENTRY_POSTURES and RE_ASKS pinned both ways with existing-prd admitting grill alone · the document store: one verbatim kind: document line per run, a second refused naming the first, documentOf and auditAnswerFor driven, appendAnswer still refusing the kind · the audit cursor NEVER holding (a blank-idea head over the same transcript as the positive control), the metrics agreeing on the held and the done reads, the view carrying the document's ref, length and md5 and never its text, an unknown entryMode refused, sessionView pinned never to consult ENTRY_POSTURES · the config carrying models, entryPostures and modelSettable and still no prompt body · openSession's new refusals driven (a non-Grill posture on existing-prd, no document, two documents, a blank one, a document on blank-idea, an unknown model, an override on Think, a missing and a directory documentPath) with appendDocument pinned from source AFTER writeRun and AFTER the resume return and the write literal recording model: resolved.model · runTurn's audit branch source-pinned to resolve the document instead of appending, and the transport pinned to pass entryMode: head.entryMode and keep MAIN_TOOLS empty. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether a model reaches the verdict the audit rule names, or quotes the document's wrong-if rather than writing one — --probe-audit is that one-turn observation, paid; whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here; and whether the drawer shows the re-asked question and the proposal — portal.js touches the DOM at module scope; the portal smoke is the check`);
+  // 30.35 — POSTURE_FLOW (#288), both ways against POSTURES and ENTRY_POSTURES. MVP 1 says THREE
+  // buttons and POSTURES holds four, so the table is where that reconciliation lives: Think's second
+  // entry is a variant, not a fourth stance. A fifth posture with no step, or a step naming a posture
+  // POSTURES does not hold, fails HERE by name rather than falling off a menu nobody notices.
+  {
+    const flat = POSTURE_FLOW.flatMap((r) => r.postures);
+    ok(POSTURE_FLOW.length === 3, `case 35: POSTURE_FLOW holds ${POSTURE_FLOW.length} steps — MVP 1 names three`);
+    ok(same([...flat].sort(), Object.keys(POSTURES).sort()), `case 35: the flow names ${flat.join(", ")} against POSTURES' ${Object.keys(POSTURES).join(", ")} — every posture belongs to exactly one step and every named posture exists`);
+    ok(new Set(flat).size === flat.length, `case 35: a posture appears in two steps — ${flat.join(", ")}`);
+    ok(same(POSTURE_FLOW.map((r) => r.order), POSTURE_FLOW.map((_, i) => i + 1)), `case 35: order ${POSTURE_FLOW.map((r) => r.order).join(",")} disagrees with array position — a reorder renumbered the buttons silently`);
+    ok(same(POSTURE_FLOW.map((r) => r.label), ["Think", "Create PRD", "Grill"]), `case 35: the three labels are ${POSTURE_FLOW.map((r) => r.label).join(" · ")}, not MVP 1's Think · Create PRD · Grill`);
+    for (const row of POSTURE_FLOW) {
+      ok(same(Object.keys(row).sort(), ["label", "order", "postures", "step", "what"]), `case 35: step "${row.step}" carries ${Object.keys(row).join(",")} — the key set is closed`);
+      ok(typeof row.what === "string" && row.what.length > 0, `case 35: step "${row.step}" has no "what" line`);
+      ok(row.postures.length > 0 && row.postures.every((id) => Object.hasOwn(POSTURES, id)), `case 35: step "${row.step}" names a posture POSTURES does not hold`);
+      const n = row.postures.length;
+      ok(Object.isFrozen(row) && Object.isFrozen(row.postures) && threw(() => row.postures.push("smuggled")) !== null && row.postures.length === n,
+        `case 35: step "${row.step}" is not frozen at both levels — a push landed`);
+    }
+    ok(Object.isFrozen(POSTURE_FLOW) && threw(() => POSTURE_FLOW.push({ step: "smuggled" })) !== null && POSTURE_FLOW.length === 3, "case 35: POSTURE_FLOW is not frozen — a push landed");
+    // Every posture any entry mode admits has a step, and every step's postures are admitted somewhere.
+    const admitted = new Set(Object.values(ENTRY_POSTURES).flat());
+    ok([...admitted].every((id) => flat.includes(id)), `case 35: ENTRY_POSTURES admits a posture no step names — ${[...admitted].filter((id) => !flat.includes(id)).join(", ")}`);
+    ok(flat.every((id) => admitted.has(id)), `case 35: a step names a posture no entry mode admits — ${flat.filter((id) => !admitted.has(id)).join(", ")}`);
+    // An existing PRD admits exactly one step, which is what the drawer renders as one button.
+    const stepsFor = (mode) => POSTURE_FLOW.filter((r) => r.postures.some((id) => ENTRY_POSTURES[mode].includes(id)));
+    ok(stepsFor("existing-prd").length === 1 && stepsFor("existing-prd")[0].step === "grill", `case 35: existing-prd admits ${stepsFor("existing-prd").map((r) => r.step).join(", ")} — MVP 2 says Grill alone`);
+    ok(stepsFor("blank-idea").length === 3, `case 35: blank-idea admits ${stepsFor("blank-idea").length} steps, not three`);
+    // The variant labels are keyed ONLY by a posture that is some step's second-or-later entry.
+    const variants = POSTURE_FLOW.flatMap((r) => r.postures.slice(1));
+    ok(same(Object.keys(POSTURE_VARIANT_LABEL).sort(), [...variants].sort()), `case 35: POSTURE_VARIANT_LABEL is keyed by ${Object.keys(POSTURE_VARIANT_LABEL).join(",")} against the variants ${variants.join(",")} — a label with no variant is a control nothing renders`);
+    ok(Object.isFrozen(POSTURE_VARIANT_LABEL) && threw(() => { POSTURE_VARIANT_LABEL.smuggled = "x"; }) !== null && !("smuggled" in POSTURE_VARIANT_LABEL), "case 35: POSTURE_VARIANT_LABEL is not frozen");
+  }
+
+  // 30.36 — C3 over #288's new UI strings. The bank group owns the title-term list; this sweeps the
+  // same terms over the flow's labels, `what` lines and variant labels, with the positive control that
+  // proves the sweep can match at all.
+  {
+    const TITLE_TERMS = ["senior", "junior", "lead ", "principal", "staff engineer", "head of", "director", "vp ", "chief", "manager", "c-suite", "executive"];
+    const strings = [...POSTURE_FLOW.flatMap((r) => [r.label, r.what]), ...Object.values(POSTURE_VARIANT_LABEL)];
+    ok(TITLE_TERMS.some((t) => "a senior designer".includes(t)), "case 36: the title-term sweep cannot match anything — the control failed");
+    for (const str of strings)
+      for (const t of TITLE_TERMS)
+        ok(!str.toLowerCase().includes(t), `case 36: #288's string ${JSON.stringify(str)} carries the title term "${t}" (C3)`);
+  }
+
+  // 30.37 — resumeMismatch (#288; PR #365 F6). DISK IS AUTHORITATIVE and this does not change that —
+  // it refuses to return the disk state SILENTLY. Every branch driven, including the one that decides
+  // whether the check is safe to ship: it must NEVER fire on a create.
+  {
+    const head = (over = {}) => ({ slug: "x", depth: "full-discovery", facets: null, ...over });
+    const vector = { hasModel: false, regulated: true, internal: false, orgBuys: false, replacesAProcess: false };
+    // Agreement, over every spelling of "no vector".
+    for (const f of [null, undefined, {}])
+      ok(resumeMismatch(head(), { depth: "full-discovery", facets: f }) === null, `case 37: {} / null / undefined must all read as NO vector — ${JSON.stringify(f)} produced a mismatch`);
+    // A five-key preset against the same vector spelled with one key.
+    ok(resumeMismatch(head({ facets: vector }), { depth: "full-discovery", facets: { regulated: true } }) === null,
+      "case 37: a vector spelled with fewer keys must normalise to the same value — declareFacets fills the five");
+    ok(resumeMismatch(head({ facets: vector }), { depth: "full-discovery", facets: vector }) === null, "case 37: the identical vector must agree");
+    // Disagreement, each naming what is on disk.
+    const dm = resumeMismatch(head(), { depth: "scope-check", facets: null });
+    ok(dm !== null && dm.includes('"full-discovery"') && dm.includes('"scope-check"') && dm.includes('"x"'), `case 37: a depth mismatch must name the recorded depth, the requested one and the slug — got ${JSON.stringify(dm)}`);
+    const vm = resumeMismatch(head({ facets: vector }), { depth: "full-discovery", facets: null });
+    ok(vm !== null && vm.includes("regulated") && vm.includes("no facet vector"), `case 37: a vector mismatch must name the recorded vector and the requested one — got ${JSON.stringify(vm)}`);
+    const bm = resumeMismatch(head({ facets: vector }), { depth: "scope-check", facets: { hasModel: true } });
+    ok(bm !== null && bm.includes('"full-discovery"') && bm.includes('"scope-check"') && bm.includes("regulated") && bm.includes("hasModel"), `case 37: both mismatched must name both — got ${JSON.stringify(bm)}`);
+    // D1b's distinction on the wire: a DECLARED all-false vector is not "no vector", and the message says which.
+    const allFalse = Object.fromEntries(FACETS.map((f) => [f.id, false]));
+    const cm = resumeMismatch(head({ facets: null }), { depth: "full-discovery", facets: allFalse });
+    ok(cm !== null && cm.includes("a declared vector with nothing ticked"), `case 37: the consumer preset must be DISTINGUISHABLE from no vector — got ${JSON.stringify(cm)}`);
+    // THE CREATE CASE. openSession's own write literal shape, built from a posted set: null by
+    // construction, which is what makes the route's 409 safe to place after openSession.
+    for (const posted of [{ depth: "full-discovery", facets: null }, { depth: "scope-check", facets: { regulated: true } }, { depth: "opening-set", facets: allFalse }]) {
+      const written = { slug: "created", depth: posted.depth, facets: declareFacets(posted.facets) };
+      ok(resumeMismatch(written, posted) === null, `case 37: resumeMismatch fired on a CREATE for ${JSON.stringify(posted)} — the head was written FROM these values and the 409 would refuse every new session`);
+    }
+    // Total over a junk head; the BANK's own throw on a junk vector.
+    for (const junk of [null, undefined, 42, "x", []])
+      ok(resumeMismatch(junk, { depth: "x", facets: null }) === null, `case 37: a junk head ${JSON.stringify(junk)} must answer null, not throw — a route with another caller must not take the drawer down`);
+    ok(threw(() => resumeMismatch(head(), { depth: "full-discovery", facets: { marketplace: true } }))?.message.includes("unknown facet"),
+      "case 37: a junk POSTed vector must throw the BANK's own refusal by name, not compare as different");
+  }
+
+  // 30.38 — the config's three new keys (#288). facetPlans is compared by DRIVING facetPlan over the
+  // vector each key encodes, never by reading the table back to itself, so a table built with the bits
+  // reversed fails here rather than serving 31 wrong plans to a lookup that cannot tell.
+  {
+    const c = discoveryConfig();
+    ok(same(c.postureFlow, POSTURE_FLOW) && same(c.postureVariantLabels, POSTURE_VARIANT_LABEL), "case 38: the config's postureFlow / postureVariantLabels are not the module's tables");
+    ok(same(Object.keys(c.modules).sort(), FACETS.map((f) => f.id).sort()), `case 38: config.modules is keyed by ${Object.keys(c.modules).join(",")}, not by FACETS' ids`);
+    for (const f of FACETS) {
+      ok(same(Object.keys(c.modules[f.id]).sort(), ["budget", "label"]), `case 38: config.modules.${f.id} carries ${Object.keys(c.modules[f.id]).join(",")} — ids and budgets only, never a question object`);
+      ok(c.modules[f.id].label === MODULES[f.id].label && c.modules[f.id].budget === MODULES[f.id].budget, `case 38: config.modules.${f.id} disagrees with the bank's own MODULES entry`);
+    }
+    ok(Object.keys(c.facetPlans).length === 33, `case 38: facetPlans holds ${Object.keys(c.facetPlans).length} rows — 32 declared vectors plus the undeclared one`);
+    ok(same(c.facetPlans[""], facetPlan(null)), "case 38: the \"\" row is not facetPlan(null) — the undeclared case must be its own row, not an all-false vector");
+    for (const [key, plan] of Object.entries(c.facetPlans)) {
+      if (key === "") continue;
+      ok(/^[01]{5}$/.test(key), `case 38: facetPlans key ${JSON.stringify(key)} is not a five-bit string`);
+      const v = Object.fromEntries(FACETS.map((f, i) => [f.id, key[i] === "1"]));
+      ok(same(plan, facetPlan(v)), `case 38: the ${key} row disagrees with facetPlan over the vector it encodes — ${JSON.stringify(plan)} against ${JSON.stringify(facetPlan(v))}`);
+      ok(facetKey(v) === key, `case 38: facetKey does not reproduce the key ${key} from its own vector — the browser's hand-written join reads the wrong row`);
+    }
+    // The bit order is FACETS' order, not its reverse. One ASYMMETRIC vector decides it.
+    ok(facetKey({ hasModel: true }) === "10000", `case 38: facetKey({hasModel:true}) is ${JSON.stringify(facetKey({ hasModel: true }))}, not "10000" — the bit order is not FACETS' order`);
+    ok(facetKey(null) === "" && facetKey(undefined) === "", "case 38: facetKey must answer \"\" for no vector — the drawer's lookup falls on the wrong row otherwise");
+    ok(facetKey(Object.fromEntries(FACETS.map((f) => [f.id, false]))) === "00000", "case 38: a DECLARED all-false vector must key \"00000\", never \"\" — D1b's two states are two rows");
+    ok(c.facetPlans["00000"].declared === true && c.facetPlans[""].declared === false, "case 38: the declared all-false row and the undeclared row must differ in `declared` — they open different sessions");
+  }
+
+  // 30.39 — sessionView.ledger (#288), over a temp root. Written by hand and read back, so the claim
+  // is about what the VIEW folds rather than about what a helper returns: a text line and a denied
+  // line must contribute nothing, because the drawer's package view renders ops and only ops.
+  {
+    const r = tmpRoot("ledger-view");
+    writeFileSync(join(r, "run.json"), JSON.stringify({
+      slug: "ledger-view", provenance: "fictional", label: "Real run — fictional scenario", entryMode: "blank-idea",
+      depth: "scope-check", proposedDepth: "full-discovery", facets: null, reads: [], frontEnd: "portal",
+      model: "claude-sonnet-5", posture: "think", sessionId: null, startedAt: "2026-09-04T09:00:00.000Z",
+      endedAt: null, root: "discovery/ledger-view", turnStats: [],
+    }, null, 2));
+    writeFileSync(join(r, "answers.jsonl"), "");
+    writeFileSync(join(r, "transcript.jsonl"), "");
+    const six = selectDepth("scope-check");
+    appendAnswer(r, { turn: "t1", questionId: six[0].id, kind: "banked", text: "Six weeks, one person." });
+    const records = [
+      { seq: 1, turn: null, op: "file_evidence", params: { url: "https://example.test/s", ref: null, name: null, provenance: "secondary-source", claim_ref: null }, closes: false, flagged: [], supersedes: null },
+      { seq: 2, turn: "t1", op: "record_decision", params: { question_id: six[0].id, answer_ref: "a1", level: "business", parent_id: null, evidence_refs: [], wrong_if: "the cohort churns", off_script: false }, closes: true, flagged: ["no-evidence"], supersedes: null },
+    ];
+    appendTranscript(r, textLine({ turn: "t1", text: "That names a duration." }));
+    for (const record of records) appendTranscript(r, opLine({ record }));
+    appendTranscript(r, deniedLine({ turn: "t1", tool: "Read", input: null, error: "outside this run", via: "PreToolUse" }));
+    const v = sessionView(r);
+    ok(same(v.ledger, ledgerView(records)), `case 39: sessionView.ledger is not ledgerView over the transcript's op lines — got ${JSON.stringify(v.ledger.counts)}`);
+    ok(v.ledger.total === 2 && v.ledger.counts.record_decision === 1 && v.ledger.counts.file_evidence === 1 && v.ledger.flags["no-evidence"] === 1,
+      `case 39: the fold counted ${JSON.stringify(v.ledger.counts)} — a text line or a denied line contributed to it`);
+    ok(v.ledger.decisions.length === 1 && v.ledger.decisions[0].latest === true && v.ledger.decisions[0].questionId === six[0].id,
+      "case 39: the decision row must carry the applier's question id and read as latest");
+    // A line whose type is outside the three is FILTERED here, where readPackage REFUSES it. The two
+    // differ on purpose: this is a live view over a file being appended to.
+    writeFileSync(join(r, "transcript.jsonl"), `${readFileSync(join(r, "transcript.jsonl"), "utf8")}${JSON.stringify({ type: "smuggled", ts: "2026-09-04T09:10:00.000Z" })}\n`);
+    ok(threw(() => sessionView(r)) === null && sessionView(r).ledger.total === 2, "case 39: sessionView must FILTER an unknown transcript type rather than throw — a throw takes the drawer down mid-session");
+  }
+
+  // 30.40 — the route's 409, source-pinned (portal/server.mjs is a server, not an importable module
+  // here). The ORDER is the load-bearing half: resumeMismatch must run on openSession's RETURN, so a
+  // junk depth is still the bank's throw and the 409 is only ever reached with a valid POST.
+  {
+    const src = readFileSync(join(ROOT, "portal/server.mjs"), "utf8");
+    const at = src.indexOf("'/api/discovery/session' && req.method === 'POST'");
+    ok(at !== -1, "case 40: the discovery session POST route is not where this pin expects — re-pin before trusting it");
+    const branch = src.slice(at, src.indexOf("'/api/discovery/session' && req.method === 'GET'", at));
+    const openAt = branch.indexOf("openSession({");
+    const checkAt = branch.indexOf("resumeMismatch(");
+    ok(openAt !== -1 && checkAt !== -1, "case 40: the session POST branch does not call both openSession and resumeMismatch");
+    ok(openAt < checkAt, "case 40: resumeMismatch is called BEFORE openSession — openSession's guards must refuse junk by name first, or a junk depth comes back as a confusing 409");
+    ok(/json\(res,\s*409,\s*\{\s*error:/.test(branch), "case 40: the session POST branch answers no 409 — a differing resume would return somebody else's session silently (PR #365 F6)");
+    ok(branch.includes("depth: b.depth") && branch.includes("facets: b.facets ?? null"), "case 40: the 409 must be checked against the POSTED depth and vector, by name");
+    // The boundary keeps NO error taxonomy: the catch-all is still one flat 500.
+    ok(/catch \(e\) \{\s*return json\(res, 500, \{ error: e\.message \}\);/.test(src), "case 40: the boundary catch-all is no longer the flat 500 — an error taxonomy was added at the boundary (CLAUDE.md §Ground rules)");
+  }
+
+  // 30.41 — THE DRAWER (#288), source-pinned. portal.js touches the DOM at module scope and cannot be
+  // imported into a Node gate, so this is the only shape available; it is weak, and every pin below
+  // therefore carries the thing it must NOT match as well as the thing it must. Case 20's three
+  // provenance spans are untouched by this case.
+  {
+    const js = readFileSync(join(ROOT, "portal/public/portal.js"), "utf8");
+    const html = readFileSync(join(ROOT, "portal/public/index.html"), "utf8");
+    // The select is gone, the flow is rendered, and no listener is left bound to a missing id — a
+    // $() on a removed id throws at MODULE SCOPE and takes the whole portal SPA down, not just the drawer.
+    ok(!js.includes("discovery-posture") && !html.includes("discovery-posture"), "case 41: #discovery-posture still appears — a listener or a read on a removed id throws at module scope and takes the SPA down");
+    ok(js.includes("function renderDiscoveryFlow(") && html.includes('id="discovery-flow"'), "case 41: the flow row is not rendered — MVP 1's three buttons are the ticket");
+    ok(js.includes("c.postureFlow") || js.includes("config.postureFlow"), "case 41: the drawer does not read postureFlow off the config — the order and the labels would be a second copy (AC #6)");
+    // The facet key join maps the CONFIG, never a literal id list.
+    const keyAt = js.indexOf("const facetKeyOf");
+    ok(keyAt !== -1, "case 41: the facet key join is not where this pin expects — re-pin before trusting it");
+    const keyLine = js.slice(keyAt, keyAt + 260);
+    ok(keyLine.includes("config.facets.map"), `case 41: facetKeyOf must map config.facets IN ORDER — got ${JSON.stringify(keyLine.slice(0, 160))}`);
+    for (const f of FACETS)
+      ok(!new RegExp(`['"\`]${f.id}['"\`]`).test(js), `case 41: portal.js hardcodes the facet id "${f.id}" — the five facts and their order are the config's (AC #6)`);
+    // No greedy walk in the browser: the plan is a LOOKUP, and no budget arithmetic appears.
+    ok(js.includes("facetPlans["), "case 41: the drawer does not look the plan up — composing it here is a second copy of D1a's greedy walk");
+    ok(!/\bbudget\s*[+\-]/.test(js) && !/[+\-]=\s*[A-Za-z_$][\w$]*\.budget/.test(js), "case 41: the drawer does budget arithmetic — the 32-row table is served for exactly this reason (AC #6)");
+    // The Start handler POSTs the vector and refuses overflow BEFORE the POST, gated on `composes`.
+    const openAt = js.indexOf("$('#discovery-open').addEventListener");
+    const postAt = js.indexOf("'/api/discovery/session'", openAt);
+    ok(openAt !== -1 && postAt !== -1, "case 41: the Start handler is not where this pin expects — re-pin before trusting it");
+    const handler = js.slice(openAt, postAt);
+    const guardAt = handler.indexOf("overflow.length");
+    ok(guardAt !== -1, "case 41: the Start handler POSTs without refusing an overflowing vector first — the operator would meet selectDepth's throw as a 500");
+    ok(/depthComposes\(\)\s*&&\s*[A-Za-z_$][\w$]*\.overflow\.length/.test(handler),
+      "case 41: the Start refusal is not gated on `composes` — selectDepth only throws at full discovery (bank.mjs:1098), so a wider refusal rejects a legal scope-check session the server would open");
+    ok(js.slice(postAt, postAt + 600).includes("facets"), "case 41: the session POST does not send `facets` — every session would open unfaceted and the bank's width stays unreachable");
+    // The plan note's `composes` branch is FIRST, and no count is interpolated before it: facetPlan is
+    // DEPTH-BLIND (bank.mjs:1069-1071), so a scope-check session must never be told it is 16 long.
+    const noteAt = js.indexOf("function renderFacetPlan(");
+    ok(noteAt !== -1, "case 41: renderFacetPlan is not where this pin expects — re-pin before trusting it");
+    const note = js.slice(noteAt, js.indexOf("\n}", noteAt));
+    const composesAt = note.indexOf("depthComposes()");
+    const countAt = note.indexOf("plan.count");
+    ok(composesAt !== -1, "case 41: the plan note does not branch on `composes` — every row of facetPlans describes full discovery");
+    ok(countAt === -1 || composesAt < countAt, "case 41: the plan note interpolates a count BEFORE its `composes` branch — a scope-check or whole-bank session would be told full discovery's length");
+    // The package view READS the fold. No count is re-derived, which is AC #4's literal wording.
+    const pvAt = js.indexOf("function renderPackageView(");
+    ok(pvAt !== -1, "case 41: renderPackageView is not present — AC #4's package view is the ticket");
+    const pv = js.slice(pvAt, js.indexOf("\n}", pvAt));
+    ok(pv.includes("l.counts[") && pv.includes("l.flags["), "case 41: the package view does not read ledger.counts / ledger.flags — every number on it must come off the fold");
+    ok(!/\.decisions\.filter\(/.test(pv) && !/\.decisions\.reduce\(/.test(pv), "case 41: the package view counts over ledger.decisions itself — a derived number is a claim the ops did not make (AC #4)");
+  }
+
+  // 30.42 — portal.css, source-pinned. The 44×44 commitment has no gate (the portal is not in #271's
+  // VR page set), so these three lines are the only mechanical part of it; the measurement itself is
+  // done in a browser and recorded in the PR report.
+  {
+    const css = readFileSync(join(ROOT, "portal/public/portal.css"), "utf8");
+    ok(/#discovery-drawer \.btn \{[^}]*min-width: 44px/.test(css), "case 42: the drawer's .btn rule sets no min-width — a numbered flow button (\"1. Think\") is narrower than 44px");
+    ok(/\.discovery-check \{[^}]*min-height: 44px/.test(css), "case 42: .discovery-check sets no min-height — a native checkbox is ~13px and the LABEL is the target");
+    ok(/#discovery-drawer input:not\(\[type="checkbox"\]\)/.test(css) || /\.discovery-check input \{[^}]*min-height: 0/.test(css),
+      "case 42: the 44px input rule is not scoped out of the facet checkboxes — it would swell each box into a 44px square");
+  }
+
+  group("discovery", `the SSE projection's four branches with exact key sets and seven junk values answering null · the WHITELIST proven by mutation — an unknown field on a text line, on an op line and inside params never reaches the wire, and wrong_if / missing stay off it because the surface reads the package · the 4000 cap with its 800-char control and the denied error capped too, the reason stated (pushback prose IS the content, not a progress log) · TOOL_SCHEMA ↔ PARAMS by NAME AND ORDER in both directions with every enum compared BY MEMBER against LEVELS / SOURCES / PROVENANCE, closing spike 1's P1 cardinality gap, and every type code in TOOL_TYPES · the four tool names and the server name pinned · the provenance roots with the privacy refusal DRIVEN by a repo-rooted real run rather than asserted, an unknown provenance naming both, and four lists frozen by mutation · the slug guard over eleven junk values each refused by name · the ref allocator stable over an out-of-order store · the cursor DERIVED from closed turns only — a text line, a non-closing op and a denied line each proven not to move it, a decision and a parked question each advancing exactly one, and past-the-end reading done with a null question · the three line constructors against the README's shapes, with opLine's alias trap (mutate the record after the call and re-read) · the Think posture's model, both halves of MVP 6, the prompt carrying ref + text + weak-answer note, five junk builds throwing, and the rubric proven ABSENT from what the config route serves · the source pin on IMPORT LINES over both modules — no SDK, no zod, no DOM, no static transport import, plus the lazy import asserted PRESENT · purity by double call and by mutating the return · allowsToolName over four allowed and eighteen refused, built by mapping OPS · assertTurnWritable accepting three open shapes and refusing both closer kinds by turn and seq · openSession's six refusals (entryMode, frontEnd, posture, depth, a junk facet by the bank's name, an overflowing vector naming what does not fit) each driven, {} proven to be NO vector, the write literal pinned to record facets: declared and proposedDepth, and branch proven absent from the module, with every guard call pinned from source to precede mkdirSync — nothing under discovery/ is read · PARENT_RULE pinned verbatim and asserted to INSTRUCT (one rung above, re-file on refusal, null only when nothing above) · ledgerBrief over an empty ledger, a three-rung applier-built ledger and an off-script decision, present VERBATIM in the turn prompt and ABSENT from the system prompt, the recency line naming parent_id LAST, a build lacking the ledger refused, and the brief's candidate line proven to be the applier's acceptance set with the refusal naming the same seq · TOOL_DESCRIPTIONS frozen, keyed as OPS, record_decision's naming the candidate line · the posture fingerprint deterministic and MOVED by mutation of the model, the system prompt and the turn template, and pinned to fixed inputs the bank cannot touch · the transport pinned from source to pass the ledger, import the one copy of the tool text and stamp the fingerprint off the posture (#341) · the fence HOOKS run hook by hook over a temp root, BOTH recording hooks gated by the tool NAME (#349, after #343's SubagentStart…SubagentStop bracket was observed to hold on the session's create turn only — 0 of 11 resumed turns delivered SubagentStart, every one delivered SubagentStop): isMcpToolName driven over four true and fourteen false, a main-session denial on a foreign MCP tool recorded once with denyReason's text, the six built-ins the 79-line recording named each DENIED and unrecorded with no SubagentStart ever delivered — the line that was red under the bracket — a built-in PostToolUseFailure unrecorded, an op-tool PostToolUseFailure recorded verbatim whatever the warmup is doing (PR #344 F1), a non-op PostToolUseFailure unrecorded, every op tool passing, the bracket hooks pinned ABSENT and PostToolUse pinned ABSENT (#343) · the FENCE TRACE (#349) proven off when unarmed by BOTH its path and a listing of the run root, when armed tracing every DECISION on a tool outside this run's op vocabulary — two in-root Read/Glob ALLOWS as well as a Bash denial, each with its tool and recorded flag, the op call itself never traced (PR #354 review F1: a deny-only trace goes blind for exactly the in-root path calls the read fence now admits, and bracket-trace-1's committed trace holds three of them) — absent from transcript.jsonl, and an unwritable path leaving the denial and its recorded line intact · EVIDENCE_RULE pinned verbatim, asserted to name file_evidence and BOTH of its routes and to forbid inventing one, and asserted to sit BEFORE PARENT_RULE — the recency tail #341 bought with a paid recording, which an APPENDED prompt string would take away silently (#338 F6) · the provenance's ABSENT DEFAULT driven on the server (an empty, null and undefined provenance each refused by name, so no browser drift opens a session on a blank) and source-pinned in the drawer with both controls — the placeholder present, FIRST in the list, the Start handler refusing a blank BEFORE it POSTs, and the note three-way so the placeholder cannot render the "real" note (#338 F3) · the boot stamp: isStale over four pairs with unknown proven NOT stale, BOOT_SHA source-pinned to module scope (read per request it reports the TREE's HEAD and a stale process reads as fresh) and /api/health pinned to carry it, plus the PRD route proven READ-ONLY — writePrd neither imported nor called, and the resolveRunRoot + assertProvenanceRoot pair present (#338 F1, F2) · PROVENANCE_RULE keyed by run.json's two provenances, each rendered VERBATIM only for its own run, each naming the true evidence label and forbidding the false one, sitting BEFORE EVIDENCE_RULE and inside the fingerprint (a real build moves it), the turn prompt unchanged by it, a build with no provenance or an unknown one refused, and the transport pinned from source to pass head.provenance; EVIDENCE_RULE naming the third source, name, beside a ref (#347) · THE READ FENCE (#287): allowSetFor + allowsPath driven over run 1's shape (its package and the bank allowed; _portfolio/decisions.json and the sealed file denied) and run 2's (the fixture allowed; docs/epics/discovery-partner.prd.md one directory above it denied, with the fixture's directory and siblings), the entry + sep rule and .. normalisation, eight junk paths and eleven junk sets each denying with "fail closed" and never throwing, allowSetFor refusing a relative root and seven junk reads by name, the set frozen and pure · fenceDecision — op tools by name under any set, Read/Grep/Glob by path with the cwd default, five write-and-shell tools denied BY NAME under an allow-everything set and an in-root path, READ_TOOLS pinned to Glob·Grep·Read, WebSearch/WebFetch proven INDEPENDENT of the allow-set and decided by the name gate's text, ten junk names denying, and the raw predicate proven to THROW on a hostile set · BOTH CALL SITES driven over a temp root with the transport's fence shape — the hook and fenceCanUseTool each denying a Read outside the set and recording ONE denied line via ITSELF with the path and the reason the SDK was given, each passing a Read inside the root unrecorded, agreeing on a twelve-input battery in decision and reason, denying and NOT recording under mainTools: [] (#349's attribution byte-identical) while an mcp__ denial still records, each DENYING on the hostile set with "fail closed" and letting nothing escape, each failing every path tool closed with no allow-set while op tools pass, and the trace naming the site in its event · deniedLine's via REQUIRED and pinned to the three sites · openSession refusing junk reads by name before mkdirSync · the transport pinned from source to hand ONE fence object to both sites, rebuild the allow-set from run.json, carry no inline canUseTool, keep tools and mainTools one record, set strictMcpConfig: true so the repo's .mcp.json never joins a run's advertised surface (#352), and run the real turn with cwd equal to the run root — scoped to that query's own block with resume: head.sessionId as the positive control, because --probe-fence carries a second cwd: root and a file-wide match stayed green with the real turn pointed elsewhere (PR #354 review F2) · ONE FENCE, TWO KINDS OF RUN (#359): extraTools and write, both defaulted, with the MIRROR case proving extraTools absent, [] and undefined byte-identical over case 25's whole twelve-input battery in DECISION and REASON, the proposal tool name admitted and only it (five near-misses denied, the op tools still passing by the name gate, Write/Edit/Bash still denied BY NAME, six junk values denying rather than throwing), allowsToolName proven NOT widened so case 14's statement still holds, the mcp__ prefix isRecorded rests on pinned, and write proven to STREAM a denial with transcript.jsonl left empty against the write: null positive control that lands one — plus the two callers proven to hand onLine the SAME key set with ts present, because the stamp sits before the write/append branch, and a PostToolUseFailure on the run's OWN tool streamed while one on a foreign tool records nothing · #285 added THE RULES LAYER: LADDER ∪ whole-bank pinned to the depth menu, DEPTH_PROPOSAL ↔ ENTRY_MODES both ways with every proposal an interview rung, ESCALATES one row pinned to the rung immediately above, COMPOSES proven by driving the bank, the config's per-depth UNFACETED count and composes flag · the cursor read from the LAST closer — a first weak flag HOLDS the question for one fresh turn, a second closer of any kind settles it, whole-bank never holds, a weak flag the record moved past reads as settled (the shape graded-think-a holds eleven times), a closer outside the list refused naming the seq · D5's proposal as a VALUE: null on one flag, present with the question and both turns on two, run.json's depth untouched, null on the three depths ESCALATES does not name · the counters at 0/1/2/3/4 with file_evidence and both off-script ops proven not to move them, the weak-answer RATE, coverage from the ops diverging from the cursor on a skipped question, and asked-what-mattered tallying the twelve and the tail with the composed modules · #288 added THE WIDTH: POSTURE_FLOW iterated against POSTURES and ENTRY_POSTURES in BOTH directions — every posture in exactly one step, three steps matching MVP 1's three names, order asserted equal to array position so a reorder cannot renumber the buttons silently, frozen at both levels by mutation, existing-prd admitting the Grill step ALONE, and POSTURE_VARIANT_LABEL keyed only by a step's second-or-later entry · the C3 title sweep over every new label and "what" line behind its positive control · resumeMismatch (PR #365 F6) driven on every branch — {} / null / undefined all reading as NO vector, a five-key preset against the same vector spelled with one key, the DECLARED all-false vector distinguishable from no vector in the message, a depth mismatch naming both depths and the slug, a vector mismatch naming both vectors, THE CREATE CASE (openSession's own write literal built from three posted sets, each answering null, which is what makes the route's 409 safe to place after openSession), a junk head answering null and a junk vector throwing the BANK's own refusal · the config's three new keys: postureFlow and postureVariantLabels identical to the tables, modules keyed by FACETS with each label and budget equal to the bank's and no question object on it, and facetPlans' 33 rows each compared by DRIVING facetPlan over the vector its key encodes — never by reading the table back to itself — with facetKey proven to reproduce every key, the bit order decided by one asymmetric vector, and the declared all-false row proven distinct from the undeclared one · sessionView.ledger over a temp root written by hand, equal to ledgerView over the op lines with a text line, a denied line and an unknown type each contributing nothing, and the unknown type FILTERED where readPackage refuses — the live-view difference stated · the route's 409 source-pinned to run AFTER openSession with the posted depth and vector by name, the boundary's flat 500 still the only catch-all · THE DRAWER source-pinned (the only shape available): #discovery-posture gone from both files, renderDiscoveryFlow present, postureFlow read off the config, the facet key join mapping config.facets with NO facet id hardcoded anywhere in portal.js, the plan looked up rather than walked with no budget arithmetic, the Start handler POSTing facets and refusing overflow before the POST GATED ON composes (a wider refusal than bank.mjs:1098's rejects a legal scope-check session), the plan note's composes branch proven FIRST so a depth-blind count never reaches a scope-check session, and the package view proven to read ledger.counts / ledger.flags and to run no filter or reduce over ledger.decisions (AC #4's literal wording) · portal.css pinned for min-width on the drawer's buttons, .discovery-check's 44px label target and the checkbox scoped out of the 44px input rule · #286 added THE THREE POSTURES AND THE AUDIT MODE: POSTURES pinned to think · think-opus · create-prd · grill with Think and Create-PRD on claude-sonnet-5 by name and every model in MODELS, MODEL_SETTABLE = grill alone, resolvePosture returning the posture itself on its own model and a five-key copy with a RECOMPUTED fingerprint on an override, and refusing an override on a pinned posture and an unknown model by name · the one-input-set fingerprint join proven unchanged and Think's stamp pinned to the five recordings' literal · the shared contract driven over all three new builds — YIELD_CONTRACT, MVP6_LINE, JUDGEMENT_RULE, LADDER_BRIEF, the provenance rule for its own run only, EVIDENCE_RULE and PARENT_RULE each VERBATIM, PARENT_RULE last, the ledger brief in the turn prompt and absent from the system prompt, nine junk builds refused, Think and Create-PRD refusing an existing-prd build naming Grill · Create PRD's section brief derived from the projection's SECTIONS rows and every ladder row present · the re-ask brief present with the first flag's seq and missing list on the second ask and absent otherwise (#366, for the two new postures; Think's stays blind by name) · the AUDIT build with the document VERBATIM in the system prompt, ABSENT from the turn prompt, the ref named, AUDIT_VERDICT_RULE naming all four verbs and four verdicts, AUDIT_WRONG_IF_RULE naming the document's own condition, the document before PARENT_RULE, the wrong answer kind refused both ways, and the audit template proven INSIDE Grill's fingerprint by mutation with Think's unmoved · ENTRY_MODES, ENTRY_POSTURES and RE_ASKS pinned both ways with existing-prd admitting grill alone · the document store: one verbatim kind: document line per run, a second refused naming the first, documentOf and auditAnswerFor driven, appendAnswer still refusing the kind · the audit cursor NEVER holding (a blank-idea head over the same transcript as the positive control), the metrics agreeing on the held and the done reads, the view carrying the document's ref, length and md5 and never its text, an unknown entryMode refused, sessionView pinned never to consult ENTRY_POSTURES · the config carrying models, entryPostures and modelSettable and still no prompt body · openSession's new refusals driven (a non-Grill posture on existing-prd, no document, two documents, a blank one, a document on blank-idea, an unknown model, an override on Think, a missing and a directory documentPath) with appendDocument pinned from source AFTER writeRun and AFTER the resume return and the write literal recording model: resolved.model · runTurn's audit branch source-pinned to resolve the document instead of appending, and the transport pinned to pass entryMode: head.entryMode and keep MAIN_TOOLS empty. What it cannot reach: the transport, the SDK, any live run, openSession's create/resume branch (it writes a real root), whether a model reaches the verdict the audit rule names, or quotes the document's wrong-if rather than writing one — --probe-audit is that one-turn observation, paid; whether tools: [] holds at run time — the tool-name gate rests on the main session being advertised mcp__ tools only, and that is the init message's tool list, which the preflight's PF1 compares to OPS and no CI group can see (the 79-line recording, the 4-line one and #349's bracket-trace-1 / bracket-trace-2 are the observations: every built-in denial the CLI's warmup, every mcp__ one the agent's) — and whether a fence DENY actually STOPS a call at either site, or whether the CLI consults canUseTool for a read at all: the fence probe (discovery-transport.mjs --probe-fence) observes each site holding alone in a paid run this group cannot make; and the DRAWER ITSELF — portal.js touches the DOM at module scope, so its half of the provenance rule is a source pin, not a run, and only the server's refusal is executed here; and whether the drawer shows the re-asked question and the proposal — portal.js touches the DOM at module scope; the portal smoke is the check; and the drawer's RENDERED GEOMETRY — #288's 44×44 commitment is measured in a real browser at two viewports and recorded in the PR report, because the portal is not in #271's VR page set and architecture §Boundaries says it will not get one; and whether a person can answer a facet box without having done the discovery (D2's wrong-if), which only a real intake shows`);
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------

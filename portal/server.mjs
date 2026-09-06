@@ -13,7 +13,7 @@ import { receiveExport, runFigmaPull } from './lib/figma.mjs';
 import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from './lib/builder.mjs';
 // #284's discovery session. Every export here is SDK-free; the SDK is reached only by runTurn's lazy
 // import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
-import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, runTurn, sessionView, turnEvent, withDiscoveryRunLock } from './lib/discovery.mjs';
+import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, resumeMismatch, runTurn, sessionView, turnEvent, withDiscoveryRunLock } from './lib/discovery.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 // The PRD fold (#290). Pure — no clock, no network, no SDK — and it WRITES NOTHING here: the route
 // below calls projectPrd over readPackage and streams the bytes, never writePrd. See #338 F1.
@@ -167,10 +167,18 @@ const server = createServer(async (req, res) => {
     // restart lose nothing (AC #5). EVERY PARAMETER NAMED — see /api/build/run's comment below for why
     // a spread is the wrong shape on a route a cross-origin page can POST to. `facets` (#285) is the
     // declared vector or absent; the drawer sends none until #288, so it opens unfaceted sessions; the
-    // server accepts a vector today.
+    // server accepts a vector today, and #288's drawer sends one.
+    //
+    // A RESUME THAT ASKED FOR SOMETHING ELSE answers 409 (PR #365 review F6). openSession returned the
+    // disk state — disk is authoritative and stays so — and this is where that stops being silent. The
+    // check runs on its RETURN, never before it: openSession's own guards refuse junk by name first, so
+    // a junk depth is still the bank's throw rather than a confusing 409, and moving it earlier would
+    // need a second resolveRunRoot + assertProvenanceRoot pair. It never fires on a create, where the
+    // head was written FROM these values. Written here rather than thrown, because the boundary has no
+    // error taxonomy (CLAUDE.md §Ground rules) and a throw would land as a 500 that reads as a fault.
     if (p === '/api/discovery/session' && req.method === 'POST') {
       const b = await readBody(req);
-      return json(res, 200, openSession({
+      const view = openSession({
         slug: b.slug, provenance: b.provenance, entryMode: b.entryMode, depth: b.depth,
         facets: b.facets ?? null, frontEnd: b.frontEnd, posture: b.posture,
         // #286's three. `model` is Grill's per-run override (refused by name on any other posture);
@@ -183,7 +191,12 @@ const server = createServer(async (req, res) => {
         // bank. The drawer sends none (an existing PRD is carried in the prompt, #286); refused by
         // name if junk.
         reads: b.reads ?? [],
-      }));
+      });
+      const mismatch = resumeMismatch(view.head, { depth: b.depth, facets: b.facets ?? null });
+      // A 409 leaves the package untouched: openSession already returned the disk state, and no write
+      // happens on the resume path.
+      if (mismatch) return json(res, 409, { error: mismatch });
+      return json(res, 200, view);
     }
     // Read-only: the package as it stands. The drawer re-fetches this after a turn so the cursor and
     // the recorded turns come from disk rather than from a second client-side copy.

@@ -177,11 +177,33 @@
           <label>Depth
             <select name="depth" id="discovery-depth"></select>
           </label>
-          <label>Posture
-            <select name="posture" id="discovery-posture"></select>
-          </label>
         </div>
         <p class="muted" id="discovery-depth-note"></p>
+        <!-- D1/D2: five facts about the product, ticked by the person at intake — never inferred. The
+             four presets are a starting point, not a cell (MVP 4 as amended 2026-09-02). Only full
+             discovery composes from the vector (D1b); the note below says what the vector does at the
+             depth chosen above. Every row is built from /api/discovery/config, questions and all. -->
+        <fieldset class="discovery-facets" id="discovery-facets-row">
+          <legend>What is true about this product</legend>
+          <div class="discovery-presets" id="discovery-presets"></div>
+          <div class="discovery-checks" id="discovery-facets"></div>
+          <p class="muted" id="discovery-facet-note" aria-live="polite"></p>
+        </fieldset>
+        <!-- MVP 1's three buttons, in order, from /api/discovery/config's postureFlow. The step is the
+             run's posture and is recorded once in run.json; "pressable in order" is a flow ACROSS RUNS
+             — Think, then Create PRD, then Grill — and an existing PRD opens at Grill alone (#286's
+             entryPostures). The buttons are DISABLED once a session is open, never hidden: `.btn` is
+             display:inline-flex, so `hidden` on one is a silent no-op. -->
+        <fieldset class="discovery-flow" id="discovery-flow-row">
+          <legend>The stance for this run</legend>
+          <div class="discovery-flow-steps" id="discovery-flow"></div>
+          <p class="muted" id="discovery-flow-note" aria-live="polite"></p>
+          <div id="discovery-variant-row" hidden>
+            <label class="discovery-check">
+              <input type="checkbox" id="discovery-variant" /> <span id="discovery-variant-label"></span>
+            </label>
+          </div>
+        </fieldset>
         <!-- #286: Grill's model is a per-run choice, recorded in run.json; the other postures pin theirs -->
         <div class="portal-form-row" id="discovery-model-row" hidden>
           <label>Grill's model
@@ -233,6 +255,9 @@
         <ol class="portal-phase-log" id="discovery-log"></ol>
 
         <div id="discovery-recorded"></div>
+        <!-- AC #4 — what the package HOLDS, read from sessionView's `ledger` (discovery/ops.mjs's
+             ledgerView) and from nothing else, so it can never show a claim the ops do not hold. -->
+        <div id="discovery-package"></div>
         <!-- #359: the proposals and the owner's verdict on each. A model wrote the proposals; the
              verdicts are the owner's, and neither has a route into the requirement record. -->
         <div id="discovery-proposals"></div>
