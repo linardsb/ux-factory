@@ -772,7 +772,12 @@ const facetsPhrase = (v) => {
 // junk by name. Called directly with a junk vector it throws the bank's own error, which is the honest
 // answer and what group 30 drives. Total over a junk head: a route that grew a different caller must
 // not take the drawer down. `posture`, `model` and `entryMode` are deliberately NOT compared — the
-// owner's 2026-09-03 comment names the depth and the vector, and widening a refusal is theirs to call.
+// owner's answer on #374, which asked exactly this. The reason it holds: depth and vector are the two
+// whose mismatch is INVISIBLE, showing only as a different question count, while the two omitted here
+// are the two the drawer already shouts about — an entryMode mismatch hides the answer field, relabels
+// the submit and prints the document's md5, and a posture mismatch prints the recorded step, posture
+// and model in the flow note, both read off the RETURNED head. Widening would add refusals where the
+// surface is loud and leave them where it is quiet.
 export function resumeMismatch(head, posted) {
   if (!head || typeof head !== 'object' || Array.isArray(head)) return null;
   const wantDepth = posted?.depth ?? null;
