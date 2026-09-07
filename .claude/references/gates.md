@@ -10,7 +10,7 @@ Load this when adding a gate, changing one, or working out why a green run prove
 
 ## `tooling/build-checks.mjs` — 34 pure groups, in CI
 
-PURE: it imports the shipped modules and opens no browser. Groups 1–7 cover /build's pattern rules, slots, compositions against the real generated vocabulary, the share codec + its tamper battery, SVG escaping, and the one-application-point vetting invariant.
+PURE: it imports the shipped modules and opens no browser. The count in this heading is drift-checked — `tooling/drift-check.mjs`'s group-count leg reddens if it disagrees with the distinct group names in the source, so a reworded heading fails CI. Groups 1–7 cover /build's pattern rules, slots, compositions against the real generated vocabulary, the share codec + its tamper battery, SVG escaping, and the one-application-point vetting invariant.
 
 **Group 8 — the operator path** (`portal/lib/builder.mjs`): rule coverage driven by the shipped config, rule 3 proven by changing each of the other eight answers and asserting the drafted question is byte-identical, every guard called directly, the stepEvent whitelist, the run lock. This is also where the **SDK-free invariant** is proven, and it is proven by CI's ABSENCE of `portal/node_modules`. Locally: `mv portal/node_modules portal/node_modules.off && node tooling/build-checks.mjs; mv portal/node_modules.off portal/node_modules`.
 
