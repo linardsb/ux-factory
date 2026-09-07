@@ -735,7 +735,7 @@ const declaredVector = () => {
 // spells it — a join over config.facets IN ORDER, never a literal id list. Everything else about the
 // vector's consequences is a LOOKUP into config.facetPlans, because composing the greedy walk here
 // would be a second copy of D1a and facetPlan's own comment warns that `fits` is not a prefix of `fired`.
-const facetKeyOf = (v) => (v === null ? '' : discovery.config.facets.map((f) => (v[f.id] === true ? '1' : '0')).join(''));
+const facetKeyOf = (v) => (v === null || v === undefined || Object.keys(v).length === 0 ? '' : discovery.config.facets.map((f) => (v[f.id] === true ? '1' : '0')).join(''));
 
 // The plan for what is currently ticked. Read, never computed.
 const facetPlanNow = () => discovery.config.facetPlans[facetKeyOf(declaredVector())];
@@ -743,7 +743,7 @@ const facetPlanNow = () => discovery.config.facetPlans[facetKeyOf(declaredVector
 // Whether the chosen depth composes from a vector (D1b). facetPlan is DEPTH-BLIND — every row in
 // facetPlans describes full discovery — so no count and no overflow refusal may be shown where this
 // is false, or a legal scope-check session with three facets ticked is refused a session the server
-// would happily open (bank.mjs:1098 only throws at full discovery).
+// would happily open (`selectDepth` only throws at full discovery).
 const depthComposes = () => discovery.config.depths.find((d) => d.id === $('#discovery-depth').value)?.composes === true;
 
 $('#btn-discovery').addEventListener('click', async () => {
@@ -944,7 +944,7 @@ $('#discovery-open').addEventListener('click', async () => {
   // the document stored at session start is the one the audit runs on.
   if (entryMode === 'existing-prd' && !documentText && !documentPath) { $('#discovery-start-status').textContent = 'An existing PRD needs its document — paste it, or name a repo-relative path the server reads. Without one there is nothing to audit.'; return; }
   // D1a's refusal, in the drawer, with the plan's own message. GATED ON `composes`, matching
-  // selectDepth's own condition (bank.mjs:1098): a refusal wider than the server's would reject a
+  // selectDepth's own condition: a refusal wider than the server's would reject a
   // legal scope-check session with three facets ticked. selectDepth's throw is the belt.
   const plan = facetPlanNow();
   if (depthComposes() && plan.overflow.length) { $('#discovery-facet-note').scrollIntoView({ block: 'nearest' }); $('#discovery-start-status').textContent = `The vector overflows full discovery's ${plan.budget}: ${$('#discovery-facet-note').textContent}`; return; }
@@ -1017,8 +1017,9 @@ function renderDiscoverySession() {
   renderPackageView();
   renderProposals();
   // Both #359 controls need a FINISHED package: the propose route refuses an open one by name, and
-  // there is nothing to download before a run. Disabled rather than hidden, because `el.hidden` is a
-  // no-op wherever a CSS rule sets display and this drawer sets plenty.
+  // there is nothing to download before a run. Disabled rather than hidden: portal.css's unscoped
+  // `[hidden]{display:none!important}` means hiding WOULD work, but a control that vanishes gives no
+  // reason, and a disabled one still announces that the step exists and is not yet reachable.
   $('#discovery-propose').disabled = discovery.running || !head.endedAt;
   $('#discovery-proposals-md').disabled = !head.endedAt;
 }
@@ -1049,7 +1050,7 @@ function renderDiscoveryRecorded() {
           <p class="card-kicker">${isDoc ? 'the audited document' : esc(a.turn)} · ${esc(a.ref)} · ${isDoc ? 'every question' : esc(a.question_id ?? 'off-script')}</p>
           <p class="discovery-recorded-answer">${isDoc ? `The audited document — ${a.text.length} characters, stored verbatim as ${esc(a.ref)}.` : esc(a.text)}</p>
           ${ops.length
-            ? `<ul class="discovery-recorded-ops">${ops.map((o) => `<li>${esc(o.op)}${isDoc && o.params?.question_id ? ` · ${esc(o.params.question_id)}` : ''}${o.closes ? ' · closed the turn' : ''}${o.flagged?.length ? ` · flagged ${esc(o.flagged.join(', '))}` : ''}${o.supersedes ? ` · supersedes seq ${o.supersedes}` : ''}</li>`).join('')}</ul>`
+            ? `<ul class="discovery-recorded-ops">${ops.map((o) => `<li>${esc(o.op)}${isDoc && o.params?.question_id ? ` · ${esc(o.params.question_id)}` : ''}${o.closes ? ' · closed the turn' : ''}${o.flagged?.length ? ` · flagged ${esc(o.flagged.join(', '))}` : ''}${o.supersedes ? ` · supersedes seq ${esc(o.supersedes)}` : ''}</li>`).join('')}</ul>`
             : `<p class="muted">${isDoc ? 'Nothing filed against the document yet.' : 'Nothing filed against this answer yet.'}</p>`}
         </div>`;
     }).join('')}`;
@@ -1077,17 +1078,17 @@ function renderPackageView() {
     return;
   }
   const chip = (t) => `<span class="discovery-chip">${esc(t)}</span>`;
-  const at = (r) => `seq ${r.seq}${r.turn ? ` · ${esc(r.turn)}` : ''}`;
-  const refs = (list) => (list.length ? list.map((n) => `seq ${n}`).join(', ') : 'none');
+  const at = (r) => `seq ${esc(r.seq)}${r.turn ? ` · ${esc(r.turn)}` : ''}`;
+  const refs = (list) => (list.length ? list.map((n) => `seq ${esc(n)}`).join(', ') : 'none');
   mount.innerHTML = `
     <h3 class="h3">The package — ${l.total} op(s)</h3>
     ${doc}
     <p class="muted">${discovery.config.ops.map((op) => `${esc(op)} ${l.counts[op]}`).join(' · ')} · flags ${Object.keys(l.flags).map((f) => `${esc(f)} ${l.flags[f]}`).join(' · ')}. Counted over the whole ledger, superseded records included — nothing here is removed, only marked.</p>
     ${l.decisions.length ? `<h4 class="card-kicker">Decisions</h4>${l.decisions.map((d) => `
       <div class="discovery-package-row${d.latest ? '' : ' is-superseded'}">
-        <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script' : ''}${d.supersededBy ? ` · superseded by seq ${d.supersededBy}` : ''}</p>
+        <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script' : ''}${d.supersededBy ? ` · superseded by seq ${esc(d.supersededBy)}` : ''}</p>
         <p class="discovery-package-prose">Wrong if: ${esc(d.wrongIf ?? '—')}</p>
-        <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${d.parentId}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${d.supersedes}` : ''}</p>
+        <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${esc(d.parentId)}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${esc(d.supersedes)}` : ''}</p>
         ${d.flagged.map(chip).join(' ')}
       </div>`).join('')}` : ''}
     ${l.weak.length ? `<h4 class="card-kicker">Weak answers</h4>${l.weak.map((w) => `
@@ -1104,7 +1105,7 @@ function renderPackageView() {
       <div class="discovery-package-row">
         <p class="card-kicker">${at(e)} ${chip(e.provenance ?? 'no provenance')}</p>
         <p class="discovery-package-prose">${esc(e.url ?? e.name ?? e.ref ?? '—')}${e.name && e.ref ? ` — named in answer ${esc(e.ref)}` : ''}</p>
-        <p class="discovery-package-meta">claim: ${e.claimRef === null ? 'no decision named' : `seq ${e.claimRef}`}</p>
+        <p class="discovery-package-meta">claim: ${e.claimRef === null ? 'no decision named' : `seq ${esc(e.claimRef)}`}</p>
       </div>`).join('')}` : ''}`;
 }
 
@@ -1138,7 +1139,7 @@ function renderProposals() {
       const p = row.proposal;
       const rests = (p.rests_on ?? []).map((seq) => {
         const d = bySeq.get(seq);
-        return `seq ${seq}${d ? ` (${esc(d.level)} · ${esc(d.question_id ?? 'off-script')})` : ' — not in this ledger'}`;
+        return `seq ${esc(seq)}${d ? ` (${esc(d.level)} · ${esc(d.question_id ?? 'off-script')})` : ' — not in this ledger'}`;
       }).join(' · ');
       return `
         <div class="discovery-proposal" data-proposal="${esc(p.id)}">

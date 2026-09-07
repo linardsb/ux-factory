@@ -864,7 +864,14 @@ const forTheBrowser = (q) => ({ id: q.id, stage: q.stage, text: q.text, attribut
 // Exported so the gate can drive BOTH sides of the key and the drawer needs no import: the browser
 // hand-writes the same one-line join over config.facets, which is the ONE derived line in the drawer,
 // and group 30 case 41 source-pins that it maps the config rather than a literal id list.
-export const facetKey = (v) => (v === null || v === undefined ? '' : FACETS.map((f) => (v[f.id] === true ? '1' : '0')).join(''));
+// The absent forms mirror `normaliseFacets` EXACTLY (bank.mjs): undefined, null and an object with no
+// own keys are all NO vector there, so all three must key the undeclared row. `{}` keying "00000" would
+// hand the caller the DECLARED all-false row — the consumer preset's 16 questions where `facetPlan`
+// reads 30 — and the two functions must never answer differently about the same input (#372 F4).
+export const facetKey = (v) =>
+  (v === null || v === undefined || Object.keys(v).length === 0
+    ? ''
+    : FACETS.map((f) => (v[f.id] === true ? '1' : '0')).join(''));
 
 const FACET_PLANS = Object.freeze(Object.fromEntries([
   ['', facetPlan(null)],
