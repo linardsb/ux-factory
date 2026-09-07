@@ -63,7 +63,7 @@ No suite exists in this repo (`CLAUDE.md` §Ground rules). The gate is the test:
 
 | Case | What it drives |
 |---|---|
-| 29 / 28.10 | `ledgerView` — empty shape, happy fold against the applier's own records, `latest`/`supersededBy` with nothing dropped, a flag on a superseded record still counted, **the cross-reader case** (the projection's rendered Ledger line + `#### seq` block count vs the fold, on a superseding fixture *and* on committed `instrument-loans-1`), purity, the alias trap, totality over 12 junk shapes |
+| 29 / 28.10 | `ledgerView` — empty shape, happy fold against the applier's own records, `latest`/`supersededBy` with nothing dropped, a flag on a superseded record still counted, **the cross-reader case** (the projection's rendered Ledger line vs the fold, on a superseding fixture *and* on committed `instrument-loans-1`, plus which decisions get a `#### seq` block asserted per seq on the superseding fixture), purity, the alias trap, totality over 12 junk shapes |
 | 30 / 35 | `POSTURE_FLOW` both ways vs `POSTURES` and `ENTRY_POSTURES`; `order` = index+1; frozen at both levels by mutation; existing-prd admits the Grill step alone; `POSTURE_VARIANT_LABEL` keyed only by variants |
 | 30 / 36 | C3 title sweep over every new label and `what` line, with its positive control |
 | 30 / 37 | `resumeMismatch` — agreement over `{}`/null/undefined, a five-key preset vs a one-key spelling, both mismatch messages, the declared all-false vector named distinctly, **the create case** (3 posted sets, each null), junk head total, junk vector throwing the bank's own error |

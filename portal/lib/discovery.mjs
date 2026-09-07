@@ -49,7 +49,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { DEPTHS, FACETS, facetPlan, MODULES, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
+import { DEPTHS, FACETS, facetPlan, MODULES, normaliseFacets, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
 import { applyOps, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
 import { MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
@@ -578,11 +578,11 @@ export const NOT_A_FORM_MAX = 3;
 // #285 and every one-argument caller), else all five keys as booleans in FACETS order. So a reader
 // sees five keys or null, and the consumer preset (all false, DECLARED) is distinguishable from
 // "nothing declared" (D1b). Junk — an unknown key, a non-boolean — throws by the bank's own name, so
-// no run.json can carry a vector the bank would not read. Own keys only, as the bank reads them.
+// no run.json can carry a vector the bank would not read. The normalisation itself is the bank's
+// `normaliseFacets` and this is the one call to it (#367): what counts as a declaration, and which keys
+// are read, is stated once there and never re-spelled here.
 export function declareFacets(facets) {
-  const plan = facetPlan(facets);
-  if (!plan.declared) return null;
-  return Object.freeze(Object.fromEntries(FACETS.map((f) => [f.id, Object.hasOwn(facets, f.id) && facets[f.id] === true])));
+  return normaliseFacets(facets);
 }
 
 const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l.closes === true);
@@ -864,10 +864,18 @@ const forTheBrowser = (q) => ({ id: q.id, stage: q.stage, text: q.text, attribut
 // Exported so the gate can drive BOTH sides of the key and the drawer needs no import: the browser
 // hand-writes the same one-line join over config.facets, which is the ONE derived line in the drawer,
 // and group 30 case 41 source-pins that it maps the config rather than a literal id list.
-// The absent forms mirror `normaliseFacets` EXACTLY (bank.mjs): undefined, null and an object with no
-// own keys are all NO vector there, so all three must key the undeclared row. `{}` keying "00000" would
-// hand the caller the DECLARED all-false row — the consumer preset's 16 questions where `facetPlan`
-// reads 30 — and the two functions must never answer differently about the same input (#372 F4).
+// The three ABSENT forms mirror `normaliseFacets` (bank.mjs): undefined, null and an object with no own
+// keys are all NO vector there, so all three must key the undeclared row. `{}` keying "00000" would hand
+// the caller the DECLARED all-false row — the consumer preset's 16 questions where `facetPlan` reads 30 —
+// and on those three the two must never answer differently about one input (#372 F4, scoped by #379 F5).
+// Nothing else is mirrored, and nothing else needs to be: this is a five-bit key, not a validator. It
+// reads `v[f.id]` through the prototype chain where the bank reads own keys only, and it answers "00000"
+// where the bank throws — facetKey("x") is "00000". Neither form reaches it here: FACET_PLANS below, its
+// one production caller, folds it over full five-key literals, and the drawer's own join is fed by
+// `declaredVector()` (portal.js), which returns null or the same five keys. The gate drives it with more
+// than that on purpose. Nothing above is a claim about what reaches the BANK — openSession and
+// resumeMismatch hand normaliseFacets raw posted bodies, which is why it throws by name. Widening the
+// guard here would put a second copy of the bank's rule in this file.
 export const facetKey = (v) =>
   (v === null || v === undefined || Object.keys(v).length === 0
     ? ''
