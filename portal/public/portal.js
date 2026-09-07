@@ -830,6 +830,24 @@ function renderDiscoveryFlow() {
   $('#discovery-variant-row').hidden = !variant;
   if (!variant) $('#discovery-variant').checked = false;
   else $('#discovery-variant-label').textContent = c.postureVariantLabels[variant] ?? variant;
+  renderDiscoveryFlowNote();
+}
+
+// THE ONE WRITER OF #discovery-flow-note (#373). The note has two messages — the stance the form is
+// about to send, and the stance the open package recorded — and each used to be written where it was
+// computed. Post-Start correctness then rested on every form trigger sitting inside #discovery-start,
+// the fieldset Start disables: DOM nesting, not an invariant, so a control added outside it would flip
+// a live run's line back to form text. The state is read here instead — a package on disk owns the
+// note for as long as one exists, whatever the buttons say.
+function renderDiscoveryFlowNote() {
+  const c = discovery.config;
+  if (discovery.session) {
+    const head = discovery.session.head;
+    const step = c.postureFlow.find((r) => r.postures.includes(head.posture));
+    $('#discovery-flow-note').textContent = `This run is recorded at ${step ? `step ${step.order}, ${step.label}` : 'an unlisted step'} — posture ${head.posture} on ${head.model}. One posture per run: the next stance is the next run, over what this one produced.`;
+    return;
+  }
+  const row = stepRow();
   const posture = c.postures.find((p) => p.id === postureOfStep());
   $('#discovery-flow-note').textContent = row
     ? `${row.what} Runs as ${posture?.label ?? postureOfStep()} on ${posture?.model ?? 'its own model'}. The stance is recorded once in run.json and stands for the whole run — pressing the next one is the next RUN, over what this one produced.`
@@ -1007,12 +1025,10 @@ function renderDiscoverySession() {
   $('#discovery-answer').disabled = !answerable;
   $('#discovery-submit').disabled = !answerable || discovery.running;
   $('#discovery-finish').disabled = Boolean(head.endedAt);
-  // The stance this run is actually on, off DISK rather than off the form — a resume returns the
-  // recorded posture whatever the buttons say. The controls themselves need no disabling loop: they
-  // are inside #discovery-start, the fieldset the Start handler disables, and a fieldset's disable
-  // propagates natively.
-  const step = discovery.config.postureFlow.find((r) => r.postures.includes(head.posture));
-  $('#discovery-flow-note').textContent = `This run is recorded at ${step ? `step ${step.order}, ${step.label}` : 'an unlisted step'} — posture ${head.posture} on ${head.model}. One posture per run: the next stance is the next run, over what this one produced.`;
+  // The controls need no disabling loop: they are inside #discovery-start, the fieldset the Start
+  // handler disables, and a fieldset's disable propagates natively. The note is the one line that must
+  // follow the RUN rather than the form, and one writer decides which (#373).
+  renderDiscoveryFlowNote();
   renderDiscoveryRecorded();
   renderPackageView();
   renderProposals();

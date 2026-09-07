@@ -116,7 +116,7 @@ gh pr create --base "{base}" --title "{type}: {concise description}" --body "$(c
 {commit summaries}
 
 ## Validation
-{the block record-gate.sh printed, pasted verbatim — counts, duration and the commit it ran at}
+{the block record-gate.sh printed, pasted verbatim — the counts or the gate's own summary lines, and the commit it ran at}
 - Manual check: {what was exercised, or "not run" — never leave this implied}
 
 ## Notes for the reviewer

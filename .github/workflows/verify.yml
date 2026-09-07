@@ -1,6 +1,7 @@
 # verify.yml — CI verification gates (epic #1, ticket #9).
 # Runs four gates on push to main + every PR:
-#   drift-check  — regenerates the committed generators/artifacts, fails on any divergence.
+#   drift-check  — regenerates the committed generators/artifacts, fails on any divergence; also pins the
+#                  group count stated in build-checks' ✓ line, CLAUDE.md and gates.md.
 #   token-lint   — undeclared / orphan / DTCG-valid contract checks.
 #   build-checks — /build's pattern chain: rules, slots, compositions against the real vocabulary,
 #                  the share codec + its tamper battery, SVG escaping, the vetting invariant, and
