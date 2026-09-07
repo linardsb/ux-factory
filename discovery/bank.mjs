@@ -1048,8 +1048,9 @@ const FACET_IDS = FACETS.map((f) => f.id);
 // is not a declaration, so Object.create(defaults) composes from what its caller actually set and a
 // missing key reads false — which is how a preset or a partial object composes. Junk — an own key
 // that is not one of the five, or is not a boolean — throws by name on EVERY depth, so no run.json
-// can ever carry a vector the bank would not read.
-function normaliseFacets(facets) {
+// can ever carry a vector the bank would not read. EXPORTED so the portal's declareFacets is a call
+// rather than a second copy of the last expression (#367) — this function is the one normalisation.
+export function normaliseFacets(facets) {
   if (facets === undefined || facets === null) return null;
   if (typeof facets !== "object" || Array.isArray(facets))
     throw new Error(`bank: facets must be an object of booleans keyed by ${FACET_IDS.join(" · ")}, got ${JSON.stringify(facets)}`);
