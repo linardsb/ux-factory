@@ -326,7 +326,9 @@ Use information-dense keywords for clarity:
 - **IMPORTS**: {Required imports and dependencies}
 - **GOTCHA**: {Known issues or constraints to avoid}
 - **VALIDATE**: `{executable validation command}`
+- **REDDENS**: {for a task that adds a check, gate case, probe or grep — the exact mutation that makes it fail, and the failure message expected. A check whose reddening mutation you cannot name is a check you have not specified.}
 - **SATISFIES**: {which acceptance criterion this task advances — e.g. AC #2 — so every task traces to a criterion}
+- **REGENERATES**: {the generated outputs this change moves — `loc-summary.json`, VR baselines, `system-graph.json`, the handoff pack, `param-count.json` — with the command for each. "none" if none. These cascade, they are drift-checked in CI, and they are discovered post-commit in 15% of this repo's reports.}
 
 <Continue with all tasks in dependency order...>
 
@@ -349,6 +351,13 @@ Design unit tests with fixtures and assertions following existing testing approa
 ### Edge Cases
 
 <List specific edge cases that must be tested for this feature>
+
+### Proving the checks
+
+Every check this plan adds carries the mutation that reddens it (its REDDENS field) and one positive
+control — an input that must make it fire, run before you trust a green. A check that passes because it
+never reached the thing it tested is this repo's largest class of process review finding, by a wide margin
+(59 of 229).
 
 ---
 
@@ -377,6 +386,17 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 ### Level 5: Additional Validation (Optional)
 
 <MCP servers or additional CLI tools if available>
+
+### Paid and owner-only steps
+
+| Step | Cost (expected) | Blocks the PR? | If not run: tracker |
+|---|---|---|---|
+| <the step> | <$ or "owner's hand"> | yes/no | <ticket, or "open one before the PR"> |
+
+Any step that spends tokens, needs a real agent run, needs the owner's own hand (a verdict, or a
+decision this session must not write), or needs a credential this machine may not hold. The plan decides
+whether it blocks; the implementer does not. A step listed here and not run goes in the report's **Not run**
+section with this row's tracker.
 
 ---
 
@@ -424,6 +444,36 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 - <ISO date> — <what changed and why, e.g. "scope cut: deferred bulk-import to a follow-up ticket after AC review">
 ```
 
+## Pre-flight — run the plan against the tree before you report it
+
+A plan is written from a reading of the code and then drifts from it. Across this repo's 113 implementation
+reports, 58% record a plan literal that was wrong — a count, an argument order, a path, an expected output —
+and 52% record state the plan read wrongly: a helper that was not there, a rule that already existed, a
+feature that had already landed (`.claude/system-reviews/process-sweep-2026-09-04.md`). The implementer
+catches these one at a time, at run time, at the cost of the one-pass success this skill exists to produce.
+Run these five before you write the report.
+
+1. **Drive every VALIDATE that touches code which already exists.** Not read it — run it, and paste the
+   observed output into the task. A command whose target this plan will CREATE is marked `(expected)`, and
+   its argument order is checked by reading the real signature rather than by recall.
+2. **Resolve every citation.** Every `path/file.ext:NN`, every exported symbol, every snippet under PATTERN:
+   open it and confirm it says what the plan claims. A pattern you did not read this session does not go in
+   the plan. A memory is a pointer to verify, never a quote to copy — read the file it names, because a
+   memory records what was true when it was written.
+3. **Check the landed claims against `origin/main`.** For everything the plan says is missing, grep for it.
+   For everything it says exists, grep for that too. Both are one command, and between them they cover P8,
+   the pattern 52% of this repo's reports record.
+4. **Reconcile each task with itself and its siblings.** Where a GOTCHA says "do A or B, not both", the
+   IMPLEMENT above it already names which. Where two sections state a number, they agree — derive it once
+   and reuse the figure. Where a task says MIRROR `<file>` and also states a rule, confirm `<file>` obeys
+   that rule or name the exception in the task.
+5. **Carry the known traps.** For every file this plan touches, check `.claude/references/` and this
+   session's memories for a recorded trap on it, and write it in as a GOTCHA. 29% of this repo's reports
+   record the implementer hitting a trap that was already written down somewhere the plan did not look.
+
+Record the pre-flight in NOTES: what you ran, what it said, what changed in the plan because of it. A plan
+reporting no pre-flight findings has almost certainly not run one.
+
 ## Output Format
 
 **Filename**: `.claude/plans/{kebab-case-descriptive-name}.md`
@@ -442,6 +492,11 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 - [ ] Integration points clearly mapped
 - [ ] Gotchas and anti-patterns captured
 - [ ] Every task has executable validation command
+- [ ] Pre-flight run and recorded in NOTES: every existing-code VALIDATE driven, every citation resolved,
+      every landed claim checked against `origin/main`
+- [ ] Every check-adding task carries a REDDENS mutation
+- [ ] Every task that moves a generated output carries REGENERATES
+- [ ] Paid and owner-only steps table filled, or explicitly empty
 
 ### Implementation Ready ✓
 
@@ -488,19 +543,27 @@ After creating the Plan, provide:
 
 After the report, produce a **build brief**: one simple, self-contained HTML page that *teaches the user what
 this plan builds* — concepts first, plan second — so they genuinely understand the ideas behind the feature,
-not just the task list. Follow the `show-me` skill's conventions (smallest representation that makes the point,
-inline CSS, no frameworks, real names from this codebase).
+not just the task list. Inline CSS, no frameworks, real names from this codebase.
+
+**Register: load the `show-me` skill and write to its `### explaining a concept` section.** The audience is a
+bright 18-year-old who has never seen this repo, even though the reader is the owner. Technical terms are
+allowed where the idea needs them, and every one is glossed the first time it appears. The budgets there are
+hard: at most 60 words of prose per concept, under 300 words of prose for the whole page (sketches, file
+trees and tables don't count). Ticket, group and invariant numbers, "where the analogy breaks" notes, traps
+and code snippets stay in the markdown plan — link it once at the top.
 
 Content, in order:
 
-1. **What we're building and why** — 2–3 sentences, plain language.
-2. **The concepts this plan rests on** — the 2–5 ideas someone must understand to follow the build (the
-   pattern, protocol, algorithm, or library mechanism it leans on). For each: a one-paragraph plain-language
-   explanation, a tiny diagram or analogy (note where the analogy breaks), and why *this* plan needs it.
-3. **How the pieces fit** — one architecture sketch (Mermaid or simple HTML boxes) connecting those concepts
-   to this plan's phases.
-4. **The plan at a glance** — phase dependency graph, the new/changed file tree, and the acceptance criteria.
-5. **Go deeper** — per concept: "to properly learn this, run `/learn <concept>`".
+1. **What we're building and why** — two sentences: what is missing today, what exists after.
+2. **The concepts this plan rests on** — two to four ideas someone must understand to follow the build. Each:
+   what it is in everyday words, one analogy or a sketch of at most five lines, and why *this* plan needs it.
+3. **How the pieces fit** — one sketch (Mermaid or simple HTML boxes), at most six boxes, labels in plain
+   words, connecting the concepts to the plan's phases.
+4. **The plan at a glance** — one plain line per phase with its dependency, the new/changed file tree with a
+   one-phrase comment per file, and the acceptance criteria as one line each (no "proven by" column).
+5. **Go deeper** — one `/learn <concept>` row per concept, each with a **copy button** that copies the prompt
+   verbatim. Implement `### copyable prompts` from the `show-me` skill exactly — `data-prompt` on the row, the
+   delegated listener, the `catch` fallback. A brief whose `/learn` rows have no copy button is not finished.
 
 Save it beside the plan as `.claude/plans/<same-name>.html` and open it (`open <path>`). Keep it genuinely
-simple — a five-minute briefing, not a document to maintain. The markdown plan stays the single source of truth.
+simple — a two-minute briefing, not a document to maintain. The markdown plan stays the single source of truth.
