@@ -690,6 +690,11 @@ const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run �
 // bounds the agent, never the operator. Every guard is before mkdirSync (case 16 pins that from
 // source); the document line is appended AFTER writeRun, on the create path only, so a throw leaves
 // no half-package and a resume never appends a second.
+// The view returned carries `created` — true from the create path, false from a resume — because no
+// count can tell the two apart: an audit's create files its document as `a1`, so a fresh audit already
+// holds one answer and the drawer read every first open as a resume (#383). sessionView itself never
+// carries the flag; only this function knows which of the two ran, and the GET, turn and close routes
+// return the plain view.
 export function openSession({ slug, provenance, entryMode, depth, facets = null, frontEnd, posture, model = null, document: documentText = null, documentPath = null, reads = [] }) {
   assertRunSlug(slug);
   const root = resolveRunRoot({ provenance, slug });
@@ -729,7 +734,7 @@ export function openSession({ slug, provenance, entryMode, depth, facets = null,
 
   mkdirSync(root, { recursive: true });
   const existing = readRun(root);
-  if (existing) return sessionView(root);
+  if (existing) return { ...sessionView(root), created: false };
 
   writeRun(root, {
     slug, provenance, label: LABEL[provenance], entryMode, depth, proposedDepth: DEPTH_PROPOSAL[entryMode], facets: declared, reads,
@@ -744,7 +749,7 @@ export function openSession({ slug, provenance, entryMode, depth, facets = null,
   // The audited document, ONCE, after the head exists (#286 D1). The create path only — a resume
   // returned above — and appendDocument's own one-per-run refusal is the belt.
   if (entryMode === 'existing-prd') appendDocument(root, text);
-  return sessionView(root);
+  return { ...sessionView(root), created: true };
 }
 
 // The ticked ids of a normalised vector, as prose — so the 409 names what is on disk rather than
