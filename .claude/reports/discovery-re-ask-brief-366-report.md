@@ -147,8 +147,11 @@ blocks were read against the patched template and neither states anything the ch
 No step in this ticket spent money, by design.
 
 - **The fingerprint decision (Q1)** — whether the re-ask branch goes inside `think`/`think-opus`'s stamp.
-  Costed at **$7.561 / 142 paid turns** (`instrument-loans-1` 12t $0.424, `graded-think-a` 65t $3.243,
-  `graded-opus-a` 65t $3.894). The plan recommends against it and this PR follows that, with a stated
+  Costed at **at least $7.561 / 142 paid turns** — the GATE-DECLARED three (`instrument-loans-1` 12t $0.424,
+  `graded-think-a` 65t $3.243, `graded-opus-a` 65t $3.894). It is a floor, not a total: `bracket-trace-1` and
+  `-2` carry the same `7efdde37` and would be staled SILENTLY, since no group compares them (+24t $1.078 →
+  166t $8.639 if both were re-recorded, which is a judgement call — they exist to prove #349's hook gating,
+  not prompt bytes). The plan recommends against it and this PR follows that, with a stated
   wrong-if: **the day a recording actually takes a second ask, the freshness argument inverts and the hash
   should cover it.** Owner's call; a follow-up ticket if they want it. The two new gate pins make that choice
   a named failure rather than a silent one.
@@ -159,9 +162,11 @@ No step in this ticket spent money, by design.
 
 ## Notes worth carrying
 
-- **Three of the six stamped packages are gate-compared, not all six.** `allergen-matrix-1` carries `df6fbc35`,
-  already stale against the current `7efdde37`, with a green gate; `bracket-trace-1` and `-2` are in the same
-  position. A green run is not proof every recording matches the tree.
+- **Three of the six stamped packages are gate-compared, not all six — and ungated is not the same as stale**
+  (PR #381 F3, which corrected the earlier form of this note). `allergen-matrix-1` carries `df6fbc35` and IS
+  stale against the current `7efdde37`, with a green gate. `bracket-trace-1` and `-2` carry `7efdde37` itself:
+  ungated but FRESH. A green run is not proof every recording matches the tree, and a stamp move would take
+  those two from fresh to stale with nothing saying so.
 - **The closing line is shared byte-identical between `buildThinkTurn` and Grill's interview template.** A
   string replacement over it hits both. Cost one mis-scoped mutation here; anchor on the surrounding comment
   block instead.

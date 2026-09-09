@@ -61,7 +61,8 @@
 // four of its evidence rows as "real-interview" on a fictional run, the strongest honest label an agent
 // that cannot see which run it is in can give. It goes in the SYSTEM prompt because both are per
 // session: the prompt stays byte-stable across the session and its cache holds. It is a build INPUT,
-// so FINGERPRINT_INPUTS carries one and the hash covers the rule's text.
+// so FINGERPRINT_INPUTS carries one — 'fictional' — and the hash covers THAT rule's text. It does not
+// cover PROVENANCE_RULE.real's, which no fixed input set selects (see the BRANCH paragraph below).
 //
 // Two things #341 added, and why they are here rather than in the transport: the LEDGER BRIEF —
 // this run's decisions by rung and the parent candidates per rung — goes into the TURN prompt, so a
@@ -74,10 +75,21 @@
 // fingerprintOf hashes one build per input set in FINGERPRINT_INPUTS_FOR[posture] (absent: the one
 // set, FINGERPRINT_INPUTS); Grill's covers the interview AND the audit template, so an edit to either
 // moves its stamp. A template BRANCH the fixed inputs never take sits outside the hash by
-// construction — today that is the re-ask brief alone, on all four postures, and #366 left it there
-// deliberately rather than by oversight (the FINGERPRINT_INPUTS block states the reason and the guard). Over one input
-// set the join is byte-identical to the pre-#286 form, which is what keeps Think's two stamps where
-// the recordings have them (group 30 case 30 pins the literal).
+// construction, and there are THREE of them today, not one (PR #381 F2 — the earlier form of this
+// sentence claimed the re-ask brief alone, and a mutation of PROVENANCE_RULE.real's text left all four
+// stamps unmoved with a green gate, which is the same hole #366 was written to close):
+//   · the RE-ASK BRIEF, on all four postures — FINGERPRINT_INPUTS' ledger holds no flag_weak_answer.
+//     #366 left it outside deliberately rather than by oversight (the FINGERPRINT_INPUTS block states
+//     the reason and the bill), and its guard is case 31's VERBATIM pin on the produced string.
+//   · PROVENANCE_RULE.real, on all four AND in the audit template, which the re-ask branch never
+//     reaches — every fixed input set pins provenance: 'fictional'. Guarded by two REGEXES (case 16),
+//     not verbatim: an includes(PROVENANCE_RULE.real) assertion compares the prompt against the edited
+//     constant and so can never see an edit to it. Widening that to a verbatim pin is its own ticket.
+//   · ledgerBrief's EMPTY-LEDGER form — every fixed ledger carries three decisions. Two regexes
+//     (case 17), same shape.
+// A NEW branch belongs on this list with its guard named, or it is unguarded and nothing says so.
+// Over one input set the join is byte-identical to the pre-#286 form, which is what keeps Think's
+// two stamps where the recordings have them (group 30 case 30 pins the literal).
 
 import { createHash } from 'node:crypto';
 import { LEVELS, OPS, PARAMS, parentCandidates } from '../../discovery/ops.mjs';
@@ -534,9 +546,11 @@ File your one closing op against question_id "${question.id}" and answer_ref "${
 // rows and no flag_weak_answer, so reaskBrief returns '' every time this hash is computed. It is LEFT
 // outside deliberately: no committed recording has ever taken a second ask on any posture (whole-bank
 // is not in discovery.mjs's LADDER, so graded-think-a and graded-opus-a could not have taken one even
-// in principle), so hashing the branch would declare 142 paid turns stale over prompts that genuinely
-// did not change. Its guard is instead group 30 case 31's VERBATIM pin on the produced brief, plus the
-// two pins that make widening the hash a named failure rather than an accident — one on this ledger
+// in principle), so hashing the branch would declare at least 142 paid turns stale over prompts that
+// genuinely did not change — 142 is the gate-compared three; bracket-trace-1 and -2 carry the same stamp
+// and would go stale with no group saying so (PR #381 F3). Its guard is instead group 30 case 31's
+// VERBATIM pin on the produced brief, plus the two pins that make widening the hash a named failure
+// rather than an accident — one on this ledger
 // holding no flag, one on FINGERPRINT_INPUTS_FOR's key set. Both name the bill. Fold the branch in
 // here the day a recording takes a second ask; the re-record is paid at that point, not before.
 // So would any per-posture SDK option: today a posture is exactly id, label,
