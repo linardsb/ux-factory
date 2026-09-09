@@ -202,6 +202,12 @@ control positive (`leverage` matches a planted string). C3 title-term sweep → 
 - **`#btn-discovery` is outside the viewport at 390×844** — the portal's header button row overflows on a
   narrow screen. Pre-existing chrome, not touched by this ticket and outside its scope; noted because the
   browser check had to click it via JS. Worth a separate ticket if the portal is ever used on a phone.
+- **`agent-browser click @eN` does not reach this drawer's controls** (#375, 2026-09-09). A ref-click on a
+  preset button, a posture button or Start reports `✓ Done` and changes nothing — no handler runs, no error.
+  A programmatic `element.click()` through `agent-browser eval` runs the real delegated handler and works,
+  and is what every observation in this report was driven with. It cost two diagnostic rounds and briefly
+  read as a portal bug before the `#discovery-start` fieldset's `disabled` explained the second half of it.
+  Drive this drawer with `eval` + `.click()`, not with refs.
 - **RESOLVED (#375, 2026-09-09) — the live turns were run.** What follows replaces this report's original
   "a live paid turn was not run" note. Four **real SSE turns** were executed through the drawer in a real
   browser (Chrome via CDP) against the portal on `127.0.0.1:4793`, one blank-idea and three audit, at a
@@ -216,10 +222,15 @@ control positive (`leverage` matches a planted string). C3 title-term sweep → 
   > before — `The package · Nothing filed yet — the package holds 0 answer(s) and no ops.`
   > after — `The package — 3 op(s) · record_decision 1 · flag_weak_answer 0 · open_question 0 · file_evidence 2 · flags no-evidence 0 · orphan 0` followed by the decision row (`seq 3 · t1 · s1-if-nobody-solves-this · business`, its `Wrong if:` text, `parent: no parent`, `evidence: seq 1, seq 2`) and both evidence rows.
 
-  The position line advanced to `question 2 of 22 · turn t2` in the same render. On the audit package the
-  same happened with the document pointer above the counts: `Auditing a1 — 24355 characters, md5 ab6eb0ee`,
-  which matches the frozen fixture's own md5 (`ab6eb0ee6cdd3b7802ecfcbe90db2377`; 24,560 bytes, 24,355
-  characters — the gap is multi-byte UTF-8, not a truncation).
+  The position line advanced to `question 2 of 22 · turn t2` in the same render. **The audit half is its own
+  before/after pair**, taken the same way — session opened, one submit, no reload in between:
+
+  > before — `The package · Auditing a1 — 24355 characters, md5 ab6eb0ee. A resume ignores a document in the POST body; this md5 says which one the audit actually runs on. · Nothing filed yet — the package holds 1 answer(s) and no ops.`
+  > after — `The package — 1 op(s) · Auditing a1 — 24355 characters, md5 ab6eb0ee. … · record_decision 0 · flag_weak_answer 1 · open_question 0 · file_evidence 0 · flags no-evidence 0 · orphan 0` followed by the weak-answer row: `seq 1 · t1 · s1-if-nobody-solves-this · answer a1 · Missing: a frequency (how often this cost is incurred) · a cost expressed in money or time · a wrong-if condition for this specific claim`.
+
+  The document pointer sits above the counts and survives the re-render. Its md5 matches the frozen
+  fixture's own (`ab6eb0ee6cdd3b7802ecfcbe90db2377`); the 24,560 bytes / 24,355 characters gap is multi-byte
+  UTF-8, not a truncation.
 
   **2. The flow note reads the RECORDED step, not the form state — CONFIRMED, by a test stronger than the
   ticket asked for.** With a live session recorded at step 1, pressing `3. Grill` in the form left both the
