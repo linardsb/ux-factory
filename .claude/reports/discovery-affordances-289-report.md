@@ -90,7 +90,7 @@ Three later gate cases, each red-proofed by mutation (observed): **30.55** pins 
 LOCK → GUARDS → APPEND ordering from source (moving `assertParkable` after the append reds it naming
 both offsets); **30.56** pins the drawer's #289 half — one poster for all four controls, park disabled
 in an audit, the status line reading `session.exchanges` scoped to the open turn (re-enabling park on
-an audit reds it by name); **30.57** is the route pin, renumbered from 30.54.
+an audit reds it by name); **30.57** is the route pin, renumbered twice (see D8).
 
 **Fingerprints (observed):**
 
