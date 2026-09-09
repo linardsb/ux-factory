@@ -187,6 +187,14 @@ the class of surface #289's own status-line rule forbids. Pinned by 30.55.
   that, plus `extraTools`, `AFFORDANCE_MAX_TURNS > MAX_TURNS`, `MAX_TURNS` still 6, and the resolved-posture stamp.
 - **Backticks inside `group()`'s template literal** broke the parse twice. No backticks in a ✓ line.
 
+## CI
+
+`verify` green. `visual` **failed once and passed on a re-run of the same commit**, no change between
+— `roundtrip · saulera`, 7813 pixels (ratio 0.01). This PR touches no shipped page and no `system/`
+module, so it can churn no baseline by construction, and PR #385 passed `visual` on the same base.
+Recorded as a suspected flake on a page the known approach-page rAF flake does not cover
+([[vr-gate-approach-countup-flake]] is a different page), worth an eye rather than a shrug.
+
 ## Not run
 
 | Step | Cost | Why not | Tracker |
