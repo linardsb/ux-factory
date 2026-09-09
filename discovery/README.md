@@ -89,6 +89,7 @@ discovery/
   bracket-trace-1/       #349's OBSERVATION run — the fixture's twelve answers with the fence trace armed; the last package to carry warmup denials
   bracket-trace-2/       #349's VERIFICATION run — the same twelve under the tool-name gate; no built-in denied line, the trace showing the warmup did call tools
   allergen-matrix-1/     the FULL-DEPTH exhibit — the only committed full-discovery run, 30 of 30 answered (§The full-depth run)
+  partner-audit-1/       the AUDIT fixture (#376) — the only committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
 ```
 
 **A run package is THREE files during a session and FIVE after a proposal run**, and which act

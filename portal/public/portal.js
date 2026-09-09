@@ -980,9 +980,13 @@ $('#discovery-open').addEventListener('click', async () => {
     $('#discovery-start-status').textContent = `Refused: ${err.message}`;
     return;
   }
-  $('#discovery-start-status').textContent = discovery.session.answers.length
-    ? `Resumed ${slug} from disk — ${discovery.session.answers.length} answer(s) already recorded.`
-    : `Opened ${slug}.`;
+  // Keyed on the SERVER's create/resume flag, never on a count: an audit's create files its document
+  // as the first answer, so a fresh audit already holds one and read as a resume (#383). The resume
+  // line reports the cursor — the same derived read the session line renders — so the document line
+  // is never counted as an answer.
+  $('#discovery-start-status').textContent = discovery.session.created
+    ? `Opened ${slug}.`
+    : `Resumed ${slug} from disk — ${discovery.session.cursor.index} of ${discovery.session.cursor.total} answered.`;
   $('#discovery-start').disabled = true;
   renderDiscoverySession();
   // A resumed package may already carry proposals; read them from disk rather than waiting for a run.
