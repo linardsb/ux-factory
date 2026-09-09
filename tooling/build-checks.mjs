@@ -7907,12 +7907,16 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
   // fingerprint, pre-existing on origin/main and gated by nothing (group 32 reads instrument-loans-1,
   // 33.15 the two graded). The message below derives the list, so it can only ever name the truth.
   {
-    const carriers = (hex) => readdirSync(join(ROOT, "discovery"), { withFileTypes: true })
+    const packages = readdirSync(join(ROOT, "discovery"), { withFileTypes: true })
       .filter((e) => e.isDirectory()).map((e) => e.name).sort()
       .filter((slug) => existsSync(join(ROOT, "discovery", slug, "run.json")))
-      .map((slug) => ({ slug, run: JSON.parse(readFileSync(join(ROOT, "discovery", slug, "run.json"), "utf8")) }))
-      .filter(({ run }) => (run.turnStats ?? []).some((t) => t.postureFingerprint === hex))
-      .map(({ slug, run }) => `${slug} (${(run.turnStats ?? []).length} turns)`);
+      .map((slug) => ({ slug, run: JSON.parse(readFileSync(join(ROOT, "discovery", slug, "run.json"), "utf8")) }));
+    const holding = (...hexes) => packages.filter(({ run }) => (run.turnStats ?? []).some((t) => hexes.includes(t.postureFingerprint)));
+    const carriers = (hex) => holding(hex).map(({ slug, run }) => `${slug} (${(run.turnStats ?? []).length} turns)`);
+    // The TURN count is derived for the same reason the carrier list is: the first draft of the
+    // DOMAIN_RULE message below typed "six", the retired RECORDING figure, re-attached to the noun
+    // `turns` — the same rot one noun over, inside the case that exists to end it.
+    const turnsCarrying = (...hexes) => holding(...hexes).reduce((n, { run }) => n + (run.turnStats ?? []).length, 0);
     ok(POSTURES.think.fingerprint === "7efdde37441fbd2591ba4a7dfeecdb6b", `30.46: Think's prompt surface MOVED — ${POSTURES.think.fingerprint}. ${carriers("7efdde37441fbd2591ba4a7dfeecdb6b").join(", ") || "(nothing on disk carries it)"} carry the old one; a Think edit is a ticket that re-records them`);
     ok(POSTURES["think-opus"].fingerprint === "cadb38117a2660c036d87e32323a8745", `30.46: Think-on-Opus's prompt surface MOVED — ${POSTURES["think-opus"].fingerprint}. ${carriers("cadb38117a2660c036d87e32323a8745").join(", ") || "(nothing on disk carries it)"} carries the old one`);
     // The count is DERIVED and asserted, so the header's own "five recordings" cannot go quietly false.
@@ -7929,7 +7933,7 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     ok(POSTURES["create-prd"].fingerprint === "f0e7599c7bc953b74ff3750dceca5061", `30.46: Create-PRD's stamp is ${POSTURES["create-prd"].fingerprint}, not the value #289 moved it to (it was edc7c52db9d58d59213e93e65cd8d28c before DOMAIN_RULE went into its system prompt). No committed package runs create-prd, so the move costs nothing on disk — but it is a move, and it is pinned`);
     ok(DOMAIN_RULE.length > 0 && buildCreatePrdTurn(FINGERPRINT_INPUTS).systemPrompt.includes(DOMAIN_RULE), "30.46: DOMAIN_RULE is not in Create-PRD's system prompt — the one deliberate stamp move");
     for (const [id, build, inputs] of [["think", buildThinkTurn, FINGERPRINT_INPUTS], ["grill", buildGrillTurn, FINGERPRINT_INPUTS], ["grill-audit", buildGrillTurn, AUDIT_FINGERPRINT_INPUTS]])
-      ok(!build(inputs).systemPrompt.includes(DOMAIN_RULE), `30.46: DOMAIN_RULE reached ${id}'s SYSTEM prompt — that moves a stamp six (Think) or three (Grill/partner-audit-1) recorded turns carry`);
+      ok(!build(inputs).systemPrompt.includes(DOMAIN_RULE), `30.46: DOMAIN_RULE reached ${id}'s SYSTEM prompt — that moves a stamp ${turnsCarrying("7efdde37441fbd2591ba4a7dfeecdb6b", "cadb38117a2660c036d87e32323a8745")} recorded turns carry (Think's two stamps) or ${turnsCarrying("76b7847d4ebbd9d8f16f9726ff0f4f0f")} (Grill/partner-audit-1)`);
     ok(same(Object.keys(FINGERPRINT_INPUTS_FOR), ["grill"]), `30.46: FINGERPRINT_INPUTS_FOR is keyed ${JSON.stringify(Object.keys(FINGERPRINT_INPUTS_FOR))} — #289's input sets must NOT be added to it, or they move every posture's own stamp`);
   }
 

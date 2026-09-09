@@ -191,7 +191,10 @@ the record rather than parameters the agent asserts:
 - **One off-script answer settles as a decision OR an open question, never both.** Keyed on the
   answer's `kind`, never on "two settling ops sharing a ref": in an existing-prd audit every op names
   the one `kind: "document"` line, and the verdict table maps ANSWERED to `record_decision` and ABSENT
-  to `open_question`, so any audit reaching both verdicts files exactly that pair.
+  to `open_question`, so any audit reaching both verdicts files exactly that pair. The rule forbids the
+  contradictory PAIR, not a re-filing: a SECOND op of the same kind on one `answer_ref` is accepted, and
+  because off-script decisions never supersede, two of them render as two unmarked rows in `prd.md`'s
+  ladder with nothing marking them as two takes on one exchange (`auditExchanges` reports the first).
 - **A turn cannot be closed while an `intent: "aside"` answer on it has no filing.** Scoped to asides
   on purpose: filing nothing at all is a look-up's correct outcome, so a rule keyed on `kind` alone
   would refuse the banked closer after every compliant look-up.

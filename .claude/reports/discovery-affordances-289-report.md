@@ -37,7 +37,7 @@ turn only, by name through `fenceDecision`'s `extraTools` seam, so `READ_TOOLS` 
 | 16 · three controls | `portal/public/index.html` | ADD |
 | 17 · one SSE loop, four callers, the status line | `portal/public/portal.js` | UPDATE |
 | 18 · the drawer's reads | `portal/public/portal.js` | UPDATE |
-| 19–24 · the gates | `tooling/build-checks.mjs` | ADD — group 29 (28.6a, 28.11, 28.12), 30 (30.44–30.54), 31 (31.15, 31.16), 32 (32.6, 32.7) |
+| 19–24 · the gates | `tooling/build-checks.mjs` | ADD — group 29 (28.6a, 28.11, 28.12), 30 (30.45–30.57), 31 (31.15, 31.16), 32 (32.6, 32.7) |
 | 25 · docs | `discovery/README.md` · `CLAUDE.md` | UPDATE |
 | 27 · `--probe-affordance` | `portal/lib/discovery-transport.mjs` | ADD (built; not run — see Not run) |
 
@@ -55,7 +55,7 @@ existing group; the group count is unchanged at 34.
 - **28.12** `auditTraceability` proven to DETECT first — a solution under an orphan stakeholder reads
   `unrooted` while neither record carries a second flag — plus `parenting` byte-equality, `byLevel`
   keyed always, a cycle terminating, totality over junk
-- **30.44–30.54** byte-identity on all four builders (the case the design rests on); the four stamps
+- **30.45–30.57** byte-identity on all four builders (the case the design rests on); the four stamps
   pinned to literals; five POSTURES keys; TOOL_DESCRIPTIONS keyed as OPS; `AFFORDANCE_FINGERPRINT` as
   a map with the Grill-on-Opus recompute case and the three-input-set proof; the four rule constants
   verbatim; `ledgerBrief`'s evidence line both ways; the builders' refusals; the two session guards;
@@ -67,7 +67,7 @@ existing group; the group count is unchanged at 34.
 
 **Red-proof, by mutation (observed):** dropping `!p.off_script` from the supersede guard reds 28.6a by
 name; dropping the closer guard's `intent === "aside"` scoping reds the no-deadlock, the
-open-question-form and the look-up controls; one trailing space on Think's turn prompt reds 30.45
+open-question-form and the look-up controls; one trailing space on Think's turn prompt reds 30.46
 naming both Think stamps and the recordings that would go stale.
 
 ## Validation results
@@ -86,11 +86,11 @@ naming both Think stamps and the recordings that would go stale.
 | **the mid-session re-fold** over a store holding an off-script line | ✅ `stateFromTranscript`'s exact `applyOps(items, { answers, bank, turn: null })` accepts a package whose t1 holds an aside, its off-script decision and the banked closer; and the non-compliant order is refused on re-fold as it was at write time, so it can never be on disk |
 | **park / off-script in an audit**, end to end | ✅ `assertParkable` and `assertAffordance` both refuse by name, before any append; `answers.jsonl` still holds exactly the one document line (driven on a temp root) |
 
-Three later gate cases, each red-proofed by mutation (observed): **30.54a** pins `runTurn`'s
+Three later gate cases, each red-proofed by mutation (observed): **30.55** pins `runTurn`'s
 LOCK → GUARDS → APPEND ordering from source (moving `assertParkable` after the append reds it naming
-both offsets); **30.55** pins the drawer's #289 half — one poster for all four controls, park disabled
+both offsets); **30.56** pins the drawer's #289 half — one poster for all four controls, park disabled
 in an audit, the status line reading `session.exchanges` scoped to the open turn (re-enabling park on
-an audit reds it by name); **30.56** is the route pin, renumbered from 30.54.
+an audit reds it by name); **30.57** is the route pin, renumbered from 30.54.
 
 **Fingerprints (observed):**
 
@@ -115,21 +115,21 @@ for text its turns never read — the exact cost the whole design exists to avoi
 non-goal ("not included: re-recording any fixture"). Applying the plan's own rule to current facts:
 `create-prd` moves (nothing on disk runs it — verified), `grill` does not, and `DOMAIN_RULE` reaches
 Grill and Think through the affordance turn prompt only — the same gap `JUDGEMENT_RULE` and
-`reaskBrief` already carry for Think, carried the same way. Case 30.45 pins all four stamps and states
+`reaskBrief` already carry for Think, carried the same way. Case 30.46 pins all four stamps and states
 the reason. **Follow-up:** a Grill re-record ticket, folded into the Think re-record ticket the plan's
 Q1 already recommends.
 
 **D2 — `AFFORDANCE_FINGERPRINT` covers THREE input sets, not two.** Task 9's snippet used park +
 affordance. The shared off-script body branches on the intent (`LOOK_IT_UP_RULE` against
 `ESCAPE_HATCH_RULE`), so a two-set stamp would leave one of the two rule strings covered by nothing —
-the uncovered-prompt-text gap the stamp exists to close. Third set added; case 30.48 asserts the two
+the uncovered-prompt-text gap the stamp exists to close. Third set added; case 30.49 asserts the two
 builds differ.
 
 **D3 — the affordance stamp is computed off the RESOLVED posture, not looked up by id.** Task 13(c)
 wrote `AFFORDANCE_FINGERPRINT[head.posture]`. `resolvePosture` RECOMPUTES a stamp on a model override
 and `fingerprintOf` hashes the model, so a Grill-on-Opus run would have stamped the sonnet hash — a
 stamp naming a surface the turn did not run under. The transport calls `affordanceFingerprintOf(posture)`
-instead; the by-id map is kept for the gate and for a reader. Case 30.48 drives the override.
+instead; the by-id map is kept for the gate and for a reader. Case 30.49 drives the override.
 
 **D4 — group 31's fixture gained a banked superseding pair.** Before #289 its supersede case rode on
 the defect (the off-script decision at seq 11 superseded seq 5). With the correction, `PRD_RECORDS.find(r
@@ -159,13 +159,13 @@ into ONE call stating both tickets (a duplicate call is what `drift-check`'s `gr
 it did).
 
 **D10 — the recording-carrier list is DERIVED, and one figure was wrong before the PR.** The PR's
-figures gate caught it: this ticket's first draft of case 30.45 said "six recordings carry Think's two
+figures gate caught it: this ticket's first draft of case 30.46 said "six recordings carry Think's two
 stamps" and named `allergen-matrix-1` among the carriers of `7efdde37`. Re-derived at this head, it is
 **five** — `bracket-trace-1`, `bracket-trace-2`, `graded-think-a` (65 turns) and `instrument-loans-1` on
 `think`, plus `graded-opus-a` (65 turns) on `think-opus` — and `allergen-matrix-1` carries an OLDER
 stamp, `df6fbc35`, which it also carries on `origin/main` (verified). Its staleness is **pre-existing**,
 predates this ticket, and is gated by nothing: group 32 reads `instrument-loans-1`, 33.15 the two
-graded. 30.45 now reads the carrier list off disk and asserts the count, so the hand-written form that
+graded. 30.46 now reads the carrier list off disk and asserts the count, so the hand-written form that
 rotted cannot come back; the mutation control (stamping `spine-meridian-1` with Think's hash) reds it
 naming all six by slug. `portal/lib/discovery-postures.mjs`'s own header already said five and was
 right; my new comment beside it said six and is corrected.
@@ -173,7 +173,7 @@ right; my new comment beside it said six and is corrected.
 **D9 — Park is disabled in an audit, not only refused by the server.** A park's reason is typed into
 `#discovery-answer`, which `renderDiscoverySession` hides on an audit. An enabled button whose empty-text
 prose says "say why this is not answerable yet" would be pointing at a box that is not on the page —
-the class of surface #289's own status-line rule forbids. Pinned by 30.55.
+the class of surface #289's own status-line rule forbids. Pinned by 30.56.
 
 ## Issues encountered
 
@@ -224,7 +224,7 @@ measurement: no run happens, so nothing moves it. The first run after this ticke
 - ✅ **AC4** Off-script ops never close and never advance; the supersede correction landed in all three
   readers (28.6a, 31.15) and no committed byte moved (32.6).
 - ✅ **AC5** `READ_TOOLS` still exactly `Read · Grep · Glob`; the fetch tools denied on a banked turn
-  and allowed on an off-script one by name; `allowsToolName` unwidened (30.53).
+  and allowed on an off-script one by name; `allowsToolName` unwidened (30.54).
 - ✅ **AC6** `auditTraceability` proven to detect the chain no per-record flag reaches (28.12), and the
   hierarchy's orphan count proven to agree with it over a projected package (31.15).
 - ✅ `build ✓ all 34 groups pass`; `drift-check` green.

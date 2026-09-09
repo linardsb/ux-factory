@@ -433,9 +433,12 @@ const headingForLevel = (level) => SECTIONS.find((r) => r.axis === "ladder" && r
 // dimmed in the drawer and dropped off this page. Nothing on disk moved with the correction: no
 // committed package holds an off_script op (verified over all eight).
 //
-// It reads `!== true`'s mirror, `=== true`, where ledgerView reads `!== true` — deliberately, and the
-// asymmetry is not drift. checkOpLines has already refused a corrupted ledger before this fold runs,
-// where ledgerView is a live view over a file being appended to and must be total over junk.
+// The latestByQuestion fold below reads `off_script !== true`, the SAME predicate ledgerView uses —
+// the two readers do not differ, and an edit "restoring" `=== true` there empties the hierarchy: every
+// banked decision then fails the seq identity in `visible` and drops out. The `=== true` in this
+// function is `visible`'s own inclusion test (an off-script decision is always on a row of its own),
+// which is a different job. Where reader and WRITER genuinely part is the applier — see ops.mjs's
+// ledgerView block for that seam and why no fixture can reach it.
 // ---------------------------------------------------------------------------------------------------
 function indexOps(ops) {
   const bySeq = new Map(ops.map((r) => [r.seq, r]));

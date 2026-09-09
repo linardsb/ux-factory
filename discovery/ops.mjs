@@ -239,10 +239,16 @@ export function ledgerView(ops) {
   const decisionsRaw = list.filter((r) => r.op === "record_decision");
   // The projection's rule, mirrored: latest per banked question_id, and every off-script one its own.
   // An off-script decision may NAME a banked question (#289) and never supersedes it, so it is excluded
-  // from the map and reads `latest` on its own row. THE ASYMMETRY WITH prd-projection.mjs IS DELIBERATE:
-  // this reads `!== true` because ledgerView is TOTAL OVER JUNK — a malformed record must not be treated
-  // as banked — where indexOps reads `=== true`, because checkOpLines has already refused a corrupted
-  // ledger before that fold runs. Two mirrors of one rule, fail-closed in the direction each needs.
+  // from the map and reads `latest` on its own row. BOTH READERS READ `!== true` HERE — indexOps'
+  // matching fold (prd-projection.mjs) uses the same predicate, and the `=== true` in that file is its
+  // `visible` filter's inclusion test, a different job. `!== true` is the fail-closed direction for
+  // both: a malformed record must not be treated as banked.
+  //
+  // THE REAL ASYMMETRY IS THE APPLIER'S, and it is undocumented nowhere else: applyOp's supersede guard
+  // below reads `off_script === false`, where both readers read `!== true`. They part on a record whose
+  // `off_script` is absent or undefined — not-banked to the applier, banked to both readers. checkOp
+  // refuses a non-boolean, so the applier can never write that shape; it is reachable only through a
+  // hand-edited transcript.jsonl, which the honesty contract already forbids. A seam, not a bug.
   const latestByQuestion = new Map();
   for (const d of decisionsRaw) { const q = d.params?.question_id ?? null; if (q !== null && d.params?.off_script !== true) latestByQuestion.set(q, d.seq); }
   const supersededBy = new Map();
