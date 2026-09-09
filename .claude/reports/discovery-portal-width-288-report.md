@@ -138,7 +138,9 @@ No suite exists in this repo (`CLAUDE.md` §Ground rules). The gate is the test:
 - Reload mid-session, then a differing depth → the 409 renders as prose in the drawer, verbatim; the same
   depth resumes 200.
 - **The audit branch** (no committed existing-prd package exists — `grep -l '"entryMode": "existing-prd"'
-  discovery/*/run.json` returns nothing — so one was opened through the drawer and deleted): entry → existing
+  discovery/*/run.json` returns nothing — so one was opened through the drawer and deleted. True when this
+  check ran: `discovery/partner-audit-1/` landed under #376 on 2026-09-09 and the same grep now returns it;
+  see the RESOLVED (#376) note under Issues): entry → existing
   PRD, a throwaway document pasted, posture on the wire `grill`, position line
   `gate-audit-288 · Full discovery · question 1 of 30 · turn t1 · audit of a1 (145 characters, md5 f9172937)`,
   answer label hidden, submit reading `Audit this question`, and the package view's document line rendering:
@@ -208,6 +210,13 @@ control positive (`leverage` matches a planted string). C3 title-term sweep → 
   and is what every observation in this report was driven with. It cost two diagnostic rounds and briefly
   read as a portal bug before the `#discovery-start` fieldset's `disabled` explained the second half of it.
   Drive this drawer with `eval` + `.click()`, not with refs.
+- **A fresh audit session says "Resumed" on its first open** (#375, 2026-09-09; pre-existing, not fixed here —
+  #383). `Resumed partner-audit-1 from disk — 1 answer(s) already recorded.` appeared on the CREATE of
+  `partner-audit-1`, before any turn had run. `openSession` writes the head and then files the audited
+  document as answer `a1` before it returns, and the Start handler keys "Resumed" vs "Opened" on
+  `answers.length`, so the create and resume paths are indistinguishable to the client and every fresh audit
+  open reads as a resume. Blank-idea sessions are unaffected. Cosmetic; the fix keys the line on whether the
+  server created or resumed, not on the answer count.
 - **RESOLVED (#375, 2026-09-09) — the live turns were run.** What follows replaces this report's original
   "a live paid turn was not run" note. Four **real SSE turns** were executed through the drawer in a real
   browser (Chrome via CDP) against the portal on `127.0.0.1:4793`, one blank-idea and three audit, at a
