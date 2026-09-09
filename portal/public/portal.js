@@ -1024,6 +1024,20 @@ function renderDiscoverySession() {
   const answerable = !head.endedAt && !cursor.done;
   $('#discovery-answer').disabled = !answerable;
   $('#discovery-submit').disabled = !answerable || discovery.running;
+  // #289's three controls read the SAME `answerable` value the submit does — one derivation, so a
+  // control can never be pressable on a turn the server would refuse. The off-script row is HIDDEN in
+  // an audit rather than disabled: it does not exist there at all (the document is the answer to every
+  // question, so there is no person to go off-script), where park and submit exist and are simply not
+  // reachable yet.
+  // Park is disabled in an AUDIT as well, and the reason is the answer box: a park's reason IS the
+  // record and it is typed there, but #discovery-answer-label is hidden on an audit. An enabled button
+  // that answers "say why this is not answerable yet" while pointing at a box that is not on the page
+  // is a surface asking for something impossible — and the server refuses it anyway (assertParkable).
+  $('#discovery-park').disabled = !answerable || audit || discovery.running;
+  $('#discovery-offscript-row').hidden = audit;
+  $('#discovery-offscript').disabled = !answerable;
+  $('#discovery-lookup').disabled = !answerable || discovery.running;
+  $('#discovery-aside').disabled = !answerable || discovery.running;
   $('#discovery-finish').disabled = Boolean(head.endedAt);
   // The controls need no disabling loop: they are inside #discovery-start, the fieldset the Start
   // handler disables, and a fieldset's disable propagates natively. The note is the one line that must
@@ -1088,9 +1102,21 @@ function renderPackageView() {
   const doc = s.document
     ? `<p class="muted">Auditing ${esc(s.document.ref)} — ${s.document.chars} characters, md5 ${esc(s.document.md5.slice(0, 8))}. A resume ignores a document in the POST body; this md5 says which one the audit actually runs on.</p>`
     : '';
+  // #289 — READ from sessionView.exchanges (discovery/ops.mjs's auditExchanges over the same op array
+  // ledgerView folds), never derived here. It sits ABOVE the empty-ledger return on purpose: the first
+  // thing a person does can be an aside the agent filed nothing for, and "nothing filed yet" is then
+  // true about the ops and silent about the exchange the turn cannot close without.
+  const unfiled = s.exchanges?.unfiled ?? [];
+  const unfiledBlock = unfiled.length ? `<h4 class="card-kicker">Off-script exchanges with no filing</h4>
+      <p class="muted">Each needs one off-script op before its turn can close. Read from the package, never counted in the browser.</p>
+      ${unfiled.map((a) => `
+      <div class="discovery-package-row">
+        <p class="card-kicker">answer ${esc(a.ref ?? '—')}${a.turn ? ` · ${esc(a.turn)}` : ''}</p>
+        <p class="discovery-package-prose">${esc(a.text ?? '')}</p>
+      </div>`).join('')}` : '';
   if (!l.total) {
     mount.innerHTML = `<h3 class="h3">The package</h3>${doc}
-      <p class="muted">Nothing filed yet — the package holds ${s.answers.length} answer(s) and no ops.</p>`;
+      <p class="muted">Nothing filed yet — the package holds ${s.answers.length} answer(s) and no ops.</p>${unfiledBlock}`;
     return;
   }
   const chip = (t) => `<span class="discovery-chip">${esc(t)}</span>`;
@@ -1102,7 +1128,7 @@ function renderPackageView() {
     <p class="muted">${discovery.config.ops.map((op) => `${esc(op)} ${l.counts[op]}`).join(' · ')} · flags ${Object.keys(l.flags).map((f) => `${esc(f)} ${l.flags[f]}`).join(' · ')}. Counted over the whole ledger, superseded records included — nothing here is removed, only marked.</p>
     ${l.decisions.length ? `<h4 class="card-kicker">Decisions</h4>${l.decisions.map((d) => `
       <div class="discovery-package-row${d.latest ? '' : ' is-superseded'}">
-        <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script' : ''}${d.supersededBy ? ` · superseded by seq ${esc(d.supersededBy)}` : ''}</p>
+        <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script — attaches, never replaces' : ''}${d.supersededBy ? ` · superseded by seq ${esc(d.supersededBy)}` : ''}</p>
         <p class="discovery-package-prose">Wrong if: ${esc(d.wrongIf ?? '—')}</p>
         <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${esc(d.parentId)}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${esc(d.supersedes)}` : ''}</p>
         ${d.flagged.map(chip).join(' ')}
@@ -1114,9 +1140,10 @@ function renderPackageView() {
       </div>`).join('')}` : ''}
     ${l.openQuestions.length ? `<h4 class="card-kicker">Open questions</h4>${l.openQuestions.map((q) => `
       <div class="discovery-package-row">
-        <p class="card-kicker">${at(q)} · ${esc(q.source ?? '?')} · ${esc(q.questionId ?? 'off-script')}</p>
+        <p class="card-kicker">${at(q)} · ${q.source === 'off-script' ? 'off-script — did not close the turn' : 'banked — parked, and closed the turn'} · ${esc(q.questionId ?? 'no banked question')}</p>
         <p class="discovery-package-prose">${esc(q.reason ?? '—')}</p>
       </div>`).join('')}` : ''}
+    ${unfiledBlock}
     ${l.evidence.length ? `<h4 class="card-kicker">Evidence</h4>${l.evidence.map((e) => `
       <div class="discovery-package-row">
         <p class="card-kicker">${at(e)} ${chip(e.provenance ?? 'no provenance')}</p>
@@ -1280,29 +1307,25 @@ function discoveryLog(kind, text) {
   $('#discovery-log').scrollTop = $('#discovery-log').scrollHeight;
 }
 
-$('#discovery-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (discovery.running || !discovery.session) return;
-  // An audit turn (#286) sends no text: the document stored at session start is the answer, and the
-  // server refuses a text by name if one arrives.
-  const audit = discovery.session.head.entryMode === 'existing-prd';
-  const text = audit ? undefined : $('#discovery-answer').value;
-  if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
-  const { slug, provenance } = discoveryEls();
-  const questionId = discovery.session.cursor.question.id;
+// The four controls that spend a turn (#289): submit, park, look it up, ask something else. Named once
+// so "disable everything in flight" is one loop rather than four assignments that drift apart.
+const DISCOVERY_TURN_CONTROLS = ['#discovery-submit', '#discovery-park', '#discovery-lookup', '#discovery-aside'];
 
+// ONE SSE read loop for all four. They differ only in the body they POST and the line they report
+// afterwards; a second parser would drift from this one, and both would be invisible to every gate,
+// because portal.js touches the DOM at module scope and no CI group can run it.
+async function postDiscoveryTurn({ body, runningLine, settledLine, clearAnswer = false, clearOffScript = false }) {
+  if (discovery.running || !discovery.session) return;
+  const { slug, provenance } = discoveryEls();
   discovery.running = true;
-  $('#discovery-submit').disabled = true;
-  $('#discovery-submit').textContent = audit ? 'Auditing…' : 'Judging…';
+  for (const sel of DISCOVERY_TURN_CONTROLS) { const el = $(sel); if (el) el.disabled = true; }
   $('#discovery-log').innerHTML = '';
-  $('#discovery-status').textContent = audit
-    ? 'Auditing the document against this question — this spends real tokens.'
-    : 'Your answer is on disk. The agent is judging it — this spends real tokens.';
+  $('#discovery-status').textContent = runningLine;
   try {
     // No client timeout: a turn is seconds to a minute and the stream ends on `done` or `error`.
     const res = await fetch('/api/discovery/turn', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(audit ? { slug, provenance, questionId } : { slug, provenance, questionId, text }),
+      body: JSON.stringify({ slug, provenance, ...body }),
     });
     if (!res.ok) throw new Error(res.statusText);
     const reader = res.body.getReader();
@@ -1320,24 +1343,101 @@ $('#discovery-form').addEventListener('submit', async (e) => {
         if (ev.type === 'error') { $('#discovery-status').textContent = ev.message; continue; }
         if (ev.type === 'done') { discovery.session = ev.view; continue; }
         if (ev.type === 'text') discoveryLog('text', ev.text + (ev.truncated ? ' […the rest is in transcript.jsonl]' : ''));
-        if (ev.type === 'op') discoveryLog('op', `filed ${ev.op}${ev.closes ? ' · closed the turn' : ''}${ev.flagged?.length ? ` · flagged ${ev.flagged.join(', ')}` : ''}`);
+        // #289: offScript and source ride the whitelist now, so an escape-hatch filing reads as one.
+        if (ev.type === 'op') discoveryLog('op', `filed ${ev.op}${ev.offScript ? ' · off-script' : ''}${ev.source ? ` · ${ev.source}` : ''}${ev.closes ? ' · closed the turn' : ''}${ev.flagged?.length ? ` · flagged ${ev.flagged.join(', ')}` : ''}`);
         if (ev.type === 'denied') discoveryLog('denied', `refused: ${ev.tool} — ${ev.error}`);
       }
     }
     // Re-read from disk rather than trusting the stream's last word: the package is the state.
     discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
-    $('#discovery-answer').value = '';
-    $('#discovery-status').textContent = discovery.session.cursor.done
-      ? 'That was the last question in this depth.'
-      : 'Turn recorded. The next question is below.';
+    if (clearAnswer) $('#discovery-answer').value = '';
+    if (clearOffScript) $('#discovery-offscript').value = '';
+    $('#discovery-status').textContent = settledLine(discovery.session);
   } catch (err) {
     $('#discovery-status').textContent = `Failed: ${err.message}`;
   } finally {
     discovery.running = false;
-    // renderDiscoverySession restores the label for the mode (#286): "Audit this question" or "Submit answer".
+    // renderDiscoverySession restores every label and re-derives every disabled state (#286, #289).
     renderDiscoverySession();
   }
+}
+
+// THE STATUS LINE REPORTS; IT DOES NOT ENFORCE (#289). AC #3 is enforced in the applier — a turn cannot
+// be closed while an aside on it has no filing — so this reads `session.exchanges`, a DISK read through
+// discovery/ops.mjs's auditExchanges, and says which refs landed and which did not. It never tells the
+// person to "answer the question on the table" while an aside is unfiled: that is now the action the
+// applier refuses, and a surface pointing at a refused action shows a claim the ops do not hold.
+//
+// SCOPED TO THE OPEN TURN, explicitly. Mid-session an aside on the turn in flight is legitimately
+// unfiled, and a package-wide read would call a turn that is simply still open "unaccounted for".
+function offScriptStatus(session, intent) {
+  const turn = session.cursor?.turn ?? null;
+  if (intent === 'look-up') {
+    const rows = (session.ledger?.evidence ?? []).filter((e) => e.turn === turn);
+    return rows.length
+      ? `Looked it up — ${rows.length} evidence row(s) on this turn. The question above is still on the table, and your own answer is what settles it.`
+      : 'Nothing was filed for that look-up. That is a legitimate outcome when nothing usable was found. The question above is still on the table.';
+  }
+  const ex = session.exchanges ?? { settled: [], unfiled: [] };
+  const unfiled = ex.unfiled.filter((a) => a.turn === turn);
+  if (unfiled.length) return `That exchange is not filed yet (${unfiled.map((a) => a.ref).join(', ')}). This turn will not close until it is — the applier refuses a closing op while an aside on it has no filing. Say it again, or press "Ask something else" once more.`;
+  const settled = ex.settled.filter((a) => a.turn === turn);
+  return settled.length
+    ? `Filed as ${settled.map((a) => `${a.op} (seq ${a.seq})`).join(' · ')}. Nothing closed: the question above is still on the table.`
+    : 'The exchange is recorded. The question above is still on the table.';
+}
+
+$('#discovery-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (discovery.running || !discovery.session) return;
+  // An audit turn (#286) sends no text: the document stored at session start is the answer, and the
+  // server refuses a text by name if one arrives.
+  const audit = discovery.session.head.entryMode === 'existing-prd';
+  const text = audit ? undefined : $('#discovery-answer').value;
+  if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
+  const questionId = discovery.session.cursor.question.id;
+  $('#discovery-submit').textContent = audit ? 'Auditing…' : 'Judging…';
+  await postDiscoveryTurn({
+    body: audit ? { questionId } : { questionId, text },
+    runningLine: audit
+      ? 'Auditing the document against this question — this spends real tokens.'
+      : 'Your answer is on disk. The agent is judging it — this spends real tokens.',
+    clearAnswer: true,
+    settledLine: (s) => (s.cursor.done ? 'That was the last question in this depth.' : 'Turn recorded. The next question is below.'),
+  });
 });
+
+// MVP 8 — PARK IT. The reason IS the record, so it reads the answer box: there is nothing to store if
+// it is empty, and answers.jsonl is append-only, so the refusal is here rather than a blank line on
+// disk. It CLOSES the turn — blocking on an unanswerable question is never available.
+$('#discovery-park').addEventListener('click', async () => {
+  if (discovery.running || !discovery.session) return;
+  const text = $('#discovery-answer').value;
+  if (!text.trim()) { $('#discovery-status').textContent = 'A park records your reason — the reason is the record. Say why this is not answerable yet, then press Park it.'; return; }
+  await postDiscoveryTurn({
+    body: { questionId: discovery.session.cursor.question.id, park: true, text },
+    runningLine: 'Parking this question with your reason — this spends real tokens.',
+    clearAnswer: true,
+    settledLine: (s) => (s.cursor.done ? 'Parked. That was the last question in this depth.' : 'Parked, and recorded as an open question. The next question is below.'),
+  });
+});
+
+// MVP 7 and 9 — the two off-script controls. The person declares which, so the look-it-up path and the
+// filing rule pin separately in the record rather than being one event the agent classifies. Neither
+// closes the turn, so the answer box is deliberately NOT cleared: the person may have been mid-answer.
+const offScriptControl = (intent, runningLine) => async () => {
+  if (discovery.running || !discovery.session) return;
+  const text = $('#discovery-offscript').value;
+  if (!text.trim()) { $('#discovery-status').textContent = 'Say what you want looked up, or what the question did not ask for, then press the button again.'; return; }
+  await postDiscoveryTurn({
+    body: { kind: 'off-script', intent, text },
+    runningLine,
+    clearOffScript: true,
+    settledLine: (s) => offScriptStatus(s, intent),
+  });
+};
+$('#discovery-lookup').addEventListener('click', offScriptControl('look-up', 'Looking it up — the agent may search the web. This spends real tokens.'));
+$('#discovery-aside').addEventListener('click', offScriptControl('aside', 'Taking that off-script — this spends real tokens.'));
 
 // The PRD, without a terminal (#338 F1). #290 shipped the fold CLI-only, so the honest description of
 // the chain was "the session is entirely in the UI, and one terminal command afterwards produces the

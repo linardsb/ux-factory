@@ -244,6 +244,9 @@
 
         <div class="portal-form-actions">
           <button class="btn btn-primary" type="submit" id="discovery-submit">Submit answer</button>
+          <!-- MVP 8 (#289): the person's reason IS the record, so it reads the answer box above. It
+               CLOSES the turn — blocking on an unanswerable question is never available. -->
+          <button class="btn btn-secondary" type="button" id="discovery-park">Park it</button>
           <button class="btn btn-secondary" type="button" id="discovery-finish">Finish</button>
           <!-- the PRD without a terminal (#338 F1): the fold runs server-side and writes nothing -->
           <button class="btn btn-secondary" type="button" id="discovery-prd">Download PRD</button>
@@ -252,6 +255,20 @@
           <button class="btn btn-secondary" type="button" id="discovery-propose">Propose features</button>
           <button class="btn btn-secondary" type="button" id="discovery-proposals-md">Download proposals</button>
           <button class="btn btn-secondary" type="button" id="discovery-cancel">Close</button>
+        </div>
+        <!-- MVP 7 and 9 (#289): the escape hatch, at every step. Two controls rather than one box the
+             agent classifies, so the look-it-up path and the filing rule pin separately in the record.
+             Neither closes the turn: the question above stays on the table and the person answers it.
+             Hidden in an audit (#286) — a document is the answer to every question. -->
+        <div id="discovery-offscript-row">
+          <label id="discovery-offscript-label">Something else — ask the agent to look a fact up, or say what the question did not ask for
+            <textarea name="offscript" id="discovery-offscript" rows="3"></textarea>
+          </label>
+          <div class="portal-form-actions">
+            <button class="btn btn-secondary" type="button" id="discovery-lookup">Look it up</button>
+            <button class="btn btn-secondary" type="button" id="discovery-aside">Ask something else</button>
+          </div>
+          <p class="muted">Neither closes the turn. The question above stays on the table, and your own answer is what settles it.</p>
         </div>
         <p class="muted portal-form-status" id="discovery-status" aria-live="polite"></p>
         <ol class="portal-phase-log" id="discovery-log"></ol>

@@ -50,9 +50,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFil
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { DEPTHS, FACETS, facetPlan, MODULES, normaliseFacets, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
-import { applyOps, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
+import { applyOps, auditExchanges, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
-import { MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
+import { AFFORDANCES, MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
 
 const bad = (msg) => { throw new Error(`discovery: ${msg}`); };
 
@@ -176,6 +176,15 @@ export const BANK_PATH = path.join(REPO_DIR, 'discovery', 'bank.mjs');
 // never be closed by a path rule. Group 30 pins the key set, so adding one here goes red by name.
 export const READ_TOOLS = Object.freeze({ Read: 'file_path', Grep: 'path', Glob: 'path' });
 
+// MVP 7's look-it-up path (#289). A SEPARATE FENCE THAT STAYS OPEN — architecture §Boundaries:
+// "WebSearch / WebFetch are a separate fence and stay open … no path allow-list touches it. What holds
+// the honesty line there is the op grammar, not the fence." So they are allowed BY NAME, through
+// fenceDecision's extraTools seam (#359), and they are deliberately NOT in READ_TOOLS: a path rule
+// cannot reach a URL, and adding them there would make #287's assertion false. They reach a query()
+// only on an off-script turn — a banked turn advertises nothing, exactly as today. allowsToolName stays
+// UNWIDENED for the same reason case 14 states: the discovery SESSION's vocabulary is the four op verbs.
+export const FETCH_TOOLS = Object.freeze(['WebSearch', 'WebFetch']);
+
 // Where a `denied` line was refused: the two fence call sites, and the record point for an applier
 // or schema-layer refusal (the transport's observation 3).
 export const FENCE_SITES = Object.freeze(['PreToolUse', 'canUseTool', 'PostToolUseFailure']);
@@ -249,18 +258,53 @@ export function assertTurnWritable(transcript, turn) {
   return turn;
 }
 
+// The three affordances' session-layer guards (#289). Pure over their arguments and exported, so group
+// 30 drives each refusal in both directions with no SDK. MVP 9 says "at every step", and `cursor.done`
+// and `endedAt` are the two states with NO step to be beside — refusing there is the rule, not a bug,
+// and the message says which. An existing-prd audit refuses both by name: the document is the answer to
+// every question, so there is nobody to park or to go off-script (RE_ASKS is the precedent).
+export function assertAffordance(head, cursor, intent) {
+  if (!head || typeof head !== 'object') bad('assertAffordance needs the run head');
+  if (!cursor || typeof cursor !== 'object') bad('assertAffordance needs the cursor');
+  if (!AFFORDANCES.includes(intent)) bad(`intent "${intent}" is not one of ${AFFORDANCES.join(' · ')} — the person says whether they are looking something up or saying something else, so the two pin separately in the record`);
+  if (head.endedAt) bad(`run "${head.slug}" was closed at ${head.endedAt} — an off-script exchange attaches to an OPEN turn, and a closed session has none`);
+  if (cursor.done) bad(`run "${head.slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — an off-script exchange sits beside the question on the table, and there is no question left`);
+  if ((head.entryMode ?? 'blank-idea') === 'existing-prd') bad('an existing-prd audit takes no off-script exchange — the document is the answer to every question, so there is no person answering (MVP 2)');
+  return intent;
+}
+
+export function assertParkable(head, cursor) {
+  if (!head || typeof head !== 'object') bad('assertParkable needs the run head');
+  if (!cursor || typeof cursor !== 'object') bad('assertParkable needs the cursor');
+  if (head.endedAt) bad(`run "${head.slug}" was closed at ${head.endedAt} — a closed session takes no more turns, parked or otherwise`);
+  if (cursor.done) bad(`run "${head.slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to park`);
+  if ((head.entryMode ?? 'blank-idea') === 'existing-prd') bad('an existing-prd audit takes no park — the document either addresses the question or it does not, and "absent" is the audit\'s own open_question verdict (MVP 2)');
+  return true;
+}
+
 // One line per submit, server-written. VERBATIM, and portal/lib/redact.mjs is deliberately NOT applied:
 // redaction is trace-recorder.mjs's contract for AGENT output, and answers.jsonl's contract is the
 // human's own text unrewritten. A redacted answer is a rewritten one, which would make the honesty
 // claim false in the mirror direction. (The real risk sits with real-provenance runs, and those land
 // outside the repo and are never committed — R1.)
-export function appendAnswer(root, { turn, questionId, kind, text }) {
+// `intent` (#289) is a new FIELD on an existing kind, never a new kind: the kind guard below stays the
+// proper subset ['banked', 'off-script'] that case 33 drives refusing kind "document", and appendDocument
+// keeps the one-document refusal. It is written on OFF-SCRIPT lines ONLY and refused on a banked one, so
+// every line recorded before #289 is byte-identical in shape and no existing reader widens. It is the
+// discriminator four rules rest on — the applier's closer guard, auditExchanges, pendingBrief and the
+// projection's unfiled block — and it is SERVER-WRITTEN from a control the person pressed, so no agent
+// has a route to it.
+export function appendAnswer(root, { turn, questionId, kind, text, intent = null }) {
   if (typeof text !== 'string' || !text.trim()) bad('"text" must be a non-empty string — the answer is stored exactly as submitted, so there is nothing to fall back to');
   if (!['banked', 'off-script'].includes(kind)) bad(`"kind" must be banked or off-script (got ${JSON.stringify(kind)})`);
+  if (kind === 'off-script' && !AFFORDANCES.includes(intent))
+    bad(`an off-script answer line records the person's declared intent — "intent" must be one of ${AFFORDANCES.join(' · ')} (got ${JSON.stringify(intent)}). Without it no reader can tell a look-up from an aside, and every rule that enforces MVP 9 either deadlocks the look-up path or reports it as a failure`);
+  if (kind !== 'off-script' && intent !== null)
+    bad(`"intent" is written on off-script lines only (got ${JSON.stringify(intent)} on a ${kind} line) — a banked line carrying one would make every line recorded before #289 read as a different shape`);
   assertTurnWritable(readTranscript(root), turn);
   const answers = readAnswers(root);
-  // No trim, no normalisation: stored exactly as submitted.
-  const record = { ref: nextRef(answers), ts: now(), turn, question_id: questionId ?? null, kind, text };
+  // No trim, no normalisation: stored exactly as submitted. The key is present on off-script lines only.
+  const record = { ref: nextRef(answers), ts: now(), turn, question_id: questionId ?? null, kind, ...(kind === 'off-script' ? { intent } : {}), text };
   appendFileSync(path.join(root, 'answers.jsonl'), `${JSON.stringify(record)}\n`);
   return record;
 }
@@ -828,6 +872,9 @@ export function sessionView(root) {
   // Null on a blank-idea package. This view consults no posture table: disk is authoritative, and a
   // package is never made unreadable by a table edit.
   const doc = documentOf(answers);
+  // Built ONCE and handed to both folds below (#289): mapping the transcript twice would be two copies
+  // of the same narrowing, and the two reads must see byte-identical input.
+  const opRecords = transcript.filter((l) => l?.type === 'op').map(({ type, ts, ...rec }) => rec);
   return {
     head,
     answers,
@@ -846,7 +893,11 @@ export function sessionView(root) {
     // PURPOSE and neither should be "fixed" to match the other: readPackage folds a finished package and
     // a silently dropped record would be a lie in prd.md, while this is a live view over a file being
     // appended to and a throw would take the drawer down mid-session.
-    ledger: ledgerView(transcript.filter((l) => l?.type === 'op').map(({ type, ts, ...rec }) => rec)),
+    ledger: ledgerView(opRecords),
+    // AC #3 (#289) — which off-script exchanges were filed, and which were not. discovery/ops.mjs's
+    // exported pure read over the SAME stripped op array ledgerView folds, so the drawer derives
+    // nothing and the two readers can never disagree about one package.
+    exchanges: auditExchanges(answers, opRecords),
   };
 }
 
@@ -979,6 +1030,11 @@ export function turnEvent(line) {
       flagged: Array.isArray(line.flagged) ? [...line.flagged] : [],
       supersedes: line.supersedes ?? null,
       questionId: line.params?.question_id ?? null, answerRef: line.params?.answer_ref ?? null,
+      // #289. Two FLAGS, not prose — which is the distinction that makes them projectable where
+      // wrong_if / missing / reason are not. Without them the drawer's log reads "filed record_decision"
+      // identically for a banked decision and an escape-hatch one, the exact ambiguity AC #3 removes.
+      offScript: line.params?.off_script === true,
+      source: line.params?.source ?? null,
     };
   }
   if (line.type === 'denied') {
@@ -1012,16 +1068,41 @@ function stateFromTranscript(transcript, answers) {
 // answers.jsonl holds exactly one line for the whole audit. The posture is resolved with the run's
 // recorded model, so a Grill run on Opus stamps Opus's fingerprint; a pre-#286 package's model equals
 // its posture's, so its posture comes back by identity.
-export async function runTurn({ slug, provenance, questionId, kind = 'banked', text, onLine }) {
+//
+// #289 ADDS TWO TURN SHAPES INSIDE THAT ORDERING, changing nothing about it.
+//
+// An OFF-SCRIPT turn (kind 'off-script', MVP 7 and 9) skips the cursor's question guard — the person is
+// deliberately not answering it — runs assertAffordance instead, and appends with question_id null and
+// the person's declared intent. IT SHARES THE OPEN BANKED TURN'S ID, which is the design: the exchange
+// happened DURING that turn. assertTurnWritable passes because nothing closed it, and the later banked
+// answer lands on the same tN. So MORE THAN ONE answers.jsonl line may now carry one turn id, and
+// recordTurnStats appends more than one entry for it — group 32's 32.2a reads DISTINCT turn ids, so the
+// fixture assertion is unaffected, and any reader that assumed one answer line per turn is wrong (the
+// format spec says so, discovery/README.md §File shapes). deriveCursor and runMetrics count CLOSERS and
+// no off-script op closes, so neither the cursor nor the not-a-form counter moves.
+//
+// A PARK (MVP 8) is an ORDINARY banked append — the person's reason IS the answer, stored verbatim —
+// with one paragraph added to the turn prompt. It closes, so the cursor advances and the not-a-form
+// counter increments; blocking is never available.
+//
+// Both still take withDiscoveryRunLock: two concurrent turns would append to the same append-only files.
+export async function runTurn({ slug, provenance, questionId, kind = 'banked', intent = null, park = false, text, onLine }) {
   return withDiscoveryRunLock(async () => {
     const root = resolveRunRoot({ provenance, slug });
     assertProvenanceRoot(provenance, root);
     const view = sessionView(root);           // throws if there is no run.json
     const { head, cursor } = view;
+    if (!['banked', 'off-script'].includes(kind)) bad(`"kind" must be banked or off-script (got ${JSON.stringify(kind)})`);
+    const offScript = kind === 'off-script';
+    if (park && offScript) bad('a turn is a park or an off-script exchange, never both — a park CLOSES the question on the table and an off-script exchange deliberately does not');
     if (head.endedAt) bad(`run "${slug}" was closed at ${head.endedAt} — a closed session takes no more turns`);
     if (cursor.done) bad(`run "${slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to ask`);
-    if (questionId !== cursor.question.id)
+    // An off-script turn is deliberately NOT answering the cursor's question, so it skips this guard —
+    // and runs assertAffordance in its place, which refuses the two states with no step to be beside.
+    if (offScript) assertAffordance(head, cursor, intent);
+    else if (questionId !== cursor.question.id)
       bad(`"${questionId}" is not the question on the table — the cursor is at ${cursor.index + 1} of ${cursor.total}, which is "${cursor.question.id}"`);
+    if (park) assertParkable(head, cursor);
     const turn = cursor.turn;
     const audit = head.entryMode === 'existing-prd';
     let answer;
@@ -1030,7 +1111,9 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', t
       answer = auditAnswerFor(view);
     } else {
       if (typeof text !== 'string' || !text.trim()) bad('an answer is required');
-      answer = appendAnswer(root, { turn, questionId, kind, text });
+      answer = appendAnswer(root, offScript
+        ? { turn, questionId: null, kind, intent, text }
+        : { turn, questionId, kind, text });
     }
 
     // The SDK enters HERE and nowhere earlier — after every guard above has passed. See invariant 1.
@@ -1045,6 +1128,12 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', t
       posture: resolvePosture({ posture: head.posture, model: head.model }),
       // The HOLDER the server mutates ({ current }), not the bare run — buildOpServer throws otherwise.
       state: { current: stateFromTranscript(readTranscript(root), answers) },
+      // #289. `affordance` chooses the off-script turn prompt and opens the fetch fence for that one
+      // query(); `park` adds one paragraph to the banked one. Both null/false on every existing path,
+      // so every existing turn builds and runs byte-identically.
+      affordance: offScript ? intent : null,
+      park,
+      answers,
       onLine,
     });
     // The transport already wrote it at init (plan M4); idempotent belt-and-braces for the caller.
@@ -1055,4 +1144,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', t
 }
 
 // Named exports the gate compares against the grammar; re-exported so group 30 has one import.
+// AFFORDANCES (#289) rides along for the same reason: it lives in discovery-postures.mjs, where the two
+// values ARE the two rule strings, and a second copy here would be the drift this repo's headers forbid.
 export { LEVELS, OPS, PARAMS, PROVENANCE, SOURCES };
+export { AFFORDANCES };

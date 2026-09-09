@@ -74,7 +74,7 @@
 // the recordings have them (group 30 case 30 pins the literal).
 
 import { createHash } from 'node:crypto';
-import { LEVELS, OPS, PARAMS, parentCandidates } from '../../discovery/ops.mjs';
+import { auditExchanges, LEVELS, OPS, PARAMS, parentCandidates } from '../../discovery/ops.mjs';
 // The projection's OWN section table, so Create PRD's section brief follows the page rather than
 // restating it (#286). prd-projection.mjs imports node built-ins, bank.mjs and ops.mjs only, and its
 // CLI guard compares import.meta.url to argv[1], so importing it here runs nothing.
@@ -110,6 +110,53 @@ export const PARENT_RULE = `A business decision has no parent (parent_id null). 
 // call. Exported and pinned by group 30 case 16 for the reason the header gives — a load-bearing
 // prompt string lives in one place, so a tightening is a one-line diff the gate notices.
 export const EVIDENCE_RULE = `When the answer NAMES something that could be checked — a document, a spreadsheet, a thread, a ticket, a dashboard, a recording, a report, a number someone measured — file it with file_evidence BEFORE your closing op. file_evidence does not close the turn and may be called more than once. Pass url when the answer gives a link; otherwise pass ref naming the stored answer that describes it. When the thing has an identity of its own — a named spreadsheet, a particular thread, a report someone could fetch — pass name with a short label for it, beside the ref and never with a url; otherwise pass name null. Pass claim_ref null. An answer that names no such thing files no evidence — do not invent one, and do not ask for one.`;
+
+// --- the three affordances (#289; PRD MVP 7, 8, 9) ------------------------------------------------
+//
+// EVERY STRING BELOW EXCEPT DOMAIN_RULE RIDES THE **TURN** PROMPT, CONDITIONALLY, and that is not a
+// style choice. FIVE recordings carry Think's two stamps — four on think, one on think-opus, one of the
+// five 65 turns (graded-think-a) and the think-opus one 65 too — so moving systemFor
+// makes them stale for text a banked turn never reads; the system prompt is byte-stable across a
+// session so its SDK cache holds (run 0's cache read grew 3.8k → 125k over thirty turns), and a
+// different system prompt on one mid-session turn is a cache-creation event every time it fires. The
+// honesty gap that leaves — no posture stamp covers this text — is closed by AFFORDANCE_FINGERPRINT
+// below, its own stamp over its own frozen inputs, recorded beside postureFingerprint on the turns
+// that used it.
+//
+// Exported separately, like EVIDENCE_RULE and for the same reason: a tightening is a one-line diff the
+// gate notices rather than an edit buried in a template literal.
+
+// The person's declared intent on an off-script turn. Two controls, never one classifier: the person
+// says which they are doing, so MVP 7's evidence path and MVP 9's filing rule pin separately in the
+// RECORD. A single "ask" box asking the agent to infer intent would make a failed look-up and a failed
+// aside the same event. It lives here because the two values ARE the two rule strings below;
+// portal/lib/discovery.mjs re-exports it rather than keeping a second copy (that module imports this
+// one, so the dependency only runs one way).
+export const AFFORDANCES = Object.freeze(['look-up', 'aside']);
+
+// MVP 8 — PARK IT. Blocking on an unanswerable question is never available, so the park CLOSES the
+// turn and the cursor moves. The person's reason is the answer, stored verbatim; the agent files the
+// op and authors nothing but the `reason` field, which restates why in the person's own terms.
+export const PARK_RULE = `The person is PARKING this question: they cannot answer it yet and have given their reason. File open_question with source "banked", question_id this question, answer_ref their stored answer, and reason stating why it is not answerable yet — in their terms, not yours. That closes the turn and the session moves on. Do not record a decision, do not flag the answer weak, and do not ask them to try again: blocking on an unanswerable question is not available here.`;
+
+// MVP 7 — LOOK IT UP. The turn does NOT close: the person's own answer still does. "File nothing at
+// all" when nothing usable was found is a CORRECT outcome here, which is why the applier's closer
+// guard is scoped to intent "aside" and never fires on a look-up.
+export const LOOK_IT_UP_RULE = `The person has asked you to look something up, or has pasted a source. Search or fetch, then say in prose what you found and give the URL of every source you used. For each source you actually used, file file_evidence with url set to that URL, ref null, name null, provenance "secondary-source" and claim_ref null. You may quote or summarise a source, attributed to it. YOU MAY NOT ANSWER THE QUESTION ON THE TABLE — quoting a source is not a finding, and the person writes their own answer. File no closing op: this turn does not close, and the question stays on the table. If you found nothing usable, say so and file nothing.`;
+
+// MVP 9 — THE ESCAPE HATCH. Dropping the exchange is never available, and the applier enforces it: a
+// turn cannot be closed while an aside on it has no filing (ops.mjs invariant 4). Exactly one of the
+// two forms, because one off-script answer settling as both is refused too.
+export const ESCAPE_HATCH_RULE = `The person has said something the question on the table did not ask for. Answer them, then FILE THE EXCHANGE — dropping it is never available. If the exchange ends in them making a choice, file record_decision with off_script true, the same wrong_if condition and evidence_refs a banked decision would carry, and question_id naming the banked question it touched, or null when it touched none. Otherwise file open_question with source "off-script", the same question_id rule, and a reason saying what is still open. Exactly one of the two. Neither closes the turn: the question on the table is still unanswered and the cursor does not move.`;
+
+// MVP 10's domain rule. The one string that also goes into a SYSTEM prompt — Create PRD's, and only
+// Create PRD's. Grill's was the plan's second target and is not taken: discovery/partner-audit-1 is a
+// committed Grill recording carrying that posture's stamp, so moving it would make a package stale for
+// text its turns never read, which is the cost this whole design exists to avoid. Nothing on disk runs
+// create-prd (verified over all eight packages), so that one move is free. Think and Grill reach the
+// rule through the affordance turn prompt only — the same gap JUDGEMENT_RULE and reaskBrief already
+// carry for Think, carried the same way and named rather than hidden.
+export const DOMAIN_RULE = `The product may be invented; the domain is not. A claim that is checkable and public — that a scheme exists, that a regulation applies, that a payment cannot be recalled — must carry a file_evidence row with a URL and provenance "secondary-source", and looking it up is how it gets one. A claim about the SHAPE of this product — what it should do, who it is for, what it is worth — carries provenance "assumption" beside a wrong_if condition, and that is the expected result. Filing a checkable public fact as an assumption is a failure.`;
 
 // Which kind of run the agent is sitting in (#347). Keyed by the run's provenance as run.json records
 // it — the two roots of discovery/README.md R1 — and rendered into the system prompt by that key.
@@ -160,9 +207,16 @@ const opVocabulary = () => OPS.map((op) => `- ${op}(${PARAMS[op].join(', ')})`).
 // system prompt is byte-stable across a session so its cache holds; the ledger changes every turn.
 // A decision is named by its seq and its question_id (an off-script one says so), which is what a
 // seq needs to be recognisable; the substance stays in the resumed session. Pure over the applier's
-// records, reading exactly two fields — params.level and params.question_id — and FINGERPRINT_INPUTS'
-// synthetic ledger carries exactly those, so widen both or neither. The candidate line is
-// parentCandidates', so it can never disagree with the applier's refusal.
+// records. The candidate line is parentCandidates', so it can never disagree with the applier's refusal.
+//
+// #289 widened it to read params.provenance, params.url and params.name off file_evidence records too,
+// and the evidence line RENDERS NOTHING — not an empty heading, not "none" — when the ledger holds no
+// evidence row. That absence is load-bearing rather than tidy: FINGERPRINT_INPUTS' synthetic ledger
+// holds three record_decision records and NO file_evidence, so an absent-when-empty line leaves every
+// fingerprint input's output byte-identical and all four stamps unmoved. An "Evidence filed in this
+// run: none" line would move all four. Why it is worth having at all: without it a later banked turn
+// can only name a look-it-up evidence seq FROM RECOLLECTION ACROSS A RESUMED SESSION — the exact
+// failure #341 paid a recording to discover, one rung over.
 export function ledgerBrief(ops) {
   if (!Array.isArray(ops)) throw new Error("discovery-postures: ledgerBrief needs the ledger's records array");
   const decisions = ops.filter((r) => r?.op === 'record_decision');
@@ -177,7 +231,34 @@ export function ledgerBrief(ops) {
     const above = LEVELS[LEVELS.indexOf(level) - 1];
     return `filing at ${level} → parent_id ${c.length ? `one of ${c.join(', ')}` : `null (no ${above} decision yet)`}`;
   });
-  return `Decisions in this run so far, by rung:\n${byRung.join('\n')}\n\nParent candidates:\n${candidates.join('\n')}`;
+  return `Decisions in this run so far, by rung:\n${byRung.join('\n')}\n\nParent candidates:\n${candidates.join('\n')}${evidenceLine(ops)}`;
+}
+
+// The evidence rows this run holds, so a banked decision's evidence_refs is a LOOKUP rather than a
+// recollection (#289). '' when there are none — see ledgerBrief's comment for why that is the rule
+// every stamp rests on.
+function evidenceLine(ops) {
+  const rows = ops.filter((r) => r?.op === 'file_evidence');
+  if (!rows.length) return '';
+  const one = (r) => `seq ${r.seq} (${r.params?.provenance ?? '?'}, ${r.params?.url ?? r.params?.name ?? `answer ${r.params?.ref ?? '?'}`})`;
+  return `\n\nEvidence filed in this run: ${rows.map(one).join(' · ')}`;
+}
+
+// THE UNFILED ASIDES on this run, in the person's own words (#289). '' when there are none, so a build
+// without one is byte-identical — reaskBrief's rule exactly.
+//
+// This is what makes the applier's closer guard COMPLIABLE rather than merely enforceable. Under
+// tools: [] the agent has no route to answers.jsonl, so after a server restart it would otherwise have
+// to author a `reason` for an exchange it cannot read — the mirror-direction failure the honesty
+// contract forbids. The person's own text is already what a turn prompt carries (answer.text), so this
+// is existing practice rather than a new class of input. The PREDICATE is auditExchanges', imported
+// rather than re-spelled: the prompt and the applier must agree on which exchange is unfiled.
+export function pendingBrief(answers, ops) {
+  if (!Array.isArray(ops)) throw new Error("discovery-postures: pendingBrief needs the ledger's records array");
+  const unfiled = auditExchanges(answers, ops).unfiled;
+  if (!unfiled.length) return '';
+  const rows = unfiled.map((a) => `${a.ref}${a.turn ? ` (turn ${a.turn})` : ''}: ${a.text ?? ''}`);
+  return `Off-script exchanges on this run that you have not filed yet — each needs ONE of record_decision with off_script true, or open_question with source "off-script", naming its ref. Neither closes a turn, and a turn cannot be closed while one of these is unfiled:\n${rows.join('\n')}`;
 }
 
 // The re-ask brief (#366, for the two #286 postures). On a held question's second ask the FIRST
@@ -247,6 +328,54 @@ not a hedge.
 British English. Address the person directly. No preamble, no restating their answer back to them, no
 encouragement.`;
 
+// A park's closing line, shared by all four postures (#289). New text, so one copy is the right number
+// — unlike interviewHead, which is Think's byte-stable surface COPIED rather than shared.
+const parkClose = (question, answer) => `File open_question with source "banked", question_id "${question.id}" and answer_ref "${answer.ref}", with a reason stating in the person's own terms why this is not answerable yet. That is the only op this turn takes.`;
+
+// The three affordance guards every builder runs, in one place so all four refuse identically (#289).
+// `affordance` fires on a value no existing caller passes, which is the #286 precedent: every existing
+// input still builds byte-identical output. `park` and `affordance` together are refused because they
+// are two different turns — a park CLOSES the question on the table, an off-script turn deliberately
+// does not — and an audit refuses both, because a document is the answer to every question and there
+// is no person answering (RE_ASKS is the precedent).
+function affordanceGuards({ park, affordance, entryMode }) {
+  if (park !== true && park !== false) throw new Error(`discovery-postures: park must be true or false (got ${JSON.stringify(park)})`);
+  if (affordance !== null && !AFFORDANCES.includes(affordance))
+    throw new Error(`discovery-postures: affordance "${affordance}" is not one of ${AFFORDANCES.join(' · ')} (null means an ordinary banked turn)`);
+  if (park && affordance !== null)
+    throw new Error(`discovery-postures: park and affordance "${affordance}" cannot both be set — a park closes the question on the table and an off-script turn deliberately does not`);
+  if (entryMode === 'existing-prd' && (park || affordance !== null))
+    throw new Error(`discovery-postures: ${park ? 'park' : `affordance "${affordance}"`} is not available in an existing-prd audit — the document is the answer to every question, so there is no person to park or to go off-script (MVP 2)`);
+}
+
+// THE OFF-SCRIPT TURN PROMPT, one body all four postures share (#289). It is COPIED from the interview
+// head rather than sharing a helper with buildThinkTurn, for the reason interviewHead's own comment
+// gives: Think's lines are its byte-stable surface and a refactor through one helper would be a Think
+// edit wearing a tidy-up.
+//
+// The banked question is named as CONTEXT, still unanswered, and its weak-answer note is deliberately
+// ABSENT — the note is the rubric for judging an answer, and on a turn with no answer to judge it is
+// noise the agent may act on. It ends on the ledger brief and the parent line, which is the recency
+// tail #341 paid a recording for.
+const affordanceTurn = ({ question, answer, turn, ledger, answers, affordance }) => {
+  const pending = pendingBrief(answers, ledger);
+  return `Turn ${turn}. Off-script — the question below is NOT being answered here.
+
+The question on the table (stage ${question.stage}, ${question.attribution}), still unanswered:
+${question.text}
+
+What the person has said instead, stored as ${answer.ref}:
+${answer.text}
+
+${affordance === 'look-up' ? LOOK_IT_UP_RULE : ESCAPE_HATCH_RULE}
+
+${DOMAIN_RULE}
+
+${ledgerBrief(ledger)}
+${pending ? `\n${pending}\n` : ''}
+Nothing you file here closes the turn, and the cursor does not move: "${question.id}" is still the question on the table and the person answers it themselves. If you file a record_decision below business, take parent_id from the "Parent candidates" line above.`;
+};
+
 // Throws rather than producing a prompt with "undefined" in it: a prompt built from a broken question
 // or a broken answer would spend real tokens producing an unreadable turn.
 function need(value, what) {
@@ -258,7 +387,7 @@ function need(value, what) {
 // system prompt: the system prompt stays byte-stable across the session so its cache holds, and the
 // ledger changes every turn. A caller that forgets it must fail loudly rather than quietly regress to
 // the rehearsal's behaviour, where parenting was a recollection (#341).
-export function buildThinkTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea' }) {
+export function buildThinkTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null }) {
   if (!question || typeof question !== 'object') throw new Error('discovery-postures: a question entry is required');
   // #286: the one refusal Think gained. It fires on a value no existing caller passes, so every
   // existing input still builds byte-identical output (group 30 case 30 pins the stamp).
@@ -272,6 +401,8 @@ export function buildThinkTurn({ question, answer, turn, ledger, provenance, ent
   need(answer.text, 'answer.text');
   need(turn, 'turn');
   if (!Array.isArray(ledger)) throw new Error('discovery-postures: ledger must be the run\'s op records array ([] on the first turn) — a turn prompt built without it makes parenting a recollection again (#341)');
+  affordanceGuards({ park, affordance, entryMode });
+  if (affordance !== null) return { systemPrompt: systemFor(provenance), prompt: affordanceTurn({ question, answer, turn, ledger, answers, affordance }) };
 
   // The weak-answer note goes to the AGENT and never to the person — it is the rubric, and showing it
   // beside the question would tell them the answer. portal/lib/discovery.mjs strips it from what the
@@ -279,6 +410,11 @@ export function buildThinkTurn({ question, answer, turn, ledger, provenance, ent
   //
   // The closing line ends on the parent (recency — the last instruction is the one a model is most
   // likely to act on), and it points back at the brief above rather than restating it.
+  // The two conditional slots use reaskBrief's exact idiom, `${x ? `\n${x}\n` : ''}` on its own line,
+  // which REPLACES the blank line that was there rather than adding one: with both empty the template
+  // emits today's bytes exactly, which is what keeps all four stamps where the recordings have them
+  // (group 30 case 43 asserts the four builds directly, so the failure names the builder not the hash).
+  const extra = [pendingBrief(answers, ledger), park ? PARK_RULE : ''].filter(Boolean).join('\n\n');
   const prompt = `Turn ${turn}.
 
 The question (stage ${question.stage}, ${question.attribution}):
@@ -291,8 +427,8 @@ The person's answer, stored as ${answer.ref}:
 ${answer.text}
 
 ${ledgerBrief(ledger)}
-
-Judge it, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`;
+${extra ? `\n${extra}\n` : ''}
+${park ? parkClose(question, answer) : `Judge it, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`}`;
 
   return { systemPrompt: systemFor(provenance), prompt };
 }
@@ -385,8 +521,9 @@ ${answer.text}`;
 // document is not a person's answer. The system prompt puts the stance and the section brief before
 // the shared block; the turn prompt asks for the section in prose, carries the re-ask brief on a
 // second ask, and still ends on the parent (recency).
-export function buildCreatePrdTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea' }) {
+export function buildCreatePrdTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null }) {
   commonGuards({ question, answer, turn, ledger, provenance });
+  affordanceGuards({ park, affordance, entryMode });
   if (entryMode === 'existing-prd') throw new Error('discovery-postures: Create PRD is an interview posture — an existing-prd session starts at Grill (MVP 2)');
   if (entryMode !== 'blank-idea') throw new Error(`discovery-postures: entryMode must be blank-idea for Create PRD (got ${JSON.stringify(entryMode)})`);
   if (answer.kind === 'document') throw new Error("discovery-postures: Create PRD judges a person's answer, not a stored document — a document is an existing-prd session's, and that session starts at Grill (MVP 2)");
@@ -406,17 +543,20 @@ ${YIELD_CONTRACT}
 
 ${sharedVocabulary()}
 
+${DOMAIN_RULE}
+
 ${sharedTail(provenance)}
 
 ${WRONG_IF_LINE}
 
 ${INTERVIEW_CLOSE}`;
-  const reask = reaskBrief(ledger, question.id);
+  if (affordance !== null) return { systemPrompt, prompt: affordanceTurn({ question, answer, turn, ledger, answers, affordance }) };
+  const extra = [reaskBrief(ledger, question.id), pendingBrief(answers, ledger), park ? PARK_RULE : ''].filter(Boolean).join('\n\n');
   const prompt = `${interviewHead({ question, answer, turn })}
 
 ${ledgerBrief(ledger)}
-${reask ? `\n${reask}\n` : ''}
-Say in prose which section this feeds, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`;
+${extra ? `\n${extra}\n` : ''}
+${park ? parkClose(question, answer) : `Say in prose which section this feeds, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`}`;
   return { systemPrompt, prompt };
 }
 
@@ -426,8 +566,9 @@ Say in prose which section this feeds, then file your one op against question_id
 // before the stance and every rule, for the reasons the header gives; the turn prompt names its ref
 // and never carries its text. The wrong answer kind is refused in both directions, so a document can
 // never be judged as a person's answer, and a person's answer can never be audited as if it were one.
-export function buildGrillTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea' }) {
+export function buildGrillTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null }) {
   commonGuards({ question, answer, turn, ledger, provenance });
+  affordanceGuards({ park, affordance, entryMode });
   if (entryMode !== 'blank-idea' && entryMode !== 'existing-prd') throw new Error(`discovery-postures: entryMode must be blank-idea or existing-prd (got ${JSON.stringify(entryMode)})`);
   const audit = entryMode === 'existing-prd';
   if (audit && answer.kind !== 'document') throw new Error(`discovery-postures: an audit turn's answer is the stored document (kind "document") — got kind ${JSON.stringify(answer.kind)}; an existing-prd session is opened with its document and every turn judges that one record`);
@@ -453,12 +594,13 @@ ${sharedTail(provenance)}
 ${WRONG_IF_LINE}
 
 ${INTERVIEW_CLOSE}`;
-    const reask = reaskBrief(ledger, question.id);
+    if (affordance !== null) return { systemPrompt, prompt: affordanceTurn({ question, answer, turn, ledger, answers, affordance }) };
+    const extra = [reaskBrief(ledger, question.id), pendingBrief(answers, ledger), park ? PARK_RULE : ''].filter(Boolean).join('\n\n');
     const prompt = `${interviewHead({ question, answer, turn })}
 
 ${ledgerBrief(ledger)}
-${reask ? `\n${reask}\n` : ''}
-Judge it, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`;
+${extra ? `\n${extra}\n` : ''}
+${park ? parkClose(question, answer) : `Judge it, then file your one op against question_id "${question.id}" and answer_ref "${answer.ref}" — and, if that op is a record_decision below business, take parent_id from the "Parent candidates" line above.`}`;
     return { systemPrompt, prompt };
   }
 
@@ -543,6 +685,32 @@ export const AUDIT_FINGERPRINT_INPUTS = Object.freeze({
   entryMode: 'existing-prd',
   answer: Object.freeze({ ref: 'fp-doc', kind: 'document', text: 'A fixed document for the fingerprint.' }),
 });
+// THREE MORE FIXED INPUT SETS, for #289's affordance surface — one park, one aside, one look-up. They
+// are NOT in FINGERPRINT_INPUTS_FOR and must never be: that map is what fingerprintOf reads when
+// computing a POSTURE's stamp, and widening it there moves POSTURES.think.fingerprint and makes six
+// recordings stale, two of them 65 turns. The affordance surface gets its OWN stamp
+// (AFFORDANCE_FINGERPRINT, below POSTURES) because a banked turn's prompt is genuinely byte-identical —
+// that statement is true, and this design is what keeps it true.
+//
+// THREE SETS, NOT TWO: the shared off-script body branches on the intent (LOOK_IT_UP_RULE against
+// ESCAPE_HATCH_RULE), so a two-set stamp would leave one of the two rule strings covered by nothing —
+// exactly the uncovered-prompt-text gap this stamp exists to close.
+//
+// The off-script answer is SYNTHETIC and frozen at every level, for FINGERPRINT_INPUTS.answer.text's
+// own reason: an input set is a permanent committed literal, and one seeded from anything resembling a
+// real answer would bake a person's words into the module forever. pendingBrief renders the person's
+// verbatim text at RUN time, which is existing practice; the fixture never does. It is unfiled against
+// FINGERPRINT_INPUTS' ledger (three record_decision records, none off_script), so pendingBrief's own
+// output is inside the hash — and pendingBrief is the one string here that could be retuned toward
+// judging substance ("the person chose, so file a decision"), which is the server making MVP 6's call
+// through the agent's mouth. Left uncovered, that edit would land with every stamp still green.
+const AFFORDANCE_ANSWER = Object.freeze({ ref: 'fp-os', kind: 'off-script', intent: 'aside', turn: 'fp', text: 'A fixed off-script remark.' });
+const LOOKUP_ANSWER = Object.freeze({ ref: 'fp-lu', kind: 'off-script', intent: 'look-up', turn: 'fp', text: 'A fixed look-it-up request.' });
+export const PARK_FINGERPRINT_INPUTS = Object.freeze({ ...FINGERPRINT_INPUTS, park: true, answers: Object.freeze([AFFORDANCE_ANSWER]) });
+export const AFFORDANCE_FINGERPRINT_INPUTS = Object.freeze({ ...FINGERPRINT_INPUTS, affordance: 'aside', answer: AFFORDANCE_ANSWER, answers: Object.freeze([AFFORDANCE_ANSWER]) });
+export const LOOKUP_FINGERPRINT_INPUTS = Object.freeze({ ...FINGERPRINT_INPUTS, affordance: 'look-up', answer: LOOKUP_ANSWER, answers: Object.freeze([AFFORDANCE_ANSWER, LOOKUP_ANSWER]) });
+export const AFFORDANCE_INPUT_SETS = Object.freeze([PARK_FINGERPRINT_INPUTS, AFFORDANCE_FINGERPRINT_INPUTS, LOOKUP_FINGERPRINT_INPUTS]);
+
 // Which input sets a posture's fingerprint covers (#286). Absent means the one set, FINGERPRINT_INPUTS.
 // Grill has two templates, so its stamp moves when either moves.
 export const FINGERPRINT_INPUTS_FOR = Object.freeze({
@@ -608,6 +776,27 @@ export const POSTURES = Object.freeze({
     fingerprint: fingerprintOf({ build: buildGrillTurn, model: GRILL_DEFAULT_MODEL, inputs: FINGERPRINT_INPUTS_FOR.grill }),
   }),
 });
+
+// THE AFFORDANCE PROMPT SURFACE, STAMPED (#289). Its own hash over its own frozen inputs, recorded on
+// run.json's turnStats beside the unmoved postureFingerprint, so a park or off-script turn says which
+// surface it actually ran under.
+//
+// TAKEN OFF A RESOLVED POSTURE, never looked up by id, and that matters for exactly one posture:
+// resolvePosture RECOMPUTES a stamp when a run overrides the model, fingerprintOf hashes the model, and
+// Grill is the one MODEL_SETTABLE posture — so a by-id lookup would stamp a Grill-on-Opus turn with the
+// sonnet hash, which is precisely the "a stamp naming a surface the turn did not run under" this whole
+// design exists to prevent.
+export const affordanceFingerprintOf = ({ build, model }) => fingerprintOf({ build, model, inputs: AFFORDANCE_INPUT_SETS });
+
+// The same value per posture id, for the gate and for a reader — a MODULE CONSTANT, never a sixth key
+// on a POSTURES entry (group 30 case 11's message forbids that by name: a per-posture option sits
+// outside fingerprintOf's hash, so widen the hash or do not add it). Keyed by POSTURES' own keys, so a
+// fifth posture shows up here as a missing key rather than as silence. It is a MAP and not one hash
+// because the off-script TURN body is shared but the SYSTEM prompt is the posture's own, and
+// DOMAIN_RULE sits in one of the four — so Think's and Create-PRD's genuinely differ.
+export const AFFORDANCE_FINGERPRINT = Object.freeze(Object.fromEntries(
+  Object.entries(POSTURES).map(([id, p]) => [id, affordanceFingerprintOf(p)]),
+));
 
 // The posture a run actually runs under (#286 D4). Its own object, by identity, when the model is its
 // own (so a pre-#286 package resolves to exactly what it was recorded under); a frozen five-key copy
