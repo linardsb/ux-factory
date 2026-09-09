@@ -82,6 +82,7 @@ naming both Think stamps and the recordings that would go stale.
 | portal smoke, `PORT=4759` | ✅ boots · `/api/health` ok · `/api/discovery/config` serves 75 questions · the three controls in the markup |
 | `appendAnswer` driven over a temp root | ✅ `intent` written on off-script lines only; three refusals by name; three lines share one turn id |
 | VR baselines | ✅ no churn (no shipped page touched) |
+| **after merging `origin/main`** (PR #385, `created` flag) | ✅ re-run at the merge commit: `build ✓ all 34 groups pass` · `drift-check ✓` · `--preflight ✓` · 7 of 7 `prd.md` byte-identical · four fingerprints unchanged |
 | **the mid-session re-fold** over a store holding an off-script line | ✅ `stateFromTranscript`'s exact `applyOps(items, { answers, bank, turn: null })` accepts a package whose t1 holds an aside, its off-script decision and the banked closer; and the non-compliant order is refused on re-fold as it was at write time, so it can never be on disk |
 | **park / off-script in an audit**, end to end | ✅ `assertParkable` and `assertAffordance` both refuse by name, before any append; `answers.jsonl` still holds exactly the one document line (driven on a temp root) |
 
@@ -150,8 +151,12 @@ and silent about the exchange the turn cannot close without.
 it in the session module, but the two values ARE the two rule strings, and `discovery.mjs` imports
 postures (never the reverse), so one copy is the only cycle-free arrangement.
 
-**D8 — cases renumbered.** 30.43 was already taken by #367's `declareFacets` case, so this ticket's
-group-30 additions run 30.44–30.56.
+**D8 — cases renumbered TWICE.** 30.43 was already taken by #367's `declareFacets` case, so this
+ticket's group-30 additions were written as 30.44–30.56; **PR #385 then landed 30.44 on `main` while
+this was in flight**, so they are now **30.45–30.57**. The merge that brought #385 in also collided at
+the same anchor: both blocks are kept, and the two `group("discovery", …)` ✓ descriptions were folded
+into ONE call stating both tickets (a duplicate call is what `drift-check`'s `group-count` catches, and
+it did).
 
 **D10 — the recording-carrier list is DERIVED, and one figure was wrong before the PR.** The PR's
 figures gate caught it: this ticket's first draft of case 30.45 said "six recordings carry Think's two
