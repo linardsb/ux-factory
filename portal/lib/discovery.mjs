@@ -693,8 +693,8 @@ const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run �
 // The view returned carries `created` — true from the create path, false from a resume — because no
 // count can tell the two apart: an audit's create files its document as `a1`, so a fresh audit already
 // holds one answer and the drawer read every first open as a resume (#383). sessionView itself never
-// carries the flag; only this function knows which of the two ran, and the GET, turn and close routes
-// return the plain view.
+// carries the flag; only this function knows which of the two ran. The GET and turn routes return the
+// plain view and close returns the head alone, so none of them can claim a create.
 export function openSession({ slug, provenance, entryMode, depth, facets = null, frontEnd, posture, model = null, document: documentText = null, documentPath = null, reads = [] }) {
   assertRunSlug(slug);
   const root = resolveRunRoot({ provenance, slug });

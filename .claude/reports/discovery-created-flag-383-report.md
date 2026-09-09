@@ -106,3 +106,12 @@ None beyond D3's own scope. The group summary's cannot-reach list lost one item 
 - In the browser, choosing "An existing PRD — audit it" reset the Depth select from Scope check back to
   Full discovery. That is the drawer's depth proposal per entry mode, not this ticket; noted only because
   a reviewer re-deriving the browser step will see "0 of 30" rather than "0 of 6".
+
+## Review follow-ups (PR #385 review, two Low)
+
+- F1 → `portal/lib/discovery.mjs` header sentence and case 44's message: close returns the head alone,
+  not the plain view; both now say so (UPDATE).
+- F2 → `tooling/build-checks.mjs`: group 30's one `rmSync(TMP, …)` moved from after case 9 to the group's
+  true end, so cases 39 and 44 no longer leave their roots under the OS temp dir. Observed: the count of
+  `g30-discovery-*` dirs under `$TMPDIR` is unchanged across a gate run (327 before, 327 after — the 327
+  are leftovers of earlier runs, not this branch's).
