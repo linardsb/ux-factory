@@ -1,0 +1,58 @@
+{
+  "slug": "partner-audit-1",
+  "provenance": "fictional",
+  "label": "Real run — fictional scenario",
+  "entryMode": "existing-prd",
+  "depth": "opening-set",
+  "proposedDepth": "full-discovery",
+  "facets": null,
+  "reads": [],
+  "frontEnd": "portal",
+  "model": "claude-sonnet-5",
+  "posture": "grill",
+  "sessionId": "c5c89e25-840c-43a7-955f-c4b74d051a9c",
+  "startedAt": "2026-09-09T09:46:14.733Z",
+  "endedAt": "2026-09-09T09:48:49.083Z",
+  "root": "discovery/partner-audit-1",
+  "turnStats": [
+    {
+      "turn": "t1",
+      "numTurns": 2,
+      "durationMs": 13513,
+      "costUsd": 0.087367,
+      "inputTokens": 4,
+      "outputTokens": 1121,
+      "cacheReadTokens": 14086,
+      "cacheCreationTokens": 12134,
+      "ok": true,
+      "postureFingerprint": "76b7847d4ebbd9d8f16f9726ff0f4f0f",
+      "ts": "2026-09-09T09:46:51.989Z"
+    },
+    {
+      "turn": "t2",
+      "numTurns": 2,
+      "durationMs": 14362,
+      "costUsd": 0.0446136,
+      "inputTokens": 4,
+      "outputTokens": 1302,
+      "cacheReadTokens": 27669,
+      "cacheCreationTokens": 1630,
+      "ok": true,
+      "postureFingerprint": "76b7847d4ebbd9d8f16f9726ff0f4f0f",
+      "ts": "2026-09-09T09:47:37.598Z"
+    },
+    {
+      "turn": "t3",
+      "numTurns": 2,
+      "durationMs": 5989,
+      "costUsd": 0.0279388,
+      "inputTokens": 4,
+      "outputTokens": 396,
+      "cacheReadTokens": 30903,
+      "cacheCreationTokens": 694,
+      "ok": true,
+      "postureFingerprint": "76b7847d4ebbd9d8f16f9726ff0f4f0f",
+      "ts": "2026-09-09T09:48:15.500Z"
+    }
+  ]
+}

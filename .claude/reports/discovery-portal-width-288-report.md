@@ -202,15 +202,59 @@ control positive (`leverage` matches a planted string). C3 title-term sweep → 
 - **`#btn-discovery` is outside the viewport at 390×844** — the portal's header button row overflows on a
   narrow screen. Pre-existing chrome, not touched by this ticket and outside its scope; noted because the
   browser check had to click it via JS. Worth a separate ticket if the portal is ever used on a phone.
-- **A live paid turn was not run.** Level 4 step 5 in the plan spends real tokens. AC #3's surface is verified
-  structurally (the question, its attribution, the answer box and the submit all render on a freshly opened
-  session, in both blank-idea and audit modes, with zero page errors), and the one thing a live turn would
-  additionally have shown — that the package view fills as the ops land — is covered by reading the submit
-  handler: `renderDiscoverySession()` sits in its `finally`, after the session is re-read from disk. No SSE
-  turn was executed on this branch. Say the word and it is one turn on a throwaway fictional slug.
-- **No committed existing-prd package exists**, so the audit surface was exercised by opening one through the
-  drawer and deleting it (above) rather than by resuming a fixture. Worth knowing for a future ticket that
-  wants an audit fixture.
+- **RESOLVED (#375, 2026-09-09) — the live turns were run.** What follows replaces this report's original
+  "a live paid turn was not run" note. Four **real SSE turns** were executed through the drawer in a real
+  browser (Chrome via CDP) against the portal on `127.0.0.1:4793`, one blank-idea and three audit, at a
+  measured **$0.2884** total. Every claim below is OBSERVED, not read off a handler. Both packages carried
+  `ok: true` on every turn with real judgement prose in `transcript.jsonl` — checked deliberately, because a
+  billing or auth failure arrives as `subtype: "success"` with the CLI's error text where the judgement
+  should be.
+
+  **1. The package view re-renders the ledger fold after a turn, with no manual reload — CONFIRMED.**
+  Read out of the live DOM immediately before and after one submit, same page load:
+
+  > before — `The package · Nothing filed yet — the package holds 0 answer(s) and no ops.`
+  > after — `The package — 3 op(s) · record_decision 1 · flag_weak_answer 0 · open_question 0 · file_evidence 2 · flags no-evidence 0 · orphan 0` followed by the decision row (`seq 3 · t1 · s1-if-nobody-solves-this · business`, its `Wrong if:` text, `parent: no parent`, `evidence: seq 1, seq 2`) and both evidence rows.
+
+  The position line advanced to `question 2 of 22 · turn t2` in the same render. On the audit package the
+  same happened with the document pointer above the counts: `Auditing a1 — 24355 characters, md5 ab6eb0ee`,
+  which matches the frozen fixture's own md5 (`ab6eb0ee6cdd3b7802ecfcbe90db2377`; 24,560 bytes, 24,355
+  characters — the gap is multi-byte UTF-8, not a truncation).
+
+  **2. The flow note reads the RECORDED step, not the form state — CONFIRMED, by a test stronger than the
+  ticket asked for.** With a live session recorded at step 1, pressing `3. Grill` in the form left both the
+  note and the button state unmoved:
+
+  > `This run is recorded at step 1, Think — posture think on claude-sonnet-5. One posture per run: the next stance is the next run, over what this one produced.`
+
+  `aria-pressed` stayed `true` on `1. Think`. The mechanism is visible in the DOM: `#discovery-start` is a
+  `<fieldset>` whose `disabled` flips to `true` once a session is open, so the whole start block — presets,
+  facet checkboxes, depth, posture buttons — is inert for the life of the session. A form edit cannot reach
+  the note because it cannot happen.
+
+  **3. The differing-resume 409 renders as `Refused: …` naming the recorded vector, and `discovery.session`
+  is NOT clobbered — CONFIRMED.** Because of the locked fieldset above, the ticket's own recipe is the only
+  route: reload mid-run, then re-press Start with a different vector. Recorded vector `regulated`, requested
+  `orgBuys`. Rendered verbatim into `#discovery-start-status`:
+
+  > `Refused: run "width-probe-1" is already on disk at depth "full-discovery" with the vector regulated; this request asked for depth "full-discovery" with the vector orgBuys. A resume returns the RECORDED session — disk is authoritative and #284's design keeps it that way — so nothing was changed and nothing was written. Open it by posting its own depth and vector, or start a new slug.`
+
+  `#discovery-session` stayed `hidden`, and the package on disk was untouched. **The non-clobbering is
+  structural, not incidental:** the Start handler is `discovery.session = await api(...)` inside a `try`, so
+  a 409 rejects the await and the assignment never evaluates — the `catch` only writes the status line. A
+  refused Start therefore cannot put an error body into session state. Re-tested against a session that was
+  live in client state (resume correctly first, then post a differing vector): the session panel's
+  `innerHTML`, position and question compared **byte-identical** before and after.
+
+  **A refused Start costs nothing** — `openSession` only touches disk — so this was driven repeatedly before
+  any token was spent.
+
+- **RESOLVED (#376) — a committed existing-prd package now exists**: `discovery/partner-audit-1/`, a real
+  three-turn Grill audit of the frozen fixture `docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md`.
+  It carries `flag_weak_answer 2 · open_question 1` — the two op kinds `instrument-loans-1` holds at zero,
+  which is the gap #376 names. It is committed per `discovery/README.md`; **no gate was rewired to read it**,
+  so 28.10's cross-reader block and group 31's document-kind row still run against what they ran against
+  before.
 
 ## Acceptance criteria
 
@@ -218,7 +262,7 @@ control positive (`leverage` matches a planted string). C3 title-term sweep → 
   now enforceable because a differing resume answers 409.
 - ✅ **AC #2** — re-verified: the depth choice and the "Proposed for …; Start confirms it." sentence survive
   the facet edit verbatim in all five branches.
-- ✅ **AC #3** — re-verified structurally after the flow-button edit; no live turn run (see Issues).
+- ✅ **AC #3** — re-verified structurally after the flow-button edit, and since #375 **observed live**: four real SSE turns through the drawer, both entry modes, the package view filling as the ops land with no reload (see Issues).
 - ✅ **AC #4** — the package view reads `session.ledger` and nothing else; group 29's cross-reader case proves
   the fold agrees with `prd-projection.mjs` on the same package.
 - ✅ **AC #5** — measured, both viewports, zero sub-44 hit targets; the 22×22 checkbox glyphs reported honestly.
