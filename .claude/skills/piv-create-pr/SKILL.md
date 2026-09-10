@@ -1,6 +1,6 @@
 ---
 name: piv-create-pr
-description: Push the current feature branch and open a pull request, ready for review. Use after a ticket's implementation is committed on its own branch — it detects the base branch, pushes, opens the PR with a clear body (summary · what changed · validation status), and returns the URL to hand to a reviewer.
+description: Push the current feature branch and open a pull request AS A DRAFT. Use after a ticket's implementation is committed on its own branch — it detects the base branch, pushes, opens the draft PR with a clear body (summary · what changed · validation status), and returns the URL. CI's `ready-pr` job is the only thing that takes the PR out of draft (#387); this loop never declares its own work reviewable.
 argument-hint: "[--base <branch>] (default: auto-detected)"
 ---
 
@@ -72,7 +72,7 @@ git rev-parse HEAD
 |-------|--------|
 | No `.claude/last-gate.json` | STOP: run `record-gate.sh` first. |
 | `.head` ≠ current `HEAD` | STOP: the record describes a different tree. Re-run the gate. |
-| `.exit_code` ≠ 0 | STOP: the gate is red. Fix it, or open as `--draft` and say so in the body. |
+| `.exit_code` ≠ 0 | STOP: the gate is red. Fix it. (Every PR opens as a draft regardless — see below.) |
 | Matches, exit 0 | PROCEED |
 
 Add `.claude/last-gate.json` to `.gitignore` — it is a per-run artifact, not a repo artifact.
@@ -108,7 +108,7 @@ git push -u origin HEAD
 ```
 
 ```bash
-gh pr create --base "{base}" --title "{type}: {concise description}" --body "$(cat <<'EOF'
+gh pr create --draft --base "{base}" --title "{type}: {concise description}" --body "$(cat <<'EOF'
 ## Summary
 {1-2 sentences: what this ticket delivers}
 
@@ -126,12 +126,13 @@ gh pr create --base "{base}" --title "{type}: {concise description}" --body "$(c
 {Closes #<n> — written bare, at the start of the line. Never wrap the closing keyword in backticks: GitHub
 does not parse closing keywords inside inline code, so the merge leaves the issue open. Or "none".}
 
-_Ready for review._
+_Opened as a draft. CI's `ready-pr` job flips it once every gate is green (#387)._
 EOF
 )"
 ```
 
-(`{type}` = feat/fix/refactor/… from the work. Use `--draft` if the work isn't ready for a real review.)
+(`{type}` = feat/fix/refactor/… from the work. `--draft` is not optional here: this loop never declares its
+own work reviewable, and CI's `ready-pr` job is the only path out of draft — #387.)
 
 ## Output
 
@@ -144,8 +145,9 @@ keyword is missing or backticked. Fix the body (`gh pr edit <n> --body-file …`
 then report. Merging an unlinked PR leaves the issue open with no signal: #110 shipped with `Closes #108`
 inside backticks, and #108 sat open after the merge until someone noticed by hand.
 
-Report the PR number + URL, the base ← head branches, and **"Ready for review → run `piv-review-pr <number>`, then a
-human approves."** This is the handoff point: the agent's loop ends at an open PR; review and merge are the gates.
+Report the PR number + URL, the base ← head branches, and **"Opened as a draft → CI's `ready-pr` job flips it when
+the gates are green → then run `piv-review-pr <number>`, then a human approves."** This is the handoff point: the
+agent's loop ends at an open DRAFT PR; the flip, review and merge are the gates.
 
 ## Notes
 

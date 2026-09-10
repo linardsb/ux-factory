@@ -1,5 +1,5 @@
-# verify.yml — CI verification gates (epic #1, ticket #9).
-# Runs four gates on push to main + every PR:
+# verify.yml — CI verification gates (epic #1, ticket #9; the security gate, ticket #387).
+# Runs on push to main + every PR:
 #   drift-check  — regenerates the committed generators/artifacts, fails on any divergence; also pins the
 #                  group count stated in build-checks' ✓ line, CLAUDE.md and gates.md.
 #   token-lint   — undeclared / orphan / DTCG-valid contract checks.
@@ -13,6 +13,13 @@
 #                  pack (saulera, applied by swapping the one tokens.neutral.css link), pixel-diffed
 #                  vs committed baselines. Runs in the pinned Playwright image so rendering is
 #                  byte-stable across platforms.
+#   codeql       — GitHub's own static analysis over the hand-written source, plus OUR step that reads
+#                  the alerts back and fails on high or critical. PR-only for the gate; the scan also
+#                  runs on push to main, which is what seeds the Security-tab baseline.
+#   audit        — the npm advisory DELTA between the PR's base SHA and its head. PR-only.
+#   ready-pr     — THE DRAFT EDGE (#387). piv-create-pr opens every PR as a draft and this is the only
+#                  thing that flips it: bash reading job results, no model. A red gate leaves the PR a
+#                  draft carrying the red check. What it cannot reach → .claude/references/gates.md.
 # The visual gate lands here; #9 stays open pending the deferred interactive-surface follow-up
 # (derive/agentic/trace), so this workflow is Part of #9, not its closure.
 name: verify
@@ -174,6 +181,39 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript"
+      # THE GATE. CodeQL uploads and goes green on findings — `analyze` has no fail-on input — so the
+      # alerts are read back and judged here. PR-only: on a push to main there is no pull-request ref
+      # to query, and main's analysis is the baseline rather than a gate.
+      #
+      # `analyze`'s wait-for-processing defaults to true, which is why this can query immediately
+      # without polling; set it to false and this gate races the upload and starts passing vacuously.
+      #
+      # Filter CLIENT-SIDE on rule.security_severity_level — the API's own `severity=` parameter is
+      # the rule's alert severity (error/warning/note), a different axis.
+      - name: Require no high or critical alerts
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: refs/pull/${{ github.event.pull_request.number }}/merge
+        run: |
+          set -euo pipefail
+          # POSITIVE CONTROL, and it runs first: zero alerts because nothing was analyzed looks exactly
+          # like zero alerts because the code is clean.
+          n_analyses=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/analyses?ref=$REF&tool_name=CodeQL" --jq 'length')
+          if [ "$n_analyses" -lt 1 ]; then
+            echo "::error::no CodeQL analysis on $REF — this gate measured nothing"; exit 1
+          fi
+          gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/code-scanning/alerts?ref=$REF&state=open&per_page=100" \
+            --jq '.[] | select(.rule.security_severity_level == "high" or .rule.security_severity_level == "critical")
+                  | "\(.rule.security_severity_level)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"' \
+            > "$RUNNER_TEMP/codeql-blocking.tsv"
+          if [ -s "$RUNNER_TEMP/codeql-blocking.tsv" ]; then
+            echo "::error::CodeQL found $(wc -l < "$RUNNER_TEMP/codeql-blocking.tsv") blocking alert(s)"
+            cat "$RUNNER_TEMP/codeql-blocking.tsv"
+            exit 1
+          fi
+          echo "CodeQL: no high or critical alerts on $REF ($n_analyses analysis/analyses read)"
 
   audit:
     # S2 (#387) — the dependency-advisory DELTA, not a fail-on-severity gate. The repo carries three
@@ -199,3 +239,63 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node tooling/audit-delta.mjs "$BASE_SHA"
+
+  ready-pr:
+    # O1 (#387) — THE EDGE. piv-create-pr opens every PR as a draft; this is the only thing that takes
+    # it out of one, and it is bash reading job results. No model, no judgement.
+    #
+    # `!cancelled()` is load-bearing: with `needs:` alone, a failed need SKIPS this job, and the result
+    # checks below — the whole point of the job — would never execute in the one case they exist for.
+    # With it, they run and they name the job that was red.
+    #
+    # STANDING RULE: any job added to `needs:` that carries a job-level `continue-on-error` MUST publish
+    # its true step outcome as a job output and be checked here the way `visual` is.
+    # `needs.<job>.result` reports success for a laundered failure and there is no second field
+    # (actions/toolkit#1739), so adding such a job without its output silently deletes this gate.
+    #
+    # No `types:` on the `on:` block above: pull_request's defaults are opened/synchronize/reopened,
+    # `ready_for_review` is not among them, and GITHUB_TOKEN-triggered events start no new run anyway.
+    needs: [verify, visual, codeql, audit]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    # The ONE job that widens past contents: read, and only to what `gh pr ready` needs.
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Require every gate green
+        env:
+          VERIFY: ${{ needs.verify.result }}
+          VISUAL: ${{ needs.visual.result }}
+          VISUAL_GATE: ${{ needs.visual.outputs.gate }}
+          CODEQL: ${{ needs.codeql.result }}
+          AUDIT: ${{ needs.audit.result }}
+        # `set -e` is deliberately absent: with it, the first non-zero comparison would abort before the
+        # remaining jobs are reported, so a run with three red jobs would name one.
+        run: |
+          set -uo pipefail
+          red=0
+          for pair in "verify:$VERIFY" "visual:$VISUAL" "codeql:$CODEQL" "audit:$AUDIT"; do
+            name=${pair%%:*}; res=${pair#*:}
+            if [ "$res" != "success" ]; then
+              echo "::error::$name did not succeed (result=${res:-<empty>})"; red=1
+            fi
+          done
+          # A job-level continue-on-error launders a failure into result=success and needs exposes no
+          # field with the truth (actions/toolkit#1739). The visual job carries such a flag for the D11
+          # VR freeze, so its REAL step outcome is read from its own job output. An empty value — a
+          # failed job whose output did not propagate — is not "success" either, so this fails closed.
+          if [ "${VISUAL_GATE:-}" != "success" ]; then
+            echo "::error::visual gate outcome=${VISUAL_GATE:-<empty>}"; red=1
+          fi
+          [ "$red" -eq 0 ]
+      - name: Flip the PR out of draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh pr ready "$PR" --repo "$GITHUB_REPOSITORY"
+          # Assert the flip; never trust the exit code. Mutate, don't grep.
+          draft=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)
+          [ "$draft" = "false" ] || { echo "::error::PR $PR is still a draft"; exit 1; }

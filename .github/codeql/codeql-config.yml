@@ -5,7 +5,7 @@
 # removes the GENERATED files and COMMITTED-RUN trees that sit INSIDE the allowlist. A finding on a
 # generated file is a finding against its generator; a finding on a committed agent run cannot be
 # fixed without hand-editing the run, which the honesty contract forbids (CLAUDE.md §Ground rules).
-# handoff/, traces/ and replay/ need no ignore — they are simply not in the allowlist.
+# handoff/, traces/, replay/ and discovery/<slug>/ need no ignore — they are simply not in the allowlist.
 #
 # `.github/` is deliberately outside the allowlist, so CodeQL's own GitHub Actions queries never run
 # on this workflow. Adding it is a separate decision — see .claude/references/gates.md.
@@ -16,15 +16,20 @@
 #
 # What this cannot reach: the allowlist is hand-maintained and nothing gates it. A new top-level
 # source directory is silently unanalyzed until someone adds it here, and the gate stays green while
-# covering less. It self-maintains for a new root page (`*.html`) and for anything inside the seven
-# directories below, and nowhere else.
+# covering less. It self-maintains for a new root page (`*.html`), for a new module at discovery/'s own
+# root, and for anything inside the six directories below, and nowhere else.
 name: "ux-factory"
 
 paths:
   - system
   - agent-layer
   - portal
-  - discovery
+  # discovery/*.mjs, not `discovery`: the committed run packages live at discovery/<slug>/ and must
+  # stay out (a finding on a committed agent run cannot be fixed without hand-editing it). Excluding
+  # them from paths-ignore instead does NOT work — CodeQL's `**` matches ZERO OR MORE segments, so
+  # `discovery/*/**` collapses to `discovery/*` and swallows the four modules too. Measured at #387:
+  # with that ignore, bank.mjs · ops.mjs · prd-projection.mjs · proposals.mjs were all unextracted.
+  - discovery/*.mjs
   - tooling
   - worker
   - proto
@@ -32,8 +37,6 @@ paths:
 
 paths-ignore:
   - "**/node_modules"
-  # the committed discovery RUN packages, not discovery/*.mjs which is the real code
-  - "discovery/*/**"
   - "proto/compositions/**"
   - "system/tokens.contract.css"
   - "system/tokens.neutral.css"
