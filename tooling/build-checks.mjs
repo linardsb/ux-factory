@@ -337,7 +337,6 @@ const HUB_BOARD = {
 const BOARD_FOR = {
   dashboard: draftBoard(answersWith({ shape: "overview" })),
   queue: draftBoard(answersWith({ shape: "worklist" })),
-  feed: draftBoard(answersWith({ shape: "stream" })),
   onboarding: draftBoard(answersWith({ shape: "steps" })),
   settings: HUB_BOARD,
 };
