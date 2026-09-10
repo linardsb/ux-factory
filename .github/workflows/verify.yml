@@ -293,9 +293,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
         run: |
           set -euo pipefail
-          gh pr ready "$PR" --repo "$GITHUB_REPOSITORY"
+          # The GraphQL mutation directly, not `gh pr ready`: same call, but gh wraps the failure in
+          # its own message (cli/cli#1314). This is the only way to un-draft a PR — REST's
+          # PATCH /pulls/{n} has no draft field.
+          gh api graphql -f query='mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{isDraft}}}' \
+            -f id="$PR_NODE_ID"
           # Assert the flip; never trust the exit code. Mutate, don't grep.
           draft=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)
           [ "$draft" = "false" ] || { echo "::error::PR $PR is still a draft"; exit 1; }
