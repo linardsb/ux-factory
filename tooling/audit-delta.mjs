@@ -61,13 +61,25 @@ function advisoryIds(dir, label) {
 // ref — a directory the PR adds — which means an EMPTY base set, said out loud.
 function materialise(dir, ref, label) {
   const tmp = mkdtempSync(join(tmpdir(), "audit-delta-"));
+  // The head side decides for BOTH files AT ONCE, above the loop. Deciding per file reads a
+  // directory that still carries package.json but lost its lockfile as "removed" and contributes
+  // zero advisories — the vacuous pass this file's header forbids, produced by a `.gitignore` line
+  // plus `git rm --cached` that looks like housekeeping in a diff. Half present is unauditable, so
+  // it throws.
+  if (ref === null) {
+    const present = FILES.filter((f) => existsSync(join(ROOT, dir, f)));
+    if (present.length === 0) return null;
+    if (present.length !== FILES.length)
+      throw new Error(
+        `audit-delta: ${dir} (head) carries ${present.join(" + ")} but not ` +
+          `${FILES.filter((f) => !present.includes(f)).join(", ")} — cannot audit, refusing to read it as removed`,
+      );
+    for (const f of FILES) copyFileSync(join(ROOT, dir, f), join(tmp, f));
+    return tmp;
+  }
+  // The base side stays per file: `git show`'s 128 over-reports "absent" when only one file is
+  // missing at the ref, which reads every advisory the directory carries as NEW — the safe direction.
   for (const f of FILES) {
-    if (ref === null) {
-      const src = join(ROOT, dir, f);
-      if (!existsSync(src)) return null;
-      copyFileSync(src, join(tmp, f));
-      continue;
-    }
     const show = spawnSync("git", ["show", `${ref}:${dir}/${f}`], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     if (show.status === 128) return null;
     if (show.status !== 0) throw new Error(`audit-delta: git show ${ref}:${dir}/${f} failed (${label}) — ${(show.stderr || "").trim()}`);

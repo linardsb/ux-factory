@@ -16,8 +16,11 @@
 #
 # What this cannot reach: the allowlist is hand-maintained and nothing gates it. A new top-level
 # source directory is silently unanalyzed until someone adds it here, and the gate stays green while
-# covering less. It self-maintains for a new root page (`*.html`), for a new module at discovery/'s own
-# root, and for anything inside the six directories below, and nowhere else.
+# covering less. It self-maintains for a new root page (`*.html`), for a new module at discovery/'s or
+# scenarios/'s own root, and for anything inside the six directories below, and nowhere else. It is
+# complete as of this commit — checked by listing every tracked *.mjs/*.js against it, which found
+# scenarios/validate.mjs outside and put it in (PR #391 review F4). That check was by hand; re-run it
+# when a root directory appears.
 name: "ux-factory"
 
 paths:
@@ -30,6 +33,11 @@ paths:
   # `discovery/*/**` collapses to `discovery/*` and swallows the four modules too. Measured at #387:
   # with that ignore, bank.mjs · ops.mjs · prd-projection.mjs · proposals.mjs were all unextracted.
   - discovery/*.mjs
+  # scenarios/*.mjs, same shape and same reason: scenarios/validate.mjs is 332 hand-written lines
+  # imported by two in-scope callers (tooling/drift-check.mjs, agent-layer/gen-company-package.mjs),
+  # and CodeQL cannot follow a call from an in-scope caller into an out-of-scope callee. The
+  # scenarios/<slug>/ fixture packages stay out.
+  - scenarios/*.mjs
   - tooling
   - worker
   - proto

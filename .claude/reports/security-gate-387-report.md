@@ -56,10 +56,12 @@ Every row was mutated and observed; none was read.
 | `tooling/audit-delta.mjs` | `lodash@4.17.15` in `portal/package.json` + regenerated lock | exit 1 naming 6 new advisory IDs (`1106913 1106920 1108258 1115806 1115810 1120370`) | the 5 pre-existing `tooling/style-dictionary` IDs read on the BASE side and stayed OUT of the delta; clean run exits 0 |
 | `audit` job (CI, base-SHA comparison) | the same seed, pushed to PR #389 | job red, `audit-delta ✗ portal: new advisory …` × 6 against base `4f2e859` (run 34471565003) | style-dictionary absent from the delta in the same log |
 | `codeql` gate step | a `node:http` request reaching `eval()` and `exec()` in `tooling/__tmp-seed.mjs` | `::error::CodeQL found 2 blocking alert(s)`, `critical js/code-injection` + `critical js/command-line-injection` (job 102854187896) | the positive control is IN the step: it refuses a ref with zero analyses before reading any count. Clean run printed `CodeQL: no high or critical alerts … (5 analysis/analyses read)` |
-| CodeQL scope (the allowlist) | — | — | 191 repo files extracted from the 7 allowlisted scopes, 0 from `docs/`, `.claude/`, `.agents/`, `.archon/`, `assets/`, `scenarios/`, `handoff/`, `traces/`, `replay/`, `discovery/<slug>/`, `proto/compositions/`. Read from the job's own extraction log, not from the config |
+| CodeQL scope (the allowlist) | — | — | 191 repo files extracted from the 8 allowlisted scopes then in the config, 0 from `docs/`, `.claude/`, `.agents/`, `.archon/`, `assets/`, `scenarios/`, `handoff/`, `traces/`, `replay/`, `discovery/<slug>/`, `proto/compositions/`. Read from the job's own extraction log, not from the config. **Superseded by review F4:** `scenarios/*.mjs` is now a ninth scope, so the figure at the current head is 192 across 9 scopes, and `scenarios/` moved out of the zero-extraction list (`scenarios/<slug>/` fixtures stay out) — re-derived from the extraction log of the review-fix run, below |
 | `gates-green` — `needs.<job>.result` | dropped the `feed` fixture from `BOARD_FOR` in `tooling/build-checks.mjs` | `verify` red at Build checks; `::error::verify did not succeed (result=failure)` | `drift-check` stayed green on the same tree, so it is a single-leg red |
-| `gates-green` — both at once | mutations A + B together | `::error::verify did not succeed` AND `::error::codeql did not succeed` in one log — the no-`set -e` design reporting every red job, not the first | — |
-| `gates-green` — `needs.visual.outputs.gate` | deleted `tooling/visual-regression/baselines/404-neutral.png` on a `feature/v3-*` head (PR #390) | `needs.visual.result` = **success** (laundered), `needs.visual.outputs.gate` = **failure**, `::error::visual gate outcome=failure` printed ALONE with no `visual did not succeed` line — the case that decides protection must require `gates-green` and not `visual` | the `Upload diff report` step RAN (conclusion success) — `if: failure()` would have skipped it, which is what edit 3 of Task 4 exists for |
+| `gates-green` — both at once | mutations A + B together | `::error::verify did not succeed` AND `::error::codeql did not succeed` in one log — every red job reported, not just the first | — |
+| `gates-green` — the fail path itself (review F2) | drove the step body with `VERIFY=failure` under plain `bash`, the shell the old comment claimed | **before:** `::error::verify did not succeed` then `every gate green`, **exit 0** — the merge gate green right after printing its own error. **after** (`if [ "$red" -ne 0 ]; then exit 1; fi`): exit 1 under `bash` and `bash -e` alike | all three reds still named under both shells, so `-e` was never what would have truncated the report — the row above was observed UNDER `-e` (`shell: /usr/bin/bash -e {0}`, job 102855797409) |
+| `tooling/audit-delta.mjs` — half-present head dir (review F1) | moved `portal/package-lock.json` aside, left `portal/package.json` declaring the SDK and `zod` | **before:** `portal: absent at head — removed by this change`, 0 advisories contributed, **exit 0**. **after:** `audit-delta ✗ portal (head) carries package.json but not package-lock.json — cannot audit, refusing to read it as removed`, exit 1 | the mirror case (`package.json` aside) throws too; a GENUINE removal — both files gone — still reads as removed and exits 0; clean run still exits 0 |
+| `gates-green` — `needs.visual.outputs.gate` | deleted `tooling/visual-regression/baselines/404-neutral.png` on a `feature/v3-*` head (PR #390) | `needs.visual.result` = **success** (laundered), `needs.visual.outputs.gate` = **failure**, `::error::visual gate outcome=failure` printed ALONE with no `visual did not succeed` line — the case that decides the AGGREGATOR must read the job output rather than `needs.visual.result`. It does NOT decide the contexts choice: on this same head the `visual` CHECK RUN reported `failure` to both the jobs and check-runs APIs, so protection requiring `visual` would have blocked (review F3) | the `Upload diff report` step RAN (conclusion success) — `if: failure()` would have skipped it, which is what edit 3 of Task 4 exists for |
 | `drift-check` group-count leg | `34 PURE groups` → `33` in CLAUDE.md; `34 pure groups` → `33` in gates.md | `drift ✗ group-count drift: CLAUDE.md (architecture map): says 33 groups, build-checks defines 34`, and the gates.md equivalent | restored → `drift-check ✓` |
 | `gates-green`'s assert body | driven directly with synthetic env | all-red input names all four jobs + the gate line, exit 1 | all-success input exits 0 silently |
 
@@ -100,6 +102,14 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   checks would sit pending forever. **Tracker: owner's call, sequenced after merge.** One API call:
   `gh api -X PUT repos/linardsb/ux-factory/branches/main/protection` with the five contexts,
   `strict: false`, `enforce_admins: false`. Until it runs, every gate reports and nothing blocks.
+  **The contexts are case-sensitive and this repo carries `codeql` (our job) AND `CodeQL` (GitHub
+  Advanced Security's own results check).** Typing the wrong case requires a check that is not this
+  gate, and the call is made by hand, once, with nothing gating it — read the names back with
+  `gh api repos/linardsb/ux-factory/commits/<sha>/check-runs --jq '.check_runs[].name'` (review F9).
+  **`strict: false` is a boundary, not an oversight:** both new gates are computed at push time, so
+  a PR can merge carrying code neither has seen against a `main` that moved since. `strict: true`
+  re-queues every open PR on every merge — a tax worth paying only once two PRs are routinely open
+  at the same time (review F5). Named in `.claude/references/gates.md`.
 - **`gates-green` has not run under its new name.** All four mutations exercised the same assert
   step under the name `ready-pr`; the rename, the dropped `pull-requests: write` and the dropped
   draft condition are the only changes, and none touches the step body. This PR's own first run is
@@ -131,10 +141,14 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   `node:http` → `eval`/`exec` flow fires two **critical** alerts.
 - **Task 14.6's VR mutation replaced (plan error).** `maxDiffPixels: 0` does not fail a pixel-exact
   baseline; deleting one baseline PNG does.
-- **Protection requires `gates-green`, not the four jobs alone.** On a `feature/v3-*` branch the
-  `visual` check itself reports success while its gate failed, so requiring `visual` directly would
-  let a laundered failure through protection. `gates-green` reads the job output and is the only
-  thing that can see it. `enforce_admins` is off: the owner can merge past a red gate, no agent can.
+- **Protection requires `gates-green`, not the four jobs alone** — because it is the one check that
+  covers all four jobs at once. **Corrected by review F3:** the earlier reason given here (that the
+  `visual` check itself goes green while its gate failed) is false. `continue-on-error` launders
+  `needs.<job>.result` INSIDE the workflow; on the measured head `343022a` the `visual` check run
+  reported `failure` to both the jobs API and the check-runs API, so protection requiring `visual`
+  would have blocked. What the laundering defeats is any AGGREGATOR trusting `needs.<job>.result` —
+  which is why `gates-green` reads `needs.visual.outputs.gate`, and why the standing rule stands.
+  `enforce_admins` is off: the owner can merge past a red gate, no agent can.
 - **Task 3's temp-branch dance skipped.** `audit-delta.mjs` reads the working tree, so the seed was
   applied in place and reverted with `git checkout --`. Same proof, fewer moving parts.
 - **The baseline probe used a throwaway PR (#389), not this ticket's PR.** Task 6b says to open a

@@ -163,7 +163,8 @@ jobs:
     runs-on: ubuntu-latest
     # From GitHub's own starter workflow. security-events: write is what lets the action upload the
     # SARIF, and it covers the read the gate step needs. A PR from a FORK gets security-events: read
-    # only, so the upload fails, this job fails, and the PR stays a draft (no forks today).
+    # only, so the upload fails, this job fails, `gates-green` refuses and the PR cannot merge (no
+    # forks today).
     permissions:
       security-events: write
       packages: read
@@ -255,15 +256,18 @@ jobs:
     #
     # And the `if:` MUST NOT narrow further. A SKIPPED check counts as PASSING for branch
     # protection, so any condition that can be false on a real PR is a hole straight through the
-    # gate. This one is false only off a pull_request event, where protection does not apply.
+    # gate. This one is false off a pull_request event, where protection does not apply, and on a
+    # CANCELLED run — which leaves the other four required checks cancelled too, and a cancelled
+    # check does not count as passing, so the merge stays blocked.
     #
     # STANDING RULE: any job added to `needs:` that carries a job-level `continue-on-error` MUST
     # publish its true step outcome as a job output and be checked here the way `visual` is.
     # `needs.<job>.result` reports success for a laundered failure and there is no second field
     # (actions/toolkit#1739), so adding such a job without its output silently deletes this gate.
-    # This is also why protection requires THIS job and not `visual` directly: on a feature/v3-*
-    # branch the `visual` check itself goes green while its gate failed, and only the job output
-    # below can see that.
+    # The laundering is INSIDE the workflow: on the measured feature/v3-* head the `visual` job's
+    # own CHECK RUN still reported failure, so what a laundered failure walks past is this
+    # AGGREGATOR, not branch protection. Requiring `gates-green` is still the right contexts
+    # choice — it is the one check that covers all four jobs at once.
     needs: [verify, visual, codeql, audit]
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
@@ -278,8 +282,12 @@ jobs:
           VISUAL_GATE: ${{ needs.visual.outputs.gate }}
           CODEQL: ${{ needs.codeql.result }}
           AUDIT: ${{ needs.audit.result }}
-        # `set -e` is deliberately absent: with it, the first non-zero comparison would abort before
-        # the remaining jobs are reported, so a run with three red jobs would name one.
+        # The shell here IS `bash -e {0}` — Actions' default, and the job log says so. `-e` is NOT
+        # what would truncate the report: a `[` inside an `if` condition is exempt from it, so all
+        # four jobs are named either way (measured at #387, three reds under `-e`, all three named).
+        # The explicit `exit 1` below is what makes the failure independent of the shell's options:
+        # a bare `[ "$red" -eq 0 ]` as the last-but-one command returns 1 into nothing, `echo`
+        # succeeds, and the required merge check goes GREEN right after printing `::error::`.
         run: |
           set -uo pipefail
           red=0
@@ -297,5 +305,5 @@ jobs:
           if [ "${VISUAL_GATE:-}" != "success" ]; then
             echo "::error::visual gate outcome=${VISUAL_GATE:-<empty>}"; red=1
           fi
-          [ "$red" -eq 0 ]
+          if [ "$red" -ne 0 ]; then exit 1; fi
           echo "every gate green"
