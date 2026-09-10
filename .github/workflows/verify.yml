@@ -19,8 +19,11 @@
 #   audit        — the npm advisory DELTA between the PR's base SHA and its head. PR-only.
 #   gates-green  — THE MERGE GATE (#387). One check, green only when every other gate was green, and
 #                  it is bash reading job results: no model. Branch protection on main requires it,
-#                  and it is the ONLY job that can see past the D11 continue-on-error below. What it
-#                  cannot reach → .claude/references/gates.md.
+#                  and it is the only job IN THIS WORKFLOW that can see past the D11
+#                  continue-on-error below — a narrower claim than it reads, because the `visual`
+#                  CHECK RUN does report its failure to the API; what the laundering defeats is an
+#                  aggregator trusting needs.<job>.result. What it cannot reach →
+#                  .claude/references/gates.md.
 # The visual gate lands here; #9 stays open pending the deferred interactive-surface follow-up
 # (derive/agentic/trace), so this workflow is Part of #9, not its closure.
 name: verify
@@ -202,6 +205,15 @@ jobs:
           # POSITIVE CONTROL, and it runs first: zero alerts because nothing was analyzed looks exactly
           # like zero alerts because the code is clean.
           n_analyses=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/analyses?ref=$REF&tool_name=CodeQL" --jq 'length')
+          # The control can only run if the count is READABLE. `gh api` can exit 0 while its --jq stage
+          # prints nothing, and `[ "" -lt 1 ]` returns non-zero as the TEST's own result — which `if`
+          # reads as "condition false" and `-e` does not abort, a `[` in if-position being exempt from
+          # it. The control would then fall through silently past its own error message, which is the
+          # same mechanism as the gates-green fail path below. `${n_analyses:-0}` would close the empty
+          # value but NOT a whitespace one, so the count is checked for being a number first (review R1).
+          if ! [[ "$n_analyses" =~ ^[0-9]+$ ]]; then
+            echo "::error::CodeQL analysis count on $REF is not a number: [$n_analyses] — cannot read this gate"; exit 1
+          fi
           if [ "$n_analyses" -lt 1 ]; then
             echo "::error::no CodeQL analysis on $REF — this gate measured nothing"; exit 1
           fi

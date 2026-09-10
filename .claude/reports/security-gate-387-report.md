@@ -59,11 +59,12 @@ Every row was mutated and observed; none was read.
 | CodeQL scope (the allowlist) | — | — | 191 repo files extracted from the 8 allowlisted scopes then in the config, 0 from `docs/`, `.claude/`, `.agents/`, `.archon/`, `assets/`, `scenarios/`, `handoff/`, `traces/`, `replay/`, `discovery/<slug>/`, `proto/compositions/`. Read from the job's own extraction log, not from the config. **Superseded by review F4:** `scenarios/*.mjs` and `scenarios/*.html` are a ninth and tenth scope (the second found by widening F4's completeness check past `*.mjs`/`*.js` — the extractor takes `.html`, and `scenarios/check.html` was outside), so the figure at head `0e38370`, which carried only the ninth, was **192** across **9** scopes — `system` 75 · `tooling` 45 · `portal` 25 · `agent-layer` 23 · root `*.html` 15 · `discovery` 4 · `worker` 2 · `proto` 2 · `scenarios` 1. Re-derived from run 34488689396's own extraction log (job 102909461092): exactly one new file, `scenarios/validate.mjs`, 0 from `node_modules`, `scenarios/<slug>/` fixtures still out. Gate step: `CodeQL: no high or critical alerts on refs/pull/391/merge (2 analysis/analyses read)`, 0 open alerts from the API. **With the tenth scope, at head `4be4b72`: 193 across 10 scopes** — `scenarios` 2 (`validate.mjs` + `check.html`), everything else unmoved. Derived first (192 + 1, `git ls-files 'scenarios/*.html'` matching exactly `check.html`) and then OBSERVED in run 34489399833's extraction log (job 102911886033), which is what closes it. Gate step: `CodeQL: no high or critical alerts on refs/pull/391/merge (4 analysis/analyses read)`, 0 open alerts |
 | `gates-green` — `needs.<job>.result` | dropped the `feed` fixture from `BOARD_FOR` in `tooling/build-checks.mjs` | `verify` red at Build checks; `::error::verify did not succeed (result=failure)` | `drift-check` stayed green on the same tree, so it is a single-leg red |
 | `gates-green` — both at once | mutations A + B together | `::error::verify did not succeed` AND `::error::codeql did not succeed` in one log — every red job reported, not just the first | — |
-| `gates-green` — the fail path itself (review F2) | drove the step body with `VERIFY=failure` under plain `bash`, the shell the old comment claimed | **before:** `::error::verify did not succeed` then `every gate green`, **exit 0** — the merge gate green right after printing its own error. **after** (`if [ "$red" -ne 0 ]; then exit 1; fi`): exit 1 under `bash` and `bash -e` alike | all three reds still named under both shells, so `-e` was never what would have truncated the report — the row above was observed UNDER `-e` (`shell: /usr/bin/bash -e {0}`, job 102855797409) |
+| `gates-green` — the fail path itself (review F2) | drove the step body with `VERIFY=failure` under plain `bash`, the shell the old comment claimed | **before:** `::error::verify did not succeed` then `every gate green`, **exit 0** — the merge gate green right after printing its own error. **after** (`if [ "$red" -ne 0 ]; then exit 1; fi`): exit 1 under `bash` and `bash -e` alike | all three reds still named under both shells, so `-e` was never what would have truncated the report — the row above was observed UNDER `-e` (`shell: /usr/bin/bash -e {0}`, job 102854653417) |
 | `tooling/audit-delta.mjs` — half-present head dir (review F1) | moved `portal/package-lock.json` aside, left `portal/package.json` declaring the SDK and `zod` | **before:** `portal: absent at head — removed by this change`, 0 advisories contributed, **exit 0**. **after:** `audit-delta ✗ portal (head) carries package.json but not package-lock.json — cannot audit, refusing to read it as removed`, exit 1 | the mirror case (`package.json` aside) throws too; a GENUINE removal — both files gone — still reads as removed and exits 0; clean run still exits 0 |
 | `gates-green` — `needs.visual.outputs.gate` | deleted `tooling/visual-regression/baselines/404-neutral.png` on a `feature/v3-*` head (PR #390) | `needs.visual.result` = **success** (laundered), `needs.visual.outputs.gate` = **failure**, `::error::visual gate outcome=failure` printed ALONE with no `visual did not succeed` line — the case that decides the AGGREGATOR must read the job output rather than `needs.visual.result`. It does NOT decide the contexts choice: on this same head the `visual` CHECK RUN reported `failure` to both the jobs and check-runs APIs, so protection requiring `visual` would have blocked (review F3) | the `Upload diff report` step RAN (conclusion success) — `if: failure()` would have skipped it, which is what edit 3 of Task 4 exists for |
 | `drift-check` group-count leg | `34 PURE groups` → `33` in CLAUDE.md; `34 pure groups` → `33` in gates.md | `drift ✗ group-count drift: CLAUDE.md (architecture map): says 33 groups, build-checks defines 34`, and the gates.md equivalent | restored → `drift-check ✓` |
 | `gates-green`'s assert body | driven directly with synthetic env | all-red input names all four jobs + the gate line, exit 1 | all-success input exits 0 silently |
+| `codeql`'s positive control (review R1) | drove the step body **as YAML hands it to bash** — extracted from the workflow, `gh` stubbed to print an EMPTY then a whitespace-only analyses count, under `bash -e` + `set -euo pipefail` | **before:** `[: : integer expression expected`, then `CodeQL: no high or critical alerts … ( analysis/analyses read)`, **exit 0** — the control fell through silently past its own error and the gate reported green having measured nothing. **after:** `::error::CodeQL analysis count … is not a number: [] — cannot read this gate`, exit 1, for both the empty and the whitespace value | the three neighbouring paths unmoved: `0` still fires the original "measured nothing" control (exit 1), `1` with no alerts still exits 0 green, `1` with a critical alert still exits 1 naming it; and a literal JSON `null` body still reaches `0` through `jq 'length'` |
 
 Two mutations the plan specified **did not redden**, and both were replaced rather than accepted:
 
@@ -72,6 +73,15 @@ Two mutations the plan specified **did not redden**, and both were replaced rath
   log), so this was the vacuous shape, not a scope miss.
 - `maxDiffPixels: 100 → 0` left the `Visual regression` step **passing** — the CI baselines are
   pixel-exact in the pinned container, so there was nothing to launder.
+
+**`gates-green` HAS run under its new name, with the F2-corrected body** (review R2 — this was listed
+under `## Not run` when the rename was fresh). Every mutation above drove the same assert step under
+the old name `ready-pr`; the rename, the dropped `pull-requests: write` and the dropped draft
+condition touch no part of the step body. CI has since run the corrected body green on all six pushed
+heads (`8543bc4` · `0e38370` · `3c0a424` · `4be4b72` · `3dc83f5` · `66d5335`); job **102913980615**
+at `66d5335` logs `shell: /usr/bin/bash -e {0}`, `VERIFY/VISUAL/VISUAL_GATE/CODEQL/AUDIT: success`,
+the explicit `if [ "$red" -ne 0 ]; then exit 1; fi` body and `every gate green` — which also confirms
+from CI's own log the shell claim F2's old comment denied.
 
 ## Validation results
 
@@ -110,10 +120,6 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   a PR can merge carrying code neither has seen against a `main` that moved since. `strict: true`
   re-queues every open PR on every merge — a tax worth paying only once two PRs are routinely open
   at the same time (review F5). Named in `.claude/references/gates.md`.
-- **`gates-green` has not run under its new name.** All four mutations exercised the same assert
-  step under the name `ready-pr`; the rename, the dropped `pull-requests: write` and the dropped
-  draft condition are the only changes, and none touches the step body. This PR's own first run is
-  the observation.
 - **`gh workflow view verify --yaml`** — not run; GitHub parsed the workflow for real on seven runs,
   which is strictly stronger.
 - **A push-to-`main` run of `codeql`** — cannot be observed before merge. Its `if:` conditions are
@@ -192,3 +198,12 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   `git status` before the commit, and both were re-applied. The lesson is the memory's: verify what
   is staged, never restore a file that carries uncommitted work.
 - Seven CI runs were spent, six of them deliberately red.
+- **Review R1's suggested fix was incomplete, and taking it verbatim would have left half the
+  defect open.** The review proposed `if [ "${n_analyses:-0}" -lt 1 ]`, mirroring the
+  `${VISUAL_GATE:-}` idiom. `:-` substitutes only on unset-**or-empty**, so a whitespace-only value
+  — which the review itself observed falling through — is set and non-empty and still reaches the
+  numeric test: driven under `set -euo pipefail`, `[ " " -lt 1 ]` raised `integer expression
+  expected` and fell through, exit 0. The review named a regex guard as an equally acceptable
+  alternative; that is what was implemented, and it closes empty, whitespace, tab, `null` and `[]`
+  alike. The lesson is the one R1 is itself an instance of: a fix read rather than run can repeat
+  the defect it is closing.
