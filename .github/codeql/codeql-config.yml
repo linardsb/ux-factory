@@ -19,11 +19,13 @@
 # covering less. It self-maintains for a new root page (`*.html`), for a new module or page at
 # discovery/'s or scenarios/'s own root, and for anything inside the six directories below, and
 # nowhere else. It is complete as of this commit — checked by listing EVERY tracked file the
-# javascript-typescript extractor takes (*.mjs *.js *.cjs *.jsx *.ts *.tsx *.html) against it, which
-# found scenarios/validate.mjs and scenarios/check.html outside and put both in (PR #391 review F4).
-# Listing only *.mjs/*.js misses check.html — the extractor takes .html, and an out-of-scope file
-# never appears in the extraction log, so the log cannot reveal the gap. That check is by hand;
-# re-run it, at that width, when a root directory appears.
+# javascript-typescript extractor takes and that can carry code (*.mjs *.js *.cjs *.jsx *.ts *.tsx
+# *.html) against it, which found scenarios/validate.mjs and scenarios/check.html outside and put both
+# in (PR #391 review F4). Listing only *.mjs/*.js misses check.html — the extractor takes .html, and an
+# out-of-scope file never appears in the extraction log, so the log cannot reveal the gap. The
+# extractor ALSO takes .json (28 extracted at 4be4b72, all inside allowlisted directories), left out of
+# this check deliberately: it is data, and the default suite has no query that fires on it. That check
+# is by hand; re-run it, at that width, when a root directory appears.
 name: "ux-factory"
 
 paths:
