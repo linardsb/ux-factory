@@ -18,7 +18,7 @@ export default defineConfig({
   // 2026-07-18), given the spec's single-frame integer-viewport capture + normalizations. 100 is
   // generous host-AA insurance for GitHub's runner — ~4 orders of magnitude below any real
   // regression (a token/layout change moves 10⁴–10⁶ px; the accent positive-control moved ~12k+).
-  expect: { toHaveScreenshot: { animations: 'disabled', maxDiffPixels: 100 } },
+  expect: { toHaveScreenshot: { animations: 'disabled', maxDiffPixels: 0 } },
   webServer: {
     command: 'node serve.mjs',
     url: 'http://127.0.0.1:4757/index.html',
