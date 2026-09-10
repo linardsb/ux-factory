@@ -105,6 +105,31 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
 - extraction: **187** repo files before the discovery fix, **191** after — `bank.mjs`, `ops.mjs`,
   `prd-projection.mjs`, `proposals.mjs`
 
+**Re-run at `d670047` after the round-2 fixes** (Node v20.20.2 local; CI on Node 24):
+
+- `drift-check ✓` · `token-lint ✓ 63 contract tokens` · `build ✓ all 34 groups pass` ·
+  `loc summary ✓ 3 groups — no drift` · `param count ✓ 120 controls — no drift` ·
+  `audit-delta ✓ base 0/5/0, head 0/5/0, new 0`
+- **The portal smoke leg**, which the first pass omitted: booted on a private port
+  (`PORT=4791 node server.mjs`, killed by PID — never `pkill -f`, sibling sessions run recorders).
+  `/api/health` → `{"ok":true,"hasToken":false,"cards":9,"bootSha":"d670047…","stale":false}`;
+  `/` → HTTP 200, 15858 bytes; a cross-origin POST → **403**, so `lib/origin.mjs`'s guard still
+  holds. The boot SHA is this head's, so the answer is about this tree and not a stale process.
+- **All six checks green on `d670047`** — run **34500482554**: `verify` · `visual` · `codeql` ·
+  `audit` · `gates-green`, plus GHAS's own `CodeQL`. `mergeStateStatus: CLEAN`. The `codeql` job
+  going green is what proves the new `[[ … =~ … ]]` guard runs under Actions' real shell; the local
+  drive proves what it DOES, and only CI proves the shell offers it.
+- **The sibling sweep re-run here rather than inherited from the review.** Every `[ ]` test in
+  `verify.yml`, read out: the only bare numeric comparisons are `:217` (`$n_analyses`, now behind
+  the regex guard) and `:320` (`$red`, set locally to 0 or 1). `:225` is `-s` on a file; `:308` and
+  `:317` are string compares, which cannot raise this class. No other externally-sourced value
+  reaches a numeric test. R1's scoping claim therefore holds as an observation, not a quotation —
+  worth re-deriving because this same review was wrong about the construct's mechanics.
+- **R2's cited evidence read from the log, not from the review's quotation.** Job **102913980615**:
+  `shell: /usr/bin/bash -e {0}`, all five of `VERIFY` `VISUAL` `VISUAL_GATE` `CODEQL` `AUDIT` at
+  `success`, the `if [ "$red" -ne 0 ]; then exit 1; fi` body echoed in the step listing, and
+  `every gate green`.
+
 ## Not run
 
 - **Branch protection is not enabled yet.** Enabling it before this PR merges would leave #386 and
