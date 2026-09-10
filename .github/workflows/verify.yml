@@ -84,6 +84,11 @@ jobs:
 
   visual:
     runs-on: ubuntu-latest
+    # #387: needs.<job>.result cannot see past the D11 continue-on-error below — a laundered
+    # failure reports success, and needs exposes no second field with the truth
+    # (actions/toolkit#1739). ready-pr reads THIS instead, which the flag cannot touch.
+    outputs:
+      gate: ${{ steps.gate.outputs.result }}
     # D11 VR-freeze (epic #70): every v3 beat legitimately re-skins the shipped pages, so the pixel
     # baselines churn by design during v3 dev. On feature/v3-* branches the gate still RUNS and reports
     # (regressions stay visible in the run log + the uploaded diff report), but a failure no longer
@@ -103,13 +108,94 @@ jobs:
       - name: Install Playwright (JS)
         run: npm ci
         working-directory: tooling/visual-regression
+      # continue-on-error so the job keeps running and the outcome below is capturable; the
+      # `Fail on a red gate` step restores today's behaviour exactly (#387).
       - name: Visual regression
+        id: vr
+        continue-on-error: true
         run: npx playwright test
         working-directory: tooling/visual-regression
+      # NOT `failure()`: with the step-level continue-on-error above, the job's status here is
+      # still success, so failure() would be false and the diff report would silently stop uploading.
       - name: Upload diff report
-        if: failure()
+        if: steps.vr.outcome != 'success'
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: tooling/visual-regression/playwright-report/
           retention-days: 7
+
+      # `outcome` is the PRE-continue-on-error result; `conclusion` is the laundered one. Using
+      # conclusion here would produce a check that always says success.
+      - name: Record the gate outcome
+        id: gate
+        if: always()
+        env:
+          OUTCOME: ${{ steps.vr.outcome }}
+        run: echo "result=$OUTCOME" >> "$GITHUB_OUTPUT"
+      - name: Fail on a red gate
+        if: steps.vr.outcome != 'success'
+        env:
+          OUTCOME: ${{ steps.vr.outcome }}
+        run: |
+          echo "::error::visual regression $OUTCOME"
+          exit 1
+
+  codeql:
+    # S1 (#387) — GitHub's own static analysis. Runs on PRs AND on push to main: main's analysis is
+    # the repo's Security-tab baseline, and the FIRST push to main after this merges is what seeds
+    # it. Until then the only unscanned base is this PR's own.
+    #
+    # CodeQL UPLOADS; it does not fail on findings. `analyze` has no fail-on input (read its
+    # action.yml). The gate is the `Require no high or critical alerts` step below, which is ours —
+    # delete that step and CodeQL keeps running, the Security tab keeps filling, and nothing holds
+    # a PR.
+    #
+    # No fetch-depth: 0 — CodeQL builds its database from the checked-out tree and needs no history.
+    runs-on: ubuntu-latest
+    # From GitHub's own starter workflow. security-events: write is what lets the action upload the
+    # SARIF, and it covers the read the gate step needs. A PR from a FORK gets security-events: read
+    # only, so the upload fails, this job fails, and the PR stays a draft (no forks today).
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        # Pin the MAJOR here, unlike the rest of this workflow: GitHub ships CodeQL bundle updates
+        # through it, and a pinned patch goes stale silently.
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript"
+
+  audit:
+    # S2 (#387) — the dependency-advisory DELTA, not a fail-on-severity gate. The repo carries three
+    # dependency-carrying tooling dirs and no shipped runtime deps; the pre-existing style-dictionary
+    # advisories are build-time and must NOT block, so the gate compares base against head and fails
+    # only on an advisory ID the base did not carry.
+    # PR-only: there is no base to diff against on a push to main.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Least privilege — checks out code and runs one local script; never touches the GitHub API.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The base commit must be reachable for `git show <base-sha>:<path>`; checkout's default
+          # depth of 1 fetches only the merge ref.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Dependency advisory delta
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node tooling/audit-delta.mjs "$BASE_SHA"

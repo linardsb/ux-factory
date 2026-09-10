@@ -1,0 +1,45 @@
+# .github/codeql/codeql-config.yml — CodeQL analysis scope (ticket #387).
+#
+# `paths` is an ALLOWLIST, so it fails SAFE: a new tree goes unanalyzed rather than a forgotten
+# ignore pulling in .claude/, .agents/, .archon/, docs/, assets/ or scenarios/. `paths-ignore` then
+# removes the GENERATED files and COMMITTED-RUN trees that sit INSIDE the allowlist. A finding on a
+# generated file is a finding against its generator; a finding on a committed agent run cannot be
+# fixed without hand-editing the run, which the honesty contract forbids (CLAUDE.md §Ground rules).
+# handoff/, traces/ and replay/ need no ignore — they are simply not in the allowlist.
+#
+# `.github/` is deliberately outside the allowlist, so CodeQL's own GitHub Actions queries never run
+# on this workflow. Adding it is a separate decision — see .claude/references/gates.md.
+#
+# No `queries:` line: the default suite is security-focused, and `security-and-quality` adds
+# maintainability rules whose code-smell noise on the portal's template-string SPA is the reason the
+# equivalent Sonar conditions were dropped.
+#
+# What this cannot reach: the allowlist is hand-maintained and nothing gates it. A new top-level
+# source directory is silently unanalyzed until someone adds it here, and the gate stays green while
+# covering less. It self-maintains for a new root page (`*.html`) and for anything inside the seven
+# directories below, and nowhere else.
+name: "ux-factory"
+
+paths:
+  - system
+  - agent-layer
+  - portal
+  - discovery
+  - tooling
+  - worker
+  - proto
+  - "*.html"
+
+paths-ignore:
+  - "**/node_modules"
+  # the committed discovery RUN packages, not discovery/*.mjs which is the real code
+  - "discovery/*/**"
+  - "proto/compositions/**"
+  - "system/tokens.contract.css"
+  - "system/tokens.neutral.css"
+  - "system/system-graph.json"
+  - "system/loc-summary.json"
+  - "system/param-count.json"
+  - "tooling/visual-regression/baselines/**"
+  - "tooling/visual-regression/playwright-report/**"
+  - "tooling/visual-regression/test-results/**"
