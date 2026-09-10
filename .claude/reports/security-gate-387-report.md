@@ -1,20 +1,26 @@
 # Implementation Report — the security gate (#387)
 
 **Plan**: `.claude/plans/security-gate-387.md`   **Branch**: `feature/security-gate-387`
-**Base**: 4f2e859 → 9a3d15b (origin/main did not move during the run)   **Status**: PARTIAL
+**Base**: 4f2e859 → HEAD (origin/main did not move during the run)   **Status**: COMPLETE, with one owner step sequenced after merge
 
 ## Summary
 
-Three CI jobs and one skill change, together making the ticket's guarantee: a PR cannot leave draft
-except through a step with no model in it. `piv-create-pr` now opens every PR as a draft; `ready-pr`
-is the only thing that flips it, and it is bash reading job results. `codeql` scans a
-`javascript-typescript` database of the hand-written source and a step of ours reads the alerts back
-and fails on high or critical; `audit` runs `tooling/audit-delta.mjs`, an npm advisory delta between
-the PR's base SHA and its head. Every gate is proven by a mutation that reddens it.
+Three CI jobs plus branch protection, together making the ticket's guarantee: **a PR cannot merge
+except through a step with no model in it.** `codeql` scans a `javascript-typescript` database of
+the hand-written source and a step of ours reads the alerts back and fails on high or critical;
+`audit` runs `tooling/audit-delta.mjs`, an npm advisory delta between the PR's base SHA and its
+head; `gates-green` is the single required check that is green only when all four were, and it is
+bash reading job results. Every gate is proven by a mutation that reddens it.
 
-**PARTIAL for one reason:** `GITHUB_TOKEN` cannot take a PR out of draft. The gate's assert half is
-proven and holds; the final flip needs a `READY_PR_TOKEN` secret the owner has not created yet. See
-**Not run** and **Deviations**.
+**O1 changed shape mid-run, at the owner's call.** The plan's draft-flip edge is not buildable:
+`GITHUB_TOKEN` cannot perform `markPullRequestReadyForReview` (measured three ways), and the only
+alternative was a PAT in a repo secret. The owner chose branch protection instead — no credential,
+and it gates the merge rather than the draft, which the plan's own Q2 called the stronger claim.
+`piv-create-pr` is reverted to opening PRs ready for review.
+
+**The one outstanding step is the owner's, sequenced after merge:** enable branch protection on
+`main` requiring `verify`, `visual`, `codeql`, `audit` and `gates-green`. Doing it before merge
+would block the two PRs already open (#386, #381), whose heads carry none of the new jobs.
 
 ## Tasks completed
 
@@ -27,8 +33,8 @@ proven and holds; the final flip needs a `READY_PR_TOKEN` secret the owner has n
 - Task 6 → the `codeql` job + the baseline probe (UPDATE, measured)
 - Task 7 → the `Require no high or critical alerts` gate step (UPDATE)
 - Task 8 → the CodeQL reddening proof (run on PR #389)
-- Task 9 → the `ready-pr` job (UPDATE)
-- Task 10 → `.claude/skills/piv-create-pr/SKILL.md`, all six sites (UPDATE)
+- Task 9 → the `gates-green` job (UPDATE — `ready-pr` re-decided, see Deviations)
+- Task 10 → `.claude/skills/piv-create-pr/SKILL.md` — done, then **reverted** when O1 was re-decided; the file is byte-identical to `origin/main`
 - Task 11 → `CLAUDE.md` §Testing (UPDATE)
 - Task 12 → `.claude/references/gates.md` — line 7 + the new security-gate section (UPDATE)
 - Task 13 → the full local gate (run)
@@ -51,11 +57,11 @@ Every row was mutated and observed; none was read.
 | `audit` job (CI, base-SHA comparison) | the same seed, pushed to PR #389 | job red, `audit-delta ✗ portal: new advisory …` × 6 against base `4f2e859` (run 34471565003) | style-dictionary absent from the delta in the same log |
 | `codeql` gate step | a `node:http` request reaching `eval()` and `exec()` in `tooling/__tmp-seed.mjs` | `::error::CodeQL found 2 blocking alert(s)`, `critical js/code-injection` + `critical js/command-line-injection` (job 102854187896) | the positive control is IN the step: it refuses a ref with zero analyses before reading any count. Clean run printed `CodeQL: no high or critical alerts … (5 analysis/analyses read)` |
 | CodeQL scope (the allowlist) | — | — | 191 repo files extracted from the 7 allowlisted scopes, 0 from `docs/`, `.claude/`, `.agents/`, `.archon/`, `assets/`, `scenarios/`, `handoff/`, `traces/`, `replay/`, `discovery/<slug>/`, `proto/compositions/`. Read from the job's own extraction log, not from the config |
-| `ready-pr` — `needs.<job>.result` | dropped the `feed` fixture from `BOARD_FOR` in `tooling/build-checks.mjs` | `verify` red at Build checks; `::error::verify did not succeed (result=failure)` | `drift-check` stayed green on the same tree, so it is a single-leg red |
-| `ready-pr` — both at once | mutations A + B together | `::error::verify did not succeed` AND `::error::codeql did not succeed` in one log — the no-`set -e` design reporting every red job, not the first | — |
-| `ready-pr` — `needs.visual.outputs.gate` | deleted `tooling/visual-regression/baselines/404-neutral.png` on a `feature/v3-*` head (PR #390) | `needs.visual.result` = **success** (laundered), `needs.visual.outputs.gate` = **failure**, `::error::visual gate outcome=failure` printed ALONE with no `visual did not succeed` line | the `Upload diff report` step RAN (conclusion success) — `if: failure()` would have skipped it, which is what edit 3 of Task 4 exists for |
+| `gates-green` — `needs.<job>.result` | dropped the `feed` fixture from `BOARD_FOR` in `tooling/build-checks.mjs` | `verify` red at Build checks; `::error::verify did not succeed (result=failure)` | `drift-check` stayed green on the same tree, so it is a single-leg red |
+| `gates-green` — both at once | mutations A + B together | `::error::verify did not succeed` AND `::error::codeql did not succeed` in one log — the no-`set -e` design reporting every red job, not the first | — |
+| `gates-green` — `needs.visual.outputs.gate` | deleted `tooling/visual-regression/baselines/404-neutral.png` on a `feature/v3-*` head (PR #390) | `needs.visual.result` = **success** (laundered), `needs.visual.outputs.gate` = **failure**, `::error::visual gate outcome=failure` printed ALONE with no `visual did not succeed` line — the case that decides protection must require `gates-green` and not `visual` | the `Upload diff report` step RAN (conclusion success) — `if: failure()` would have skipped it, which is what edit 3 of Task 4 exists for |
 | `drift-check` group-count leg | `34 PURE groups` → `33` in CLAUDE.md; `34 pure groups` → `33` in gates.md | `drift ✗ group-count drift: CLAUDE.md (architecture map): says 33 groups, build-checks defines 34`, and the gates.md equivalent | restored → `drift-check ✓` |
-| `ready-pr`'s two bash bodies | driven directly with synthetic env | all-red input names all four jobs + the gate line, exit 1 | all-success input exits 0 silently |
+| `gates-green`'s assert body | driven directly with synthetic env | all-red input names all four jobs + the gate line, exit 1 | all-success input exits 0 silently |
 
 Two mutations the plan specified **did not redden**, and both were replaced rather than accepted:
 
@@ -75,7 +81,7 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
 - `node agent-layer/gen-loc-summary.mjs --check` → `loc summary ✓ 3 groups — no drift`
 - `node tooling/audit-delta.mjs 4f2e859` → `audit-delta ✓ no advisory ID present at head that the base did not carry`; discovered `portal, tooling/style-dictionary, tooling/visual-regression`; base 0/5/0, head 0/5/0
 - `node --check tooling/audit-delta.mjs` → clean
-- `python3 -c "yaml.safe_load(...)"` on both YAML files → parses; jobs `['verify','visual','codeql','audit','ready-pr']`; 8 allowlist entries, 10 ignores
+- `python3 -c "yaml.safe_load(...)"` on both YAML files → parses; jobs `['verify','visual','codeql','audit','gates-green']`; 8 allowlist entries, 10 ignores
 
 **Observed in CI (Node 24)**, run 34470360444 and after:
 
@@ -89,12 +95,15 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
 
 ## Not run
 
-- **AC #1's positive half — the green-path flip.** `GITHUB_TOKEN` cannot un-draft a PR (see
-  Deviations), so no run has yet observed `ready-pr` taking a PR out of draft. Everything up to the
-  flip is proven: the assert step passed on a green tree and failed by name on each of the four
-  mutations, and the PR stayed a draft every time. **Tracker: owner's call** — create
-  `READY_PR_TOKEN` (a fine-grained PAT scoped to this repo, `Pull requests: write`, nothing else)
-  and this ticket's own PR proves it on its next run.
+- **Branch protection is not enabled yet.** Enabling it before this PR merges would leave #386 and
+  #381 unmergeable — their heads have no `codeql`, `audit` or `gates-green` job, so those required
+  checks would sit pending forever. **Tracker: owner's call, sequenced after merge.** One API call:
+  `gh api -X PUT repos/linardsb/ux-factory/branches/main/protection` with the five contexts,
+  `strict: false`, `enforce_admins: false`. Until it runs, every gate reports and nothing blocks.
+- **`gates-green` has not run under its new name.** All four mutations exercised the same assert
+  step under the name `ready-pr`; the rename, the dropped `pull-requests: write` and the dropped
+  draft condition are the only changes, and none touches the step body. This PR's own first run is
+  the observation.
 - **`gh workflow view verify --yaml`** — not run; GitHub parsed the workflow for real on seven runs,
   which is strictly stronger.
 - **A push-to-`main` run of `codeql`** — cannot be observed before merge. Its `if:` conditions are
@@ -102,16 +111,17 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
 
 ## Deviations from the plan
 
-- **The draft flip needs a repository secret (plan error, and it inverts the plan's headline claim).**
-  The plan states there is "no account, no secret, no third-party service" and ships an empty
-  paid-and-owner-only table. That half is true for CodeQL and false for the flip.
-  `markPullRequestReadyForReview` answers `FORBIDDEN — Resource not accessible by integration` to
-  the Actions token with `PullRequests: write` in the job's own token block. Task 9's stated
-  fallback (the GraphQL mutation with `node_id`) is the same call and fails identically. REST's
-  `PATCH /pulls/{n}` has no `draft` field, so GraphQL is the only route at all. At the owner's
-  instruction the repo's `can_approve_pull_request_reviews` was set to `true` and re-tested: **not
-  the cause** (job 102856482180), and it was restored to `false`. The step now reads
-  `secrets.READY_PR_TOKEN` and refuses BY NAME when absent. Plan table and gates.md updated.
+- **O1 is a merge gate, not a draft edge (plan error + owner's re-decision).** The plan's design is
+  not buildable: `markPullRequestReadyForReview` answers `FORBIDDEN — Resource not accessible by
+  integration` to the Actions token with `PullRequests: write` in the job's own token block. Task
+  9's stated fallback (the GraphQL mutation with `node_id`) is the same call and fails identically.
+  REST's `PATCH /pulls/{n}` has no `draft` field, so GraphQL is the only route at all. The repo's
+  `can_approve_pull_request_reviews` was set to `true` and re-tested at the owner's instruction:
+  **not the cause** (job 102856482180), and it was restored to `false`. Offered a PAT secret or
+  branch protection, the owner chose protection. So `ready-pr` became `gates-green`: same assert
+  step, no flip, back to `contents: read`, and — load-bearing — **the `if:` lost the `draft`
+  condition, because a skipped check counts as PASSING for branch protection.** Task 10's six edits
+  were reverted; PRs open ready for review as before.
 - **`discovery/*/**` in `paths-ignore` was wrong (plan error).** CodeQL's `**` matches zero or more
   segments, so it collapsed to `discovery/*` and silently excluded the four real modules — the exact
   thing the task's own GOTCHA warned against for `discovery/**`. Measured: 187 files extracted, 0
@@ -121,6 +131,10 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   `node:http` → `eval`/`exec` flow fires two **critical** alerts.
 - **Task 14.6's VR mutation replaced (plan error).** `maxDiffPixels: 0` does not fail a pixel-exact
   baseline; deleting one baseline PNG does.
+- **Protection requires `gates-green`, not the four jobs alone.** On a `feature/v3-*` branch the
+  `visual` check itself reports success while its gate failed, so requiring `visual` directly would
+  let a laundered failure through protection. `gates-green` reads the job output and is the only
+  thing that can see it. `enforce_admins` is off: the owner can merge past a red gate, no agent can.
 - **Task 3's temp-branch dance skipped.** `audit-delta.mjs` reads the working tree, so the seed was
   applied in place and reverted with `git checkout --`. Same proof, fewer moving parts.
 - **The baseline probe used a throwaway PR (#389), not this ticket's PR.** Task 6b says to open a
@@ -130,15 +144,18 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   ticket's PR is still unopened. #389 and #390 are closed unmerged, branches deleted.
 - **The CodeQL gate writes to `$RUNNER_TEMP`, not `/tmp`.** Same behaviour, the idiomatic Actions
   path.
+- **One commit is a superseded experiment.** `eee8507 test(ci): the GraphQL fallback for the draft
+  flip` is the measurement that ruled the flip out; it is fully superseded by the later commits. Net
+  tree is correct — it is left in place because the sequence is the evidence.
 
 ## Assumptions carried
 
 - The plan's decision rule for the CodeQL baseline, first branch: zero high and critical, so the
   `high`+`critical` threshold stands exactly as written.
-- Q1 unchanged: the flip is one-way, and that is stated as a limitation in gates.md rather than
-  fixed with `gh pr ready --undo`.
-- Q2 unchanged: `main` stays unprotected. It is the owner's call and orthogonal, and it is named in
-  gates.md as the reason the draft state is the only mechanical gate.
+- Q1 is moot: there is no flip, so there is nothing one-way about it.
+- **Q2 resolved by the owner, against the plan's non-goal.** The plan listed branch protection as
+  explicitly out of scope; it is now the mechanism. Sequenced after merge, five required contexts,
+  `strict: false`, `enforce_admins: false`.
 - D11's `continue-on-error` at `verify.yml:92` is untouched, byte for byte. Only the plumbing around
   it changed.
 
@@ -146,8 +163,11 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
 
 - `verify.yml`'s header comment now describes all five jobs. The plan did not mention it, and the
   repo's rule is that the file header is the specification.
-- The standing rule about future `continue-on-error` jobs is written into the `ready-pr` job's own
-  comment as well as gates.md, so an editor adding such a job sees it where they are working.
+- The standing rule about future `continue-on-error` jobs is written into the `gates-green` job's
+  own comment as well as gates.md, so an editor adding such a job sees it where they are working.
+- gates.md records two boundaries the plan did not name: a **skipped** check counts as passing for
+  branch protection (so `gates-green`'s `if:` may never narrow), and the CodeQL gate reads **every**
+  open alert on the merge ref, so an alert inherited from `main` blocks every PR at once.
 - `audit-delta.mjs` handles a directory absent at HEAD (removed by the PR) as well as absent at
   base; the plan specified only the base side.
 

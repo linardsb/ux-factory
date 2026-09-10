@@ -17,9 +17,10 @@
 #                  the alerts back and fails on high or critical. PR-only for the gate; the scan also
 #                  runs on push to main, which is what seeds the Security-tab baseline.
 #   audit        — the npm advisory DELTA between the PR's base SHA and its head. PR-only.
-#   ready-pr     — THE DRAFT EDGE (#387). piv-create-pr opens every PR as a draft and this is the only
-#                  thing that flips it: bash reading job results, no model. A red gate leaves the PR a
-#                  draft carrying the red check. What it cannot reach → .claude/references/gates.md.
+#   gates-green  — THE MERGE GATE (#387). One check, green only when every other gate was green, and
+#                  it is bash reading job results: no model. Branch protection on main requires it,
+#                  and it is the ONLY job that can see past the D11 continue-on-error below. What it
+#                  cannot reach → .claude/references/gates.md.
 # The visual gate lands here; #9 stays open pending the deferred interactive-surface follow-up
 # (derive/agentic/trace), so this workflow is Part of #9, not its closure.
 name: verify
@@ -240,28 +241,35 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node tooling/audit-delta.mjs "$BASE_SHA"
 
-  ready-pr:
-    # O1 (#387) — THE EDGE. piv-create-pr opens every PR as a draft; this is the only thing that takes
-    # it out of one, and it is bash reading job results. No model, no judgement.
+  gates-green:
+    # O1 (#387) — THE MERGE GATE. One check that is green only when every other gate was green, and
+    # it is bash reading job results: no model, no judgement. Branch protection on main requires it,
+    # which is what makes "cannot merge except through a no-model step" mechanical rather than a
+    # convention. The flip-the-PR-out-of-draft design this replaces is NOT possible: GITHUB_TOKEN
+    # cannot perform markPullRequestReadyForReview (measured three ways at #387 — see
+    # .claude/references/gates.md), and it would have needed a PAT held in a repo secret.
     #
-    # `!cancelled()` is load-bearing: with `needs:` alone, a failed need SKIPS this job, and the result
-    # checks below — the whole point of the job — would never execute in the one case they exist for.
-    # With it, they run and they name the job that was red.
+    # `!cancelled()` is load-bearing: with `needs:` alone, a failed need SKIPS this job, and the
+    # result checks below — the whole point of the job — would never execute in the one case they
+    # exist for. With it, they run and they name the job that was red.
     #
-    # STANDING RULE: any job added to `needs:` that carries a job-level `continue-on-error` MUST publish
-    # its true step outcome as a job output and be checked here the way `visual` is.
+    # And the `if:` MUST NOT narrow further. A SKIPPED check counts as PASSING for branch
+    # protection, so any condition that can be false on a real PR is a hole straight through the
+    # gate. This one is false only off a pull_request event, where protection does not apply.
+    #
+    # STANDING RULE: any job added to `needs:` that carries a job-level `continue-on-error` MUST
+    # publish its true step outcome as a job output and be checked here the way `visual` is.
     # `needs.<job>.result` reports success for a laundered failure and there is no second field
     # (actions/toolkit#1739), so adding such a job without its output silently deletes this gate.
-    #
-    # No `types:` on the `on:` block above: pull_request's defaults are opened/synchronize/reopened,
-    # `ready_for_review` is not among them, and GITHUB_TOKEN-triggered events start no new run anyway.
+    # This is also why protection requires THIS job and not `visual` directly: on a feature/v3-*
+    # branch the `visual` check itself goes green while its gate failed, and only the job output
+    # below can see that.
     needs: [verify, visual, codeql, audit]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.draft }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
-    # The ONE job that widens past contents: read, and only to what `gh pr ready` needs.
+    # Least privilege — it reads job results and writes nothing. Never touches the GitHub API.
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - name: Require every gate green
         env:
@@ -270,8 +278,8 @@ jobs:
           VISUAL_GATE: ${{ needs.visual.outputs.gate }}
           CODEQL: ${{ needs.codeql.result }}
           AUDIT: ${{ needs.audit.result }}
-        # `set -e` is deliberately absent: with it, the first non-zero comparison would abort before the
-        # remaining jobs are reported, so a run with three red jobs would name one.
+        # `set -e` is deliberately absent: with it, the first non-zero comparison would abort before
+        # the remaining jobs are reported, so a run with three red jobs would name one.
         run: |
           set -uo pipefail
           red=0
@@ -282,39 +290,12 @@ jobs:
             fi
           done
           # A job-level continue-on-error launders a failure into result=success and needs exposes no
-          # field with the truth (actions/toolkit#1739). The visual job carries such a flag for the D11
-          # VR freeze, so its REAL step outcome is read from its own job output. An empty value — a
-          # failed job whose output did not propagate — is not "success" either, so this fails closed.
+          # field with the truth (actions/toolkit#1739). The visual job carries such a flag for the
+          # D11 VR freeze, so its REAL step outcome is read from its own job output. An empty value —
+          # a failed job whose output did not propagate — is not "success" either, so this fails
+          # closed.
           if [ "${VISUAL_GATE:-}" != "success" ]; then
             echo "::error::visual gate outcome=${VISUAL_GATE:-<empty>}"; red=1
           fi
           [ "$red" -eq 0 ]
-      # THE ONE PREREQUISITE, and it is not optional. GITHUB_TOKEN CANNOT take a PR out of draft:
-      # markPullRequestReadyForReview answers FORBIDDEN "Resource not accessible by integration" even
-      # with pull-requests: write in the job's own token block, and REST's PATCH /pulls/{n} has no
-      # draft field, so GraphQL is the only route. Measured at #387 on PR #389, three ways: via
-      # `gh pr ready`, via the mutation directly, and again with the repo's
-      # `can_approve_pull_request_reviews` flipped to true — which is NOT the cause and was restored.
-      #
-      # So this step needs READY_PR_TOKEN: a fine-grained PAT scoped to THIS repo with
-      # `Pull requests: write` and nothing else. It refuses by name when the secret is absent rather
-      # than failing on a raw FORBIDDEN, and it is never handed to a fork — `pull_request` runs from
-      # forks receive no secrets, which is also why a fork PR can never leave draft here.
-      - name: Flip the PR out of draft
-        env:
-          GH_TOKEN: ${{ secrets.READY_PR_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
-          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
-        run: |
-          set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::READY_PR_TOKEN is not set — the draft flip has no credential that can perform it, and GITHUB_TOKEN cannot (see .claude/references/gates.md). The PR stays a draft."
-            exit 1
-          fi
-          # The mutation directly, not `gh pr ready`: same call, but gh wraps the failure in its own
-          # message (cli/cli#1314).
-          gh api graphql -f query='mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{isDraft}}}' \
-            -f id="$PR_NODE_ID"
-          # Assert the flip; never trust the exit code. Mutate, don't grep.
-          draft=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)
-          [ "$draft" = "false" ] || { echo "::error::PR $PR is still a draft"; exit 1; }
+          echo "every gate green"
