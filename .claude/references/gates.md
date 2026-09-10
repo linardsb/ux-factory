@@ -4,7 +4,7 @@ Load this when adding a gate, changing one, or working out why a green run prove
 
 **The convention that makes the stack readable:** every gate STATES the boundary it cannot reach, and names the gate that owns the other side. Groups 9, 11, 13, 16, 18, 19, 23, 24, 25, 26, 27, 28 and 34 each carry that sentence, and so do the journey drivers. A gate that claims total coverage is the one to distrust — see [[the check that cannot fail]]: every #137 defect survived a green gate the same way, by skipping the thing it tested. Mutate the source; run the function, don't grep it.
 
-**What runs in CI (`verify` job):** `build-checks.mjs`, the generator drift checks, token-lint, and the visual-regression gate. **Everything else is operator-run** — the journey drivers, `vt-verify`, `vt-stack-audit` — and is not a merge blocker.
+**What runs in CI (`verify` workflow):** `build-checks.mjs`, the generator drift checks and token-lint (`verify` job); the visual-regression gate (`visual` job); the CodeQL gate (`codeql` job); the dependency-advisory delta (`audit` job); and `ready-pr`, the one job that can take a PR out of draft. **Everything else is operator-run** — the journey drivers, `vt-verify`, `vt-stack-audit` — and is not a merge blocker.
 
 ---
 
@@ -111,6 +111,28 @@ Isolated Playwright (the other dependency-carrying tool). CI visual-regression g
 - `maxDiffPixels:100` swallows a few changed digits; a green update run is not proof a page didn't change.
 
 **Baseline discipline:** any at-rest layout or copy change to a shipped page invalidates its baseline — regenerate via `cd tooling/visual-regression && npm run update:docker` **in the same PR**. Local gates don't render pages so they can't catch it, and a same-height sentence reorder still churns ~38k pixels, so never decide a regen by height. Run it from a clean detached worktree under `/Users` (not `/private/tmp` — Docker sharing), because it screenshots the DIRTY tree.
+
+---
+
+## The security gate — the draft edge, CodeQL, and the advisory delta
+
+Three CI jobs and one skill change (#387), together making one guarantee: **a pull request cannot leave draft except through a step that has no model in it.** `piv-create-pr` opens every PR as a draft; `ready-pr` is the only thing that flips it, and it is bash reading job results.
+
+- **`ready-pr`** (`.github/workflows/verify.yml`) — refuses unless `verify`, `visual`, `codeql` and `audit` all report success **and** the visual gate's true step outcome does too. The one job that widens past `contents: read`, and only to `pull-requests: write`. It reads back the flip and fails if the PR is still a draft.
+- **`codeql`** — GitHub's own static analysis over a `javascript-typescript` database, scoped by `.github/codeql/codeql-config.yml`, plus a step of ours that reads the resulting alerts through the code-scanning API.
+- **`audit`** — `tooling/audit-delta.mjs`, the npm advisory DELTA between the PR's base SHA and its head, across every discovered lockfile directory.
+
+**What they cannot reach:**
+
+- **`ready-pr` cannot see a job-level `continue-on-error`.** `needs.<job>.result` reports `success` for a laundered failure and `needs` exposes no second field with the truth ([actions/toolkit#1739](https://github.com/actions/toolkit/issues/1739)). That is why `visual` publishes its VR step's real outcome as a job output and `ready-pr` checks both. **Standing rule, stated here because no gate enforces it:** any future job carrying that flag must publish the same output and be checked the same way, or it walks straight past the gate. `verify.yml` carries exactly one such job today — the D11 VR freeze.
+- **The flip is one-way.** `main` is unprotected, so the draft state is the only real mechanical gate — and it is asserted only at the moment of the flip. A red push afterwards leaves a **ready** PR with a red check. "Cannot leave draft except through a no-model step" holds; "is ready ⇒ green" does not.
+- **CodeQL's scope stops at the allowlist, and nothing gates the allowlist.** `paths` in `.github/codeql/codeql-config.yml` is hand-maintained: a new top-level source directory is **silently unanalyzed** until someone adds it, and the gate stays green while covering less. It self-maintains for a new root page (`*.html`), for a new module at `discovery/`'s own root, and for anything inside the six listed directories, and nowhere else. `.github/workflows/` is deliberately outside it, so CodeQL's own GitHub Actions queries never run on this workflow. `handoff/`, `traces/`, `replay/`, `discovery/<slug>/` and `proto/compositions/` are excluded because a finding on a generated file belongs to its generator, and a finding on a committed agent run cannot be fixed without hand-editing it, which the honesty contract forbids. **The exclusions are globs, and CodeQL's `**` matches ZERO or more segments** — measured at #387, a `discovery/*/**` ignore collapsed to `discovery/*` and silently took the four real modules with it, with the gate still green. An ignore that removes a subtree of an allowlisted directory has to be verified against the job's own extraction log, not read.
+- **CodeQL uploads; it does not block.** `github/codeql-action/analyze` has no fail-on-findings input, so the job goes green on findings and the gate is a step we wrote that reads the alerts back. Delete that step and CodeQL keeps running, the Security tab keeps filling, and nothing holds a PR — a gate that looks alive and is not.
+- **The threshold is `high` + `critical`.** `medium`, `low` and unrated alerts are raised and readable in the Security tab; they do not hold the draft. #388's remediation loop is not merged, so gating on everything would leave PRs stuck with no tooling to clear them.
+- **What CodeQL plus an advisory delta does not cover:** `portal/lib/origin.mjs`'s CSRF logic, the Worker's routes, and the honesty-contract invariants. Those stay with `build-checks` and human review.
+- **The advisory delta is a delta.** The three pre-existing `tooling/style-dictionary` advisories do not block and are not tracked here; only an advisory ID the base did not carry does. It cannot see an advisory published after the PR merges.
+- **Fork PRs cannot pass.** A fork's token is `security-events: read`, so the SARIF upload fails, the `codeql` job fails and the PR stays a draft. No forks today, and no workaround should be added without first deciding what a fork's analysis is allowed to see.
+- **No operator runbook, and that is the point.** CodeQL needs no account, no secret and no configuration outside this repo. There is nothing for a human to set up and nothing to document.
 
 ---
 
