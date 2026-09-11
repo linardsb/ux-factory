@@ -544,7 +544,9 @@ at §Round-3 validation, which re-runs all four gates at `47f8229` — on this b
 report is a separate commit on top, carrying this file and the review it answers
 (`.claude/code-reviews/pr-403-review-round2.md`) — both `.md` under `.claude/`, and neither is any gate's
 subject: `gen-loc-summary`'s three groups are `system/`, root and `proto/` `.html`, and `agent-layer/`, and
-drift-check's syntax pass reads `.mjs`. So no gate's subject moved between the run and the citation. Round 2's structure was right and its SHA was not; this
+drift-check's `checkSyntax` reads `git ls-files "*.mjs"` (both read from source, not from memory). The empirical
+confirmation is stronger than either: CI ran green on `038e931`, the commit that **added** both files. So no
+gate's subject moved between the run and the citation. Round 2's structure was right and its SHA was not; this
 round keeps the structure and pins it to a commit on the branch.
 
 ## Deferred, and why
