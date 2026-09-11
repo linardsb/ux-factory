@@ -1,0 +1,63 @@
+# .github/codeql/codeql-config.yml — CodeQL analysis scope (ticket #387).
+#
+# `paths` is an ALLOWLIST, so it fails SAFE: a new tree goes unanalyzed rather than a forgotten
+# ignore pulling in .claude/, .agents/, .archon/, docs/, assets/ or scenarios/. `paths-ignore` then
+# removes the GENERATED files and COMMITTED-RUN trees that sit INSIDE the allowlist. A finding on a
+# generated file is a finding against its generator; a finding on a committed agent run cannot be
+# fixed without hand-editing the run, which the honesty contract forbids (CLAUDE.md §Ground rules).
+# handoff/, traces/, replay/ and discovery/<slug>/ need no ignore — they are simply not in the allowlist.
+#
+# `.github/` is deliberately outside the allowlist, so CodeQL's own GitHub Actions queries never run
+# on this workflow. Adding it is a separate decision — see .claude/references/gates.md.
+#
+# No `queries:` line: the default suite is security-focused, and `security-and-quality` adds
+# maintainability rules whose code-smell noise on the portal's template-string SPA is the reason the
+# equivalent Sonar conditions were dropped.
+#
+# What this cannot reach: the allowlist is hand-maintained and nothing gates it. A new top-level
+# source directory is silently unanalyzed until someone adds it here, and the gate stays green while
+# covering less. It self-maintains for a new root page (`*.html`), for a new module or page at
+# discovery/'s or scenarios/'s own root, and for anything inside the six directories below, and
+# nowhere else. It is complete as of this commit — checked by listing EVERY tracked file the
+# javascript-typescript extractor takes and that can carry code (*.mjs *.js *.cjs *.jsx *.ts *.tsx
+# *.html) against it, which found scenarios/validate.mjs and scenarios/check.html outside and put both
+# in (PR #391 review F4). Listing only *.mjs/*.js misses check.html — the extractor takes .html, and an
+# out-of-scope file never appears in the extraction log, so the log cannot reveal the gap. The
+# extractor ALSO takes .json (28 extracted at 4be4b72, all inside allowlisted directories), left out of
+# this check deliberately: it is data, and the default suite has no query that fires on it. That check
+# is by hand; re-run it, at that width, when a root directory appears.
+name: "ux-factory"
+
+paths:
+  - system
+  - agent-layer
+  - portal
+  # discovery/*.mjs, not `discovery`: the committed run packages live at discovery/<slug>/ and must
+  # stay out (a finding on a committed agent run cannot be fixed without hand-editing it). Excluding
+  # them from paths-ignore instead does NOT work — CodeQL's `**` matches ZERO OR MORE segments, so
+  # `discovery/*/**` collapses to `discovery/*` and swallows the four modules too. Measured at #387:
+  # with that ignore, bank.mjs · ops.mjs · prd-projection.mjs · proposals.mjs were all unextracted.
+  - discovery/*.mjs
+  # scenarios/*, same shape and same reason: validate.mjs is 332 hand-written lines imported by two
+  # in-scope callers (tooling/drift-check.mjs, agent-layer/gen-company-package.mjs) and CodeQL cannot
+  # follow a call from an in-scope caller into an out-of-scope callee; check.html is a 106-line
+  # tracked page carrying a <script> that drives the fetch helper, the same class of file as the root
+  # pages above. The scenarios/<slug>/ fixture packages stay out.
+  - scenarios/*.mjs
+  - scenarios/*.html
+  - tooling
+  - worker
+  - proto
+  - "*.html"
+
+paths-ignore:
+  - "**/node_modules"
+  - "proto/compositions/**"
+  - "system/tokens.contract.css"
+  - "system/tokens.neutral.css"
+  - "system/system-graph.json"
+  - "system/loc-summary.json"
+  - "system/param-count.json"
+  - "tooling/visual-regression/baselines/**"
+  - "tooling/visual-regression/playwright-report/**"
+  - "tooling/visual-regression/test-results/**"
