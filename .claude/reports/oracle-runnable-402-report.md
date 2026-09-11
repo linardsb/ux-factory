@@ -235,10 +235,12 @@ Not applicable — this was a prose review, not a CodeQL run. No `codeql` cycle 
 - **`gates.md:129` and `:137`** — the two bullets that state the gate blocks on inherited alerts. #400's scope,
   explicitly left there by the review. `:138` was in scope only because #401 opened it.
 - **Second person** against `skill-standards.md`'s imperative rule. The round-1 claim that *"this PR neither adds
-  nor removes any"* was **false**: `grep -ocE '\b(you|your|yours|yourself)\b'` gives 10 at base `27aef2e` and 17
-  at `6c12f18` — seven added, six of them in round 1's own new prose. Round 2 adds more still, in the preamble
-  and oracle prose. The convention is real and this PR is its largest single contributor; fixing it is a separate
-  pass, but it is deferred as **a debt this PR incurred**, not as a pre-existing one it left alone.
+  nor removes any"* was **false**. Counting matches, case-insensitively, over the committed blob —
+  `git show <sha>:<SKILL.md> | grep -oiE '\b(you|your|yours|yourself)\b' | wc -l` — gives **10** at base
+  `27aef2e` and **17** at `6c12f18`: seven added, six of them in round 1's own new prose. Round 2 and round 3 each
+  add **0** (17 at `6c12f18`, `c5a7654` and `47f8229` alike). The convention is real and this PR is its largest
+  single contributor; fixing it is a separate pass, but it is deferred as **a debt this PR incurred**, not as a
+  pre-existing one it left alone.
 - **The 80–87s `codeql` job figure** — `observed`, from a 4-run sample. It gates nothing and names its own
   sample, so it is left as written. The comparison number previously given here, "71–94s across eleven PR jobs",
   was inherited from #401's review and **does not re-derive**: over the 26 concluded PR `codeql` jobs before that
@@ -298,6 +300,10 @@ Round 1 was reviewed and came back **request changes** on F1–F5. This round an
 - [x] F16 low — the `codeql` job range did not re-derive
 - [x] F17 low — `per_page=100`'s evidence did not support its claim
 - [ ] F18 low — body length against `skill-standards.md` → **deferred, recorded below with the number**
+
+**F10–F12's ticks are about their own sites, not their class.** Round 3 found the false-evidence class alive at
+two further sites in this report (R2, R3) and fixed both in place. A tick here means that finding's line was
+corrected; it never meant the report had stopped making unreproducible evidence claims.
 
 ## The structural change F1–F3 and F7 all fall out of
 
@@ -414,13 +420,13 @@ instruction. Nothing executes it.
 
 ## Round-2 validation
 
-All `observed`, run at **`89f669f`** — the round-2 commit with every fix in it, including the F13 regression
-fix above.
-
-**How this table's own SHA works, stated rather than fudged.** The four gates ran at `89f669f`; this table was
-then written into the report, so the commit finally pushed differs from `89f669f` **by this table and nothing
-else**. Round 1's table claimed a head no gate had run at (F12); this one names the head the gates did run at and
-says what changed afterwards.
+All `observed`, run at `89f669f` — **and that citation is withdrawn, because `89f669f` is unreachable.** It is
+the pre-amend version of `c5a7654` and survives only in this clone's reflog: `git branch --all --contains
+89f669f` prints nothing and `git merge-base --is-ancestor 89f669f c5a7654` is false (both observed). F12 was the
+table naming a commit no gate had run at; this was the same class one step worse — a commit nobody else can
+reach. The numbers below stood at `89f669f` and are left visible rather than deleted, but the citation that makes
+them checkable is **§Round-3 validation**, which re-runs all four gates at `47f8229`, a commit on this branch
+whose `SKILL.md` is `c5a7654`'s plus R1's guard.
 
 | Gate | Command | Result |
 |---|---|---|
@@ -432,3 +438,151 @@ says what changed afterwards.
 | oracle plumbing | the §2 sequence, one block per Bash call, on PR #403 | 4 calls, all pass — transcript above |
 | preamble as shipped | the §0.5 block run **unsubstituted** | `PROCEEDED with ~/.codeql/2.27.0/codeql (2.27.0)` exit 0 |
 | global mirror | `diff` repo copy vs `~/.claude/skills/…/SKILL.md` | exit 0 — identical (re-mirrored this round) |
+
+# Round 3 — PR #403's review, round 2 (`.claude/code-reviews/pr-403-review-round2.md`)
+
+Round 2 came back **request changes** on one High. This round answers all six findings: **3 fixed, 3 deferred**
+with a line each, which is the reviewer's own recommendation.
+
+- [x] R1 high — `$N` is unguarded, and `gh pr view`/`gh pr checks` answer for the wrong PR when it is empty
+- [x] R2 med — the second-person bullet's stated command did not produce its stated numbers, and one claim was false
+- [x] R3 med — the round-2 validation table cited `89f669f`, a commit unreachable from any ref
+- [ ] R4 low — the preamble's recomputation rule is stated once and carries nine dependent blocks → **deferred**
+- [ ] R5 low — the commit that defines the A/B is prose, and the no-op check is waived → **deferred**
+- [ ] R6 low — no plan file for #402 → **deferred, it is a CLAUDE.md question**
+
+**3 of 3 blocking-and-medium fixed.** R1 was the only blocker.
+
+## R1 · high — `$N` is guarded where it is consumed
+
+`SKILL.md` §0.5 preamble and §4 read-back.
+
+**What was wrong.** `$N` names what the whole oracle is judging and was the one cross-call value in the file with
+no executable guard — `$HEAD` had `^[0-9a-f]{40}$`, `$n`, `$RUN` and `$J` had numeric checks, `$N` had prose at
+`:66` and nothing else. `gh` treats an empty argument exactly like no argument:
+
+```
+$ gh pr view "" --json number,headRefName --jq '"number=\(.number) head=\(.headRefName)"'
+number=403 head=feature/oracle-runnable-402
+exit=0
+```
+
+So a §4 read-back pasted with `$N` unset resolves `$HEAD` off **another** PR, that SHA passes F4's shape guard,
+and `.conclusion` prints a confident verdict for a PR nobody asked about. Shape is not provenance.
+
+**What changed.** One line, in the file's own idiom, at **both** consuming sites.
+
+In the preamble it sits between `N=$1` and `REF=`/`S=`, so a degenerate `codeql-pr-` scratch root is never
+created:
+
+```bash
+N=$1   # or: gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number // empty'
+[[ "$N" =~ ^[0-9]+$ ]] || { echo "empty or non-numeric PR number [$N] — gh would fall back to the current branch's PR and judge one nobody asked about"; exit 1; }
+REF="refs/pull/$N/merge"
+```
+
+**The second copy is the point, not duplication.** The review's failure scenario is explicit that the §4 block is
+*"pasted without restating `N`"* — the preamble was not run. A guard living only in a block that was not run is
+not a guard, so the same line opens the read-back block, which already guards three other values. §0.5 step 1's
+prose was rewritten to point at the guard that now performs the refusal rather than describe one.
+
+**Evidence — the guard executed, both directions, at both sites.** The twelve fenced blocks were extracted
+verbatim (indentation stripped, **no substitution**) and run:
+
+```
+PREAMBLE, empty $1:
+  empty or non-numeric PR number [] — gh would fall back to the current branch's PR and judge one nobody asked about
+  exit=1
+PREAMBLE, $1=403:                     exit=0
+READ-BACK, $N unset:
+  empty or non-numeric PR number [] — re-run the §0.5 preamble first
+  exit=1
+READ-BACK, N=403 (real API, end to end):
+  success
+  exit=0
+```
+
+The last line is the live `codeql` gate step on PR #403 read through the guarded block — the positive control
+that proves the guard refuses the empty case without breaking the real one.
+
+## R2 · medium — the stated command now produces the stated numbers, and the false claim is gone
+
+`:237-241`. Two defects, both in the bullet that corrected F10.
+
+**(a) `grep -ocE` does not give 10 and 17.** It gives **8** and **15** — `-c` overrides `-o` and counts *lines*,
+and the pattern is case-sensitive, so a sentence-initial `You` is missed. 10 and 17 come from counting matches
+case-insensitively. The bullet now states that method in full, including the `git show` it reads from, so it
+re-derives as written. Re-measured at four commits:
+
+| commit | `grep -oiE … \| wc -l` |
+|---|---|
+| `27aef2e` (base) | 10 |
+| `6c12f18` (round 1) | 17 |
+| `c5a7654` (round 2) | 17 |
+| `47f8229` (round 3) | 17 |
+
+**(b) "Round 2 adds more still" was false.** Under the stated method round 2's delta is **0**, and under the
+case-sensitive method the review also ran it is **−1** (15 → 14). Round 3's delta is **0** as well. The sentence
+is replaced by the measured zeros. What survives, and is true, is that base → head is 10 → 17, so this PR is the
+convention's largest single contributor and the debt is its own.
+
+## R3 · medium — the unreachable citation is withdrawn
+
+`:417-423`. `89f669f` is the pre-amend version of `c5a7654` and exists only in this clone's reflog:
+
+```
+$ git branch --all --contains 89f669f            → (empty)
+$ git merge-base --is-ancestor 89f669f c5a7654   → false
+```
+
+F12 was a table labelled with one commit and evidenced at another; this was worse, because the commit named could
+not be fetched by anyone else. The round-2 table keeps its numbers with the citation marked withdrawn, and points
+at §Round-3 validation, which re-runs all four gates at `47f8229` — on this branch, and carrying `c5a7654`'s
+`SKILL.md` plus R1's guard.
+
+**Why this round does not repeat the defect.** The gates ran at `47f8229`, a **SKILL.md-only** commit, and this
+report is a separate commit on top, carrying this file and the review it answers
+(`.claude/code-reviews/pr-403-review-round2.md`) — both `.md` under `.claude/`, and neither is any gate's
+subject: `gen-loc-summary`'s three groups are `system/`, root and `proto/` `.html`, and `agent-layer/`, and
+drift-check's syntax pass reads `.mjs`. So no gate's subject moved between the run and the citation. Round 2's structure was right and its SHA was not; this
+round keeps the structure and pins it to a commit on the branch.
+
+## Deferred, and why
+
+- **R4 low — the preamble-recomputation rule carries nine blocks from one statement.** Left as the review filed
+  it: the deep pass traced all nine with the preamble un-run and found they fail loud, so the cost of the defect
+  is a refusal rather than a wrong answer. A restatement is prose in a file already over its length budget (F18,
+  below), and R1's second guard is the one place where failing loud was not enough.
+- **R5 low — the A/B's defining commit is prose, and the no-op check is waived.** Real: if `git commit` no-ops,
+  `$C` is the previous alert's commit and `$C^`→`$C` measures the wrong delta. The manual "present in A" check
+  catches the common case, which is why the review filed it Low. A fix belongs with the next substantive change
+  to §2, not bolted on in a report-correction pass.
+- **R6 low — no plan file for #402.** Not a violation but a convention gap: this ticket came straight out of PR
+  #401's review through `piv-fix-review-findings`, which produces no plan. Settling it means narrowing CLAUDE.md
+  §Git for remediation tickets, which is an owner call and a different file.
+- **F18 low — body length, and the number got worse.** `SKILL.md` is now **5,139 words** at `47f8229`
+  (`git show 47f8229:<path> | awk '<strip frontmatter>' | wc -w`), up from 5,006 at `c5a7654` — R1's guard, its
+  two refusal strings and the prose that explains why the guard repeats cost 133 words. The file is over
+  `skill-standards.md`'s ~5k ceiling, not near it. The split is owed and is not this pass's work; recorded here
+  rather than trimmed, because trimming prose to hit a number is the same dishonesty as shaving six words to
+  report a 4,999.
+
+## Round-3 validation
+
+All `observed`, run at **`47f8229`** — a `SKILL.md`-only commit on `feature/oracle-runnable-402`, reachable from
+the branch and from `origin` after the push.
+
+| Gate | Command | Result at `47f8229` |
+|---|---|---|
+| build-checks | `node tooling/build-checks.mjs` | exit 0 — all 34 groups pass |
+| token-lint | `node tooling/token-lint.mjs` | exit 0 — 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
+| drift-check | `node tooling/drift-check.mjs` | exit 0 — 13 checks |
+| portal smoke | `PORT=4799 node portal/server.mjs`, killed by PID | `{"ok":true,…,"stale":false}`, `bootSha`==`headSha`==`47f8229`; `Origin: https://evil.test` → `403` |
+| shell syntax | `bash -n`, **zero substitution**, all 12 blocks | 12 ok, 0 syntax errors |
+| the R1 guard | both blocks extracted verbatim and run, empty and with `403` | 2 refusals exit 1, 2 passes exit 0 — transcript above |
+| global mirror | `diff` repo copy vs `~/.claude/skills/…/SKILL.md` | exit 0 — identical (re-mirrored this round) |
+
+**What this round's validation cannot reach.** It does not re-run the CodeQL oracle — this was a prose review,
+not a CodeQL run, so no `codeql` cycle was spent and no alert was read. R1's guard is proven to refuse and to
+pass; that the *guarded* read then answers correctly for PR #403 is shown by the one live call above and by
+nothing broader.
