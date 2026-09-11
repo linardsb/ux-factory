@@ -30,19 +30,20 @@
 // One-turn parenting probe (PAID, ~$0.04–0.10):  cd portal && node lib/discovery-transport.mjs --probe-parenting
 // Three-turn fence probe (PAID, ~$0.2–0.5):  cd portal && node lib/discovery-transport.mjs --probe-fence
 // One-turn audit probe (PAID, ~$0.05–0.15):  cd portal && node lib/discovery-transport.mjs --probe-audit [--model claude-opus-5]
+// One-turn affordance probe (PAID, ~$0.05–0.20):  cd portal && node lib/discovery-transport.mjs --probe-affordance
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { applyOp, emptyRun, parentCandidates } from '../../discovery/ops.mjs';
 import { QUESTIONS, questionById } from '../../discovery/bank.mjs';
 import {
-  allowSetFor, appendTranscript, BANK_PATH, fenceCanUseTool, fenceHooks, MCP_SERVER, opLine, OPS,
+  allowSetFor, appendTranscript, BANK_PATH, fenceCanUseTool, fenceHooks, FETCH_TOOLS, MCP_SERVER, opLine, OPS,
   readAnswers, readTranscript, recordSessionId, textLine, TOOL_SCHEMA,
 } from './discovery.mjs';
 // The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
 // the one group 30 pins and the fingerprint covers. POSTURES and resolvePosture are here for the
 // probes only.
-import { POSTURES, resolvePosture, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
+import { affordanceFingerprintOf, POSTURES, resolvePosture, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
 
 // A per-turn cap, not a session cap. Resume-per-turn means every turn is a fresh query(), so session
 // length is governed by the depth ladder rather than by this number. chat.mjs's 40 is for an open
@@ -50,6 +51,24 @@ import { POSTURES, resolvePosture, TOOL_DESCRIPTIONS } from './discovery-posture
 // turn is 2-4 (spike 1's three-call run was 4); 6 leaves room for one in-turn correction after a
 // refusal without leaving room for the agent to work through a second question.
 const MAX_TURNS = 6;
+
+// The same cap for an OFF-SCRIPT turn (#289), which makes many more calls: 1 search + N fetches +
+// N file_evidence + 1 filing + any in-turn correction after a refusal.
+//
+// THE ARITHMETIC. `num_turns` counts USER messages — the initial prompt, plus one tool_result per
+// MAIN-SESSION tool call. The agent's closing message is never counted, and the CLI's warmup denials
+// (built-ins, in its subagents) are not either. Verified as `numTurns === 1 + ops + main-session (mcp__)
+// denials` over all 199 committed turns, zero exceptions. So MAX_TURNS = 6 admits four tool calls, and
+// 12 admits ten. A REFUSED op consumes a slot exactly as a filed one does — it is a tool_result either
+// way — so an in-turn correction costs budget. The banked cap is NOT raised: a banked turn does not need
+// ten calls, and a wider cap on every turn is a wider blast radius inside one answer.
+//
+// AND RAISING IT CAN NEVER BUY A TURN AFTER THE AGENT HAS SPOKEN: the SDK's loop returns as soon as an
+// assistant message carries no tool_use block, and maxTurns only bounds the other side. That is why AC
+// #3 is enforced by REFUSING THE NEXT CLOSER (discovery/ops.mjs invariant 4) rather than by any in-turn
+// recovery. This constant sits outside fingerprintOf's hash — and outside every gate's reach too, so
+// build-checks group 30 pins it from source.
+const AFFORDANCE_MAX_TURNS = 12;
 
 // The built-in tools a REAL run advertises to the main session — runtimeTypes.d.ts: "[] (empty array)
 // - Disable all built-in tools". One record, two readers: the query's `tools`, and the fence's record
@@ -144,28 +163,41 @@ export function buildOpServer({ root, turn, state, onLine }) {
 
 // --- the turn -------------------------------------------------------------------------------------
 
-export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, onLine }) {
+export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], onLine }) {
   // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
   // brief and the applier read one ledger.
   // The run's provenance goes INTO the system prompt (#347): read off run.json's head, never guessed.
   // The entry mode too (#286): it chooses Grill's template, and a posture that has no template for it
   // refuses by name. Packages recorded before #286 all carry blank-idea; the default is belt.
-  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea' });
+  // #289: `affordance` and `park` choose the turn prompt, and `answers` is what pendingBrief reads — the
+  // person's own words, so the agent can file an aside it could not otherwise read after a restart.
+  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park, affordance });
   const server = buildOpServer({ root, turn, state, onLine });
+  // MVP 7's fetch tools, ON AN OFF-SCRIPT TURN ONLY (#289) — allowed BY NAME through fenceDecision's
+  // extraTools seam (#359), never by path, so #287's READ_TOOLS assertion is untouched. A banked turn
+  // advertises nothing, exactly as today.
+  //
+  // `mainTools` is the fence's RECORD gate: a denial of a tool in that list is recorded as the agent's.
+  // Widening it here means a CLI warmup agent's WebSearch would be recorded as the agent's — the same
+  // false-receipt class fenceSite's own comment already names for Read. It is stated rather than fixed
+  // because the alternative (leaving them out) loses the receipt for the agent's OWN denied fetch, which
+  // is the one this turn exists to observe; --probe-affordance is where it would show.
+  const fetching = affordance !== null;
+  const tools = fetching ? [...FETCH_TOOLS] : MAIN_TOOLS;
   // The read fence's input, rebuilt from run.json on EVERY turn (disk is authoritative): a resumed
   // session after a restart runs under the same allow-set the session was opened with.
-  const fence = { allowSet: allowSetFor({ root, reads: head.reads ?? [] }), mainTools: MAIN_TOOLS };
+  const fence = { allowSet: allowSetFor({ root, reads: head.reads ?? [] }), mainTools: tools, extraTools: fetching ? [...FETCH_TOOLS] : [] };
 
   const q = query({
     prompt,
     options: {
       cwd: root,
       model: posture.model,
-      maxTurns: MAX_TURNS,
+      maxTurns: fetching ? AFFORDANCE_MAX_TURNS : MAX_TURNS,
       systemPrompt,
       // undefined, never null: the SDK treats null as a value to resume from.
       resume: head.sessionId || undefined,
-      tools: MAIN_TOOLS,
+      tools,
       allowedTools: [],   // nothing pre-approved, so canUseTool is consulted for the MCP tools
       mcpServers: { [MCP_SERVER]: server },
       // The op server above is this run's WHOLE MCP surface (#352): a fictional run's cwd is
@@ -216,6 +248,12 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
         // current one, so a prompt edit makes the fixture stale by name. Read off the posture passed
         // in, never recomputed here: one record of one fact.
         postureFingerprint: posture.fingerprint,
+        // #289. Which AFFORDANCE surface this turn ran under, on a park or off-script turn and nowhere
+        // else — so a banked turn's stats are byte-identical in shape to every one recorded before it.
+        // Computed off the RESOLVED posture, never looked up by id: resolvePosture recomputes a stamp on
+        // a model override, and Grill is the one settable posture, so a by-id lookup would stamp a
+        // Grill-on-Opus turn with the sonnet hash.
+        ...(fetching || park ? { affordanceFingerprint: affordanceFingerprintOf(posture) } : {}),
         ts: new Date().toISOString(),
       };
     }
@@ -659,6 +697,121 @@ export async function probeFence() {
   }
 }
 
+// MVP 7's run-time proof (#289). Group 30 drives the fence predicate, the prompt strings and the
+// transport's wiring in CI; three things no CI group can reach, and this probe is where they are
+// observed:
+//
+//   1. does WebSearch actually EXECUTE under this machine's auth with tools: [...FETCH_TOOLS]?
+//   2. does the fence still DENY Bash and Write on the same turn — is the widening by name, not a hole?
+//   3. does the agent file file_evidence with a URL and provenance "secondary-source", and NOT close
+//      the turn?
+//
+// One off-script look-up turn over a synthetic package in a temp root, using the REAL runDiscoveryTurn
+// so the wiring under test is the production wiring rather than a copy. The counters wrap both fence
+// sites from the OUTSIDE (an observation, not a fence) so "was this site reached for this tool" is a
+// fact of the run. Roots deleted on exit; SPENDS TOKENS (~$0.05–0.20 — run 0's median was $0.055/turn
+// and this turn makes more calls); nothing imports it.
+//
+// If WebSearch does not execute, that is a FINDING, not a failure: AC #1's mechanism half becomes "the
+// prompt and the fence are wired; execution unobserved", and the verdict says so.
+export async function probeAffordance({ model = null } = {}) {
+  const { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const pathMod = await import('node:path');
+
+  const base = realpathSync(mkdtempSync(pathMod.join(tmpdir(), 'discovery-probe-affordance-')));
+  try {
+    const root = pathMod.join(base, 'run');
+    mkdirSync(root, { recursive: true });
+    const question = QUESTIONS[0];
+    const head = {
+      slug: 'affordance-probe', provenance: 'fictional',
+      label: 'PROBE — a temp root, deleted on exit, never a run package',
+      entryMode: 'blank-idea', depth: 'opening-set', posture: 'think', model: model ?? POSTURES.think.model,
+      reads: [], sessionId: null, turnStats: [],
+    };
+    writeFileSync(pathMod.join(root, 'run.json'), `${JSON.stringify(head, null, 2)}\n`);
+    // The off-script answer line, written the way appendAnswer writes one: kind and intent are the
+    // SERVER's, and the applier's four MVP 9 rules read them off this record.
+    const answer = { ref: 'a1', ts: '2026-01-01T00:00:00.000Z', turn: 't1', question_id: null, kind: 'off-script', intent: 'look-up', text: 'Before I answer that — is Confirmation of Payee a real UK scheme, or did I make it up? Look it up and give me the source.' };
+    writeFileSync(pathMod.join(root, 'answers.jsonl'), `${JSON.stringify(answer)}\n`);
+    writeFileSync(pathMod.join(root, 'transcript.jsonl'), '');
+
+    const posture = resolvePosture({ posture: head.posture, model });
+    const reached = [];
+    const state = { current: emptyRun() };
+    const lines = [];
+    let stats = null;
+    let error = null;
+    // The counters wrap the two site FACTORIES this module imports, for this call only.
+    const realCanUseTool = fenceCanUseTool;
+    const realHooks = fenceHooks;
+    try {
+      const wrapped = {
+        canUseTool: (...args) => { const fn = realCanUseTool(...args); return async (tool, input, ...rest) => { reached.push({ site: 'canUseTool', tool }); return fn(tool, input, ...rest); }; },
+        hooks: (...args) => { const h = realHooks(...args); const inner = h.PreToolUse[0].hooks[0]; h.PreToolUse[0].hooks[0] = async (input, ...rest) => { reached.push({ site: 'PreToolUse', tool: input?.tool_name }); return inner(input, ...rest); }; return h; },
+      };
+      // runDiscoveryTurn builds its own sites, so the observation goes through a shim query instead:
+      // the probe re-runs the PRODUCTION call and reads its receipts off the temp root's transcript.
+      // (The shim is only the counters; every option below is runDiscoveryTurn's own.)
+      const r = await runDiscoveryTurnObserved({ root, head, question, answer, turn: 't1', posture, state, wrapped, onLine: (l) => lines.push(l) });
+      stats = r.stats;
+    } catch (e) { error = e.message; }
+
+    const ops = readTranscript(root).filter((l) => l.type === 'op');
+    const denied = readTranscript(root).filter((l) => l.type === 'denied');
+    const evidence = ops.filter((l) => l.op === 'file_evidence');
+    const urls = evidence.filter((l) => l.params?.url !== null && l.params?.provenance === 'secondary-source');
+    const closed = ops.some((l) => l.closes === true);
+    const searched = reached.some((x) => FETCH_TOOLS.includes(x.tool));
+    const verdict = error ? 'ERROR'
+      : closed ? 'CLOSED_THE_TURN'
+        : urls.length > 0 ? 'FILED_A_SOURCE'
+          : searched ? 'SEARCHED_FILED_NOTHING'
+            : 'NO_FETCH_OBSERVED';
+    return {
+      verdict, model: posture.model, fingerprint: posture.fingerprint,
+      affordanceFingerprint: affordanceFingerprintOf(posture),
+      reached, ops: ops.map((l) => ({ seq: l.seq, op: l.op, closes: l.closes, params: l.params })),
+      denied: denied.map((l) => `${l.tool} via ${l.via}`), evidence: evidence.length, urls: urls.map((l) => l.params.url),
+      closed, searched, text: lines.filter((l) => l.type === 'text').map((l) => l.text), stats, error,
+      exit: verdict === 'FILED_A_SOURCE' ? 0 : verdict === 'SEARCHED_FILED_NOTHING' ? 2 : 3,
+    };
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+}
+
+// runDiscoveryTurn with the two fence sites wrapped by the probe's counters and nothing else changed.
+// It is a COPY of the production call rather than a parameter on it, deliberately: an `observe` hook on
+// runDiscoveryTurn would be a seam a real run could take, and the fence's own comment already names the
+// class of bug an instrument that can disturb its subject creates.
+async function runDiscoveryTurnObserved({ root, head, question, answer, turn, posture, state, wrapped, onLine }) {
+  const answers = readAnswers(root);
+  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park: false, affordance: answer.intent });
+  const server = buildOpServer({ root, turn, state, onLine });
+  const tools = [...FETCH_TOOLS];
+  const fence = { allowSet: allowSetFor({ root, reads: head.reads ?? [] }), mainTools: tools, extraTools: [...FETCH_TOOLS] };
+  let stats = null;
+  const q = query({
+    prompt,
+    options: {
+      cwd: root, model: posture.model, maxTurns: AFFORDANCE_MAX_TURNS, systemPrompt,
+      tools, allowedTools: [], mcpServers: { [MCP_SERVER]: server }, strictMcpConfig: true,
+      canUseTool: wrapped.canUseTool(root, turn, onLine, fence),
+      hooks: wrapped.hooks(root, turn, onLine, fence),
+    },
+  });
+  for await (const msg of q) {
+    if (msg.type === 'assistant') {
+      for (const b of msg.message?.content || []) if (b.type === 'text' && b.text) onLine?.(appendTranscript(root, textLine({ turn, text: b.text })));
+    } else if (msg.type === 'result') {
+      stats = { numTurns: msg.num_turns ?? null, durationMs: msg.duration_ms ?? null, costUsd: msg.total_cost_usd ?? null, ok: msg.subtype === 'success', isError: msg.is_error === true };
+    }
+  }
+  return { stats };
+}
+
 // --- standalone ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) {
@@ -666,8 +819,9 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   const wantProbe = process.argv.includes('--probe-parenting');
   const wantFence = process.argv.includes('--probe-fence');
   const wantAudit = process.argv.includes('--probe-audit');
-  if ([wantPreflight, wantProbe, wantFence, wantAudit].filter(Boolean).length !== 1) {
-    console.error('usage: node lib/discovery-transport.mjs --preflight | --probe-parenting | --probe-fence | --probe-audit [--model <string>]   (run from portal/; the parenting and audit probes spend ONE paid turn each, the fence probe THREE)');
+  const wantAffordance = process.argv.includes('--probe-affordance');
+  if ([wantPreflight, wantProbe, wantFence, wantAudit, wantAffordance].filter(Boolean).length !== 1) {
+    console.error('usage: node lib/discovery-transport.mjs --preflight | --probe-parenting | --probe-fence | --probe-audit | --probe-affordance [--model <string>]   (run from portal/; the parenting, audit and affordance probes spend ONE paid turn each, the fence probe THREE)');
     process.exit(2);
   }
   const { readFileSync } = await import('node:fs');
@@ -684,6 +838,22 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
     console.log(`denied lines on the temp root's transcript: ${r.denied.length}${r.denied.length ? ` (${r.denied.join(', ')})` : ''}`);
     console.log(`cost ${r.stats?.costUsd ?? '?'} USD · ${r.stats?.durationMs ?? '?'} ms · ${r.stats?.numTurns ?? '?'} SDK turns`);
     console.log(`\nprobe ${r.verdict}${r.wrongIf ? ` · wrong_if ${r.wrongIf.read}` : ''}`);
+    process.exit(r.exit);
+  }
+  if (wantAffordance) {
+    const at = process.argv.indexOf('--model');
+    const r = await probeAffordance({ model: at === -1 ? null : process.argv[at + 1] ?? null });
+    console.log(`discovery affordance probe — sdk ${v('@anthropic-ai/claude-agent-sdk')} · node ${process.version} · model ${r.model} · posture surface ${r.fingerprint.slice(0, 8)} · affordance surface ${r.affordanceFingerprint.slice(0, 8)}`);
+    if (r.error) console.log(`turn error: ${r.error}`);
+    for (const t of r.text) console.log(`agent: ${t.replace(/\s+/g, ' ').slice(0, 400)}`);
+    console.log(`fetch tools reached: ${[...new Set(r.reached.filter((x) => FETCH_TOOLS.includes(x.tool)).map((x) => `${x.tool}@${x.site}`))].join(', ') || '(none — WebSearch never executed)'}`);
+    console.log(`every tool the fence saw: ${[...new Set(r.reached.map((x) => `${x.tool}@${x.site}`))].join(', ') || '(none)'}`);
+    console.log(`ops filed: ${r.ops.map((o) => `${o.op} seq ${o.seq}${o.closes ? ' CLOSED' : ''}`).join(' · ') || '(none)'}`);
+    console.log(`file_evidence rows ${r.evidence}, of which url + secondary-source: ${r.urls.length}${r.urls.length ? ` (${r.urls.join(', ')})` : ''}`);
+    console.log(`closed the turn: ${r.closed ? 'YES — MVP 7 says a look-up must NOT close' : 'no'}`);
+    console.log(`denied lines: ${r.denied.length}${r.denied.length ? ` (${r.denied.join(', ')})` : ''}`);
+    console.log(`cost ${r.stats?.costUsd ?? '?'} USD · ${r.stats?.durationMs ?? '?'} ms · ${r.stats?.numTurns ?? '?'} SDK turns`);
+    console.log(`\nprobe ${r.verdict}`);
     process.exit(r.exit);
   }
   if (wantFence) {
