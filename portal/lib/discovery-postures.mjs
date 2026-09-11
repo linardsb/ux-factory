@@ -77,24 +77,26 @@
 // moves its stamp. A template BRANCH the fixed inputs never take sits outside the hash by
 // construction, and there are FOUR of them today, not one (PR #381 F2 — the earlier form of this
 // sentence claimed the re-ask brief alone, and a mutation of PROVENANCE_RULE.real's text left all four
-// stamps unmoved with a green gate, which is the same hole #366 was written to close; the fourth
-// arrived with #289 and is named below, which is this list's own rule applied to the merge that
-// brought it):
+// stamps unmoved with a green gate — the same hole #366 was written to close, and #384 closed here;
+// the fourth arrived with #289 and is named below, which is this list's own rule applied to the merge
+// that brought it):
 //   · the RE-ASK BRIEF, on all four postures — FINGERPRINT_INPUTS' ledger holds no flag_weak_answer.
 //     #366 left it outside deliberately rather than by oversight (the FINGERPRINT_INPUTS block states
 //     the reason and the bill), and its guard is case 31's VERBATIM pin on the produced string.
 //   · PROVENANCE_RULE.real, on all four AND in the audit template, which the re-ask branch never
-//     reaches — every fixed input set pins provenance: 'fictional'. Guarded by two REGEXES (case 16),
-//     not verbatim: an includes(PROVENANCE_RULE.real) assertion compares the prompt against the edited
-//     constant and so can never see an edit to it. Widening that to a verbatim pin is its own ticket.
-//   · ledgerBrief's EMPTY-LEDGER form — every fixed ledger carries three decisions. Two regexes
-//     (case 17), same shape.
+//     reaches — every fixed input set pins provenance: 'fictional'. Guarded by case 16's VERBATIM pin
+//     on the constant (#384), beside two regexes that name two phrases and includes() assertions that
+//     prove ROUTING only: an includes(PROVENANCE_RULE.real) compares the prompt against the edited
+//     constant and so can never see an edit to it.
+//   · ledgerBrief's EMPTY-LEDGER form — every fixed ledger carries three decisions. Guarded by case
+//     17's VERBATIM pin on the produced string (#384), beside its own two-phrase assertion.
 //   · ledgerBrief's EVIDENCE LINE in its RENDERED form (#289) — the other direction of the same
 //     function. Every fixed set spreads FINGERPRINT_INPUTS' ledger, which holds no file_evidence, so
 //     the line renders for no stamp: outside all four POSTURES stamps AND all four
 //     AFFORDANCE_FINGERPRINT values. Guarded by case 30.51's three includes() assertions, not a
-//     verbatim pin, and its url / name / ref fallback arms are covered only on the url arm. Widening
-//     that is #384's ticket, beside PROVENANCE_RULE.real's — the same shape, the same gap.
+//     verbatim pin, and its url / name / ref fallback arms are covered only on the url arm. #384
+//     pinned the two branches above and left this one where it is — the same shape, the same gap.
+//     Widening it is still open, and until it lands this bullet is the only place that says so.
 // A NEW branch belongs on this list with its guard named, or it is unguarded and nothing says so.
 // Over one input set the join is byte-identical to the pre-#286 form, which is what keeps Think's
 // two stamps where the recordings have them (group 30 case 30 pins the literal).
