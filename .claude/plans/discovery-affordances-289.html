@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three Affordances Brief</title>
+<style>
+  :root { --ink: #1c1c1a; --muted: #5f5e5a; --line: #e2e0da; --bg: #fbfaf7; --card: #ffffff; --accent: #2f6f5e; --accent-soft: #e8f1ee; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 40px 0 10px; }
+  h3 { font-size: 16px; margin: 22px 0 6px; }
+  p { margin: 0 0 12px; }
+  .kicker { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .kicker a { color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  pre { background: #f3f2ee; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 8px 0 4px; }
+  pre.tree { background: #fff; }
+  code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #f3f2ee; padding: 1px 4px; border-radius: 4px; }
+  .cap { color: var(--muted); font-size: 13.5px; margin: 0 0 10px; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  ul.plain { padding-left: 20px; margin: 6px 0 12px; }
+  ul.plain li { margin: 3px 0; }
+  ol.phases { padding-left: 22px; margin: 6px 0 12px; }
+  ol.phases li { margin: 4px 0; }
+  ul.learn { list-style: none; padding: 0; margin: 8px 0; }
+  ul.learn li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); margin: 6px 0; }
+  .copy { opacity: .35; border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; min-width: 28px; min-height: 28px; }
+  .copy:hover, .copy:focus-visible { opacity: 1; }
+  .copy::before { content: '⧉'; }
+  .copy.copied::before { content: '✓'; }
+  .tag { display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 9px; font-size: 12.5px; margin-left: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Look it up, park it, say something else</h1>
+  <p class="kicker">Build brief for ticket #289. The full plan — every task, gate case, trap and open question — is <a href="discovery-affordances-289.md">discovery-affordances-289.md</a>.</p>
+
+  <h2>What we are building and why</h2>
+  <p>Today a discovery session has one move: answer the question on the screen. You cannot check a fact, skip one you honestly cannot answer, or say anything the question did not ask. After this there are three more buttons, and the record refuses to move on until each has left its mark.</p>
+
+  <h2>The ideas this rests on</h2>
+
+  <div class="card">
+    <h3>1. A turn either closes or attaches</h3>
+    <p>A <b>turn</b> is one question and everything around it. Some things the agent files end the turn; others attach and leave the question standing. The new moves attach — except parking, which ends it on purpose.</p>
+<pre>question 7 on the screen
+  ├─ look it up   → attaches, question still standing
+  ├─ say something else → attaches, question still standing
+  └─ your answer  → CLOSES → question 8</pre>
+    <p class="cap">Only one arrow moves you forward — and it is blocked while an aside above it is unrecorded.</p>
+  </div>
+
+  <div class="card">
+    <h3>2. Four words the agent is allowed to say</h3>
+    <p>The agent can only file four kinds of record: a decision, a weak-answer note, an open question, and a piece of evidence. All three new moves reuse those four. Nothing new is added to the vocabulary — the moves are new, the words are not.</p>
+<pre>look it up  → evidence (a link, labelled "secondary-source")
+park it     → open question ("banked", plus your reason)
+say else    → decision (you chose) or open question (you didn't)</pre>
+  </div>
+
+  <div class="card">
+    <h3>3. A frozen prompt is a receipt</h3>
+    <p>Every past session records a <b>fingerprint</b> — a short code for the instructions the agent was given. Change one character and seven recorded sessions stop matching. So the new text goes in the per-question message, not the standing one.</p>
+    <p class="cap">Two are 65 questions long; re-recording them destroys a sealed experiment. The two stances nothing was recorded under are free to change, and one rule changes them.</p>
+  </div>
+
+  <div class="card">
+    <h3>4. Refusing is how the record stays true</h3>
+    <p>The record-keeper never writes anything itself. When a move breaks a rule it says no, and the agent reads the refusal and tries again in its own words. That is how a rule can be strict without putting words in anyone's mouth.</p>
+    <p class="cap">It blocks moving on to the next question. It never blocks finishing — a session can always be ended.</p>
+  </div>
+
+  <h2>How the pieces fit</h2>
+<pre class="tree">     you press a button
+             │
+      ┌──────┴──────┐
+   the server    stores what you typed, word for word
+      │
+   the agent    given the standing instructions + one extra paragraph
+      │
+   it files     one of the four records
+      │
+   the package  three files on disk — the only state there is
+      │
+   the screen   reads the package back and says what was filed</pre>
+  <p class="cap">The extra paragraph is where the three affordances live, and it never reaches a normal question.</p>
+
+  <h2>The plan at a glance</h2>
+  <ol class="phases">
+    <li><b>Phase 1</b> — an aside must not replace your answer, must not end a question, and must not be left unrecorded. Independent of the rest.</li>
+    <li><b>Phase 2</b> — the four new instruction paragraphs, and proof the old ones did not move.</li>
+    <li><b>Phase 3</b> — the server learns the two new kinds of turn <span class="tag">needs Phase 2</span></li>
+    <li><b>Phase 4</b> — three buttons in the workbench <span class="tag">needs Phase 3</span></li>
+    <li><b>Phase 5</b> — the checks <span class="tag">needs 1–4</span></li>
+    <li><b>Phase 6</b> — docs, then the full check run</li>
+    <li><b>Phase 7</b> — one paid run to see whether search actually works</li>
+  </ol>
+
+<pre class="tree">discovery/
+├── ops.mjs                 # an aside stops replacing an answer; a new read walks the chain
+├── prd-projection.mjs      # the document reader follows the same rule
+└── README.md               # the format spec says so
+portal/lib/
+├── discovery-postures.mjs  # the four new paragraphs + their own fingerprint
+├── discovery.mjs           # the new turn kinds, and search allowed by name
+└── discovery-transport.mjs # a bigger call budget for a search turn
+portal/
+├── server.mjs              # three more named fields on the turn route
+└── public/*                # Park it · Look it up · Ask something else
+tooling/build-checks.mjs    # ~20 new checks, each proven able to fail</pre>
+
+  <h2>Done means</h2>
+  <table>
+    <tr><td>1</td><td>Looking something up files links, and does not end the question.</td></tr>
+    <tr><td>2</td><td>Parking files your reason, moves on, and shows up in the "not a form" count.</td></tr>
+    <tr><td>3</td><td>Saying something else always files one of two things — and the question will not close until it has.</td></tr>
+    <tr><td>4</td><td>Neither ends a question, and neither moves you forward.</td></tr>
+    <tr><td>5</td><td>Search is allowed by name, never by file path.</td></tr>
+    <tr><td>6</td><td>Any record with nothing above it is flagged, and the chain can be walked to the top.</td></tr>
+    <tr><td>+</td><td>An exchange left unrecorded at the very end is named in the finished document, never hidden.</td></tr>
+  </table>
+
+  <h2>Go deeper</h2>
+  <ul class="learn">
+    <li data-prompt="/learn append-only files as an honesty mechanism"><span><b>/learn append-only files as an honesty mechanism</b> — why a file you may add to but never edit is a stronger claim than a file you promise not to edit.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn prompt fingerprints and why they make recordings stale"><span><b>/learn prompt fingerprints</b> — hashing the instructions so an old recording can say which instructions produced it.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn tool allow-lists: by name versus by path"><span><b>/learn tool allow-lists: by name versus by path</b> — why a file rule cannot fence the internet, and what to use instead.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn the BABOK requirements ladder and traceability"><span><b>/learn the BABOK requirements ladder</b> — business, stakeholder, solution, transition, and what an orphan requirement means.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  </ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
