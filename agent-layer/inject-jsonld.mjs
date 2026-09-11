@@ -67,7 +67,14 @@ function creativeWorkNode(meta, base, page, html) {
 }
 
 function injectInto(html, nodes) {
-  const block = `${OPEN}\n  <script type="application/ld+json">\n${JSON.stringify(nodes, null, 2)}\n  </script>\n  ${CLOSE}\n`;
+  // JSON.stringify does not escape `<`, so a `</script` anywhere in a node value would close this
+  // block early and the rest of the JSON would land in the page as markup. The replacement is the
+  // six-character JSON escape for `<` — same parsed value, no bare `<` left in the emitted text. It
+  // must be written as a DOUBLE backslash in this source: a single one is just the character `<`
+  // again and the call is a silent no-op. The escape is the SINK's job, not stripTags' — canonicalOf
+  // and descOf reach these nodes without passing through it.
+  const json = JSON.stringify(nodes, null, 2).replace(/</g, "\\u003c");
+  const block = `${OPEN}\n  <script type="application/ld+json">\n${json}\n  </script>\n  ${CLOSE}\n`;
   const stripped = html.replace(new RegExp(`\\s*${OPEN}[\\s\\S]*?${CLOSE}\\n?`), "\n");
   return stripped.replace(/(\s*)<\/head>/, `\n  ${block}$1</head>`);
 }

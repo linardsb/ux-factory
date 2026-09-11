@@ -85,9 +85,17 @@ const browser = await pw.chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
 
 // Any hit on the beacon host means BEACON_TOKEN stopped being empty — worth failing loudly on,
-// because "recording is launch-gated" is a published capability claim.
+// because "recording is launch-gated" is a published capability claim. Matched on the PARSED
+// hostname, apex OR any subdomain, because the beacon uses both: analytics.mjs loads the script from
+// static.cloudflareinsights.com, and beacon.min.js posts its payload to the apex /cdn-cgi/rum — so
+// pinning either host alone blinds half of this. Never a substring test on the whole URL string
+// (CodeQL js/incomplete-url-substring-sanitization, #387): that also counts a URL merely MENTIONING
+// the name in a path or query, reddening this audit while the beacon is dark. new URL() is left
+// UNGUARDED on purpose — every URL Chromium reports here is already absolute.
+const BEACON_HOST = "cloudflareinsights.com";
+const isBeaconHost = (hostname) => hostname === BEACON_HOST || hostname.endsWith(`.${BEACON_HOST}`);
 let beaconHits = 0;
-ctx.on("request", (r) => { if (r.url().includes("cloudflareinsights.com")) beaconHits += 1; });
+ctx.on("request", (r) => { if (isBeaconHost(new URL(r.url()).hostname)) beaconHits += 1; });
 
 console.log(`\nlive-metric-audit — ${BASE} (chromium)\n`);
 

@@ -101,7 +101,22 @@ export const fold = (s) => String(s).replace(/[\r\n]/g, " ");
 // For table cells ONLY, and only for URLs, labels, seqs and op params — never for a human answer. A
 // `|` inside a cell splits the row, so it is escaped on top of the fold above. Exported for the same
 // reason as fold above (#359): one production implementation, so the battery hardens the real thing.
-export const cell = (s) => fold(s).replace(/\|/g, "\\|");
+//
+// THE BACKSLASH GOES FIRST, and the ORDER is the whole of it. `\|` is CommonMark's own escape, so a
+// backslash already in the value ate the one this adds: `a\|b` became `a\\|b`, where `\\` is an
+// escaped backslash and the `|` behind it is a live cell boundary again. GFM then DROPS the excess
+// cells, so an agent-authored url of `…?cols=plot\|holder` — ops.mjs prefix-checks the scheme and
+// nothing else — pushed `real-interview` off the Evidence row and the page lost its own provenance
+// claim, silently, because nothing on it says a column went missing. Escaping `\` first makes every
+// backslash inert before the pipe escape is written; reverse the two and the hole is back.
+//
+// This is a CELL-BOUNDARY guard still, not a markdown escaper — `*`, `_` and `[` are untouched here
+// as they always were, because a human's answer reaches the page through blockquote() below and
+// never through this. A literal backslash renders the same either way, so this moved
+// graded-opus-a/prd.md's BYTES and its rendered page on none — the one committed package carrying
+// literal backslashes, from double-escaped em dashes in its transcript. CodeQL
+// js/incomplete-sanitization reads this order as its barrier (#387).
+export const cell = (s) => fold(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 
 // THIS IS HOW ALL ARBITRARY HUMAN TEXT REACHES THE PAGE. A blockquote makes every hostile construct
 // inert: a leading `#` inside a `> ` line is not a heading, a leading `-` is not a list item that can
@@ -113,9 +128,17 @@ export const blockquote = (text) => {
   // is the wrong tool here, because an extra break would add a `>` line the human never wrote. A
   // bare CR was the hole: with a `\n`-only split, `"answer\r\r## X"` stayed one string, so `## X`
   // reached the page OUTSIDE the quote — the exact escape this function exists to make impossible.
-  const s = typeof text === "string" ? text.replace(/(?:\r\n|\r|\n)+$/, "") : "";
-  if (s.trim() === "") return "> _[no text]_";
-  return s.split(LINE_ENDING).map((l) => (l === "" ? ">" : `> ${l}`)).join("\n");
+  //
+  // The TRAILING endings are dropped by POPPING the split, never by a regex trim. `/(?:\r\n|\r|\n)+$/`
+  // read the CRLF pair two ways — one `\r\n`, or a `\r` then a `\n` — so an answer ending in CRLFs and
+  // one more character backtracked through every partition of the run: 2^n, and 24 pairs already cost
+  // 0.8s on a 49-character string (js/redos, #387). A character class trades that for a quadratic
+  // re-scan from every start position, which is the same hang further out, so the regex goes entirely.
+  // A trailing run of line endings is exactly a run of empty fields in the split this already performs.
+  if (typeof text !== "string" || text.trim() === "") return "> _[no text]_";
+  const lines = text.split(LINE_ENDING);
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.map((l) => (l === "" ? ">" : `> ${l}`)).join("\n");
 };
 
 // A value that may be absent or null, for the run header. run.json is NOT a closed shape — the real

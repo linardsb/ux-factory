@@ -96,9 +96,9 @@ export function initInstancePack({ name } = {}) {
   // The one transition. `swap` re-points the single href and resolves on load/error, so the
   // crossfade's second frame is fully styled rather than an unstyled flash (dock.mjs:190-203).
   // There is no derived record to re-read here, so no generation counter is needed — the last
-  // assignment simply wins, and every pending promise still resolves.
-  const swap = (slug) => {
-    const href = "/system/tokens." + slug + ".css";
+  // assignment simply wins, and every pending promise still resolves. It takes a FINISHED href
+  // rather than a slug — see selectPack, which owns the allowlist that chooses between the two.
+  const swap = (href) => {
     if (link.getAttribute("href") === href) return Promise.resolve(); // same sheet — no load event fires
     return new Promise((resolve) => {
       link.addEventListener("load", resolve, { once: true });
@@ -107,17 +107,25 @@ export function initInstancePack({ name } = {}) {
     });
   };
 
+  // The only two hrefs this control can ever point at, built ONCE from this module's own two slugs.
+  // The allowlist below then SELECTS one of them rather than letting a picked slug build a string:
+  // the guard and the href become one condition instead of two, so junk cannot reach an href even
+  // if a later edit loosens one of them without the other.
+  const COMPANY_HREF = "/system/tokens." + companySlug + ".css";
+  const NEUTRAL_HREF = "/system/tokens." + NEUTRAL + ".css";
+
   function selectPack(slug) {
-    if (slug !== companySlug && slug !== NEUTRAL) return; // hard allowlist — junk never reaches an href
+    const href = slug === companySlug ? COMPANY_HREF : slug === NEUTRAL ? NEUTRAL_HREF : null;
+    if (href === null) return; // hard allowlist — junk never reaches an href
     // View Transitions are absent in Firefox and stood down under reduced motion; in both cases the
     // else branch runs the swap synchronously, so the re-skin always happens (spine.mjs:184-190).
     const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (document.startViewTransition && !reduce) {
-      const vt = document.startViewTransition(() => swap(slug));
+      const vt = document.startViewTransition(() => swap(href));
       vt.ready.catch(() => {});     // a skipped transition rejects; the swap still ran
       vt.finished.catch(() => {});
     } else {
-      Promise.resolve(swap(slug)).catch(() => {});
+      Promise.resolve(swap(href)).catch(() => {});
     }
   }
 

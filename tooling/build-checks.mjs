@@ -2303,7 +2303,13 @@ function scanSvg(svg, label) {
   // mirrors following it — precisely the drift the exhaustive pin exists to prevent, arriving
   // through the door the check does not watch.
   const axis = (selector, attr, max) => {
-    const escaped = selector.replace(/[.]/g, "\\.");
+    // A FULL regex-literal escape, not just the dot: escaping some metacharacters and leaving the
+    // BACKSLASH unescaped is the classic incomplete-escape bug. `.a\.b` — the CSS spelling of class
+    // "a.b" — came out as `\.a\\.b`, where the escaping backslash is itself consumed and the second
+    // dot reverts to "any character", so the mirror would accept `.a\Xb`. The dot is still the only
+    // metacharacter the three families carry, so the matched index set is unchanged. (`RegExp.escape`
+    // says it in one word, but it lands in Node 23 and the baseline the artifacts are built on is 20.)
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const found = [...css.matchAll(new RegExp(`${escaped}\\[${attr}="(\\d+)"\\]`, "g"))].map((m) => Number(m[1]));
     ok(found.length > 0, `studio.css has no ${selector}[${attr}] rules at all — the mirror check would pass vacuously`);
     for (let i = 1; i <= max; i += 1) {
@@ -4983,11 +4989,14 @@ function scanSvg(svg, label) {
   // standalone hidden (#210's at-rest notice) — same exemption validateAssembly carries.
   ok(!/data-when=/.test(stamped), "stamped shell still carries a data-when= attribute");
   ok(!/\{\{/.test(stamped), "stamped shell still carries a {{ template token");
-  const hiddenScan = stamped.replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*\bdata-studio-notice\b[^>]*>/g, " ");
+  // Both strips close their end tag with `[^>]*>`, never a bare `>`: `</script >`, `</style foo="bar">`
+  // and `</script\t\n bar>` all close the element in a browser, and a `>`-only end tag skips PAST them
+  // to the next clean one — swallowing every word in between, so the scan below could not fail (#387).
+  const hiddenScan = stamped.replace(/<style[\s\S]*?<\/style[^>]*>/gi, " ").replace(/<[^>]*\bdata-studio-notice\b[^>]*>/g, " ");
   ok(!/<[a-zA-Z][^>]*\shidden(?=[\s/>])/.test(hiddenScan), "a real-only region kept its hidden attribute after stamping");
   const bodyText = (stamped.match(/<body[\s\S]*<\/body>/) || [, ""])[0]
-    .replace(/<!--[\s\S]*?-->/g, " ").replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+    .replace(/<!--[\s\S]*?-->/g, " ").replace(/<script[\s\S]*?<\/script[^>]*>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style[^>]*>/gi, " ").replace(/<[^>]+>/g, " ");
   for (const word of ["Northwind", "demo", "fictional"])
     ok(!new RegExp(`\\b${word}\\b`, "i").test(bodyText), `stamped body text still contains "${word}"`);
   ok(bodyText.includes("Harborlight"), "the company name was not substituted into the stamped body");
@@ -8055,8 +8064,11 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     ok(!ledgerBrief(FINGERPRINT_INPUTS.ledger).includes("Evidence filed in this run"), "30.51: ledgerBrief renders an evidence line over FINGERPRINT_INPUTS' ledger — the synthetic ledger holds no file_evidence, and an always-printed line moves all four stamps");
     const withEv = [...FINGERPRINT_INPUTS.ledger, { seq: 4, op: "file_evidence", params: { url: "https://example.test/scheme", ref: null, name: null, provenance: "secondary-source", claim_ref: null } }];
     const brief = ledgerBrief(withEv);
-    ok(brief.includes("Evidence filed in this run") && brief.includes("seq 4") && brief.includes("secondary-source") && brief.includes("https://example.test/scheme"),
-      `30.51: the evidence line does not name its seq, provenance and source — ${JSON.stringify(brief.slice(-200))}`);
+    // Pinned as ONE row rather than four separate includes: the parts stay true while the composition
+    // breaks — a newline between seq and provenance leaves all four green — and a bare URL as a
+    // substring operand is also what a static analyser reads as a check on an unparsed URL (#387).
+    ok(brief.includes("Evidence filed in this run: seq 4 (secondary-source, https://example.test/scheme)"),
+      `30.51: the evidence line does not render as one row naming its seq, provenance and source — ${JSON.stringify(brief.slice(-200))}`);
     ok(ledgerBrief(withEv).indexOf("Evidence filed") > ledgerBrief(withEv).indexOf("Parent candidates"), "30.51: the evidence line must come AFTER the parent-candidates block — PARENT_RULE's recency tail is what #341 paid a recording for");
   }
 
@@ -8196,10 +8208,14 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     return missing.length ? `threw "${m}", which does not name ${missing.map((n) => JSON.stringify(n)).join(" or ")}` : null;
   };
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  // A claim reaches a table cell with its pipes escaped and an op param reaches the page folded onto
-  // one line, so "present" accepts every form. Absence assertions use !present for exactly the same
-  // reason — an escaped or folded leak is still a leak.
-  const esc = (s) => String(s).replace(/\|/g, "\\|");
+  // A claim reaches a table cell with its pipes AND its backslashes escaped and an op param reaches
+  // the page folded onto one line, so "present" accepts every form. Absence assertions use !present
+  // for exactly the same reason — an escaped or folded leak is still a leak.
+  // Mirrors cell()'s escape set exactly, for the reason the fold below states: escaping the pipe
+  // alone here would build a match set the page never contains the moment a value carries a
+  // backslash — discovery/graded-opus-a's answers carry literal `£` sequences — and every
+  // !present absence assertion would then pass blind.
+  const esc = (s) => String(s).replace(/[\\|]/g, "\\$&");
   // CommonMark's three line endings, not just LF — the module folds on all three, so this copy has
   // to, or `present()` builds its match set blind to CR and reports a leak as contained.
   // Mirrors the module's fold EXACTLY — every line-ending CHARACTER, so a CRLF pair becomes TWO
@@ -9472,7 +9488,9 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
   // Local copies, and the duplication is DELIBERATE (:6728-6734's reasoning): the assertion side has
   // to mirror the module's containment independently or it builds a match set the page never
   // contains. A one-space copy of fold here would make every leak read as contained.
-  const esc = (s) => String(s).replace(/\|/g, "\\|");
+  // The BACKSLASH is escaped beside the pipe because cell() escapes it too: a pipe-only copy here
+  // would build `a\|b` where the page carries `a\\\|b`, and the leak would read as absent.
+  const esc = (s) => String(s).replace(/[\\|]/g, "\\$&");
   const fold = (s) => String(s).replace(/[\r\n]/g, " ");
   const present = (md, s) => [String(s), esc(s), fold(s), esc(fold(s))].some((v) => md.includes(v));
   // A multi-line value reaches the page through blockquote(), which prefixes every line with `> ` —

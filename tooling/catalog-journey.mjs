@@ -240,8 +240,16 @@ async function journey(engineName, results, held) {
   t(`vd tab on exactly ${WRAPPER_COUNT} (counted from the fetched pack)`, gating.withVd === WRAPPER_COUNT, JSON.stringify(gating));
   t("react tab gates identically", gating.withReact === WRAPPER_COUNT, JSON.stringify(gating));
   t(`the honest absence note on the other ${COUNT - WRAPPER_COUNT}`, gating.withNote === gating.total - WRAPPER_COUNT, JSON.stringify(gating));
-  const shadowText = await page.evaluate(async () => {
-    const markup = document.getElementById("plant-card").querySelector('.cat-code[data-panel="vd"] code').textContent;
+  // The tab's text leaves the page as a driver-side string and comes back as an evaluate argument:
+  // the same bytes, pasted the same way, which is what makes the paste below literally a reader's
+  // copy out and paste back. It is a RESTRUCTURE, not a hardening — the markup is unchanged and
+  // unsanitised on purpose, because the property under test is that the tab's EXACT serialized
+  // markup renders (system/catalog.mjs:132-134), and anything that alters the string deletes it.
+  // What it removes is the in-page shape — page DOM text reparsed as HTML in page context — which
+  // is the one CodeQL js/xss-through-dom matches (#387). The timeout is load-bearing:
+  // page.textContent carries no default one, so a missing panel would hang the run, not fail it.
+  const vdTabMarkup = await page.textContent('#plant-card .cat-code[data-panel="vd"] code', { timeout: 10000 });
+  const shadowText = await page.evaluate(async (markup) => {
     await import("/system/wc/vd-plant-card.mjs");
     const holder = document.createElement("div");
     holder.innerHTML = markup; // driver-context paste of the tab's EXACT serialized markup
@@ -250,7 +258,7 @@ async function journey(engineName, results, held) {
     const text = holder.firstElementChild.shadowRoot ? holder.firstElementChild.shadowRoot.textContent : "";
     holder.remove();
     return text;
-  });
+  }, vdTabMarkup);
   t("the pasted vd markup renders the plant name in the real element's shadow root",
     shadowText.includes("Monstera"), JSON.stringify(shadowText.slice(0, 80)));
 
