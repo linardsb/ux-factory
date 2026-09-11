@@ -7,5 +7,5 @@ import { execFile } from "node:child_process";
 export const server = createServer((req, res) => {
   const q = new URL(req.url, "http://localhost").searchParams.get("q");
   execFile("echo", [q ?? ""], () => {});   // argv element, never a shell string
-  res.end(String(q));                      // echoed back, never evaluated
+  res.end("ok");                           // the request value never reaches the response
 });
