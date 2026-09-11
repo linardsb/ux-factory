@@ -27,7 +27,22 @@
 //      an unbacked decision.
 //   4. R2 KEYS ON THE TURN, NOT THE QUESTION. Exactly one closing op per banked-question turn
 //      (ctx.turn, the server's id). Off-script ops and file_evidence never close a turn, which is
-//      what makes MVP 9's escape hatch expressible.
+//      what makes MVP 9's escape hatch expressible. #289 made the escape hatch reachable and turned
+//      the invariant from a parameter the agent asserts into a property of the server-written answer
+//      store, in four rules keyed on the ANSWER an op names (kind and intent are written by
+//      appendAnswer, never by the agent): a CLOSING op may not rest on an off-script answer; a
+//      decision or open question naming one must carry the off-script form (off_script true /
+//      source "off-script"); one off-script answer settles as a decision or an open question, never
+//      both; and a turn cannot be closed while an `intent: "aside"` answer on it has no filing.
+//      NOTHING DEADLOCKS, and the reason is structural rather than argued: the compliant filing is
+//      non-closing, so closeTurn never sees it, and the settle-once rule permits it at count 0 — so a
+//      legal next op always exists. THE GUARD IS ON ADVANCING, NEVER ON LEAVING: closeSession is
+//      deliberately not gated, so a stubborn agent can stall a turn but can never make a package
+//      unfinishable, which is what keeps MVP 8's "blocking is not available" true. An unfiled
+//      exchange after the last turn is RECORDED (auditExchanges, and prd.md names it), never refused.
+//      And a SUPERSEDE is the latest answer to a banked question replacing an earlier one, so an
+//      off-script decision — which names a question without answering it — never supersedes and is
+//      never superseded.
 //   5. REFS ARE `seq`s AND THE APPLIER ASSIGNS THEM. `parent_id`, `evidence_refs[]` and
 //      `claim_ref` are integers naming an earlier record's `seq` — one id space, nothing the agent
 //      can invent (a seq it has not seen does not resolve).
@@ -35,11 +50,13 @@
 //      the caller (the server, the gate, the projection). #282's export names are not this
 //      module's business, and CI's absence of portal/node_modules cannot touch it.
 //
-// Three pure reads over a ledger sit beside the applier — `parentCandidates` and `auditParenting`
+// Five pure reads over a ledger sit beside the applier — `parentCandidates` and `auditParenting`
 // (#341), because the refusal, the prompt and the gate must all answer "who could this decision's
-// parent be?" identically; and `ledgerView` (#288), whose consumer is sessionView → the drawer's
+// parent be?" identically; `ledgerView` (#288), whose consumer is sessionView → the drawer's
 // package view, for the same reason one rung down: a fold written inline in the browser is a
-// claim-generating surface no gate can reach. ledgerView MIRRORS prd-projection.mjs's visible and
+// claim-generating surface no gate can reach; and `auditTraceability` + `auditExchanges` (#289), the
+// package-wide reads MVP 10's traceability rule and MVP 9's filing rule need and no per-record flag
+// reaches. ledgerView MIRRORS prd-projection.mjs's visible and
 // supersede rules rather than importing them (that module imports the bank, and invariant 6 is what
 // lets this one load in CI with no portal/node_modules), and build-checks group 29 compares the two
 // readers on one committed package. A PURE READ IS NOT A VERB: it does not take the epic's op-verb
@@ -108,6 +125,91 @@ export function auditParenting(ops) {
   return { eligible, missed, structural };
 }
 
+// THE TRACEABILITY RULE, checkable over a WHOLE package (#289; PRD MVP 10, first rule). The
+// per-record halves already exist — `orphan` when a non-business decision names no parent,
+// `no-evidence` when it names no evidence — and they are flagged IDENTICALLY, which is the second half
+// of the rule. What no read reaches today is the CHAIN: a solution whose stakeholder parent is itself
+// an orphan is unrooted even though neither record is flagged twice. So every decision walks UP through
+// parent_id to a business decision or to nothing, and `unrooted` names the ones that do not arrive.
+//
+// Composes auditParenting rather than re-deriving it — two answers to "who could this decision's parent
+// be" is the drift this file's header forbids. Total over junk, like ledgerView: a view that throws
+// takes the reader down over a record the applier already accepted. A PURE READ IS NOT A VERB: nothing
+// in OPS, PARAMS or the switch moves for it, so it takes no op-verb lock.
+//
+// Shape: { parenting, rooted, unrooted, unbacked, byLevel }. `byLevel` is keyed by every entry of LEVELS
+// ALWAYS — a rung nobody filed at reads 0, the rule ledgerView's `counts` follows — so a fifth rung
+// shows up as a missing key rather than as silence.
+export function auditTraceability(ops) {
+  // auditParenting is NOT total over junk — it reaches r.params.level and hands it to parentCandidates,
+  // which throws on a level off the ladder. That is right for its own caller (the gate hands it applier
+  // output), and wrong here, where this read backs a live drawer. So the malformed decisions are dropped
+  // BEFORE it sees them rather than its own refusal being softened: a record the applier could not have
+  // produced is not a parenting miss, and softening auditParenting would let a real one read as clean.
+  const sane = Array.isArray(ops)
+    ? ops.filter((r) => r && typeof r === "object" && (r.op !== "record_decision" || LEVELS.includes(r.params?.level)))
+    : [];
+  const list = sane.filter((r) => r.op === "record_decision");
+  const parenting = auditParenting(sane);
+  const bySeq = new Map(list.map((r) => [r.seq, r]));
+  const rooted = [], unrooted = [], unbacked = [];
+  for (const r of list) {
+    if (Array.isArray(r.flagged) && r.flagged.includes("no-evidence")) unbacked.push(r.seq);
+    // CYCLE SAFETY. parent_id names an EARLIER seq, so a cycle is impossible through the applier — but
+    // this read is total over junk, and a hand-edited ledger must terminate rather than hang the drawer.
+    // A walk that does not terminate is unrooted, which is the honest reading of a broken chain.
+    const seen = new Set();
+    let at = r, ok = false;
+    while (at) {
+      if (seen.has(at.seq)) break;
+      seen.add(at.seq);
+      if (at.params?.level === LEVELS[0]) { ok = true; break; }
+      const pid = at.params?.parent_id ?? null;
+      if (pid === null) break;
+      at = bySeq.get(pid) ?? null;
+    }
+    (ok ? rooted : unrooted).push(r.seq);
+  }
+  const byLevel = Object.fromEntries(LEVELS.map((level) => {
+    const at = list.filter((r) => r.params?.level === level);
+    return [level, {
+      decisions: at.length,
+      orphans: at.filter((r) => Array.isArray(r.flagged) && r.flagged.includes("orphan")).length,
+      unbacked: at.filter((r) => Array.isArray(r.flagged) && r.flagged.includes("no-evidence")).length,
+    }];
+  }));
+  return { parenting, rooted, unrooted, unbacked, byLevel };
+}
+
+// WHICH OFF-SCRIPT EXCHANGES WERE FILED (#289; AC #3). The applier REFUSES a closer while an aside on
+// the open turn has no filing — but a session can always be finished (MVP 8: blocking is not
+// available), so an exchange after the last turn has no later op to refuse. That tail is RECORDED here
+// instead: the drawer reads it live and prd.md names it permanently.
+//
+// Takes both arrays because the discriminator is on the ANSWER — `kind` and `intent` are server-written
+// by appendAnswer and the agent has no route to either. An `intent: "look-up"` line goes to `lookups`
+// with NO verdict, and that is deliberate: LOOK_IT_UP_RULE makes filing evidence rows, or filing
+// nothing at all when nothing usable was found, the correct outcome, so there is nothing to be unfiled
+// about. file_evidence is not a filing here for the same reason the applier does not count it.
+//
+// Total over junk, every array a copy. A PURE READ IS NOT A VERB.
+export function auditExchanges(answers, ops) {
+  const lines = Array.isArray(answers) ? answers.filter((a) => a && typeof a === "object" && a.kind === "off-script") : [];
+  const list = Array.isArray(ops) ? ops.filter((r) => r && typeof r === "object" && OPS.includes(r.op)) : [];
+  const settledBy = (ref) => list.find((r) =>
+    (r.op === "record_decision" && r.params?.off_script === true && r.params?.answer_ref === ref)
+    || (r.op === "open_question" && r.params?.source === "off-script" && r.params?.answer_ref === ref)) ?? null;
+  const row = (a) => ({ ref: a.ref ?? null, turn: a.turn ?? null, intent: a.intent ?? null, text: typeof a.text === "string" ? a.text : null });
+  const settled = [], unfiled = [], lookups = [];
+  for (const a of lines) {
+    if (a.intent === "look-up") { lookups.push(row(a)); continue; }
+    const by = settledBy(a.ref);
+    if (by) settled.push({ ...row(a), seq: by.seq ?? null, op: by.op });
+    else unfiled.push(row(a));
+  }
+  return { settled, unfiled, lookups };
+}
+
 // WHAT THE PACKAGE HOLDS, as a value (#288; AC #4). The drawer renders this and derives nothing of
 // its own — every count, flag and marker below is read, so the surface can never show a claim the ops
 // do not hold. Four rules a future editor must keep:
@@ -136,8 +238,19 @@ export function ledgerView(ops) {
   }
   const decisionsRaw = list.filter((r) => r.op === "record_decision");
   // The projection's rule, mirrored: latest per banked question_id, and every off-script one its own.
+  // An off-script decision may NAME a banked question (#289) and never supersedes it, so it is excluded
+  // from the map and reads `latest` on its own row. BOTH READERS READ `!== true` HERE — indexOps'
+  // matching fold (prd-projection.mjs) uses the same predicate, and the `=== true` in that file is its
+  // `visible` filter's inclusion test, a different job. `!== true` is the fail-closed direction for
+  // both: a malformed record must not be treated as banked.
+  //
+  // THE REAL ASYMMETRY IS THE APPLIER'S, and it is undocumented nowhere else: applyOp's supersede guard
+  // below reads `off_script === false`, where both readers read `!== true`. They part on a record whose
+  // `off_script` is absent or undefined — not-banked to the applier, banked to both readers. checkOp
+  // refuses a non-boolean, so the applier can never write that shape; it is reachable only through a
+  // hand-edited transcript.jsonl, which the honesty contract already forbids. A seam, not a bug.
   const latestByQuestion = new Map();
-  for (const d of decisionsRaw) { const q = d.params?.question_id ?? null; if (q !== null) latestByQuestion.set(q, d.seq); }
+  for (const d of decisionsRaw) { const q = d.params?.question_id ?? null; if (q !== null && d.params?.off_script !== true) latestByQuestion.set(q, d.seq); }
   const supersededBy = new Map();
   for (const d of decisionsRaw) if (d.supersedes !== null && d.supersedes !== undefined) supersededBy.set(d.supersedes, d.seq);
   const at = (r) => ({ seq: r.seq ?? null, turn: r.turn ?? null });
@@ -154,7 +267,7 @@ export function ledgerView(ops) {
         wrongIf: p.wrong_if ?? null, offScript: p.off_script === true,
         flagged: Array.isArray(r.flagged) ? [...r.flagged] : [],
         supersedes: r.supersedes ?? null, supersededBy: supersededBy.get(r.seq) ?? null,
-        latest: qid === null || latestByQuestion.get(qid) === r.seq,
+        latest: p.off_script === true || qid === null || latestByQuestion.get(qid) === r.seq,
       };
     }),
     weak: list.filter((r) => r.op === "flag_weak_answer").map((r) => ({
@@ -215,6 +328,19 @@ export function applyOp(state, op, ctx) {
   const turn = ctx.turn ?? null;
   const refs = new Set(ctx.answers.map((a) => a?.ref));
   const bankIds = new Set(ctx.bank.map((q) => q?.id));
+  // The ANSWER an op rests on, for the four #289 rules below. `refs` deliberately stays a Set: throw 1's
+  // message interpolates [...refs] and case 28.8 drives an answer store holding a Symbol, which a
+  // ref → record Map would turn into a TypeError. `?.` for the same reason — 28.8 also drives [null].
+  // Reads only server-written fields (kind, intent, turn); it never reaches `text`, so invariant 1 holds.
+  const answerOf = (ref) => ctx.answers.find((a) => a?.ref === ref) ?? null;
+  const isOffScript = (ref) => answerOf(ref)?.kind === "off-script";
+  // The two ops that SETTLE an off-script exchange (MVP 9 names both, in both branches). file_evidence
+  // is deliberately NOT one: a url-sourced row carries ref null and names no answer at all, and MVP 7
+  // makes filing evidence alone the correct outcome of a look-up. Counting it here would quietly widen
+  // AC #3 to accept an evidence row where an aside needed a decision or an open question.
+  const settlesOffScript = (r, ref) =>
+    (r.op === "record_decision" && r.params.off_script === true && r.params.answer_ref === ref)
+    || (r.op === "open_question" && r.params.source === "off-script" && r.params.answer_ref === ref);
 
   // Throw 1 — the answer-by-reference rule's teeth.
   const resolveAnswer = (ref, field = "answer_ref") => {
@@ -240,6 +366,16 @@ export function applyOp(state, op, ctx) {
     if (!nonEmptyString(ctx.turn)) throw new Error(`${name}: no banked turn is open — a closing op needs the server's turn id`);
     const closer = state.ops.find((r) => r.closes && r.turn === ctx.turn);
     if (closer) throw new Error(`${name}: turn "${ctx.turn}" is already closed by op ${closer.seq} — one closing op per banked-question turn (R2)`);
+    // AC #3 (#289), the zero case: a turn cannot advance while an ASIDE on it has no filing. Scoped to
+    // intent "aside" on purpose — LOOK_IT_UP_RULE makes "file nothing at all" a look-up's correct
+    // outcome, so a guard keyed on kind alone would refuse the banked closer after every compliant
+    // look-up. Scoped to THIS turn on purpose too: an aside on an earlier turn is that turn's business,
+    // and there is no later op to refuse once a session is finished — auditExchanges records the tail
+    // and prd.md names it. The compliant filing does not close, so it never reaches this guard.
+    const unfiled = ctx.answers.filter((a) =>
+      a?.kind === "off-script" && a.intent === "aside" && a.turn === ctx.turn
+      && !state.ops.some((r) => settlesOffScript(r, a.ref)));
+    if (unfiled.length) throw new Error(`${name}: answer ${unfiled.map((a) => `"${String(a.ref)}"`).join(", ")} on turn "${ctx.turn}" is an off-script aside with no filing — file record_decision with off_script true, or open_question with source "off-script", naming it BEFORE closing this turn. Neither closes the turn, so the question on the table is still yours to close after it (MVP 9, #289)`);
   };
 
   let params;
@@ -252,6 +388,20 @@ export function applyOp(state, op, ctx) {
       resolveAnswer(p.answer_ref);
       if (!LEVELS.includes(p.level)) throw new Error(`${name}: level "${p.level}" is not on the ladder — ${LEVELS.join(" · ")}`);
       if (typeof p.off_script !== "boolean") throw new Error(`${name}: "off_script" must be true or false`);
+      // #289, the wrong-kind case. The answer's `kind` is the server's, so this is not the agent
+      // asserting off_script — it is the record. At HEAD a banked decision naming an aside recorded
+      // closes: true and settled the banked question with the person's digression.
+      if (isOffScript(p.answer_ref) && !p.off_script)
+        throw new Error(`${name}: answer_ref "${p.answer_ref}" is an off-script answer, so this decision must carry off_script true — an off-script exchange attaches to the run and never answers the question on the table (MVP 9)`);
+      // #289, settle-once. One off-script answer settles as a decision OR an open question, never both.
+      // KEYED ON THE ANSWER'S KIND, never on "two settling ops on one ref": in an existing-prd audit
+      // every op names the one kind "document" line, and the audit's own verdict table maps ANSWERED to
+      // record_decision and ABSENT to open_question — so an unscoped rule would refuse the ordinary
+      // audit pair. All eight committed packages are blank-idea, so no gate would have caught that.
+      if (isOffScript(p.answer_ref)) {
+        const other = state.ops.find((r) => r.op === "open_question" && r.params.source === "off-script" && r.params.answer_ref === p.answer_ref);
+        if (other) throw new Error(`${name}: off-script answer "${p.answer_ref}" is already settled by op ${other.seq}, an open_question — one off-script answer files a decision or an open question, never both (MVP 9)`);
+      }
       checkQuestion(p.question_id);
       if (!p.off_script && p.question_id === null) throw new Error(`${name}: a banked decision (off_script: false) must name its question_id`);
       if (!nonEmptyString(p.wrong_if)) throw new Error(`${name}: "wrong_if" must be a non-empty string — a decision states what would make it wrong`);
@@ -274,8 +424,19 @@ export function applyOp(state, op, ctx) {
       if (closes) closeTurn();
       if (p.evidence_refs.length === 0) flagged.push("no-evidence");
       if (p.parent_id === null && p.level !== "business") flagged.push("orphan");
-      if (p.question_id !== null) {
-        const prior = state.ops.findLast((r) => r.op === "record_decision" && r.params.question_id === p.question_id);
+      // MVP 9 (#289). A supersede is the LATEST ANSWER to a banked question replacing an earlier one.
+      // An off-script decision is not an answer to the question on the table — architecture §Data model:
+      // an off-script exchange "attaches to the run without consuming a turn's slot and without advancing
+      // the cursor". It may still NAME the question it touched (the normal case: naming it is usually why
+      // the person went off-script), and naming is not answering. THE TWO CONDITIONS DO ONE JOB EACH.
+      // `!p.off_script` says an off-script decision never supersedes anything. `off_script === false`
+      // inside findLast says a banked decision never names an off-script record as the thing it replaced
+      // — it looks PAST it to the previous banked answer. Without the second, the re-ask sequence (a weak
+      // flag on q1, then an aside on q1, then the banked answer to q1's second ask) files the aside as the
+      // superseded record, which is the person's own decision replaced by their own digression.
+      if (p.question_id !== null && !p.off_script) {
+        const prior = state.ops.findLast((r) => r.op === "record_decision"
+          && r.params.question_id === p.question_id && r.params.off_script === false);
         supersedes = prior ? prior.seq : null;
       }
       params = {
@@ -288,6 +449,10 @@ export function applyOp(state, op, ctx) {
       if (p.question_id === null) throw new Error(`${name}: question_id must name a banked question — a weak answer is weak against a question`);
       checkQuestion(p.question_id);
       resolveAnswer(p.answer_ref);
+      // #289. flag_weak_answer has no off-script form at all — it is weak AGAINST a banked question,
+      // and it always closes. At HEAD it recorded closes: true over an aside.
+      if (isOffScript(p.answer_ref))
+        throw new Error(`${name}: answer_ref "${p.answer_ref}" is an off-script answer — a weak-answer flag judges the person's answer to the question on the table, and an off-script exchange is not one. flag_weak_answer has no off-script form (MVP 9)`);
       if (!Array.isArray(p.missing) || p.missing.length === 0 || !p.missing.every(nonEmptyString))
         throw new Error(`${name}: "missing" must be a non-empty array of non-empty strings — what the answer lacks`);
       closes = true;
@@ -300,6 +465,16 @@ export function applyOp(state, op, ctx) {
       checkQuestion(p.question_id);
       if (p.source === "banked" && p.question_id === null) throw new Error(`${name}: a banked open question must name its question_id`);
       resolveAnswer(p.answer_ref);
+      // #289, the wrong-kind case — and it also refuses a BANKED open question naming an off-script
+      // answer, which is the park path meeting an aside. That is correct and is its own behaviour
+      // change: a park's answer_ref is the person's park reason, a banked line, never a digression.
+      if (isOffScript(p.answer_ref) && p.source !== "off-script")
+        throw new Error(`${name}: answer_ref "${p.answer_ref}" is an off-script answer, so this open question must carry source "off-script" (got "${p.source}") — a banked open question parks the question on the table, and an off-script exchange is not an answer to it (MVP 9)`);
+      // #289, settle-once. The mirror of record_decision's, keyed on the answer's kind for the same reason.
+      if (isOffScript(p.answer_ref)) {
+        const other = state.ops.find((r) => r.op === "record_decision" && r.params.off_script === true && r.params.answer_ref === p.answer_ref);
+        if (other) throw new Error(`${name}: off-script answer "${p.answer_ref}" is already settled by op ${other.seq}, a record_decision — one off-script answer files a decision or an open question, never both (MVP 9)`);
+      }
       if (!nonEmptyString(p.reason)) throw new Error(`${name}: "reason" must be a non-empty string`);
       closes = p.source === "banked";
       if (closes) closeTurn();

@@ -158,7 +158,8 @@ it. `file_evidence` never closes and may fire many times. **Off-script ops never
 which is MVP 9's escape hatch: a decision filed against a banked question whose turn is already
 closed can only arrive as `off_script: true` (usually *why* the person went off-script), and one
 filed against no banked question at all (`question_id: null`) is the other case the PRD names.
-Both attach to the run without consuming a turn's slot. A revisited question on a **new** turn is
+Both attach to the run without consuming a turn's slot, and neither supersedes anything (#289 — see
+§Supersede). A revisited question on a **new** turn is
 a fresh slot (D5 escalation). **#285 gives it its rule:** on the three ladder depths a
 `flag_weak_answer` HOLDS the question for one more turn — MVP 6's "pushes back once" — and a second
 closer of any kind settles it; never a third ask. `whole-bank` never holds (its 65 sealed answers are
@@ -166,14 +167,51 @@ pasted one per question, #348). At Scope check a question weak on both asks make
 `sessionView().escalation` name the rung above; the depth in `run.json` is written once (D3), so
 stepping up is a new run.
 
-**Supersede.** A `record_decision` with a non-null `question_id` records `supersedes: <seq>` naming
-the latest earlier decision on the same question, else `null`. Both records stay; nothing is
-removed. The projection and the canvas read the latest.
+**Supersede.** A **banked** `record_decision` with a non-null `question_id` records `supersedes: <seq>`
+naming the latest earlier **banked** decision on the same question, else `null`. Both records stay;
+nothing is removed. The projection and the canvas read the latest.
+
+**An off-script decision never supersedes and is never superseded (#289).** A supersede is the latest
+ANSWER to a banked question replacing an earlier one. An off-script decision may NAME the question it
+touched — architecture §Data model calls that "the normal case (it is usually why the person went
+off-script)" — and naming is not answering. So it records `supersedes: null`, and a later banked
+decision looks PAST it to the previous banked answer. Both halves matter: without the second, the
+sequence *weak flag → aside → the second ask's answer* files the person's own digression as the thing
+their own answer replaced.
+
+**The four off-script rules (#289), keyed on the ANSWER an op names.** `kind` and `intent` on an
+answer line are written by the server and the agent has no route to either, so these are properties of
+the record rather than parameters the agent asserts:
+
+- **A closing op may not rest on an off-script answer.** A `flag_weak_answer` naming one is refused
+  outright (it has no off-script form and always closes); a `record_decision` naming one must carry
+  `off_script: true`; an `open_question` naming one must carry `source: "off-script"`. This also
+  refuses a **banked** open question naming an off-script answer, which is the park path meeting an
+  aside — correct, because a park's `answer_ref` is the person's park reason, never a digression.
+- **One off-script answer settles as a decision OR an open question, never both.** Keyed on the
+  answer's `kind`, never on "two settling ops sharing a ref": in an existing-prd audit every op names
+  the one `kind: "document"` line, and the verdict table maps ANSWERED to `record_decision` and ABSENT
+  to `open_question`, so any audit reaching both verdicts files exactly that pair. The rule forbids the
+  contradictory PAIR, not a re-filing: a SECOND op of the same kind on one `answer_ref` is accepted, and
+  because off-script decisions never supersede, two of them render as two unmarked rows in `prd.md`'s
+  ladder with nothing marking them as two takes on one exchange (`auditExchanges` reports the first).
+- **A turn cannot be closed while an `intent: "aside"` answer on it has no filing.** Scoped to asides
+  on purpose: filing nothing at all is a look-up's correct outcome, so a rule keyed on `kind` alone
+  would refuse the banked closer after every compliant look-up.
+
+**Nothing deadlocks, and THE GUARD IS ON ADVANCING, NEVER ON LEAVING.** The compliant filing does not
+close, so the closer guard never sees it, and the settle-once rule permits it at count 0 — a legal next
+op therefore always exists. `closeSession` is deliberately not gated, so a stubborn agent can stall a
+turn but can never make a package unfinishable, which is what keeps MVP 8's "blocking is not
+available" true. An exchange left unfiled when the session ends has no later op to refuse; it is named
+in `prd.md` under Open questions instead.
 
 **What the applier does not judge:** the text of anything (form, never substance); whether the
 turn's question matches `question_id` (the server owns the cursor); forward references (a decision
 cites evidence filed before it — that is the "file evidence, then decide" loop, and `[]` plus the
-flag is the honest escape).
+flag is the honest escape); and **which of the two off-script forms an exchange deserved** — it
+enforces that exactly one is filed and that the form matches the answer's own server-written `kind`,
+never whether the agent chose right. That is substance, and MVP 6 forbids the applier from reading it.
 
 ## The audit mode (existing-prd, #286)
 
@@ -225,9 +263,23 @@ asserts the fields that arithmetic needs are on every record.
 
 ```jsonl
 { "ref": "a7", "ts": "…Z", "turn": "t7", "question_id": "q12", "kind": "banked", "text": "…what the human typed…" }
-{ "ref": "a8", "ts": "…Z", "turn": "t7", "question_id": null, "kind": "off-script", "text": "…" }
+{ "ref": "a8", "ts": "…Z", "turn": "t7", "question_id": null, "kind": "off-script", "intent": "aside", "text": "…" }
+{ "ref": "a9", "ts": "…Z", "turn": "t7", "question_id": null, "kind": "off-script", "intent": "look-up", "text": "…" }
 { "ref": "a1", "ts": "…Z", "turn": null, "question_id": null, "kind": "document", "text": "…the supplied PRD, verbatim — an existing-prd audit's ONE document line, written at session start (#286)…" }
 ```
+
+**`intent` is written on off-script lines ONLY (#289)** — `look-up` or `aside`, the control the person
+pressed — and is ABSENT on banked and document lines, so every line recorded before #289 reads
+unchanged. It is the discriminator four rules rest on: the applier's closer guard, `auditExchanges`,
+the turn prompt's pending brief, and the unfiled block in `prd.md`. The agent has no route to it.
+
+**MORE THAN ONE ANSWER LINE MAY CARRY THE SAME `turn` ID (#289).** An off-script exchange shares the
+OPEN banked turn's id — the exchange happened *during* that turn — so a turn can hold one or more
+off-script lines and then the banked answer that closes it. `assertTurnWritable` only refuses a
+*closed* turn, and nothing else guards it because nothing needs to: the cursor and the not-a-form
+counter both count CLOSERS, and no off-script op closes. `run.json`'s `turnStats` gains one entry per
+`query()` for the same reason, so a reader wanting turns reads DISTINCT ids. Any reader that assumed
+one answer line per turn is wrong after #289.
 
 **`transcript.jsonl`** — append-only, three line types. An `op` line is the applier's record with
 `type` and `ts` added by the writer (#284); `seq`, `turn`, `op`, `params`, `closes`, `flagged` and
@@ -344,8 +396,8 @@ in the ops.
 
 **Two counted sets, and the page says which.** The ladder sections, Non-goals and the Requirement
 hierarchy's counts are over the latest decision per BANKED question, plus EVERY off-script decision,
-each its own — an off-script decision names no question, so nothing can supersede it and none of them
-collapse into one. Success metrics, the Evidence gap list
+each its own — an off-script decision may name the question it touched and still never supersedes or is
+superseded (#289), so none of them collapse into one. Success metrics, the Evidence gap list
 and the `**Ledger**` line are over the WHOLE ledger, replaced records included, because nothing is
 removed. Every whole-ledger surface marks a replaced record `superseded by seq N` and the Ledger line
 names its own set, so a higher count there than in the hierarchy is resolvable rather than a
@@ -747,6 +799,23 @@ it goes. A page reload or a server restart resumes from disk; "Finish" sets `end
 is `portal/lib/discovery.mjs` (SDK-free) + `portal/lib/discovery-transport.mjs` (the one SDK
 import); their headers are the specification.
 
+**Three affordances beside the answer box (#289).** They file through the four existing verbs and add
+none, and each is a drawer CONTROL — never a file anyone types, and never a `kind` the agent chooses:
+
+| Control | The person… | Files | Closes the turn? |
+|---|---|---|---|
+| **Park it** | cannot answer this yet, and gives their reason (stored verbatim as the answer) | `open_question` with `source: "banked"` and a reason | **yes** — the cursor advances and the not-a-form counter increments. Blocking is never available (MVP 8) |
+| **Look it up** | asks the agent to search, or pastes a source | `file_evidence` per source actually used, `url` set, `provenance: "secondary-source"` — or **nothing at all** when nothing usable was found, which is the correct outcome | no — the question stays on the table and the person's own answer settles it (MVP 7) |
+| **Ask something else** | says what the question did not ask for | exactly one of `record_decision` with `off_script: true` or `open_question` with `source: "off-script"` — dropping it is never available, and the applier refuses to close the turn while it is unfiled (MVP 9) | no |
+
+Both off-script controls write one `kind: "off-script"` answer line carrying the person's declared
+`intent`, sharing the OPEN turn's id. `WebSearch` and `WebFetch` are advertised on an off-script turn
+ONLY, allowed BY NAME through the fence's `extraTools` seam — they are never in `READ_TOOLS`, because a
+path allow-list cannot reach a URL (#287's assertion is untouched). Neither control is available in an
+existing-prd audit: the document is the answer to every question, so there is nobody to park or to go
+off-script. The turn prompt for these carries its own stamp, `affordanceFingerprint`, beside the
+posture's own on `run.json`'s `turnStats`.
+
 **An audit** (#286) starts the same way with the entry set to an existing PRD: paste the document or
 name a repo-relative path the server reads (run 2's frozen fixture), the posture is Grill, pick its
 model, start — the server stores the document once and every "Audit this question" turn judges it.
@@ -758,6 +827,7 @@ cd portal && node lib/discovery-transport.mjs --preflight   # the transport's ei
 cd portal && node lib/discovery-transport.mjs --probe-parenting   # ONE paid turn: does the agent name a parent when the ledger shows one? run after any prompt edit
 cd portal && node lib/discovery-transport.mjs --probe-fence   # THREE paid turns: the read fence holding at each call site ALONE (#287); run after any edit to the fence or the transport's wiring
 cd portal && node lib/discovery-transport.mjs --probe-audit [--model claude-opus-5]   # ONE paid turn: does Grill reach a verdict the audit rule names, quote the document's wrong-if, and judge in prose first? (#286); run after any edit to the audit rules
+cd portal && node lib/discovery-transport.mjs --probe-affordance   # ONE paid turn: does WebSearch EXECUTE under tools: [...FETCH_TOOLS], does the fence still deny everything else on the same turn, and does the agent file a secondary-source URL WITHOUT closing? (#289); run after any edit to LOOK_IT_UP_RULE or the fetch wiring
 cd portal && DISCOVERY_FENCE_TRACE=<path outside every run root> npm start   # arms the fence trace (#349) for the recordings this server serves: every decision on a tool outside the run's op vocabulary — allow as well as deny — with its tool and whether it wrote a transcript line. Off by default; the path is operator discipline, nothing enforces it
 node discovery/prd-projection.mjs <slug> [--stdout] [--force]   # the run package → prd.md (#290); group 31 drives the pure half
 cd portal && node lib/discovery-proposer.mjs --dry --slug <slug> --provenance fictional   # the proposal run's seven preflight rows + the whole brief printed, ZERO tokens (#359); run before every paid attempt

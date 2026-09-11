@@ -356,9 +356,17 @@ const server = createServer(async (req, res) => {
         // own: a projection written inline here is one build-checks group 30 cannot reach, and it
         // would drift from the one group 30 does check. It returns null for anything not projectable,
         // so the send is simply skipped.
+        //
+        // #289 names three more, each individually and never as a spread. `kind` chooses whether this
+        // submit is an answer to the question on the table or an off-script exchange beside it; `intent`
+        // is the person's own declaration of which affordance they pressed, and it is WRITTEN ONTO THE
+        // ANSWER LINE, so it reaches an append-only file and the applier's four MVP 9 rules rest on it;
+        // `park` adds one paragraph to the turn prompt. Each is defaulted here to the value every
+        // pre-#289 caller implied, so a body that names none of them runs exactly the turn it ran before.
         const view = await runTurn({
           slug: body.slug, provenance: body.provenance, questionId: body.questionId,
-          kind: 'banked', text: body.text,
+          kind: body.kind ?? 'banked', intent: body.intent ?? null, park: body.park === true,
+          text: body.text,
           onLine: (line) => { const ev = turnEvent(line); if (ev) send(ev); },
         });
         send({ type: 'done', view });

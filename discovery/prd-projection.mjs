@@ -15,12 +15,16 @@
 //   · a THIN filesystem shell — readPackage / writePrd / the CLI guard. It reads three files and writes
 //     one, and nothing in it decides what the page says.
 //
-// THE LOAD-BEARING PROPERTY is not the markdown. Everything on the page resolves to one of five
+// THE LOAD-BEARING PROPERTY is not the markdown. Everything on the page resolves to one of SIX
 // sources and nothing else has a route: an op's own params (wrong_if, reason, missing[], level,
 // provenance, url), an answer resolved by answer_ref (the human's verbatim words), a bank question
-// resolved by question_id, the applier's derived fields (seq, flagged, supersedes), and run.json's
-// header. So a generated PRD cannot carry a claim the ops do not, and group 31 proves it by DELETING
-// an op and watching its claim vanish from the whole document.
+// resolved by question_id, the applier's derived fields (seq, flagged, supersedes), run.json's
+// header — and, since #289, an off-script exchange the document names as UNFILED, which is the one
+// source selected by the ABSENCE of an op rather than by one. It is narrowly keyed (kind "off-script"
+// and intent "aside", both server-written by appendAnswer) precisely so it cannot become "any answer
+// no op names": that would put every answer of an empty run on the page. So a generated PRD cannot
+// carry a claim the ops do not, and group 31 proves it by DELETING an op and watching its claim vanish
+// from the whole document.
 //
 // WHY THE BANK IMPORT IS NOT A VIOLATION of "reads the package and nothing else": ops.mjs invariant 6
 // names "the projection" as a caller that supplies the bank, and a question's TEXT is a definition,
@@ -61,7 +65,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { questionById, STAGES } from "./bank.mjs";
-import { FLAGS, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from "./ops.mjs";
+import { auditExchanges, FLAGS, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from "./ops.mjs";
 
 // ---------------------------------------------------------------------------------------------------
 // Markdown helpers. Declared ABOVE SECTIONS because the table's `empty` strings call tbd() at module
@@ -236,7 +240,7 @@ export const SECTIONS = Object.freeze([
     heading: "Open questions",
     axis: "op-kind",
     from: "open_question",
-    why: "MVP 8's parked questions and MVP 9's off-script ones, each with the reason it was parked rather than answered.",
+    why: "MVP 8's parked questions and MVP 9's off-script ones, each with the reason it was parked rather than answered. It carries one block selected by the ABSENCE of an op — an off-script aside nobody filed (#289) — appended CONDITIONALLY, so a run with none renders exactly as before and the `empty` string still renders when the run parked nothing.",
     empty: tbd("the run parked no question"),
   },
   {
@@ -421,8 +425,20 @@ const headingForLevel = (level) => SECTIONS.find((r) => r.axis === "ladder" && r
 // other half of the same rule — the latest decision on a question renders, every earlier one is named
 // inside it as replaced, and NOTHING IS REMOVED (discovery/README.md §Supersede).
 //
-// It keys on question_id ONLY, never on off_script: an off-script decision on a banked question does
-// supersede the banked one, because the applier computes supersedes regardless.
+// IT KEYS ON question_id AND off_script (#289). A supersede is the latest ANSWER to a banked question
+// replacing an earlier one; an off-script decision may NAME the question it touched — architecture
+// §Data model calls that "the normal case (it is usually why the person went off-script)" — and naming
+// is not answering. So an off-script decision never supersedes, is never superseded, and is always
+// visible on a row of its own. Before #289 it did supersede, and the person's own banked decision then
+// dimmed in the drawer and dropped off this page. Nothing on disk moved with the correction: no
+// committed package holds an off_script op (verified over all eight).
+//
+// The latestByQuestion fold below reads `off_script !== true`, the SAME predicate ledgerView uses —
+// the two readers do not differ, and an edit "restoring" `=== true` there empties the hierarchy: every
+// banked decision then fails the seq identity in `visible` and drops out. The `=== true` in this
+// function is `visible`'s own inclusion test (an off-script decision is always on a row of its own),
+// which is a different job. Where reader and WRITER genuinely part is the applier — see ops.mjs's
+// ledgerView block for that seam and why no fixture can reach it.
 // ---------------------------------------------------------------------------------------------------
 function indexOps(ops) {
   const bySeq = new Map(ops.map((r) => [r.seq, r]));
@@ -432,12 +448,12 @@ function indexOps(ops) {
   const weak = ops.filter((r) => r.op === "flag_weak_answer");
 
   const latestByQuestion = new Map();
-  for (const d of decisions) if (d.params.question_id !== null) latestByQuestion.set(d.params.question_id, d);
+  for (const d of decisions) if (d.params.question_id !== null && d.params.off_script !== true) latestByQuestion.set(d.params.question_id, d);
 
   // Visible = every off-script decision (each its own), plus the latest decision per banked question.
   const visible = decisions.filter((d) => {
     const qid = d.params.question_id;
-    return qid === null || latestByQuestion.get(qid)?.seq === d.seq;
+    return qid === null || d.params.off_script === true || latestByQuestion.get(qid)?.seq === d.seq;
   });
 
   // The reverse of the applier's `supersedes`: replaced seq → the seq that replaced it. THREE
@@ -588,9 +604,40 @@ function renderNonGoals(state) {
   }).join("\n");
 }
 
+// AN OFF-SCRIPT EXCHANGE NOBODY FILED (#289; AC #3). The applier refuses a closer while an aside on the
+// open turn has no filing, but a session can always be finished (MVP 8: blocking is not available), so
+// an exchange after the last turn has no later op to refuse. That tail is named here — the sixth source
+// a claim reaches this page by, and the only one selected by the ABSENCE of an op.
+//
+// THE BLOCK IS CONDITIONAL, AND THAT IS THE WHOLE GUARD: an always-printed "none" line would rewrite
+// every committed prd.md. The compensation is that the ZERO is stated in CI (build-checks group 32's
+// corpus sweep) rather than on the page, so silence here does not mean nobody checked.
+//
+// THE PREDICATE IS NARROW ON PURPOSE — kind "off-script" AND intent "aside", the two fields only
+// appendAnswer writes. Widened to "any answer no op names" it would put every answer of an empty run on
+// the page and red case 31.7.2, whose whole claim is that an answer reaches this page only through an
+// op that references it.
+const unfiledAsides = (state) => auditExchanges(state.answers, state.ops ?? []).unfiled;
+
 function renderOpenQuestions(state) {
-  if (!state.opened.length) return null;
-  return state.opened.map((r) => {
+  const unfiled = unfiledAsides(state);
+  if (!state.opened.length && !unfiled.length) return null;
+  const block = unfiled.length
+    ? [
+      "#### Off-script exchanges with no filing",
+      "",
+      "_The person said these outside the question on the table, and no op was filed against them. The turn they sat on was never closed after them — a session can always be finished, so nothing refused this. They are recorded here rather than lost._",
+      "",
+      ...unfiled.flatMap((a) => [
+        `- answer ${cell(a.ref)}${a.turn ? ` · turn ${cell(a.turn)}` : ""}:`,
+        "",
+        answerBlock(state.answers, a.ref),
+        "",
+      ]),
+    ].join("\n").replace(/\n+$/, "")
+    : null;
+  if (!state.opened.length) return [SECTIONS.find((r) => r.id === "open-questions").empty, "", block].join("\n");
+  const opened = state.opened.map((r) => {
     const p = r.params;
     return [
       `#### seq ${r.seq} · ${p.source} · ${qidLabel(p.question_id)}`,
@@ -602,6 +649,7 @@ function renderOpenQuestions(state) {
       `*Parked because:* ${fold(p.reason)}`,
     ].join("\n");
   }).join("\n\n");
+  return block === null ? opened : [opened, "", block].join("\n");
 }
 
 function renderWeakAnswers(state) {
@@ -674,7 +722,7 @@ export function projectPrd(pkg) {
   if (!Array.isArray(answers))
     throw new Error(`prd-projection: "answers" must be an array — the parsed answers.jsonl lines (got ${shown(answers)})`);
   const checked = checkOpLines(ops);
-  const state = { run, answers, ...indexOps(checked) };
+  const state = { run, answers, ops: checked, ...indexOps(checked) };
 
   const out = [];
   out.push(`# ${fold(run.slug)} — PRD, projected from a discovery run`);
