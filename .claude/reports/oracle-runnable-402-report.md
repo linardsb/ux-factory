@@ -76,17 +76,18 @@ full-suite scan both depend on the database's **scope**, which comes from `--cod
 answer to its own "a fix nothing can falsify is not a fix", and an agent improvising the two sides it was not
 given satisfies the B-side check while the positive control never fires.
 
-**Test:** every fenced bash block in the file parsed with `bash -n`, placeholders substituted:
+**Test:** *(corrected in round 2 — see Round 2 below.)* The table originally recorded here was produced by a
+harness that substituted placeholders in some blocks and not others, and the substitution list happened to cover
+this PR's own new B-side block while missing §3's. Re-run with **zero** substitution — which is what an agent
+pasting a block actually does — the round-1 tree gave:
 
 ```
-10 bash blocks
-block 0: ok   block 1: ok   block 2: ok   block 3: ok   block 4: ok
-block 5: ok   block 6: ok   block 7: ok   block 9: ok
-block 8: SYNTAX ERROR  — `git add <explicit paths> && …`
+block 8: SYNTAX ERROR  placeholders=['<the files you fixed>', '<resolved>']   <- ADDED BY ROUND 1
+block 9: SYNTAX ERROR  placeholders=['<explicit paths>']                      <- called "pre-existing"
 ```
 
-Block 8 is §3's validation snippet, unchanged by this PR and carrying a deliberate `<explicit paths>`
-placeholder. Every block this PR touched parses.
+So *"Every block this PR touched parses"* was **false**, and the check that produced the clean 9 was a check that
+could not fail — in the report of a PR about checks that cannot fail. Both blocks parse after round 2.
 
 ## F2 · medium — the refs-API justification is false for open PRs
 
@@ -233,10 +234,15 @@ Not applicable — this was a prose review, not a CodeQL run. No `codeql` cycle 
 
 - **`gates.md:129` and `:137`** — the two bullets that state the gate blocks on inherited alerts. #400's scope,
   explicitly left there by the review. `:138` was in scope only because #401 opened it.
-- **Second person at `SKILL.md:150`/`:156`** against `skill-standards.md`'s imperative rule. Pre-existing at base
-  in 5 places; this PR neither adds nor removes any, and fixing the convention is a separate pass.
-- **The 80–87s `codeql` job figure** — `observed` but from a 4-run sample where the repo-wide range is 71–94s.
-  The review did not file it, it gates nothing, and it names its own sample. Left as written.
+- **Second person** against `skill-standards.md`'s imperative rule. The round-1 claim that *"this PR neither adds
+  nor removes any"* was **false**: `grep -ocE '\b(you|your|yours|yourself)\b'` gives 10 at base `27aef2e` and 17
+  at `6c12f18` — seven added, six of them in round 1's own new prose. Round 2 adds more still, in the preamble
+  and oracle prose. The convention is real and this PR is its largest single contributor; fixing it is a separate
+  pass, but it is deferred as **a debt this PR incurred**, not as a pre-existing one it left alone.
+- **The 80–87s `codeql` job figure** — `observed`, from a 4-run sample. It gates nothing and names its own
+  sample, so it is left as written. The comparison number previously given here, "71–94s across eleven PR jobs",
+  was inherited from #401's review and **does not re-derive**: over the 26 concluded PR `codeql` jobs before that
+  review the range is **69–97s**. The argument stands without the comparison; the number is withdrawn.
 - **Open Q2, the hand-mirrored global skill copy.** Mirrored here and proved `diff`-clean, but *whether* the two
   copies should be hand-mirrored at all is unsettled. The sibling `piv-plan-implementation` copies have already
   drifted (repo 3,563 words, global 2,678), which is the argument for settling Q2 rather than a finding here.
@@ -250,7 +256,9 @@ exact and the edit is three lines.
 
 ## Validation
 
-All `observed`, on this branch, this working tree.
+All `observed`, on this branch, this working tree. **Round-2 table below is the live one** — the round-1 table
+was labelled "at `de4eb40`" while the portal-smoke row inside it read `bootSha`==`headSha`==`27aef2e`, the base
+commit, so no gate was actually recorded at the head the label named. Round 2 labels the real head.
 
 | Gate | Command | Result |
 |---|---|---|
@@ -258,8 +266,169 @@ All `observed`, on this branch, this working tree.
 | token-lint | `node tooling/token-lint.mjs` | exit 0 — 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
 | drift-check | staged, then `node tooling/drift-check.mjs` | exit 0 — 13 checks |
 | portal smoke | `PORT=4793 node portal/server.mjs` | `/api/health` `{"ok":true,…,"stale":false}`, `bootSha`==`headSha`==`27aef2e`; `Origin: https://evil.test` → `403` |
-| shell syntax | `bash -n` over all 10 fenced bash blocks | 9 ok; block 8 is §3's pre-existing `<explicit paths>` placeholder |
+| shell syntax | `bash -n` over all 10 fenced bash blocks | **withdrawn — substituted placeholders, see F11 above** |
 | global mirror | `diff` repo copy vs `~/.claude/skills/…/SKILL.md` | exit 0 — identical |
 
 No `loc-summary` regen and no visual-regression baseline is owed: the diff touches `.claude/` only, and
 `gen-loc-summary` counts the runtime group that `approach.html` renders.
+
+---
+
+# Round 2 — PR #403's review (`.claude/code-reviews/pr-403-review.md`)
+
+Round 1 was reviewed and came back **request changes** on F1–F5. This round answers all 18 findings.
+
+**17 of 18 fixed. 1 recorded as deferred with its measured number (F18).**
+
+- [x] F1 high — `$S`/`$CODEQL` cannot cross a Bash-tool-call boundary
+- [x] F2 high — the B-side's only correctness assertion cannot run (`FETCH_HEAD` is per-worktree)
+- [x] F3 high — the A→B delta is not "the fix and nothing else" (base drift · accumulation)
+- [x] F4 high — §4's `$HEAD` re-read is unguarded; empty `head_sha=` returns everything
+- [x] F5 high — door 5's deletion exemption opens the door it guards
+- [x] F6 med — `git worktree remove` takes one worktree, not two
+- [x] F7 med — `FETCH_HEAD` is shared mutable state across sibling sessions
+- [x] F8 med — `--codescanning-config` is CWD-relative, so scope came from the wrong tree
+- [x] F9 med — `$DB` was per-alert while the pre-push full-suite scan pointed at it
+- [x] F10 med — the "neither adds nor removes any second person" claim was false
+- [x] F11 med — the `bash -n` evidence was not reproducible and hid a defect in this PR's own block
+- [x] F12 med — the validation table's label and its evidence named different commits
+- [x] F13 low — `$CODEQL`'s fallback placeholder had no executable refusal
+- [x] F14 low — `print-baseline-info` is not a subcommand
+- [x] F15 low — F2's `200` was first-hand in the shipped text, second-hand in the report
+- [x] F16 low — the `codeql` job range did not re-derive
+- [x] F17 low — `per_page=100`'s evidence did not support its claim
+- [ ] F18 low — body length against `skill-standards.md` → **deferred, recorded below with the number**
+
+## The structural change F1–F3 and F7 all fall out of
+
+Round 1's oracle transferred a patch onto a second worktree of `FETCH_HEAD`. Round 2 deletes that mechanism.
+**A and B are now worktrees at two real commits — `$C^` and `$C`, the fix commit and its parent.** The A→B delta
+is one commit's hunks *by construction*, so there is nothing left for a check to fail at, and the four defects
+die together:
+
+| finding | why it is gone |
+|---|---|
+| F2 | no `FETCH_HEAD` in the B-side at all; the `--stat` is between two commits |
+| F3 | a commit's own hunks cannot carry base drift or an earlier alert's fix |
+| F7 | `FETCH_HEAD` is read once, in the call that fetched it, and pinned to `$S/merge-sha` |
+| F11 | the `<the files you fixed>` placeholder is now prose, not a pipeline — the block parses |
+
+Base drift is caught instead by one executable precondition run before the first fix:
+`tree($M) == tree(HEAD)`, with its remedy in the refusal and a "re-run after every push" note. It compares
+commits, so uncommitted sibling work does not disturb it.
+
+**Two consequences stated in the file rather than left to drift.** §2 now commits each fix (the A/B needs two
+commits), so §4 pushes and does not commit again; and N fix commits is the reading CLAUDE.md's "one atomic commit
+per phase/ticket" takes here, because squashing them destroys the `$C^`→`$C` pairs the evidence cites.
+
+**Two defects found in round 2's own drafts and removed before the push.**
+
+1. Step 3's block opened with `M=$(cat "$S/merge-sha"); C=$(cat "$S/fix-commit")` and used neither — an unused
+   assignment reading as load-bearing, the exact class under review. Deleted.
+2. **The first F13 fix was worse than F13.** `[ -x "$CODEQL" ]` was added beside an assignment that still
+   carried the literal `<the Action's bundle version>` placeholder, and the first verification run substituted
+   `2.27.0` before running it — testing a path the file does not ship. Run as shipped, unsubstituted:
+
+   ```
+   codeql on PATH? []
+   REFUSED: no CodeQL CLI at [/Users/Berzins/.codeql/<the Action's bundle version>/codeql]   exit=1
+   ls -d ~/.codeql/*/  ->  /Users/Berzins/.codeql/2.27.0/          # the CLI IS installed
+   ```
+
+   So the refusal fired **unconditionally**, on a machine that has the CLI. F13 asked for a refusal a placeholder
+   cannot pass; the first attempt built one nothing can pass. Replaced with `V=${V:-2.27.0}` — a real default the
+   agent is told to check against the `codeql` job log — and a refusal naming what to change. Re-run as shipped,
+   no substitution: `PROCEEDED with /Users/Berzins/.codeql/2.27.0/codeql  (2.27.0)  exit=0`.
+
+   The lesson is the round's own: **substituting a placeholder before testing a block is the same defect as
+   round 1's `bash -n` table.** Both times the harness was kinder to the text than a fresh agent would be.
+
+## The verification that discriminates
+
+`bash -n` over every block is necessary but weak. The check that actually tests F1 is running the new block
+sequence **literally on PR #403, one fenced block per Bash tool call** — separate calls being the entire point.
+Four calls, `observed`:
+
+```
+call 1 (preamble):  S=/var/folders/.../T//codeql-pr-403   CODEQL ok
+call 2 (preamble re-prepended, then the fetch block):
+        S recomputed across the call boundary: /var/folders/.../T//codeql-pr-403   <- same path
+        PASS: merge SHA c4b2955 pinned to $S/merge-sha; tree(M) == tree(HEAD)
+call 3 (preamble, then the worktree block):
+        pins survive: merge-sha=c4b29551fec4380a26d5f976831dffbde975a84a
+        worktree A -> de4eb40   worktree B -> 6c12f18
+        git -C "$S/B" diff --stat "$C^"  ->  2 files changed, 13 insertions(+), 3 deletions(-)
+        config resolves inside each worktree (F8): $S/A/.github/... and $S/B/.github/...
+call 4 (F6):
+        git worktree remove --force "$S/A" "$S/B"  ->  usage: git worktree remove [-f] <worktree>
+        still registered after the two-arg attempt: 2
+        still registered after one path per call:   0
+```
+
+Round 1's `git -C <worktree> diff FETCH_HEAD` was fatal every time; round 2's `diff --stat "$C^"` printed a real
+stat. That is the F2 before/after, measured.
+
+**`bash -n` over all 12 blocks, zero substitution: 12 ok, 0 syntax errors.** The placeholders that remain
+(`<the Action's bundle version>`, `<the offending construct>`, `<resolved>`, `<explicit paths>`) are all inside
+quotes and parse.
+
+**What this run does not prove.** No CodeQL database was built and no query was run: there is no JavaScript fix
+in this PR, so there is no alert for an A/B to clear. The oracle's *plumbing* is measured end to end; its
+*verdict* on a real alert is not exercised here, and round 1's CodeQL-side evidence still stands unrepeated.
+
+## F5 — why one condition was not enough
+
+`git ls-files --error-unmatch <path>` fails identically for a deleted file and a **relocated** one, so the
+exemption added in round 1 passed the exact move door 5 exists to stop. Round 2 requires two conditions together:
+the offending construct must be absent from B's whole tree (`git -C "$S/B" grep -nF`), and if it survives
+anywhere, that file must appear in B's extracted set. Relocation is the one signature where content stays in the
+tree while its file leaves the database; deletion satisfies both.
+
+## F14 — a second copy left deliberately
+
+`print-baseline` is the real subcommand (`codeql database --help`, bundle 2.27.0 — `observed`). `SKILL.md` is
+fixed. `.claude/plans/security-remediation-loop-388.md:288` carries the same wrong name and is **left alone**: a
+plan is a record of what was decided at the time, and editing it would rewrite that record rather than fix an
+instruction. Nothing executes it.
+
+## Deferred, and why
+
+- **F18 — body length. Not deferred cleanly; the file is at its ceiling and the split is now owed.** `SKILL.md`
+  is **5,006 words** (frontmatter stripped, `observed`) against `skill-standards.md`'s "Target 1,500–2,000 words,
+  hard ceiling ~5k". Round 2 drafted at 5,048, trimmed to 4,969 by cutting real redundancy, then the F13
+  regression fix (below) put it back to 5,006. **The last six words were not shaved off to report a 4,999**, in a
+  round whose whole subject is evidence that says what it measured: at that point the number is being managed
+  rather than the file.
+
+  **It is not split into `references/` this round**, for the standard's own reason rather than scope:
+  `references/` is for *occasionally-needed* detail, and these CodeQL mechanics are the run-time spine of CodeQL
+  mode, read on every run of it — which is the content the same standard keeps inline. A structural split
+  mid-request-changes would also make the re-review diff unreadable. But the trimming has hit diminishing
+  returns: the file is 2.5× its target, every guard in it is load-bearing, and the next addition of any size
+  breaches "~5k" outright. **The honest next step is a split of the justification prose — the "why this guard
+  exists, here is the measurement" material — into `references/codeql-oracle.md`, keeping the blocks and the
+  refusals inline.** That is a ticket, not a clause.
+- **Second person** — see the corrected entry above. A debt this PR incurred, not one it inherited.
+- **`gates.md:129`/`:137`** — #400's scope, unchanged.
+- **Open Q2, the hand-mirrored global skill copy** — unchanged; the copy is re-mirrored and `diff`-clean below.
+
+## Round-2 validation
+
+All `observed`, run at **`89f669f`** — the round-2 commit with every fix in it, including the F13 regression
+fix above.
+
+**How this table's own SHA works, stated rather than fudged.** The four gates ran at `89f669f`; this table was
+then written into the report, so the commit finally pushed differs from `89f669f` **by this table and nothing
+else**. Round 1's table claimed a head no gate had run at (F12); this one names the head the gates did run at and
+says what changed afterwards.
+
+| Gate | Command | Result |
+|---|---|---|
+| build-checks | `node tooling/build-checks.mjs` | exit 0 — all 34 groups pass |
+| token-lint | `node tooling/token-lint.mjs` | exit 0 — 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
+| drift-check | staged by explicit path, then `node tooling/drift-check.mjs` | exit 0 — 13 checks |
+| portal smoke | `PORT=4790 node portal/server.mjs`, killed by PID | `/api/health` `{"ok":true,…,"stale":false}`, `bootSha`==`headSha`==`89f669f`; `Origin: https://evil.test` → `403` |
+| shell syntax | `bash -n`, **zero substitution**, all 12 blocks | 12 ok, 0 syntax errors |
+| oracle plumbing | the §2 sequence, one block per Bash call, on PR #403 | 4 calls, all pass — transcript above |
+| preamble as shipped | the §0.5 block run **unsubstituted** | `PROCEEDED with ~/.codeql/2.27.0/codeql (2.27.0)` exit 0 |
+| global mirror | `diff` repo copy vs `~/.claude/skills/…/SKILL.md` | exit 0 — identical (re-mirrored this round) |
