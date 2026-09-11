@@ -45,6 +45,7 @@ was measured" is indistinguishable from a zero meaning "the code is clean".**
 ```bash
 R=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 N=$1   # or: gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number // empty'
+[[ "$N" =~ ^[0-9]+$ ]] || { echo "empty or non-numeric PR number [$N] — gh would fall back to the current branch's PR and judge one nobody asked about"; exit 1; }
 REF="refs/pull/$N/merge"
 S="${TMPDIR:-/tmp}/codeql-pr-$N"; mkdir -p "$S"   # scratch: worktrees, databases, SARIF, pinned SHAs
 V=${V:-2.27.0}   # the bundle version the `codeql` job logged — read it there, do not assume this one
@@ -63,8 +64,10 @@ while `-x` then refuses *unconditionally*, on machines that have the CLI install
 a refusal naming what to change. Values that must cross a call boundary — the merge SHA, the fix commit —
 travel the only way that survives one: a **file under `$S`**.
 
-**1 — There is a PR.** Empty `N` → refuse by name: *"no open PR, so there is no `refs/pull/N/merge` and no CodeQL
-analysis — this would measure nothing."* The workflow triggers on `pull_request` and push-to-default only, so an
+**1 — There is a PR.** The `$N` guard above is that refusal, and it is executable because the prose version is
+not enforceable: `gh pr view ""` is treated exactly like no argument and answers for the **current branch's** PR
+with exit 0 (observed). Its reason: *"no open PR, so there is no `refs/pull/N/merge` and no CodeQL analysis —
+this would measure nothing."* The workflow triggers on `pull_request` and push-to-default only, so an
 unPRed branch is never scanned and the alerts query answers `[]` with exit 0 — identical to a nonsense ref.
 
 **2 — An analysis exists.** Copy this from the gate's own step rather than paraphrasing it:
@@ -388,6 +391,7 @@ head's run and reports a stale green. Waiting on the check is also enough for th
 the SARIF is processed and the alerts are queryable, which is cheaper than polling `analyses`.
 
 ```bash
+[[ "$N" =~ ^[0-9]+$ ]] || { echo "empty or non-numeric PR number [$N] — re-run the §0.5 preamble first"; exit 1; }
 HEAD=$(gh pr view "$N" --json headRefOid --jq .headRefOid)   # RE-READ: the push moved it, and 0.5's value is the pre-push head
 [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]] || { echo "unreadable head sha: [$HEAD] — an empty head_sha= returns EVERY run"; exit 1; }
 RUN=$(gh api "repos/$R/actions/runs?head_sha=$HEAD" --jq '[.workflow_runs[]|select(.name=="verify")]|max_by(.created_at)|.id')
@@ -397,7 +401,9 @@ if ! [[ "$J" =~ ^[0-9]{6,}$ ]]; then echo "no COMPLETED codeql job on run $RUN �
 gh api "repos/$R/actions/jobs/$J" --jq '.steps[]|select(.name=="Require no high or critical alerts")|.conclusion'
 ```
 
-**Re-read `$HEAD` here, and guard all three values.** 0.5 bound `$HEAD` before the fixes existed; reusing it
+**Re-read `$HEAD` here, and guard all four values — `$N` included.** This is the call furthest in time from
+the preamble, so it is the one most likely to be pasted with `$N` unset; an unset `$N` makes every read below it
+answer for another PR in perfectly well-formed values. 0.5 bound `$HEAD` before the fixes existed; reusing it
 reads the run on the pre-push head — the stale green this section is built to prevent. An **empty** `head_sha=`
 is not an error either: it returns every run in the repo (measured: 30 `verify` runs), `max_by` picks the newest
 unrelated one, `$RUN` passes its numeric guard, and the verdict prints `success` off another PR's scan. And
