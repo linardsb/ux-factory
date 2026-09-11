@@ -1,6 +1,6 @@
 ---
 name: plan-create-prd
-description: Interactive, problem-first PRD/epic generator — interviews the user to surface the thesis (the problem, and WHY build it) and a falsifiable hypothesis, then writes a focused PRODUCT-level epic PRD (problem · evidence · hypothesis · users · MVP · success metrics · non-goals · open questions) as a local markdown doc. Use at the start of an effort to capture intent before deciding architecture. A PRD is INTENT (what/why), never engineering decisions (how) — those are the `plan-architecture` skill's spec.
+description: Interactive, problem-first PRD/epic generator — interviews the user to surface the thesis (the problem, and WHY build it) and a falsifiable hypothesis, then writes a focused PRODUCT-level epic PRD (problem · evidence · hypothesis · users · MVP · success metrics · non-goals with reasons · later-not-never · open questions) as a local markdown doc. Use at the start of an effort to capture intent before deciding architecture. A PRD is INTENT (what/why), never engineering decisions (how) — those are the `plan-architecture` skill's spec.
 argument-hint: "[product idea / epic] · [optional: paths to research / reference docs to ground in] (blank = start with questions)"
 ---
 
@@ -105,7 +105,10 @@ if it doesn't exist. (Only write to a literal path if the user passed one in `$A
 This is a **GitHub-native** flow: the PRD lives as a markdown file in the repo, and later becomes the body of an
 `epic`-labeled GitHub Issue when `piv-slice-epic` runs. The local file is the source of truth; the Issue is created
 from it. (Only if the user explicitly names a different destination — "make it a Jira epic," "a Confluence page" —
-write it there via the relevant tool instead.) Product sections only, scannable:
+write it there via the relevant tool instead.) Open with a one-line **status header** so a reader knows where the
+doc is on the ladder without reading it: `**Status:** intent · grilled <date> · architecture: TBD · sliced: TBD ·
+**Created:** <date>` — each later step (`plan-architecture`, `piv-slice-epic`, shipped) replaces its TBD in place.
+Then the product sections only, scannable:
 
 1. **Problem Statement** — who has what problem, and the cost of not solving it.
 2. **Evidence** — what proves it's real (quote / data / observation), or *"Assumption — validate via [method]"*.
@@ -116,8 +119,12 @@ write it there via the relevant tool instead.) Product sections only, scannable:
 7. **Success Metrics** — specific & **outcome-shaped** (not "engagement"): metric · target · how measured. Run
    the **cobra check** on each: how could this metric look great while the real goal fails (gamed, vanity,
    proxy drift)? An easy answer means add a guardrail metric or pick a better proxy.
-8. **Non-goals** — what you're explicitly NOT doing.
-9. **Open Questions** — named, not hidden (checkboxes).
+8. **Non-goals** — what you're explicitly NOT doing, **and why each is out**. A non-goal with no reason is a
+   preference, not a decision; the reason is what lets a later reader re-judge it.
+9. **Later, not never** — what is *parked* for a later increment rather than refused, and what that tells the
+   MVP about how to build now. Keep it separate from Non-goals: a non-goal is refused with a reason; a parked
+   item is deferred and may shape today's thin line. Empty is a valid answer — write "none" rather than invent one.
+10. **Open Questions** — named, not hidden (checkboxes).
 
 Leave an `## Architecture` cross-link placeholder at the bottom (`Architecture: _TBD — see plan-architecture_`) so the
 next step can fill in the link to the separate architecture doc, keeping intent and approach as two clean, linked sources.
@@ -134,7 +141,7 @@ next step can fill in the link to the separate architecture doc, keeping intent 
 - ✅ **Problem grounded in evidence** — not "users want X".
 - ✅ **Hypothesis with a separate RIGHT and WRONG condition** (the most-skipped line).
 - ✅ **Success metrics specific & outcome-shaped** — not "engagement".
-- ✅ **Explicit non-goals.**
+- ✅ **Explicit non-goals, each with its reason** — and parked work listed under *Later, not never*, not buried in them.
 - ✅ **Open questions named, not hidden.**
 - ✅ (guard) **No engineering decisions** — those went to `plan-architecture`.
 

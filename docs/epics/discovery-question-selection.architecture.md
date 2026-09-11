@@ -81,6 +81,13 @@ full discovery and the ladder needs a rung between it and the whole bank — a m
 not test this; the first that can is the second, faceted `full-discovery` run, on a real product with a
 different vector.
 
+**Amended 2026-09-11 (#392).** The unfaceted `full-discovery` list is **31**, not 30, and
+`FULL_DISCOVERY_BUDGET` follows it to 31: `s4-parked-for-later` (the parked-scope question, D8 in the bank)
+joined the unfaceted list directly after `s3-deliberately-not-doing`. The faceted composition — the twelve,
+the block and at most two modules, 29 at most — is untouched, so every pair still fits and every triple
+still overflows, and the `full-discovery` runs #291 and #292 are pre-registered against are unchanged.
+Faceted placement of the question is a decision after both runs.
+
 ### D1b — Which depths take facets: `full-discovery` only
 
 `selectDepth(depth, facets)` is **total over all four depths**, and three of them ignore the second

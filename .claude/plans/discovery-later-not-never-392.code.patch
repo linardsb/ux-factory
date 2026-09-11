@@ -1,0 +1,401 @@
+diff --git a/discovery/allergen-matrix-1/prd.md b/discovery/allergen-matrix-1/prd.md
+index ff12d92..7137717 100644
+--- a/discovery/allergen-matrix-1/prd.md
++++ b/discovery/allergen-matrix-1/prd.md
+@@ -251,6 +251,10 @@ Every decision's kill criterion, by seq:
+ - seq 19 — What are we deliberately not doing, and who will be annoyed by that? (see MVP)
+ - seq 9 — What are we declaring out of bounds? (see MVP)
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ _TBD — the run parked no question._
+diff --git a/discovery/bank.mjs b/discovery/bank.mjs
+index f6a3064..e86f6e5 100644
+--- a/discovery/bank.mjs
++++ b/discovery/bank.mjs
+@@ -336,6 +336,17 @@ export const QUESTIONS = Object.freeze([
+     weakAnswer: "three of four addressed and business viability skipped, which is where legal, sales compensation and support cost live.",
+   },
+ 
++  // ---------- #392 · the parked-scope question (D8) — outside the source, outside whole-bank ----------
++  {
++    id: "s4-parked-for-later",
++    stage: 4,
++    text: "What are you saving for a later version rather than refusing, and what does keeping it possible tell us about how to build now?",
++    attribution: "Derived, from the Key Features guidance in Figma's PRD template — \"Discuss what you're not building (or saving for a future release) if relevant\" — https://coda.io/@yuhki/figmas-approach-to-product-requirement-docs/prd-name-of-project-1",
++    label: "DERIVED",
++    note: "The bank's two exclusion questions fold into Non-goals and s3-deliberately-not-doing grades \"we'll do that later\" as weak, so a parked item had no home. A decision here projects under Later, not never, beside Non-goals and never inside them. The template page redirects to docs.superhuman.com (fetched 2026-09-11).",
++    weakAnswer: "a wish list. A parked item with no reason for later-rather-than-now, or one the exclusion questions would already refuse, is a non-goal wearing a different label.",
++  },
++
+   // ---------- #283 · the non-functional block (D7) — every declared full discovery asks these; recorded only ----------
+   {
+     id: "s4-performance-budget",
+@@ -879,6 +890,7 @@ export const DEPTHS = Object.freeze({
+       "s2-switch-timeline",
+       "s3-why-now",
+       "s3-deliberately-not-doing",
++      "s4-parked-for-later",
+       "s4-press-release",
+       "s4-four-risks",
+       "s4-circuit-breaker",
+@@ -1026,7 +1038,7 @@ export const PRESETS = Object.freeze([
+ ].map((p) => Object.freeze({ ...p, facets: Object.freeze(p.facets) })));
+ 
+ // MVP 5's ~30 as a budget the person spends (D1a), not a number width can quietly exceed.
+-export const FULL_DISCOVERY_BUDGET = 30;
++export const FULL_DISCOVERY_BUDGET = 31;
+ 
+ // The entry for an id, or null. Total: anything the bank does not hold — an unknown id, a
+ // non-string — answers null, and the caller decides what null means.
+diff --git a/discovery/bracket-trace-1/prd.md b/discovery/bracket-trace-1/prd.md
+index b8383d5..1435872 100644
+--- a/discovery/bracket-trace-1/prd.md
++++ b/discovery/bracket-trace-1/prd.md
+@@ -117,6 +117,10 @@ Every decision's kill criterion, by seq:
+ 
+ - seq 9 — What are we declaring out of bounds? (see Transition note)
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ _TBD — the run parked no question._
+diff --git a/discovery/bracket-trace-2/prd.md b/discovery/bracket-trace-2/prd.md
+index 8b5818a..ec060e3 100644
+--- a/discovery/bracket-trace-2/prd.md
++++ b/discovery/bracket-trace-2/prd.md
+@@ -124,6 +124,10 @@ Every decision's kill criterion, by seq:
+ 
+ - seq 12 — What are we declaring out of bounds? (see Transition note)
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ _TBD — the run parked no question._
+diff --git a/discovery/graded-opus-a/prd.md b/discovery/graded-opus-a/prd.md
+index 3cd386e..4dad09d 100644
+--- a/discovery/graded-opus-a/prd.md
++++ b/discovery/graded-opus-a/prd.md
+@@ -198,6 +198,10 @@ Every decision's kill criterion, by seq:
+ 
+ - seq 37 — What are we declaring out of bounds? (see Transition note)
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ #### seq 2 · banked · `s1-what-would-have-to-be-true`
+diff --git a/discovery/graded-think-a/prd.md b/discovery/graded-think-a/prd.md
+index 2dd94a4..0df1d36 100644
+--- a/discovery/graded-think-a/prd.md
++++ b/discovery/graded-think-a/prd.md
+@@ -197,6 +197,10 @@ Every decision's kill criterion, by seq:
+ 
+ - seq 31 — What are we declaring out of bounds? (see Transition note)
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ #### seq 2 · banked · `s1-what-would-have-to-be-true`
+diff --git a/discovery/instrument-loans-1/prd.md b/discovery/instrument-loans-1/prd.md
+index 9432995..2d77fdd 100644
+--- a/discovery/instrument-loans-1/prd.md
++++ b/discovery/instrument-loans-1/prd.md
+@@ -132,6 +132,10 @@ Every decision's kill criterion, by seq:
+ 
+ - seq 12 — What are we declaring out of bounds? (see MVP)
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ _TBD — the run parked no question._
+diff --git a/discovery/partner-audit-1/prd.md b/discovery/partner-audit-1/prd.md
+index c2ee30f..08c6012 100644
+--- a/discovery/partner-audit-1/prd.md
++++ b/discovery/partner-audit-1/prd.md
+@@ -36,6 +36,10 @@ _TBD — the run recorded no decision, so there is no stage 7 (Measurement and k
+ 
+ _TBD — the run answered neither of the bank's two exclusion questions (s3-deliberately-not-doing, s4-out-of-bounds)._
+ 
++## Later, not never
++
++_TBD — the run did not answer s4-parked-for-later._
++
+ ## Open questions
+ 
+ #### seq 3 · banked · `s6-process-as-it-runs`
+diff --git a/discovery/prd-projection.mjs b/discovery/prd-projection.mjs
+index d138829..de71b36 100644
+--- a/discovery/prd-projection.mjs
++++ b/discovery/prd-projection.mjs
+@@ -154,6 +154,11 @@ const METRIC_STAGE_LABEL = STAGES.find((s) => s.n === METRIC_STAGE)?.label ?? `s
+ // else — a section that guessed at exclusions would be exactly the invented claim this fold forbids.
+ export const NON_GOAL_QUESTIONS = Object.freeze(["s3-deliberately-not-doing", "s4-out-of-bounds"]);
+ 
++// The bank's one question that asks what is PARKED rather than refused (#392). "Later, not never" is its
++// cross-reference and nothing else — and it is NOT in NON_GOAL_QUESTIONS, because a parked item filed
++// under Non-goals reads as refused, which is the gap the question exists to close.
++export const LATER_QUESTIONS = Object.freeze(["s4-parked-for-later"]);
++
+ const TRANSITION_NA = "**n/a** — the run recorded no transition-level decision, so no organisational change was elicited. "
+   + "Transition requirements are implementation needs — data migration, training materials, support setup, business "
+   + "continuity (docs/research/requirements-hierarchy.md). Mark this section n/a with a reason, or run the questions "
+@@ -235,6 +240,14 @@ export const SECTIONS = Object.freeze([
+     why: "The bank's two questions that ask what is excluded. Cross-referenced by seq, never re-rendered, and never guessed at — an invented non-goal is the exact failure this fold forbids.",
+     empty: tbd(`the run answered neither of the bank's two exclusion questions (${NON_GOAL_QUESTIONS.join(", ")})`),
+   },
++  {
++    id: "later",
++    heading: "Later, not never",
++    axis: "cross-ref",
++    from: `decisions on ${LATER_QUESTIONS.join(" and ")}`,
++    why: "The house shape's §Later, not never (.claude/skills/plan-create-prd/SKILL.md): what is PARKED for a later version, kept apart from what is refused. Cross-referenced by seq like Non-goals, never re-rendered, never guessed at — and sourced from one bank question, never from the exclusion pair (#392).",
++    empty: tbd(`the run did not answer ${LATER_QUESTIONS.join(", ")}`),
++  },
+   {
+     id: "open-questions",
+     heading: "Open questions",
+@@ -593,8 +606,11 @@ function renderMetrics(state) {
+   return parts.join("\n");
+ }
+ 
+-function renderNonGoals(state) {
+-  const rows = NON_GOAL_QUESTIONS
++// ONE renderer for both question-keyed cross-ref sections: Non-goals and Later, not never (#392) differ
++// only in which ids they name, and a second copy would let one drift from the by-seq rule while the
++// other kept it.
++const crossRefByQuestion = (ids) => (state) => {
++  const rows = ids
+     .map((id) => state.latestByQuestion.get(id))
+     .filter(Boolean);
+   if (!rows.length) return null;
+@@ -602,7 +618,7 @@ function renderNonGoals(state) {
+     const q = questionFor(d.params.question_id);
+     return `- seq ${d.seq} — ${q ? q.text : qidLabel(d.params.question_id)} (see ${headingForLevel(d.params.level)})`;
+   }).join("\n");
+-}
++};
+ 
+ // AN OFF-SCRIPT EXCHANGE NOBODY FILED (#289; AC #3). The applier refuses a closer while an aside on the
+ // open turn has no filing, but a session can always be finished (MVP 8: blocking is not available), so
+@@ -700,7 +716,8 @@ const RENDERERS = Object.freeze({
+   users: (s) => rungSection("stakeholder", s),
+   mvp: (s) => rungSection("solution", s),
+   metrics: renderMetrics,
+-  "non-goals": renderNonGoals,
++  "non-goals": crossRefByQuestion(NON_GOAL_QUESTIONS),
++  later: crossRefByQuestion(LATER_QUESTIONS),
+   "open-questions": renderOpenQuestions,
+   "weak-answers": renderWeakAnswers,
+   transition: (s) => rungSection("transition", s),
+diff --git a/portal/lib/discovery-postures.mjs b/portal/lib/discovery-postures.mjs
+index 9cca161..21f4d48 100644
+--- a/portal/lib/discovery-postures.mjs
++++ b/portal/lib/discovery-postures.mjs
+@@ -78,7 +78,7 @@ import { auditExchanges, LEVELS, OPS, PARAMS, parentCandidates } from '../../dis
+ // The projection's OWN section table, so Create PRD's section brief follows the page rather than
+ // restating it (#286). prd-projection.mjs imports node built-ins, bank.mjs and ops.mjs only, and its
+ // CLI guard compares import.meta.url to argv[1], so importing it here runs nothing.
+-import { METRIC_STAGE, NON_GOAL_QUESTIONS, SECTIONS } from '../../discovery/prd-projection.mjs';
++import { LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, SECTIONS } from '../../discovery/prd-projection.mjs';
+ 
+ // The thing spike 2 tests. If a run comes back dirty — the agent asked a second question, filed two
+ // closing ops on one turn, or filed nothing — this string is what gets tightened, and only this string.
+@@ -446,6 +446,7 @@ export function sectionBrief() {
+     ...ladder,
+     `- a decision on a stage ${METRIC_STAGE} question → also Success metrics, and every decision's wrong_if is a kill criterion there`,
+     `- a decision on ${NON_GOAL_QUESTIONS.join(' or ')} → also Non-goals`,
++    `- a decision on ${LATER_QUESTIONS.join(' or ')} → also Later, not never (parked for a later version — never Non-goals)`,
+     '- every business or stakeholder wrong_if → Hypothesis',
+   ].join('\n');
+ }
+diff --git a/tooling/build-checks.mjs b/tooling/build-checks.mjs
+index 88bec57..8793356 100644
+--- a/tooling/build-checks.mjs
++++ b/tooling/build-checks.mjs
+@@ -274,7 +274,7 @@ import {
+ // bank.mjs and node:fs/path/url), so this group loads in an environment with no portal/node_modules.
+ // writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
+ // is imported for group 32 alone, because its subject IS the on-disk package (#341).
+-import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
++import { checkOpLines, LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
+ // #359's proposal half — the same zero-portal-dependency shape (it imports ops.mjs, bank.mjs,
+ // prd-projection.mjs and node built-ins, nothing else), so group 34 loads with no
+ // portal/node_modules. PROPOSAL_SECTIONS is named that way rather than SECTIONS precisely to avoid a
+@@ -5241,7 +5241,7 @@ function scanSvg(svg, label) {
+   const FULL_DISCOVERY = [
+     ...TWELVE,
+     "s1-choice-cascade", "s1-premortem", "s2-more-than-one-way", "s2-last-time-show-me",
+-    "s2-switch-timeline", "s3-why-now", "s3-deliberately-not-doing", "s4-press-release",
++    "s2-switch-timeline", "s3-why-now", "s3-deliberately-not-doing", "s4-parked-for-later", "s4-press-release",
+     "s4-four-risks", "s4-circuit-breaker", "s5-value-metric", "s5-willingness-to-pay",
+     "s6-audit-trail", "s6-coexist-with-incumbent", "s7-kill-state-and-date",
+     "s7-goes-up-doing-nothing", "s8-failure-who-pays", "s9-strength-of-evidence",
+@@ -5278,13 +5278,17 @@ function scanSvg(svg, label) {
+     "s8-prompt-instruction", "s8-conversational-memory", "s8-agentic-controls", "s8-grounding-sources",
+     "s8-response-patterns", "s8-safety-and-trust",
+   ];
++  // The one #392 added, on D7's pattern (bank.mjs D8). It sits BEFORE the D7 block inside QUESTIONS, so
++  // QUESTIONS minus whole-bank reads it first.
++  const ADDED_392 = ["s4-parked-for-later"];
++  const OUTSIDE_SOURCE = [...ADDED_392, ...ADDED_283];
+   const ids = (qs) => qs.map((q) => q.id);
+ 
+   // 1 · the count — 75 entries: 65 source entries per stage 6·7·6·7·8·8·7·12·4 (69 source bullets
+   //     less two mottos, one cross-reference and one fold — the module header's D2/D3), plus D7's
+   //     four in stage 4 and six in stage 8, over the same nine stages.
+-  ok(BANK.length === 75, `the bank holds ${BANK.length} entries, not 75 — 65 source-backed plus the ten of D7`);
+-  const perStage = [6, 7, 6, 11, 8, 8, 7, 18, 4];
++  ok(BANK.length === 76, `the bank holds ${BANK.length} entries, not 76 — 65 source-backed plus the ten of D7 plus #392's one`);
++  const perStage = [6, 7, 6, 12, 8, 8, 7, 18, 4];
+   perStage.forEach((n, i) => ok(questionsForStage(i + 1).length === n,
+     `stage ${i + 1} holds ${questionsForStage(i + 1).length} entries, not ${n}`));
+   ok(STAGES.length === 9 && STAGES.every((s, i) => s.n === i + 1), "STAGES must be 1–9 in order");
+@@ -5416,18 +5420,21 @@ function scanSvg(svg, label) {
+   ok(region.length > 10000, `the source region is ${region.length} chars — did the stage headings move?`);
+   ok(!region.includes("a note nobody wrote"), "source-pin positive control: the region must be able to miss");
+   for (const q of BANK) if (WHOLE_BANK.includes(q.id)) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
+-  for (const id of ADDED_283) ok(!region.includes(questionById(id).weakAnswer.slice(0, 30)), `${id}: a D7 entry's weak-answer opening is IN the source region — it is not from that file, so the scoping above is doing nothing`);
++  for (const id of OUTSIDE_SOURCE) ok(!region.includes(questionById(id).weakAnswer.slice(0, 30)), `${id}: a D7/D8 entry's weak-answer opening is IN the source region — it is not from that file, so the scoping above is doing nothing`);
+ 
+   // 10 · the added ten (D7) — QUESTIONS minus whole-bank is EXACTLY this list, both directions; each
+   //      resolves, sits in the stage its prefix names, cites a primary source by URL, and the six
+   //      AI-interaction entries name Amershi or PAIR. The block is the first four; the six the rest.
+   const outside = ids(BANK).filter((id) => !WHOLE_BANK.includes(id));
+-  ok(JSON.stringify(outside) === JSON.stringify(ADDED_283), `QUESTIONS minus whole-bank is ${JSON.stringify(outside)}, not D7's ten — an entry was added without joining this list, or one of the ten fell into whole-bank`);
+-  ok(ADDED_283.every((id) => questionById(id) !== null && !WHOLE_BANK.includes(id)), "every D7 id must resolve and stay OUT of whole-bank");
+-  for (const id of ADDED_283) ok(/https:\/\/\S+/.test(questionById(id).attribution), `${id}: attribution carries no URL — D7 entries cite a primary source by URL`);
++  ok(JSON.stringify(outside) === JSON.stringify(OUTSIDE_SOURCE), `QUESTIONS minus whole-bank is ${JSON.stringify(outside)}, not D7's ten plus #392's one — an entry was added without joining this list, or one of the ten fell into whole-bank`);
++  ok(OUTSIDE_SOURCE.every((id) => questionById(id) !== null && !WHOLE_BANK.includes(id)), "every D7/D8 id must resolve and stay OUT of whole-bank");
++  for (const id of OUTSIDE_SOURCE) ok(/https:\/\/\S+/.test(questionById(id).attribution), `${id}: attribution carries no URL — D7/D8 entries cite a primary source by URL`);
+   const AI_SIX = ADDED_283.slice(4);
+   ok(JSON.stringify(NON_FUNCTIONAL_BLOCK) === JSON.stringify(ADDED_283.slice(0, 4)), `NON_FUNCTIONAL_BLOCK is ${JSON.stringify(NON_FUNCTIONAL_BLOCK)}, not D7's first four`);
+   for (const id of AI_SIX) ok(/Amershi|PAIR/.test(questionById(id).attribution) && questionById(id).label === "OBSERVED", `${id}: the AI-interaction module cites HAX (Amershi) or PAIR as a PRIMARY source, OBSERVED`);
++  // #392 (D8): in the unfaceted list only — beside its exclusion sibling, and never last.
++  ok(!OPENING_SET.includes("s4-parked-for-later") && !NON_FUNCTIONAL_BLOCK.includes("s4-parked-for-later") && Object.values(MODULES).every((m) => !m.ids.includes("s4-parked-for-later")), "s4-parked-for-later must be in the UNFACETED list only — the faceted composition #291/#292 are pre-registered against is unchanged");
++  { const fd = DEPTHS["full-discovery"].ids; const at = fd.indexOf("s4-parked-for-later"); ok(at === fd.indexOf("s3-deliberately-not-doing") + 1 && at < fd.length - 1, `s4-parked-for-later sits at ${at} of ${fd.length} — it must follow s3-deliberately-not-doing and never be LAST (deriveCursor reads the last closer's position, so a last-placed id makes every earlier full-discovery recording read unfinished)`); }
+   ok(/enforces nothing|enforced nowhere/i.test(bankSrc), "the block's header must state it elicits and records and enforces nothing");
+ 
+   // 11 · the five facets, in the documented order, each with the intake question and a fires line;
+@@ -5471,7 +5478,7 @@ function scanSvg(svg, label) {
+     ok(facetPlan(p.facets).declared && facetPlan(p.facets).overflow.length === 0, `preset ${p.id} must compose without overflow`);
+     ok(Object.isFrozen(p) && Object.isFrozen(p.facets), `preset ${p.id} must be frozen`);
+   }
+-  ok(selectDepth("full-discovery", PRESETS[3].facets).length === 16 && selectDepth("full-discovery", {}).length === 30, "consumer (declared all-false) is twelve + block = 16; {} is NO vector and answers the unfaceted 30");
++  ok(selectDepth("full-discovery", PRESETS[3].facets).length === 16 && selectDepth("full-discovery", {}).length === 31, "consumer (declared all-false) is twelve + block = 16; {} is NO vector and answers the unfaceted 31");
+ 
+   // 14 · TOTALITY (D1b) — the three ABSENT forms and every one of the 32 vectors, driven against all
+   //      four literals: the three non-composing depths never move, and no vector answers today's
+@@ -7218,7 +7225,7 @@ function scanSvg(svg, label) {
+     // A declared vector drives the walk; absent, null and {} read as today's list; a non-composing depth ignores it.
+     const faceted = mk("faceted", { depth: "full-discovery", facets: PRESETS[0].facets });
+     ok(same(ids(faceted), selectDepth("full-discovery", PRESETS[0].facets).map((q) => q.id)) && sessionView(faceted).cursor.total === 22, `case 28: a faceted run.json must walk the composed list (regulated: 12 + 6 + 4 = 22) — got ${sessionView(faceted).cursor.total}`);
+-    for (const absent of [{}, { facets: null }]) { const r = mk(`unfaceted-${Object.keys(absent).length}`, { depth: "full-discovery", ...absent }); ok(sessionView(r).cursor.total === 30 && same(ids(r), selectDepth("full-discovery").map((q) => q.id)), "case 28: no facets field / facets: null must read as the unfaceted 30"); }
++    for (const absent of [{}, { facets: null }]) { const r = mk(`unfaceted-${Object.keys(absent).length}`, { depth: "full-discovery", ...absent }); ok(sessionView(r).cursor.total === 31 && same(ids(r), selectDepth("full-discovery").map((q) => q.id)), "case 28: no facets field / facets: null must read as the unfaceted 31"); }
+     const ignored = mk("ignored", { depth: "scope-check", facets: PRESETS[2].facets });
+     ok(sessionView(ignored).cursor.total === 6, "case 28: a vector on scope-check is recorded and ignored — the literal six (D1b totality)");
+     ok(threw(() => sessionView(mk("junk", { depth: "full-discovery", facets: { marketplace: true } })))?.message.includes("unknown facet"), "case 28: a run.json carrying a facet the bank does not know must throw by the bank's name");
+@@ -7360,7 +7367,7 @@ function scanSvg(svg, label) {
+     const ladderRows = SECTIONS.filter((r) => r.axis === "ladder");
+     ok(ladderRows.length === LEVELS.length, `case 31: SECTIONS has ${ladderRows.length} ladder rows, LEVELS has ${LEVELS.length} — the brief would miss a rung`);
+     for (const r of ladderRows) ok(cp.systemPrompt.includes(`${r.from} → ${r.heading}`), `case 31: the section brief lacks "${r.from} → ${r.heading}" — it must be DERIVED from SECTIONS, not written`);
+-    ok(cp.systemPrompt.includes(NON_GOAL_QUESTIONS.join(" or ")) && cp.systemPrompt.includes(`stage ${METRIC_STAGE}`), "case 31: the section brief must name the non-goal questions and the metric stage from the projection's own constants");
++    ok(cp.systemPrompt.includes(NON_GOAL_QUESTIONS.join(" or ")) && cp.systemPrompt.includes(LATER_QUESTIONS.join(" or ")) && cp.systemPrompt.includes(`stage ${METRIC_STAGE}`), "case 31: the section brief must name the non-goal questions, the parked-scope question and the metric stage from the projection's own constants");
+     ok(/which section/i.test(cp.prompt), "case 31: the Create PRD turn prompt must ask for the section in prose");
+     ok(!cp.systemPrompt.includes(GRILL_STANCE) && !cp.systemPrompt.includes(AUDIT_VERDICT_RULE), "case 31: Create PRD carries Grill's stance or the audit rule");
+     // Grill interview specifically.
+@@ -7930,7 +7937,7 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
+     ok(POSTURES.grill.fingerprint === "76b7847d4ebbd9d8f16f9726ff0f4f0f", `30.46: Grill's prompt surface MOVED — ${POSTURES.grill.fingerprint}. discovery/partner-audit-1's three turns carry the old one and would go stale`);
+     // Create-PRD's moved DELIBERATELY for DOMAIN_RULE. Pinned to its NEW literal, with the pre-#289
+     // value named, so the move is visible in the source rather than smuggled.
+-    ok(POSTURES["create-prd"].fingerprint === "f0e7599c7bc953b74ff3750dceca5061", `30.46: Create-PRD's stamp is ${POSTURES["create-prd"].fingerprint}, not the value #289 moved it to (it was edc7c52db9d58d59213e93e65cd8d28c before DOMAIN_RULE went into its system prompt). No committed package runs create-prd, so the move costs nothing on disk — but it is a move, and it is pinned`);
++    ok(POSTURES["create-prd"].fingerprint === "ea523ac1e8eaef1ac1208e108f8b640e", `30.46: Create-PRD's stamp is ${POSTURES["create-prd"].fingerprint}, not the value #392 moved it to (it was f0e7599c7bc953b74ff3750dceca5061 after #289's DOMAIN_RULE and edc7c52db9d58d59213e93e65cd8d28c before that; #392 added the Later, not never line to sectionBrief) — earlier: the value #289 moved it to (it was edc7c52db9d58d59213e93e65cd8d28c before DOMAIN_RULE went into its system prompt). No committed package runs create-prd, so the move costs nothing on disk — but it is a move, and it is pinned`);
+     ok(DOMAIN_RULE.length > 0 && buildCreatePrdTurn(FINGERPRINT_INPUTS).systemPrompt.includes(DOMAIN_RULE), "30.46: DOMAIN_RULE is not in Create-PRD's system prompt — the one deliberate stamp move");
+     for (const [id, build, inputs] of [["think", buildThinkTurn, FINGERPRINT_INPUTS], ["grill", buildGrillTurn, FINGERPRINT_INPUTS], ["grill-audit", buildGrillTurn, AUDIT_FINGERPRINT_INPUTS]])
+       ok(!build(inputs).systemPrompt.includes(DOMAIN_RULE), `30.46: DOMAIN_RULE reached ${id}'s SYSTEM prompt — that moves a stamp ${turnsCarrying("7efdde37441fbd2591ba4a7dfeecdb6b", "cadb38117a2660c036d87e32323a8745")} recorded turns carry (Think's two stamps) or ${turnsCarrying("76b7847d4ebbd9d8f16f9726ff0f4f0f")} (Grill/partner-audit-1)`);
+@@ -8237,6 +8244,8 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
+     { ref: "a8", text: "I do not know what the one number is. Plots filled? Late records? Probably late records but I would be guessing." },
+     { ref: "a9", text: "Actually, hold on — the out-of-bounds answer I gave sits under the holder's need, not under the appetite. I want to refile it there." },
+     { ref: "a10", text: "One more before we stop: away mode. If a holder is away their slot frees up, but nobody has said whether it frees for that week only or for the rest of the season." },
++    // a11 is reserved: case 31.16 pushes it as its synthetic unfiled aside.
++    { ref: "a12", text: "Saving for a later version, not refusing: a waiting list for a plot when one frees up. Later because nobody has asked for it yet and the committee wants the rota trusted first; keeping it possible means the plot record needs a holder history, not just a current holder." },
+   ];
+ 
+   // Hand-authored ops, in filing order, using REAL bank ids so questionById resolves. Turn discipline:
+@@ -8266,6 +8275,10 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
+     // seq 11's for 31.6's reason: a verbatim copy would let "the replaced decision vanished" pass on
+     // another block. Its own turn, because it closes (R2).
+     { turn: "t9", op: "record_decision", params: { question_id: "s4-out-of-bounds", answer_ref: "a4", level: "solution", parent_id: 4, evidence_refs: [1, 3], wrong_if: "The holder turns out to want messaging inside the rota after all, so excluding it strands every late swap in a side channel.", off_script: false } },
++    // #392: a decision on the parked-scope question — its own turn (it closes), a real parent (seq 4, the
++    // stakeholder decision), a wrong_if distinct from every other so the vanishing-claim check cannot pass
++    // on another block.
++    { turn: "t10", op: "record_decision", params: { question_id: "s4-parked-for-later", answer_ref: "a12", level: "solution", parent_id: 4, evidence_refs: [1], wrong_if: "A holder history turns out to be the whole product, so the waiting list was never a later version but the thing itself.", off_script: false } },
+   ];
+ 
+   const PRD_RUN = {
+@@ -8332,6 +8345,11 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
+     for (const row of opKind) ok(DISCOVERY_OPS.includes(row.from) && row.from !== "record_decision", `op-kind row "${row.id}" names "${row.from}", which is not one of the three non-decision verbs`);
+     ok(NON_GOAL_QUESTIONS.length === 2 && Object.isFrozen(NON_GOAL_QUESTIONS), "NON_GOAL_QUESTIONS is not two frozen ids");
+     for (const id of NON_GOAL_QUESTIONS) ok(questionById(id) !== null, `NON_GOAL_QUESTIONS names "${id}", which the bank does not hold — a rename would silently empty the Non-goals section`);
++    ok(LATER_QUESTIONS.length === 1 && Object.isFrozen(LATER_QUESTIONS), "LATER_QUESTIONS is not one frozen id (#392)");
++    for (const id of LATER_QUESTIONS) ok(questionById(id) !== null, `LATER_QUESTIONS names "${id}", which the bank does not hold — a rename would silently empty Later, not never`);
++    ok(LATER_QUESTIONS.every((id) => !NON_GOAL_QUESTIONS.includes(id)), "a LATER question is also a NON_GOAL question — a parked item would then render as a refusal, the exact leak #392 closes");
++    // Every question-keyed cross-ref section has exactly one home, the VALID_FOR idiom one axis over.
++    for (const id of [...NON_GOAL_QUESTIONS, ...LATER_QUESTIONS]) { const homes = SECTIONS.filter((r) => r.axis === "cross-ref" && r.from.includes(id)); ok(homes.length === 1, `question "${id}" is named by ${homes.length} cross-ref row(s) — it must be exactly one`); }
+     ok(STAGES.some((s) => s.n === METRIC_STAGE), `METRIC_STAGE ${METRIC_STAGE} names a stage the bank does not hold — Success metrics would silently empty`);
+   }
+ 
+@@ -8801,6 +8819,35 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
+       "31.16: with no open_question filed and an aside unfiled, the section must render its OWN declared empty string AND the block — every SECTIONS row's empty is its own");
+   }
+ 
++  // 31.17 — #392: LATER, NOT NEVER. A decision on s4-parked-for-later renders under its own heading,
++  // beside Non-goals and NOT inside them, by seq and once; delete the op and the row's own `empty`
++  // renders with the claim gone from the WHOLE document (31.7.1's loop is over LADDER rows, so the
++  // cross-ref row gets its own).
++  {
++    const row = SECTIONS.find((r) => r.id === "later");
++    const ng = SECTIONS.findIndex((r) => r.id === "non-goals");
++    ok(row && SECTIONS.indexOf(row) === ng + 1, "31.17: the Later, not never row is not directly after Non-goals");
++    const later = decisionsOf(PRD_RECORDS).find((d) => d.params.question_id === "s4-parked-for-later");
++    // The vacuity guard, and the rest of the case runs only past it: a missing fixture op must fail BY
++    // NAME here, never as a TypeError that takes the whole group down (31.7.4's `m?.seq` shape).
++    ok(later?.seq === 14, `31.17: the fixture has no decision on s4-parked-for-later at seq 14 (got ${later?.seq ?? "none"}) — the case below is then vacuous`);
++    if (later?.seq === 14) {
++      const q = questionById("s4-parked-for-later");
++      const body = String(sectionBody(doc, row.heading));
++      ok(present(body, `- seq ${later.seq} — ${q.text} (see MVP)`), `31.17: Later, not never does not name seq ${later.seq} by the by-seq rule — ${JSON.stringify(body.slice(0, 160))}`);
++      ok(body.split("\n").filter((l) => l.startsWith("- seq ")).length === 1, "31.17: Later, not never renders more than one row for one parked decision");
++      const ngBody = String(sectionBody(doc, "Non-goals"));
++      ok(!ngBody.includes(`seq ${later.seq} `) && !present(ngBody, q.text), `31.17: the parked decision LEAKED into Non-goals — ${JSON.stringify(ngBody)}`);
++      ok(ngBody.includes("seq 6 ") && ngBody.includes("seq 13 "), "31.17: Non-goals lost its own two rows — the shared renderer changed Non-goals' output");
++      ok(blockOf(doc, later.seq) !== null && String(sectionBody(doc, "MVP")).includes(`seq ${later.seq}`), "31.17: the parked decision has no block in its ladder section (MVP) — a decision renders ONCE, there");
++      // The vanishing claim, cross-ref edition.
++      const md = project(PRD_RECORDS.filter((r) => r.seq !== later.seq));
++      ok(sectionBody(md, row.heading) === row.empty, `31.17: with the parked decision deleted, Later, not never renders ${JSON.stringify(String(sectionBody(md, row.heading)).slice(0, 120))}, not its declared empty`);
++      ok(!present(md, later.params.wrong_if) && !present(md, PRD_ANSWERS.find((a) => a.ref === "a12").text.split("\n")[0]), "31.17: the parked decision's wrong_if or answer survives ANYWHERE after its op was deleted");
++      ok(same(headings(md), SECTIONS.map((r) => r.heading)), "31.17: deleting the parked decision removed a heading");
++    }
++  }
++
+   group("prd projection", `SECTIONS frozen at BOTH levels by mutation with eleven DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · 27 corrupted-ledger refusals each matched against the value it must name, the cross-references — parent_id, evidence_refs, claim_ref and supersedes — each naming the KIND it resolves to with a DANGLING one of each proven TOLERATED, and supersedes additionally refused when it names itself, names a later seq or is claimed by a second record, against a legitimate A←B←C chain proven to still pass, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, over ALL THREE of CommonMark's line endings (LF, CR and the CRLF pair — CRLF is the sharp one, because folding only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still reads as a heading), each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too, plus the human ANSWER half driven over the same three endings because blockquote(), not the fold, is its containment · a document-kind answer (#286's audit) rendered as a POINTER by kind — ref and length on the page, its text and its headings off it — beside a banked answer still blockquoted and the same text as a banked answer still blockquoted, with the Run line reading the audit's entry mode · #289 added the OFF-SCRIPT LEDGER: the fixture's three decisions on one question — a banked one, an OFF-SCRIPT one naming it, and a later banked one — with the off-script record proven to supersede NOTHING, the later banked one proven to look PAST it to seq 5, both visible ones rendering their own block and the superseded one rendering none while being NAMED, Open questions rendering a banked park beside two off-script exchanges with the section's own row declaring both MVPs, the secondary-source row rendering with its URL, and the hierarchy's orphans count proven to agree with auditTraceability's own halves — one number, two readers · and AN UNFILED OFF-SCRIPT EXCHANGE NAMED ON THE PAGE, with the VACUITY CONTROL FIRST (the fixture's answers carry no kind, so the block is absent from the happy page and 31.7.2 stays green untouched), then the positive control, a LOOK-UP proven never reported as unfiled (filing nothing is its correct outcome), an aside the ops DO settle proven not reported, the heading list proven unchanged because the block lives INSIDE Open questions, and the section's own declared empty string proven to still render beside it. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package, which does not exist until #289 lands, so the fixture is hand-authored and labelled as such in the file`);
+ }
+ 

@@ -36,6 +36,10 @@ _TBD — the run recorded no decision, so there is no stage 7 (Measurement and k
 
 _TBD — the run answered neither of the bank's two exclusion questions (s3-deliberately-not-doing, s4-out-of-bounds)._
 
+## Later, not never
+
+_TBD — the run did not answer s4-parked-for-later._
+
 ## Open questions
 
 #### seq 3 · banked · `s6-process-as-it-runs`

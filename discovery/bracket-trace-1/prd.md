@@ -117,6 +117,10 @@ Every decision's kill criterion, by seq:
 
 - seq 9 — What are we declaring out of bounds? (see Transition note)
 
+## Later, not never
+
+_TBD — the run did not answer s4-parked-for-later._
+
 ## Open questions
 
 _TBD — the run parked no question._

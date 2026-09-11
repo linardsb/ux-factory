@@ -123,7 +123,8 @@
 //                     ids unique and stage-prefixed, every field on every entry, the twelve as an
 //                     ORDER assertion, each depth's exact documented set with whole-bank pinned as a
 //                     FROZEN LITERAL in both files and QUESTIONS minus it asserted to be exactly
-//                     D7's ten, purity and frozenness by mutation, the C3 title-term list with its
+//                     D7's ten plus #392's one, purity and frozenness by mutation, the C3
+//                     title-term list with its
 //                     positive control, the zero-import / no-page source pin, and every source-backed
 //                     weak-answer note pinned to the research file by its first thirty characters
 //                     (#282) · the width (#283): the five facets, the five facet modules as
@@ -166,6 +167,8 @@
 //                     routes — a human answer in a blockquote and an op param folded onto one line —
 //                     the Run and Ledger lines pinned whole, the whole-ledger surfaces proven to mark
 //                     a superseded record, and the corrupted-ledger refusals each driven (#290)
+//                     · #392: a twelfth row keyed on one bank question, its leak into Non-goals
+//                     refused
 //  32 parenting      the parenting fixture — discovery/instrument-loans-1/, a REAL opening-set run
 //                     recorded through the drawer: auditParenting proven to DETECT a miss on synthetic
 //                     records first, the package's op lines RE-FOLDED through the real applier and
@@ -274,7 +277,7 @@ import {
 // bank.mjs and node:fs/path/url), so this group loads in an environment with no portal/node_modules.
 // writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
 // is imported for group 32 alone, because its subject IS the on-disk package (#341).
-import { checkOpLines, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
+import { checkOpLines, LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
 // #359's proposal half — the same zero-portal-dependency shape (it imports ops.mjs, bank.mjs,
 // prd-projection.mjs and node built-ins, nothing else), so group 34 loads with no
 // portal/node_modules. PROPOSAL_SECTIONS is named that way rather than SECTIONS precisely to avoid a
@@ -5241,7 +5244,7 @@ function scanSvg(svg, label) {
   const FULL_DISCOVERY = [
     ...TWELVE,
     "s1-choice-cascade", "s1-premortem", "s2-more-than-one-way", "s2-last-time-show-me",
-    "s2-switch-timeline", "s3-why-now", "s3-deliberately-not-doing", "s4-press-release",
+    "s2-switch-timeline", "s3-why-now", "s3-deliberately-not-doing", "s4-parked-for-later", "s4-press-release",
     "s4-four-risks", "s4-circuit-breaker", "s5-value-metric", "s5-willingness-to-pay",
     "s6-audit-trail", "s6-coexist-with-incumbent", "s7-kill-state-and-date",
     "s7-goes-up-doing-nothing", "s8-failure-who-pays", "s9-strength-of-evidence",
@@ -5278,13 +5281,17 @@ function scanSvg(svg, label) {
     "s8-prompt-instruction", "s8-conversational-memory", "s8-agentic-controls", "s8-grounding-sources",
     "s8-response-patterns", "s8-safety-and-trust",
   ];
+  // The one #392 added, on D7's pattern (bank.mjs D8). It sits BEFORE the D7 block inside QUESTIONS, so
+  // QUESTIONS minus whole-bank reads it first.
+  const ADDED_392 = ["s4-parked-for-later"];
+  const OUTSIDE_SOURCE = [...ADDED_392, ...ADDED_283];
   const ids = (qs) => qs.map((q) => q.id);
 
-  // 1 · the count — 75 entries: 65 source entries per stage 6·7·6·7·8·8·7·12·4 (69 source bullets
+  // 1 · the count — 76 entries: 65 source entries per stage 6·7·6·7·8·8·7·12·4 (69 source bullets
   //     less two mottos, one cross-reference and one fold — the module header's D2/D3), plus D7's
-  //     four in stage 4 and six in stage 8, over the same nine stages.
-  ok(BANK.length === 75, `the bank holds ${BANK.length} entries, not 75 — 65 source-backed plus the ten of D7`);
-  const perStage = [6, 7, 6, 11, 8, 8, 7, 18, 4];
+  //     four in stage 4 and six in stage 8, plus #392's one in stage 4, over the same nine stages.
+  ok(BANK.length === 76, `the bank holds ${BANK.length} entries, not 76 — 65 source-backed plus the ten of D7 plus #392's one`);
+  const perStage = [6, 7, 6, 12, 8, 8, 7, 18, 4];
   perStage.forEach((n, i) => ok(questionsForStage(i + 1).length === n,
     `stage ${i + 1} holds ${questionsForStage(i + 1).length} entries, not ${n}`));
   ok(STAGES.length === 9 && STAGES.every((s, i) => s.n === i + 1), "STAGES must be 1–9 in order");
@@ -5416,18 +5423,22 @@ function scanSvg(svg, label) {
   ok(region.length > 10000, `the source region is ${region.length} chars — did the stage headings move?`);
   ok(!region.includes("a note nobody wrote"), "source-pin positive control: the region must be able to miss");
   for (const q of BANK) if (WHOLE_BANK.includes(q.id)) ok(region.includes(q.weakAnswer.slice(0, 30)), `${q.id}: weakAnswer's opening is not in the source — "${q.weakAnswer.slice(0, 30)}"`);
-  for (const id of ADDED_283) ok(!region.includes(questionById(id).weakAnswer.slice(0, 30)), `${id}: a D7 entry's weak-answer opening is IN the source region — it is not from that file, so the scoping above is doing nothing`);
+  for (const id of OUTSIDE_SOURCE) ok(!region.includes(questionById(id).weakAnswer.slice(0, 30)), `${id}: a D7/D8 entry's weak-answer opening is IN the source region — it is not from that file, so the scoping above is doing nothing`);
 
-  // 10 · the added ten (D7) — QUESTIONS minus whole-bank is EXACTLY this list, both directions; each
+  // 10 · the added ten (D7) plus #392's one (D8) — QUESTIONS minus whole-bank is EXACTLY this list,
+  //      both directions; each
   //      resolves, sits in the stage its prefix names, cites a primary source by URL, and the six
   //      AI-interaction entries name Amershi or PAIR. The block is the first four; the six the rest.
   const outside = ids(BANK).filter((id) => !WHOLE_BANK.includes(id));
-  ok(JSON.stringify(outside) === JSON.stringify(ADDED_283), `QUESTIONS minus whole-bank is ${JSON.stringify(outside)}, not D7's ten — an entry was added without joining this list, or one of the ten fell into whole-bank`);
-  ok(ADDED_283.every((id) => questionById(id) !== null && !WHOLE_BANK.includes(id)), "every D7 id must resolve and stay OUT of whole-bank");
-  for (const id of ADDED_283) ok(/https:\/\/\S+/.test(questionById(id).attribution), `${id}: attribution carries no URL — D7 entries cite a primary source by URL`);
+  ok(JSON.stringify(outside) === JSON.stringify(OUTSIDE_SOURCE), `QUESTIONS minus whole-bank is ${JSON.stringify(outside)}, not D7's ten plus #392's one — an entry was added without joining this list, or one of the ten fell into whole-bank`);
+  ok(OUTSIDE_SOURCE.every((id) => questionById(id) !== null && !WHOLE_BANK.includes(id)), "every D7/D8 id must resolve and stay OUT of whole-bank");
+  for (const id of OUTSIDE_SOURCE) ok(/https:\/\/\S+/.test(questionById(id).attribution), `${id}: attribution carries no URL — D7/D8 entries cite a primary source by URL`);
   const AI_SIX = ADDED_283.slice(4);
   ok(JSON.stringify(NON_FUNCTIONAL_BLOCK) === JSON.stringify(ADDED_283.slice(0, 4)), `NON_FUNCTIONAL_BLOCK is ${JSON.stringify(NON_FUNCTIONAL_BLOCK)}, not D7's first four`);
   for (const id of AI_SIX) ok(/Amershi|PAIR/.test(questionById(id).attribution) && questionById(id).label === "OBSERVED", `${id}: the AI-interaction module cites HAX (Amershi) or PAIR as a PRIMARY source, OBSERVED`);
+  // #392 (D8): in the unfaceted list only — beside its exclusion sibling, and never last.
+  ok(!OPENING_SET.includes("s4-parked-for-later") && !NON_FUNCTIONAL_BLOCK.includes("s4-parked-for-later") && Object.values(MODULES).every((m) => !m.ids.includes("s4-parked-for-later")), "s4-parked-for-later must be in the UNFACETED list only — the faceted composition #291/#292 are pre-registered against is unchanged");
+  { const fd = DEPTHS["full-discovery"].ids; const at = fd.indexOf("s4-parked-for-later"); ok(at === fd.indexOf("s3-deliberately-not-doing") + 1 && at < fd.length - 1, `s4-parked-for-later sits at ${at} of ${fd.length} — it must follow s3-deliberately-not-doing and never be LAST (deriveCursor reads the last closer's position, so a last-placed id makes every earlier full-discovery recording read unfinished)`); }
   ok(/enforces nothing|enforced nowhere/i.test(bankSrc), "the block's header must state it elicits and records and enforces nothing");
 
   // 11 · the five facets, in the documented order, each with the intake question and a fires line;
@@ -5471,7 +5482,7 @@ function scanSvg(svg, label) {
     ok(facetPlan(p.facets).declared && facetPlan(p.facets).overflow.length === 0, `preset ${p.id} must compose without overflow`);
     ok(Object.isFrozen(p) && Object.isFrozen(p.facets), `preset ${p.id} must be frozen`);
   }
-  ok(selectDepth("full-discovery", PRESETS[3].facets).length === 16 && selectDepth("full-discovery", {}).length === 30, "consumer (declared all-false) is twelve + block = 16; {} is NO vector and answers the unfaceted 30");
+  ok(selectDepth("full-discovery", PRESETS[3].facets).length === 16 && selectDepth("full-discovery", {}).length === 31, "consumer (declared all-false) is twelve + block = 16; {} is NO vector and answers the unfaceted 31");
 
   // 14 · TOTALITY (D1b) — the three ABSENT forms and every one of the 32 vectors, driven against all
   //      four literals: the three non-composing depths never move, and no vector answers today's
@@ -5550,7 +5561,7 @@ function scanSvg(svg, label) {
   ok(Object.isFrozen(NON_FUNCTIONAL_BLOCK) && Object.isFrozen(PRESETS), "NON_FUNCTIONAL_BLOCK and PRESETS must be frozen");
   { const before = JSON.stringify(MODULES); try { MODULES.hasModel.ids.push("s1-premortem"); } catch { /* strict-mode throw; the compare decides */ } ok(JSON.stringify(MODULES) === before, "a write to a module must be inert"); }
 
-  group("bank", "75 entries — 65 source-backed pinned per stage 6·7·6·7·8·8·7·12·4 plus D7's four in stage 4 and six in stage 8 — over nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, the whole bank as the 65 in source order (a FROZEN LITERAL in both files, with QUESTIONS minus whole-bank asserted to be exactly D7's ten) with its label pinned to stress test and the four-entry menu pinned by name, no orphan and no repeat, the junk-depth throw naming the value · the five facets in D1's order, each with its intake question and what it fires · the five modules as documented literals, budgets equal to their lengths and pinned to 6..7, every id resolving, disjoint from each other, from the twelve and from the block · the four presets ticking D1's combinations and composing without overflow, consumer as the declared all-false vector distinct from {} · TOTALITY driven over the three absent forms and all 32 vectors against all four literals · the composition per vector — the twelve first (asserted for full-discovery ONLY, with whole-bank as the positive control), the modules in FACETS order, the block LAST exactly once, the count arithmetic, ten pairs fitting and sixteen overflowing vectors THROWING by facet name with the budget and the whole-bank escape · seven junk vectors refused BY NAME on every depth, and a key reached through the PROTOTYPE CHAIN neither throwing, firing nor composing — behind a fixture control that proves it inherits · purity by double call, entries by identity, frozenness at every level by an inert write, over the new surface as well as the old · the C3 title-term list with its positive control and the profession-noun exemption stated, swept over the facet questions and the module and preset labels too · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every SOURCE-BACKED weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md, with D7's ten proven ABSENT from that region so the scoping is not vacuous. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — both review facts against that source file; whether a module's selection is the RIGHT selection for its facet — an editorial fact the second, faceted full-discovery run reads (decision doc D4); and whether a person can answer a facet box without having done the discovery (D2's wrong-if), which only a real intake can show");
+  group("bank", "76 entries — 65 source-backed pinned per stage 6·7·6·7·8·8·7·12·4 plus D7's four in stage 4 and six in stage 8, plus #392's one in stage 4 (in the unfaceted full-discovery list only, beside s3-deliberately-not-doing and never last) — over nine stages · ids unique, s<stage>-<slug>, prefix equal to stage, questionById by IDENTITY and null over junk · every entry's text + attribution + weak-answer note + label with the key set closed · the twelve as an ORDER assertion against the documented list · each depth's exact documented set, full discovery headed by the twelve, the whole bank as the 65 in source order (a FROZEN LITERAL in both files, with QUESTIONS minus whole-bank asserted to be exactly D7's ten plus #392's one) with its label pinned to stress test and the four-entry menu pinned by name, no orphan and no repeat, the junk-depth throw naming the value · the five facets in D1's order, each with its intake question and what it fires · the five modules as documented literals, budgets equal to their lengths and pinned to 6..7, every id resolving, disjoint from each other, from the twelve and from the block · the four presets ticking D1's combinations and composing without overflow, consumer as the declared all-false vector distinct from {} · TOTALITY driven over the three absent forms and all 32 vectors against all four literals · the composition per vector — the twelve first (asserted for full-discovery ONLY, with whole-bank as the positive control), the modules in FACETS order, the block LAST exactly once, the count arithmetic, ten pairs fitting and sixteen overflowing vectors THROWING by facet name with the budget and the whole-bank escape · seven junk vectors refused BY NAME on every depth, and a key reached through the PROTOTYPE CHAIN neither throwing, firing nor composing — behind a fixture control that proves it inherits · purity by double call, entries by identity, frozenness at every level by an inert write, over the new surface as well as the old · the C3 title-term list with its positive control and the profession-noun exemption stated, swept over the facet questions and the module and preset labels too · zero import lines, no DOM token, and no tracked page or system/ module reaching the bank · every SOURCE-BACKED weak-answer note's first thirty characters pinned to docs/research/question-bank-source.md, with D7's ten proven ABSENT from that region so the scoping is not vacuous. What it cannot reach: whether an entry's text, attribution, note or provenanceNote is the source's wording for its id (only weakAnswer is pinned), and whether the C2 slop pass was run — both review facts against that source file; whether a module's selection is the RIGHT selection for its facet — an editorial fact the second, faceted full-discovery run reads (decision doc D4); and whether a person can answer a facet box without having done the discovery (D2's wrong-if), which only a real intake can show");
 }
 
 // --- 29 · the discovery applier -------------------------------------------------------------------
@@ -7218,7 +7229,7 @@ function scanSvg(svg, label) {
     // A declared vector drives the walk; absent, null and {} read as today's list; a non-composing depth ignores it.
     const faceted = mk("faceted", { depth: "full-discovery", facets: PRESETS[0].facets });
     ok(same(ids(faceted), selectDepth("full-discovery", PRESETS[0].facets).map((q) => q.id)) && sessionView(faceted).cursor.total === 22, `case 28: a faceted run.json must walk the composed list (regulated: 12 + 6 + 4 = 22) — got ${sessionView(faceted).cursor.total}`);
-    for (const absent of [{}, { facets: null }]) { const r = mk(`unfaceted-${Object.keys(absent).length}`, { depth: "full-discovery", ...absent }); ok(sessionView(r).cursor.total === 30 && same(ids(r), selectDepth("full-discovery").map((q) => q.id)), "case 28: no facets field / facets: null must read as the unfaceted 30"); }
+    for (const absent of [{}, { facets: null }]) { const r = mk(`unfaceted-${Object.keys(absent).length}`, { depth: "full-discovery", ...absent }); ok(sessionView(r).cursor.total === 31 && same(ids(r), selectDepth("full-discovery").map((q) => q.id)), "case 28: no facets field / facets: null must read as the unfaceted 31"); }
     const ignored = mk("ignored", { depth: "scope-check", facets: PRESETS[2].facets });
     ok(sessionView(ignored).cursor.total === 6, "case 28: a vector on scope-check is recorded and ignored — the literal six (D1b totality)");
     ok(threw(() => sessionView(mk("junk", { depth: "full-discovery", facets: { marketplace: true } })))?.message.includes("unknown facet"), "case 28: a run.json carrying a facet the bank does not know must throw by the bank's name");
@@ -7368,7 +7379,7 @@ function scanSvg(svg, label) {
     const ladderRows = SECTIONS.filter((r) => r.axis === "ladder");
     ok(ladderRows.length === LEVELS.length, `case 31: SECTIONS has ${ladderRows.length} ladder rows, LEVELS has ${LEVELS.length} — the brief would miss a rung`);
     for (const r of ladderRows) ok(cp.systemPrompt.includes(`${r.from} → ${r.heading}`), `case 31: the section brief lacks "${r.from} → ${r.heading}" — it must be DERIVED from SECTIONS, not written`);
-    ok(cp.systemPrompt.includes(NON_GOAL_QUESTIONS.join(" or ")) && cp.systemPrompt.includes(`stage ${METRIC_STAGE}`), "case 31: the section brief must name the non-goal questions and the metric stage from the projection's own constants");
+    ok(cp.systemPrompt.includes(NON_GOAL_QUESTIONS.join(" or ")) && cp.systemPrompt.includes(LATER_QUESTIONS.join(" or ")) && cp.systemPrompt.includes(`stage ${METRIC_STAGE}`), "case 31: the section brief must name the non-goal questions, the parked-scope question and the metric stage from the projection's own constants");
     ok(/which section/i.test(cp.prompt), "case 31: the Create PRD turn prompt must ask for the section in prose");
     ok(!cp.systemPrompt.includes(GRILL_STANCE) && !cp.systemPrompt.includes(AUDIT_VERDICT_RULE), "case 31: Create PRD carries Grill's stance or the audit rule");
     // Grill interview specifically.
@@ -7947,9 +7958,10 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     // carries for JUDGEMENT_RULE. NOT for reaskBrief any more: #366 routes that through Think's
     // ordinary turn prompt, and case 31 below drives all three interview builds to prove it.
     ok(POSTURES.grill.fingerprint === "76b7847d4ebbd9d8f16f9726ff0f4f0f", `30.46: Grill's prompt surface MOVED — ${POSTURES.grill.fingerprint}. discovery/partner-audit-1's three turns carry the old one and would go stale`);
-    // Create-PRD's moved DELIBERATELY for DOMAIN_RULE. Pinned to its NEW literal, with the pre-#289
-    // value named, so the move is visible in the source rather than smuggled.
-    ok(POSTURES["create-prd"].fingerprint === "f0e7599c7bc953b74ff3750dceca5061", `30.46: Create-PRD's stamp is ${POSTURES["create-prd"].fingerprint}, not the value #289 moved it to (it was edc7c52db9d58d59213e93e65cd8d28c before DOMAIN_RULE went into its system prompt). No committed package runs create-prd, so the move costs nothing on disk — but it is a move, and it is pinned`);
+    // Create-PRD's moved DELIBERATELY twice — for DOMAIN_RULE (#289) and for sectionBrief's Later,
+    // not never line (#392). Pinned to its NEWEST literal, with both earlier values named, so each
+    // move is visible in the source rather than smuggled.
+    ok(POSTURES["create-prd"].fingerprint === "ea523ac1e8eaef1ac1208e108f8b640e", `30.46: Create-PRD's stamp is ${POSTURES["create-prd"].fingerprint}, not the value #392 moved it to (it was f0e7599c7bc953b74ff3750dceca5061 after #289's DOMAIN_RULE and edc7c52db9d58d59213e93e65cd8d28c before that; #392 added the Later, not never line to sectionBrief). No committed package runs create-prd, so the move costs nothing on disk — but it is a move, and it is pinned`);
     ok(DOMAIN_RULE.length > 0 && buildCreatePrdTurn(FINGERPRINT_INPUTS).systemPrompt.includes(DOMAIN_RULE), "30.46: DOMAIN_RULE is not in Create-PRD's system prompt — the one deliberate stamp move");
     for (const [id, build, inputs] of [["think", buildThinkTurn, FINGERPRINT_INPUTS], ["grill", buildGrillTurn, FINGERPRINT_INPUTS], ["grill-audit", buildGrillTurn, AUDIT_FINGERPRINT_INPUTS]])
       ok(!build(inputs).systemPrompt.includes(DOMAIN_RULE), `30.46: DOMAIN_RULE reached ${id}'s SYSTEM prompt — that moves a stamp ${turnsCarrying("7efdde37441fbd2591ba4a7dfeecdb6b", "cadb38117a2660c036d87e32323a8745")} recorded turns carry (Think's two stamps) or ${turnsCarrying("76b7847d4ebbd9d8f16f9726ff0f4f0f")} (Grill/partner-audit-1)`);
@@ -8161,8 +8173,8 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
 }
 
 // --- group 31: the PRD projection (#290) -------------------------------------------------------------
-// THE FIXTURE IS A GATE FIXTURE, NOT A RUN. Nothing produces a full-width run package until #289
-// lands, so this group drives a HAND-AUTHORED one: the ops, the answers and the run header below are
+// THE FIXTURE IS A GATE FIXTURE, NOT A RUN. #289's affordances landed but no recorded package exercises
+// them, so this group drives a HAND-AUTHORED one: the ops, the answers and the run header below are
 // written by hand for this gate. It is NOT run output, it must never be presented as one, and it must
 // never be copied into a run package — discovery/README.md forbids a hand-written answer, transcript
 // or op, and that rule is why this fixture lives INLINE here rather than as a discovery/<slug>/
@@ -8256,6 +8268,8 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     { ref: "a8", text: "I do not know what the one number is. Plots filled? Late records? Probably late records but I would be guessing." },
     { ref: "a9", text: "Actually, hold on — the out-of-bounds answer I gave sits under the holder's need, not under the appetite. I want to refile it there." },
     { ref: "a10", text: "One more before we stop: away mode. If a holder is away their slot frees up, but nobody has said whether it frees for that week only or for the rest of the season." },
+    // a11 is reserved: case 31.16 pushes it as its synthetic unfiled aside.
+    { ref: "a12", text: "Saving for a later version, not refusing: a waiting list for a plot when one frees up. Later because nobody has asked for it yet and the committee wants the rota trusted first; keeping it possible means the plot record needs a holder history, not just a current holder." },
   ];
 
   // Hand-authored ops, in filing order, using REAL bank ids so questionById resolves. Turn discipline:
@@ -8285,6 +8299,10 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     // seq 11's for 31.6's reason: a verbatim copy would let "the replaced decision vanished" pass on
     // another block. Its own turn, because it closes (R2).
     { turn: "t9", op: "record_decision", params: { question_id: "s4-out-of-bounds", answer_ref: "a4", level: "solution", parent_id: 4, evidence_refs: [1, 3], wrong_if: "The holder turns out to want messaging inside the rota after all, so excluding it strands every late swap in a side channel.", off_script: false } },
+    // #392: a decision on the parked-scope question — its own turn (it closes), a real parent (seq 4, the
+    // stakeholder decision), a wrong_if distinct from every other so the vanishing-claim check cannot pass
+    // on another block.
+    { turn: "t10", op: "record_decision", params: { question_id: "s4-parked-for-later", answer_ref: "a12", level: "solution", parent_id: 4, evidence_refs: [1], wrong_if: "A holder history turns out to be the whole product, so the waiting list was never a later version but the thing itself.", off_script: false } },
   ];
 
   const PRD_RUN = {
@@ -8310,7 +8328,7 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
   const decisionsOf = (ops) => ops.filter((r) => r.op === "record_decision");
   const without = (level) => PRD_RECORDS.filter((r) => !(r.op === "record_decision" && r.params.level === level));
 
-  // 31.1 — the table: frozen at BOTH levels by mutation, the exact key set, and eleven DISTINCT
+  // 31.1 — the table: frozen at BOTH levels by mutation, the exact key set, and twelve DISTINCT
   // declared empty states (a copy-pasted one would make 31.7.1 pass for the wrong reason).
   {
     const n = SECTIONS.length;
@@ -8327,7 +8345,7 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     }
     ok(new Set(SECTIONS.map((r) => r.id)).size === n, "two SECTIONS rows share an id");
     ok(new Set(SECTIONS.map((r) => r.heading)).size === n, "two SECTIONS rows share a heading");
-    ok(new Set(SECTIONS.map((r) => r.empty)).size === n, `two SECTIONS rows declare the same "empty" string — the eleven must be distinct or 31.7.1 cannot tell them apart`);
+    ok(new Set(SECTIONS.map((r) => r.empty)).size === n, `two SECTIONS rows declare the same "empty" string — the twelve must be distinct or 31.7.1 cannot tell them apart`);
   }
 
   // 31.2 — the coverage rules, BOTH directions. A fifth rung or a fifth verb with no home fails here
@@ -8351,6 +8369,11 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     for (const row of opKind) ok(DISCOVERY_OPS.includes(row.from) && row.from !== "record_decision", `op-kind row "${row.id}" names "${row.from}", which is not one of the three non-decision verbs`);
     ok(NON_GOAL_QUESTIONS.length === 2 && Object.isFrozen(NON_GOAL_QUESTIONS), "NON_GOAL_QUESTIONS is not two frozen ids");
     for (const id of NON_GOAL_QUESTIONS) ok(questionById(id) !== null, `NON_GOAL_QUESTIONS names "${id}", which the bank does not hold — a rename would silently empty the Non-goals section`);
+    ok(LATER_QUESTIONS.length === 1 && Object.isFrozen(LATER_QUESTIONS), "LATER_QUESTIONS is not one frozen id (#392)");
+    for (const id of LATER_QUESTIONS) ok(questionById(id) !== null, `LATER_QUESTIONS names "${id}", which the bank does not hold — a rename would silently empty Later, not never`);
+    ok(LATER_QUESTIONS.every((id) => !NON_GOAL_QUESTIONS.includes(id)), "a LATER question is also a NON_GOAL question — a parked item would then render as a refusal, the exact leak #392 closes");
+    // Every question-keyed cross-ref section has exactly one home, the VALID_FOR idiom one axis over.
+    for (const id of [...NON_GOAL_QUESTIONS, ...LATER_QUESTIONS]) { const homes = SECTIONS.filter((r) => r.axis === "cross-ref" && r.from.includes(id)); ok(homes.length === 1, `question "${id}" is named by ${homes.length} cross-ref row(s) — it must be exactly one`); }
     ok(STAGES.some((s) => s.n === METRIC_STAGE), `METRIC_STAGE ${METRIC_STAGE} names a stage the bank does not hold — Success metrics would silently empty`);
   }
 
@@ -8820,7 +8843,36 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
       "31.16: with no open_question filed and an aside unfiled, the section must render its OWN declared empty string AND the block — every SECTIONS row's empty is its own");
   }
 
-  group("prd projection", `SECTIONS frozen at BOTH levels by mutation with eleven DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · 27 corrupted-ledger refusals each matched against the value it must name, the cross-references — parent_id, evidence_refs, claim_ref and supersedes — each naming the KIND it resolves to with a DANGLING one of each proven TOLERATED, and supersedes additionally refused when it names itself, names a later seq or is claimed by a second record, against a legitimate A←B←C chain proven to still pass, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, over ALL THREE of CommonMark's line endings (LF, CR and the CRLF pair — CRLF is the sharp one, because folding only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still reads as a heading), each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too, plus the human ANSWER half driven over the same three endings because blockquote(), not the fold, is its containment · a document-kind answer (#286's audit) rendered as a POINTER by kind — ref and length on the page, its text and its headings off it — beside a banked answer still blockquoted and the same text as a banked answer still blockquoted, with the Run line reading the audit's entry mode · #289 added the OFF-SCRIPT LEDGER: the fixture's three decisions on one question — a banked one, an OFF-SCRIPT one naming it, and a later banked one — with the off-script record proven to supersede NOTHING, the later banked one proven to look PAST it to seq 5, both visible ones rendering their own block and the superseded one rendering none while being NAMED, Open questions rendering a banked park beside two off-script exchanges with the section's own row declaring both MVPs, the secondary-source row rendering with its URL, and the hierarchy's orphans count proven to agree with auditTraceability's own halves — one number, two readers · and AN UNFILED OFF-SCRIPT EXCHANGE NAMED ON THE PAGE, with the VACUITY CONTROL FIRST (the fixture's answers carry no kind, so the block is absent from the happy page and 31.7.2 stays green untouched), then the positive control, a LOOK-UP proven never reported as unfiled (filing nothing is its correct outcome), an aside the ops DO settle proven not reported, the heading list proven unchanged because the block lives INSIDE Open questions, and the section's own declared empty string proven to still render beside it. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package, which does not exist until #289 lands, so the fixture is hand-authored and labelled as such in the file`);
+  // 31.17 — #392: LATER, NOT NEVER. A decision on s4-parked-for-later renders under its own heading,
+  // beside Non-goals and NOT inside them, by seq and once; delete the op and the row's own `empty`
+  // renders with the claim gone from the WHOLE document (31.7.1's loop is over LADDER rows, so the
+  // cross-ref row gets its own).
+  {
+    const row = SECTIONS.find((r) => r.id === "later");
+    const ng = SECTIONS.findIndex((r) => r.id === "non-goals");
+    ok(row && SECTIONS.indexOf(row) === ng + 1, "31.17: the Later, not never row is not directly after Non-goals");
+    const later = decisionsOf(PRD_RECORDS).find((d) => d.params.question_id === "s4-parked-for-later");
+    // The vacuity guard, and the rest of the case runs only past it: a missing fixture op must fail BY
+    // NAME here, never as a TypeError that takes the whole group down (31.7.4's `m?.seq` shape).
+    ok(later?.seq === 14, `31.17: the fixture has no decision on s4-parked-for-later at seq 14 (got ${later?.seq ?? "none"}) — the case below is then vacuous`);
+    if (later?.seq === 14) {
+      const q = questionById("s4-parked-for-later");
+      const body = String(sectionBody(doc, row.heading));
+      ok(present(body, `- seq ${later.seq} — ${q.text} (see MVP)`), `31.17: Later, not never does not name seq ${later.seq} by the by-seq rule — ${JSON.stringify(body.slice(0, 160))}`);
+      ok(body.split("\n").filter((l) => l.startsWith("- seq ")).length === 1, "31.17: Later, not never renders more than one row for one parked decision");
+      const ngBody = String(sectionBody(doc, "Non-goals"));
+      ok(!ngBody.includes(`seq ${later.seq} `) && !present(ngBody, q.text), `31.17: the parked decision LEAKED into Non-goals — ${JSON.stringify(ngBody)}`);
+      ok(ngBody.includes("seq 6 ") && ngBody.includes("seq 13 "), "31.17: Non-goals lost its own two rows — the shared renderer changed Non-goals' output");
+      ok(blockOf(doc, later.seq) !== null && String(sectionBody(doc, "MVP")).includes(`seq ${later.seq}`), "31.17: the parked decision has no block in its ladder section (MVP) — a decision renders ONCE, there");
+      // The vanishing claim, cross-ref edition.
+      const md = project(PRD_RECORDS.filter((r) => r.seq !== later.seq));
+      ok(sectionBody(md, row.heading) === row.empty, `31.17: with the parked decision deleted, Later, not never renders ${JSON.stringify(String(sectionBody(md, row.heading)).slice(0, 120))}, not its declared empty`);
+      ok(!present(md, later.params.wrong_if) && !present(md, PRD_ANSWERS.find((a) => a.ref === "a12").text.split("\n")[0]), "31.17: the parked decision's wrong_if or answer survives ANYWHERE after its op was deleted");
+      ok(same(headings(md), SECTIONS.map((r) => r.heading)), "31.17: deleting the parked decision removed a heading");
+    }
+  }
+
+  group("prd projection", `SECTIONS frozen at BOTH levels by mutation with twelve DISTINCT declared empty states and an exact key set per row · the table iterated against LEVELS and OPS in both directions — a fifth rung or a fifth verb with no home fails BY NAME, and record_decision is claimed by the ladder rows collectively · NON_GOAL_QUESTIONS and METRIC_STAGE each resolved through the bank, so a rename goes red here instead of silently emptying a section · the positive control first: a fixture package built by running the REAL applier over hand-authored ops, projecting to one "## " heading per row in table order with the honesty header and the architecture placeholder · every record's distinguishing claim asserted present, iterated over the RECORDS so an op kind with no renderer fails by name, and nothing truncated · both flags proven INLINE on the record that carries them and proven READ rather than re-derived, by blanking one record's flagged and watching the markers vanish from its block · the hierarchy naming every rung, each child its parent's seq, the orphan marked and the counts line pinned · the supersede READ: the latest renders, the replaced is NAMED and gets no block of its own, and neither is removed, with the superseding op given a DISTINCT wrong_if so the assertion cannot pass on the replacement's own block · the three whole-ledger surfaces proven to KEEP the replaced record and MARK it, driven by flagging it so the "orphan 2" / "orphans 1" divergence is real and the Ledger line's own set-naming is load-bearing · THE VANISHING CLAIM — each of the four rungs deleted in turn, its section falling back to its own declared empty string and every deleted wrong_if gone from the WHOLE document, plus the empty-ops projection keeping every heading while carrying no claim and no answer although all nine answers were passed in, plus the transition note driven both directions, plus Success metrics' STAGE filter driven both directions — its fallback is the one state no other assertion on the page can see, so a filter matching nothing would stay green everywhere else · the bank's weakAnswer, note and provenanceNote proven ABSENT over every question the fixture names, with text / attribution / label present as the positive control · hostile answer text kept inert — a fence, a "# " and a "## " line inside a blockquote add no heading, and a pipe inside an applier-accepted URL does not add a table column · byte-identical determinism with every ISO date on the page pinned to run.json's own, and purity by JSON compare · 27 corrupted-ledger refusals each matched against the value it must name, the cross-references — parent_id, evidence_refs, claim_ref and supersedes — each naming the KIND it resolves to with a DANGLING one of each proven TOLERATED, and supersedes additionally refused when it names itself, names a later seq or is claimed by a second record, against a legitimate A←B←C chain proven to still pass, including a REAL text line and a REAL denied line refused by their type, twelve junk inputs each a plain Error, and an unresolvable answer_ref rendering an explicit marker rather than silence · run.json tolerated with five fields stripped in turn, "undefined" never on the page, with the Run line and the Ledger line each pinned WHOLE — every header field and every op and flag count — as the positive control · and AN OP PARAM CANNOT ADD A SECTION: a "## " / "#### " / "- " payload injected into every string-ish param of every record and every string field of run.json in turn, over ALL THREE of CommonMark's line endings (LF, CR and the CRLF pair — CRLF is the sharp one, because folding only its LF leaves the CR as a bare line ending AND inserts the single leading space ATX still reads as a heading), each contained by a fold or refused by name, asserted three ways (the heading list unchanged, no payload line at column 0 or under ATX's three-space indent, and the text still PRESENT because a fold contains a claim rather than deleting one), with one committed op carrying a real multi-line reason so the happy page holds it too, plus the human ANSWER half driven over the same three endings because blockquote(), not the fold, is its containment · a document-kind answer (#286's audit) rendered as a POINTER by kind — ref and length on the page, its text and its headings off it — beside a banked answer still blockquoted and the same text as a banked answer still blockquoted, with the Run line reading the audit's entry mode · #289 added the OFF-SCRIPT LEDGER: the fixture's three decisions on one question — a banked one, an OFF-SCRIPT one naming it, and a later banked one — with the off-script record proven to supersede NOTHING, the later banked one proven to look PAST it to seq 5, both visible ones rendering their own block and the superseded one rendering none while being NAMED, Open questions rendering a banked park beside two off-script exchanges with the section's own row declaring both MVPs, the secondary-source row rendering with its URL, and the hierarchy's orphans count proven to agree with auditTraceability's own halves — one number, two readers · #392: a twelfth row, Later, not never, keyed on ONE bank question and proven disjoint from NON_GOAL_QUESTIONS with every question-keyed cross-ref id having exactly one home, the fixture's parked decision rendered under it by seq and NOT under Non-goals, and the vanishing claim driven on the cross-ref row (delete the op, the row's own empty renders, the claim is gone from the whole page) · and AN UNFILED OFF-SCRIPT EXCHANGE NAMED ON THE PAGE, with the VACUITY CONTROL FIRST (the fixture's answers carry no kind, so the block is absent from the happy page and 31.7.2 stays green untouched), then the positive control, a LOOK-UP proven never reported as unfiled (filing nothing is its correct outcome), an aside the ops DO settle proven not reported, the heading list proven unchanged because the block lives INSIDE Open questions, and the section's own declared empty string proven to still render beside it. What it cannot reach: the filesystem half (readPackage, writePrd, its refuse-to-overwrite rule and the CLI) — deliberately not imported, in-memory on purpose, and exercised by the ticket's mktemp -d run instead; and a projection of a FULL-WIDTH run package: #289's affordances landed, but no recorded package exercises them, so the fixture is hand-authored and labelled as such in the file`);
 }
 
 // --- 32 · the parenting fixture (#341) ------------------------------------------------------------

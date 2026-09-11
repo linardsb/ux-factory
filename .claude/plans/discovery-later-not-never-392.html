@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build brief — Later, not never (#392)</title>
+<style>
+  :root { --ink: #1c1b19; --mute: #5b5852; --line: #e2ddd3; --paper: #faf8f4; --card: #fff; --accent: #2f5d50; --soft: #eef3f0; }
+  * { box-sizing: border-box }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px }
+  h2 { font-size: 18px; margin: 40px 0 12px; padding-top: 18px; border-top: 1px solid var(--line) }
+  h3 { font-size: 16px; margin: 22px 0 6px }
+  p { margin: 0 0 12px }
+  .meta { color: var(--mute); font-size: 14px; margin-bottom: 26px }
+  .meta a { color: var(--accent) }
+  .concept { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 0 0 14px }
+  .concept h3 { margin-top: 0 }
+  .concept .why { color: var(--mute) }
+  pre { background: var(--soft); border-radius: 6px; padding: 12px 14px; font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto; margin: 8px 0 0 }
+  code { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--soft); padding: 1px 4px; border-radius: 4px }
+  .flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0 4px }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; position: relative }
+  .box b { display: block; font-size: 14px; margin-bottom: 2px }
+  .box small { color: var(--mute) }
+  .box.new { border-color: var(--accent); background: var(--soft) }
+  .arrow { color: var(--mute); font-size: 12px; margin: 2px 0 10px }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin: 6px 0 12px }
+  td, th { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line) }
+  th { color: var(--mute); font-weight: 600 }
+  ul.plain { list-style: none; padding: 0; margin: 0 }
+  ul.plain li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line) }
+  ul.plain li span { flex: 1 }
+  .copy { opacity: .35; border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px }
+  .copy:hover, .copy:focus-visible { opacity: 1 }
+  .copy::before { content: '⧉' }
+  .copy.copied::before { content: '✓' }
+  @media (max-width: 600px) { .flow { grid-template-columns: 1fr } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Later, not never</h1>
+  <p class="meta">Build brief for ticket #392 · the full plan, with every trap and line number, is
+    <a href="discovery-later-not-never-392.md">discovery-later-not-never-392.md</a>.</p>
+
+  <h2>What we're building and why</h2>
+  <p>Today a discovery session can only record "we are not doing X", and the generated PRD files it as a refusal. After this ticket it can also record "not yet", under its own heading, <b>Later, not never</b>, beside <b>Non-goals</b>.</p>
+
+  <h2>The concepts this rests on</h2>
+
+  <div class="concept">
+    <h3>1. A projected document</h3>
+    <p>The PRD is never written. It is computed from a log of recorded decisions (the projection), so every line on the page traces back to one recorded entry.</p>
+    <p class="why">Why here: a parked item cannot appear until something records it. So we add a question that produces a record, not a paragraph.</p>
+    <pre>till receipt
+  every line came from a scanned item
+  nobody types onto the receipt
+  no scan, no line</pre>
+  </div>
+
+  <div class="concept">
+    <h3>2. A refusal is not a deferral</h3>
+    <p>A non-goal is "no, and here is why". A parked item is "not yet, and keeping it possible changes how we build now". Filing the second under the first loses the difference.</p>
+    <p class="why">Why here: one new question asks for the deferral in the person's own words, and one new section keeps it apart from the refusals.</p>
+    <pre>Non-goals          no messaging between holders (why: appetite)
+Later, not never   a waiting list for plots (later: rota trusted first)</pre>
+  </div>
+
+  <div class="concept">
+    <h3>3. Pinned numbers</h3>
+    <p>A pin is a value copied by hand into the test that guards it. Change the real thing without changing the copy and the test fails, naming both.</p>
+    <p class="why">Why here: the question list, its length and the number of PRD sections are all pinned, so this plan names every copy that must move with them.</p>
+    <pre>bank.mjs        list = 31 questions
+build-checks    expects 31          ← must move in the same change
+mismatch        red, by name</pre>
+  </div>
+
+  <div class="concept">
+    <h3>4. A real run as evidence</h3>
+    <p>The session's files are written only by the server while a person answers in the browser (append-only: lines are added, never edited). Nobody may type or fix them by hand.</p>
+    <p class="why">Why here: the last step is one real, paid session that asks the new question, so the feature is shown working rather than claimed.</p>
+  </div>
+
+  <h2>How the pieces fit</h2>
+  <div class="flow">
+    <div class="box new"><b>Bank question</b><small>"What are you saving for a later version?"</small></div>
+    <div class="box"><b>Person answers</b><small>in the portal, one question per turn</small></div>
+    <div class="box"><b>Agent records it</b><small>one decision entry, judged on form only</small></div>
+    <div class="box"><b>Transcript</b><small>append-only log of entries</small></div>
+    <div class="box"><b>Projection</b><small>computes the PRD from the log</small></div>
+    <div class="box new"><b>Later, not never</b><small>new section, beside Non-goals</small></div>
+  </div>
+  <p class="arrow">Left to right. The shaded boxes are new; everything between them already exists.</p>
+
+  <h2>The plan at a glance</h2>
+  <p>The code half was rehearsed on a throwaway copy of the repo and passed every check; that diff sits beside the plan, so phases 1 to 3 are a replay.</p>
+  <table>
+    <tr><th>Phase</th><th>What</th><th>Depends on</th></tr>
+    <tr><td>1 The bank</td><td>Add the question, grow the full-discovery list to 31, move the pinned counts.</td><td>nothing</td></tr>
+    <tr><td>2 The projection</td><td>Add the section, teach the test to prove it renders and never leaks into Non-goals, regenerate the seven committed PRDs.</td><td>Phase 1</td></tr>
+    <tr><td>3 Docs</td><td>README, the architecture note, the gate reference.</td><td>Phase 1</td></tr>
+    <tr><td>4 The real run</td><td>One recorded session, 31 questions, about $1.60 and 40 minutes of the owner's time.</td><td>Phases 1 to 3</td></tr>
+  </table>
+
+<pre>discovery/
+├── bank.mjs                        # the new question; the list grows to 31
+├── prd-projection.mjs              # the new section, one shared renderer for both
+├── README.md                       # twelve sections; the entry named
+├── */prd.md (seven files)          # regenerated: each gains the empty new section
+└── later-not-never-1/              # the real run, written by the server only
+portal/lib/discovery-postures.mjs   # one line telling the agent where the section is
+tooling/build-checks.mjs            # the pins move; one new test case
+docs/epics/discovery-question-selection.architecture.md   # budget 30 → 31, one line
+.claude/references/gates.md         # the gate reference stays true</pre>
+
+  <h3>Done when</h3>
+  <table>
+    <tr><td>1</td><td>The entry has every field the gate checks, and the gate is green.</td></tr>
+    <tr><td>2</td><td>The frozen 65-question stress list, the opening twelve and the presets have not moved.</td></tr>
+    <tr><td>3</td><td>Twelve sections; a test decision renders under the new heading, never under Non-goals, and vanishes when its entry is deleted.</td></tr>
+    <tr><td>4</td><td>Each committed PRD changes by exactly the four lines of the new section.</td></tr>
+    <tr><td>5</td><td>The recorded prompts' stamps are unchanged, except the one the plan names and explains.</td></tr>
+    <tr><td>6</td><td>All 34 gate groups pass; the docs say twelve and 31.</td></tr>
+    <tr><td>7</td><td>One real run projects its answer under the heading, or the report says not met.</td></tr>
+  </table>
+
+  <h2>Go deeper</h2>
+  <ul class="plain">
+    <li data-prompt="/learn a document projected from a log"><span><b>/learn a document projected from a log</b> — why a PRD that is computed can never carry a claim nobody recorded.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn non-goals versus parked scope in a PRD"><span><b>/learn non-goals versus parked scope in a PRD</b> — refused with a reason, or deferred and shaping today's thin line.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn pinned literals in a test gate"><span><b>/learn pinned literals in a test gate</b> — why a hand-copied number is a feature, and what it costs to move one.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn append-only records as evidence"><span><b>/learn append-only records as evidence</b> — why the session files may be re-run but never edited.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  </ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

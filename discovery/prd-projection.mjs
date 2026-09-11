@@ -154,6 +154,11 @@ const METRIC_STAGE_LABEL = STAGES.find((s) => s.n === METRIC_STAGE)?.label ?? `s
 // else — a section that guessed at exclusions would be exactly the invented claim this fold forbids.
 export const NON_GOAL_QUESTIONS = Object.freeze(["s3-deliberately-not-doing", "s4-out-of-bounds"]);
 
+// The bank's one question that asks what is PARKED rather than refused (#392). "Later, not never" is its
+// cross-reference and nothing else — and it is NOT in NON_GOAL_QUESTIONS, because a parked item filed
+// under Non-goals reads as refused, which is the gap the question exists to close.
+export const LATER_QUESTIONS = Object.freeze(["s4-parked-for-later"]);
+
 const TRANSITION_NA = "**n/a** — the run recorded no transition-level decision, so no organisational change was elicited. "
   + "Transition requirements are implementation needs — data migration, training materials, support setup, business "
   + "continuity (docs/research/requirements-hierarchy.md). Mark this section n/a with a reason, or run the questions "
@@ -234,6 +239,14 @@ export const SECTIONS = Object.freeze([
     from: `decisions on ${NON_GOAL_QUESTIONS.join(" and ")}`,
     why: "The bank's two questions that ask what is excluded. Cross-referenced by seq, never re-rendered, and never guessed at — an invented non-goal is the exact failure this fold forbids.",
     empty: tbd(`the run answered neither of the bank's two exclusion questions (${NON_GOAL_QUESTIONS.join(", ")})`),
+  },
+  {
+    id: "later",
+    heading: "Later, not never",
+    axis: "cross-ref",
+    from: `decisions on ${LATER_QUESTIONS.join(" and ")}`,
+    why: "The house shape's §Later, not never (.claude/skills/plan-create-prd/SKILL.md): what is PARKED for a later version, kept apart from what is refused. Cross-referenced by seq like Non-goals, never re-rendered, never guessed at — and sourced from one bank question, never from the exclusion pair (#392).",
+    empty: tbd(`the run did not answer ${LATER_QUESTIONS.join(", ")}`),
   },
   {
     id: "open-questions",
@@ -593,8 +606,11 @@ function renderMetrics(state) {
   return parts.join("\n");
 }
 
-function renderNonGoals(state) {
-  const rows = NON_GOAL_QUESTIONS
+// ONE renderer for both question-keyed cross-ref sections: Non-goals and Later, not never (#392) differ
+// only in which ids they name, and a second copy would let one drift from the by-seq rule while the
+// other kept it.
+const crossRefByQuestion = (ids) => (state) => {
+  const rows = ids
     .map((id) => state.latestByQuestion.get(id))
     .filter(Boolean);
   if (!rows.length) return null;
@@ -602,7 +618,7 @@ function renderNonGoals(state) {
     const q = questionFor(d.params.question_id);
     return `- seq ${d.seq} — ${q ? q.text : qidLabel(d.params.question_id)} (see ${headingForLevel(d.params.level)})`;
   }).join("\n");
-}
+};
 
 // AN OFF-SCRIPT EXCHANGE NOBODY FILED (#289; AC #3). The applier refuses a closer while an aside on the
 // open turn has no filing, but a session can always be finished (MVP 8: blocking is not available), so
@@ -700,7 +716,8 @@ const RENDERERS = Object.freeze({
   users: (s) => rungSection("stakeholder", s),
   mvp: (s) => rungSection("solution", s),
   metrics: renderMetrics,
-  "non-goals": renderNonGoals,
+  "non-goals": crossRefByQuestion(NON_GOAL_QUESTIONS),
+  later: crossRefByQuestion(LATER_QUESTIONS),
   "open-questions": renderOpenQuestions,
   "weak-answers": renderWeakAnswers,
   transition: (s) => rungSection("transition", s),

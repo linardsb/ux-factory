@@ -681,7 +681,7 @@ $('#chat-form').addEventListener('submit', async (e) => {
 // The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
 // A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
 // #288: `step` is the selected posture FLOW step (a stance) and `vectorDeclared` is D1b's distinction
-// — {} is no vector (the unfaceted thirty), a declared all-false vector is the consumer preset (16).
+// — {} is no vector (the unfaceted list — 31 since #392), a declared all-false vector is the consumer preset (16).
 // Both are selection state for controls the config drives; neither is a copy of a rule.
 const discovery = { config: null, session: null, running: false, proposals: null, step: null, vectorDeclared: false };
 
@@ -931,7 +931,7 @@ function renderFacetPlan() {
     el.textContent = `This depth runs its own fixed list. The vector is recorded in run.json and does not change which questions are asked (D1b) — only full discovery composes from it.`;
     return;
   }
-  if (!plan.declared) { el.textContent = 'No vector declared — full discovery runs its unfaceted 30. Tick a fact, or press a preset, to compose from the bank\'s modules.'; return; }
+  if (!plan.declared) { const d = c.depths.find((x) => x.id === $('#discovery-depth').value); el.textContent = `No vector declared — full discovery runs its unfaceted ${d.count}. Tick a fact, or press a preset, to compose from the bank's modules.`; return; }
   el.textContent = plan.overflow.length === 0
     ? `${plan.count} of ${plan.budget} — the twelve, ${named(plan.fits) || 'no module'}, and the non-functional block.`
     : `${named(plan.fits) || 'Nothing'} fits (${plan.count} of ${plan.budget}); ${named(plan.overflow)} does not. Untick one, or run whole-bank. Nothing is truncated and the session will not start until you choose (D1a).`;

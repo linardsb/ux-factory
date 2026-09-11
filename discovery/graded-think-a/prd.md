@@ -197,6 +197,10 @@ Every decision's kill criterion, by seq:
 
 - seq 31 — What are we declaring out of bounds? (see Transition note)
 
+## Later, not never
+
+_TBD — the run did not answer s4-parked-for-later._
+
 ## Open questions
 
 #### seq 2 · banked · `s1-what-would-have-to-be-true`
