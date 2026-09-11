@@ -60,6 +60,13 @@ transferred onto it as a patch, and `git -C … diff --stat FETCH_HEAD` required
 others. The pass condition is stated as both halves — present in `outA.sarif`, absent from `outB.sarif` — because
 a B-side zero alone is what the vacuous-database paragraph already forbids.
 
+**The patch is taken against `FETCH_HEAD`, not `HEAD`.** `git diff HEAD` is empty the moment the fix is
+committed — on cycle 2 of a 3-cycle loop, or any run where §3's validation staged first — and an empty patch
+transfers nothing, so the B-side becomes a rebuild of A, both sides show the alert, and the loop reads a working
+fix as a failed one. That is F1's own failure class one level down, caught on review of this fix rather than in
+the file. Diffing against `FETCH_HEAD` is commit-state independent, and the `--stat` assertion is stated as
+*every file you fixed* rather than merely *no others*, so an empty stat fails loudly.
+
 **`$DB` serves two readers, so it is built with the config.** Door 5's extraction control and the pre-push
 full-suite scan both depend on the database's **scope**, which comes from `--codescanning-config`; the old
 `dbA`/`dbB` `create` calls passed `--language` only. Both `create` calls now carry

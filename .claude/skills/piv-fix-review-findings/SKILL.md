@@ -258,15 +258,18 @@ Per alert:
    ```bash
    git worktree remove --force "$S/pr-$N-fixed" 2>/dev/null
    git worktree add --detach "$S/pr-$N-fixed" FETCH_HEAD
-   git diff HEAD -- <the files you fixed> | git -C "$S/pr-$N-fixed" apply
-   git -C "$S/pr-$N-fixed" diff --stat FETCH_HEAD    # must list those files and no others
+   git diff FETCH_HEAD -- <the files you fixed> | git -C "$S/pr-$N-fixed" apply
+   git -C "$S/pr-$N-fixed" diff --stat FETCH_HEAD    # EVERY file you fixed, and no others
    DB="$S/dbB"
    "$CODEQL" database create "$DB" --language=javascript-typescript \
      --codescanning-config=.github/codeql/codeql-config.yml --source-root="$S/pr-$N-fixed" --overwrite
    "$CODEQL" database analyze "$DB" "<resolved>.ql" --format=sarif-latest --output="$S/outB.sarif" --rerun
    ```
    The alert must be absent from `outB.sarif` while present in `outA.sarif` — **both halves, or the run proves
-   nothing.** `$DB` is this database, and it is `--codescanning-config` at `create` that gives it the gate's
+   nothing.** Diff against `FETCH_HEAD`, never `HEAD`: `git diff HEAD` is empty the moment the fix is committed —
+   on cycle 2, or any time validation ran first — and an empty patch transfers nothing, so B is a rebuild of A,
+   both sides show the alert and the loop reads a working fix as a failed one. **An empty `--stat` is that
+   failure**, which is why the assertion is *every* file and not merely *no others*. `$DB` is this database, and it is `--codescanning-config` at `create` that gives it the gate's
    **scope**, which door 5's extraction control and the pre-push full-suite scan below both read. A later cycle
    that changes the fix rebuilds it.
 5. **Secondary sanity:** `grep baselineLinesOfCode "$S/dbA/codeql-database.yml"` is non-trivial. ~35s a side.
