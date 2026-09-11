@@ -586,3 +586,21 @@ the branch and from `origin` after the push.
 not a CodeQL run, so no `codeql` cycle was spent and no alert was read. R1's guard is proven to refuse and to
 pass; that the *guarded* read then answers correctly for PR #403 is shown by the one live call above and by
 nothing broader.
+
+## CI, read back at `038e931`
+
+`038e931` is the commit carrying R2 and R3's corrections on top of `47f8229`. All six checks pass. The `codeql`
+gate's own step, read through the block R1 just guarded (`N=403`, `run=34627433939`, `job=103355826783`):
+
+```
+$ gh api "repos/linardsb/ux-factory/actions/jobs/103355826783" \
+    --jq '.steps[]|select(.name=="Require no high or critical alerts")|.conclusion'
+success
+```
+
+That is the gate's verdict, not this report's. `gates-green`, `verify`, `visual`, `audit`, `codeql` and the
+Advanced Security `CodeQL` check are all `SUCCESS` on `038e931` (`gh pr checks 403`).
+
+This section is a report-only commit on top of `038e931`, so the head it cites is reachable on this branch and
+the diff between them touches this file alone — the same structure R3 asked for, and the reason the citation
+does not chase its own tail.
