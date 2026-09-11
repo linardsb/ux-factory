@@ -206,7 +206,12 @@ function buildDock() {
     const link = packLink();
     // Rule 2, for an imported pack: it is a COMPLETE pack (colour AND scale), so the base beneath
     // it is irrelevant — and neutral is the honest one to sit on, exactly as "your brand" does.
-    const href = "/system/tokens." + (derived || imported ? "neutral" : target) + ".css";
+    // The committed slug is TAKEN from PACK_IDS, never passed through from `target`: the allowlist
+    // above and this ternary are two separate conditions, so only sourcing the string from the list
+    // makes the href provably one of PACKS' own literals. (.find matches .includes exactly — both
+    // are strict equality, and a radio value is always a string.)
+    const slug = derived || imported ? "neutral" : PACK_IDS.find((id) => id === target);
+    const href = "/system/tokens." + slug + ".css";
 
     const swap = () => {
       // Claim the swap. Taken HERE, not in selectPack(): on the view-transition path the callback

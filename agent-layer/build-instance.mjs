@@ -315,9 +315,12 @@ function validateAssembly(deployDir, { slug, traceBase, name }) {
 
   // 5. No "demo"/"fictional" left in RENDERED body text (strip comments, scripts, styles, tags first —
   //    the fictional/speculative label is package content rendered at runtime, never in this shell).
+  //    Both strips close their end tag with `[^>]*>`, never a bare `>`: `</script >` and
+  //    `</style foo>` close the element in a browser, and a `>`-only end tag skips PAST them to the
+  //    next clean one — swallowing every word in between, so this check could not fail (#387).
   const body = (html.match(/<body[\s\S]*<\/body>/) || [, ""])[0]
-    .replace(/<!--[\s\S]*?-->/g, " ").replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+    .replace(/<!--[\s\S]*?-->/g, " ").replace(/<script[\s\S]*?<\/script[^>]*>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style[^>]*>/gi, " ").replace(/<[^>]+>/g, " ");
   if (/\bdemo\b/i.test(body)) problems.push('rendered body text still contains "demo" (a demo-only region was not tagged data-when="demo")');
   if (/\bfictional\b/i.test(body)) problems.push('rendered body text still contains "fictional"');
 

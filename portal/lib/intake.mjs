@@ -16,10 +16,15 @@ async function fetchPage(url) {
   return await res.text();
 }
 
+// The two element strips close their end tag with `[^>]*>`, never a bare `>`. A browser closes on
+// `</script >` and `</script foo="bar">` too, and a `>`-only end tag skips PAST those to the next
+// clean one — swallowing the real text in between, or, with no later end tag, leaving the whole
+// script body to fall through to the tag strip below and land in jdText as prose (#387). This is
+// the one htmlToText in the repo that reads a REMOTE page, so it is the one that meets hostile markup.
 const htmlToText = (html) =>
   html
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script[^>]*>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (m) => ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' }[m]))
     .replace(/\s+/g, ' ')

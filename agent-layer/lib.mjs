@@ -258,9 +258,21 @@ export function parseCompanyBrief(briefPath) {
   return { head, sections, dir };
 }
 
-// Strip HTML tags and collapse whitespace.
-export const stripTags = (html) =>
-  html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+// Strip HTML tags and collapse whitespace. The closing `>` is OPTIONAL, so an unterminated `<script`
+// tail goes too and NO `<` survives — inject-jsonld.mjs feeds this into a <script type="application/
+// ld+json"> block where a leftover `</script` would close it early. `>?` alone carries that
+// postcondition; the do…while is the shape CodeQL's js/incomplete-multi-character-sanitization
+// accepts as complete, and is a measured no-op here (#387). Delete the `>?` and the hole returns;
+// delete the loop and the gate goes red.
+export function stripTags(html) {
+  let out = html;
+  let previous;
+  do {
+    previous = out;
+    out = out.replace(/<[^>]*>?/g, "");
+  } while (out !== previous);
+  return out.replace(/\s+/g, " ").trim();
+}
 
 // Truncate to <= max chars at a word boundary.
 export function clamp(text, max) {
