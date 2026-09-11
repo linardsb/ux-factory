@@ -130,6 +130,22 @@ Local, on **Node v20.20.2** (CI pins 24 — every figure below is observed local
   `success`, the `if [ "$red" -ne 0 ]; then exit 1; fi` body echoed in the step listing, and
   `every gate green`.
 
+**The base moved after round 2, so the whole battery was re-run on the merged tree.** Round 2's
+header recorded `baseRefOid` as `4f2e859` and concluded there was no rebase to sweep; PRs #386 (#289)
+and #381 (#366) then merged, taking `main` to `ea2e8e5`. `origin/main` merged in cleanly at
+**`40a2d05`** — no conflicts, despite both sides touching `CLAUDE.md` and `gates.md`, because the
+edits sit in different regions, and the **group count is 34 on both sides**, so the `drift-check`
+group-count leg had nothing to reconcile. Re-run there:
+
+- `drift-check ✓` · `token-lint ✓ 63 contract tokens` · `build ✓ all 34 groups pass` ·
+  `loc summary ✓` · `param count ✓ 120 controls`
+- `node tooling/audit-delta.mjs ea2e8e5` — against the **NEW** base, not the one the round-2 run
+  used: `base 0/5/0, head 0/5/0, new 0`
+- portal smoke re-run because `main` changed four portal modules (`discovery-postures.mjs`,
+  `discovery-transport.mjs`, `discovery.mjs`, `server.mjs`) and `portal.js`: `/api/health` ok with
+  `bootSha` `40a2d05`, `/` 200 (17261 bytes), a cross-origin POST **403**, and
+  `/api/discovery/config` answering the question bank.
+
 ## Not run
 
 - **Branch protection is not enabled yet.** Enabling it before this PR merges would leave #386 and
