@@ -681,7 +681,7 @@ $('#chat-form').addEventListener('submit', async (e) => {
 // The cursor and the recorded turns are read from the SESSION (disk), never accumulated client-side.
 // A page reload therefore loses nothing, and there is no second copy to drift (AC #5, AC #10).
 // #288: `step` is the selected posture FLOW step (a stance) and `vectorDeclared` is D1b's distinction
-// — {} is no vector (the unfaceted thirty), a declared all-false vector is the consumer preset (16).
+// — {} is no vector (the unfaceted list — 31 since #392), a declared all-false vector is the consumer preset (16).
 // Both are selection state for controls the config drives; neither is a copy of a rule.
 const discovery = { config: null, session: null, running: false, proposals: null, step: null, vectorDeclared: false };
 

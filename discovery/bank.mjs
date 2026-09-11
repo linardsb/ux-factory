@@ -16,6 +16,7 @@
 //   · tooling/discovery-score.mjs — selectDepth("whole-bank"), the graded fixture's 65-id key space (#348)
 // #283 extends QUESTIONS with the ten it added (D7) and adds the facet modules, presets and the
 // two-argument selectDepth beside them; docs/epics/discovery-question-selection.architecture.md is the spec.
+// #392 adds one more on the same pattern (D8) and one section in the projection.
 //
 // Editorial rules — what a reviewer checks an entry against, with the source open beside it:
 //
@@ -62,6 +63,16 @@
 //       them: it is a frozen literal, and graded-think-a / graded-opus-a (130 real turns) are only
 //       scoreable while it does not move. The non-functional block ELICITS AND RECORDS AND ENFORCES
 //       NOTHING — wiring an elicited answer into a gate is a later epic.
+//
+//   D8  THE PARKED-SCOPE QUESTION (#392), s4-parked-for-later, is the eleventh entry outside the
+//       source and outside whole-bank, on D7's pattern: DERIVED, a primary source by URL, stage 4
+//       so the id pin holds. It is in the UNFACETED full-discovery list at position 20, directly
+//       after s3-deliberately-not-doing (whose weakAnswer grades "we'll do that later"), and in no
+//       module, not the block and not OPENING_SET — the faceted composition #291/#292 are
+//       pre-registered against is unchanged. It sits BEFORE the last question of the list on
+//       purpose: deriveCursor reads the last closer's position, so every earlier full-discovery
+//       recording still reads as finished. prd-projection.mjs projects a decision on it under
+//       "Later, not never", beside Non-goals and never inside them.
 //
 // Ids are hand-chosen and stable (s<stage>-<slug>), never derived from text: answers.jsonl,
 // transcript.jsonl and every run package key on them, and a C2 rewording must not move a key.
@@ -334,6 +345,17 @@ export const QUESTIONS = Object.freeze([
     label: "OBSERVED",
     note: "Value, usability, feasibility and business viability — the last covering go-to-market, legal, acquisition cost, monetisation, brand.",
     weakAnswer: "three of four addressed and business viability skipped, which is where legal, sales compensation and support cost live.",
+  },
+
+  // ---------- #392 · the parked-scope question (D8) — outside the source, outside whole-bank ----------
+  {
+    id: "s4-parked-for-later",
+    stage: 4,
+    text: "What are you saving for a later version rather than refusing, and what does keeping it possible tell us about how to build now?",
+    attribution: "Derived, from the Key Features guidance in Figma's PRD template — \"Discuss what you're not building (or saving for a future release) if relevant\" — https://coda.io/@yuhki/figmas-approach-to-product-requirement-docs/prd-name-of-project-1",
+    label: "DERIVED",
+    note: "The bank's two exclusion questions fold into Non-goals and s3-deliberately-not-doing grades \"we'll do that later\" as weak, so a parked item had no home. A decision here projects under Later, not never, beside Non-goals and never inside them. The template page redirects to docs.superhuman.com (fetched 2026-09-11).",
+    weakAnswer: "a wish list. A parked item with no reason for later-rather-than-now, or one the exclusion questions would already refuse, is a non-goal wearing a different label.",
   },
 
   // ---------- #283 · the non-functional block (D7) — every declared full discovery asks these; recorded only ----------
@@ -834,12 +856,14 @@ export const OPENING_SET = Object.freeze([
 
 // The four depths. Scope check is Stage 4's three scoping questions plus Stage 7's measurement
 // (HEART's goals → signals → metrics) and two kill criteria. Full discovery's ids are the UNFACETED
-// list: the twelve, then eighteen more in stage order following the source's own rule — questions
+// list: the twelve, then nineteen more in stage order following the source's own rule — questions
 // cheap to ask cold go early, questions needing a specific proposal to bite go late; Stage 9's Jobs
 // and Chesky entries are exercises rather than interview questions and stay out. #283 FROZE this list
 // rather than re-tuning it: every committed full-discovery package walked it (allergen-matrix-1, and
 // run 0 — thirty of thirty landed for one real product), and the faceted composition is a separate
 // list built by selectDepth(depth, facets) from OPENING_SET, MODULES and NON_FUNCTIONAL_BLOCK below.
+// #392 inserted s4-parked-for-later at position 20, before the last question, so allergen-matrix-1
+// and run 0 still read as finished (deriveCursor reads the last closer's position, not a count).
 //
 // Whole bank is a FROZEN LITERAL of the 65 source-backed ids in source order (which IS stage order),
 // and it is deliberately NOT derived from QUESTIONS: a stress test's whole value is that it does not
@@ -879,6 +903,7 @@ export const DEPTHS = Object.freeze({
       "s2-switch-timeline",
       "s3-why-now",
       "s3-deliberately-not-doing",
+      "s4-parked-for-later",
       "s4-press-release",
       "s4-four-risks",
       "s4-circuit-breaker",
@@ -1025,8 +1050,11 @@ export const PRESETS = Object.freeze([
   { id: "consumer", label: "Consumer", facets: { hasModel: false, regulated: false, internal: false, orgBuys: false, replacesAProcess: false } },
 ].map((p) => Object.freeze({ ...p, facets: Object.freeze(p.facets) })));
 
-// MVP 5's ~30 as a budget the person spends (D1a), not a number width can quietly exceed.
-export const FULL_DISCOVERY_BUDGET = 30;
+// MVP 5's ~30 as a budget the person spends (D1a), not a number width can quietly exceed. 31 since
+// #392, because the budget follows the unfaceted list and that list grew by one; the faceted
+// composition (twelve + block + at most two modules, 29 at most) is unchanged, so every pair still
+// fits and every triple still overflows.
+export const FULL_DISCOVERY_BUDGET = 31;
 
 // The entry for an id, or null. Total: anything the bank does not hold — an unknown id, a
 // non-string — answers null, and the caller decides what null means.

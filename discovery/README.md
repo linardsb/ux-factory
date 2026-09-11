@@ -68,7 +68,7 @@ package is what it left behind.
 discovery/
   README.md              this contract — written first, everything else conforms
   ops.mjs                the four-verb op grammar + the pure applier (#281)
-  bank.mjs               the question bank (65 source-backed + #283's ten) + the depth selectors,
+  bank.mjs               the question bank (65 source-backed + #283's ten + #392's one) + the depth selectors,
                          facet modules and presets (#282, #283)
   prd-projection.mjs     transcript op lines → prd.md, a pure fold (#290)
   proposals.mjs          proposals.jsonl → proposals.md, a SECOND pure fold BESIDE prd.md, never inside
@@ -88,7 +88,7 @@ discovery/
   instrument-loans-1/    the PARENTING FIXTURE — a real opening-set run build-checks group 32 reads (#341)
   bracket-trace-1/       #349's OBSERVATION run — the fixture's twelve answers with the fence trace armed; the last package to carry warmup denials
   bracket-trace-2/       #349's VERIFICATION run — the same twelve under the tool-name gate; no built-in denied line, the trace showing the warmup did call tools
-  allergen-matrix-1/     the FULL-DEPTH exhibit — the only committed full-discovery run, 30 of 30 answered (§The full-depth run)
+  allergen-matrix-1/     the FULL-DEPTH exhibit — the only committed full-discovery run, 30 of the 30 it was asked (the unfaceted list is 31 since #392) (§The full-depth run)
   partner-audit-1/       the AUDIT fixture (#376) — the only committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
 ```
 
@@ -353,11 +353,11 @@ saying it was projected from this run, linking the package.
 
 ## The bank's width — facets, modules, presets, the budget (#283)
 
-Decided in [`docs/epics/discovery-question-selection.architecture.md`](../docs/epics/discovery-question-selection.architecture.md) (D1, D1a, D1b). The four product types are **presets**; the selection input is a **facet vector** — five booleans, each a fact about the product: `hasModel` · `regulated` · `internal` · `orgBuys` · `replacesAProcess` (`bank.mjs` `FACETS`, with the intake question beside each). Each keys a **module**: a named, ordered group of bank ids with a declared budget (`MODULES`). Selection, never new research — the only new text is the ten D7 entries: the **non-functional block** (`NON_FUNCTIONAL_BLOCK`, four quality attributes every declared full discovery asks, recorded as decisions and **enforced nowhere**) and the **AI-interaction module** (six areas seeded from Amershi et al.'s HAX guidelines and Google PAIR's People + AI Guidebook, cited by URL in each entry's `attribution`).
+Decided in [`docs/epics/discovery-question-selection.architecture.md`](../docs/epics/discovery-question-selection.architecture.md) (D1, D1a, D1b). The four product types are **presets**; the selection input is a **facet vector** — five booleans, each a fact about the product: `hasModel` · `regulated` · `internal` · `orgBuys` · `replacesAProcess` (`bank.mjs` `FACETS`, with the intake question beside each). Each keys a **module**: a named, ordered group of bank ids with a declared budget (`MODULES`). Selection, never new research — the only new text is the ten D7 entries and #392's `s4-parked-for-later` (D8: the parked-scope question, in the unfaceted full-discovery list at position 20, beside `s3-deliberately-not-doing`; not in the twelve, the block or any module): the **non-functional block** (`NON_FUNCTIONAL_BLOCK`, four quality attributes every declared full discovery asks, recorded as decisions and **enforced nowhere**) and the **AI-interaction module** (six areas seeded from Amershi et al.'s HAX guidelines and Google PAIR's People + AI Guidebook, cited by URL in each entry's `attribution`).
 
 **`selectDepth(depth, facets)` is total.** Only `full-discovery` composes: the twelve in `OPENING_SET`'s order, then each ticked module in `FACETS` order, then the block. `scope-check`, `opening-set` and `whole-bank` answer their literal for every vector. **No vector — `undefined`, `null` or `{}` — answers today's list on every depth, byte for byte**: every package in this directory predates facets and is that case, and so is `tooling/discovery-score.mjs`. `whole-bank` is a **frozen literal of the 65 source-backed ids** and never includes the ten; `graded-think-a` / `graded-opus-a` are comparable only while it holds.
 
-**The budget (D1a).** MVP 5's ~30 is spent, never exceeded: twelve + block + at most two modules (budgets 7 · 6 · 6 · 6 · 6) fit inside `FULL_DISCOVERY_BUDGET` (30); a third ticked facet overflows. `facetPlan(facets)` reports `fired` · `fits` · `overflow` · `count` as a value; `selectDepth` **throws** on overflow naming the facet that does not fit — never a silent truncation, never a 45-question session. What the drawer does with the value is #288; `openSession` (#285) refuses an overflowing vector with the bank's own message and trims nothing. `PRESETS`: Regulated ticks `regulated`; B2B SaaS ticks `orgBuys`; Internal tool ticks `internal` + `orgBuys`; Consumer ticks nothing as a **declared** all-false vector (twelve + block, 16 questions) — a preset is a starting point the person adjusts.
+**The budget (D1a).** MVP 5's ~30 is spent, never exceeded: twelve + block + at most two modules (budgets 7 · 6 · 6 · 6 · 6) fit inside `FULL_DISCOVERY_BUDGET` (31 since #392 — the budget follows the unfaceted list; D1a amended 2026-09-11); a third ticked facet overflows. `facetPlan(facets)` reports `fired` · `fits` · `overflow` · `count` as a value; `selectDepth` **throws** on overflow naming the facet that does not fit — never a silent truncation, never a 45-question session. What the drawer does with the value is #288; `openSession` (#285) refuses an overflowing vector with the bank's own message and trims nothing. `PRESETS`: Regulated ticks `regulated`; B2B SaaS ticks `orgBuys`; Internal tool ticks `internal` + `orgBuys`; Consumer ticks nothing as a **declared** all-false vector (twelve + block, 16 questions) — a preset is a starting point the person adjusts.
 
 **Known debt — four unexercised facets.** Only `regulated` gets a run in wave 1 (#291); `hasModel` fires on run 2 (#292); `internal`, `orgBuys` and `replacesAProcess` ship with no run behind them. Their modules are a selection made from reasoning, not a validated design, and #293 records "Asked what mattered" as *not yet tested* for them rather than inventing a proxy. The first reading that means anything is the second, faceted `full-discovery` run on a real product with a different vector.
 
@@ -369,7 +369,7 @@ params, an `answer_ref`-resolved answer, a `question_id`-resolved bank entry, th
 fields (`seq`, `flagged`, `supersedes`) or `run.json`'s header — nothing else has a route. Its own header
 is the specification, including why it lives here rather than in `agent-layer/`.
 
-Eleven sections, each keyed on one **axis** — which property of the records selects it:
+Twelve sections, each keyed on one **axis** — which property of the records selects it:
 
 | Section | Axis | From |
 |---|---|---|
@@ -380,6 +380,7 @@ Eleven sections, each keyed on one **axis** — which property of the records se
 | MVP | ladder | `solution` decisions |
 | Success metrics | cross-ref | decisions on a stage 7 question, plus every decision's `wrong_if` |
 | Non-goals | cross-ref | decisions on `s3-deliberately-not-doing` and `s4-out-of-bounds` |
+| Later, not never | cross-ref | decisions on `s4-parked-for-later` |
 | Open questions | op-kind | `open_question` |
 | Weak answers | op-kind | `flag_weak_answer` |
 | Transition note | ladder | `transition` decisions |
@@ -389,6 +390,11 @@ Eleven sections, each keyed on one **axis** — which property of the records se
 it by `seq` and never re-render it. **Flags render inline on the record that carries them** — `⚠ orphan`
 and `⚠ no-evidence` are read from `flagged`, never re-derived, so this half can never drift from the
 applier's.
+
+**Later, not never is not Non-goals.** A non-goal is refused with a reason; a parked item is deferred and
+may shape today's thin line (the house shape's §9). The two sections read disjoint question sets —
+`NON_GOAL_QUESTIONS` and `LATER_QUESTIONS` — through one by-seq renderer, and group 31 refuses an id that
+appears in both.
 
 **Supersede, read.** The latest decision on a question renders its block and names what it replaced
 (`*Replaces:* seq N`); the earlier one gets no block of its own. Nothing is removed — both records stay

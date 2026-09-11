@@ -104,7 +104,7 @@ import { auditExchanges, LEVELS, OPS, PARAMS, parentCandidates } from '../../dis
 // The projection's OWN section table, so Create PRD's section brief follows the page rather than
 // restating it (#286). prd-projection.mjs imports node built-ins, bank.mjs and ops.mjs only, and its
 // CLI guard compares import.meta.url to argv[1], so importing it here runs nothing.
-import { METRIC_STAGE, NON_GOAL_QUESTIONS, SECTIONS } from '../../discovery/prd-projection.mjs';
+import { LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, SECTIONS } from '../../discovery/prd-projection.mjs';
 
 // The thing spike 2 tests. If a run comes back dirty — the agent asked a second question, filed two
 // closing ops on one turn, or filed nothing — this string is what gets tightened, and only this string.
@@ -483,6 +483,7 @@ export function sectionBrief() {
     ...ladder,
     `- a decision on a stage ${METRIC_STAGE} question → also Success metrics, and every decision's wrong_if is a kill criterion there`,
     `- a decision on ${NON_GOAL_QUESTIONS.join(' or ')} → also Non-goals`,
+    `- a decision on ${LATER_QUESTIONS.join(' or ')} → also Later, not never (parked for a later version — never Non-goals)`,
     '- every business or stakeholder wrong_if → Hypothesis',
   ].join('\n');
 }
