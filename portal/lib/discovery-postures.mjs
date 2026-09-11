@@ -30,9 +30,12 @@
 //
 // THINK'S STRINGS ARE BYTE-STABLE; GROUPS 32 AND 33 ARE THE TRIPWIRE. Five recordings carry Think's
 // two stamps on every turnStats entry and three of them are gate-compared live, so buildThinkTurn's
-// output, systemFor, TOOL_DESCRIPTIONS and FINGERPRINT_INPUTS did not change by one byte for #286, and
-// the two additions the new postures carry — JUDGEMENT_RULE (Run 0's F9) and reaskBrief (#366) — do
-// NOT reach Think. A Think edit is a ticket that re-records those fixtures. Nothing shipped reads this
+// output, systemFor, TOOL_DESCRIPTIONS and FINGERPRINT_INPUTS did not change by one byte for #286.
+// Of the two additions the new postures carry, JUDGEMENT_RULE (Run 0's F9) still does NOT reach Think;
+// reaskBrief (#366) now does, and reaches it WITHOUT moving either stamp, because the ledger
+// FINGERPRINT_INPUTS holds no flag_weak_answer, so the branch is unreachable from the hash
+// (the FINGERPRINT_INPUTS block below records that exclusion and names its guard).
+// A Think edit is a ticket that re-records those fixtures. Nothing shipped reads this
 // file — it is build-time only, reached from portal/lib/discovery.mjs and
 // portal/lib/discovery-transport.mjs.
 //
@@ -58,7 +61,8 @@
 // four of its evidence rows as "real-interview" on a fictional run, the strongest honest label an agent
 // that cannot see which run it is in can give. It goes in the SYSTEM prompt because both are per
 // session: the prompt stays byte-stable across the session and its cache holds. It is a build INPUT,
-// so FINGERPRINT_INPUTS carries one and the hash covers the rule's text.
+// so FINGERPRINT_INPUTS carries one — 'fictional' — and the hash covers THAT rule's text. It does not
+// cover PROVENANCE_RULE.real's, which no fixed input set selects (see the BRANCH paragraph below).
 //
 // Two things #341 added, and why they are here rather than in the transport: the LEDGER BRIEF —
 // this run's decisions by rung and the parent candidates per rung — goes into the TURN prompt, so a
@@ -67,11 +71,33 @@
 // it); and the TOOL DESCRIPTIONS, which are prompt text the agent reads at call time and so belong
 // with the other prompt text, where group 30 can pin them and the FINGERPRINT can cover them.
 //
-// THE FINGERPRINT COVERS EVERY TEMPLATE A POSTURE HAS (#286). fingerprintOf hashes one build per
-// input set in FINGERPRINT_INPUTS_FOR[posture] (absent: the one set, FINGERPRINT_INPUTS); Grill's
-// covers the interview AND the audit template, so an edit to either moves its stamp. Over one input
-// set the join is byte-identical to the pre-#286 form, which is what keeps Think's two stamps where
-// the recordings have them (group 30 case 30 pins the literal).
+// THE FINGERPRINT COVERS EVERY TEMPLATE A POSTURE HAS (#286) — per TEMPLATE, not per BRANCH.
+// fingerprintOf hashes one build per input set in FINGERPRINT_INPUTS_FOR[posture] (absent: the one
+// set, FINGERPRINT_INPUTS); Grill's covers the interview AND the audit template, so an edit to either
+// moves its stamp. A template BRANCH the fixed inputs never take sits outside the hash by
+// construction, and there are FOUR of them today, not one (PR #381 F2 — the earlier form of this
+// sentence claimed the re-ask brief alone, and a mutation of PROVENANCE_RULE.real's text left all four
+// stamps unmoved with a green gate, which is the same hole #366 was written to close; the fourth
+// arrived with #289 and is named below, which is this list's own rule applied to the merge that
+// brought it):
+//   · the RE-ASK BRIEF, on all four postures — FINGERPRINT_INPUTS' ledger holds no flag_weak_answer.
+//     #366 left it outside deliberately rather than by oversight (the FINGERPRINT_INPUTS block states
+//     the reason and the bill), and its guard is case 31's VERBATIM pin on the produced string.
+//   · PROVENANCE_RULE.real, on all four AND in the audit template, which the re-ask branch never
+//     reaches — every fixed input set pins provenance: 'fictional'. Guarded by two REGEXES (case 16),
+//     not verbatim: an includes(PROVENANCE_RULE.real) assertion compares the prompt against the edited
+//     constant and so can never see an edit to it. Widening that to a verbatim pin is its own ticket.
+//   · ledgerBrief's EMPTY-LEDGER form — every fixed ledger carries three decisions. Two regexes
+//     (case 17), same shape.
+//   · ledgerBrief's EVIDENCE LINE in its RENDERED form (#289) — the other direction of the same
+//     function. Every fixed set spreads FINGERPRINT_INPUTS' ledger, which holds no file_evidence, so
+//     the line renders for no stamp: outside all four POSTURES stamps AND all four
+//     AFFORDANCE_FINGERPRINT values. Guarded by case 30.51's three includes() assertions, not a
+//     verbatim pin, and its url / name / ref fallback arms are covered only on the url arm. Widening
+//     that is #384's ticket, beside PROVENANCE_RULE.real's — the same shape, the same gap.
+// A NEW branch belongs on this list with its guard named, or it is unguarded and nothing says so.
+// Over one input set the join is byte-identical to the pre-#286 form, which is what keeps Think's
+// two stamps where the recordings have them (group 30 case 30 pins the literal).
 
 import { createHash } from 'node:crypto';
 import { auditExchanges, LEVELS, OPS, PARAMS, parentCandidates } from '../../discovery/ops.mjs';
@@ -154,8 +180,10 @@ export const ESCAPE_HATCH_RULE = `The person has said something the question on 
 // committed Grill recording carrying that posture's stamp, so moving it would make a package stale for
 // text its turns never read, which is the cost this whole design exists to avoid. Nothing on disk runs
 // create-prd (verified over all eight packages), so that one move is free. Think and Grill reach the
-// rule through the affordance turn prompt only — the same gap JUDGEMENT_RULE and reaskBrief already
-// carry for Think, carried the same way and named rather than hidden.
+// rule through the affordance turn prompt only — the same gap JUDGEMENT_RULE already carries for
+// Think, carried the same way and named rather than hidden. reaskBrief was the second half of that
+// pairing until #366: it now reaches Think through the ORDINARY turn prompt's one conditional slot
+// (the header above says so), so JUDGEMENT_RULE is the only string Think still never sees.
 export const DOMAIN_RULE = `The product may be invented; the domain is not. A claim that is checkable and public — that a scheme exists, that a regulation applies, that a payment cannot be recalled — must carry a file_evidence row with a URL and provenance "secondary-source", and looking it up is how it gets one. A claim about the SHAPE of this product — what it should do, who it is for, what it is worth — carries provenance "assumption" beside a wrong_if condition, and that is the expected result. Filing a checkable public fact as an assumption is a failure.`;
 
 // Which kind of run the agent is sitting in (#347). Keyed by the run's provenance as run.json records
@@ -261,12 +289,17 @@ export function pendingBrief(answers, ops) {
   return `Off-script exchanges on this run that you have not filed yet — each needs ONE of record_decision with off_script true, or open_question with source "off-script", naming its ref. Neither closes a turn, and a turn cannot be closed while one of these is unfiled:\n${rows.join('\n')}`;
 }
 
-// The re-ask brief (#366, for the two #286 postures). On a held question's second ask the FIRST
-// flag's `missing` list goes into the TURN prompt, so the agent judges the new answer against what it
-// said was lacking rather than flagging afresh for something the answer now names. Pure over the
+// The re-ask brief (#366). On a held question's second ask the FIRST flag's `missing` list goes into
+// the TURN prompt, so the agent judges the new answer against what it said was lacking rather than
+// flagging afresh for something the answer now names. All three INTERVIEW builds carry it —
+// buildThinkTurn (so think and think-opus both), buildCreatePrdTurn and Grill's interview branch; the
+// audit never does, because a document cannot answer twice (RE_ASKS, discovery.mjs). Pure over the
 // ledger's records, reading params.question_id and params.missing and never answer text; '' when the
-// question was never flagged, so a first ask is byte-identical to a build without it. Think's second
-// ask stays blind — #366 stays open for Think by name (the header says why).
+// question was never flagged, so a first ask is byte-identical to a build without it — that is what
+// keeps all five stamps where the recordings have them. This string sits OUTSIDE every posture
+// fingerprint: the ledger fingerprintOf hashes carries no flag_weak_answer, so the branch is
+// unreachable from the hash and an edit here moves nothing. Group 30 case 31 pins the produced string
+// VERBATIM, and that pin is the only thing that makes an edit to this template go red.
 export function reaskBrief(ops, questionId) {
   if (!Array.isArray(ops)) throw new Error("discovery-postures: reaskBrief needs the ledger's records array");
   const first = ops.find((r) => r?.op === 'flag_weak_answer' && r.params?.question_id === questionId);
@@ -410,11 +443,15 @@ export function buildThinkTurn({ question, answer, turn, ledger, provenance, ent
   //
   // The closing line ends on the parent (recency — the last instruction is the one a model is most
   // likely to act on), and it points back at the brief above rather than restating it.
-  // The two conditional slots use reaskBrief's exact idiom, `${x ? `\n${x}\n` : ''}` on its own line,
-  // which REPLACES the blank line that was there rather than adding one: with both empty the template
-  // emits today's bytes exactly, which is what keeps all four stamps where the recordings have them
-  // (group 30 case 43 asserts the four builds directly, so the failure names the builder not the hash).
-  const extra = [pendingBrief(answers, ledger), park ? PARK_RULE : ''].filter(Boolean).join('\n\n');
+  // The ONE conditional slot uses reaskBrief's exact idiom, `${x ? `\n${x}\n` : ''}` on its own line,
+  // which REPLACES the blank line that was there rather than adding one: with every part empty the
+  // template emits today's bytes exactly, which is what keeps all four stamps where the recordings
+  // have them (group 30 case 43 asserts the four builds directly, so the failure names the builder
+  // not the hash). #366's RE-ASK BRIEF JOINS THIS SLOT rather than taking a second one: two slot lines
+  // where the template had one blank line emit an EXTRA newline when both are empty, which moves every
+  // Think stamp — which is the whole point of the idiom. This is the same three-element array #289
+  // already wrote for buildCreatePrdTurn and buildGrillTurn; Think was the one builder left out.
+  const extra = [reaskBrief(ledger, question.id), pendingBrief(answers, ledger), park ? PARK_RULE : ''].filter(Boolean).join('\n\n');
   const prompt = `Turn ${turn}.
 
 The question (stage ${question.stage}, ${question.attribution}):
@@ -658,7 +695,20 @@ File your one closing op against question_id "${question.id}" and answer_ref "${
 // the op-verb lock; and discovery.mjs imports this module, so hashing them here would be a cycle
 // with TOOL_SCHEMA in TDZ when POSTURES computes), the fence's deny text (denyReason,
 // discovery.mjs's) and the SDK's own preset sit OUTSIDE it — an edit to one of those does not make the
-// fixture stale by name. So would any per-posture SDK option: today a posture is exactly id, label,
+// fixture stale by name. A FOURTH thing sits outside it, and for a different reason (#366): the turn
+// templates' RE-ASK BRANCH. Those three are outside STRUCTURALLY — a cycle, another module, the SDK's
+// own — but the re-ask brief is outside because the fixed ledger below holds three record_decision
+// rows and no flag_weak_answer, so reaskBrief returns '' every time this hash is computed. It is LEFT
+// outside deliberately: no committed recording has ever taken a second ask on any posture (whole-bank
+// is not in discovery.mjs's LADDER, so graded-think-a and graded-opus-a could not have taken one even
+// in principle), so hashing the branch would declare at least 142 paid turns stale over prompts that
+// genuinely did not change — 142 is the gate-compared three; bracket-trace-1 and -2 carry the same stamp
+// and would go stale with no group saying so (PR #381 F3). Its guard is instead group 30 case 31's
+// VERBATIM pin on the produced brief, plus the two pins that make widening the hash a named failure
+// rather than an accident — one on this ledger
+// holding no flag, one on FINGERPRINT_INPUTS_FOR's key set. Both name the bill. Fold the branch in
+// here the day a recording takes a second ask; the re-record is paid at that point, not before.
+// So would any per-posture SDK option: today a posture is exactly id, label,
 // model, build and fingerprint (group 30 pins that key set), and the two postures differ by model
 // alone, which IS hashed; a posture that grows an option (an effort level, a thinking setting) must
 // widen the join below in the same edit, or that option's edits never move a stamp. Group 32
