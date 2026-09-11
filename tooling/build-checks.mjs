@@ -6476,8 +6476,8 @@ function scanSvg(svg, label) {
   ok(/fictional-scenario/.test(PROVENANCE_RULE.fictional) && /never "real-interview"/.test(PROVENANCE_RULE.fictional), "case 16: the fictional rule must name fictional-scenario as the true label and forbid real-interview");
   ok(/real-interview/.test(PROVENANCE_RULE.real) && /"fictional-scenario" is never true/.test(PROVENANCE_RULE.real), "case 16: the real rule must name real-interview as the true label and forbid fictional-scenario");
   // #384 — THE VERBATIM PIN. PROVENANCE_RULE.real is a template branch no posture fingerprint covers:
-  // every fixed input set pins provenance: 'fictional', so a mutation of this string leaves all four
-  // stamps unmoved and the gate green. The two regexes above name two phrases; the includes()
+  // every fixed input set pins provenance: 'fictional', so a mutation of this string moves no stamp —
+  // and before this pin it left the gate green. The two regexes above name two phrases; the includes()
   // assertions below prove ROUTING and compare the built prompt against this same edited constant, so
   // neither can see an edit to it. The literal is what can — the same guard case 31 gives the re-ask
   // brief's produced string (#366), for a branch that sits outside every hash by construction.

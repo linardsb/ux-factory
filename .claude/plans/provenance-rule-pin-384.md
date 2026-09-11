@@ -40,8 +40,11 @@ taken by no stamp.
 ## Tasks
 
 **T1 — the two verbatim pins.** Extend case 16 and case 17. Do NOT add a `group()` (the count is
-pinned in four files) and do NOT widen the fingerprint: adding a `provenance: 'real'` input set
-would move all four posture stamps and stale ~142 paid turns of committed recordings. The
+pinned in four claim rows across three files — `build-checks.mjs`, `CLAUDE.md` twice, and
+`gates.md`; `drift-check`'s group-count leg reads all four) and do NOT widen the fingerprint:
+adding a `provenance: 'real'` input set would move all four posture stamps and stale **at least**
+142 paid turns of committed recordings — a FLOOR, not an estimate, because `bracket-trace-1`,
+`bracket-trace-2` and `partner-audit-1` carry gate-uncompared stamps that would stale silently. The
 existing `includes()` assertions stay — they prove routing, which the literal does not.
 
 Both literals are emitted mechanically from the module and pasted, never retyped (each carries

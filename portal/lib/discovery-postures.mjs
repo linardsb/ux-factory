@@ -96,7 +96,7 @@
 //     AFFORDANCE_FINGERPRINT values. Guarded by case 30.51's three includes() assertions, not a
 //     verbatim pin, and its url / name / ref fallback arms are covered only on the url arm. #384
 //     pinned the two branches above and left this one where it is — the same shape, the same gap.
-//     Widening it is still open, and until it lands this bullet is the only place that says so.
+//     Widening it is still open.
 // A NEW branch belongs on this list with its guard named, or it is unguarded and nothing says so.
 // Over one input set the join is byte-identical to the pre-#286 form, which is what keeps Think's
 // two stamps where the recordings have them (group 30 case 30 pins the literal).

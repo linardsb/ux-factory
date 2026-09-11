@@ -30,7 +30,8 @@ by `awk length`).
 ## What did NOT change
 
 No prompt string. No fingerprint input set. No `group()` added — the group count is pinned in
-four files. The `includes()` assertions were kept, not replaced. No posture stamp moved, so no
+four claim rows across three files (`build-checks.mjs`, `CLAUDE.md` twice, `gates.md`), all four
+read by `drift-check`'s group-count leg. The `includes()` assertions were kept, not replaced. No posture stamp moved, so no
 committed recording was staled: the parenting group still reads `think 7efdde37`, `think-opus`
 and `grill` current-to-literal on a green run.
 
@@ -97,6 +98,37 @@ Raised with the owner as an open question before work started.
 ## What this PR cannot reach
 
 Whether a model USES either string. Both are unobserved prompt strings in the same sense the
-re-ask brief is — a pin guards the text, not the behaviour. The third and fourth arms of the
-evidence line's url / name / ref fallback remain uncovered, and the header's branch list is the
-only place that says so.
+re-ask brief is — a pin guards the text, not the behaviour. The `name` and `ref` arms of the
+evidence line's url / name / ref fallback remain uncovered; `discovery-postures.mjs`'s header
+branch list and `gates.md`'s group-30 *Cannot reach* clause both say so.
+
+## Review fixes applied (PR #398 review, F1-F4)
+
+An adversarial review over the diff raised 11 findings; 8 survived verification, deduping to four
+distinct defects, all of them prose. Each was verified against the tree before the fix:
+
+- **F1** `discovery-postures.mjs` and `gates.md` each gained a sentence nominating the header
+  bullet as the *only* place recording that the #289 evidence line is still unpinned — and
+  `gates.md`'s own sentence states the gap while claiming another file is the only one that does.
+  Self-refuting within one sentence, and the same three-copies drift class PR #394 was spent
+  correcting. Both custody claims dropped; both gap statements kept.
+- **F2** `gates.md`'s new sentence called case 17's prior guard "two regexes". It is two
+  `includes()` calls (`tooling/build-checks.mjs:6532`); only case 16's is regexes. Corrected, and
+  the "a phrase neither regex names" clause with it.
+- **F3** "~142 paid turns" dropped the hedge the tree carries nine lines from the constant this PR
+  pins: `build-checks.mjs` says "142 paid turns, $7.561 — a FLOOR", because `bracket-trace-1`,
+  `bracket-trace-2` and `partner-audit-1` carry gate-uncompared stamps that would stale silently.
+  The plan now says "at least", and says why.
+- **F4** "the group count is pinned in four files" is four claim rows across **three** files —
+  `build-checks.mjs`, `CLAUDE.md` twice, and `gates.md` (`tooling/drift-check.mjs:174-180`).
+  Corrected in the plan and above.
+- **F5** (adjudicated: two verifiers split) case 16's new comment said a mutation of the string
+  "leaves all four stamps unmoved and the gate green" — true before this PR, false after it,
+  because the assertion six lines below is what reddens. Scoped to the past tense.
+
+Three further findings were raised and refuted on verification: that case 16's comment defect was
+a tracked-class defect (it is, at low severity — kept as F5), that `ledgerBrief`'s
+null-parent-candidate arm is an unlisted fifth unhashed branch (its guard claim was false against
+the tree), and that closing #384 leaves the evidence line untracked (#384's body never covered it).
+
+Gate after the fixes (observed): `build ✓ all 34 groups pass`.
