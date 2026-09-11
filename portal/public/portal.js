@@ -931,7 +931,7 @@ function renderFacetPlan() {
     el.textContent = `This depth runs its own fixed list. The vector is recorded in run.json and does not change which questions are asked (D1b) — only full discovery composes from it.`;
     return;
   }
-  if (!plan.declared) { el.textContent = 'No vector declared — full discovery runs its unfaceted 30. Tick a fact, or press a preset, to compose from the bank\'s modules.'; return; }
+  if (!plan.declared) { const d = c.depths.find((x) => x.id === $('#discovery-depth').value); el.textContent = `No vector declared — full discovery runs its unfaceted ${d.count}. Tick a fact, or press a preset, to compose from the bank's modules.`; return; }
   el.textContent = plan.overflow.length === 0
     ? `${plan.count} of ${plan.budget} — the twelve, ${named(plan.fits) || 'no module'}, and the non-functional block.`
     : `${named(plan.fits) || 'Nothing'} fits (${plan.count} of ${plan.budget}); ${named(plan.overflow)} does not. Untick one, or run whole-bank. Nothing is truncated and the session will not start until you choose (D1a).`;

@@ -1042,7 +1042,7 @@ export const MODULES = Object.freeze({
 // The PRD's four names as PRESETS over the vector — a starting point the person adjusts, never a
 // cell (MVP 4 as amended 2026-09-02). Every preset carries all five keys so #288 can set five
 // checkboxes from one object. Consumer is the DECLARED all-false vector — it composes (twelve +
-// block, 16) — and is not the same input as {} (no vector; today's unfaceted 30).
+// block, 16) — and is not the same input as {} (no vector; today's unfaceted 31).
 export const PRESETS = Object.freeze([
   { id: "regulated", label: "Regulated", facets: { hasModel: false, regulated: true, internal: false, orgBuys: false, replacesAProcess: false } },
   { id: "b2b-saas", label: "B2B SaaS", facets: { hasModel: false, regulated: false, internal: false, orgBuys: true, replacesAProcess: false } },
