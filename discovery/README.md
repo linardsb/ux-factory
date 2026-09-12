@@ -88,7 +88,8 @@ discovery/
   instrument-loans-1/    the PARENTING FIXTURE — a real opening-set run build-checks group 32 reads (#341)
   bracket-trace-1/       #349's OBSERVATION run — the fixture's twelve answers with the fence trace armed; the last package to carry warmup denials
   bracket-trace-2/       #349's VERIFICATION run — the same twelve under the tool-name gate; no built-in denied line, the trace showing the warmup did call tools
-  allergen-matrix-1/     the FULL-DEPTH exhibit — the only committed full-discovery run, 30 of the 30 it was asked (the unfaceted list is 31 since #392) (§The full-depth run)
+  allergen-matrix-1/     the FULL-DEPTH exhibit — the FIRST committed full-discovery run, 30 of the 30 it was asked (the unfaceted list is 31 since #392) (§The full-depth run)
+  later-not-never-1/     the SECOND full-depth run (#393) — 31 of 31 answered, the first package to walk s4-parked-for-later and project it under Later, not never; carries three duplicate t7 answer lines and three credit-exhaustion text lines (§The later, not never run)
   partner-audit-1/       the AUDIT fixture (#376) — the only committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
 ```
 
@@ -565,7 +566,7 @@ under an *unchanged* prompt on a later date, or under a newer SDK, is the probe'
 
 ## The full-depth run (allergen-matrix-1)
 
-`discovery/allergen-matrix-1/` is the only committed **full-discovery** package: 30 banked
+`discovery/allergen-matrix-1/` was the only committed **full-discovery** package until #392's `later-not-never-1/` (31 questions; §Files): 30 banked
 questions, all 30 answered and closed, recorded through the drawer on 2026-08-31 (`blank-idea`,
 `think`, `claude-sonnet-5`, 39 minutes wall clock, $1.683 over 30 turns — per-turn latency min
 10.5 s, median 15.5 s, max 26.8 s, zero failed turns). Fictional throughout: an allergen-matrix
@@ -597,6 +598,43 @@ What it shows, and what it does not:
 - **Its posture fingerprint is `df6fbc35`, not today's.** The prompt surface moved at #347 after
   this recording, so the package is dated by its fingerprint. No gate reads it: group 32 names
   `instrument-loans-1` and nothing else.
+
+## The later, not never run (later-not-never-1)
+
+`discovery/later-not-never-1/` is the **second** committed full-discovery package and the one #393
+exists for: #392 shipped `s4-parked-for-later` into the bank and a twelfth projected section, but
+only a real session could prove a person answers the question and the projection files the answer
+under **Later, not never**. Recorded through the drawer on 2026-09-12 (`blank-idea`, `think`,
+`claude-sonnet-5`, fictional, 120 minutes wall clock, $2.6126 over 31 turns — per-turn latency min
+7.2 s, median 9.8 s, max 24.4 s, zero failed turns). All 31 banked questions answered and closed;
+30 `record_decision`, 2 `file_evidence`, 1 `open_question`, and one `file_evidence` denied at
+`PostToolUseFailure`. Question 20 was answered once and never flagged weak. `prd.md` renders
+`seq 21` under **Later, not never** while Non-goals holds `seq 20` and `seq 10` — the disjointness
+group 31 asserts on fixtures, observed on a real package.
+
+**Its scar, and why it stays.** `answers.jsonl` carries 34 lines for 31 questions and
+`transcript.jsonl` carries three `text` lines reading `Credit balance is too low`. The account's API
+credit ran out at question 7. The SDK returns that failure as `is_error: true` under
+`subtype: "success"`, so the drawer rendered the error as the agent's turn rather than as a failure,
+no closing op was filed, and the cursor stayed on question 7; the operator resubmitted the same
+answer twice before reading the text. `a7`, `a8` and `a9` are therefore identical, and the session
+resumed on `a10` after the balance was topped up. Both files are append-only and **nothing was
+edited** — the projection reads the latest answer per question, so the duplicates change no output,
+and the three error lines are the honest record of the failure mode. Anyone driving a long sitting
+should read turn text before resubmitting: a credit or limit failure arrives wearing a success
+subtype.
+
+**What it cost, and why the estimate was low.** #393 expected $1.55–1.70, derived from 30-turn
+baselines at $0.050–0.055 per turn. The run cost $2.6126, and the gap is the interval between
+turns against the prompt cache's five-minute TTL — four of the five long gaps are answer-writing
+time, the fifth spans the credit outage. Split by that interval: the 25 turns
+answered inside five minutes averaged **$0.0632** with 2,466 mean cache-creation tokens; the 5 turns
+after a longer pause averaged **$0.1844** with 21,889 — the cached prefix had expired, so each one
+re-paid for the whole system prompt and ledger instead of reading them. Those five turns account for
+$0.61 of the total (derived: 5 × ($0.1844 − $0.0632)). A future full-depth sitting is cheaper if the
+answers are drafted before the drawer is opened and pasted back to back; allergen-matrix-1's 78 s
+per turn is what $0.056 per turn looks like.
+
 
 ## The graded answer fixture (#348)
 
