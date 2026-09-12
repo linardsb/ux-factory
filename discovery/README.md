@@ -625,8 +625,9 @@ should read turn text before resubmitting: a credit or limit failure arrives wea
 subtype.
 
 **What it cost, and why the estimate was low.** #393 expected $1.55–1.70, derived from 30-turn
-baselines at $0.050–0.055 per turn. The run cost $2.6126, and the gap is the operator's thinking
-time against the prompt cache's five-minute TTL. Split by the interval between turns: the 25 turns
+baselines at $0.050–0.055 per turn. The run cost $2.6126, and the gap is the interval between
+turns against the prompt cache's five-minute TTL — four of the five long gaps are answer-writing
+time, the fifth spans the credit outage. Split by that interval: the 25 turns
 answered inside five minutes averaged **$0.0632** with 2,466 mean cache-creation tokens; the 5 turns
 after a longer pause averaged **$0.1844** with 21,889 — the cached prefix had expired, so each one
 re-paid for the whole system prompt and ledger instead of reading them. Those five turns account for

@@ -67,8 +67,9 @@ expected carrier count. They are the honest record of the failure mode and they 
 ## The cost finding — the estimate was low, and the cause is measurable
 
 #393 expected **$1.55–1.70**, derived from 30-turn baselines at $0.050–0.055/turn. The run cost
-**$2.6126** (54% over). The gap is the operator's thinking time against the prompt cache's five-minute
-TTL, and it splits cleanly by the interval between turns:
+**$2.6126** (54% over). The gap is the interval between turns against the prompt cache's five-minute
+TTL — four of the five long gaps (t4, t5, t6, t17) are answer-writing time, the fifth (t7) spans the
+credit outage. It splits cleanly:
 
 | Interval before the turn | Turns | Mean cost | Mean cache-creation tokens |
 |---|---|---|---|
