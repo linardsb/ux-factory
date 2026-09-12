@@ -45,11 +45,29 @@ was measured" is indistinguishable from a zero meaning "the code is clean".**
 ```bash
 R=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 N=$1   # or: gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number // empty'
+[[ "$N" =~ ^[0-9]+$ ]] || { echo "empty or non-numeric PR number [$N] — gh would fall back to the current branch's PR and judge one nobody asked about"; exit 1; }
 REF="refs/pull/$N/merge"
+S="${TMPDIR:-/tmp}/codeql-pr-$N"; mkdir -p "$S"   # scratch: worktrees, databases, SARIF, pinned SHAs
+V=${V:-2.27.0}   # the bundle version the `codeql` job logged — read it there, do not assume this one
+CODEQL=${CODEQL:-$(command -v codeql || echo "$HOME/.codeql/$V/codeql")}
+[ -x "$CODEQL" ] || { echo "no CodeQL CLI at [$CODEQL] — set V to the version the codeql job logged (\`ls ~/.codeql\`), or set CODEQL to its path, then re-run"; exit 1; }
 ```
 
-**1 — There is a PR.** Empty `N` → refuse by name: *"no open PR, so there is no `refs/pull/N/merge` and no CodeQL
-analysis — this would measure nothing."* The workflow triggers on `pull_request` and push-to-default only, so an
+**This block is a preamble, not a one-time setup.** You run each fenced block as a separate Bash tool call, and
+**shell state does not survive between calls** — the harness contract says so: *"Working directory persists
+between calls, but … Shell state (env vars, functions) does not persist."* So `$S` is **deterministic**,
+recomputed identically by every block, and **every later block here is written to be run with this preamble
+prepended**. Do not substitute `mktemp -d`: a fresh random root per call is the same defect one level down, and
+the pins below have nowhere to live. **`$V` carries a real version, never a `<…>` placeholder** — a placeholder
+makes `$CODEQL` a non-empty string that passes the emptiness check an agent reaches for (`[ -n "$CODEQL" ]`)
+while `-x` then refuses *unconditionally*, on machines that have the CLI installed. Hence a default that runs and
+a refusal naming what to change. Values that must cross a call boundary — the merge SHA, the fix commit —
+travel the only way that survives one: a **file under `$S`**.
+
+**1 — There is a PR.** The `$N` guard above is that refusal, and it is executable because the prose version is
+not enforceable: `gh pr view ""` is treated exactly like no argument and answers for the **current branch's** PR
+with exit 0 (observed). Its reason: *"no open PR, so there is no `refs/pull/N/merge` and no CodeQL analysis —
+this would measure nothing."* The workflow triggers on `pull_request` and push-to-default only, so an
 unPRed branch is never scanned and the alerts query answers `[]` with exit 0 — identical to a nonsense ref.
 
 **2 — An analysis exists.** Copy this from the gate's own step rather than paraphrasing it:
@@ -75,13 +93,25 @@ second parent:
 
 ```bash
 HEAD=$(gh pr view "$N" --json headRefOid --jq .headRefOid)
-A=$(gh api "repos/$R/code-scanning/analyses?ref=$REF&tool_name=CodeQL" --jq 'max_by(.created_at).commit_sha')
+A=$(gh api "repos/$R/code-scanning/analyses?ref=$REF&tool_name=CodeQL&per_page=100" --jq 'max_by(.created_at).commit_sha')
 P=$(gh api "repos/$R/commits/$A" --jq '.parents[1].sha')
+for v in "$HEAD" "$A" "$P"; do [[ "$v" =~ ^[0-9a-f]{40}$ ]] || { echo "unreadable sha: [$v] — cannot judge currency"; exit 1; }; done
 [ "$P" = "$HEAD" ] || { echo "newest CodeQL analysis on $REF covers $P, not the PR head $HEAD — refusing to read a stale gate"; exit 1; }
 ```
 
+**The 40-hex guard is the same argument as step 2's, and this compare needs it more.** A rate limit, an auth blip
+or a revoked scope empties the reads; one empty value fails closed, but both empty makes `[ "" = "" ]` **true**,
+the stale-analysis refusal never fires, and the alerts are read off whatever analysis happens to be there. A guard
+that fails open in the control written to stop a stale read is worse than no guard.
+
 `max_by(.created_at)`, not `.[0]` — the list is newest-first today (observed), but that order is not in the API
-contract, and picking the wrong end reads a stale scan as current.
+contract, and picking the wrong end reads a stale scan as current. `per_page=100` closes the same hole one level
+up: the default page is 30, nothing bounds how many analyses a merge ref accumulates (`refs/pull/391/merge`
+carries 9 — observed, and well under 30, so it demonstrates accumulation, not a breach), and a `max_by` over page
+1 alone is that ordering assumption wearing a different hat. `--paginate` is **not** the fix — an aggregating `--jq` under it
+runs per page (below) and `gh` refuses `--slurp` alongside `--jq`; past 100, pipe element-wise output to an
+external `jq -s 'max_by(.created_at)'`. This one fails **closed** — an inverted order mismatches the compare and
+the skill refuses — so it is a false-refusal risk, not a stale green.
 
 **4 — Read the alerts** with the gate's own query, checking the exit status explicitly:
 
@@ -142,10 +172,12 @@ sprawling one.
 - `medium`, `low`, unrated → **report; do not fix, do not start a cycle.** Real findings, but not what is holding
   the PR. This bucket wins over the two routes below: they say *where* a blocking alert gets fixed, never that a
   non-blocking one gets fixed here.
-- A blocking alert whose fix would mean hand-editing a committed agent run (`traces/`, `replay/`,
-  `discovery/<slug>/`, `proto/compositions/`) → **defer, with the honesty contract as the reason.** A bad run is
-  re-run, never edited.
 - A blocking alert in a **generated** file → fix at its generator, regenerate, commit the output.
+- A blocking alert whose fix would mean hand-editing a committed agent run → **defer, with the honesty contract as
+  the reason.** A bad run is re-run, never edited. **In `ux-factory` this is a standing rule, not a live triage
+  route:** as `.github/codeql/codeql-config.yml` stands, `traces/`, `replay/`, `discovery/<slug>/` and `handoff/`
+  are outside `paths` entirely and `proto/compositions/**` is `paths-ignore`d, so no alert can arise in any of
+  them. It is written for the day the allowlist widens, and for a repo whose config differs.
 
 **The scope inversion — for this step only.** Two things will tell you to leave a gate-failing alert alone, and
 neither governs here: the rules file's stay-inside-the-ticket rule, and the ticket's own out-of-scope list. **Every
@@ -178,8 +210,19 @@ A finding is fixed in code, or deferred with a reason in the report.
 5. **No moving code out of scope.** Allowlist entries are globs, not directories — `discovery/*.mjs` does not match
    `discovery/helpers/regex.mjs`. Extracting the offending code into a file the allowlist never matches comes back
    clean on **both** oracles with the config untouched, and nothing gates the allowlist. After each fix, require
-   the alert's file to still be extracted: `unzip -l "$DB/src.zip" | grep -F '<path>'` must print a row, or read
-   `codeql database print-baseline-info "$DB"`.
+   the alert's file to still be extracted: `unzip -l "$S/dbB/src.zip" | grep -F '<path>'` must print a row, or read
+   `"$CODEQL" database print-baseline "$S/dbB"` (`print-baseline`, not `print-baseline-info` — bundle 2.27.0).
+   **A file the fix deleted is exempt only on two conditions together.** `git ls-files --error-unmatch <path>`
+   failing does *not* mean the code is gone: a **relocated** file's old path is untracked the same way, so
+   that test alone reads the move it exists to catch as a deletion. Test the content instead:
+   ```bash
+   git -C "$S/B" grep -nF '<the offending construct>'   # must print NOTHING
+   ```
+   and if it does print — the construct survives somewhere — that file must appear in B's extracted set, by the
+   `src.zip`/`print-baseline` check above. Relocation is the one signature where the content stays in the tree
+   while its file leaves the database; a real deletion satisfies both conditions. The door being closed is *code
+   moved to a path the allowlist does not match*, never *code removed*; the demo fixed by deletion at statement
+   level, and file level is the same call one step up.
 
 **Assert it on the API; do not trust the loop.** For every alert claimed fixed, the ref-scoped list must show
 `state` moving `open` → **`fixed`**, never `dismissed`, with `dismissed_at`, `dismissed_by`, `dismissed_reason` and
@@ -204,24 +247,68 @@ or at `~/.codeql/<version>/codeql`. Never inside the repo — `.gitignore` does 
 nothing here can falsify a fix."* Do not degrade silently to the CI read; that is the same defect class as reading
 a count off a ref with no analysis.
 
-Per alert:
+**Once, before the first fix — pin the merge SHA and prove your HEAD is the tree the gate judges.** Fetch the
+merge ref rather than resolving it through the refs API: that call answers `200` while the PR is **open** and
+`404` once it is closed or merged (the reviewer of #403 measured `git/ref/pull/401/merge` → `200` at `be565ff`
+while open; this skill measured the `404` after it merged, and `399`/`394`/`391` → `404`, all merged). §0 requires
+an open PR, so the case that works is the only one you meet.
 
-1. **Scan the tree the gate judges.** `gh api repos/…/git/ref/pull/N/merge` 404s — merge refs are not resolvable
-   through the refs API — so fetch it:
-   ```bash
-   git fetch origin "refs/pull/$N/merge" && git worktree add --detach "$S/pr-$N" FETCH_HEAD
-   ```
-2. **Resolve the query** without hardcoding a pack version:
+```bash
+git fetch origin "refs/pull/$N/merge" || { echo "cannot fetch $REF — nothing to judge against"; exit 1; }
+git rev-parse FETCH_HEAD > "$S/merge-sha"          # pin NOW: FETCH_HEAD is shared mutable state
+M=$(cat "$S/merge-sha")
+[ "$(git rev-parse "$M^{tree}")" = "$(git rev-parse "HEAD^{tree}")" ] || {
+  echo "the merge ref's tree differs from HEAD's — the branch is behind base, or the push is stale."
+  echo "remedy: git merge origin/main, commit, push, then re-run THIS block."; exit 1; }
+```
+
+**Pin it in the same call that fetches it.** `FETCH_HEAD` is per-worktree *and* shared mutable state: a sibling
+session's fetch clobbers it, and a worktree created from it has no `FETCH_HEAD` of its own, so
+`git -C <worktree> diff FETCH_HEAD` is fatal every time. **The tree-equality test is the whole base-drift guard.**
+It is deliberately over-strict — any unmerged base commit trips it — which is why the refusal carries its remedy,
+and it must be **re-run after every push**, because a push moves the merge ref. Once it passes, a worktree at your
+pre-fix `HEAD` **is** the tree the gate judges, and the oracle needs no worktree of the merge ref at all.
+
+Then, per alert:
+
+1. **Resolve the query** without hardcoding a pack version:
    `"$CODEQL" resolve queries codeql/javascript-queries | grep -i '<QueryName>.ql'`
-3. **A-side — the positive control.** Build a database on the **pre-fix** tree, run that one query, and require it
-   to **list the target alert**. If it does not, the harness is measuring nothing and the cycle is refused: a local
-   zero out of a vacuous database looks exactly like a clean tree.
+2. **Fix it, then commit the fix on its own.** The A/B runs between two real commits, so the fix has to be one —
+   `git add <the files you fixed> && git commit`. One commit per alert: that is what makes the A→B delta
+   exactly this fix. (§4 pushes these commits; it does not commit again.) **Never A/B your working
+   tree** — sibling sessions share it, so its delta carries their untracked files too.
    ```bash
-   "$CODEQL" database create "$S/dbA" --language=javascript-typescript --source-root="$S/treeA" --overwrite
-   "$CODEQL" database analyze "$S/dbA" "<resolved>.ql" --format=sarif-latest --output="$S/outA.sarif" --rerun
+   C=$(git rev-parse HEAD); echo "$C" > "$S/fix-commit"   # the fix commit, pinned for later calls
+   git worktree prune                                     # clear entries a removed scratch dir left dangling
+   git worktree remove --force "$S/A" 2>/dev/null         # one path per call: the command takes ONE worktree
+   git worktree remove --force "$S/B" 2>/dev/null
+   git worktree add --detach "$S/A" "$C^" && git worktree add --detach "$S/B" "$C"
+   git -C "$S/B" diff --stat "$C^"                        # prints the delta; it does not have to police it
    ```
-4. **B-side.** The same query on the post-fix tree. The alert must be gone.
-5. **Secondary sanity:** `grep baselineLinesOfCode "$S/dbA/codeql-database.yml"` is non-trivial. ~35s a side.
+   **Two commits, not a transferred patch.** A patch computed against one tree and applied to another always
+   applies cleanly — it was computed against the tree it lands on — so a filename-level `--stat` over it sees
+   neither base drift nor earlier alerts' fixes riding along. `$C^`→`$C` carries one commit's hunks by
+   construction, leaving nothing for a check to fail at. `$S` persists by design, so the two `remove --force`
+   calls are the cleanup; what they clear lives in **this** repo's shared `.git/worktrees/`.
+3. **A is the positive control.** For alert 1, A is the gate's tree exactly. For alert *n* it is that tree plus
+   fixes 1..*n*-1, which is *stronger*: the alert still being present in A also proves no earlier fix cleared it.
+   Run the one query on both sides in a single loop, so the two invocations differ only in the tree:
+   ```bash
+   for T in A B; do
+     "$CODEQL" database create "$S/db$T" --language=javascript-typescript \
+       --codescanning-config="$S/$T/.github/codeql/codeql-config.yml" --source-root="$S/$T" --overwrite
+     "$CODEQL" database analyze "$S/db$T" "<resolved>.ql" --format=sarif-latest --output="$S/out$T.sarif" --rerun
+   done
+   ```
+   The alert must be **present in `outA.sarif` and absent from `outB.sarif` — both halves, or the run proves
+   nothing.** A local zero out of a vacuous database looks exactly like a clean tree, which is why A has to
+   list it before B's silence means anything.
+
+   **`--codescanning-config` is resolved against the CWD, not `--source-root`** (measured, bundle 2.27.0) — hence
+   the absolute path inside each worktree. A bare `.github/codeql/codeql-config.yml` would scope the database by
+   the working tree while judging a different one, and door 2 forbids editing that file, so nothing else would
+   flag it. At `create` this flag sets the database's **scope**, which door 5's extraction control reads.
+4. **Secondary sanity:** `grep baselineLinesOfCode "$S/dbA/codeql-database.yml"` is non-trivial. ~35s a side.
 
 Reading the SARIF back:
 
@@ -233,19 +320,29 @@ Reading the SARIF back:
   pointing at the extension. Look in both, resolve through `toolComponent`, and confirm against one real local
   `analyze` first — a parser that finds no rule entry scores every result 0.0 and reports zero high or critical.
 - **`--codescanning-config` is an option on `database create` and `init` only, never on `analyze`**; the config's
-  queries are applied by invoking `analyze` with **no** query argument. Pass it at `create` anyway: it also sets the
-  database's **scope**, which both the extraction control above and the pre-push scan below depend on.
+  queries are applied by invoking `analyze` with **no** query argument.
 - **The A/B cannot see what the fix introduces, so it is not sufficient on its own.** It asks only about the rules
   already known. A fix can clear its own alert and raise a different one at the same line — measured on this repo:
   replacing `eval(q)` with `res.end(String(q))` cleared both `critical` alerts and raised `js/reflected-xss`, and
-  the two-query A/B reported success. **Before the push, run the full default suite once** on the post-fix tree —
-  `"$CODEQL" database analyze "$DB"` with **no** query argument, on a database built with the repo's
-  `--codescanning-config` — and read the rows on the files the fix touched. That costs one scan and saves a CI
-  round trip plus a cycle.
+  the two-query A/B reported success. **Before the push, run the full default suite once** — on a database of its
+  own, built on the **final** tree. `$S/dbB` is per-alert and on a multi-alert PR holds only the last one's tree,
+  so pointing this scan at it would quietly narrow the file's best check to a fraction of the fixes.
+  ```bash
+  git worktree remove --force "$S/final" 2>/dev/null
+  git worktree add --detach "$S/final" HEAD
+  "$CODEQL" database create "$S/dbFinal" --language=javascript-typescript \
+    --codescanning-config="$S/final/.github/codeql/codeql-config.yml" --source-root="$S/final" --overwrite
+  "$CODEQL" database analyze "$S/dbFinal" --format=sarif-latest --output="$S/final.sarif"
+  ```
+  Read the rows on every file the fixes touched. That costs one scan and saves a CI round trip plus a cycle.
 - **A full-tree local scan is confirmation at most, never the fix trigger.** It is a strict superset of the PR gate
   — whole tree, no diff ranges — so a local zero is stricter than the gate needs and is sufficient, while a local
   red is *not* evidence the gate is red. Findings outside the PR's diff belong on the base branch: report them,
   spend no cycle on them, scope with `git diff --name-only "$(git merge-base origin/main HEAD)"...HEAD`.
+  **This routing depends on the merge-ref read being diff-scoped**, which is measured but undocumented: if the
+  gate instead reads every open alert, as `.claude/references/gates.md`'s inherited-alert bullet describes, such a
+  finding still blocks **this** PR and the cycle is owed here. Issue #400 settles which — until it does, say which
+  reading you acted on.
 
 ### The loop and its budget
 
@@ -261,7 +358,7 @@ does not describe every project. **In `ux-factory` the four real gates are:**
 
 ```bash
 node tooling/build-checks.mjs                               # the repo's main gate
-git add <explicit paths> && node tooling/drift-check.mjs    # STAGED — see below
+git add '<explicit paths>' && node tooling/drift-check.mjs  # STAGED — see below
 node tooling/token-lint.mjs
 PORT=4788 node portal/server.mjs &  PID=$!                  # curl /api/health, then kill "$PID"
 ```
@@ -278,20 +375,41 @@ If these fixes are on a PR branch, **commit them (use `piv-commit`) and push** s
 review can re-run on the updated PR. If nothing was fixed (everything deferred), there's nothing to push — just make
 sure the deferred items are logged as issues.
 
+**In CodeQL mode the loop has already committed** — §2 commits each fix so the A/B has two commits to run
+between — so §4 **pushes and does not commit again**. N fix commits is the reading CLAUDE.md's "one atomic commit
+per phase/ticket" takes here: each is atomic, each is what the oracle measured, and squashing them destroys the
+`$C^`→`$C` pairs the evidence cites.
+
 ### Reading the gate back — CodeQL only
 
 Push once, then **wait** before reading anything: `gh pr checks "$N" --watch --fail-fast`, or
-`gh run watch "$RUN" --exit-status`. A read straight after `git push` either finds no run registered or matches the
-**previous** head's run and reports a stale green. Waiting on the check is also enough for the API to be current —
+`gh run watch "$RUN" --exit-status`. **Both exit non-zero when a check fails — which is the case this loop exists
+for, not an abort.** Read the step conclusion anyway; never chain the wait with `&&`, or a red gate never reaches
+its own verdict line. A read straight after `git push` either finds no run registered or matches the **previous**
+head's run and reports a stale green. Waiting on the check is also enough for the API to be current —
 `github/codeql-action/analyze`'s `wait-for-processing` defaults to `true`, so a *concluded* `codeql` check implies
 the SARIF is processed and the alerts are queryable, which is cheaper than polling `analyses`.
 
 ```bash
+[[ "$N" =~ ^[0-9]+$ ]] || { echo "empty or non-numeric PR number [$N] — re-run the §0.5 preamble first"; exit 1; }
+HEAD=$(gh pr view "$N" --json headRefOid --jq .headRefOid)   # RE-READ: the push moved it, and 0.5's value is the pre-push head
+[[ "$HEAD" =~ ^[0-9a-f]{40}$ ]] || { echo "unreadable head sha: [$HEAD] — an empty head_sha= returns EVERY run"; exit 1; }
 RUN=$(gh api "repos/$R/actions/runs?head_sha=$HEAD" --jq '[.workflow_runs[]|select(.name=="verify")]|max_by(.created_at)|.id')
 if ! [[ "$RUN" =~ ^[0-9]+$ ]]; then echo "no verify run on $HEAD — this measured nothing"; exit 1; fi
 J=$(gh api "repos/$R/actions/runs/$RUN/jobs" --jq '.jobs[]|select(.name=="codeql")|select(.status=="completed")|.id')
+if ! [[ "$J" =~ ^[0-9]{6,}$ ]]; then echo "no COMPLETED codeql job on run $RUN — the verdict line would print blank"; exit 1; fi
 gh api "repos/$R/actions/jobs/$J" --jq '.steps[]|select(.name=="Require no high or critical alerts")|.conclusion'
 ```
+
+**Re-read `$HEAD` here, and guard all four values — `$N` included.** This is the call furthest in time from
+the preamble, so it is the one most likely to be pasted with `$N` unset; an unset `$N` makes every read below it
+answer for another PR in perfectly well-formed values. 0.5 bound `$HEAD` before the fixes existed; reusing it
+reads the run on the pre-push head — the stale green this section is built to prevent. An **empty** `head_sha=`
+is not an error either: it returns every run in the repo (measured: 30 `verify` runs), `max_by` picks the newest
+unrelated one, `$RUN` passes its numeric guard, and the verdict prints `success` off another PR's scan. And
+`select(.status=="completed")` emits nothing while the job still runs, so an unguarded `$J` makes the URL
+`…/actions/jobs/`, which 404s, and the verdict prints blank rather than refusing: a vacuous zero in the verdict
+line itself.
 
 - **`max_by(.created_at)`, never `| last |`.** The runs list is newest-first (observed), so `last` picks the
   **oldest** run on that head — the stale green this read exists to prevent. It looks right only when there is
