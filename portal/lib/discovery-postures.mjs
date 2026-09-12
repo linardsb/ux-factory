@@ -200,7 +200,7 @@ export const PROVENANCE_RULE = Object.freeze({
 // The judgement in prose BEFORE the op (Run 0's F9 — .claude/reports/discovery-run-0-338-report.md).
 // Run 0's transcripts held turns that were one tool call and no words: the verdict was filed, but WHY
 // was nowhere a reader could check MVP 6 against. For the two postures #286 adds ONLY — Think's
-// prompt surface is stamped on five recordings, so Think waits for a ticket that re-records (the
+// prompt surface is stamped on six recordings, so Think waits for a ticket that re-records (the
 // header). Pinned verbatim by group 30 case 31.
 export const JUDGEMENT_RULE = `Before any tool call, write your judgement as prose: one to three sentences saying what the answer names and what its form lacks, quoting the words you are judging. A turn with no judgement in prose is dirty, the same as a turn with two closing ops.`;
 
