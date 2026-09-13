@@ -90,6 +90,7 @@ discovery/
   bracket-trace-2/       #349's VERIFICATION run — the same twelve under the tool-name gate; no built-in denied line, the trace showing the warmup did call tools
   allergen-matrix-1/     the FULL-DEPTH exhibit — the FIRST committed full-discovery run, 30 of the 30 it was asked (the unfaceted list is 31 since #392) (§The full-depth run)
   later-not-never-1/     the SECOND full-depth run (#393) — 31 of 31 answered, the first package to walk s4-parked-for-later and project it under Later, not never; carries three duplicate t7 answer lines and three credit-exhaustion text lines (§The later, not never run)
+  faster-payment/        the SCORED run (#291) — the FIRST faceted package (regulated preset, 22 of the 31), the first scored against a key written before the epic, and the first whose answers were drafted offline and pasted warm (§The Faster Payment run)
   partner-audit-1/       the AUDIT fixture (#376) — the only committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
 ```
 
@@ -763,6 +764,58 @@ replaced the bracket. The trace holds sixteen warmup denials across five turns (
 `ListMcpResourcesTool` ×2), none recorded; the transcript carries **zero** `denied` lines and fifteen
 ops. A quiet warmup would not have been a pass — the trace is what shows the warmup called tools
 under the new rule and left no line.
+
+## The Faster Payment run (faster-payment)
+
+`discovery/faster-payment/` is the **scored** run — the first package whose subject was fixed in git
+before the session opened and whose output is measured against a key that predates the epic. Every
+other committed package is a mechanism exhibit. Recorded through the drawer on 2026-09-13
+(`blank-idea`, `think`, `claude-sonnet-5`, fictional, **regulated** preset at full discovery, portal,
+15.2 minutes wall clock, **$1.1638 over 24 turns** — per-turn latency min 3.9 s, median 10.3 s, max
+24.7 s, zero failed turns).
+
+**The first faceted session.** Every package before it carries `facets: null`; this one carries
+`{hasModel:false, regulated:true, internal:false, orgBuys:false, replacesAProcess:false}`, which
+composes **22** questions — the twelve-question opening set, the regulated module's six, and the
+four-question non-functional block. `selectDepth` had never composed a live session before this run.
+
+**What it settled.** 22 of 22, `completion.done` true, `coverage` 12 of 12 of the opening set decided
+with nothing missing, `notAForm.tripped` false with a longest streak of **0**. 30 ops: 20
+`record_decision`, 6 `file_evidence`, 4 `flag_weak_answer`. Every decision carries a `wrong_if`;
+`auditTraceability` reports no orphans and no unrooted decisions.
+
+**24 turns for 22 questions, and it is the bank working.** `s6-audit-trail` and `s6-permission-model`
+were each asked twice, because a `flag_weak_answer` does not close a turn. The agent named a specific
+gap each time — whether the audit trail is tamper-evident and who may read it; whether a support or
+engineering role can act as the customer underneath the stated agent/fraud-ops matrix — and on the
+re-ask it noticed the answer had been pasted back verbatim and said so before moving on. This is a
+different mechanism from `later-not-never-1`'s duplicates, which were an operator resubmitting under a
+credit error that wore a success subtype. Here nothing failed: the agent refused an answer twice and
+recorded why.
+
+**The cost lever, confirmed.** All 24 turns fell inside the prompt cache's five-minute TTL — mean
+**$0.0485** a turn, against `later-not-never-1`'s realised $0.0843 over a sitting with five long gaps.
+The 22 answers were drafted offline and pasted back to back, which is the whole of the difference.
+
+**Its scar: the look-ups never fired, and AC #5 failed on it.** Five turns were meant to use the
+look-it-up affordance so that Confirmation of Payee, Faster Payment irrevocability, APP reimbursement,
+Consumer Duty and WCAG 2.2 would each carry a `secondary-source` URL. The drawer takes look-up text in
+its own field (`#discovery-offscript`) and the answer in the answer box; the look-up text went into the
+answer box instead, so every one of the 24 answer lines is `kind: "banked"`, **no turn was ever
+off-script, and `WebSearch` was never advertised**. All 6 `file_evidence` rows carry `url: null`, and
+seq 13 is labelled `provenance: "secondary-source"` with no URL behind it — a row claiming a
+provenance it cannot support. The affordance itself is not in doubt: `--probe-affordance` filed four
+URLs with that provenance the same morning, at $0.1462. **The failure is a procedure the product does
+not guard**, and nothing in CI or in `tooling/run-1-ready.mjs` can reach it — a pre-run gate cannot see
+which textarea a person will type into. Recorded, not re-run: a second sitting would re-answer from a
+base the owner had already read, which is the one thing the sealed pre-registration cannot bound.
+
+**The transition rung is being used for something else.** `prd.md` renders seven decisions under
+`## Transition note` — appetite, rabbit holes, out of bounds, what-would-make-us-stop, the eval,
+edge-cases and strength-of-evidence. None of those is a transition requirement in BABOK's sense; they
+are appetite and risk claims. `allergen-matrix-1` and `later-not-never-1` show the same pattern from
+`s2-riskiest-assumption`, so this is now observed on three packages and is a posture-prompt finding for
+the epic's close-out, not a hand edit — `prd.md` is the projection's bytes and case 32.6 compares them.
 
 ## The read fence (#287)
 
