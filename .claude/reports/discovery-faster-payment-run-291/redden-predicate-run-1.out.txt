@@ -1,0 +1,10 @@
+SHIPPED shape  (reads: []) — every key must be DENIED at the predicate BOTH sites call:
+  reads: []              decisions  allowsPath=false fenceDecision=false
+  reads: []              sealed     allowsPath=false fenceDecision=false
+
+MUTATION       (reads: [decisions]) — the omission the probe verdict must catch:
+  reads:[decisions]      decisions  allowsPath=true  fenceDecision=true
+  reads:[decisions]      sealed     allowsPath=false fenceDecision=false
+
+verdict: shipped shape holds both keys = true | widened shape LEAKS decisions = true
+REDDEN PROVEN — a widened reads admits the key, so the run-1 shape is not denying vacuously

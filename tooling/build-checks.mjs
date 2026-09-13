@@ -6926,6 +6926,22 @@ function scanSvg(svg, label) {
     ok(deny(run1, `${JOBS}/_discovery/run-1-evil/x`), "case 23: `<root>-evil/x` is not under `<root>` — the entry + sep rule");
     ok(deny(run1, `${JOBS}/_discovery`), "case 23: the run root's PARENT is not under the root");
     ok(deny(run1, "../x") && deny(run1, `${JOBS}/_discovery/run-1/../run-2/x`), "case 23: `..` is normalised before the compare, so a traversal out of the root is denied");
+    // The REAL run-1 shape (#291), beside the invented one above. The `/jobs` arithmetic stays pinned
+    // because <JOBS_DIR>/_portfolio/pre-registration.sealed.md is the location the architecture doc
+    // names; the block below is the location run 1 actually uses, because the jobs folder is not a git
+    // repo and "committed before the session" is unsatisfiable there. Both keys sit in docs/epics/, and
+    // a key committed UNDER the package root would be ALLOWED — allowSetFor admits the root and
+    // everything beneath it — which is precondition 3 silently voided rather than failed. PURE: these
+    // paths are built with join, never stat'd, so the case holds before the owner writes the file.
+    const fp = allowSetFor({ root: join(ROOT, "discovery", "faster-payment"), reads: [] });
+    const SEALED = join(ROOT, "docs/epics/fixtures/faster-payment-pre-registration.sealed.md");
+    ok(same(fp.paths, [join(ROOT, "discovery", "faster-payment"), BANK_PATH]), `case 23: run 1's real allow-set is exactly [root, bank] — a blank-idea session reads no document, so reads is [] (got ${JSON.stringify(fp.paths)})`);
+    ok(deny(fp, SEALED), "case 23: run 1 must NOT read docs/epics/fixtures/faster-payment-pre-registration.sealed.md — the owner's unaided answer is the marginal-reach key and reading it voids AC #3");
+    ok(deny(fp, join(ROOT, "docs/epics/fixtures/faster-payment-input.md")), "case 23: run 1 must NOT read its own committed input file — the operator pastes the sentence in, the agent never reads the framing around it");
+    ok(deny(fp, join(ROOT, "docs/epics/fixtures")) && deny(fp, join(ROOT, "docs/epics/discovery-partner.prd.md")), "case 23: run 1's denial covers the fixtures DIRECTORY and the epic's own PRD, not just the two named files");
+    ok(deny(fp, join(ROOT, "discovery/faster-payment-sealed.md")), "case 23: `<root>-sealed.md` is not under `<root>` — the entry + sep rule, on the real path");
+    ok(allow(fp, join(ROOT, "discovery/faster-payment/answers.jsonl")) && allow(fp, BANK_PATH), "case 23: run 1 must read its own package and the bank — the positive controls, without which a fence that denied everything would pass");
+    ok(allow(fp, join(ROOT, "discovery/faster-payment/sealed.md")), "case 23: anything UNDER the run root is allowed — which is why the sealed file lives in docs/epics/fixtures/ and why tooling/run-1-ready.mjs asserts it does");
     // Run 2's shape: the fixture allowed; the PRD one directory above it — the run-2 key — denied,
     // and so is everything else beside the fixture.
     ok(allow(run2, join(ROOT, FIX)), "case 23: run 2 must read its fixture");

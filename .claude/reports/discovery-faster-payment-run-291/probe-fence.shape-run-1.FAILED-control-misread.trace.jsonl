@@ -1,0 +1,16 @@
+{"ts":"2026-09-13T11:57:01.823Z","turn":"t1","event":"PreToolUse.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:01.824Z","turn":"t1","event":"PreToolUse.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-13T11:57:01.824Z","turn":"t1","event":"PreToolUse.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-13T11:57:01.825Z","turn":"t1","event":"PreToolUse.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:06.656Z","turn":"t1","event":"PreToolUse.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:22.457Z","turn":"t1","event":"canUseTool.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:22.457Z","turn":"t1","event":"canUseTool.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-13T11:57:22.458Z","turn":"t1","event":"canUseTool.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-13T11:57:25.995Z","turn":"t1","event":"canUseTool.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:36.936Z","turn":"t1","event":"PreToolUse.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:36.941Z","turn":"t1","event":"canUseTool.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:41.530Z","turn":"t1","event":"PreToolUse.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:41.532Z","turn":"t1","event":"canUseTool.allow","tool":"Read","recorded":false}
+{"ts":"2026-09-13T11:57:42.895Z","turn":"t1","event":"PreToolUse.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-13T11:57:44.268Z","turn":"t1","event":"PreToolUse.deny","tool":"Read","recorded":true}
+{"ts":"2026-09-13T11:57:45.436Z","turn":"t1","event":"PreToolUse.allow","tool":"Read","recorded":false}

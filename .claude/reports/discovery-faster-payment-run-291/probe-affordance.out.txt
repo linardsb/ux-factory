@@ -1,0 +1,12 @@
+discovery affordance probe — sdk 0.1.77 · node v20.20.2 · model claude-sonnet-5 · posture surface 7efdde37 · affordance surface 44d0ea17
+agent: Confirmation of Payee is real — it's a genuine UK payment scheme, owned and operated by Pay.UK as the Payment Systems Operator. It's an account name-checking service that lets a payer verify that the name on an account matches who they intend to pay, before sending a payment, in order to cut down misdirected payments and authorised push payment (APP) fraud. The standards were published in 2018 and
+agent: The question on the table — winning aspiration, where to play, how to win, capabilities, management systems — is still unanswered and still yours to write.
+fetch tools reached: WebSearch@PreToolUse, WebSearch@canUseTool
+every tool the fence saw: WebSearch@PreToolUse, WebSearch@canUseTool, mcp__discovery__file_evidence@PreToolUse, mcp__discovery__file_evidence@canUseTool
+ops filed: file_evidence seq 1 · file_evidence seq 2 · file_evidence seq 3 · file_evidence seq 4
+file_evidence rows 4, of which url + secondary-source: 4 (https://www.wearepay.uk/what-we-do/overlay-services/confirmation-of-payee/, https://www.wearepay.uk/what-we-do/overlay-services/confirmation-of-payee/faqs/, https://www.ukfinance.org.uk/policy-and-guidance/guidance/confirmation-payee, https://www.tlt.com/insights-and-events/insight/payuk-confirmation-of-payee-standards-rules-and-guidance-5-key-points)
+closed the turn: no
+denied lines: 0
+cost 0.14624814999999997 USD · 28891 ms · 6 SDK turns
+
+probe FILED_A_SOURCE
