@@ -861,7 +861,8 @@ were the probe mis-reading its own evidence, one layer on from #287's excerpt bu
 
 **#287's committed run-2 receipt above is therefore not reproducible as recorded** — the bank has grown
 past the cap since 2026-09-01, and `--probe-fence` on today's tree would hit the same wall. The fix
-above repairs both shapes; re-recording run 2's observation is a paid re-run and has not been done.
+above is EXPECTED to repair both shapes — it was observed only on run 1's, because re-recording run
+2's observation is a paid re-run and has not been done.
 
 ## Workflow
 

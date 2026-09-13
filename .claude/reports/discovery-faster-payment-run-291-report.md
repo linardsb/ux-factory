@@ -38,7 +38,7 @@ No test suite exists in this repo and the CLAUDE.md rule is not to hunt for one.
 | Where | What it asserts |
 |---|---|
 | `tooling/build-checks.mjs` case 23 (7 new `ok`s) | run 1's REAL allow-set is exactly `[root, bank]`; the sealed file, the input file, the fixtures directory and the epic PRD all deny; `<root>-sealed.md` denies by the entry+sep rule; the package and the bank allow; anything UNDER the run root allows — the trap the sealed file's location exists to avoid |
-| `tooling/run-1-ready.mjs` (6 checks) | input tracked · sealed tracked and non-empty · the real fence denies both files and the scoring key while allowing the package and the bank · the regulated preset composes 22 with `OPENING_SET` as its head · no `run.json` yet · the sealed file's commit timestamp |
+| `tooling/run-1-ready.mjs` (6 checks) | input COMMITTED · sealed COMMITTED and non-empty · the real fence denies both files and the scoring key while allowing the package and the bank · the regulated preset composes 22 with `OPENING_SET` as its head · no `run.json` yet · the sealed file's commit timestamp |
 
 `node tooling/build-checks.mjs` → `build ✓  all 34 groups pass` (observed).
 
@@ -48,12 +48,21 @@ No test suite exists in this repo and the CLAUDE.md rule is not to hunt for one.
 |---|---|---|---|
 | case 23, sealed denial | `ok(deny(fp, SEALED),` → `ok(allow(fp, SEALED),` | `build discovery ✗  1 failure(s)`, exit 1, naming `case 23: run 1 must NOT read docs/epics/fixtures/faster-payment-pre-registration.sealed.md` | restored → `build ✓  all 34 groups pass`, exit 0. In-case control: `allow(fp, …/answers.jsonl)` and `allow(fp, BANK_PATH)` must pass, so a fence denying everything cannot satisfy the block |
 | `run-1-ready` check 3 | `SEALED` repointed to `discovery/faster-payment/sealed.md`, a throwaway file created and staged so checks 1–2 pass | `run-1 ✗  check 3 — the read fence ALLOWS discovery/faster-payment/sealed.md … Reason: … is under …/discovery/faster-payment`, exit 1 | with a throwaway sealed file at the real docs path: `run-1 ready ✓  6 checks · regulated preset composes 22`, exit 0 — the only observation of checks 3–6 passing |
+| `run-1-ready` check 2, commit requirement | a throwaway sealed file `git add`ed but not committed | `run-1 ✗  check 2 — … is staged but not COMMITTED — the marginal-reach reading rests on git showing this file predates run.json's startedAt`, exit 1 | the file removed → back to `check 2 — … is missing`. See the note below |
 | `run-1-ready` check 4 | `QUESTIONS` 22 → 23 | `run-1 ✗  check 4 — the regulated preset composes 22 questions at full discovery, not 23`, exit 1 | same green run as above |
 | `run-1-ready` check 5 | `discovery/faster-payment/run.json` created | `run-1 ✗  check 5 — … already exists — the sitting has started`, exit 1 | same green run as above |
 | `probeFence` run-1 shape, denial not vacuous | `allowSetFor({root, reads: [decisions]})` instead of `reads: []`, driven over the real `allowsPath` AND `fenceDecision` | the key flips to `allowsPath=true fenceDecision=true` while the sealed key stays denied | shipped shape (`reads: []`) denies both keys at both functions. Receipt: `redden-predicate-run-1.out.txt` |
 
 All mutations were reverted; every throwaway file was `git rm --cached`'d and deleted. `git status --short`
 shows no residue (observed).
+
+**The all-six-green line is no longer observable from this side, and that is deliberate.** Checks 1 and
+2 originally asked only that a file be TRACKED, which `git add` alone satisfies — so the gate could have
+said "the sitting may start" while precondition 2's git receipt did not exist, which is the one thing
+that reading measures. Both checks now require a COMMIT. The green run recorded above was taken under
+the older tracked-only rule, before that condition existed; under the shipped rule the only way to
+observe six green would be to commit a fake sealed file, which would be writing the owner's half. The
+first real green line is the owner's, immediately before the drawer opens.
 
 **What the last row does NOT reach**, stated rather than implied: it reddens the *predicate* both fence
 sites call, not `probeFence`'s own `held`/`leaked`/`controls` arithmetic. Proving that end to end is a
@@ -135,6 +144,12 @@ unanswered question to the person rather than answering it, which is the posture
   §The read fence to T13. Moved forward because the probe ran now, and because the finding that #287's
   committed receipt is unreproducible should not sit in a branch note until after the sitting. T13's
   other README work (§Files, the run's own section) is untouched and still Segment B's.
+- **`run-1-ready.mjs` checks 1 and 2 require a COMMIT, not just a `git add`.** The plan's T3b says
+  "exists **and is tracked**". Implemented that way first, then tightened: `git ls-files --error-unmatch`
+  is satisfied by staging, and a staged file has no timestamp for T6's `git log` compare against
+  `run.json`'s `startedAt` — so the gate could have opened the sitting with precondition 2's receipt
+  absent. Raised by the advisor after the first commit; the consequence for what is observable is
+  recorded under Proving the checks.
 - **One extra constant in `run-1-ready.mjs`.** Check 4's failure message originally hardcoded `22`
   separately from its assertion; the check-4 mutation printed `composes 22 … not 22`, which is the
   message/assertion split `build-checks` 30.46 exists to end. Both now read one `QUESTIONS` constant.
