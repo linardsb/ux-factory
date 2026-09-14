@@ -128,6 +128,8 @@ Then the product sections only, scannable:
 9. **Later, not never** — what is *parked* for a later increment rather than refused, and what that tells the
    MVP about how to build now. Keep it separate from Non-goals: a non-goal is refused with a reason; a parked
    item is deferred and may shape today's thin line. Empty is a valid answer — write "none" rather than invent one.
+   A PRD written before this rule omits §9 rather than acquiring a "none": the omission is the honest state, and
+   "none" written onto a finished epic is an agent asserting the owner parked nothing.
 10. **Open Questions** — named, not hidden (checkboxes).
 
 Leave an `## Architecture` cross-link placeholder at the bottom (`Architecture: _TBD — see plan-architecture_`) so the

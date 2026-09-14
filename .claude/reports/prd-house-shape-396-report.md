@@ -134,7 +134,7 @@ added this run (below).
 
 ## Review round 2 — findings fixed (PR #407)
 
-Eleven findings across two review posts. Seven fixed, four not — reasons below. One commit, this worktree.
+Eleven findings across two review posts. Eight fixed, three not — reasons below.
 
 | # | Sev | Where | What changed |
 |---|---|---|---|
@@ -144,6 +144,7 @@ Eleven findings across two review posts. Seven fixed, four not — reasons below
 | F6 | Med | `discovery-partner.prd.md` §Scope | said D6/D7/D1 are "named here as non-goals"; D6 and D7 moved to §Later, not never in this PR, so the sentence went false as the section changed under it |
 | F7 | Med | `canvas-design-import.prd.md` §Architecture | `26 tickets #296–#321` was cleared from the header on the strength of a body that did not carry it; restored |
 | F8 | Low | `portfolio-v3-experience.prd.md:3` | `grilled 2026-07-22` added — a grill is on record at `:7` |
+| F5 | Low | `plan-create-prd/SKILL.md` §9 | the omission of §9 on a pre-rule PRD had no rule, so the skill's "write \"none\"" instruction still applied to it; the condition is now named |
 | F9 | Low | `piv-slice-epic/SKILL.md:84` | "include that edit in the ticket-creation commit" named a commit the skill never makes; the command is now written |
 | F10 | Low | `plan-architecture/SKILL.md` | the write-back had no rule for a PRD with no status header — the exact case (`st-ux-fusion`) that motivated the ticket |
 
@@ -151,13 +152,19 @@ Eleven findings across two review posts. Seven fixed, four not — reasons below
 
 - **F4** (Low) — `sliced: #86` drops `generative-prototyper`'s issue link. The ladder grammar is plain text by
   design and this applies uniformly to all nine; a design consequence, not a slip. Left.
-- **F5** (Low) — six of nine PRDs carry no §9. Disclosed under D3 and argued in the PR: writing `none` onto a closed
-  epic is an agent asserting the owner never parked anything. **Owner's call** whether to add the skill clause that
-  would make the omission readable rather than ambiguous; not taken unilaterally.
 - **F11** (Low) — three sibling docs refer to the moved bullets as "non-goals" informally. Each bullet still opens
   with "No …", so nothing there is false the way F6 was. The reviewer's own verdict: "Fine to leave."
 - No gate was added. The PR's §Non-goals reasoning stands — a form regex cannot see a well-formed false line, which
   is what F6 and F7 both were.
+
+**F5, and why it stopped being discretionary.** The review graded it a readability question — a reader cannot tell
+"this epic parked nothing" from "this epic predates the rule" — and on that framing it is the owner's call. Read as
+an executor question it is **F2 one section down**: this PR decided that a pre-rule PRD omits §9 rather than
+acquiring a `none`, and recorded that decision only in the PR body and this report. The skill still said "Empty is a
+valid answer — write \"none\" rather than invent one", which executed over the six closed epics writes exactly the
+assertion the PR refused to make. The clause now sits on §9's own bullet, mirroring the `grilled`-slot clause the
+same file already carries. Nothing was written into the six PRDs: line 3's `**Created:**` date separates pre-rule
+from post-rule, and stamping six historical records to resolve the ambiguity costs more than the ambiguity.
 
 **F1's proof — the instructions executed, not read.** The defect was a form failure that reads correctly, so the
 test is to run both write-backs literally against the grammar all nine headers satisfy. Negative control first:
