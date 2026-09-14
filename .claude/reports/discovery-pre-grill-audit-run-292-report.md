@@ -137,7 +137,7 @@ products about", not statements about this product. The tail's decision rate is 
 - T2 `docs/epics/fixtures/discovery-partner.run-2-rubric.md` (CREATE) — `4a74848`
 - T3 `tooling/run-2-ready.mjs` (CREATE) — `e8667b6`
 - T4 composition (23, head = `OPENING_SET`, seven ids present; `facetPlan` `{fired:['hasModel'], fits:['hasModel'], overflow:[], count:23}`), portal smoke on 4793 (`bootSha` = HEAD, `models` both, `entryPostures['existing-prd'] ['grill']`, `depthProposals['existing-prd'] 'full-discovery'`), throwaway route open (`created true`, chars 24355, md5 `ab6eb0ee…`, total 23, `reads []`, cursor `s1-if-nobody-solves-this`; removed; PID killed)
-- T5 receipts committed (`probe-fence.shape-run-2.out.txt`, `.trace.jsonl` — 13 lines, 3 `PreToolUse.deny`)
+- T5 receipts committed (`probe-fence.shape-run-2.out.txt`, `.trace.jsonl` — 13 lines, 3 deny events: 2 `PreToolUse.deny`, 1 `canUseTool.deny`)
 - T6 `probe-audit.claude-opus-5.out.txt` — `ANSWERED · wrong_if PARAPHRASED (14/14)`, $0.11359915, 16,915 ms
 - T7 the sitting — `discovery/partner-audit-2/{run.json,answers.jsonl,transcript.jsonl}` server-written; portal on 4794 (PID 41607) booted from `e8667b6`, killed by PID after
 - T8 `discovery/partner-audit-2/prd.md` — `prd ✓  partner-audit-2 → 12 sections, 32 ops`; pointer grep 23
