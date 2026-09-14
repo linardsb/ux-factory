@@ -16,7 +16,7 @@ alert on a pull request only when *all* the lines of code it identifies are in t
 Route 1 of the two the issue offers: **correct the prose, leave the gate alone.** Confirmed by the
 owner, 2026-09-14. Route 2 (fold a read of `main`'s push analysis into the PR gate, reinstating the
 inherited-alert block) is a policy change, not a correction, and branch protection on `main` is
-currently OFF, so it would buy a merge block nothing enforces. It is filed as a follow-up, not done here.
+currently OFF, so it would buy a merge block nothing enforces. It is filed as #408, not done here.
 
 The correction is written against the **documented display rule**, not the overlay/diff-range mechanism:
 whether *every* query participates in diff-informed analysis is stated nowhere, so the guarantee has to
@@ -84,7 +84,7 @@ reads as an invitation to implement route 2.
    even on docs-only PRs).
    → verify: each prints its own pass line.
 8. **Report + PR** — `.claude/reports/codeql-gate-prose-400-report.md`, PR body carries `Closes #400`,
-   and a follow-up issue is opened for route 2 and linked.
+   and route 2 is opened as #408 and linked.
 
 ## Validation commands
 
@@ -109,7 +109,7 @@ reworded claim makes that leg report "states no group count" and CI goes red.
 5. `verify.yml`'s header and its gate step both say diff-scoped; the job's logic is byte-identical.
 6. The skill no longer hedges on #400.
 7. `build-checks` and `drift-check` both green; portal `/api/health` answers.
-8. Route 2 is filed as its own issue and referenced from the PR.
+8. Route 2 is filed as #408 and referenced from the PR.
 
 ## Open questions / assumptions
 

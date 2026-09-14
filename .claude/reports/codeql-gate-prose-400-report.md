@@ -65,5 +65,5 @@ it reached four, `verify.yml`'s own header among them. Fixed before commit.
 ## Follow-up
 
 Route 2 — folding a read of `main`'s push analysis into the PR gate, so an inherited high alert blocks every PR —
-is filed as its own issue and linked from the PR. It is a policy change, not a correction: it reinstates a merge
+is filed as [#408](https://github.com/linardsb/ux-factory/issues/408). It is a policy change, not a correction: it reinstates a merge
 block that branch protection on `main`, currently OFF, would not enforce anyway.
