@@ -115,7 +115,10 @@ added this run (below).
   header was cleared against a body that had no home for it. Restored to canvas's §Architecture in review round 2
   (PR #407): `Sliced as epic #295 on 2026-08-28: 26 tickets, #296–#321.`
 - Q4: the sibling session's unstaged 2026-09-02 amendment in the shared tree is not carried; its Amendments append
-  will conflict trivially at EOF with this PR's entry (keep both, date order).
+  will conflict trivially at EOF with this PR's entry (keep both, date order). Two corrections to that picture: the
+  review found it is **two hunks, not one** — the EOF append plus a new §Success metrics row at `:365`, seven lines
+  above this PR's first §Non-goals removal, which should apply cleanly — and review round 2 **extended this PR's own
+  EOF entry** by three lines (F6), so the conflict region is larger than when this was written.
 - `discovery-partner` keeps `**Created:** 2026-08-26`, its own stated date, over git's 08-27 first commit.
 
 ## Additions beyond the plan
