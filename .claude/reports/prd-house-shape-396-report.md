@@ -41,7 +41,13 @@ The nine headers as written (all observed on disk, `sed -n 3p`):
 
 Every `sliced`/`closed` date re-derived this run from `gh issue view <n> --json state,createdAt,closedAt` for
 #1 #295 #279 #86 #329 #70 #202 #164 #243 (observed: all nine matched the plan's table; #295 #279 #329 OPEN, the
-other six CLOSED). `architecture` dates re-read from each architecture doc's own "Decided" line (observed);
+other six CLOSED). `architecture` dates come from four sources, not one — re-derived in review round 2 (PR #407), all observed. Five
+of the nine are the architecture doc's own line: `canvas-design-import.architecture.md:8` · `discovery-partner
+.architecture.md:6` · `generative-prototyper.architecture.md:4` · `prototype-studio.architecture.md:6` ·
+`st-ux-fusion.architecture.md:3`. The other four carry no such line: `ai-first-ux-factory` from the doc's first
+commit (`d7fcf0c` 07-17) · `handoff-seam` has no architecture doc at all (folded, PRD line 5; date from the PRD's
+first commit `8375884` 08-28) · `portfolio-v3-experience` from `#70.createdAt` (07-22; its doc was first committed
+07-24, `1078d43`) · `prototyping-feel-uplift` from its doc's `**Created:** 2026-07-30` line, not a Decided line.
 `Created` for `ai-first`, `handoff-seam`, `prototyping-feel-uplift`, `st-ux-fusion` from `git log --follow
 --diff-filter=A` (observed `d7fcf0c` 07-17 · `8375884` 08-28 · `6cca5a1` 07-30 · `f988228` 08-07).
 
@@ -99,9 +105,15 @@ added this run (below).
 
 - D1 keep · D2 all nine · D3 open epics, re-file only — the plan's recommended answers; the owner strikes in review.
 - Q1: neither `prototype-studio` nor `st-ux-fusion` carries a `grilled` slot (neither says "grill" on record).
+  `portfolio-v3-experience` was in this list and should not have been: `:7` records "grill session, D1–D11" on
+  2026-07-22. Slot filled in review round 2 (F8, PR #407) — the skill licenses omission only where no grill is on
+  record. Its three rungs now share 2026-07-22, each separately sourced: `grilled` from `:7`, `architecture` from
+  `#70.createdAt`, `sliced` from the same issue.
 - Q2: `generative-prototyper` says `closed 2026-07-26`, the issue state; "parked" is not written.
-- Q3: canvas's "(G1–G33 below, all resolved)" and "26 tickets #296–#321" dropped from the header; both live in its
-  §Open questions and in #295.
+- Q3: canvas's "(G1–G33 below, all resolved)" and "26 tickets #296–#321" dropped from the header. `G1–G33` lives in
+  the body (`:68`, `:206`) and in #295; the ticket range lived **only** in #295 — the body did not carry it, so the
+  header was cleared against a body that had no home for it. Restored to canvas's §Architecture in review round 2
+  (PR #407): `Sliced as epic #295 on 2026-08-28: 26 tickets, #296–#321.`
 - Q4: the sibling session's unstaged 2026-09-02 amendment in the shared tree is not carried; its Amendments append
   will conflict trivially at EOF with this PR's entry (keep both, date order).
 - `discovery-partner` keeps `**Created:** 2026-08-26`, its own stated date, over git's 08-27 first commit.
@@ -116,3 +128,34 @@ added this run (below).
 
 - drift-check's first run went red on the missing Style Dictionary install in the fresh worktree (memory
   `local-agent-visual-gate-notes`), not on drift. Green after install; recorded above.
+
+## Review round 2 — findings fixed (PR #407)
+
+Eleven findings across two review posts. Seven fixed, four not — reasons below. One commit, this worktree.
+
+| # | Sev | Where | What changed |
+|---|---|---|---|
+| F1 | High | `plan-architecture/SKILL.md` · `piv-slice-epic/SKILL.md` | both executors named the whole slot as the search string and only the value as the replacement; now `architecture: decided <date>` and `sliced: #$EPIC <today>` |
+| F2 | Med | `plan-create-prd/SKILL.md` | the `closed` rung had no executor; the owner is now named as writing it by hand |
+| F3 | Med | this report `:47` | the one-line provenance claim was false for four of nine; all four sources now named |
+| F6 | Med | `discovery-partner.prd.md` §Scope | said D6/D7/D1 are "named here as non-goals"; D6 and D7 moved to §Later, not never in this PR, so the sentence went false as the section changed under it |
+| F7 | Med | `canvas-design-import.prd.md` §Architecture | `26 tickets #296–#321` was cleared from the header on the strength of a body that did not carry it; restored |
+| F8 | Low | `portfolio-v3-experience.prd.md:3` | `grilled 2026-07-22` added — a grill is on record at `:7` |
+| F9 | Low | `piv-slice-epic/SKILL.md:84` | "include that edit in the ticket-creation commit" named a commit the skill never makes; the command is now written |
+| F10 | Low | `plan-architecture/SKILL.md` | the write-back had no rule for a PRD with no status header — the exact case (`st-ux-fusion`) that motivated the ticket |
+
+**Not fixed, and why**
+
+- **F4** (Low) — `sliced: #86` drops `generative-prototyper`'s issue link. The ladder grammar is plain text by
+  design and this applies uniformly to all nine; a design consequence, not a slip. Left.
+- **F5** (Low) — six of nine PRDs carry no §9. Disclosed under D3 and argued in the PR: writing `none` onto a closed
+  epic is an agent asserting the owner never parked anything. **Owner's call** whether to add the skill clause that
+  would make the omission readable rather than ambiguous; not taken unilaterally.
+- **F11** (Low) — three sibling docs refer to the moved bullets as "non-goals" informally. Each bullet still opens
+  with "No …", so nothing there is false the way F6 was. The reviewer's own verdict: "Fine to leave."
+- No gate was added. The PR's §Non-goals reasoning stands — a form regex cannot see a well-formed false line, which
+  is what F6 and F7 both were.
+
+**Bookkeeping.** F6 and F7 add prose to two PRDs in a PR whose claim is "no new content". Both ride under each
+file's existing 2026-09-14 §Amendments entry rather than a second same-date entry: neither moved a bullet, and both
+are corrections to what this PR's own move made false.

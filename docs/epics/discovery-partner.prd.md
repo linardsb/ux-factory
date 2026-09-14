@@ -12,7 +12,8 @@ from the same vault. The thinking
 doc behind this epic (D1–D20, Q1–Q9) stays in the owner's vault and is cited by date and slug —
 `2026-08-26-ux-factory-discovery-build-revamp` — not committed.
 **Scope:** wave 1 of the revamp — the discovery half, in the portal, for the operator. The canvas (D6),
-component import (D7) and the guest instance (D1) are named here as non-goals and belong to later epics.
+component import (D7) and the guest instance (D1) are excluded here — the canvas and import as parked work
+(§Later, not never), the guest instance as a non-goal — and belong to later epics.
 
 ---
 
@@ -499,4 +500,6 @@ non-goals stand as written.
 **2026-09-14 — §Later, not never added per the house shape (#396); four parked items re-filed from §Non-goals
 verbatim.** Each of the four names a later epic as its home — the skill's own test for parked rather than refused.
 Nothing was refused or unrefused; the eleven non-goals that remain stand as written, and D6/D7's later epic is now
-[canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295).
+[canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295). That sentence is true of the section and was
+not true of §Scope, which described D6, D7 and D1 together as "named here as non-goals"; §Scope was corrected to
+name the two parked and the one refused separately (review round 2, PR #407). The bullets did not move again.

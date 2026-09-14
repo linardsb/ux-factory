@@ -1,6 +1,6 @@
 # PRD — portfolio v3: the product-demo experience
 
-**Status:** intent · architecture: decided 2026-07-22 · sliced: #70 2026-07-22 · closed 2026-07-26 · **Created:** 2026-07-22
+**Status:** intent · grilled 2026-07-22 · architecture: decided 2026-07-22 · sliced: #70 2026-07-22 · closed 2026-07-26 · **Created:** 2026-07-22
 
 **One-line vision:** the portfolio is a product demo in which the evaluator watches their own product take shape — the factory's engines unchanged, the experience rebuilt around the reader.
 

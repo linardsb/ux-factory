@@ -109,8 +109,8 @@ write it there via the relevant tool instead.) Open with a one-line **status hea
 doc is on the ladder without reading it: `**Status:** intent · grilled <date> · architecture: TBD · sliced: TBD ·
 **Created:** <date>` — each later step replaces its TBD in place: `plan-architecture` writes `architecture: decided
 <date>` (`folded <date>` when it chose the folded option), `piv-slice-epic` writes `sliced: #<epic> <date>`, and
-closing the epic issue appends `· closed <date>` before **Created**. Nothing else goes in the header — inputs,
-owners and ticket ranges live in the body. A PRD written before this rule with no grill on record omits the
+the owner appends `· closed <date>` before **Created** by hand when they close the epic issue — no skill writes
+that rung. Nothing else goes in the header — inputs, owners and ticket ranges live in the body. A PRD written before this rule with no grill on record omits the
 `grilled` slot rather than inventing a date.
 Then the product sections only, scannable:
 

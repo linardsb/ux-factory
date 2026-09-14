@@ -256,6 +256,8 @@ architecture doc's addendum; tickets #318–#321 plus amendments to #302, #308, 
 
 Architecture: [canvas-design-import.architecture.md](./canvas-design-import.architecture.md) (decided 2026-08-28)
 
+Sliced as epic [#295](https://github.com/linardsb/ux-factory/issues/295) on 2026-08-28: 26 tickets, #296–#321.
+
 Handed to it, deliberately not decided here: the grid retirement's deletion list and the baseline cascade for `/factory` + `instance.html` (G1) · the override format for states and group instances (G2, G3: one mechanism, two uses) · the two converters' placement and the shared recognition rules (G9) · the proposal format and where proposals live before admission · the ratification UI and the exact write-then-gate sequence (G6) · the third recorder and its fence · the op vocabulary additions (the briefing's twelve-op shape, plus the arrow's part id and trigger, G5) · the canvas file shape for frames, groups and research cards under `discovery/<slug>/build/` (G22, T15) · the icon subset generator (G8) · the device preset table (G20) · the snapping rules and the per-source override table (G18) · the variant-lane representation and how the diagram and the check iterate it (G33) · the align/distribute verbs and their keyboard path (G28) · the decision card's read path from `prd.md` (G25) · the import record's schema and its markdown projection (G30) · the state-completeness check's home · spike C's recorded facts (deterministic role mapping on token references; the in-process recorded-run transport; the four regenerators an admission must run, not one) · the briefing's T1–T16 technology verdicts and S1–S4 spikes, taken as named calls.
 
 **Related:** [discovery-partner.prd.md](./discovery-partner.prd.md) (wave 1; the run package this consumes) · [prototype-studio.prd.md](./prototype-studio.prd.md) (§Non-goals "no free arrangement" is **amended** by MVP 1–2: the free canvas is the one substrate, the shipped `/factory` replays onto it with an automatic layout — G1) · [ai-first-ux-factory.prd.md](./ai-first-ux-factory.prd.md) (§8 unamended: no live model at view time on shipped pages) · `__canvas_planning_PRD.md` (the briefing; §18 is the pipeline picture, §24 the technology verdicts).
@@ -265,4 +267,5 @@ Handed to it, deliberately not decided here: the grid retirement's deletion list
 **2026-09-14 — §Later, not never added per the house shape (#396); five parked items re-filed from §Non-goals
 verbatim.** Each of the five names a later home — wave 3, the guest epic, D20, its own epic, "wired later" — the
 skill's own test for parked rather than refused. Nothing was refused or unrefused; the eight non-goals that remain
-stand as written.
+stand as written. The same pass cleared `26 tickets #296–#321` out of the status header per the new rule that ticket
+ranges live in the body; the body did not carry it, so it was restored to §Architecture (review round 2, PR #407).

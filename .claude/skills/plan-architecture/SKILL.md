@@ -108,10 +108,14 @@ decision doc beside it, and each links to the other. Keeping them as two clean, 
 - **A separate linked doc in the repo** *(recommended)*: write `docs/epics/<slug>.architecture.md`, add a link back
   to the PRD at its top (`Intent: [<slug>.prd.md](./<slug>.prd.md)`), and edit the PRD's `## Architecture`
   placeholder to link forward to it (`Architecture: [<slug>.architecture.md](./<slug>.architecture.md)`), and
-  replace `architecture: TBD` in the PRD's status header with `decided <date>`. Two clean, linked sources.
+  replace `architecture: TBD` in the PRD's status header with `architecture: decided <date>`. Two clean, linked
+  sources.
 - **Folded into the PRD/epic**: add an `## Architecture` section so intent and approach travel together (fine for
   a small or solo effort with no need to keep them separate). Set the header's slot to `architecture: folded <date>`.
 - **A standalone `architecture.md`**: a single local repo doc when there's no PRD to link to.
+
+In either PRD-linked option, if the PRD carries no status header — every PRD written before that rule — add one per
+`plan-create-prd` before writing the date, rather than skipping the rung: there is no `architecture: TBD` to replace.
 
 Either way keep it high-level and fill this shape:
 
