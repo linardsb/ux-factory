@@ -20,8 +20,8 @@
 // ADDING A PACK TO THE SHIPPED DOCK COSTS MORE THAN A FILE (epic #295 G14, #296). A pack this repo
 // commits and offers in system/dock.mjs is a live control on every page that carries the chrome, so
 // the PR that adds one also carries its visual-regression baselines (one PNG per VR page) and an
-// accessibility vet — the WCAG table this engine prints, read and ACTED ON, not merely committed.
-// The Plus UI pack was removed at #296 because it landed with neither.
+// accessibility vet — the WCAG table this engine returns in `checks`, read and ACTED ON, not
+// merely committed. The Plus UI pack was removed at #296 because it landed with neither.
 
 import { RULESET } from "./derive.rules.mjs";
 import { hexToOklch } from "./oklch.mjs";
@@ -603,7 +603,7 @@ const isUsableValue = (v) =>
 // cssValue turns each into CSS text (exactly as gen-token-css calls it — the raw value, never
 // the wrapping node). Grouped + aligned to read like the neutral pack.
 // The header string below is part of every committed pack's bytes — tokens.verdant.css
-// and the handoff pack both carry it. Do not reflow it.
+// carries it. Do not reflow it.
 function emitPack(slug, note, sections, values) {
   const header =
     `/* GENERATED — the "${slug}" token pack. Do not edit by hand.\n` +
