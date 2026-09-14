@@ -182,7 +182,10 @@ would render *"— tokens.verdant.css, tokens.verdant.css and the handoff pack a
 grammatically correct two-line result instead (dropping line 599's now-stray comma, and "both" for
 two items, which the plan's own GOTCHA sanctioned): *"…part of every committed pack's bytes —
 tokens.verdant.css / and the handoff pack both carry it. Do not reflow it."* Same line count, so no
-loc impact. The `emitPack` header string itself is untouched.
+loc impact. The `emitPack` header string itself is untouched. **Superseded later in this PR:**
+the review's F2 found the *"and the handoff pack"* half false — `grep -rl 'Do not edit by hand'
+handoff/` returns nothing — so a follow-up commit cut the sentence to *"— tokens.verdant.css /
+carries it."*
 
 **D4 — G14's header sentence says "Plus UI", not `"plusui"`.** `(plan error)` Task 10's literal text
 ends `// The "plusui" pack was removed at #296 because it landed with neither.` — which **fails the

@@ -93,8 +93,8 @@ and `COMMITTED` in `pack-derived.mjs` — all three, or the pack is selectable b
 and it costs more than three lines: **a pack the dock offers gets its visual-regression baselines
 and an accessibility vet in the same PR that adds it** (epic #295, G14). The WCAG table this run
 prints is the vet — read it and act on it, not just commit it. That vet is colour only: G14 as
-recorded (`docs/epics/canvas-design-import.prd.md:168`) asks nothing of the imported spacing,
-radius or type ramp, so whether those fit the system's own scale is the reviewer's eye, not a gate.
+recorded in the epic's PRD asks nothing of the imported spacing, radius or type ramp, so whether
+those fit the system's own scale is the reviewer's eye, not a gate.
 
 There is no worked example in the tree. `plusui`, imported from a public Community Figma file, was
 the one; it was removed at #296 (decided 2026-08-28, epic #295 G11) because it shipped in the dock
