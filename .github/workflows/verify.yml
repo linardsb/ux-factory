@@ -14,12 +14,13 @@
 #                  vs committed baselines. Runs in the pinned Playwright image so rendering is
 #                  byte-stable across platforms.
 #   codeql       — GitHub's own static analysis over the hand-written source, plus OUR step that reads
-#                  the alerts back and fails on high or critical. DIFF-SCOPED on a PR (#400): GitHub
-#                  shows an alert on a pull request only when EVERY line it identifies is in that PR's
-#                  diff, so this gate holds what the PR's own diff raises, not every open alert on the
-#                  tree. PR-only for the gate; the scan also runs on push to main, which is the
-#                  full-tree one and what seeds the Security-tab baseline — an alert only IT finds
-#                  blocks no PR and shows up only in the Security tab.
+#                  the alerts back and fails on high or critical, IN TWO LEGS (#408). Leg 1 is the PR's
+#                  merge ref and is DIFF-SCOPED (#400): GitHub shows an alert on a pull request only
+#                  when EVERY line it identifies is in that PR's diff, so on its own it holds what the
+#                  PR raised and nothing else. Leg 2 is refs/heads/main, whose push analysis is the
+#                  full-tree one — so an alert main carries reds every PR until it is fixed ON MAIN,
+#                  which is the guarantee #387 was written to make. PR-only for the gate; the push
+#                  scan is what seeds the analysis leg 2 reads.
 #   audit        — the npm advisory DELTA between the PR's base SHA and its head. PR-only.
 #   gates-green  — THE MERGE GATE (#387). One check, green only when every other gate was green, and
 #                  it is bash reading job results: no model. Branch protection on main requires it,
@@ -190,20 +191,43 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript"
-      # THE GATE. CodeQL uploads and goes green on findings — `analyze` has no fail-on input — so the
-      # alerts are read back and judged here. PR-only: on a push to main there is no pull-request ref
-      # to query, and main's analysis is the baseline rather than a gate.
+      # THE GATE, IN TWO LEGS. CodeQL uploads and goes green on findings — `analyze` has no fail-on
+      # input — so the alerts are read back and judged here. PR-only: on a push to main there is no
+      # pull-request ref to query, and that run is what SEEDS the analysis leg 2 reads.
       #
-      # `state=open` below is NOT a whole-tree read, and reading it as one is what put a false model
-      # into four prose sites until #400, this file's own header among them. GitHub shows an alert
-      # on a pull request only when every line it identifies is in that PR's diff, so this query
-      # returns what THIS PR's diff raises.
-      # An alert inherited from main therefore does not appear here UNLESS this PR's diff happens to
-      # cover every line it names, so one nobody touches blocks nothing — see .claude/references/
-      # gates.md. Changing that is a policy decision (#400 route 2, issue #408), not a fix.
+      # LEG 1 — refs/pull/N/merge. `state=open` here is NOT a whole-tree read, and reading it as one
+      # is what put a false model into four prose sites until #400. GitHub shows an alert on a pull
+      # request only when every line it identifies is in that PR's diff, so this query returns what
+      # THIS PR's diff raises and nothing else.
+      #
+      # LEG 2 — refs/heads/main (#408, route 2 of #400). Because leg 1 is diff-scoped, an open high
+      # alert on main that no PR's diff happens to touch would block nothing and sit in the Security
+      # tab unseen by every gate. This leg takes that reach back: main's PUSH analysis is the
+      # full-tree one, so reading ITS open alerts makes this gate's guarantee "main carries nothing
+      # high or critical", not merely "this PR's diff raised nothing". The ref is the literal
+      # refs/heads/main, pinned to this workflow's own `on: push: branches: [main]` — the only branch
+      # whose analysis is full-tree. Do NOT swap in github.event.pull_request.base.ref: a PR based on
+      # a feature branch has no push analysis at all, and leg 2's positive control would then fail
+      # the gate for a missing scan rather than for a finding.
+      #
+      # BOTH LEGS ALWAYS RUN, and both print before the step exits — a red gate naming only the first
+      # failure is half a diagnosis. The two error lines are deliberately different, because "your PR
+      # raised this" and "main already carries this" are different jobs: the second one lands on
+      # whichever PR happens to be open, the fix belongs on main, and clearing it there clears every
+      # open PR at once. The same alert can legitimately appear in BOTH lists, when a PR's diff
+      # covers every line an inherited alert names.
+      #
+      # KNOWN AND ACCEPTED: the PR that clears an inherited alert cannot itself go green. Leg 2 reads
+      # main's push analysis, which does not move until that PR MERGES — so leg 1 goes green (its diff
+      # covers those lines and the alert is gone) and leg 2 stays red until it lands. Merging it past
+      # its own red leg 2 is the sanctioned route, with leg 1's green as the evidence; enforce_admins
+      # is off, which is what keeps that possible once branch protection goes on. See .claude/
+      # references/gates.md. Do NOT 'fix' this by making leg 2 read the PR's own tree instead — that
+      # is route 2 of #400's second option, considered and not taken.
       #
       # `analyze`'s wait-for-processing defaults to true, which is why this can query immediately
       # without polling; set it to false and this gate races the upload and starts passing vacuously.
+      # It gates LEG 1 only — leg 2 reads an analysis a previous push to main already uploaded.
       #
       # Filter CLIENT-SIDE on rule.security_severity_level — the API's own `severity=` parameter is
       # the rule's alert severity (error/warning/note), a different axis.
@@ -212,8 +236,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REF: refs/pull/${{ github.event.pull_request.number }}/merge
+          MAIN_REF: refs/heads/main
+          JQ_BLOCKING: |
+            .[] | select(.rule.security_severity_level == "high" or .rule.security_severity_level == "critical")
+            | "\(.rule.security_severity_level)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"
         run: |
           set -euo pipefail
+          # Set by either leg; the step exits on it at the very bottom so BOTH legs report first.
+          fail=0
+
+          # ---- LEG 1: what THIS PR's diff raises ----
           # POSITIVE CONTROL, and it runs first: zero alerts because nothing was analyzed looks exactly
           # like zero alerts because the code is clean.
           n_analyses=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/analyses?ref=$REF&tool_name=CodeQL" --jq 'length')
@@ -231,15 +263,39 @@ jobs:
           fi
           gh api --paginate \
             "repos/$GITHUB_REPOSITORY/code-scanning/alerts?ref=$REF&state=open&per_page=100" \
-            --jq '.[] | select(.rule.security_severity_level == "high" or .rule.security_severity_level == "critical")
-                  | "\(.rule.security_severity_level)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"' \
-            > "$RUNNER_TEMP/codeql-blocking.tsv"
-          if [ -s "$RUNNER_TEMP/codeql-blocking.tsv" ]; then
-            echo "::error::CodeQL found $(wc -l < "$RUNNER_TEMP/codeql-blocking.tsv") blocking alert(s)"
-            cat "$RUNNER_TEMP/codeql-blocking.tsv"
-            exit 1
+            --jq "$JQ_BLOCKING" \
+            > "$RUNNER_TEMP/codeql-pr.tsv"
+          if [ -s "$RUNNER_TEMP/codeql-pr.tsv" ]; then
+            echo "::error::this PR's diff raises $(wc -l < "$RUNNER_TEMP/codeql-pr.tsv") blocking alert(s) — fix them in this PR"
+            cat "$RUNNER_TEMP/codeql-pr.tsv"
+            fail=1
+          else
+            echo "CodeQL: no high or critical alerts on $REF ($n_analyses analysis/analyses read)"
           fi
-          echo "CodeQL: no high or critical alerts on $REF ($n_analyses analysis/analyses read)"
+
+          # ---- LEG 2: what main already carries (#408) ----
+          # Same positive control, same reasons as leg 1's above — a missing analysis on main reads as
+          # a clean main, and the whole point of this leg is that nothing else is watching that ref.
+          n_main=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/analyses?ref=$MAIN_REF&tool_name=CodeQL" --jq 'length')
+          if ! [[ "$n_main" =~ ^[0-9]+$ ]]; then
+            echo "::error::CodeQL analysis count on $MAIN_REF is not a number: [$n_main] — cannot read this gate"; exit 1
+          fi
+          if [ "$n_main" -lt 1 ]; then
+            echo "::error::no CodeQL analysis on $MAIN_REF — this gate measured nothing"; exit 1
+          fi
+          gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/code-scanning/alerts?ref=$MAIN_REF&state=open&per_page=100" \
+            --jq "$JQ_BLOCKING" \
+            > "$RUNNER_TEMP/codeql-main.tsv"
+          if [ -s "$RUNNER_TEMP/codeql-main.tsv" ]; then
+            echo "::error::main already carries $(wc -l < "$RUNNER_TEMP/codeql-main.tsv") blocking alert(s) — NOT this PR's doing. Fix them on main; that clears this leg for every open PR at once."
+            cat "$RUNNER_TEMP/codeql-main.tsv"
+            fail=1
+          else
+            echo "CodeQL: no high or critical alerts on $MAIN_REF ($n_main analysis/analyses read)"
+          fi
+
+          [ "$fail" -eq 0 ] || exit 1
 
   audit:
     # S2 (#387) — the dependency-advisory DELTA, not a fail-on-severity gate. The repo carries three

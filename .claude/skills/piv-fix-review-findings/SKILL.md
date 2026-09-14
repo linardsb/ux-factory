@@ -126,6 +126,13 @@ if ! gh api --paginate "repos/$R/code-scanning/alerts?ref=$REF&state=open&per_pa
 file of zero blocking rows that `[ -s … ]` reads as clean. `.number` is prepended; the rest is byte-for-byte the
 gate's query, so the two answer the same question.
 
+**Run it a SECOND time with `REF=refs/heads/main` (#408).** The gate has two legs and reds on either, so a
+merge-ref read of zero rows against a red `codeql` job is not a contradiction — it means leg 2 fired and `main`
+already carries the alert. Reading only the merge ref there reports "clean" while the gate is red, which is this
+skill's own fail-open shape. **An alert on `main` is out of scope for this PR**: it is fixed by a change whose diff
+covers those lines, on `main`, and the gate's own error line says so. Report it by number and path, refuse the
+cycle, and say which leg is holding the PR.
+
 Six ways this read goes wrong quietly:
 
 - **Key every alert on `alert.number`**, never on `(rule.id, path, start_line)`. Line numbers drift from unrelated
@@ -340,10 +347,12 @@ Reading the SARIF back:
   red is *not* evidence the gate is red. Findings outside the PR's diff belong on the base branch: report them,
   spend no cycle on them, scope with `git diff --name-only "$(git merge-base origin/main HEAD)"...HEAD`.
   **This routing depends on the merge-ref read being diff-scoped**, and #400 settled that it is: GitHub shows an
-  alert on a pull request only when every line it identifies is in that PR's diff, and
-  `.claude/references/gates.md` now says so rather than the reverse. A finding outside this PR's diff is reported,
-  not fixed here, and costs no cycle. The mechanism's other half — whether every query participates in
+  alert on a pull request only when every line it identifies is in that PR's diff. A finding outside this PR's diff
+  is reported, not fixed here, and costs no cycle. The mechanism's other half — whether every query participates in
   diff-informed analysis — is still undocumented, so rest the routing on the display rule, never on the job log.
+  **The routing is unchanged by #408 but its consequence is not:** the gate's second leg reads `refs/heads/main`,
+  so a finding outside this PR's diff that is open on `main` still reds this PR. It is still not fixed here — the
+  fix is a change on `main` — but do not report it as harmless. Name the leg.
 
 ### The loop and its budget
 
