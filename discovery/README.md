@@ -91,7 +91,8 @@ discovery/
   allergen-matrix-1/     the FULL-DEPTH exhibit — the FIRST committed full-discovery run, 30 of the 30 it was asked (the unfaceted list is 31 since #392) (§The full-depth run)
   later-not-never-1/     the SECOND full-depth run (#393) — 31 of 31 answered, the first package to walk s4-parked-for-later and project it under Later, not never; carries three duplicate t7 answer lines and three credit-exhaustion text lines (§The later, not never run)
   faster-payment/        the SCORED run (#291) — the FIRST faceted package (regulated preset, 22 of the 31), the first scored against a key written before the epic, and the first whose answers were drafted offline and pasted warm (§The Faster Payment run)
-  partner-audit-1/       the AUDIT fixture (#376) — the only committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
+  partner-audit-1/       the AUDIT fixture (#376) — the first committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
+  partner-audit-2/       the SCORED AUDIT (#292) — the first full-discovery existing-prd run, 23 of 23 over the same frozen fixture, and the first package on which the AI-interaction module fires (hasModel), on claude-opus-5; scored against a rubric committed before the first turn (§The pre-grill audit)
 ```
 
 **A run package is THREE files during a session and FIVE after a proposal run**, and which act
@@ -333,8 +334,8 @@ refusal). Packages recorded before #287 carry no `via`; they are never edited.
   Grill's is chosen at session start from `MODELS` and recorded here, and the turn stamps' fingerprint
   follows it (`resolvePosture`, #286). `posture` names the posture.
 - `reads` (#287) is the read fence's per-run input: paths, repo-relative or absolute, this run may
-  read beyond its own package and `discovery/bank.mjs`. Run 2 names its frozen fixture here; run 1
-  names nothing. The allow-set is rebuilt from this field on every turn, so a resumed session after a
+  read beyond its own package and `discovery/bank.mjs`. Neither committed measurement run names anything: run 1 has no
+  document, and run 2's rides in the system prompt through `documentPath` (#286), so both carry `[]`. The allow-set is rebuilt from this field on every turn, so a resumed session after a
   server restart runs under the same fence it was opened with. Refused by name at session start if
   it is not an array of non-empty strings. It is the **trust boundary**, not a sandboxed field: an
   absolute path anywhere is accepted, so `reads` is as wide as whoever opens the session makes it.
@@ -826,6 +827,86 @@ are appetite and risk claims. `allergen-matrix-1` and `later-not-never-1` show t
 `s2-riskiest-assumption`, so this is now observed on three packages and is a posture-prompt finding for
 the epic's close-out, not a hand edit — `prd.md` is the projection's bytes and case 32.6 compares them.
 
+## The pre-grill audit (partner-audit-2)
+
+`discovery/partner-audit-2/` is the **scored audit** (#292) — run 2 of the epic's two pre-registered
+measurements, and the reading the PRD's "Gap finding" row is filled from. The frozen pre-grill draft of
+this epic's own PRD (`docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md`, md5
+`ab6eb0ee6cdd3b7802ecfcbe90db2377`) fed into `existing-prd` at **full discovery** with **hasModel** ticked —
+23 questions: the twelve, the AI-interaction module's seven, the four-question non-functional block — on
+**Grill · `claude-opus-5`** (stamp `ba124c3c1edb19905101aceca7c12e22`, one distinct value across all 23
+turns), fictional, `frontEnd: terminal` (the 23 turns were driven through the same routes the drawer
+calls, from a loop, nothing typed per turn — an audit takes no answer). Recorded 2026-09-14, `startedAt`
+`10:24:03.353Z`, `endedAt` `10:34:59.622Z`, **$1.6152 over 23 turns**, mean $0.0702, every turn inside
+the prompt cache's five-minute window (the longest interval before a turn was 171 s); per-turn latency
+min 7.2 s, median 16.5 s, max 31.6 s (from `turnStats.durationMs`, which `runMetrics` does not read).
+
+**The score is a reading of THIS pairing — Grill's prompt surface `ba124c3c…` on `claude-opus-5` — never
+of the design alone** (architecture §"Grill's model is deliberately left open").
+
+**The preconditions, each with its receipt.** (1) The fixture's md5 on disk and on the stored bytes
+(`sessionView().document.md5`) both `ab6eb0ee…`, 24,560 bytes, 24,355 characters. (2) The fence three
+ways: case 23's run-2 rows in CI; `--probe-fence` on run 2's shape `BOTH_SITES_HOLD` the same morning
+(§The read fence, last paragraph); and the real run's transcript carrying **zero denied lines on a
+built-in tool** under `MAIN_TOOLS = []` — its two `denied` lines are both `mcp__discovery__record_decision`
+refusing an `evidence_refs` entry that named the op's own not-yet-filed seq, corrected in the same turn.
+(3) The rubric `docs/epics/fixtures/discovery-partner.run-2-rubric.md` committed at `4a74848`
+(`2026-09-14T11:12:06+01:00`, twelve minutes before `startedAt`) and `tooling/run-2-ready.mjs` green at
+`e8667b6`, the commit the portal booted from.
+
+**Gap finding: 0 of 8 FOUND, 3 PARTIAL, 5 MISSED.** Against the rubric's reachable five (2, 4, 5, 6, 7):
+**0 found, 2 partial** (4, 6). The three partials, with the agent's own line: finding 1 (the scoring
+key's level) — seq 20 flags "no scoring method — 'How a run's decision is judged equivalent to a
+published one without a human grading it generously' is still an open question", which names the key as
+under-specified and not the level mismatch; finding 4 (the AI module has no run) — seq 22 flags "no
+wrong-if condition attached to the dogfood claim 'This module applies to THIS epic's own product'" and
+the turn's text reads the claim as "standing in for an answer", without saying the sole run cannot fire
+the module; finding 6 (parity) — seq 31 files "two conformance stories left unreconciled by the
+document's own admission: 'Does the 44px bar apply to the CLI path? … the toggle means one workflow has
+two conformance stories'", the two-front-ends defect on the accessibility axis rather than the artefact
+one, and the one verdict the owner may move at review. The five misses are the cross-document ones —
+the transition-note contradiction, the role-title frame, the unspecified existing-PRD entry, the
+prefix's presupposed organisation, and the "~30, ten stages" count (declared unreachable) — none of
+them mentioned in any of the 81 transcript lines. The audit read each banked question against the
+document and named what the document does not state; the human grill found what the document
+contradicts and presupposes. That is the reading #293 takes, not a fault in the run.
+
+**The AI-interaction module fired, whole, for the first time on a real package.** Seven closers:
+`s8-failure-who-pays`, `s8-prompt-instruction` (prompt), `s8-conversational-memory` (conversational),
+`s8-agentic-controls` (agentic), `s8-response-patterns` (response patterns) and `s8-safety-and-trust`
+(safety and trust) each **UNEVIDENCED** (`flag_weak_answer`, five to six missing items apiece);
+`s8-grounding-sources` (grounding) **ANSWERED** — a solution decision at seq 26, an orphan, because no
+stakeholder decision exists in the package for it to hang on. Every one of the six flags names the same
+shape: the area is "a list of areas the bank will ask *other* products about", not a statement about
+this product. `askedWhatMattered.modules` is `["hasModel"]`; the tail's decision rate is 1 of 11.
+
+**What it settled.** 23 of 23, `completion.done` true; `coverage` 12 of 12 asked, 6 decided;
+`notAForm.tripped` false with a longest streak of 0; `weak.rate` 0.696 (16 flags over 23 closers). 32 ops:
+7 `record_decision`, 9 `file_evidence`, 16 `flag_weak_answer`, **0 `open_question`**. `auditTraceability`:
+`unbacked` **0 of 7** (every decision carries an evidence link — the structural clause faster-payment
+failed at 15 of 20 holds here), `unrooted` 2 (seq 14 and 26, solution decisions with no stakeholder
+rung above them), parenting `eligible` 0, `missed` 0. All 9 evidence rows carry `url: null` — seven
+`fictional-scenario`, one `assumption`, and seq 25 `secondary-source` (HAX and PAIR) with no URL behind
+it, the same class of row as faster-payment's seq 13. The wrong-if read (the audit probe's own fold,
+receipted at `.claude/reports/discovery-pre-grill-audit-run-292/wrong-if-read.out.txt`): **7 of 7
+PARAPHRASED, 0 AUTHORED, 0 QUOTED** — every `wrong_if` carries the document's sentence inside quote marks,
+which the substring test does not see (#370's reading, again).
+
+**The two #370 readings, observed again and routed to #293.** ABSENT never fired: zero `open_question`
+closers over 23 turns, on a document with real gaps; every non-answer became UNEVIDENCED. And the
+re-filing: the document's one falsifier, "We'll know we're WRONG if the owner reaches for /think in the
+terminal for that next real product anyway", is the `wrong_if` of three decisions — seq 4
+(`s1-how-addressed-today`), seq 8 (`s1-what-would-have-to-be-true`) and seq 19
+(`s7-what-would-make-us-stop`) — so `prd.md` states the same condition three times under three
+questions.
+
+**Its scar: a credit stop at turn 21.** The first attempt at `s4-availability-expectation` returned the
+CLI's `Credit balance is too low` as agent text under a success subtype (memory: an error turn wears
+success); the drawer's route recorded it as a `text` line under `t21` with no `turnStats` entry. The
+balance was topped up and the same session resumed from disk 2 m 40 s later — inside the cache window —
+so the turn ran once more under the same `t21`. The line stays: `transcript.jsonl` is append-only and
+nothing under the package is edited. `turnStats` holds 23 entries, all `ok`.
+
 ## The read fence (#287)
 
 **One predicate, two call sites, failing closed** (architecture §Boundaries & contracts). The
@@ -923,10 +1004,13 @@ were the probe mis-reading its own evidence, one layer on from #287's excerpt bu
   never retried the oversized bank read, so the control honestly did not pass. The probe's prompt now
   asks for `limit: 5` on every Read, which is what the probe wanted all along ("report its first line").
 
-**#287's committed run-2 receipt above is therefore not reproducible as recorded** — the bank has grown
-past the cap since 2026-09-01, and `--probe-fence` on today's tree would hit the same wall. The fix
-above is EXPECTED to repair both shapes — it was observed only on run 1's, because re-recording run
-2's observation is a paid re-run and has not been done.
+**#287's committed run-2 receipt above was not reproducible as recorded** — the bank grew past the cap
+after 2026-09-01. **Re-observed on 2026-09-14 under #292**, on the same tree the scored audit ran on:
+`--probe-fence` on run 2's shape, nonce `177cad46`, three turns, $0.1926, `probe BOTH_SITES_HOLD` — the
+key denied via `PreToolUse` in A and C and via `canUseTool` in B; the fixture, the bank and the package
+each returning their nonce in all three; `canUseTool` reached for the two out-of-cwd reads and never for
+the in-cwd package read (the permission fast path, seen directly). The `limit: 5` bound therefore holds on
+both shapes. Receipts: `.claude/reports/discovery-pre-grill-audit-run-292/probe-fence.shape-run-2.*`.
 
 ## Workflow
 

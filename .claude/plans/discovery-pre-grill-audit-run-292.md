@@ -895,3 +895,7 @@ findings the pairing reaches — and that is the measurement, not a risk to the 
   browsers absent on this Mac); D1 decided `claude-opus-5` and Q1 decided both denominators by the owner;
   rubric anchors verified and MVP 1 corrected to `:150-151`; T7 gained the first-turn checkpoint; NOTES
   gained the risk ledger and the full API loop; CONFIDENCE section added.
+- 2026-09-14 (implementation, Segment A) — plan errors: finding 4's anchor cited MVP 9 at `:209-215`; MVP 9
+  starts at `:212` (`:209-211` is MVP 8) — the rubric carries `:212-216`. Finding 2 cited "regulated
+  fintech" at `:156`; it is at `:157`. The rubric was committed alone first (`4a74848`) so checks 3–6
+  could be reddened against the real tree; the gate and receipts followed at `e8667b6`.
