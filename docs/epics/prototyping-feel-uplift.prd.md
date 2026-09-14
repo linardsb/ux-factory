@@ -1,6 +1,6 @@
 # PRD — Prototyping-Feel Uplift
 
-**Status:** planned · **Owner:** Linards Berzins · **Created:** 2026-07-30
+**Status:** intent · architecture: decided 2026-07-30 · sliced: #164 2026-07-30 · closed 2026-08-03 · **Created:** 2026-07-30
 **Architecture:** [prototyping-feel-uplift.architecture.md](./prototyping-feel-uplift.architecture.md)
 
 ## Problem

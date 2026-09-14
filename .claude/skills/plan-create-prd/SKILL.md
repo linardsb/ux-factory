@@ -107,7 +107,11 @@ This is a **GitHub-native** flow: the PRD lives as a markdown file in the repo, 
 from it. (Only if the user explicitly names a different destination — "make it a Jira epic," "a Confluence page" —
 write it there via the relevant tool instead.) Open with a one-line **status header** so a reader knows where the
 doc is on the ladder without reading it: `**Status:** intent · grilled <date> · architecture: TBD · sliced: TBD ·
-**Created:** <date>` — each later step (`plan-architecture`, `piv-slice-epic`, shipped) replaces its TBD in place.
+**Created:** <date>` — each later step replaces its TBD in place: `plan-architecture` writes `architecture: decided
+<date>` (`folded <date>` when it chose the folded option), `piv-slice-epic` writes `sliced: #<epic> <date>`, and
+the owner appends `· closed <date>` before **Created** by hand when they close the epic issue — no skill writes
+that rung. Nothing else goes in the header — inputs, owners and ticket ranges live in the body. A PRD written before this rule with no grill on record omits the
+`grilled` slot rather than inventing a date.
 Then the product sections only, scannable:
 
 1. **Problem Statement** — who has what problem, and the cost of not solving it.
@@ -124,6 +128,8 @@ Then the product sections only, scannable:
 9. **Later, not never** — what is *parked* for a later increment rather than refused, and what that tells the
    MVP about how to build now. Keep it separate from Non-goals: a non-goal is refused with a reason; a parked
    item is deferred and may shape today's thin line. Empty is a valid answer — write "none" rather than invent one.
+   A PRD written before this rule omits §9 rather than acquiring a "none": the omission is the honest state, and
+   "none" written onto a finished epic is an agent asserting the owner parked nothing.
 10. **Open Questions** — named, not hidden (checkboxes).
 
 Leave an `## Architecture` cross-link placeholder at the bottom (`Architecture: _TBD — see plan-architecture_`) so the

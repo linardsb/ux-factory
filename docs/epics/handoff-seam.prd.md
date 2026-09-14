@@ -1,6 +1,6 @@
 # Epic: The handoff seam — a backend engineer wires a real system to the pack without a meeting
 
-**Status:** proposed · **Owner:** Linards Berzins · **Date:** 2026-08-28
+**Status:** intent · architecture: folded 2026-08-28 · sliced: #329 2026-08-28 · **Created:** 2026-08-28
 **Inputs:** the vault thinking doc `2026-08-28-component-system-backend-seam` (bound, Q2, Q3, decided) · two fenced agent runs, `~/Desktop/seam-run` and `~/Desktop/port-run` (committed by T1) · issue #326 (the defects, fixed ahead of this epic).
 **This file carries both the intent and the decisions.** The decisions are placement-level and few, so there is no separate `.architecture.md`; `plan-architecture` is not needed before slicing.
 
@@ -69,10 +69,6 @@ Fetches every collection the bindings name, validates every record against its c
 - The `## Accessibility` section rewritten as role / name / value / hint / grouping with a three-column platform table; the port-run's T20–T25 are the fixture.
 **AC:** a re-run of the port prompt logs no token-name or a11y-translation row; `swiftc` still compiles the run's `CareTaskRow.swift` against the regenerated tokens.
 
-### Later, not sliced
-- A third fenced run: a frontend engineer consuming the extended pack against an API they did not write. If it asks for UI states, the parked `states` section (D9) is unparked.
-- One native implementation committed beside `wc/` — only if a target employer is native.
-
 ## Decisions
 
 - **D1 A component binds a view record, never an endpoint.** The contract is the record, denormalised where the screen needs it (`plantName` already is). How it is produced is the backend's.
@@ -92,6 +88,11 @@ Fetches every collection the bindings name, validates every record against its c
 - A second real scenario; Verdant carries the epic.
 - Any view-time change to a shipped page beyond the catalog's number field (D6).
 
+## Later, not never
+
+- A third fenced run: a frontend engineer consuming the extended pack against an API they did not write. If it asks for UI states, the parked `states` section (D9) is unparked.
+- One native implementation committed beside `wc/` — only if a target employer is native.
+
 ## Open questions
 
 - **Q1** Does `bindings` carry the filter as text or as a tiny predicate grammar? Text first; a grammar only if T3 needs to evaluate it.
@@ -100,3 +101,9 @@ Fetches every collection the bindings name, validates every record against its c
 ## Constraints carried
 
 The honesty contract: both runs are committed unedited and labelled; the third run is a real run or it is not claimed. Token discipline: no literal enters `components.css` for D5; the head and the CSS agree by check. Deploy = commit the artifacts: every pack addition is generated.
+
+## Amendments
+
+**2026-09-14 — `### Later, not sliced` renamed to the house shape's `## Later, not never` and moved out of §MVP to
+sit beside §Non-goals (#396).** Both bullets are verbatim. Nothing was added, refused or unrefused; the MVP list, the
+decisions and the non-goals stand as written.

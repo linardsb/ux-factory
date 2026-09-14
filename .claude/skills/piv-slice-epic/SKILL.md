@@ -80,6 +80,10 @@ gh issue create --title "Epic: <epic name>" --label epic --body-file <path-to-pr
 
 Capture the epic issue number from the URL it prints. Call it `$EPIC`.
 
+Then replace `sliced: TBD` in the PRD's status header (line 3) with `sliced: #$EPIC <today>` — the header is the
+doc's ladder position, and this is the step that moves it — and commit that edit here, in this step, rather than
+leaving it in the tree: `git commit -m "docs(epics): <slug> sliced as epic #$EPIC"`.
+
 ### Step 6 — Create one issue per slice
 
 For each slice, create a GitHub issue that **carries its own context** (so a loop can pick it up later without

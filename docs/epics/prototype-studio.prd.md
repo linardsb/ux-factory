@@ -1,6 +1,6 @@
 # PRD — Prototype Studio
 
-**Status:** planned · **Owner:** Linards Berzins · **Created:** 2026-08-03
+**Status:** intent · architecture: decided 2026-08-03 · sliced: #202 2026-08-03 · closed 2026-08-27 · **Created:** 2026-08-03
 **Architecture:** [prototype-studio.architecture.md](./prototype-studio.architecture.md)
 **Supersedes:** remaining scope of [prototyping-feel-uplift.prd.md](./prototyping-feel-uplift.prd.md) (epic #164) — see §Amendments.
 

@@ -1,6 +1,6 @@
 # discovery-partner.prd.md
 
-**Status:** intent, grilled 2026-08-27, awaiting architecture · **Epic:** TBD (created by `piv-slice-epic`) · **Created:** 2026-08-26
+**Status:** intent · grilled 2026-08-27 · architecture: decided 2026-08-27 · sliced: #279 2026-08-27 · **Created:** 2026-08-26
 **Inputs.** The question bank's research seed is `docs/research/question-bank-source.md` — §5 of a longer
 research file, extracted and parked in-repo: **stages 1–9, 65 attributed questions** each with a weak-answer
 note and an OBSERVED / DERIVED / THIN label, plus the twelve-question opening set and the sources list. It is
@@ -12,7 +12,8 @@ from the same vault. The thinking
 doc behind this epic (D1–D20, Q1–Q9) stays in the owner's vault and is cited by date and slug —
 `2026-08-26-ux-factory-discovery-build-revamp` — not committed.
 **Scope:** wave 1 of the revamp — the discovery half, in the portal, for the operator. The canvas (D6),
-component import (D7) and the guest instance (D1) are named here as non-goals and belong to later epics.
+component import (D7) and the guest instance (D1) are excluded here — the canvas and import as parked work
+(§Later, not never), the guest instance as a non-goal — and belong to later epics.
 
 ---
 
@@ -372,12 +373,6 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
   would neutralise the independent variable (see Thesis) as well as costing work on the losing path.
 - **No changes to the global `think` skill.** C1. It is daily-use across other projects and this epic does
   not touch it. Deleting or amending it would also destroy the control the wrong condition needs.
-- **No quality-attribute enforcement.** The non-functional block elicits and records; nothing in this epic
-  wires an elicited answer into build-checks. That connection is a later epic.
-- **No canvas work.** D6's free-flow canvas is a later epic. The 12×8 grid, spans-not-px and
-  `prototype-studio.prd.md` §Non-goals stand unamended.
-- **No component import.** D7's spec-first draft-then-ratify path and its ≤10-minute target are a later
-  epic. The vocabulary is unchanged.
 - **No guest deployment.** No auth, no per-guest budget, no rate limiting, no unlisted instance, no
   server-side runtime. §8's "no live LLM calls at view time" and "not a SaaS product" stand unamended.
 - **No shipped-page surface.** Nothing on the public IA changes. No VR baselines churn, and the shipped
@@ -387,8 +382,6 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
   component is chosen.
 - **No retiring the baked-in prototypes.** D19 is explicitly replace-then-remove, and the replacement
   does not exist yet.
-- **No a11y gating work.** D11's axe-in-CI is a later epic. New portal UI is nonetheless built to
-  **44×44** targets (Q4); shipped pages keep their argued 24×24 (SC 2.5.8 AA, `studio.css`).
 - **No topic-organised project taxonomy.** The circulating "AI UX/UI design structure" folder tree is a
   coverage checklist, not a layout: it splits by topic with no generated-vs-hand-written split, which is the
   load-bearing distinction in a repo where generators emit committed artifacts that drift-checks gate — and
@@ -402,6 +395,17 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
   screeners, the ledger — and never research findings. Quoting a fetched source under MVP 7 is attribution,
   not a finding. Synthetic material exists only as labelled fixtures.
 - **No hand-written content presented as a run's output.** The honesty contract, unchanged.
+
+## Later, not never
+
+- **No quality-attribute enforcement.** The non-functional block elicits and records; nothing in this epic
+  wires an elicited answer into build-checks. That connection is a later epic.
+- **No canvas work.** D6's free-flow canvas is a later epic. The 12×8 grid, spans-not-px and
+  `prototype-studio.prd.md` §Non-goals stand unamended.
+- **No component import.** D7's spec-first draft-then-ratify path and its ≤10-minute target are a later
+  epic. The vocabulary is unchanged.
+- **No a11y gating work.** D11's axe-in-CI is a later epic. New portal UI is nonetheless built to
+  **44×44** targets (Q4); shipped pages keep their argued 24×24 (SC 2.5.8 AA, `studio.css`).
 
 ## Open questions
 
@@ -492,3 +496,10 @@ now carries the run's provenance (`PROVENANCE_RULE`), and the fixture re-recorde
 run — it changes the ctx contract for every applier caller, and the prompt was observed sufficient on
 the re-record; it is the fallback if a later run shows otherwise. The MVP list, the metrics and the
 non-goals stand as written.
+
+**2026-09-14 — §Later, not never added per the house shape (#396); four parked items re-filed from §Non-goals
+verbatim.** Each of the four names a later epic as its home — the skill's own test for parked rather than refused.
+Nothing was refused or unrefused; the eleven non-goals that remain stand as written, and D6/D7's later epic is now
+[canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295). That sentence is true of the section and was
+not true of §Scope, which described D6, D7 and D1 together as "named here as non-goals"; §Scope was corrected to
+name the two parked and the one refused separately (review round 2, PR #407). The bullets did not move again.

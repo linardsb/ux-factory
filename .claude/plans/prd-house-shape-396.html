@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build brief — PRD house shape (#396)</title>
+<style>
+  :root { --ink:#1c1b19; --mute:#6b675f; --line:#e4e0d8; --bg:#faf8f4; --card:#fff; --acc:#2f5d50; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif }
+  main { max-width:760px; margin:0 auto; padding:40px 20px 80px }
+  h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 10px } h3 { font-size:15px; margin:18px 0 4px }
+  p { margin:0 0 10px; max-width:64ch } .mute { color:var(--mute); font-size:14px }
+  a { color:var(--acc) }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:12px 14px; font:13px/1.45 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0 14px }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin:12px 0 }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:12px 14px; font-size:14px }
+  .box b { display:block; margin-bottom:4px }
+  .arrow { text-align:center; color:var(--mute); font-size:22px; margin:-4px 0 }
+  table { border-collapse:collapse; width:100%; font-size:14px; margin:8px 0 14px }
+  td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top }
+  th { font-weight:600; color:var(--mute); font-size:13px }
+  ul { padding-left:20px; margin:0 0 10px } li { margin:3px 0 }
+  ul.prompts { list-style:none; padding:0 } ul.prompts li { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--line) }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1; flex:none }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+  code { font:13px ui-monospace,Menlo,monospace; background:#f0ede6; padding:1px 4px; border-radius:3px }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD house shape — the ladder line</h1>
+  <p class="mute">Ticket #396 · full plan: <a href="./prd-house-shape-396.md">prd-house-shape-396.md</a></p>
+
+  <h2>What we're building and why</h2>
+  <p>Every epic in this repo starts as a PRD (a short document saying what problem to solve and why). Nine exist, and they each announce their progress in a different way, or not at all. After this, all nine open with one identical line that says how far the epic has got, and the tools that move an epic forward rewrite that line themselves.</p>
+
+  <h2>The concepts this rests on</h2>
+
+  <h3>1. The ladder</h3>
+  <p>An epic climbs four rungs: the idea is written, the engineering approach is decided, the work is cut into tickets, the tickets close. The header line records which rung the epic is on. Like a parcel-tracking page: one line, four stages, ticked in order.</p>
+<pre>**Status:** intent · grilled 2026-08-27 · architecture: decided 2026-08-27 · sliced: #279 2026-08-27 · **Created:** 2026-08-26</pre>
+  <p class="mute">The one line, as it will read on the discovery epic. "grilled" means the idea was cross-examined before it was accepted.</p>
+
+  <h3>2. Whoever moves it, writes it</h3>
+  <p>A status line goes stale the moment nobody owns updating it. One epic here already says "architecture TBD" while its architecture doc has existed for five weeks. The fix is to make the step that changes the state also change the line. A skill (a saved recipe the assistant follows) does each step, so each skill gets one extra instruction.</p>
+
+  <h3>3. Parked is not refused</h3>
+  <p>A PRD lists things it will not do. Some are refused for good ("no user accounts"); some are only postponed ("the canvas is a later epic"). Mixing them hides the plan for the future. The new §Later, not never holds the postponed ones, so a reader can tell "no" from "not yet".</p>
+
+  <h3>4. Only facts that already exist</h3>
+  <p>Every date in a new header comes from git history or the GitHub issue, never from memory. Where no record says an idea was grilled, the slot is left out rather than guessed. Writing the owner's decisions for them would make the document lie.</p>
+
+  <h2>How the pieces fit</h2>
+  <div class="grid">
+    <div class="box"><b>Phase 1 · the recipe</b>Three skills learn the ladder grammar and the write-back step.</div>
+    <div class="box"><b>Phase 2 · nine headers</b>Each PRD gets its line 3, every date sourced from git or GitHub.</div>
+    <div class="box"><b>Phase 3 · parked items</b>Three open epics get §Later, not never by moving bullets they already had.</div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="grid">
+    <div class="box"><b>One regex</b>Checks all nine line 3s. Proven to fail on today's files and pass on the new form.</div>
+    <div class="box"><b>Owner decides</b>Three yes/no calls in the ticket. The PR runs on the recommended answers; strike one in review.</div>
+  </div>
+
+  <h2>The plan at a glance</h2>
+  <ul>
+    <li><b>Phase 0</b> — owner's three decisions (recommended: keep #392's edits · migrate all nine · re-file on open epics only).</li>
+    <li><b>Phase 1</b> — skills gain the grammar and the write-back. No dependency.</li>
+    <li><b>Phase 2</b> — nine headers. Needs Phase 1's grammar.</li>
+    <li><b>Phase 3</b> — §Later, not never on the three open epics. Independent of Phase 2; droppable as a unit.</li>
+    <li><b>Phase 4</b> — gates, report, PR with <code>Closes #396</code>.</li>
+  </ul>
+<pre>.claude/skills/
+├── plan-create-prd/SKILL.md     # one sentence: what each rung is spelled like
+├── plan-architecture/SKILL.md   # one line: write "architecture: decided &lt;date&gt;"
+└── piv-slice-epic/SKILL.md      # one line: write "sliced: #N &lt;date&gt;"
+docs/epics/
+├── *.prd.md  (all nine)         # line 3 becomes the ladder line
+├── discovery-partner.prd.md     # + §Later, not never (3 bullets moved)
+├── canvas-design-import.prd.md  # + §Later, not never (5 bullets moved)
+└── handoff-seam.prd.md          # "Later, not sliced" renamed and moved
+.claude/reports/prd-house-shape-396-report.md   # the implementation report</pre>
+  <table>
+    <tr><th>Acceptance criteria</th></tr>
+    <tr><td>The PR body names all three #392 skill changes; merging confirms them.</td></tr>
+    <tr><td>All nine PRDs open with a line 3 matching the grammar; every date traces to git or GitHub.</td></tr>
+    <tr><td>The two ladder-moving skills carry their write-back step.</td></tr>
+    <tr><td>The three open epics carry §Later, not never with only bullets they already had; closed epics untouched.</td></tr>
+    <tr><td>drift-check, build-checks and token-lint green; portal smoke answers.</td></tr>
+    <tr><td>Plan, brief and report ride in the PR.</td></tr>
+  </table>
+
+  <h2>Go deeper</h2>
+  <ul class="prompts">
+    <li data-prompt="/learn status ladders in living documents — why the step that changes state must also write the status line"><span><b>/learn status ladders in living documents</b> — why the step that changes state must also write the status line.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn non-goals vs parked scope in a PRD — refused with a reason versus deferred with a home"><span><b>/learn non-goals vs parked scope in a PRD</b> — refused with a reason versus deferred with a home.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn sourcing facts from git and GitHub for documentation — first-commit dates, issue createdAt and closedAt"><span><b>/learn sourcing facts from git and GitHub</b> — first-commit dates, issue createdAt and closedAt, and what not to infer.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn proving a regex check both ways — positive control and reddening mutation"><span><b>/learn proving a regex check both ways</b> — a positive control and a reddening mutation before trusting green.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  </ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
