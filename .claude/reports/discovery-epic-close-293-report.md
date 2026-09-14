@@ -49,7 +49,7 @@ Every figure below was re-derived this session from `run.json` and `transcript.j
 | **Asked what mattered** | No target; decision rate on the facet tail against the twelve, `full-discovery` runs only | Run 1: twelve 12/12 = **1.0**, tail 8/12 = **0.667** (two questions re-asked after a flag), modules `["regulated"]`. Run 2: twelve 6/12 = **0.5**, tail 1/11 = **0.091**, modules `["hasModel"]` — an audit, so "decided" means the document answered. `internal`, `orgBuys`, `replacesAProcess`: **not yet tested** — three, not the ticket's "four" (A4). Read beside: twelve-set coverage 12/12 on both, not-a-form 0 on both, no facet dropped at intake (`run.json.facets` carries the full vector on both) | **reported; three facets not yet tested** | the fold, `discovery/faster-payment/run.json`, `discovery/partner-audit-2/run.json` |
 
 Facets across every package (observed, fifteen `run.json` files): only `faster-payment` (`regulated`) and `partner-audit-2`
-(`hasModel`) carry a non-null vector; `later-not-never-1` is `null`; the other twelve are pre-facet (`undefined`).
+(`hasModel`) carry a non-null vector; `later-not-never-1` and `partner-audit-1` are `null`; the other eleven are pre-facet (`undefined`).
 
 ## The hypothesis, answered in its own terms
 
@@ -78,7 +78,7 @@ Each line carries its evidence; each can become a ticket by copying it (Q3, owne
 - **Three facets not yet tested** — `internal`, `orgBuys`, `replacesAProcess`; only `regulated` (run 1) and `hasModel` (run 2) have fired (observed, `run.json.facets` across fifteen packages).
 - **Marketplace as a fifth preset** — deferred until a run needs it; no run has.
 - **Deterministic pre-checks before the agent turn** — still deferred; run 1's four flags and run 2's sixteen are the first data on which weak answers are common.
-- **Confirm-the-receipt** — bears on run 0's F9: on 25 of 30 real turns there was no prose to falsify MVP 6 against. `JUDGEMENT_RULE` (`portal/lib/discovery-postures.mjs:34`) now reaches Grill and Create PRD, **not Think** — a Think edit re-records seven fixtures. Half-addressed.
+- **Confirm-the-receipt** — bears on run 0's F9: on 28 of 30 real turns there was no judgement prose to falsify MVP 6 against (F9's headline count; its closing sentence says 25 without showing the arithmetic). `JUDGEMENT_RULE` (`portal/lib/discovery-postures.mjs:34`) now reaches Grill and Create PRD, **not Think** — a Think edit re-records seven fixtures. Half-addressed.
 - **The `unstable_v2_*` session API** — unchanged; the resume-per-turn model stands.
 - **Does the scripted bank beat open conversation?** — unanswered. Runs 0 and 1 finished 30/30 and 22/22 with 0 off-script turns (observed: every answer line `kind: banked`), so the bank was never abandoned; but no conversation control was run, so "beats" is not shown.
 - **The unguarded deadline** — 2026-09-30 check-in stands.

@@ -365,7 +365,7 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
 | **Auditability** | Every decision in the pack has an evidence link and a wrong-if line; every evidence row has a provenance label; every checkable domain claim carries a `secondary-source` URL | Checked over the run package | Gamed by labelling everything "assumption" → a decision resting only on assumptions is **flagged in the pack**, and a checkable fact filed as an assumption is a **failure**, not a flag |
 | **Not a form** | Never more than 3 consecutive questions recorded with no decision and no weak-answer note | Counted within a run; a parked open question counts as neither | An agent that flags everything → weak-answer flags are a reported rate, not just a floor |
 | **Disclosure held** | Always-loaded context ≤ **11k tokens** | Measured: CLAUDE.md words + every skill description | Split Tier 0 into references a hook re-injects anyway → the budget is on what a session **loads**, not on file count. Baseline after the 2026-08-27 trim: **9.5k** (2,761-word CLAUDE.md + 73 skill descriptions at ~80 tokens each). This epic adds no skills (C1, MVP 3) and the bank is read at run time, so the only always-on cost is a CLAUDE.md section on the run package: est. 400–650 tokens against ~1.5k headroom |
-| **Asked what mattered** | _No pre-set target — reported, not passed._ Decision rate on the facet-selected tail against decision rate on the twelve | Both computed from `transcript.jsonl`: a turn closed by `record_decision` counts, `flag_weak_answer` and `open_question` do not. Read on `full-discovery` runs only | A selection that picks only easy questions scores well → reported beside twelve-set coverage, the not-a-form counter, and the facet modules the person dropped at intake. Added 2026-09-02 (see §Amendments); n=1 in wave 1, so the unexercised facets read "not yet tested" rather than a proxy |
+| **Asked what mattered** | _No pre-set target — reported, not passed._ Decision rate on the facet-selected tail against decision rate on the twelve | Both computed from `transcript.jsonl`: a turn closed by `record_decision` counts, `flag_weak_answer` and `open_question` do not. Read on `full-discovery` runs only | A selection that picks only easy questions scores well → reported beside twelve-set coverage, the not-a-form counter, and the facet modules the person dropped at intake. Added 2026-09-02 (see §Amendments); n=1 in wave 1 (n=2 at close, see §Epic close), so the unexercised facets read "not yet tested" rather than a proxy |
 
 ## Non-goals
 
@@ -414,7 +414,8 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
       reasoning; only run 1 can answer it. If the bank is abandoned mid-run in favour of the escape hatch,
       the posture was wrong.
 - [ ] **Three branches ship with no run behind them.** B2B SaaS, internal tool and consumer are built in
-      wave 1 and unexercised. Recorded as a known debt rather than a validated design; the first run that
+      wave 1 and unexercised (since the 2026-09-02 amendment: three facets, `internal` · `orgBuys` ·
+      `replacesAProcess` — see §Epic close). Recorded as a known debt rather than a validated design; the first run that
       uses one is what tests it.
 - [x] **How the postures are expressed in code.** The workflow is three POSTURES with three outputs —
       think (diverge and decide), create-PRD (interview into an artefact), grill (attack it). Three is the
@@ -425,7 +426,7 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
       or must a component sit at an arbitrary pixel inside a frame?
 - [ ] **Q6** (deferred to the canvas epic) — an operator canvas in the portal mounting the studio
       modules, or `studio.html` promoted?
-- [ ] **Marketplace** as a fifth product-type branch — deferred until a run needs it.
+- [ ] **Marketplace** as a fifth product-type branch (a fifth preset since the 2026-09-02 amendment) — deferred until a run needs it.
 - [ ] **Unguarded deadline risk.** The signal is run-triggered by choice; the thinking doc's pre-mortem
       #1 ("no real product ever went through") has no calendar behind it. Accepted, recorded.
 
@@ -482,7 +483,7 @@ defects the rehearsal runs found (#341, #343, #347, #349), each one no CI group 
 | Completion | met | run 1 22 of 22, `done`, 15.2 min, a projected `prd.md`; twelve-set coverage 12/12 |
 | Independent reach | met at the target, as an upper bound | 4/4 traced (seq 3, 6, 6, 14) and one kill-criterion match (seq 15); the answerer wrote the key |
 | Marginal reach | not taken as specified | the sealed file was agent-written and says so; the diff against that baseline is reported (five reached beyond it, four it had), the metric is not |
-| Gap finding | 0 of 8 found, 3 partial; reachable 0 of 5, 2 partial | a reading of Grill on `claude-opus-5`, never of the design alone; the audit files per-question absences, the human grill found cross-document contradictions |
+| Gap finding | 0 of 8 found, 3 partial (finding 6's partial is the one verdict the owner may move, Q2 in the #293 report); reachable 0 of 5, 2 partial | a reading of Grill on `claude-opus-5`, never of the design alone; the audit files per-question absences, the human grill found cross-document contradictions |
 | Auditability | not met, in both runs | every `file_evidence` row in runs 1 and 2 carries `url: null`, including one `secondary-source` row in each; run 1 also has 15 of 20 decisions with no evidence link. Wrong-if and provenance clauses hold |
 | Not a form | met | longest empty streak 0 on run 1 and run 2; weak-flag rate 0.167 and 0.696 reported beside it |
 | Disclosure held | met | measured 8,112 tokens, like-for-like 8,453, an upper bound with the built-in skills 9,472 — all under 11k; the discovery lines cost 606 against the 400–650 estimate. The 73-skill baseline is not reproducible from disk |
@@ -575,7 +576,6 @@ Nothing was refused or unrefused; the eleven non-goals that remain stand as writ
 [canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295). That sentence is true of the section and was
 not true of §Scope, which described D6, D7 and D1 together as "named here as non-goals"; §Scope was corrected to
 name the two parked and the one refused separately (review round 2, PR #407). The bullets did not move again.
-
 
 **2026-09-14 — epic closed by #293; the ninth row read; nothing in the MVP, thesis or non-goals changed.** The
 status line gains its `closed` rung, §Epic close above records the nine-row read and the hypothesis verdict, and the

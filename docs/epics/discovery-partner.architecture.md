@@ -450,8 +450,8 @@ guess at one.
 **Deterministic pre-checks** — still deferred. Run 1's four flags and run 2's sixteen are the first data on which
 weak answers are common; nothing was built on it.
 
-**Confirm-the-receipt** — still open, and run 0's F9 is the evidence it bears on: on 25 of 30 real turns there was
-no prose to check. Half-addressed by `JUDGEMENT_RULE` for two postures.
+**Confirm-the-receipt** — still open, and run 0's F9 is the evidence it bears on: on 28 of 30 real turns there was
+no judgement prose to check (F9's headline: 2 judged aloud, 27 confirmation-only, 1 none). Half-addressed by `JUDGEMENT_RULE` for two postures.
 
 **`unstable_v2_*` session API** — unchanged; the resume-per-turn model stands and disk stayed authoritative on
 every run.
