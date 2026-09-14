@@ -1,6 +1,6 @@
 # discovery-partner.prd.md
 
-**Status:** intent · grilled 2026-08-27 · architecture: decided 2026-08-27 · sliced: #279 2026-08-27 · **Created:** 2026-08-26
+**Status:** intent · grilled 2026-08-27 · architecture: decided 2026-08-27 · sliced: #279 2026-08-27 · closed 2026-09-14 · **Created:** 2026-08-26
 **Inputs.** The question bank's research seed is `docs/research/question-bank-source.md` — §5 of a longer
 research file, extracted and parked in-repo: **stages 1–9, 65 attributed questions** each with a weak-answer
 note and an OBSERVED / DERIVED / THIN label, plus the twelve-question opening set and the sources list. It is
@@ -365,6 +365,7 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
 | **Auditability** | Every decision in the pack has an evidence link and a wrong-if line; every evidence row has a provenance label; every checkable domain claim carries a `secondary-source` URL | Checked over the run package | Gamed by labelling everything "assumption" → a decision resting only on assumptions is **flagged in the pack**, and a checkable fact filed as an assumption is a **failure**, not a flag |
 | **Not a form** | Never more than 3 consecutive questions recorded with no decision and no weak-answer note | Counted within a run; a parked open question counts as neither | An agent that flags everything → weak-answer flags are a reported rate, not just a floor |
 | **Disclosure held** | Always-loaded context ≤ **11k tokens** | Measured: CLAUDE.md words + every skill description | Split Tier 0 into references a hook re-injects anyway → the budget is on what a session **loads**, not on file count. Baseline after the 2026-08-27 trim: **9.5k** (2,761-word CLAUDE.md + 73 skill descriptions at ~80 tokens each). This epic adds no skills (C1, MVP 3) and the bank is read at run time, so the only always-on cost is a CLAUDE.md section on the run package: est. 400–650 tokens against ~1.5k headroom |
+| **Asked what mattered** | _No pre-set target — reported, not passed._ Decision rate on the facet-selected tail against decision rate on the twelve | Both computed from `transcript.jsonl`: a turn closed by `record_decision` counts, `flag_weak_answer` and `open_question` do not. Read on `full-discovery` runs only | A selection that picks only easy questions scores well → reported beside twelve-set coverage, the not-a-form counter, and the facet modules the person dropped at intake. Added 2026-09-02 (see §Amendments); n=1 in wave 1 (n=2 at close, see §Epic close), so the unexercised facets read "not yet tested" rather than a proxy |
 
 ## Non-goals
 
@@ -413,18 +414,19 @@ and D19 carries its own "replace, then remove" guard for when it arrives.
       reasoning; only run 1 can answer it. If the bank is abandoned mid-run in favour of the escape hatch,
       the posture was wrong.
 - [ ] **Three branches ship with no run behind them.** B2B SaaS, internal tool and consumer are built in
-      wave 1 and unexercised. Recorded as a known debt rather than a validated design; the first run that
+      wave 1 and unexercised (since the 2026-09-02 amendment: three facets, `internal` · `orgBuys` ·
+      `replacesAProcess` — see §Epic close). Recorded as a known debt rather than a validated design; the first run that
       uses one is what tests it.
-- [ ] **How the postures are expressed in code.** The workflow is three POSTURES with three outputs —
+- [x] **How the postures are expressed in code.** The workflow is three POSTURES with three outputs —
       think (diverge and decide), create-PRD (interview into an artefact), grill (attack it). Three is the
       working assumption, not one per phase. G13 settles the *bank's* home (a data file both the portal and
       any future reader can load); what is open is whether the posture bodies sit beside it or in the portal.
-      Decided in `plan-architecture`.
+      Decided in `plan-architecture`; closed by #286 — the three bodies sit in the portal, `portal/lib/discovery-postures.mjs`.
 - [ ] **Q2b** (deferred to the canvas epic) — is drag-to-reorder within a frame's layout grammar enough,
       or must a component sit at an arbitrary pixel inside a frame?
 - [ ] **Q6** (deferred to the canvas epic) — an operator canvas in the portal mounting the studio
       modules, or `studio.html` promoted?
-- [ ] **Marketplace** as a fifth product-type branch — deferred until a run needs it.
+- [ ] **Marketplace** as a fifth product-type branch (a fifth preset since the 2026-09-02 amendment) — deferred until a run needs it.
 - [ ] **Unguarded deadline risk.** The signal is run-triggered by choice; the thinking doc's pre-mortem
       #1 ("no real product ever went through") has no calendar behind it. Accepted, recorded.
 
@@ -456,6 +458,59 @@ baked-in prototypes) · wiring elicited quality attributes into build-checks.
 [prototype-studio.prd.md](./prototype-studio.prd.md) (§Non-goals unamended by this epic) ·
 [st-ux-fusion.prd.md](./st-ux-fusion.prd.md) (the method spine this layers onto) ·
 `docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md` (run 2's frozen input)
+
+## Epic close — 2026-09-14
+
+Closed by [#293](https://github.com/linardsb/ux-factory/issues/293). Every number here was re-derived from the run
+packages in that ticket's report, `.claude/reports/discovery-epic-close-293-report.md`, which is the record; this
+section is the summary a reader of the PRD needs.
+
+**What shipped: fourteen tickets, in the re-sequenced order.** The spike, the grammar and the bank (#280, #281,
+#282) · the spine (#284) · the projection (#290) · run 0, the owner's real product (#338) · the five deferred
+tickets, each built after run 0 showed it was needed (#283, #285, #286, #287, #289) · the portal's width (#288) · the
+two pre-registered runs (#291, #292). **Thirteen tickets were raised during the epic and closed inside it**: four
+defects the rehearsal runs found (#341, #343, #347, #349), each one no CI group could see; #348, #352, #353, #359,
+#366, #370, #383, #384; and #360, folded into the question-selection decision rather than built.
+
+**What was cut: nothing built was cut.** One ticket (#360) was closed as folded, with the reason recorded in
+`discovery-question-selection.architecture.md`.
+
+**The metric read, condensed.** The full table with every observed figure is in the report.
+
+| Metric | Verdict | Evidence |
+|---|---|---|
+| Switch | first half observed · second half not yet tested | `run0-2026-09-02` is `real`, `frontEnd: portal`, 30 turns in one sitting; the owner's answer was "UI"; no real session since, so the second unprompted session has not been observed |
+| Completion | met | run 1 22 of 22, `done`, 15.2 min, a projected `prd.md`; twelve-set coverage 12/12 |
+| Independent reach | met at the target, as an upper bound | 4/4 traced (seq 3, 6, 6, 14) and one kill-criterion match (seq 15); the answerer wrote the key |
+| Marginal reach | not taken as specified | the sealed file was agent-written and says so; the diff against that baseline is reported (five reached beyond it, four it had), the metric is not |
+| Gap finding | 0 of 8 found, 3 partial (finding 6's partial is the one verdict the owner may move, Q2 in the #293 report); reachable 0 of 5, 2 partial | a reading of Grill on `claude-opus-5`, never of the design alone; the audit files per-question absences, the human grill found cross-document contradictions |
+| Auditability | not met, in both runs | every `file_evidence` row in runs 1 and 2 carries `url: null`, including one `secondary-source` row in each; run 1 also has 15 of 20 decisions with no evidence link. Wrong-if and provenance clauses hold |
+| Not a form | met | longest empty streak 0 on run 1 and run 2; weak-flag rate 0.167 and 0.696 reported beside it |
+| Disclosure held | met | measured 8,112 tokens, like-for-like 8,453, an upper bound with the built-in skills 9,472 — all under 11k; the discovery lines cost 606 against the 400–650 estimate. The 73-skill baseline is not reproducible from disk |
+| Asked what mattered | reported; three facets not yet tested | run 1 twelve 1.0 against tail 0.667 (`regulated`); run 2 twelve 0.5 against tail 0.091 (`hasModel`, an audit); `internal`, `orgBuys`, `replacesAProcess` have no run behind them |
+
+**The hypothesis reads RIGHT.** Both clauses were observed: the owner's next real session started in the UI (run 0)
+and run 1 reached a generated PRD in one sitting. The WRONG condition was not tripped: the vault holds one `/think`
+document since the grill, on a repo design question, not a product. C1 holds: `think/SKILL.md` was last modified
+2026-08-27 09:59, the grill's own day and before any run, and `grill-me` on 2026-07-26; neither was archived. What
+the reading cannot say is whether a second, unprompted session happens; that stays open, with no proxy.
+
+**Open questions that survived**, stated once, each with its evidence in the report: three facets not yet tested ·
+marketplace as a fifth preset · deterministic pre-checks · confirm-the-receipt (run 0's F9 is half-addressed:
+`JUDGEMENT_RULE` reaches Grill and Create PRD, not Think) · the `unstable_v2_*` session API · whether the scripted
+bank beats open conversation (never abandoned on runs 0 and 1; no conversation control was run) · the unguarded
+deadline (the 2026-09-30 check-in stands) · the transition-rung misuse (7 of run 1's 20 decisions; observed on three
+packages) · the look-up drawer gap (run 1 F5) · the marginal-reach metric not taken (F6) · #287's run-2 receipt not
+reproducible as recorded · ABSENT never fired on runs 0, 1 and 2 · one falsifier re-filed as three `wrong_if`s (run 2)
+· `MAX_TURNS` admitting four tool calls · the non-URL evidence route on a blank idea · a downloaded PRD landing in
+the repo tree. Filing tickets for these is the owner's call; each line in the report is written to be copied.
+
+**What wave 2 inherits:** the canvas (D6) and component import (D7) with Q2b and Q6 →
+[canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295) · the guest path (D1), a different build rather
+than a deployment — per-guest spend caps cannot be metered against a subscription token, so it needs an API key, a
+budget ledger and a server-side runtime · D11's a11y gating, with #271 closed for shipped pages and the portal gated
+by review · D19's replace-then-remove · wiring elicited quality attributes into build-checks · a rung between full
+discovery and the whole bank for a product ticking three or more facets.
 
 ---
 
@@ -497,9 +552,32 @@ run — it changes the ctx contract for every applier caller, and the prompt was
 the re-record; it is the fallback if a later run shows otherwise. The MVP list, the metrics and the
 non-goals stand as written.
 
+**2026-09-02 — MVP 4's four product types become presets over an orthogonal facet vector; one metric row
+added. The MVP list, the thesis and the non-goals stand as written.** Decided in
+[discovery-question-selection.architecture.md](./discovery-question-selection.architecture.md), which
+epic #279's architecture links from its header. The trigger: a company selling rota and compliance
+software to home-care agencies is B2B SaaS **and** regulated, and four mutually exclusive buckets have no
+cell for a conjunction that is the ordinary case. **B2B SaaS · internal tool · consumer · regulated
+survive as named presets** and the selection input underneath them is five independent facts about the
+product — a model in the user's path, a regulator who can inspect it, users inside the building, a payer
+who is not the user, an organisation whose process it replaces — each keying a module in the bank. MVP 5's
+depth table and its ~30 are unchanged, and the ~30 becomes a budget the person spends rather than a number
+width can quietly exceed. **MVP 10's transition note gains the thing that was missing:** it is *"required
+when the product changes how an organisation works"* and nothing in the session asked — the
+`replacesAProcess` facet is that question. §Success metrics gains **Asked what mattered**, because none of
+the eight rows measured whether the questions asked were the right ones for the product, and #293's
+close-out would have been silent on it. #360 (branch inference) is closed as folded: the decision doc
+records why a pure predicate over free prose is a check that cannot fail, and why the facts it wanted to
+infer are ones the person can simply state.
+
 **2026-09-14 — §Later, not never added per the house shape (#396); four parked items re-filed from §Non-goals
 verbatim.** Each of the four names a later epic as its home — the skill's own test for parked rather than refused.
 Nothing was refused or unrefused; the eleven non-goals that remain stand as written, and D6/D7's later epic is now
 [canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295). That sentence is true of the section and was
 not true of §Scope, which described D6, D7 and D1 together as "named here as non-goals"; §Scope was corrected to
 name the two parked and the one refused separately (review round 2, PR #407). The bullets did not move again.
+
+**2026-09-14 — epic closed by #293; the ninth row read; nothing in the MVP, thesis or non-goals changed.** The
+status line gains its `closed` rung, §Epic close above records the nine-row read and the hypothesis verdict, and the
+one §Open questions item architecture settled (the postures' home) is ticked. The 2026-09-02 entry above landed on
+`main` with this close — it had sat as an unstaged edit since that day — and is carried verbatim.

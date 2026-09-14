@@ -2,6 +2,7 @@
 
 Intent: [discovery-partner.prd.md](./discovery-partner.prd.md)
 Platform decisions this builds on: [ai-first-ux-factory.architecture.md](./ai-first-ux-factory.architecture.md)
+Sub-decision, 2026-09-02: [discovery-question-selection.architecture.md](./discovery-question-selection.architecture.md) — how a session decides WHICH questions to ask (facets, not four buckets). It amends #283, #285, #288, #293 and closes #360; nothing in this document changes except §Missing pieces below.
 
 Decided 2026-08-27, interactively with the PRD holder. Grounded in a read of the two live Agent SDK
 paths (`portal/lib/chat.mjs`, `portal/lib/builder.mjs` + `portal/record-composition.mjs`), the fence
@@ -313,11 +314,12 @@ already states, that a guard reachable only by starting a real agent run is a gu
 
 ## Missing pieces
 
-The bank as an edited module (65 questions, nine stages, four branches, the non-functional block, the
-conditional AI-interaction module) · the op vocabulary + pure applier + its `build-checks` group · the
+The bank as an edited module (65 questions, nine stages, five FACET MODULES rather than four product-type
+branches, the non-functional block, the AI-interaction module fired by the `hasModel` facet) · the op vocabulary + pure applier + its `build-checks` group · the
 answer store, `answer_ref` resolution and the transcript writer (agent text · filed ops · fence
 denials) · the session module (cursor, depth ladder, branch selection, escalation on repeated weak
-answers per D5) · the three posture prompts · the read fence as one
+answers per D5; the FACET VECTOR replaces branch selection — see the sub-decision doc above) · the
+three posture prompts · the read fence as one
 predicate called from two places · the portal UI (three buttons, depth choice, one-question surface,
 escape-hatch input, package view) · `discovery/README.md` as the format spec · the run-package →
 PRD projection · the provenance branch and its `JOBS_DIR` root · run 1's sealed pre-registration file
@@ -421,3 +423,44 @@ and one on placement. The PRD's D3, D4, D14, D16, the bank's storage format, the
 the run fence are settled above; D6/D7, D1's guest path, D11 and D19 stay deferred to their own epics.
 Next: slice with `piv-slice-epic` (feed this doc + the PRD), running spike 1 before or inside the first
 wave.*
+
+## Closing note — 2026-09-14
+
+Written for [#293](https://github.com/linardsb/ux-factory/issues/293). What shipped, the nine-row metric read,
+the hypothesis verdict and what wave 2 inherits are recorded once, in
+[discovery-partner.prd.md § Epic close](./discovery-partner.prd.md#epic-close--2026-09-14), with every figure in
+`.claude/reports/discovery-epic-close-293-report.md`. This note resolves only the questions *this* document left open.
+
+**Approach C survived contact.** The server held the cursor, the depth and the facet vector on every run; the agent
+emitted at most one closing op per turn; `answer_ref` never carried text, so the honesty line held structurally on
+runs 0, 1 and 2 and on every committed fixture. The one breach class observed was prose-side, not op-side: run 0's F9,
+turns with a filed verdict and no judgement to falsify MVP 6 against. `JUDGEMENT_RULE` now requires the judgement
+before the op for Grill and Create PRD; Think still waits for a ticket that re-records its seven fixtures.
+
+**The read fence held on both measured runs.** Under `MAIN_TOOLS = []` the real runs advertised no read tool, so
+nothing was denied at run time; the run-time proof is the fence probe, receipted on run 1's shape (#291) and on run
+2's (#292, `BOTH_SITES_HOLD`), both after the bank passed the Read tool's size cap. Run 2's transcript holds two
+`denied` lines and both are applier refusals of a forward `evidence_refs` reference, re-filed on the next call —
+not fence denials.
+
+**The model call.** Grill on `claude-opus-5` scored 0 of 8 findings, 3 partial, on the frozen fixture. That is a
+reading of one prompt surface on one model, never of the design; no second model was run and this note does not
+guess at one.
+
+**Deterministic pre-checks** — still deferred. Run 1's four flags and run 2's sixteen are the first data on which
+weak answers are common; nothing was built on it.
+
+**Confirm-the-receipt** — still open, and run 0's F9 is the evidence it bears on: on 28 of 30 real turns there was
+no judgement prose to check (F9's headline: 2 judged aloud, 27 confirmation-only, 1 none). Half-addressed by `JUDGEMENT_RULE` for two postures.
+
+**`unstable_v2_*` session API** — unchanged; the resume-per-turn model stands and disk stayed authoritative on
+every run.
+
+**Carried from the PRD** — corrected: **three** facets ship with no run behind them, not three branches and not
+four facets. Five facet modules replaced the four branches (sub-decision, 2026-09-02); `regulated` fired on run 1
+and `hasModel` on run 2, leaving `internal`, `orgBuys` and `replacesAProcess` untested. Marketplace, the bank
+against open conversation and the unguarded deadline stay open as the PRD's close section states them.
+
+**Owner to confirm** (recorded in the report's Not-run table, never answered here): whether `think/SKILL.md`'s
+2026-08-27 09:59 edit predates the grill; whether run 0 counts as the hypothesis's "next real discovery session";
+run 2's finding-6 verdict.
