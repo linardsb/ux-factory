@@ -1,6 +1,6 @@
 # canvas-design-import.prd.md
 
-**Status:** intent, interviewed and grilled 2026-08-28 (G1–G33 below, all resolved), awaiting architecture · **Epic:** #295 (sliced 2026-08-28, 26 tickets #296–#321) · **Created:** 2026-08-28
+**Status:** intent · grilled 2026-08-28 · architecture: decided 2026-08-28 · sliced: #295 2026-08-28 · **Created:** 2026-08-28
 **Inputs.** `__canvas_planning_PRD.md` (the pre-PRD briefing, §1–§30) · `.claude/plans/design-import-epic-prd-handoff.md` (D1–D7, spikes A and B) · `.claude/plans/design-import-spike-c/README.md` (spike C, observed) · `docs/epics/prototype-studio.architecture.md` (the canvas as built, and its closing note) · `docs/epics/discovery-partner.prd.md` + `.architecture.md` (wave 1, the run package this consumes) · the vault thinking doc `2026-08-26-ux-factory-discovery-build-revamp` (D6, D7, D15, D18, D19, D20, Q2b, Q6, Q7 — cited, not committed).
 **Scope:** wave 2 of the revamp — the **build half**, in the portal, for the operator. Discovery (#279) produces a PRD and a run package; this epic turns that into a product flow with its states on a free canvas, using components that already exist when the build starts or arrive through import and in-canvas creation.
 
@@ -184,17 +184,20 @@ The thinnest line that can trip the wrong condition: **one real flow, with its s
 
 - **No general design tool.** No pen, vectors, boolean ops, free styling, or pixel placement of a part's internals inside a frame. Brilliant does that; this canvas composes.
 - **No Brilliant as the canvas, and no raw export on a shipped page.** A raw HTML/React export is literals with no props or states; landed as-is it fails the token gate and the honesty contract. The conversion **is** the product.
-- **No write direction.** Pushing the vocabulary into Brilliant so a designer draws with ux-factory's parts is a real, cheaper-than-thought path (spike C observed token-preserving writes exist) and is wave 3 with its own decision.
-- **No guest deployment.** No auth, per-guest budget, rate limiting, unlisted instance or server-side runtime. The guest epic.
 - **No new shipped-page surface.** `/factory` keeps replaying, now on the free canvas with an automatic layout (G1); its baselines regenerate once and then stay stable. No live tool on a public page, no new page in the IA. The shipped replay of a build run is later, or never.
 - **No hallway round.** The "does the studio read as an exhibit to anyone but the owner" test (#223, never run) is dropped on purpose (G16): the success metric is the owner's own switch, and outside reactions belong to the guest epic, where a hiring manager is the user.
 - **No chessboard compatibility.** Share links carrying grid positions are refused, not translated (G12); nobody but the owner holds one.
-- **No native platform conventions module.** Per-frame device size only; iOS/Android conventions arrive with D20 when a native flow exists.
 - **No retiring the baked-in prototypes.** D19 is replace-then-remove; the replacement does not exist until run 1 has produced its own receipts.
-- **No a11y gating work.** D11's axe-in-CI is its own epic. New portal UI is built to 44×44 targets; every canvas verb keeps a keyboard path with an announcement, the standing discipline.
 - **No bulk auto-conversion.** Recognition automates; admission never does. A novel shape is judged, every time.
-- **No quality-attribute enforcement** from discovery's non-functional block; recorded there, wired later.
 - **No evidence database, no peer agents, no findings from the agent.** Unchanged from wave 1.
+
+## Later, not never
+
+- **No write direction.** Pushing the vocabulary into Brilliant so a designer draws with ux-factory's parts is a real, cheaper-than-thought path (spike C observed token-preserving writes exist) and is wave 3 with its own decision.
+- **No guest deployment.** No auth, per-guest budget, rate limiting, unlisted instance or server-side runtime. The guest epic.
+- **No native platform conventions module.** Per-frame device size only; iOS/Android conventions arrive with D20 when a native flow exists.
+- **No a11y gating work.** D11's axe-in-CI is its own epic. New portal UI is built to 44×44 targets; every canvas verb keeps a keyboard path with an announcement, the standing discipline.
+- **No quality-attribute enforcement** from discovery's non-functional block; recorded there, wired later.
 
 ## Open questions
 
@@ -256,3 +259,10 @@ Architecture: [canvas-design-import.architecture.md](./canvas-design-import.arch
 Handed to it, deliberately not decided here: the grid retirement's deletion list and the baseline cascade for `/factory` + `instance.html` (G1) · the override format for states and group instances (G2, G3: one mechanism, two uses) · the two converters' placement and the shared recognition rules (G9) · the proposal format and where proposals live before admission · the ratification UI and the exact write-then-gate sequence (G6) · the third recorder and its fence · the op vocabulary additions (the briefing's twelve-op shape, plus the arrow's part id and trigger, G5) · the canvas file shape for frames, groups and research cards under `discovery/<slug>/build/` (G22, T15) · the icon subset generator (G8) · the device preset table (G20) · the snapping rules and the per-source override table (G18) · the variant-lane representation and how the diagram and the check iterate it (G33) · the align/distribute verbs and their keyboard path (G28) · the decision card's read path from `prd.md` (G25) · the import record's schema and its markdown projection (G30) · the state-completeness check's home · spike C's recorded facts (deterministic role mapping on token references; the in-process recorded-run transport; the four regenerators an admission must run, not one) · the briefing's T1–T16 technology verdicts and S1–S4 spikes, taken as named calls.
 
 **Related:** [discovery-partner.prd.md](./discovery-partner.prd.md) (wave 1; the run package this consumes) · [prototype-studio.prd.md](./prototype-studio.prd.md) (§Non-goals "no free arrangement" is **amended** by MVP 1–2: the free canvas is the one substrate, the shipped `/factory` replays onto it with an automatic layout — G1) · [ai-first-ux-factory.prd.md](./ai-first-ux-factory.prd.md) (§8 unamended: no live model at view time on shipped pages) · `__canvas_planning_PRD.md` (the briefing; §18 is the pipeline picture, §24 the technology verdicts).
+
+## Amendments
+
+**2026-09-14 — §Later, not never added per the house shape (#396); five parked items re-filed from §Non-goals
+verbatim.** Each of the five names a later home — wave 3, the guest epic, D20, its own epic, "wired later" — the
+skill's own test for parked rather than refused. Nothing was refused or unrefused; the eight non-goals that remain
+stand as written.

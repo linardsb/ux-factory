@@ -1,6 +1,7 @@
 # Epic PRD — Systems thinking × UX: name the structure, state the outcomes
 
-Date: 2026-08-07. Research: `.claude/plans/st-ux-fusion-epic-research.md` (7 books/docs + 8 Center Centre articles + owner Q&A synthesis). Status: intent — architecture TBD.
+**Status:** intent · architecture: decided 2026-08-07 · sliced: #243 2026-08-07 · closed 2026-08-27 · **Created:** 2026-08-07
+**Research:** `.claude/plans/st-ux-fusion-epic-research.md` (7 books/docs + 8 Center Centre articles + owner Q&A synthesis).
 
 ## 1. Problem Statement
 

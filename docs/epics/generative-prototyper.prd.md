@@ -1,7 +1,7 @@
 # PRD — Build-time generative prototyper (employer sources → bespoke prototype)
 
-**GitHub epic:** [#86](https://github.com/linardsb/ux-factory/issues/86) · **Status:** scoped (PRD) · sequenced **after #73**
-**Complementary to:** epic [#70](https://github.com/linardsb/ux-factory/issues/70) (the v3 spine) — upgrades #75, extends #43/#44; nothing there is thrown away.
+**Status:** intent · grilled 2026-07-23 · architecture: decided 2026-07-23 · sliced: #86 2026-07-23 · closed 2026-07-26 · **Created:** 2026-07-23
+**Sequenced:** after #73 · **Complementary to:** epic [#70](https://github.com/linardsb/ux-factory/issues/70) (the v3 spine) — upgrades #75, extends #43/#44; nothing there is thrown away.
 
 ## 1. Problem statement
 

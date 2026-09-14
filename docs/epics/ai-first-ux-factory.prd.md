@@ -1,5 +1,7 @@
 # PRD — ux-factory platform: the AI-first UX engineering portfolio
 
+**Status:** intent · architecture: decided 2026-07-17 · sliced: #1 2026-07-17 · closed 2026-07-22 · **Created:** 2026-07-17
+
 **One-line vision:** UX engineering for an AI-first world, demonstrated — agents visibly turn a product brief into a design system, prototype, and handoff spec: the tooling a UX team would actually want to use.
 
 **Persona spec:** built *as if* the Senior UX Engineer described in Google's JD built it (prototypes that define product experiences · tools that accelerate UX teams · bridge design and engineering · AI fluency for an AI-first world). The JD is a character sheet, not a target application — the platform serves applications broadly.

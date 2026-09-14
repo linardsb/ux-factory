@@ -107,7 +107,11 @@ This is a **GitHub-native** flow: the PRD lives as a markdown file in the repo, 
 from it. (Only if the user explicitly names a different destination — "make it a Jira epic," "a Confluence page" —
 write it there via the relevant tool instead.) Open with a one-line **status header** so a reader knows where the
 doc is on the ladder without reading it: `**Status:** intent · grilled <date> · architecture: TBD · sliced: TBD ·
-**Created:** <date>` — each later step (`plan-architecture`, `piv-slice-epic`, shipped) replaces its TBD in place.
+**Created:** <date>` — each later step replaces its TBD in place: `plan-architecture` writes `architecture: decided
+<date>` (`folded <date>` when it chose the folded option), `piv-slice-epic` writes `sliced: #<epic> <date>`, and
+closing the epic issue appends `· closed <date>` before **Created**. Nothing else goes in the header — inputs,
+owners and ticket ranges live in the body. A PRD written before this rule with no grill on record omits the
+`grilled` slot rather than inventing a date.
 Then the product sections only, scannable:
 
 1. **Problem Statement** — who has what problem, and the cost of not solving it.
