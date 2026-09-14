@@ -156,6 +156,21 @@ Eleven findings across two review posts. Seven fixed, four not — reasons below
 - No gate was added. The PR's §Non-goals reasoning stands — a form regex cannot see a well-formed false line, which
   is what F6 and F7 both were.
 
+**F1's proof — the instructions executed, not read.** The defect was a form failure that reads correctly, so the
+test is to run both write-backs literally against the grammar all nine headers satisfy. Negative control first:
+
+```
+pre-fix  **Status:** intent · grilled 2026-09-14 · decided 2026-09-20 · #401 2026-09-21 · **Created:** 2026-09-14
+         → FAILS the grammar (the labels are gone — the defect, reproduced)
+post-fix **Status:** intent · grilled 2026-09-14 · architecture: decided 2026-09-20 · sliced: #401 2026-09-21 ·
+         closed 2026-09-25 · **Created:** 2026-09-14
+         → CONFORMS
+```
+
+Both runs start from the header `plan-create-prd` tells you to write, apply `plan-architecture`'s replacement then
+`piv-slice-epic`'s as literal string substitutions, then the owner's by-hand `closed` rung, and match the result
+against the regex (observed). The header regex over all nine live line-3s is silent after F8's change.
+
 **Bookkeeping.** F6 and F7 add prose to two PRDs in a PR whose claim is "no new content". Both ride under each
 file's existing 2026-09-14 §Amendments entry rather than a second same-date entry: neither moved a bullet, and both
 are corrections to what this PR's own move made false.
