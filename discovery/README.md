@@ -771,8 +771,15 @@ under the new rule and left no line.
 before the session opened and whose output is measured against a key that predates the epic. Every
 other committed package is a mechanism exhibit. Recorded through the drawer on 2026-09-13
 (`blank-idea`, `think`, `claude-sonnet-5`, fictional, **regulated** preset at full discovery, portal,
-15.2 minutes wall clock, **$1.1638 over 24 turns** — per-turn latency min 3.9 s, median 10.3 s, max
-24.7 s, zero failed turns).
+15.2 minutes wall clock, **$1.1638 over 24 turns** — per-turn latency min 3.9 s, median 10.0 s, max
+24.7 s, zero failed turns; computed from `turnStats.durationMs`, which `runMetrics` does not read).
+
+**Where the seal-predates-run receipt lives.** The receipt is git history: the input at `78d79f8`, the
+seal at `9599d8a` (committed `2026-09-13T13:14:14+01:00`), the run at `cd80056` with `startedAt`
+`12:35:46.874Z`. Those are PR #405's own commits (`refs/pull/405/head`). A squash merge folds the seal
+and the run into ONE commit on `main`, where `git log -1 -- <seal>` then answers a date after
+`startedAt`; a rebase merge keeps the commits but rewrites `%cI` while `%aI` survives, which is why
+`tooling/run-1-ready.mjs` prints both. When `main` cannot show the ordering, the PR's commits can.
 
 **The first faceted session.** Every package before it carries `facets: null`; this one carries
 `{hasModel:false, regulated:true, internal:false, orgBuys:false, replacesAProcess:false}`, which
@@ -782,7 +789,9 @@ four-question non-functional block. `selectDepth` had never composed a live sess
 **What it settled.** 22 of 22, `completion.done` true, `coverage` 12 of 12 of the opening set decided
 with nothing missing, `notAForm.tripped` false with a longest streak of **0**. 30 ops: 20
 `record_decision`, 6 `file_evidence`, 4 `flag_weak_answer`. Every decision carries a `wrong_if`;
-`auditTraceability` reports no orphans and no unrooted decisions.
+`auditTraceability` reports no orphans and no unrooted decisions, and **`unbacked` 15 of 20** (business
+0 of 2, stakeholder 1 of 3, solution 8 of 8, transition 6 of 7) — fifteen decisions with no evidence
+link, the structural clause of AC #5 failing beside its URL clause (see the report).
 
 **24 turns for 22 questions, and it is the bank working.** `s6-audit-trail` and `s6-permission-model`
 were each asked twice, because a `flag_weak_answer` does not close a turn. The agent named a specific
@@ -889,7 +898,9 @@ denied via `PreToolUse`, `canUseTool` never reached for it. Every allowed read r
 The probe's stdout and its fence trace are committed at `.claude/reports/discovery-read-fence-287/`.
 A first run the same day ($0.442) reported `FAILED` with the fence holding identically — the probe
 had checked the nonce on a print-length excerpt of the tool result; it is kept beside the passing
-run as `probe-fence.run1.*`, because a probe that mis-reads its own evidence is a finding too.
+run as `probe-fence.run1.*` — #287's attempt number ONE on run 2's shape, not run 1's shape, whose
+receipts are the `probe-fence.shape-run-1.*` files below — because a probe that mis-reads its own
+evidence is a finding too.
 
 **Observed on run 1's shape (2026-09-13, SDK 0.1.77, nonce `8ed9ab58`, $0.1407 over three turns):
 `BOTH_SITES_HOLD`.** Both keys denied at every site — `PreToolUse` in A and C, `canUseTool` in B — and

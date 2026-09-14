@@ -35,7 +35,10 @@ the owner has now read, which is the one contamination the sealed pre-registrati
 
 Preconditions 1–4 executed in order, each provable from git: input `78d79f8`, seal `9599d8a`
 (`2026-09-13T13:14:14+01:00`), `run.json.startedAt` `2026-09-13T12:35:46.874Z` — the seal predates the
-first turn by 21 minutes 32 seconds (derived).
+first turn by 21 minutes 32 seconds (derived). The receipt is the PR's own commits (`refs/pull/405/head`):
+a squash merge folds seal and run into one commit on `main`, and a rebase merge rewrites `%cI`, which is
+why the gate now prints `%aI` beside it — `discovery/README.md` §The Faster Payment run says where the
+ordering can be read when `main` cannot show it.
 
 ## What ran
 
@@ -57,7 +60,7 @@ first turn by 21 minutes 32 seconds (derived).
 | Turns | 24 |
 | Total | $1.1638 |
 | Per turn | $0.0485 (derived: 1.1638 / 24) |
-| Latency | min 3.9 s · median 10.3 s · max 24.7 s |
+| Latency | min 3.9 s · median 10.0 s (9,952.5 ms, mean of the two middle values) · max 24.7 s — computed from `turnStats.durationMs`; `runMetrics` carries no latency |
 | Warm / cold | **24 warm, 0 cold** — every turn inside the prompt cache's 5-minute TTL |
 | Failed turns | 0 |
 
@@ -151,9 +154,12 @@ otherwise have been parents.
 
 ## AC #5 — FAILED
 
-**Structural half, observed:** 20 of 20 decisions carry a `wrong_if`. 5 of 20 carry `evidence_refs`
-(seqs 3, 4, 6, 14, 26). `auditTraceability` reports `unrooted: []` and `parenting.missed: []` — no
-orphan, no unrooted decision.
+**Structural half, also failed:** 20 of 20 decisions carry a `wrong_if`. 5 of 20 carry `evidence_refs`
+(seqs 3, 4, 6, 14, 26). `auditTraceability` reports `unrooted: []`, `parenting.missed: []` and
+**`unbacked` 15 of 20** (business 0 of 2, stakeholder 1 of 3, solution 8 of 8, transition 6 of 7) — no
+orphan, no unrooted decision, and fifteen decisions with no evidence link, which is the AC's first
+clause failing beside its third. Fourteen of the fifteen sit on the solution and transition rungs, the
+mechanical companion to AC #7.
 
 **URL half, failed:** six `file_evidence` rows, **every one `url: null`**:
 
@@ -211,7 +217,7 @@ hand edit.
 **Segment B**
 
 - T8 the PRD → `discovery/faster-payment/prd.md` (GENERATED, 12 sections, 30 ops)
-- T9 metrics read off `runMetrics`, never counted by hand
+- T9 settled, coverage and notAForm read off `runMetrics`; the latency row is computed from `turnStats.durationMs`, which `runMetrics` does not read
 - T10 both readings (above)
 - T11 the carrier count 6 → 7 at all eight sites (UPDATE, 3 files)
 - T12 **not needed** — see below
@@ -224,6 +230,7 @@ hand edit.
 | case 23, sealed denial | `deny(fp, SEALED)` → `allow(` | `build discovery ✗ 1 failure(s)` naming the case | restored → 34 groups pass; in-case `allow()` controls |
 | `run-1-ready` check 3 | `SEALED` repointed under the run root | `check 3 — the read fence ALLOWS discovery/faster-payment/sealed.md` | six green with a throwaway at the real path |
 | `run-1-ready` check 2, commit | a sealed file staged but not committed | `check 2 — … is staged but not COMMITTED` | the real seal at `9599d8a` → **exit 0, six green** |
+| `run-1-ready` checks 1 and 2, HEAD (review F1) | the committed seal appended to, then `git add`ed | `check 2 — … differs from its last commit` (the input the same, on check 1) — before the fix `committedAt()` still answered `9599d8a`'s date | restored → red on check 5 by design; `run.json` moved aside for one call → **exit 0, six green, commit and author dates printed** |
 | `run-1-ready` check 4 | `QUESTIONS` 22 → 23 | `check 4 — … composes 22 … not 23` | same green run |
 | `run-1-ready` check 5 | a `run.json` planted | `check 5 — … already exists` | same green run; **now red by design** post-run |
 | `probeFence` run-1 denial not vacuous | `reads: [decisions]` | key flips to `allowsPath=true fenceDecision=true` | shipped `reads: []` denies both keys |

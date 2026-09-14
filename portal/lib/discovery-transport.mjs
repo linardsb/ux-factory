@@ -29,6 +29,7 @@
 // Zero-token pre-flight:  cd portal && node lib/discovery-transport.mjs --preflight
 // One-turn parenting probe (PAID, ~$0.04–0.10):  cd portal && node lib/discovery-transport.mjs --probe-parenting
 // Three-turn fence probe (PAID, ~$0.2–0.5):  cd portal && node lib/discovery-transport.mjs --probe-fence
+// The same probe on run 1's shape (PAID, ~$0.14–0.22):  cd portal && node lib/discovery-transport.mjs --probe-fence-run-1
 // One-turn audit probe (PAID, ~$0.05–0.15):  cd portal && node lib/discovery-transport.mjs --probe-audit [--model claude-opus-5]
 // One-turn affordance probe (PAID, ~$0.05–0.20):  cd portal && node lib/discovery-transport.mjs --probe-affordance
 
