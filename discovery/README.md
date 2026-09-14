@@ -90,6 +90,7 @@ discovery/
   bracket-trace-2/       #349's VERIFICATION run — the same twelve under the tool-name gate; no built-in denied line, the trace showing the warmup did call tools
   allergen-matrix-1/     the FULL-DEPTH exhibit — the FIRST committed full-discovery run, 30 of the 30 it was asked (the unfaceted list is 31 since #392) (§The full-depth run)
   later-not-never-1/     the SECOND full-depth run (#393) — 31 of 31 answered, the first package to walk s4-parked-for-later and project it under Later, not never; carries three duplicate t7 answer lines and three credit-exhaustion text lines (§The later, not never run)
+  faster-payment/        the SCORED run (#291) — the FIRST faceted package (regulated preset, 22 of the 31), the first scored against a key written before the epic, and the first whose answers were drafted offline and pasted warm (§The Faster Payment run)
   partner-audit-1/       the AUDIT fixture (#376) — the only committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
 ```
 
@@ -764,6 +765,67 @@ replaced the bracket. The trace holds sixteen warmup denials across five turns (
 ops. A quiet warmup would not have been a pass — the trace is what shows the warmup called tools
 under the new rule and left no line.
 
+## The Faster Payment run (faster-payment)
+
+`discovery/faster-payment/` is the **scored** run — the first package whose subject was fixed in git
+before the session opened and whose output is measured against a key that predates the epic. Every
+other committed package is a mechanism exhibit. Recorded through the drawer on 2026-09-13
+(`blank-idea`, `think`, `claude-sonnet-5`, fictional, **regulated** preset at full discovery, portal,
+15.2 minutes wall clock, **$1.1638 over 24 turns** — per-turn latency min 3.9 s, median 10.0 s, max
+24.7 s, zero failed turns; computed from `turnStats.durationMs`, which `runMetrics` does not read).
+
+**Where the seal-predates-run receipt lives.** The receipt is git history: the input at `78d79f8`, the
+seal at `9599d8a` (committed `2026-09-13T13:14:14+01:00`), the run at `cd80056` with `startedAt`
+`12:35:46.874Z`. Those are PR #405's own commits (`refs/pull/405/head`). A squash merge folds the seal
+and the run into ONE commit on `main`, where `git log -1 -- <seal>` then answers a date after
+`startedAt`; a rebase merge keeps the commits but rewrites `%cI` while `%aI` survives, which is why
+`tooling/run-1-ready.mjs` prints both. When `main` cannot show the ordering, the PR's commits can.
+
+**The first faceted session.** Every package before it carries `facets: null`; this one carries
+`{hasModel:false, regulated:true, internal:false, orgBuys:false, replacesAProcess:false}`, which
+composes **22** questions — the twelve-question opening set, the regulated module's six, and the
+four-question non-functional block. `selectDepth` had never composed a live session before this run.
+
+**What it settled.** 22 of 22, `completion.done` true, `coverage` 12 of 12 of the opening set decided
+with nothing missing, `notAForm.tripped` false with a longest streak of **0**. 30 ops: 20
+`record_decision`, 6 `file_evidence`, 4 `flag_weak_answer`. Every decision carries a `wrong_if`;
+`auditTraceability` reports no orphans and no unrooted decisions, and **`unbacked` 15 of 20** (business
+0 of 2, stakeholder 1 of 3, solution 8 of 8, transition 6 of 7) — fifteen decisions with no evidence
+link, the structural clause of AC #5 failing beside its URL clause (see the report).
+
+**24 turns for 22 questions, and it is the bank working.** `s6-audit-trail` and `s6-permission-model`
+were each asked twice, because a `flag_weak_answer` does not close a turn. The agent named a specific
+gap each time — whether the audit trail is tamper-evident and who may read it; whether a support or
+engineering role can act as the customer underneath the stated agent/fraud-ops matrix — and on the
+re-ask it noticed the answer had been pasted back verbatim and said so before moving on. This is a
+different mechanism from `later-not-never-1`'s duplicates, which were an operator resubmitting under a
+credit error that wore a success subtype. Here nothing failed: the agent refused an answer twice and
+recorded why.
+
+**The cost lever, confirmed.** All 24 turns fell inside the prompt cache's five-minute TTL — mean
+**$0.0485** a turn, against `later-not-never-1`'s realised $0.0843 over a sitting with five long gaps.
+The 22 answers were drafted offline and pasted back to back, which is the whole of the difference.
+
+**Its scar: the look-ups never fired, and AC #5 failed on it.** Five turns were meant to use the
+look-it-up affordance so that Confirmation of Payee, Faster Payment irrevocability, APP reimbursement,
+Consumer Duty and WCAG 2.2 would each carry a `secondary-source` URL. The drawer takes look-up text in
+its own field (`#discovery-offscript`) and the answer in the answer box; the look-up text went into the
+answer box instead, so every one of the 24 answer lines is `kind: "banked"`, **no turn was ever
+off-script, and `WebSearch` was never advertised**. All 6 `file_evidence` rows carry `url: null`, and
+seq 13 is labelled `provenance: "secondary-source"` with no URL behind it — a row claiming a
+provenance it cannot support. The affordance itself is not in doubt: `--probe-affordance` filed four
+URLs with that provenance the same morning, at $0.1462. **The failure is a procedure the product does
+not guard**, and nothing in CI or in `tooling/run-1-ready.mjs` can reach it — a pre-run gate cannot see
+which textarea a person will type into. Recorded, not re-run: a second sitting would re-answer from a
+base the owner had already read, which is the one thing the sealed pre-registration cannot bound.
+
+**The transition rung is being used for something else.** `prd.md` renders seven decisions under
+`## Transition note` — appetite, rabbit holes, out of bounds, what-would-make-us-stop, the eval,
+edge-cases and strength-of-evidence. None of those is a transition requirement in BABOK's sense; they
+are appetite and risk claims. `allergen-matrix-1` and `later-not-never-1` show the same pattern from
+`s2-riskiest-assumption`, so this is now observed on three packages and is a posture-prompt finding for
+the epic's close-out, not a hand edit — `prd.md` is the projection's bytes and case 32.6 compares them.
+
 ## The read fence (#287)
 
 **One predicate, two call sites, failing closed** (architecture §Boundaries & contracts). The
@@ -814,10 +876,15 @@ from `run.json` on every turn.
 **The fence probe** — `cd portal && node lib/discovery-transport.mjs --probe-fence` — is the
 run-time proof, because the hook runs before the permission flow and so, under the production
 wiring, a `canUseTool` denial of the same call can never be observed: each site has to be shown
-holding **alone**. Three paid one-shot turns with `tools: ['Read']` over a temp tree shaped like
-run 2 (a fixture under `docs/epics/fixtures/`, the key one directory above it, the package as cwd):
-**A** hook only, **B** `canUseTool` only, **C** both. The agent is asked to read the fixture, the
-bank, the key and its own `answers.jsonl`; a nonce in each file tells a real read from a guess. It
+holding **alone**. Three paid one-shot turns with `tools: ['Read']` over a temp tree wearing one of
+**two shapes** (#291) — `--probe-fence` builds run 2's (a fixture under `docs/epics/fixtures/`, the key
+one directory above it, the package as cwd) and `--probe-fence-run-1` builds run 1's (`reads: []`, so
+the allow-set is exactly `[root, bank]`, and **two** keys outside it: `_portfolio/decisions.json` and
+`_portfolio/pre-registration.sealed.md`). Both are nonce stand-ins written into the temp tree, never
+the real files. Each shape runs the same three wirings: **A** hook only, **B** `canUseTool` only,
+**C** both. The agent is asked to read every target the shape names, bounded with `limit: 5`; a nonce
+in each file tells a real read from a guess. `BOTH_SITES_HOLD` requires **every** key held at **every**
+site plus **every** control returning its nonce, so a second key cannot be carried by the first. It
 reports `BOTH_SITES_HOLD` / `HOOK_ONLY_HOLDS` (the fast path let turn B's key read through — the
 reason the hook exists) / `FAILED`, exit 0 / 2 / 3, and prints every `denied` line with its `via`.
 
@@ -831,7 +898,35 @@ denied via `PreToolUse`, `canUseTool` never reached for it. Every allowed read r
 The probe's stdout and its fence trace are committed at `.claude/reports/discovery-read-fence-287/`.
 A first run the same day ($0.442) reported `FAILED` with the fence holding identically — the probe
 had checked the nonce on a print-length excerpt of the tool result; it is kept beside the passing
-run as `probe-fence.run1.*`, because a probe that mis-reads its own evidence is a finding too.
+run as `probe-fence.run1.*` — #287's attempt number ONE on run 2's shape, not run 1's shape, whose
+receipts are the `probe-fence.shape-run-1.*` files below — because a probe that mis-reads its own
+evidence is a finding too.
+
+**Observed on run 1's shape (2026-09-13, SDK 0.1.77, nonce `8ed9ab58`, $0.1407 over three turns):
+`BOTH_SITES_HOLD`.** Both keys denied at every site — `PreToolUse` in A and C, `canUseTool` in B — and
+both controls (the package, by nonce; the bank) read in every turn. This is precondition 3's run-time
+receipt for #291: the scoring key and the sealed pre-registration are unreadable from inside run 1's
+allow-set under the production wiring, not merely by the predicate CI drives. Stdout and fence trace at
+`.claude/reports/discovery-faster-payment-run-291/`.
+
+Two earlier runs of the same shape are committed beside it, both `FAILED`, and **neither was a fence
+failure** — in all six turns both keys were denied with a `denied` line naming the right site. Both
+were the probe mis-reading its own evidence, one layer on from #287's excerpt bug:
+
+- `probe-fence.shape-run-1.FAILED-control-misread` ($0.2145) — `discovery/bank.mjs` has passed the Read
+  tool's 25,000-token cap (26,840 tokens, 70,696 bytes on 2026-09-13), so an unbounded read of it
+  returns a **size** error and the agent retries with a range. The verdict read only the FIRST call per
+  path, so the retry never counted and the bank control failed. `held` / `leaked` / `controls` now read
+  **every** attempt, and asymmetrically: a key is held only if EVERY attempt errored (stricter than
+  before), a control passes if ANY attempt returned the nonce.
+- `probe-fence.shape-run-1.FAILED-bank-oversize` ($0.1673) — with that fixed, turn C's agent simply
+  never retried the oversized bank read, so the control honestly did not pass. The probe's prompt now
+  asks for `limit: 5` on every Read, which is what the probe wanted all along ("report its first line").
+
+**#287's committed run-2 receipt above is therefore not reproducible as recorded** — the bank has grown
+past the cap since 2026-09-01, and `--probe-fence` on today's tree would hit the same wall. The fix
+above is EXPECTED to repair both shapes — it was observed only on run 1's, because re-recording run
+2's observation is a paid re-run and has not been done.
 
 ## Workflow
 
