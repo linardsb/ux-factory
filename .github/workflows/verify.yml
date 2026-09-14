@@ -14,8 +14,12 @@
 #                  vs committed baselines. Runs in the pinned Playwright image so rendering is
 #                  byte-stable across platforms.
 #   codeql       — GitHub's own static analysis over the hand-written source, plus OUR step that reads
-#                  the alerts back and fails on high or critical. PR-only for the gate; the scan also
-#                  runs on push to main, which is what seeds the Security-tab baseline.
+#                  the alerts back and fails on high or critical. DIFF-SCOPED on a PR (#400): GitHub
+#                  shows an alert on a pull request only when EVERY line it identifies is in that PR's
+#                  diff, so this gate holds what the PR's own diff raises, not every open alert on the
+#                  tree. PR-only for the gate; the scan also runs on push to main, which is the
+#                  full-tree one and what seeds the Security-tab baseline — an alert only IT finds
+#                  blocks no PR and shows up only in the Security tab.
 #   audit        — the npm advisory DELTA between the PR's base SHA and its head. PR-only.
 #   gates-green  — THE MERGE GATE (#387). One check, green only when every other gate was green, and
 #                  it is bash reading job results: no model. Branch protection on main requires it,
@@ -189,6 +193,14 @@ jobs:
       # THE GATE. CodeQL uploads and goes green on findings — `analyze` has no fail-on input — so the
       # alerts are read back and judged here. PR-only: on a push to main there is no pull-request ref
       # to query, and main's analysis is the baseline rather than a gate.
+      #
+      # `state=open` below is NOT a whole-tree read, and reading it as one is what put a false model
+      # into four prose sites until #400, this file's own header among them. GitHub shows an alert
+      # on a pull request only when every line it identifies is in that PR's diff, so this query
+      # returns what THIS PR's diff raises.
+      # An alert inherited from main therefore does not appear here UNLESS this PR's diff happens to
+      # cover every line it names, so one nobody touches blocks nothing — see .claude/references/
+      # gates.md. Changing that is a policy decision (#400 route 2, issue #408), not a fix.
       #
       # `analyze`'s wait-for-processing defaults to true, which is why this can query immediately
       # without polling; set it to false and this gate races the upload and starts passing vacuously.
