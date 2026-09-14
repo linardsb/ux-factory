@@ -8,7 +8,9 @@
 
 Run 1 is recorded. `discovery/faster-payment/` holds the first faceted discovery package, the first
 scored against a key written before the epic existed, and the first whose answers were drafted offline
-and pasted warm. 22 of 22 questions settled in 15.2 minutes for $1.1638. Six of the eight acceptance
+and pasted warm. 22 of 22 questions settled in 15.2 minutes for $1.1638.
+**The 22 drafted answers were the owner's own words** — stated by the owner on 2026-09-14 (PR #405 review,
+F7); the package cannot show authorship either way, so this line is the record. Six of the eight acceptance
 criteria are met, one is met on a different basis than the plan specified, and one failed.
 
 **AC #5 failed.** The five look-up turns never fired: the look-up text went into the answer box instead
