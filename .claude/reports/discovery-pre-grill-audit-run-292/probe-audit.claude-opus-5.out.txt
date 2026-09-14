@@ -1,0 +1,10 @@
+discovery audit probe — sdk 0.1.77 · node v20.20.2 · model claude-opus-5 · prompt surface ba124c3c1edb19905101aceca7c12e22
+agent: The Appetite section states a fixed box rather than an estimate — "worth one cycle and no more: six weeks of one developer, fixed before scope" — with the circuit-breaker "if the digital rota is not live by 1 March we go back to paper for the season and stop" and the redesign question answered flat: "We are not redesigning the allocation process to fit it." It carries its own wrong-if — "This is wrong if the committee cannot name a single week in which the paper ledger was trusted less than the digital one" — and points at a fetchable source, the committee minutes at https://example.test/minutes/2026-committee. Against the weak-answer note nothing is absent: number, time, alternative, wrong-if and checkable source are all named.
+agent: Filed: appetite recorded as a business decision at seq 2, with the minutes link as evidence at seq 1.
+judgement in prose before the first op: yes
+filed: record_decision seq 2 at business, evidence_refs [1] · file_evidence rows 1 · answer refs named a1
+wrong_if PARAPHRASED (14/14 tokens in the document): ""This is wrong if the committee cannot name a single week in which the paper ledger was trusted less than the digital one.""
+denied lines on the temp root's transcript: 0
+cost 0.11359915 USD · 16915 ms · 3 SDK turns
+
+probe ANSWERED · wrong_if PARAPHRASED
