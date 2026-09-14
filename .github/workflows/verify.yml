@@ -8,11 +8,11 @@
 #                  group 8 the OPERATOR PATH (portal/lib/builder.mjs) — whose central invariant this
 #                  job proves BY AN ABSENCE. See the warning on the Build checks step below before
 #                  touching that step: portal/ must never get an npm ci here.
-#   visual       — Playwright screenshots of the shipped pages (6 IA + /roundtrip + /build + 2
-#                  data-connected proto = 10 pages, 20 PNGs) under the neutral pack + one client
-#                  pack (saulera, applied by swapping the one tokens.neutral.css link), pixel-diffed
-#                  vs committed baselines. Runs in the pinned Playwright image so rendering is
-#                  byte-stable across platforms.
+#   visual       — Playwright screenshots of the shipped pages (6 IA + /roundtrip + /build +
+#                  /components + 2 data-connected proto = 11 pages, 22 PNGs) under the neutral
+#                  pack + one client pack (saulera, applied by swapping the one
+#                  tokens.neutral.css link), pixel-diffed vs committed baselines. Runs in the
+#                  pinned Playwright image so rendering is byte-stable across platforms.
 #   codeql       — GitHub's own static analysis over the hand-written source, plus OUR step that reads
 #                  the alerts back and fails on high or critical, IN TWO LEGS (#408). Leg 1 is the PR's
 #                  merge ref and is DIFF-SCOPED (#400): GitHub shows an alert on a pull request only
