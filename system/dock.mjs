@@ -41,13 +41,9 @@ const PACKS = [
   { id: "neutral", name: "neutral", note: "the no-brand default (generated)" },
   { id: "saulera", name: "saulera", note: "reference client pack (hand-authored)" },
   { id: "verdant", name: "verdant", note: "factory-derived, generated from the recorded pack-seed run" },
-  // Someone else's design work, imported by tooling/figma/figma-pull.mjs from a public Community
-  // Figma file. It is here because a token contract that only ever wears packs this repo authored
-  // proves nothing about being brand-agnostic — the attribution is the point, so it is in the note.
-  { id: "plusui", name: "Plus UI", note: "imported from someone else's Figma file — their design work, not mine" },
 ];
 const PACK_IDS = PACKS.map((p) => p.id);
-const PACK_RE = /\/system\/tokens\.(neutral|saulera|verdant|plusui)\.css$/;
+const PACK_RE = /\/system\/tokens\.(neutral|saulera|verdant)\.css$/;
 const DERIVED_ID = "derived";
 const IMPORTED_ID = "imported";
 const SVGNS = "http://www.w3.org/2000/svg";

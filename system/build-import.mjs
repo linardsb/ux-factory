@@ -82,7 +82,7 @@ const STAGE_KEY = /^--(color|spacing|radius|type|shadow)-[a-z0-9-]{1,32}$/;
 
 // The slug names the downloaded file. RESERVED becomes a RENAME, not a refusal — a Blob download
 // has no filesystem to protect (brand-import.mjs:57-60 argues this at length).
-const RESERVED = new Set(["contract", "neutral", "source", "verdant", "saulera", "plusui"]);
+const RESERVED = new Set(["contract", "neutral", "source", "verdant", "saulera"]);
 function slugFrom(fileName) {
   const base = String(fileName || "").replace(/\.json$/i, "").toLowerCase() || "imported";
   const slug = base.replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imported";

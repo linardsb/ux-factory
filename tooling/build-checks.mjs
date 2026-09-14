@@ -3466,7 +3466,7 @@ function scanSvg(svg, label) {
 // system/studio-export.mjs, driven under Node over the REAL COMMITTED STYLESHEETS. That is the whole
 // design of this group rather than a detail: a synthetic CSS fixture would make the zero-request
 // assertion a statement about a string this file wrote, and the one thing it has to be is a
-// statement about what the four shipped packs actually contain.
+// statement about what the shipped packs actually contain.
 //
 // AND IT STATES ITS BOUNDARY, the way groups 9, 11, 13 and 16 do. Nothing here can open a file://
 // document, count the requests a browser really makes, watch the rail hide both ways, or see a
@@ -3487,7 +3487,7 @@ function scanSvg(svg, label) {
   const packRe = dockSrc.match(/const PACK_RE = \/\\\/system\\\/tokens\\\.\(([a-z0-9|-]+)\)\\\.css\$\/;/);
   ok(packRe !== null, "system/dock.mjs's PACK_RE could not be read — this group would be testing a hand-typed pack list");
   const PACK_IDS = packRe ? packRe[1].split("|") : [];
-  ok(PACK_IDS.length >= 4, `only ${PACK_IDS.length} packs read out of PACK_RE — expected the four shipped ones`);
+  ok(PACK_IDS.length >= 3, `only ${PACK_IDS.length} packs read out of PACK_RE — expected at least the three shipped ones (neutral · saulera · verdant)`);
 
   // Comments are stripped before the @import assertion, and that is the honest predicate rather than
   // a loosening: the claim is "this document makes no network request", and prose inside a comment

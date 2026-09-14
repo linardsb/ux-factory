@@ -53,7 +53,7 @@
 //  6. A DROPPED OR DERIVED BRAND DOES NOT REACH THE FRAMES, and the caption says so to the reader.
 //     build-import.mjs writes vetted custom properties onto [data-build-stage] — the canvas column —
 //     and custom properties do not cross a document boundary. The frames wear the reader's COMMITTED
-//     pack (neutral · saulera · verdant · plusui), booted by each frame's own pack-boot.js and
+//     pack (neutral · saulera · verdant), booted by each frame's own pack-boot.js and
 //     re-pointed live when the dock swaps. Copying the vetted token map into the frame document
 //     would make the one-application-point vetting invariant `writes === 1` become 2, which is the
 //     whole property that group exists to protect. Owner decision 2026-08-14: state it, log a

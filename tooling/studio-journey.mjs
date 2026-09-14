@@ -1528,7 +1528,7 @@ async function factoryPass(browser, t, errors) {
   await dp.waitForTimeout(250);
   const packLines = await dp.evaluate(() => [...document.querySelectorAll('link[rel="stylesheet"]')]
     .map((l) => l.getAttribute("href"))
-    .filter((h) => /\/system\/tokens\.(neutral|saulera|verdant|plusui)\.css$/.test(h || "")));
+    .filter((h) => /\/system\/tokens\.(neutral|saulera|verdant)\.css$/.test(h || "")));
   t("#213 · the head's ONE pack line now points at saulera — switched mid-replay, with the run still authoring",
     packLines.length === 1 && /saulera/.test(packLines[0]), JSON.stringify(packLines));
   const dAfterDock = await dReplay();

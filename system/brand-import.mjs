@@ -59,7 +59,7 @@ const FAMILY_LABEL = { spacing: "spacing", radius: "radius", type: "type ramp", 
 // The slug names the downloaded file. RESERVED becomes a RENAME, not a refusal (the portal
 // refuses because a slug there names a file it would overwrite inside system/; a Blob download
 // has no filesystem to protect, so refusing a reader's own company name would be theatre).
-const RESERVED = new Set(["contract", "neutral", "source", "verdant", "saulera", "plusui"]);
+const RESERVED = new Set(["contract", "neutral", "source", "verdant", "saulera"]);
 function slugFrom(label, fileName) {
   const base = (label || String(fileName || "").replace(/\.json$/i, "") || "imported").toLowerCase();
   const slug = base.replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imported";

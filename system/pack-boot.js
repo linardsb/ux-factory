@@ -66,8 +66,8 @@
 
   var pack;
   try { pack = localStorage.getItem("factory-pack"); } catch (e) { return; }
-  // Committed pack (saulera/verdant/plusui): re-point the ONE stylesheet line. UNCHANGED path.
-  if (pack === "saulera" || pack === "verdant" || pack === "plusui") {
+  // Committed pack (saulera/verdant): re-point the ONE stylesheet line. UNCHANGED path.
+  if (pack === "saulera" || pack === "verdant") {
     var link = document.querySelector('link[href="/system/tokens.neutral.css"]');
     if (link) link.href = "/system/tokens." + pack + ".css";
     return;
