@@ -195,10 +195,12 @@ jobs:
       # to query, and main's analysis is the baseline rather than a gate.
       #
       # `state=open` below is NOT a whole-tree read, and reading it as one is what put a false model
-      # into four prose sites until #400, this file's own header among them. GitHub shows an alert on a pull request only when every
-      # line it identifies is in that PR's diff, so this query returns what THIS PR's diff raises.
-      # An alert inherited from main therefore does not appear here and does not block — see
-      # .claude/references/gates.md. Changing that is a policy decision (#400 route 2), not a fix.
+      # into four prose sites until #400, this file's own header among them. GitHub shows an alert
+      # on a pull request only when every line it identifies is in that PR's diff, so this query
+      # returns what THIS PR's diff raises.
+      # An alert inherited from main therefore does not appear here UNLESS this PR's diff happens to
+      # cover every line it names, so one nobody touches blocks nothing — see .claude/references/
+      # gates.md. Changing that is a policy decision (#400 route 2, issue #408), not a fix.
       #
       # `analyze`'s wait-for-processing defaults to true, which is why this can query immediately
       # without polling; set it to false and this gate races the upload and starts passing vacuously.

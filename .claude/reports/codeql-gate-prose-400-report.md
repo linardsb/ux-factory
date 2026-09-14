@@ -46,8 +46,13 @@ node tooling/build-checks.mjs   → build ✓  all 34 groups pass
 node tooling/drift-check.mjs    → drift-check ✓  syntax · token-css · annotated-source · loc-summary ·
                                   param-count · system-graph · inspect-data · inspect-mounts · handoff ·
                                   scenarios · traces · replay · group-count
+node tooling/token-lint.mjs     → token-lint ✓  63 contract tokens · 0 undeclared · 0 orphan · DTCG valid
 portal on PORT=4791             → {"ok":true,…,"bootSha":"8fbd46e…","stale":false}
 ```
+
+**No local gate parses `.github/workflows/verify.yml`.** The comment-only edits are proved to parse by the
+`verify` job running at all on the PR — a CI observation, not a local one. `.github/workflows/` is deliberately
+outside CodeQL's allowlist, so the `codeql` job's own green says nothing about this diff.
 
 `drift-check`'s group-count leg parses `CLAUDE.md` for `(\d+) PURE groups` / `build-checks' (\d+) groups` and
 `gates.md` for `(\d+) pure groups`. None of the three strings was reworded, and the leg is green, which is the
@@ -59,8 +64,15 @@ No visual-regression run: this PR touches no shipped page, so no baseline can mo
 
 None. Task 5's stated verify ("`git diff` shows comment-only lines") held — every workflow change is `#`-prefixed.
 
-One correction made after the first draft: the gate-step comment said the false model reached "three prose sites";
-it reached four, `verify.yml`'s own header among them. Fixed before commit.
+Two corrections to the gate-step comment after the first draft. It said the false model reached "three prose
+sites"; it reached four, `verify.yml`'s own header among them. And it asserted, unqualified, that an inherited
+alert "does not appear here and does not block" — which recreates this ticket's own error class in the opposite
+direction, because under the display rule an inherited alert DOES block when the PR's diff happens to cover every
+line it names. Both fixed on the branch; the second is F1 in `.claude/code-reviews/pr-409-review.md`.
+
+`node tooling/token-lint.mjs` was added to the validation set after the first run — `drift-check`'s `token-css`
+leg is regeneration drift, not token-lint, and the two are separate steps in `verify.yml`'s own `verify` job.
+It cannot fail on a docs diff, but the owner requires the full set on docs-only PRs.
 
 ## Follow-up
 
