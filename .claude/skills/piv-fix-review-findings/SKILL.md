@@ -339,10 +339,11 @@ Reading the SARIF back:
   — whole tree, no diff ranges — so a local zero is stricter than the gate needs and is sufficient, while a local
   red is *not* evidence the gate is red. Findings outside the PR's diff belong on the base branch: report them,
   spend no cycle on them, scope with `git diff --name-only "$(git merge-base origin/main HEAD)"...HEAD`.
-  **This routing depends on the merge-ref read being diff-scoped**, which is measured but undocumented: if the
-  gate instead reads every open alert, as `.claude/references/gates.md`'s inherited-alert bullet describes, such a
-  finding still blocks **this** PR and the cycle is owed here. Issue #400 settles which — until it does, say which
-  reading you acted on.
+  **This routing depends on the merge-ref read being diff-scoped**, and #400 settled that it is: GitHub shows an
+  alert on a pull request only when every line it identifies is in that PR's diff, and
+  `.claude/references/gates.md` now says so rather than the reverse. A finding outside this PR's diff is reported,
+  not fixed here, and costs no cycle. The mechanism's other half — whether every query participates in
+  diff-informed analysis — is still undocumented, so rest the routing on the display rule, never on the job log.
 
 ### The loop and its budget
 
