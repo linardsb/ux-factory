@@ -217,6 +217,14 @@ jobs:
       # open PR at once. The same alert can legitimately appear in BOTH lists, when a PR's diff
       # covers every line an inherited alert names.
       #
+      # KNOWN AND ACCEPTED: the PR that clears an inherited alert cannot itself go green. Leg 2 reads
+      # main's push analysis, which does not move until that PR MERGES — so leg 1 goes green (its diff
+      # covers those lines and the alert is gone) and leg 2 stays red until it lands. Merging it past
+      # its own red leg 2 is the sanctioned route, with leg 1's green as the evidence; enforce_admins
+      # is off, which is what keeps that possible once branch protection goes on. See .claude/
+      # references/gates.md. Do NOT 'fix' this by making leg 2 read the PR's own tree instead — that
+      # is route 2 of #400's second option, considered and not taken.
+      #
       # `analyze`'s wait-for-processing defaults to true, which is why this can query immediately
       # without polling; set it to false and this gate races the upload and starts passing vacuously.
       # It gates LEG 1 only — leg 2 reads an analysis a previous push to main already uploaded.

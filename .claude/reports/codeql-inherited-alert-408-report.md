@@ -66,9 +66,25 @@ Branch protection on `main` is still OFF (`branches/main/protection` → 404, `r
 block. The owner took that sequencing knowingly; it is recorded in `gates.md` rather than left for
 someone to rediscover.
 
-## What this report cannot claim
+## In CI
 
-The step has not run **in CI** yet — under `secrets.GITHUB_TOKEN` with `security-events: write`
-rather than a local PAT. That is the one thing the local drive cannot reach, and the PR carrying
-this change runs it. Read the PR's own `codeql` job log for the two new lines before treating the
-leg as proven in place.
+PR #410, run 34846737237 — `verify`, `visual`, `codeql`, `audit` and `gates-green` all pass. The
+gate step's job log (103984400963) printed both legs under `secrets.GITHUB_TOKEN`:
+
+```
+CodeQL: no high or critical alerts on refs/pull/410/merge (1 analysis/analyses read)
+CodeQL: no high or critical alerts on refs/heads/main (11 analysis/analyses read)
+```
+
+That closes the one thing the local PAT drive could not reach. `security-events: write` is
+repo-scoped rather than ref-scoped, so leg 2's branch-ref read needed no extra permission.
+
+## The cost this shape carries, found in review
+
+**The PR that clears an inherited alert cannot itself go green** (F1, `.claude/code-reviews/
+pr-410-review.md`). Leg 2 reads `refs/heads/main`'s push analysis, which does not move until a PR
+merges — so the PR that fixes an inherited alert is green on leg 1 and red on leg 2 until it lands.
+That is what option 1 costs, not a defect, but the prose promised "clearing it on `main` clears
+every PR at once" without saying how you reach `main`. The sanctioned route — merge that PR past
+its own red leg 2, on leg 1's green — is now named in `gates.md` and in the workflow comment, which
+also refuses the wrong fix (making leg 2 read the PR's own tree) by name.
