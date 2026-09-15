@@ -50,7 +50,7 @@ export const IMPORT_CHANGE_EVENT = "factory-import-change";
 // value check it cannot pass, so every import would report "3 values could not be applied safely"
 // about tokens the design never offered. Restricting the keys is what keeps `rejected` honest.
 const KEY_NAME = /^--(color|spacing|radius|type|shadow)-[a-z0-9-]{1,32}$/;
-// The VALUE charset is MEASURED, not guessed: across tokens.contract/neutral/verdant/plusui/saulera
+// The VALUE charset is MEASURED, not guessed: across tokens.contract/neutral/verdant/saulera
 // the values of those five families use only " #%(),-.0123456789" + letters, and the longest is 63
 // characters (measured 2026-07-26; re-measure if the contract gains a family). `/` is admitted for
 // the modern `rgb(0 0 0 / 10%)` form a design's shadow colour may legitimately use — composeShadow

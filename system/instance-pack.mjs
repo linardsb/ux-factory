@@ -94,7 +94,7 @@ export function initInstancePack({ name } = {}) {
   }
 
   // The one transition. `swap` re-points the single href and resolves on load/error, so the
-  // crossfade's second frame is fully styled rather than an unstyled flash (dock.mjs:190-203).
+  // crossfade's second frame is fully styled rather than an unstyled flash (dock.mjs:186-199).
   // There is no derived record to re-read here, so no generation counter is needed — the last
   // assignment simply wins, and every pending promise still resolves. It takes a FINISHED href
   // rather than a slug — see selectPack, which owns the allowlist that chooses between the two.

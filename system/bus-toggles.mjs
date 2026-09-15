@@ -102,7 +102,7 @@ export function mountSlotToggles(region, { vocab, composition, bus, slotId } = {
   working.forEach((node, i) => target.appendChild(el("option", { value: String(i), text: nameOf(node, i) })));
   controls.appendChild(target);
 
-  // tone — native radios, the dock's pack-switcher precedent (dock.mjs:166). Arrow-key movement
+  // tone — native radios, the dock's pack-switcher precedent (dock.mjs:162). Arrow-key movement
   // and focus management come free, and the manifest counts the group as one control. A hand-rolled
   // role="radiogroup" + roving tabindex would be three aria-pressed buttons wearing radio clothes.
   const tones = el("fieldset", { class: "bt-tones" }, el("legend", { text: "Tone" }));

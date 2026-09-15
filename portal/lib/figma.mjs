@@ -22,7 +22,7 @@ const MB = MAX_EXPORT_BYTES / 1024 / 1024;
 // that directory, and the packs there include generated files (contract, neutral) and committed
 // reference work that a POST must never be able to overwrite. This guard is the ONLY thing
 // standing between a request body and system/tokens.<anything>.css.
-const RESERVED = new Set(['contract', 'neutral', 'source', 'verdant', 'saulera', 'plusui']);
+const RESERVED = new Set(['contract', 'neutral', 'source', 'verdant', 'saulera']);
 const SLUG_RE = /^[a-z0-9-]{1,40}$/;
 
 export function assertSlug(slug) {

@@ -26,7 +26,7 @@ import { IMPORT_CHANGE_EVENT, importedOnPage, readImported } from "./pack-import
 
 // ---------------------------------------------------------------- contract (shared with #76)
 // factory-pack        — the SELECTOR, shared with dock.mjs / pack-boot.js. A new "derived"
-//                       value joins neutral (default no-op) / saulera / verdant / plusui.
+//                       value joins neutral (default no-op) / saulera / verdant.
 // factory-pack-derived — the JSON record, independent of the selector so it survives a toggle
 //                       to a committed pack and back (#76 re-offers "your brand" without re-entry).
 // factory-pack-prewear — the committed pick that was active when derived was worn (#76), so
@@ -44,11 +44,11 @@ export const RECORD_VERSION = 1;
 export const NAME_MAX = 40;
 
 // The committed picks the selector may hold. A pristine selector is ABSENT (null), not "neutral":
-// pack-boot.js treats anything outside saulera/verdant/plusui/derived as the no-op default
+// pack-boot.js treats anything outside saulera/verdant/derived as the no-op default
 // (VR-critical), so restoring "neutral" and removing the key are equivalent — we only ever write
 // back what we read. Kept in step with dock.mjs's PACKS: a pack missing here is selectable but not
 // RESTORABLE — unwearing "your brand" would drop the reader to neutral instead of what they had.
-const COMMITTED = ["neutral", "saulera", "verdant", "plusui"];
+const COMMITTED = ["neutral", "saulera", "verdant"];
 
 // Same-tab change signal. The `storage` event fires only in OTHER tabs, so the dock (#76) cannot
 // learn about this beat's writes any other way — every mutation of the record or the selector

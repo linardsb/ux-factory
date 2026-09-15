@@ -41,6 +41,9 @@ node agent-layer/gen-loc-summary.mjs
 cd tooling/visual-regression && npm run update:docker   # approach.html renders those numbers
 ```
 
+If the pack is also going in the appearance dock, those two regenerations are the *minimum* — see the
+rule below.
+
 If the file carries more than one candidate brand ramp, the drawer says so and renders the
 candidates as swatches — click one and it re-runs with that ramp as the accent, off the export
 already on disk. The tool still never picks a brand colour for you; it just asks in a medium that
@@ -86,8 +89,17 @@ family that came from the design and every one that fell back to this repo's def
 To use the pack: pass it to a company instance
 (`build-instance.mjs … --pack tokens.<company>.css`). Putting it in the site's appearance dock is
 a separate change (a row in `dock.mjs`'s `PACKS` + its `PACK_RE`, the allowlist in `pack-boot.js`,
-and `COMMITTED` in `pack-derived.mjs` — all three, or the pack is selectable but not restorable).
-`plusui` is the worked example.
+and `COMMITTED` in `pack-derived.mjs` — all three, or the pack is selectable but not restorable),
+and it costs more than three lines: **a pack the dock offers gets its visual-regression baselines
+and an accessibility vet in the same PR that adds it** (epic #295, G14). The WCAG table this run
+prints is the vet — read it and act on it, not just commit it. That vet is colour only: G14 as
+recorded in the epic's PRD asks nothing of the imported spacing, radius or type ramp, so whether
+those fit the system's own scale is the reviewer's eye, not a gate.
+
+There is no worked example in the tree. `plusui`, imported from a public Community Figma file, was
+the one; it was removed at #296 (decided 2026-08-28, epic #295 G11) because it shipped in the dock
+with neither baselines nor a vet, and its spacing and type scale were visibly out of step with the
+rest of the system. `git log -- system/tokens.plusui.css` keeps the import run.
 
 `--out <path.css>` writes somewhere other than `system/`, which is how the committed fixtures under
 `tooling/figma/fixtures/` are exercised without adding a pack to the shipped system.
