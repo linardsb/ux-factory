@@ -90,16 +90,21 @@ To use the pack: pass it to a company instance
 (`build-instance.mjs … --pack tokens.<company>.css`). Putting it in the site's appearance dock is
 a separate change (a row in `dock.mjs`'s `PACKS` + its `PACK_RE`, the allowlist in `pack-boot.js`,
 and `COMMITTED` in `pack-derived.mjs` — all three, or the pack is selectable but not restorable),
-and it costs more than three lines: **a pack the dock offers gets its visual-regression baselines
-and an accessibility vet in the same PR that adds it** (epic #295, G14). The WCAG table this run
-prints is the vet — read it and act on it, not just commit it. That vet is colour only: G14 as
-recorded in the epic's PRD asks nothing of the imported spacing, radius or type ramp, so whether
-those fit the system's own scale is the reviewer's eye, not a gate.
+and it costs more than three lines: **a pack the dock offers gets its visual-regression baselines,
+an accessibility vet and a fit-to-system read of its imported spacing, radius and type ramp in the
+same PR that adds it** (epic #295, G14, widened at #414). The WCAG table this run prints is the
+colour vet — read it and act on it, not just commit it. The fit read is the other half: the
+`Scale imported from this file:` line in the emitted pack header names how many values each family
+offered, how many survived and every one dropped (`spacing (8 of 35 value(s) … dropped: …)`). Read
+it against the contract's own scale and state the verdict in the PR, dropped values named. Both
+stay the reviewer's eye, not a gate — G14 is a written rule by design.
 
 There is no worked example in the tree. `plusui`, imported from a public Community Figma file, was
 the one; it was removed at #296 (decided 2026-08-28, epic #295 G11) because it shipped in the dock
-with neither baselines nor a vet, and its spacing and type scale were visibly out of step with the
-rest of the system. `git log -- system/tokens.plusui.css` keeps the import run.
+with no baselines, and with its spacing and type scale visibly out of step with the rest of the
+system. Its colour vet is not the reason: the pack's own header reads `12/12 pairs pass`, so the
+rule as first written had nothing to catch — which is what #414 widened it for.
+`git log -- system/tokens.plusui.css` keeps the import run.
 
 `--out <path.css>` writes somewhere other than `system/`, which is how the committed fixtures under
 `tooling/figma/fixtures/` are exercised without adding a pack to the shipped system.
