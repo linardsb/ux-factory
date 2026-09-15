@@ -134,6 +134,43 @@ const LIVE = `${VIEWPORT} .stx-live`;
 
 const pct = (i) => `${Math.round(ZOOM_LEVELS[i] * 100)}%`;
 
+// #416 · THE SETTLE WAIT, AND IT SAYS WHAT IT DIED IN. Every wait below for [data-replay="settled"]
+// was a bare waitForSelector, and a bare waitForSelector throws ONE sentence — "Timeout 30000ms
+// exceeded" — for three different failures: a studio that never mounted, a driver parked in
+// `loading` because an artifact fetch never resolved, and a run that was still playing. A throw
+// aborts the whole engine leg, so the only clue left in the log is the assertion COUNT it stopped
+// at, and #416's diagnosis had to be reconstructed from three such counts across three runs.
+//
+// It is a WRAPPER, not a new budget: same selector, same default visible state, same timeout at
+// every call site, no assertion added, and a healthy page takes the identical path. On timeout it
+// reads the driver's own state off the page and rethrows with it — the host's two attributes, the
+// seek control's value and max (system/replay-driver.mjs's syncControls writes them on EVERY
+// advance, so a FROZEN beat separates "stalled" from "merely slow"), the unavailable card's text if
+// one was painted, and the page's URL. The call site is recovered from the stack, so none of the
+// twenty-two callers has to pass a label and none can drift out of date.
+async function settleWait(p, timeout = 30000) {
+  const frames = [...(new Error().stack || "").matchAll(/studio-journey\.mjs:(\d+):\d+/g)]
+    .map((m) => m[1]).slice(1, 3);
+  const site = frames.length ? `studio-journey.mjs:${frames.join(" ← :")}` : "an unrecovered line";
+  try {
+    await p.waitForSelector('[data-replay="settled"]', { timeout });
+  } catch {
+    const state = await p.evaluate(() => {
+      const host = document.querySelector("[data-studio]");
+      const seek = document.querySelector(".stu-replay-seek");
+      const card = document.querySelector(".stu-replay-card");
+      return {
+        url: location.href,
+        studio: host ? host.getAttribute("data-studio") : "NO [data-studio] ON THE PAGE",
+        replay: host ? host.getAttribute("data-replay") : null,
+        beat: seek ? `${seek.value}/${seek.getAttribute("max")}` : "no transport painted",
+        card: card ? card.textContent.replace(/\s+/g, " ").slice(0, 160) : null,
+      };
+    }).catch((e) => ({ stateUnreadable: e.message }));
+    throw new Error(`[data-replay="settled"] never arrived within ${timeout} ms at ${site} — ${JSON.stringify(state)}`);
+  }
+}
+
 // The state the assertions below read, taken in one round trip so nothing races a re-layout.
 const snapshot = (p) => p.evaluate(() => {
   const vp = document.querySelector("[data-studio-canvas]");
@@ -1351,7 +1388,7 @@ async function factoryPass(browser, t, errors) {
   // MOUNT, and since #209 the canvas is EMPTY at mount — system/replay-driver.mjs fills it by
   // playing a committed real run. 30 s because ~14 s of it is playback (replay-driver.mjs's
   // PLAYBACK_MS governs both, and says these move together).
-  await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(p, 30000);
 
   // The board is read off the RUNNING page through the orchestrator's own seam, then the slot count
   // is compared to it. Asserting a literal 4 would pass a board that silently stopped being the
@@ -1538,7 +1575,7 @@ async function factoryPass(browser, t, errors) {
     `took=${dAfterDock.took} pushed=${JSON.stringify(await dp.evaluate(() => window.__pushed.slice()))}`);
 
   // The run plays through to the COMMITTED board — skinned, never shortened.
-  await dp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(dp, 30000);
   const dBoard = await dp.evaluate(async () => {
     const want = await (await fetch("/replay/build-fieldwork-dispatch.board.json")).json();
     return {
@@ -1590,7 +1627,7 @@ async function replayPass(browser, t, errors) {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
     p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
-  const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  const settled = (p) => settleWait(p, 30000);
   const replayState = (p) => p.evaluate(() => import("/system/replay-driver.mjs").then((m) => {
     const r = m.getReplay();
     return r ? { state: r.state, index: r.index, beats: r.beats.length, took: r.tookOver, places: r.board.places.length } : null;
@@ -1838,7 +1875,7 @@ async function replayPass(browser, t, errors) {
   });
   const t0 = Date.now();
   await pr.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-  await pr.waitForSelector('[data-replay="settled"]', { timeout: 20000 });
+  await settleWait(pr, 20000);
   const elapsed = Date.now() - t0;
   t("#209 · reduced motion reaches the settled board IMMEDIATELY — no fourteen-second timer chain",
     elapsed < 8000, `${elapsed} ms`);
@@ -1952,7 +1989,7 @@ async function replayPass(browser, t, errors) {
   });
   await pb.route("**/traces/*.jsonl", (route) => route.fulfill({ status: 404, body: "gone" }));
   await pb.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-  await pb.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(pb, 30000);
   t("#209 · a missing trace still plays the ops — the board is the run's, words or no words",
     (await pb.locator(`${VIEWPORT} .stx-slot`).count()) === match.wanted.length,
     `${await pb.locator(`${VIEWPORT} .stx-slot`).count()} slot(s)`);
@@ -2204,7 +2241,7 @@ async function compilePass(browser, t, errors) {
     // Without this wait every assertion below runs against a half-built board: the compile's slot
     // count is nondeterministic, and the byte-identical re-run compares two different arrangements.
     // 30 s because 14 s of it is playback (replay-driver.mjs's PLAYBACK_MS says these move together).
-    await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(page, 30000);
     await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
     return page;
   };
@@ -2412,7 +2449,7 @@ async function flowPass(browser, t, errors) {
     // SETTLED FIRST — the beat is setEnabled(false) until the replay settles (#240/1,
     // studio.mjs's disable), so a click before settle silently no-ops and every assertion below
     // would read the blocks.
-    await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(page, 30000);
     await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
     return page;
   };
@@ -2590,7 +2627,7 @@ async function keepPass(browser, t, errors) {
     p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
   const railReady = (p) => p.waitForSelector('[data-studio-keep="ready"]', { timeout: 20000 });
-  const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  const settled = (p) => settleWait(p, 30000);
   // Read as CLIENT RECTS rather than as the hidden attribute: `hidden` is inert wherever an author
   // rule sets display, which is the trap factory.html:79's [hidden] rule exists to close — so the
   // only assertion that proves the tier is really gone is that it occupies no box (memory
@@ -3053,7 +3090,7 @@ async function teardownPass(browser, t, errors) {
     // section is about what happens to the stage AFTER a teardown, and while the replay is still
     // playing there is a second author adding slots to it. "Nothing was swapped in afterwards" is
     // then a claim about a stage that is changing for reasons this section knows nothing about.
-    await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(page, 30000);
     await page.waitForSelector(`${VIEWPORT} .stx-slot`, { timeout: 30000 });
     return page;
   };
@@ -3269,7 +3306,7 @@ async function methodPass(browser, engineName, t, errors) {
   t("#214 · a pointerdown on the disabled band is NOT a take-over and causes no redraft",
     midAfter.took === false && midAfter.routes === 0 && !midAfter.redrafted, JSON.stringify(midAfter));
 
-  await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(p, 30000);
   const on = await p.evaluate(() => ({
     state: document.querySelector("[data-studio-method]").getAttribute("data-method-state"),
     input: document.querySelector('input[name="stm-q-shape"]').disabled,
@@ -3406,7 +3443,7 @@ async function methodPass(browser, engineName, t, errors) {
   const p2 = await ctx.newPage();
   watch(p2, "method kb");
   await p2.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-  await p2.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(p2, 30000);
   for (const [node, slot] of [["trigger", 0], ["action", 1], ["rewardType", 2], ["investment", 3]]) {
     await park(p2, `[data-hook-node="${node}"]`);
     await p2.focus(`[data-hook-node="${node}"]`);
@@ -3518,7 +3555,7 @@ async function methodPass(browser, engineName, t, errors) {
   const p6 = await ctx.newPage();
   watch(p6, "method midcompile");
   await p6.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-  await p6.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(p6, 30000);
   // A drafted 3-place board on the stage, then compile IT (not the run's 4-place board).
   await check(p6, 'input[name="stm-q-shape"][value="worklist"]');
   // Park the mid-beat card NOW, so the check inside the window needs no scroll.
@@ -3576,7 +3613,7 @@ async function methodPass(browser, engineName, t, errors) {
   const p7 = await ctx.newPage();
   watch(p7, "method carry");
   await p7.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-  await p7.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(p7, 30000);
   // Pick up the first block from the keyboard — park it first (the smooth-scroll rule above),
   // record its label from the wrapper itself so the assertions below never type a name.
   await park(p7, `${VIEWPORT} .stx-slot`);
@@ -3668,7 +3705,7 @@ async function selectPass(browser, engineName, t, errors) {
     watch(p, tag);
     await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await p.waitForSelector('[data-canvas-select="ready"]', { timeout: 20000 });
-    await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(p, 30000);
     // THE CANVAS IS SCROLLED INTO VIEW BEFORE ANY POINTER ROW, and this is not tidiness: on
     // /factory the studio sits well below the fold, so a raw mouse.move to a computed client
     // coordinate lands OFF-SCREEN and the press never reaches the stage. Playwright's locator.click
@@ -4399,7 +4436,7 @@ async function selectPass(browser, engineName, t, errors) {
   t("#217 · …and no /factory/took-over is fired for a handover that did not happen",
     (await pb.evaluate(() => window.__pushed.filter((u) => u === "/factory/took-over").length)) === 0,
     JSON.stringify(await pb.evaluate(() => window.__pushed.slice())));
-  await pb.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(pb, 30000);
   t("#217 · …and the run still reaches the committed board it was building",
     (await replayNow(pb)).state === "settled");
   await pb.close();
@@ -4532,7 +4569,7 @@ async function docsPass(browser, engineName, t, errors) {
   await page.goto(`${BASE}/factory.html`, { waitUntil: "load" });
   await page.waitForSelector('[data-studio="ready"]', { timeout: 20000 });
   await page.waitForSelector('[data-studio-compile="ready"]', { timeout: 20000 });
-  await page.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  await settleWait(page, 30000);
 
   const compileBtn = () => page.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true });
   const revertBtn = () => page.locator(VIEWPORT).getByRole("button", { name: "Back to blocks", exact: true });
@@ -4758,7 +4795,7 @@ async function docsPass(browser, engineName, t, errors) {
     ip.on("pageerror", (e) => errors.push(`docs/inspect pageerror: ${e.message}`));
     ip.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`docs/inspect console: ${m.text()}`); });
     await ip.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-    await ip.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(ip, 30000);
     t("#218/7 · the expert toggle restored from localStorage — inspect is ON before anything is compiled",
       await ip.evaluate(() => document.documentElement.dataset.inspectMode === "on"));
     const settleScroll = async () => {
@@ -4867,7 +4904,7 @@ async function docsPass(browser, engineName, t, errors) {
       ? route.fulfill({ status: 500, body: "no" })
       : route.continue()));
     await rp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
-    await rp.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(rp, 30000);
     await rp.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
     await rp.waitForSelector(".stf-screen", { timeout: 20000 });
     await rp.waitForFunction(() => /could not be loaded/.test(
@@ -4922,7 +4959,7 @@ async function framesPass(browser, engineName, t, errors) {
     watch(p, tag, allowResourceErrors);
     await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await p.waitForSelector('[data-studio-frames="ready"]', { timeout: 20000 });
-    await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    await settleWait(p, 30000);
     // The canvas scrolled into view before any pointer row — selectPass's recorded lesson: on
     // /factory the studio sits well below the fold, so a raw mouse.move to a computed client
     // coordinate lands off-screen and the press never reaches the stage.
@@ -5357,7 +5394,7 @@ async function layersPass(browser, engineName, t, errors) {
     watch(p, tag);
     await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await p.waitForSelector('[data-studio-layers="ready"]', { timeout: 20000 });
-    if (settle) await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    if (settle) await settleWait(p, 30000);
     await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
     await p.waitForTimeout(400);
     return p;
@@ -5669,7 +5706,7 @@ async function minimapPass(browser, engineName, t, errors) {
     watch(p, tag);
     await p.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await p.waitForSelector('[data-studio-minimap="ready"]', { timeout: 20000 });
-    if (settle) await p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+    if (settle) await settleWait(p, 30000);
     await p.locator(VIEWPORT).scrollIntoViewIfNeeded();
     await p.waitForTimeout(400);
     return p;
@@ -5941,7 +5978,7 @@ async function perfPass(browser, engineName, t, errors) {
     p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
     p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
   };
-  const settled = (p) => p.waitForSelector('[data-replay="settled"]', { timeout: 30000 });
+  const settled = (p) => settleWait(p, 30000);
   // Entries are delivered after the interaction's next paint — flush with a double rAF plus a
   // beat of real time before reading, or the delta is short on every engine (probe-verified).
   const flush = async (p) => {
