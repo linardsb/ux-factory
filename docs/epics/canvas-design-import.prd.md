@@ -165,7 +165,7 @@ The thinnest line that can trip the wrong condition: **one real flow, with its s
 **Two decisions that ride alongside, not inside, the epic:**
 
 - **The Plus UI pack is removed (G11, owner: "its spacing and design are way out of whack").** Footprint observed: `tokens.plusui.css`, the dock row, `pack-boot.js`'s allowlist, `pack-import`/`pack-imported`/`pack-derived`, `brand-import`, `build-import`, `studio-frames`, `portal/lib/figma.mjs`, `studio-journey.mjs`, the runbook; no dedicated baselines. Its own small PR, before the first slice, so the epic starts with no ported pack on the board.
-- **The pixel gate grows to neutral + saulera + verdant (G14).** Verdant is not in `PACKS` today; adding it is one more baseline per page (~10 PNGs) in the PR that does it. A ported pack, when one lands through the export path, gets its baselines and an accessibility vet in the same PR that adds it — a rule written into the pack-import path, not gate work done now for a pack that does not exist. D5 closed.
+- **The pixel gate grows to neutral + saulera + verdant (G14).** Verdant is not in `PACKS` today; adding it is one more baseline per page (~10 PNGs) in the PR that does it. A ported pack, when one lands through the export path, gets its baselines, an accessibility vet **and a fit-to-system read of the imported spacing, radius and type ramp against the contract's own scale — stated in the PR, with the dropped values named** — in the same PR that adds it. A rule written into the pack-import path, not gate work done now for a pack that does not exist; the fit read is a reviewer's eye, like the rest of G14. D5 closed. The fit read is **amended** in at #414: the colour vet alone could not catch the defect that produced the rule — Plus UI passed `RULESET.wcagPairs` 12/12 and was still removed for its scale.
 
 ## Success metrics
 
@@ -220,7 +220,7 @@ The thinnest line that can trip the wrong condition: **one real flow, with its s
 | G11 | What pack does run 1 wear? | Neutral; the Plus UI pack is removed in its own PR |
 | G12 | Old links with grid positions? | Refused; the field and its tamper cases are deleted |
 | G13 | How much does the agent draft before you react? | One screen at a time |
-| G14 | Which packs get the pixel gate? | neutral + saulera + verdant now; a ported pack when it lands |
+| G14 | Which packs get the pixel gate? | neutral + saulera + verdant now; a ported pack when it lands — with its baselines, a colour vet and (**amended** at #414) a fit-to-system read of its spacing, radius and type ramp |
 | G15 | Who links a frame to its decision? | The agent proposes with the screen, the owner confirms; a field on the frame (Q8 closed) |
 | G16 | The hallway round? | Dropped on purpose |
 | G17 | Can a saved group become a real component, and where do groups live? | Groups live with the run; promotion is one-click admission |
@@ -263,6 +263,14 @@ Handed to it, deliberately not decided here: the grid retirement's deletion list
 **Related:** [discovery-partner.prd.md](./discovery-partner.prd.md) (wave 1; the run package this consumes) · [prototype-studio.prd.md](./prototype-studio.prd.md) (§Non-goals "no free arrangement" is **amended** by MVP 1–2: the free canvas is the one substrate, the shipped `/factory` replays onto it with an automatic layout — G1) · [ai-first-ux-factory.prd.md](./ai-first-ux-factory.prd.md) (§8 unamended: no live model at view time on shipped pages) · `__canvas_planning_PRD.md` (the briefing; §18 is the pipeline picture, §24 the technology verdicts).
 
 ## Amendments
+
+**2026-09-15 — G14 widened: the vet is no longer colour only (#414).** A ported pack now also owes a fit-to-system
+read of its imported spacing, radius and type ramp against the contract's own scale, with the dropped values named
+in the PR. Raised by PR #413's review: the Plus UI pack that produced G14 shipped a header reading both `WCAG
+(RULESET.wcagPairs …): 12/12 pairs pass` **and** `spacing (8 of 35 value(s) … dropped: 1px, 2px, … 320px)`, so the
+pack that produced the rule satisfied it. The evidence it did not fit the system was already printed in its own
+header and nothing asked anyone to read it. Still a written rule, not gate work; `figma-pull`'s even-spread mapping
+(owner decision 2026-07-26, #127) is unchanged.
 
 **2026-09-14 — §Later, not never added per the house shape (#396); five parked items re-filed from §Non-goals
 verbatim.** Each of the five names a later home — wave 3, the guest epic, D20, its own epic, "wired later" — the

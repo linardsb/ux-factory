@@ -17,11 +17,13 @@
 // The mapping discipline itself is documented at the functions that implement it — the comments
 // moved with the code they explain, because each one carries a measured fact.
 //
-// ADDING A PACK TO THE SHIPPED DOCK COSTS MORE THAN A FILE (epic #295 G14, #296). A pack this repo
-// commits and offers in system/dock.mjs is a live control on every page that carries the chrome, so
-// the PR that adds one also carries its visual-regression baselines (one PNG per VR page) and an
-// accessibility vet — the WCAG table this engine returns in `checks`, read and ACTED ON, not
-// merely committed. The Plus UI pack was removed at #296 because it landed with neither.
+// ADDING A PACK TO THE SHIPPED DOCK COSTS MORE THAN A FILE (epic #295 G14, #296; widened at #414).
+// A pack committed and offered in system/dock.mjs is a live control on every page with the chrome,
+// so the PR that adds one carries its visual-regression baselines (one PNG per VR page), an
+// accessibility vet — the WCAG table returned in `checks`, ACTED ON, not just committed — and a
+// fit-to-system read of the spacing, radius and type ramp fillScales selected, against the
+// contract's own scale, naming the `dropped` values. Plus UI went at #296 for BOTH: no baselines,
+// and a scale out of step — its header read `8 of 35` spacing values beside `12/12 pairs pass`.
 
 import { RULESET } from "./derive.rules.mjs";
 import { hexToOklch } from "./oklch.mjs";
