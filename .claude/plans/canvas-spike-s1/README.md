@@ -42,7 +42,10 @@ choice stands. T2 lands with its zoom cost known rather than assumed.
 **And the cost is not where a reader would guess.** Measured, not reasoned: **zero** arrow redraws occur
 during a ⌘-wheel zoom (`raw/zoom-cost-probe.txt` — 72 wheel events, 0 redraws), because the handler
 `preventDefault`s and only writes `--sx-scale`, and the overlay lives inside the scaled stage so it
-rescales for free. **The zoom cost is the browser re-rasterising 30 scaled compositions, plus the sizer's own scale-dependent relayout** — `.sx-sizer` is sized `calc(… * var(--sx-scale))` (`harness.html:48–52`), as the real substrate is (`studio.css:69`), so every scale write forces a layout too. **The arrows are ruled out; those two are not separated.**
+rescales for free. **The zoom cost is the browser re-rasterising 30 scaled compositions, plus the sizer's own
+scale-dependent relayout** — `.sx-sizer` is sized `calc(… * var(--sx-scale))` (`harness.html:48–52`), as
+the real substrate is (`studio.css:69`), so every scale write forces a layout too. **The arrows are
+ruled out; those two are not separated.**
 Two consequences the swap PR should carry: the one available cheap mitigation is coalescing the scale
 write to one per frame (72 writes were dispatched here — the same pending-flag rAF configuration (c)
 proves works on all three engines), and **configuration (c)'s arrow-deferral cannot help the zoom at
