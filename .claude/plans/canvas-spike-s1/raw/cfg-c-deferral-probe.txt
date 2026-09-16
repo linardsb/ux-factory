@@ -1,0 +1,3 @@
+chromium  149.0.7827.55    200 synthetic pointermoves in one task · cfg=a redraws  200 · cfg=c redraws    1 · DEFERRAL ENGAGED (200x fewer)
+firefox   151.0            200 synthetic pointermoves in one task · cfg=a redraws  200 · cfg=c redraws    1 · DEFERRAL ENGAGED (200x fewer)
+webkit    26.5             200 synthetic pointermoves in one task · cfg=a redraws  200 · cfg=c redraws    1 · DEFERRAL ENGAGED (200x fewer)

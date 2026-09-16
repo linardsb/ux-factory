@@ -1,0 +1,68 @@
+// CORRECTED containment probe. probe-b4 was CONFOUNDED and its cross-engine conclusion was wrong:
+// its absolute rows carried `left:0` with NO `top`, so all 40 stacked at the same static position
+// and every one of them was on-screen — "NO CULL" was trivially true and said nothing about
+// absolute positioning. The harness itself contradicted it (firefox/webkit cull there), which is
+// what exposed the confound.
+//
+// This version mirrors the harness exactly and varies ONE thing: how a frame is placed.
+//   layout-positioned : position:absolute; top:<y>px; left:<x>px    (the layout box moves)
+//   translate-positioned: position:absolute; top:0; left:0; transform: translate(--x,--y)  (T4's shape)
+// Every case is inside a scaled, absolutely-positioned stage inside a sizer inside a scroller —
+// the harness's own structure. Observable: contentvisibilityautostatechange, the spec's signal.
+
+import { createRequire } from "node:module";
+import path from "node:path";
+const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+const require = createRequire(path.join(MAIN, "tooling", "visual-regression") + path.sep);
+const pw = require("@playwright/test");
+
+const N = 30, PITCH_X = 330, PITCH_Y = 380, COLS = 6;
+const page = (place, scale) => {
+  const cells = Array.from({ length: N }, (_, i) => {
+    const x = 40 + (i % COLS) * PITCH_X, y = 40 + Math.floor(i / COLS) * PITCH_Y;
+    return place === "layout"
+      ? `<div class="row" style="top:${y}px;left:${x}px"><p>a</p><p>b</p></div>`
+      : `<div class="row" style="--x:${x}px;--y:${y}px;transform:translate(var(--x),var(--y))"><p>a</p><p>b</p></div>`;
+  }).join("");
+  return `<style>
+    .scroll{overflow:auto;height:640px;border:1px solid}
+    .sizer{position:relative;width:calc(2000px * ${scale});height:calc(2000px * ${scale})}
+    .stage{position:absolute;top:0;left:0;width:2000px;height:2000px;
+           transform:scale(${scale});transform-origin:0 0}
+    .row{position:absolute;top:0;left:0;width:220px;background:#eee;
+         content-visibility:auto;contain-intrinsic-size:220px 298px}
+    .row > p{height:120px;margin:0}
+  </style><div class="scroll" id="sc"><div class="sizer"><div class="stage">${cells}</div></div></div>`;
+};
+
+const CASES = [
+  ["layout-positioned (top/left), scale 1",   "layout",    1],
+  ["translate-positioned (T4's shape), scale 1", "translate", 1],
+  ["layout-positioned, scale 0.5",            "layout",    0.5],
+  ["translate-positioned, scale 0.5",         "translate", 0.5],
+];
+
+for (const eng of (process.argv[2] === "all" ? ["chromium", "firefox", "webkit"] : ["chromium"])) {
+  const b = await pw[eng].launch();
+  console.log(`\n=== ${eng} ${b.version()} ===`);
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
+  for (const [label, place, scale] of CASES) {
+    const p = await ctx.newPage();
+    await p.setContent(page(place, scale));
+    await p.evaluate(() => {
+      window.__ev = 0; window.__now = new Set();
+      document.querySelectorAll(".row").forEach((e, i) =>
+        e.addEventListener("contentvisibilityautostatechange", (ev) => {
+          window.__ev += 1; if (ev.skipped) window.__now.add(i); else window.__now.delete(i); }));
+    });
+    await p.waitForTimeout(250);
+    await p.evaluate(() => { const sc = document.getElementById("sc"); sc.scrollTo(sc.scrollWidth, sc.scrollHeight); });
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await p.waitForTimeout(500);
+    const r = await p.evaluate(() => ({ ev: window.__ev, now: window.__now.size,
+      rows: document.querySelectorAll(".row").length }));
+    console.log(`  ${label.padEnd(42)} events ${String(r.ev).padStart(3)} · currently skipped ${String(r.now).padStart(2)}/${r.rows} · ${r.ev > 0 ? "CULLS" : "NO CULL"}`);
+    await p.close();
+  }
+  await b.close();
+}

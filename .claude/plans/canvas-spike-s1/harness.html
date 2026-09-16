@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en" data-cfg="a">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>S1 — free-position substrate under load (throwaway harness)</title>
+
+<!-- The REAL three-layer token contract, so the frames are genuinely token-skinned.
+     system/studio.css is deliberately NOT linked: it carries the grid substrate and the five-step
+     zoom table this spike replaces, and loading it would measure the two substrates fighting. -->
+<link rel="stylesheet" href="/system/tokens.contract.css">
+<link rel="stylesheet" href="/system/tokens.neutral.css">
+<link rel="stylesheet" href="/system/components.css">
+
+<style>
+/* ---------- S1 harness stage — throwaway, `sx-` prefixed ----------------------------------------
+   The prefix is deliberately NOT `stx-`: same-prefix classes would make a future grep for the real
+   substrate return spike code, and system/studio.css is not loaded here anyway.
+
+   The sizer/stage split MIRRORS system/studio.css:62–91 rather than re-deriving it. That sheet's
+   own comment carries the reason: a scaled child's contribution to scrollable overflow is
+   right/bottom only and inconsistent across engines, so the scroll extent is declared explicitly on
+   an unscaled sizer and the stage is taken OUT OF FLOW inside it. The only thing this version
+   changes is what the extent is computed FROM — a content bounding box over free positions, not
+   cols x slot. ------------------------------------------------------------------------------- */
+:root {
+  --sx-scale: 1;
+  --sx-content-w: 3000px;
+  --sx-content-h: 2000px;
+  --sx-frame-w: 220px;
+}
+
+body { margin: 0; font-family: var(--font-body, system-ui); background: var(--color-bg); color: var(--color-fg); }
+.sx-bar { display: flex; gap: 12px; align-items: center; padding: 8px 12px; font-size: 0.8rem;
+          color: var(--color-fg-muted); border-bottom: 1px solid var(--color-border); }
+
+/* A fixed height, as studio.css:55 gives .stx-scroll — without it "pan the full extent" has
+   nothing to pan inside. */
+.sx-scroll {
+  overflow: auto;
+  height: min(70vh, 640px);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  cursor: grab;
+}
+
+.sx-sizer {
+  position: relative;
+  width:  calc(var(--sx-content-w) * var(--sx-scale));
+  height: calc(var(--sx-content-h) * var(--sx-scale));
+}
+
+.sx-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width:  var(--sx-content-w);
+  height: var(--sx-content-h);
+  transform: scale(var(--sx-scale));
+  transform-origin: 0 0;
+}
+
+/* --x/--y carry their units. They are NOT @property-registered: registering them would make this
+   spike measure a registered-custom-property animation path the swap PR has not decided on (A3). */
+.sx-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(var(--x), var(--y));
+  width: var(--sx-frame-w);
+  box-sizing: border-box;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  touch-action: none;
+}
+.sx-frame[data-picked="1"] { outline: 2px solid var(--color-accent); }
+.sx-frame > * { min-width: 0; }
+
+/* The overlay sits INSIDE the scaled stage, so its coordinates ARE stage coordinates and scale for
+   free; only the stroke needs vector-effect (A2 in the plan's assumptions). */
+.sx-arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width:  var(--sx-content-w);
+  height: var(--sx-content-h);
+  pointer-events: none;
+  overflow: visible;
+}
+.sx-arrows path { fill: none; stroke: var(--color-fg-muted); stroke-width: 1.5; }
+
+/* ---------- configuration (b): content-visibility + a CONCRETE contain-intrinsic-size -----------
+   `auto` without a concrete intrinsic size is effectively a no-op for this purpose, and a no-op
+   that "passes" is the failure mode the driver's positive control exists to catch. The numbers are
+   written in by the module below from a MEASURED frame box (offsetWidth/offsetHeight — the layout
+   box, transform-independent), never guessed. */
+html[data-cfg="b"] .sx-frame {
+  content-visibility: auto;
+  contain-intrinsic-size: var(--sx-intrinsic-w, 220px) var(--sx-intrinsic-h, 280px);
+}
+</style>
+</head>
+<body>
+
+<div class="sx-bar">
+  <span>S1 harness</span>
+  <span data-sx-info>booting…</span>
+</div>
+
+<div class="sx-scroll" data-sx-scroll>
+  <div class="sx-sizer" data-sx-sizer>
+    <div class="sx-stage" data-sx-stage>
+      <svg class="sx-arrows" data-sx-arrows aria-hidden="true"></svg>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// S1 — the free-position substrate under load. THROWAWAY: nothing here ships, and nothing under
+// system/ tooling/ agent-layer/ handoff/ is touched — those modules are only READ over HTTP.
+// Plan: .claude/plans/canvas-spike-s1-substrate-load-297.md · ticket #297 · epic #295.
+//
+// Configuration is the whole query-string surface: ?cfg=a|b|c · ?frames=<n> · ?scale=<f>.
+// Every param is whitelisted or Number()-clamped and never reaches markup as a string — the stage
+// is built with createElement/textContent throughout. .claude/ sits outside the CodeQL allowlist
+// so nothing would have caught a DOM-XSS here; it is written this way because it is free.
+
+import { renderComposition } from "/system/agentic-renderer.mjs";
+import { createBus }         from "/system/action-bus.mjs";
+
+const q      = new URLSearchParams(location.search);
+const CFG    = ["a", "b", "c"].includes(q.get("cfg")) ? q.get("cfg") : "a";
+const FRAMES = Math.max(1, Math.min(200, Number(q.get("frames")) || 30));
+const SCALE  = Math.max(0.1, Math.min(4, Number(q.get("scale")) || 1));
+
+document.documentElement.setAttribute("data-cfg", CFG);
+document.documentElement.style.setProperty("--sx-scale", String(SCALE));
+
+const scroll = document.querySelector("[data-sx-scroll]");
+const stage  = document.querySelector("[data-sx-stage]");
+const svg    = document.querySelector("[data-sx-arrows]");
+const info   = document.querySelector("[data-sx-info]");
+
+// --- the real artifacts -------------------------------------------------------------------------
+// vocabulary.json is the validate/render input (components keyed by NAME, no `example` anywhere).
+// pack.json is where the committed `example` props live (components is an ARRAY of 20, all with
+// one). system/catalog.mjs:303 reads component.example off exactly this shape. Both are needed.
+const [vocab, pack] = await Promise.all([
+  fetch("/handoff/verdant/vocabulary.json").then((r) => r.json()),
+  fetch("/handoff/verdant/pack.json").then((r) => r.json()),
+]);
+const EXAMPLES = new Map(pack.components.map((c) => [c.component, c.example]));
+const bus = createBus();
+
+// A frame is an ARRAY OF ROOT NODES, never a tree. vocabulary.json's childrenRule: "a node may
+// carry at most one child, only when its vocabulary entry lists allowed children" — only four of
+// twenty components accept one at all, and never more than one. Nest, and validateComposition
+// throws naming the path.
+const PARTS = ["screen-header", "metric-tile", "list-row", "primary-button",
+               "stat-tile", "sequence-step", "status-chip", "search-input"];
+const frameComposition = (i) => {
+  const n = 3 + (i % 2);                       // deterministic 3 or 4 parts
+  const out = [{ name: "screen-header", props: EXAMPLES.get("screen-header") }];
+  for (let k = 1; k < n; k += 1) {
+    const name = PARTS[1 + ((i * 3 + k) % (PARTS.length - 1))];
+    out.push({ name, props: EXAMPLES.get(name) });
+  }
+  return out;
+};
+
+// --- free positions -----------------------------------------------------------------------------
+// Laid out on a loose 6-wide raster with a deterministic jitter, so positions are genuinely free
+// (--x/--y translate) rather than a grid in disguise, and the content box is wide enough to pan.
+const COLS = 6, PITCH_X = 330, PITCH_Y = 380, PAD = 40;
+const model = [];                               // the harness OWNS x/y — arrows read from here,
+                                                // never getBoundingClientRect() per arrow per move.
+for (let i = 0; i < FRAMES; i += 1) {
+  model.push({
+    x: PAD + (i % COLS) * PITCH_X + ((i * 37) % 60),
+    y: PAD + Math.floor(i / COLS) * PITCH_Y + ((i * 53) % 70),
+  });
+}
+
+const frameEls = [];
+for (let i = 0; i < FRAMES; i += 1) {
+  const el = document.createElement("div");
+  el.className = "sx-frame";
+  el.dataset.sxId = String(i);
+  el.style.setProperty("--x", `${model[i].x}px`);
+  el.style.setProperty("--y", `${model[i].y}px`);
+  el.append(renderComposition(vocab, frameComposition(i), bus));
+  stage.append(el);
+  frameEls.push(el);
+}
+
+// The content extent, computed from the model's bounding box (the free-position equivalent of
+// studio.css's cols x slot arithmetic) — this is what makes "pan the full extent" real.
+const maxX = Math.max(...model.map((m) => m.x)) + 260 + PAD;
+const maxY = Math.max(...model.map((m) => m.y)) + 520 + PAD;
+document.documentElement.style.setProperty("--sx-content-w", `${maxX}px`);
+document.documentElement.style.setProperty("--sx-content-h", `${maxY}px`);
+
+// --- the arrow overlay: geometry DERIVED on every move (this is T5 under test) -------------------
+const paths = [];
+for (let i = 0; i < FRAMES - 1; i += 1) {
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("vector-effect", "non-scaling-stroke");
+  svg.append(p);
+  paths.push(p);
+}
+
+window.__arrowRedraws = 0;                       // configuration (c)'s positive control, one line.
+const FRAME_W = 220, FRAME_H_GUESS = 300;
+function redrawArrows() {
+  window.__arrowRedraws += 1;
+  for (let i = 0; i < paths.length; i += 1) {
+    const a = model[i], b = model[i + 1];
+    const x1 = a.x + FRAME_W, y1 = a.y + FRAME_H_GUESS / 2;
+    const x2 = b.x,           y2 = b.y + FRAME_H_GUESS / 2;
+    const mx = (x1 + x2) / 2;
+    paths[i].setAttribute("d", `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+  }
+}
+redrawArrows();
+
+// Configuration (c): coalesce redraws to one rAF per gesture tick (a pending-flag rAF, not a
+// redraw per pointermove), and defer the pan redraw to scrollend. Under (a) and (b) the redraw is
+// synchronous per move — that is the property being measured.
+let pending = false;
+const scheduleRedraw = CFG === "c"
+  ? () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; redrawArrows(); }); }
+  : () => redrawArrows();
+
+// --- the drag verb ------------------------------------------------------------------------------
+// The pointer delta is divided by --sx-scale. Without that, a ?scale=0.5 drag moves the frame half
+// as far in stage units and the row measures a half-weight gesture while every "it moved"
+// assertion still passes.
+let drag = null;
+stage.addEventListener("pointerdown", (e) => {
+  const el = e.target.closest(".sx-frame");
+  if (!el) return;
+  const i = Number(el.dataset.sxId);
+  // A marquee-drag here is five frames moving together — the cheapest way to make a drag five
+  // times heavier. It is NOT #217's selection contract and stands for nothing of it.
+  const picked = document.querySelectorAll('.sx-frame[data-picked="1"]').length
+    ? [...document.querySelectorAll('.sx-frame[data-picked="1"]')].map((n) => Number(n.dataset.sxId))
+    : [i];
+  drag = { ids: picked, px: e.clientX, py: e.clientY,
+           start: picked.map((n) => ({ x: model[n].x, y: model[n].y })) };
+  el.setPointerCapture?.(e.pointerId);
+});
+stage.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.px) / SCALE;
+  const dy = (e.clientY - drag.py) / SCALE;
+  drag.ids.forEach((id, k) => {
+    model[id].x = drag.start[k].x + dx;
+    model[id].y = drag.start[k].y + dy;
+    frameEls[id].style.setProperty("--x", `${model[id].x}px`);
+    frameEls[id].style.setProperty("--y", `${model[id].y}px`);
+  });
+  scheduleRedraw();
+});
+stage.addEventListener("pointerup", () => { drag = null; redrawArrows(); });
+
+// --- pan: redraw on scroll (a/b) or scrollend (c) ------------------------------------------------
+window.__scrollendSeen = 0;
+scroll.addEventListener("scrollend", () => { window.__scrollendSeen += 1; if (CFG === "c") redrawArrows(); });
+if (CFG !== "c") scroll.addEventListener("scroll", () => redrawArrows());
+
+// --- continuous zoom: cmd/ctrl-wheel sets --sx-scale (T2 under test) -----------------------------
+let liveScale = SCALE;
+scroll.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  liveScale = Math.max(0.25, Math.min(2, liveScale * (e.deltaY < 0 ? 1.06 : 1 / 1.06)));
+  document.documentElement.style.setProperty("--sx-scale", String(liveScale));
+  window.__sxScale = liveScale;
+}, { passive: false });
+
+// --- configuration (b): the intrinsic size, MEASURED then written in -----------------------------
+// offsetWidth/offsetHeight is the layout box and is transform-independent, so this is right at any
+// --sx-scale. AFTER document.fonts.ready: read synchronously at append time it comes back 316px
+// against a settled 251px, and a contain-intrinsic-size 65px too tall is a wrong number written
+// into the one configuration whose whole point is that its numbers be real.
+await document.fonts.ready;
+{
+  const box = frameEls[0];
+  document.documentElement.style.setProperty("--sx-intrinsic-w", `${box.offsetWidth}px`);
+  document.documentElement.style.setProperty("--sx-intrinsic-h", `${box.offsetHeight}px`);
+  window.__sxIntrinsic = { w: box.offsetWidth, h: box.offsetHeight };
+}
+
+// --- the driver's handles ------------------------------------------------------------------------
+window.__sxNodes = {
+  document: document.querySelectorAll("*").length,   // Lighthouse's DOM-size audit counts the WHOLE
+                                                     // document; a scroller-scoped count undercounts
+                                                     // against the 800 warning (plan AMENDMENT 2).
+  scroller: document.querySelectorAll(".sx-scroll *").length,
+  frames:   frameEls.length,
+  arrows:   paths.length,
+};
+info.textContent = `cfg=${CFG} · frames=${FRAMES} · scale=${SCALE} · ${window.__sxNodes.document} document nodes`;
+document.documentElement.setAttribute("data-ready", "1");
+</script>
+</body>
+</html>
