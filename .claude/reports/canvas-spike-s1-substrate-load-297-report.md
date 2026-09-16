@@ -55,7 +55,7 @@ The driver is the integration test: `node driver.txt`-as-`.mjs [engine|all] [a|b
 | comparator can flag | self-test, copied from `studio-journey.mjs:6299` | — | `violations(summarize([{interactionId:1,duration:250}]),200).length === 1` — asserted at the end of every leg, passed every leg |
 | cfg=b cull engaged | none needed — **it fired on its own** | chromium: 0 state-change events, 0/30 skipped → **FAIL**, (b) number refused | firefox/webkit: 16 events, 10/30 skipped → PASS. Minimal-page control culls on all three, so the apparatus can see a cull |
 | cfg=c deferral engaged | none needed — **it fired on its own** | chromium/firefox real gesture: 42 vs 42 → **FAIL**, (c) number refused | webkit real gesture 42 → 5; synthetic burst 200 → 1 on all three |
-| drag genuinely moved | scale-aware by construction (plan AMENDMENT 3) | — | observed stage delta vs `pointerDelta / --sx-scale` within 5 px; at `?scale=0.5` expected 440.0 px, observed 440.0 px |
+| drag genuinely moved | scale-aware by construction (plan AMENDMENT 3) | — | observed stage delta vs `pointerDelta / scale` within 5 px; at `?scale=0.5` expected 440.0 px, observed 440.0 px. The handler divides by the **load-time** scale, not live `--sx-scale` — equal here (no mid-gesture zoom), not so in the real studio |
 | AC #3 (no sibling `.mjs`) | plan's REDDENS (`<script src="./helper.mjs">`) not applied — the grep-based assert was replaced by `find`, which is directly observable | — | `find … -name '*.mjs' \| wc -l` → **0**; `grep`-based `.mjs` src check → "AC #3 ok" |
 
 A driver that lies was the specific risk, and it was caught twice: the `--slow-arrows` mutation proved
@@ -80,7 +80,7 @@ All observed unless marked.
 | `node driver.mjs all a` | **0** | **ALL CHECKS PASS** · chromium, firefox, webkit |
 | `node driver.mjs chromium a --throttle` | **0** | **ALL CHECKS PASS** under CDP 4× |
 | `node driver.mjs all b` | 1 | 1 fail — chromium's cull control (the finding) |
-| `node driver.mjs all c` | 1 | 3 fails — the deferral control (the finding) |
+| `node driver.mjs all c` | 1 | 3 fails — the deferral control on chromium/firefox (the finding), **plus chromium's unthrottled `marquee-drag ×5` LoAF check**; webkit's control passed |
 | `node driver.mjs chromium c --throttle` | 1 | 1 fail — same |
 | `node probe-b5.mjs all` (containment matrix) | 0 | chromium culls only layout-positioned @ scale 1; ff/wk cull in all 4 |
 | `node probe-c.mjs` (coalescer mechanism) | 0 | 200 → 1 redraws on all three engines |
@@ -147,8 +147,11 @@ by re-deriving rather than re-reading.
    nodes of planned headroom a scroller-scoped undercount is what would flip the finding. Both are
    printed.
 4. **The drag movement assertion is scale-aware** *(plan error, logged in AMENDMENTS)*. The plan's
-   `movedX !== startX` passes even when the handler forgets to divide the pointer delta by
-   `--sx-scale`, which is exactly how a `?scale=0.5` row reads green on a half-weight gesture.
+   `movedX !== startX` passes even when the handler forgets to divide the pointer delta by the stage
+   scale, which is exactly how a `?scale=0.5` row reads green on a half-weight gesture. **The harness
+   divides by the load-time scale constant, not by live `--sx-scale`** (`harness.html:259–260`); the two
+   are equal throughout this run because the driver never zooms mid-gesture, so no figure here is
+   affected — but the swap PR must not inherit the phrase as a live-scale demonstration.
 5. **`$SCRATCH` substituted** *(plan error, logged in AMENDMENTS)* — the plan named another session's
    scratchpad id.
 6. **The zoom sweep is 3 × 36 steps, not 2 × 24.** The plan's shape never reached the 0.25 clamp; the
@@ -202,8 +205,10 @@ by re-deriving rather than re-reading.
 - **`raw/zoom-cost-probe.txt`** and its source — added after a draft of the README asserted a mitigation
   ("defer arrow redraws during zoom") that turned out to be **factually wrong**: measured, there are
   **0 arrow redraws across 72 wheel events**, because the handler `preventDefault`s and only writes
-  `--sx-scale`. The zoom cost is re-rasterising 30 scaled compositions, and configuration (c) cannot
-  touch it. The claim was corrected before it shipped; the probe is what corrected it.
+  `--sx-scale`. The zoom cost is re-rasterising 30 scaled compositions **plus the sizer's own
+  scale-dependent relayout** (`harness.html:48–52`; the real substrate shares it at `studio.css:69`) —
+  the probe rules the arrows out, it does not separate those two — and configuration (c) cannot touch
+  either. The claim was corrected before it shipped; the probe is what corrected it.
 
 ## Issues encountered
 

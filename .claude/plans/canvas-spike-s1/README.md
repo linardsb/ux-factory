@@ -14,7 +14,7 @@ edited or deleted; the harness reads those modules over HTTP and nothing else.
 
 | Q | Verdict | Evidence |
 |---|---|---|
-| **Does the free-position DOM stage hold INP ≤ 200 ms and zero dropped frames *during drag*, on all three engines?** | **Yes, in configuration (a) — the bare one, no mitigation.** Worst drag INP **in configuration (a)** **56.0 ms** against a 200 ms budget (chromium under 4× CPU throttle); worst rAF gap in any **(a)** drag window **33.3 ms** against the ≤ 50 ms threshold; run-wide, across every configuration, the worst drag figures are **64.0 ms** and **33.4 ms** (both chromium @ 4×, cfg=c leg) — still far inside both; **zero** frames over 33 ms and **zero** long-animation-frames in every unthrottled drag on every engine. This is the rule's own clause, and it is met. | `raw/all-a.txt`, `raw/chromium-a-throttled.txt` |
+| **Does the free-position DOM stage hold INP ≤ 200 ms and zero dropped frames *during drag*, on all three engines?** | **Yes, in configuration (a) — the bare one, no mitigation.** Worst drag INP **in configuration (a)** **56.0 ms** against a 200 ms budget (chromium under 4× CPU throttle); worst rAF gap in any **(a)** drag window **33.3 ms** against the ≤ 50 ms threshold; run-wide, across every configuration, the worst drag figures are **64.0 ms** and **33.4 ms** (both chromium @ 4×, cfg=c leg) — still far inside both; **zero** frames over 33 ms and **zero** long-animation-frames in every unthrottled **configuration-(a)** drag on every engine — but **not run-wide**: one unthrottled **cfg=c chromium** `marquee-drag ×5` recorded 1 frame over 33 ms and a **51.8 ms long-animation-frame**, which its own check flagged **FAIL** (`raw/all-c.txt:24`). This is the rule's own clause, and it is met — the clause's metric is the rAF gap, and that row's worst gap was 33.3 ms, inside the ≤ 50 ms threshold. | `raw/all-a.txt`, `raw/chromium-a-throttled.txt` |
 | **Does T2 — continuous scale — hold to the same standard?** | **Not under the base-spec proxy.** Fine unthrottled (chromium 2 of 302 frames over 33 ms; webkit 1 of 215, worst gap 43.0 ms). But chromium under CDP 4×: **83 of 241 frames over 33 ms — 34% of the sweep at roughly half frame rate — plus one long-animation-frame.** The inherited ≤ 50 ms threshold is never breached (worst gap 33.5 ms), so this is not a rule failure; it is the rule's clause being drag-scoped while T2's only gesture is the zoom. **Reported as the open edge, not as a pass.** | `raw/chromium-a-throttled.txt`, `raw/all-a.txt` |
 | **Does configuration (b) — `content-visibility: auto` + `contain-intrinsic-size` — work on this substrate?** | **No on Chromium 149.0.7827.55; yes on Firefox 151.0 and WebKit 26.5.** Its positive control refused to record a (b) number on Chromium: **0** `contentvisibilityautostatechange` events, **0/30** frames skipped, with the rule verifiably applied. Isolated: on that Chromium **either** translate positioning **or** a scaled ancestor independently defeats the cull — i.e. T4 and T2 each kill it on their own. Firefox and WebKit cull in all four combinations. **This is a claim about these three builds, measured 2026-09-16** — re-test before relying on it later. | `raw/all-b.txt`, `raw/cfg-b-containment-probe.txt` |
 | **Does configuration (c) — arrow redraw deferred to one rAF — work?** | **The mechanism engages on all three engines** (200 synthetic pointermoves in one task → 200 redraws under (a), **1** under (c)). Under a *real* scripted gesture it engaged on **WebKit only** (42 → 5); on Chromium and Firefox Playwright cannot deliver pointermoves faster than the frame rate, so there was nothing to coalesce and (c) is identical to (a) by construction. **Not needed** — (a) passed. | `raw/cfg-c-deferral-probe.txt`, `raw/all-c.txt` |
@@ -42,7 +42,7 @@ choice stands. T2 lands with its zoom cost known rather than assumed.
 **And the cost is not where a reader would guess.** Measured, not reasoned: **zero** arrow redraws occur
 during a ⌘-wheel zoom (`raw/zoom-cost-probe.txt` — 72 wheel events, 0 redraws), because the handler
 `preventDefault`s and only writes `--sx-scale`, and the overlay lives inside the scaled stage so it
-rescales for free. **The zoom cost is the browser re-rasterising 30 scaled compositions, nothing else.**
+rescales for free. **The zoom cost is the browser re-rasterising 30 scaled compositions, plus the sizer's own scale-dependent relayout** — `.sx-sizer` is sized `calc(… * var(--sx-scale))` (`harness.html:48–52`), as the real substrate is (`studio.css:69`), so every scale write forces a layout too. **The arrows are ruled out; those two are not separated.**
 Two consequences the swap PR should carry: the one available cheap mitigation is coalescing the scale
 write to one per frame (72 writes were dispatched here — the same pending-flag rAF configuration (c)
 proves works on all three engines), and **configuration (c)'s arrow-deferral cannot help the zoom at
@@ -163,7 +163,11 @@ is the row the verdict's second half is built on.
 **What is costing.** Not the arrows: measured at **0 redraws across 72 wheel events**
 (`raw/zoom-cost-probe.txt`). The ⌘-wheel handler `preventDefault`s and writes only `--sx-scale`, and the
 overlay is inside the scaled stage so it rescales for free. The cost is **re-rasterising 30 scaled
-compositions, once per wheel event**. Configuration (c) cannot touch this.
+compositions, once per wheel event, plus the sizer's own scale-dependent relayout** — `.sx-sizer`'s
+width and height are `calc(… * var(--sx-scale))` (`harness.html:48–52`), so each scale write also
+resizes the scroll extent and forces a layout, and the real substrate shares that shape
+(`studio.css:69`). **The probe rules the arrows out; it does not separate rasterisation from sizer
+relayout.** Configuration (c) cannot touch either.
 
 ### Configuration (b) — `content-visibility: auto` + `contain-intrinsic-size`
 
@@ -204,6 +208,16 @@ The no-ops are a finding about *when the mitigation pays*, not a bug: at one `po
 frame a rAF coalescer has nothing to coalesce, so (c) **is** (a). Deferral pays only when moves arrive
 faster than frames — a high-frequency pointer, coalesced events, or a slow frame. The mechanism itself is
 proven live on all three engines by the synthetic burst.
+
+**No per-gesture table is rendered for (c), and that is an omission, not an absence of data.** AC #1 asks
+for INP per gesture per engine **per configuration**; `raw/all-c.txt` carries every (c) row and they are
+not transcribed here. One of them matters to the verdict above: chromium's **unthrottled**
+`marquee-drag ×5` is the only drag row run-wide whose LoAF check went **FAIL** — 1 frame over 33 ms and
+a **51.8 ms** long-animation-frame beginning 14.9 ms into the window (`raw/all-c.txt:24`; window
+`t0 1602.8 → t1 2992.3`, LoAF at `1617.7`). Its worst rAF gap was **33.3 ms**, so the ≤ 50 ms threshold
+the verdict is actually measured against is not breached and the branch does not move. **No cause is
+claimed**: the entry sits near gesture start, but nothing in this run separates gesture-start cost from
+steady state.
 
 ### Stage size against T1's ceiling signal
 
@@ -273,7 +287,7 @@ cause was found. All three apparatus controls run:
 | observer alive | (asserted every leg) | — | forced-slow calibration click yields a grouped non-zero-`interactionId` entry on all three engines, every leg |
 | rAF sampler can see a bad frame | 120 ms busy-wait injected into the arrow-redraw path | worst gap 16.8 → **133.3 ms**; `>33 ms` 0 → **41**; LoAF 0 → **41** | same run without the mutation: max 16.8 ms, `>33 ms` 0, LoAF 0 |
 | comparator can flag | (self-test, copied from `studio-journey.mjs:6299`) | — | `violations(summarize([{interactionId:1,duration:250}]), 200).length === 1` — asserted at the end of every leg |
-| drag genuinely moved | — | — | scale-aware: observed stage delta checked against `pointerDelta / --sx-scale` within 5 px, so a handler that forgot to divide would fail at `?scale=0.5` |
+| drag genuinely moved | — | — | scale-aware: observed stage delta checked against `pointerDelta / scale` within 5 px, so a handler that forgot to divide would fail at `?scale=0.5`. **The handler divides by the load-time scale, not by live `--sx-scale`** — identical throughout this run because the driver never zooms mid-gesture, so this is **not** a demonstration of live-scale division, which is what the real studio needs |
 
 The eyeball pass was done in a **headed** chromium, not only headless (memory
 `vr-gate-single-engine-blindspot`): 30 token-skinned frames render, arrows follow a drag (path `d`
@@ -312,7 +326,7 @@ observed to change), ⌘-wheel scales the stage continuously to ~0.44 with strok
 | `raw/all-a.txt` | cfg=a, three engines, unthrottled — **all checks pass** |
 | `raw/chromium-a-throttled.txt` | cfg=a, chromium, CDP 4× CPU throttle — **all checks pass** |
 | `raw/all-b.txt` | cfg=b, three engines — 1 check failed: chromium's cull control |
-| `raw/all-c.txt` | cfg=c, three engines, both move regimes — 3 checks failed: the deferral control on chromium/firefox, and on webkit's standard regime |
+| `raw/all-c.txt` | cfg=c, three engines, both move regimes — 3 checks failed: the deferral control on **chromium and firefox**, and **chromium's unthrottled `marquee-drag ×5` LoAF check**. WebKit's deferral control **passed** (42 → 5, engaged) |
 | `raw/chromium-c-throttled.txt` | cfg=c, chromium, 4× throttle |
 | `raw/cfg-b-containment-probe.txt` + `.source.txt` | the corrected placement × scale containment matrix |
 | `raw/cfg-c-deferral-probe.txt` + `.source.txt` | the synthetic-burst coalescer mechanism check |
