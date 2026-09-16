@@ -11,8 +11,9 @@ Built the throwaway harness and Playwright driver, ran the full matrix — five 
 configurations × three engines, plus the chromium 4× CPU-throttled leg — and wrote the README with the
 verdict. **The verdict is split: T4 and T5 take decision-rule branch 1 on configuration (a); T2 is
 reported as the open edge.** Every drag row is inside both thresholds on every engine (worst drag INP
-56 ms against a 200 ms budget; worst rAF gap 33.3 ms against 50 ms), and 681 document nodes sit under
-Lighthouse's 800 warning. But the rule's budget clause is drag-scoped and **T2's only gesture is the
+in configuration (a) 56.0 ms against a 200 ms budget, 64.0 ms run-wide across all configurations; worst
+(a) drag rAF gap 33.3 ms against 50 ms, 33.4 ms run-wide), and 681 document nodes sit under Lighthouse's
+800 warning. But the rule's budget clause is drag-scoped and **T2's only gesture is the
 ⌘-wheel sweep**, which under the 4× base-spec proxy spends 34% of its frames over 33 ms — so "holds on
 all three" would have asserted T2 on a row about drags. Total elapsed ~15 minutes against a half-day
 box, so nothing was cut.
@@ -88,10 +89,19 @@ All observed unless marked.
 | `node tooling/drift-check.mjs` | **0** | **✓ all 13 checks** — unchanged (first run failed on absent `tooling/style-dictionary/node_modules`, a fresh-worktree artefact per memory `local-agent-visual-gate-notes`; `npm install` there, then green) |
 | `git status --short -- system/ tooling/ agent-layer/ handoff/` | 0 | **empty** — nothing under the protected trees moved |
 
-**Headline figures, each observed and traceable:** worst drag INP **56.0 ms** (chromium @ 4×,
-`raw/chromium-a-throttled.txt`) against 200 ms; worst rAF gap in a drag window **33.3 ms** (same file)
-against ≤ 50 ms; **681** document nodes (`raw/all-a.txt`) against Lighthouse's 800 warning — **119 to
-spare** (derived: 800 − 681).
+**Headline figures, each re-derived from the committed `raw/` files at HEAD 9b2e862, not copied from a
+draft:** worst drag INP **in configuration (a)** **56.0 ms** (chromium @ 4×, `raw/chromium-a-throttled.txt`)
+against 200 ms — **run-wide across every configuration it is 64.0 ms** (`raw/chromium-c-throttled.txt`);
+worst **(a)** drag rAF gap **33.3 ms**, run-wide **33.4 ms** (same two files), against ≤ 50 ms; throttled
+zoom **83 of 241** frames over 33 ms (derived: **34.4%**); **681** document nodes (`raw/all-a.txt`)
+against Lighthouse's 800 warning — **119 to spare** (derived: 800 − 681); **0** arrow redraws across
+**72** wheel events (`raw/zoom-cost-probe.txt`).
+
+**One label corrected at PR time.** The first draft of this report and the README said "worst drag INP
+56 ms" without naming the configuration. 56.0 ms is the worst in **(a)**; run-wide it is 64.0 ms, on the
+cfg=c throttled leg. Both sit far inside the 200 ms budget so no verdict moves, but "worst" unqualified
+was a right number under a wrong label — the exact failure `piv-create-pr`'s figures gate names, caught
+by re-deriving rather than re-reading.
 
 ## Not run
 

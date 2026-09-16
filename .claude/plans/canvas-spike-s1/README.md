@@ -14,7 +14,7 @@ edited or deleted; the harness reads those modules over HTTP and nothing else.
 
 | Q | Verdict | Evidence |
 |---|---|---|
-| **Does the free-position DOM stage hold INP ≤ 200 ms and zero dropped frames *during drag*, on all three engines?** | **Yes, in configuration (a) — the bare one, no mitigation.** Worst drag INP **56 ms** against a 200 ms budget (chromium under 4× CPU throttle); worst rAF gap in any drag window **33.3 ms** against the ≤ 50 ms threshold; **zero** frames over 33 ms and **zero** long-animation-frames in every unthrottled drag on every engine. This is the rule's own clause, and it is met. | `raw/all-a.txt`, `raw/chromium-a-throttled.txt` |
+| **Does the free-position DOM stage hold INP ≤ 200 ms and zero dropped frames *during drag*, on all three engines?** | **Yes, in configuration (a) — the bare one, no mitigation.** Worst drag INP **in configuration (a)** **56.0 ms** against a 200 ms budget (chromium under 4× CPU throttle); worst rAF gap in any **(a)** drag window **33.3 ms** against the ≤ 50 ms threshold; run-wide, across every configuration, the worst drag figures are **64.0 ms** and **33.4 ms** (both chromium @ 4×, cfg=c leg) — still far inside both; **zero** frames over 33 ms and **zero** long-animation-frames in every unthrottled drag on every engine. This is the rule's own clause, and it is met. | `raw/all-a.txt`, `raw/chromium-a-throttled.txt` |
 | **Does T2 — continuous scale — hold to the same standard?** | **Not under the base-spec proxy.** Fine unthrottled (chromium 2 of 302 frames over 33 ms; webkit 1 of 215, worst gap 43.0 ms). But chromium under CDP 4×: **83 of 241 frames over 33 ms — 34% of the sweep at roughly half frame rate — plus one long-animation-frame.** The inherited ≤ 50 ms threshold is never breached (worst gap 33.5 ms), so this is not a rule failure; it is the rule's clause being drag-scoped while T2's only gesture is the zoom. **Reported as the open edge, not as a pass.** | `raw/chromium-a-throttled.txt`, `raw/all-a.txt` |
 | **Does configuration (b) — `content-visibility: auto` + `contain-intrinsic-size` — work on this substrate?** | **No on Chromium 149.0.7827.55; yes on Firefox 151.0 and WebKit 26.5.** Its positive control refused to record a (b) number on Chromium: **0** `contentvisibilityautostatechange` events, **0/30** frames skipped, with the rule verifiably applied. Isolated: on that Chromium **either** translate positioning **or** a scaled ancestor independently defeats the cull — i.e. T4 and T2 each kill it on their own. Firefox and WebKit cull in all four combinations. **This is a claim about these three builds, measured 2026-09-16** — re-test before relying on it later. | `raw/all-b.txt`, `raw/cfg-b-containment-probe.txt` |
 | **Does configuration (c) — arrow redraw deferred to one rAF — work?** | **The mechanism engages on all three engines** (200 synthetic pointermoves in one task → 200 redraws under (a), **1** under (c)). Under a *real* scripted gesture it engaged on **WebKit only** (42 → 5); on Chromium and Firefox Playwright cannot deliver pointermoves faster than the frame rate, so there was nothing to coalesce and (c) is identical to (a) by construction. **Not needed** — (a) passed. | `raw/cfg-c-deferral-probe.txt`, `raw/all-c.txt` |
@@ -147,8 +147,11 @@ are zoom sweeps — webkit 43.0 ms and chromium 33.4 ms worst gap — and both a
 | ⌘-wheel zoom 0.25↔2 | *n/a by spec* | 16.7 | 241 / 5402 ms | 16.7 | 33.4 | **33.5** | **83** | **1** |
 | pan the full extent | *n/a by spec* | 16.7 | 66 / 1111 ms | 16.7 | 16.8 | **16.8** | 0 | 0 |
 
-The three drag rows hold: 56 ms INP (28% of budget) and a worst gap of 33.3 ms (67% of threshold), one
-frame over 33 ms per drag, zero LoAF.
+The three drag rows hold: 56.0 ms INP (28% of budget) and a worst gap of 33.3 ms (67% of threshold), one
+frame over 33 ms per drag, zero LoAF. (The same three rows on the **cfg=c** throttled leg reach 64.0 ms
+and 33.4 ms — `raw/chromium-c-throttled.txt`, the run-wide worst drag figures, still 32% of budget and
+67% of threshold. (c) is not a mitigation for drags; at one move per frame it *is* (a), so this is
+run-to-run spread, not a configuration effect.)
 
 **The one row that is genuinely heavy is the throttled zoom sweep, and it is the basis of T2's split
 verdict:** 83 of 241 frames over 33 ms — **34% of the sweep at roughly half frame rate** — plus one
