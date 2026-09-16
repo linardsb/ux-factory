@@ -1,0 +1,3 @@
+wheel events dispatched : 72
+arrow redraws during zoom: 0   <- if 0, arrows are NOT the zoom cost
+scrollend during zoom    : 0

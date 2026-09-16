@@ -1,0 +1,430 @@
+// S1 driver — the free-position substrate under load (ticket #297, epic #295).
+//
+// Run it (authored and run from the scratchpad; parked in the repo as driver.txt — Node refuses a
+// .txt module entry, so the .txt is a STORAGE decision, not a run path):
+//   cd <worktree> && PORT=4759 node tooling/visual-regression/serve.mjs &
+//   node driver.mjs [chromium|firefox|webkit|all] [a|b|c] [--throttle] [--frames N] [--slow-arrows]
+//
+// THROWAWAY. Nothing under system/ tooling/ agent-layer/ handoff/ is touched; this only drives the
+// harness over HTTP. Measurement contract, thresholds and idioms are MIRRORED from
+// tooling/studio-journey.mjs's perfPass (:5940–5990 calibration, :6195–6262 the row loop,
+// :6290–6405 the rAF-gap sampler) so the numbers are comparable to the grid pass's — and
+// OBSERVER_INIT/summarize/violations are IMPORTED, never re-implemented (:6254 states why).
+
+import { createRequire } from "node:module";
+import path from "node:path";
+
+// Playwright resolves from the MAIN TREE's tooling/visual-regression/node_modules — the CI-pinned
+// copy (@playwright/test 1.61.1), which is what makes these numbers comparable to the studio
+// gate's. A fresh worktree has no node_modules of its own (memory `local-agent-visual-gate-notes`),
+// so this absolute path is correct here rather than something to "fix" into a relative one.
+const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+const VRDIR = path.join(MAIN, "tooling", "visual-regression");
+const require = createRequire(`${VRDIR}${path.sep}`);
+const pw = require("@playwright/test");
+
+const { OBSERVER_INIT, summarize, violations } =
+  await import(path.join(MAIN, "tooling", "inp-observer.mjs"));
+
+const BASE = process.env.BASE || "http://127.0.0.1:4759";
+const HARNESS = `${BASE}/.claude/plans/canvas-spike-s1/harness.html`;
+const BUDGET_MS = 200;
+
+const argv = process.argv.slice(2);
+const flag = (n) => argv.includes(n);
+const optNum = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? Number(argv[i + 1]) : d; };
+const ENGINES = (argv[0] && argv[0] !== "all") ? [argv[0]] : ["chromium", "firefox", "webkit"];
+const CFG = ["a", "b", "c"].includes(argv[1]) ? argv[1] : "a";
+const THROTTLE = flag("--throttle");
+const FRAMES = optNum("--frames", 30);
+const SLOW_ARROWS = flag("--slow-arrows");   // the sampler's REDDENS mutation, driver-side
+
+const fmt = (v) => (v === undefined || v === null ? "–" : Number(v).toFixed(1));
+const results = [];
+let failures = 0;
+const t = (label, ok, detail = "") => {
+  if (!ok) failures += 1;
+  console.log(`    ${ok ? "PASS" : "FAIL"}  ${label}${detail ? `  ·  ${detail}` : ""}`);
+};
+
+// Entries are delivered after the interaction's next paint — flush with a double rAF plus a beat of
+// real time before reading, or the delta is short on every engine (studio-journey.mjs:5946–5951).
+const flush = async (p) => {
+  await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await p.waitForTimeout(150);
+};
+const entriesFrom = (p, from) => p.evaluate((i) => window.__studioINP.slice(i), from);
+const count = (p) => p.evaluate(() => window.__studioINP.length);
+
+// Load a harness page and WAIT ON ITS OWN STATE (data-ready, set after the last frame mounts) —
+// never a sleep. Then 500 ms of rest, the #72 spike's rule: 30 compositions rendering at load must
+// never enter a measured window.
+async function openHarness(ctx, { cfg = CFG, frames = FRAMES, scale = 1 } = {}) {
+  const p = await ctx.newPage();
+  const errors = [];
+  p.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+  p.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
+  await p.goto(`${HARNESS}?cfg=${cfg}&frames=${frames}&scale=${scale}`, { waitUntil: "load" });
+  await p.waitForSelector("html[data-ready='1']", { timeout: 30000 });
+  if (SLOW_ARROWS) {
+    // REDDENS control for the rAF sampler: a 120 ms busy-wait on every arrow redraw. Proves the
+    // sampler can SEE a bad frame before any zero-dropped-frames claim is believed.
+    await p.evaluate(() => {
+      const scroller = document.querySelector("[data-sx-scroll]");
+      scroller.addEventListener("pointermove", () => {
+        const t0 = performance.now(); while (performance.now() - t0 < 120) { /* forced-slow */ }
+      }, true);
+    });
+  }
+  await p.waitForTimeout(500);
+  p.__errors = errors;
+  return p;
+}
+
+// The rAF-gap sampler (studio-journey.mjs:6338–6392, copied). Idle baseline first, then a
+// window-scoped LoAF observer with buffered OFF, then frames filtered to [t0, t1].
+// Thresholds inherited VERBATIM: worst rAF gap <= 50 ms, zero LoAF (>= 50 ms) in the window.
+async function sample(p, gesture, { loaf }) {
+  const idle = await p.evaluate(() => new Promise((res) => {
+    const ts = [];
+    const tick = (now) => { ts.push(now); if (ts.length >= 61) return res(ts); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }));
+  const idleGaps = idle.slice(1).map((v, i) => v - idle[i]).sort((a, b) => a - b);
+  const idleMedian = idleGaps[Math.floor(idleGaps.length / 2)];
+
+  await p.evaluate((withLoaf) => {
+    window.__frames = []; window.__loaf = [];
+    const loop = (now) => { window.__frames.push(now); window.__rafId = requestAnimationFrame(loop); };
+    window.__rafId = requestAnimationFrame(loop);
+    if (withLoaf) {
+      window.__loafObs = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) window.__loaf.push({ start: e.startTime, duration: e.duration });
+      });
+      window.__loafObs.observe({ type: "long-animation-frame" });
+    }
+  }, loaf);
+
+  const t0 = await p.evaluate(() => performance.now());
+  const gestureResult = await gesture(p);
+  const t1 = await p.evaluate(() => performance.now());
+
+  const sampled = await p.evaluate(() => {
+    cancelAnimationFrame(window.__rafId);
+    window.__loafObs?.disconnect();
+    return { frames: window.__frames, loaf: window.__loaf };
+  });
+
+  const inWindow = sampled.frames.filter((v) => v >= t0 && v <= t1);
+  const gaps = inWindow.slice(1).map((v, i) => v - inWindow[i]).sort((a, b) => a - b);
+  const pctl = (q) => gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * q))];
+  return {
+    idleMedian, t0, t1, ms: t1 - t0,
+    frames: gaps.length + 1,
+    p50: pctl(0.5), p95: pctl(0.95),
+    max: gaps[gaps.length - 1] ?? 0,
+    over33: gaps.filter((g) => g > 33).length,
+    loafInWindow: loaf ? sampled.loaf.filter((e) => e.start + e.duration >= t0 && e.start <= t1) : null,
+    gestureResult,
+  };
+}
+
+// A real ~40-step pointer drag over ~800 ms — studio-journey.mjs:6371–6377's shape. Fewer, faster
+// moves make the gesture look cheap.
+async function dragFrame(p, { id = 0, dxPx = 220, dyPx = 160, fast = false } = {}) {
+  const geom = await p.evaluate((n) => {
+    const el = document.querySelectorAll(".sx-frame")[n];
+    el.scrollIntoView({ block: "center", inline: "center" });
+    const r = el.getBoundingClientRect();
+    const read = (e) => ({ x: parseFloat(e.style.getPropertyValue("--x")), y: parseFloat(e.style.getPropertyValue("--y")) });
+    return { fromX: r.left + 12, fromY: r.top + 6, before: read(el),
+             scale: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sx-scale")) };
+  }, id);
+  await p.mouse.move(geom.fromX, geom.fromY);
+  await p.mouse.down();
+  let moves = 0;
+  for (let i = 1; i <= 40; i += 1) {
+    await p.mouse.move(geom.fromX + dxPx * (i / 40), geom.fromY + dyPx * (i / 40));
+    if (!fast) await p.waitForTimeout(15);
+    moves += 1;
+  }
+  await p.mouse.up();
+  const after = await p.evaluate((n) => {
+    const e = document.querySelectorAll(".sx-frame")[n];
+    return { x: parseFloat(e.style.getPropertyValue("--x")), y: parseFloat(e.style.getPropertyValue("--y")),
+             redraws: window.__arrowRedraws };
+  }, id);
+  // The movement assertion is SCALE-AWARE. `after.x !== before.x` passes even when the handler
+  // forgets to divide the pointer delta by --sx-scale, which is exactly how a ?scale=0.5 row reads
+  // green on a half-weight gesture (plan AMENDMENT 3).
+  const expectedDx = dxPx / geom.scale;
+  const observedDx = after.x - geom.before.x;
+  return { moves, scale: geom.scale, expectedDx, observedDx,
+           movedEnough: Math.abs(observedDx - expectedDx) < 5, redraws: after.redraws };
+}
+
+async function measureINP(p, act) {
+  const before = await count(p);
+  const r = await act(p);
+  await flush(p);
+  const fresh = summarize(await entriesFrom(p, before));
+  return { latency: fresh.length ? Math.max(...fresh.map((g) => g.latency)) : null,
+           entries: fresh.reduce((n, g) => n + g.events.length, 0), gestureResult: r };
+}
+const inpCell = (m, alive) => (m.latency === null
+  ? `< 16 ms (no entry — below the observer's floor)${alive ? "" : " · CALIBRATION DEAD"}`
+  : `${fmt(m.latency)} ms`);
+
+// ================================================================================================
+async function runEngine(engineName) {
+  const browser = await pw[engineName].launch();
+  console.log(`\n${"=".repeat(96)}\n${engineName} · cfg=${CFG} · frames=${FRAMES}${THROTTLE ? " · CDP 4x CPU throttle" : ""}${SLOW_ARROWS ? " · SLOW-ARROWS MUTATION" : ""}\n${"=".repeat(96)}`);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await ctx.addInitScript(OBSERVER_INIT);
+
+  // --- 0 · calibration: the observer proven ALIVE (studio-journey.mjs:5953–5978) ------------------
+  const cal = await ctx.newPage();
+  await cal.goto(`${BASE}/404.html`, { waitUntil: "load" });
+  await cal.evaluate(() => {
+    document.addEventListener("click", (e) => {
+      e.preventDefault();
+      const t0 = performance.now();
+      while (performance.now() - t0 < 35) { /* forced-slow: past the observer's 16 ms floor */ }
+    }, true);
+  });
+  await cal.mouse.click(400, 300);
+  await flush(cal);
+  const calSeen = summarize(await entriesFrom(cal, 0));
+  const alive = calSeen.length >= 1 && calSeen.every((g) => g.interactionId > 0);
+  t(`observer pipeline ALIVE on ${engineName} — a forced-slow click yields a grouped entry`,
+    alive, JSON.stringify(calSeen.map((g) => ({ id: g.interactionId, ms: Math.round(g.latency) }))));
+  await cal.close();   // before any measurement page opens, or the slow listener pollutes a real row
+
+  const row = (gesture, inp, s, extra = "") => {
+    results.push({ engine: engineName, cfg: CFG, throttled: THROTTLE, gesture, inp, ...s });
+    console.log(`  ${gesture.padEnd(26)} INP ${String(inp).padEnd(46)}`);
+    console.log(`  ${"".padEnd(26)} idle median ${fmt(s.idleMedian)} ms · ${s.frames} frames over ${Math.round(s.ms)} ms · p50 ${fmt(s.p50)} · p95 ${fmt(s.p95)} · max ${fmt(s.max)} · >33 ms: ${s.over33} · LoAF: ${s.loafInWindow ? s.loafInWindow.length : "n/a (chromium-only)"}${extra ? ` · ${extra}` : ""}`);
+  };
+
+  const withThrottle = async (p, fn) => {
+    if (!THROTTLE || engineName !== "chromium") return fn();
+    const cdp = await ctx.newCDPSession(p);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    try { return await fn(); } finally { await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }); }
+  };
+  const loaf = engineName === "chromium";
+
+  // --- node count, once per engine/cfg -------------------------------------------------------------
+  {
+    const p = await openHarness(ctx);
+    const n = await p.evaluate(() => window.__sxNodes);
+    const intrinsic = await p.evaluate(() => window.__sxIntrinsic);
+    console.log(`  stage nodes: ${n.document} in the document (${n.scroller} inside the scroller) · Lighthouse warns > 800 · fails > 1400 · ${n.document > 1400 ? "OVER THE FAILURE THRESHOLD" : n.document > 800 ? `OVER THE WARNING by ${n.document - 800}` : `under the warning, ${800 - n.document} to spare`}`);
+    console.log(`  ${n.frames} frames · ${n.arrows} arrows · measured frame box ${intrinsic.w}x${intrinsic.h} px`);
+    results.push({ engine: engineName, cfg: CFG, nodes: n, intrinsic });
+    t("no page errors while 30 real compositions render through the REAL validator + renderer",
+      p.__errors.length === 0, p.__errors.slice(0, 3).join(" | "));
+    await p.close();
+  }
+
+  // --- 1 · drag one frame @ scale 1.0 ---------------------------------------------------------------
+  {
+    const p = await openHarness(ctx, { scale: 1 });
+    const m = await measureINP(p, (pg) => withThrottle(pg, () => sample(pg, (q) => dragFrame(q, { id: 0 }), { loaf })));
+    const s = m.gestureResult, d = s.gestureResult;
+    row("drag one frame @ 1.0", inpCell(m, alive), s, `redraws ${d.redraws}`);
+    t("the drag moved the frame by the EXPECTED stage delta (scale-aware, not merely non-zero)",
+      d.movedEnough, `scale ${d.scale} · expected ${fmt(d.expectedDx)} px · observed ${fmt(d.observedDx)} px`);
+    t("a genuinely sampled drag — dozens of frames inside the drag window", s.frames >= 20, `${s.frames} frame(s)`);
+    t(`worst rAF gap inside the drag <= 50 ms`, s.max <= 50, `${fmt(s.max)} ms`);
+    if (loaf) t("zero long-animation-frame entries overlap the drag window", s.loafInWindow.length === 0, JSON.stringify(s.loafInWindow));
+    if (m.latency !== null) t(`INP <= ${BUDGET_MS} ms`, violations([{ latency: m.latency }], BUDGET_MS).length === 0, `${fmt(m.latency)} ms`);
+    await p.close();
+  }
+
+  // --- 2 · drag one frame @ scale 0.5 — a SEPARATE page load, never a mid-run zoom -------------------
+  {
+    const p = await openHarness(ctx, { scale: 0.5 });
+    const m = await measureINP(p, (pg) => withThrottle(pg, () => sample(pg, (q) => dragFrame(q, { id: 0 }), { loaf })));
+    const s = m.gestureResult, d = s.gestureResult;
+    row("drag one frame @ 0.5", inpCell(m, alive), s, `redraws ${d.redraws}`);
+    t("the @0.5 drag moved by the EXPECTED stage delta — the handler divides by --sx-scale",
+      d.movedEnough, `scale ${d.scale} · expected ${fmt(d.expectedDx)} px · observed ${fmt(d.observedDx)} px`);
+    t(`worst rAF gap inside the @0.5 drag <= 50 ms`, s.max <= 50, `${fmt(s.max)} ms`);
+    await p.close();
+  }
+
+  // --- 3 · marquee-drag five frames ------------------------------------------------------------------
+  {
+    const p = await openHarness(ctx, { scale: 1 });
+    const picked = await p.evaluate(() => {
+      const els = [...document.querySelectorAll(".sx-frame")].slice(0, 5);
+      els.forEach((e) => e.setAttribute("data-picked", "1"));
+      return els.length;
+    });
+    const m = await measureINP(p, (pg) => withThrottle(pg, () => sample(pg, (q) => dragFrame(q, { id: 0 }), { loaf })));
+    const s = m.gestureResult, d = s.gestureResult;
+    const movedAll = await p.evaluate(() => [...document.querySelectorAll('.sx-frame[data-picked="1"]')]
+      .every((e) => parseFloat(e.style.getPropertyValue("--x")) > 0));
+    row(`marquee-drag x${picked}`, inpCell(m, alive), s, `redraws ${d.redraws}`);
+    t("all five picked frames moved together — the gesture is genuinely five times heavier",
+      movedAll && d.movedEnough, `picked ${picked} · observed ${fmt(d.observedDx)} px`);
+    t(`worst rAF gap inside the marquee drag <= 50 ms`, s.max <= 50, `${fmt(s.max)} ms`);
+    if (loaf) t("zero LoAF entries overlap the marquee-drag window", s.loafInWindow.length === 0, JSON.stringify(s.loafInWindow));
+    if (m.latency !== null) t(`INP <= ${BUDGET_MS} ms`, violations([{ latency: m.latency }], BUDGET_MS).length === 0, `${fmt(m.latency)} ms`);
+    await p.close();
+  }
+
+  // --- 4 · cmd-wheel zoom 0.25 -> 2 -> 0.25 ----------------------------------------------------------
+  // NO INP ROW BY SPEC: wheel carries interactionId 0 (Event Timing), and inp-observer.mjs:38 drops
+  // every falsy id. That is correct, not a broken harness. Never printed as `0 ms`.
+  {
+    const p = await openHarness(ctx, { scale: 1 });
+    const mod = engineName === "webkit" ? "Meta" : "Control";
+    // 0.25 -> 2 -> 0.25, the plan's sweep. The step is x1.06, so each leg needs enough steps to
+    // reach its clamp from the far end: log(2/0.25)/log(1.06) ~= 36. The min/max actually VISITED
+    // are recorded, so "it swept the whole range" is observed rather than assumed.
+    await p.evaluate(() => {
+      window.__sxSeen = { min: Infinity, max: -Infinity };
+      const root = document.documentElement;
+      new MutationObserver(() => {
+        const v = parseFloat(root.style.getPropertyValue("--sx-scale"));
+        if (Number.isFinite(v)) { window.__sxSeen.min = Math.min(window.__sxSeen.min, v);
+                                  window.__sxSeen.max = Math.max(window.__sxSeen.max, v); }
+      }).observe(root, { attributes: true, attributeFilter: ["style"] });
+    });
+    const s = await withThrottle(p, () => sample(p, async (q) => {
+      await q.mouse.move(700, 400);
+      await q.keyboard.down(mod);
+      for (let i = 0; i < 36; i += 1) { await q.mouse.wheel(0, 60); await q.waitForTimeout(15); }   // out to 0.25
+      for (let i = 0; i < 36; i += 1) { await q.mouse.wheel(0, -60); await q.waitForTimeout(15); }  // in to 2
+      for (let i = 0; i < 36; i += 1) { await q.mouse.wheel(0, 60); await q.waitForTimeout(15); }   // out to 0.25
+      await q.keyboard.up(mod);
+      return q.evaluate(() => ({ end: window.__sxScale, seen: window.__sxSeen }));
+    }, { loaf }));
+    const z = s.gestureResult;
+    row("cmd-wheel zoom 0.25<->2", "n/a — wheel carries no interactionId (Event Timing spec)", s,
+      `swept ${fmt(z.seen.min)} -> ${fmt(z.seen.max)} -> ${fmt(z.end)}`);
+    t("the zoom genuinely swept the full continuous range — both clamps visited",
+      z.seen.min <= 0.26 && z.seen.max >= 1.99, `min ${fmt(z.seen.min)} · max ${fmt(z.seen.max)}`);
+    t(`worst rAF gap inside the zoom <= 50 ms`, s.max <= 50, `${fmt(s.max)} ms`);
+    await p.close();
+  }
+
+  // --- 5 · pan the full extent -----------------------------------------------------------------------
+  // NO INP ROW BY SPEC: scroll is not an interaction.
+  {
+    const p = await openHarness(ctx, { scale: 1 });
+    const s = await withThrottle(p, () => sample(p, async (q) => {
+      const ext = await q.evaluate(() => {
+        const sc = document.querySelector("[data-sx-scroll]");
+        return { w: sc.scrollWidth - sc.clientWidth, h: sc.scrollHeight - sc.clientHeight };
+      });
+      for (let i = 1; i <= 40; i += 1) {
+        await q.evaluate(([x, y]) => document.querySelector("[data-sx-scroll]").scrollTo(x, y),
+          [ext.w * (i / 40), ext.h * (i / 40)]);
+        await q.waitForTimeout(15);
+      }
+      await q.waitForTimeout(400);   // give scrollend room to fire
+      return q.evaluate(() => {
+        const sc = document.querySelector("[data-sx-scroll]");
+        return { left: sc.scrollLeft, top: sc.scrollTop, scrollend: window.__scrollendSeen,
+                 redraws: window.__arrowRedraws };
+      });
+    }, { loaf }));
+    const g = s.gestureResult;
+    row("pan the full extent", "n/a — scroll is not an interaction (Event Timing spec)", s,
+      `scrollend fired ${g.scrollend}x · redraws ${g.redraws}`);
+    t("the pan genuinely moved the scroller", g.left > 0 && g.top > 0, `left ${Math.round(g.left)} · top ${Math.round(g.top)}`);
+    t(`scrollend fires on ${engineName} — cfg=c's pan half is implementable here`, g.scrollend > 0, `${g.scrollend} event(s)`);
+    t(`worst rAF gap inside the pan <= 50 ms`, s.max <= 50, `${fmt(s.max)} ms`);
+    await p.close();
+  }
+
+  // --- 6 · configuration (b)'s POSITIVE CONTROL — same load, same frame, on-screen vs off-viewport ---
+  // BLOCKS recording a (b) number. Two page loads can differ in scroll position, so an unequal
+  // height across loads is also producible by the scroll alone; one load isolates the cull.
+  // The observable is `contentvisibilityautostatechange`, the spec's own signal, and NOT the two
+  // the plan named. Both of those proved unreliable on a page where the mechanism is PROVEN to be
+  // working (probe raw/cfg-b-containment-probe.txt, minimal-page control): a skipped element still
+  // reported checkVisibility({contentVisibilityAuto:true}) === true on all three engines, and its
+  // getBoundingClientRect().height can equal its natural height whenever the declared intrinsic
+  // size is close to it. A control read through either would have said "no cull" on a page that
+  // culls — the exact failure the control exists to prevent, pointed the other way.
+  if (CFG === "b") {
+    const p = await openHarness(ctx, { scale: 1 });
+    await p.evaluate(() => {
+      window.__cvEvents = 0; window.__cvSkipped = new Set();
+      document.querySelectorAll(".sx-frame").forEach((e, i) =>
+        e.addEventListener("contentvisibilityautostatechange", (ev) => {
+          window.__cvEvents += 1;
+          if (ev.skipped) window.__cvSkipped.add(i); else window.__cvSkipped.delete(i); }));
+    });
+    await p.waitForTimeout(300);
+    await p.evaluate(() => { const sc = document.querySelector("[data-sx-scroll]");
+      sc.scrollTo(sc.scrollWidth, sc.scrollHeight); });
+    await flush(p);                    // the cull lands at the next rendering opportunity
+    await p.waitForTimeout(500);
+    const cv = await p.evaluate(() => {
+      const e = document.querySelectorAll(".sx-frame")[0];
+      return { events: window.__cvEvents, skippedNow: window.__cvSkipped.size,
+               frames: document.querySelectorAll(".sx-frame").length,
+               computed: getComputedStyle(e).contentVisibility,
+               intrinsic: getComputedStyle(e).containIntrinsicSize,
+               h: e.getBoundingClientRect().height, natural: e.offsetHeight };
+    });
+    console.log(`  cfg=b control · content-visibility: ${cv.computed} · contain-intrinsic-size: ${cv.intrinsic} · state-change events ${cv.events} · currently skipped ${cv.skippedNow}/${cv.frames}`);
+    results.push({ engine: engineName, cfg: "b", control: cv });
+    t("cfg=b POSITIVE CONTROL — content-visibility:auto genuinely culls an off-viewport frame",
+      cv.events > 0, `${cv.events} state-change event(s) · ${cv.skippedNow}/${cv.frames} skipped · the declared rule IS applied (computed ${cv.computed}, ${cv.intrinsic})`);
+    await p.close();
+  }
+
+  // --- 7 · configuration (c)'s POSITIVE CONTROL — __arrowRedraws, (a) vs (c), same gesture ---------
+  // BLOCKS recording a (c) number. A deferral that did not defer reports (a)'s numbers, and this
+  // counter is the one line that tells them apart. Cross-load is sound HERE (unlike (b)'s height
+  // read, whose confound is scroll position): the metric is a counter the page owns, and the
+  // gesture is byte-identical on both loads.
+  // Run in BOTH move regimes, because the standard gesture cannot exercise the deferral at all:
+  // studio-journey's 40-steps-at-15 ms shape delivers roughly ONE pointermove per animation frame,
+  // so a rAF coalescer has nothing to coalesce and (c) is identical to (a) by construction. That
+  // is a finding about when the mitigation pays, not a bug — so the standard regime is recorded as
+  // a no-op and the fast regime (moves dispatched back to back, several per frame) is where (c)'s
+  // number is earned.
+  if (CFG === "c") {
+    const redrawsFor = async (cfg, fast) => {
+      const p = await openHarness(ctx, { cfg, scale: 1 });
+      const d = await dragFrame(p, { id: 0, fast });
+      await p.close();
+      return { redraws: d.redraws, moves: d.moves };
+    };
+    for (const [regime, fast] of [["standard 40x15 ms", false], ["fast (no inter-move wait)", true]]) {
+      const a = await redrawsFor("a", fast);
+      const c = await redrawsFor("c", fast);
+      const engaged = c.redraws < a.redraws;
+      console.log(`  cfg=c control · ${regime.padEnd(26)} cfg=a redraws ${String(a.redraws).padStart(3)} · cfg=c redraws ${String(c.redraws).padStart(3)} · ${engaged ? "DEFERRAL ENGAGED" : "no-op (one move per frame — nothing to coalesce)"}`);
+      results.push({ engine: engineName, cfg: "c", regime, control: { aRedraws: a.redraws, cRedraws: c.redraws, moves: a.moves, engaged } });
+      if (fast) {
+        t("cfg=c POSITIVE CONTROL — under sub-frame move rates the rAF deferral genuinely engaged",
+          engaged, `cfg=a ${a.redraws} · cfg=c ${c.redraws} over ${a.moves} pointermoves`);
+      }
+    }
+  }
+
+  await ctx.close();
+  await browser.close();
+}
+
+// ================================================================================================
+for (const e of ENGINES) await runEngine(e);
+
+// The comparator self-test control (studio-journey.mjs:6299, memory `check-that-cannot-fail`): the
+// comparator proven able to go red in the same run that relies on it.
+const control = violations(summarize([{ interactionId: 1, duration: 250 }]), BUDGET_MS);
+console.log(`\n${"-".repeat(96)}`);
+t("the comparator itself can flag — a synthetic 250 ms interaction is a violation",
+  control.length === 1 && control[0].latency === 250, JSON.stringify(control));
+
+console.log(`\n${failures === 0 ? "ALL CHECKS PASS" : `${failures} CHECK(S) FAILED`} · cfg=${CFG} · engines ${ENGINES.join(",")}${THROTTLE ? " · 4x throttle" : ""}`);
+console.log("JSON " + JSON.stringify(results));
+process.exit(failures === 0 ? 0 : 1);

@@ -1,0 +1,48 @@
+// cfg=c MECHANISM control. The driver's real-gesture control could only make the deferral engage on
+// WebKit: Playwright's mouse.move round-trips per call, so on chromium and firefox at most one
+// pointermove lands per animation frame and a rAF coalescer has nothing to coalesce (the 4x CPU
+// throttle does not change this — it slows script, not the compositor's frame cadence).
+//
+// This probe dispatches a BURST of synthetic pointermove events in one task, which is a sub-frame
+// move rate by construction. SYNTHETIC, and labelled as such: untrusted events carry no
+// interactionId and this is NOT an INP measurement. It answers exactly one question — does the
+// pending-flag rAF in cfg=c coalesce, on this engine — and nothing about gesture cost.
+import { createRequire } from "node:module";
+import path from "node:path";
+const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+const require = createRequire(path.join(MAIN, "tooling", "visual-regression") + path.sep);
+const pw = require("@playwright/test");
+
+const burst = async (p, cfg) => {
+  await p.goto(`http://127.0.0.1:4759/.claude/plans/canvas-spike-s1/harness.html?cfg=${cfg}&frames=30`, { waitUntil: "load" });
+  await p.waitForSelector("html[data-ready='1']");
+  await p.waitForTimeout(400);
+  return p.evaluate(async () => {
+    const stage = document.querySelector("[data-sx-stage]");
+    const el = document.querySelectorAll(".sx-frame")[0];
+    const r = el.getBoundingClientRect();
+    const ev = (type, x, y) => stage.dispatchEvent(new PointerEvent(type,
+      { bubbles: true, clientX: x, clientY: y, pointerId: 1, composed: true }));
+    // pointerdown must hit the frame itself for the harness's closest() to find it
+    el.dispatchEvent(new PointerEvent("pointerdown",
+      { bubbles: true, clientX: r.left + 12, clientY: r.top + 6, pointerId: 1, composed: true }));
+    const before = window.__arrowRedraws;
+    for (let i = 1; i <= 200; i += 1) ev("pointermove", r.left + 12 + i, r.top + 6 + i);   // one task
+    const sync = window.__arrowRedraws - before;
+    await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const afterRaf = window.__arrowRedraws - before;
+    ev("pointerup", 0, 0);
+    return { moves: 200, redrawsDuringBurst: sync, redrawsAfterRaf: afterRaf };
+  });
+};
+
+for (const eng of ["chromium", "firefox", "webkit"]) {
+  const b = await pw[eng].launch();
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
+  const p = await ctx.newPage();
+  const a = await burst(p, "a");
+  const c = await burst(p, "c");
+  const engaged = c.redrawsAfterRaf < a.redrawsAfterRaf;
+  console.log(`${eng.padEnd(9)} ${b.version().padEnd(16)} 200 synthetic pointermoves in one task · cfg=a redraws ${String(a.redrawsAfterRaf).padStart(4)} · cfg=c redraws ${String(c.redrawsAfterRaf).padStart(4)} · ${engaged ? `DEFERRAL ENGAGED (${(a.redrawsAfterRaf / Math.max(1, c.redrawsAfterRaf)).toFixed(0)}x fewer)` : "NOT ENGAGED"}`);
+  await b.close();
+}

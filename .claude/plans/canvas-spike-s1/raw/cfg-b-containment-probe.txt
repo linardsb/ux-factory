@@ -1,0 +1,18 @@
+
+=== chromium 149.0.7827.55 ===
+  layout-positioned (top/left), scale 1      events  30 · currently skipped  0/30 · CULLS
+  translate-positioned (T4's shape), scale 1 events   0 · currently skipped  0/30 · NO CULL
+  layout-positioned, scale 0.5               events   0 · currently skipped  0/30 · NO CULL
+  translate-positioned, scale 0.5            events   0 · currently skipped  0/30 · NO CULL
+
+=== firefox 151.0 ===
+  layout-positioned (top/left), scale 1      events  20 · currently skipped 10/30 · CULLS
+  translate-positioned (T4's shape), scale 1 events  50 · currently skipped 20/30 · CULLS
+  layout-positioned, scale 0.5               events  48 · currently skipped 12/30 · CULLS
+  translate-positioned, scale 0.5            events  48 · currently skipped 12/30 · CULLS
+
+=== webkit 26.5 ===
+  layout-positioned (top/left), scale 1      events  50 · currently skipped 20/30 · CULLS
+  translate-positioned (T4's shape), scale 1 events  50 · currently skipped 20/30 · CULLS
+  layout-positioned, scale 0.5               events  48 · currently skipped 12/30 · CULLS
+  translate-positioned, scale 0.5            events  48 · currently skipped 12/30 · CULLS

@@ -1,0 +1,104 @@
+
+================================================================================================
+chromium · cfg=a · frames=30
+================================================================================================
+    PASS  observer pipeline ALIVE on chromium — a forced-slow click yields a grouped entry  ·  [{"id":2510,"ms":40}]
+  stage nodes: 681 in the document (665 inside the scroller) · Lighthouse warns > 800 · fails > 1400 · under the warning, 119 to spare
+  30 frames · 29 arrows · measured frame box 220x251 px
+    PASS  no page errors while 30 real compositions render through the REAL validator + renderer
+  drag one frame @ 1.0       INP 48.0 ms                                       
+                             idle median 16.7 ms · 82 frames over 1370 ms · p50 16.7 · p95 16.8 · max 16.8 · >33 ms: 0 · LoAF: 0 · redraws 42
+    PASS  the drag moved the frame by the EXPECTED stage delta (scale-aware, not merely non-zero)  ·  scale 1 · expected 220.0 px · observed 220.0 px
+    PASS  a genuinely sampled drag — dozens of frames inside the drag window  ·  82 frame(s)
+    PASS  worst rAF gap inside the drag <= 50 ms  ·  16.8 ms
+    PASS  zero long-animation-frame entries overlap the drag window  ·  []
+    PASS  INP <= 200 ms  ·  48.0 ms
+  drag one frame @ 0.5       INP 48.0 ms                                       
+                             idle median 16.7 ms · 82 frames over 1370 ms · p50 16.7 · p95 16.8 · max 16.8 · >33 ms: 0 · LoAF: 0 · redraws 42
+    PASS  the @0.5 drag moved by the EXPECTED stage delta — the handler divides by --sx-scale  ·  scale 0.5 · expected 440.0 px · observed 440.0 px
+    PASS  worst rAF gap inside the @0.5 drag <= 50 ms  ·  16.8 ms
+  marquee-drag x5            INP 40.0 ms                                       
+                             idle median 16.7 ms · 82 frames over 1367 ms · p50 16.7 · p95 16.7 · max 16.8 · >33 ms: 0 · LoAF: 0 · redraws 42
+    PASS  all five picked frames moved together — the gesture is genuinely five times heavier  ·  picked 5 · observed 220.0 px
+    PASS  worst rAF gap inside the marquee drag <= 50 ms  ·  16.8 ms
+    PASS  zero LoAF entries overlap the marquee-drag window  ·  []
+    PASS  INP <= 200 ms  ·  40.0 ms
+  cmd-wheel zoom 0.25<->2    INP n/a — wheel carries no interactionId (Event Timing spec)
+                             idle median 16.7 ms · 302 frames over 5069 ms · p50 16.7 · p95 16.8 · max 33.4 · >33 ms: 2 · LoAF: 0 · swept 0.3 -> 2.0 -> 0.3
+    PASS  the zoom genuinely swept the full continuous range — both clamps visited  ·  min 0.3 · max 2.0
+    PASS  worst rAF gap inside the zoom <= 50 ms  ·  33.4 ms
+  pan the full extent        INP n/a — scroll is not an interaction (Event Timing spec)
+                             idle median 16.7 ms · 67 frames over 1116 ms · p50 16.7 · p95 16.8 · max 16.8 · >33 ms: 0 · LoAF: 0 · scrollend fired 40x · redraws 41
+    PASS  the pan genuinely moved the scroller  ·  left 605 · top 1549
+    PASS  scrollend fires on chromium — cfg=c's pan half is implementable here  ·  40 event(s)
+    PASS  worst rAF gap inside the pan <= 50 ms  ·  16.8 ms
+
+================================================================================================
+firefox · cfg=a · frames=30
+================================================================================================
+    PASS  observer pipeline ALIVE on firefox — a forced-slow click yields a grouped entry  ·  [{"id":3201,"ms":40}]
+  stage nodes: 681 in the document (665 inside the scroller) · Lighthouse warns > 800 · fails > 1400 · under the warning, 119 to spare
+  30 frames · 29 arrows · measured frame box 220x253 px
+    PASS  no page errors while 30 real compositions render through the REAL validator + renderer
+  drag one frame @ 1.0       INP 16.0 ms                                       
+                             idle median 16.7 ms · 80 frames over 1336 ms · p50 16.7 · p95 18.3 · max 18.7 · >33 ms: 0 · LoAF: n/a (chromium-only) · redraws 42
+    PASS  the drag moved the frame by the EXPECTED stage delta (scale-aware, not merely non-zero)  ·  scale 1 · expected 220.0 px · observed 220.0 px
+    PASS  a genuinely sampled drag — dozens of frames inside the drag window  ·  80 frame(s)
+    PASS  worst rAF gap inside the drag <= 50 ms  ·  18.7 ms
+    PASS  INP <= 200 ms  ·  16.0 ms
+  drag one frame @ 0.5       INP 16.0 ms                                       
+                             idle median 16.7 ms · 99 frames over 1660 ms · p50 16.7 · p95 18.0 · max 18.7 · >33 ms: 0 · LoAF: n/a (chromium-only) · redraws 42
+    PASS  the @0.5 drag moved by the EXPECTED stage delta — the handler divides by --sx-scale  ·  scale 0.5 · expected 440.0 px · observed 440.0 px
+    PASS  worst rAF gap inside the @0.5 drag <= 50 ms  ·  18.7 ms
+  marquee-drag x5            INP 24.0 ms                                       
+                             idle median 16.7 ms · 81 frames over 1355 ms · p50 16.7 · p95 18.1 · max 18.4 · >33 ms: 0 · LoAF: n/a (chromium-only) · redraws 42
+    PASS  all five picked frames moved together — the gesture is genuinely five times heavier  ·  picked 5 · observed 220.0 px
+    PASS  worst rAF gap inside the marquee drag <= 50 ms  ·  18.4 ms
+    PASS  INP <= 200 ms  ·  24.0 ms
+  cmd-wheel zoom 0.25<->2    INP n/a — wheel carries no interactionId (Event Timing spec)
+                             idle median 16.6 ms · 215 frames over 3589 ms · p50 16.6 · p95 18.2 · max 18.6 · >33 ms: 0 · LoAF: n/a (chromium-only) · swept 0.3 -> 2.0 -> 0.3
+    PASS  the zoom genuinely swept the full continuous range — both clamps visited  ·  min 0.3 · max 2.0
+    PASS  worst rAF gap inside the zoom <= 50 ms  ·  18.6 ms
+  pan the full extent        INP n/a — scroll is not an interaction (Event Timing spec)
+                             idle median 16.6 ms · 67 frames over 1129 ms · p50 16.8 · p95 18.5 · max 18.7 · >33 ms: 0 · LoAF: n/a (chromium-only) · scrollend fired 40x · redraws 41
+    PASS  the pan genuinely moved the scroller  ·  left 605 · top 1549
+    PASS  scrollend fires on firefox — cfg=c's pan half is implementable here  ·  40 event(s)
+    PASS  worst rAF gap inside the pan <= 50 ms  ·  18.7 ms
+
+================================================================================================
+webkit · cfg=a · frames=30
+================================================================================================
+    PASS  observer pipeline ALIVE on webkit — a forced-slow click yields a grouped entry  ·  [{"id":2880,"ms":64}]
+  stage nodes: 681 in the document (665 inside the scroller) · Lighthouse warns > 800 · fails > 1400 · under the warning, 119 to spare
+  30 frames · 29 arrows · measured frame box 220x251 px
+    PASS  no page errors while 30 real compositions render through the REAL validator + renderer
+  drag one frame @ 1.0       INP 16.0 ms                                       
+                             idle median 17.0 ms · 45 frames over 753 ms · p50 17.0 · p95 18.0 · max 19.0 · >33 ms: 0 · LoAF: n/a (chromium-only) · redraws 42
+    PASS  the drag moved the frame by the EXPECTED stage delta (scale-aware, not merely non-zero)  ·  scale 1 · expected 220.0 px · observed 220.0 px
+    PASS  a genuinely sampled drag — dozens of frames inside the drag window  ·  45 frame(s)
+    PASS  worst rAF gap inside the drag <= 50 ms  ·  19.0 ms
+    PASS  INP <= 200 ms  ·  16.0 ms
+  drag one frame @ 0.5       INP 16.0 ms                                       
+                             idle median 17.0 ms · 44 frames over 745 ms · p50 17.0 · p95 18.0 · max 23.0 · >33 ms: 0 · LoAF: n/a (chromium-only) · redraws 42
+    PASS  the @0.5 drag moved by the EXPECTED stage delta — the handler divides by --sx-scale  ·  scale 0.5 · expected 440.0 px · observed 440.0 px
+    PASS  worst rAF gap inside the @0.5 drag <= 50 ms  ·  23.0 ms
+  marquee-drag x5            INP 16.0 ms                                       
+                             idle median 17.0 ms · 49 frames over 821 ms · p50 17.0 · p95 19.0 · max 21.0 · >33 ms: 0 · LoAF: n/a (chromium-only) · redraws 42
+    PASS  all five picked frames moved together — the gesture is genuinely five times heavier  ·  picked 5 · observed 220.0 px
+    PASS  worst rAF gap inside the marquee drag <= 50 ms  ·  21.0 ms
+    PASS  INP <= 200 ms  ·  16.0 ms
+  cmd-wheel zoom 0.25<->2    INP n/a — wheel carries no interactionId (Event Timing spec)
+                             idle median 17.0 ms · 215 frames over 3586 ms · p50 17.0 · p95 18.0 · max 43.0 · >33 ms: 1 · LoAF: n/a (chromium-only) · swept 0.3 -> 2.0 -> 0.3
+    PASS  the zoom genuinely swept the full continuous range — both clamps visited  ·  min 0.3 · max 2.0
+    PASS  worst rAF gap inside the zoom <= 50 ms  ·  43.0 ms
+  pan the full extent        INP n/a — scroll is not an interaction (Event Timing spec)
+                             idle median 17.0 ms · 68 frames over 1135 ms · p50 17.0 · p95 19.0 · max 22.0 · >33 ms: 0 · LoAF: n/a (chromium-only) · scrollend fired 31x · redraws 41
+    PASS  the pan genuinely moved the scroller  ·  left 605 · top 1549
+    PASS  scrollend fires on webkit — cfg=c's pan half is implementable here  ·  31 event(s)
+    PASS  worst rAF gap inside the pan <= 50 ms  ·  22.0 ms
+
+------------------------------------------------------------------------------------------------
+    PASS  the comparator itself can flag — a synthetic 250 ms interaction is a violation  ·  [{"interactionId":1,"latency":250,"startTime":null,"events":[null]}]
+
+ALL CHECKS PASS · cfg=a · engines chromium,firefox,webkit
+JSON [{"engine":"chromium","cfg":"a","nodes":{"document":681,"scroller":665,"frames":30,"arrows":29},"intrinsic":{"w":220,"h":251}},{"engine":"chromium","cfg":"a","throttled":false,"gesture":"drag one frame @ 1.0","inp":"48.0 ms","idleMedian":16.699999999999818,"t0":1579.5,"t1":2949.7999999821186,"ms":1370.2999999821186,"frames":82,"p50":16.699999999999818,"p95":16.799999999999955,"max":16.800000000000182,"over33":0,"loafInWindow":[],"gestureResult":{"moves":40,"scale":1,"expectedDx":220,"observedDx":220,"movedEnough":true,"redraws":42}},{"engine":"chromium","cfg":"a","throttled":false,"gesture":"drag one frame @ 0.5","inp":"48.0 ms","idleMedian":16.699999999999932,"t0":1586.9000000059605,"t1":2956.5999999940395,"ms":1369.699999988079,"frames":82,"p50":16.699999999999818,"p95":16.799999999999955,"max":16.800000000000182,"over33":0,"loafInWindow":[],"gestureResult":{"moves":40,"scale":0.5,"expectedDx":440,"observedDx":440,"movedEnough":true,"redraws":42}},{"engine":"chromium","cfg":"a","throttled":false,"gesture":"marquee-drag x5","inp":"40.0 ms","idleMedian":16.699999999999818,"t0":1589.2000000178814,"t1":2955.7000000178814,"ms":1366.5,"frames":82,"p50":16.699999999999818,"p95":16.700000000000273,"max":16.800000000000182,"over33":0,"loafInWindow":[],"gestureResult":{"moves":40,"scale":1,"expectedDx":220,"observedDx":220,"movedEnough":true,"redraws":42}},{"engine":"chromium","cfg":"a","throttled":false,"gesture":"cmd-wheel zoom 0.25<->2","inp":"n/a — wheel carries no interactionId (Event Timing spec)","idleMedian":16.699999999999932,"t0":1567.5999999940395,"t1":6636.200000017881,"ms":5068.600000023842,"frames":302,"p50":16.699999999999818,"p95":16.799999999999955,"max":33.399999999999636,"over33":2,"loafInWindow":[],"gestureResult":{"end":0.25,"seen":{"min":0.25,"max":2}}},{"engine":"chromium","cfg":"a","throttled":false,"gesture":"pan the full extent","inp":"n/a — scroll is not an interaction (Event Timing spec)","idleMedian":16.699999999999932,"t0":1572.6000000238419,"t1":2688.5,"ms":1115.8999999761581,"frames":67,"p50":16.699999999999818,"p95":16.799999999999955,"max":16.800000000000182,"over33":0,"loafInWindow":[],"gestureResult":{"left":605,"top":1549,"scrollend":40,"redraws":41}},{"engine":"firefox","cfg":"a","nodes":{"document":681,"scroller":665,"frames":30,"arrows":29},"intrinsic":{"w":220,"h":253}},{"engine":"firefox","cfg":"a","throttled":false,"gesture":"drag one frame @ 1.0","inp":"16.0 ms","idleMedian":16.680000000000064,"t0":1588,"t1":2924,"ms":1336,"frames":80,"p50":16.7199999999998,"p95":18.25999999999999,"max":18.659999999999854,"over33":0,"loafInWindow":null,"gestureResult":{"moves":40,"scale":1,"expectedDx":220,"observedDx":220,"movedEnough":true,"redraws":42}},{"engine":"firefox","cfg":"a","throttled":false,"gesture":"drag one frame @ 0.5","inp":"16.0 ms","idleMedian":16.680000000000064,"t0":1597,"t1":3257,"ms":1660,"frames":99,"p50":16.720000000000027,"p95":17.980000000000018,"max":18.700000000000045,"over33":0,"loafInWindow":null,"gestureResult":{"moves":40,"scale":0.5,"expectedDx":440,"observedDx":440,"movedEnough":true,"redraws":42}},{"engine":"firefox","cfg":"a","throttled":false,"gesture":"marquee-drag x5","inp":"24.0 ms","idleMedian":16.74000000000001,"t0":1661,"t1":3016,"ms":1355,"frames":81,"p50":16.699999999999818,"p95":18.139999999999873,"max":18.440000000000055,"over33":0,"loafInWindow":null,"gestureResult":{"moves":40,"scale":1,"expectedDx":220,"observedDx":220,"movedEnough":true,"redraws":42}},{"engine":"firefox","cfg":"a","throttled":false,"gesture":"cmd-wheel zoom 0.25<->2","inp":"n/a — wheel carries no interactionId (Event Timing spec)","idleMedian":16.560000000000173,"t0":1593,"t1":5182,"ms":3589,"frames":215,"p50":16.639999999999873,"p95":18.18000000000029,"max":18.61999999999989,"over33":0,"loafInWindow":null,"gestureResult":{"end":0.25,"seen":{"min":0.25,"max":2}}},{"engine":"firefox","cfg":"a","throttled":false,"gesture":"pan the full extent","inp":"n/a — scroll is not an interaction (Event Timing spec)","idleMedian":16.62000000000012,"t0":1601,"t1":2730,"ms":1129,"frames":67,"p50":16.7800000000002,"p95":18.5,"max":18.679999999999836,"over33":0,"loafInWindow":null,"gestureResult":{"left":605,"top":1549,"scrollend":40,"redraws":41}},{"engine":"webkit","cfg":"a","nodes":{"document":681,"scroller":665,"frames":30,"arrows":29},"intrinsic":{"w":220,"h":251}},{"engine":"webkit","cfg":"a","throttled":false,"gesture":"drag one frame @ 1.0","inp":"16.0 ms","idleMedian":17,"t0":1604,"t1":2357,"ms":753,"frames":45,"p50":17,"p95":18,"max":19,"over33":0,"loafInWindow":null,"gestureResult":{"moves":40,"scale":1,"expectedDx":220,"observedDx":220,"movedEnough":true,"redraws":42}},{"engine":"webkit","cfg":"a","throttled":false,"gesture":"drag one frame @ 0.5","inp":"16.0 ms","idleMedian":17,"t0":1605,"t1":2350,"ms":745,"frames":44,"p50":17,"p95":18,"max":23,"over33":0,"loafInWindow":null,"gestureResult":{"moves":40,"scale":0.5,"expectedDx":440,"observedDx":440,"movedEnough":true,"redraws":42}},{"engine":"webkit","cfg":"a","throttled":false,"gesture":"marquee-drag x5","inp":"16.0 ms","idleMedian":17,"t0":1621,"t1":2442,"ms":821,"frames":49,"p50":17,"p95":19,"max":21,"over33":0,"loafInWindow":null,"gestureResult":{"moves":40,"scale":1,"expectedDx":220,"observedDx":220,"movedEnough":true,"redraws":42}},{"engine":"webkit","cfg":"a","throttled":false,"gesture":"cmd-wheel zoom 0.25<->2","inp":"n/a — wheel carries no interactionId (Event Timing spec)","idleMedian":17,"t0":1614,"t1":5200,"ms":3586,"frames":215,"p50":17,"p95":18,"max":43,"over33":1,"loafInWindow":null,"gestureResult":{"end":0.25,"seen":{"min":0.25,"max":2}}},{"engine":"webkit","cfg":"a","throttled":false,"gesture":"pan the full extent","inp":"n/a — scroll is not an interaction (Event Timing spec)","idleMedian":17,"t0":1604,"t1":2739,"ms":1135,"frames":68,"p50":17,"p95":19,"max":22,"over33":0,"loafInWindow":null,"gestureResult":{"left":605,"top":1549,"scrollend":31,"redraws":41}}]
