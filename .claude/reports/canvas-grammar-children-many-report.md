@@ -398,9 +398,20 @@ Each applied to `system/agentic-renderer.mjs` alone, run, then restored byte-ide
 | M-F6 refusal reverted to `${path}.children[1]:` | `build ✗  1 failure(s)` |
 | restored tree | `build ✓  all 34 groups pass` |
 
-### Open, and outward-facing — the owner's call
+### F1's second half — done, outside the diff
 
-F1's second half is not in this diff: **#303 has 0 hand-off comments** where #301 has 2, and **#303's own body
-still says "Declares `children: many`"** — the old, wrong key spelling this PR replaced. Its implementer would
-write that into `system/specs/list.md` and get `head "children" must be an array`, a message naming a key they
-did not get wrong. Both are writes to another ticket, so neither was made unasked.
+Both writes to #303 were made on the owner's explicit yes (they are writes to another ticket, so neither was
+made unasked):
+
+- **the hand-off comment** — [#303 comment 5716569576](https://github.com/linardsb/ux-factory/issues/303#issuecomment-5716569576).
+  #303 had **0** comments naming `childrenCardinality` where #301 had 2. Tailored to `list` rather than
+  copied: it opens by saying #303 was missed and why, adds the `head "children" must be an array` trap (the
+  refusal names a key the author did not get wrong), and carries F6's changed refusal string, which AC #2
+  asserts against.
+- **the body** — `Declares \`children: many\`` → `` `childrenCardinality: "many"` `` with the `children`
+  allowed-names array named beside it, so the shorthand cannot be read as the literal key again.
+
+### Gate verdict
+
+Six CI checks — `verify` · `visual` · `codeql` · `CodeQL` · `audit` · `gates-green` — **all pass** on
+`72c918e`, `mergeStateStatus CLEAN`. `visual` green is the independent confirmation of the no-regen call.
