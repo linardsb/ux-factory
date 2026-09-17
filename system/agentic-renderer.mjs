@@ -9,7 +9,7 @@
 //   validateComposition(vocab, composition, path?) — PURE and DOM-free. Recurses the tree and
 //     throws a plain Error naming the offending path (composition[2].children[0].props.value)
 //     on: unknown component, out-of-vocabulary prop, missing required prop, wrong type, enum
-//     violation, disallowed/too-many children, or a status-chip child that competes with its
+//     violation, disallowed children, too many for the entry's cardinality, or a status-chip child that competes with its
 //     parent's status. This is what ticket #13 calls under Node for build-time composition runs
 //     (architecture lines 86–88), so it must not touch the DOM.
 //   renderComposition(vocab, composition, bus) — validates first (refusal before any DOM), then
@@ -76,7 +76,10 @@ export function validateComposition(vocab, composition, path = "composition") {
     }
   }
 
-  // Children — at most one, only if the entry allows children, only an allowed name.
+  // Children — allowed names only, and at most one unless the entry declares `many`
+  // (epic #295 ticket #298; absent ≡ one, the grammar every spec before it was written under).
+  // The loop is what `many` needs: every refusal names the offending INDEX, so a container of six
+  // parts points at the one that is wrong rather than at the array.
   const kids = node.children;
   if (kids !== undefined) {
     if (!Array.isArray(kids)) throw new Error(`${path}.children: must be an array when present`);
@@ -84,24 +87,26 @@ export function validateComposition(vocab, composition, path = "composition") {
       if (entry.children.length === 0) {
         throw new Error(`${path}.children: ${node.name} allows no children`);
       }
-      if (kids.length > 1) {
-        throw new Error(`${path}.children: ${node.name} allows at most one child (got ${kids.length})`);
+      if (entry.childrenCardinality !== "many" && kids.length > 1) {
+        throw new Error(`${path}.children[1]: ${node.name} allows at most one child (got ${kids.length})`);
       }
-      const child = kids[0];
-      const childPath = `${path}.children[0]`;
-      if (!child || typeof child !== "object" || typeof child.name !== "string") {
-        throw new Error(`${childPath}: expected a node { name, props, children? }`);
-      }
-      if (!entry.children.includes(child.name)) {
-        throw new Error(`${childPath}: "${child.name}" is not an allowed child of ${node.name} (allowed: ${entry.children.join(" | ")})`);
-      }
-      validateComposition(vocab, child, childPath); // validates the child's own props/enums
-      // One signal per card: an explicit status-chip may only relabel the derived state,
-      // never change it. A child whose value differs from the parent's status means two
-      // competing states — the composition is wrong (status-chip's Usage prose).
-      if (child.name === "status-chip" && "status" in props && child.props?.value !== props.status) {
-        throw new Error(`${childPath}.props.value: "${child.props?.value}" competes with the parent ${node.name}'s status "${props.status}" — one signal per card; an explicit status-chip may only relabel the derived state, not change it`);
-      }
+      kids.forEach((child, i) => {
+        const childPath = `${path}.children[${i}]`;
+        if (!child || typeof child !== "object" || typeof child.name !== "string") {
+          throw new Error(`${childPath}: expected a node { name, props, children? }`);
+        }
+        if (!entry.children.includes(child.name)) {
+          throw new Error(`${childPath}: "${child.name}" is not an allowed child of ${node.name} (allowed: ${entry.children.join(" | ")})`);
+        }
+        validateComposition(vocab, child, childPath); // validates the child's own props/enums
+        // One signal per card: an explicit status-chip may only relabel the derived state,
+        // never change it. A child whose value differs from the parent's status means two
+        // competing states — the composition is wrong (status-chip's Usage prose). Per child,
+        // so a `many` container holding two chips is caught on both.
+        if (child.name === "status-chip" && "status" in props && child.props?.value !== props.status) {
+          throw new Error(`${childPath}.props.value: "${child.props?.value}" competes with the parent ${node.name}'s status "${props.status}" — one signal per card; an explicit status-chip may only relabel the derived state, not change it`);
+        }
+      });
     }
   }
 

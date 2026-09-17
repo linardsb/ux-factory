@@ -103,6 +103,17 @@ export function parseComponentSpec(specPath) {
     throw new Error(`${specPath}: head "tokens" must be a non-empty array of ---prefixed names`);
   if (!Array.isArray(head.states) || !head.states.length) throw new Error(`${specPath}: head "states" must be a non-empty array`);
   if (!Array.isArray(head.children)) throw new Error(`${specPath}: head "children" must be an array`);
+  // childrenCardinality (optional): how MANY children an entry takes, never which (epic #295 ticket
+  // #298). Absent ≡ at most one, the grammar every spec before this one is written under, so "one"
+  // has exactly one spelling — a second spelling is a second answer waiting to disagree with the
+  // first. The empty-children case is the min/max/step rule applied one step further: a cardinality
+  // on a leaf is a rule that can never fire, so it is a parse error rather than a silent no-op.
+  if (head.childrenCardinality !== undefined) {
+    if (head.childrenCardinality !== "many")
+      throw new Error(`${specPath}: head "childrenCardinality" ("${head.childrenCardinality}") must be "many" — absent means at most one child`);
+    if (!head.children.length)
+      throw new Error(`${specPath}: head "childrenCardinality" is "many" but "children" lists no allowed names — a cardinality on a leaf is a rule that cannot fire`);
+  }
   // aiPatterns (optional): the AI-UX pattern(s) this component carries wherever used — the
   // component-level half of the five-pillar rubric (kb-format §ComponentSpec). Absent on every
   // non-AI spec, so guarded by `!== undefined`; screen/flow-level patterns live in a scenario's

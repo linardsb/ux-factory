@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build brief — children: many</title>
+<style>
+  :root {
+    --bg: #fbfaf8; --fg: #1b1a19; --muted: #6b6560; --line: #e0dcd6;
+    --card: #ffffff; --accent: #2f6f5e; --code: #f3f1ed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16161a; --fg: #ececf0; --muted: #9a969f; --line: #2d2d34;
+            --card: #1e1e24; --accent: #6fc0a8; --code: #232329; }
+  }
+  * { box-sizing: border-box }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px }
+  h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -.01em }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted);
+       margin: 48px 0 14px; font-weight: 600 }
+  h3 { font-size: 17px; margin: 0 0 6px }
+  p { margin: 0 0 12px }
+  a { color: var(--accent) }
+  .sub { color: var(--muted); margin-bottom: 4px }
+  .concept { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+             padding: 18px 20px; margin-bottom: 14px }
+  .why { color: var(--muted); font-size: 15px; margin: 0 }
+  .analogy { border-left: 3px solid var(--accent); padding-left: 12px; margin: 10px 0 0;
+             font-size: 15px; color: var(--muted) }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 8px;
+        padding: 14px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.55; margin: 0 0 14px }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-bottom: 14px }
+  .box { flex: 1 1 130px; background: var(--card); border: 1px solid var(--line);
+         border-radius: 8px; padding: 11px 12px; font-size: 14px }
+  .box b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+           color: var(--accent); margin-bottom: 3px }
+  .box span { color: var(--muted); font-size: 13px }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin-bottom: 14px }
+  td, th { border-bottom: 1px solid var(--line); padding: 8px 10px 8px 0; text-align: left; vertical-align: top }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600 }
+  ul.ac { list-style: none; padding: 0; margin: 0; font-size: 14.5px }
+  ul.ac li { padding: 7px 0 7px 26px; position: relative; border-bottom: 1px solid var(--line) }
+  ul.ac li::before { content: '☐'; position: absolute; left: 2px; color: var(--muted) }
+  ul.deeper { list-style: none; padding: 0; margin: 0 }
+  ul.deeper li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0;
+                 border-bottom: 1px solid var(--line); font-size: 14.5px }
+  ul.deeper li span { flex: 1 }
+  .copy { opacity: .35; border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1 }
+  .copy:hover, .copy:focus-visible { opacity: 1 }
+  .copy::before { content: '⧉' }
+  .copy.copied::before { content: '✓' }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>One container, many parts</h1>
+  <p class="sub">Build brief · ticket #298 · full plan:
+    <a href="canvas-grammar-children-many.md">canvas-grammar-children-many.md</a></p>
+
+  <h2>What we're building</h2>
+  <p>Today a container in this design system can hold one thing inside it, and only one. After this change
+  a container can declare that it holds many — which is what the next tickets need before they can build a
+  box that stacks several parts.</p>
+
+  <h2>The ideas this rests on</h2>
+
+  <div class="concept">
+    <h3>The vocabulary</h3>
+    <p class="why">A generated list of every component an AI agent is allowed to use, and the settings each
+    one takes. A checker reads that list and refuses anything not on it.</p>
+    <p class="analogy">Like a restaurant menu: you may order anything printed on it, and nothing else. This
+    change edits one rule on the menu.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Cardinality</h3>
+    <p class="why">Cardinality means "how many". The menu already says <em>which</em> components may sit
+    inside a container. It has never said how many. We add one word for the containers that need it.</p>
+    <pre>"children": ["metric-tile"],       which may go inside
+"childrenCardinality": "many"     how many may go inside</pre>
+    <p class="analogy">Say nothing and you get the old answer: at most one.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Generated files are committed</h3>
+    <p class="why">Several files here are written by scripts rather than by hand, and the live site serves
+    the repository exactly as it is. So those outputs are committed like source.</p>
+    <p class="analogy">A gate re-runs every script and compares. If the committed copy differs, the build
+    goes red — so editing a script means regenerating in the same change.</p>
+  </div>
+
+  <h2>How the pieces fit</h2>
+  <div class="flow">
+    <div class="box"><b>1 · spec</b>A component's own file declares <code>many</code><span></span></div>
+    <div class="box"><b>2 · parser</b>Reads the file, refuses a bad value<span></span></div>
+    <div class="box"><b>3 · vocabulary</b>The generated menu the agent reads<span></span></div>
+    <div class="box"><b>4 · checker</b>Accepts many children, or refuses<span></span></div>
+  </div>
+  <p class="why">Phase 1 does boxes 1 and 2. Phase 2 does boxes 3 and 4. Phase 3 writes the gates that watch
+  them. Phase 4 regenerates what the scripts produce.</p>
+
+  <h2>The plan at a glance</h2>
+  <table>
+    <tr><th>Phase</th><th>What happens</th><th>Needs</th></tr>
+    <tr><td>1 · format</td><td>The new key is documented and refused at the boundary</td><td>—</td></tr>
+    <tr><td>2 · grammar</td><td>The checker honours it; the menu carries it and a version mark</td><td>1</td></tr>
+    <tr><td>3 · gates</td><td>Two gates, each watched failing before it is trusted</td><td>2</td></tr>
+    <tr><td>4 · cascade</td><td>Four generators re-run; the committed outputs updated</td><td>2</td></tr>
+    <tr><td>after</td><td>Two seams the next ticket inherits, written down where it will see them</td><td>—</td></tr>
+  </table>
+
+  <pre>system/agentic-renderer.mjs        the checker — honours the cardinality
+agent-layer/lib.mjs                the parser — refuses a bad value
+agent-layer/gen-vocabulary.mjs     the menu writer — projects it, versions the grammar
+tooling/build-checks.mjs           two gates (groups 3 and 18)
+.claude/references/kb-format.md    the format spec — where the new key is written down
+.claude/references/gates.md        the gate index — kept true
+handoff/verdant/*.json             regenerated, committed
+system/loc-summary.json            regenerated after staging</pre>
+
+  <h2>Done when</h2>
+  <ul class="ac">
+    <li>Two children to a one-child container are refused; three to a many container pass</li>
+    <li>Each gate was watched going red before it was trusted</li>
+    <li>The four generators re-ran and only the expected files moved</li>
+    <li>The component catalogue looks identical under both colour packs</li>
+    <li>All 34 gate groups green, and the full build prints its ✓ lines</li>
+  </ul>
+
+  <h2>Go deeper</h2>
+  <ul class="deeper">
+    <li data-prompt="/learn how a generated vocabulary bounds what an AI agent can build">
+      <span><b>/learn generated vocabularies</b> — why a list an agent may not leave is safer than a prompt that asks it nicely.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+    <li data-prompt="/learn cardinality in a schema: one, many, and why absence should mean one">
+      <span><b>/learn cardinality</b> — how schemas say "how many", and why a default beats a second spelling.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+    <li data-prompt="/learn drift checks: committing generated files and proving they match their source">
+      <span><b>/learn drift checks</b> — committing generated output, and the gate that proves it is current.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+    <li data-prompt="/learn mutation testing: proving a check can actually fail before trusting it green">
+      <span><b>/learn mutation testing</b> — break the code on purpose, watch the gate go red, then restore it.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+  </ul>
+
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

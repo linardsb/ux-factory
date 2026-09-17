@@ -76,6 +76,10 @@ export function genVocabulary() {
       props: head.props,
       states: head.states,
       children: head.children,
+      // Conditional, the aiPatterns/example precedent (handoff-viewer.mjs:86-92): a key only the
+      // containers declare is projected only where it is declared, so the other entries do not each
+      // gain a line saying "one" — and pack.bundle.json does not churn to say nothing.
+      ...(head.childrenCardinality ? { childrenCardinality: head.childrenCardinality } : {}),
       usage,
       contract,
     };
@@ -87,9 +91,15 @@ export function genVocabulary() {
     scenario: "verdant",
     generatedFrom: "system/specs",
     composition: {
+      // The grammar's own version. v1 was single-child-only; v2 is the cardinality (#298). It rides
+      // the grammar block rather than the file root because that is the thing it versions, and
+      // pack.json carries no version to bump (observed: its top-level keys are $description,
+      // scenario, generatedFrom, components, portability). A reader of an older committed pack can
+      // tell which grammar their composition validated under.
+      version: 2,
       shape: "a composition is one node or an array of nodes; a node is {name, props, children?}",
       childrenRule:
-        "a node may carry at most one child, only when its vocabulary entry lists allowed children, and the child's name must be in that list",
+        "a node may carry children only when its vocabulary entry lists allowed names, and every child's name must be in that list; at most one child unless the entry declares childrenCardinality: \"many\", in which case any number",
       chipRule:
         "plant-card and care-task-row always render one status-chip derived from their own status prop; supply an explicit status-chip child only to override its label, and its value must equal the parent's status",
     },
