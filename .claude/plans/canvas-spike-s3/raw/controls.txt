@@ -1,0 +1,73 @@
+S3 control battery — 2026-09-17T20:16:17.679Z
+metric: /private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/57c11c28-5574-4653-b7b5-7fe360d9e952/scratchpad/compare.mjs
+fixture: /Users/Berzins/Desktop/Linards_current/wt-s3-300/.claude/plans/canvas-spike-s3/fixture
+oracle: /Users/Berzins/Desktop/email-hub/.venv/bin/python
+
+==============================================================================
+HALF 1 — PRISTINE. Every control must hold.
+==============================================================================
+  C1  PASS  max |port - skimage| over 500 pairs = 8.8818e-14 (limit 1e-3), worst pair [[241,212,179],[189,136,153]] port=29.3342 skimage=29.3342
+  C2  PASS  160x120, 12 known flat blocks decoded — every one exact
+  C3  PASS  worst non-zero across 3 granularities x 6 rungs = 0.000e+0, E4 score = 1.0000
+  C4a PASS  inkMean = 18.215350195, ΔE(#454545,#0c3b2f) = 18.215350195, |diff| = 9.948e-14 (limit 1e-9); ink 400/1600 px, modal #ffffff
+  C4b PASS  inkMean = 6.397057509 === coverage 35.1% x ΔE 18.2154 = 6.397057509 (|diff| 2.309e-14, limit 1e-9); <= pairΔE? yes; 236/236 exact-#454545 px moved, ink mask 672/14300
+  C5  PASS  aggregate([]) threw: "fidelity: no region was measured — an empty measurement is missing, never a pass"
+  C6  PASS  worst region by CIEDE2000 = subtitle (17.9597), by Oklab ΔE = subtitle (0.0853) — agree
+  C7  PASS  avatar modal #f2f5fa (want #f2f5fa), chip modal #f1f7f2 (want #f1f7f2)
+  C8  PASS  drops worst |floor-signal| = 0.000e+0 (limit 1e-9); mapped: title floor=1.3089 signal=1.6638, subtitle floor=0.6973 signal=1.0508
+  C9  PASS  1px shift: rung 6 0.0030 -> 0.0030 (Δ 0.0000, limit <0.5); rung 5 20.5240 -> 13.3879 (Δ 7.1361, limit >5)
+  C10 PASS  ink-unchanged regions, rung 6 M1 -> M2: avatar 0.0207->1.3896 (+1.3689); chip 0.1023->1.3473 (+1.2450); chip-text 0.2833->1.3477 (+1.0644); chevron 0.0499->0.5742 (+0.5243, modal MOVED #f8f8f8->#ffffff)  worst penalty 1.3689 on avatar (limit >0.5)
+
+half 1: 11 pass, 0 fail
+
+==============================================================================
+HALF 2 — MUTATED. Each control must go red under its own mutation.
+C6 has no mutation by design. C8's mutation leaves C8 green — see its note.
+==============================================================================
+  C1  FAIL  max |port - skimage| over 500 pairs = 1.4545e+1 (limit 1e-3), worst pair [[212,105,175],[97,123,131]] port=39.8507 skimage=25.3057
+  C1 mutated -> RED as expected
+  C2  FAIL  160x120, 12 known flat blocks decoded: block 4 want #fedcba got #ffdcba; block 5 want #000000 got #ffdd00; block 6 want #ffffff got #fedc00; block 7 want #7f7f7f got #7e5c29
+  C2 mutated -> RED as expected
+  C3  input mutation: the candidate offset by one row
+  C3  FAIL  worst non-zero across 3 granularities x 6 rungs = 3.991e+1 (c parts title rung 3), E4 score = 0.9892
+  C3 mutated -> RED as expected
+  C4a FAIL  inkMean = 13.104568485, ΔE(#454545,#0c3b2f) = 18.215350195, |diff| = 5.111e+0 (limit 1e-9); ink 556/1600 px, modal #ffffff
+  C4a mutated -> RED as expected
+  C4b FAIL  inkMean = 0.300616968 === coverage 35.1% x ΔE 18.2154 = 6.397057509 (|diff| 6.096e+0, limit 1e-9) IDENTITY BROKEN; <= pairΔE? yes; 236/236 exact-#454545 px moved, ink mask 672/14300
+  C4b mutated -> RED as expected
+  C4b positive control (NOT a mutation of the metric): only half the core recoloured —
+      the identity must STILL hold, at the new coverage. That is what proves the coverage
+      term is measured and not a constant fitted to one number.
+  C4b PASS  inkMean = 3.198528754 === coverage 17.6% x ΔE 18.2154 = 3.198528754 (|diff| 3.109e-15, limit 1e-9); <= pairΔE? yes; 118/236 exact-#454545 px moved, ink mask 672/14300
+  C5  mutated aggregate([]) returned score = 0 — sum/max(len,1) scores 1.0 on nothing
+  C5 mutated -> RED as expected
+  C6  no mutation by design — a disagreement stops the run and is reported
+  C7  input mutation: every box shifted +20px
+  C7  FAIL  avatar modal #f8f8f8 (want #f2f5fa), chip modal #f1f7f2 (want #f1f7f2)  [boxes shifted +20px]
+  C7 mutated -> RED as expected
+  C8  input mutation: m1-wrong substituted by m1-faithful
+  C8  PASS  drops worst |floor-signal| = 0.000e+0 (limit 1e-9); mapped: title floor=1.3089 signal=1.3089, subtitle floor=0.6973 signal=0.6973  [m1-wrong SUBSTITUTED by m1-faithful]
+  C8 mutated -> STILL HELD (check cannot fail under this mutation)
+  C9  FAIL  1px shift: rung 6 20.5240 -> 13.3879 (Δ 7.1361, limit <0.5); rung 5 20.5240 -> 13.3879 (Δ 7.1361, limit >5)
+  C9 mutated -> RED as expected
+  C10 the PLAN's mutation first (hold the modal to the reference's) — driven, and a no-op:
+  C10 PASS  ink-unchanged regions, rung 6 M1 -> M2: avatar 0.0207->1.3896 (+1.3689); chip 0.1023->1.3473 (+1.2450); chip-text 0.2833->1.3477 (+1.0644); chevron 0.0499->0.5742 (+0.5243, modal MOVED #f8f8f8->#ffffff)  worst penalty 1.3689 on avatar (limit >0.5)
+  C10 the mutation that DOES destroy it (core-only ink mask, threshold 2.3 -> 20):
+  C10 FAIL  ink-unchanged regions, rung 6 M1 -> M2: avatar 0.0000->0.0000 (+0.0000); chip 0.8790->0.8052 (-0.0738); chip-text 0.8790->0.8052 (-0.0738); chevron 0.0000->0.0000 (+0.0000, modal MOVED #f8f8f8->#ffffff)  worst penalty 0.0000 on avatar (limit >0.5)
+  C10 mutated -> RED as expected
+
+==============================================================================
+SUMMARY
+  C1   half 1: PASS   half 2: went red
+  C2   half 1: PASS   half 2: went red
+  C3   half 1: PASS   half 2: went red
+  C4a  half 1: PASS   half 2: went red
+  C4b  half 1: PASS   half 2: went red
+  C5   half 1: PASS   half 2: went red
+  C6   half 1: PASS   half 2: n/a (by design)
+  C7   half 1: PASS   half 2: went red
+  C8   half 1: PASS   half 2: STAYED GREEN — by design, see C8's note
+  C9   half 1: PASS   half 2: went red
+  C10  half 1: PASS   half 2: went red
+
+half 1 totals: 11/11 held

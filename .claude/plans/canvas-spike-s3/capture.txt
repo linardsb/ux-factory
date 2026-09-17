@@ -1,0 +1,161 @@
+// S3 capture — the five renders and the region rectangles (ticket #300, epic #295).
+//
+// PARKED as capture.txt. Run it by copying to a .mjs in a scratchpad:
+//   cp capture.txt /tmp/capture.mjs && node /tmp/capture.mjs [chromium|firefox|webkit]
+//
+// THROWAWAY. Writes only into .claude/plans/canvas-spike-s3/fixture/.
+//
+// The REFERENCE is .claude/plans/design-import-spike-c/06.svg rasterised in Chromium — Brilliant's
+// own text positions and its three embedded Manrope @font-face blocks, so the raster is BRILLIANT's
+// rendering, not this repo's. (Spike C caveat 1: 07.png was never persisted; the web editor returns
+// PNG inline only. The deviation is named in the README, not smuggled.)
+//
+// The CANDIDATE is authored from 03c-master-blueprint.txt lines 3-10 — the variant(state(active))
+// subtree — NOT from 04-htmlflex.html, which drops `hug:100` (measured in the plan's pre-flight:
+// 16.30% of pixels differing against 4.37%). Its three TEXT STRINGS come from 03-blueprint.txt, the
+// exported instance's own blueprint: the instance overrides the master's chip string "Active" to
+// "On call", and 06.svg renders the instance. See the plan's AMENDMENTS E1.
+
+import { createRequire } from "node:module";
+import path from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+
+const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+const VRDIR = path.join(MAIN, "tooling", "visual-regression");
+// Playwright resolves from the MAIN TREE's tooling/visual-regression/node_modules — the CI-pinned
+// gate's copy. A fresh worktree has no node_modules of its own (memory local-agent-visual-gate-notes).
+const require = createRequire(`${VRDIR}${path.sep}`);
+const pw = require("@playwright/test");
+
+const SPIKE = process.env.SPIKE_DIR || path.join(process.env.HOME, "Desktop/Linards_current/wt-s3-300/.claude/plans/canvas-spike-s3");
+const FIX = path.join(SPIKE, "fixture");
+const SPIKEC = path.join(MAIN, ".claude/plans/design-import-spike-c");
+const ENGINE = process.argv[2] || "chromium";
+
+const svg = readFileSync(path.join(SPIKEC, "06.svg"), "utf8");
+// The fonts are the whole experiment. Manrope is not installed on this machine; without these three
+// blocks Chromium falls back to system-ui and every text pixel differs, drowning the signal.
+// The base64 alphabet contains no "}", so [^}]* is safe here.
+const faces = svg.match(/@font-face\{[^}]*\}/g);
+if (!faces || faces.length !== 3) throw new Error(`capture: expected 3 @font-face blocks in 06.svg, got ${faces ? faces.length : 0}`);
+const inlineSvg = svg.replace(/^<\?xml[^>]*\?>\s*/, "");
+
+const mapping = JSON.parse(readFileSync(path.join(SPIKE, "mapping.json"), "utf8"));
+
+// The chevron path, verbatim from 04-htmlflex.html (Brilliant's own translation of icon:caret-right).
+const CHEVRON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="339.27 102 8.73 16" width="8.73" height="16" overflow="visible" preserveAspectRatio="none"><path d="M340.51,117.79 L347.79,110.51 C347.93,110.37 348,110.19 348,110 C348,109.81 347.93,109.63 347.79,109.49 L340.51,102.21 C340.23,101.93 339.76,101.93 339.48,102.21 C339.2,102.49 339.2,102.96 339.48,103.24 L346.24,110 L339.48,116.76 C339.2,117.04 339.2,117.51 339.48,117.79 C339.76,118.07 340.23,118.07 340.51,117.79 Z" fill="var(--drop-text-disabled)" stroke="none"/></svg>`;
+
+// mapVariant: which roles are var(--color-*) references. pack: which values those tokens take.
+// Everything NOT in the map renders at its own source literal in BOTH candidates — those are the
+// drop regions, and C8 is the control that they did not move.
+function harness(mapVariant, packName) {
+  const m = mapping.map[mapVariant];
+  const vals = mapping.packs[packName].values;
+  const root = Object.values(m).map((e) => `    ${e.token}: ${vals[e.token]};`).join("\n");
+  const ref = (role, literal) => (m[role] ? `var(${m[role].token})` : literal);
+  return `<meta charset="utf-8">
+<title>S3 candidate — ${mapVariant} / ${packName}</title>
+<style>
+${faces.join("\n")}
+  :root {
+${root}
+    /* dropped roles — the source's own literals, identical in BOTH candidates under M1 */
+    --drop-primary-container: #f2f5fa;
+    --drop-success-container: #f1f7f2;
+    --drop-success:           #00c950;
+    --drop-text-disabled:     #c6c6c6;
+  }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .root { position: relative; width: 361px; height: 221px; }
+  /* box model cross-checked against 04-htmlflex.html: gap 12, padding 8/12, radius 6, the
+     box-shadow hairline pair, flex: 1 0 0. Sizing from the blueprint: hug:100 is a 100px box. */
+  .row { position: absolute; left: 0; top: 0; width: 360px; height: 220px; box-sizing: border-box;
+         background-color: ${ref("color.surface", "#f8f8f8")}; border-radius: 6px;
+         box-shadow: 0 0 0 0.5px ${ref("color.outline.variant", "#e1e1e1")},
+               inset 0 0 0 0.5px ${ref("color.outline.variant", "#e1e1e1")};
+         display: flex; flex-direction: row; gap: 12px; padding: 8px 12px; align-items: center; }
+  .avatar { width: 32px; height: 32px; box-sizing: border-box;
+            background-color: var(--drop-primary-container); border-radius: 50%; }
+  .tb { flex: 1 0 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; }
+  .t1, .t2 { align-self: stretch; width: auto; height: 100px; box-sizing: border-box;
+             font-family: 'Manrope', system-ui, sans-serif; text-align: left;
+             white-space: pre-wrap; overflow-wrap: break-word; }
+  .t1 { font-size: 16px; font-weight: 600; color: ${ref("color.text.primary", "#454545")}; }
+  .t2 { font-size: 14px; font-weight: 400; line-height: 1.5; color: ${ref("color.text.secondary", "#575757")}; }
+  .chip { box-sizing: border-box; background-color: var(--drop-success-container);
+          border-radius: 9999px; display: flex; flex-direction: row; padding: 4px 8px;
+          justify-content: center; align-items: center; }
+  .t3 { width: 100px; height: 100px; box-sizing: border-box; font-size: 12px;
+        font-family: 'Manrope', system-ui, sans-serif; font-weight: 500; text-align: left;
+        color: var(--drop-success); white-space: nowrap; }
+  .chev { width: 8.73px; height: 16px; box-sizing: border-box; }
+</style>
+<div class="root" data-part="__root">
+  <div class="row" data-part="row">
+    <div class="avatar" data-part="avatar"></div>
+    <div class="tb" data-part="text-block">
+      <div class="t1" data-part="title">Amara Okafor</div>
+      <div class="t2" data-part="subtitle">Last seen 2 min ago</div>
+    </div>
+    <div class="chip" data-part="chip"><div class="t3" data-part="chip-text">On call</div></div>
+    <div class="chev" data-part="chevron">${CHEVRON}</div>
+  </div>
+</div>`;
+}
+
+const browser = await pw[ENGINE].launch();
+// One launch for every render in this run: a second launch can pick up a different font-rendering
+// state, and the whole experiment is a comparison of font pixels.
+const ctx = await browser.newContext({ viewport: { width: 400, height: 260 }, deviceScaleFactor: 1 });
+const page = await ctx.newPage();
+
+const shot = async (html, sel, out) => {
+  await page.setContent(html, { waitUntil: "load" });
+  await page.evaluate(() => document.fonts.ready);
+  const el = await page.$(sel);
+  await el.screenshot({ path: out });
+  const b = readFileSync(out);
+  console.log(`  ${path.basename(out).padEnd(28)} ${b.readUInt32BE(16)}x${b.readUInt32BE(20)} depth ${b[24]} ct ${b[25]} interlace ${b[28]}  ${b.length} bytes`);
+};
+
+console.log(`engine=${ENGINE}  @font-face blocks=${faces.length}`);
+
+if (ENGINE === "chromium") {
+  console.log("reference:");
+  await shot(`<meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff}</style>${inlineSvg}`, "svg", path.join(FIX, "ref.png"));
+  console.log("candidates:");
+  for (const mv of ["M1", "M2"]) for (const pk of ["faithful", "wrong"]) {
+    const html = harness(mv, pk);
+    // All FOUR rendered variants are recorded, not one "representative" file: the :root block is the
+    // only thing that differs between them and it is the one thing C8 exists to catch. The three
+    // base64 Manrope blobs are ELIDED from the RECORD only — they are ~95 KB each, identical in all
+    // four, and duplicating them would put 1.5 MB of the same font in the repo while hiding the
+    // three-byte :root diff that matters. The rendered HTML above carries them in full.
+    writeFileSync(path.join(FIX, `harness-${mv.toLowerCase()}-${pk}.html.txt`),
+      html.replace(/@font-face\{([^}]*)\}/g, (m, body) =>
+        `@font-face{${body.replace(/src:url\(data:font\/ttf;base64,[A-Za-z0-9+/=]+\)/,
+          (u) => `src:url(data:font/ttf;base64,<${u.length - 30} bytes ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>)`)}}`));
+    await shot(html, ".root", path.join(FIX, `${mv.toLowerCase()}-${pk}.png`));
+  }
+  // The eight boxes, read off the M1-faithful render and made relative to the root's origin.
+  await page.setContent(harness("M1", "faithful"), { waitUntil: "load" });
+  await page.evaluate(() => document.fonts.ready);
+  const boxes = await page.evaluate(() => {
+    const root = document.querySelector('[data-part="__root"]').getBoundingClientRect();
+    return [...document.querySelectorAll("[data-part]")].filter((e) => e.dataset.part !== "__root").map((e) => {
+      const r = e.getBoundingClientRect();
+      return { name: e.dataset.part, x: Math.round(r.x - root.x), y: Math.round(r.y - root.y), w: Math.round(r.width), h: Math.round(r.height) };
+    });
+  });
+  writeFileSync(path.join(FIX, "regions.json"), JSON.stringify(boxes, null, 2) + "\n");
+  console.log("regions (x,y,w,h relative to the root):");
+  for (const b of boxes) console.log(`  ${b.name.padEnd(12)} ${b.x},${b.y}  ${b.w}x${b.h}`);
+} else {
+  // R3: only the FAITHFUL render on the extra engines. Capturing the wrong render three ways would
+  // invite reading a verdict off whichever engine separates best — the shopping bias the predicate exists to prevent.
+  console.log(`faithful-only (R3 envelope):`);
+  await shot(harness("M1", "faithful"), ".root", path.join(FIX, `m1-faithful-${ENGINE}.png`));
+}
+
+await browser.close();
+console.log("done");

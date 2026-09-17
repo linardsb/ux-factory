@@ -1,0 +1,31 @@
+# capture driver stdout, verbatim. Run: node capture.mjs [chromium|firefox|webkit]
+# 2026-09-17T20:17:56Z
+
+engine=chromium  @font-face blocks=3
+reference:
+  ref.png                      361x221 depth 8 ct 2 interlace 0  7325 bytes
+candidates:
+  m1-faithful.png              361x221 depth 8 ct 2 interlace 0  7308 bytes
+  m1-wrong.png                 361x221 depth 8 ct 2 interlace 0  7744 bytes
+  m2-faithful.png              361x221 depth 8 ct 2 interlace 0  7308 bytes
+  m2-wrong.png                 361x221 depth 8 ct 2 interlace 0  7878 bytes
+regions (x,y,w,h relative to the root):
+  row          0,0  360x220
+  avatar       12,94  32x32
+  text-block   56,8  143x204
+  title        56,8  143x100
+  subtitle     56,112  143x100
+  chip         211,56  116x108
+  chip-text    219,60  100x100
+  chevron      339,102  9x16
+done
+
+engine=firefox  @font-face blocks=3
+faithful-only (R3 envelope):
+  m1-faithful-firefox.png      361x221 depth 8 ct 6 interlace 0  7707 bytes
+done
+
+engine=webkit  @font-face blocks=3
+faithful-only (R3 envelope):
+  m1-faithful-webkit.png       361x221 depth 8 ct 6 interlace 0  9600 bytes
+done

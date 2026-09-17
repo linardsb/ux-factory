@@ -1,0 +1,8 @@
+C1  oracle=/Users/Berzins/Desktop/email-hub/.venv/bin/python (skimage), 500 pseudo-random sRGB pairs, fixed seed 20260917
+C1  max |port - skimage| = 8.8818e-14  at pair 11 [[241,212,179],[189,136,153]]
+C1  port=29.334246  skimage=29.334246
+C1  #454545/#0c3b2f = 18.2154  (plan: 18.2154, |diff| 4.98e-5)
+C1  #575757/#20828d = 23.1670  (plan: 23.1670, |diff| 3.35e-5)
+C1  #f8f8f8/#ffffff = 1.4004  (plan: 1.4004, |diff| 5.28e-7)
+C1  #000000/#ffffff = 100.0000  (plan: 100.0000, |diff| 1.76e-7)
+C1 PASS  max abs diff < 1e-3

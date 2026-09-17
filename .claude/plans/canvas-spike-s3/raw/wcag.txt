@@ -1,0 +1,52 @@
+
+=== neutral (the contract's own pack, for reference) ===
+  pass    17.4:1  (min 4.5)  color-fg #1a1a1a on color-bg #ffffff  — body text on the page ground
+  pass    4.83:1  (min 4.5)  color-fg-muted #6b7280 on color-bg #ffffff  — secondary text on the page ground
+  pass   15.83:1  (min 4.5)  color-fg #1a1a1a on color-bg-surface #f4f4f5  — body text on cards / alt sections
+  FAIL     4.4:1  (min 4.5)  color-fg-muted #6b7280 on color-bg-surface #f4f4f5  — captions on cards
+  pass    5.17:1  (min 4.5)  color-accent-fg #ffffff on color-accent #2563eb  — button label on an accent fill
+  pass    5.17:1  (min 4.5)  color-accent #2563eb on color-bg #ffffff  — accent text / links (.amber) on the page ground
+  pass     4.7:1  (min 4.5)  color-accent #2563eb on color-bg-surface #f4f4f5  — accent text on cards
+  pass   15.83:1  (min 4.5)  color-fg-on-inverse #f4f4f5 on color-bg-inverse #1a1a1a  — chrome text on dark sections
+  pass    17.4:1  (min 4.5)  color-fg-on-inverse-strong #ffffff on color-bg-inverse #1a1a1a  — high-contrast text on dark
+  pass    4.54:1  (min 4.5)  color-accent-on-inverse #3d7bff on color-bg-inverse #1a1a1a  — accent text on dark sections (footer link hovers, feature-band numeral)
+  pass    4.83:1  (min 4.5)  color-accent-secondary #6b7280 on color-bg #ffffff  — quiet accent — live dots, and link text (.lp-local)
+  pass    17.4:1  (min 3)  color-border-strong #1a1a1a on color-bg #ffffff  — non-text: emphasis borders (SC 1.4.11)
+  neutral: 11/12 pass
+
+=== faithful (the source's own literals on the mapped roles, over neutral) ===
+  pass    9.59:1  (min 4.5)  color-fg #454545 on color-bg #ffffff  — body text on the page ground
+  pass    7.23:1  (min 4.5)  color-fg-muted #575757 on color-bg #ffffff  — secondary text on the page ground
+  pass    9.03:1  (min 4.5)  color-fg #454545 on color-bg-surface #f8f8f8  — body text on cards / alt sections
+  pass     6.8:1  (min 4.5)  color-fg-muted #575757 on color-bg-surface #f8f8f8  — captions on cards
+  pass    5.17:1  (min 4.5)  color-accent-fg #ffffff on color-accent #2563eb  — button label on an accent fill
+  pass    5.17:1  (min 4.5)  color-accent #2563eb on color-bg #ffffff  — accent text / links (.amber) on the page ground
+  pass    4.87:1  (min 4.5)  color-accent #2563eb on color-bg-surface #f8f8f8  — accent text on cards
+  pass   15.83:1  (min 4.5)  color-fg-on-inverse #f4f4f5 on color-bg-inverse #1a1a1a  — chrome text on dark sections
+  pass    17.4:1  (min 4.5)  color-fg-on-inverse-strong #ffffff on color-bg-inverse #1a1a1a  — high-contrast text on dark
+  pass    4.54:1  (min 4.5)  color-accent-on-inverse #3d7bff on color-bg-inverse #1a1a1a  — accent text on dark sections (footer link hovers, feature-band numeral)
+  pass    4.83:1  (min 4.5)  color-accent-secondary #6b7280 on color-bg #ffffff  — quiet accent — live dots, and link text (.lp-local)
+  pass    17.4:1  (min 3)  color-border-strong #1a1a1a on color-bg #ffffff  — non-text: emphasis borders (SC 1.4.11)
+  faithful: 12/12 pass
+
+=== polaris (run 3) — tokens.polaris.spike.css, the REAL file ===
+  pass   12.48:1  (min 4.5)  color-fg #0c3b2f on color-bg #ffffff  — body text on the page ground
+  pass    4.53:1  (min 4.5)  color-fg-muted #20828d on color-bg #ffffff  — secondary text on the page ground
+  pass   12.48:1  (min 4.5)  color-fg #0c3b2f on color-bg-surface #ffffff  — body text on cards / alt sections
+  pass    4.53:1  (min 4.5)  color-fg-muted #20828d on color-bg-surface #ffffff  — captions on cards
+  pass    4.53:1  (min 4.5)  color-accent-fg #ffffff on color-accent #20828d  — button label on an accent fill
+  pass    4.53:1  (min 4.5)  color-accent #20828d on color-bg #ffffff  — accent text / links (.amber) on the page ground
+  pass    4.53:1  (min 4.5)  color-accent #20828d on color-bg-surface #ffffff  — accent text on cards
+  pass    11.8:1  (min 4.5)  color-fg-on-inverse #fef8ec on color-bg-inverse #0c3b2f  — chrome text on dark sections
+  pass   12.48:1  (min 4.5)  color-fg-on-inverse-strong #ffffff on color-bg-inverse #0c3b2f  — high-contrast text on dark
+  pass    7.89:1  (min 4.5)  color-accent-on-inverse #caced3 on color-bg-inverse #0c3b2f  — accent text on dark sections (footer link hovers, feature-band numeral)
+  pass    4.53:1  (min 4.5)  color-accent-secondary #20828d on color-bg #ffffff  — quiet accent — live dots, and link text (.lp-local)
+  pass   12.48:1  (min 3)  color-border-strong #0c3b2f on color-bg #ffffff  — non-text: emphasis borders (SC 1.4.11)
+  polaris: 12/12 pass
+
+polaris (run 3): 12/12 pass
+--color-fg is #0c3b2f — Polaris's color-text-success-strong, a dark green, on the BODY TEXT role.
+Every declared pair is green. The formal check has no dimension that can say so.
+--color-fg #0c3b2f -> pair 1 = 12.48:1 pass   total 12/12
+--color-fg #20828d -> pair 1 = 4.53:1 pass   total 12/12
+--color-fg #cccccc -> pair 1 = 1.61:1 FAIL   total 10/12
