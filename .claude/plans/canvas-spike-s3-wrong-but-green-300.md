@@ -1170,3 +1170,42 @@ a sibling session may be live on.
 `2e6aabd` with four S2 commits above it. S2 merged as PR #428 and `origin/main` is now **`6687f8e`**,
 which already contains those commits. The branch is cut from `6687f8e`. No task content changes; the
 sha in the report is the one that matters.
+
+**E4 — Task 3's drop classification puts all six drops in one class; two belong in another.** The plan
+says the six M1 drops are all `read-but-never-emitted` "(the contract has no success, container or
+disabled role)". True of four of them. `color.surface` and `color.outline.variant` DO have contract
+homes — `--color-bg-surface` and `--color-border`, both present in `system/tokens.contract.css`
+(observed) and both mapped under M2. Under M1 they are **`read-then-dropped`**: a scope choice, not an
+absence. `mapping.json` classifies them that way and records the contract home and the reason.
+
+**E5 — C4b's bound assumes an ink coverage that was never measured.** The plan asserts
+`0.5 x pairΔE <= inkMean <= pairΔE` on the real region. That lower leg holds only if the solid glyph
+core is at least half the ink mask. Measured on `title`: the core is **236 px of a 672 px mask, 35.1%**,
+and `inkMean` reads **6.3971** against a lower leg of 9.1077 — the control fails in half 1 as written.
+The plan's own GOTCHA names the coverage term ("a coverage-weighted amount nothing can predict") and its
+neighbouring warning forbids fixing a failing check by loosening a tolerance. The resolution does the
+opposite of loosening: since an exact-match recolour leaves every anti-aliased ink pixel at ΔE exactly 0,
+`inkMean === (coreN/inkN) x pairΔE` holds as an **identity to 1e-9** (observed: 6.397057509 vs
+6.397057509, |diff| 3.1e-15 at the mutated coverage). C4b asserts that identity plus the plan's upper
+leg. Its reddening mutation becomes a source change — dilute the ink mean over the whole region — and
+the plan's mutation is kept as the positive control that the coverage term is measured per run.
+
+**E6 — C10's mutation targets a mechanism that is not operating.** The plan mutates rung 6 by "holding
+the modal fixed to M1's value instead of reading each image's own", expecting the M2 penalty to collapse.
+Driven: it is a **semantic no-op**. Three of the four ink-unchanged regions have their own fill as the
+region mode (`avatar` #f2f5fa, `chip` and `chip-text` #f1f7f2), not the paper, so holding the mode fixed
+changes nothing; on the fourth (`chevron`, whose mode really does move #f8f8f8 → #ffffff) the penalty
+survives the mutation anyway. The mechanism producing the M2 penalty is the **anti-aliased edge blending
+unchanged ink against a moved paper**, not modal divergence. The mutation that does destroy the control
+is a **core-only ink mask** (threshold 2.3 → 20), which excludes the AA edge and collapses the penalties
+to +0.0000 / −0.0738 / −0.0738 / +0.0000 — M2 then reads *better* than M1 and the limitation is
+invisible. Both readings are in `raw/controls.txt`; C10's half-1 assertion is unchanged in substance and
+now spans all four regions rather than the avatar alone.
+
+**E7 — three small numbers in the plan the run did not reproduce.** (a) Task 10's REDDENS predicts
+`--color-fg: #cccccc` gives 11/12; observed **10/12**, because `color-fg` appears in two of the twelve
+pairs. (b) Task 5's VALIDATE lists seven part names and calls them "six"; the fixture has **eight**
+`data-part` nodes and the count is asserted at 8. (c) Task 6 specifies the decoder throw on
+`colour type != 2`; Chromium writes ct 2 but **Firefox and WebKit write ct 6 (RGBA)** for the same
+screenshot, which made Task 5a's own validation unreachable as specified. The decoder accepts 2 and 6
+and asserts every alpha byte is 255, throwing by name otherwise.
