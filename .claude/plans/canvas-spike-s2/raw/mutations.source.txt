@@ -1,0 +1,122 @@
+// S2 mutation harness — apply one REDDENS mutation to layout-branch.mjs, run the control battery,
+// restore. Throwaway; lives in the scratchpad only.
+import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+
+const DIR = "/private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/4dab63d7-e242-43f4-9d28-1d13a0ff7729/scratchpad";
+const SRC = `${DIR}/layout-branch.mjs`;
+const PRISTINE = readFileSync(`${DIR}/layout-branch.pristine.mjs`, "utf8");
+
+const MUTATIONS = [
+  {
+    id: "C1",
+    what: "delete the drops.push branch in toStack's gap/spacing helper, so a miss falls through silently",
+    apply: (s) => s.replace(
+      `    const m = mapSpacing(v);
+    if (!m) {
+      drops.push({
+        kind: "no-token", slot, ref: v.ref, value: v.value,
+        reason: v.ref
+          ? \`no contract token for role \${v.ref} (source value \${v.value}px)\`
+          : \`unbound value \${v.value}px — by-value snapping is #304's (G18), not this branch's\`,
+      });
+      return null;
+    }`,
+      `    const m = mapSpacing(v);
+    if (!m) {
+      return null;
+    }`),
+  },
+  {
+    id: "C2",
+    what: "the same deletion scoped to the pad path, where $spacing.none lands — the pad is omitted from the IR with no trace",
+    apply: (s) => s.replace(
+      `      const m = mapSpacing(v);
+      if (!m) {
+        drops.push({
+          kind: "no-token", slot, ref: v.ref, value: v.value,
+          reason: \`no contract token for role \${v.ref} (source value \${v.value}px)\${note}\`,
+        });
+        return null;
+      }`,
+      `      const m = mapSpacing(v);
+      if (!m) {
+        return null;
+      }`),
+  },
+  {
+    id: "C3",
+    what: "hardcode distance: 0 in mapSpacing",
+    apply: (s) => s.replace(
+      `  return { token: \`--\${name}\`, contractValue, distance: contractValue - value };`,
+      `  return { token: \`--\${name}\`, contractValue, distance: 0 };`),
+  },
+  {
+    id: "C4",
+    what: "replace the depth-aware split(s) with the naive s.split(\",\")",
+    apply: (s) => s.replace(
+      `export const split = (s) => {
+  const out = []; let d = 0, cur = "";
+  for (const c of s) {
+    if (c === "(") d++;
+    if (c === ")") d--;
+    if (c === "," && d === 0) { out.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  // \`if (cur)\` would drop a TRAILING EMPTY segment — split("a,b,") → ["a","b"] where the native
+  // "a,b,".split(",") gives ["a","b",""] — so an argument list ending in a comma would silently lose
+  // its last slot and C4's arity assertion would read one short. Neither fixture ends an argument list
+  // in a comma, so nothing here exercised it; the header says top-level commas only, so it splits on
+  // all of them. An EMPTY input is still [] (out.length is 0), which keeps pad()'s 0-value throw live.
+  if (cur !== "" || out.length) out.push(cur);
+  return out;
+};`,
+      `export const split = (s) => s.split(",");`),
+  },
+  {
+    id: "C5",
+    what: "replace the role lookup in mapSpacing with a nearest-value search over SPACING",
+    apply: (s) => s.replace(
+      `  const name = "spacing-" + ref.slice("$spacing.".length);
+  if (!(name in SPACING)) return null;
+  const contractValue = SPACING[name];`,
+      `  let name = null, best = Infinity;
+  for (const [k, px] of Object.entries(SPACING)) {
+    if (Math.abs(px - value) < best) { best = Math.abs(px - value); name = k; }
+  }
+  if (!name) return null;
+  const contractValue = SPACING[name];`),
+  },
+  {
+    id: "C6",
+    what: "parseSize keeps the raw hug:N on the axis and records no qualifier",
+    apply: (s) => s.replace(
+      `    if (base === "fill" || base === "hug") return { axis: base, qualifier: qual };`,
+      `    if (base === "fill" || base === "hug") return { axis: t, qualifier: null };`),
+  },
+  {
+    id: "C7",
+    what: "restore the silent read-past — parseAl drops the unknown arg on the floor instead of collecting it",
+    apply: (s) => s.replace(
+      `    out.unknown.push(p);`,
+      `    continue;`),
+  },
+];
+
+const only = process.argv[2];
+for (const m of MUTATIONS) {
+  if (only && only !== m.id) continue;
+  const mutated = m.apply(PRISTINE);
+  if (mutated === PRISTINE) { console.log(`\n### ${m.id} MUTATION DID NOT APPLY — fix the harness\n`); continue; }
+  writeFileSync(SRC, mutated);
+  console.log(`\n### ${m.id} REDDENS: ${m.what}`);
+  let out;
+  try { out = execFileSync("node", [`${DIR}/driver.mjs`, "--controls"], { encoding: "utf8" }); }
+  catch (e) { out = e.stdout || String(e); }
+  // print only the control lines plus the tally, so the red is not buried
+  for (const line of out.split("\n")) {
+    if (/^(C\d|PC\d|ALL GREEN|\d+ FAILED)/.test(line)) console.log(line);
+  }
+  writeFileSync(SRC, PRISTINE);
+}
+console.log("\n### restored to pristine");
