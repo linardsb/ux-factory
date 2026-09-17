@@ -1,0 +1,32 @@
+FIXTURE .claude/plans/design-import-spike-c/03-blueprint.txt
+2 auto-layout node(s) of 10 non-blank line(s)
+
+al: line 5  "Text block"  dir=v -> column  al-args=3  pad-arity=1
+    slot                          source (value:ref)        contract token    contract px  distance  verdict
+    gap                           4:$spacing.xs             --spacing-xs      4px          +0px      mapped by role
+    pad[0]                        0:$spacing.none           (none)            --           --        DROP no-token -- no contract token for role $spacing.none (source value 0px) (1-value pad, expands to all four sides)
+    align                         x(-) y(-)                 main=unset        cross=unset  --        axis-resolved, no token involved
+    size                          w=fill h=hug              (enum)            --           --        enum, not a token
+    IR layout: {"dir":"column","gap":{"ref":"--spacing-xs","value":4},"pad":null,"align":{"main":null,"cross":null},"size":{"w":"fill","h":"hug"}}
+
+al: line 8  "Status chip"  dir=h -> row  al-args=5  pad-arity=4
+    slot                          source (value:ref)        contract token    contract px  distance  verdict
+    pad.top                       4:$spacing.xs             --spacing-xs      4px          +0px      mapped by role
+    pad.right                     8:$spacing.sm             --spacing-sm      8px          +0px      mapped by role
+    pad.bottom                    4:$spacing.xs             --spacing-xs      4px          +0px      mapped by role
+    pad.left                      8:$spacing.sm             --spacing-sm      8px          +0px      mapped by role
+    gap                           0:$spacing.none           (none)            --           --        DROP no-token -- no contract token for role $spacing.none (source value 0px)
+    align                         x(c) y(c)                 main=center       cross=center --        axis-resolved, no token involved
+    size                          w=hug h=hug               (enum)            --           --        enum, not a token
+    IR layout: {"dir":"row","gap":null,"pad":[{"ref":"--spacing-xs","value":4},{"ref":"--spacing-sm","value":8},{"ref":"--spacing-xs","value":4},{"ref":"--spacing-sm","value":8}],"align":{"main":"center","cross":"center"},"size":{"w":"hug","h":"hug"}}
+
+COULD NOT MAP
+  line 5 "Text block"  no-token  pad[0]  $spacing.none  value=0  -- no contract token for role $spacing.none (source value 0px) (1-value pad, expands to all four sides)
+  line 8 "Status chip"  no-token  gap  $spacing.none  value=0  -- no contract token for role $spacing.none (source value 0px)
+
+count 2 nodes . 7 spacing values . 5 mapped . 2 unmapped
+drops by kind: no-token=2
+
+The spacing count above is per SOURCE ATOM, not per expanded side, so it is directly
+comparable to an independent grep over the same file:
+  grep -o '\$spacing\.[a-z]*' .claude/plans/design-import-spike-c/03-blueprint.txt | sort | uniq -c

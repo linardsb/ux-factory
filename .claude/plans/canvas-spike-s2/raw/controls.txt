@@ -1,0 +1,115 @@
+==============================================================================
+HALF 1 -- the battery green, on the pristine branch
+  node driver.mjs --controls
+==============================================================================
+
+CONTROL BATTERY -- synthetic inputs only, no fixture is read
+
+C1 PASS -- an unmapped role lands in the drop list :: expected 1 drop, got 1 :: slot=gap reason="no contract token for role $spacing.snug (source value 13px)"
+C2 PASS -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=1 (expected 1) :: layout.pad=null -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 PASS -- the distance arithmetic is real (contract - source) :: token=--spacing-md contractValue=16 :: expected distance 4, got 4
+C4 PASS -- the splitter reads nested parens :: expected 4 al args, got 4 :: expected 4 pad entries, got 4
+C5 PASS -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-md (by-value would give --spacing-lg) :: expected distance -8, got -8
+C6 PASS -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug" (expected "hug") :: qualifier drops=1 (expected 1) value=100 (expected 100)
+
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 PASS -- a fully mappable node emits a four-side pad and both align axes :: pad=["--spacing-xs","--spacing-sm","--spacing-xs","--spacing-sm"] align={"main":"center","cross":"center"} drops=0
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+
+ALL GREEN -- 6 controls + 5 positive controls
+
+exit 0
+
+==============================================================================
+HALF 2 -- each control observed RED under its own REDDENS mutation
+  node mutate.mjs   (scratchpad harness: apply one mutation, re-run, restore)
+  Only the control lines and the tally are shown per mutation.
+==============================================================================
+
+### C1 REDDENS: delete the drops.push branch in toStack's gap/spacing helper, so a miss falls through silently
+C1 FAIL -- an unmapped role lands in the drop list :: expected 1 drop, got 0 :: slot=undefined reason=null
+C2 PASS -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=1 (expected 1) :: layout.pad=null -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 PASS -- the distance arithmetic is real (contract - source) :: token=--spacing-md contractValue=16 :: expected distance 4, got 4
+C4 PASS -- the splitter reads nested parens :: expected 4 al args, got 4 :: expected 4 pad entries, got 4
+C5 PASS -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-md (by-value would give --spacing-lg) :: expected distance -8, got -8
+C6 PASS -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug" (expected "hug") :: qualifier drops=1 (expected 1) value=100 (expected 100)
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 PASS -- a fully mappable node emits a four-side pad and both align axes :: pad=["--spacing-xs","--spacing-sm","--spacing-xs","--spacing-sm"] align={"main":"center","cross":"center"} drops=0
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+1 FAILED -- 6 controls + 5 positive controls
+
+### C2 REDDENS: the same deletion scoped to the pad path, where $spacing.none lands — the pad is omitted from the IR with no trace
+C1 PASS -- an unmapped role lands in the drop list :: expected 1 drop, got 1 :: slot=gap reason="no contract token for role $spacing.snug (source value 13px)"
+C2 FAIL -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=0 (expected 1) :: layout.pad=null -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 PASS -- the distance arithmetic is real (contract - source) :: token=--spacing-md contractValue=16 :: expected distance 4, got 4
+C4 PASS -- the splitter reads nested parens :: expected 4 al args, got 4 :: expected 4 pad entries, got 4
+C5 PASS -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-md (by-value would give --spacing-lg) :: expected distance -8, got -8
+C6 PASS -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug" (expected "hug") :: qualifier drops=1 (expected 1) value=100 (expected 100)
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 PASS -- a fully mappable node emits a four-side pad and both align axes :: pad=["--spacing-xs","--spacing-sm","--spacing-xs","--spacing-sm"] align={"main":"center","cross":"center"} drops=0
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+1 FAILED -- 6 controls + 5 positive controls
+
+### C3 REDDENS: hardcode distance: 0 in mapSpacing
+C1 PASS -- an unmapped role lands in the drop list :: expected 1 drop, got 1 :: slot=gap reason="no contract token for role $spacing.snug (source value 13px)"
+C2 PASS -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=1 (expected 1) :: layout.pad=null -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 FAIL -- the distance arithmetic is real (contract - source) :: token=--spacing-md contractValue=16 :: expected distance 4, got 0
+C4 PASS -- the splitter reads nested parens :: expected 4 al args, got 4 :: expected 4 pad entries, got 4
+C5 FAIL -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-md (by-value would give --spacing-lg) :: expected distance -8, got 0
+C6 PASS -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug" (expected "hug") :: qualifier drops=1 (expected 1) value=100 (expected 100)
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 PASS -- a fully mappable node emits a four-side pad and both align axes :: pad=["--spacing-xs","--spacing-sm","--spacing-xs","--spacing-sm"] align={"main":"center","cross":"center"} drops=0
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+2 FAILED -- 6 controls + 5 positive controls
+
+### C4 REDDENS: replace the depth-aware split(s) with the naive s.split(",")
+C1 PASS -- an unmapped role lands in the drop list :: expected 1 drop, got 1 :: slot=gap reason="no contract token for role $spacing.snug (source value 13px)"
+C2 PASS -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=1 (expected 1) :: layout.pad=null -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 PASS -- the distance arithmetic is real (contract - source) :: token=--spacing-md contractValue=16 :: expected distance 4, got 4
+C4 FAIL -- the splitter reads nested parens :: expected 4 al args, got 7 :: expected 4 pad entries, got null :: parseAl threw: unterminated pad( in: pad(1:$spacing.xs
+C5 PASS -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-md (by-value would give --spacing-lg) :: expected distance -8, got -8
+C6 PASS -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug" (expected "hug") :: qualifier drops=1 (expected 1) value=100 (expected 100)
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 FAIL -- a fully mappable node emits a four-side pad and both align axes :: threw: unterminated pad( in: pad(4:$spacing.xs
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+2 FAILED -- 6 controls + 5 positive controls
+
+### C5 REDDENS: replace the role lookup in mapSpacing with a nearest-value search over SPACING
+C1 FAIL -- an unmapped role lands in the drop list :: expected 1 drop, got 0 :: slot=undefined reason=null
+C2 FAIL -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=0 (expected 1) :: layout.pad=[{"ref":"--spacing-xs","value":4},{"ref":"--spacing-xs","value":4},{"ref":"--spacing-xs","value":4},{"ref":"--spacing-xs","value":4}] -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 FAIL -- the distance arithmetic is real (contract - source) :: token=--spacing-sm contractValue=8 :: expected distance 4, got -4
+C4 PASS -- the splitter reads nested parens :: expected 4 al args, got 4 :: expected 4 pad entries, got 4
+C5 FAIL -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-lg (by-value would give --spacing-lg) :: expected distance -8, got 0
+C6 PASS -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug" (expected "hug") :: qualifier drops=1 (expected 1) value=100 (expected 100)
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 PASS -- a fully mappable node emits a four-side pad and both align axes :: pad=["--spacing-xs","--spacing-sm","--spacing-xs","--spacing-sm"] align={"main":"center","cross":"center"} drops=0
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+4 FAILED -- 6 controls + 5 positive controls
+
+### C6 REDDENS: parseSize keeps the raw hug:N on the axis and records no qualifier
+C1 PASS -- an unmapped role lands in the drop list :: expected 1 drop, got 1 :: slot=gap reason="no contract token for role $spacing.snug (source value 13px)"
+C2 PASS -- $spacing.none produces a drop record and is not silently swallowed :: $spacing.none drops=1 (expected 1) :: layout.pad=null -- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape
+C3 PASS -- the distance arithmetic is real (contract - source) :: token=--spacing-md contractValue=16 :: expected distance 4, got 4
+C4 PASS -- the splitter reads nested parens :: expected 4 al args, got 4 :: expected 4 pad entries, got 4
+C5 PASS -- mapping is by ROLE, not by value (synthetic input 24:$spacing.md) :: expected --spacing-md, got --spacing-md (by-value would give --spacing-lg) :: expected distance -8, got -8
+C6 FAIL -- hug:N -> hug and the dropped qualifier is recorded :: size.h="hug:100" (expected "hug") :: qualifier drops=0 (expected 1) value=undefined (expected 100)
+PC1 PASS -- a MAPPABLE role produces no drop and one emitted row :: drops=0 emitted=1 token=--spacing-xs
+PC2 PASS -- a fully mappable node emits a four-side pad and both align axes :: pad=["--spacing-xs","--spacing-sm","--spacing-xs","--spacing-sm"] align={"main":"center","cross":"center"} drops=0
+PC3 PASS -- x/y are absolute axes -- main/cross swap between dir h and dir v :: h={"main":"center","cross":"start"} v={"main":"start","cross":"center"}
+PC4 PASS -- an unterminated al( throws a plain Error naming the input :: threw="unterminated al( in: x al(h,g(4:$spacing.xs) s(hug,hug) \"pc4\""
+PC5 PASS -- args() skips a head that is not on a boundary (the g( inside svg() :: args(line,"g")=null
+1 FAILED -- 6 controls + 5 positive controls
+
+### restored to pristine

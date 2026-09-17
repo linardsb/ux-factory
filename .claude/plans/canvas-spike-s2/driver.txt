@@ -1,0 +1,229 @@
+// S2 driver — runs the layout branch over a committed blueprint read and prints the mapping table
+// (ticket #299, epic #295).
+//
+// Run it (authored and run from the scratchpad; parked in the repo as driver.txt — Node refuses a
+// .txt module entry, so the .txt is a STORAGE decision, not a run path):
+//   cp layout-branch.txt "$SCRATCH/layout-branch.mjs"; cp driver.txt "$SCRATCH/driver.mjs"
+//   node "$SCRATCH/driver.mjs" .claude/plans/design-import-spike-c/03-blueprint.txt
+//   node "$SCRATCH/driver.mjs" --controls
+//
+// THROWAWAY. Nothing under system/ agent-layer/ tooling/ handoff/ is read, written or touched.
+// Only .claude/plans/ paths passed on argv are read.
+
+import { readFileSync } from "node:fs";
+import { toStack, parseAl, mapSpacing, split, args, nodeName } from "./layout-branch.mjs";
+
+// Always signed, always united, ASCII. A distance of 0 and a distance that was never computed must
+// not look the same — "+0px" is a measurement, "—" is an absence.
+const dist = (n) => (n === null || n === undefined ? "--" : `${n >= 0 ? "+" : "-"}${Math.abs(n)}px`);
+const pad = (s, n) => String(s).padEnd(n);
+const isAl = (l) => /(^|[\s,(])al\(/.test(l);
+
+// ---------------------------------------------------------------- the fixture run
+
+function runFile(file) {
+  const lines = readFileSync(file, "utf8").split("\n");
+  const nodes = lines.map((l, i) => ({ l, n: i + 1 })).filter(({ l }) => isAl(l));
+
+  console.log(`FIXTURE ${file}`);
+  console.log(`${nodes.length} auto-layout node(s) of ${lines.filter((l) => l.trim()).length} non-blank line(s)\n`);
+
+  let mapped = 0, unmappedSpacing = 0, spacingValues = 0;
+  const allDrops = [];
+
+  for (const { l, n } of nodes) {
+    const out = toStack(l);
+    const s = out.source;
+    console.log(
+      `al: line ${n}  "${nodeName(l)}"  dir=${s.dir} -> ${out.layout.dir}  ` +
+      `al-args=${s.alArgs}  pad-arity=${s.padArity}`
+    );
+    console.log(
+      "    " + pad("slot", 30) + pad("source (value:ref)", 26) + pad("contract token", 18) +
+      pad("contract px", 13) + pad("distance", 10) + "verdict"
+    );
+
+    for (const e of out.emitted) {
+      spacingValues++; mapped++;
+      console.log(
+        "    " + pad(e.slot, 30) + pad(`${e.srcValue}:${e.srcRef}`, 26) + pad(e.token, 18) +
+        pad(`${e.contractValue}px`, 13) + pad(dist(e.distance), 10) + "mapped by role"
+      );
+    }
+    for (const d of out.drops) {
+      if (d.kind === "no-token") { spacingValues++; unmappedSpacing++; }
+      console.log(
+        "    " + pad(d.slot, 30) + pad(d.ref ? `${d.value}:${d.ref}` : String(d.value), 26) +
+        pad("(none)", 18) + pad("--", 13) + pad("--", 10) + `DROP ${d.kind} -- ${d.reason}`
+      );
+      allDrops.push({ ...d, line: n, name: nodeName(l) });
+    }
+
+    const a = out.layout.align;
+    console.log(
+      "    " + pad("align", 30) + pad(`x(${s.alignX ?? "-"}) y(${s.alignY ?? "-"})`, 26) +
+      pad(`main=${a.main ?? "unset"}`, 18) + pad(`cross=${a.cross ?? "unset"}`, 13) + pad("--", 10) +
+      "axis-resolved, no token involved"
+    );
+    console.log(
+      "    " + pad("size", 30) + pad(`w=${out.layout.size.w} h=${out.layout.size.h}`, 26) +
+      pad("(enum)", 18) + pad("--", 13) + pad("--", 10) + "enum, not a token"
+    );
+
+    console.log("    IR layout: " + JSON.stringify(out.layout) + "\n");
+  }
+
+  console.log("COULD NOT MAP");
+  if (!allDrops.length) console.log("  (none)");
+  for (const d of allDrops) {
+    console.log(`  line ${d.line} "${d.name}"  ${d.kind}  ${d.slot}  ${d.ref ?? "(no ref)"}  value=${d.value}  -- ${d.reason}`);
+  }
+
+  const byKind = {};
+  for (const d of allDrops) byKind[d.kind] = (byKind[d.kind] || 0) + 1;
+  console.log(
+    `\ncount ${nodes.length} nodes . ${spacingValues} spacing values . ${mapped} mapped . ${unmappedSpacing} unmapped`
+  );
+  console.log(
+    "drops by kind: " + (Object.keys(byKind).length
+      ? Object.entries(byKind).map(([k, v]) => `${k}=${v}`).join(" . ")
+      : "(none)")
+  );
+  console.log(
+    "\nThe spacing count above is per SOURCE ATOM, not per expanded side, so it is directly\n" +
+    "comparable to an independent grep over the same file:\n" +
+    `  grep -o '\\$spacing\\.[a-z]*' ${file} | sort | uniq -c`
+  );
+}
+
+// ---------------------------------------------------------------- the control battery
+
+let failures = 0;
+const check = (id, what, ok, detail) => {
+  console.log(`${id} ${ok ? "PASS" : "FAIL"} -- ${what}${detail ? ` :: ${detail}` : ""}`);
+  if (!ok) failures++;
+};
+// A control that CRASHES must still report, or one mutation hides the other five.
+const run = (id, what, fn) => {
+  try { fn(); } catch (e) { check(id, what, false, `threw: ${e.message}`); }
+};
+
+function controls() {
+  console.log("CONTROL BATTERY -- synthetic inputs only, no fixture is read\n");
+
+  // C1 -- an unmapped role lands in the drop list.
+  run("C1", "an unmapped role lands in the drop list", () => {
+    const line = `x al(h,g(13:$spacing.snug)) s(hug,hug) "c1"`;
+    const out = toStack(line);
+    const rows = out.drops.filter((d) => d.kind === "no-token");
+    check("C1", "an unmapped role lands in the drop list",
+      rows.length === 1 && rows[0].slot === "gap" && /spacing\.snug/.test(rows[0].reason),
+      `expected 1 drop, got ${rows.length} :: slot=${rows[0]?.slot} reason=${JSON.stringify(rows[0]?.reason ?? null)}`);
+  });
+
+  // C2 -- the zero case is recorded, never swallowed. THE DISCRIMINATING CHECK.
+  run("C2", "$spacing.none produces a drop record and is not silently swallowed", () => {
+    const line = `x al(v,g(4:$spacing.xs),pad(0:$spacing.none)) s(fill,hug) "c2"`;
+    const out = toStack(line);
+    const zeros = out.drops.filter((d) => d.kind === "no-token" && d.ref === "$spacing.none");
+    check("C2", "$spacing.none produces a drop record and is not silently swallowed",
+      zeros.length === 1 && out.layout.pad === null,
+      `$spacing.none drops=${zeros.length} (expected 1) :: layout.pad=${JSON.stringify(out.layout.pad)} ` +
+      `-- the pad is omitted from the IR AND recorded in drops; omission alone would be the silent shape`);
+  });
+
+  // C3 -- the distance arithmetic is real.
+  run("C3", "the distance arithmetic is real (contract - source)", () => {
+    const m = mapSpacing({ value: 12, ref: "$spacing.md" });
+    check("C3", "the distance arithmetic is real (contract - source)",
+      m && m.token === "--spacing-md" && m.contractValue === 16 && m.distance === 4,
+      `token=${m?.token} contractValue=${m?.contractValue} :: expected distance 4, got ${m?.distance}`);
+  });
+
+  // C4 -- the splitter reads nested parens. The argument COUNT is asserted first and separately,
+  // because the naive-split mutation makes parseAl throw on the shattered pad( and a control that
+  // only crashed would not show the 4 -> 7 number the failure is actually about.
+  run("C4", "the splitter reads nested parens", () => {
+    const line = `x al(h,y(c),g(1:$spacing.xs),pad(1:$spacing.xs,2:$spacing.sm,3:$spacing.md,4:$spacing.lg)) s(hug,hug) "c4"`;
+    const n = split(args(line, "al")).length;
+    let padN = null, err = null;
+    try { padN = parseAl(line).pad.length; } catch (e) { err = e.message; }
+    check("C4", "the splitter reads nested parens",
+      n === 4 && padN === 4,
+      `expected 4 al args, got ${n} :: expected 4 pad entries, got ${padN}${err ? ` :: parseAl threw: ${err}` : ""}`);
+  });
+
+  // C5 -- mapping is by role, not by value. SYNTHETIC: no real read produces 24:$spacing.md.
+  // The ref says md (contract 16) while the resolved value equals the contract's lg (24) exactly, so
+  // by-role and by-value give provably different answers with no tie to hide behind. The expected
+  // -8 also self-checks the sign convention: +8 would mean it is flipped.
+  run("C5", "mapping is by ROLE, not by value (synthetic input 24:$spacing.md)", () => {
+    const m = mapSpacing({ value: 24, ref: "$spacing.md" });
+    check("C5", "mapping is by ROLE, not by value (synthetic input 24:$spacing.md)",
+      m && m.token === "--spacing-md" && m.distance === -8,
+      `expected --spacing-md, got ${m?.token} (by-value would give --spacing-lg) :: ` +
+      `expected distance -8, got ${m?.distance}`);
+  });
+
+  // C6 -- hug:N is reduced to hug and the qualifier is RECORDED. Synthetic because NO al() node in
+  // either committed fixture carries hug:N: the qualifier is on the text children, which the layout
+  // branch never reads. See the README's Not done.
+  run("C6", "hug:N -> hug and the dropped qualifier is recorded", () => {
+    const line = `x al(v,g(4:$spacing.xs)) s(fill,hug:100) "c6"`;
+    const out = toStack(line);
+    const q = out.drops.filter((d) => d.kind === "qualifier-dropped");
+    check("C6", "hug:N -> hug and the dropped qualifier is recorded",
+      out.layout.size.h === "hug" && q.length === 1 && q[0].slot === "size.h" && q[0].value === 100,
+      `size.h=${JSON.stringify(out.layout.size.h)} (expected "hug") :: qualifier drops=${q.length} ` +
+      `(expected 1) value=${q[0]?.value} (expected 100)`);
+  });
+
+  // Positive controls -- inputs each check MUST fire on, run the other way round.
+  console.log("");
+
+  run("PC1", "a MAPPABLE role produces no drop and one emitted row", () => {
+    const out = toStack(`x al(h,g(4:$spacing.xs)) s(hug,hug) "pc1"`);
+    check("PC1", "a MAPPABLE role produces no drop and one emitted row",
+      out.drops.length === 0 && out.emitted.length === 1 && out.emitted[0].token === "--spacing-xs",
+      `drops=${out.drops.length} emitted=${out.emitted.length} token=${out.emitted[0]?.token}`);
+  });
+
+  run("PC2", "a fully mappable node emits a four-side pad and both align axes", () => {
+    const out = toStack(`x al(h,x(c),y(c),g(8:$spacing.sm),pad(4:$spacing.xs,8:$spacing.sm,4:$spacing.xs,8:$spacing.sm)) s(hug,hug) "pc2"`);
+    check("PC2", "a fully mappable node emits a four-side pad and both align axes",
+      out.layout.pad && out.layout.pad.every((p) => p && p.ref) &&
+      out.layout.align.main === "center" && out.layout.align.cross === "center" && out.drops.length === 0,
+      `pad=${JSON.stringify(out.layout.pad?.map((p) => p?.ref))} align=${JSON.stringify(out.layout.align)} drops=${out.drops.length}`);
+  });
+
+  run("PC3", "x/y are absolute axes -- main/cross swap between dir h and dir v", () => {
+    const h = toStack(`x al(h,x(c),y(s)) s(hug,hug) "pc3h"`).layout.align;
+    const v = toStack(`x al(v,x(c),y(s)) s(hug,hug) "pc3v"`).layout.align;
+    check("PC3", "x/y are absolute axes -- main/cross swap between dir h and dir v",
+      h.main === "center" && h.cross === "start" && v.main === "start" && v.cross === "center",
+      `h=${JSON.stringify(h)} v=${JSON.stringify(v)}`);
+  });
+
+  run("PC4", "an unterminated al( throws a plain Error naming the input", () => {
+    let threw = null;
+    try { args(`x al(h,g(4:$spacing.xs) s(hug,hug) "pc4"`, "al"); } catch (e) { threw = e.message; }
+    check("PC4", "an unterminated al( throws a plain Error naming the input",
+      threw !== null && /unterminated al\(/.test(threw), `threw=${JSON.stringify(threw)}`);
+  });
+
+  run("PC5", "args() skips a head that is not on a boundary (the g( inside svg()", () => {
+    const line = `x svg(icon:caret-right) s(8.73,16) "pc5"`;
+    check("PC5", "args() skips a head that is not on a boundary (the g( inside svg()",
+      args(line, "g") === null, `args(line,"g")=${JSON.stringify(args(line, "g"))}`);
+  });
+
+  console.log(`\n${failures === 0 ? "ALL GREEN" : `${failures} FAILED`} -- 6 controls + 5 positive controls`);
+  process.exit(failures ? 1 : 0);
+}
+
+// ---------------------------------------------------------------- entry
+
+const argv = process.argv.slice(2);
+if (argv.includes("--controls")) controls();
+else if (argv.length) runFile(argv[0]);
+else { console.error("usage: node driver.mjs <blueprint.txt> | --controls"); process.exit(2); }

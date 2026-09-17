@@ -1,0 +1,293 @@
+// S2 — the Brilliant→IR converter's LAYOUT BRANCH (ticket #299, epic #295).
+//
+// This is the one file #304 lifts. It is parked as .txt because the ticket says so (AC #2), not
+// because a tracked .mjs would break anything: tooling/drift-check.mjs:31-38 runs `node --check`
+// over `git ls-files "*.mjs"`, and .claude/plans/design-import-spike-c/spike-c-sdk-reach.mjs is
+// tracked with drift-check green. The .txt is a decision about what #304 lifts.
+//
+// It IMPORTS NOTHING and contains no fixture path. Everything here is pure: a blueprint line in,
+// the architecture's IR `layout` object out (docs/epics/canvas-design-import.architecture.md:165-169
+// — `{kind, layout {dir, gap, pad, align, size}, style, text, icon, component, children}` where every
+// tokenisable value is `{ref?, value}`). Only the `layout` slot is implemented; every other atom on
+// the line is read past. That is S2's scope, literally.
+//
+// SIGN CONVENTION, pinned: distance = contract − source.
+//   $spacing.md is 12 in Brilliant and 16 in the contract, so its distance is +4px.
+//   A contract step SMALLER than the source is negative.
+// A later reader computing source-minus-contract would flip every number in the README silently.
+//
+// MAPPING IS BY ROLE, NEVER BY VALUE. The architecture (line 168): "A bound source fills `ref`; an
+// unbound one leaves it empty and the snap step fills it by nearest value." This fixture is bound on
+// every layout slot, so the snap path (G18) is not this branch's — it is #304's. By-value would also
+// be ambiguous here: $spacing.md resolves to 12, which is exactly equidistant from the contract's
+// sm (8) and md (16). Control C5 exists to catch a by-value regression.
+//
+// A MISS RETURNS null AND THE CALLER RECORDS A DROP. Never 0, never undefined, never the input
+// unchanged — a value that vanishes silently is the shape every #137 defect had.
+
+// The contract's spacing scale, verbatim from system/tokens.contract.css:55-62.
+// There is NO zero step: `grep -rn "spacing-none|spacing-0\b" system/ agent-layer/ handoff/` → no
+// matches (observed 2026-09-17). That absence is the whole of S2's question.
+export const SPACING = {
+  "spacing-xs": 4,
+  "spacing-sm": 8,
+  "spacing-md": 16,
+  "spacing-lg": 24,
+  "spacing-xl": 32,
+  "spacing-2xl": 48,
+  "spacing-3xl": 64,
+  "spacing-4xl": 96,
+};
+
+// Brilliant's alignment letters. `c` is the only one this fixture exercises; `s`/`e` are the obvious
+// reading and are marked UNTESTED in the README's Not-done section rather than claimed as passes.
+const ALIGN_LETTER = { c: "center", s: "start", e: "end" };
+
+const isBoundary = (c) => c === undefined || c === " " || c === "\t" || c === "," || c === "(";
+
+// Extract head(...)'s argument string at depth 0.
+//
+// The boundary test is load-bearing, not defensive: a bare `src.indexOf("g(")` matches the `g(` INSIDE
+// `svg(icon:caret-right)`, which is on three lines of the master fixture. Requiring start-of-string,
+// space, comma or `(` before the head rules that out.
+export const args = (src, head) => {
+  const needle = head + "(";
+  let i = -1;
+  for (let k = src.indexOf(needle); k >= 0; k = src.indexOf(needle, k + 1)) {
+    if (isBoundary(k === 0 ? undefined : src[k - 1])) { i = k; break; }
+  }
+  if (i < 0) return null;
+  let d = 0, out = "";
+  for (let j = i + head.length; j < src.length; j++) {
+    const c = src[j];
+    if (c === "(") { d++; if (d === 1) continue; }
+    if (c === ")") { d--; if (d === 0) return out; }
+    out += c;
+  }
+  throw new Error(`unterminated ${head}( in: ${src.trim()}`);
+};
+
+// Split on TOP-LEVEL commas only. The naive s.split(",") is wrong because pad(4:$a,8:$b,4:$c,8:$d)
+// sits inside al(...) — it shatters one four-value pad into four arguments. Control C4.
+export const split = (s) => {
+  const out = []; let d = 0, cur = "";
+  for (const c of s) {
+    if (c === "(") d++;
+    if (c === ")") d--;
+    if (c === "," && d === 0) { out.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  if (cur) out.push(cur);
+  return out;
+};
+
+// Every tokenisable slot in a blueprint READ is `<resolved>:<$ref>` — e.g. `12:$spacing.md`. The ref
+// is what maps; the resolved value is what the distance is measured from.
+export const parseValue = (s) => {
+  const t = String(s).trim();
+  const i = t.indexOf(":");
+  if (i >= 0) {
+    const left = t.slice(0, i).trim(), right = t.slice(i + 1).trim();
+    const n = Number(left);
+    if (!Number.isFinite(n)) throw new Error(`non-numeric resolved value in: ${t}`);
+    return { value: n, ref: right || null };
+  }
+  if (t.startsWith("$")) return { value: null, ref: t };
+  const n = Number(t);
+  if (!Number.isFinite(n)) throw new Error(`unparseable value: ${t}`);
+  return { value: n, ref: null };
+};
+
+// The SOURCE's shape, absolute axes, untranslated. dir is "h"|"v"; alignX/alignY are the letter
+// inside x()/y() or null; gap is a parseValue result or null; pad is the arity AS READ (1, 2 or 4).
+//
+// Dispatch runs over split(args(line,"al")) — the al() argument list — never over the whole line.
+// Scoping matters twice: it keeps g()/pad()/x()/y() away from the s()/t()/f[] atoms that follow on
+// the same line, and it is what makes control C4 able to fail at all (a naive split changes the al
+// argument COUNT, which is the thing C4 asserts).
+export const parseAl = (line) => {
+  const inner = args(line, "al");
+  if (inner === null) return null;
+  const parts = split(inner);
+  const out = { dir: null, gap: null, pad: null, alignX: null, alignY: null, alArgs: parts.length };
+  for (const raw of parts) {
+    const p = raw.trim();
+    if (p === "h" || p === "v") { out.dir = p; continue; }
+    if (p.startsWith("x(")) { out.alignX = args(p, "x").trim() || null; continue; }
+    if (p.startsWith("y(")) { out.alignY = args(p, "y").trim() || null; continue; }
+    if (p.startsWith("g(")) { out.gap = parseValue(args(p, "g")); continue; }
+    if (p.startsWith("pad(")) { out.pad = split(args(p, "pad")).map(parseValue); continue; }
+    // anything else on an al() arg list is read past, deliberately — S2 is the layout branch alone
+  }
+  if (!out.dir) throw new Error(`al() with no direction in: ${line.trim()}`);
+  return out;
+};
+
+// The IR's align shape: {main, cross}. The architecture names the `align` slot (line 165) but not its
+// contents, so this is S2's call and it is written down here rather than left implicit.
+//
+// x/y are ABSOLUTE axes, not main/cross. Observed in 04-htmlflex.html on the Status chip:
+// al(h,x(c),y(c),…) → `justify-content: center; align-items: center`. So under dir "h", x is main and
+// y is cross; under "v" the roles swap. The fixture NEVER exercises al(v,…) with an x() or y(), so the
+// swap is implemented and recorded as unexercised.
+export const toAlign = ({ dir, alignX, alignY }) => {
+  const letter = (l) => (l == null ? null : (ALIGN_LETTER[l] ?? null));
+  return dir === "h"
+    ? { main: letter(alignX), cross: letter(alignY) }
+    : { main: letter(alignY), cross: letter(alignX) };
+};
+
+// s(w,h) → each of "fill" | "hug" | Number. `hug:N` → "hug"; the dropped :N is recorded by the caller
+// (spike C README:92 — "a converter must treat hug:N as hug").
+export const parseSize = (line) => {
+  const inner = args(line, "s");
+  if (inner === null) return null;
+  const one = (raw) => {
+    const t = raw.trim();
+    const base = t.includes(":") ? t.slice(0, t.indexOf(":")).trim() : t;
+    const qual = t.includes(":") ? t.slice(t.indexOf(":") + 1).trim() : null;
+    if (base === "fill" || base === "hug") return { axis: base, qualifier: qual };
+    const n = Number(base);
+    if (!Number.isFinite(n)) throw new Error(`unparseable size value "${t}" in: ${line.trim()}`);
+    return { axis: n, qualifier: qual };
+  };
+  const parts = split(inner);
+  if (parts.length !== 2) throw new Error(`s() with ${parts.length} values in: ${line.trim()}`);
+  return { w: one(parts[0]), h: one(parts[1]) };
+};
+
+// Map ONE spacing value by role. Hit → the contract token, its px, and the signed distance.
+// Miss → null, and the caller MUST push a drop row.
+export const mapSpacing = ({ value, ref }) => {
+  if (!ref || !ref.startsWith("$spacing.")) return null;
+  const name = "spacing-" + ref.slice("$spacing.".length);
+  if (!(name in SPACING)) return null;
+  const contractValue = SPACING[name];
+  return { token: `--${name}`, contractValue, distance: contractValue - value };
+};
+
+// CSS shorthand arity. 1 → all four sides; 2 → [v,h,v,h]; 4 → as read.
+//
+// The 2-value expansion is OBSERVED, not assumed: 02-fixture.dsl.txt:5 authors
+// `pad($spacing.sm,$spacing.md)` and 03c-master-blueprint.txt:3 reads it back as
+// `pad(8:$spacing.sm,12:$spacing.md,8:$spacing.sm,12:$spacing.md)` — Brilliant expands a 2-value pad
+// in the read itself. It does NOT expand a 1-value one: 02-fixture.dsl.txt:7 authors
+// `pad($spacing.none)` and 03-blueprint.txt:5 reads back `pad(0:$spacing.none)`, still one value.
+// So the 1-value rule below is CSS convention applied to a read form the fixture cannot discriminate
+// (its only 1-value pad is zero, and zero on one side is zero on four). Recorded as unconfirmed.
+const expandPad = (pad) => {
+  if (!pad) return null;
+  if (pad.length === 1) return [pad[0], pad[0], pad[0], pad[0]];
+  if (pad.length === 2) return [pad[0], pad[1], pad[0], pad[1]];
+  if (pad.length === 4) return pad;
+  throw new Error(`pad() with ${pad.length} values — 1, 2 or 4 expected`);
+};
+
+const PAD_SIDE = ["top", "right", "bottom", "left"];
+
+// One blueprint line (the read's node) → the architecture's IR `layout` object, plus the flat rows
+// the driver tabulates and every value that could not map.
+//
+// `drops` is ONE list with a `kind`, because the classes carry different fields: a spacing miss has a
+// `ref` to name, a dropped size qualifier has none, and a literal size has neither a ref nor a token
+// to look for.
+//   no-token          — a $spacing.* role the contract does not carry ($spacing.none)
+//   qualifier-dropped — hug:N → hug, the :N discarded (spike C README:92)
+//   literal-size      — s(360,hug): a fixed px on an auto-layout node, which a size ∈ {fill,hug}
+//                       prop cannot carry at all
+//
+// `kind` is a DIFFERENT AXIS from the import record's own drop classes. The architecture (line 159)
+// specifies imports/<id>.json's drops[] in E1's three classes — never read · read then dropped · read
+// but never emitted. All three kinds above are E1's "READ THEN DROPPED": the value was read and
+// understood and could not be expressed. This branch produces no "never read" rows (a non-layout atom
+// is outside its scope, not dropped by it) and no "read but never emitted" rows. Fold `kind` into
+// E1's classes when lifting; do not substitute one for the other.
+//
+// A drop is recorded ONCE PER SOURCE ATOM, not once per expanded side. `pad(0:$spacing.none)` is one
+// value in the read and is one drop row here, so the unmapped count can be checked against an
+// independent `grep -o '\$spacing\.[a-z]*' | sort | uniq -c` over the same file.
+export const toStack = (node) => {
+  const al = parseAl(node);
+  if (!al) return null;
+  const emitted = [], drops = [];
+
+  const spacing = (slot, v) => {
+    const m = mapSpacing(v);
+    if (!m) {
+      drops.push({
+        kind: "no-token", slot, ref: v.ref, value: v.value,
+        reason: v.ref
+          ? `no contract token for role ${v.ref} (source value ${v.value}px)`
+          : `unbound value ${v.value}px — by-value snapping is #304's (G18), not this branch's`,
+      });
+      return null;
+    }
+    emitted.push({ slot, srcValue: v.value, srcRef: v.ref, ...m });
+    return { ref: m.token, value: m.contractValue };
+  };
+
+  const gap = al.gap ? spacing("gap", al.gap) : null;
+
+  const padSrc = al.pad;
+  let pad = null;
+  if (padSrc) {
+    // Map each SOURCE atom once, then expand the results to four sides.
+    const arity = padSrc.length;
+    const note = arity === 4 ? "" : ` (${arity}-value pad, expands to all four sides)`;
+    const mappedAtoms = padSrc.map((v, i) => {
+      const slot = arity === 4 ? `pad.${PAD_SIDE[i]}` : `pad[${i}]`;
+      const m = mapSpacing(v);
+      if (!m) {
+        drops.push({
+          kind: "no-token", slot, ref: v.ref, value: v.value,
+          reason: `no contract token for role ${v.ref} (source value ${v.value}px)${note}`,
+        });
+        return null;
+      }
+      emitted.push({ slot: slot + note, srcValue: v.value, srcRef: v.ref, ...m });
+      return { ref: m.token, value: m.contractValue };
+    });
+    const four = expandPad(mappedAtoms);
+    // Every side unmappable → no pad is emitted at all. That is the omission the verdict turns on.
+    pad = four.some((x) => x !== null) ? four : null;
+  }
+
+  const size = parseSize(node);
+  const sizeOut = size ? { w: size.w.axis, h: size.h.axis } : null;
+  if (size) {
+    for (const axis of ["w", "h"]) {
+      const s = size[axis];
+      if (s.qualifier != null) {
+        drops.push({
+          kind: "qualifier-dropped", slot: `size.${axis}`, ref: null, value: Number(s.qualifier),
+          reason: `${s.axis}:${s.qualifier} → ${s.axis} (spike C README:92)`,
+        });
+      }
+      if (typeof s.axis === "number") {
+        drops.push({
+          kind: "literal-size", slot: `size.${axis}`, ref: null, value: s.axis,
+          reason: `fixed ${s.axis}px on an auto-layout node — a size prop of {fill,hug} cannot carry it`,
+        });
+      }
+    }
+  }
+
+  return {
+    layout: {
+      dir: al.dir === "h" ? "row" : "column",
+      gap,
+      pad,
+      align: toAlign(al),
+      size: sizeOut,
+    },
+    source: { dir: al.dir, alignX: al.alignX, alignY: al.alignY, alArgs: al.alArgs, padArity: padSrc ? padSrc.length : 0 },
+    emitted,
+    drops,
+  };
+};
+
+// The node's quoted name, for the driver's row headings. Not part of the IR.
+export const nodeName = (line) => {
+  const m = line.match(/"([^"]*)"\s*(?:#\S+\s*)?$/);
+  return m ? m[1] : "(unnamed)";
+};

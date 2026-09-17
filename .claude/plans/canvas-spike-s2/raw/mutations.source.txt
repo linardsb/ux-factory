@@ -1,0 +1,110 @@
+// S2 mutation harness — apply one REDDENS mutation to layout-branch.mjs, run the control battery,
+// restore. Throwaway; lives in the scratchpad only.
+import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+
+const DIR = "/private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/1bbcd4c8-429d-4dd9-af09-9514dad382f8/scratchpad/s2";
+const SRC = `${DIR}/layout-branch.mjs`;
+const PRISTINE = readFileSync(`${DIR}/layout-branch.pristine.mjs`, "utf8");
+
+const MUTATIONS = [
+  {
+    id: "C1",
+    what: "delete the drops.push branch in toStack's gap/spacing helper, so a miss falls through silently",
+    apply: (s) => s.replace(
+      `    const m = mapSpacing(v);
+    if (!m) {
+      drops.push({
+        kind: "no-token", slot, ref: v.ref, value: v.value,
+        reason: v.ref
+          ? \`no contract token for role \${v.ref} (source value \${v.value}px)\`
+          : \`unbound value \${v.value}px — by-value snapping is #304's (G18), not this branch's\`,
+      });
+      return null;
+    }`,
+      `    const m = mapSpacing(v);
+    if (!m) {
+      return null;
+    }`),
+  },
+  {
+    id: "C2",
+    what: "the same deletion scoped to the pad path, where $spacing.none lands — the pad is omitted from the IR with no trace",
+    apply: (s) => s.replace(
+      `      const m = mapSpacing(v);
+      if (!m) {
+        drops.push({
+          kind: "no-token", slot, ref: v.ref, value: v.value,
+          reason: \`no contract token for role \${v.ref} (source value \${v.value}px)\${note}\`,
+        });
+        return null;
+      }`,
+      `      const m = mapSpacing(v);
+      if (!m) {
+        return null;
+      }`),
+  },
+  {
+    id: "C3",
+    what: "hardcode distance: 0 in mapSpacing",
+    apply: (s) => s.replace(
+      `  return { token: \`--\${name}\`, contractValue, distance: contractValue - value };`,
+      `  return { token: \`--\${name}\`, contractValue, distance: 0 };`),
+  },
+  {
+    id: "C4",
+    what: "replace the depth-aware split(s) with the naive s.split(\",\")",
+    apply: (s) => s.replace(
+      `export const split = (s) => {
+  const out = []; let d = 0, cur = "";
+  for (const c of s) {
+    if (c === "(") d++;
+    if (c === ")") d--;
+    if (c === "," && d === 0) { out.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  if (cur) out.push(cur);
+  return out;
+};`,
+      `export const split = (s) => s.split(",");`),
+  },
+  {
+    id: "C5",
+    what: "replace the role lookup in mapSpacing with a nearest-value search over SPACING",
+    apply: (s) => s.replace(
+      `  const name = "spacing-" + ref.slice("$spacing.".length);
+  if (!(name in SPACING)) return null;
+  const contractValue = SPACING[name];`,
+      `  let name = null, best = Infinity;
+  for (const [k, px] of Object.entries(SPACING)) {
+    if (Math.abs(px - value) < best) { best = Math.abs(px - value); name = k; }
+  }
+  if (!name) return null;
+  const contractValue = SPACING[name];`),
+  },
+  {
+    id: "C6",
+    what: "parseSize keeps the raw hug:N on the axis and records no qualifier",
+    apply: (s) => s.replace(
+      `    if (base === "fill" || base === "hug") return { axis: base, qualifier: qual };`,
+      `    if (base === "fill" || base === "hug") return { axis: t, qualifier: null };`),
+  },
+];
+
+const only = process.argv[2];
+for (const m of MUTATIONS) {
+  if (only && only !== m.id) continue;
+  const mutated = m.apply(PRISTINE);
+  if (mutated === PRISTINE) { console.log(`\n### ${m.id} MUTATION DID NOT APPLY — fix the harness\n`); continue; }
+  writeFileSync(SRC, mutated);
+  console.log(`\n### ${m.id} REDDENS: ${m.what}`);
+  let out;
+  try { out = execFileSync("node", [`${DIR}/driver.mjs`, "--controls"], { encoding: "utf8" }); }
+  catch (e) { out = e.stdout || String(e); }
+  // print only the control lines plus the tally, so the red is not buried
+  for (const line of out.split("\n")) {
+    if (/^(C\d|PC\d|ALL GREEN|\d+ FAILED)/.test(line)) console.log(line);
+  }
+  writeFileSync(SRC, PRISTINE);
+}
+console.log("\n### restored to pristine");
