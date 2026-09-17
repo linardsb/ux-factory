@@ -1,6 +1,7 @@
 # S2 — Blueprint auto-layout → `stack`
 
-**Real run, 2026-09-17, 16:20–16:32.** Ticket [#299](https://github.com/linardsb/ux-factory/issues/299) ·
+**Real run, 2026-09-17, 16:20–16:32; branch amended and re-run 2026-09-17 after the PR #428 review
+(F1, F7, F9, F10 — see Review amendments).** Ticket [#299](https://github.com/linardsb/ux-factory/issues/299) ·
 epic [#295](https://github.com/linardsb/ux-factory/issues/295) ·
 `docs/epics/canvas-design-import.architecture.md` § Spikes (S2) and § The intermediate representation.
 Executable plan `.claude/plans/canvas-spike-s2-blueprint-stack-299.md`.
@@ -12,18 +13,22 @@ edited or deleted; the branch reads two committed fixture files and nothing else
 **The `al()`/`s()` semantics here come from the fixture plus `04-htmlflex.html`, never from recall.**
 `01-knowledge.md` — the Brilliant knowledge spike C loaded — carries no Blueprint auto-layout syntax
 reference (its top-level headings are Design Systems, Components, Export & Import, Blueprint Directives,
-Blueprint Vectors, Design System: Authoring & Modifying — observed). Every mapping row below is
-cross-checked against Brilliant's own resolution of the same nodes into CSS.
+Blueprint Vectors, Design System: Authoring & Modifying — observed): `blueprint/core`, where `al()`'s
+grammar would live, is not in the file. **It is not empty of `al()` though** — its Directives section
+*uses* the syntax on four lines (`:682`, `:696`, `:702`, `:752`, observed), in the authoring DSL rather
+than a read. Two of them bear on this document and are cited where they do: `:682` under **Not done**
+and `:752` under **Could not map**. Every mapping row below is cross-checked against Brilliant's own
+resolution of the same nodes into CSS.
 
 ## Verdicts
 
 | Q | Verdict | Evidence |
 |---|---|---|
-| **Does `al(h,y(c),g,pad)` + `s(fill,hug)` land as one token-spaced flex container with no literal?** | **No — not on the whole fixture, and the shortfall is in two different places.** The *spacing* half is as good as the contract allows: **20 of 24** master values and **5 of 7** instance values map by role to a contract token. But **6 values across the two fixtures could not map at all** (all `$spacing.none`, a role the contract does not have), and **one literal the prop set cannot carry does appear** — `s(360,hug)` on the master's two component roots. So this run fires **the decision rule's second leg**, not its first. The branch never *emits* a literal into the IR — it omits the slot and records a drop — but "no literal in the output" is not the same as "lossless", and this document does not round the two together. | `raw/instance.txt`, `raw/master.txt` |
+| **Does `al(h,y(c),g,pad)` + `s(fill,hug)` land as one token-spaced flex container with no literal?** | **No — not on the whole fixture, and the shortfall is in two different places.** The *spacing* half is as good as the contract allows: **20 of 24** master values and **5 of 7** instance values map by role to a contract token. But **6 values across the two fixtures could not map at all** (all `$spacing.none`, a role the contract does not have), and **one literal the prop set cannot carry does appear** — `s(360,hug)` on the master's two **variant frames**. So this run fires **the decision rule's second leg**, not its first. The branch **emits the literal on the axis and records a `literal-size` drop beside it** — `layout.size.w` may be a **number**, not only `fill`/`hug` (`raw/master.txt:14`, `:45`: `"size":{"w":360,"h":"hug"}`). An earlier draft of this row claimed the branch never emits a literal into the IR; it does, deliberately, because discarding 360 is worse for #304 than carrying it. **A consumer MUST refuse any axis that is not `fill` or `hug` rather than pass it through as a length** (`layout-branch.txt`, the `size` contract) — emitting `width: 360px` from it would put a hardcoded literal on a token-contract surface. The `no-token` class is the one that genuinely omits its slot. Either way, "no literal in the output" was never the same as "lossless", and this document does not round the two together. | `raw/instance.txt`, `raw/master.txt` |
 | **What does the contract lack, named exactly?** | **`--spacing-none: 0`.** The contract's scale runs `xs 4 · sm 8 · md 16 · lg 24 · xl 32 · 2xl 48 · 3xl 64 · 4xl 96` (`system/tokens.contract.css:55-62`) with **no zero step**: `grep -rn "spacing-none\|spacing-0\b" system/ agent-layer/ handoff/` → **no matches**, observed 2026-09-17. **No `tokens.source.json` edit was made here** — S2 names it, #301 decides. | `raw/instance.txt`, `raw/master.txt` |
 | **What does the mapping cost in fidelity?** | **+4px, on `$spacing.md` only.** Brilliant's `$spacing.md` resolves to **12px**; the contract's is **16px**. Every other mapped role is exact: `xs` 4→4 and `sm` 8→8 are **+0px**. So on the master **6 of 20** mapped values shift by +4px and **14 of 20** do not move at all; on the instance **0 of 5** move. Sign convention pinned in the branch header: **distance = contract − source**. | `raw/master.txt`, `raw/instance.txt` |
 | **Is by-role mapping the right strategy, or would nearest-value do?** | **By role, decisively.** `$spacing.md` resolves to 12, which is **exactly equidistant** from the contract's `sm` (8) and `md` (16) — by-value has no answer there. Worse, the C5 mutation shows what by-value actually does to this fixture's zeros: it snaps `0:$spacing.none` to **`--spacing-xs` (4px)**, silently **inventing padding on a node the designer set to zero**, and reports a drop count of **0**. | `raw/controls.txt` (C5 mutation) |
-| **Is one literal left that `stack`'s prop set cannot carry?** | **Yes, and it is not a spacing one:** `s(360,hug)` on the master's two component roots (lines 3 and 11) is a fixed px width on an auto-layout container, which a `size ∈ {fill, hug}` prop cannot express. It prints as a `literal-size` drop rather than being silently coerced. **This is what fires the decision rule's second leg.** The fence is on its *consequence*, not on whether it appeared: in this fixture those two nodes are component roots, not `stack`s, so what it changes is #301's prop set rather than `stack`'s own shape. | `raw/master.txt` ("COULD NOT MAP", lines 3 and 11) |
+| **Is one literal left that `stack`'s prop set cannot carry?** | **Yes, and it is not a spacing one:** `s(360,hug)` on the master's lines 3 and 11 is a fixed px width on an auto-layout container, which a `size ∈ {fill, hug}` prop cannot express. It prints as a `literal-size` drop rather than being silently coerced. **This is what fires the decision rule's second leg.** The fence is on its *consequence*, not on whether it appeared — but **name those nodes precisely, because an earlier draft called them "component roots" and that understated the question**: `:2` is the component-**set** frame (`fr comp axes[state[active,away]]`) and `:3`/`:11` are its two **variant frames** (`variant(state(active))` / `variant(state(away))`). A variant frame is exactly the auto-layout container `stack` models, so this does **not** settle out to "a node type `stack` never covers". What it settles is narrower and still enough: the question it raises is **#301's prop set** — whether a layout container's size prop needs a fixed-px case beside `fill` and `hug` — not `stack`'s own shape. | `raw/master.txt` ("COULD NOT MAP", lines 3 and 11) |
 
 **The branch taken — leg 2.** The epic's decision rule
 (`canvas-design-import.architecture.md:306-308`) reads: *lossless → T3 as written and Q2b stays closed ·
@@ -33,8 +38,9 @@ a literal appears → name the token the contract lacks and drop it visibly.*
 is carried out in full — the missing token is named exactly (**`--spacing-none: 0`**) and every unmappable
 value is dropped visibly in a `drops[]` row the run prints. Leg 1 is **not** available, on either reading
 of "lossless": on the broad reading a dropped value is loss by definition, and on the narrow reading
-(*lossless ≡ no literal reaches the IR*) `s(360,hug)` still defeats it — the "component roots, not
-`stack`s" fence scopes the **consequence** of that literal, not whether it appeared.
+(*lossless ≡ no literal reaches the IR*) `s(360,hug)` still defeats it — and on this branch the literal
+literally reaches `layout.size.w` (F2). The variant-frame fence scopes the **consequence** of that
+literal, not whether it appeared.
 
 **T3 should still proceed as written — but as this spike's judgement, with a condition, not as leg 1's
 automatic consequence.** The judgement: every value that could not map is either a zero the source tool
@@ -47,12 +53,23 @@ Under that condition, omitting an unmappable zero is genuinely lossless. Without
 zero silently inherits a non-zero default and the omission stops being lossless the moment it ships —
 which would be a green check that cannot fail.
 
+**One landmine #301 should know about before it greps.** `ds-stack` does not exist yet (`grep -rn
+"ds-stack" system/ agent-layer/ handoff/ docs/` → **no matches**, observed), so the condition above is
+forward-looking and nothing violates it today. But **`.vd-stack` already does exist**, at
+`system/components.css:2439`, and it is `display: flex; flex-direction: column; gap: var(--spacing-sm)`
+— the same shape, one character off the name, **carrying exactly the unconditional default `gap` that
+tripwire 1 forbids.** It is genuinely unrelated: hand-authored proto chrome used by `proto/verdant.html`,
+`proto/fieldwork.html` and `system/proto.css`, with no `system/specs/` entry and no
+`agentic-renderer.mjs` template. That is what makes it worth naming — an implementer asking "is there
+already a stack-shaped class?" finds it, and reusing or pattern-matching onto it would reinstate the
+failure mode this condition exists to prevent, by name-association rather than by decision.
+
 **Q2b is not settled by this run, and it is not reopened by it either.** Leg 1 would have carried "Q2b
 stays closed" automatically; leg 2 does not, so that half has to be stated rather than inherited. Q2b —
 *is drag-to-reorder within a frame's layout grammar enough, or is pixel placement needed?* — was closed by
 the owner on 2026-08-28 in favour of reorder-within-grammar (`canvas-design-import.prd.md:119`). **Nothing
 here argues for reopening it**: the single literal is a **container's own width** (`s(360,hug)` on a
-component root), not a request to place a part by pixel inside a frame, and every part inside every frame
+variant frame), not a request to place a part by pixel inside a frame, and every part inside every frame
 in this fixture sits in auto-layout flow with no pixel offsets at all. What this run *does* leave open is
 the adjacent, smaller question for #301's prop set — **whether a layout container's size prop needs a
 fixed-px case beside `fill` and `hug`** — and that question is this document's, not Q2b's.
@@ -108,7 +125,7 @@ resolution of the same node into CSS (`04-htmlflex.html`), read by eye.
 | *no `x()`/`y()`* under `al(v,…)` | — | — | — | **no `align-items`, no `justify-content`**; children carry `align-self: stretch` (`:5`–`:7`) | both `null` | `raw/instance.txt` |
 | `s(fill,hug)` | — | — | — | `flex: 1 0 0` and no explicit height (`:5`) | `size {w:"fill", h:"hug"}` | `raw/instance.txt` |
 | `s(hug,hug)` | — | — | — | no width, no height (`:9`) | `size {w:"hug", h:"hug"}` | `raw/instance.txt` |
-| `s(360,hug)` | — | — | — | `width: 360px` (`:3`) | **DROP `literal-size`** — see verdict 5 | `raw/master.txt` |
+| `s(360,hug)` | — | — | — | `width: 360px` (`:3`) | **DROP `literal-size`** — see verdict 5. The axis **keeps** the literal: `layout.size.w` is `360`, not `"hug"` | `raw/master.txt` |
 
 **The three `al()` shapes, confirmed whole against `04-htmlflex.html`:**
 
@@ -133,23 +150,30 @@ not the verdict** — it is weighed in the decision below.
 
 ## Could not map
 
-Six drops across the two fixtures, in three classes. Every one is printed by the run, in a `drops[]` row
+Six drops across the two fixtures, in three of the branch's **four** classes. Every one is printed by the run, in a `drops[]` row
 carrying `{kind, slot, ref, value, reason}` — never coerced, never silently absent.
 
 **How these relate to the import record's own classes, so #304 does not have to rediscover it.** The
 architecture specifies the import record's `drops[]` in **E1's three classes** — *never read · read then
 dropped · read but never emitted* (`canvas-design-import.architecture.md:159-160`). That is a different
-axis from the `kind` below, which says *why* a value could not be carried. **All three kinds here are E1's
-"read then dropped"**: the branch read the value, understood it, and could not express it. The branch
-produces **no** "never read" rows by construction (every non-layout atom is out of its scope, not dropped
-by it) and **no** "read but never emitted" rows (nothing it maps is discarded downstream). A converter
-lifting this branch must fold `kind` into E1's classes, not substitute it.
+axis from the `kind` below, which says *why* a value could not be carried. **The first three kinds are
+E1's "read then dropped"**: the branch read the value, understood it, and could not express it.
+**`unread-al-arg` is E1's "never read"** — the branch saw the token and extracted no meaning from it.
+An earlier draft of this paragraph said the branch produces no "never read" rows *by construction*;
+that was true only because an unrecognised `al()` argument was silently read past, which is the defect
+F1 of the PR #428 review named and which is now closed. The branch still produces **no** "read but never
+emitted" rows (nothing it maps is discarded downstream). **A non-layout atom on the line is still not a
+drop** — `t()`, `f[]`, `st[]`, `rd()`, `svg()` sit *outside* `al()` and are out of scope, not lost; an
+unrecognised argument *inside* `al()` is in scope, in the layout grammar, and unexpressed, which is why
+it gets a row and they do not. A converter lifting this branch must fold `kind` into E1's classes, not
+substitute it.
 
 | kind | count | where | what the contract lacks | how it is dropped |
 |---|---|---|---|---|
-| `no-token` | **2** instance, **4** master | `pad[0]` on every "Text block"; `gap` on every "Status chip" | **`--spacing-none: 0`** — the contract's scale starts at `xs 4px` and has no zero step | the slot is omitted from the IR **and** a `drops` row records the ref, the source value and the reason. A pad whose every side is unmappable emits `pad: null` rather than a partial array. |
-| `literal-size` | **2** master | `size.w` on "Frame 1" (`:3`) and "Frame 2" (`:11`) — `s(360,hug)` | nothing — this is a **prop-set** gap, not a token gap: `size ∈ {fill, hug}` cannot carry a fixed px | recorded as a drop and printed; **not** coerced to `hug` or `fill` |
+| `no-token` | **2** instance, **4** master | `pad[0]` on every "Text block"; `gap` on every "Status chip" | **`--spacing-none: 0`** — the contract's scale starts at `xs 4px` and has no zero step | the slot is omitted from the IR **and** a `drops` row records the ref, the source value and the reason. A pad whose every side is unmappable emits `pad: null` rather than a partial array. **A PARTIALLY mappable pad emits a mixed array**, and a `null` side in it means *"this side was read and could not be mapped"* — never *"leave this side alone"*; its drop row carries the ref and the source value, and a consumer must not read it as zero or as unset. So `pad` has **three** shapes: a full four-side array, a mixed array with `null` holes, and `null`. Neither fixture contains a mixed one, but `01-knowledge.md:752` draws the shape (`pad($spacing.xs,$spacing.none,$spacing.none,$spacing.none)`), so it is authorable in Brilliant, not hypothetical. |
+| `literal-size` | **2** master | `size.w` on the two variant frames "Frame 1" (`:3`) and "Frame 2" (`:11`) — `s(360,hug)` | nothing — this is a **prop-set** gap, not a token gap: `size ∈ {fill, hug}` cannot carry a fixed px | recorded as a drop and printed; **not** coerced to `hug` or `fill` |
 | `qualifier-dropped` | **0 on both fixtures** | — | — | implemented and proven by control **C6**; see **Not done**, because **no `al()` node in either fixture carries `hug:N`** |
+| `unread-al-arg` | **0 on both fixtures** | — | nothing — this is a **branch** gap, not a contract gap: an `al()` argument S2 has no mapping for | the argument is recorded in `drops` with its verbatim text and reaches no IR slot. Every `al()` argument in both fixtures is `h`/`v`/`x()`/`y()`/`g()`/`pad()`, so no committed run reaches it — but Brilliant documents **"wrap and its cross-axis gap"** as auto-layout syntax (`01-knowledge.md:606`), so this is a live class of input. Proven by control **C7**; added after the PR #428 review (F1), where it was read past silently |
 
 Evidence: `raw/instance.txt` and `raw/master.txt`, "COULD NOT MAP" sections; `raw/controls.txt` for C6.
 
@@ -200,10 +224,10 @@ ticket did not ask.
   hit this; the layout branch does not read `rd()` at all.
 - **`s(8.73,16)` on the Chevron** is a fractional px literal. The chevron is an `svg()` node with no
   `al()`, so the layout branch never reads it.
-- **`s(360,hug)` on the master's two component roots** is **not** in this section — it is a verdict input,
+- **`s(360,hug)` on the master's two variant frames** is **not** in this section — it is a verdict input,
   because it *is* a layout-slot value the branch reads, and it is what fires leg 2. It is listed here only
-  to say where it went: the verdicts table and the mapping table. Its fence is on the consequence — those
-  nodes are component roots, not `stack`s — so what it changes is #301's prop set, not `stack`'s shape.
+  to say where it went: the verdicts table and the mapping table. Its fence is on the consequence — what it
+  changes is #301's prop set, not `stack`'s shape.
 
 ## The read-path finding, for #304
 
@@ -215,6 +239,13 @@ ticket did not ask.
 row; gap: 12px; padding: 8px 12px 8px 12px; align-items: center;`. Quantified: **`$spacing.md` appears
 0× in the instance read and 6× in the master** (`raw/instance.txt` vs `raw/master.txt`, and the
 independent grep in Setup).
+
+**And the root it omits the `al()` from still carries `s(360,hug)`** — the same literal that fires leg 2
+on the master. The branch never sees it, because `isAl` filters the line out for having no `al()`. So a
+converter reading only the expanded instance loses the root's layout intent **and never learns the
+`literal-size` case exists at all**: it would report **zero** drops on a design that has two. That is a
+sharper argument for the same conclusion than the paragraph below, and it costs nothing — the evidence is
+the line already quoted.
 
 **Consequence for #304: a converter reading an instance must also read its master** (or cross-read
 `htmlFlex`), or it loses the root's layout intent entirely — for this fixture, the row's direction, its
@@ -231,7 +262,7 @@ touched the syntax the ticket names.
 
 ## Proving the checks
 
-Six controls and five positive controls, all synthetic — no fixture is read by the battery. **Every
+Seven controls and six positive controls, all synthetic — no fixture is read by the battery. **Every
 control was observed both green and red**, and both halves are in `raw/controls.txt` verbatim: half 1 is
 the pristine battery, half 2 applies each mutation in turn, re-runs, and restores. The mutation harness is
 `raw/mutations.source.txt`; its own control is that it prints `MUTATION DID NOT APPLY` for a no-op
@@ -245,12 +276,14 @@ replacement — `grep -c "DID NOT APPLY" raw/controls.txt` → **0**, so all six
 | **C4** the splitter reads nested parens | replace `split(s)` with the naive `s.split(",")` | `C4 FAIL — expected 4 al args, got 7 :: expected 4 pad entries, got null :: parseAl threw: unterminated pad(` (PC2 collateral) | the 4-value `pad()` inside `al()` parses to exactly 4 entries on every real node |
 | **C5** mapping is by **role**, not by value | replace the role lookup with a nearest-value search over `SPACING` | `C5 FAIL — expected --spacing-md, got --spacing-lg` — and the collateral is the finding: `C2 FAIL` with `layout.pad` now `[--spacing-xs ×4]`, i.e. **by-value snapping turns the designer's explicit 0 into 4px of padding and reports 0 drops** | by-role on the synthetic `24:$spacing.md` gives `--spacing-md` at **−8px**; the sign also self-checks (a `+8` would mean the convention is flipped) |
 | **C6** `hug:N` → `hug` and the qualifier is recorded | `parseSize` keeps the raw `hug:100` on the axis and records nothing | `C6 FAIL — size.h="hug:100" (expected "hug") :: qualifier drops=0 (expected 1)` | `s(fill,hug:100)` → `size.h === "hug"` plus one `qualifier-dropped` row carrying `value: 100` |
+| **C7** an unmappable `al()` argument is **dropped, not read past** — added after the PR #428 review (F1) | restore the silent read-past: `parseAl` discards the unknown argument instead of collecting it | `C7 FAIL — unread-al-arg drops=0 (expected 1) value=undefined :: total drops=0 (expected 1)` — the IR is **identical** to the correct output and only the drop record separates them, the same discriminating shape as C2 | **PC6** — a node whose every `al()` argument *is* mappable produces **no** `unread-al-arg` row and 0 drops, so C7 cannot be satisfied by a branch that drops every argument |
 | — | — | — | **PC3** — the axis swap: the same `x(c),y(s)` gives `{main:center, cross:start}` under `h` and `{main:start, cross:center}` under `v` |
 | — | — | — | **PC4** — an unterminated `al(` throws a plain `Error` naming the line |
-| — | — | — | **PC5** — `args()` does not find the `g(` inside `svg(`; three master lines carry one |
+| — | — | — | **PC5** — `args()` does not find the `g(` inside `svg(`. **One** line of each fixture carries an `svg(` (the Chevron, `03-blueprint.txt:10` and `03c-master-blueprint.txt:10` — `grep -c 'svg('` → 1 and 1, observed), and **no code path in this PR reaches it**: `parseAl` calls `args(p,"g")` on an already-isolated `g(...)` part, and `args(line,"s")` finds `s(360,hug)` first either way. On these fixtures the boundary test is **defensive, not load-bearing** — an earlier draft of this row, of `layout-branch.txt` and of the plan's amendment A5 said "three master lines" and claimed it load-bearing. It is kept because #304's first differently-drawn source may need it |
 
-C5's mutation reddens four controls, C3's and C4's two each. That is expected — these mutations break
-shared code — and each control's **own** named red is the one quoted above.
+C5's mutation reddens four controls, C4's three, C3's two; C1, C2, C6 and C7 redden exactly one each
+(counted from `raw/controls.txt`, observed). That is expected — the wider mutations break shared code —
+and each control's **own** named red is the one quoted above.
 
 ## Not done
 
@@ -270,9 +303,28 @@ shared code — and each control's **own** named red is the one quoted above.
   unexercised.
 - **The 1-value `pad()` form's expansion rule is asserted, not confirmed.** Unlike the 2-value form, the
   1-value form **does** survive into the read (`pad(0:$spacing.none)`, 1× instance and 2× master). The
-  branch expands it to all four sides by CSS shorthand convention — but **this fixture cannot discriminate
-  it**, because its only 1-value pad is zero, and zero on one side is zero on four. A non-zero 1-value pad
-  would settle it; none exists here.
+  branch expands it to all four sides by CSS shorthand convention — but **neither committed fixture can
+  discriminate it**, because the only 1-value pad in a *read* is zero, and zero on one side is zero on four.
+  **A non-zero 1-value pad does exist in this directory** — `01-knowledge.md:682`, `al(h,pad($spacing.sm))
+  after(#logo) parent(#nav) "Search"` (an earlier draft of this bullet said none did). **It still does not
+  settle the rule**, for the same reason the 2-value form above is listed as unexercised: it is the
+  *authoring DSL*, and Brilliant expands a 2-value authored pad before the read
+  (`pad($spacing.sm,$spacing.md)` → four values in `03c-master-blueprint.txt:3`). What the 1-value authored
+  form expands to **in a read** is exactly what is unobserved, and only a read of a non-zero 1-value pad
+  can show it. `:682` is the line to draw if #304 wants one.
+- **An `al()` node with no `s()`, and an `al(` behind non-boundary whitespace.** Neither occurs in either
+  fixture — every al-line carries an `s()`, and every `al(` sits on a parser boundary — so **both paths are
+  unexercised by real data.** Both crashed the driver before the PR #428 review (F7) and are now guarded and
+  reported rather than fatal: a missing `s()` prints `(no s() on the line)`, and a line the parser refuses
+  prints `SKIPPED -- al( is not on a parser boundary`. The driver's selector (`isAl`, regex `\s`) is
+  deliberately **wider** than the parser's gate (`isBoundary` — space, tab, comma, `(`); narrowing it to
+  match would make such a line vanish silently instead of being reported. `01-knowledge.md:682` draws an
+  `al()` with no `s()`.
+- **An argument list ending in a comma.** `split()` dropped a trailing empty segment before the review
+  (F9) — `split("a,b,")` gave `["a","b"]` where the native `"a,b,".split(",")` gives `["a","b",""]`, so an
+  `al()` or `pad()` list ending in a comma would have lost its last slot and C4's arity assertion would have
+  read one short. Closed; **no argument list in either fixture ends in a comma**, so nothing here exercises
+  it either way.
 - **The unbound / by-value snap path (G18).** This fixture is token-bound on **every** layout slot, so the
   snap table is #304's, not S2's. The branch returns `null` for an unbound value with a reason naming G18,
   and C5 exists to keep a by-value regression out.
@@ -289,6 +341,32 @@ shared code — and each control's **own** named red is the one quoted above.
   this ticket: it touches no `system/` file, no shipped page and no generated artifact
   (`.claude/references/gates.md`). `node tooling/drift-check.mjs` was run and is green.
 
+## Review amendments (PR #428)
+
+The review of PR #428 found ten issues; all ten are folded in above rather than deferred. Four changed
+code, and the run was repeated for all three `raw/` files:
+
+| # | what it was | where it landed |
+|---|---|---|
+| **F1** | an `al()` argument the branch did not recognise vanished — no drop row, no IR trace, a clean count line | a fourth drop kind `unread-al-arg`, control **C7** and positive control **PC6**, the drops-table row above, and the corrected E1-class paragraph |
+| **F2** | *"the branch never emits a literal into the IR"* was false — `raw/master.txt:14` shows `"size":{"w":360,…}` | verdict row 1 rewritten; the `size` contract stated in `layout-branch.txt` for the consumer |
+| **F3** | *"a non-zero 1-value pad … none exists here"* was false — `01-knowledge.md:682` | the Not-done bullet names the line and says why it still cannot settle the read form |
+| **F5** | a partially mappable pad emitted `null` holes with no documented meaning | the `no-token` row and the branch header now state what a `null` side means; `01-knowledge.md:752` shows it is authorable |
+| **F6** | the `svg(` count was wrong in four places, no two agreeing — it is **1** per fixture | corrected in the PC5 row, in `layout-branch.txt`, and as amendment **A6** in the plan; the boundary test is kept but is **defensive** on these fixtures |
+| **F7** | the driver crashed on an `al()` node with no `s()`, and on an `al(` behind non-boundary whitespace | both guarded and reported; a Not-done bullet each |
+| **F8** | `.vd-stack` already ships the default `gap` the T3 condition forbids, one character from `ds-stack` | named beside the condition as an unrelated, similarly-shaped landmine |
+| **F9** | `split()` dropped a trailing empty argument, against its own header | closed; Not-done bullet |
+| **F10** | `expandPad`'s throw was the only Error in the file that could not name its input | the line is passed in |
+| **F4** | `Closes #299` over an unticked AC #3 (the verdict comment on epic #295) | the owner's call — see the PR body |
+| **N1** | *"the master's two component roots"* was loose (`:3`/`:11` are **variant frames** of the component set at `:2`), and the read-path finding had a free second consequence | both folded into the verdicts table and the read-path section; a variant frame *is* an auto-layout container, which narrows the fence rather than widening it |
+
+**What the re-run showed.** `raw/instance.txt` and `raw/master.txt` came back **byte-identical** to the
+committed originals (`diff` empty, observed). That is a control on the fixes' scope, not a formality:
+every `al()` argument in both fixtures is recognised, no fixture line lacks `s()`, and no argument list
+ends in a comma, so **F1, F7 and F9 are all unreachable on real data here** — which is why the review
+found them by probing rather than from a red run. Only `raw/controls.txt` changed, and it changed because
+the battery grew by one control and one positive control.
+
 ## Files
 
 | file | what |
@@ -297,5 +375,5 @@ shared code — and each control's **own** named red is the one quoted above.
 | `driver.txt` | the runner and the control battery, parked as `.txt`; run as `.mjs` from the scratchpad |
 | `raw/instance.txt` | verbatim stdout over `03-blueprint.txt` — 2 nodes, 7 spacing values, 5 mapped, 2 unmapped |
 | `raw/master.txt` | verbatim stdout over `03c-master-blueprint.txt` — 6 nodes, 24 spacing values, 20 mapped, 4 unmapped, plus 2 `literal-size` drops |
-| `raw/controls.txt` | both halves of the battery — 6 controls + 5 positive controls green, then each control observed red under its own mutation |
+| `raw/controls.txt` | both halves of the battery — 7 controls + 6 positive controls green, then each control observed red under its own mutation |
 | `raw/mutations.source.txt` | the scratchpad mutation harness, for reproducibility |

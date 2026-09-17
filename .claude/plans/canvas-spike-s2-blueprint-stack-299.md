@@ -806,6 +806,16 @@ against the fixtures before a line was written.
   `raw/controls.txt`). Every control is additionally wrapped so a throw is reported as a FAIL rather than
   killing the other ten.
 - **A5 (not an error — a gap the Patterns block left open).** The plan's verbatim `args(src, head)` uses a
-  bare `src.indexOf(head + "(")`, which matches the `g(` **inside `svg(icon:caret-right)`** — present on
-  three master lines and one instance line. *Consequence carried:* `args()` gained a boundary test
-  (start-of-string, space, tab, comma or `(` before the head), and positive control **PC5** asserts it.
+  bare `src.indexOf(head + "(")`, which matches the `g(` **inside `svg(icon:caret-right)`**.
+  *Consequence carried:* `args()` gained a boundary test (start-of-string, space, tab, comma or `(` before
+  the head), and positive control **PC5** asserts it. **A5's own count was wrong — see A6.**
+- **A6 (an error in A5, found by the PR #428 review, F6).** A5 said the `g(` inside `svg(` was "present on
+  three master lines and one instance line". It is **one line of each**: `grep -c 'svg('` →
+  `03-blueprint.txt` **1**, `03c-master-blueprint.txt` **1**, both the Chevron at `:10` (observed).
+  A5 was the origin, and the wrong figure propagated into three more documents before anyone counted —
+  `layout-branch.txt`'s header ("three lines of the master fixture"), the README's PC5 row ("three master
+  lines"), and this ticket's report ("four fixture lines", a faithful sum of A5's wrong split). All four
+  are corrected. *Second consequence:* A5 also called the boundary test load-bearing. **On these two
+  fixtures it is defensive** — `parseAl` calls `args(p,"g")` on an already-isolated `g(...)` part, and
+  `args(line,"s")` finds `s(360,hug)` first with or without it, so the only input in the PR that exercises
+  it is PC5's synthetic line. The test is kept for #304's first differently-drawn source; the claim is not.

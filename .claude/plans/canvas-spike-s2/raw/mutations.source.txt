@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const DIR = "/private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/1bbcd4c8-429d-4dd9-af09-9514dad382f8/scratchpad/s2";
+const DIR = "/private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/4dab63d7-e242-43f4-9d28-1d13a0ff7729/scratchpad";
 const SRC = `${DIR}/layout-branch.mjs`;
 const PRISTINE = readFileSync(`${DIR}/layout-branch.pristine.mjs`, "utf8");
 
@@ -63,7 +63,12 @@ const MUTATIONS = [
     if (c === "," && d === 0) { out.push(cur); cur = ""; continue; }
     cur += c;
   }
-  if (cur) out.push(cur);
+  // \`if (cur)\` would drop a TRAILING EMPTY segment — split("a,b,") → ["a","b"] where the native
+  // "a,b,".split(",") gives ["a","b",""] — so an argument list ending in a comma would silently lose
+  // its last slot and C4's arity assertion would read one short. Neither fixture ends an argument list
+  // in a comma, so nothing here exercised it; the header says top-level commas only, so it splits on
+  // all of them. An EMPTY input is still [] (out.length is 0), which keeps pad()'s 0-value throw live.
+  if (cur !== "" || out.length) out.push(cur);
   return out;
 };`,
       `export const split = (s) => s.split(",");`),
@@ -88,6 +93,13 @@ const MUTATIONS = [
     apply: (s) => s.replace(
       `    if (base === "fill" || base === "hug") return { axis: base, qualifier: qual };`,
       `    if (base === "fill" || base === "hug") return { axis: t, qualifier: null };`),
+  },
+  {
+    id: "C7",
+    what: "restore the silent read-past — parseAl drops the unknown arg on the floor instead of collecting it",
+    apply: (s) => s.replace(
+      `    out.unknown.push(p);`,
+      `    continue;`),
   },
 ];
 

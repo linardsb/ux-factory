@@ -10,7 +10,7 @@
 Wrote the Brilliant→IR converter's layout branch as a pure, import-free ESM module and ran it over both
 committed blueprint reads. Every spacing role the contract carries maps by role — 20 of 24 values on the
 master, 5 of 7 on the instance — but 6 values could not map at all (all `$spacing.none`) and one literal
-the prop set cannot carry appeared (`s(360,hug)` on two component roots). **The decision rule's second leg
+the prop set cannot carry appeared (`s(360,hug)` on the master's two variant frames). **The decision rule's second leg
 fired**, and its instruction is carried out: the token the contract lacks is named exactly
 (`--spacing-none: 0`), every unmappable value is dropped visibly, and no `tokens.source.json` edit was
 made. T3 should still proceed as written, but as this spike's judgement with a condition — `ds-stack`'s
@@ -33,8 +33,8 @@ leg 1's "stays closed".
 ## Tests added
 
 No framework — the control battery is the test suite (CLAUDE.md §Ground rules: no suite, no linter).
-`node driver.mjs --controls`: **6 controls + 5 positive controls, all PASS, exit 0** (observed,
-`raw/controls.txt` half 1).
+`node driver.mjs --controls`: **7 controls + 6 positive controls, all PASS, exit 0** (observed,
+`raw/controls.txt` half 1). C7 and PC6 were added after the PR #428 review — see § Review amendments.
 
 | id | asserts |
 |---|---|
@@ -99,8 +99,13 @@ Key derived figures, with their arithmetic:
 
 - **AC #3 — posting the S2 verdict comment on epic #295.** Outward-facing, and the plan's paid/owner-only
   table requires the owner's confirmation first (GOTCHA 2). Not run pending that confirmation; it does not
-  block the PR, which merges on the README. Tracker: **owner's call** — a follow-up issue should be opened
-  if it is deferred rather than posted.
+  block the PR, which merges on the README. Tracker: **owner's call, and the PR #428 review raised it as F4
+  (high)** — `Closes #299` in the PR body *does* close the ticket on merge (confirmed on PR #145), so
+  merging as written would take #299 off the board with its gating AC open and nothing tracking it, while
+  #301's planning depends on that comment existing. **Not posting it is still right** — the comment is
+  outward-facing and the verdict is the owner's to publish. The closure is the part that needs a decision:
+  either the owner posts the comment before merge, or a follow-up issue is opened and named in the PR body
+  in place of the "does not block this PR" sentence. As of this pass **no such issue exists** (observed).
 - **`build-checks`, the five journey drivers, the pixel gate, `vt-verify`.** Not run, and **not skipped for
   time**: this ticket touches no `system/` file, no shipped page and no generated artifact, so none of them
   can reach it (`.claude/references/gates.md`). `node tooling/drift-check.mjs` is the gate that can, and it
@@ -108,6 +113,33 @@ Key derived figures, with their arithmetic:
 - **`gen-loc-summary` / `gen-param-count` regeneration.** REGENERATES is `none` on every task:
   `.claude/plans/` matches none of `gen-loc-summary.mjs:22-26`'s three group regexes (verified by reading
   them; the green drift-check independently confirms no drift).
+
+## Review amendments (PR #428)
+
+The PR #428 review filed ten findings and one note; **all eleven are folded in**, none deferred. Four
+changed code in `layout-branch.txt`/`driver.txt`; the rest corrected claims in the README, the plan or
+this report. Full table and reasoning: `.claude/plans/canvas-spike-s2/README.md` § Review amendments.
+
+| finding | class | what changed |
+|---|---|---|
+| **F1** (high) | genuinely reachable defect | an unrecognised `al()` argument was read past with **no drop row and a clean count line**. Now a fourth drop kind `unread-al-arg`, with control **C7** and positive control **PC6**. Unreachable on both committed fixtures — Brilliant documents `wrap` as auto-layout syntax (`01-knowledge.md:606`), so the class is live |
+| **F2** (high) | false claim, no code change | *"the branch never emits a literal into the IR"* — it does: `layout.size.w` is `360` on `raw/master.txt:14`. The value is **kept** (discarding it is worse for #304) and the consumer contract is now stated in the branch |
+| **F3** (medium) | false claim, no code change | *"a non-zero 1-value pad … none exists here"* — `01-knowledge.md:682` has one. It still cannot settle the **read**-form expansion, and the bullet now says why |
+| **F4** (high) | open, owner's call | `Closes #299` over an unticked AC #3 — see § Not run |
+| **F5** (medium) | undocumented shape | a partially mappable pad emits `null` holes; what a `null` side means is now stated in the branch and the README |
+| **F6** (medium) | wrong figure ×4 | the `svg(` count is **1 per fixture**, not three/four. Origin was plan amendment A5; recorded as plan amendment **A6** rather than silently corrected. The boundary test is **defensive** on these fixtures, and is kept anyway |
+| **F7** (low) | reachable crash | the driver threw on an `al()` node with no `s()` and on an `al(` behind non-boundary whitespace. Both guarded and **reported** — narrowing the selector to match the parser would have made such a line vanish instead |
+| **F8** (medium) | landmine, no code change | `.vd-stack` (`system/components.css:2439`) already carries the default `gap` the T3 condition forbids, one character from `ds-stack`. Named beside the condition |
+| **F9** (low) | header deviation | `split()` dropped a trailing empty argument. Closed; unreachable on both fixtures |
+| **F10** (low) | house-rule deviation | `expandPad`'s throw could not name its input (CLAUDE.md §Ground rules). The line is passed in |
+| **N1** (note) | loose wording | `:3`/`:11` are **variant frames**, not "component roots" — and a variant frame *is* an auto-layout container, so the fence is narrower than the old wording implied. The read-path finding's free second consequence (the omitted root still carries `s(360,hug)`) is also folded in |
+
+**The re-run is the evidence, and it carries its own control.** `raw/instance.txt` and `raw/master.txt`
+came back **byte-identical** to the committed originals (`diff` empty, observed) — which is exactly right,
+because F1, F7 and F9 are all unreachable on real fixture data. Only `raw/controls.txt` changed, by the one
+new control and one new positive control. Every control still reds under its **own** named case, and the
+harness's no-op guard still reads `grep -c "DID NOT APPLY"` → **0** (observed) — it fired once during this
+pass, when the F9 edit invalidated C4's mutation anchor, and was fixed rather than worked around.
 
 ## Deviations from the plan
 
@@ -121,8 +153,11 @@ Key derived figures, with their arithmetic:
   control is wrapped so a throw reports as a FAIL rather than killing the other ten. The plan's predicted
   `expected 4 al args, got 7` is exactly what the mutation prints.
 - **D3 `(plan error, A5)` — `args()` gained a boundary test.** The plan's verbatim `indexOf(head + "(")`
-  matches the `g(` inside `svg(icon:caret-right)`, which is on four fixture lines. `args()` now requires
-  start-of-string, space, tab, comma or `(` before the head; PC5 asserts it.
+  matches the `g(` inside `svg(icon:caret-right)`. `args()` now requires start-of-string, space, tab, comma
+  or `(` before the head; PC5 asserts it. **The "four fixture lines" figure printed here was wrong** — it
+  is **one line of each fixture** (`grep -c 'svg('` → 1 and 1, observed), a faithful sum of amendment A5's
+  own wrong split. Corrected here, in A5/A6 of the plan, in the branch header and in the README's PC5 row.
+  On these two fixtures the boundary test is **defensive, not load-bearing**; it is kept for #304.
 - **D4 — a drop is recorded once per source ATOM, not per expanded pad side.** Consequence of plan error
   A1 (the 1-value `pad()` form is in the read, which the plan says it is not). Recording four drops for one
   `pad(0:$spacing.none)` would have made the unmapped count contradict the plan's own P2 grep. The IR still

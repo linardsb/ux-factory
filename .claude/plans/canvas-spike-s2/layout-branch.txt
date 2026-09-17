@@ -47,9 +47,16 @@ const isBoundary = (c) => c === undefined || c === " " || c === "\t" || c === ",
 
 // Extract head(...)'s argument string at depth 0.
 //
-// The boundary test is load-bearing, not defensive: a bare `src.indexOf("g(")` matches the `g(` INSIDE
-// `svg(icon:caret-right)`, which is on three lines of the master fixture. Requiring start-of-string,
-// space, comma or `(` before the head rules that out.
+// The boundary test: a bare `src.indexOf("g(")` matches the `g(` INSIDE `svg(icon:caret-right)`.
+// Requiring start-of-string, space, comma or `(` before the head rules that out.
+//
+// ON THESE TWO FIXTURES IT IS DEFENSIVE, NOT LOAD-BEARING, and an earlier draft of this comment
+// claimed otherwise. `grep -c 'svg('` is ONE line in each fixture (the Chevron, 03-blueprint.txt:10
+// and 03c-master-blueprint.txt:10 — observed), and no code path reaches it anyway: parseAl calls
+// args(p,"g") on an ALREADY-ISOLATED g(...) part, and args(line,"s") on the master's Frame lines
+// finds s(360,hug) first with or without the test. The only input that exercises it in this PR is
+// PC5's synthetic line. It is kept because #304's first differently-drawn source may well need it,
+// and PC5 claims exactly what it proves and no more.
 export const args = (src, head) => {
   const needle = head + "(";
   let i = -1;
@@ -77,7 +84,12 @@ export const split = (s) => {
     if (c === "," && d === 0) { out.push(cur); cur = ""; continue; }
     cur += c;
   }
-  if (cur) out.push(cur);
+  // `if (cur)` would drop a TRAILING EMPTY segment — split("a,b,") → ["a","b"] where the native
+  // "a,b,".split(",") gives ["a","b",""] — so an argument list ending in a comma would silently lose
+  // its last slot and C4's arity assertion would read one short. Neither fixture ends an argument list
+  // in a comma, so nothing here exercised it; the header says top-level commas only, so it splits on
+  // all of them. An EMPTY input is still [] (out.length is 0), which keeps pad()'s 0-value throw live.
+  if (cur !== "" || out.length) out.push(cur);
   return out;
 };
 
@@ -109,7 +121,7 @@ export const parseAl = (line) => {
   const inner = args(line, "al");
   if (inner === null) return null;
   const parts = split(inner);
-  const out = { dir: null, gap: null, pad: null, alignX: null, alignY: null, alArgs: parts.length };
+  const out = { dir: null, gap: null, pad: null, alignX: null, alignY: null, alArgs: parts.length, unknown: [] };
   for (const raw of parts) {
     const p = raw.trim();
     if (p === "h" || p === "v") { out.dir = p; continue; }
@@ -117,7 +129,11 @@ export const parseAl = (line) => {
     if (p.startsWith("y(")) { out.alignY = args(p, "y").trim() || null; continue; }
     if (p.startsWith("g(")) { out.gap = parseValue(args(p, "g")); continue; }
     if (p.startsWith("pad(")) { out.pad = split(args(p, "pad")).map(parseValue); continue; }
-    // anything else on an al() arg list is read past, deliberately — S2 is the layout branch alone
+    // Anything else on an al() arg list is an argument this branch has NO MAPPING FOR. It is collected,
+    // never read past: the caller turns each one into a drop. Reading it past would be the silent shape
+    // the header forbids — Brilliant documents at least one such argument (wrap and its cross-axis gap,
+    // 01-knowledge.md:606), so this is a live class of input, not a defensive branch.
+    out.unknown.push(p);
   }
   if (!out.dir) throw new Error(`al() with no direction in: ${line.trim()}`);
   return out;
@@ -175,12 +191,16 @@ export const mapSpacing = ({ value, ref }) => {
 // `pad($spacing.none)` and 03-blueprint.txt:5 reads back `pad(0:$spacing.none)`, still one value.
 // So the 1-value rule below is CSS convention applied to a read form the fixture cannot discriminate
 // (its only 1-value pad is zero, and zero on one side is zero on four). Recorded as unconfirmed.
-const expandPad = (pad) => {
+// `line` is carried in for the throw alone: every other Error in this file names the offending input
+// (CLAUDE.md §Ground rules) and this was the one that could not — expandPad sees only the mapped array.
+// Reachable: `pad()` with no arguments gives args(line,"pad") → "", split("") → [], and [] is truthy,
+// so toStack's `if (padSrc)` is entered and this throws.
+const expandPad = (pad, line) => {
   if (!pad) return null;
   if (pad.length === 1) return [pad[0], pad[0], pad[0], pad[0]];
   if (pad.length === 2) return [pad[0], pad[1], pad[0], pad[1]];
   if (pad.length === 4) return pad;
-  throw new Error(`pad() with ${pad.length} values — 1, 2 or 4 expected`);
+  throw new Error(`pad() with ${pad.length} values — 1, 2 or 4 expected — in: ${String(line).trim()}`);
 };
 
 const PAD_SIDE = ["top", "right", "bottom", "left"];
@@ -195,13 +215,20 @@ const PAD_SIDE = ["top", "right", "bottom", "left"];
 //   qualifier-dropped — hug:N → hug, the :N discarded (spike C README:92)
 //   literal-size      — s(360,hug): a fixed px on an auto-layout node, which a size ∈ {fill,hug}
 //                       prop cannot carry at all
+//   unread-al-arg     — an al() argument this branch has no mapping for (e.g. Brilliant's wrap and
+//                       its cross-axis gap, 01-knowledge.md:606). IN SCOPE and not understood.
 //
 // `kind` is a DIFFERENT AXIS from the import record's own drop classes. The architecture (line 159)
 // specifies imports/<id>.json's drops[] in E1's three classes — never read · read then dropped · read
-// but never emitted. All three kinds above are E1's "READ THEN DROPPED": the value was read and
-// understood and could not be expressed. This branch produces no "never read" rows (a non-layout atom
-// is outside its scope, not dropped by it) and no "read but never emitted" rows. Fold `kind` into
-// E1's classes when lifting; do not substitute one for the other.
+// but never emitted. The first three kinds above are E1's "READ THEN DROPPED": the value was read and
+// understood and could not be expressed. `unread-al-arg` is E1's "NEVER READ" — the branch saw the
+// token and extracted no meaning from it. This branch produces no "read but never emitted" rows
+// (nothing it maps is discarded downstream). Fold `kind` into E1's classes when lifting; do not
+// substitute one for the other.
+//
+// A NON-LAYOUT ATOM ON THE LINE IS NOT A DROP. t(), f[], st[], rd(), svg() sit OUTSIDE al() and are
+// out of this branch's scope, not lost by it. An unrecognised argument INSIDE al() is the opposite:
+// in scope, in the layout grammar, and unexpressed — which is why it gets a row and they do not.
 //
 // A drop is recorded ONCE PER SOURCE ATOM, not once per expanded side. `pad(0:$spacing.none)` is one
 // value in the read and is one drop row here, so the unmapped count can be checked against an
@@ -226,6 +253,16 @@ export const toStack = (node) => {
     return { ref: m.token, value: m.contractValue };
   };
 
+  // Every al() argument this branch has no mapping for gets a row. Without this the value is neither
+  // mapped, nor dropped, nor reported, and the count line reads clean — the shape every #137 defect had.
+  for (const u of al.unknown) {
+    drops.push({
+      kind: "unread-al-arg", slot: "al", ref: null, value: u,
+      reason: `al() argument "${u}" has no mapping in this branch — read but not understood, so it ` +
+        `reaches neither the IR nor a slot; #304 must either map it or keep this row`,
+    });
+  }
+
   const gap = al.gap ? spacing("gap", al.gap) : null;
 
   const padSrc = al.pad;
@@ -247,11 +284,24 @@ export const toStack = (node) => {
       emitted.push({ slot: slot + note, srcValue: v.value, srcRef: v.ref, ...m });
       return { ref: m.token, value: m.contractValue };
     });
-    const four = expandPad(mappedAtoms);
+    const four = expandPad(mappedAtoms, node);
     // Every side unmappable → no pad is emitted at all. That is the omission the verdict turns on.
+    //
+    // A PARTIALLY mappable pad emits a MIXED array, and a `null` side in it means "this side was read
+    // and could not be mapped" — never "leave this side alone". Its drop row carries the ref and the
+    // source value. A consumer MUST NOT read a null side as zero or as unset; the authorable shape is
+    // real (01-knowledge.md:752 draws pad($spacing.xs,$spacing.none,$spacing.none,$spacing.none)),
+    // neither committed fixture happens to contain one, and `pad` therefore has three shapes: a full
+    // four-side array, a mixed array with null holes, and null.
     pad = four.some((x) => x !== null) ? four : null;
   }
 
+  // THE AXIS KEEPS THE RAW VALUE. s(360,hug) puts the literal 360 straight onto layout.size.w — the
+  // drop row beside it records that a size prop of {fill,hug} cannot carry it, but the value is NOT
+  // discarded, because throwing it away is worse for #304 than carrying it. So `layout.size.w` and
+  // `.h` are each "fill" | "hug" | Number, and A CONSUMER MUST REFUSE ANY AXIS THAT IS NOT "fill" OR
+  // "hug" rather than pass it through as a length — emitting `width: 360px` from it would put a
+  // hardcoded literal on a token-contract surface (CLAUDE.md §Ground rules, token discipline).
   const size = parseSize(node);
   const sizeOut = size ? { w: size.w.axis, h: size.h.axis } : null;
   if (size) {

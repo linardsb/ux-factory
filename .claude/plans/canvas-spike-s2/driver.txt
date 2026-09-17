@@ -33,6 +33,14 @@ function runFile(file) {
 
   for (const { l, n } of nodes) {
     const out = toStack(l);
+    // isAl (this driver's SELECTOR) is `\s`, which is wider than the parser's isBoundary (space, tab,
+    // comma, `(` — layout-branch.txt). A line whose `al(` sits behind some other whitespace is selected
+    // here and refused there, and toStack returns null. Reporting it is the point: narrowing isAl to
+    // match would make the same line VANISH instead, which is the shape this branch exists to prevent.
+    if (!out) {
+      console.log(`al: line ${n}  "${nodeName(l)}"  SKIPPED -- al( is not on a parser boundary\n`);
+      continue;
+    }
     const s = out.source;
     console.log(
       `al: line ${n}  "${nodeName(l)}"  dir=${s.dir} -> ${out.layout.dir}  ` +
@@ -65,8 +73,11 @@ function runFile(file) {
       pad(`main=${a.main ?? "unset"}`, 18) + pad(`cross=${a.cross ?? "unset"}`, 13) + pad("--", 10) +
       "axis-resolved, no token involved"
     );
+    // `size` is null when the line carries no s() at all — 01-knowledge.md:682 draws exactly that
+    // (`al(h,pad($spacing.sm)) after(#logo) parent(#nav) "Search"`). Neither committed fixture has one.
     console.log(
-      "    " + pad("size", 30) + pad(`w=${out.layout.size.w} h=${out.layout.size.h}`, 26) +
+      "    " + pad("size", 30) +
+      pad(out.layout.size ? `w=${out.layout.size.w} h=${out.layout.size.h}` : "(no s() on the line)", 26) +
       pad("(enum)", 18) + pad("--", 13) + pad("--", 10) + "enum, not a token"
     );
 
@@ -178,6 +189,23 @@ function controls() {
       `(expected 1) value=${q[0]?.value} (expected 100)`);
   });
 
+  // C7 -- an al() argument this branch cannot map is DROPPED, not read past. Synthetic because every
+  // al() argument in both fixtures is h/v/x()/y()/g()/pad(), so no committed run can reach it --
+  // but Brilliant documents "wrap and its cross-axis gap" as auto-layout syntax (01-knowledge.md:606),
+  // so this is a live class of input. Exactly one row: a mutation that dropped EVERY argument would
+  // satisfy "at least one" and is caught by the count plus PC6.
+  run("C7", "an unmappable al() argument produces exactly one drop, not a silent read-past", () => {
+    const line = `x al(h,g(4:$spacing.xs),wrap) s(hug,hug) "c7"`;
+    const out = toStack(line);
+    const rows = out.drops.filter((d) => d.kind === "unread-al-arg");
+    check("C7", "an unmappable al() argument produces exactly one drop, not a silent read-past",
+      rows.length === 1 && rows[0].value === "wrap" && out.drops.length === 1 &&
+      out.layout.gap && out.layout.gap.ref === "--spacing-xs",
+      `unread-al-arg drops=${rows.length} (expected 1) value=${JSON.stringify(rows[0]?.value)} ` +
+      `:: total drops=${out.drops.length} (expected 1) :: gap=${JSON.stringify(out.layout.gap?.ref)} ` +
+      `-- the recognised arguments must still map; only the unmappable one drops`);
+  });
+
   // Positive controls -- inputs each check MUST fire on, run the other way round.
   console.log("");
 
@@ -211,13 +239,22 @@ function controls() {
       threw !== null && /unterminated al\(/.test(threw), `threw=${JSON.stringify(threw)}`);
   });
 
+  run("PC6", "a node whose every al() argument IS mappable produces no unread-al-arg row", () => {
+    const out = toStack(`x al(h,x(c),y(c),g(4:$spacing.xs),pad(4:$spacing.xs,8:$spacing.sm,4:$spacing.xs,8:$spacing.sm)) s(hug,hug) "pc6"`);
+    const rows = out.drops.filter((d) => d.kind === "unread-al-arg");
+    check("PC6", "a node whose every al() argument IS mappable produces no unread-al-arg row",
+      rows.length === 0 && out.drops.length === 0 && out.source.alArgs === 5,
+      `unread-al-arg rows=${rows.length} (expected 0) :: total drops=${out.drops.length} (expected 0) ` +
+      `:: alArgs=${out.source.alArgs} (expected 5)`);
+  });
+
   run("PC5", "args() skips a head that is not on a boundary (the g( inside svg()", () => {
     const line = `x svg(icon:caret-right) s(8.73,16) "pc5"`;
     check("PC5", "args() skips a head that is not on a boundary (the g( inside svg()",
       args(line, "g") === null, `args(line,"g")=${JSON.stringify(args(line, "g"))}`);
   });
 
-  console.log(`\n${failures === 0 ? "ALL GREEN" : `${failures} FAILED`} -- 6 controls + 5 positive controls`);
+  console.log(`\n${failures === 0 ? "ALL GREEN" : `${failures} FAILED`} -- 7 controls + 6 positive controls`);
   process.exit(failures ? 1 : 0);
 }
 
