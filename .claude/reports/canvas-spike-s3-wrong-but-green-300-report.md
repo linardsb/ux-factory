@@ -107,8 +107,11 @@ Every figure below is **observed** unless marked.
 
 ## Not run
 
-- **Task 13's PR.** Not opened — awaiting the owner's go. The body will carry `Closes #300` in the
-  **body**, not the title (memory `prs-dont-auto-close-tickets`). Tracker: this report + the next command.
+- **Task 13's PR.** Not opened. **The plan does not gate it** — its only owner-gated step is Task 14's
+  epic comment (Task 14's GOTCHA, and the paid table's "owner's nod" row names AC #3 alone). It stopped
+  because `piv-implement` hands the PR to `piv-create-pr`, and pushing a branch is outward-facing enough
+  to need the user's ask. The body will carry `Closes #300` in the **body**, not the title (memory
+  `prs-dont-auto-close-tickets`). Tracker: this report + the next command.
 - **Task 14's epic comment (AC3).** Not posted. The plan makes it owner-gated ("Show the owner the
   comment body and get a yes before posting") and it is outward-facing. Tracker: owner's call; the
   established fallback is the S2 rhythm — commit the body as `raw/epic-comment.md` and post in a
@@ -121,6 +124,25 @@ Every figure below is **observed** unless marked.
 - **A Linux measurement.** Named in the README as #307's step; not reachable here.
 - **A signal render on firefox or webkit.** Deliberately not run — the plan forbids it as verdict
   shopping. Only the faithful render was captured on the extra engines.
+
+## Acceptance criteria
+
+| AC | State | Evidence |
+|---|---|---|
+| **AC1** README records the fixture pair, per-region ΔE, WCAG per pair, the aggregations tried, the verdict and the branch | **met** | `.claude/plans/canvas-spike-s3/README.md`, 11 sections |
+| **AC2** scripts parked as `.txt`, fixture pair committed in a form a pure-Node gate can read | **met** | `capture.txt` `compare.txt` `controls.txt` `wcag-probe.txt`; `compare.mjs` reads only committed PNGs, no browser |
+| **AC3** verdict posted as a comment on epic #295 | **NOT MET** — owner-gated, see Not run | — |
+| **AC4** the predicate was committed before the first fixture number, and the commit order proves it | **met** | `65815a3` precedes `42e2f81`; no `tokens.polaris.spike.css` render existed at plan-commit time |
+| **AC5** eleven controls, each observed green **and** red, both halves verbatim | **met, with the plan's own two exceptions** | 11/11 half 1; nine red in half 2. **C6 has no mutation by design** (the AC says so) and **C8 stays green by design** — the plan's own C8 row states "C8 stays green … that is the point", so the AC's stated exception is two controls, not one. Both are in `raw/controls.txt` |
+| **AC6** the port agrees with skimage to < 1e-3 over 500 pairs, mutated half showing the disagreement | **met** | 8.88e-14 pristine; **14.545** with `R_T` deleted |
+| **AC7** an empty measurement throws; `sum/max(len,1)` appears only in C5's mutation half | **met** | C5 throws naming the refusal. `grep -c 'max(scores.length'` → **compare.txt 0, controls.txt 1** (observed) — the shape exists nowhere but in C5's mutation definition |
+| **AC8** no generated output moved, **proven** by a staged `--check` plus its positive control | **met** | staged `--check` green; 200-line probe → `loc summary ✗` exit 1; reverted |
+| **AC9** `build-checks` green; `drift-check` green | **met** | `all 34 groups pass`; `drift-check ✓` (after `npm install` in the worktree's `tooling/style-dictionary` — a fresh-worktree condition, not a ticket defect) |
+| **AC10** the PR body carries `Closes #300` | **NOT MET** — no PR yet, see Not run | — |
+| **AC11** all six rungs reported at all three granularities for both pairs, rung 5's failure visible | **met** | `raw/deltae.txt`: 4 blocks x 3 granularities x 6 rungs; rung 5 reported failing at 1.34x |
+| **AC12** the 256 px rule and the `inkN/n > 0.5` rule applied, every excluded or degenerate region named | **met** | `chevron` (144 px) excluded and named with its numbers in every block; mask-degenerate trips nothing — worst ink share `yband3` **40.8%** — and the README says the rule is untested here |
+| **AC13** the platform envelope is a **number**, with the statement of whether it can close the margin | **met** | worst rung-6 floor **2.6888**; conservative margins rung 2 **2.47x**, rung 6 **6.68x**; plus every rung's cross-engine floor |
+| **AC14** done in a dedicated worktree, worktree removed after merge | **half met** | worktree `~/Desktop/Linards_current/wt-s3-300` used throughout. **Removal is pending the merge and nothing currently tracks it** — `git worktree remove ~/Desktop/Linards_current/wt-s3-300` after #300's PR merges. The repo already carries two stale worktrees (`wt-292-restore`, `wt-spike-b`); this must not become a third |
 
 ## Deviations from the plan
 
@@ -160,6 +182,11 @@ Every figure below is **observed** unless marked.
   diff the file exists to show. The driver replaces each blob with a marker naming its source and byte
   count; the **rendered** HTML is unchanged, proven by the PNGs staying byte-identical across the
   re-run. The four records now diff to exactly the `:root` block (and M2's two `var()` swaps).
+- **The README has 11 `## ` sections, not the 10 Task 11's VALIDATE expects.** The extra one is
+  **§ The plan's derived prediction, reconciled**, which the plan's own NOTES require ("if the observed
+  numbers contradict any of this, the harness is suspect before the metric is") but which Task 11's
+  section list omits. Every one of the ten required sections is present; the check's intent — that no
+  section was dropped — holds, and the count now reads 11.
 - **`--engines` reports all six rungs, not just rung 6.** The plan measured the cross-engine floor for
   rungs 1 and 6 and pinned rung 6's threshold from it. Since the predicate names *whichever rung fires
   first* as #307's recommendation, and that turned out to be rung 2, naming it without its platform
@@ -193,6 +220,12 @@ Every figure below is **observed** unless marked.
   verdict row; the run answers it — **per-part**, because whole-image fires *nothing* and y-bands inflate
   rung 6's floor from 0.8716 to 9.2145. Q5 records that a sub-JND change (#f8f8f8 → #ffffff, ΔE 1.40) is
   measured and correctly *not* called red, which is the plan's own Edge Case made into a reported result.
+- **§ The plan's derived prediction, reconciled.** The plan states a pre-run prediction and requires a
+  divergence be treated as evidence; Task 11's section list has no home for it. The section does the
+  arithmetic, and reports that all three *rung-level* predictions held while the predicted region-mean
+  figure (0.86) is not comparable to the observed signal (1.6638) because the prediction modelled a zero
+  floor and CIEDE2000 is not additive over two error sources on one pixel. The correction is to the
+  plan's NOTES, not to anything measured.
 - **A fixture determinism check.** Two full capture runs, all seven PNGs compared by SHA-256 — byte-identical.
   Not asked for; it is what makes the committed fixture safe for #307's gate to diff against.
 - **`m1-faithful.png` and `m2-faithful.png` proven byte-identical.** M2's faithful values *are* M1's drop

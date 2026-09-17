@@ -14,7 +14,7 @@ ships. Nothing under `system/`, `tooling/`, `agent-layer/` or `handoff/` was tou
 | **Q2 — does any rung separate signal from floor, and which?** | **Yes — two do. Rung 2 (p95) is the first**, floor 3.3462 → signal **12.5861**, a 3.76x margin. **Rung 6 (ink-colour ΔE) fires far harder**, floor 0.8716 → signal **17.9597**, a **20.6x** margin. Under the pre-committed predicate the first firing rung is named, so **the predicate's answer is rung 2**. The platform envelope, measured after, is what separates them — see § Platform. | `raw/deltae.txt` |
 | **Q3 — does WCAG stay 12/12 on the wrong pack?** | **Yes. 12/12.** `--color-fg: #0c3b2f` on `#ffffff` reads **12.48:1**; `--color-fg-muted: #20828d` reads **4.53:1**. Every declared pair passes while the body text is a dark green. | `raw/wcag.txt` |
 | **Q4 — which region granularity should #307 inherit?** | **Per-part (c).** At whole-image granularity **no rung fires at all** — the defect is invisible. At E4's y-bands only rung 2 fires, and rung 6's floor inflates from 0.8716 to **9.2145** because a band mixes title, surface and chip into one unstable ink population. Per-part is also what the IR already gives (`architecture.md:167-171`). | `raw/deltae.txt` |
-| **Q5 — does the detector fire on a colour a human cannot see?** | **No, and that is the point.** Under M2 the surface role moves `#f8f8f8 → #ffffff`, **ΔE 1.40** — below the 2.3 JND. Rung 6 reports it on the ink-unchanged regions at 1.35–1.39, under the 5.0 threshold, so it is measured and not called red. | `raw/controls.txt` C10 |
+| **Q5 — does the detector fire on a colour a human cannot see?** | **No, and that is the point.** Under M2 the surface role moves `#f8f8f8 → #ffffff`, **ΔE 1.40** — below the 2.3 JND. Rung 6 reports it on the four ink-unchanged regions at **0.5742–1.3896**, all under the 5.0 threshold, so it is measured and not called red. | `raw/controls.txt` C10 |
 
 **The reading, stated as itself.** The epic's decision rule has two legs: red → "the detector exists";
 green → "the aggregation is wrong, not the idea". The observed result is **green on rung 1, red on
@@ -282,6 +282,38 @@ the **paper** moves the ink average on a region whose **ink** never changed. C10
 threshold so neither is called red, but a source that moves surfaces and text together will inflate
 rung 6 for the wrong reason. #307 inherits this limitation along with the rung.
 
+## The plan's derived prediction, reconciled
+
+The plan wrote a prediction down **before the run** so that a divergence would be evidence rather than a
+shrug, and ended it: *"If the observed numbers contradict any of this, the harness is suspect before the
+metric is."* Reconciling it is therefore part of the deliverable, not an optional courtesy.
+
+| predicted (derived, in the plan) | observed | reading |
+|---|---|---|
+| title region mean ΔE ≈ 0.047 x 18.22 = **0.86** | signal **1.6638**, floor **1.3089**, increment **0.3549** | **not comparable to either figure as written** — see below |
+| subtitle ≈ 0.046 x 23.17 = **1.07** | signal **1.0508** | lands on it, and that is a coincidence of the same kind |
+| **rung 1 predicted GREEN** | **GREEN** | held |
+| rung 5 predicted to fail in the other direction (floor 20.52 > the signal's own ink ΔE 18.22) | floor **20.5240**, signal **27.5252**, fails on margin at 1.34x | held |
+| rung 6 predicted to separate cleanly | floor **0.8716**, signal **17.9597**, 20.6x | held |
+
+**Why the two mean-ΔE numbers are not comparable, and why that is not a harness fault.** The prediction
+models the region mean as if the ink swap were the *only* difference between the two images — a zero
+floor. The observed signal is not that: it is the mean over a comparison that already carries the
+cross-renderer floor, and **the same ink pixels carry both the misregistration error and the colour
+error**. CIEDE2000 is not additive over two error sources on one pixel, so `signal ≈ floor + prediction`
+was never the right identity, and neither `1.6638` (which includes the floor) nor `0.3549` (the naive
+subtraction) is the quantity `0.86` names. The subtitle's apparent agreement (predicted 1.07, observed
+total 1.0508) is the same arithmetic landing near the mark by accident: its floor is 0.6973, roughly half
+the title's, so the unmodelled term is smaller there.
+
+**What the prediction was actually for, and it held.** Its load-bearing claim was *qualitative* — that a
+region ~95% paper would dilute an ink-sized defect below the 2.3 JND, so **rung 1 would read green not
+because the mapping is right but because the mean divides the error by the paper**. Observed: 1.6638,
+below 2.3, below 2 x the floor. All three rung-level predictions held. **The harness is not suspect: the
+region geometry, the byte counts and every cross-engine floor reproduce the plan's pre-flight exactly
+(§ Setup).** What the prediction got wrong is its own arithmetic model of how a floor and a signal
+combine, and that is a correction to the plan's NOTES rather than to anything measured here.
+
 ## Platform
 
 Every number above is macOS. The faithful render was captured on all three Playwright engines at
@@ -365,8 +397,8 @@ fixture/
   regions.json                  the eight per-part rectangles in the shared 361x221 space
   harness-m1-faithful.html.txt  all four rendered variants; the :root block is the only difference
   harness-m1-wrong.html.txt     (the three base64 Manrope blobs are elided from the RECORD only —
-  harness-m2-faithful.html.txt   identical in all four, ~95 KB each, and they would hide the
-  harness-m2-wrong.html.txt      three-byte :root diff that matters)
+  harness-m2-faithful.html.txt   identical in all four, ~126,700 base64 chars / ~95,000 decoded font
+  harness-m2-wrong.html.txt      bytes each, and they would hide the three-byte :root diff that matters)
 raw/
   capture.txt                   capture driver stdout, all three engines, verbatim
   deltae.txt                    comparison stdout, verbatim — the numbers

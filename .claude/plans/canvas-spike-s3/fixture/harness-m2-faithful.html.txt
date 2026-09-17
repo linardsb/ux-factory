@@ -1,9 +1,9 @@
 <meta charset="utf-8">
 <title>S3 candidate — M2 / faithful</title>
 <style>
-@font-face{font-family:'Manrope';font-style:normal;font-weight:400;src:url(data:font/ttf;base64,<126600 bytes ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>) format('truetype');}
-@font-face{font-family:'Manrope';font-style:normal;font-weight:500;src:url(data:font/ttf;base64,<126716 bytes ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>) format('truetype');}
-@font-face{font-family:'Manrope';font-style:normal;font-weight:600;src:url(data:font/ttf;base64,<126764 bytes ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>) format('truetype');}
+@font-face{font-family:'Manrope';font-style:normal;font-weight:400;src:url(data:font/ttf;base64,<126600 base64 chars = 94,950 decoded font bytes, ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>) format('truetype');}
+@font-face{font-family:'Manrope';font-style:normal;font-weight:500;src:url(data:font/ttf;base64,<126716 base64 chars = 95,037 decoded font bytes, ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>) format('truetype');}
+@font-face{font-family:'Manrope';font-style:normal;font-weight:600;src:url(data:font/ttf;base64,<126764 base64 chars = 95,073 decoded font bytes, ELIDED FROM THIS RECORD — verbatim from .claude/plans/design-import-spike-c/06.svg, injected at run time by capture.txt>) format('truetype');}
   :root {
     --color-fg: #454545;
     --color-fg-muted: #575757;
