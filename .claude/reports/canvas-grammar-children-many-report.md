@@ -178,7 +178,9 @@ PORT=4791 node tooling/visual-regression/serve.mjs &     (private port; killed b
 curl http://127.0.0.1:4791/handoff/verdant/vocabulary.json | head -8
     → "version": 2                    ← the stale-serve guard (R8): this is MY tree
 BASE=http://127.0.0.1:4791 node tooling/catalog-journey.mjs all
-    → catalog-journey ✓  all assertions passed on chromium, firefox, webkit   (32 passed / 0 failed per engine)
+    → catalog-journey ✓  all assertions passed on chromium, firefox, webkit
+      chromium: 33 passed, 0 failed · firefox: 32 passed, 0 failed · webkit: 32 passed, 0 failed
+      (chromium carries one extra assertion — the CDP listener count, which the driver states is chromium-only)
 ```
 
 **AC #3, mechanically rather than by eye.** `/components` was driven headless under **both** packs and its
