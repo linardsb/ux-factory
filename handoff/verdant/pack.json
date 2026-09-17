@@ -4,6 +4,68 @@
   "generatedFrom": "system/specs",
   "components": [
     {
+      "component": "avatar",
+      "status": "shipped",
+      "class": "ds-avatar",
+      "contract": null,
+      "props": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "whose avatar this is — \"Nora Osei\" — the disc's accessible name, never rendered as text"
+        },
+        "initials": {
+          "type": "string",
+          "required": false,
+          "description": "the one-to-three characters shown in the disc; absent falls back to the first character of name (the plant-card monogram precedent)"
+        },
+        "size": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "sm",
+            "md",
+            "lg"
+          ],
+          "description": "disc diameter step; absent means md"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-accent-wash",
+        "--color-border",
+        "--type-caption",
+        "--type-body",
+        "--type-h3"
+      ],
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "example": {
+        "name": "Nora Osei",
+        "initials": "NO"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "A PORT, and the spec says so first: this is Shopify Polaris's Avatar (public token/component\nsystem, `@shopify/polaris`, ported at its v7-era shape) projected onto THIS system's token\ncontract — Polaris's design decision (an initials disc naming a person where a photo would be\nnoise), this repo's tokens. Library-generic (`ds-`, cross-scenario, the metric-tile precedent),\nnon-interactive like stat-tile: a disc of initials standing in for a person wherever a row or\ncard names one. Never a tap target — if the person opens something, the PARENT is the control\nand the avatar is decoration inside it.\n\nWhat the port deliberately drops (projection, not reproduction): Polaris cycles avatar\nbackgrounds through its own six-colour palette keyed off the customer name. The contract has no\n\"avatar palette\" concept and a colour literal in `components.css` is a red build, so every disc\nhere wears the accent wash — one fewer concept, stated rather than smuggled in."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the only state. `--color-accent-wash` disc inside a `--color-border` hairline,\n  initials in `--color-accent` at weight 600. Sizes step the type token, not an ad-hoc scale:\n  `sm` at `--type-caption`, `md` at `--type-body`, `lg` at `--type-h3`. Non-interactive, so no\n  hover/focus/active grammar exists to port."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. The composing agent passes `name` (and optionally\n`initials`) from the scenario's data; the component never invents a person. The initials render\nverbatim — casing, diacritics and all — because normalising a name is a judgement this\ncomponent refuses to make.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `name` | the disc's `aria-label` | required — an unnamed avatar is decoration pretending to be information |\n| `initials` | the visible text inside the disc | first character of `name` |\n| `size` | an `is-sm` / `is-lg` class on the disc | `md`, no class |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "The disc is `role=\"img\"` with `aria-label` = `name`, and the initials inside are\n`aria-hidden` — a screen reader hears the person, never the abbreviation (\"NO\" read aloud is\nnot a name). `--color-accent` on `--color-accent-wash` is the same figure/ground pairing the\nghost-button hover state uses; the initials also never carry information colour alone would —\nthey are a monogram, and the full name is in the accessible name. Non-interactive, so no focus\nor hit-area obligations."
+        }
+      ]
+    },
+    {
       "component": "card",
       "status": "shipped",
       "class": "ds-card",

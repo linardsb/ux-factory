@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The twenty templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The twenty-one templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -212,7 +212,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the twenty specs, one per vocabulary
+// Templates — the canonical DOM realization of the twenty-one specs, one per vocabulary
 // entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
@@ -376,6 +376,16 @@ const TEMPLATES = {
     });
     btn.addEventListener("click", (e) => busEmit(bus, "ghost-button", e, { intent: "commit", label: props.label }));
     return btn;
+  },
+
+  // A PORT of Shopify Polaris's Avatar (spike/design-import — spec: system/specs/avatar.md, which
+  // states the projection and what it drops). Non-interactive like stat-tile (no bus). role="img"
+  // named by the person; the initials are aria-hidden so a reader hears the name, never "NO".
+  "avatar": (props) => {
+    const size = props.size === "sm" || props.size === "lg" ? ` is-${props.size}` : "";
+    const initials = props.initials != null ? props.initials : String(props.name).trim().charAt(0);
+    return el("span", { class: `ds-avatar${size}`, role: "img", "aria-label": props.name },
+      el("span", { "aria-hidden": "true", text: initials }));
   },
 
   // The container primitive — the single-child rule made visible: the one validated child renders
