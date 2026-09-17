@@ -86,7 +86,7 @@
 //  21 catalog        the component catalog's pure layer: pack↔vocabulary set identity, the
 //                     palette's static CATALOG_COMPONENTS pinned against the generated vocabulary,
 //                     controlFor's bounds fidelity over every real prop (declared subsets only,
-//                     nothing invented), tabsFor's 3/7 wrapper histogram pinned as the #220
+//                     nothing invented), tabsFor's 3/18 wrapper histogram pinned as the #220
 //                     tripwire, WRAPPER_ATTRS pinned against each wrapper source's
 //                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
 //                     that proves the fabricated-API refusal is real), reactSnippet's attribute
