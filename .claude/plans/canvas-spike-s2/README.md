@@ -357,7 +357,7 @@ code, and the run was repeated for all three `raw/` files:
 | **F8** | `.vd-stack` already ships the default `gap` the T3 condition forbids, one character from `ds-stack` | named beside the condition as an unrelated, similarly-shaped landmine |
 | **F9** | `split()` dropped a trailing empty argument, against its own header | closed; Not-done bullet |
 | **F10** | `expandPad`'s throw was the only Error in the file that could not name its input | the line is passed in |
-| **F4** | `Closes #299` over an unticked AC #3 (the verdict comment on epic #295) | the owner's call — see the PR body |
+| **F4** | `Closes #299` over an unticked AC #3 (the verdict comment on epic #295) | closed: the verdict is [posted on epic #295](https://github.com/linardsb/ux-factory/issues/295#issuecomment-5720021289) (owner-confirmed, 2026-09-17), and all three of #299's ACs are ticked |
 | **N1** | *"the master's two component roots"* was loose (`:3`/`:11` are **variant frames** of the component set at `:2`), and the read-path finding had a free second consequence | both folded into the verdicts table and the read-path section; a variant frame *is* an auto-layout container, which narrows the fence rather than widening it |
 
 **What the re-run showed.** `raw/instance.txt` and `raw/master.txt` came back **byte-identical** to the

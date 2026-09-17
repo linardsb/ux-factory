@@ -97,15 +97,17 @@ Key derived figures, with their arithmetic:
 
 ## Not run
 
-- **AC #3 — posting the S2 verdict comment on epic #295.** Outward-facing, and the plan's paid/owner-only
-  table requires the owner's confirmation first (GOTCHA 2). Not run pending that confirmation; it does not
-  block the PR, which merges on the README. Tracker: **owner's call, and the PR #428 review raised it as F4
-  (high)** — `Closes #299` in the PR body *does* close the ticket on merge (confirmed on PR #145), so
-  merging as written would take #299 off the board with its gating AC open and nothing tracking it, while
-  #301's planning depends on that comment existing. **Not posting it is still right** — the comment is
-  outward-facing and the verdict is the owner's to publish. The closure is the part that needs a decision:
-  either the owner posts the comment before merge, or a follow-up issue is opened and named in the PR body
-  in place of the "does not block this PR" sentence. As of this pass **no such issue exists** (observed).
+- **AC #3 — posting the S2 verdict comment on epic #295: now RUN, not deferred.** It was held back at the
+  original pass because it is outward-facing and the plan's paid/owner-only table requires the owner's
+  confirmation first (GOTCHA 2). The PR #428 review raised the closure as **F4 (high)**: `Closes #299` in a
+  PR body *does* close the ticket on merge (confirmed on PR #145), so merging with the AC open would have
+  taken #299 off the board with nothing tracking it, while #301's planning depends on that comment existing.
+  **The owner confirmed on 2026-09-17 and the comment is posted**:
+  https://github.com/linardsb/ux-factory/issues/295#issuecomment-5720021289. Its text is the spike's own
+  output — the verdict, `--spacing-none: 0`, the T3 condition with the `.vd-stack` landmine, Q2b left where
+  it was, and the read-path finding for #304 — drafted, shown to the owner in full, and posted on their word.
+  **All three of #299's acceptance criteria are ticked**; AC #1 and #2 had been satisfied by the committed
+  work since the original pass but were never ticked, and are now.
 - **`build-checks`, the five journey drivers, the pixel gate, `vt-verify`.** Not run, and **not skipped for
   time**: this ticket touches no `system/` file, no shipped page and no generated artifact, so none of them
   can reach it (`.claude/references/gates.md`). `node tooling/drift-check.mjs` is the gate that can, and it
@@ -125,7 +127,7 @@ this report. Full table and reasoning: `.claude/plans/canvas-spike-s2/README.md`
 | **F1** (high) | genuinely reachable defect | an unrecognised `al()` argument was read past with **no drop row and a clean count line**. Now a fourth drop kind `unread-al-arg`, with control **C7** and positive control **PC6**. Unreachable on both committed fixtures — Brilliant documents `wrap` as auto-layout syntax (`01-knowledge.md:606`), so the class is live |
 | **F2** (high) | false claim, no code change | *"the branch never emits a literal into the IR"* — it does: `layout.size.w` is `360` on `raw/master.txt:14`. The value is **kept** (discarding it is worse for #304) and the consumer contract is now stated in the branch |
 | **F3** (medium) | false claim, no code change | *"a non-zero 1-value pad … none exists here"* — `01-knowledge.md:682` has one. It still cannot settle the **read**-form expansion, and the bullet now says why |
-| **F4** (high) | open, owner's call | `Closes #299` over an unticked AC #3 — see § Not run |
+| **F4** (high) | closed | `Closes #299` over an unticked AC #3. The verdict comment is **posted** on epic #295 (owner-confirmed, 2026-09-17) and all three ACs are ticked — see § Not run |
 | **F5** (medium) | undocumented shape | a partially mappable pad emits `null` holes; what a `null` side means is now stated in the branch and the README |
 | **F6** (medium) | wrong figure ×4 | the `svg(` count is **1 per fixture**, not three/four. Origin was plan amendment A5; recorded as plan amendment **A6** rather than silently corrected. The boundary test is **defensive** on these fixtures, and is kept anyway |
 | **F7** (low) | reachable crash | the driver threw on an `al()` node with no `s()` and on an `al(` behind non-boundary whitespace. Both guarded and **reported** — narrowing the selector to match the parser would have made such a line vanish instead |
