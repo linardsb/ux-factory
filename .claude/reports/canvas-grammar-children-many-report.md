@@ -12,7 +12,7 @@
 rule unchanged. One optional spec-head key rides the existing spec → parser → vocabulary → validator chain
 with no new file, no new module and no renderer template. `vocabulary.json`'s grammar block gains
 `composition.version: 2` and a reworded `childrenRule`. **No spec declares `many` in this PR** — `stack`
-and `list` are #301 and #305; this is the grammar they land on.
+and `list` are #301 and #303; this is the grammar they land on.
 
 ## Tasks completed
 
@@ -356,3 +356,51 @@ All tasks complete, all validations pass. Ten staged paths, no `git add -A`, no 
 
 Next: `piv-commit`, then `piv-create-pr` (PR body must carry **`Closes #298`** and D1's deviation
 sentence), then `piv-review-pr`.
+
+## Review round 1 — the six findings, all fixed
+
+`.claude/code-reviews/pr-427-review.md` (approve with comment; no critical, no high). All six fixed in this
+PR; nothing deferred. `node tooling/build-checks.mjs` → `build ✓  all 34 groups pass` after each.
+
+| | Finding | Fix | Evidence |
+|---|---|---|---|
+| F1 | Med · `list` is #303, not #305 | the number corrected in 8 places — `build-checks.mjs:622` and the group 3 ✓ line, the report, five plan sites | plan line 63's `(#301, #303, #305, #309)` left alone — #305 is legitimately `icon` there. `gh issue view` observed: #303 = `list`, #305 = `icon` |
+| F2 | Med · the architecture doc specifies a key that does not exist | `children: many` → `childrenCardinality: "many"`, and the self-refuting `(observed, agentic-renderer.mjs:79-96)` citation dropped | **three sites, not the one the review named** — `:49-52`, `:265` and `:283`. `grep -c "children: many"` → 0; `childrenCardinality` → 3 |
+| F3 | Med · the projection blind spot was missing from `gates.md` | the clause appended to the groups-1–7 sentence, naming `childrenCardinality` and #301's regenerated vocabulary | `grep -c childrenCardinality .claude/references/gates.md` → 1 (was 0). The report's "stated in ... `gates.md`" sentence is true now rather than corrected away |
+| F4 | Low · `"caught on both"` was false — `throw` aborts `forEach` | the comment states what the loop bought: a chip at any index, not just the first | observed on the shipped `validateComposition` over a `many` `plant-card` with two competing chips: `names children[0]? true \| names children[1]? false` |
+| F5 | Low · the mutation could not tell an absent key from an undefined value | **two** mutation entries asserted, not one — see the correction below | M-F5a/b/c below |
+| F6 | Low · the too-many refusal named one index while N were in excess | `${path}.children[1]:` → `${path}.children:`, matching its `allows no children` sibling; the group 3 assertion moved to `/\.children: /` | the deep `children[2]` assertion kept — that is the index-naming `many` actually needs. M-F6 below |
+
+### One correction to the review, in F5
+
+The review's proposed fix — build the entry **without** the key rather than with an undefined one — is right
+about which shape is real (`gen-vocabulary` projects no key at all for a spec declaring no cardinality), but
+its **detection** argument runs the other way. Measured, not reasoned:
+
+| guard rewritten as `!("childrenCardinality" in entry)` | verdict |
+|---|---|
+| against the key-**absent** entry alone (the review's fix) | `build ✓  all 34 groups pass` — **stays green** |
+| against the key-present-but-`undefined` entry alone (what shipped) | `build composition ✗  1 failure(s)` |
+
+So each single entry has a hole the other closes. Both are asserted now: `absent` is the shape a real spec
+produces, `explicit non-many` (a value `lib.mjs` would refuse, synthetic deliberately) is what asks whether
+the guard reads the value or the key's presence.
+
+### The mutation battery
+
+Each applied to `system/agentic-renderer.mjs` alone, run, then restored byte-identically:
+
+| mutation | result |
+|---|---|
+| M-F5a guard reads key **presence** — `!("childrenCardinality" in entry)` | `build ✗  1 failure(s)` |
+| M-F5b guard reads **truthiness** — `!entry.childrenCardinality` | `build ✗  1 failure(s)` |
+| M-F5c guard stops counting — `false &&` | `build ✗  5 failure(s)` |
+| M-F6 refusal reverted to `${path}.children[1]:` | `build ✗  1 failure(s)` |
+| restored tree | `build ✓  all 34 groups pass` |
+
+### Open, and outward-facing — the owner's call
+
+F1's second half is not in this diff: **#303 has 0 hand-off comments** where #301 has 2, and **#303's own body
+still says "Declares `children: many`"** — the old, wrong key spelling this PR replaced. Its implementer would
+write that into `system/specs/list.md` and get `head "children" must be an array`, a message naming a key they
+did not get wrong. Both are writes to another ticket, so neither was made unasked.

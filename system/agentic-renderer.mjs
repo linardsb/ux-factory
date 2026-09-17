@@ -88,7 +88,7 @@ export function validateComposition(vocab, composition, path = "composition") {
         throw new Error(`${path}.children: ${node.name} allows no children`);
       }
       if (entry.childrenCardinality !== "many" && kids.length > 1) {
-        throw new Error(`${path}.children[1]: ${node.name} allows at most one child (got ${kids.length})`);
+        throw new Error(`${path}.children: ${node.name} allows at most one child (got ${kids.length})`);
       }
       kids.forEach((child, i) => {
         const childPath = `${path}.children[${i}]`;
@@ -102,7 +102,7 @@ export function validateComposition(vocab, composition, path = "composition") {
         // One signal per card: an explicit status-chip may only relabel the derived state,
         // never change it. A child whose value differs from the parent's status means two
         // competing states — the composition is wrong (status-chip's Usage prose). Per child,
-        // so a `many` container holding two chips is caught on both.
+        // so a chip at any index is caught, not just the first (throw ends the forEach).
         if (child.name === "status-chip" && "status" in props && child.props?.value !== props.status) {
           throw new Error(`${childPath}.props.value: "${child.props?.value}" competes with the parent ${node.name}'s status "${props.status}" — one signal per card; an explicit status-chip may only relabel the derived state, not change it`);
         }

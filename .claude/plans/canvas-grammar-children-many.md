@@ -22,7 +22,7 @@ spec → parser → vocabulary → validator chain with no new file, no new modu
 The vocabulary's grammar block gains a `version` mark so a reader of an older pack knows which grammar
 their composition validated under.
 
-No spec declares `many` in this PR. `stack` and `list` are #301 and #305; this is the grammar they land on.
+No spec declares `many` in this PR. `stack` and `list` are #301 and #303; this is the grammar they land on.
 
 ## User Story
 
@@ -91,7 +91,7 @@ Add **one optional spec-head key** and honour it in one validator:
 **Forward-references**:
 
 - #301 (`stack` + `text`) — the first consumer. It declares `children: many` on `stack` and inherits the two traps in NOTES §Handed to #301.
-- #305 (`list`) — the second consumer.
+- #303 (`list`) — the second consumer.
 
 ---
 
@@ -375,7 +375,7 @@ IMPORTANT: Execute every task in order, top to bottom. Each task is atomic and i
     // --- the cardinality grammar (#298), over a SYNTHETIC entry -------------------------------
     //
     // Driven directly through validateComposition, not through compose(): no committed spec declares
-    // `childrenCardinality: "many"` yet (stack is #301, list is #305), so the REAL vocabulary cannot
+    // `childrenCardinality: "many"` yet (stack is #301, list is #303), so the REAL vocabulary cannot
     // show the many side at all. The synthetic entry is a copy of the real map plus ONE container —
     // real children underneath it, so a pass cannot come from an empty subtree.
     const MANY = {
@@ -425,7 +425,7 @@ IMPORTANT: Execute every task in order, top to bottom. Each task is atomic and i
 - **IMPLEMENT (the ✓ line)**: extend the `group("composition", …)` call (line 617) by appending, before the closing backtick:
 
   ```
-   · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC `many` entry, two refused under the real card with the refusal naming children[1], a bad child at index 2 named at 2, and the MUTATION that decides whether the many case can fail — the same three children under an entry differing only in the cardinality. Synthetic deliberately: no committed spec declares `many` yet (#301, #305), so the real vocabulary cannot reach this side of the grammar. What this cannot reach: that gen-vocabulary PROJECTS the key — genVocabulary reads system/specs off a module const with no seam for a synthetic spec, so the projection's first real proof is #301's regenerated vocabulary, and a typo in the key name there would be green here
+   · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC `many` entry, two refused under the real card with the refusal naming children[1], a bad child at index 2 named at 2, and the MUTATION that decides whether the many case can fail — the same three children under an entry differing only in the cardinality. Synthetic deliberately: no committed spec declares `many` yet (#301, #303), so the real vocabulary cannot reach this side of the grammar. What this cannot reach: that gen-vocabulary PROJECTS the key — genVocabulary reads system/specs off a module const with no seam for a synthetic spec, so the projection's first real proof is #301's regenerated vocabulary, and a typo in the key name there would be green here
   ```
 
 - **IMPLEMENT (the header index)**: line 28-29's group 3 entry gains a third line:
@@ -888,7 +888,7 @@ parenthetical resolves to the vocabulary. It sits inside `composition` because t
 and it is inert in `handoff-viewer`'s fixed key list, so no page moves.
 
 **A3 (assumption) — no spec declares `many` in this PR**, so the `many` branch ships unexercised by any real
-artifact and is proven only by a synthetic entry. That is the ticket's own scoping (`stack`/`list` are #301/#305),
+artifact and is proven only by a synthetic entry. That is the ticket's own scoping (`stack`/`list` are #301/#303),
 and group 3's ✓ line says so out loud rather than leaving it implied. One consequence to state rather than
 hide: **task 4(a)'s conditional projection ships unexercised too.** Group 18C proves the PARSER keeps `"many"`;
 nothing here proves `gen-vocabulary` writes it out, because `genVocabulary()` reads `SPECS` from a module

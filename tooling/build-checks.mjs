@@ -619,7 +619,7 @@ const BARE_BOARD = {
   // --- the cardinality grammar (#298), over a SYNTHETIC entry -------------------------------
   //
   // Driven directly through validateComposition, not through compose(): no committed spec declares
-  // `childrenCardinality: "many"` yet (stack is #301, list is #305), so the REAL vocabulary cannot
+  // `childrenCardinality: "many"` yet (stack is #301, list is #303), so the REAL vocabulary cannot
   // show the many side at all. The synthetic entry is a copy of the real map plus ONE container —
   // real children underneath it, so a pass cannot come from an empty subtree.
   const MANY = {
@@ -637,26 +637,38 @@ const BARE_BOARD = {
   catch (err) { manyThrew = err; }
   ok(manyThrew === null, `a "many" entry refused three children: ${manyThrew && manyThrew.message}`);
 
-  // The one side, over a REAL entry: two children refused, and the refusal NAMES THE INDEX.
+  // The one side, over a REAL entry: two children refused, and the refusal names the ARRAY — it is
+  // a complaint about the count, like `allows no children` two lines above it in the validator, and
+  // naming one index while N are in excess misdirects the agent that reads it (record-composition).
   // Both halves asserted — a gate that throws with the wrong message is a gate nobody can debug.
   let oneThrew = null;
   try { validateComposition(VOCAB, [{ name: "card", props: { title: "T" }, children: [kid(1), kid(2)] }]); }
   catch (err) { oneThrew = err; }
   ok(oneThrew !== null, "a single-child entry accepted two children — the cardinality is not honoured");
-  ok(oneThrew && /children\[1\]/.test(oneThrew.message),
-    `the too-many refusal does not name the offending index — got: ${oneThrew && oneThrew.message}`);
+  ok(oneThrew && /\.children: /.test(oneThrew.message),
+    `the too-many refusal does not name the children array — got: ${oneThrew && oneThrew.message}`);
   ok(oneThrew && /at most one child \(got 2\)/.test(oneThrew.message),
     `the too-many refusal does not say why — got: ${oneThrew && oneThrew.message}`);
 
   // THE MUTATION that decides whether the many side can fail at all: the SAME three children under
   // an entry identical in every way EXCEPT the cardinality must be refused. Without this, an
   // implementation that simply stopped counting children would pass the case above.
-  const NO_CARD = { components: { ...MANY.components,
-    "syn-container": { ...MANY.components["syn-container"], childrenCardinality: undefined } } };
-  let mutThrew = null;
-  try { validateComposition(NO_CARD, [{ name: "syn-container", props: {}, children: [kid(1), kid(2), kid(3)] }]); }
-  catch (err) { mutThrew = err; }
-  ok(mutThrew !== null, "dropping the cardinality still accepted three children — the many case proves nothing");
+  // TWO entries, because either one alone leaves a hole — MEASURED, not reasoned. `absent` is what
+  // gen-vocabulary actually projects for a spec declaring no cardinality, so it is the real shape;
+  // `explicit` is a value the parser would refuse (lib.mjs accepts only "many") and exists solely to
+  // ask whether the guard reads the VALUE or the KEY'S PRESENCE. Rewriting the guard as
+  // `!("childrenCardinality" in entry)` leaves `absent` GREEN and only `explicit` catches it; the
+  // reverse holds for an entry carrying the key with an undefined value. Assert both.
+  const { childrenCardinality: _dropped, ...absentEntry } = MANY.components["syn-container"];
+  const withCard = (v) => ({ components: { ...MANY.components,
+    "syn-container": { ...MANY.components["syn-container"], childrenCardinality: v } } });
+  for (const [label, vocab] of [["absent", { components: { ...MANY.components, "syn-container": absentEntry } }],
+                                ["explicit non-many", withCard("one")]]) {
+    let mutThrew = null;
+    try { validateComposition(vocab, [{ name: "syn-container", props: {}, children: [kid(1), kid(2), kid(3)] }]); }
+    catch (err) { mutThrew = err; }
+    ok(mutThrew !== null, `dropping the cardinality (${label}) still accepted three children — the many case proves nothing`);
+  }
 
   // And the index survives INSIDE a many container: a bad child at position 2 is named at 2.
   let deepThrew = null;
@@ -665,7 +677,7 @@ const BARE_BOARD = {
   ok(deepThrew && /children\[2\]/.test(deepThrew.message),
     `a bad child at index 2 was not named at 2 — got: ${deepThrew && deepThrew.message}`);
 
-  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming children[1], a bad child at index 2 named at 2, and the MUTATION that decides whether the many case can fail — the same three children under an entry differing only in the cardinality. Synthetic deliberately: no committed spec declares \`many\` yet (#301, #305), so the real vocabulary cannot reach this side of the grammar. What this cannot reach: that gen-vocabulary PROJECTS the key — genVocabulary reads system/specs off a module const with no seam for a synthetic spec, so the projection's first real proof is #301's regenerated vocabulary, and a typo in the key name there would be green here`);
+  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. Synthetic deliberately: no committed spec declares \`many\` yet (#301, #303), so the real vocabulary cannot reach this side of the grammar. What this cannot reach: that gen-vocabulary PROJECTS the key — genVocabulary reads system/specs off a module const with no seam for a synthetic spec, so the projection's first real proof is #301's regenerated vocabulary, and a typo in the key name there would be green here`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------

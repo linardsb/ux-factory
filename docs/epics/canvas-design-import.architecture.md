@@ -46,10 +46,11 @@ nothing on the canvas writes back to the board. The replay driver dispatches by 
 keeps playing every committed board run (auto-arranged by rank) and the same driver can later play a
 canvas run. Undo is one snapshot stack over the whole document, owner's ops and agent's ops in one order.
 
-The composition grammar grows once. `validateComposition` allows at most one child per node and
-enum-checks every prop key (observed, `agentic-renderer.mjs:79-96`), so `stack` and `list` cannot exist
-under it. Container entries declare `children: many` in the spec head, the validator honours it for those
-entries only, and the single-child rule stays for everything else. This is the versioned vocabulary-schema
+The composition grammar grows once. `validateComposition` allowed at most one child per node and
+enum-checks every prop key, so `stack` and `list` could not exist under it. Container entries declare
+`childrenCardinality: "many"` in the spec head (shipped by #298 — the key cannot be `children`, which is
+the allowed-names array), the validator honours it for those entries only, and the single-child rule
+stays for everything else. This is the versioned vocabulary-schema
 call the studio architecture said a structured candidate would force; `stack` is that candidate.
 
 The live canvas is a portal page, `portal/public/canvas.html`: a module page that loads the same
@@ -261,7 +262,7 @@ variant  {key, overrides: {frameId: override}}
   "not covered" floor; a slot fills by slug → builder. Deterministic, so build-checks feeds it spike C's
   fixture and asserts the same answer every run.
 - **The five primitives go through the full chain like any component,** with two schema facts: `stack`
-  and `list` declare `children: many`; `text` and `icon` declare none. `choice` carries `kind` and a group
+  and `list` declare `childrenCardinality: "many"`; `text` and `icon` declare none. `choice` carries `kind` and a group
   name; `list` owns dividers, the optional header and the empty case, and import maps a source list to
   `list` + N `list-row`s.
 - **The catalog VR churn per admission is accepted as the cost, and named.** Every admitted component
@@ -279,7 +280,7 @@ variant  {key, overrides: {frameId: override}}
 
 The free-position substrate (two write helpers, continuous zoom, the SVG arrow overlay, rank layout,
 snap guides, align/distribute, reading-order announcements) · `system/canvas-ops.mjs` with its applier,
-`resolve`, `missingStates` and its build-checks group · the `children: many` grammar change through
+`resolve`, `missingStates` and its build-checks group · the `childrenCardinality: "many"` grammar change through
 `gen-vocabulary`, the validator and group 3 · the `id` node key and `data-part` · the five primitives
 through the full chain · `templates.admitted.mjs` and the renderer spread · `gen-icons.mjs`, the manifest
 and `tooling/icons/` · `device-presets.mjs` · `renderMarkdown` links · `portal/public/canvas.html` and the
