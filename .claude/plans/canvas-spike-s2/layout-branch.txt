@@ -8,8 +8,13 @@
 // It IMPORTS NOTHING and contains no fixture path. Everything here is pure: a blueprint line in,
 // the architecture's IR `layout` object out (docs/epics/canvas-design-import.architecture.md:165-169
 // — `{kind, layout {dir, gap, pad, align, size}, style, text, icon, component, children}` where every
-// tokenisable value is `{ref?, value}`). Only the `layout` slot is implemented; every other atom on
-// the line is read past. That is S2's scope, literally.
+// tokenisable value is `{ref?, value}`). Only the `layout` slot is implemented, and the scope line runs
+// AROUND al(), not around the atoms this branch happens to recognise:
+//   - OUTSIDE al() — t(), f[], st[], rd(), svg(), p() — is read past, unrecorded. Out of scope, not lost.
+//   - INSIDE al() — an argument this branch has no mapping for is DROPPED AND RECORDED, never read past.
+//     It is in scope and in the layout grammar, so a silent read-past there would be a lost value.
+// That distinction is S2's scope, literally. It was added under the PR #428 review (F1), where the
+// blanket "every other atom is read past" had been hiding a class of vanishing layout input.
 //
 // SIGN CONVENTION, pinned: distance = contract − source.
 //   $spacing.md is 12 in Brilliant and 16 in the contract, so its distance is +4px.
