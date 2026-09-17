@@ -650,14 +650,15 @@ const BARE_BOARD = {
   ok(oneThrew && /at most one child \(got 2\)/.test(oneThrew.message),
     `the too-many refusal does not say why — got: ${oneThrew && oneThrew.message}`);
 
-  // THE MUTATION that decides whether the many side can fail at all: the SAME three children under
-  // an entry identical in every way EXCEPT the cardinality must be refused. Without this, an
+  // THE TWO MUTATIONS that decide whether the many side can fail at all: the SAME three children
+  // under an entry identical in every way EXCEPT the cardinality must be refused. Without this, an
   // implementation that simply stopped counting children would pass the case above.
   // TWO entries, because either one alone leaves a hole — MEASURED, not reasoned. `absent` is what
   // gen-vocabulary actually projects for a spec declaring no cardinality, so it is the real shape;
-  // `explicit` is a value the parser would refuse (lib.mjs accepts only "many") and exists solely to
+  // `explicit non-many` is a value the parser would refuse (lib.mjs accepts only "many") and exists solely to
   // ask whether the guard reads the VALUE or the KEY'S PRESENCE. Rewriting the guard as
-  // `!("childrenCardinality" in entry)` leaves `absent` GREEN and only `explicit` catches it; the
+  // `!("childrenCardinality" in entry)` leaves `absent` GREEN and only the explicit one catches it;
+  // the
   // reverse holds for an entry carrying the key with an undefined value. Assert both.
   const { childrenCardinality: _dropped, ...absentEntry } = MANY.components["syn-container"];
   const withCard = (v) => ({ components: { ...MANY.components,
