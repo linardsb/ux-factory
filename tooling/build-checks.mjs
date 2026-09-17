@@ -26,7 +26,9 @@
 //   1 pattern ids     the three rules, including the hub override and the empty board
 //   2 slots           counted from the board, never invented; every value a string
 //   3 composition     validated against the REAL handoff/verdant/vocabulary.json — this is the
-//                     check that catches a vocabulary regeneration breaking the builder
+//                     check that catches a vocabulary regeneration breaking the builder; plus the
+//                     children CARDINALITY over a synthetic entry, which the real vocabulary
+//                     cannot show until a spec declares `many` (#298)
 //   4 codec           round-trip through BOTH the deflate and the uncompressed branch
 //   5 tamper          32 hostile payloads, each of which must reject the WHOLE payload
 //   6 artifacts       every card SVG + the downloaded pattern-spec.md: well-formed, escaped, no
@@ -614,7 +616,69 @@ const BARE_BOARD = {
   ok(compose("dashboard", null) === null, "compose with no slots should return null");
   ok(compose("dashboard", []) === null, "compose with an empty slot array should return null");
 
-  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set`);
+  // --- the cardinality grammar (#298), over a SYNTHETIC entry -------------------------------
+  //
+  // Driven directly through validateComposition, not through compose(): no committed spec declares
+  // `childrenCardinality: "many"` yet (stack is #301, list is #303), so the REAL vocabulary cannot
+  // show the many side at all. The synthetic entry is a copy of the real map plus ONE container —
+  // real children underneath it, so a pass cannot come from an empty subtree.
+  const MANY = {
+    components: {
+      ...VOCAB.components,
+      "syn-container": { class: "x-syn", status: "spec", props: {}, states: ["default"],
+                         children: ["metric-tile"], childrenCardinality: "many", usage: "", contract: null },
+    },
+  };
+  const kid = (n) => ({ name: "metric-tile", props: { label: `l${n}`, value: String(n) } });
+
+  // The many side: three children accepted.
+  let manyThrew = null;
+  try { validateComposition(MANY, [{ name: "syn-container", props: {}, children: [kid(1), kid(2), kid(3)] }]); }
+  catch (err) { manyThrew = err; }
+  ok(manyThrew === null, `a "many" entry refused three children: ${manyThrew && manyThrew.message}`);
+
+  // The one side, over a REAL entry: two children refused, and the refusal names the ARRAY — it is
+  // a complaint about the count, like `allows no children` two lines above it in the validator, and
+  // naming one index while N are in excess misdirects the agent that reads it (record-composition).
+  // Both halves asserted — a gate that throws with the wrong message is a gate nobody can debug.
+  let oneThrew = null;
+  try { validateComposition(VOCAB, [{ name: "card", props: { title: "T" }, children: [kid(1), kid(2)] }]); }
+  catch (err) { oneThrew = err; }
+  ok(oneThrew !== null, "a single-child entry accepted two children — the cardinality is not honoured");
+  ok(oneThrew && /\.children: /.test(oneThrew.message),
+    `the too-many refusal does not name the children array — got: ${oneThrew && oneThrew.message}`);
+  ok(oneThrew && /at most one child \(got 2\)/.test(oneThrew.message),
+    `the too-many refusal does not say why — got: ${oneThrew && oneThrew.message}`);
+
+  // THE TWO MUTATIONS that decide whether the many side can fail at all: the SAME three children
+  // under an entry identical in every way EXCEPT the cardinality must be refused. Without this, an
+  // implementation that simply stopped counting children would pass the case above.
+  // TWO entries, because either one alone leaves a hole — MEASURED, not reasoned. `absent` is what
+  // gen-vocabulary actually projects for a spec declaring no cardinality, so it is the real shape;
+  // `explicit non-many` is a value the parser would refuse (lib.mjs accepts only "many") and exists solely to
+  // ask whether the guard reads the VALUE or the KEY'S PRESENCE. Rewriting the guard as
+  // `!("childrenCardinality" in entry)` leaves `absent` GREEN and only the explicit one catches it;
+  // the
+  // reverse holds for an entry carrying the key with an undefined value. Assert both.
+  const { childrenCardinality: _dropped, ...absentEntry } = MANY.components["syn-container"];
+  const withCard = (v) => ({ components: { ...MANY.components,
+    "syn-container": { ...MANY.components["syn-container"], childrenCardinality: v } } });
+  for (const [label, vocab] of [["absent", { components: { ...MANY.components, "syn-container": absentEntry } }],
+                                ["explicit non-many", withCard("one")]]) {
+    let mutThrew = null;
+    try { validateComposition(vocab, [{ name: "syn-container", props: {}, children: [kid(1), kid(2), kid(3)] }]); }
+    catch (err) { mutThrew = err; }
+    ok(mutThrew !== null, `dropping the cardinality (${label}) still accepted three children — the many case proves nothing`);
+  }
+
+  // And the index survives INSIDE a many container: a bad child at position 2 is named at 2.
+  let deepThrew = null;
+  try { validateComposition(MANY, [{ name: "syn-container", props: {}, children: [kid(1), kid(2), { name: "card", props: { title: "x" } }] }]); }
+  catch (err) { deepThrew = err; }
+  ok(deepThrew && /children\[2\]/.test(deepThrew.message),
+    `a bad child at index 2 was not named at 2 — got: ${deepThrew && deepThrew.message}`);
+
+  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. Synthetic deliberately: no committed spec declares \`many\` yet (#301, #303), so the real vocabulary cannot reach this side of the grammar. What this cannot reach: that gen-vocabulary PROJECTS the key — genVocabulary reads system/specs off a module const with no seam for a synthetic spec, so the projection's first real proof is #301's regenerated vocabulary, and a typo in the key name there would be green here`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
@@ -3869,8 +3933,14 @@ function scanSvg(svg, label) {
     let bare = null;
     try { bare = parseComponentSpec(write("bare-thing", BASE)); } catch (err) { ok(false, `an optional key was made mandatory: ${err.message}`); }
     ok(bare && bare.head.example === undefined, "a spec with no example did not parse as undefined");
+    ok(bare && bare.head.childrenCardinality === undefined, "a spec with no childrenCardinality did not parse as undefined");
+    // And the happy many case: declared beside a non-empty children list, it survives the parser.
+    let manySpec = null;
+    try { manySpec = parseComponentSpec(write("many-thing", { ...BASE, children: ["x-thing"], childrenCardinality: "many" })); }
+    catch (err) { ok(false, `a valid childrenCardinality was refused: ${err.message}`); }
+    ok(manySpec && manySpec.head.childrenCardinality === "many", "childrenCardinality did not survive parsing");
 
-    // The four refusals, each asserted to throw AND to name its own path — same discipline as 18A.
+    // The refusals, each asserted to throw AND to name its own path — same discipline as 18A.
     const refusals = [
       { why: "a bound on a non-numeric prop", stem: "bound-on-string",
         head: { ...BASE, props: { n: { type: "number", required: true }, s: { type: "string", required: true, min: 0 } } },
@@ -3894,6 +3964,15 @@ function scanSvg(svg, label) {
       { why: "an example outside its prop's declared bounds", stem: "example-out-of-range",
         head: { ...BASE, props: { n: { type: "number", required: true, min: 0, max: 100 }, s: { type: "string", required: true } }, example: { n: 500, s: "x" } },
         expect: /outside its declared range 0–100/ },
+      // #298's head key. Two refusals, the min/max/step shape one step further: a value that is not
+      // "many" (absent is how you say one), and a cardinality on an entry that lists no allowed
+      // children — a rule that can never fire.
+      { why: "a childrenCardinality that is not \"many\"", stem: "cardinality-bad-value",
+        head: { ...BASE, children: ["x-thing"], childrenCardinality: "lots" },
+        expect: /must be "many" — absent means at most one child/ },
+      { why: "a childrenCardinality on an entry with no allowed children", stem: "cardinality-on-leaf",
+        head: { ...BASE, childrenCardinality: "many" },
+        expect: /lists no allowed names/ },
     ];
     for (const { why, stem, head, expect } of refusals) {
       const p = write(stem, head);
