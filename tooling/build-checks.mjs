@@ -2765,9 +2765,14 @@ function scanSvg(svg, label) {
 
   // --- createHistory: AC #3, as a CI gate rather than a driver assertion ---------------------
   // A canonical stringify — keys sorted RECURSIVELY, then compared. Honest at this shape and said
-  // out loud rather than left implicit: every snapshot is a flat { id: {col, row} } of numbers, so
-  // there is no undefined, no NaN and no cycle for it to be wrong about, and sorting removes the
-  // only remaining variable, key order.
+  // out loud rather than left implicit: every snapshot is a flat { id: {x, y, w} } — or
+  // { id: {x, y, w, h} } for a frame — of numbers, so there is no undefined, no NaN and no cycle for
+  // it to be wrong about, and sorting removes the only remaining variable, key order.
+  //
+  // THE SHAPE WIDENED AT #302 AND THE STRINGIFY DID NOT HAVE TO, which is the property worth
+  // stating: it was { id: {col, row} } — two keys — and is now three or four. A comparison that only
+  // reached the keys it was written for would have gone on passing, so the --h case below exists to
+  // prove this one reaches the new field.
   //
   // Written by hand rather than as `JSON.stringify(v, Object.keys(v).sort())`, which is what this
   // check said first and which COULD NOT FAIL. An array in stringify's second position is a
@@ -2777,8 +2782,10 @@ function scanSvg(svg, label) {
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
     ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
     : JSON.stringify(v));
+  // A FREE POSITION PER ID (#302). The pitch is the node pitch so the fixture is a picture of a real
+  // stage rather than three arbitrary numbers, and `n` moves the whole row down one pitch per push.
   const arrangement = (n) => Object.fromEntries(
-    Array.from({ length: 3 }, (_, i) => [`s${i + 1}`, { col: i + 1, row: n }]));
+    Array.from({ length: 3 }, (_, i) => [`s${i + 1}`, { x: i * (NODE_W + NODE_GAP), y: n * (NODE_H + NODE_GAP), w: NODE_W }]));
 
   const a1 = arrangement(1);
   const h = createHistory(a1);
@@ -2842,18 +2849,41 @@ function scanSvg(svg, label) {
   const cloneH = createHistory(a1);
   cloneH.push(arrangement(2));
   const escaped = cloneH.current();
-  escaped.s1.col = 999;
-  escaped.injected = { col: 1, row: 1 };
+  escaped.s1.x = 999;
+  escaped.injected = { x: 0, y: 0, w: NODE_W };
   ok(deep(cloneH.current()) === deep(arrangement(2)),
     "mutating a snapshot returned by current() reached into history — the stack is handing out live references");
   const seedMutable = arrangement(5);
   const seedH = createHistory(seedMutable);
-  seedMutable.s1.col = 999;
-  ok(seedH.current().s1.col === 1, "mutating the object createHistory was seeded with reached into history");
+  seedMutable.s1.x = 999;
+  ok(seedH.current().s1.x === 0, "mutating the object createHistory was seeded with reached into history");
   const pushedMutable = arrangement(6);
   seedH.push(pushedMutable);
-  pushedMutable.s1.col = 999;
-  ok(seedH.current().s1.col === 1, "mutating the object handed to push() reached into history");
+  pushedMutable.s1.x = 999;
+  ok(seedH.current().s1.x === 0, "mutating the object handed to push() reached into history");
+
+  // --- THE NEW FIELD, AND WHETHER ANYTHING ACTUALLY REACHES IT (#302) --------------------------
+  // A frame's entry carries --h and a board wrapper's does not, which is the snapshot layer's half
+  // of D-c. The risk this case exists for is precise: the stack is generic and the stringify above
+  // is recursive, so BOTH would keep passing for a snapshot whose fourth field they never looked at,
+  // and every assertion above would stay green while an undo silently restored a frame's position
+  // and not its height.
+  //
+  // So: two snapshots differing ONLY in h, asserted DIFFERENT by the comparison — the positive
+  // control that the comparison reaches the field at all — and then a round trip through push/undo
+  // proving the stack carries it back.
+  const framed = (h) => ({ f1: { x: 0, y: 0, w: 456, h } });
+  ok(deep(framed(296)) !== deep(framed(452)),
+    "the canonical stringify cannot tell two snapshots apart that differ ONLY in h — every assertion in this group would pass for a stack that dropped the field");
+  const hH = createHistory(framed(296));
+  hH.push(framed(452));
+  ok(deep(hH.current()) === deep(framed(452)) && deep(hH.undo()) === deep(framed(296)),
+    `an undo over a height change restored ${deep(hH.current())}, not the height the reader came from`);
+  // …and a slot's entry must carry NO h at all, rather than an h of 0 or undefined: a board wrapper
+  // has no authored height, and an entry claiming one is a property it has never had, in a structure
+  // two drivers deep-compare.
+  ok(!Object.hasOwn(arrangement(1).s1, "h"),
+    "a slot's snapshot entry carries an h — a board wrapper has no authored height, and writing one claims a property it has never had");
 
   // --- adopt: ids the stack has never seen, taught to EVERY entry (#230) -----------------------
   // The phantom undo, as a pure fact: a component placed after mount is in no earlier entry, so

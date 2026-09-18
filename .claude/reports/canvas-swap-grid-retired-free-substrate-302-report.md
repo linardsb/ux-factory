@@ -207,13 +207,29 @@ per-section probe, because `build-checks.mjs` still carries Phase 1's dead impor
 whole-list total still correct — green under the shortcut a naive fix would take, red under what
 shipped. The total is a second net, not the invariant.
 
+### Task 2.2 — group 13's snapshot shape reaches the NEW field
+
+The snapshot widened from `{col, row}` to `{x, y, w}` / `{x, y, w, h}`. The history stack is generic
+and the canonical stringify is recursive, so **both would keep passing for a snapshot whose fourth
+field they never looked at** — an undo would silently restore a frame's position and not its height.
+
+| | Mutation | Observed |
+|---|---|---|
+| **control** | none | `build verbs ✓` |
+| **control** | `deep(framed(296)) !== deep(framed(452))` — two snapshots differing ONLY in `h` | asserted DIFFERENT, so the comparison demonstrably reaches the field |
+| M | `createHistory`'s `at()` replaced by a clone that copies only `x`, `y`, `w` — the exact "never looked at the new field" defect | **RED** — `an undo over a height change restored {"f1":{"w":456,"x":0,"y":0}}, not the height the reader came from` (+ 4 more) |
+
+**This case was written because the group line already claimed it.** The prose was committed at
+`e7d1858` describing an assertion that did not exist — the repo's largest class of process finding,
+in prose rather than in code. Caught on review; the assertions now exist and are proven able to fail.
+
 ## Validation results
 
 | Command | Observed |
 |---|---|
 | `node --check` on every edited `.mjs` | clean, after every edit |
 | `node tooling/build-checks.mjs` | **FAILS** — `ReferenceError: MAX_COLS is not defined`, thrown by group 22, whose rewrite is Task 2.5 |
-| groups reached and green before that throw | 1-21 and 23-27 as far as the run gets; the throw is a hard stop, so nothing past group 22 is observed |
+| groups actually observed | **groups 1-21 green; group 22 THROWS; groups 23-34 UNREACHED.** `group()` has no try/catch, so the throw ends the run — nothing past 22 is observed, including the groups 26 and 27 rewrites (those were verified through the scratch per-section probe, not through a clean run) |
 | the DoD grep (AC #1's seven) | **134** lines across 4 files, from 435 across 15 |
 | `node tooling/drift-check.mjs` | **not run** — its `build-checks` leg cannot pass while the gate throws |
 | the journey drivers, `vt-verify`, `vt-stack-audit` | **not run** — Phase 8 |
@@ -321,30 +337,70 @@ rather than translated into a bound #302 never introduced.
 4. **The DOM stub gained a custom-property `style`** plus three control assertions, including one
    proving each element gets its OWN style object. Without it group 12's `setPos` battery cannot run.
 5. **Both MutationObservers' `attributeFilter` changed to `["style", …]`** (`studio-layers.mjs`,
-   `studio-minimap.mjs`). Not in the plan, and load-bearing: a position is an inline style now, so a
-   stale filter leaves the layers list and every minimap cell frozen for the whole of a move. **No
-   gate on the pure layer can see this** — it is a Phase 8 assertion that does not exist yet.
-6. **The FLIP animation hazard is NOT yet addressed, and it is the highest-value thing to check
-   first next session.** `studio-verbs.mjs`'s `animateTo` animates `transform`; every node now
-   carries `transform: translate(var(--x), var(--y))`, so a `transform` keyframe would OVERRIDE the
-   position and snap the node to the origin for the animation's duration. The fix is to animate the
-   independent `translate` property instead, which composes. Recorded here because it was found while
-   reading the module and the module is not yet rewritten.
-7. **The codec probe** (`scratchpad/codec-probe.mjs`, not committed) — its text is reproducible from
+   `studio-minimap.mjs`). Not in the plan, and load-bearing — the coverage gap it leaves is **H2**
+   under Issues.
+6. **The codec probe** (`scratchpad/codec-probe.mjs`, not committed) — its text is reproducible from
    the Proving-the-checks table.
 
 ## Issues encountered
 
-1. **The gate is a hard stop, not a report.** `group()` (`build-checks.mjs:315`) has no try/catch and
-   the group bodies are bare top-level blocks, so one `ReferenceError` ends the run and every group
-   below it goes unreported. This shaped Phase 1's probe and it means the current `build-checks` run
-   says nothing about groups 23-34.
-2. **Three plan anchors were wrong by a line or two** and were resolved by content instead:
-   `studio-verbs.mjs`'s `createHistory` comment is at :287 not :286, `keepPass`'s republish call is
-   indented 6 not 8, and `studio-canvas.mjs`'s `removeAttribute` is indented 8 not 6. All three would
-   have been silent mis-cuts under a line-range edit.
-3. **`studio-frames.mjs`'s prose rewrite needed two passes** — the first left an ungrammatical
-   sentence. Caught by reading it back.
-4. **Group 24 threw `fClampSpan is not a function` in the Phase 1 probe** — it destructures the
-   canvas's exports under local aliases (`FMAX_COLS`, `fClampSpan`, `fFootprint`). Whoever rewrites
-   24.3 should resolve those aliases first.
+**H1 — A LANDMINE FOUND AND NOT DISARMED: `animateTo` will override every node's position.**
+`system/studio-verbs.mjs`'s FLIP animation keyframes `transform`, and since Task 2.0b every node
+carries `transform: translate(var(--x), var(--y))`. A `transform` keyframe REPLACES the computed
+transform for the animation's duration, so every undo/redo would snap its node to the stage origin
+and slide back to 0,0 rather than to where it belongs. **The fix is to animate the independent
+`translate` property instead**, which composes with `transform` rather than replacing it. Three
+lines. It is not done because `studio-verbs.mjs`'s mount is not rewritten, and it is the first thing
+to do next session. Nothing currently gates it — the module's own header records that both halves
+matter (the source regex AND the running-page assertion), and neither reaches this.
+
+**H2 — A COVERAGE GAP I INTRODUCED AND DID NOT CLOSE: the two `attributeFilter` changes have no gate.**
+`studio-layers.mjs` and `studio-minimap.mjs` now observe `["style", …]` instead of the four position
+attributes. If either filter is wrong, the layers list and every minimap cell freeze for the whole of
+a move — silently, with the page otherwise working. **No gate on the pure layer can see it** (both
+observers are mount-only) and the Phase 8 assertion that would is not written. Whoever does
+`layersPass` and `minimapPass` must add one; it is the highest-value driver assertion in this PR.
+
+**H3 — The gate is a hard stop, not a report.** `group()` (`build-checks.mjs:315`) has no try/catch
+and the group bodies are bare top-level blocks, so one `ReferenceError` ends the run and every group
+below it goes unreported. This shaped Phase 1's probe, and it is why the current run says nothing
+about groups 23-34.
+
+**H4 — Three plan anchors were wrong by a line or two**, and were resolved by content instead:
+`studio-verbs.mjs`'s `createHistory` comment is at :287 not :286, `keepPass`'s republish call is
+indented 6 not 8, and `studio-canvas.mjs`'s `removeAttribute` is indented 8 not 6. All three would
+have been silent mis-cuts under a line-range edit.
+
+**H5 — `studio-frames.mjs`'s prose rewrite needed two passes** — the first left an ungrammatical
+sentence. Caught by reading it back.
+
+**H6 — Group 24 threw `fClampSpan is not a function` in the Phase 1 probe.** It destructures the
+canvas's exports under local aliases (`FMAX_COLS`, `fClampSpan`, `fFootprint`). Whoever rewrites 24.3
+should resolve those aliases first.
+
+**H7 — I committed a group line describing an assertion that did not exist.** Group 13's line at
+`e7d1858` claimed a `--h` deep-compare case. It was caught on review and the case now exists and is
+proven able to fail (Proving the checks, Task 2.2) — but the failure mode is worth recording: a group
+line in this file is prose a reader trusts, and writing it from the plan rather than from the code is
+how the repo's largest class of process finding gets in through a door no gate watches.
+
+## Resume order
+
+Tightest constraint first. Steps 1-4 reach Task 2.9, the first green tree since `287445e`.
+
+1. **`system/studio-verbs.mjs`'s gesture mount** — the last source module. **Do `animateTo` first**
+   (H1: three lines, already diagnosed). Then `snapshot`/`restore`/`applySlot`/`applySpan` (Task 3.3)
+   and the move/resize gestures. D-d governs: nothing blocks a free move, so the "Blocked, still in
+   column X, row Y." sentence is **deleted, not translated**, and `studio-verbs.mjs`'s header must say
+   so.
+2. **Group 22** — its source is done. The fixtures are mechanical (`{col,row}` → `{x,y,w,h}`,
+   `col1/row1/col2/row2` → `left/top/right/bottom`); keep 22.4 (`menuItems`/`MENU_ITEMS`) untouched.
+   **The one non-mechanical case is 22.2's four just-outside twins**: under overlap-not-origin they
+   need re-deriving, not renaming.
+3. **`studio-frames.mjs`'s `FRAMES` literals, then group 24** — resolve H6's aliases first.
+4. **`tooling/build-checks.mjs`'s own header index at :55, :57, :110, :121** — four prose lines
+   naming retired functions. They keep AC #1 red and cost nothing.
+5. **Task 2.9's checkpoint**, then Phases 3.4 (the arrow overlay + `vt-stack-audit`) and 4-10.
+
+**Add H2's driver assertion when Phase 8 reaches `layersPass` and `minimapPass`** — it is the
+highest-value one in this PR, and nothing currently covers it.
