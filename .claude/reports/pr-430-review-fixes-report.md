@@ -166,12 +166,21 @@ none was staged.
 output was proven byte-identical under the DOM stub, and `build-checks`' `docs chain` group drives
 `renderMarkdown` directly. The pixel gate is untouched for the same reason — no at-rest page changed.
 
-## Still the owner's, still unrun
+## Task 28 — the owner's, and now run
 
-**Task 28's human eyeball in Safari and Chrome stable on `/components`.** The review said it, the
-implementation report said it, and this run did not change it. The Playwright ×3 stand-in carries a
-negative control and is a good substitute; it is not the 5-minute human look, and nothing here should
-read as though it were.
+**A human eyeball in Safari and Chrome stable on `/components`.** The review asked for it, the
+implementation report recorded it as not run, and this run did not perform it either — the Playwright
+×3 stand-in carries a negative control and is a good substitute, but it is not the 5-minute human look.
+
+**The owner ran it on 2026-09-18**, against a local serve on port 4772 verified to be reading this
+tree before it was trusted (`/system/components.css` → 27 `ds-stack` hits; `/system/handoff-viewer.mjs`
+carrying F5's new clause and no longer the old `73`; the served `vocabulary.json` at 23 components
+including `stack` and `text` — cf. `stale-serve-wrong-tree`). Their verdict, in their words:
+*"looks fine in both"*. The server was then killed port-scoped, leaving the three sibling sessions'
+processes on 4747 / 4750 / 4761 alone.
+
+That is the owner's half of the honesty contract and it is recorded as theirs. Nothing here claims
+which specific properties they inspected.
 
 ## CI, read back from the API rather than asserted here
 

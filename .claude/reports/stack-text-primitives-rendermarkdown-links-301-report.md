@@ -195,6 +195,12 @@ added, which bring `--color-border`.
 
 Everything else in the plan's VALIDATION COMMANDS ran.
 
+**Task 28 was run after the review, on 2026-09-18.** The row above stays as written — it is true of
+the implementation session, which could not drive the browser apps. The owner opened
+`/components.html` in Safari and Chrome stable against a local serve verified to be reading this tree
+(`/system/components.css` → 27 `ds-stack` hits) and reported: *"looks fine in both"*. That is the
+owner's verdict in the owner's words, not a check this session performed.
+
 **Push note.** `git switch -c … origin/main` set this branch's upstream to **`origin/main`**, and
 `main` has no branch protection (memory `main-branch-protection-off`). `push.default` is unset, so
 `simple` refuses a name-mismatched upstream — but push with an explicit refspec anyway:
