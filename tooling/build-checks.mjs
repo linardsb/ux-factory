@@ -5461,45 +5461,48 @@ function scanSvg(svg, label) {
     && JSON.stringify(jumpFrom({ fx: 0.5, fy: 0.5 }, { ...M, scale: -1 })) === JSON.stringify({ left: 0, top: 0 }),
     "jumpFrom must be total over junk fractions and a junk scale");
 
-  // trackOffsets: the gap belongs to the track BEFORE the next start (hitSlot's band rule,
-  // inverted) — against a hand-computed fixture, plus totality.
-  ok(JSON.stringify(trackOffsets([220, 220, 220], 16)) === "[0,236,472]",
-    `trackOffsets' gap rule drifted: ${JSON.stringify(trackOffsets([220, 220, 220], 16))}`);
-  ok(trackOffsets(null, 16).length === 0 && JSON.stringify(trackOffsets(["x", 220], null)) === "[0,0]",
-    "trackOffsets must be total over junk tracks and a junk gap");
+  // nodeRect: A COERCION, and its whole surface is totality. What stood here was the union proof —
+  // a 2x3 cellRect asserted EQUAL to the union of its six 1x1 rects, computed from the six unit
+  // answers and never re-derived from the span path under test — plus trackOffsets' gap rule against
+  // a hand-computed fixture. Both existed because a cell's rectangle had to be RECONSTRUCTED from a
+  // track list, and a reconstruction can disagree with itself. setPos writes the rectangle onto the
+  // node, so there is nothing left to derive and no union property to prove; keeping a translated
+  // version would be asserting that reading four numbers back gives four numbers.
+  ok(JSON.stringify(nodeRect({ x: 236, y: 156, w: 220, h: 140 })) === JSON.stringify({ x: 236, y: 156, w: 220, h: 140 }),
+    `nodeRect must pass a real box through unchanged: ${JSON.stringify(nodeRect({ x: 236, y: 156, w: 220, h: 140 }))}`);
+  for (const junk of [null, undefined, 42, "box", {}, { x: "a", y: NaN, w: Infinity, h: null }]) {
+    ok(JSON.stringify(nodeRect(junk)) === JSON.stringify({ x: 0, y: 0, w: 0, h: 0 }),
+      `nodeRect(${JSON.stringify(junk)}) must answer zeros — the mount feeds this straight into SVG attributes, and NaN there paints nothing and reports no error`);
+  }
 
-  // cellRect: a 2×3 span equals the UNION of its six 1×1 rects — consistency with footprint()'s
-  // definition, drawn instead of keyed. Computed from the six unit answers, never re-derived from
-  // the span path under test.
-  const geom = { cols: [220, 220, 220, 220], rows: [140, 140, 140, 140], colGap: 16, rowGap: 16 };
-  const span = cellRect({ col: 2, row: 1 }, { cols: 2, rows: 3 }, geom);
-  const units = [];
-  for (let r = 1; r <= 3; r += 1) for (let c = 2; c <= 3; c += 1) units.push(cellRect({ col: c, row: r }, { cols: 1, rows: 1 }, geom));
-  const minX = Math.min(...units.map((u) => u.x));
-  const minY = Math.min(...units.map((u) => u.y));
-  const maxR = Math.max(...units.map((u) => u.x + u.w));
-  const maxB = Math.max(...units.map((u) => u.y + u.h));
-  ok(span.x === minX && span.y === minY && span.w === maxR - minX && span.h === maxB - minY,
-    `a 2×3 cellRect must equal the union of its six 1×1 rects: ${JSON.stringify(span)} vs union ${JSON.stringify({ x: minX, y: minY, w: maxR - minX, h: maxB - minY })}`);
-  // A missing span reads as 1×1 — the UNIT_SPAN default that keeps a .stx-slot's answer exact.
-  const unit = cellRect({ col: 3, row: 2 }, undefined, geom);
-  ok(unit.x === 472 && unit.y === 156 && unit.w === 220 && unit.h === 140,
-    `a spanless cellRect must be one track: ${JSON.stringify(unit)}`);
-  ok(JSON.stringify(cellRect(null, null, null)) === JSON.stringify({ x: 0, y: 0, w: 0, h: 0 }),
-    "cellRect must answer zeros over junk, never a throw");
-
-  // visibleRange ROUND-TRIPS mapView's answer: a viewport mapView says covers cells 2–3 × 2–3
-  // must announce exactly that range. contentW/H are the fixture grid's own (4 tracks + 3 gaps).
-  const view = mapView({ scrollLeft: 236, scrollTop: 156, clientW: 456, clientH: 296, scale: 1, contentW: 928, contentH: 608 });
-  const range = visibleRange(view, geom);
-  ok(range.col1 === 2 && range.col2 === 3 && range.row1 === 2 && range.row2 === 3,
-    `visibleRange must round-trip mapView's answer: ${JSON.stringify(range)} for view ${JSON.stringify(view)}`);
-  // An edge-KISSING viewport does not claim the next column: a rect whose right edge lands exactly
-  // on track 2's start (x 0, w 236) shows nothing of column 2.
-  ok(visibleRange({ x: 0, y: 0, w: 236, h: 140 }, geom).col2 === 1,
-    "a viewport whose edge kisses the next track's start must not claim that column");
-  ok(JSON.stringify(visibleRange(null, null)) === JSON.stringify({ col1: 1, col2: 1, row1: 1, row2: 1 }),
-    "visibleRange must answer the 1,1 cell over junk, never a throw");
+  // visibleCount ROUND-TRIPS mapView's answer, which is what visibleRange did and is the property
+  // worth keeping: the rect the map DRAWS and the sentence it SAYS must be the same fact.
+  //
+  // THE OVERLAP RULE IS studio-select.mjs's idsInRange, and the fixture drives the case that
+  // distinguishes them: a node WIDER THAN THE VIEW, whose origin is off-screen to the left and whose
+  // far edge is off-screen to the right, is VISIBLE — the viewport is sitting in the middle of it.
+  // An origin-inside test counts it as hidden, which is the answer a reader can see is wrong.
+  const boxes = [
+    { x: 0, y: 0, w: 220, h: 140 },        // top-left, plainly inside
+    { x: 2596, y: 1092, w: 220, h: 140 },  // far corner, plainly outside
+    { x: -100, y: 40, w: 900, h: 140 },    // WIDER THAN THE VIEW, origin off-screen left
+  ];
+  const seen = visibleCount(mapView({ scrollLeft: 0, scrollTop: 0, ...M }), boxes);
+  ok(seen.total === 3, `visibleCount must report the whole canvas as the total: ${JSON.stringify(seen)}`);
+  ok(seen.visible === 2, `visibleCount must count the wide node the viewport sits inside: ${JSON.stringify(seen)} (expected 2 of 3)`);
+  // THE MUTATION that decides whether the line above is real: the same three boxes under an
+  // ORIGIN-INSIDE rule answer a DIFFERENT number, so a visibleCount that regressed to it goes red
+  // rather than passing on a figure that happens to look plausible.
+  const originInside = boxes.filter((b) => b.x >= 0 && b.x <= 700 && b.y >= 0 && b.y <= 640).length;
+  ok(originInside !== seen.visible,
+    `the wide-node case is VACUOUS — an origin-inside rule answers ${originInside} too, so this fixture cannot tell the two rules apart`);
+  // Panned past everything: the total stands, nothing is visible.
+  const none = visibleCount(mapView({ scrollLeft: 999999, scrollTop: 999999, ...M }), [boxes[0]]);
+  ok(none.visible === 0 && none.total === 1, `a viewport panned off every node must see none of them: ${JSON.stringify(none)}`);
+  ok(JSON.stringify(visibleCount(null, null)) === JSON.stringify({ visible: 0, total: 0 }),
+    "visibleCount must answer zeros over junk, never a throw");
+  ok(JSON.stringify(visibleCount(null, boxes)) === JSON.stringify({ visible: 0, total: 3 }),
+    "a junk VIEW must still report the honest total — the sentence says how much is on the canvas, and the canvas is knowable even when the view is not");
 
   // THE NO-TIMER SOURCE PIN, over BOTH #221 modules: "tracks without a timer" as a tripwire.
   // rAF is allowed and used (coalescing, not scheduling); setInterval/setTimeout are not.
