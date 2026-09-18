@@ -214,8 +214,8 @@ Two things the predicate obliges and this document does not quietly revise:
 
 **What the 256 px rule is worth, measured.** With it lifted (`MIN_AREA = 0`, nothing else changed;
 the mutation is observable — the `excluded:` line stops naming `chevron` and `scored=` goes 7 → 8),
-`chevron`'s floor p95 of **8.3125** becomes rung 2's floor, the margin condition fails
-(12.5861 < 16.6249) and **the first firing rung is 6, not 2**. Rung 1 reads GREEN either way, so Q1 is
+`chevron`'s floor p95 of **8.3125** becomes rung 2's floor **at granularity (c)**, the margin
+condition fails there (12.5861 < 16.6249) and **the first firing rung is 6, not 2**. Rung 1 reads GREEN either way, so Q1 is
 untouched. Granularities (a) and (b) are unaffected — no region there is under 256 px — but **(c) is the
 one Q4 recommends #307 inherit**, so the rung named above rests on the rule. It makes rung 6 the safer
 inheritance on two independent grounds rather than one: 20.6x separation, and independence from a
@@ -470,5 +470,8 @@ cd <checkout> && node /tmp/compare.mjs [--self <png>] [--engines]
 | `CIEDE_ORACLE=<python>` | `~/Desktop/email-hub/.venv/bin/python` — C1's skimage oracle | any machine but this one — see § Not done |
 
 `controls.txt` needs `compare.mjs` copied **beside it** in the scratchpad; `raw/oracle-probe.txt` imports
-it the same way. Every raw file re-derives from these scripts: `raw/wcag.txt` including its last three
+it the same way. **The absolute paths in `raw/controls.txt`'s and `raw/oracle.txt`'s headers record where
+that run happened** — a scratchpad, the `wt-s3-300` worktree AC14 deletes, and this machine's oracle venv
+— **not where anything lives now.** Nothing reads them; the fixture travels with the commit and the
+scripts resolve it from whatever checkout you run in. Every raw file re-derives from these scripts: `raw/wcag.txt` including its last three
 reddening-control lines, which the probe now produces rather than leaving to a hand run.
