@@ -1209,3 +1209,40 @@ pairs. (b) Task 5's VALIDATE lists seven part names and calls them "six"; the fi
 `colour type != 2`; Chromium writes ct 2 but **Firefox and WebKit write ct 6 (RGBA)** for the same
 screenshot, which made Task 5a's own validation unreachable as specified. The decoder accepts 2 and 6
 and asserts every alpha byte is 255, throwing by name otherwise.
+
+### 2026-09-18 — PR #429 review, four plan claims
+
+These are corrections to claims in the body above, appended rather than rewritten: this plan's value is
+that it was committed at `65815a3` before any pixel was measured, and editing the pre-commitment to match
+what the measurement said is the exact move the pre-commitment exists to prevent. E1–E7 follow the same
+rule. **No rule, threshold or predicate moves here** — `MIN_AREA` is still 256, and the reading is still
+rung 1 GREEN, first firing rung 2.
+
+**E8 — the 256 px region-size rule is THIS SPIKE'S OWN, not E4's, and its sensitivity was not stated.**
+`:488` and `:1102` both say the rule "mirrors `visual_scorer.py:32`'s `_MIN_SECTION_HEIGHT_PX = 8`". It
+does not. E4's rule is a minimum section **height** of 8 px; this is a minimum **area** of 256 px, at a
+per-part granularity E4 has no equivalent of. `chevron` is 9x16 — it **passes** E4's rule (height 16 >= 8)
+and **fails** this one (area 144 < 256). The rule is genuinely pre-committed and the reason `:1094-1102`
+gives for it is sound (a region that is nearly all glyph has no paper to dilute it); what is wrong is the
+claim of descent, and the missing sensitivity.
+**Measured** (`MIN_AREA = 0`, nothing else changed; the mutation is observable — the `excluded:` line
+stops naming `chevron` and `scored=` goes 7 → 8): at granularity (c), `chevron`'s floor p95 of **8.3125**
+becomes rung 2's floor, the margin condition fails (12.5861 < 16.6249) and **the first firing rung is 6,
+not 2**. Rung 1 reads GREEN under both, so Q1 is unaffected; granularities (a) and (b) are unaffected
+because no region there is under 256 px. The README's § The decision now carries this, because (c) is the
+granularity Q4 recommends #307 inherit.
+
+**E9 — `chevron` is the WORST region of the fourteen, not the second worst.** `:931` and `:1098` both
+call its rung-1 floor mean of 1.924 "the second worst of any region". Ranked over all fourteen the run
+measures (1 whole + 5 ybands + 8 parts), 1.9239 is the **largest**; `title`'s 1.3089 is second. It
+strengthens the case for R2 rather than weakening it — the rule removes the single worst-scoring region
+from a MIN aggregation — and it changes no verdict, since `chevron` is excluded either way.
+
+**E10 — the epic citation is off by one.** `:638` and `:862` cite `architecture.md:312-313` for "green →
+try per-section MIN before dropping it". In `docs/epics/canvas-design-import.architecture.md` the Decision
+rule sentence is at **`:313-314`** (`:312` is the Spike line). Checked at both `6687f8e` and the plan's
+originally-cited `2e6aabd`, so this is not base drift.
+
+**E11 — three stale worktrees, not two.** `:311` names `wt-292-restore` and `wt-spike-b`. `git worktree
+list` also carries `ux-factory-wt-12` on `feature/portability-proofs`, whose ticket landed on main in
+July. The instruction the sentence carries — do not add another — stands; the count did not.

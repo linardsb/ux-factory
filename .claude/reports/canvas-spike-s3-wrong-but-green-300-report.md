@@ -3,7 +3,10 @@
 **Plan**: `.claude/plans/canvas-spike-s3-wrong-but-green-300.md`
 **Branch**: `feature/canvas-spike-s3-wrong-but-green-300` (worktree `~/Desktop/Linards_current/wt-s3-300`)
 **Base**: `6687f8e` → `6687f8e` (unmoved; the plan cites `2e6aabd`, which S2's PR #428 superseded before this ran)
-**HEAD**: `b504a26`   **Status**: COMPLETE — except Task 13 (PR) and Task 14 (epic comment), both owner-gated
+**Runs described**: the `raw/` files as committed — every one re-derives from the parked scripts (README
+§ Files). HEAD is deliberately not pinned here: it moves with each commit on the branch, and a SHA in this
+line was stale within two commits of being written (PR #429 review, F11b).
+**Status**: COMPLETE — except Task 13 (PR) and Task 14 (epic comment), both owner-gated
 
 ## Summary
 
@@ -102,7 +105,7 @@ Every figure below is **observed** unless marked.
 | 5 (ink per-pixel) | 20.5240 | 27.5252 | green — margin fails (R1 fired, as predicted) |
 | 6 (ink-colour) | 0.8716 | **17.9597** | **RED** |
 
-**Derived** (arithmetic shown): rung 2's conservative margin is worst-engine floor ÷ chromium signal =
+**Derived** (arithmetic shown): rung 2's conservative margin is chromium signal ÷ worst-engine floor =
 12.5861 / 5.1005 = **2.47x** against a 2x requirement; rung 6's is 17.9597 / 2.6888 = **6.68x**.
 
 ## Not run
@@ -142,7 +145,7 @@ Every figure below is **observed** unless marked.
 | **AC11** all six rungs reported at all three granularities for both pairs, rung 5's failure visible | **met** | `raw/deltae.txt`: 4 blocks x 3 granularities x 6 rungs; rung 5 reported failing at 1.34x |
 | **AC12** the 256 px rule and the `inkN/n > 0.5` rule applied, every excluded or degenerate region named | **met** | `chevron` (144 px) excluded and named with its numbers in every block; mask-degenerate trips nothing — worst ink share `yband3` **40.8%** — and the README says the rule is untested here |
 | **AC13** the platform envelope is a **number**, with the statement of whether it can close the margin | **met** | worst rung-6 floor **2.6888**; conservative margins rung 2 **2.47x**, rung 6 **6.68x**; plus every rung's cross-engine floor |
-| **AC14** done in a dedicated worktree, worktree removed after merge | **half met** | worktree `~/Desktop/Linards_current/wt-s3-300` used throughout. **Removal is pending the merge and nothing currently tracks it** — `git worktree remove ~/Desktop/Linards_current/wt-s3-300` after #300's PR merges. The repo already carries two stale worktrees (`wt-292-restore`, `wt-spike-b`); this must not become a third |
+| **AC14** done in a dedicated worktree, worktree removed after merge | **half met** | worktree `~/Desktop/Linards_current/wt-s3-300` used throughout. **Removal is pending the merge and nothing currently tracks it** — `git worktree remove ~/Desktop/Linards_current/wt-s3-300` after #300's PR merges. The repo already carries **three** stale worktrees (`ux-factory-wt-12` on `feature/portability-proofs`, whose ticket landed in July; `wt-292-restore`; `wt-spike-b`); this must not become a fourth |
 
 ## Deviations from the plan
 
@@ -250,7 +253,47 @@ Every figure below is **observed** unless marked.
 - **Task 5's VALIDATE lists seven part names and calls them "six".** The fixture has **eight**
   `data-part` nodes. The count is asserted at 8.
 - **No `system/oklch.mjs` import in the metric.** The plan's Task 7 says reuse `srgbToLinear` "by import
-  rather than a second copy". `compare.txt` defines its own, because it must run as a standalone copy in
-  a scratchpad with no repo-relative resolution, and because the CIELAB path must match **skimage's**
-  matrix and white point exactly for C1's oracle to mean anything. C6 imports `oklch.mjs` for real and
+  rather than a second copy". `compare.txt` defines its own, because the CIELAB path must match
+  **skimage's** matrix and white point exactly for C1's oracle to mean anything, and because the metric
+  stays zero-dependency — the shape #307's pure-Node gate inherits. (F2's fix gives every parked script a
+  resolved repo root, so a `system/` import would now *resolve*; the matrix argument is what still rules
+  it out, and that is the argument that was always load-bearing.) C6 imports `oklch.mjs` for real and
   cross-checks the two metrics agree, which is the stronger version of the same idea.
+
+## Post-review — PR #429, round 1
+
+Eleven findings and one note, all accepted and fixed in one pass ([review comment
+5721070117](https://github.com/linardsb/ux-factory/pull/429#issuecomment-5721070117)). Nothing here moves
+a verdict: **rung 1 is GREEN and the predicate's named rung is still 2**, on every number the review
+re-derived independently and reproduced.
+
+| # | what was wrong | where it landed |
+|---|---|---|
+| F1 | the 256 px rule was claimed to mirror E4's `_MIN_SECTION_HEIGHT_PX = 8`. It does not — that is a minimum section **height**, this a minimum **area** — and its sensitivity was unreported | `compare.txt`'s comment; README § The numbers and § The decision, which now carries the measured sensitivity; plan AMENDMENT E8 |
+| F2 | all five parked scripts hardcoded `/Users/Berzins/…` and fell back to **this throwaway worktree**, which AC14 deletes after merge | a shared preamble that walks up from the working directory for the spike's own `mapping.json` and **refuses by name** if it finds none; `UXF_ROOT` / `UXF_VR_TREE` / `CIEDE_ORACLE` overrides; `compare.txt`'s dead `MAIN` dropped; README § Files |
+| F3 | C1's `8.88e-14` — the reason every other number can be trusted — shells out to a venv in a sibling project on this Mac, undisclosed | README § Not done, with the setup step and the `CIEDE_ORACLE` override |
+| F4 | `chevron`'s 1.9239 floor mean is the **worst** of all fourteen regions, not the second worst | README § The numbers; plan AMENDMENT E9 |
+| F5 | "Copied verbatim" was an abridgement — a dropped paragraph and a truncated sentence, unmarked | README § The decision: "Abridged", with `…` at both cuts and what each held |
+| F6 | the reading table hid that floor and signal are chosen **independently** and can come from different regions | README § The decision: the table names its regions, plus the same-region re-derivation showing every verdict survives |
+| F7 | C6 compares two formulas over **one** extraction pipeline's output — the repo's `check-that-cannot-fail` class | `controls.txt`'s C6 comment and its printed message, narrowed to "agree on ranking, given the same extracted ink means"; README's C6 row |
+| F8 | `raw/wcag.txt`'s last three lines had no committed producer | folded into `wcag-probe.txt`; the file now re-derives **byte-identically**, all 52 lines (observed) |
+| F9 | C8's mutated half compares `mean(ref, fa)` against itself — zero for every region by construction | `controls.txt`'s C8 comment and README's C8 row |
+| F10 | "two stale worktrees" — there are three | AC14's row above |
+| F11 | the conservative-margin formula read backwards; a `HEAD` sha that re-stales on every commit; `architecture.md:312-313` should be `:313-314` | this report's header and § Verdict; README § The decision |
+| N1 | the predicate legend said 5.0 is "twice the worst floor"; it is 1.86x above it | `compare.txt:368`, and so `raw/deltae.txt`'s four copies |
+
+**Two artifacts regenerated, not hand-matched.** `raw/deltae.txt` (N1's legend, four lines) and
+`raw/controls.txt` (F7's C6 message) were re-run from the edited scripts and committed whole. Every other
+number in both is unchanged; the battery still reads **11/11 pristine, 9 red, `DID NOT APPLY` 0**
+(observed). `raw/engines.txt` and `raw/oracle.txt` re-ran **byte-identical** and were left alone.
+
+**Two of the review's proposed fixes were not adopted as written**, and the report says which:
+
+- **F2's suggested `fileURLToPath(import.meta.url)`** (after `tooling/build-checks.mjs:302`) resolves to
+  the **scratchpad**, not the checkout, because these scripts are run from a copy. `controls.txt`'s own
+  `HERE`/`SRC` pair is the primary-source proof — it uses exactly that expression to find `compare.mjs`
+  *beside itself* in the scratchpad. The cwd walk is the fix that works; the preamble comment says so, so
+  the pattern does not get "corrected" back.
+- **F1 and F4 in the plan** are AMENDMENTS (E8, E9), not body rewrites. The plan's value is that it was
+  committed before any pixel was measured; E1–E7 already correct its body by appending, and rewriting the
+  pre-commitment to match the measurement is the shape this spike exists to avoid.

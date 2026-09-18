@@ -1,7 +1,10 @@
 // S3 controls — eleven controls, each observed green AND red (ticket #300, epic #295).
 //
-// PARKED as controls.txt. Run it by copying to a .mjs in a scratchpad, beside compare.mjs:
-//   cp controls.txt /tmp/controls.mjs && node /tmp/controls.mjs
+// PARKED as controls.txt. Run it by copying to a .mjs in a scratchpad, beside compare.mjs, FROM
+// INSIDE THE REPO:
+//   cp compare.txt /tmp/compare.mjs && cp controls.txt /tmp/controls.mjs && (cd <checkout> && node /tmp/controls.mjs)
+// UXF_ROOT=<checkout> replaces the cwd walk; UXF_VR_TREE=<checkout> points C2's Playwright at a checkout
+// whose tooling/visual-regression HAS node_modules; CIEDE_ORACLE=<python> replaces C1's skimage oracle.
 //
 // Half 1 runs every control against the PRISTINE metric. Half 2 applies each control's mutation and
 // re-runs only that control, expecting its own named failure. A mutation that does not change the
@@ -13,17 +16,65 @@
 //   * INPUT mutations feed the pristine metric a deliberately wrong input — they break the harness.
 // C1/C2/C5/C9/C10 are the first kind; C3/C4b/C7/C8 the second. C6 has no mutation by design.
 
-import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { createRequire } from "node:module";
 
+// HERE is the SCRATCHPAD this copy runs from, not the checkout — compare.mjs is copied beside it and
+// the mutated copies are written next to it. It is also the reason the preamble below walks the cwd
+// rather than reading `import.meta.url`: that URL resolves here, to the scratchpad.
 const HERE = path.dirname(new URL(import.meta.url).pathname);
-const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
-const SPIKE = process.env.SPIKE_DIR || path.join(process.env.HOME, "Desktop/Linards_current/wt-s3-300/.claude/plans/canvas-spike-s3");
+
+// THE REPO ROOT, resolved not hardcoded (shared preamble — the same block is in compare, capture,
+// controls and wcag-probe). These scripts are RUN FROM A SCRATCHPAD COPY, so `import.meta.url` resolves to the
+// scratchpad and not to the checkout — that is why this walks up from the working directory instead,
+// and why tooling/build-checks.mjs:302's `fileURLToPath(import.meta.url)` pattern does not transfer.
+// It THROWS by name rather than falling back to a machine-specific path: the worktree this spike was
+// written in is deleted after merge (report AC14), and the fixture travels with the commit.
+const MARKER = ".claude/plans/canvas-spike-s3/mapping.json";   // committed; present before capture runs
+function repoRoot() {
+  const has = (d) => existsSync(path.join(d, MARKER));
+  if (process.env.UXF_ROOT) {
+    const r = path.resolve(process.env.UXF_ROOT);
+    if (!has(r)) throw new Error(`spike: UXF_ROOT=${r} carries no ${MARKER}`);
+    return r;
+  }
+  let d = process.cwd();
+  for (;;) {
+    if (has(d)) return d;
+    const up = path.dirname(d);
+    if (up === d) throw new Error(`spike: no checkout carrying ${MARKER} at or above ${process.cwd()} — run from inside the repo, or set UXF_ROOT=<checkout>`);
+    d = up;
+  }
+}
+const ROOT = repoRoot();
+
+// PLAYWRIGHT'S TREE (C2 only). `tooling/visual-regression/node_modules` is the CI-pinned copy and a
+// fresh worktree does not have one (memory local-agent-visual-gate-notes), so this is a SEPARATE
+// anchor: it defaults to ROOT and UXF_VR_TREE points it at a checkout that does have them.
+function vrDir() {
+  const tree = process.env.UXF_VR_TREE ? path.resolve(process.env.UXF_VR_TREE) : ROOT;
+  const d = path.join(tree, "tooling", "visual-regression");
+  if (!existsSync(path.join(d, "node_modules", "@playwright", "test"))) {
+    throw new Error(`spike: no @playwright/test under ${d}/node_modules — set UXF_VR_TREE=<checkout whose tooling/visual-regression has node_modules>`);
+  }
+  return d;
+}
+const VR = vrDir();
+const SPIKE = path.join(ROOT, ".claude/plans/canvas-spike-s3");
 const FIX = path.join(SPIKE, "fixture");
-const PY = path.join(process.env.HOME, "Desktop/email-hub/.venv/bin/python");
 const SRC = path.join(HERE, "compare.mjs");
+
+// C1'S ORACLE is a CPython with scikit-image. The default is this machine's `email-hub` venv — not an
+// arbitrary sibling: email-hub is where E4's own visual_scorer.py lives, which is what C1 compares
+// against. It is a MACHINE DEPENDENCY, disclosed in README § Not done, and CIEDE_ORACLE replaces it
+// with any python that can `import skimage`. Refuses by name rather than failing as a bare ENOENT.
+const PY = process.env.CIEDE_ORACLE ? path.resolve(process.env.CIEDE_ORACLE)
+  : path.join(process.env.HOME, "Desktop/email-hub/.venv/bin/python");
+if (!existsSync(PY)) {
+  throw new Error(`spike: no CIEDE2000 oracle at ${PY} — set CIEDE_ORACLE=<python with scikit-image> (C1 shells out to skimage.color.deltaE_ciede2000)`);
+}
 
 const f4 = (v) => v.toFixed(4);
 let pass = 0, fail = 0;
@@ -80,11 +131,11 @@ print(json.dumps(deltaE_ciede2000(rgb2lab(a), rgb2lab(b)).reshape(-1).tolist()))
 const C2_BLOCKS = ["#ff0000","#00ff00","#0000ff","#123456","#fedcba","#000000","#ffffff","#7f7f7f","#0c3b2f","#20828d","#f8f8f8","#00c950"];
 function C2(M, half) {
   const png = path.join(HERE, `c2-control-${half}.png`);
-  const require2 = createRequire(path.join(MAIN, "tooling", "visual-regression") + path.sep);
+  const require2 = createRequire(VR + path.sep);
   const html = `<meta charset="utf-8"><style>html,body{margin:0;padding:0}#c{display:grid;grid-template-columns:repeat(4,40px);grid-auto-rows:40px;gap:0;width:160px}i{display:block;width:40px;height:40px}</style><div id="c">${C2_BLOCKS.map((c) => `<i style="background:${c}"></i>`).join("")}</div>`;
   execFileSync(process.execPath, ["-e", `
     const { createRequire } = require("node:module"); const path = require("node:path");
-    const r = createRequire(path.join(${JSON.stringify(MAIN)}, "tooling", "visual-regression") + path.sep);
+    const r = createRequire(${JSON.stringify(VR)} + path.sep);
     const { chromium } = r("@playwright/test");
     (async () => { const b = await chromium.launch();
       const p = await (await b.newContext({ viewport:{width:200,height:200}, deviceScaleFactor:1 })).newPage();
@@ -185,11 +236,17 @@ function C5(M, half) {
   return held;
 }
 
-// C6 — metric agreement. Oklab ΔE (system/oklch.mjs:37, the repo's OWN colour math) must rank the
-// same worst region as CIEDE2000. No mutation by design: a disagreement stops the run and is
-// reported, it is not worked around.
+// C6 — metric agreement, at the width it actually has. Oklab ΔE (system/oklch.mjs:37, the repo's OWN
+// colour math) must rank the same worst region as CIEDE2000. No mutation by design: a disagreement
+// stops the run and is reported, it is not worked around.
+// WHAT IT CANNOT CATCH, stated because a control that looks wider than it is belongs to the repo's
+// `check-that-cannot-fail` class: BOTH legs consume the same statsOne extraction, so a wrong region
+// box, a wrong mask threshold or a wrong modal colour corrupts both identically and C6 still reports
+// agreement. What it does catch is two distance FORMULAS ranking one already-extracted pair of
+// colours differently — and not even from identical inputs: inkColourDeltaE reads the unquantised
+// float means, oklabDE the 8-bit rounded hex. The boxes are C7's evidence and identity is C3's.
 async function C6(M, half) {
-  const { hexToRgb, rgbToOklab } = await import(path.join(MAIN, "system", "oklch.mjs"));
+  const { hexToRgb, rgbToOklab } = await import(path.join(ROOT, "system", "oklch.mjs"));
   const oklabDE = (h1, h2) => {
     const a = rgbToOklab(hexToRgb(h1)), b = rgbToOklab(hexToRgb(h2));
     return Math.hypot(a.l - b.l, a.a - b.a, a.b - b.b);
@@ -199,7 +256,7 @@ async function C6(M, half) {
   const byCiede = [...stats].sort((a, b) => b.inkColourDeltaE - a.inkColourDeltaE)[0];
   const byOklab = [...stats].sort((a, b) => oklabDE(b.inkMeanHexA, b.inkMeanHexB) - oklabDE(a.inkMeanHexA, a.inkMeanHexB))[0];
   const held = byCiede.name === byOklab.name;
-  const m = `worst region by CIEDE2000 = ${byCiede.name} (${f4(byCiede.inkColourDeltaE)}), by Oklab ΔE = ${byOklab.name} (${oklabDE(byOklab.inkMeanHexA, byOklab.inkMeanHexB).toFixed(4)}) — ${held ? "agree" : "DISAGREE: reported, not worked around"}`;
+  const m = `worst region by CIEDE2000 = ${byCiede.name} (${f4(byCiede.inkColourDeltaE)}), by Oklab ΔE = ${byOklab.name} (${oklabDE(byOklab.inkMeanHexA, byOklab.inkMeanHexB).toFixed(4)}) — ${held ? "agree on ranking, given the same extracted ink means" : "DISAGREE: reported, not worked around"}`;
   held ? ok("C6 ", m) : no("C6 ", m);
   return held;
 }
@@ -229,6 +286,10 @@ function C7(M, half, mutate = false) {
 // The INPUT mutation substitutes m1-faithful for m1-wrong: C8 STAYS GREEN (the drops were never going
 // to move) while the two mapped regions collapse to the floor and rung 1's signal vanishes. Reporting
 // that is the point — C8 is a harness control, not a signal control, and it says so out loud.
+// PRECISELY how green: the substitution makes the comparison mean(ref, fa) against ITSELF, which is
+// zero for EVERY region by construction, not only for the four drops asserted here. So half 2
+// exercises none of the box-placement or region-reading logic — that evidence is C7 and C3, never
+// C8's own mutation. Half 1 is where C8 does its work.
 function C8(M, half, mutate = false) {
   const ref = M.decodePng(path.join(FIX, "ref.png"));
   const fa = M.decodePng(path.join(FIX, "m1-faithful.png"));

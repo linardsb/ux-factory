@@ -1,5 +1,7 @@
 // C1 — the CIEDE2000 port against skimage.color.deltaE_ciede2000, the SAME function E4 calls.
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { ciede2000, rgbToLab, deltaEHex } from "./compare.mjs";
 
 // A fixed-seed LCG so the 500 pairs are the same on every run and in the mutated half.
@@ -14,7 +16,14 @@ for (let i = 0; i < 500; i++) {
 }
 const mine = pairs.map(([a, b]) => ciede2000(rgbToLab(a), rgbToLab(b)));
 
-const PY = process.env.HOME + "/Desktop/email-hub/.venv/bin/python";
+// The oracle is a CPython with scikit-image. The default is this machine's `email-hub` venv — where
+// E4's own visual_scorer.py lives, which is what this compares against. A MACHINE DEPENDENCY,
+// disclosed in README § Not done; CIEDE_ORACLE replaces it with any python that can import skimage.
+const PY = process.env.CIEDE_ORACLE ? path.resolve(process.env.CIEDE_ORACLE)
+  : process.env.HOME + "/Desktop/email-hub/.venv/bin/python";
+if (!existsSync(PY)) {
+  throw new Error(`spike: no CIEDE2000 oracle at ${PY} — set CIEDE_ORACLE=<python with scikit-image>`);
+}
 const script = `
 import sys, json, numpy as np
 from skimage.color import rgb2lab, deltaE_ciede2000

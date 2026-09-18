@@ -1,7 +1,9 @@
 // S3 capture — the five renders and the region rectangles (ticket #300, epic #295).
 //
-// PARKED as capture.txt. Run it by copying to a .mjs in a scratchpad:
-//   cp capture.txt /tmp/capture.mjs && node /tmp/capture.mjs [chromium|firefox|webkit]
+// PARKED as capture.txt. Run it by copying to a .mjs in a scratchpad, FROM INSIDE THE REPO:
+//   cp capture.txt /tmp/capture.mjs && (cd <checkout> && node /tmp/capture.mjs [chromium|firefox|webkit])
+// UXF_ROOT=<checkout> replaces the cwd walk; UXF_VR_TREE=<checkout> points Playwright at a checkout whose
+// tooling/visual-regression HAS node_modules, which a fresh worktree does not.
 //
 // THROWAWAY. Writes only into .claude/plans/canvas-spike-s3/fixture/.
 //
@@ -18,18 +20,49 @@
 
 import { createRequire } from "node:module";
 import path from "node:path";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
-const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
-const VRDIR = path.join(MAIN, "tooling", "visual-regression");
-// Playwright resolves from the MAIN TREE's tooling/visual-regression/node_modules — the CI-pinned
-// gate's copy. A fresh worktree has no node_modules of its own (memory local-agent-visual-gate-notes).
-const require = createRequire(`${VRDIR}${path.sep}`);
-const pw = require("@playwright/test");
+// THE REPO ROOT, resolved not hardcoded (shared preamble — the same block is in compare, capture,
+// controls and wcag-probe). These scripts are RUN FROM A SCRATCHPAD COPY, so `import.meta.url` resolves to the
+// scratchpad and not to the checkout — that is why this walks up from the working directory instead,
+// and why tooling/build-checks.mjs:302's `fileURLToPath(import.meta.url)` pattern does not transfer.
+// It THROWS by name rather than falling back to a machine-specific path: the worktree this spike was
+// written in is deleted after merge (report AC14), and the fixture travels with the commit.
+const MARKER = ".claude/plans/canvas-spike-s3/mapping.json";   // committed; present before capture runs
+function repoRoot() {
+  const has = (d) => existsSync(path.join(d, MARKER));
+  if (process.env.UXF_ROOT) {
+    const r = path.resolve(process.env.UXF_ROOT);
+    if (!has(r)) throw new Error(`spike: UXF_ROOT=${r} carries no ${MARKER}`);
+    return r;
+  }
+  let d = process.cwd();
+  for (;;) {
+    if (has(d)) return d;
+    const up = path.dirname(d);
+    if (up === d) throw new Error(`spike: no checkout carrying ${MARKER} at or above ${process.cwd()} — run from inside the repo, or set UXF_ROOT=<checkout>`);
+    d = up;
+  }
+}
+const ROOT = repoRoot();
 
-const SPIKE = process.env.SPIKE_DIR || path.join(process.env.HOME, "Desktop/Linards_current/wt-s3-300/.claude/plans/canvas-spike-s3");
+// PLAYWRIGHT'S TREE. `tooling/visual-regression/node_modules` is the CI-pinned copy and a fresh
+// worktree does not have one (memory local-agent-visual-gate-notes), so this is a SEPARATE anchor:
+// it defaults to ROOT and UXF_VR_TREE points it at a checkout that does have them. Refuses by name —
+// a missing require here would otherwise surface as a bare MODULE_NOT_FOUND.
+function vrDir() {
+  const tree = process.env.UXF_VR_TREE ? path.resolve(process.env.UXF_VR_TREE) : ROOT;
+  const d = path.join(tree, "tooling", "visual-regression");
+  if (!existsSync(path.join(d, "node_modules", "@playwright", "test"))) {
+    throw new Error(`spike: no @playwright/test under ${d}/node_modules — set UXF_VR_TREE=<checkout whose tooling/visual-regression has node_modules>`);
+  }
+  return d;
+}
+const SPIKE = path.join(ROOT, ".claude/plans/canvas-spike-s3");
 const FIX = path.join(SPIKE, "fixture");
-const SPIKEC = path.join(MAIN, ".claude/plans/design-import-spike-c");
+const SPIKEC = path.join(ROOT, ".claude/plans/design-import-spike-c");
+const require = createRequire(`${vrDir()}${path.sep}`);
+const pw = require("@playwright/test");
 const ENGINE = process.argv[2] || "chromium";
 
 const svg = readFileSync(path.join(SPIKEC, "06.svg"), "utf8");

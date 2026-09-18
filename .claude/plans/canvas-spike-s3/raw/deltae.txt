@@ -1,5 +1,5 @@
 S3 — ΔE against a foreign render. reference ref.png 361x221
-generated 2026-09-17T20:16:40.549Z
+generated 2026-09-18T05:42:13.085Z
 
 ==============================================================================
 M1 FLOOR — ref.png vs m1-faithful.png (the source's own literals)
@@ -195,7 +195,7 @@ C8 PASS — the dropped roles did not move
 THE PREDICATE, READ (granularity c parts)
 ==============================================================================
 RED at rung r iff  worst(SIGNAL,r) >= T(r)  AND  worst(SIGNAL,r) >= 2 x worst(FLOOR,r)
-T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, twice the worst floor of three engines.
+T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, 1.86x above the worst floor of three engines.
 
 rung 1 region mean ΔE — E4 VERBATIM                       floor=  1.3089 (title)  signal=  1.6638 (title)  >=2.3? NO   >=2x floor (  2.6179)? NO   => green
 rung 2 region p95 of ΔE                                   floor=  3.3462 (title)  signal= 12.5861 (title)  >=2.3? yes  >=2x floor (  6.6924)? yes  => RED
@@ -213,7 +213,7 @@ first rung meeting both conditions: rung 2
 THE PREDICATE, READ (granularity a whole)
 ==============================================================================
 RED at rung r iff  worst(SIGNAL,r) >= T(r)  AND  worst(SIGNAL,r) >= 2 x worst(FLOOR,r)
-T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, twice the worst floor of three engines.
+T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, 1.86x above the worst floor of three engines.
 
 rung 1 region mean ΔE — E4 VERBATIM                       floor=  0.4658 (whole)  signal=  0.5927 (whole)  >=2.3? NO   >=2x floor (  0.9315)? NO   => green
 rung 2 region p95 of ΔE                                   floor=  0.8171 (whole)  signal=  1.4886 (whole)  >=2.3? NO   >=2x floor (  1.6343)? NO   => green
@@ -229,7 +229,7 @@ first rung meeting both conditions: none — no rung fires
 THE PREDICATE, READ (granularity b ybands)
 ==============================================================================
 RED at rung r iff  worst(SIGNAL,r) >= T(r)  AND  worst(SIGNAL,r) >= 2 x worst(FLOOR,r)
-T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, twice the worst floor of three engines.
+T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, 1.86x above the worst floor of three engines.
 
 rung 1 region mean ΔE — E4 VERBATIM                       floor=  1.2580 (yband1)  signal=  1.5775 (yband1)  >=2.3? NO   >=2x floor (  2.5160)? NO   => green
 rung 2 region p95 of ΔE                                   floor=  2.6018 (yband1)  signal=  6.9129 (yband1)  >=2.3? yes  >=2x floor (  5.2036)? yes  => RED
@@ -247,7 +247,7 @@ first rung meeting both conditions: rung 2
 THE PREDICATE, READ (granularity c parts)
 ==============================================================================
 RED at rung r iff  worst(SIGNAL,r) >= T(r)  AND  worst(SIGNAL,r) >= 2 x worst(FLOOR,r)
-T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, twice the worst floor of three engines.
+T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, 1.86x above the worst floor of three engines.
 
 rung 1 region mean ΔE — E4 VERBATIM                       floor=  1.3089 (title)  signal=  2.9927 (title)  >=2.3? yes  >=2x floor (  2.6179)? yes  => RED
 rung 2 region p95 of ΔE                                   floor=  3.3462 (title)  signal= 12.0358 (title)  >=2.3? yes  >=2x floor (  6.6924)? yes  => RED

@@ -116,10 +116,18 @@ candidates, so these four regions must be identical between FLOOR and SIGNAL. Th
 If one of them had moved, the harness would have a bug rather than the mapping. This is control C8.
 
 **R2 and F4, applied and named.** The region-size rule excludes exactly one region on this fixture:
-**`chevron`, 144 px < 256** — reported above, never scored. Its floor mean of 1.9239 is the second
-worst of any region for purely geometric reasons (9x16, 29.9% ink, no paper to dilute), which is
-precisely what the rule exists to keep out of a MIN aggregation. The mask-degenerate rule
-(`inkN/n > 0.5`) trips **nothing**: the worst ink share observed is `yband3` at **40.8%**. The rule is
+**`chevron`, 144 px < 256** — reported above, never scored. Its floor mean of 1.9239 is **the worst of
+any region** measured here — larger than `title`'s 1.3089, and larger than every yband and the whole
+image — for purely geometric reasons (9x16, 29.9% ink, no paper to dilute), which is precisely what the
+rule exists to keep out of a MIN aggregation.
+
+**Whose rule it is.** The 256 px area floor is **this spike's own**, declared in the plan before the run
+and not E4's. `visual_scorer.py:32`'s `_MIN_SECTION_HEIGHT_PX = 8` is a minimum section **height**; this
+is a minimum **area**, at a per-part granularity E4 has no equivalent of. `chevron` is 9x16: it passes
+E4's rule on height (16 >= 8) and fails this one on area (144 < 256). The reason for adopting it is the
+one above — a region that is nearly all glyph has no paper to dilute it — not a citation.
+
+**The mask-degenerate rule (F4)** (`inkN/n > 0.5`) trips **nothing**: the worst ink share observed is `yband3` at **40.8%**. The rule is
 therefore defensive here and untested by this fixture — a fact #304's differently drawn source may change.
 
 **The other two granularities.**
@@ -143,11 +151,16 @@ A shipped.
 
 ## The decision, and its condition
 
-Copied verbatim from the plan committed in `65815a3`, before any fixture number was measured:
+Abridged from the plan committed in `65815a3`, before any fixture number was measured. Everything
+retained is character-identical and `…` marks the two cuts: the first drops the plan's "Units, stated so
+the predicate has one reading" paragraph (every threshold is read on the ΔE figure, never on the score),
+the second the rung-6 threshold's justification, whose numbers reappear in § Platform:
 
 > Let `worst(P, g, r)` be the worst region of pair `P` at granularity `g` under rung `r`, where "worst"
 > means the largest ΔE statistic (equivalently the smallest E4 score — the same ordering, **not** the same
 > number).
+>
+> …
 >
 > - `FLOOR = (ref, m1-faithful)`
 > - `SIGNAL = (ref, m1-wrong)`
@@ -163,7 +176,7 @@ Copied verbatim from the plan committed in `65815a3`, before any fixture number 
 >
 > **The same two conditions apply at every rung, with one absolute threshold raised by measurement.**
 > At rungs 2–6 the JND condition reads `>= 2.3` **except at rung 6, where it reads `>= 5.0`** — twice
-> the worst floor any of the three engines produced.
+> the worst floor any of the three engines produced …
 >
 > **If rung 1 is green**, the ladder is walked in this fixed order and the **first** rung meeting the
 > same two conditions is named as #307's recommended aggregation.
@@ -172,12 +185,20 @@ Copied verbatim from the plan committed in `65815a3`, before any fixture number 
 
 | rung | statistic | floor | signal | >= T? | >= 2x floor? | verdict |
 |---|---|---|---|---|---|---|
-| 1 | region mean ΔE — **E4 verbatim** | 1.3089 | 1.6638 | no (T=2.3) | no (2.6179) | **green** |
-| 2 | region p95 | 3.3462 | **12.5861** | yes | yes (6.6924) | **RED** |
-| 3 | region p99 | 43.9891 | 46.6926 | yes | no (87.9782) | green |
-| 4 | blurred mean, σ=1.5 | 0.4064 | 1.0430 | no | yes (0.8129) | green |
-| 5 | ink-masked per-pixel mean | 20.5240 | 27.5252 | yes | no (41.0480) | green |
-| 6 | **ink-colour ΔE** | 0.8716 | **17.9597** | yes (T=5.0) | yes (1.7432) | **RED** |
+| 1 | region mean ΔE — **E4 verbatim** | 1.3089 (title) | 1.6638 (title) | no (T=2.3) | no (2.6179) | **green** |
+| 2 | region p95 | 3.3462 (title) | **12.5861** (title) | yes | yes (6.6924) | **RED** |
+| 3 | region p99 | 43.9891 (title) | 46.6926 (title) | yes | no (87.9782) | green |
+| 4 | blurred mean, σ=1.5 | 0.4064 (title) | 1.0430 (**subtitle**) | no | yes (0.8129) | green |
+| 5 | ink-masked per-pixel mean | 20.5240 (title) | 27.5252 (title) | yes | no (41.0480) | green |
+| 6 | **ink-colour ΔE** | 0.8716 (subtitle) | **17.9597** (subtitle) | yes (T=5.0) | yes (1.7432) | **RED** |
+
+**The two halves are chosen independently**, and the names say where that bites. The aggregator takes
+the worst region of each pair on its own, so a rung can compare a floor from one region against a signal
+from another — rung 4 above does, and so does rung 4 at granularity (b) (`raw/deltae.txt` prints the
+names). Re-derived same-region, every verdict here survives: M1 rung 4 is green on `title`
+(0.4064 → 0.8842) and on `subtitle` (0.0936 → 1.0430), neither reaching 2.3; M2's rung 4 on `subtitle`
+is 0.0936 → 2.3042 and stays RED; and **rung 2, the named answer, is same-region at every
+granularity**. It is a seam in the predicate #307 inherits, not an error in this reading.
 
 **Rung 1 is GREEN. The first rung meeting both conditions is RUNG 2, and the predicate names it.**
 
@@ -191,8 +212,17 @@ Two things the predicate obliges and this document does not quietly revise:
   measured for all six rungs (§ Platform) and it is material to what #307 should build. It is reported as
   a separate fact, not folded into the reading.
 
-**The epic's stated fallback is a no-op as written.** `architecture.md:312-313` says "green → try
-per-section MIN before dropping it". Per-section MIN **is** E4's specified aggregation
+**What the 256 px rule is worth, measured.** With it lifted (`MIN_AREA = 0`, nothing else changed;
+the mutation is observable — the `excluded:` line stops naming `chevron` and `scored=` goes 7 → 8),
+`chevron`'s floor p95 of **8.3125** becomes rung 2's floor, the margin condition fails
+(12.5861 < 16.6249) and **the first firing rung is 6, not 2**. Rung 1 reads GREEN either way, so Q1 is
+untouched. Granularities (a) and (b) are unaffected — no region there is under 256 px — but **(c) is the
+one Q4 recommends #307 inherit**, so the rung named above rests on the rule. It makes rung 6 the safer
+inheritance on two independent grounds rather than one: 20.6x separation, and independence from a
+region-size rule this spike chose for itself.
+
+**The epic's stated fallback is a no-op as written.** `canvas-design-import.architecture.md:313-314`
+says "green → try per-section MIN before dropping it". Per-section MIN **is** E4's specified aggregation
 (`visual_scorer.py:212`), so following it literally re-runs rung 1 and gets the same green. The real
 fallback space is *within*-region — p95, p99, blurred mean, ink-masked mean, ink-colour ΔE — not across
 regions, and that is the space this ladder walked.
@@ -213,9 +243,9 @@ Eleven controls, each run pristine and mutated. Both halves verbatim in `raw/con
 | **C4a** | a known swap measures **exactly** on synthetic input: paper `#ffffff`, a hard-edged ink block, a `#f8f8f8` frame (ΔE 1.40 — below the 2.3 mask threshold, above half of it) | halve the ink threshold to 1.15 | inkMean **18.215350195 → 13.105**; the frame joins the mask, its own ΔE is 0, and the mean falls |
 | **C4b** | on the **real** anti-aliased region, `inkMean === (coreN/inkN) x pairΔE` as an identity to 1e-9 | source: dilute the ink mean over the whole region (`/n` instead of `/inkN`) | 6.397057509 **→ 0.301**, identity broken by 6.096 |
 | **C5** | **an empty measurement is missing, never a pass** — zero regions must throw | restore `sum/max(len,1)` and remove both refusals | the throw stops firing and `aggregate([])` returns a score instead of refusing |
-| **C6** | metric agreement — Oklab ΔE (`system/oklch.mjs:37`) ranks the same worst region as CIEDE2000 | **none, by design** — a disagreement stops the run and is reported | both name `subtitle` (CIEDE2000 17.9597, Oklab 0.0853) |
+| **C6** | two distance FORMULAS rank the same worst region — Oklab ΔE (`system/oklch.mjs:37`) against CIEDE2000, **given the same extracted ink means**. Both legs consume one `statsOne` extraction, so a wrong box, mask or modal corrupts both identically and C6 still agrees; the boxes are C7's evidence and identity is C3's. The legs are not even fed identical inputs — CIEDE2000 reads the unquantised float means, Oklab the 8-bit hex | **none, by design** — a disagreement stops the run and is reported | both name `subtitle` (CIEDE2000 17.9597, Oklab 0.0853) |
 | **C7** | the region boxes land on the right **content** — `avatar`'s modal is `#f2f5fa`, `chip`'s is `#f1f7f2` | shift every box +20 px | `avatar` modal `#f2f5fa → #f8f8f8` |
-| **C8** | **the harness measured what it claims to** — the four drop regions are identical between the two candidates to 0.0e+0 | substitute `m1-faithful` for `m1-wrong` | **C8 stays green, by design.** The drops were never going to move; what collapses is the signal — `title` 1.6638 → 1.3089, `subtitle` 1.0508 → 0.6973, both back to the floor. C8 catches a wrong pack link, a stale PNG or a mis-parameterised harness, which is a different failure from anything C1–C7 reaches |
+| **C8** | **the harness measured what it claims to** — the four drop regions are identical between the two candidates to 0.0e+0 | substitute `m1-faithful` for `m1-wrong` | **C8 stays green, by design.** The drops were never going to move; what collapses is the signal — `title` 1.6638 → 1.3089, `subtitle` 1.0508 → 0.6973, both back to the floor. C8 catches a wrong pack link, a stale PNG or a mis-parameterised harness, which is a different failure from anything C1–C7 reaches. **The mutated comparison is self-identical by construction** — substituting `m1-faithful` compares `mean(ref, fa)` against itself, zero for *every* region and not only the four asserted, so half 2 exercises no box-placement or region-reading logic. Half 1 is where C8 does its work |
 | **C9** | **rung 6 is registration-invariant** — the whole reason it is in the ladder | make rung 6 compare per-pixel ink instead of the two ink averages | pristine: a 1 px shift moves rung 6 by **0.0000** while rung 5 moves by **7.1361**. Mutated: rung 6 moves by 7.1361 too — the invariance is gone |
 | **C10** | **rung 6's own limitation is stated, not hidden** — under M2 the moved surface penalises four regions whose **ink never changed**, via their anti-aliased edges | core-only ink mask (threshold 2.3 → 20) | pristine penalties `avatar +1.3689`, `chip +1.2450`, `chip-text +1.0644`, `chevron +0.5243`. Mutated: `+0.0000`, **−0.0738**, **−0.0738**, `+0.0000` — M2 reads *better* than M1 and the limitation is invisible |
 
@@ -373,6 +403,17 @@ rung 2's proportional headroom.
 - **A vision loop.** E8 retired email-hub's `visual_verify.py`; this spike does not revive it.
 - **A Linux measurement.** Named above as #307's step.
 - **A signal render on firefox or webkit.** Deliberate — see § Platform.
+- **A CIEDE2000 oracle that travels with the code.** C1's `8.88e-14` agreement — the reason every other
+  number here can be trusted, because it clears the metric before any fixture is read — is produced by
+  shelling out to `~/Desktop/email-hub/.venv/bin/python` (scikit-image) on **this machine**. That venv is
+  not an arbitrary sibling: `email-hub` is where E4's own `visual_scorer.py` lives, the subject of the
+  whole comparison. But it is a machine dependency, and nobody on another machine — and nobody here once
+  that venv moves — can re-derive C1 without recreating it. `CIEDE_ORACLE=<python>` points `controls.txt`
+  and `raw/oracle-probe.txt` at any interpreter that can `import skimage`; both refuse by name if the
+  path does not exist, rather than failing as a bare ENOENT. **Setup:**
+  `python3 -m venv .venv && .venv/bin/pip install scikit-image numpy`, then
+  `CIEDE_ORACLE=$PWD/.venv/bin/python`. Checking a second independent CIEDE2000 implementation into the
+  spike dir would close it properly; #307 inherits the choice.
 - **Per-step `date +%T` stamps** (`raw/timings.txt` in the plan's file list). Not taken; § Timings is
   reconstructed from file mtimes and the plan commit, and says so. No number in this document depends
   on a timing.
@@ -405,10 +446,29 @@ raw/
   controls.txt                  the control battery, pristine half and mutated half
   engines.txt                   the three-engine table, and every rung's cross-engine floor
   oracle.txt                    the skimage CIEDE2000 cross-check, verbatim
-  oracle-probe.txt   PARKED     the script that produced oracle.txt
+  oracle-probe.txt   PARKED     the script that produced oracle.txt — import compare.mjs beside it
   wcag.txt                      checkPairs over both packs, verbatim, plus its reddening control
 ```
 
 Run a parked script by copying it to a `.mjs` in a scratchpad — Node refuses a `.txt` module entry, and
 `tooling/drift-check.mjs:29` runs `node --check` over every tracked `.mjs`, which a throwaway spike
-script has no business being in.
+script has no business being in. **Run it from inside a checkout**: the four repo-reading scripts
+(`compare`, `capture`, `controls`, `wcag-probe`) walk up from the working directory for
+`.claude/plans/canvas-spike-s3/mapping.json` and refuse by name if they find none, so no path is tied to
+the throwaway worktree this spike was written in (which AC14 deletes after merge). `oracle-probe.txt`
+needs no repo path — only `compare.mjs` beside it, and an oracle.
+
+```
+cp compare.txt /tmp/compare.mjs
+cd <checkout> && node /tmp/compare.mjs [--self <png>] [--engines]
+```
+
+| override | what it replaces | needed when |
+|---|---|---|
+| `UXF_ROOT=<checkout>` | the cwd walk | running from outside a checkout |
+| `UXF_VR_TREE=<checkout>` | `ROOT/tooling/visual-regression` — Playwright's node_modules, used by `capture.txt` and control C2 | the checkout you run from is a fresh worktree, which has none |
+| `CIEDE_ORACLE=<python>` | `~/Desktop/email-hub/.venv/bin/python` — C1's skimage oracle | any machine but this one — see § Not done |
+
+`controls.txt` needs `compare.mjs` copied **beside it** in the scratchpad; `raw/oracle-probe.txt` imports
+it the same way. Every raw file re-derives from these scripts: `raw/wcag.txt` including its last three
+reddening-control lines, which the probe now produces rather than leaving to a hand run.

@@ -2,8 +2,10 @@
 //
 // PARKED as compare.txt. Node refuses a .txt module entry, so the .txt is a STORAGE decision
 // (tooling/drift-check.mjs:29 runs `node --check` over every tracked .mjs, and a spike script is
-// not a tracked source file). Run it by copying to a .mjs in a scratchpad:
-//   cp compare.txt /tmp/compare.mjs && node /tmp/compare.mjs [--self <png>] [--engines]
+// not a tracked source file). Run it by copying to a .mjs in a scratchpad, FROM INSIDE THE REPO —
+// the repo root is found by walking up from the working directory (see repoRoot below):
+//   cp compare.txt /tmp/compare.mjs && (cd <checkout> && node /tmp/compare.mjs [--self <png>] [--engines])
+// or from anywhere with  UXF_ROOT=<checkout> node /tmp/compare.mjs
 //
 // THROWAWAY. Reads only the COMMITTED PNGs under fixture/ — never a browser, never a re-render.
 // That is deliberate: #307's build-checks group is a pure Node gate, so this is the shape it
@@ -13,12 +15,34 @@
 // The aggregation ladder and the predicate were committed to git BEFORE any fixture number was
 // measured — see the plan's § The predicate. Do not tune a threshold or a sigma against the signal.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import zlib from "node:zlib";
 import path from "node:path";
 
-const MAIN = "/Users/Berzins/Desktop/Linards_current/ux-factory";
-const SPIKE = process.env.SPIKE_DIR || path.join(process.env.HOME, "Desktop/Linards_current/wt-s3-300/.claude/plans/canvas-spike-s3");
+// THE REPO ROOT, resolved not hardcoded (shared preamble — the same block is in compare, capture,
+// controls and wcag-probe). These scripts are RUN FROM A SCRATCHPAD COPY, so `import.meta.url` resolves to the
+// scratchpad and not to the checkout — that is why this walks up from the working directory instead,
+// and why tooling/build-checks.mjs:302's `fileURLToPath(import.meta.url)` pattern does not transfer.
+// It THROWS by name rather than falling back to a machine-specific path: the worktree this spike was
+// written in is deleted after merge (report AC14), and the fixture travels with the commit.
+const MARKER = ".claude/plans/canvas-spike-s3/mapping.json";   // committed; present before capture runs
+function repoRoot() {
+  const has = (d) => existsSync(path.join(d, MARKER));
+  if (process.env.UXF_ROOT) {
+    const r = path.resolve(process.env.UXF_ROOT);
+    if (!has(r)) throw new Error(`spike: UXF_ROOT=${r} carries no ${MARKER}`);
+    return r;
+  }
+  let d = process.cwd();
+  for (;;) {
+    if (has(d)) return d;
+    const up = path.dirname(d);
+    if (up === d) throw new Error(`spike: no checkout carrying ${MARKER} at or above ${process.cwd()} — run from inside the repo, or set UXF_ROOT=<checkout>`);
+    d = up;
+  }
+}
+const ROOT = repoRoot();
+const SPIKE = path.join(ROOT, ".claude/plans/canvas-spike-s3");
 const FIX = path.join(SPIKE, "fixture");
 
 // ---------------------------------------------------------------- PNG decode
@@ -203,7 +227,11 @@ export function blur(img, sigma) {
 
 // ------------------------------------------------------------ region stats
 export const JND = 2.3;                 // the CIEDE2000 just-noticeable difference
-const MIN_AREA = 256;                   // R2: 16x16. Mirrors visual_scorer.py:32's _MIN_SECTION_HEIGHT_PX = 8
+const MIN_AREA = 256;                   // R2: 16x16. THIS SPIKE'S OWN rule, not E4's — visual_scorer.py:32's
+                                        // _MIN_SECTION_HEIGHT_PX = 8 is a minimum section HEIGHT; this is a
+                                        // minimum AREA at a per-part granularity E4 has no equivalent of.
+                                        // chevron (9x16) passes E4's rule on height and fails this one on
+                                        // area. Declared before the run; its sensitivity is in the README.
 const DEGENERATE = 0.5;                 // F4: a region whose ink share exceeds this is reported, not scored
 
 const px = (img, x, y) => {
@@ -365,7 +393,7 @@ function printBlock(title, A, B, granularities) {
 function readVerdict(floor, signal, gran) {
   console.log(`\n${"=".repeat(78)}\nTHE PREDICATE, READ (granularity ${gran})\n${"=".repeat(78)}`);
   console.log("RED at rung r iff  worst(SIGNAL,r) >= T(r)  AND  worst(SIGNAL,r) >= 2 x worst(FLOOR,r)");
-  console.log("T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, twice the worst floor of three engines.\n");
+  console.log("T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, 1.86x above the worst floor of three engines.\n");
   let firstRed = null;
   for (const r of RUNGS) {
     const fl = aggregate(floor[gran], r.key), sg = aggregate(signal[gran], r.key);

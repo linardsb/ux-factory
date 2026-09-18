@@ -1,5 +1,5 @@
-S3 control battery — 2026-09-17T20:16:17.679Z
-metric: /private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/57c11c28-5574-4653-b7b5-7fe360d9e952/scratchpad/compare.mjs
+S3 control battery — 2026-09-18T05:41:34.891Z
+metric: /private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/073a5910-60c0-4ed8-913e-8b3f58858559/scratchpad/ctl/compare.mjs
 fixture: /Users/Berzins/Desktop/Linards_current/wt-s3-300/.claude/plans/canvas-spike-s3/fixture
 oracle: /Users/Berzins/Desktop/email-hub/.venv/bin/python
 
@@ -12,7 +12,7 @@ HALF 1 — PRISTINE. Every control must hold.
   C4a PASS  inkMean = 18.215350195, ΔE(#454545,#0c3b2f) = 18.215350195, |diff| = 9.948e-14 (limit 1e-9); ink 400/1600 px, modal #ffffff
   C4b PASS  inkMean = 6.397057509 === coverage 35.1% x ΔE 18.2154 = 6.397057509 (|diff| 2.309e-14, limit 1e-9); <= pairΔE? yes; 236/236 exact-#454545 px moved, ink mask 672/14300
   C5  PASS  aggregate([]) threw: "fidelity: no region was measured — an empty measurement is missing, never a pass"
-  C6  PASS  worst region by CIEDE2000 = subtitle (17.9597), by Oklab ΔE = subtitle (0.0853) — agree
+  C6  PASS  worst region by CIEDE2000 = subtitle (17.9597), by Oklab ΔE = subtitle (0.0853) — agree on ranking, given the same extracted ink means
   C7  PASS  avatar modal #f2f5fa (want #f2f5fa), chip modal #f1f7f2 (want #f1f7f2)
   C8  PASS  drops worst |floor-signal| = 0.000e+0 (limit 1e-9); mapped: title floor=1.3089 signal=1.6638, subtitle floor=0.6973 signal=1.0508
   C9  PASS  1px shift: rung 6 0.0030 -> 0.0030 (Δ 0.0000, limit <0.5); rung 5 20.5240 -> 13.3879 (Δ 7.1361, limit >5)
