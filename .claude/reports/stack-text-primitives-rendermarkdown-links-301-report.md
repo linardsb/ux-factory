@@ -13,7 +13,7 @@ regenerated pack. `stack` is the vocabulary's first container and the first comm
 declare `childrenCardinality: "many"`, which makes it the first real exercise of #298's projection.
 `text` is the one text part; its content renders through the **shared** `renderMarkdown`, extended
 once with links behind an `http:`/`https:` scheme allowlist. Every new assertion carries the
-mutation that reddens it — 15 mutations run, each observed red by name, each restored.
+mutation that reddens it — **18 mutations applied, 17 observed red by name**, all restored. The eighteenth is M3, the plan's own REDDENS for the bare-`[` case, which does **not** redden it; M3b is what does, and both are in the table rather than one quietly standing in for the other.
 
 ## Tasks completed
 
@@ -85,8 +85,9 @@ typo in the key name there would be green here" clause was **false after this ti
 
 ## Proving the checks
 
-Every mutation was applied, `build-checks` run, the named failure observed, and the mutation
-restored. All 15 observed.
+Every mutation was applied, `build-checks` run, the failure read off its own message, and the
+mutation restored. **18 rows below; 17 reddened a named case, M3 reddened nothing and says so.**
+(Counted from this table, not typed: `grep -cE '^\| M[0-9]+[a-z]? \|'` → 18.)
 
 | # | Mutation applied | The case that went red (verbatim) | Positive control |
 |---|---|---|---|
@@ -136,7 +137,7 @@ Every figure below names the command that produced it. All **observed** unless m
 | `node agent-layer/gen-inspect-data.mjs` | `inspect data ✓  16 components · 9 with spec` — **no diff** (neither new block is in its role map; a consumer with no key is uninstrumented, which is expected) |
 | `node agent-layer/gen-annotated-source.mjs` | `annotated source ✓  2 snippets` — **no diff** (its anchor is `components.css:176`, far above the ~2412 insertion point; F9 held) |
 | `node agent-layer/gen-loc-summary.mjs --check` (after staging) | `loc summary ✓  3 groups — no drift` |
-| `node tooling/catalog-journey.mjs all` (private port 4793) | `catalog-journey ✓  all assertions passed on chromium, firefox, webkit` — 32 passed / 0 failed per engine |
+| `node tooling/catalog-journey.mjs all` (private port 4793) | `catalog-journey ✓  all assertions passed on chromium, firefox, webkit` — **chromium 33 / firefox 32 / webkit 32 passed, 0 failed**. Not 32 across the board: chromium runs one extra case (the CDP `getEventListeners` leak check, which the driver states is chromium-only). |
 | `npm run update:docker` | 22 passed; **4 PNGs** rewritten |
 | `npx playwright test` in Docker, against the new baselines | `22 passed (36.8s)` |
 
