@@ -156,12 +156,15 @@ function safeHref(raw) {
 
 // Inline pass: split on **bold** / `code` / [text](href), classify each piece, build
 // text/element nodes. Bold, code and links are never nested in this data, so a single-regex split
-// suffices. Empty strings (between adjacent tokens and at the ends of split()) are skipped.
+// suffices; nesting one inside another renders the inner markup as its own literal characters —
+// `[**a**](href)` links the visible text `**a**`, and `**[t](href)**` bolds the literal source with
+// no link — never a crash, and inert in the security direction. Empty strings (between adjacent
+// tokens and at the ends of split()) are skipped.
 // Assumes every `**` in the pack data is a paired bold marker — two `**` with no `*` between
 // them span as one bold run (all committed section bodies have even, adjacent pairs; a future
 // spec edit introducing an unpaired `**` would mis-render). The link alternative requires `](`
-// AND a closing `)`, so a bare `[` never splits and stays literal — which is what keeps the 73
-// bare `[` across the committed specs rendering exactly as they did before links existed.
+// AND a closing `)`, so a bare `[` never splits and stays literal — which is what keeps the bare
+// `[` across the committed specs rendering exactly as they did before links existed.
 function inlineInto(node, text) {
   const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]\n]+\]\([^)\s]+\))/);
   for (const part of parts) {

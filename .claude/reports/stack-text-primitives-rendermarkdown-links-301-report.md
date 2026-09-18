@@ -13,7 +13,7 @@ regenerated pack. `stack` is the vocabulary's first container and the first comm
 declare `childrenCardinality: "many"`, which makes it the first real exercise of #298's projection.
 `text` is the one text part; its content renders through the **shared** `renderMarkdown`, extended
 once with links behind an `http:`/`https:` scheme allowlist. Every new assertion carries the
-mutation that reddens it — **18 mutations applied, 17 observed red by name**, all restored. The eighteenth is M3, the plan's own REDDENS for the bare-`[` case, which does **not** redden it; M3b is what does, and both are in the table rather than one quietly standing in for the other.
+mutation that reddens it — **18 mutations applied, 18 observed red by name**, all restored. M3 reds a *different* case than the plan predicted: the plan's own REDDENS for the bare-`[` case leaves that case green and reds the positive link assertion instead, so M3b is what reddens the bare-`[` one, and both are in the table rather than one quietly standing in for the other.
 
 ## Tasks completed
 
@@ -86,14 +86,15 @@ typo in the key name there would be green here" clause was **false after this ti
 ## Proving the checks
 
 Every mutation was applied, `build-checks` run, the failure read off its own message, and the
-mutation restored. **18 rows below; 17 reddened a named case, M3 reddened nothing and says so.**
+mutation restored. **18 rows below; all 18 reddened a named case — M3 not the case the plan
+predicted, and says so.**
 (Counted from this table, not typed: `grep -cE '^\| M[0-9]+[a-z]? \|'` → 18.)
 
 | # | Mutation applied | The case that went red (verbatim) | Positive control |
 |---|---|---|---|
 | M1 | `safeHref()` guard dropped in `handoff-viewer.mjs` | `expected literal text for a refused scheme, got <a> — [x](javascript:alert(1))` (×6, all three schemes) | the `https://x.test/p` link renders as an `<a>` |
 | M2 | the whole link branch deleted | `expected an <a>, got 0 — the link branch did not fire` (+29) | same |
-| M3 | split loosened to `/\[[^\]]*\]/` alone | *(no failure — see note)* | — |
+| M3 | split loosened to `/\[[^\]]*\]/` alone | `expected an <a>, got 0 — the link branch did not fire` (+29, all in `docs chain`) — **not** the bare-`[` case; see note | same |
 | M3b | split **and** link regex both loosened | `a bare [ produced a link — the split regex is too loose` | same |
 | M4 | `stack` template passes `[]` not `child.children` | `the inner text did not render — the stack template dropped its grandchildren (got "")` | the un-mutated nesting case finds `deep` |
 | M5 | the head-projection spread deleted | `childrenCardinality reached the component but NOT the head projection — it was dropped by the explicit pick (stack)` | `stack`'s head carries `many` |
@@ -110,12 +111,18 @@ mutation restored. **18 rows below; 17 reddened a named case, M3 reddened nothin
 | M12 | the histogram pin left at `3/18` | `the wrapper histogram moved — 3 with / 20 without (pinned 3/18; …)` | 3/20 is green |
 | M13 | an absent `gap`/`pad` emits `""` anyway | `an absent gap/pad emitted an attribute anyway — absence no longer expresses zero, and S2's verdict rests on it` | the shipped template emits neither |
 
-**M3, recorded as the plan predicted it and as it actually behaved.** The plan's REDDENS for the
-bare-`[` case was "loosen the split to `/\[[^\]]*\]/`". That mutation does **not** redden it: the
-loosened split captures `[0]`, the inner link regex then fails to match, and the branch falls to
-`createTextNode` — so the bare `[` stays literal for a second reason. The assertion is defended in
-depth by two independent guards, and M3b (loosening **both**) is what reddens it. Recorded rather
-than left looking like a mutation that was never run.
+**M3 reddens a different case than the plan predicted.** The plan's REDDENS for the bare-`[` case
+was "loosen the split to `/\[[^\]]*\]/`". That mutation leaves the bare-`[` case green: the loosened
+split captures `[0]`, the inner link regex then fails to match, and the branch falls to
+`createTextNode` — so the bare `[` stays literal for a second reason, and M3b (loosening **both**) is
+what reddens it. The assertion is defended in depth by two independent guards.
+
+What M3 *does* redden is the **positive** link assertion: with the split loosened, `[a]` comes out on
+its own, the `](href)` tail never reaches the link branch, and a valid `[a](https://x.test/p)` renders
+no link at all — `build docs chain ✗  30 failure(s)`, observed at `71ca6ea` in a detached worktree
+behind a green control. So the split's link alternative is load-bearing in both directions, and a
+later ticket loosening it for a bare-`[` reason would break every link in the pack. The earlier
+reading of this row — "M3 reddened nothing" — was wrong, and invited exactly that move (PR #430 F1).
 
 **The DOM stub carries its positive control (`domStubControl()`) and is called before every use** —
 `renderMarkdown` had zero gate coverage before this ticket, so the stub is genuinely new surface.
