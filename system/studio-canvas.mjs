@@ -171,11 +171,75 @@ export function setScale(root, s) {
   return scale;
 }
 
+// ---- the arrow geometry (#302) -------------------------------------------------------------------
+// arrowPath(from, to) → { x1, y1, x2, y2 } or null — the segment between two node boxes, clipped to
+// each one's edge so the line starts where the first box ends and stops where the second begins.
+//
+// DERIVED, NEVER STORED. An arrow is a claim that two nodes are connected; where it is drawn is a
+// consequence of where they are. Storing endpoints would make the claim and the picture two facts
+// that can disagree the moment either node moves — Excalidraw's binding shape, and the reason the
+// overlay redraws from positions rather than being told coordinates.
+//
+// THE CLIP IS ON THE LINE OF CENTRES, which is the one choice here worth stating. The alternative —
+// always leaving the right edge and entering the left — draws a line that doubles back whenever the
+// target is to the LEFT of its source, and the rank layout produces exactly that for a back edge
+// (replay/build-northwind-restock.board.json really carries one).
+//
+// Returns NULL rather than a zero-length segment for two boxes that overlap or share a centre: there
+// is no honest line between them, and drawing a dot would be a mark the reader cannot interpret.
+// Total over junk, because the overlay redraws on every frame of a drag and a throw there kills the
+// gesture rather than one arrow.
+export function arrowPath(from, to) {
+  const box = (b) => {
+    const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+    const x = n(b && b.x);
+    const y = n(b && b.y);
+    const w = n(b && b.w);
+    const h = n(b && b.h);
+    if (x === null || y === null || w === null || h === null || w <= 0 || h <= 0) return null;
+    return { cx: x + w / 2, cy: y + h / 2, hw: w / 2, hh: h / 2 };
+  };
+  const a = box(from);
+  const b = box(to);
+  if (!a || !b) return null;
+  const dx = b.cx - a.cx;
+  const dy = b.cy - a.cy;
+  if (!dx && !dy) return null;
+  // The scale that puts the centre-to-centre ray on a box's edge: whichever axis it leaves first.
+  const edge = (r, ex, ey) => {
+    const tx = ex ? Math.abs(r.hw / ex) : Infinity;
+    const ty = ey ? Math.abs(r.hh / ey) : Infinity;
+    return Math.min(tx, ty);
+  };
+  const ta = edge(a, dx, dy);
+  const tb = edge(b, dx, dy);
+  // The two boxes overlap when the clipped start is already past the clipped end.
+  if (ta + tb >= 1) return null;
+  return {
+    x1: a.cx + dx * ta, y1: a.cy + dy * ta,
+    x2: b.cx - dx * tb, y2: b.cy - dy * tb,
+  };
+}
+
 // ---- the mount ---------------------------------------------------------------------------------
 
 // Copied rather than imported, like every other hand-written canon module (device-frame.mjs:33,
 // scrub.mjs:104). A shared one would be a dependency between modules that are deliberately
 // independent surfaces.
+const SVG_NS = "http://www.w3.org/2000/svg";
+// SVG via createElementNS, and every arrow's geometry written as a PRESENTATION ATTRIBUTE rather
+// than a style — system/studio-minimap.mjs's idiom, and for its reason: geometry-as-attributes is
+// what keeps a second module out of group 7's named-writer list. setPos and setScale are the two
+// writers; an overlay that reached for .style would be a third.
+const svgEl = (tag, attrs) => {
+  const n = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    n.setAttribute(k, String(v));
+  }
+  return n;
+};
+
 const el = (tag, attrs, ...kids) => {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -219,6 +283,45 @@ export function initStudioCanvas(root = document) {
     viewport.classList.add("stx-viewport");
 
     const stage = el("div", { class: "stx-stage", "data-stx-stage": "" });
+
+    // --- the arrow overlay (#302) -----------------------------------------------------------------
+    // INSIDE THE SCALED STAGE, AND A SIBLING OF THE NODES. Both halves are decisions.
+    //
+    // Inside, because the stage carries the scale: the overlay rescales for free and a zoom triggers
+    // ZERO arrow redraws. Outside it, every zoom would be a full arrow re-layout — spike S1 measured
+    // 0 redraws across 72 wheel events with it in here, and that number is the reason.
+    //
+    // A SIBLING, never a child of a node, because #171's regression arrives here through a different
+    // door. A `transform` other than `none` makes an element a containing block for every absolutely
+    // positioned descendant (CSS Transforms 1 §3) — exactly as `view-transition-name` does, which is
+    // what #171 shipped. Every node on this stage now carries one, so an overlay nested inside any of
+    // them would be positioned against THAT node rather than against the stage, and every arrow would
+    // be drawn in the wrong space. The pixel gate cannot catch that class (gates.md), and neither can
+    // vt-stack-audit — its instrument is removing view-transition-names, and there are none here to
+    // remove. The structure is the guard.
+    //
+    // FIRST CHILD, so arrows paint UNDER the nodes: a line between two boxes runs through empty
+    // stage, and a line drawn OVER a box is a mark across content the reader is trying to read. The
+    // guides make the same call for the same reason.
+    const arrowHead = svgEl("marker", {
+      id: "stx-arrowhead", viewBox: "0 0 10 10", refX: "9", refY: "5",
+      markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse",
+    });
+    arrowHead.appendChild(svgEl("path", { d: "M 0 0 L 10 5 L 0 10 z", class: "stx-arrow-head" }));
+    const arrowDefs = svgEl("defs", null);
+    arrowDefs.appendChild(arrowHead);
+    const arrowLayer = svgEl("svg", {
+      class: "stx-arrows",
+      // The stage's own unscaled box, so a user unit IS a stage pixel and arrowPath's answers can be
+      // written straight in. Hand-mirrored from STAGE_W/STAGE_H, which group 12 pins.
+      viewBox: `0 0 ${STAGE_W} ${STAGE_H}`,
+      // aria-hidden because an arrow is a PICTURE of a connection the layers list already states in
+      // words; announcing it twice makes the list unusable. The connection's own announcement is the
+      // verb's, not the overlay's.
+      "aria-hidden": "true",
+    });
+    arrowLayer.appendChild(arrowDefs);
+    stage.appendChild(arrowLayer);
     const sizer = el("div", { class: "stx-sizer" }, stage);
     const scroll = el("div", { class: "stx-scroll", "data-stx-scroll": "", tabindex: "0",
       "aria-label": "Canvas — drag to pan, arrow keys to scroll" }, sizer);
@@ -536,9 +639,64 @@ export function initStudioCanvas(root = document) {
       return at;
     };
 
+    // --- the arrows -------------------------------------------------------------------------------
+    // setArrows(list) declares WHAT is connected; nothing here is told WHERE. `list` is
+    // [{ id, from: { frameId, partId? }, to: { frameId }, trigger? }] — the shape #302's build
+    // document emits — and every redraw re-derives geometry from the two nodes' own properties.
+    //
+    // REDRAWN ON A MOVE, rAF-COALESCED. The position is an inline style now, so `style` is what a
+    // move mutates and the observer has to name it — the same filter studio-layers.mjs and
+    // studio-minimap.mjs carry, and the same failure if it is wrong: the arrows freeze where they
+    // were first drawn and the page otherwise works.
+    //
+    // NO DRIVER ASSERTION IS OWED THAT THE COALESCING ENGAGED. S1 observed the deferral engaging on
+    // WebKit alone under a real scripted gesture (42 redraws → 5); on Chromium and Firefox Playwright
+    // cannot deliver pointermoves faster than the frame rate, so there is nothing to coalesce and the
+    // coalesced configuration is identical to the bare one BY CONSTRUCTION. A check asserting it
+    // engaged cannot fire on two of three engines — #423's G1 shape, and this is where it would
+    // recur.
+    let arrows = [];
+    let arrowFrame = 0;
+    const nodeBox = (id) => {
+      const node = stage.querySelector(`[data-stx-id="${CSS.escape(String(id))}"]`);
+      if (!node) return null;
+      const prop = (name) => parseFloat(node.style.getPropertyValue(name));
+      const h = prop("--h");
+      return { x: prop("--x") || 0, y: prop("--y") || 0, w: prop("--w") || NODE_W, h: Number.isFinite(h) ? h : node.offsetHeight };
+    };
+    const drawArrows = () => {
+      arrowFrame = 0;
+      for (const line of [...arrowLayer.querySelectorAll(".stx-arrow")]) line.remove();
+      for (const a of arrows) {
+        const seg = arrowPath(nodeBox(a?.from?.frameId), nodeBox(a?.to?.frameId));
+        // A dangling arrow DRAWS NOTHING and is not dropped from the list: the document still says
+        // the two are connected, and an overlay silently editing that claim is the overlay deciding
+        // what the build document means.
+        if (!seg) continue;
+        arrowLayer.appendChild(svgEl("line", {
+          class: "stx-arrow", "data-stx-arrow": a.id ?? null,
+          x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2,
+          "marker-end": "url(#stx-arrowhead)",
+        }));
+      }
+    };
+    const queueArrows = () => {
+      if (arrowFrame || !arrows.length) return;
+      arrowFrame = typeof requestAnimationFrame === "function" ? requestAnimationFrame(drawArrows) : 0;
+      if (!arrowFrame) drawArrows();
+    };
+    const setArrows = (list) => {
+      arrows = (Array.isArray(list) ? list : []).filter((a) => a && a.from && a.to);
+      drawArrows();
+      return arrows.length;
+    };
+    const arrowObserver = typeof MutationObserver === "function" ? new MutationObserver(queueArrows) : null;
+    arrowObserver?.observe(stage, { attributes: true, attributeFilter: ["style"], subtree: true, childList: true });
+
     const handleObj = {
       viewport, scroll, stage, announcer,
       place,
+      setArrows,
       // Called by studio-verbs.mjs's mount, and by nothing else — see armMoveHandles above.
       armMoveHandles,
       // Exposed so #205's mover announces through the canvas's ONE live region rather than
@@ -552,7 +710,9 @@ export function initStudioCanvas(root = document) {
       get scale() { return scale; },
       destroy() {
         ac.abort();
+        arrowObserver?.disconnect();
         if (scaleFrame && typeof cancelAnimationFrame === "function") cancelAnimationFrame(scaleFrame);
+        if (arrowFrame && typeof cancelAnimationFrame === "function") cancelAnimationFrame(arrowFrame);
         zoomRow.remove();
         announcer.remove();
         scroll.remove();

@@ -110,6 +110,40 @@
 
 .stx-slot { min-width: 0; overflow: hidden; }
 
+/* ---------- the arrow overlay (#302) ---------- */
+/* A STAGE-SIZED LAYER, and deliberately NOT one of the four node families above: it is not placed by
+   --x/--y, it fills the stage. It is the stage's FIRST child, so arrows paint under the nodes — a
+   line between two boxes runs through empty stage, and one drawn over a box is a mark across content
+   the reader is trying to read.
+
+   pointer-events: none is load-bearing rather than tidy. The overlay covers the WHOLE stage, so
+   without it every press on a node, every marquee and every pan would land on the SVG instead —
+   the canvas would look right and do nothing. */
+.stx-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  /* AN EXPLICIT ORDER, NOT A DEFAULT, AND IT IS #171's LESSON PAID FORWARD. The overlay is
+     absolutely positioned and covers every node, so it is exactly the shape #171 shipped: a
+     positioned element overlapping others from outside their subtree with `z-index: auto`. It is
+     safe TODAY only because nothing on this stage is named for a view transition — and the moment a
+     later ticket names one, that node is promoted into its own paint step and the overlay's order
+     against it is decided by source order rather than by anyone. Measured: naming the frames on
+     studio.html turns vt-stack-audit's hazard B from clean to 12 unresolved overlaps.
+     0 keeps the arrows under the nodes, which is where the first-child position already puts them —
+     the value is the same, the difference is that it is now a decision. */
+  z-index: 0;
+}
+.stx-arrow {
+  stroke: var(--color-fg-muted);
+  stroke-width: 2;
+  fill: none;
+}
+.stx-arrow-head { fill: var(--color-fg-muted); }
+
 
 
 /* Hover and hit-testing work is killed in CSS while panning, not in JS — one class toggle instead
