@@ -129,6 +129,35 @@ export function validateComposition(vocab, composition, path = "composition") {
 const SVGNS = "http://www.w3.org/2000/svg";
 const STROKE = { fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" };
 
+// THE OPTIONAL `id` NODE KEY (#302), consumed in ONE place and reached from two.
+//
+// It is what lets system/canvas-ops.mjs's `screen.set` name a PART of a composition — "the submit
+// button on the payment screen" — without the document describing a path through the tree, which
+// would break the moment anything was reordered.
+//
+// THE WORK WAS NEVER "ALLOWING" IT. validateComposition does not enumerate a node's keys, so
+// {name, props, children, id} ALREADY validated: a document could carry ids and the renderer threw
+// them away silently, and a screen.set naming a part simply did nothing.
+//
+// WRITTEN AS data-part, which is unused repo-wide, so nothing else can be reading it and no existing
+// selector changes meaning. Skipped for a fragment, which has no setAttribute and is not a part
+// anyone can name.
+function withPart(rendered, node) {
+  if (node && node.id != null && rendered && typeof rendered.setAttribute === "function") {
+    rendered.setAttribute("data-part", String(node.id));
+  }
+  return rendered;
+}
+
+// THE ONE PLACE A CHILD IS RENDERED, and the reason it exists rather than three call sites each
+// reaching into TEMPLATES: build() is the root's choke point, but three templates render their own
+// children directly, so an id consumed at build() alone reaches the ROOT NODE AND NOTHING ELSE.
+// Measured while writing it — a stack carrying an id got its data-part and its child did not, which
+// is the shape where every gate stays green and the feature does nothing for every part but one.
+function renderChild(child, bus, path) {
+  return withPart(TEMPLATES[child.name](child.props ?? {}, child.children ?? [], bus, path), child);
+}
+
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -408,7 +437,7 @@ const TEMPLATES = {
       el("p", { class: "ds-card-title", text: props.title }),
       props.body != null ? el("p", { class: "ds-card-body", text: props.body }) : null);
     const child = kids[0];
-    if (child) card.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
+    if (child) card.appendChild(renderChild({ ...child, children: [] }, bus, `${path}.children[0]`));
     if (props.footnote != null) card.appendChild(el("p", { class: "ds-card-footnote", text: props.footnote }));
     return card;
   },
@@ -433,7 +462,7 @@ const TEMPLATES = {
     // grandchild silently, with every gate green (group 3 asserts a template EXISTS, not what it
     // renders). build-checks group 3 renders a stack > stack > text and looks for the inner text.
     kids.forEach((child, i) =>
-      box.appendChild(TEMPLATES[child.name](child.props ?? {}, child.children ?? [], bus, `${path}.children[${i}]`)));
+      box.appendChild(renderChild(child, bus, `${path}.children[${i}]`)));
     return box;
   },
 
@@ -455,7 +484,7 @@ const TEMPLATES = {
       el("p", { class: "ds-empty-state-title", text: props.title }),
       props.body != null ? el("p", { class: "ds-empty-state-body", text: props.body }) : null);
     const child = kids[0];
-    if (child) box.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
+    if (child) box.appendChild(renderChild({ ...child, children: [] }, bus, `${path}.children[0]`));
     return box;
   },
 
@@ -616,5 +645,5 @@ function build(vocab, node, bus, path) {
   if (!template) {
     throw new Error(`${path}: "${node.name}" is in the vocabulary but this renderer has no template for it — renderer and vocabulary have drifted`);
   }
-  return template(node.props ?? {}, node.children ?? [], bus, path);
+  return withPart(template(node.props ?? {}, node.children ?? [], bus, path), node);
 }

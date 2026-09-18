@@ -850,6 +850,44 @@ const BARE_BOARD = {
   ok(nested && nested.getAttribute("data-gap") === null && nested.getAttribute("data-pad") === null,
     "an absent gap/pad emitted an attribute anyway — absence no longer expresses zero, and S2's verdict rests on it");
 
+  // 5b · THE OPTIONAL `id` NODE KEY → data-part (#302), AT EVERY DEPTH. This is case 5's trap in a
+  // second costume and it was found the same way: build() is the root's choke point, but three
+  // templates render their own children directly, so a consumer written at build() alone reaches
+  // THE ROOT NODE AND NOTHING ELSE. Measured while writing it — the stack got its data-part and its
+  // child did not, with every gate green and screen.set naming a part doing nothing for every part
+  // but one. So the assertion is on the CHILD, and the root is beside it as the control.
+  //
+  // The absence half matters as much: a node with no id must carry NO attribute, not an empty one.
+  // `data-part` is unused repo-wide, so an attribute written for every node would be a selector
+  // surface nobody designed.
+  domStubControl();
+  globalThis.document = domStub();
+  let parted = null;
+  let unparted = null;
+  try {
+    parted = renderComposition(VOCAB, {
+      name: "stack", props: { direction: "column" }, id: "screen-root",
+      children: [
+        { name: "text", props: { role: "body", content: "named" }, id: "amount" },
+        { name: "text", props: { role: "body", content: "unnamed" } },
+      ],
+    }, null);
+    unparted = renderComposition(VOCAB, { name: "text", props: { role: "body", content: "x" } }, null);
+  } finally { delete globalThis.document; }
+  const kids = (parted?.children ?? []).filter((c) => c.tagName !== "#text");
+  ok(parted?.getAttribute("data-part") === "screen-root",
+    `the ROOT node's id did not reach data-part (got ${JSON.stringify(parted?.getAttribute("data-part"))})`);
+  ok(kids[0]?.getAttribute("data-part") === "amount",
+    `a CHILD node's id did not reach data-part (got ${JSON.stringify(kids[0]?.getAttribute("data-part"))}) — a consumer at build() alone reaches the root and nothing else, which is the defect this case exists for`);
+  ok(kids[1] && !Object.hasOwn(kids[1].attrs, "data-part"),
+    "a child with NO id carries a data-part anyway — absence must be an absent attribute, or data-part becomes a selector surface nobody designed");
+  ok(unparted && !Object.hasOwn(unparted.attrs, "data-part"),
+    "a single-node composition with no id carries a data-part anyway");
+  // …and the VOCABULARY says so, because the shape string is what a pack reader validates against
+  // and a renderer consuming a key the grammar does not mention is a private extension.
+  ok(VOCAB.composition.shape.includes("id?") && VOCAB.composition.shape.includes("data-part"),
+    `the vocabulary's composition shape does not name the id key and what it becomes: ${JSON.stringify(VOCAB.composition.shape)}`);
+
   // 6 · S2's CONDITION, MADE MECHANICAL. The verdict "absence suffices" (spike S2, #299) holds only
   // while the BARE .ds-stack rule declares no default gap and no default padding — a default there
   // would silently override a designer's explicit zero. Slice the bare rule out of components.css
@@ -873,7 +911,7 @@ const BARE_BOARD = {
   ok(/\.ds-stack\[data-gap="md"\]\s*\{[^}]*gap:\s*var\(--spacing-md\)/.test(CSS_301),
     "the .ds-stack[data-gap=\"md\"] rule is gone — the bare-rule assertions above are now reading a block with no gap binding at all, which is green for the wrong reason");
 
-  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines`);
+  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate · #302's optional id node key proven to reach data-part AT EVERY DEPTH — asserted on the CHILD with the root beside it as the control, because build() is the root's choke point and three templates render their own children directly, so a consumer written there alone reaches the root and nothing else (measured: the stack got its data-part and its child did not, every gate green) — with both absence halves pinned so data-part does not become a selector surface nobody designed, and the vocabulary's own shape string asserted to NAME the key, because a renderer consuming what the grammar does not mention is a private extension — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
