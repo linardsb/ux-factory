@@ -18,10 +18,17 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The twenty-one templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The twenty-three templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
+
+// The SHARED markdown-subset renderer, never a fork: `text` renders its content through exactly
+// the renderer the handoff viewer and the component catalog use, so the construct census has one
+// definition and one place to extend. Node-safe — handoff-viewer.mjs touches no DOM at its top
+// level and imports nothing itself, which is what keeps agent-layer/gen-vocabulary.mjs (which
+// imports THIS module under Node) working.
+import { renderMarkdown } from "./handoff-viewer.mjs";
 
 // ---------------------------------------------------------------------------
 // validateComposition — pure, DOM-free. Error voice mirrors system/derive.mjs:
@@ -217,7 +224,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the twenty-one specs, one per vocabulary
+// Templates — the canonical DOM realization of the twenty-three specs, one per vocabulary
 // entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
@@ -404,6 +411,41 @@ const TEMPLATES = {
     if (child) card.appendChild(TEMPLATES[child.name](child.props ?? {}, [], bus, `${path}.children[0]`));
     if (props.footnote != null) card.appendChild(el("p", { class: "ds-card-footnote", text: props.footnote }));
     return card;
+  },
+
+  // The LAYOUT BOX (#301, epic #295 G24) — the vocabulary's only container that takes N children,
+  // and the first entry to declare childrenCardinality: "many". Every prop is an ATTRIBUTE, never
+  // an inline style: the CSS block owns the token bindings, which is what keeps gen-system-graph
+  // able to SEE them and what keeps a composition free of literals. An absent gap/pad emits no
+  // attribute at all — el() skips a null/undefined value — which is spike S2's "absence suffices"
+  // verdict for free, with no --spacing-none token and no "none" enum value.
+  "stack": (props, kids, bus, path) => {
+    const box = el("div", {
+      class: "ds-stack",
+      "data-direction": props.direction,
+      "data-gap": props.gap,
+      "data-pad": props.pad,
+      "data-align": props.align,
+      "data-size": props.size,
+    });
+    // The child's OWN children are passed through — NOT `[]`. card and empty-state below pass `[]`
+    // because their grammar stops at one leaf; a stack NESTS, so copying that line would drop every
+    // grandchild silently, with every gate green (group 3 asserts a template EXISTS, not what it
+    // renders). build-checks group 3 renders a stack > stack > text and looks for the inner text.
+    kids.forEach((child, i) =>
+      box.appendChild(TEMPLATES[child.name](child.props ?? {}, child.children ?? [], bus, `${path}.children[${i}]`)));
+    return box;
+  },
+
+  // One part, one decision: `role` picks the type step and there is no font-size prop (G21). The
+  // content renders through the SHARED renderMarkdown — the same bounded subset the handoff viewer
+  // and the catalog use, plus #301's links behind their scheme allowlist. The refusal for a missing
+  // or unknown role is validateComposition's, before any DOM (required + enum on the head), so this
+  // template is only ever reached with a role the CSS has a rule for.
+  "text": (props) => {
+    const node = el("div", { class: "ds-text", "data-role": props.role });
+    renderMarkdown(node, props.content);
+    return node;
   },
 
   // Absence stated plainly, with one invited action. A plain div, no role="status": a live region

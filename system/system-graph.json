@@ -1270,6 +1270,43 @@
       ]
     },
     {
+      "id": "ds-stack-cross-scenario-library-primitive",
+      "label": "ds-stack — cross-scenario library primitive",
+      "spec": "system/specs/stack.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-xs",
+        "--spacing-md",
+        "--spacing-lg",
+        "--spacing-xl",
+        "--spacing-2xl",
+        "--spacing-3xl",
+        "--spacing-4xl"
+      ]
+    },
+    {
+      "id": "ds-text-cross-scenario-library-primitive",
+      "label": "ds-text — cross-scenario library primitive",
+      "spec": "system/specs/text.md",
+      "tokens": [
+        "--color-fg",
+        "--font-display",
+        "--type-display",
+        "--type-h2",
+        "--type-body",
+        "--type-caption",
+        "--color-fg-muted",
+        "--spacing-sm",
+        "--spacing-lg",
+        "--spacing-xs",
+        "--font-mono",
+        "--color-bg-surface",
+        "--radius-sm",
+        "--color-accent",
+        "--color-border"
+      ]
+    },
+    {
       "id": "verdant-screen-scaffolding-layout-not-spec-d-components",
       "label": "Verdant screen scaffolding (layout, not spec'd components)",
       "spec": null,
@@ -1390,7 +1427,7 @@
   ],
   "counts": {
     "tokens": 63,
-    "consumers": 44,
-    "edges": 509
+    "consumers": 46,
+    "edges": 532
   }
 }

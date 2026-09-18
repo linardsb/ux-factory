@@ -700,6 +700,89 @@
       "usage": "One position in a sequence per step: where it sits in the order, what it is, and one optional qualifier. Library-generic — the third `ds-` primitive after metric-tile and list-row (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). The three split the labour: **metric-tile reports one aggregate reading** (\"Oversold SKUs, 3\"); **list-row reports one named entity** (\"Pallet wrap, 23 micron — 85 units short\"); **sequence-step reports one position in a sequence** (\"Step 2 of 4, Add something, Save\"). Use metric-tile when the honest answer is *how many*, list-row when it is *which ones*, and sequence-step when it is *where in the order*.\n\n**It deliberately does not carry progress.** There is no `done`, no `current`, no `todo` — and that absence is the whole reason this spec exists rather than a richer one. The source that names a sequence (a breadboard, a flow, an ordering) records where a step sits; it does not record whether anyone has completed it. A step that claimed to be complete would be the one invented fact in whatever composed it, so the prop that would let it make that claim is not here. If a surface genuinely knows its own progress, that is a different component with a data contract, not a tone on this one.\n\nLike its two siblings it carries no domain vocabulary: the composing agent (or page) computes `position`, `total`, `label` and `detail` from its own source, so one primitive expresses an onboarding flow, a checkout, or an approval chain without knowing what any of them are. The bound is a handful of steps a reader can hold at once — this is not a progress bar and not a wizard shell; it renders one step, and the composing surface decides how many there are.",
       "contract": null
     },
+    "stack": {
+      "class": "ds-stack",
+      "status": "shipped",
+      "props": {
+        "direction": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "row",
+            "column"
+          ],
+          "description": "which way the children run — the one thing a layout box must state, never defaulted"
+        },
+        "gap": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "xs",
+            "sm",
+            "md",
+            "lg",
+            "xl",
+            "2xl",
+            "3xl",
+            "4xl"
+          ],
+          "description": "the space BETWEEN children, one step of the spacing scale; absent declares none"
+        },
+        "pad": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "xs",
+            "sm",
+            "md",
+            "lg",
+            "xl",
+            "2xl",
+            "3xl",
+            "4xl"
+          ],
+          "description": "the space INSIDE the box on all four sides; absent declares none"
+        },
+        "align": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "description": "how children sit on the CROSS axis; absent leaves the flex default"
+        },
+        "size": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "fill",
+            "hug"
+          ],
+          "description": "how this box sizes itself inside a parent stack — fill takes the free space, hug takes its content"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [
+        "card",
+        "ghost-button",
+        "modal-dialog",
+        "nav-tabs",
+        "primary-button",
+        "screen-header",
+        "select-field",
+        "stack",
+        "text",
+        "text-field"
+      ],
+      "childrenCardinality": "many",
+      "usage": "The layout box: the one component that takes N children and decides how they sit. Library-generic (`ds-`, cross-scenario). Everything else in the vocabulary is a part; this is the only thing that arranges parts, which is why it is the first spec to declare `childrenCardinality: \"many\"` — the grammar the composition validator grew for it. A composed screen is a `stack` holding the parts, and a `stack` lists itself among its allowed children because real layouts nest: a column of rows is two stacks, not a new component.\n\nFour decisions, all of them enumerated, none of them free:\n\n- **`direction` is required.** A layout box that defaults its axis is a box whose composer never had to say what they meant, and an import that guesses is an import that is wrong half the time.\n- **`gap` and `pad` are spacing-scale steps, never numbers.** The CSS block binds each step to a `--spacing-*` token; the composition never carries a pixel value. A missing `gap` emits no attribute at all, so **absence expresses zero** — there is no `none` enum value and no `--spacing-none` token, which is exactly the verdict spike S2 (#299) reached when it mapped a design tool's auto-layout onto this box. That verdict is conditional: it holds only while the bare `.ds-stack` class declares no default gap and no default padding. A default arriving there would silently override a designer's explicit zero, and build-checks group 3 asserts its absence so the condition cannot quietly lapse.\n- **`align` is the cross axis only.** There is no main-axis distribution prop: a stack packs from the start. S2's intermediate representation carries `{main, cross}`; what to do with `main` is the importer's call (#304), not a prop invented here in advance.\n- **`size` has two values and no fixed-px case.** S2 asked whether a `s(360, hug)` literal from a design file could ride here; the enum is the answer, and it is no. A frame that needs an exact width is describing a canvas artefact, not a composition, and the refusal is visible — `validateComposition` names the enum.\n\nThe `children` list is the epic's own ten generic primitives (`docs/epics/canvas-design-import.prd.md` G24), alphabetical, `stack` and `text` included. It is a deliberate starting width rather than the whole vocabulary: every other committed `children` list in this repo is one to three considered names, and `card.md`'s own prose argues against breadth. Widening it is one line here plus a regeneration, whenever a flow actually needs a part it cannot hold. One name looks wrong and is not — `screen-header` carries a `vd-` class, because Verdant is where it was authored; G24 names it as half of the generic \"nav\" primitive regardless. The class prefix records **who wrote it**; the list records **what it is**. Do not \"fix\" it out.",
+      "contract": null
+    },
     "stat-tile": {
       "class": "vd-stat-tile",
       "status": "shipped",
@@ -878,6 +961,34 @@
       ],
       "children": [],
       "usage": "The library's first real input: a labelled single-line text control. Library-generic (`ds-`, cross-scenario). Use it wherever a composed screen depicts text entry — a settings screen's name field, a form step in an onboarding sequence. It is a REAL `<input>`, not a picture of one (the primary-button precedent: templates render working native elements), so focus, typing and selection all behave natively in the playground and in any composed screen. What it deliberately is not: a form system. No validation states, no error rendering, no submission — a value change is not an intent in this vocabulary today, so the field emits nothing onto the bus; the consuming product owns what entered text means.",
+      "contract": null
+    },
+    "text": {
+      "class": "ds-text",
+      "status": "shipped",
+      "props": {
+        "role": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "display",
+            "heading",
+            "body",
+            "caption"
+          ],
+          "description": "which step of the type scale this text is — the ONLY size decision; there is no font-size prop"
+        },
+        "content": {
+          "type": "string",
+          "required": true,
+          "description": "the text, carrying the shared inline subset: bold, code spans, links, soft breaks and `- ` bullet lists"
+        }
+      },
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "usage": "The one text part. Library-generic (`ds-`, cross-scenario). Before it existed, a composed screen's words were either a scenario-specific component's internal prose or nothing at all — a title was a `screen-header` (Verdant chrome) whether or not the screen wanted chrome. This is the part that just says something.\n\nTwo props, and the interesting one is `role`. It names **what the text is** — a display line, a heading, body copy, a caption — and the type token follows from that. There is deliberately no `size`, no `weight`, no `color` and no `align` prop: free styling is how a token contract quietly becomes a suggestion, and four named roles are enough for the screens the epic set out to compose. A composition that wants a fifth role is asking for a spec change here, which is a conversation; a composition that wants 19px is asking for nothing anyone can hold to.\n\n`content` carries the same bounded markdown subset the handoff viewer and the component catalog render, through the **same** `renderMarkdown` in `system/handoff-viewer.mjs` — one renderer, now three mounts, never a fork. Bold, code spans, soft-broken paragraphs, `- ` bullet lists, pipe tables and fenced code all work because they already worked. Links work as of this component, and they are the one construct added to that census: agent-supplied content that names a source has to be able to point at it. Headings, blockquotes and ordered lists stay out — a `text` that needs a heading is a `text` with `role: \"heading\"`.\n\nBecause `content` is agent-supplied wherever a composition renders, a link's `href` is the only attacker-controlled attribute anywhere in the subset. It goes through a scheme allowlist: resolved against the document base, `http:` and `https:` only. A `javascript:` or `data:` href renders as its own literal source text rather than as a link, visibly, so a refused link reads as a mistake rather than disappearing.",
       "contract": null
     },
     "toggle-switch": {

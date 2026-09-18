@@ -117,10 +117,12 @@ const PAGES = [
   // deliberately NOT waitVisible: everything renders at load, no IntersectionObserver-gated beat.
   // The live token-value cells make the two pack baselines differ — that is the point; the
   // pack-swap MutationObserver never fires at rest (pack-boot's guaranteed no-op default).
-  // shotTimeout (#220): the catalog doubled to 20 components and the viewport-sized capture is now
+  // shotTimeout (#220): the catalog doubled to 20 components and the viewport-sized capture went to
   // ~44k px tall (~225 MB of raster per shot) — toHaveScreenshot's stable-generation pass takes TWO
   // consecutive shots, which no longer fit the default 5 s expect budget in the pinned container.
-  // A per-shot budget, not a looser diff: the comparison itself stays exactly as strict.
+  // A per-shot budget, not a looser diff: the comparison itself stays exactly as strict. #301 took
+  // the catalog to 23 (stack, text), so the page and its raster are ~15% taller again. If the
+  // stable-generation pass ever times out, raise THIS budget — never the diff tolerance.
   { name: 'components',      url: '/components.html',      kind: 'ia', timeout: 60_000, shotTimeout: 30_000,
     waitReady: '[data-catalog-root][data-catalog="ready"]' },
   // #176: BOTH proto pages now paint at-rest chrome that arrives after load, and the proto branch

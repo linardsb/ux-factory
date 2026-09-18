@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build brief — stack + text</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --fg: #1a1a1a; --muted: #5f5f5c; --line: #e2e2dd;
+    --surface: #ffffff; --accent: #2f6f5e; --code-bg: #f2f2ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141414; --fg:#ececeb; --muted:#a0a09c; --line:#2c2c2a;
+            --surface:#1c1c1b; --accent:#7fc4ae; --code-bg:#232322; }
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 780px; margin: 0 auto; padding: 48px 24px 96px }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.015em }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
+       color: var(--muted); margin: 48px 0 14px; font-weight: 600 }
+  h3 { font-size: 17px; margin: 0 0 6px }
+  p { margin: 0 0 12px; max-width: 64ch }
+  .sub { color: var(--muted); margin-bottom: 4px }
+  .src { font-size: 13px; color: var(--muted); margin-bottom: 32px }
+  .src a { color: var(--accent) }
+  code, kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .89em;
+              background: var(--code-bg); padding: 1px 5px; border-radius: 3px }
+  .card { background: var(--surface); border: 1px solid var(--line);
+          border-radius: 10px; padding: 18px 20px; margin-bottom: 14px }
+  .card p:last-child { margin-bottom: 0 }
+  .like { color: var(--muted); font-style: italic }
+  /* flow */
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+          background: var(--surface); border: 1px solid var(--line);
+          border-radius: 10px; padding: 18px; overflow-x: auto }
+  .node { border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px;
+          background: var(--bg); font-size: 13px; white-space: nowrap }
+  .node b { display: block; font-size: 14px; font-weight: 600 }
+  .node span { color: var(--muted) }
+  .arr { color: var(--muted); font-size: 15px }
+  .hand { background: color-mix(in srgb, var(--accent) 10%, transparent);
+          border-color: color-mix(in srgb, var(--accent) 40%, var(--line)) }
+  .legend { font-size: 13px; color: var(--muted); margin-top: 10px }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+            background: color-mix(in srgb, var(--accent) 35%, transparent);
+            border: 1px solid var(--accent); vertical-align: baseline }
+  /* tree + tables */
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+        padding: 16px 18px; overflow-x: auto; font-size: 13px; line-height: 1.65; margin: 0 0 14px }
+  pre code { background: none; padding: 0 }
+  .cmt { color: var(--muted) }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin-bottom: 14px }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+  th { color: var(--muted); font-weight: 600; font-size: 12px;
+       text-transform: uppercase; letter-spacing: .06em }
+  td:first-child { white-space: nowrap; color: var(--muted) }
+  /* go deeper */
+  ul.deeper { list-style: none; padding: 0; margin: 0 }
+  ul.deeper li { display: flex; align-items: flex-start; gap: 12px;
+                 background: var(--surface); border: 1px solid var(--line);
+                 border-radius: 8px; padding: 11px 14px; margin-bottom: 8px; font-size: 14px }
+  ul.deeper li > span { flex: 1; min-width: 0 }
+  ul.deeper b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 13px; font-weight: 600; color: var(--accent) }
+  .copy { opacity: .35; border: 0; background: none; color: inherit; cursor: pointer;
+          font-size: 15px; line-height: 1; padding: 2px 4px }
+  .copy:hover, .copy:focus-visible { opacity: 1 }
+  .copy::before { content: '⧉' }
+  .copy.copied::before { content: '✓' }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>A box, and some words</h1>
+  <p class="sub">Build brief for the two new parts of the design system.</p>
+  <p class="src">Full plan, with every trap and number:
+    <a href="stack-text-primitives-rendermarkdown-links-301.md">stack-text-primitives-rendermarkdown-links-301.md</a></p>
+
+  <h2>What we're building, and why</h2>
+  <p>The design system has 21 components and no way to arrange them, so every composed screen
+     is a flat list.</p>
+  <p>After this there are two more parts: a <b>box</b> that holds any number of things in a row or
+     a column, and a <b>text</b> part whose size comes from a single word.</p>
+
+  <h2>The four ideas it rests on</h2>
+
+  <div class="card">
+    <h3>1 · The renderer only knows what it's told</h3>
+    <p>It builds components from a fixed list and refuses everything else before a pixel is drawn.
+       That list is the <b>vocabulary</b> (a generated file naming every component and its rules).
+       <span class="like">Like a vending machine — it dispenses only what is loaded.</span>
+       The new parts must be added to it, or they cannot be used.</p>
+  </div>
+
+  <div class="card">
+    <h3>2 · How many children, not which</h3>
+    <p>Most parts hold at most one thing inside them. A box needs to hold many, so the system has
+       one word for that: <b>cardinality</b> (how many children are allowed). A separate list still
+       says <em>which</em> are allowed.
+       <span class="like">Like a shelf — the label says “books”, the length says how many fit.</span></p>
+  </div>
+
+  <div class="card">
+    <h3>3 · The box never writes its own spacing</h3>
+    <p>It writes a label — <code>data-gap="md"</code> — and the stylesheet turns that label into the
+       system's medium spacing value.
+       <span class="like">Like a coat-check ticket: the box carries the number, the cloakroom holds the coat.</span>
+       Every measurement stays in one place, so re-skinning the site still moves it.</p>
+  </div>
+
+  <div class="card">
+    <h3>4 · One text renderer, shared</h3>
+    <p>The system already turns simple markup (<b>bold</b>, <code>code</code>, bullet lists) into real
+       page elements, in one file two pages use. The new text part uses that same file rather than a
+       copy, so adding links there gives every surface links at once.
+       <span class="like">One kitchen, three dining rooms.</span></p>
+  </div>
+
+  <h2>How the pieces fit</h2>
+  <div class="flow">
+    <div class="node hand"><b>spec .md</b><span>what it is</span></div>
+    <span class="arr">→</span>
+    <div class="node hand"><b>CSS block</b><span>how it looks</span></div>
+    <span class="arr">→</span>
+    <div class="node hand"><b>template</b><span>what it builds</span></div>
+    <span class="arr">→</span>
+    <div class="node"><b>regenerate</b><span>one command</span></div>
+    <span class="arr">→</span>
+    <div class="node"><b>vocabulary</b><span>the allowlist</span></div>
+    <span class="arr">→</span>
+    <div class="node"><b>every page</b><span>catalog · canvas</span></div>
+  </div>
+  <p class="legend"><span class="swatch"></span> written by hand — the rest is generated from it.
+     Phases 2–4 are the three shaded boxes; phase 6 is the arrow after them.</p>
+
+  <h2>The plan at a glance</h2>
+  <table>
+    <tr><th>Phase</th><th>What happens</th><th>Waits for</th></tr>
+    <tr><td>1</td><td>Links in the shared text renderer</td><td>nothing — runs alongside 2–4</td></tr>
+    <tr><td>2</td><td>The two spec files</td><td>nothing</td></tr>
+    <tr><td>3</td><td>The two stylesheet blocks</td><td>2 (they cite the specs)</td></tr>
+    <tr><td>4</td><td>The two templates</td><td>1 and 3</td></tr>
+    <tr><td>5</td><td>Three places that under-report the new key</td><td>2</td></tr>
+    <tr><td>6</td><td>Regenerate every derived file</td><td>1–5</td></tr>
+    <tr><td>7</td><td>Gates, new checks, stale counts</td><td>6</td></tr>
+    <tr><td>8</td><td>Screenshot baselines</td><td>7 green</td></tr>
+  </table>
+
+<pre><code>system/
+├── specs/stack.md            <span class="cmt"># NEW — the box: direction, gap, pad, align, size</span>
+├── specs/text.md             <span class="cmt"># NEW — the words: one role picks one size</span>
+├── components.css            <span class="cmt"># two token-only blocks, appended</span>
+├── agentic-renderer.mjs      <span class="cmt"># two templates + the shared-renderer import</span>
+├── handoff-viewer.mjs        <span class="cmt"># links; and stop dropping the new key</span>
+├── catalog.mjs               <span class="cmt"># say "(many)" where a box holds many</span>
+├── catalog.css               <span class="cmt"># one link style</span>
+└── palette.mjs               <span class="cmt"># two more ⌘K entries</span>
+handoff/verdant/              <span class="cmt"># all generated — never hand-edited</span>
+tooling/build-checks.mjs      <span class="cmt"># the new checks, each with the mutation that breaks it</span>
+handoff.html                  <span class="cmt"># the same link style, second copy</span></code></pre>
+
+  <table>
+    <tr><th>#</th><th>Done when</th></tr>
+    <tr><td>1</td><td>Both parts exist end to end; a box renders its children, and text refuses a missing or unknown role.</td></tr>
+    <tr><td>2</td><td>A box holding text, a field and a button is checked against the real generated file — and the check is proven able to fail.</td></tr>
+    <tr><td>3</td><td>A link renders as a link; a lone <code>[</code> stays a lone <code>[</code>; a dangerous address never becomes a link.</td></tr>
+    <tr><td>4</td><td>Every generated file regenerated, screenshots redone, all gates green.</td></tr>
+    <tr><td>5</td><td>Nothing that already existed moved.</td></tr>
+  </table>
+
+  <h2>Go deeper</h2>
+  <ul class="deeper">
+    <li data-prompt="/learn how a component vocabulary works as an allowlist, using ux-factory's system/agentic-renderer.mjs">
+      <span><b>/learn the vocabulary allowlist</b> — why refusing by default is what makes agent-composed UI safe.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+    <li data-prompt="/learn children cardinality in a composition grammar — how many vs which, and why they are two separate rules">
+      <span><b>/learn children cardinality</b> — how many vs which, and why they are separate rules.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+    <li data-prompt="/learn applying design tokens through data attributes instead of inline styles, and what that buys you">
+      <span><b>/learn tokens via data attributes</b> — what the coat-check ticket buys you.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+    <li data-prompt="/learn bounded markdown subset renderers, and why adding links needs a URL scheme allowlist">
+      <span><b>/learn bounded markdown renderers</b> — and why links need a scheme allowlist.</span>
+      <button class="copy" aria-label="Copy prompt"></button>
+    </li>
+  </ul>
+
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

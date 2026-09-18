@@ -16,11 +16,19 @@
 //     re-rendering. Semantic classes only; the module injects no <style> (handoff.html owns it).
 //
 // Prose sections carry a bounded markdown subset — the exhaustive construct census across all
-// 28 section bodies: paragraphs (with \n soft-breaks), **bold**, `code`, `- ` unordered lists,
+// section bodies: paragraphs (with \n soft-breaks), **bold**, `code`, `- ` unordered lists,
 // pipe tables (with a |---| separator to drop), and ```json fences. A private line-walking
-// renderer handles exactly that and nothing more (headings/links/blockquotes/ordered-lists
-// have census 0 — building them is a zero-dep violation + YAGNI). Content is built
-// element-by-element via textContent — never innerHTML from data.
+// renderer handles exactly that and nothing more. Headings, blockquotes and ordered lists stay
+// at census 0 — building them is a zero-dep violation + YAGNI.
+//
+// LINKS are the ONE extension past the census (#301), and they were added for a reason outside
+// the spec prose: ds-text renders AGENT-SUPPLIED content through this same renderer, so a
+// composition that names a source needs a link or it names nothing. They carry the census's only
+// attacker-controlled ATTRIBUTE rather than text, so the href goes through a scheme allowlist
+// (safeHref below) and a refused scheme renders as its own literal source text. Committed spec
+// prose was measured before the change and carries zero `](` pairs, so enabling links moved
+// nothing that already renders. Content is built element-by-element via textContent — never
+// innerHTML from data.
 
 // --- DOM builder (agentic-renderer.mjs shape) — text via textContent, attrs via setAttribute.
 function el(tag, attrs, ...children) {
@@ -89,6 +97,11 @@ export function prepareHandoff(pack, vocab, graph = null) {
       // named here, and injecting a `null` key would make the "Source (spec head)" JSON a picture of
       // a head that does not exist.
       ...(c.example ? { example: c.example } : {}),
+      // childrenCardinality is optional and CONTAINER-only (#298, first declared by stack in #301).
+      // Same conditional-spread reason as aiPatterns and example: this object is an explicit field
+      // PICK, not a spread, so a head key not named here is silently dropped — and a container's
+      // "Source (spec head)" JSON would then show it taking one child when the spec says many.
+      ...(c.childrenCardinality ? { childrenCardinality: c.childrenCardinality } : {}),
     };
     return {
       name: c.component,
@@ -107,7 +120,7 @@ export function prepareHandoff(pack, vocab, graph = null) {
       example: c.example ?? null,
       // Wrapper presence — read off the pack's OWN portability block; no new input, no fs. Joined on
       // the component's CLASS, not its name: wrappers are wc/vd-plant-card.mjs, and library
-      // primitives like metric-tile (class ds-metric-tile) correctly have none. 3 of 10 today; the 7
+      // primitives like metric-tile (class ds-metric-tile) correctly have none. 3 of 23 today; the 20
       // missing wrappers are riding debt the architecture records, and the catalog's vd-* code tab
       // stays presence-gated on this rather than promising a file that is not in the pack.
       wrapper: wrapperFiles.has(`wc/${c.class}.mjs`) ? `wc/${c.class}.mjs` : null,
@@ -127,20 +140,45 @@ export function prepareHandoff(pack, vocab, graph = null) {
 
 // --- Markdown-subset renderer (private) ----------------------------------------------------
 
-// Inline pass: split on **bold** / `code`, classify each piece, build text/element nodes.
-// Bold and code are never nested in this data, so a single-regex split suffices. Empty
-// strings (between adjacent tokens and at the ends of split()) are skipped.
+// safeHref(raw) → the href, or null when the scheme is not one this renderer will link to.
+// Mirrors system/instance.mjs:220-222 exactly: resolve against the document base (so a
+// site-relative /proto/x.html resolves to the page's own scheme and passes) and accept http/https
+// only. javascript:, data:, vbscript: and anything unresolvable answer null, and the caller then
+// renders the whole `[text](href)` as its own literal source text rather than a link. This is the
+// one place in the census where the input becomes an ATTRIBUTE instead of text, which is why it
+// has a guard at all.
+function safeHref(raw) {
+  try {
+    const p = new URL(raw, document.baseURI).protocol;
+    return p === "http:" || p === "https:" ? raw : null;
+  } catch { return null; }
+}
+
+// Inline pass: split on **bold** / `code` / [text](href), classify each piece, build
+// text/element nodes. Bold, code and links are never nested in this data, so a single-regex split
+// suffices; nesting one inside another renders the inner markup as its own literal characters —
+// `[**a**](href)` links the visible text `**a**`, and `**[t](href)**` bolds the literal source with
+// no link — never a crash, and inert in the security direction. Empty strings (between adjacent
+// tokens and at the ends of split()) are skipped.
 // Assumes every `**` in the pack data is a paired bold marker — two `**` with no `*` between
 // them span as one bold run (all committed section bodies have even, adjacent pairs; a future
-// spec edit introducing an unpaired `**` would mis-render).
+// spec edit introducing an unpaired `**` would mis-render). The link alternative requires `](`
+// AND a closing `)`, so a bare `[` never splits and stays literal — which is what keeps the bare
+// `[` across the committed specs rendering exactly as they did before links existed.
 function inlineInto(node, text) {
-  const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/);
+  const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]\n]+\]\([^)\s]+\))/);
   for (const part of parts) {
     if (!part) continue;
     if (part.length > 4 && part.startsWith("**") && part.endsWith("**"))
       node.appendChild(el("strong", { text: part.slice(2, -2) }));
     else if (part.length > 2 && part.startsWith("`") && part.endsWith("`"))
       node.appendChild(el("code", { class: "hv-inline-code", text: part.slice(1, -1) }));
+    else if (part.startsWith("[")) {
+      const m = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(part);
+      const href = m && safeHref(m[2]);
+      if (href) node.appendChild(el("a", { class: "hv-link", href, rel: "noopener noreferrer", text: m[1] }));
+      else node.appendChild(document.createTextNode(part)); // refused scheme → its own source text, literal
+    }
     else node.appendChild(document.createTextNode(part));
   }
   return node;
@@ -156,7 +194,8 @@ function splitRow(row) {
 }
 
 // renderMarkdown(container, md) — a line-walker (NOT blank-line block-splitting: a multi-line
-// fence would break that). Detection order: fence → list → table → paragraph.
+// fence would break that). Detection order: fence → list → table → paragraph — unchanged by
+// #301, which extends the INLINE pass only.
 // Exported since #215: system/catalog.mjs renders the same spec sections through the same bounded
 // construct census — one renderer, two mounts. A catalog prose need beyond the census is a
 // spec-format conversation, not a renderer extension.
