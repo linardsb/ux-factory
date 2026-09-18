@@ -162,13 +162,17 @@ answer does not exist** (the plan's own Task 2.0 precedent, applied three more t
 
 ## What is NOT done
 
-- **Phase 2**: groups 22 and 24, `system/studio-verbs.mjs`'s gesture mount, `studio-frames.mjs`'s
-  `FRAMES` literals, the `build-checks.mjs` header index at :55/:110/:121, and Task 2.9's checkpoint.
-- **Phase 3**: 3.3 `snapshot`/`restore`/`applySlot`/`applySpan`, 3.4 the SVG arrow overlay and its
-  `vt-stack-audit` run. (3.1, 3.2's mount half and 3.5 are done.)
+- **Phase 3**: 3.4, the SVG arrow overlay and its `vt-stack-audit` run. (3.1, 3.2, 3.3 and 3.5 are
+  done.)
 - **Phases 4-10 entirely**: `canvas-ops.mjs` · `device-presets.mjs` · group 35 · the `id` node key ·
-  the verbs and announcements · the spine and its package · group 36 · every generator · the three
-  journey drivers on three engines · the INP gate · the 15 baselines · the prose.
+  Phase 5's nudge, align and distribute · the spine and its package · group 36 · the remaining
+  generators · the three journey drivers on three engines · the INP gate · the 15 baselines · the
+  prose.
+
+**The baseline cascade this PR has already opened**, recorded so Phase 9 does not discover it:
+`loc-summary`'s runtime group moved 30,800 → 30,600, and `approach.html` renders that number — so
+`approach-neutral.png` and `approach-saulera.png` are stale on top of the 11 new verdant captures and
+`factory` ×2.
 
 ## Proving the checks
 
@@ -228,15 +232,16 @@ in prose rather than in code. Caught on review; the assertions now exist and are
 | Command | Observed |
 |---|---|
 | `node --check` on every edited `.mjs` | clean, after every edit |
-| `node tooling/build-checks.mjs` | **FAILS** — `ReferenceError: MAX_COLS is not defined`, thrown by group 22, whose rewrite is Task 2.5 |
-| groups actually observed | **groups 1-21 green; group 22 THROWS; groups 23-34 UNREACHED.** `group()` has no try/catch, so the throw ends the run — nothing past 22 is observed, including the groups 26 and 27 rewrites (those were verified through the scratch per-section probe, not through a clean run) |
-| the DoD grep (AC #1's seven) | **134** lines across 4 files, from 435 across 15 |
-| `node tooling/drift-check.mjs` | **not run** — its `build-checks` leg cannot pass while the gate throws |
+| `node tooling/build-checks.mjs` | **`build ✓  all 34 groups pass`, exit 0** |
+| `node tooling/drift-check.mjs` | **✓ thirteen legs** — syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
+| `node tooling/token-lint.mjs` | **✓ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid** |
+| the DoD grep (AC #1's seven) | **80** lines across 2 files, from 435 across 15 — both of them journey drivers |
 | the journey drivers, `vt-verify`, `vt-stack-audit` | **not run** — Phase 8 |
 | the pixel gate | **not run** — Phase 9 |
 
-**No figure in this report is derived from a green gate.** The only gate output that reached a
-conclusion is the Phase 1 red probe, which is reported as a red.
+**Every figure above is from a clean run of the whole file**, not from the scratch per-section probe
+— that probe was Phase 1's instrument and is not used for any figure here. What no figure covers is
+the RUNNING page: nothing in this PR has been rendered in a browser yet.
 
 ## Not run
 
@@ -245,8 +250,6 @@ dependency — all of it is remaining work.
 
 | Step | Why | Tracker |
 |---|---|---|
-| `build-checks.mjs` to completion | group 22's rewrite (Task 2.5) is not done, and it throws | this PR |
-| `drift-check` · `token-lint` | both meaningless while the pure gate throws | this PR |
 | `studio-journey all` · `catalog-journey all` · `instance-journey` | Phase 8; the studio does not mount at all in this state | this PR |
 | `vt-verify` · `vt-stack-audit` | Phase 8; and 3.4's overlay, the thing `vt-stack-audit` exists to check here, is not written | this PR |
 | the baseline regeneration | Phase 9 | this PR |
@@ -344,15 +347,24 @@ rather than translated into a bound #302 never introduced.
 
 ## Issues encountered
 
-**H1 — A LANDMINE FOUND AND NOT DISARMED: `animateTo` will override every node's position.**
-`system/studio-verbs.mjs`'s FLIP animation keyframes `transform`, and since Task 2.0b every node
-carries `transform: translate(var(--x), var(--y))`. A `transform` keyframe REPLACES the computed
-transform for the animation's duration, so every undo/redo would snap its node to the stage origin
-and slide back to 0,0 rather than to where it belongs. **The fix is to animate the independent
-`translate` property instead**, which composes with `transform` rather than replacing it. Three
-lines. It is not done because `studio-verbs.mjs`'s mount is not rewritten, and it is the first thing
-to do next session. Nothing currently gates it — the module's own header records that both halves
-matter (the source regex AND the running-page assertion), and neither reaches this.
+**H1 — A REAL REGRESSION, FOUND BY READING AND FIXED BY MEASURING: `animateTo` overrode every node's
+position.** `system/studio-verbs.mjs`'s FLIP keyframed `transform`, and since Task 2.0b every node
+carries `transform: translate(var(--x), var(--y))` from the sheet. A Web Animations keyframe on
+`transform` REPLACES the computed value rather than adding to it.
+
+**Measured on chromium, firefox and webkit** with the real rule, before writing the fix: a node at
+rest at 300,200 given `[{transform:"translate(-40px,-30px)"},{transform:"none"}]` renders at
+**-40,-30** — it snaps to the stage origin, applies the delta from there, and slides back. Not a
+subtle wrongness: the node leaves the canvas on every undo. Keyframing the independent `translate`
+property composes instead (CSS Transforms 2 applies the individual properties BEFORE `transform`):
+same probe, same three engines, **260,170** — exactly rest minus the delta.
+
+`composite: "add"` is the other correct answer and was not taken: it makes the keyframes' meaning
+depend on a second, less-read option, and `{transform: "none", composite: "add"}` reads as a no-op.
+
+**Nothing gates this.** The module's own header records that both halves matter — the source-text
+budget AND the running-page assertion — and neither reaches an animation's composite behaviour. It
+was found by reading the module while migrating it, and it would have shipped green.
 
 **H2 — A COVERAGE GAP I INTRODUCED AND DID NOT CLOSE: the two `attributeFilter` changes have no gate.**
 `studio-layers.mjs` and `studio-minimap.mjs` now observe `["style", …]` instead of the four position
