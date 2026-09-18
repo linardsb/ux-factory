@@ -2,8 +2,10 @@
 
 **Plan**: `.claude/plans/canvas-swap-grid-retired-free-substrate-302.md`
 **Branch**: `feature/canvas-swap-grid-retired-302`
-**Base**: `287445e` → _(filled at report time)_
-**Status**: IN PROGRESS
+**Base**: `287445e` → `1a36462`
+**Status**: **PARTIAL** — Phase 1 complete, Phase 2 about 80% complete, Phases 3-10 not started.
+The tree is RED and knowingly so: this is a one-way-door PR whose only green checkpoint is Task 2.9,
+and that checkpoint has not been reached. **This branch is not ready for a PR.**
 
 ## Phase 0 — the before-state, observed 2026-09-18 on `287445e`
 
@@ -99,9 +101,74 @@ party is caught by name rather than by a substring.
 
 Knowingly red from Task 2.0 until Task 8.2, per the plan's Phase 2 header. **Not a regression.**
 
-## Tasks completed
+## Where this stands
 
-_(filled per phase)_
+Six commits on `feature/canvas-swap-grid-retired-302`, each a recoverable checkpoint inside the door:
+
+| SHA | What |
+|---|---|
+| `53f3ab7` | Phase 1 — the grid deleted, seven groups seen red |
+| `e7d1858` | Phase 2 wip — the two helpers, groups 7, 12, 13, 4 |
+| `53dab42` | the rank layout, groups 14, 5, 4 |
+| `a4e2053` | the canvas mount and the selection, on free positions |
+| `993a215` | the layers list and the minimap |
+| `1a36462` | groups 26 and 27 |
+
+**The DoD grep: 435 lines across 15 files → 134 across 4** (observed, AC #1's seven symbols).
+Every module under `system/` is clear of it **except `system/studio-verbs.mjs`** (20).
+
+| File | Remaining | Why |
+|---|---|---|
+| `tooling/studio-journey.mjs` | 70 | Phase 8, untouched except Task 1.5b's two deletions |
+| `tooling/build-checks.mjs` | 34 | groups 22 and 24, plus the file's own header index at :55/:110/:121 |
+| `system/studio-verbs.mjs` | 20 | the gesture mount — the one source module not migrated |
+| `tooling/vt-verify.mjs` | 10 | Phase 8 |
+
+### Tasks completed
+
+**Phase 0** — 0.1 branch (from `287445e`), 0.2 the before-state recorded above.
+
+**Phase 1 — complete.** 1.1 the nine exports + `ZOOM_REST` · 1.2 the four families, the zoom table
+and the two cap mirrors (52 rules, cut by content anchor) · 1.3 the six verbs symbols + the
+occupancy layer they orphaned · 1.4 the five cap imports · 1.5 `g` deleted, v3, the named refusal ·
+1.5b the capability retired in **five** places (the plan names three) · 1.6 the prose in
+`studio.html` · 1.7 the red, recorded above.
+
+**Phase 2 — partial.**
+
+| Task | State |
+|---|---|
+| 2.0 the two helpers | **done** — `setPos`, `setScale`, `STAGE_W/H`, `SCALE_MIN/MAX/REST`, `MIN_SIZE`, `NODE_W/H/GAP` |
+| 2.0b the CSS substrate | **done** (pulled forward — see Deviations) |
+| 2.1 group 12 | **done** — replaced whole; the DOM stub widened with a custom-property `style` + its own control |
+| 2.2 group 13 | **done** — history, `adopt`, `DIRS`, `SPOKEN_MAX` kept; 264 lines over five deleted functions cut |
+| 2.3 group 7 | **done** — function-scoped, proven on six mutations |
+| 2.4 group 14 | **done** — with the rank layout beside it |
+| 2.5 group 22 | **NOT DONE** — its source (`studio-select.mjs`) is done; the gate half is not |
+| 2.6 group 24 | **NOT DONE** — needs `studio-frames.mjs`'s `FRAMES` literals first |
+| 2.7 groups 26 + 27 | **done** — sources and gates |
+| 2.8 groups 4 + 5 | **done** — group 5 REWRITTEN rather than cut (see Deviations) |
+| 2.9 the green checkpoint | **NOT REACHED** |
+
+**Beyond Phase 2, brought forward because a gate cannot be written against a function whose new
+answer does not exist** (the plan's own Task 2.0 precedent, applied three more times):
+
+- **Task 3.5, the rank layout, in both copies** — `rankLayout(board)` added to `system/board-ops.mjs`
+  as a pure read; `studio.mjs`'s `arrangeBoard` and `replay-driver.mjs`'s reflection both read it.
+- **Tasks 3.1/3.2's mount half** — continuous zoom, exact `fit()`, the coalesced scale write, and
+  `place(node, {x, y, w, h})`.
+- **`studio-select.mjs`, `studio-layers.mjs`, `studio-minimap.mjs`** — the three consumers whose gate
+  groups are 22, 26 and 27.
+
+## What is NOT done
+
+- **Phase 2**: groups 22 and 24, `system/studio-verbs.mjs`'s gesture mount, `studio-frames.mjs`'s
+  `FRAMES` literals, the `build-checks.mjs` header index at :55/:110/:121, and Task 2.9's checkpoint.
+- **Phase 3**: 3.3 `snapshot`/`restore`/`applySlot`/`applySpan`, 3.4 the SVG arrow overlay and its
+  `vt-stack-audit` run. (3.1, 3.2's mount half and 3.5 are done.)
+- **Phases 4-10 entirely**: `canvas-ops.mjs` · `device-presets.mjs` · group 35 · the `id` node key ·
+  the verbs and announcements · the spine and its package · group 36 · every generator · the three
+  journey drivers on three engines · the INP gate · the 15 baselines · the prose.
 
 ## Proving the checks
 
@@ -142,24 +209,142 @@ shipped. The total is a second net, not the invariant.
 
 ## Validation results
 
-_(filled per phase)_
+| Command | Observed |
+|---|---|
+| `node --check` on every edited `.mjs` | clean, after every edit |
+| `node tooling/build-checks.mjs` | **FAILS** — `ReferenceError: MAX_COLS is not defined`, thrown by group 22, whose rewrite is Task 2.5 |
+| groups reached and green before that throw | 1-21 and 23-27 as far as the run gets; the throw is a hard stop, so nothing past group 22 is observed |
+| the DoD grep (AC #1's seven) | **134** lines across 4 files, from 435 across 15 |
+| `node tooling/drift-check.mjs` | **not run** — its `build-checks` leg cannot pass while the gate throws |
+| the journey drivers, `vt-verify`, `vt-stack-audit` | **not run** — Phase 8 |
+| the pixel gate | **not run** — Phase 9 |
+
+**No figure in this report is derived from a green gate.** The only gate output that reached a
+conclusion is the Phase 1 red probe, which is reported as a red.
 
 ## Not run
 
-_(filled at report time)_
+Everything below is a plan step that did not execute. None of it is blocked by an external
+dependency — all of it is remaining work.
+
+| Step | Why | Tracker |
+|---|---|---|
+| `build-checks.mjs` to completion | group 22's rewrite (Task 2.5) is not done, and it throws | this PR |
+| `drift-check` · `token-lint` | both meaningless while the pure gate throws | this PR |
+| `studio-journey all` · `catalog-journey all` · `instance-journey` | Phase 8; the studio does not mount at all in this state | this PR |
+| `vt-verify` · `vt-stack-audit` | Phase 8; and 3.4's overlay, the thing `vt-stack-audit` exists to check here, is not written | this PR |
+| the baseline regeneration | Phase 9 | this PR |
+| Level 5, by hand in a real browser | nothing renders yet | this PR |
+| the SDK-free reproduction (`mv portal/node_modules …`) | Phase 4 adds the module it would test | this PR |
+| the owner's verdict on `/factory` | the owner's own hand, and the plan says this PR must not write it | epic close-out |
+
+**Nothing here spent a token or needed a credential**, as the plan predicted.
 
 ## Deviations from the plan
 
-_(filled per phase)_
+**D1 — `ZOOM_REST` is deleted, against Task 1.1's IMPLEMENT and VALIDATE lines.** *(plan error,
+AMENDMENT A1.)* D-e decides the opposite of the task, with reasons, and D-e is right: all 30
+consumers treat it as an index into the deleted table. The observed export list is
+`FRAME_CLASS MOVABLE getCanvas initStudioCanvas`, not the task's five.
+
+**D2 — Task 1.7's per-group red was produced by a scratch probe, not by commenting imports out one
+group at a time.** *(plan error, AMENDMENT A2.)* The recipe as written reaches one group per run.
+The probe, its output and its disposal are in the Phase 1 section.
+
+**D3 — Task 1.5b covered five places, not three.** *(plan error, AMENDMENT A3.)* Two of the extra
+three are live mechanism (~45 lines in `studio-keep.mjs` plus its producer in `studio.mjs`), not the
+copy string the task's GOTCHA describes. A fourth `g`-dependent driver assertion is AMENDMENT A4.
+
+**D4 — Task 1.2's `--h` height rule and the widened `is-panning` selector landed in Phase 1**,
+against the phase header's "do not fix anything in this phase". Task 1.2's own GOTCHA instructs both,
+and the more specific instruction wins: deleting the span tables without the height rule leaves every
+frame at its content height. Neither reddens or greens a gate.
+
+**D5 — the CSS substrate (Task 3.2's half) landed in Phase 2 as "Task 2.0b".** Group 12's mirror
+assertions have no subject unless `.stx-sizer`, `.stx-stage` and the shared four-family position rule
+exist. This is the same circularity the plan's Phase 2 header resolved by pulling Task 2.0 forward,
+and the same resolution. It is **larger than 3.2's CSS half**: the shared four-family position rule
+is not placed anywhere explicitly in the plan.
+
+**D6 — `setScale(root, s)` takes the variable scope, not the stage.** The plan pins
+`setScale(stage, s)`. Two elements on different branches read what it writes — `.stx-stage` reads
+`--stx-scale`, and `.stx-sizer`, the stage's **parent**, reads the two extent values — and a custom
+property inherits **down**, so no write on the stage can reach the sizer. The one ancestor of both is
+`.stx-viewport`, which is also where `studio.css` already declares `--stx-scale`. Shape, arity and
+group 7 budget are unchanged.
+
+**D7 — group 5's coordinate family was rewritten, not cut.** Task 2.8 says groups 4 and 5 "lose
+cases". The Phase 1 probe showed group 5 asserting `v: 3 was ACCEPTED — it must reject the whole
+payload`: a version-boundary case the codec change made false. Cutting it would have deleted the
+version boundary. It is now v2/v4/v0 refused and a real v3 encode accepted, with the 20 coordinate
+cases becoming 10 retired-field cases that assert the refusal is **by name**.
+
+**D8 — `rankLayout` is ONE function in `system/board-ops.mjs`, not two copies.** Task 3.5 says
+"in BOTH copies"; the plan's own GOTCHA calls the duplication the defect. `studio.mjs` imports
+`replay-driver.mjs`, so the shared rule cannot live in either — `board-ops.mjs` is what both already
+reach for, and a layout over a board is a board read (`discovery/ops.mjs`'s five-reads precedent).
+
+**D9 — `arrangeBoard` truncates nothing, and the truncation notice is deleted.** The plan does not
+name this. The old rule broke at the twelfth column; free positions have no such bound, so
+`summary.places > arranged.length` can no longer become true and the sentence describes a state
+nothing produces. Group 14's `MAX_PLACES < MAX_COLS` tripwire is deleted with the cap it guarded
+rather than translated into a bound #302 never introduced.
+
+**D10 — group 26's junk floor moves from 1 to 0.** A free stage really does start at 0; coercing to
+1 would be inventing an offset.
 
 ## Assumptions carried
 
-_(filled at report time)_
+1. **The plan's own decisions D-a through D-e are taken as binding**, including D-c's five-argument
+   `setPos` and D-d's "nothing blocks a free move" — which is why `occupancyKey`, `spanFrom`,
+   `UNIT_SPAN` and `occupancyExcept` were deleted as orphaned rather than translated.
+2. **S1's verdict is inherited, not re-run** — configuration (a), no `content-visibility`. Its
+   named mitigation (coalescing the scale write) is implemented in `queueScale`, **but no INP
+   measurement has been taken on this substrate.** Phase 8.4 owns that.
+3. **The stage keeps the retired grid's exact outer dimensions** (2,816 x 1,232 = 12x220+11x16 by
+   8x140+7x16). Chosen so the canvas is the size it has always been rather than a size nobody
+   decided; it also keeps the pixel baselines as close as the change allows.
+4. **`MIN_SIZE = 24`** is WCAG 2.2 SC 2.5.8's minimum target size. The plan names no floor; a node
+   resized below one cannot be picked up by pointer again.
+5. **`DRAG_SLOP = 4`** replaces the marquee's cell-crossing threshold. The plan names no
+   replacement; a cell crossing needed no literal and a pixel does.
 
 ## Additions beyond the plan
 
-_(filled at report time)_
+1. **`rankLayout` in `system/board-ops.mjs`** — see D8.
+2. **`NODE_W` / `NODE_H` / `NODE_GAP` exported from `studio-canvas.mjs`.** The plan names `STAGE_W`
+   and `STAGE_H` only, but four consumers need a pitch (`arrangeBoard`, `replay-driver`,
+   `studio-select`'s keyboard step, `studio-minimap`'s keyboard pan) and a literal in each is four
+   copies that drift.
+3. **`MENU_W` / `MENU_H` exported from `studio-select.mjs`** — `menuAnchor`'s flip threshold needs
+   the menu's own size once "the last column" stops existing.
+4. **The DOM stub gained a custom-property `style`** plus three control assertions, including one
+   proving each element gets its OWN style object. Without it group 12's `setPos` battery cannot run.
+5. **Both MutationObservers' `attributeFilter` changed to `["style", …]`** (`studio-layers.mjs`,
+   `studio-minimap.mjs`). Not in the plan, and load-bearing: a position is an inline style now, so a
+   stale filter leaves the layers list and every minimap cell frozen for the whole of a move. **No
+   gate on the pure layer can see this** — it is a Phase 8 assertion that does not exist yet.
+6. **The FLIP animation hazard is NOT yet addressed, and it is the highest-value thing to check
+   first next session.** `studio-verbs.mjs`'s `animateTo` animates `transform`; every node now
+   carries `transform: translate(var(--x), var(--y))`, so a `transform` keyframe would OVERRIDE the
+   position and snap the node to the origin for the animation's duration. The fix is to animate the
+   independent `translate` property instead, which composes. Recorded here because it was found while
+   reading the module and the module is not yet rewritten.
+7. **The codec probe** (`scratchpad/codec-probe.mjs`, not committed) — its text is reproducible from
+   the Proving-the-checks table.
 
 ## Issues encountered
 
-_(filled per phase)_
+1. **The gate is a hard stop, not a report.** `group()` (`build-checks.mjs:315`) has no try/catch and
+   the group bodies are bare top-level blocks, so one `ReferenceError` ends the run and every group
+   below it goes unreported. This shaped Phase 1's probe and it means the current `build-checks` run
+   says nothing about groups 23-34.
+2. **Three plan anchors were wrong by a line or two** and were resolved by content instead:
+   `studio-verbs.mjs`'s `createHistory` comment is at :287 not :286, `keepPass`'s republish call is
+   indented 6 not 8, and `studio-canvas.mjs`'s `removeAttribute` is indented 8 not 6. All three would
+   have been silent mis-cuts under a line-range edit.
+3. **`studio-frames.mjs`'s prose rewrite needed two passes** — the first left an ungrammatical
+   sentence. Caught by reading it back.
+4. **Group 24 threw `fClampSpan is not a function` in the Phase 1 probe** — it destructures the
+   canvas's exports under local aliases (`FMAX_COLS`, `fClampSpan`, `fFootprint`). Whoever rewrites
+   24.3 should resolve those aliases first.
