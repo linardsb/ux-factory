@@ -173,7 +173,38 @@ implementation report said it, and this run did not change it. The Playwright ×
 negative control and is a good substitute; it is not the 5-minute human look, and nothing here should
 read as though it were.
 
+## CI, read back from the API rather than asserted here
+
+Run [`35320762715`](https://github.com/linardsb/ux-factory/actions/runs/35320762715), read at
+**`33e5442`** with its `head_sha` confirmed equal to the live PR head before the read, so it is not a
+stale run:
+
+| Check | Result |
+|---|---|
+| `verify` | pass · 19s |
+| `visual` | pass · 1m7s |
+| `codeql` | pass · 1m29s — and the **step**, not just the job: `Require no high or critical alerts` → `success` |
+| `audit` | pass · 16s |
+| `gates-green` | pass · 2s |
+| `CodeQL` (advanced-security, "no new alerts in code changed by this PR") | pass · 2s |
+
+`mergeStateStatus` `CLEAN`. The step conclusion is read separately because a `codeql` job can be green
+with that step `skipped`; it is not, here. This table is the gates' verdict, not this run's claim about
+itself. Run `35320575962` at `0e6b5d5` was identical (20s / 1m9s / 1m31s / 17s / 4s / 2s, same step
+`success`); `35320492888` at `640a10d` was superseded by the next push before `visual` and `codeql`
+finished.
+
+**On the SHA this table names — the rule, not a chase.** Recording a verdict moves the head, so a table
+pinned to a SHA goes stale the moment it is written; that is F1's shape one level up. The last commit
+changing anything a gate reads is **`640a10d`**, and every commit after it touches only this file. A
+later commit on this branch that touches **only** `.claude/reports/**` therefore leaves the verdict
+above standing: `.claude` is outside CodeQL's `paths` allowlist (the PR body states this, and the
+`codeql` job's own green run at `640a10d` → `33e5442` is consistent with it), it renders no page for
+the pixel gate, and `verify`'s legs read `.mjs` sources and generated artifacts — `drift-check` was
+re-run locally, green, after each of those commits was staged. A commit touching anything else needs
+its own read.
+
 ## Pushed
 
-`640a10d` on `feature/stack-text-primitives-301`, PR #430 updated (body rewritten for F1, F2, F6 and
+`640a10d` (fixes) and `0e6b5d5` (this report) on `feature/stack-text-primitives-301`, PR #430 updated (body rewritten for F1, F2, F6 and
 the #431 pointer, `Closes #301` trailer intact). Follow-up ticket **#431** open.
