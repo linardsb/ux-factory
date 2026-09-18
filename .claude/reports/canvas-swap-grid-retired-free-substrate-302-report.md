@@ -2,10 +2,13 @@
 
 **Plan**: `.claude/plans/canvas-swap-grid-retired-free-substrate-302.md`
 **Branch**: `feature/canvas-swap-grid-retired-302`
-**Base**: `287445e` → `1a36462`
-**Status**: **PARTIAL** — Phase 1 complete, Phase 2 about 80% complete, Phases 3-10 not started.
-The tree is RED and knowingly so: this is a one-way-door PR whose only green checkpoint is Task 2.9,
-and that checkpoint has not been reached. **This branch is not ready for a PR.**
+**Base**: `287445e` → `70f9563`
+**Status**: **PARTIAL — Phases 0 through 7 complete.** `node tooling/build-checks.mjs` →
+`build ✓ all 36 groups pass`, exit 0 (and exit 0 again with `portal/node_modules` moved aside);
+`drift-check` ✓ thirteen legs; `token-lint` ✓; `vt-verify` 159 green / 0 failures on three engines;
+`vt-stack-audit` clean; the page-error sweep clean on twelve pages; MVP 14's spine rendering on
+chromium, firefox and webkit. **Phases 8, 9 and 10 remain.** **Not yet ready for a PR**:
+`tooling/studio-journey.mjs` is un-migrated and the 15 pixel baselines are unwritten.
 
 ## Phase 0 — the before-state, observed 2026-09-18 on `287445e`
 
@@ -103,19 +106,35 @@ Knowingly red from Task 2.0 until Task 8.2, per the plan's Phase 2 header. **Not
 
 ## Where this stands
 
-Six commits on `feature/canvas-swap-grid-retired-302`, each a recoverable checkpoint inside the door:
+20 commits on `feature/canvas-swap-grid-retired-302`, each a recoverable checkpoint inside the
+door:
 
 | SHA | What |
 |---|---|
-| `53f3ab7` | Phase 1 — the grid deleted, seven groups seen red |
-| `e7d1858` | Phase 2 wip — the two helpers, groups 7, 12, 13, 4 |
-| `53dab42` | the rank layout, groups 14, 5, 4 |
+| `53f3ab7` | phase 1 — the grid deleted, seven groups seen red |
+| `e7d1858` | phase 2 wip — the two helpers, and groups 7, 12, 13, 4 |
+| `53dab42` | the rank layout, and groups 14, 5 and 4 |
 | `a4e2053` | the canvas mount and the selection, on free positions |
-| `993a215` | the layers list and the minimap |
-| `1a36462` | groups 26 and 27 |
+| `993a215` | the layers list and the minimap, off the grid representation |
+| `1a36462` | groups 26 and 27, against the representation that replaced the grid |
+| `fc0b3db` | the implementation report — PARTIAL, and what is left |
+| `863954c` | group 13's snapshot-shape assertions, which its group line already claimed |
+| `526e92c` | the gesture mount, on free positions — and the FLIP hazard, measured |
+| `07e05f8` | groups 22 and 24 — Task 2.9, the gate is green again |
+| `3cb9523` | build-checks' own header index and twelve prose lines, off the retired names |
+| `143c6f7` | regenerate loc-summary — the runtime group loses 200 lines |
+| `cc0ed89` | the report at Task 2.9 — past the door, and green |
+| `3d2d74c` | group 13's guidesFor cases, which nothing asserted |
+| `3f87a3c` | vt-stack-audit's before-reading, and what it cannot see (H8, H9) |
+| `2a39c27` | the SVG arrow overlay, and vt-verify's coordinate preconditions |
+| `dfab109` | canvas-ops.mjs and device-presets.mjs, group 35 — and a real regression vt-verify caught |
+| `62235a8` | the optional `id` node key → data-part, and the pack cascade it drags |
+| `0c2d0bd` | phase 5 — the nudge, eight align/distribute verbs, and T16's sentence |
+| `70f9563` | MVP 14's spine — one frame, one stack, one state, one arrow, saved and reloaded |
 
-**The DoD grep: 435 lines across 15 files → 134 across 4** (observed, AC #1's seven symbols).
-Every module under `system/` is clear of it **except `system/studio-verbs.mjs`** (20).
+**The DoD grep: 435 lines across 15 files → 70 in ONE file** (observed, AC #1's seven symbols).
+Everything under `system/`, `tooling/build-checks.mjs` and `tooling/vt-verify.mjs` is clear; only
+`tooling/studio-journey.mjs` remains, and it is Phase 8's whole subject.
 
 | File | Remaining | Why |
 |---|---|---|
@@ -162,17 +181,44 @@ answer does not exist** (the plan's own Task 2.0 precedent, applied three more t
 
 ## What is NOT done
 
-- **Phase 3**: 3.4, the SVG arrow overlay and its `vt-stack-audit` run. (3.1, 3.2, 3.3 and 3.5 are
-  done.)
-- **Phases 4-10 entirely**: `canvas-ops.mjs` · `device-presets.mjs` · group 35 · the `id` node key ·
-  Phase 5's nudge, align and distribute · the spine and its package · group 36 · the remaining
-  generators · the three journey drivers on three engines · the INP gate · the 15 baselines · the
-  prose.
+- **Phase 8 entirely** — `tooling/studio-journey.mjs` rewritten (70 DoD lines, ~101 on the full grid
+  vocabulary, 13 passes of which 3 need no work), Gate B's eight `inlineStyled` pairs, the INP gate on
+  the new substrate, and `catalog-journey` + `instance-journey` on three engines.
+- **Phase 9 entirely** — the 15 pixel baselines.
+- **Phase 10's `discovery/README.md`** — the `build/` section. CLAUDE.md's map rows, `gates.md`'s two
+  new group paragraphs and the group count in all five prose copies are **done**, phase by phase.
 
 **The baseline cascade this PR has already opened**, recorded so Phase 9 does not discover it:
 `loc-summary`'s runtime group moved 30,800 → 30,600, and `approach.html` renders that number — so
 `approach-neutral.png` and `approach-saulera.png` are stale on top of the 11 new verdant captures and
 `factory` ×2.
+
+## Phases 3-7, in brief
+
+**3.4 — the arrow overlay.** `arrowPath` is pure and DERIVED, clipping on the line of centres so a
+back edge (northwind really carries one) does not double back. The layer sits INSIDE the scaled stage
+(zero redraws on zoom) and is a SIBLING of the nodes, never a child — a `transform` makes a
+containing block exactly as a `view-transition-name` does. **A latent #171 was found by the plan's
+own REDDENS and closed:** naming the frames turned `vt-stack-audit`'s hazard B from clean to **12
+unresolved overlaps**, every one `probe-sN × svg.stx-arrows z=auto`. `.stx-arrows` now carries an
+explicit `z-index: 0` — the same value its first-child position already gave it; the difference is
+that it is now a decision.
+
+**4 — `canvas-ops.mjs`, `device-presets.mjs`, group 35, the `id` key.** Six ops, `PARAMS` exported
+and frozen at both levels, which is what makes the group's `OPS` iteration possible at all.
+
+**5 — the nudge, eight align/distribute verbs, T16's sentence.** A bare arrow nudges by 4px (the
+spacing scale's floor, and there is no `--spacing-none` to fall further to); Shift takes a node
+pitch. The eight verbs are PRODUCERS — they read the selection and emit `ui.move-group`, so the one
+consumer that writes a position still is. `distribute` leaves EQUAL GAPS rather than equal centres.
+
+**6 — the spine.** D-a and D-b both honoured; five mutations red by name after two rounds of fixing
+the gate itself.
+
+**7 — the generators.** `loc-summary` (twice), `param-count` (120 → 121), `vocabulary` and the
+handoff pack all regenerated and committed; `drift-check` green on thirteen legs is the proof. Task
+7.4's two false cascades confirmed: `gen-system-graph` does not read `studio.css`, and
+`build-instance.mjs` copies `system/` wholesale so the two new modules ride along.
 
 ## Proving the checks
 
@@ -250,7 +296,12 @@ in prose rather than in code. Caught on review; the assertions now exist and are
 | Command | Observed |
 |---|---|
 | `node --check` on every edited `.mjs` | clean, after every edit |
-| `node tooling/build-checks.mjs` | **`build ✓  all 34 groups pass`, exit 0** |
+| `node tooling/build-checks.mjs` | **`build ✓  all 36 groups pass`, exit 0** |
+| …with `portal/node_modules` moved aside | **`build ✓  all 36 groups pass`, exit 0** — CI's own condition, reproduced once because this PR adds `portal/lib/canvas-store.mjs` |
+| `node tooling/vt-verify.mjs` (three engines) | **159 green, 0 failures**, matching the base tree's own run exactly. **First run timed out** on the reduced-motion compile click; the re-run on the same tree passed, and an isolation probe with vt-verify's exact context could not reproduce it — a known-flaky surface, named rather than buried |
+| `node tooling/vt-stack-audit.mjs /studio.html` | ✓, and ✓ again under a naming probe once `.stx-arrows` gained its explicit z-index |
+| the page-error sweep (12 pages, chromium) | ✓ all clean — and proven able to fail twice, on the two regressions it caught |
+| MVP 14's spine on chromium + firefox + webkit | ✓ 10 assertions per engine |
 | `node tooling/drift-check.mjs` | **✓ thirteen legs** — syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
 | `node tooling/token-lint.mjs` | **✓ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid** |
 | the DoD grep (AC #1's seven) | **80** lines across 2 files, from 435 across 15 — both of them journey drivers |
