@@ -1,0 +1,53 @@
+// P2 — prove the BFS rank layout over the two COMMITTED boards: terminates on the cycle,
+// deterministic, and print the exact columns the plan can then state as literals.
+import { readFileSync } from "node:fs";
+const R = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+
+// The rule, as the plan specifies it: BFS from the entry frame, one column per rank.
+// connections are [affordanceId, placeId]; an affordance belongs to a place.
+function rankLayout(board) {
+  const places = board.places.map((p) => p.id);
+  if (!places.length) return [];
+  const ownerOf = new Map();
+  for (const p of board.places) for (const a of p.affordances) ownerOf.set(a.id, p.id);
+  const out = new Map(); // placeId -> { rank, order }
+  const adj = new Map(places.map((id) => [id, []]));
+  for (const [affId, toId] of board.connections || []) {
+    const from = ownerOf.get(affId);
+    if (from && adj.has(from) && places.includes(toId)) adj.get(from).push(toId);
+  }
+  const entry = places[0];                       // board order: the entry place is first
+  const seen = new Set([entry]);                 // THE CYCLE GUARD
+  let frontier = [entry], rank = 0;
+  while (frontier.length) {
+    frontier.forEach((id, i) => out.set(id, { rank, order: i }));
+    const next = [];
+    for (const id of frontier) for (const to of adj.get(id) || [])
+      if (!seen.has(to)) { seen.add(to); next.push(to); }
+    frontier = next; rank += 1;
+  }
+  // unreachable places get their own trailing rank, in board order — totality
+  const orphans = places.filter((id) => !out.has(id));
+  orphans.forEach((id, i) => out.set(id, { rank, order: i }));
+  return places.map((id) => ({ id, ...out.get(id) }));
+}
+
+for (const slug of ["build-fieldwork-dispatch", "build-northwind-restock"]) {
+  const b = JSON.parse(readFileSync(`${R}/replay/${slug}.board.json`, "utf8"));
+  const t0 = Date.now();
+  const a = rankLayout(b);
+  const again = rankLayout(b);
+  console.log(`\n${slug}: ${b.places.length} places, ${b.connections.length} connections, ${Date.now()-t0}ms`);
+  console.log("  deterministic:", JSON.stringify(a) === JSON.stringify(again));
+  for (const r of a) {
+    const label = b.places.find((p) => p.id === r.id).label;
+    console.log(`    ${r.id}  rank ${r.rank}  order ${r.order}   ${label}`);
+  }
+  const ranks = a.reduce((m, r) => (m[r.rank] = (m[r.rank]||0)+1, m), {});
+  console.log("  columns:", JSON.stringify(ranks));
+}
+// totality: junk must answer [], never throw
+for (const junk of [null, undefined, {}, {places:[]}, {places:[{}]}, {places:[{id:"p1",affordances:[]}],connections:"x"}]) {
+  try { console.log("junk ok:", JSON.stringify(rankLayout(junk && junk.places ? junk : {places:[],connections:[]}))); }
+  catch (e) { console.log("junk THREW:", e.message); }
+}

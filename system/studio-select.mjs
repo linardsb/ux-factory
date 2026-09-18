@@ -71,12 +71,11 @@
 // imports this file directly for its pure exports (group 22). studio.html and system/studio.mjs
 // mount it explicitly.
 
-import { MAX_COLS, MAX_ROWS, ZOOM_LEVELS, clampSlot } from "./studio-canvas.mjs";
 // The ticket's ONE new cross-module import, and it runs select → verbs only: the verbs read the
 // selection off the DOM (call 1 above), so there is no cycle. hitSlot is the coordinate chain's
 // last step and SPOKEN_MAX is the live region's naming bound — both IMPORTED rather than re-typed,
 // because a second copy of either is a thing that drifts.
-import { DIRS, SPOKEN_MAX, hitSlot } from "./studio-verbs.mjs";
+import { DIRS, SPOKEN_MAX } from "./studio-verbs.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Everything below takes plain data and returns plain data, so build-checks group 22 drives it in CI

@@ -37,29 +37,26 @@
 // saw. The build travels (answers, board, edited flag, token values, slug); the story of how the
 // sender got there does not, and the receiving page says "the design in this link" instead.
 //
-// --- v2: THE ARRANGEMENT (epic #202 ticket #208) -------------------------------------------------
+// --- v3: THE ARRANGEMENT IS GONE (epic #295 ticket #302) ----------------------------------------
 //
-// THE ARRANGEMENT IS POSITIONAL, AND IT IS ALL OR NOTHING. `g` is parallel to `b.p` — the place a
-// slot belongs to is its INDEX, so no id travels, and an entire tamper class is not merely refused
-// but unrepresentable: there is no id to point at a place that is not on the board, none to
-// duplicate, none to mis-spell. What a hostile `g` can carry is two numbers and a length, and all
-// three are checked. The cost is that a PARTIAL arrangement cannot be expressed, which is deliberate
-// rather than overlooked: studio.mjs's arrangeBoard gives every place a slot, so nothing produces a
-// partial one — and a receiver handed half an arrangement would have to invent the rest, which is
-// the same half-restore the whole-payload rule below exists to refuse.
+// v2 carried `g`, a positional [[col, row], …] parallel to `b.p`, because the studio arranged a
+// board on a 12 x 8 grid of slots and two integers were the whole of a position. #302 retired that
+// grid for free positioning, and there is no honest successor field: a free position is a pair of
+// floats in the STAGE's own space, which means nothing to a receiver whose window, pack and content
+// give it a different stage. The layout a receiver reaches is the one system/studio.mjs computes
+// from the board itself, which is what every v1 link already did.
 //
-// AND IT IS REJECTED WHERE THE CANVAS CLAMPS. studio-canvas.mjs:50's clampSlot coerces "4" → 4 and
-// snaps -3 → 1, which is exactly right for its caller: #205's mover repairing a READER's own gesture
-// in the reader's own browser, onto a grid they can see. It is exactly wrong here. A payload comes
-// from a stranger, a clamp is a REPAIR, and a repaired payload is not the build that was shared — so
-// this file imports clampSlot's BOUNDS (MAX_COLS / MAX_ROWS, the LABEL_MAX precedent) and rejects
-// everything outside them. Both statements are true at once and both are gated: build-checks group
-// 12 keeps asserting the coercion, group 5 keeps asserting the rejection. Neither is the other one's
-// bug.
+// SO THE VERSION MOVES TO 3 AND `g` IS REFUSED BY NAME. It is not enough to drop 2 from the read
+// set: a v3 payload that smuggled `g` would then be refused by the unknown-key audit with a generic
+// "not a field this builder reads", which is true and unhelpful. The refusal below says what
+// actually happened — the link was made by an older version of this builder — and it runs BEFORE
+// the envelope audit so it is the sentence a reader of an old link gets.
+//
+// THE ENCODING IS UNCHANGED. With `g` gone the URL carries what v1 carried, so the size pressure a
+// compressed codec would answer does not exist and none was added.
 
 import { DEFAULT_ANSWERS, QUESTIONS } from "./build-questions.mjs";
 import { LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "./breadboard.mjs";
-import { MAX_COLS, MAX_ROWS } from "./studio-canvas.mjs";
 import { vetTokens } from "./pack-imported.mjs";
 
 export const SHARE_PARAM = "b";
@@ -72,8 +69,8 @@ export const MAX_DECODED_BYTES = 32 * 1024;
 // not as "the lowest supported version": the byte-identity guarantee is about the number 1
 // specifically, and the two would stop being the same number the first time v1 is dropped.
 const V_BASE = 1;
-export const SHARE_VERSION = 2; // the HIGHEST this builder writes — v2 is a payload carrying `g`
-export const SHARE_VERSIONS = Object.freeze([1, 2]); // what it READS
+export const SHARE_VERSION = 3; // the HIGHEST this builder writes
+export const SHARE_VERSIONS = Object.freeze([1, 3]); // what it READS — 2 is gone with `g`
 
 // A pack maps at most the five families' contract tokens; 80 is comfortably above the real count
 // (~64) and stops a link from carrying a dictionary.
@@ -117,44 +114,11 @@ function labelOk(s) {
   return true;
 }
 
-// The ONE definition of "a slot that may travel", read by the encoder and the decoder alike.
-// Integers only, 1-based, inside the canvas's own exported bounds — NOT clampSlot, which coerces and
-// repairs; see the arrangement note in the header for why the two callers diverge on purpose.
-const slotOk = (col, row) =>
-  Number.isInteger(col) && Number.isInteger(row) &&
-  col >= 1 && col <= MAX_COLS && row >= 1 && row <= MAX_ROWS;
-
-// arrangementSlots(arrangement, p) → [[col, row], …] or null. Accepts what system/studio.mjs's
-// arrangeBoard produces ({ id, label, affordances, col, row }) and what decodeBuild returns (the
-// same shape), so a producer never has to reshape for the wire.
-//
-// CONSISTENCY, NOT REPAIR. An arrangement whose length disagrees with the emitted places is an
-// arrangement for a DIFFERENT board — a /build visitor added a place to a studio-shared build — and
-// the honest answer is to send the build WITHOUT it, as a v1 payload, rather than a coordinate list
-// the receiver would have to guess how to align. Every value must ALREADY be a valid slot for the
-// same reason: this is an encoder, not a repairer, and emitting a clamped coordinate would put a
-// slot in the URL that the sender never saw on their own canvas.
-function arrangementSlots(arrangement, p) {
-  if (!Array.isArray(arrangement) || !arrangement.length) return null;
-  if (arrangement.length !== p.length) return null;
-  const out = [];
-  const seen = new Set();
-  for (let i = 0; i < arrangement.length; i += 1) {
-    const entry = arrangement[i];
-    if (!entry || typeof entry !== "object") return null;
-    if (entry.id != null && String(entry.id) !== p[i][0]) return null; // an id, if given, must be its place's
-    const { col, row } = entry;
-    if (!slotOk(col, row) || seen.has(`${col},${row}`)) return null;
-    seen.add(`${col},${row}`);
-    out.push([col, row]);
-  }
-  return out;
-}
-
 // The wire shape, PINNED — encode and decode both read this table, so they cannot drift:
 //
-//   v    format version, 1 or 2                     → one of SHARE_VERSIONS, else reject the whole
-//                                                       payload. Written: 2 iff `g` is present, else 1
+//   v    format version, 1 or 3                     → one of SHARE_VERSIONS, else reject the whole
+//                                                       payload. Written: always 1, because every
+//                                                       field below is a v1 field (see the v3 note)
 //   a    { <questionId>: <optionValue> }             → every key a QUESTIONS id, every value one of
 //                                                       that question's options, every question present
 //   b.p  [[id, label, [[affId, affLabel], …]], …]    → ids /^p\d{1,2}$/ and /^p\d{1,2}a\d{1,2}$/,
@@ -166,9 +130,9 @@ function arrangementSlots(arrangement, p) {
 //   k    { "--color-accent": "#…", … }               → vetTokens(k) returns ZERO rejected AND ZERO
 //                                                       skipped, ≤ 80 keys
 //   s    pack slug, for the tokens.css filename      → /^[a-z0-9-]{1,40}$/, or absent
-//   g    [[col, row], …]  (v2 only)                  → present ⇔ v === 2; length === b.p.length; every
-//                                                       pair two integers, 1..MAX_COLS × 1..MAX_ROWS
-//                                                       (IMPORTED from studio-canvas.mjs); no cell twice
+//   g    —                                          → RETIRED at v3. Present at all ⇒ the whole
+//                                                       payload is refused as an older version's
+//                                                       link, BY NAME, before the audit below
 //
 // AND NOTHING ELSE. A key outside that table rejects the whole payload — v1 validated every field it
 // knew about and IGNORED every field it did not, which made a payload carrying anything extra decode
@@ -269,16 +233,12 @@ export async function encodeBuild(state, { compress = hasCompression() } = {}) {
     .filter((pair) => Array.isArray(pair) && known.has(pair[0]) && placeIds.has(pair[1]))
     .map(([from, to]) => [String(from), String(to)]);
 
-  // The arrangement, if there is one AND it describes the board being sent. Compared against
-  // `p.length` and never board.places.length: `p` is already truncated to MAX_PLACES above, and the
-  // wire field is parallel to what actually travels.
-  const slots = arrangementSlots(state && state.arrangement, p);
-
   // KEY ORDER IS THE BYTE-IDENTITY CONTRACT. JSON.stringify emits insertion order, so these four
-  // keep their order and their literal values, `k`/`s` follow as they always did, and `g` is
-  // appended LAST — which is what makes a no-arrangement encode not merely compatible with v1's
-  // param but byte-identical to it.
-  const payload = { v: slots ? SHARE_VERSION : V_BASE, a, b: { p, c }, e: state && state.boardIsEdited ? 1 : 0 };
+  // keep their order and their literal values and `k`/`s` follow as they always did — which is what
+  // makes every encode this builder now performs byte-identical to the v1 param it would have
+  // written. `v` is V_BASE unconditionally since #302: SHARE_VERSION is what this builder READS UP
+  // TO, and with `g` retired there is nothing left that only a later version can express.
+  const payload = { v: V_BASE, a, b: { p, c }, e: state && state.boardIsEdited ? 1 : 0 };
 
   // Only what the same allowlist the decoder runs would accept, so a link this page produced can
   // never be one this page refuses.
@@ -291,8 +251,6 @@ export async function encodeBuild(state, { compress = hasCompression() } = {}) {
       if (typeof pack.slug === "string" && SLUG_OK.test(pack.slug)) payload.s = pack.slug;
     }
   }
-
-  if (slots) payload.g = slots;
 
   const json = new TextEncoder().encode(JSON.stringify(payload));
   const body = compress && hasCompression() ? await deflateRaw(json) : json;
@@ -345,12 +303,20 @@ export async function decodeBuild(param) {
     return fail(`this link is format v${has("v") ? String(data.v) : "?"}; this builder reads v${SHARE_VERSIONS.join(" and v")}`);
   }
 
+  // `g` IS REFUSED BY NAME, AND BEFORE THE AUDIT BELOW (#302). Dropping 2 from SHARE_VERSIONS
+  // already stops a real v2 link at the version check above, but a hand-built payload claiming v1 or
+  // v3 while carrying `g` would otherwise be refused by the unknown-key line as "not a field this
+  // builder reads" — true, and not what happened. This says what happened.
+  if (has("g")) {
+    return fail("this link carries a grid arrangement, which this builder retired — it was made with an older version, so re-share the build to get a link this page can read");
+  }
+
   // The envelope audit — before any of the payload is interpreted, because a payload this builder
   // does not understand is not one it should be part-way through reading. See the wire table's
   // "AND NOTHING ELSE". `__proto__` lands here too: JSON.parse creates it as an own data property
   // rather than invoking the setter, so Object.keys sees it and it is refused as the unknown key it
   // is — strictly better than v1's accepted-but-inert, and what "unknown keys reject" has to mean.
-  const KNOWN = new Set(["v", "a", "b", "e", "k", "s", "g"]);
+  const KNOWN = new Set(["v", "a", "b", "e", "k", "s"]);
   for (const key of Object.keys(data)) {
     if (!KNOWN.has(key)) return fail(`"${key}" is not a field this builder reads`);
   }
@@ -422,39 +388,6 @@ export async function decodeBuild(param) {
   // --- the edited flag, strictly one of the two
   if (!has("e") || (data.e !== 0 && data.e !== 1)) return fail("the board's edited flag is not 0 or 1");
 
-  // --- the arrangement: REJECTED, never clamped (the header's second v2 note)
-  let arrangement = null;
-  if (has("g")) {
-    if (data.v !== SHARE_VERSION) return fail(`this link carries an arrangement but claims format v${String(data.v)}`);
-    const g = data.g;
-    if (!Array.isArray(g)) return fail("the arrangement is malformed");
-    // An empty `g` is not "no arrangement", it is a claim with nothing behind it — the same call the
-    // empty token map gets above, and encodeBuild never emits one.
-    if (!g.length) return fail("the link carries an empty arrangement");
-    if (g.length !== places.length) {
-      return fail(`the arrangement covers ${g.length} places but the board carries ${places.length}`);
-    }
-    const seen = new Set();
-    const slots = [];
-    for (let i = 0; i < g.length; i += 1) {
-      const pair = g[i];
-      if (!Array.isArray(pair) || pair.length !== 2) return fail("a grid slot is not a [column, row] pair");
-      const [col, row] = pair;
-      // JSON.stringify rather than String, so a rejected `"4"` reads as `"4"` and not as `4` — a
-      // reason that printed the string as its number would read as a lie about why it was refused.
-      if (!slotOk(col, row)) {
-        return fail(`the slot [${JSON.stringify(col) ?? "undefined"}, ${JSON.stringify(row) ?? "undefined"}] is not a whole column and row on a ${MAX_COLS} by ${MAX_ROWS} grid`);
-      }
-      const key = `${col},${row}`;
-      if (seen.has(key)) return fail(`two places share column ${col}, row ${row}`);
-      seen.add(key);
-      // The id comes from the VALIDATED place at this index, never from the payload: nothing about
-      // the arrangement is trusted except its two numbers.
-      slots.push({ id: places[i].id, col, row });
-    }
-    arrangement = slots;
-  }
-
   // --- the token map: the same allowlist the drop path uses, and nothing dropped
   let pack = null;
   if (has("k")) {
@@ -482,10 +415,9 @@ export async function decodeBuild(param) {
   }
 
   return {
-    // `arrangement` is NULL, not [], for every v1 payload and for a v2 payload with no `g`: no
-    // arrangement is a different fact from an empty one, and a default would be this file inventing
-    // a layout the sender never chose.
-    state: { answers, board: { places, connections }, boardIsEdited: data.e === 1, pack, arrangement },
+    // No `arrangement` key at all since #302, rather than a key that is always null: a field nothing
+    // can ever set is a seam a later reader would try to use.
+    state: { answers, board: { places, connections }, boardIsEdited: data.e === 1, pack },
     reason: null,
   };
 }

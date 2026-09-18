@@ -62,7 +62,6 @@
 // pure layer directly.
 
 import { applyOp, emptyBoard } from "./board-ops.mjs";
-import { MAX_COLS } from "./studio-canvas.mjs";
 import { parseTrace } from "./trace-player.mjs";
 import { trackFactoryTookOver } from "./analytics.mjs";
 

@@ -10,16 +10,17 @@
    both, and #206 — which mounts the studio on /factory and regenerates those baselines anyway — is
    where any later move would be free.
 
-   THE SCALE TABLE IS THE POINT. studio-canvas.mjs writes data-zoom and nothing else, so the scale
-   lives here and the module's inline-style-write count is zero. build-checks group 12 pins every
-   literal below against the module's exports, exhaustively, because CSS cannot import them.
+   POSITION AND SCALE ARE CUSTOM PROPERTIES (#302). The grid this sheet used to declare — a 12 x 8
+   slot table, four attribute families and a five-step zoom table — is retired. studio-canvas.mjs now
+   writes --x / --y / --w / --h per node and a continuous --stx-scale on the stage, through exactly
+   two named helpers (setPos, setScale), and the rules below read those properties. The module's
+   inline-style-write count is therefore no longer zero, and build-checks group 7 is re-pinned to
+   those two functions rather than to the file.
 
    NOTHING HERE IS NAMED FOR A VIEW TRANSITION, deliberately — see the module header. */
 
 /* ---------- the viewport: the canvas's own variable scope ---------- */
 .stx-viewport {
-  --stx-cols: 12;          /* mirrors MAX_COLS  — pinned by build-checks group 12 */
-  --stx-rows: 8;           /* mirrors MAX_ROWS  — pinned by build-checks group 12 */
   --stx-slot-w: 220px;
   --stx-slot-h: 140px;
   /* #219's frame row unit. It MIRRORS the at-rest --stx-slot-h above rather than reading it, because
@@ -27,19 +28,11 @@
      when a board compiles (the argument is at the .stx-frame block). Group 12 pins the pair. */
   --stx-frame-unit: 140px;
   --stx-gap: var(--spacing-md, 16px);
-  --stx-scale: 1;          /* the at-rest level; the table below overrides it per data-zoom */
+  --stx-scale: 1;          /* the REST scale. setScale() writes it; there is no table (#302). */
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm, 12px);
 }
-
-/* One rule per ZOOM_LEVELS entry, index 2 included even though it restates the default — group 12
-   checks the mirror in both directions, so an index that only exists in JS is drift. */
-.stx-viewport[data-zoom="0"] { --stx-scale: 0.5; }
-.stx-viewport[data-zoom="1"] { --stx-scale: 0.75; }
-.stx-viewport[data-zoom="2"] { --stx-scale: 1; }
-.stx-viewport[data-zoom="3"] { --stx-scale: 1.5; }
-.stx-viewport[data-zoom="4"] { --stx-scale: 2; }
 
 /* ---------- zoom controls ---------- */
 .stx-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm, 12px); }
@@ -93,32 +86,12 @@
 /* ---------- slots: arrangement by attribute, never by inline style ---------- */
 .stx-slot { min-width: 0; overflow: hidden; }
 
-.stx-slot[data-col="1"]  { grid-column: 1; }
-.stx-slot[data-col="2"]  { grid-column: 2; }
-.stx-slot[data-col="3"]  { grid-column: 3; }
-.stx-slot[data-col="4"]  { grid-column: 4; }
-.stx-slot[data-col="5"]  { grid-column: 5; }
-.stx-slot[data-col="6"]  { grid-column: 6; }
-.stx-slot[data-col="7"]  { grid-column: 7; }
-.stx-slot[data-col="8"]  { grid-column: 8; }
-.stx-slot[data-col="9"]  { grid-column: 9; }
-.stx-slot[data-col="10"] { grid-column: 10; }
-.stx-slot[data-col="11"] { grid-column: 11; }
-.stx-slot[data-col="12"] { grid-column: 12; }
 
-.stx-slot[data-row="1"] { grid-row: 1; }
-.stx-slot[data-row="2"] { grid-row: 2; }
-.stx-slot[data-row="3"] { grid-row: 3; }
-.stx-slot[data-row="4"] { grid-row: 4; }
-.stx-slot[data-row="5"] { grid-row: 5; }
-.stx-slot[data-row="6"] { grid-row: 6; }
-.stx-slot[data-row="7"] { grid-row: 7; }
-.stx-slot[data-row="8"] { grid-row: 8; }
 
 /* Hover and hit-testing work is killed in CSS while panning, not in JS — one class toggle instead
    of a guard in every handler (system-graph.mjs's is-panning rule). */
 .stx-scroll.is-panning { cursor: grabbing; }
-.stx-scroll.is-panning .stx-slot { pointer-events: none; }
+.stx-scroll.is-panning :is(.stx-slot, .stx-frame) { pointer-events: none; }
 
 /* ---------- manipulation (#205) ---------- */
 /* The slot is now a BOX holding a move handle and the component, not the component itself — see
@@ -213,27 +186,7 @@
   border-radius: var(--radius-sm, 4px);
 }
 
-.stx-guide[data-col="1"]  { grid-column: 1;  grid-row: 1 / -1; }
-.stx-guide[data-col="2"]  { grid-column: 2;  grid-row: 1 / -1; }
-.stx-guide[data-col="3"]  { grid-column: 3;  grid-row: 1 / -1; }
-.stx-guide[data-col="4"]  { grid-column: 4;  grid-row: 1 / -1; }
-.stx-guide[data-col="5"]  { grid-column: 5;  grid-row: 1 / -1; }
-.stx-guide[data-col="6"]  { grid-column: 6;  grid-row: 1 / -1; }
-.stx-guide[data-col="7"]  { grid-column: 7;  grid-row: 1 / -1; }
-.stx-guide[data-col="8"]  { grid-column: 8;  grid-row: 1 / -1; }
-.stx-guide[data-col="9"]  { grid-column: 9;  grid-row: 1 / -1; }
-.stx-guide[data-col="10"] { grid-column: 10; grid-row: 1 / -1; }
-.stx-guide[data-col="11"] { grid-column: 11; grid-row: 1 / -1; }
-.stx-guide[data-col="12"] { grid-column: 12; grid-row: 1 / -1; }
 
-.stx-guide[data-row="1"] { grid-row: 1; grid-column: 1 / -1; }
-.stx-guide[data-row="2"] { grid-row: 2; grid-column: 1 / -1; }
-.stx-guide[data-row="3"] { grid-row: 3; grid-column: 1 / -1; }
-.stx-guide[data-row="4"] { grid-row: 4; grid-column: 1 / -1; }
-.stx-guide[data-row="5"] { grid-row: 5; grid-column: 1 / -1; }
-.stx-guide[data-row="6"] { grid-row: 6; grid-column: 1 / -1; }
-.stx-guide[data-row="7"] { grid-row: 7; grid-column: 1 / -1; }
-.stx-guide[data-row="8"] { grid-row: 8; grid-column: 1 / -1; }
 
 /* THE CONTEXT MENU. A STAGE SIBLING, never a wrapper child: .stx-slot { overflow: hidden } (:90)
    would clip it, and that rule is load-bearing for the compiled screens so relaxing it is not an
@@ -280,27 +233,7 @@
    reaches it and a screen reader announces it as unavailable (WAI-ARIA APG). */
 .stx-menu-item[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 
-.stx-menu[data-col="1"]  { grid-column: 1; }
-.stx-menu[data-col="2"]  { grid-column: 2; }
-.stx-menu[data-col="3"]  { grid-column: 3; }
-.stx-menu[data-col="4"]  { grid-column: 4; }
-.stx-menu[data-col="5"]  { grid-column: 5; }
-.stx-menu[data-col="6"]  { grid-column: 6; }
-.stx-menu[data-col="7"]  { grid-column: 7; }
-.stx-menu[data-col="8"]  { grid-column: 8; }
-.stx-menu[data-col="9"]  { grid-column: 9; }
-.stx-menu[data-col="10"] { grid-column: 10; }
-.stx-menu[data-col="11"] { grid-column: 11; }
-.stx-menu[data-col="12"] { grid-column: 12; }
 
-.stx-menu[data-row="1"] { grid-row: 1; }
-.stx-menu[data-row="2"] { grid-row: 2; }
-.stx-menu[data-row="3"] { grid-row: 3; }
-.stx-menu[data-row="4"] { grid-row: 4; }
-.stx-menu[data-row="5"] { grid-row: 5; }
-.stx-menu[data-row="6"] { grid-row: 6; }
-.stx-menu[data-row="7"] { grid-row: 7; }
-.stx-menu[data-row="8"] { grid-row: 8; }
 
 /* ---------- frames: the FOURTH grid family (#219) ---------- */
 /* A frame is on the grid but is NOT a board wrapper. system/studio-compile.mjs's identity and count
@@ -309,9 +242,10 @@
    is a grid child without being a wrapper. Registered in build-checks group 12's GRID_FAMILIES — the
    fourth-family detector fails on the first rule below without it, which is that check working.
 
-   A FRAME IS A RECTANGLE, so it carries TWO more attributes than the three families above:
-   data-span-col / data-span-row, mirroring system/studio-canvas.mjs's clampSpan. Group 12 pins those
-   two tables exhaustively and in both directions, exactly as it pins the position ones.
+   A FRAME IS A RECTANGLE AT A FREE POSITION (#302). It carries --w and --h where the other node
+   classes carry --w alone, because a device frame's height is AUTHORED rather than derived from its
+   content — see the height rule below. setPos() writes all four properties; nothing here selects on
+   an attribute.
 
    NOTHING HERE IS NAMED FOR A VIEW TRANSITION, and nothing here animates — the frames join the
    reduced-motion off-ramp below for the standing prophylactic reason. */
@@ -320,52 +254,12 @@
    specificity it resets grid-column-end back to `auto`, so a frame would silently be one cell wide
    whichever rule happened to come last. The three families above can use the shorthand because none
    of them spans. */
-.stx-frame[data-col="1"]  { grid-column-start: 1; }
-.stx-frame[data-col="2"]  { grid-column-start: 2; }
-.stx-frame[data-col="3"]  { grid-column-start: 3; }
-.stx-frame[data-col="4"]  { grid-column-start: 4; }
-.stx-frame[data-col="5"]  { grid-column-start: 5; }
-.stx-frame[data-col="6"]  { grid-column-start: 6; }
-.stx-frame[data-col="7"]  { grid-column-start: 7; }
-.stx-frame[data-col="8"]  { grid-column-start: 8; }
-.stx-frame[data-col="9"]  { grid-column-start: 9; }
-.stx-frame[data-col="10"] { grid-column-start: 10; }
-.stx-frame[data-col="11"] { grid-column-start: 11; }
-.stx-frame[data-col="12"] { grid-column-start: 12; }
 
-.stx-frame[data-row="1"] { grid-row-start: 1; }
-.stx-frame[data-row="2"] { grid-row-start: 2; }
-.stx-frame[data-row="3"] { grid-row-start: 3; }
-.stx-frame[data-row="4"] { grid-row-start: 4; }
-.stx-frame[data-row="5"] { grid-row-start: 5; }
-.stx-frame[data-row="6"] { grid-row-start: 6; }
-.stx-frame[data-row="7"] { grid-row-start: 7; }
-.stx-frame[data-row="8"] { grid-row-start: 8; }
 
-.stx-frame[data-span-col="1"]  { grid-column-end: span 1; }
-.stx-frame[data-span-col="2"]  { grid-column-end: span 2; }
-.stx-frame[data-span-col="3"]  { grid-column-end: span 3; }
-.stx-frame[data-span-col="4"]  { grid-column-end: span 4; }
-.stx-frame[data-span-col="5"]  { grid-column-end: span 5; }
-.stx-frame[data-span-col="6"]  { grid-column-end: span 6; }
-.stx-frame[data-span-col="7"]  { grid-column-end: span 7; }
-.stx-frame[data-span-col="8"]  { grid-column-end: span 8; }
-.stx-frame[data-span-col="9"]  { grid-column-end: span 9; }
-.stx-frame[data-span-col="10"] { grid-column-end: span 10; }
-.stx-frame[data-span-col="11"] { grid-column-end: span 11; }
-.stx-frame[data-span-col="12"] { grid-column-end: span 12; }
 
 /* Each row-span rule declares its own index TWICE — once as the grid span, once as the row count the
    height calc below reads. Group 12 asserts the pair agrees, because a height and a span that
    disagree is a frame claiming grid area it does not paint for a reason nobody chose. */
-.stx-frame[data-span-row="1"] { grid-row-end: span 1; --stx-frame-rows: 1; }
-.stx-frame[data-span-row="2"] { grid-row-end: span 2; --stx-frame-rows: 2; }
-.stx-frame[data-span-row="3"] { grid-row-end: span 3; --stx-frame-rows: 3; }
-.stx-frame[data-span-row="4"] { grid-row-end: span 4; --stx-frame-rows: 4; }
-.stx-frame[data-span-row="5"] { grid-row-end: span 5; --stx-frame-rows: 5; }
-.stx-frame[data-span-row="6"] { grid-row-end: span 6; --stx-frame-rows: 6; }
-.stx-frame[data-span-row="7"] { grid-row-end: span 7; --stx-frame-rows: 7; }
-.stx-frame[data-span-row="8"] { grid-row-end: span 8; --stx-frame-rows: 8; }
 
 /* THE HEIGHT DOES NOT RIDE --stx-slot-h, and that is the one call in this block worth arguing.
    :638 flips --stx-slot-h to 480px in the compiled state, so a grid-stretched 3-row frame would be
@@ -375,15 +269,21 @@
    paints once compiled, which is visible whitespace and honest.
 
    Rejected alternative: a per-compile-state span override. It would make the announcement ("3 rows")
-   false in one of the two states. */
+   false in one of the two states.
+
+   UNDER FREE POSITIONING (#302) the same argument holds and the source changes: the height is
+   setPos()'s --h, in px, authored by the caller. The fallback is the one-row unit rather than 0, so
+   a frame whose --h has not been written yet is still a device-sized box rather than a collapsed
+   one. THIS RULE IS ON .stx-frame ALONE. A board wrapper has no authored height (framesPass asserts
+   it carries no size of its own), and giving .stx-slot an --h fallback would hand every wrapper a
+   height nobody chose. */
 .stx-frame {
   position: relative;
   display: flex;
   min-width: 0;
   overflow: hidden;
   align-self: start;
-  height: calc(var(--stx-frame-rows, 1) * var(--stx-frame-unit)
-               + (var(--stx-frame-rows, 1) - 1) * var(--stx-gap));
+  height: var(--h, var(--stx-frame-unit));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 8px);
   background: var(--color-bg-surface);
@@ -844,7 +744,7 @@
 }
 /* The one state hook the surface needs: while the beat is running the canvas is mid-sentence, so the
    step readout carries the page's own colour instead of the muted one. An attribute selector, so the
-   module writes an attribute and this sheet decides what it means (the data-zoom discipline). */
+   module writes an attribute and this sheet decides what it means (the attribute discipline). */
 .stx-viewport[data-compile-state="compiling"] .stu-compile-step { color: var(--color-fg); }
 
 /* ---------- the flow's screens (#212) ---------- */
@@ -874,7 +774,7 @@
   padding: var(--spacing-xs, 8px);
 }
 /* THE COMPILED STATE GROWS THE SLOT (#251). data-compile-state is studio-compile.mjs's
-   attribute (the data-zoom discipline: the module writes an attribute, this sheet decides
+   attribute (the attribute discipline: the module writes an attribute, this sheet decides
    what it means), and "rendered" is the ONE state whose slots hold screens rather than
    fat-marker blocks — empty/out-of-library/refused all keep the blocks, and keep 140px.
    480px is MEASURED, not chosen: with the list-row fix in, the committed replay board's
@@ -990,7 +890,7 @@
 /* THE PROVENANCE SHIFT IS VISIBLE, which is the whole point of the line: while the run owns the
    canvas the sentence is muted chrome, and the moment the visitor takes over it carries the page's
    own colour and a marker. An attribute selector, so the module writes an attribute and this sheet
-   decides what it means (the data-zoom discipline). */
+   decides what it means (the attribute discipline). */
 .stu-replay-provenance[data-provenance="visitor"] {
   color: var(--color-fg);
   padding-left: var(--spacing-sm, 12px);
@@ -1190,7 +1090,7 @@
 .stu-method { display: grid; gap: var(--spacing-md); margin-top: var(--spacing-sm); min-width: 0; }
 .stu-method-lead { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); max-width: 68ch; }
 /* The gate's visual: the compile row's disabled look, on the whole band. The attribute is written
-   by setEnabled; this sheet decides what it means (the data-zoom discipline). */
+   by setEnabled; this sheet decides what it means (the attribute discipline). */
 .stu-method[data-method-state="disabled"] { opacity: 0.5; cursor: not-allowed; }
 /* Ten compact cards as a wrapping grid — auto-fill at a 13rem floor keeps them from dwarfing the
    canvas at any column width, and the act labels span the whole row. */

@@ -92,7 +92,7 @@
     { "page": "/factory", "selector": "[data-keep-artifacts] button:nth-of-type(2)", "label": "keep rail: download breadboard.svg", "note": "added by #210" },
     { "page": "/factory", "selector": "[data-keep-artifacts] button:nth-of-type(3)", "label": "keep rail: download breadboard.json", "note": "added by #210" },
     { "page": "/factory", "selector": "[data-keep-artifacts] button:nth-of-type(4)", "label": "keep rail: download pattern-spec.md", "note": "added by #210" },
-    { "page": "/factory", "selector": "[data-keep-share] .btn-primary", "label": "keep rail: copy the link that rebuilds this, arrangement included", "note": "added by #210; the readonly link field beside it is NOT a separate entry, matching /build's .bx-keep-link — one rail, one counting rule" },
+    { "page": "/factory", "selector": "[data-keep-share] .btn-primary", "label": "keep rail: copy the link that rebuilds this build", "note": "added by #210; the readonly link field beside it is NOT a separate entry, matching /build's .bx-keep-link — one rail, one counting rule. The label said \"arrangement included\" until #302 retired the codec's g field; the control stayed, its claim did not" },
     { "page": "/factory", "selector": "[data-studio-canvas] .stf-go", "label": "compiled flow navigation (one verb class)", "note": "added by #212; conditional — after compile" },
     { "page": "/factory", "selector": "input[name=\"stm-q-trigger\"]", "label": "method card: trigger radiogroup", "note": "added by #214; disabled until the replay stops" },
     { "page": "/factory", "selector": "input[name=\"stm-q-action\"]", "label": "method card: action radiogroup", "note": "added by #214; disabled until the replay stops" },

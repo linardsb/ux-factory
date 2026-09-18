@@ -15,12 +15,24 @@
 //      three things at once: the browser cannot scroll a translated element into view for Tab
 //      (a WCAG requirement, not a nicety), the scrollbar stops being an affordance, and touch
 //      panning has to be rebuilt. #173 made this call for the system graph; the canvas inherits it.
-//   3. ZOOM AND ARRANGEMENT ARE ATTRIBUTES. data-zoom selects a scale from a table declared in
-//      system/studio.css; data-col/data-row select grid lines from rules in the same sheet. This
-//      module therefore writes ZERO inline styles, which is what lets it join build-checks group 7
-//      with no exception argued — `writes === 1` stays literally true. The cost is that `fit()`
-//      snaps to a level at or below the ideal ratio instead of fitting exactly. Recorded as a
-//      trade: stepped is also announceable and has a finite tamper surface for #208's codec.
+//   3. POSITION AND SCALE ARE CUSTOM PROPERTIES, WRITTEN THROUGH TWO NAMED HELPERS (#302). This
+//      call REPLACES the one that stood here from #204 to #301 — "zoom and arrangement are
+//      attributes": a stepped scale table and four families of per-axis grid-line rules, all
+//      declared in system/studio.css. That bought a module writing ZERO inline styles, which let it
+//      join build-checks group 7 with no exception argued. It cost three things the studio now
+//      needs: nothing could sit between two slots, `fit()` snapped to a level at or below the
+//      ideal ratio instead of fitting exactly, and a frame was a rectangle of CELLS.
+//
+//      So the stage is now free space. setPos(el, x, y, w, h) writes --x/--y/--w/--h and
+//      setScale(stage, s) writes a continuous --stx-scale; the sheet reads those properties and
+//      selects on no attribute. THE WRITE COUNT IS NO LONGER ZERO, and the gate moved with it
+//      rather than being widened: build-checks group 7 is re-pinned FUNCTION-SCOPED to
+//      setPos · setScale · build-import.mjs's applyToStage, so a third write site anywhere in the
+//      studio still fails it. A file-scoped exemption for this file would have satisfied the words
+//      and killed the invariant.
+//
+//      CALLS 1 AND 2 ABOVE SURVIVE VERBATIM and were kept on purpose, not overlooked: the stage is
+//      still DOM and pan is still native scroll. Only this third call was retired.
 //
 // The stage names NOTHING for a view transition. #171 shipped a real at-rest regression by naming
 // elements that then became containing blocks for an absolutely positioned overlay, and the pixel
@@ -32,132 +44,30 @@
 // the designed surface is /factory, and that is #206's route surgery, not this ticket's.
 
 // ---- the pure layer ----------------------------------------------------------------------------
-// The caps are exported because #208's share codec imports THEM rather than re-typing a bound —
-// the breadboard.mjs LABEL_MAX / pattern-rules.mjs SLOT_MAX precedent. CSS cannot import, so
-// system/studio.css mirrors these by hand and build-checks group 12 pins the mirror exhaustively.
-export const MAX_COLS = 12;
-export const MAX_ROWS = 8;
-
-// Discrete levels, not a continuous scale — see call 3 in the header. ZOOM_REST is the index of
-// 1.0: at rest the stage is scale 1 and scrolled to 0,0.
-export const ZOOM_LEVELS = [0.5, 0.75, 1, 1.5, 2];
-export const ZOOM_REST = 2;
-
-// The ONE place a slot is validated, so #205's mover and #208's decoder share one definition of
-// "on the grid" instead of each clamping in its own way. Coerces first (a decoded string "4" is a
-// real input), then rejects everything non-finite to 1 rather than letting NaN propagate into an
-// attribute.
-export function clampSlot({ col, row } = {}) {
-  const axis = (v, max) => {
-    const n = Math.round(Number(v));
-    if (!Number.isFinite(n)) return 1;
-    return Math.min(max, Math.max(1, n));
-  };
-  return { col: axis(col, MAX_COLS), row: axis(row, MAX_ROWS) };
-}
-
-// ---- the SPAN layer (#219) ----------------------------------------------------------------------
-// A frame is a RECTANGLE of cells, not a cell. Everything below is the rectangle twin of clampSlot's
-// answers, and it lives here — beside the caps it clamps against — rather than in the frames module,
-// because three layers read it: system/studio-frames.mjs (the descriptors), system/studio-verbs.mjs
-// (the occupancy, the gesture and the ui.resize consumer) and tooling/build-checks.mjs (groups 12,
-// 13 and 24). CSS cannot import, so system/studio.css mirrors the span tables by hand and group 12
-// pins that mirror exhaustively, exactly as it does for the caps and the zoom levels.
-
-// MIN is 1 because a 1×1 frame is a legitimate (tiny) state, and refusing it would need a second
-// bound nothing else in the studio has.
-export const MIN_SPAN = 1;
+// Two class constants and nothing else. The two axis caps, the stepped zoom table, its rest index
+// and six slot/span functions were this layer until #302 retired the grid. Nothing replaced them
+// one-for-one: under free positioning there is no cell to clamp to, no rectangle of cells to compute
+// a footprint for, and no discrete level to snap a fit down to. What replaced the whole set is the
+// two write helpers below the mount — setPos and setScale — plus the STAGE constants they clamp
+// against. The retired names are deliberately not repeated here: #302's definition of done is a
+// repo-wide grep for them, and it matches comments.
 
 // The frame's wrapper class, as ONE constant three modules read. It is NOT `.stx-slot`, and that is
-// the ticket's load-bearing call: `.stx-slot` means BOARD WRAPPER — studio-compile.mjs's identity
-// and count tripwires, studio.mjs's arrangementNow() and adoptBoard's removal loop all depend on
-// that meaning, and they keep it. Frames join .stx-guide and .stx-menu (#217) as a family that is on
-// the grid without being a board wrapper.
+// #219's load-bearing call: `.stx-slot` means BOARD WRAPPER — studio-compile.mjs's identity and
+// count tripwires, studio.mjs's arrangementNow() and adoptBoard's removal loop all depend on that
+// meaning, and they keep it. Frames join .stx-guide and .stx-menu as a family that sits on the stage
+// without being a board wrapper.
 export const FRAME_CLASS = "stx-frame";
 
 // The MOVABLE families, as ONE selector both this module and studio-verbs.mjs read — exported rather
-// than literalled twice for the MAX_COLS / LABEL_MAX / SLOT_MAX reason: the day a fifth family
-// becomes movable there is exactly one line to edit, and build-checks can pin it.
+// than literalled twice: the day a fifth family becomes movable there is exactly one line to edit,
+// and build-checks can pin it.
 //
 // NOTE WHAT IS NOT HERE. .stx-guide and .stx-menu are chrome, and #217's SELECTION layer keeps its
 // own `.stx-slot`-only scope on purpose — a frame moves and resizes on its own (system/
 // studio-frames.mjs's header records why half-widening a selection is a bug factory).
 export const MOVABLE = ".stx-slot, .stx-frame";
 
-// clampSpan(slot, span) → { cols, rows } that keep the whole footprint ON THE GRID from `slot`.
-// Coerces first, exactly as clampSlot does — a decoded "2" is a real input — and answers MIN_SPAN
-// for anything non-finite rather than letting NaN reach an attribute.
-//
-// THE BOUND IS `MAX_COLS - col + 1`, NOT `MAX_COLS`. A frame at column 11 can be at most 2 wide.
-// Getting this wrong looks correct at column 1, which is where it gets tested first.
-export function clampSpan({ col, row } = {}, { cols, rows } = {}) {
-  const start = clampSlot({ col, row });
-  const axis = (v, max) => {
-    const n = Math.round(Number(v));
-    if (!Number.isFinite(n)) return MIN_SPAN;
-    return Math.min(max, Math.max(MIN_SPAN, n));
-  };
-  return { cols: axis(cols, MAX_COLS - start.col + 1), rows: axis(rows, MAX_ROWS - start.row + 1) };
-}
-
-// footprint(slot, span) → ["c,r", …] — every cell the rectangle covers, in the same string form
-// studio-verbs.mjs's occupancyKey produces, so the two sets are directly comparable. The key is
-// written out rather than imported because studio-verbs.mjs imports THIS file; group 13 pins the two
-// against each other instead, which is the honest place for a coupling a circular import would hide.
-//
-// A 1×1 span returns exactly [occupancyKey(slot)] — the property that lets the whole occupancy layer
-// widen without changing a single existing answer.
-export function footprint(slot, span) {
-  const start = clampSlot(slot);
-  const { cols, rows } = clampSpan(start, span);
-  const out = [];
-  for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) out.push(`${start.col + c},${start.row + r}`);
-  }
-  return out;
-}
-
-// fits(slot, span, occupied) → boolean. THE ONE PREDICATE four callers share (stepSlot, groupDelta,
-// the resize gesture's preview and the keyboard End), and the reason it is here rather than in a
-// mount: `occupied` is a plain Set of keys, so this is pure and build-checks group 13 can drive it —
-// which the DOM-reading occupancyExcept() it is fed from never could.
-//
-// On-grid AND every covered cell free. A footprint that runs off the grid is FALSE, never clamped,
-// because clamping a DESTINATION silently moves the reader's frame somewhere they did not ask for —
-// stepSlot's "a blocked step is a real answer" rule, extended to rectangles. That is also why this
-// and clampSpan must not be merged: clamping is "make this legal geometry", fitting is "is this
-// destination free", and the two callers want opposite answers about a collision.
-export function fits(slot, span, occupied) {
-  const col = Math.round(Number(slot?.col));
-  const row = Math.round(Number(slot?.row));
-  const cols = Math.round(Number(span?.cols));
-  const rows = Math.round(Number(span?.rows));
-  if (![col, row, cols, rows].every(Number.isFinite)) return false;
-  if (cols < MIN_SPAN || rows < MIN_SPAN) return false;
-  if (col < 1 || row < 1) return false;
-  if (col + cols - 1 > MAX_COLS || row + rows - 1 > MAX_ROWS) return false;
-  const taken = occupied instanceof Set ? occupied : new Set(occupied || []);
-  for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) if (taken.has(`${col + c},${row + r}`)) return false;
-  }
-  return true;
-}
-
-// The index of the largest level whose scale still fits the content in the available box. Snapping
-// DOWN is what lets fit be discrete without ever overflowing the viewport — a level ABOVE the
-// ratio would fit nothing, it would just be closer.
-//
-// A zero (or non-finite) content dimension means the panel was hidden at call time, which is #173's
-// "measure at call time, never at mount" trap arriving as a division by zero. Answer ZOOM_REST: the
-// honest reading of "I cannot measure this" is "leave it at 1", never Infinity.
-export function fitLevel(availableW, availableH, contentW, contentH) {
-  const nums = [availableW, availableH, contentW, contentH].map(Number);
-  if (!nums.every((n) => Number.isFinite(n) && n > 0)) return ZOOM_REST;
-  const ratio = Math.min(nums[0] / nums[2], nums[1] / nums[3]);
-  let index = 0;
-  for (let i = 0; i < ZOOM_LEVELS.length; i += 1) if (ZOOM_LEVELS[i] <= ratio) index = i;
-  return index;
-}
 
 // ---- the mount ---------------------------------------------------------------------------------
 

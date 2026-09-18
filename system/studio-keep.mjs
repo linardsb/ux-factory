@@ -19,14 +19,13 @@
 //
 // Four things a later editor needs, because each one is a decision rather than an implementation:
 //
-//  1. THE ARRANGEMENT IS READ POSITIONALLY, and it has to be. `canvas.place()` assigns its own
-//     `data-stx-id` (studio-canvas.mjs:307) and never carries a board place id, so there is no id to
-//     join on. What there IS, and what the whole studio already depends on, is that the wrappers in
-//     DOM order correspond to `board.places` in board order — studio-compile.mjs:382-383's positional
-//     swap rests on the same fact, and replay-driver.mjs renames in place rather than re-placing
-//     precisely so that stage order stays board order. Each entry still CARRIES its place id, so
-//     build-share.mjs's arrangementSlots (:145) refuses a mismatch instead of encoding a lie. A
-//     count that disagrees sends NO arrangement at all rather than a guessed one.
+//  1. THE LINK CARRIES NO ARRANGEMENT (#302). It did until v3: this rail read the wrappers
+//     positionally, built [{id, col, row}] and handed it to encodeBuild as `g`, and the copy said
+//     "arrangement included". The grid is retired, `g` with it, and a free position in this stage's
+//     own space would mean something different in a receiver's — so the link carries the build and
+//     the receiver lays it out. The DOM-order-is-board-order correspondence this used to rest on is
+//     still real and still load-bearing elsewhere (studio-compile.mjs's positional swap,
+//     replay-driver.mjs's rename-in-place); it simply has no consumer here any more.
 //
 //  2. THE EXPORT RE-RENDERS; IT DOES NOT SCRAPE THE CANVAS. Reading the stage would export the wrong
 //     thing three ways: at rest the stage holds fat-marker BLOCKS rather than components, the
@@ -36,10 +35,9 @@
 //     renderComposition's own composition — and the vocabulary that validates them, and rendering
 //     THOSE into detached containers is literally what AC #3 asks for. Since #212 the export reads
 //     NO arrangement at all: the flow's layout is screens in board order × components in affordance
-//     order (the epic architecture's "no new bytes"), canvas coordinates persist in the share
-//     link's `g` field (#208) and nowhere else, and the file's provenance claims no geometry it
-//     does not carry. The link's own no-`g` divergence is still announced when it happens (PR #241
-//     review, M2) — that caveat is the SHARE tier's and stays below.
+//     order (the epic architecture's "no new bytes"), and the file's provenance claims no geometry
+//     it does not carry. Since #302 neither does the link, so the two tiers now agree by
+//     construction rather than by a caveat.
 //
 //  3. THE STUDIO HAS NO ANSWERS OF ITS OWN, and the downloaded spec must say so. specMarkdown
 //     destructures { answers, quadrant, frequencyVerdict, board, pack } unguarded and would THROW on
@@ -115,15 +113,8 @@ const SHARE_NOTE = "The whole build travels in the link itself: the board, the d
   + "because this page has a canvas and the builder does not — where each block sits on it. There is "
   + "no server in this, and nothing is saved anywhere.";
 
-// The caveat a link that carries no `g` owes the reader, and it rides BOTH copy outcomes — the
-// clipboard one and the select-the-field one. Not because the second is likely, but because the
-// reader walks away holding the same link either way, and a caveat that only appears on the happy
-// path is a caveat that is missing exactly when something already went differently than expected.
-const NO_ARRANGEMENT = " Where the blocks sit did not travel: the canvas is holding a different "
-  + "number of pieces than the board has places, and a guessed arrangement is worse than none.";
-
 const EMPTY = "Nothing to keep yet. This board has no places on it, so there is no product to export, "
-  + "no spec to write and no arrangement to share. A board with something on it brings all three back.";
+  + "no spec to write and no link worth sharing. A board with something on it brings all three back.";
 
 const NOT_COMPOSED = "This board does not compile to any components, so there is no runnable product "
   + "to export. The blocks are the artifact here, and the breadboard downloads below carry them.";
@@ -215,7 +206,7 @@ function packLabelOf(pack, worn, inlineTokens) {
   return Object.keys(inlineTokens).length ? "your own design values" : null;
 }
 
-export function mountStudioKeep(root, { getBoard, getArrangement, compile, canvas } = {}) {
+export function mountStudioKeep(root, { getBoard, compile, canvas } = {}) {
   try {
     if (!root) return null;
 
@@ -292,16 +283,6 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
         board: getBoard(),
         pack: stored.pack ?? null,
       };
-    };
-
-    // The arrangement, positionally — decision 1. Returns null rather than a partial or a guessed
-    // one; build-share.mjs's arrangementSlots then simply emits no `g`, which is the honest outcome.
-    const arrangement = () => {
-      const slots = typeof getArrangement === "function" ? getArrangement() : null;
-      const places = (getBoard() || {}).places;
-      if (!Array.isArray(slots) || !Array.isArray(places)) return null;
-      if (!slots.length || slots.length !== places.length) return null;
-      return slots.map((slot, i) => ({ id: places[i].id, col: slot.col, row: slot.row }));
     };
 
     // --- tier 1 · the runnable export -----------------------------------------------------------
@@ -422,65 +403,45 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
 
     // --- tier 3 · the share link ----------------------------------------------------------------
     const copyBtn = el("button", { type: "button", class: "btn btn-primary", text: "Copy the link that rebuilds this" });
-    const linkInput = el("input", { class: "stu-keep-link", readonly: true, "aria-label": "The link that rebuilds this build, arrangement included", hidden: true });
+    const linkInput = el("input", { class: "stu-keep-link", readonly: true, "aria-label": "The link that rebuilds this build", hidden: true });
     shareEl.append(
       el("h3", { class: "stu-keep-title", text: "The link that rebuilds it" }),
       copyBtn, linkInput,
       el("p", { class: "stu-keep-note", text: SHARE_NOTE }),
     );
 
-    // Returns the arrangement ALONGSIDE the url, because the caller has a sentence to say about it
-    // and arrangement() legitimately answers null: build-share.mjs's arrangementSlots then emits no
-    // `g` and the link rebuilds the board with the default row-1 layout. The divergence #241's M2
-    // named was reached through the compile beat's surplus/extra branches; #212 deleted those —
-    // screens are 1:1 with wrappers by construction, and a count mismatch now refuses the swap
-    // loudly — so no known path produces it today. The guard STAYS, on the tripwire's own terms:
-    // it only speaks when the state actually occurs, and computing the arrangement once here is
-    // what keeps the announcement and the payload the same fact rather than two reads that can
-    // disagree. (PR #241 review, Medium 2; #212's structural close.)
+    // ONE URL, and no second fact travelling beside it (#302). Until v3 this returned the
+    // arrangement alongside the link, because the link could carry one and legitimately might not,
+    // and the field's LABEL and the spoken sentence were both claims about which had happened. `g`
+    // is retired, so there is one outcome and one sentence, and the label is a constant.
     async function currentUrl() {
-      const arrangement_ = arrangement();
-      const url = shareUrl(await settledUrl(), await encodeBuild({ ...specState(), arrangement: arrangement_ }));
-      return { url, arrangement: arrangement_ };
+      return shareUrl(await settledUrl(), await encodeBuild(specState()));
     }
 
-    // ONE writer for the address bar, the field and the field's LABEL, because the label is a claim
-    // about the link and the two must never be written apart. update() re-runs this on every board
-    // change once the link is live — and the arrangement can stop travelling between the copy and
-    // that re-run (a take-over, then a compile into the surplus state), which is exactly M2's false
-    // claim reached by a second path. Setting the label only at the click would leave "arrangement
-    // included" on a field whose value no longer carries one.
-    const publishLink = (url, sent) => {
+    // ONE writer for the address bar and the field, kept as one function because update() re-runs it
+    // on every board change once the link is live.
+    const publishLink = (url) => {
       replaceUrl(url);
       linkInput.value = url;
-      linkInput.setAttribute("aria-label", sent
-        ? "The link that rebuilds this build, arrangement included"
-        : "The link that rebuilds this build, without the arrangement");
     };
 
     copyBtn.addEventListener("click", async () => {
       copyBtn.disabled = true;
       let built = false; // did the link get as far as the address bar and the field?
       try {
-        const { url, arrangement: sent } = await currentUrl();
+        const url = await currentUrl();
         linkLive = true;
-        publishLink(url, sent);
+        publishLink(url);
         linkInput.hidden = false;
         built = true;
         try {
           await navigator.clipboard.writeText(url);
-          // NAMED, not softened: a reader who is told the arrangement travelled and finds it did
-          // not has been handed the one thing this rail exists to add. The refusal's reason is the
-          // reader's own state — more blocks on the canvas than the board has places — so it is said
-          // in those terms rather than as an error.
-          say(sent
-            ? "Link copied. It is in your address bar too, and it rebuilds this board — arrangement included — in any browser."
-            : "Link copied. It is in your address bar too, and it rebuilds this board in any browser." + NO_ARRANGEMENT);
+          say("Link copied. It is in your address bar too, and it rebuilds this board in any browser.");
         } catch {
           // Clipboard access is permissioned and can be refused; the link is still right there.
           linkInput.select();
           say("Your browser did not allow the copy. The link is selected in the field above, so copy it "
-            + "from there." + (sent ? "" : NO_ARRANGEMENT));
+            + "from there.");
         }
       } catch (err) {
         say(`The link could not be built. ${err.message}`);
@@ -530,7 +491,7 @@ export function mountStudioKeep(root, { getBoard, getArrangement, compile, canva
       // clean. No debounce: unlike /build's rail nothing on this page fires per keystroke — the
       // board changes at settle, at take-over and on a restore, which is three times a load.
       if (!linkLive) return;
-      currentUrl().then(({ url, arrangement: sent }) => publishLink(url, sent))
+      currentUrl().then((url) => publishLink(url))
         .catch(() => { /* the note already carries the last thing that happened */ });
     }
 

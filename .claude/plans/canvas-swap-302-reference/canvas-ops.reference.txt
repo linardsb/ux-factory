@@ -1,0 +1,96 @@
+// PARKED AS .txt ON PURPOSE — CI verify's drift-check runs `node --check` over every tracked
+// .mjs, including .claude/plans/. This is a REFERENCE implementation written and driven during
+// #302's planning pass (2026-09-18), not shipped code. Copy it to system/canvas-ops.mjs and
+// adapt; do not import it from anywhere. Its 25 assertions are in canvas-ops.run.txt and all
+// passed — the plan's Task 4.2/4.3 quote the results.
+// Verify before editing:  cp canvas-ops.reference.txt $TMPDIR/c.mjs && node --check $TMPDIR/c.mjs
+
+// P4 — a reference canvas-ops.mjs: six ops, exported frozen PARAMS, deterministic ids, the D4
+// `why` refusal, resolve() flagging a dangling override, and the base-part delete refusal.
+// Run to prove the SHAPE is implementable and every named refusal actually fires.
+export const OPS = Object.freeze(["screen.compose","screen.set","state.add","frame.size","connect","disconnect"]);
+export const PARAMS = Object.freeze({
+  "screen.compose": Object.freeze(["screenId","why","composition","decisionRefs"]),
+  "screen.set":     Object.freeze(["frameId","partId","prop","value"]),
+  "state.add":      Object.freeze(["baseId","stateKey","override"]),
+  "frame.size":     Object.freeze(["frameId","preset"]),
+  connect:          Object.freeze(["from","to","trigger"]),
+  disconnect:       Object.freeze(["arrowId"]),
+});
+export const STATE_KEYS = Object.freeze(["ideal","empty","error","partial","loading"]);
+export const emptyDoc = () => ({ frames: [], arrows: [], notes: [], groups: {}, variants: [], proposals: [] });
+const clone = (d) => structuredClone(d);
+const nextId = (p, taken) => { let n = 1; while (taken.has(`${p}${n}`)) n += 1; return `${p}${n}`; };
+
+export function checkOp(op) {
+  if (!op || typeof op !== "object" || Array.isArray(op)) throw new Error("an op must be an object { op, params }");
+  for (const k of Object.keys(op)) if (k !== "op" && k !== "params")
+    throw new Error(`unknown key "${k}" on the op envelope — an op is exactly { op, params }`);
+  if (!OPS.includes(op.op)) throw new Error(`"${op.op}" is not an op — the vocabulary is ${OPS.join(" · ")}`);
+  const params = op.params;
+  if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error(`${op.op}: "params" must be an object`);
+  const allowed = PARAMS[op.op];
+  for (const k of Object.keys(params)) if (!allowed.includes(k))
+    throw new Error(`${op.op}: unknown param "${k}" — it takes ${allowed.join(", ")} (an op never carries an id for what it creates)`);
+  for (const k of allowed) if (params[k] === undefined && !OPTIONAL[op.op]?.includes(k))
+    throw new Error(`${op.op}: "${k}" is required`);
+  return params;
+}
+const OPTIONAL = { "screen.compose": ["decisionRefs"], "state.add": [], connect: [] };
+
+export function applyOp(doc, op) {
+  if (!doc || !Array.isArray(doc.frames)) throw new Error("applyOp: the doc must carry a frames array");
+  const p = checkOp(op); const next = clone(doc);
+  const frameIds = () => new Set(next.frames.map((f) => f.id));
+  const frame = (id) => { const f = next.frames.find((x) => x.id === id); if (!f) throw new Error(`${op.op}: no frame "${id}" in this document`); return f; };
+  switch (op.op) {
+    case "screen.compose": {
+      if (typeof p.why !== "string" || !p.why.trim())
+        throw new Error(`screen.compose: "why" must be one sentence naming the decision and the reason — a composition nobody can judge is refused (D4)`);
+      next.frames.push({ id: nextId("f", frameIds()), screenId: p.screenId, stateKey: "ideal",
+        width: 390, preset: "phone", device: "mobile", decisionRefs: p.decisionRefs ?? [], composition: p.composition, why: p.why });
+      break;
+    }
+    case "screen.set": { const f = frame(p.frameId); f.composition ??= {}; (f.sets ??= {})[p.partId] = { [p.prop]: p.value }; break; }
+    case "state.add": {
+      const base = frame(p.baseId);
+      if (!STATE_KEYS.includes(p.stateKey)) throw new Error(`state.add: "${p.stateKey}" is not one of the required minimum ${STATE_KEYS.join(" · ")} (the enum is open; declare it on the screen first)`);
+      next.frames.push({ id: nextId("f", frameIds()), baseId: base.id, stateKey: p.stateKey, width: base.width, preset: base.preset, device: base.device, overrides: p.override });
+      break;
+    }
+    case "frame.size": { const f = frame(p.frameId); const w = PRESETS[p.preset]; if (!w) throw new Error(`frame.size: "${p.preset}" is not a device preset — the table is ${Object.keys(PRESETS).join(", ")}`); f.preset = p.preset; f.width = w; break; }
+    case "connect": { frame(p.from.frameId); frame(p.to.frameId);
+      next.arrows.push({ id: nextId("a", new Set(next.arrows.map((a) => a.id))), from: p.from, to: p.to, trigger: p.trigger }); break; }
+    case "disconnect": { const i = next.arrows.findIndex((a) => a.id === p.arrowId); if (i < 0) throw new Error(`disconnect: no arrow "${p.arrowId}"`); next.arrows.splice(i, 1); break; }
+    default: throw new Error(`"${op.op}" is not an op`);
+  }
+  return next;
+}
+const PRESETS = { phone: 390, "phone-lg": 430, tablet: 834, desktop: 1440 };
+export function applyOps(ops, doc = emptyDoc()) {
+  if (!Array.isArray(ops)) throw new Error("applyOps: ops must be an array");
+  let acc = doc;
+  ops.forEach((o, i) => { try { acc = applyOp(acc, o); } catch (e) { throw new Error(`op ${i} (${o?.op ?? "?"}): ${e.message}`); } });
+  return acc;
+}
+// resolve(): a dangling override is FLAGGED and shown, never dropped.
+export function resolve(base, override) {
+  const parts = new Set(Object.keys(base?.parts ?? {}));
+  const flags = [];
+  const out = structuredClone(base ?? { parts: {} });
+  for (const [pid, props] of Object.entries(override?.set ?? {})) {
+    if (!parts.has(pid)) { flags.push({ kind: "dangling-set", partId: pid }); continue; }
+    out.parts[pid] = { ...out.parts[pid], ...props };
+  }
+  for (const pid of override?.hide ?? []) {
+    if (!parts.has(pid)) { flags.push({ kind: "dangling-hide", partId: pid }); continue; }
+    out.parts[pid].hidden = true;
+  }
+  return { resolved: out, flags };
+}
+export function canDeleteBasePart(doc, baseId, partId) {
+  const blockers = doc.frames.filter((f) => f.baseId === baseId &&
+    (Object.hasOwn(f.overrides?.set ?? {}, partId) || (f.overrides?.hide ?? []).includes(partId)));
+  if (blockers.length) throw new Error(`cannot delete part "${partId}": ${blockers.map((b) => `${b.stateKey} (${b.id})`).join(", ")} still override it`);
+  return true;
+}

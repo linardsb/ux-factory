@@ -2706,29 +2706,15 @@ async function keepPass(browser, t, errors) {
     parsed.tiles === boardCounts.places, `${parsed.tiles} tiles for ${boardCounts.places} places`);
   t("#210 · …and it carries no script at all — nothing in it can run, and nothing needs to",
     parsed.scripts === 0, `${parsed.scripts} script(s)`);
-  const canvasSlots = await p1.locator(`${VIEWPORT} .stx-slot`).evaluateAll((ws) => ws.map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`));
-
-  // --- 3 · the copy click, the address bar, and the `g` field only this page can produce ---------
+  // --- 3 · the copy click, and the address bar --------------------------------------------------
   //
-  // THE MOVE FIRST, AND IT IS WHAT MAKES EVERY COORDINATE ASSERTION BELOW A DISCRIMINATOR. The
-  // replay places every block at { col: index + 1, row: 1 } (replay-driver.mjs:499-503), which is
-  // byte-for-byte what arrangeBoard produces with no `g` in the link at all (studio.mjs:90-92) — so
-  // the receiver in section 6 reached the identical layout whether or not studio.mjs:396-399 ever
-  // applied the sender's field. Deleting that whole restore branch left this pass green, which
-  // means the `?b=` arrangement round trip had running-page coverage of its ENCODE half and none of
-  // its DECODE half: the `check-that-cannot-fail` shape, in the check written for the ticket's
-  // headline claim. One block off row 1 — through the same getVerbs() injection seam #205 uses,
-  // never a window.__ global — is the whole fix. (PR #241 review, Medium 3.)
-  const movedId = await idAt(p1, 2, 1);
-  await inject(p1, { type: "ui.move", source: "agent", target: { component: "block", id: movedId }, params: { col: 2, row: 3 } });
-  await p1.waitForFunction((id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`)?.getAttribute("data-row") === "3",
-    movedId, { timeout: 5000 });
-  const movedSlots = await p1.locator(`${VIEWPORT} .stx-slot`).evaluateAll((ws) => ws.map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`));
-  // The anti-vacuity guard on the guard: if the injection silently did nothing, the arrangement is
-  // the default one again and everything downstream is back to proving nothing.
-  t("#210 · …and the arrangement about to be copied is NOT the default row-1 one, or nothing below can fail",
-    JSON.stringify(movedSlots) !== JSON.stringify(canvasSlots) && movedSlots.some((s) => !s.endsWith("-r1")),
-    `${JSON.stringify(movedSlots)} vs ${JSON.stringify(canvasSlots)}`);
+  // NO ARRANGEMENT ASSERTION, AND NO MOVE BEFORE THE COPY (#302). Until v3 the link carried the
+  // sender's grid arrangement in `g`, and this section asserted that it came back — with a
+  // deliberate off-row-1 move first, added by PR #241's Medium 3, that existed ONLY to make that
+  // assertion a discriminator (the replay's default layout and arrangeBoard's answer are
+  // byte-identical, so without the move the receiver reached the same layout whether the field was
+  // applied or not). `g` is retired with the grid. The move and the assertion go together: keeping
+  // the move and comparing positions would be asserting that the rank layout equals itself.
   await p1.locator("[data-keep-share] button").click();
   await p1.waitForTimeout(400);
   const shared = p1.url();
@@ -2742,16 +2728,14 @@ async function keepPass(browser, t, errors) {
     const param = new URL(location.href).searchParams.get(SHARE_PARAM);
     if (!param) return { reason: "no ?b= in the address bar at all" };
     const { state, reason } = await decodeBuild(param);
-    return { reason, places: state && state.board.places.length, arrangement: state && state.arrangement };
+    return { reason, places: state && state.board.places.length, arrangement: state && "arrangement" in state };
   });
   t("#210 · …and it decodes back to this board", decoded.places === onCanvas, JSON.stringify(decoded).slice(0, 160));
-  // THE HEADLINE. /build's rail structurally cannot produce a `g` — it has no canvas — so this is
-  // the assertion that distinguishes the two rails, and the codec drops `g` SILENTLY when the
-  // arrangement stops describing the board, which is exactly how this could ship green and wrong.
-  t("#210 · …carrying the ARRANGEMENT, which is the one thing /build's rail cannot express",
-    Array.isArray(decoded.arrangement) && decoded.arrangement.length === onCanvas
-    && JSON.stringify(decoded.arrangement.map((a) => `sx-c${a.col}-r${a.row}`)) === JSON.stringify(movedSlots),
-    JSON.stringify(decoded.arrangement));
+  // The positive half of #302's retirement, asserted rather than left as an absence: a v3 decode
+  // carries no `arrangement` key at all. An always-null key would be a seam a later reader would try
+  // to use, and "the assertion was deleted" is not evidence the field went with it.
+  t("#302 · …and it carries NO arrangement key — the grid, and `g` with it, are retired",
+    decoded.arrangement === false, JSON.stringify(decoded).slice(0, 160));
   await p1.close();
 
   // --- 4 · both routes fire ONCE each, and the real URL comes back -------------------------------
@@ -2841,7 +2825,7 @@ async function keepPass(browser, t, errors) {
     replay: document.querySelector("[data-studio]").getAttribute("data-replay"),
     provenance: document.querySelector("[data-studio]").getAttribute("data-provenance"),
     slots: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
-      .map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`),
+      .map((w) => w.getAttribute("data-stx-name")),
     transport: document.querySelector(".stu-replay-controls")
       ? getComputedStyle(document.querySelector(".stu-replay-controls")).display : "gone",
     note: document.querySelector(".stu-replay-provenance")?.textContent || "",
@@ -2849,11 +2833,14 @@ async function keepPass(browser, t, errors) {
   }));
   t("#210 · the driver mounts DECLINED on a ?b= arrival rather than assembling over the visitor's board",
     declined.replay === "declined", declined.replay);
-  // Against movedSlots, NOT the default row-1 layout the replay produces: the receiver can only
-  // reach these coordinates by applying the link's `g` field, which is what makes this the decode
-  // half's only running-page proof (see section 3's note).
-  t("#210 · …with the SENDER'S board on the canvas, at the SENDER'S coordinates — reachable only through the link's `g`",
-    JSON.stringify(declined.slots) === JSON.stringify(movedSlots), `${JSON.stringify(declined.slots)} vs ${JSON.stringify(movedSlots)}`);
+  // THE SENDER'S BOARD, NOT THE SENDER'S COORDINATES (#302). Until v3 this compared the receiver's
+  // slots against the sender's moved ones, because only the link's `g` field could get it there —
+  // that was the decode half's one running-page proof. `g` is retired, so what the link carries is
+  // the board, and the receiver lays it out by the rank rule like any other. The claim shrinks to
+  // what is actually true, rather than being translated into a comparison of a layout with itself.
+  t("#210 · …with the SENDER'S board on the canvas — the places came through the link",
+    declined.slots.length === onCanvas && declined.slots.every((n) => typeof n === "string" && n.length > 0),
+    `${JSON.stringify(declined.slots)} for ${onCanvas} place(s)`);
   t("#210 · …and NOTHING was emitted — a declined driver plays no beat at all",
     declined.acts.length === 0, JSON.stringify(declined.acts));
   t("#210 · …the transport is genuinely not painted (COMPUTED display — `hidden` is inert under an author rule)",

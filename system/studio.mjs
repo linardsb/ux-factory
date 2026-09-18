@@ -63,7 +63,7 @@
 // Node-import safe: no DOM outside a function body, and the self-boot at the bottom is behind a
 // `typeof document` guard, because tooling/build-checks.mjs imports this file for its pure layer.
 
-import { initStudioCanvas, MAX_COLS, clampSlot } from "./studio-canvas.mjs";
+import { initStudioCanvas } from "./studio-canvas.mjs";
 import { mountCanvasVerbs } from "./studio-verbs.mjs";
 import { mountCanvasSelect } from "./studio-select.mjs";
 import { mountCompile } from "./studio-compile.mjs";
@@ -441,17 +441,11 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // closing note renders from this, so it can never credit the run with a board it did not build.
   let boardProvenance = declined ? "restored" : "run";
 
-  // THE SENDER'S ARRANGEMENT, WHEN THE LINK CARRIED ONE. decodeBuild returns [{ id, col, row }] in
-  // board order with every id taken from the validated place at that index and never from the
-  // payload (build-share.mjs:452), and every pair already inside the grid — so this is a lookup, not
-  // a second validation. clampSlot all the same, because "on the grid" has ONE definition
-  // (studio-canvas.mjs:50) and the day the caps move it is the only line that must be right.
-  // Without a `g` the link still restores the board, laid out along row 1 like any other.
-  let arranged = arrangeBoard(board);
-  const sent = restored && Array.isArray(restored.arrangement) ? restored.arrangement : null;
-  if (sent && sent.length === arranged.length) {
-    arranged = arranged.map((entry, i) => ({ ...entry, ...clampSlot({ col: sent[i].col, row: sent[i].row }) }));
-  }
+  // ONE LAYOUT, AND IT IS COMPUTED HERE (#302). Until v3 a link could carry the sender's own
+  // arrangement in `g` and this branch applied it over arrangeBoard's answer. `g` is retired with
+  // the grid — a free position means nothing to a receiver whose stage is a different size — so a
+  // restored link is laid out exactly as any other board is, by the rule below and nothing else.
+  const arranged = arrangeBoard(board);
   for (const entry of arranged) {
     canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
   }
@@ -547,18 +541,6 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // called and the other is not, one of the two layers is wired to elements that are gone.
   let docs = null;
 
-  // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
-  // studio's standing correspondence: studio-compile.mjs:382-383's positional swap and
-  // replay-driver.mjs's rename-in-place both rest on it). This is the one thing /build's rail
-  // structurally cannot produce, and it is what #208's `g` field carries. Read live rather than
-  // tracked, for the reason the beat reads the board live: the verbs, the driver and an undo all
-  // write these two attributes, and a mirror here would be a second copy of the arrangement that
-  // could disagree with the canvas the reader is looking at.
-  const arrangementNow = () => [...canvas.stage.querySelectorAll(".stx-slot")].map((w) => ({
-    col: Number(w.getAttribute("data-col")),
-    row: Number(w.getAttribute("data-row")),
-  }));
-
   const publishBoard = (finalBoard, provenance) => {
     // Only a caller that CLAIMS a provenance moves it (#214's adoptBoard passes "drafted");
     // settle and take-over pass nothing and inherit whatever the board already was.
@@ -621,12 +603,11 @@ function mountStudioCore(root, shell, restored, opts = {}) {
 
   // #210's keep rail, LAST — after the driver, so the board it reads is the one the driver is
   // about to fill, and so its own `finally` handle resolves where the gates already wait. Mounted
-  // from here rather than self-booting on its own script tag: it takes the board, the arrangement,
-  // the beat and the canvas, and all four are this file's, so a tag would have to reach them
-  // through getStudio() and would race the ?b= branch below.
+  // from here rather than self-booting on its own script tag: it takes the board, the beat and the
+  // canvas, and all three are this file's, so a tag would have to reach them through getStudio() and
+  // would race the ?b= branch below.
   keep = mountStudioKeep(root.querySelector("[data-studio-keep]"), {
     getBoard: () => board,
-    getArrangement: arrangementNow,
     compile,
     canvas,
   });

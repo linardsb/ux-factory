@@ -1,0 +1,60 @@
+// The 25-assertion drive over canvas-ops.reference.txt. Parked as .txt for the same reason.
+
+import { OPS, PARAMS, applyOp, applyOps, emptyDoc, resolve, canDeleteBasePart } from "./p4-ops.mjs";
+const t = (label, ok, detail = "") => console.log(`${ok ? "✓" : "✗"} ${label}${detail ? "  — " + detail : ""}`);
+const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+
+// roster, both directions + frozen by mutation
+t("OPS ↔ PARAMS are the same six verbs",
+  OPS.length === 6 && Object.keys(PARAMS).length === 6 && OPS.every((v) => Array.isArray(PARAMS[v])) && Object.keys(PARAMS).every((v) => OPS.includes(v)));
+for (const [l, a] of [["OPS", OPS], ...OPS.map((v) => [`PARAMS.${v}`, PARAMS[v]])]) {
+  const n = a.length;
+  t(`${l} frozen by mutation`, Object.isFrozen(a) && threw(() => a.push("smuggled")) !== null && a.length === n);
+}
+// the spine, six ops
+const comp = { name: "stack", props: { direction: "column", gap: "md" }, children: [] };
+const SPINE = [
+  { op: "screen.compose", params: { screenId: "confirm-payee", why: "D-14: the payee name must be confirmed before money moves", composition: comp } },
+  { op: "frame.size",     params: { frameId: "f1", preset: "phone" } },
+  { op: "state.add",      params: { baseId: "f1", stateKey: "error", override: { set: { p2: { hint: "No match" } }, hide: [] } } },
+  { op: "connect",        params: { from: { frameId: "f1", partId: "p3" }, to: { frameId: "f2" }, trigger: "click" } },
+  { op: "screen.set",     params: { frameId: "f1", partId: "p3", prop: "label", value: "Send payment" } },
+  { op: "disconnect",     params: { arrowId: "a1" } },
+];
+const doc = applyOps(SPINE.slice(0, 5));
+t("the spine's five ops apply", doc.frames.length === 2 && doc.arrows.length === 1,
+  `frames ${doc.frames.map((f) => f.id).join(",")} arrows ${doc.arrows.map((a) => a.id).join(",")}`);
+t("ids are DETERMINISTIC across two runs",
+  JSON.stringify(applyOps(SPINE.slice(0, 5))) === JSON.stringify(doc));
+t("disconnect removes the arrow", applyOps(SPINE).arrows.length === 0);
+t("no op's PARAMS carries an id for what it creates",
+  !PARAMS["screen.compose"].includes("frameId") && !PARAMS["state.add"].includes("frameId") && !PARAMS.connect.includes("arrowId"));
+
+// D4 — the required why, BOTH ways
+const noWhy  = threw(() => applyOp(emptyDoc(), { op: "screen.compose", params: { screenId: "s", composition: comp } }));
+const emptyWhy = threw(() => applyOp(emptyDoc(), { op: "screen.compose", params: { screenId: "s", why: "", composition: comp } }));
+const blankWhy = threw(() => applyOp(emptyDoc(), { op: "screen.compose", params: { screenId: "s", why: "   ", composition: comp } }));
+t("D4 · why ABSENT is refused",  noWhy !== null && /why/.test(noWhy), noWhy);
+t("D4 · why EMPTY is refused",   emptyWhy !== null && /why/.test(emptyWhy));
+t("D4 · why BLANK is refused",   blankWhy !== null && /why/.test(blankWhy));
+
+// malformed
+t("an unknown param is refused by name", /unknown param "colour"/.test(threw(() => applyOp(emptyDoc(), { op: "frame.size", params: { frameId: "f1", preset: "phone", colour: "red" } })) ?? ""));
+t("an unknown envelope key is refused",  /unknown key "note"/.test(threw(() => applyOp(emptyDoc(), { op: "disconnect", params: { arrowId: "a1" }, note: "x" })) ?? ""));
+t("an unknown verb is refused",          /is not an op/.test(threw(() => applyOp(emptyDoc(), { op: "frame.nudge", params: {} })) ?? ""));
+t("a dangling frame ref is refused",     /no frame "f9"/.test(threw(() => applyOp(doc, { op: "frame.size", params: { frameId: "f9", preset: "phone" } })) ?? ""));
+t("a stateKey off the minimum is refused", /not one of the required minimum/.test(threw(() => applyOp(doc, { op: "state.add", params: { baseId: "f1", stateKey: "vibes", override: {} } })) ?? ""));
+
+// resolve — dangling FLAGGED, never dropped
+const base = { parts: { p1: { label: "Send" } } };
+const r = resolve(base, { set: { p1: { label: "Send anyway" }, p9: { label: "ghost" } }, hide: ["p7"] });
+t("resolve applies the live override", r.resolved.parts.p1.label === "Send anyway");
+t("resolve FLAGS the dangling ones, never drops them silently", r.flags.length === 2,
+  JSON.stringify(r.flags));
+t("resolve is pure (base untouched)", base.parts.p1.label === "Send");
+
+// deleting a base part while a state overrides it
+t("deleting an overridden base part is REFUSED",
+  /still override it/.test(threw(() => canDeleteBasePart(doc, "f1", "p2")) ?? ""),
+  threw(() => canDeleteBasePart(doc, "f1", "p2")));
+t("deleting an UNoverridden base part is allowed", canDeleteBasePart(doc, "f1", "p5") === true);

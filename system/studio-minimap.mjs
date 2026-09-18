@@ -68,7 +68,7 @@
 // Node-import safe: no DOM outside a function body and no self-boot — system/studio.mjs mounts
 // this exactly as it mounts the layers list. build-checks group 26 drives the pure layer.
 
-import { FRAME_CLASS, MOVABLE, ZOOM_LEVELS } from "./studio-canvas.mjs";
+import { FRAME_CLASS, MOVABLE } from "./studio-canvas.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 26 drives it in CI with no browser. The
