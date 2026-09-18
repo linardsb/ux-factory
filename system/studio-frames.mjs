@@ -18,10 +18,10 @@
 //     structurally cannot make.
 //
 //  2. THE FOURTH GRID FAMILY, NOT A FIFTH .stx-slot. `.stx-slot` means BOARD WRAPPER:
-//     studio-compile.mjs's identity and count tripwires, studio.mjs's arrangementNow() (#208's `g`)
-//     and adoptBoard's removal loop all depend on that meaning. Teaching four shipped mechanisms and
-//     ~100 driver assertions the difference between a wrapper and a frame costs far more than one
-//     exported selector; .stx-guide and .stx-menu (#217) made the same call and left the registry
+//     studio-compile.mjs's identity and count tripwires and adoptBoard's removal loop both depend
+//     on that meaning (arrangementNow, the third reader, went with #302's codec field). Teaching
+//     four shipped mechanisms and ~100 driver assertions the difference between a wrapper and a
+//     frame costs far more than one exported selector; .stx-guide and .stx-menu (#217) made the same call and left the registry
 //     (build-checks group 12's GRID_FAMILIES) that catches a fourth.
 //
 //  3. IT DRAWS NO WRAPPER. studio-canvas.mjs's place() builds it, through one `kind: "frame"` branch,

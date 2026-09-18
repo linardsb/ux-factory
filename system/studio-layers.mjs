@@ -10,7 +10,8 @@
 //     MutationObserver flush; nothing here remembers an arrangement, a name or a selection, so there
 //     is no second copy to disagree with the canvas the reader is looking at (studio-select.mjs
 //     call 1's reasoning, applied to a whole panel). DOM order is board order — the studio's
-//     standing correspondence (studio.mjs's arrangementNow) — so the list needs no sort.
+//     standing correspondence, which studio-compile.mjs's positional swap rests on — so the list
+//     needs no sort.
 //  2. THE SELECTION IS WRITTEN THROUGH applySelection AND NOWHERE ELSE. A row press calls the one
 //     writer studio-select.mjs exposes; this module never touches data-stx-selected itself, so the
 //     journey's set-identity assertions keep asserting a wiring rather than a coincidence — and the

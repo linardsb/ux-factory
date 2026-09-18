@@ -215,8 +215,8 @@ import { assembleReducer, hookComplete, RENDER_SOURCES, verdictFor } from "../sy
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
-import { clampSlot, fitLevel, MAX_COLS, MAX_ROWS, ZOOM_LEVELS, ZOOM_REST } from "../system/studio-canvas.mjs";
-import { createHistory, DIRS, groupDelta, groupOccupancy, groupStep, guidesFor, hitSlot, HISTORY_MAX, occupancyKey, SPOKEN_MAX, stepSlot } from "../system/studio-verbs.mjs";
+import { MIN_SIZE, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
+import { createHistory, DIRS, HISTORY_MAX, SPOKEN_MAX } from "../system/studio-verbs.mjs";
 import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_ITEMS, MENU_SELECT, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
@@ -346,6 +346,15 @@ function domStub(baseURI = "https://example.test/page") {
     getAttribute(k) { return Object.hasOwn(this.attrs, k) ? this.attrs[k] : null; },
     appendChild(c) { this.children.push(c); return c; },
     addEventListener() {},
+    // A CSSStyleDeclaration's custom-property half, and only that half (#302). setPos and setScale
+    // reach nothing else: no longhand, no cssText, no priority argument. Deliberately NOT a
+    // Proxy — a faithful recorder of four calls is what group 12 needs, and anything richer would
+    // be a second implementation of the thing under test.
+    style: {
+      props: Object.create(null),
+      setProperty(k, v) { this.props[k] = String(v); },
+      getPropertyValue(k) { return Object.hasOwn(this.props, k) ? this.props[k] : ""; },
+    },
   });
   return {
     baseURI,
@@ -386,6 +395,16 @@ function domStubControl() {
   ok(stubFindAll(p, "em").length === 1, "the DOM stub does not record appended children — the tree walkers below would find nothing");
   ok(stubText(p) === "inner tail", `the DOM stub does not compose depth-first text — got ${JSON.stringify(stubText(p))}`);
   ok(d.baseURI === "https://example.test/page", "the DOM stub carries no baseURI — safeHref would refuse every site-relative href for the wrong reason");
+  // The style half, controlled on the same terms: group 12 drives setPos and setScale THROUGH this,
+  // and a stub that silently dropped a setProperty would make every clamp assertion pass on nothing.
+  const styled = d.createElement("div");
+  styled.style.setProperty("--x", "12px");
+  ok(styled.style.getPropertyValue("--x") === "12px",
+    "the DOM stub does not record a custom property — every setPos/setScale assertion driven through it is meaningless");
+  ok(styled.style.getPropertyValue("--nope") === "",
+    "the DOM stub reports an unwritten custom property as something other than the empty string — the optional --h assertions would read a ghost");
+  ok(d.createElement("div").style.getPropertyValue("--x") === "",
+    "the DOM stub SHARES one style object across elements — every per-element assertion below would read the last write from anywhere");
 }
 
 const answersWith = (patch) => ({ ...DEFAULT_ANSWERS, ...patch });
@@ -916,8 +935,12 @@ const sample = {
     if (!state) continue;
     ok(buildFields(state) === buildFields(entry.state),
       `the frozen v1 link "${entry.label}" (${entry.branch}) restores to a DIFFERENT build than it did under v1`);
-    ok(state.arrangement === null,
-      `the frozen v1 link "${entry.label}" acquired an arrangement (${JSON.stringify(state.arrangement)}) — a v1 payload carries none, not an empty one and not a default`);
+    // THE KEY IS GONE, NOT NULL (#302). Until v3 this asserted `state.arrangement === null`, and the
+    // distinction it was drawing — no arrangement is a different fact from an empty one — is now
+    // drawn by the field not existing at all. `=== null` would pass for an absent key too, so the
+    // assertion is on OWNERSHIP: a key nothing can ever set is a seam a later reader would use.
+    ok(!Object.hasOwn(state, "arrangement"),
+      `the frozen v1 link "${entry.label}" decoded to a state carrying an arrangement key (${JSON.stringify(state.arrangement)}) — #302 retired the field, and an always-null key is a seam, not an absence`);
     if (entry.branch === "raw") {
       ok(await encodeBuild(state, { compress: false }) === entry.param,
         `re-encoding the frozen v1 link "${entry.label}" is no longer byte-identical to the param v1 emitted`);
@@ -929,36 +952,18 @@ const sample = {
     }
   }
 
-  // --- the arrangement round-trip (#208) ---------------------------------------------------------
-  // Slots chosen so the case is not accidentally the encoder's own default: two rows, not row 1.
-  const arranged = {
-    ...sample,
-    arrangement: sample.board.places.map((place, i) => ({ id: place.id, col: i + 2, row: (i % 2) + 1 })),
-  };
-  {
-    const param = await encodeBuild(arranged, { compress: false });
-    const { state, reason } = await decodeBuild(param);
-    ok(state !== null, `a build with an arrangement failed to decode: ${reason}`);
-    if (state) {
-      ok(JSON.stringify(state.arrangement) === JSON.stringify(arranged.arrangement),
-        `the arrangement did not round-trip value-for-value: ${JSON.stringify(state.arrangement)}`);
-      ok(await encodeBuild(state, { compress: false }) === param,
-        "decoding and re-encoding an arrangement did not produce the identical param");
-      // `g` in the payload must not disturb what the receiver RECOMPUTES.
-      ok(patternFor(state).id === patternFor(arranged).id, "a payload carrying an arrangement recomputed a different pattern");
-    }
-    // The consistency rule, from the encoder's side: an arrangement for a board that is no longer
-    // this board is DROPPED rather than realigned, and dropping it takes the payload back to v1.
-    const shorter = { ...arranged, arrangement: arranged.arrangement.slice(0, 1) };
-    const dropped = await encodeBuild(shorter, { compress: false });
-    ok(dropped === await encodeBuild(sample, { compress: false }),
-      "an arrangement whose length disagrees with the board must be omitted, leaving the byte-identical v1 param");
-    const offGrid = { ...arranged, arrangement: arranged.arrangement.map((s, i) => (i ? s : { ...s, col: MAX_COLS + 1 })) };
-    ok(await encodeBuild(offGrid, { compress: false }) === await encodeBuild(sample, { compress: false }),
-      "an off-grid slot must make the encoder omit the whole arrangement — it repairs nothing");
-  }
+  // --- the arrangement round-trip: DELETED WITH THE FIELD (#302) --------------------------------
+  // What stood here drove the encoder's consistency rule — an arrangement was emitted only when it
+  // described the board being sent, and dropped WHOLE (back to a byte-identical v1 param) the moment
+  // it stopped. Four cases, and none of them has a subject any more: `g` is retired, so every encode
+  // this builder performs is the v1 param, which is exactly what the frozen-fixture loop above
+  // asserts byte-for-byte. Translating them would mean asserting that the only shape the encoder can
+  // produce is the only shape the encoder can produce.
+  //
+  // THE REFUSALS THAT REPLACED THEM ARE GROUP 5'S, and they are driven rather than dropped: a v2
+  // payload, and a v1-or-v3 payload smuggling `g`, each refused with its own sentence.
 
-  group("codec", `both branches round-trip · the pattern recomputes to the sender's · ${v1Fixtures.length} frozen v1 links (both branches + a real browser capture) restore byte-identically and gain no arrangement · the arrangement round-trips, re-encodes identically, and is DROPPED whole when it stops describing the board`);
+  group("codec", `both branches round-trip · the pattern recomputes to the sender's · ${v1Fixtures.length} frozen v1 links (both branches + a real browser capture) restore byte-identically and decode to a state carrying NO arrangement key at all — asserted by ownership, not by === null, because an always-null key would satisfy that and is a seam a later reader would use. #302 retired the g field and with it the four-case encoder-consistency block that stood here: every encode this builder performs is now the v1 param, which is what the byte-identity loop above already asserts, so translating them would assert that the encoder's only shape is its only shape. The refusals that replaced them are group 5's, driven there`);
 }
 
 // --- 5 · the tamper battery ---------------------------------------------------------------------------
@@ -1414,10 +1419,20 @@ function scanSvg(svg, label) {
   // one file would have stayed green the day a second write appeared in build-keep.mjs or
   // pattern-render.mjs — a gap an adversarial review of PR #145 named explicitly.
   //
-  // studio-canvas.mjs (#204) joins the list with NO exception argued, which is the whole reason its
-  // zoom is a level table selected by an attribute rather than a scale written to an element: it
-  // makes zero inline-style writes, so `writes === 1` below stays literally true and the
-  // `file === "build-import.mjs"` assertion is never reached for it. Every exception is a sentence
+  // studio-canvas.mjs USED TO join the list with no exception argued — that was the whole reason its
+  // zoom was a level table selected by an attribute rather than a scale written to an element, and
+  // the reason a frame resized in grid spans rather than px. #302 retired the grid, so the module
+  // now writes --x/--y/--w/--h and a continuous --stx-scale, and the gate moved with it rather than
+  // being widened.
+  //
+  // THE MOVE IS A CHANGE OF KIND, NOT OF MEMBERSHIP, and getting that wrong is the whole risk. The
+  // obvious fix — add "studio-canvas.mjs" beside "build-import.mjs" in the file-scoped exception —
+  // satisfies #302's words and DELETES the invariant: every write a future implementer could add
+  // anywhere in that 600-line file would pass. So the exception below is FUNCTION-SCOPED: the two
+  // named writers are sliced out of the source by brace matching, each is held to an exact budget,
+  // and the file's TOTAL must equal the sum of its slices — which is the clause that makes a write
+  // outside them fail. Proven able to fail on all four mutations, including that file-scoped
+  // shortcut; see the report's Proving the checks table. Every exception is a sentence
   // a future reader has to trust.
   //
   // studio-verbs.mjs (#205) joins on the same terms, and it is the more interesting case because it
@@ -1485,12 +1500,57 @@ function scanSvg(svg, label) {
   // view-transition name and class on the page is a constant in build.html's stylesheet.
   const STYLE_WRITE = /\.setProperty\(|\.style\.[A-Za-z]\w*\s*=[^=]/g;
   const ALLOWED_DIRECT = /\.style\.viewTransitionName\s*=[^=]/g;
+
+  // THE NAMED WRITERS AND THEIR EXACT BUDGETS (#302). setPos writes four custom properties — --x,
+  // --y, --w and the optional --h — and setScale three: --stx-scale plus the two scroll-extent
+  // values, which are written in the SAME call precisely so the scale and the extent cannot
+  // disagree for a frame. A budget rather than "at least one": a fifth write inside setPos is as
+  // much a new write site as one in a new function, and only an exact number catches it.
+  const NAMED_WRITERS = { "studio-canvas.mjs": { setPos: 4, setScale: 3 } };
+
+  // Slice a function body by brace matching from its declaration. No parser and no dependency —
+  // this file is zero-dep Node — and it handles both forms the studio modules use (a `function`
+  // declaration and a `const name = (...) => {` arrow). A name it cannot find is a FAILURE, never a
+  // silent zero: a renamed writer must fail here rather than quietly take its budget to nothing.
+  const sliceFn = (src, name) => {
+    const decl = new RegExp(`(?:function\\s+${name}\\s*\\(|(?:const|let)\\s+${name}\\s*=\\s*(?:\\([^)]*\\)|[A-Za-z_$][\\w$]*)\\s*=>\\s*\\{)`);
+    const m = decl.exec(src);
+    if (!m) return null;
+    const open = src.indexOf("{", m.index + m[0].length - 1);
+    if (open < 0) return null;
+    let depth = 0;
+    for (let j = open; j < src.length; j += 1) {
+      if (src[j] === "{") depth += 1;
+      else if (src[j] === "}") { depth -= 1; if (!depth) return src.slice(open, j + 1); }
+    }
+    return null;
+  };
+  const writesIn = (text) => ((text || "").match(STYLE_WRITE) || []).length - ((text || "").match(ALLOWED_DIRECT) || []).length;
+
   let writes = 0;
   for (const file of MODULES) {
     const src = readFileSync(join(ROOT, "system", file), "utf8");
     const allowed = (src.match(ALLOWED_DIRECT) || []).length;
-    const calls = (src.match(STYLE_WRITE) || []).length - allowed;
-    if (calls) ok(file === "build-import.mjs", `system/${file} writes an inline style; applyToStage is meant to be the only one`);
+    const calls = writesIn(src);
+    const named = NAMED_WRITERS[file];
+    if (named) {
+      // The per-function budgets, and then the clause that carries the invariant: the file's total
+      // must equal what its named writers account for. Without this line every assertion above is
+      // satisfied by a file that ALSO writes somewhere else entirely.
+      let inSlices = 0;
+      for (const [fn, want] of Object.entries(named)) {
+        const body = sliceFn(src, fn);
+        ok(body !== null, `system/${file}: the named writer ${fn}() cannot be found, so its budget is unchecked — a rename must fail here, not silently pass`);
+        if (body === null) continue;
+        const got = writesIn(body);
+        inSlices += got;
+        ok(got === want, `system/${file}: ${fn}() makes ${got} inline-style writes; the invariant is exactly ${want}`);
+      }
+      ok(calls === inSlices,
+        `system/${file}: ${calls - inSlices} inline-style write(s) OUTSIDE ${Object.keys(named).join(" / ")} — the named-writer exception is function-scoped, not file-scoped`);
+    } else if (calls) {
+      ok(file === "build-import.mjs", `system/${file} writes an inline style; applyToStage, setPos and setScale are meant to be the only ones`);
+    }
     ok(allowed === 0 || file === "breadboard.mjs",
       `system/${file} writes an inline view-transition-name; breadboard.mjs's per-place group id is meant to be the only one`);
     writes += calls;
@@ -1522,7 +1582,12 @@ function scanSvg(svg, label) {
     const raw = src.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g);
     ok(!raw, `system/${file} carries ${raw && raw.length} raw control byte(s) — grep and rg go silent on it; write them as \\u escapes`);
   }
-  ok(writes === 1, `the /build modules make ${writes} inline-style writes in total; the invariant is exactly 1`);
+  // THE WHOLE-LIST TOTAL, moved with the exception rather than dropped: applyToStage's one, plus
+  // setPos's four and setScale's three. It is the second net under the per-file clause above — a
+  // module added to MODULES that writes, and a budget edited without editing this number, are both
+  // caught here.
+  const TOTAL_WRITES = 1 + Object.values(NAMED_WRITERS).reduce((n, m) => n + Object.values(m).reduce((a, b) => a + b, 0), 0);
+  ok(writes === TOTAL_WRITES, `the /build and studio modules make ${writes} inline-style writes in total; the invariant is exactly ${TOTAL_WRITES} (applyToStage 1, setPos 4, setScale 3)`);
 
   const importSrc = readFileSync(join(ROOT, "system/build-import.mjs"), "utf8");
   ok(/function applyToStage\(tokens\) \{\s*\n\s*const vetted = vetTokens\(/.test(importSrc),
@@ -1575,7 +1640,7 @@ function scanSvg(svg, label) {
     ok(Object.keys(r.tokens).length === 1, `vetTokens rejected the legitimate value ${key}: ${good}`);
   }
 
-  group("vetting", `${writes} inline-style write across ${MODULES.length} modules (incl. the studio canvas, its verbs, its orchestrator, its compile beat, its replay driver and #210's exporter + keep rail — the exporter BUILDS a markup string and hands it to a Blob, which is why it joins on the same terms with no exception argued: the ban is on document SINKS, and serialization is a read) · no markup-from-string · pack-boot mirror intact`);
+  group("vetting", `${writes} inline-style writes across ${MODULES.length} modules, FUNCTION-SCOPED since #302 — applyToStage's 1 plus setPos's 4 and setScale's 3, each sliced out of studio-canvas.mjs by brace matching and held to an exact budget, with the file's total asserted EQUAL to the sum of its slices so a write anywhere else in it fails (the file-scoped shortcut a naive fix would take is the mutation that proves this can go red) (incl. the studio canvas, its verbs, its orchestrator, its compile beat, its replay driver and #210's exporter + keep rail — the exporter BUILDS a markup string and hands it to a Blob, which is why it joins on the same terms with no exception argued: the ban is on document SINKS, and serialization is a read) · no markup-from-string · pack-boot mirror intact`);
 }
 
 // --- 8 · the operator path's committed rules --------------------------------------------------------
@@ -2512,199 +2577,166 @@ function scanSvg(svg, label) {
 // --- 12 · the studio canvas ---------------------------------------------------------------------
 
 {
-  // system/studio-canvas.mjs owns the caps and the zoom table; system/studio.css restates every one
-  // of them as a literal, because CSS cannot import. That is the same hand-mirror the pack-boot.js ↔
-  // pack-imported.mjs pair carries in group 7, and it gets the same treatment: pinned EXHAUSTIVELY
-  // and IN BOTH DIRECTIONS, never by a count. "There are MAX_COLS [data-col] rules" passes happily
-  // for a set with a duplicate and a gap, which is the check-that-cannot-fail shape this repo has
-  // already paid for twice.
+  // system/studio-canvas.mjs owns the stage box, the scale bounds and the TWO WRITE HELPERS;
+  // system/studio.css restates the box by hand, because CSS cannot import. That is the same
+  // hand-mirror the pack-boot.js <-> pack-imported.mjs pair carries in group 7, and it gets the same
+  // treatment: pinned in BOTH DIRECTIONS and never by a count.
   //
-  // Every regex below is asserted to have matched SOMETHING before its content is judged. A mirror
-  // check that finds no rules at all and reports green is the same defect wearing a different hat.
+  // WHAT THIS GROUP USED TO BE, so its shrinkage reads as a decision rather than a loss. Until #302
+  // it mirrored a 12 x 8 slot table across four attribute families — 88 position rules, two span
+  // tables, a five-entry scale table — and drove five pure clamp functions over hostile slots. The
+  // grid is retired and all of it is gone. What replaced it is smaller because free positioning IS
+  // smaller: two numbers for the stage, three for the scale, and two functions. The hostile-input
+  // discipline did NOT shrink — it moved from clampSlot's cells to setPos's pixels, and case 12.4
+  // below is the same battery in the new units.
+  //
+  // Every regex is asserted to have matched SOMETHING before its content is judged. A mirror check
+  // that finds no rules at all and reports green is the same defect wearing a different hat.
   const css = readFileSync(join(ROOT, "system/studio.css"), "utf8");
 
-  const declared = (name) => {
-    const m = css.match(new RegExp(`--${name}:\\s*([^;]+);`));
-    return m ? m[1].trim() : null;
-  };
-  ok(declared("stx-cols") === String(MAX_COLS),
-    `studio.css declares --stx-cols: ${declared("stx-cols")} but studio-canvas.mjs exports MAX_COLS ${MAX_COLS}`);
-  ok(declared("stx-rows") === String(MAX_ROWS),
-    `studio.css declares --stx-rows: ${declared("stx-rows")} but studio-canvas.mjs exports MAX_ROWS ${MAX_ROWS}`);
-
-  // The grid rules, both directions: every index in range present, none twice, none out of range.
-  //
-  // THREE SELECTOR FAMILIES SINCE #217, not one. .stx-slot was the only grid child until this
-  // ticket; .stx-guide and .stx-menu are placed by the same two attributes and therefore carry the
-  // same 12 + 8 hand-mirror. Checking only the slots would let a cap move with one of the three
-  // mirrors following it — precisely the drift the exhaustive pin exists to prevent, arriving
-  // through the door the check does not watch.
-  const axis = (selector, attr, max) => {
-    // A FULL regex-literal escape, not just the dot: escaping some metacharacters and leaving the
-    // BACKSLASH unescaped is the classic incomplete-escape bug. `.a\.b` — the CSS spelling of class
-    // "a.b" — came out as `\.a\\.b`, where the escaping backslash is itself consumed and the second
-    // dot reverts to "any character", so the mirror would accept `.a\Xb`. The dot is still the only
-    // metacharacter the three families carry, so the matched index set is unchanged. (`RegExp.escape`
-    // says it in one word, but it lands in Node 23 and the baseline the artifacts are built on is 20.)
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const found = [...css.matchAll(new RegExp(`${escaped}\\[${attr}="(\\d+)"\\]`, "g"))].map((m) => Number(m[1]));
-    ok(found.length > 0, `studio.css has no ${selector}[${attr}] rules at all — the mirror check would pass vacuously`);
-    for (let i = 1; i <= max; i += 1) {
-      ok(found.filter((n) => n === i).length === 1,
-        `studio.css declares ${found.filter((n) => n === i).length} ${selector}[${attr}="${i}"] rules; every index in 1..${max} needs exactly one`);
-    }
-    for (const n of found) ok(n >= 1 && n <= max, `studio.css declares ${selector}[${attr}="${n}"], outside the exported cap of ${max}`);
-  };
-  const GRID_FAMILIES = [".stx-slot", ".stx-guide", ".stx-menu", ".stx-frame"];
-  for (const family of GRID_FAMILIES) {
-    axis(family, "data-col", MAX_COLS);
-    axis(family, "data-row", MAX_ROWS);
-  }
-  // #219's FOURTH family is the first that SPANS, so it carries two more hand-mirrors — and they get
-  // the same exhaustive both-directions treatment for the reason axis() states: a count-based check
-  // ("there are 12 span rules") passes happily for a set with a duplicate and a gap.
-  axis(".stx-frame", "data-span-col", MAX_COLS);
-  axis(".stx-frame", "data-span-row", MAX_ROWS);
-  // Each row-span rule declares its index TWICE — once as the grid span, once as --stx-frame-rows,
-  // which the height calc reads. A height and a span that disagree is a frame claiming grid area it
-  // does not paint for a reason nobody chose, and nothing else in the repo can see it: the pixel gate
-  // masks the frame's content and would re-baseline the wrong height without complaint.
-  const spanRows = [...css.matchAll(/\.stx-frame\[data-span-row="(\d+)"\]\s*\{([^}]*)\}/g)];
-  ok(spanRows.length === MAX_ROWS,
-    `studio.css declares ${spanRows.length} .stx-frame[data-span-row] rule bodies for ${MAX_ROWS} rows`);
-  for (const [, index, body] of spanRows) {
-    ok(new RegExp(`grid-row-end:\\s*span\\s+${index}\\b`).test(body),
-      `.stx-frame[data-span-row="${index}"] does not declare grid-row-end: span ${index}`);
-    ok(new RegExp(`--stx-frame-rows:\\s*${index}\\s*;`).test(body),
-      `.stx-frame[data-span-row="${index}"] declares a --stx-frame-rows that is not ${index} — the height calc and the span would disagree`);
-  }
-  const spanCols = [...css.matchAll(/\.stx-frame\[data-span-col="(\d+)"\]\s*\{([^}]*)\}/g)];
-  ok(spanCols.length === MAX_COLS,
-    `studio.css declares ${spanCols.length} .stx-frame[data-span-col] rule bodies for ${MAX_COLS} columns`);
-  for (const [, index, body] of spanCols) {
-    ok(new RegExp(`grid-column-end:\\s*span\\s+${index}\\b`).test(body),
-      `.stx-frame[data-span-col="${index}"] does not declare grid-column-end: span ${index}`);
-  }
-  // THE SHORTHAND TRAP, pinned rather than remembered. `grid-column: N` is a shorthand and would
-  // reset the span declared by an equal-specificity rule, silently leaving every frame one cell wide
-  // — so the frame's POSITION rules must use the -start longhands. The three non-spanning families
-  // above are free to use the shorthand and do.
-  for (const [, index, body] of [...css.matchAll(/\.stx-frame\[data-col="(\d+)"\]\s*\{([^}]*)\}/g)]) {
-    ok(/grid-column-start:/.test(body) && !/grid-column:/.test(body),
-      `.stx-frame[data-col="${index}"] uses the grid-column SHORTHAND; it resets grid-column-end, so every frame would be one cell wide`);
-  }
-  for (const [, index, body] of [...css.matchAll(/\.stx-frame\[data-row="(\d+)"\]\s*\{([^}]*)\}/g)]) {
-    ok(/grid-row-start:/.test(body) && !/grid-row:/.test(body),
-      `.stx-frame[data-row="${index}"] uses the grid-row SHORTHAND; it resets grid-row-end, so every frame would be one row tall`);
-  }
-  // The frame row unit mirrors the AT-REST slot height. It cannot READ --stx-slot-h, because :638
-  // flips that to 480px in the compiled state and a depicted device must not change size when a
-  // board compiles — so the two are a hand-mirror and this is the pin behind it.
-  // Read out of the .stx-viewport BLOCK rather than by first-match, deliberately: the sheet declares
-  // --stx-slot-h twice (here, and again at the [data-compile-state="rendered"] flip), so a first-match
-  // read is correct only while the at-rest block happens to come first. A reorder would silently
-  // compare 140 against 480 and pass, which is the whole class of check this group exists to not be.
+  // --- 12.1 · the stage box, hand-mirrored both ways -------------------------------------------
+  const stageBlock = css.match(/\n\.stx-stage\s*\{([^}]*)\}/)?.[1] ?? null;
+  ok(stageBlock !== null, "studio.css declares no .stx-stage block at all — every mirror below would pass vacuously");
+  const decl = (block, prop) => block?.match(new RegExp(`(?:^|;|\\{)\\s*${prop}:\\s*([^;]+);`))?.[1]?.trim() ?? null;
+  ok(decl(stageBlock, "width") === `${STAGE_W}px`,
+    `studio.css sets .stx-stage width: ${decl(stageBlock, "width")} but studio-canvas.mjs exports STAGE_W ${STAGE_W} — CSS cannot import, so this pair is a hand-mirror and drifts silently without this line`);
+  ok(decl(stageBlock, "height") === `${STAGE_H}px`,
+    `studio.css sets .stx-stage height: ${decl(stageBlock, "height")} but studio-canvas.mjs exports STAGE_H ${STAGE_H}`);
+  // THE SIZER'S FALLBACKS ARE THE SAME TWO NUMBERS, and that is not decoration: a canvas whose
+  // module has not booted (or whose setScale threw) still has to be the right size, or the scroller
+  // reports zero range and Tab cannot scroll anything into view.
+  const sizerBlock = css.match(/\n\.stx-sizer\s*\{([^}]*)\}/)?.[1] ?? null;
+  ok(sizerBlock !== null, "studio.css declares no .stx-sizer block — the scroll extent would be whatever the scaled stage happens to contribute, which is the engine-dependent thing the sizer exists to replace");
+  ok(decl(sizerBlock, "width") === `var(--stx-extent-w, ${STAGE_W}px)`,
+    `studio.css sets .stx-sizer width: ${decl(sizerBlock, "width")}; it must read --stx-extent-w with STAGE_W (${STAGE_W}px) as the un-booted fallback`);
+  ok(decl(sizerBlock, "height") === `var(--stx-extent-h, ${STAGE_H}px)`,
+    `studio.css sets .stx-sizer height: ${decl(sizerBlock, "height")}; it must read --stx-extent-h with STAGE_H (${STAGE_H}px) as the un-booted fallback`);
+  // The rest scale, mirrored the same way. Read out of the .stx-viewport BLOCK rather than by
+  // first-match: the sheet declares --stx-scale in exactly one place today, and a first-match read
+  // would be correct only for as long as that stays true.
   const viewportBlock = css.match(/\.stx-viewport\s*\{([^}]*)\}/)?.[1] || "";
-  const inViewport = (name) => viewportBlock.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1]?.trim() ?? null;
-  ok(inViewport("stx-slot-h") !== null && inViewport("stx-frame-unit") !== null,
-    "studio.css's .stx-viewport block declares neither --stx-slot-h nor --stx-frame-unit — this pin would pass vacuously");
-  ok(inViewport("stx-frame-unit") === inViewport("stx-slot-h"),
-    `studio.css declares --stx-frame-unit: ${inViewport("stx-frame-unit")} but the AT-REST --stx-slot-h is ${inViewport("stx-slot-h")} — the frames' height unit is a hand-mirror of it, and it cannot read the variable because :638 flips that one to 480px once a board compiles`);
-  // …and no FOURTH family placed by these attributes with no mirror behind it. Derived from the
-  // sheet rather than typed, so a later ticket adding `.stx-thing[data-col="1"]` and stopping at
-  // column 6 fails HERE — where the message says what to do — instead of at column 7 on a reader's
-  // screen. The two flip attributes are deliberately not in this set: they are booleans, not
-  // grid lines, and carry no per-index mirror to drift.
-  const placed = new Set([...css.matchAll(/(\.stx-[a-z-]+)\[data-(?:col|row)="\d+"\]/g)].map((m) => m[1]));
-  for (const family of placed) {
-    ok(GRID_FAMILIES.includes(family),
-      `studio.css places ${family} by data-col/data-row but group 12 does not mirror-check it — add it to GRID_FAMILIES or the ${MAX_COLS}×${MAX_ROWS} mirror drifts silently`);
-  }
+  const inViewport = (name) => viewportBlock.match(new RegExp(`--${name}:\\s*([^;]+?)\\s*(?:;|$)`))?.[1]?.trim() ?? null;
+  ok(inViewport("stx-scale") !== null, "studio.css's .stx-viewport block no longer declares --stx-scale — the stage would have no rest scale and this pin would pass vacuously");
+  ok(Number(inViewport("stx-scale")) === SCALE_REST,
+    `studio.css declares --stx-scale: ${inViewport("stx-scale")} at rest but studio-canvas.mjs exports SCALE_REST ${SCALE_REST}`);
 
-  // The scale table: one rule per level, each declaring exactly that level's scale, and no extras.
-  const zoomRules = [...css.matchAll(/\.stx-viewport\[data-zoom="(\d+)"\]\s*\{\s*--stx-scale:\s*([^;]+);/g)]
-    .map((m) => [Number(m[1]), m[2].trim()]);
-  ok(zoomRules.length > 0, "studio.css has no [data-zoom] scale rules at all — the mirror check would pass vacuously");
-  ok(zoomRules.length === ZOOM_LEVELS.length,
-    `studio.css declares ${zoomRules.length} [data-zoom] rules for ${ZOOM_LEVELS.length} exported ZOOM_LEVELS`);
-  for (let i = 0; i < ZOOM_LEVELS.length; i += 1) {
-    const mine = zoomRules.filter(([idx]) => idx === i);
-    ok(mine.length === 1, `studio.css declares ${mine.length} rules for [data-zoom="${i}"]; exactly one is the contract`);
-    if (mine.length === 1) {
-      ok(Number(mine[0][1]) === ZOOM_LEVELS[i],
-        `studio.css sets --stx-scale: ${mine[0][1]} for [data-zoom="${i}"] but ZOOM_LEVELS[${i}] is ${ZOOM_LEVELS[i]}`);
-    }
-  }
-  ok(ZOOM_LEVELS[ZOOM_REST] === 1, `ZOOM_REST points at ${ZOOM_LEVELS[ZOOM_REST]}; the at-rest level must be 1`);
+  // --- 12.2 · NOTHING is placed by attribute any more ------------------------------------------
+  // The both-directions half of the mirror, inverted. Until #302 this loop asserted that every
+  // family placed by data-col/data-row was one group 12 mirror-checked; now the honest assertion is
+  // that the SET IS EMPTY. Derived from the sheet rather than typed, so a later ticket reaching for
+  // the old mechanism fails HERE, where the message says what to do instead.
+  const placed = [...css.matchAll(/(\.stx-[a-z-]+)\[data-(?:col|row|span-col|span-row|zoom)="\d+"\]/g)].map((m) => m[1]);
+  ok(placed.length === 0,
+    `studio.css still places ${[...new Set(placed)].join(", ")} by a numbered attribute — #302 retired that mechanism; a position is --x/--y written by setPos and a scale is --stx-scale written by setScale`);
+  // …and every node family IS positioned, by the one rule that does it. A family that fell out of
+  // the selector list would sit at the origin under everything else, which reads as a layout bug.
+  const posBlock = css.match(/\n\.stx-slot,\n\.stx-frame,\n\.stx-guide,\n\.stx-menu\s*\{([^}]*)\}/)?.[1] ?? null;
+  ok(posBlock !== null, "studio.css no longer carries the shared four-family position rule — each family would have to repeat translate(var(--x), var(--y)) and they would drift");
+  ok(/transform:\s*translate\(var\(--x[^)]*\),\s*var\(--y[^)]*\)\)/.test(posBlock || ""),
+    "the shared position rule does not translate by var(--x)/var(--y) — setPos writes those two and nothing else reads them");
+  ok(/width:\s*var\(--w/.test(posBlock || ""),
+    "the shared position rule does not read var(--w) — setPos's third write would paint nothing");
+  // --h IS THE FRAME'S ALONE, and asserting that is asserting D-c. A board wrapper has no authored
+  // height; giving .stx-slot an --h fallback would hand every wrapper a height nobody chose, and
+  // framesPass asserts a wrapper carries no size of its own.
+  const frameBlock = css.match(/\n\.stx-frame\s*\{([^}]*)\}/)?.[1] ?? null;
+  ok(frameBlock !== null, "studio.css declares no .stx-frame block — the frames' authored height has nowhere to live");
+  ok(/height:\s*var\(--h/.test(frameBlock || ""),
+    "the .stx-frame block does not read var(--h) — every frame would be its content height, which is the regression deleting the span tables causes if this rule is missed");
+  ok(!/--h[,)]/.test(posBlock || ""),
+    "the SHARED four-family rule reads --h — it is the frame's alone (D-c), and a board wrapper must not get a height nobody chose");
 
-  // clampSlot — the ONE place a slot is validated, so #205's mover and #208's decoder inherit these
-  // answers rather than each clamping in its own way. A decoded "4" is a real input, not a synthetic one.
-  for (const [given, want, why] of [
-    [{ col: 0, row: 0 }, { col: 1, row: 1 }, "zero is off the grid, and the grid is 1-based"],
-    [{ col: MAX_COLS + 5, row: MAX_ROWS + 5 }, { col: MAX_COLS, row: MAX_ROWS }, "past the cap clamps to the cap"],
-    [{ col: -3, row: -3 }, { col: 1, row: 1 }, "negative clamps to 1"],
-    [{ col: 2.7, row: 2.2 }, { col: 3, row: 2 }, "a fraction rounds to a real grid line"],
-    [{ col: "4", row: "6" }, { col: 4, row: 6 }, "a decoded string is coerced, not refused"],
-    [{ col: NaN, row: NaN }, { col: 1, row: 1 }, "NaN never reaches an attribute"],
-    [{ col: Infinity, row: -Infinity }, { col: 1, row: 1 }, "non-finite never reaches an attribute"],
-    [{}, { col: 1, row: 1 }, "an absent slot is the origin"],
-  ]) {
-    const got = clampSlot(given);
-    ok(got.col === want.col && got.row === want.row,
-      `clampSlot(${JSON.stringify(given)}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
-  }
-  ok(clampSlot().col === 1 && clampSlot().row === 1, "clampSlot() with no argument at all should be the origin, not a throw");
+  // --- 12.3 · setPos and setScale exist and are what studio.css reads --------------------------
+  ok(typeof setPos === "function" && typeof setScale === "function",
+    "studio-canvas.mjs no longer exports both write helpers — group 7's function-scoped exception names them, so they are a contract and not an implementation detail");
 
-  // fitLevel — snapping DOWN is the contract, not an approximation of an exact fit: a level ABOVE
-  // the ratio would not fit at all, it would only be closer.
-  const exact = fitLevel(400, 400, 400 / ZOOM_LEVELS[1], 400 / ZOOM_LEVELS[1]);
-  ok(exact === 1, `fitLevel on an exact ${ZOOM_LEVELS[1]} ratio gave index ${exact}, expected 1`);
-  const between = fitLevel(1400, 1400, 1000, 1000); // ratio 1.4 — between levels 2 (1) and 3 (1.5)
-  ok(between === 2, `fitLevel on a 1.4 ratio gave index ${between}, expected 2 — it must snap DOWN or the content overflows`);
-  ok(fitLevel(100, 100, 10000, 10000) === 0, "fitLevel below the smallest level should floor at index 0");
-  ok(fitLevel(10000, 10000, 100, 100) === ZOOM_LEVELS.length - 1, "fitLevel above the largest level should cap at the last index");
-  for (const [w, h, cw, ch, why] of [
-    [400, 300, 0, 600, "a zero content width is a hidden panel measured at call time, not a division by zero"],
-    [400, 300, 800, 0, "a zero content height, likewise"],
-    [0, 0, 800, 600, "a viewport with no box yet"],
-    [400, 300, NaN, 600, "a non-finite measurement"],
-  ]) {
-    ok(fitLevel(w, h, cw, ch) === ZOOM_REST, `fitLevel(${w}, ${h}, ${cw}, ${ch}) should answer ZOOM_REST — ${why}`);
-  }
-
-  // The tripwire, DISCHARGED (#208). It was planted deliberately vacuous — "these caps stay finite
-  // because one day a second module will import them rather than re-type a bound". That day is
-  // here: system/build-share.mjs's decoder rejects an off-grid slot against these two exports. So
-  // the assertion becomes the COUPLING rather than the constants' finiteness, and it greps by
-  // design — a mirror check, the pack-boot.js idiom, with the regex asserted to have matched
-  // something first so a renamed import cannot pass as an absent one.
+  // --- 12.4 · setPos over hostile input — the clamp battery, in pixels -------------------------
+  // clampSlot's discipline, moved to the new units and kept whole: coerce first, never let a
+  // non-finite value reach a property, and clamp to the ONE bound that is left. `--x: NaN` makes the
+  // whole translate() declaration invalid at computed-value time — it drops SILENTLY and the node
+  // renders at 0,0 — so this is not defensive, it is the difference between a refusal and a lie.
   //
-  // What it is really guarding is the tempting shortcut: a codec that wrote `col <= 12` inline
-  // would pass every coordinate case in group 5 and drift silently the day the canvas widens.
-  const codecSrc = readFileSync(join(ROOT, "system/build-share.mjs"), "utf8");
-  const capImport = codecSrc.match(/import\s*\{([^}]*)\}\s*from\s*["']\.\/studio-canvas\.mjs["']/);
-  ok(capImport !== null, "system/build-share.mjs no longer imports from ./studio-canvas.mjs — the grid bounds must come from the canvas, not a re-typed literal");
-  if (capImport) {
-    const named = capImport[1].split(",").map((s) => s.trim());
-    ok(named.includes("MAX_COLS"), `system/build-share.mjs imports {${capImport[1].trim()}} from the canvas but not MAX_COLS`);
-    ok(named.includes("MAX_ROWS"), `system/build-share.mjs imports {${capImport[1].trim()}} from the canvas but not MAX_ROWS`);
+  // Driven through the DOM stub, whose control ran above. Nothing here needs layout.
+  const d12 = domStub();
+  const posOf = (...args) => {
+    const el = d12.createElement("div");
+    setPos(el, ...args);
+    return {
+      x: el.style.getPropertyValue("--x"), y: el.style.getPropertyValue("--y"),
+      w: el.style.getPropertyValue("--w"), h: el.style.getPropertyValue("--h"),
+    };
+  };
+  for (const [args, want, why] of [
+    [[100, 60, 220], { x: "100px", y: "60px", w: "220px", h: "" }, "an ordinary position writes three properties and no height"],
+    [[-40, -40, 220], { x: "0px", y: "0px", w: "220px", h: "" }, "negative clamps to the stage origin"],
+    [[99999, 99999, 220], { x: `${STAGE_W - 220}px`, y: `${STAGE_H}px`, w: "220px", h: "" }, "past the far edge clamps to it, and the x bound accounts for the node's own width"],
+    [[NaN, 0, 220], { x: "0px", y: "0px", w: "220px", h: "" }, "NaN never reaches a property — the whole translate() would drop silently"],
+    [[Infinity, -Infinity, 220], { x: "0px", y: "0px", w: "220px", h: "" }, "non-finite never reaches a property"],
+    [["120", "40", "220"], { x: "120px", y: "40px", w: "220px", h: "" }, "a decoded string is coerced, not refused — clampSlot's rule, kept"],
+    [[10, 10, 2], { x: "10px", y: "10px", w: `${MIN_SIZE}px`, h: "" }, `a width under MIN_SIZE floors at ${MIN_SIZE} — below it the node cannot be picked up by pointer again`],
+    [[10, 10, 220, 300], { x: "10px", y: "10px", w: "220px", h: "300px" }, "a height given is a height written"],
+    [[10, 99999, 220, 300], { x: "10px", y: `${STAGE_H - 300}px`, w: "220px", h: "300px" }, "the y bound accounts for an authored height"],
+    [[10, 10, 220, NaN], { x: "10px", y: "10px", w: "220px", h: `${MIN_SIZE}px` }, "a non-finite height floors rather than writing NaN"],
+    [[undefined, undefined, undefined], { x: "0px", y: "0px", w: `${MIN_SIZE}px`, h: "" }, "an absent everything is the origin at the floor, not a throw"],
+  ]) {
+    const got = posOf(...args);
+    ok(got.x === want.x && got.y === want.y && got.w === want.w && got.h === want.h,
+      `setPos(el, ${args.map((a) => JSON.stringify(a)).join(", ")}) wrote ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
   }
-  // No SECOND literal CAP for a grid axis anywhere in the codec. The 1-based ORIGIN is deliberately
-  // not caught: `col >= 1` is a property of the grid's numbering, not of its size, and it does not
-  // move when the canvas widens — so the filter keeps only comparisons against a number above 1,
-  // which is exactly the shape a re-typed `col <= 12` would take. The regex is asserted to have run
-  // over a file it actually found (the import check above), so an empty match is a real absence.
-  const axisLiterals = (codecSrc.match(/\b(?:col|row)\b\s*(?:<=|>=|<|>|===|!==)\s*(\d+)/g) || [])
-    .filter((m) => Number(m.match(/(\d+)$/)[1]) > 1);
-  ok(axisLiterals.length === 0,
-    `system/build-share.mjs compares a grid axis against a literal cap (${axisLiterals.join(", ")}) — the bound is ${MAX_COLS}×${MAX_ROWS} and it is IMPORTED, so a literal here is a second copy that will drift`);
-  // The divergence, asserted rather than assumed: clampSlot still COERCES "4" (the loop above pins
-  // that), and the codec REJECTS it (group 5 pins that). Both are correct for their caller — a
-  // reader's own gesture versus a stranger's payload — and both files carry a sentence saying so.
-  ok(clampSlot({ col: "4", row: "2" }).col === 4,
-    "clampSlot must keep coercing a string — the codec's rejection of the same value is a different caller's rule, not a bug in this one");
+  // The absent --h is a fact about the WRITE, not about the read. Asserted separately because "" is
+  // also what an unwritten property reads as, and the two would be indistinguishable otherwise.
+  const noH = d12.createElement("div");
+  setPos(noH, 0, 0, 220);
+  ok(!Object.hasOwn(noH.style.props, "--h"),
+    "setPos wrote --h for a call that gave no height — a board wrapper must carry no authored height at all, not an empty one");
+  // …and the return value is what an announcement names: where the node LANDED, never where it was
+  // asked to go. D-d deleted "blocked" as a concept, so this is the only remaining refusal.
+  const landed = setPos(d12.createElement("div"), -50, 99999, 220);
+  ok(landed.x === 0 && landed.y === STAGE_H && landed.w === 220 && landed.h === null,
+    `setPos returned ${JSON.stringify(landed)}; it must answer the position actually written, so the mover's sentence cannot claim a place the node is not in`);
+  ok(threw(() => setPos(null, 0, 0, 220)) !== null,
+    "setPos(null, …) did not throw — a caller that lost its element must fail by name, not write into the void");
 
-  group("canvas", `studio.css mirrors ${MAX_COLS}×${MAX_ROWS} slots and ${ZOOM_LEVELS.length} zoom levels exactly, both directions, across all ${GRID_FAMILIES.length} grid families · #219's FOURTH family also mirrors both SPAN tables exhaustively, each row-span rule proven to declare its own index twice (the span and the --stx-frame-rows the height calc reads), every position rule proven to use the -start LONGHAND (the shorthand silently resets the span), and --stx-frame-unit pinned against the AT-REST --stx-slot-h it hand-mirrors · clampSlot over 8 hostile slots · fitLevel snaps down, floors, caps and survives a zero dimension · the #208 tripwire is DISCHARGED: build-share.mjs imports both caps and re-types neither, while clampSlot keeps coercing what the codec refuses`);
+  // --- 12.5 · setScale: continuous, clamped, and the extent in the same call -------------------
+  const scaleOf = (v) => {
+    const el = d12.createElement("div");
+    const ret = setScale(el, v);
+    return { ret, scale: el.style.getPropertyValue("--stx-scale"), w: el.style.getPropertyValue("--stx-extent-w"), h: el.style.getPropertyValue("--stx-extent-h") };
+  };
+  for (const [given, want, why] of [
+    [1, SCALE_REST, "the rest scale is a SCALE now, not an index into a table"],
+    [0.6180339, 0.6180339, "CONTINUOUS — the whole point of retiring the five-step table is that fit() can land anywhere"],
+    [0, SCALE_MIN, "zero clamps to the floor; a zero-scale stage is invisible and unrecoverable"],
+    [-2, SCALE_MIN, "negative clamps to the floor"],
+    [99, SCALE_MAX, "past the ceiling clamps to it"],
+    [NaN, SCALE_REST, "NaN answers the rest scale — scale(NaN) is invalid and drops silently, which reads as the stage ignoring the zoom"],
+    [undefined, SCALE_REST, "an absent scale is the rest scale"],
+    ["1.5", 1.5, "a string is coerced, not refused"],
+  ]) {
+    const got = scaleOf(given);
+    ok(got.ret === want && Number(got.scale) === want,
+      `setScale(el, ${JSON.stringify(given)}) wrote ${got.scale} and returned ${got.ret}, expected ${want} — ${why}`);
+    ok(got.w === `${STAGE_W * want}px` && got.h === `${STAGE_H * want}px`,
+      `setScale(el, ${JSON.stringify(given)}) wrote an extent of ${got.w} x ${got.h}, expected ${STAGE_W * want}px x ${STAGE_H * want}px — the extent is written in the SAME call so it cannot disagree with the scale for a frame`);
+  }
+  ok(threw(() => setScale(null, 1)) !== null,
+    "setScale(null, …) did not throw — the same refusal setPos makes, for the same reason");
+
+  // --- 12.6 · #208's tripwire, DISCHARGED by deletion -------------------------------------------
+  // The old form asserted build-share.mjs imported both caps and re-typed neither. There is nothing
+  // left to import: `g` is retired, so the codec knows nothing about the canvas at all. The tripwire
+  // inverts — it now asserts the coupling STAYS gone, which is the assertion that would catch a
+  // later ticket reaching for a stage coordinate to put in a URL.
+  const shareSrc = readFileSync(join(ROOT, "system/build-share.mjs"), "utf8");
+  ok(!/from\s+"\.\/studio-canvas\.mjs"/.test(shareSrc),
+    "system/build-share.mjs imports from studio-canvas.mjs again — #302 cut that coupling with the `g` field, and a stage coordinate means nothing to a receiver whose stage is a different size");
+  ok(!/\bg\s*:/.test(shareSrc.replace(/\/\/[^\n]*/g, "")) || !shareSrc.includes("payload.g"),
+    "system/build-share.mjs writes a `g` field again — it is retired, and the decoder refuses one BY NAME");
+  // …and the refusal is DRIVEN, not grepped. A source-text check cannot prove a behaviour.
+  ok(SHARE_VERSION === 3 && SHARE_VERSIONS.length === 2 && SHARE_VERSIONS.includes(1) && SHARE_VERSIONS.includes(3),
+    `build-share.mjs reads v${SHARE_VERSIONS.join(" and v")} writing v${SHARE_VERSION}; #302 moved it to 3 and dropped 2 with the field only 2 could carry`);
+
+  group("canvas", `studio.css hand-mirrors the stage box (${STAGE_W} x ${STAGE_H}) and the rest scale ${SCALE_REST} in BOTH directions, with the sizer's un-booted fallbacks pinned to the same two numbers · the numbered-attribute mechanism proven GONE from the sheet (the set is derived from it, so a later ticket reaching for data-col fails here rather than on a reader's screen) and the four families proven to share ONE position rule, with --h on the frame alone (D-c) · setPos over 11 hostile inputs — negative, past both edges, NaN, non-finite, decoded strings, an under-floor width, an absent everything — never writing a non-finite value, clamping to the stage on both axes with the node's OWN size accounted for, omitting --h entirely when none is given, returning where the node LANDED and throwing on a null element · setScale over 8, continuous between ${SCALE_MIN} and ${SCALE_MAX}, with the scroll extent written in the SAME call · and #208's tripwire discharged by deletion: the codec imports nothing from the canvas, emits no arrangement, and reads v1 and v3 only. What it cannot reach: whether the sheet's translate actually MOVES anything, which needs layout — tooling/studio-journey.mjs owns that, and Gate B owns the claim that the style attribute carries only these seven properties`);
 }
 
 // --- 13 · the canvas verbs ----------------------------------------------------------------------
@@ -2862,125 +2894,6 @@ function scanSvg(svg, label) {
   escapedAdopt.late2.col = 999;
   ok(cloneAdoptH.current().late2.col === 3, "an id adopted into history is handed back as a live reference");
 
-  // --- stepSlot: one arrow step, occupancy-aware and terminating ------------------------------
-  const occ = (...cells) => new Set(cells.map(([col, row]) => occupancyKey({ col, row })));
-  ok(occupancyKey({ col: 3, row: 4 }) === "3,4", `occupancyKey gave ${occupancyKey({ col: 3, row: 4 })}, expected "3,4"`);
-
-  const STEP_CASES = [
-    [{ col: 2, row: 2 }, "ArrowRight", occ(), { col: 3, row: 2 }, "a plain step moves one cell"],
-    [{ col: 2, row: 2 }, "ArrowLeft", occ(), { col: 1, row: 2 }, "and in the other direction"],
-    [{ col: 2, row: 2 }, "ArrowUp", occ(), { col: 2, row: 1 }, "rows step too"],
-    [{ col: 2, row: 2 }, "ArrowDown", occ(), { col: 2, row: 3 }, "…and down"],
-    [{ col: 2, row: 2 }, "ArrowRight", occ([3, 2]), { col: 4, row: 2 }, "one occupied cell is SKIPPED, not landed on"],
-    [{ col: 2, row: 2 }, "ArrowRight", occ([3, 2], [4, 2], [5, 2]), { col: 6, row: 2 }, "a RUN of occupied cells is skipped whole"],
-    [{ col: 1, row: 1 }, "ArrowLeft", occ(), { col: 1, row: 1 }, "a step into the grid edge returns `from` unchanged"],
-    [{ col: 1, row: 1 }, "ArrowUp", occ(), { col: 1, row: 1 }, "…on the row axis too"],
-    [{ col: MAX_COLS, row: MAX_ROWS }, "ArrowRight", occ(), { col: MAX_COLS, row: MAX_ROWS }, "the far corner is an edge in both axes"],
-    [{ col: MAX_COLS, row: MAX_ROWS }, "ArrowDown", occ(), { col: MAX_COLS, row: MAX_ROWS }, "…likewise downward"],
-    // THE TERMINATION PROOF, run rather than reasoned about: a naive `while (occupied)` walk hangs
-    // here. What it proves is stepSlot's GRID-EDGE return, not its iteration bound — mutating the
-    // bound to Infinity leaves both cases below green, because the edge is what the walk reaches.
-    // Recorded in the module's own comment too, so the backstop is not mistaken for the mechanism.
-    [{ col: 1, row: 3 }, "ArrowRight",
-      occ(...Array.from({ length: MAX_COLS - 1 }, (_, i) => [i + 2, 3])),
-      { col: 1, row: 3 }, "a fully occupied direction returns `from` unchanged instead of hanging"],
-    [{ col: 4, row: 1 }, "ArrowDown",
-      occ(...Array.from({ length: MAX_ROWS - 1 }, (_, i) => [4, i + 2])),
-      { col: 4, row: 1 }, "…and on the row axis, whose bound is MAX_ROWS rather than MAX_COLS"],
-    // THE CLAMP ON THE WAY IN, which nothing above could see: every case up to here hands an
-    // ON-GRID `from`, so deleting stepSlot's `clampSlot(from)` left the whole group green. The
-    // module's stated guarantee is "never returns an occupied or off-grid slot" — for ANY input,
-    // not only for the ones its current callers happen to produce. Clamped first, {99,-3} is the
-    // far-right cell of row 1, and one step left from there is a cell; UNclamped, the step walks
-    // off the grid immediately and answers the off-grid `from` itself.
-    [{ col: 99, row: -3 }, "ArrowLeft", occ(), { col: MAX_COLS - 1, row: 1 },
-      "an off-grid `from` is clamped BEFORE the step, not carried into it"],
-  ];
-  for (const [from, key, taken, want, why] of STEP_CASES) {
-    const got = stepSlot(from, DIRS[key], taken);
-    ok(got.col === want.col && got.row === want.row,
-      `stepSlot(${JSON.stringify(from)}, ${key}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
-    // Every returned slot, in every case above: on the grid, and never a cell someone else holds.
-    ok(got.col >= 1 && got.col <= MAX_COLS && got.row >= 1 && got.row <= MAX_ROWS,
-      `stepSlot(${JSON.stringify(from)}, ${key}) returned ${JSON.stringify(got)}, off the ${MAX_COLS}×${MAX_ROWS} grid`);
-    const landedOnAPeer = taken.has(occupancyKey(got)) && !(got.col === from.col && got.row === from.row);
-    ok(!landedOnAPeer, `stepSlot(${JSON.stringify(from)}, ${key}) landed on the occupied cell ${JSON.stringify(got)}`);
-  }
-  ok(deep(stepSlot({ col: 2, row: 2 }, undefined, occ())) === deep({ col: 2, row: 2 }),
-    "stepSlot with no direction should answer `from`, not throw");
-  // …and the no-direction early return answers the CLAMPED `from` rather than the raw one — the
-  // other half of the clamp, on the one path that never reaches the walk.
-  ok(deep(stepSlot({ col: 99, row: -3 }, undefined, occ())) === deep({ col: MAX_COLS, row: 1 }),
-    "stepSlot with no direction handed an off-grid `from` answered off the grid instead of clamping");
-
-  // The caps come from ONE place, asserted BEHAVIOURALLY rather than by grepping the source for a
-  // literal: a step off the right edge lands exactly on the module's exported MAX_COLS, so raising
-  // the export moves this check with it instead of leaving a stale number to be discovered.
-  const toEdge = stepSlot({ col: MAX_COLS - 1, row: 1 }, DIRS.ArrowRight, occ());
-  ok(toEdge.col === MAX_COLS, `a step to the right edge landed on column ${toEdge.col}, not the exported MAX_COLS ${MAX_COLS}`);
-  const toFloor = stepSlot({ col: 1, row: MAX_ROWS - 1 }, DIRS.ArrowDown, occ());
-  ok(toFloor.row === MAX_ROWS, `a step to the bottom edge landed on row ${toFloor.row}, not the exported MAX_ROWS ${MAX_ROWS}`);
-
-  // --- hitSlot: a point in the stage's unscaled local space → a slot ---------------------------
-  // Synthetic geometry: three 100px tracks with a 20px gap, so every band edge is arithmetic a
-  // reader can check by hand. The REAL geometry is studio-journey's to test — whether the CSS grid
-  // still matches what hitSlot assumes is a layout fact, the same split group 12 carries for
-  // --stx-slot-w. Tracks start at 0, 120, 240.
-  const geom = { cols: [100, 100, 100], rows: [100, 100, 100], colGap: 20, rowGap: 20 };
-  for (const [x, y, want, why] of [
-    [10, 10, { col: 1, row: 1 }, "a point inside track 1"],
-    [99, 99, { col: 1, row: 1 }, "…right up to the end of its 100px track"],
-    // THE BAND BOUNDARY ITSELF, which is 120 and not 99: the gap belongs to the track before it, so
-    // track 2's band starts where track 2 starts. Nothing else in this table sits ON an edge, and
-    // without these two rows `n < edge` → `n <= edge` shifts EVERY track boundary by one pixel and
-    // the group stays green.
-    [119, 119, { col: 1, row: 1 }, "the last pixel before a track start still belongs to the track before"],
-    [120, 120, { col: 2, row: 2 }, "…and the first pixel of a track belongs to that track"],
-    [130, 130, { col: 2, row: 2 }, "a point inside track 2"],
-    [250, 250, { col: 3, row: 3 }, "a point inside track 3"],
-    // THE GAP RULE, decided in the module's doc comment rather than discovered here: a point in the
-    // gap between tracks 2 and 3 (x in 220..239) resolves to the track BEFORE it.
-    [230, 230, { col: 2, row: 2 }, "a point in the gap between tracks 2 and 3 resolves to the track BEFORE it"],
-    [110, 110, { col: 1, row: 1 }, "…and the gap between 1 and 2 likewise"],
-    // Past the last track clamps to the LAST TRACK, which on this synthetic geometry is 3 and not
-    // MAX_COLS. Stated as the real rule rather than as the cap: hitSlot cannot invent tracks the
-    // grid does not have, and a geometry shorter than the cap is exactly what an unoccupied stage
-    // reported before #205 gave studio.css explicit grid-template-rows. The cap is asserted below,
-    // over a geometry wide enough for it to be reachable.
-    [99999, 99999, { col: 3, row: 3 }, "a point past the last track clamps to the last track"],
-    [-500, -500, { col: 1, row: 1 }, "a negative point clamps to the origin"],
-    [NaN, NaN, { col: 1, row: 1 }, "a non-finite point answers the origin rather than NaN — clampSlot's posture"],
-    [Infinity, -Infinity, { col: 1, row: 1 }, "…including the infinities"],
-  ]) {
-    const got = hitSlot(x, y, geom);
-    ok(got.col === want.col && got.row === want.row,
-      `hitSlot(${x}, ${y}) gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)} — ${why}`);
-  }
-  // A geometry with no tracks at all is a stage measured before layout, not a crash: the honest
-  // reading of "I cannot measure this" is the origin, exactly as fitLevel answers ZOOM_REST.
-  ok(deep(hitSlot(400, 400, {})) === deep({ col: 1, row: 1 }),
-    "hitSlot over an unmeasured geometry should answer the origin, not NaN or a throw");
-  ok(deep(hitSlot(400, 400, { cols: [100], rows: [100], colGap: 0, rowGap: 0 })) === deep({ col: 1, row: 1 }),
-    "hitSlot past the end of a one-track geometry should clamp to that track");
-
-  // Over a geometry the size of the real grid, the far corner IS the cap — and it is read from the
-  // module's exports, so raising a cap moves this check with it rather than leaving a stale number.
-  const full = {
-    cols: Array.from({ length: MAX_COLS }, () => 100),
-    rows: Array.from({ length: MAX_ROWS }, () => 100),
-    colGap: 0, rowGap: 0,
-  };
-  ok(deep(hitSlot(99999, 99999, full)) === deep({ col: MAX_COLS, row: MAX_ROWS }),
-    `hitSlot past the far corner of a full grid gave ${JSON.stringify(hitSlot(99999, 99999, full))}, expected the exported ${MAX_COLS}×${MAX_ROWS}`);
-
-  // …and it NEVER answers off the grid, whatever it is handed. A geometry with MORE tracks than the
-  // cap is what a drifted stylesheet would produce, and the clamp is what keeps it from reaching an
-  // attribute through the preview path.
-  const over = Array.from({ length: MAX_COLS + 40 }, () => 10);
-  const got = hitSlot(99999, 99999, { cols: over, rows: over, colGap: 0, rowGap: 0 });
-  ok(got.col <= MAX_COLS && got.row <= MAX_ROWS,
-    `hitSlot over a geometry with more tracks than the cap gave ${JSON.stringify(got)}, past ${MAX_COLS}×${MAX_ROWS}`);
-
   // DIRS is the shared arrow vocabulary — four keys, each a unit step on exactly one axis. A
   // diagonal entry here would silently make stepSlot's single-axis bound the wrong bound.
   ok(Object.keys(DIRS).length === 4, `DIRS declares ${Object.keys(DIRS).length} directions, expected 4`);
@@ -2999,134 +2912,7 @@ function scanSvg(svg, label) {
   ok(/^export const SPOKEN_MAX/m.test(readFileSync(join(ROOT, "system/studio-verbs.mjs"), "utf8")),
     "SPOKEN_MAX is no longer a module-scope export of studio-verbs.mjs — studio-select.mjs imports it, and a re-declared copy there is a second bound that drifts");
 
-  // --- the GROUP layer (#217): all-or-nothing steps and honest guides -------------------------
-  // A group step is NOT a loop over stepSlot, and the cases below are shaped to prove exactly that:
-  // stepSlot keeps walking past occupied cells, which for N nodes lands members at DIFFERENT
-  // offsets and deforms the selection. Every "blocked" case is therefore asserted by DEEP EQUALITY
-  // WITH THE INPUT rather than by "did anything move?", which a partial move passes happily.
-  const members = (...pairs) => pairs.map(([id, col, row]) => ({ id, col, row }));
-  const G3 = members(["a", 2, 2], ["b", 3, 2], ["c", 4, 2]);
-
-  // groupOccupancy excludes EVERY member, not just an anchor. Its own case first, because the
-  // group cases below are all built on it and a wrong set makes them fail for the wrong reason.
-  const allSlots = [...G3, { id: "p", col: 6, row: 2 }, { id: "q", col: 2, row: 4 }];
-  const occAll = groupOccupancy(allSlots, G3.map((m) => m.id));
-  ok(deep([...occAll].sort()) === deep(["2,4", "6,2"]),
-    `groupOccupancy gave ${deep([...occAll].sort())}; it must exclude EVERY member and keep every non-member — excluding only an anchor makes a group self-blocking`);
-  ok(groupOccupancy(allSlots, []).size === allSlots.length,
-    "groupOccupancy with no members should hold every slot — the empty selection is not a licence to overlap");
-
-  const GROUP_CASES = [
-    [G3, "ArrowDown", occAll, members(["a", 2, 3], ["b", 3, 3], ["c", 4, 3]),
-      "a clean 3-member step moves every member by the same delta"],
-    // THE CASE MUTATION 2 IS FOR: with an anchor-only occupancy set, b's origin blocks a's
-    // destination and the group cannot move at all.
-    [G3, "ArrowRight", occAll, members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]),
-      "members do not block each other — a step INTO a cell another member is vacating is allowed"],
-    // THE CASE MUTATION 1 IS FOR. c's destination is the non-member peer at 6,2 — so the WHOLE set
-    // stays put. A partially-moved answer (a and b at 4,2/5,2 with c left behind) is the defect,
-    // and only the deep-equality assertion below can see it.
-    [members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]), "ArrowRight", occAll,
-      members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]),
-      "a step blocked by a NON-MEMBER peer returns the set unchanged, never partially moved"],
-    [members(["a", 1, 1], ["b", 2, 1]), "ArrowLeft", new Set(),
-      members(["a", 1, 1], ["b", 2, 1]),
-      "a step blocked by the grid edge returns the set unchanged, even though only ONE member is at the edge"],
-    [members(["a", MAX_COLS, MAX_ROWS]), "ArrowDown", new Set(),
-      members(["a", MAX_COLS, MAX_ROWS]), "the far corner is an edge on the row axis too"],
-    // R8: a selection of EVERY slot has nothing outside it to block, so only the edge can — which
-    // is correct and silent, and is why the blocked sentence names the group (D12).
-    [allSlots, "ArrowRight", groupOccupancy(allSlots, allSlots.map((m) => m.id)),
-      allSlots.map((m) => ({ ...m, col: m.col + 1 })),
-      "a whole-canvas selection moves freely — nothing outside it exists to block it"],
-    // …and the edge is the ONLY thing that stops it. Shifted so the rightmost member sits exactly on
-    // MAX_COLS with every cell still distinct — mapping them all to one column instead would make
-    // this case a duplicate-cell fixture rather than an edge one, which the collision assertion in
-    // the loop below catches (and did).
-    [allSlots.map((m) => ({ ...m, col: m.col + (MAX_COLS - 6) })), "ArrowRight",
-      groupOccupancy(allSlots, allSlots.map((m) => m.id)),
-      allSlots.map((m) => ({ ...m, col: m.col + (MAX_COLS - 6) })),
-      "…and is stopped only by the edge, with one member on MAX_COLS and the rest behind it"],
-    // A 1-member "group" is the case that gets tried first and looks correct under every wrong
-    // implementation, so it is pinned as the UNBLOCKED twin of stepSlot rather than left implied.
-    [members(["solo", 5, 5]), "ArrowUp", new Set(), members(["solo", 5, 4]),
-      "a 1-member group is exactly stepSlot's unblocked answer"],
-  ];
-  for (const [given, key, taken, want, why] of GROUP_CASES) {
-    const got = groupStep(given, DIRS[key], taken);
-    ok(deep(got) === deep(want),
-      `groupStep(${deep(given)}, ${key}) gave ${deep(got)}, expected ${deep(want)} — ${why}`);
-    // Every member of every answer: on the grid, and no two members on one cell.
-    const cells = new Set(got.map((m) => occupancyKey(m)));
-    ok(cells.size === got.length, `groupStep(${key}) put two members on one cell in ${deep(got)}`);
-    for (const m of got) {
-      ok(m.col >= 1 && m.col <= MAX_COLS && m.row >= 1 && m.row <= MAX_ROWS,
-        `groupStep(${key}) returned ${deep(m)}, off the ${MAX_COLS}×${MAX_ROWS} grid`);
-    }
-  }
-  // The blocked answer is the INPUT, identity included where it can be: returning a fresh
-  // equal-looking array is fine, but returning a partially-moved one is the bug, and the case above
-  // is the only thing that separates them.
-  const blockedIn = members(["a", 3, 2], ["b", 4, 2], ["c", 5, 2]);
-  ok(groupStep(blockedIn, DIRS.ArrowRight, occAll) === blockedIn,
-    "a blocked groupStep should hand back the very set it was given, not a rebuilt copy of it");
-
-  // groupDelta is the arbitrary-delta form the POINTER path uses; groupStep is written over it, so
-  // the two are asserted to agree rather than tested twice.
-  ok(deep(groupDelta(G3, 0, 1, occAll)) === deep(groupStep(G3, DIRS.ArrowDown, occAll)),
-    "groupDelta and groupStep disagree on the same move — groupStep is meant to BE groupDelta, not a second rule");
-  ok(deep(groupDelta(G3, 2, 1, occAll)) === deep(members(["a", 4, 3], ["b", 5, 3], ["c", 6, 3])),
-    `a multi-cell delta moved to ${deep(groupDelta(G3, 2, 1, occAll))} — the pointer path translates by an arbitrary anchor delta, not by one cell`);
-  ok(deep(groupDelta(G3, 0, 0, occAll)) === deep(G3), "a zero delta must be the identity, not a refusal");
-  ok(deep(groupDelta(G3, 99, 0, occAll)) === deep(G3), "a delta that walks the whole set off the grid returns it unchanged");
-  // THE MIXED-VALIDITY CASE, and the reason it is here rather than in the totality loop below: that
-  // loop only ever feeds WHOLESALE-invalid arrays, which the empty-list return already catches, so
-  // a set with SOME unreadable entries slipped between the two and came back TRUNCATED — three in,
-  // two out, and the caller cannot tell that from a successful move (PR #263 review, finding 3).
-  // Asserted by REFERENCE IDENTITY, not deep equality: a fix that filtered and returned a fresh
-  // 3-entry copy would satisfy a deep compare while still not being the all-or-nothing contract.
-  const mixed = [{ id: "a", col: 1, row: 1 }, { id: "b", col: NaN, row: 2 }, { id: "c", col: 3, row: 1 }];
-  ok(groupDelta(mixed, 1, 0, new Set()) === mixed,
-    `a mixed-validity set came back as ${deep(groupDelta(mixed, 1, 0, new Set()))} — groupDelta must hand back the very set it was given, never a partial move that looks like a whole one`);
-
-  // Totality: junk in, never a throw, and never a half-answer.
-  for (const junk of [null, undefined, 0, "x", [], {}, NaN, true, [{}], [{ col: "a", row: null }]]) {
-    groupStep(junk, DIRS.ArrowUp, occAll);
-    groupDelta(junk, junk, junk, junk);
-    groupOccupancy(junk, junk);
-    guidesFor(junk, junk);
-  }
-  ok(deep(groupStep(G3, "not a direction", occAll)) === deep(G3),
-    "groupStep with no direction should answer the members, not throw or empty them");
-
-  // --- guidesFor: a guide is a claim about an alignment that EXISTS -----------------------------
-  const GUIDE_CASES = [
-    [[{ col: 3, row: 2 }], [{ col: 3, row: 7 }], { cols: [3], rows: [] },
-      "a peer in the same COLUMN draws a column guide and nothing else"],
-    [[{ col: 3, row: 2 }], [{ col: 9, row: 2 }], { cols: [], rows: [2] },
-      "…and a peer in the same ROW draws a row guide"],
-    [[{ col: 3, row: 2 }], [{ col: 3, row: 2 }], { cols: [3], rows: [2] },
-      "a peer aligned on both axes draws both"],
-    [[{ col: 3, row: 2 }], [{ col: 9, row: 7 }], { cols: [], rows: [] },
-      "a peer aligned on neither draws nothing — the empty answer is the common one"],
-    // MUTATION 3's case. Dropping the peer requirement makes this return { cols: [3, 4] }: a guide
-    // over a column holding ONLY carried members says nothing the reader cannot already see, and
-    // one over a column holding neither is the lie AC #3 forbids.
-    [[{ col: 3, row: 2 }, { col: 4, row: 2 }], [{ col: 3, row: 6 }], { cols: [3], rows: [] },
-      "a column occupied ONLY by carried members draws NO guide — the peer half of the rule"],
-    [[{ col: 3, row: 2 }], [], { cols: [], rows: [] }, "no peers at all draws nothing"],
-    [[], [{ col: 3, row: 2 }], { cols: [], rows: [] }, "nothing carried draws nothing"],
-    [[{ col: 3, row: 2 }], [{ col: 3, row: 5 }, { col: 3, row: 7 }, { col: 3, row: 8 }], { cols: [3], rows: [] },
-      "three peers in one column are ONE guide — duplicates are deduped"],
-    [[{ col: 5, row: 1 }, { col: 2, row: 1 }], [{ col: 5, row: 4 }, { col: 2, row: 4 }], { cols: [2, 5], rows: [] },
-      "several aligned columns come back SORTED ascending, so the mount's choice is deterministic"],
-  ];
-  for (const [carried, peers, want, why] of GUIDE_CASES) {
-    ok(deep(guidesFor(carried, peers)) === deep(want),
-      `guidesFor(${deep(carried)}, ${deep(peers)}) gave ${deep(guidesFor(carried, peers))}, expected ${deep(want)} — ${why}`);
-  }
-
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · stepSlot over ${STEP_CASES.length} cases incl. two termination proofs and the clamp on the way in, every result on-grid and unoccupied · hitSlot bands, the gap rule, both clamps and an unmeasured geometry · #217's GROUP layer: groupOccupancy excludes every member (not an anchor), groupStep/groupDelta over ${GROUP_CASES.length} cases with every blocked answer asserted by DEEP EQUALITY WITH THE INPUT — the only assertion a partially-moved set fails — incl. the whole-canvas selection, the edge, the member-vacating-a-cell case and the 1-member twin of stepSlot, plus groupStep proven to BE groupDelta rather than a second rule · guidesFor over ${GUIDE_CASES.length} cases incl. the carried-only column that must draw NOTHING · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports · the single-consumer invariant, the group announcements and the guides on a running stage are studio-journey's, and say so`);
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports. WHAT WENT WITH THE GRID (#302): stepSlot's occupancy-aware walk, hitSlot's track bands, #217's all-or-nothing groupDelta/groupStep/groupOccupancy and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves have new owners — the nudge floor and the snap guides are #302 Phase 5's, and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
 }
 
 // --- 14 · the studio orchestrator's pure layer ----------------------------------------------------
@@ -5472,7 +5258,7 @@ function scanSvg(svg, label) {
 // proves the skipping rule is real rather than a comment.
 
 {
-  // ORDER PRESERVATION: DOM order is board order (studio.mjs's arrangementNow correspondence), so
+  // ORDER PRESERVATION: DOM order is board order (studio-compile.mjs's positional-swap rule), so
   // input order must be output order — the list never sorts.
   const rows = layerEntries([
     { id: "s3", name: "Job Detail", col: 3, row: 1, kind: "slot", selected: false },

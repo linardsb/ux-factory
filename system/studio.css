@@ -21,6 +21,8 @@
 
 /* ---------- the viewport: the canvas's own variable scope ---------- */
 .stx-viewport {
+  /* The DEFAULT node box, read by the fallbacks below and by callers that want the shape the
+     retired grid produced. Not a cap and not a cell: a node may be any size setPos() clamps to. */
   --stx-slot-w: 220px;
   --stx-slot-h: 140px;
   /* #219's frame row unit. It MIRRORS the at-rest --stx-slot-h above rather than reading it, because
@@ -54,36 +56,58 @@
 .stx-scroll:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 /* THE SIZER IS NOT OPTIONAL. A scaled child's contribution to scrollable overflow is right/bottom
-   only and inconsistent across engines, so the scroll area is declared explicitly instead: the grid's
-   real unscaled width is cols*slot + (cols-1)*gap, times the scale. Omit the gap term and the far
-   column is partly unreachable by scrolling — which would silently break Tab's scroll-into-view,
-   the exact property pan-by-scroll exists to preserve. The stage is taken OUT OF FLOW inside it so
-   that at scale < 1 the stage's still-unscaled layout box cannot contribute phantom scroll range. */
+   only and inconsistent across engines, so the scroll area is declared explicitly instead. Under the
+   grid this was a calc() over the cap variables; since #302 it is two values setScale() WRITES, in
+   the same call that writes the scale — one write path, one fact, so the scale and the extent cannot
+   disagree for a frame the way a calc() re-resolved by the engine could. The fallbacks are the
+   unscaled stage box, so a canvas whose module has not booted is still the right size rather than
+   collapsed. The stage is taken OUT OF FLOW inside it so that at scale < 1 the stage's still-unscaled
+   layout box cannot contribute phantom scroll range. */
 .stx-sizer {
   position: relative;
-  width: calc((var(--stx-cols) * var(--stx-slot-w) + (var(--stx-cols) - 1) * var(--stx-gap)) * var(--stx-scale));
-  height: calc((var(--stx-rows) * var(--stx-slot-h) + (var(--stx-rows) - 1) * var(--stx-gap)) * var(--stx-scale));
+  width: var(--stx-extent-w, 2816px);
+  height: var(--stx-extent-h, 1232px);
 }
 
+/* THE STAGE IS A FIXED, UNSCALED BOX — 2816 x 1232, which hand-mirrors STAGE_W and STAGE_H in
+   system/studio-canvas.mjs, because CSS cannot import. Build-checks group 12 pins the pair in both
+   directions. The numbers are the retired grid's exact outer dimensions (12 x 220 + 11 x 16 across,
+   8 x 140 + 7 x 16 down), kept rather than re-chosen so the canvas is the size it has always been.
+   No display: grid and no track lists: nothing is placed by grid line any more. */
 .stx-stage {
   position: absolute;
   top: 0;
   left: 0;
-  display: grid;
-  grid-template-columns: repeat(var(--stx-cols), var(--stx-slot-w));
-  /* EXPLICIT rows, not grid-auto-rows (#205). An implicit grid only materialises the rows that
-     something occupies, so getComputedStyle(stage).gridTemplateRows reports three tracks on a stage
-     whose bottom five rows are empty — and #205's pointer hit-test, which reads exactly that, could
-     not address them. The keyboard path is bounded by MAX_ROWS and could, so the two paths
-     disagreed about how big the canvas is, which is the one thing AC #1 says they never do. The
-     sizer below already reserves all --stx-rows; this makes the stage agree with it. */
-  grid-template-rows: repeat(var(--stx-rows), var(--stx-slot-h));
-  gap: var(--stx-gap);
+  width: 2816px;
+  height: 1232px;
   transform: scale(var(--stx-scale));
   transform-origin: 0 0;
 }
 
-/* ---------- slots: arrangement by attribute, never by inline style ---------- */
+/* ---------- the node families: free position, one writer ---------- */
+/* Every node on the stage is absolutely positioned at the origin and TRANSLATED to its place. The
+   four families share the rule because they share the mechanism — setPos() writes --x/--y/--w on all
+   of them and --h on frames alone — and a per-family copy would be four things to keep in step.
+
+   TRANSLATE RATHER THAN left/top: a transform is composited, so a drag writing one of these per
+   frame does not invalidate layout. The fallbacks are the origin and the retired grid's slot width,
+   so a node placed before the module booted is visible rather than zero-sized.
+
+   EVERY ONE OF THESE IS NOW A CONTAINING BLOCK for absolutely positioned descendants — a transform
+   other than `none` establishes one (CSS Transforms 1 §3). That is #171's regression mechanism
+   arriving through a different property, and it is why nothing here is named for a view transition
+   and why tooling/vt-stack-audit.mjs is run before anything is. */
+.stx-slot,
+.stx-frame,
+.stx-guide,
+.stx-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(var(--x, 0px), var(--y, 0px));
+  width: var(--w, 220px);
+}
+
 .stx-slot { min-width: 0; overflow: hidden; }
 
 
@@ -237,7 +261,7 @@
 
 /* ---------- frames: the FOURTH grid family (#219) ---------- */
 /* A frame is on the grid but is NOT a board wrapper. system/studio-compile.mjs's identity and count
-   tripwires, system/studio.mjs's arrangementNow() and adoptBoard's removal loop all mean `.stx-slot`
+   tripwires and system/studio.mjs's adoptBoard removal loop both mean `.stx-slot`
    and must keep meaning it, so the two device frames join .stx-guide and .stx-menu as a family that
    is a grid child without being a wrapper. Registered in build-checks group 12's GRID_FAMILIES — the
    fourth-family detector fails on the first rule below without it, which is that check working.

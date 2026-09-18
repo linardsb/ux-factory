@@ -48,14 +48,14 @@
 // and six slot/span functions were this layer until #302 retired the grid. Nothing replaced them
 // one-for-one: under free positioning there is no cell to clamp to, no rectangle of cells to compute
 // a footprint for, and no discrete level to snap a fit down to. What replaced the whole set is the
-// two write helpers below the mount — setPos and setScale — plus the STAGE constants they clamp
-// against. The retired names are deliberately not repeated here: #302's definition of done is a
+// two write helpers in the next section — setPos and setScale — plus the STAGE constants they
+// clamp against. The retired names are deliberately not repeated here: #302's definition of done is a
 // repo-wide grep for them, and it matches comments.
 
 // The frame's wrapper class, as ONE constant three modules read. It is NOT `.stx-slot`, and that is
 // #219's load-bearing call: `.stx-slot` means BOARD WRAPPER — studio-compile.mjs's identity and
-// count tripwires, studio.mjs's arrangementNow() and adoptBoard's removal loop all depend on that
-// meaning, and they keep it. Frames join .stx-guide and .stx-menu as a family that sits on the stage
+// count tripwires and studio.mjs's adoptBoard removal loop both depend on that meaning, and they
+// keep it. Frames join .stx-guide and .stx-menu as a family that sits on the stage
 // without being a board wrapper.
 export const FRAME_CLASS = "stx-frame";
 
@@ -68,6 +68,100 @@ export const FRAME_CLASS = "stx-frame";
 // studio-frames.mjs's header records why half-widening a selection is a bug factory).
 export const MOVABLE = ".stx-slot, .stx-frame";
 
+
+// ---- the two write helpers ---------------------------------------------------------------------
+// THE ONLY TWO PLACES THE STUDIO WRITES AN INLINE STYLE, and build-checks group 7 is pinned to
+// exactly that: FUNCTION-SCOPED, a budget per function, plus a whole-file total that must equal the
+// sum of the slices — so a write anywhere else in this file, or anywhere in the other studio
+// modules, fails it. Widening the group's FILE list instead would have satisfied #302's words and
+// killed the invariant, which is why the predicate slices function bodies rather than reading names.
+//
+// WHY CUSTOM PROPERTIES RATHER THAN left/top/width. The sheet stays in charge of what a position
+// MEANS: a slot translates by (--x, --y), a frame does the same and additionally reads --h, and the
+// minimap draws its rectangles from the same four values. One writer, several readers, and no
+// module deciding on its own that a node is positioned absolutely.
+//
+// WHY translate RATHER THAN left/top, which is the same thing said once in the sheet: a transform
+// is composited and does not invalidate layout, and a drag writes one of these per frame.
+
+// The stage's own box, in unscaled px. These are the retired grid's exact outer dimensions
+// (12 x 220 + 11 x 16 across, 8 x 140 + 7 x 16 down), kept rather than re-chosen so the canvas is
+// the same size it has always been — a stage that silently changed size would move every pixel
+// baseline for a reason nobody decided. CSS cannot import, so system/studio.css mirrors both by hand
+// and build-checks group 12 pins the mirror.
+export const STAGE_W = 2816;
+export const STAGE_H = 1232;
+
+// The scale bounds. CONTINUOUS, not a table: fit() may land anywhere between them, which is the
+// whole point of retiring the five-step one — "fit" now actually fits. SCALE_REST is a scale and
+// says so; the index that used to stand here is gone with the table it indexed.
+export const SCALE_MIN = 0.1;
+export const SCALE_MAX = 4;
+export const SCALE_REST = 1;
+
+// The smallest a node may be made. WCAG 2.2 SC 2.5.8's 24 x 24 minimum target size, applied to the
+// thing itself rather than only to its handles: a node resized below it cannot be picked up again by
+// pointer, which is a trap the keyboard path would then be the only way out of.
+export const MIN_SIZE = 24;
+
+// setPos(el, x, y, w, h) -> the position actually written. THE ONE WRITER of a node's place and size.
+//
+// NON-FINITE IS THE EDGE THAT MATTERS, and it is not theoretical. `--x: NaN` makes the whole
+// `transform: translate(var(--x), var(--y))` declaration invalid at computed-value time; the
+// declaration drops SILENTLY and the node renders at 0,0, which reads as a layout bug rather than as
+// bad input. Every value is coerced and a non-finite one falls back before anything is written —
+// clampSlot's posture, kept, with cells swapped for pixels.
+//
+// CLAMPED TO THE STAGE, AND THAT IS THE ONLY BOUND LEFT. The grid had cells to collide in, so a move
+// could be BLOCKED and the mover said so out loud ("Blocked, still in column X, row Y."). Free
+// positions have none: nothing blocks a free move, inventing a collision rule would be inventing a
+// rule #302 never asked for, and that sentence is DELETED rather than translated. The stage edge is
+// what remains, the clamp lives here so "on the stage" has one definition, and the return value is
+// what the announcement names — where the node landed, never where it was asked to go.
+//
+// `h` IS OPTIONAL, and its absence is meaningful rather than a default. A board wrapper has no
+// authored height — it is as tall as its component — and writing one would hand every wrapper a
+// height nobody chose. A device frame has one, and system/studio.css reads --h on .stx-frame alone.
+export function setPos(el, x, y, w, h) {
+  if (!el || !el.style) throw new Error("studio-canvas: setPos() was called with no element");
+  const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+  const width = Math.max(MIN_SIZE, num(w, MIN_SIZE));
+  const height = h == null ? null : Math.max(MIN_SIZE, num(h, MIN_SIZE));
+  const px = Math.min(Math.max(0, num(x, 0)), Math.max(0, STAGE_W - width));
+  const py = Math.min(Math.max(0, num(y, 0)), Math.max(0, STAGE_H - (height ?? 0)));
+  el.style.setProperty("--x", `${px}px`);
+  el.style.setProperty("--y", `${py}px`);
+  el.style.setProperty("--w", `${width}px`);
+  if (height !== null) el.style.setProperty("--h", `${height}px`);
+  return { x: px, y: py, w: width, h: height };
+}
+
+// setScale(root, s) -> the scale actually written. THE ONE WRITER of zoom, and of the scroll extent
+// that has to move with it.
+//
+// THE ARGUMENT IS THE VARIABLE SCOPE, NOT THE STAGE, and that is a real call rather than a naming
+// preference. Two elements on different branches read what this writes: .stx-stage reads
+// --stx-scale for its transform, and .stx-sizer — the stage's PARENT — reads the two extent values
+// that give the scroller something to scroll. A custom property inherits DOWN, so no write on the
+// stage can reach the sizer. The one element that is an ancestor of both is .stx-viewport, which is
+// also where system/studio.css already declares --stx-scale's rest value, so this writes where the
+// sheet already says the scope is.
+//
+// THE EXTENT IS WRITTEN IN THE SAME CALL, deliberately. It used to be a calc() over the cap
+// variables, which meant zoom moved the scale and the sheet moved the extent, and the two could
+// disagree for one frame. One write path, one fact.
+//
+// CLAMPED AND NEVER NaN, for setPos's reason: a non-finite scale would make `scale()` invalid and
+// the stage would silently snap to 1 while the readout claimed otherwise.
+export function setScale(root, s) {
+  if (!root || !root.style) throw new Error("studio-canvas: setScale() was called with no element");
+  const n = Number(s);
+  const scale = Number.isFinite(n) ? Math.min(SCALE_MAX, Math.max(SCALE_MIN, n)) : SCALE_REST;
+  root.style.setProperty("--stx-scale", String(scale));
+  root.style.setProperty("--stx-extent-w", `${STAGE_W * scale}px`);
+  root.style.setProperty("--stx-extent-h", `${STAGE_H * scale}px`);
+  return scale;
+}
 
 // ---- the mount ---------------------------------------------------------------------------------
 
