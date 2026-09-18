@@ -86,20 +86,24 @@ import { watchPackSwap } from "./catalog.mjs";
 
 // The two committed prototypes, and nothing else — a module-level descriptor list rather than page
 // markup, so build-checks group 24 can assert every `src` is a real committed file and that the two
-// footprints are on the grid, disjoint from each other and CLEAR OF ROW 1. Row 1 is where
-// studio.mjs's arrangeBoard puts every place, so a frame overlapping it would collide with a board
-// the replay driver has not built yet.
+// rectangles are on the stage, disjoint from each other and CLEAR OF THE BOARD'S BAND. The board's
+// entry rank sits at the stage origin, so a frame overlapping the top band would collide with a
+// board the replay driver has not built yet.
 //
-// THE FOOTPRINTS WERE DECIDED IN A BROWSER AT THE REAL CAPTURE WIDTH, against two constraints the
-// grid arithmetic hides. .stx-scroll is 640px tall on /factory and the canvas column shows about five
-// columns before the page clips it, so rows 3–4 (312–608px) is the lowest band that is WHOLLY visible
+// THE RECTANGLES WERE DECIDED IN A BROWSER AT THE REAL CAPTURE WIDTH, against two constraints the
+// arithmetic hides. .stx-scroll is 640px tall on /factory and the canvas column shows about five
+// node-widths before the page clips it, so 312–608px down is the lowest band that is WHOLLY visible
 // at rest — which is what factory-neutral.png shows.
 //
-// AND ROW 2 IS LEFT FREE ON PURPOSE. The pointer-reachable free canvas is small — cols 1–5 × rows 1–4,
-// with the board holding row 1 — so a pair of frames filling rows 2–4 leaves exactly ONE free cell a
-// reader can drag a block into, which quietly contradicts the page's own "a canvas you can move". The
-// row directly under the board is where a block goes, so the frames start below it. Changing these
-// numbers is a baseline change; build-checks group 24 keeps them honest either way.
+// AND THE BAND DIRECTLY UNDER THE BOARD IS LEFT FREE ON PURPOSE. The pointer-reachable area is small,
+// with the board holding the top of it, so frames filling everything below would leave almost nowhere
+// a reader can drag a block into, which quietly contradicts the page's own "a canvas you can move".
+//
+// THE NUMBERS ARE #302's, AND THEY ARE THE OLD ONES ARITHMETICALLY. They read col 1 / row 3 /
+// spanCol 2 / spanRow 2 and col 3 / row 3 / spanCol 3 / spanRow 2 against a 12 x 8 grid of 220 x 140
+// cells at a 16px gap; x = (col-1) * 236, y = (row-1) * 156, w = spanCol * 220 + (spanCol-1) * 16 and
+// h likewise. Converted rather than re-chosen, so this PR moves no pixel here that it did not have
+// to. Changing them is a baseline change; build-checks group 24 keeps them honest either way.
 //
 // `anchor` IS WHERE THE FRAME OPENS, AND IT IS NOT AN EDIT TO EITHER PROTO PAGE. Both pages open with
 // a lede — an honesty notice, a title, a paragraph, a data-source badge — that is right for a page and
@@ -118,7 +122,7 @@ export const FRAMES = Object.freeze([
     anchor: "screen-header",
     title: "Verdant — plant overview, the real prototype",
     name: "Verdant prototype",
-    col: 1, row: 3, spanCol: 2, spanRow: 2,
+    x: 0, y: 312, w: 456, h: 296,
     caption: "Verdant, running for real. It wears this site's pack — a brand you drop re-skins the canvas around it, not inside it.",
     link: "Open Verdant on its own page",
   }),
@@ -129,7 +133,7 @@ export const FRAMES = Object.freeze([
     anchor: "board",
     title: "Fieldwork — dispatch board, the real prototype",
     name: "Fieldwork prototype",
-    col: 3, row: 3, spanCol: 3, spanRow: 2,
+    x: 472, y: 312, w: 692, h: 296,
     caption: "Fieldwork, running for real. It wears this site's pack — a brand you drop re-skins the canvas around it, not inside it.",
     link: "Open Fieldwork on its own page",
   }),
@@ -246,8 +250,7 @@ export function mountStudioFrames(canvas, { root = document } = {}) {
       const box = el("div", { class: "stx-frame-box" }, iframe, caption);
       canvas.place(box, {
         kind: "frame",
-        col: frame.col, row: frame.row,
-        spanCol: frame.spanCol, spanRow: frame.spanRow,
+        x: frame.x, y: frame.y, w: frame.w, h: frame.h,
         name: frame.name,
       });
       // place() returns the SLOT, not the wrapper, so the wrapper is read back off the node it

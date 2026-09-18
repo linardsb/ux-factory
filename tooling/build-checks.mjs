@@ -217,7 +217,7 @@ import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/br
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
 import { createHistory, DIRS, HISTORY_MAX, SPOKEN_MAX } from "../system/studio-verbs.mjs";
-import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_ITEMS, MENU_SELECT, menuAnchor, menuItems } from "../system/studio-select.mjs";
+import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_H, MENU_ITEMS, MENU_SELECT, MENU_W, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
   ACTION_STANCE, assertFictional, assertRunSlug, assertScenarioSlug, draftQuestion, isRunInFlight,
@@ -4728,13 +4728,22 @@ function scanSvg(svg, label) {
     : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
 
   // --- 22.1 marqueeRange: one rectangle, whichever way the reader dragged ----------------------
-  // All four drag directions over the SAME two cells must give the same normalized range, or the
+  // All four drag directions over the SAME two points must give the same normalized range, or the
   // pointer path selects a different set depending on which corner the reader started from.
-  const corners = [{ col: 2, row: 3 }, { col: 5, row: 6 }];
+  //
+  // THE RECTANGLE IS PIXELS AND ITS KEYS ARE EDGES (#302). It was col1/row1/col2/row2 over grid
+  // lines; left/top/right/bottom is the same rectangle in the units the stage now has, and the
+  // rename is deliberate — the old keys would read as cells to the next person.
+  // TWO PITCHES, NOT ONE. The node box is 220 x 140, so the horizontal pitch is 236 and the
+  // vertical 156 — writing one P for both is the mistake this comment exists to stop, and it fails
+  // as a wrong cursor two presses in rather than anywhere obvious.
+  const PX = NODE_W + NODE_GAP;
+  const PY = NODE_H + NODE_GAP;
+  const corners = [{ x: PX, y: 2 * PY }, { x: 4 * PX, y: 5 * PY }];
   const [tl, br] = corners;
-  const tr = { col: br.col, row: tl.row };
-  const bl = { col: tl.col, row: br.row };
-  const wantRange = { col1: 2, row1: 3, col2: 5, row2: 6 };
+  const tr = { x: br.x, y: tl.y };
+  const bl = { x: tl.x, y: br.y };
+  const wantRange = { left: tl.x, top: tl.y, right: br.x, bottom: br.y };
   for (const [a, b, why] of [
     [tl, br, "top-left to bottom-right"],
     [br, tl, "bottom-right to top-left"],
@@ -4744,32 +4753,63 @@ function scanSvg(svg, label) {
     ok(deep(marqueeRange(a, b)) === deep(wantRange),
       `marqueeRange dragged ${why} gave ${deep(marqueeRange(a, b))}, expected ${deep(wantRange)} — a marquee's set must not depend on which corner it started from`);
   }
-  ok(deep(marqueeRange({ col: 4, row: 4 }, { col: 4, row: 4 })) === deep({ col1: 4, row1: 4, col2: 4, row2: 4 }),
-    "a marquee that never left its origin cell is that ONE cell, not an empty range");
-  // The clamp, which nothing above can see: a hit-test past the far corner of a drifted stylesheet
-  // must not put a range off the grid. clampSlot is the one definition (studio-canvas.mjs:50).
-  ok(deep(marqueeRange({ col: -9, row: -9 }, { col: 99, row: 99 }))
-    === deep({ col1: 1, row1: 1, col2: MAX_COLS, row2: MAX_ROWS }),
-    `an off-grid marquee must clamp to the exported ${MAX_COLS}×${MAX_ROWS}, not carry its own bounds`);
+  ok(deep(marqueeRange({ x: 400, y: 400 }, { x: 400, y: 400 })) === deep({ left: 400, top: 400, right: 400, bottom: 400 }),
+    "a marquee that never left its origin is that ONE point, not an empty range");
+  // The clamp, which nothing above can see: a drag past the far corner must not put a range off the
+  // stage. There is no cap constant to read any more — STAGE_W/STAGE_H are the one bound.
+  ok(deep(marqueeRange({ x: -9999, y: -9999 }, { x: 99999, y: 99999 }))
+    === deep({ left: 0, top: 0, right: STAGE_W, bottom: STAGE_H }),
+    `an off-stage marquee must clamp to the exported ${STAGE_W} x ${STAGE_H}, not carry its own bounds`);
 
-  // --- 22.2 idsInRange: inclusive on EVERY boundary ---------------------------------------------
-  // A half-open range is the classic off-by-one here, and it is invisible in the middle of a
-  // selection: only a component sitting exactly ON an edge can tell the two apart. So every one of
-  // the four edges gets its own member, plus the four just-outside twins.
+  // --- 22.2 idsInRange: OVERLAP, and inclusive on EVERY boundary ---------------------------------
+  // THE RULE CHANGED, NOT JUST THE UNITS (#302). A cell either was or was not inside the rectangle,
+  // so an origin test and an overlap test were the same test. A free-positioned node has EXTENT, and
+  // a marquee dragged across the middle of a wide node — touching neither of its corners — has to
+  // select it, or the reader is given a rule they cannot see.
+  //
+  // A half-open range is still the classic off-by-one, and it is still invisible in the middle of a
+  // selection: only a node whose EDGE lands exactly on the rectangle's can tell the two apart. So
+  // every one of the four edges gets its own member, plus the four just-outside twins — RE-DERIVED
+  // rather than renamed, because "just outside" now means "its near edge is one pixel past the
+  // rectangle's far edge", which for a node with width is a different number from one cell over.
   const grid = [];
-  for (let c = 1; c <= 6; c += 1) for (let r = 1; r <= 6; r += 1) grid.push({ id: `${c}-${r}`, col: c, row: r });
-  const inner = { col1: 2, row1: 2, col2: 4, row2: 4 };
+  for (let c = 0; c < 6; c += 1) for (let r = 0; r < 6; r += 1) grid.push({ id: `${c}-${r}`, x: c * PX, y: r * PY, w: NODE_W, h: NODE_H });
+  const inner = { left: 1 * PX, top: 1 * PY, right: 3 * PX, bottom: 3 * PY };
   const hit = idsInRange(grid, inner);
-  ok(hit.length === 9, `idsInRange over a 3×3 rectangle found ${hit.length} ids, expected 9 — an inclusive range on both axes`);
-  for (const id of ["2-2", "4-4", "2-4", "4-2", "3-3"]) {
+  ok(hit.length === 9, `idsInRange over a 3x3 block found ${hit.length} ids, expected 9 — an inclusive range on both axes`);
+  for (const id of ["1-1", "3-3", "1-3", "3-1", "2-2"]) {
     ok(hit.includes(id), `idsInRange dropped ${id}, which sits ON the rectangle's boundary — the range is INCLUSIVE`);
   }
-  for (const id of ["1-3", "5-3", "3-1", "3-5"]) {
-    ok(!hit.includes(id), `idsInRange picked up ${id}, one cell OUTSIDE the rectangle on one axis`);
+  // THE FOUR JUST-OUTSIDE TWINS, re-derived. Under overlap a node at 0*P is NOT outside a rectangle
+  // starting at 1*P — its trailing edge (0 + 220) is past 236 - 220... it is not, and that is the
+  // point: the twins have to be placed by their EDGES. A node is just outside on the left when its
+  // trailing edge is one pixel short of the rectangle's left edge.
+  const twins = [
+    { id: "left", x: inner.left - NODE_W - 1, y: inner.top, w: NODE_W, h: NODE_H },
+    { id: "right", x: inner.right + 1, y: inner.top, w: NODE_W, h: NODE_H },
+    { id: "above", x: inner.left, y: inner.top - NODE_H - 1, w: NODE_W, h: NODE_H },
+    { id: "below", x: inner.left, y: inner.bottom + 1, w: NODE_W, h: NODE_H },
+  ];
+  for (const t of twins) {
+    ok(!idsInRange([t], inner).length,
+      `idsInRange picked up "${t.id}", whose whole box is one pixel OUTSIDE the rectangle on one axis`);
+    // …and its KISSING twin, one pixel back, IS picked up — which is what makes the line above an
+    // off-by-one detector rather than a statement that far-away things are not selected.
+    const kissing = { ...t, x: t.id === "left" ? t.x + 1 : (t.id === "right" ? t.x - 1 : t.x), y: t.id === "above" ? t.y + 1 : (t.id === "below" ? t.y - 1 : t.y) };
+    ok(idsInRange([kissing], inner).length === 1,
+      `idsInRange refused "${t.id}" moved ONE PIXEL back, so its edge exactly touches the rectangle — the range is inclusive and this pair is the boundary`);
   }
+  // THE CASE THE OLD RULE COULD NOT EXPRESS: a node WIDER than the rectangle, whose origin is
+  // outside it on the left and whose far edge is outside it on the right. The marquee is sitting in
+  // the middle of it, and an origin-inside test calls it unselected.
+  const wide = { id: "wide", x: inner.left - 400, y: inner.top, w: 900, h: NODE_H };
+  ok(idsInRange([wide], inner).length === 1,
+    "idsInRange missed a node the rectangle is sitting INSIDE — an origin test, which is what the grid's rule reduced to, gives the answer a reader can see is wrong");
+  ok(!(wide.x >= inner.left && wide.x <= inner.right),
+    "the wide-node case is VACUOUS — its origin is inside the rectangle, so an origin test answers the same and the case cannot tell the two rules apart");
   ok(deep(idsInRange(grid.slice().reverse(), inner)) === deep(hit.slice().reverse()),
     "idsInRange must answer IN THE ORDER GIVEN — on the running page that order is DOM order, the studio's standing correspondence with board order");
-  ok(idsInRange([], inner).length === 0 && idsInRange(grid, { col1: 9, row1: 9, col2: 9, row2: 9 }).length === 0,
+  ok(idsInRange([], inner).length === 0 && idsInRange(grid, { left: 9 * PX, top: 9 * PY, right: 9 * PX, bottom: 9 * PY }).length === 0,
     "a marquee over nothing is an empty list, which is what the mount turns into \"Nothing to select.\"");
 
   // --- 22.3 extendSelection: AC #1's PURE half --------------------------------------------------
@@ -4777,40 +4817,45 @@ function scanSvg(svg, label) {
   // identity the driver asserts on the running page is a property of one shared definition rather
   // than of two implementations that agree today. Two Shift+Arrow presses from the anchor, against
   // a marquee dragged over the same two corners.
-  const anchor = { col: 2, row: 3 };
+  const anchor = { x: PX, y: 2 * PY };
   const right = extendSelection(anchor, null, DIRS.ArrowRight);
   const down = extendSelection(anchor, right.cursor, DIRS.ArrowDown);
-  ok(deep(down.cursor) === deep({ col: 3, row: 4 }), `two Shift+Arrow presses put the cursor at ${deep(down.cursor)}, expected {col:3,row:4}`);
-  ok(deep(down.range) === deep(marqueeRange(anchor, { col: 3, row: 4 })),
+  // ONE PRESS IS ONE NODE PITCH, the same distance the carry's arrows and the minimap's use — three
+  // keyboard paths, one step, asserted here against the pitch rather than against a literal.
+  ok(deep(down.cursor) === deep({ x: 2 * PX, y: 3 * PY }), `two Shift+Arrow presses put the cursor at ${deep(down.cursor)}, expected {x:${2 * PX},y:${3 * PY}}`);
+  ok(deep(down.range) === deep(marqueeRange(anchor, { x: 2 * PX, y: 3 * PY })),
     "extendSelection's rectangle is not marqueeRange's over the same corners — AC #1's identity claim rests on there being ONE rectangle");
   const bySet = (ids) => deep([...ids].sort());
   ok(bySet(idsInRange(grid, down.range)) === bySet(idsInRange(grid, marqueeRange(anchor, down.cursor))),
     "the keyboard path and the pointer path selected DIFFERENT id sets over the same corners — this is AC #1");
   // THE ANCHOR DOES NOT MOVE. Re-anchoring on the second press gives a 1×2 instead of a 2×2, which
   // is the defect the module header records: it looks like a feature bug at driver-assert time.
-  ok(deep(extendSelection(anchor, down.cursor, DIRS.ArrowLeft).range) === deep(marqueeRange(anchor, { col: 2, row: 4 })),
+  ok(deep(extendSelection(anchor, down.cursor, DIRS.ArrowLeft).range) === deep(marqueeRange(anchor, { x: PX, y: 3 * PY })),
     "extendSelection re-derived its rectangle from the cursor rather than from the unmoving anchor");
   // IT REPLACES, IT DOES NOT UNION — Task 2's recorded decision, and MUTATION 4's case. A union
   // implementation returns a range (or a set) that still contains the stray, so the assertion is
   // written on the resulting ID SET against a marquee's, from a start that HAS a stray.
   const strayThenKeyboard = idsInRange(grid, extendSelection(anchor, null, DIRS.ArrowRight).range);
-  ok(!strayThenKeyboard.includes("6-6"),
-    "extendSelection's rectangle reached a cell outside the anchor→cursor rectangle — it must REPLACE the selection, never union with a stray Shift-click");
-  ok(bySet(strayThenKeyboard) === bySet(["2-3", "3-3"]),
-    `one Shift+Right from {2,3} selected ${bySet(strayThenKeyboard)}, expected exactly the two cells of the anchor→cursor rectangle`);
+  ok(!strayThenKeyboard.includes("5-5"),
+    "extendSelection's rectangle reached a node outside the anchor-to-cursor rectangle — it must REPLACE the selection, never union with a stray Shift-click");
+  ok(bySet(strayThenKeyboard) === bySet(["1-2", "2-2"]),
+    `one Shift+Right from the anchor selected ${bySet(strayThenKeyboard)}, expected exactly the two nodes of the anchor-to-cursor rectangle`);
   // Walking off the grid CLAMPS and never throws — the keyboard equivalent of a marquee dragged
   // past the edge, and a real thing a reader does by holding the key down.
-  let walk = { cursor: { col: 1, row: 1 }, range: null };
-  for (let i = 0; i < MAX_COLS + 5; i += 1) walk = extendSelection({ col: 1, row: 1 }, walk.cursor, DIRS.ArrowLeft);
-  ok(deep(walk.cursor) === deep({ col: 1, row: 1 }), `Shift+Left held against the edge walked to ${deep(walk.cursor)} instead of clamping at column 1`);
-  let walkR = { cursor: { col: 1, row: 1 } };
-  for (let i = 0; i < MAX_COLS + 5; i += 1) walkR = extendSelection({ col: 1, row: 1 }, walkR.cursor, DIRS.ArrowRight);
-  ok(walkR.cursor.col === MAX_COLS, `Shift+Right held down reached column ${walkR.cursor.col}, not the exported cap ${MAX_COLS}`);
-  // A selection rectangle INCLUDES what it covers — the opposite of stepSlot's skip-the-occupied
-  // rule, and the reason extendSelection is its own function rather than a call into that one.
-  const overPeer = extendSelection({ col: 2, row: 2 }, null, DIRS.ArrowRight);
-  ok(deep(overPeer.cursor) === deep({ col: 3, row: 2 }),
-    "extendSelection skipped a cell — a selection rectangle covers what it covers; only a CARRY steps over an occupied cell");
+  const held = Math.ceil(STAGE_W / PX) + 5;
+  let walk = { cursor: { x: 0, y: 0 }, range: null };
+  for (let i = 0; i < held; i += 1) walk = extendSelection({ x: 0, y: 0 }, walk.cursor, DIRS.ArrowLeft);
+  ok(deep(walk.cursor) === deep({ x: 0, y: 0 }), `Shift+Left held against the edge walked to ${deep(walk.cursor)} instead of clamping at the stage origin`);
+  let walkR = { cursor: { x: 0, y: 0 } };
+  for (let i = 0; i < held; i += 1) walkR = extendSelection({ x: 0, y: 0 }, walkR.cursor, DIRS.ArrowRight);
+  ok(walkR.cursor.x === STAGE_W, `Shift+Right held down reached ${walkR.cursor.x}, not the stage's ${STAGE_W}`);
+  // A selection rectangle INCLUDES what it covers, and NOTHING makes it skip — under the grid that
+  // was the contrast with a carry's step-over-the-occupied rule, and #302 deleted the carry's half
+  // with occupancy (D-d), so what survives is the positive statement: one press is one pitch,
+  // unconditionally.
+  const overPeer = extendSelection({ x: PX, y: PY }, null, DIRS.ArrowRight);
+  ok(deep(overPeer.cursor) === deep({ x: 2 * PX, y: PY }),
+    "extendSelection moved by something other than one node pitch — the three keyboard paths on this substrate share one step");
 
   // --- 22.4 menuItems: one source for both open paths -------------------------------------------
   // MUTATION 6's case, asserted BOTH ways: a menu offering `Select this` AND `Deselect this` makes
@@ -4854,31 +4899,38 @@ function scanSvg(svg, label) {
   // --- 22.5 menuAnchor: R5's off-edge flip, on both sides of each boundary -----------------------
   // MUTATION 5's case. An off-by-one here is invisible on every interior cell, which is exactly
   // where a menu gets tried — so the boundary is asserted from BOTH sides on BOTH axes.
-  for (const [col, row, flipX, flipY, why] of [
-    [1, 1, false, false, "the origin opens down and to the right, like every interior cell"],
-    [MAX_COLS - 1, MAX_ROWS - 1, false, false, "one cell inside the far corner must NOT flip"],
-    [MAX_COLS, MAX_ROWS - 1, true, false, "the last COLUMN flips only the X axis"],
-    [MAX_COLS - 1, MAX_ROWS, false, true, "the last ROW flips only the Y axis"],
-    [MAX_COLS, MAX_ROWS, true, true, "the far corner flips both"],
+  // THE THRESHOLD IS A MENU'S WORTH OF ROOM (#302), not "the last column" — free positions have no
+  // last column, so the honest question is whether the menu fits. Both sides of both boundaries are
+  // still asserted, for the same reason as before: an off-by-one here is invisible everywhere except
+  // at the edge, which is not where a menu gets tried first.
+  const fitsX = STAGE_W - MENU_W;
+  const fitsY = STAGE_H - MENU_H;
+  for (const [x, y, flipX, flipY, why] of [
+    [0, 0, false, false, "the origin opens down and to the right, like everywhere with room"],
+    [fitsX, fitsY, false, false, "EXACTLY a menu's worth of room on both axes must NOT flip"],
+    [fitsX + 1, fitsY, true, false, "one pixel short on X flips only the X axis"],
+    [fitsX, fitsY + 1, false, true, "one pixel short on Y flips only the Y axis"],
+    [STAGE_W, STAGE_H, true, true, "the far corner flips both"],
   ]) {
-    const a = menuAnchor(col, row);
+    const a = menuAnchor(x, y);
     ok(a.flipX === flipX && a.flipY === flipY,
-      `menuAnchor(${col}, ${row}) gave flipX ${a.flipX} / flipY ${a.flipY}, expected ${flipX} / ${flipY} — ${why}`);
-    ok(a.col === col && a.row === row,
-      `menuAnchor(${col}, ${row}) moved the anchor to ${a.col}, ${a.row}; the menu is placed in the INVOKER's cell and flipped within it, never relocated`);
+      `menuAnchor(${x}, ${y}) gave flipX ${a.flipX} / flipY ${a.flipY}, expected ${flipX} / ${flipY} — ${why}`);
+    ok(a.x === x && a.y === y,
+      `menuAnchor(${x}, ${y}) moved the anchor to ${a.x}, ${a.y}; the menu opens AT the invoker's point and flips about it, never relocated`);
   }
-  // The caps are PARAMETERS, so a narrower grid flips earlier — which is what proves the boundary
-  // is read from the caps rather than from a literal 12 baked into the comparison.
-  ok(menuAnchor(6, 4, 6, 4).flipX === true && menuAnchor(5, 4, 6, 4).flipX === false,
-    "menuAnchor's flip boundary does not follow its cols/rows arguments — a hard-coded cap here drifts the day the canvas widens");
-  ok(menuAnchor(99, 99).col === MAX_COLS && menuAnchor(-5, -5).col === 1,
-    "menuAnchor must clamp an off-grid invoker through clampSlot rather than placing a menu off the stage");
+  // The stage size is a PARAMETER, so a smaller stage flips earlier — which is what proves the
+  // boundary is read from it rather than from a literal baked into the comparison.
+  ok(menuAnchor(400, 0, 400 + MENU_W - 1, STAGE_H).flipX === true
+    && menuAnchor(400, 0, 400 + MENU_W, STAGE_H).flipX === false,
+    "menuAnchor's flip boundary does not follow its stageW/stageH arguments — a hard-coded bound here drifts the day the stage resizes");
+  ok(menuAnchor(99999, 99999).x === STAGE_W && menuAnchor(-5, -5).x === 0,
+    "menuAnchor must clamp an off-stage invoker rather than placing a menu where nothing can scroll to it");
 
   // --- 22.6 totality ---------------------------------------------------------------------------
   // Every export answers junk with a shape, never a throw. clampSlot's default parameter covers
   // `undefined` and NOT `null`, so a null slot destructures and throws — found by running this,
   // which is why the module coerces once rather than at four call sites.
-  const junk = [null, undefined, 0, "x", [], {}, NaN, true, { col: "a" }, [{ id: null }]];
+  const junk = [null, undefined, 0, "x", [], {}, NaN, true, { x: "a" }, [{ id: null }]];
   for (const j of junk) {
     marqueeRange(j, j);
     idsInRange(j, j);
@@ -4887,12 +4939,12 @@ function scanSvg(svg, label) {
     menuItems(j);
   }
   ok(deep(idsInRange(junk, null)) === deep([]), "idsInRange over junk must answer [], not throw");
-  ok(deep(marqueeRange(null, null)) === deep({ col1: 1, row1: 1, col2: 1, row2: 1 }),
-    "marqueeRange over nulls must answer the origin cell — clampSlot's posture, not a throw");
-  ok(deep(extendSelection({ col: 4, row: 4 }, { col: 4, row: 4 }, [NaN, 1]).cursor) === deep({ col: 4, row: 4 }),
-    "a non-finite direction must leave the cursor where it is; letting NaN reach clampSlot answers the ORIGIN, which is a jump rather than a refusal");
+  ok(deep(marqueeRange(null, null)) === deep({ left: 0, top: 0, right: 0, bottom: 0 }),
+    "marqueeRange over nulls must answer the stage origin — the coercion's posture, not a throw");
+  ok(deep(extendSelection({ x: 400, y: 400 }, { x: 400, y: 400 }, [NaN, 1]).cursor) === deep({ x: 400, y: 400 }),
+    "a non-finite direction must leave the cursor where it is; letting NaN reach the coercion answers the ORIGIN, which is a jump rather than a refusal");
 
-  group("select", `marqueeRange normalized identically from all 4 drag directions and clamped to the exported ${MAX_COLS}×${MAX_ROWS} · idsInRange inclusive on all four boundaries with the four just-outside twins refused, order preserved, empty over nothing · extendSelection is AC #1's PURE half — the keyboard rectangle asserted to BE marqueeRange's over the same corners and the resulting ID SETS compared, the anchor proven not to re-derive from the cursor (the 1×2-instead-of-2×2 defect), the REPLACE-not-union rule pinned on the id set, the held-key clamp on both edges, and a covered cell proven NOT skipped (a rectangle is not a carry) · menuItems' contextual pair asserted both ways and never both, Clear conditional, the disabled flags following canUndo/canRedo, no invented verb, MENU_ITEMS frozen BY MUTATION at both levels and its stateful items proven to be copies · menuAnchor's flips on BOTH sides of BOTH boundaries with the caps proven to be parameters · total over ${junk.length} junk inputs per export. The two input paths actually selecting the same set, the two menu open paths, the arrow navigation, Escape's non-interference and the take-over coupling are tooling/studio-journey.mjs's selectPass, and say so`);
+  group("select", `marqueeRange normalized identically from all 4 drag directions and clamped to the exported ${STAGE_W} x ${STAGE_H}, its keys renamed to EDGES because col1/row1 would read as cells · idsInRange on the rule that CHANGED rather than the units that did: a node is in range when its BOX OVERLAPS, so the four just-outside twins are RE-DERIVED by edge (its near edge one pixel past the rectangle's far edge) and each is paired with its KISSING twin one pixel back that MUST be picked up — which is what makes the pair an off-by-one detector rather than a statement that far-away things are not selected — plus the case the grid's rule could not express, a node the rectangle sits INSIDE, with the vacuity guard proving an origin test would answer differently · extendSelection is AC #1's PURE half — the keyboard rectangle asserted to BE marqueeRange's over the same corners and the resulting ID SETS compared, the anchor proven not to re-derive from the cursor, the REPLACE-not-union rule pinned on the id set, the held-key clamp on both edges, and one press proven to be one NODE PITCH, the step all three keyboard paths on this substrate share · menuItems' contextual pair asserted both ways and never both, Clear conditional, the disabled flags following canUndo/canRedo, no invented verb, MENU_ITEMS frozen BY MUTATION at both levels and its stateful items proven to be copies · menuAnchor's flips on BOTH sides of BOTH boundaries — the threshold being a MENU'S WORTH OF ROOM now that there is no last column, asserted at exactly-fits and one pixel short on each axis — with the stage size proven to be a parameter · total over ${junk.length} junk inputs per export. The two input paths actually selecting the same set, the two menu open paths, the arrow navigation, Escape's non-interference and the take-over coupling are tooling/studio-journey.mjs's selectPass, and say so`);
 }
 
 // --- 23 · the studio's docked docs (#218) -----------------------------------------------------------
@@ -5123,7 +5175,11 @@ function scanSvg(svg, label) {
 // tooling/studio-journey.mjs's framesPass, on a running page across three engines.
 {
   const { FRAMES, packHref, packLink } = await import("../system/studio-frames.mjs");
-  const { MAX_COLS: FMAX_COLS, MAX_ROWS: FMAX_ROWS, clampSpan: fClampSpan, footprint: fFootprint } =
+  // Aliased on import because the canvas's own names would shadow the ones group 12 uses in the
+  // same file. Three symbols where there were four:
+  // the clamp and the footprint builder went with the grid, and what replaced them is setPos's own
+  // bound, which this group asserts against rather than re-deriving.
+  const { NODE_H: FNODE_H, STAGE_H: FSTAGE_H, STAGE_W: FSTAGE_W } =
     await import("../system/studio-canvas.mjs");
 
   // --- 24.1 the descriptor list is DATA, and frozen at both levels -----------------------------
@@ -5178,26 +5234,46 @@ function scanSvg(svg, label) {
       "a descriptor pointed at /proto/nope.html still resolved to a file — case 24.2 cannot fail, so it proves nothing about the real ones");
   }
 
-  // --- 24.3 both footprints are geometry the canvas can hold ------------------------------------
-  // On the grid by clampSpan's OWN definition (a span the clamp would change is a span off the
-  // grid), disjoint from each other, and CLEAR OF ROW 1 — which is where studio.mjs's arrangeBoard
-  // puts every place, so a frame overlapping it would collide with a board the replay driver has not
-  // built yet. The message says the reason, because the number alone reads as arbitrary.
-  const cells = new Map();
+  // --- 24.3 both rectangles are geometry the canvas can hold ------------------------------------
+  // ON THE STAGE, disjoint from each other, and CLEAR OF THE BOARD'S BAND — which is the top of the
+  // stage, where studio.mjs's arrangeBoard puts the entry rank, so a frame overlapping it would
+  // collide with a board the replay driver has not built yet. The message says the reason, because
+  // the number alone reads as arbitrary.
+  //
+  // ASSERTED AGAINST setPos's OWN BOUND, not against a clamp function that no longer exists. A
+  // rectangle setPos WOULD MOVE is a rectangle off the stage — that was clampSpan's definition and
+  // it is kept, with the clamp that enforces it now living at the write rather than beside it. The
+  // consequence of getting this wrong is not a caught error: setPos would quietly pull the frame
+  // back and the two would overlap, which the pixel gate cannot see because it MASKS their content.
   for (const f of FRAMES) {
-    ok(f.col >= 1 && f.col <= FMAX_COLS && f.row >= 1 && f.row <= FMAX_ROWS,
-      `FRAMES["${f.id}"] starts at ${f.col},${f.row}, off the ${FMAX_COLS}×${FMAX_ROWS} grid`);
-    const clamped = fClampSpan({ col: f.col, row: f.row }, { cols: f.spanCol, rows: f.spanRow });
-    ok(clamped.cols === f.spanCol && clamped.rows === f.spanRow,
-      `FRAMES["${f.id}"] declares a ${f.spanCol}×${f.spanRow} span at column ${f.col}, row ${f.row}, which clampSpan would cut to ${clamped.cols}×${clamped.rows} — the footprint runs off the grid`);
-    ok(f.row > 1, `FRAMES["${f.id}"] starts on row 1, where studio.mjs's arrangeBoard lays every board place — the frame and the replay's own blocks would collide`);
-    for (const cell of fFootprint({ col: f.col, row: f.row }, { cols: f.spanCol, rows: f.spanRow })) {
-      ok(!cells.has(cell), `FRAMES["${f.id}"] covers cell ${cell}, which FRAMES["${cells.get(cell)}"] already covers — two frames cannot share a cell`);
-      cells.set(cell, f.id);
+    ok(f.x >= 0 && f.y >= 0, `FRAMES["${f.id}"] starts at ${f.x},${f.y}, off the top or left of the stage`);
+    ok(f.x + f.w <= FSTAGE_W && f.y + f.h <= FSTAGE_H,
+      `FRAMES["${f.id}"] is ${f.w} x ${f.h} at ${f.x},${f.y}, which runs past the stage's ${FSTAGE_W} x ${FSTAGE_H} — setPos would pull it back and it would overlap its neighbour`);
+    // CLEAR OF THE BOARD'S BAND, which is one node-height from the origin: arrangeBoard's entry rank
+    // sits at 0,0 and every rank-0 node is NODE_H tall.
+    ok(f.y >= FNODE_H, `FRAMES["${f.id}"] starts at y ${f.y}, inside the top ${FNODE_H}px where arrangeBoard lays the board's entry rank — the frame and the replay's own blocks would collide`);
+  }
+  // DISJOINT, by rectangle overlap rather than by a cell census. The cell version compared six keys
+  // against six; this compares two rectangles, which is the same claim with nothing to enumerate —
+  // and it is the ONE thing that changes meaning, because two free rectangles can overlap by a pixel
+  // where two cell footprints could only ever share a whole cell.
+  for (let i = 0; i < FRAMES.length; i += 1) {
+    for (let j = i + 1; j < FRAMES.length; j += 1) {
+      const a = FRAMES[i];
+      const b = FRAMES[j];
+      const overlaps = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+      ok(!overlaps, `FRAMES["${a.id}"] (${a.x},${a.y} ${a.w}x${a.h}) overlaps FRAMES["${b.id}"] (${b.x},${b.y} ${b.w}x${b.h}) — two frames cannot share stage`);
     }
   }
-  ok(FRAMES.every((f) => !cells.has(`${f.col},1`)) && [...cells.keys()].every((k) => !k.endsWith(",1")),
-    "a frame footprint reaches row 1 — arrangeBoard's row");
+  // THE MUTATION that decides whether the line above can fail: the same predicate over a CLONE
+  // nudged into its neighbour by one pixel must report an overlap. Without it, "no overlap" passes
+  // for a predicate that is simply never true.
+  {
+    const [a, b] = FRAMES;
+    const nudged = { ...b, x: a.x + a.w - 1 };
+    ok(a.x < nudged.x + nudged.w && a.x + a.w > nudged.x,
+      "the overlap predicate does not fire on two rectangles overlapping by ONE PIXEL — case 24.3's disjointness claim cannot fail and proves nothing");
+  }
 
   // --- 24.4 packHref answers the question the mount asks it -------------------------------------
   // Driven over a STUB document, which is the whole reason it takes one: the mount calls it for the
@@ -5229,7 +5305,7 @@ function scanSvg(svg, label) {
   ok(packHref(stubDoc(["/system/tokens.notyetapack.css"])) === "/system/tokens.notyetapack.css",
     "packHref refused an unknown pack name — it is 'which line do I observe', not a security allowlist, and narrowing it to PACK_RE would make it a second copy of one");
 
-  group("frames", `FRAMES holds the ${FRAMES.length} committed prototypes, frozen at BOTH levels by mutation (a pushed entry and a written src) · every src and standalone proven to be a real committed file, with the /proto/nope.html mutation that decides whether that check can fail — the pixel gate MASKS this content, so a 404 inside a frame compares cleanly against its own baseline forever · each descriptor's ANCHOR pinned as a real id in the committed proto HTML and NEITHER url allowed a fragment (a src fragment scrolls the canvas as well as the frame): nothing depends on the anchor resolving, which is exactly why a rename would revert both frames to their page ledes with no other symptom · every caption proven to carry the site-pack sentence, which is how the honesty contract discharges "a dropped brand does not reach the frames" · both footprints on the grid by clampSpan's OWN definition, disjoint cell by cell through footprint(), and clear of ROW 1 with arrangeBoard named as the reason · packHref over a stub document: the CONTRACT line refused (the head-order trap dock.mjs:72 records), a lone pack line matched, null rather than a throw on a document with no pack line, total over 6 junk documents because an unloaded frame's contentDocument is one, and an unshipped pack name still matched — this is "which line do I observe", not a second copy of PACK_RE. That the frames RENDER, that their contents carry no nested chrome (asserted on contentDocument), that the pack FOLLOWS a mid-visit swap, that the resize gesture agrees across pointer, keyboard and an injected agent action, and that the ready handle resolves are tooling/studio-journey.mjs's framesPass, and this group cannot reach them`);
+  group("frames", `FRAMES holds the ${FRAMES.length} committed prototypes, frozen at BOTH levels by mutation (a pushed entry and a written src) · every src and standalone proven to be a real committed file, with the /proto/nope.html mutation that decides whether that check can fail — the pixel gate MASKS this content, so a 404 inside a frame compares cleanly against its own baseline forever · each descriptor's ANCHOR pinned as a real id in the committed proto HTML and NEITHER url allowed a fragment (a src fragment scrolls the canvas as well as the frame): nothing depends on the anchor resolving, which is exactly why a rename would revert both frames to their page ledes with no other symptom · every caption proven to carry the site-pack sentence, which is how the honesty contract discharges "a dropped brand does not reach the frames" · both rectangles on the stage by setPos's OWN bound (a rectangle setPos would MOVE is a rectangle off the stage — clampSpan's definition, kept, with the clamp now at the write), disjoint by rectangle overlap with the one-pixel MUTATION proving that predicate can fire, and clear of the board's top band with arrangeBoard named as the reason · packHref over a stub document: the CONTRACT line refused (the head-order trap dock.mjs:72 records), a lone pack line matched, null rather than a throw on a document with no pack line, total over 6 junk documents because an unloaded frame's contentDocument is one, and an unshipped pack name still matched — this is "which line do I observe", not a second copy of PACK_RE. That the frames RENDER, that their contents carry no nested chrome (asserted on contentDocument), that the pack FOLLOWS a mid-visit swap, that the resize gesture agrees across pointer, keyboard and an injected agent action, and that the ready handle resolves are tooling/studio-journey.mjs's framesPass, and this group cannot reach them`);
 }
 
 // --- 25 · the instance stamp + chrome audit (#222) ---------------------------------------------------
