@@ -216,7 +216,7 @@ import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS, SHARE_VER
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
-import { createHistory, DIRS, HISTORY_MAX, SPOKEN_MAX } from "../system/studio-verbs.mjs";
+import { createHistory, DIRS, guidesFor, HISTORY_MAX, SPOKEN_MAX } from "../system/studio-verbs.mjs";
 import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_H, MENU_ITEMS, MENU_SELECT, MENU_W, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
@@ -2949,7 +2949,62 @@ function scanSvg(svg, label) {
   ok(/^export const SPOKEN_MAX/m.test(readFileSync(join(ROOT, "system/studio-verbs.mjs"), "utf8")),
     "SPOKEN_MAX is no longer a module-scope export of studio-verbs.mjs — studio-select.mjs imports it, and a re-declared copy there is a second bound that drifts");
 
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports. WHAT WENT WITH THE GRID (#302): the occupancy-aware arrow walk, the track-band hit test, #217's all-or-nothing group step and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves have new owners — the nudge floor and the snap guides are #302 Phase 5's, and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
+  // --- guidesFor: A GUIDE IS A CLAIM THAT AN ALIGNMENT EXISTS ---------------------------------
+  // BOTH HALVES ARE THE RULE, not a refinement of it. A guide over a line holding only CARRIED
+  // members says nothing the reader cannot already see; a guide over one holding NEITHER is a claim
+  // about an alignment that does not exist. So this does not count guides — it forces one onto a
+  // line nothing is on and watches red, which is the same discipline the grid version carried and
+  // the only shape that can catch a function drawing guides eagerly.
+  //
+  // WHAT CHANGED AT #302 is which lines count. A column was a column and two nodes either shared it
+  // or did not; free positions align on THREE lines per axis — leading edge, centre, trailing edge —
+  // and a reader dragging a 220-wide node under a 456-wide one is aligning centres far more often
+  // than origins. Each of the three is asserted separately below, because an implementation that
+  // compared origins alone would pass a test that only ever aligned origins.
+  {
+    const carried = [{ x: 100, y: 200, w: 200, h: 100 }];
+    // 1 · THE CARRIED-ONLY LINE DRAWS NOTHING. The peer list is empty, so every line the carried
+    //     member sits on is a line only it is on.
+    ok(deep(guidesFor(carried, [])) === deep({ xs: [], ys: [] }),
+      `a carried member with NO peers produced ${deep(guidesFor(carried, []))} — a guide over a line only the carried thing is on says nothing the reader cannot already see`);
+    // 2 · …AND SO DOES A PEER-ONLY LINE, the mirror. A peer aligned with nothing carried is not an
+    //     alignment the reader is making.
+    ok(deep(guidesFor([], [{ x: 100, y: 200, w: 200, h: 100 }])) === deep({ xs: [], ys: [] }),
+      "a peer with nothing carried produced a guide — an alignment needs both halves");
+    // 3 · THE THREE EDGES, EACH ON ITS OWN. A peer whose LEADING edge matches, one whose CENTRE
+    //     matches, one whose TRAILING edge matches — asserted separately, so a function comparing
+    //     origins alone fails on two of the three rather than passing the one case that suits it.
+    ok(deep(guidesFor(carried, [{ x: 100, y: 900, w: 50, h: 10 }]).xs) === deep([100]),
+      "a peer sharing the carried member's LEADING edge drew no guide");
+    ok(deep(guidesFor(carried, [{ x: 150, y: 900, w: 100, h: 10 }]).xs) === deep([200]),
+      "a peer whose CENTRE (150 + 100/2) matches the carried member's (100 + 200/2) drew no guide — free positions align on centres far more often than on origins, and an origin-only comparison passes every other case here");
+    ok(deep(guidesFor(carried, [{ x: 300, y: 900, w: 50, h: 10 }]).xs) === deep([300]),
+      "a peer whose LEADING edge meets the carried member's TRAILING edge (100 + 200) drew no guide");
+    ok(deep(guidesFor(carried, [{ x: 900, y: 200, w: 10, h: 40 }]).ys) === deep([200]),
+      "the Y axis does not answer at all — both axes are computed by the same helper and a one-axis implementation passes every X case above");
+    // 4 · EXACT EQUALITY, AND THIS IS THE ASSERTION THAT STOPS A TOLERANCE. A peer ONE PIXEL off is
+    //     not aligned; drawing a guide for it is the same false claim as the peer-only line, reached
+    //     by a slower route — the reader sees a line, moves nothing, and the alignment is still off.
+    ok(deep(guidesFor(carried, [{ x: 101, y: 201, w: 200, h: 100 }])) === deep({ xs: [], ys: [] }),
+      "a peer ONE PIXEL off drew a guide — a tolerance makes the line appear before the alignment is real, which is the lie the both-halves rule exists to prevent");
+    // 5 · Deduplicated and sorted, so the mount's "draw the first of each axis" is deterministic
+    //     rather than dependent on peer order.
+    const many = guidesFor(carried, [{ x: 300, y: 0, w: 9, h: 9 }, { x: 100, y: 0, w: 9, h: 9 }, { x: 100, y: 0, w: 9, h: 9 }]);
+    ok(deep(many.xs) === deep([100, 300]),
+      `guidesFor must dedupe and sort ascending so the mount's "first of each axis" is deterministic: ${deep(many.xs)}`);
+    // 6 · Totality: junk on either side answers empty, and a member with a non-finite position is
+    //     SKIPPED rather than contributing a NaN line — NaN equals nothing, so it would silently
+    //     suppress a guide rather than throw.
+    for (const junk of [null, undefined, 42, "x", {}]) {
+      ok(deep(guidesFor(junk, junk)) === deep({ xs: [], ys: [] }), `guidesFor(${JSON.stringify(junk)}) must answer empty, never throw`);
+    }
+    ok(deep(guidesFor([{ x: NaN, y: 200, w: 200 }], [{ x: NaN, y: 200, w: 200 }]).xs) === deep([]),
+      "two members with a non-finite x produced a guide — NaN equals nothing, so this must be an absence rather than a match");
+    ok(deep(guidesFor([{ x: 100, y: 200 }], [{ x: 100, y: 200 }]).xs) === deep([100]),
+      "a member with NO width must still align on its origin — a node whose size has not been written yet is a point, not an absence");
+  }
+
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports · guidesFor RE-EXPRESSED over free positions and driven on the rule rather than the count: the carried-only line and its peer-only mirror each drawing NOTHING (the "force a guide onto a line nothing is on and watch red" discipline, kept), the three edges per axis asserted SEPARATELY so an origin-only comparison fails on two of three rather than passing the one case that suits it, the Y axis proven to answer at all, EXACT equality pinned by a peer one pixel off drawing nothing — which is the assertion that stops a tolerance being added later — plus dedupe-and-sort for the mount's deterministic first-of-each-axis, and totality with a non-finite member proven SKIPPED rather than contributing a NaN line that would silently suppress a guide. WHAT WENT WITH THE GRID (#302): the occupancy-aware arrow walk, the track-band hit test, #217's all-or-nothing group step and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves: guidesFor came back HERE (above) rather than in Phase 5, because the gesture mount calls it; the nudge floor and align/distribute are still Phase 5's; and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
 }
 
 // --- 14 · the studio orchestrator's pure layer ----------------------------------------------------

@@ -211,6 +211,24 @@ per-section probe, because `build-checks.mjs` still carries Phase 1's dead impor
 whole-list total still correct — green under the shortcut a naive fix would take, red under what
 shipped. The total is a second net, not the invariant.
 
+### Task 2.2b — group 13's `guidesFor` cases
+
+`guidesFor` came back at `526e92c` re-expressed over free positions — and **nothing asserted it**.
+The group line said the snap guides were "Phase 5's", which was true when the function was deleted
+and false once it returned. Found on review, the second instance of the same shape as H7.
+
+| | Mutation | Observed |
+|---|---|---|
+| **control** | none | `build verbs ✓` |
+| M1 | compare ORIGINS only — drop the centre and trailing edge | **RED ×3** — `a peer whose CENTRE (150 + 100/2) matches … drew no guide` · the trailing-edge case · the dedupe case |
+| M2 | a 1px TOLERANCE instead of exact equality | **RED ×1** — `a peer ONE PIXEL off drew a guide — a tolerance makes the line appear before the alignment is real` |
+| M3 | drop the both-halves rule — report every carried line | **RED ×7**, led by `a carried member with NO peers produced {"xs":[100,200,300],"ys":[200,250,300]}` |
+| M4 | compute the X axis only | **RED ×1** — `the Y axis does not answer at all — both axes are computed by the same helper and a one-axis implementation passes every X case above` |
+
+M1 is the row worth reading: an origin-only comparison passes **every other case in the block**, and
+is exactly what a re-expression of the grid version would produce if the author did not notice that a
+free position has three lines per axis rather than one.
+
 ### Task 2.2 — group 13's snapshot shape reaches the NEW field
 
 The snapshot widened from `{col, row}` to `{x, y, w}` / `{x, y, w, h}`. The history stack is generic
@@ -239,9 +257,11 @@ in prose rather than in code. Caught on review; the assertions now exist and are
 | the journey drivers, `vt-verify`, `vt-stack-audit` | **not run** — Phase 8 |
 | the pixel gate | **not run** — Phase 9 |
 
-**Every figure above is from a clean run of the whole file**, not from the scratch per-section probe
-— that probe was Phase 1's instrument and is not used for any figure here. What no figure covers is
-the RUNNING page: nothing in this PR has been rendered in a browser yet.
+**Every figure in THIS SECTION is from a clean run of the whole file.** The Phase 1 red table above
+is the exception and says so in its own words: it is probe-derived, because a link error loads zero
+groups and there was no clean run to be had. What no figure anywhere covers is the RUNNING page —
+nothing in this PR has been rendered in a browser, and the only three-engine measurement taken is
+H1's FLIP probe, which drove a synthetic page rather than the studio.
 
 ## Not run
 
