@@ -1,0 +1,29 @@
+{
+  "$description": "JSON Canvas–SHAPED, and deliberately NOT JSON Canvas 1.0 (jsoncanvas.org/spec/1.0, read 2026-09-18). Four divergences, named rather than left for a reader to hit: (1) `type` is frame|note|decision|exhibit, where the spec allows only text|file|link|group; (2) `height` is OPTIONAL here and REQUIRED there, because a frame's height is its content's until someone authors one; (3) `ref` is added, pointing a node at the op or decision it came from, and the spec has no such key; (4) `relation` replaces the spec's `label` on an edge, because flows and embodies are a closed set rather than free text. A conformant reader REFUSES type: \"frame\", so this file must never be described as JSON Canvas flat. DERIVED, NEVER AUTHORED: every node and edge here is rewritten from ops.jsonl on save, and positions come from the rank layout — the file carries no fact the ops do not.",
+  "nodes": [
+    {
+      "id": "f1",
+      "type": "frame",
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "ref": "screen:add-payee"
+    },
+    {
+      "id": "f2",
+      "type": "frame",
+      "x": 472,
+      "y": 0,
+      "width": 390,
+      "ref": "state:error of f1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "a1",
+      "fromNode": "f1",
+      "toNode": "f2",
+      "relation": "flows"
+    }
+  ]
+}

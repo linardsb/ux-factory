@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Thirty-five groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Thirty-six groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // SPELT OUT, AND THEREFORE NOT GATED: drift-check's group-count leg reads /all (\d+) groups pass/,
 // which cannot see a word. This is the fifth prose copy of the count and the only one a ticket has to
 // move by hand — recorded here so the next person moving it knows why their green run said nothing.
@@ -305,6 +305,9 @@ import {
 } from "./discovery-score.mjs";
 
 const ROOT =resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// Group 36 declares its own `ROOT` for the package directory, so the repo root is aliased once here
+// rather than shadowed inside that block.
+const ROOT_DIR = ROOT;
 const VOCAB = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
 
 let failures = 0;
@@ -10927,6 +10930,30 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(deep(r.flags) === deep([{ kind: "dangling-set", partId: "p9" }, { kind: "dangling-hide", partId: "p8" }]),
     `resolve flagged ${deep(r.flags)} — a dangling override is a real thing someone wrote, and dropping it silently makes the canvas disagree with the document`);
   ok(!Object.hasOwn(r.resolved.parts, "p9"), "a dangling override reached the RESOLVED parts — it must be flagged, not applied");
+  // TWO LAYERS, ONE FUNCTION, and this is the case that keeps it true. screen.set writes the base's
+  // own later edits into frame.sets; state.add writes a state's into frame.overrides.set. They are
+  // the SAME SHAPE deliberately, so resolve() applies both and there is one merge rule rather than
+  // two that agree today — and the consumer layers them, base's sets first, then the state's.
+  //
+  // MEASURED, NOT ASSUMED: the spine's first render dropped the screen.set entirely, because the
+  // composition and the sets are separate and nothing said who joins them. The sentence above is
+  // what was missing, and this is its gate.
+  {
+    const withSet = applyOps([
+      { op: "screen.compose", params: VALID_FOR["screen.compose"] },
+      { op: "screen.set", params: { frameId: "f1", partId: "p1", prop: "hint", value: "base" } },
+      { op: "state.add", params: { baseId: "f1", stateKey: "error", override: { set: { p1: { hint: "state" } } } } },
+    ]);
+    const baseFrame = withSet.frames[0];
+    const stateFrame = withSet.frames[1];
+    const layerA = resolve({ parts: { p1: {} } }, { set: baseFrame.sets ?? {} });
+    ok(layerA.resolved.parts.p1.hint === "base" && layerA.flags.length === 0,
+      `frame.sets did not resolve as an override (${deep(layerA)}) — screen.set and state.add write the same shape SO THAT one resolve applies both, and a consumer that cannot layer them silently drops every later edit to a base`);
+    const layerB = resolve(layerA.resolved, stateFrame.overrides);
+    ok(layerB.resolved.parts.p1.hint === "state",
+      `the state's override did not win over the base's set (${deep(layerB.resolved.parts.p1)}) — the layers are base-then-state, or a state shows the value it was overriding`);
+  }
+
   // TOTAL over junk on both sides: a read that throws takes a page down over a record the applier
   // already accepted.
   for (const junk of [null, undefined, 42, "x", [], { parts: null }]) {
@@ -10979,12 +11006,177 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(!/\bzod\b/.test(opsSrc),
     "system/canvas-ops.mjs reaches for zod — it is a hand-written boundary validator, and the one sanctioned zod use is the SDK's tool-schema adapter");
 
-  group("canvas ops", `OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a SEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 15 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, and a document that is not one — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (studio-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  group("canvas ops", `OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a SEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 15 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, and a document that is not one — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (studio-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+}
+
+// --- 36 · the build package's round trip (#302) ----------------------------------------------------
+//
+// discovery/faster-payment/build/ — MVP 14's spine, and the FIRST committed artifact in this repo
+// whose subject is a design rather than a decision or a run. The package is two files and they are
+// different kinds: ops.jsonl is the TRUTH, canvas.json is DERIVED, and the whole point of this group
+// is that the second carries no fact the first does not.
+//
+// THE PATTERN IS gen-replay's DRIFT CHECK (group 16), and specifically its mutation: apply the
+// committed ops through the real applier and assert they reproduce what the committed artifact
+// references, then CORRUPT an op and assert the comparison goes red. A reproduce check with no
+// corruption case behind it passes for a comparison of a thing with itself.
+//
+// WHAT IT CANNOT REACH: whether the spine RENDERS — that needs a browser and is studio-journey's;
+// and whether the `why` on the compose op is a good reason, which is a human read.
+
+{
+  const { applyOps: cApplyOps } = await import("../system/canvas-ops.mjs");
+  const { loadBuild, saveBuild } = await import("../portal/lib/canvas-store.mjs");
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+
+  const ROOT = join(ROOT_DIR, "discovery/faster-payment/build");
+  // GUARDED, for group 35's recorded reason: ok() only accumulates and group() prints at the end, so
+  // an unguarded throw here kills the process before a single named failure speaks. loadBuild throws
+  // by design on malformed JSON, and "malformed JSON" is exactly what a corrupting mutation
+  // produces — so without this, every mutation below reports a stack trace instead of the sentence
+  // that names what broke. Found by running them.
+  let pkg = null;
+  try { pkg = loadBuild(ROOT); }
+  catch (e) { ok(false, `loadBuild REFUSED the committed package (${e.message}) — every assertion below is unreachable`); }
+  ok(pkg !== null, "discovery/faster-payment/build/ does not load at all — the spine's package is missing");
+  pkg = pkg ?? { ops: [], canvas: { nodes: [], edges: [], $description: "" } };
+
+  // --- 36.1 the ops are a LEDGER, and every line says who and when ------------------------------
+  const lines = pkg?.ops ?? [];
+  ok(lines.length === 6, `ops.jsonl holds ${lines.length} op lines; MVP 14's spine is six`);
+  ok(lines.every((l, i) => l.seq === i + 1),
+    `the seqs are ${deep(lines.map((l) => l.seq))} — a ledger's seq is its position, 1-based and gapless`);
+  // SOURCE: "owner" IS THE HONESTY CONTRACT'S HALF OF THIS FILE. No agent ran; these are the owner's
+  // ops, typed and applied through the real applier. A line claiming any other source would be
+  // claiming a run that did not happen.
+  ok(lines.every((l) => l.source === "owner"),
+    `an op line claims a source other than "owner" (${deep([...new Set(lines.map((l) => l.source))])}) — no agent ran for this package, and the contract forbids saying one did`);
+  ok(lines.every((l) => l.status === "applied" && typeof l.at === "string" && l.at.endsWith("Z")),
+    "an op line is missing its status or its ISO stamp");
+  // NO POSITION ON ANY LINE. The architecture's data-model rule: where a thing SITS is the
+  // arrangement's business, and an op that carried one would make ops.jsonl and canvas.json two
+  // sources for one fact.
+  const opText = readFileSync(join(ROOT, "ops.jsonl"), "utf8");
+  ok(!/"x"\s*:|"y"\s*:/.test(opText),
+    "an op line carries an x or a y — positions live in canvas.json alone, or the two files disagree the first time anything moves");
+
+  // --- 36.2 REPRODUCE: the committed ops rebuild the frames canvas.json references ---------------
+  // GUARDED like loadBuild above, and for the third time in this file's history: a corrupting
+  // mutation makes the applier REFUSE, which is correct behaviour, and an unguarded refusal here
+  // kills the run before the ledger assertions that would name what was corrupted ever print. The
+  // fallback is an empty document, so every compare below fails LOUDLY instead of not at all.
+  const replay = (ops) => { try { return cApplyOps(ops); } catch (e) { return { throwMessage: e.message, frames: [], arrows: [] }; } };
+  const rebuilt = replay(lines.map((l) => ({ op: l.op, params: l.params })));
+  ok(!rebuilt.throwMessage,
+    `the committed ops.jsonl does not APPLY (${rebuilt.throwMessage}) — every comparison below is against an empty document`);
+  const referenced = (pkg?.canvas?.nodes ?? []).map((n) => n.id).sort();
+  ok(deep(rebuilt.frames.map((f) => f.id).sort()) === deep(referenced),
+    `playing ops.jsonl gives frames ${deep(rebuilt.frames.map((f) => f.id))} but canvas.json references ${deep(referenced)}`);
+  ok(deep((pkg?.canvas?.edges ?? []).map((e) => e.id).sort()) === deep(rebuilt.arrows.map((a) => a.id).sort()),
+    "canvas.json's edges are not the arrows the ops produce");
+  // THE REFS ARE WHERE THE ARTIFACT REACHES THE OPS' CONTENT, and without this the compare is ids
+  // and numbers alone — a screenId corrupted in the ledger would reproduce a document with the same
+  // frame ids and the same widths, and every assertion above would pass. Re-derived from the
+  // rebuilt document rather than parsed out of the file, so the two really are compared.
+  for (const n of pkg?.canvas?.nodes ?? []) {
+    const f = rebuilt.frames.find((x) => x.id === n.id);
+    const want = f && (f.baseId ? `state:${f.stateKey} of ${f.baseId}` : `screen:${f.screenId}`);
+    ok(want === n.ref,
+      `canvas.json says ${n.id} came from ${JSON.stringify(n.ref)}, the ops make it ${JSON.stringify(want)} — the ref is the one place the artifact reaches the ops' CONTENT rather than their shape`);
+  }
+  // …and the WIDTHS agree, which is the half that catches a frame.size op silently dropped: the
+  // node ids would still match while the frame is the wrong size.
+  for (const n of pkg?.canvas?.nodes ?? []) {
+    const f = rebuilt.frames.find((x) => x.id === n.id);
+    ok(f && f.width === n.width,
+      `canvas.json says ${n.id} is ${n.width} wide, the ops make it ${f && f.width} — an id-only compare would pass this`);
+  }
+
+  // --- 36.3 THE MUTATION that decides whether 36.2 is vacuous -----------------------------------
+  // Corrupt the compose op's OWN CONTENT and the rebuild must differ. Without this, "the ops
+  // reproduce the artifact" passes for any pair of files that happen to name the same ids.
+  {
+    const corrupted = lines.map((l) => (l.op === "screen.compose"
+      ? { ...l, params: { ...l.params, screenId: `${l.params.screenId}-corrupted` } }
+      : l));
+    const after = replay(corrupted.map((l) => ({ op: l.op, params: l.params })));
+    const refOf = (f) => (f.baseId ? `state:${f.stateKey} of ${f.baseId}` : `screen:${f.screenId}`);
+    ok(deep(after.frames.map(refOf)) !== deep(rebuilt.frames.map(refOf)),
+      "a corrupted screenId still produced the same refs — the reproduce comparison in 36.2 is vacuous");
+  }
+  // WHAT THIS GATE CANNOT REACH, and it is worth stating because the plan's own REDDENS asked for
+  // it: corrupting the compose op's `why` changes NOTHING the artifact carries, so 36.2 stays green
+  // — measured, not assumed. canvas.json records ids, positions, widths and provenance refs; a
+  // reason is not geometry and has no business in an arrangement file. So the `why` gets its own
+  // assertion here, on the LEDGER, rather than a reproduce comparison that structurally cannot see
+  // it.
+  {
+    const compose = lines.find((l) => l.op === "screen.compose");
+    ok(compose && typeof compose.params?.why === "string" && compose.params.why.trim().length > 40,
+      `the committed screen.compose carries ${JSON.stringify(compose?.params?.why ?? null)} — D4 asks for one sentence naming the decision AND the reason, which the applier's own .trim() check cannot tell from a word`);
+    ok(compose && Array.isArray(compose.params?.decisionRefs) && compose.params.decisionRefs.length > 0,
+      "the committed screen.compose names no decisionRefs — the spine's whole claim is that a discovery decision became a screen, and an unreferenced composition is a picture with no argument behind it");
+  }
+  // …AND THE INVERSE, which is what proves the gate asserts the right thing rather than file
+  // equality: corrupt a POSITION in canvas.json and 36.2 must STILL PASS, because a position is not
+  // derivable from the ops and never was. A gate that went red here would be demanding the ops
+  // encode an arrangement, which is the coupling the two-file split exists to avoid.
+  {
+    const moved = { ...pkg.canvas, nodes: (pkg.canvas.nodes ?? []).map((n, i) => (i === 0 ? { ...n, x: n.x + 999 } : n)) };
+    ok(deep(rebuilt.frames.map((f) => f.id).sort()) === deep((moved.nodes ?? []).map((n) => n.id).sort()),
+      "moving a frame broke the ops-to-artifact comparison — positions are the arrangement's, not the ops', and this gate must not demand otherwise");
+  }
+
+  // --- 36.4 the dialect says what it is ---------------------------------------------------------
+  // D-b (owner, 2026-09-18). A conformant JSON Canvas reader REFUSES type: "frame", so the file must
+  // never be described as JSON Canvas flat. Asserted on all FOUR divergences by name, because the
+  // failure mode is a later edit trimming the header to something shorter and truer-sounding.
+  const desc = String(pkg?.canvas?.$description ?? "");
+  ok(/JSON Canvas[–-]\s*SHAPED/i.test(desc) && !/^JSON Canvas 1\.0\b/.test(desc),
+    `canvas.json's $description must say JSON Canvas–SHAPED rather than claiming conformance: ${desc.slice(0, 80)}`);
+  for (const [what, re] of [
+    ["the invented node types", /text\|file\|link\|group/],
+    ["height being optional", /height` is OPTIONAL|height is OPTIONAL/i],
+    ["the added ref key", /`ref` is added|ref. is added/i],
+    ["relation replacing label", /`relation` replaces|relation. replaces/i],
+  ]) {
+    ok(re.test(desc), `canvas.json's $description does not name ${what} — all four divergences are named, or the claim is a half-truth`);
+  }
+  ok((pkg?.canvas?.nodes ?? []).every((n) => n.ref), "a canvas node carries no ref — a node with no provenance is a picture of nothing");
+
+  // --- 36.5 the round trip is BYTE-identical ----------------------------------------------------
+  // Bytes, not parsed objects: a save that reordered keys or dropped the trailing newline would
+  // deep-compare equal and churn every future diff.
+  {
+    const scratch = mkdtempSync(join(tmpdir(), "canvas-store-"));
+    saveBuild(scratch, pkg.canvas, pkg.ops);
+    for (const file of ["ops.jsonl", "canvas.json"]) {
+      ok(readFileSync(join(scratch, file), "utf8") === readFileSync(join(ROOT, file), "utf8"),
+        `re-saving the committed package rewrote ${file} — the round trip must be BYTE-identical, or every future diff churns`);
+    }
+    rmSync(scratch, { recursive: true, force: true });
+  }
+  ok(loadBuild(join(ROOT_DIR, "discovery/faster-payment")) === null,
+    "loadBuild answered something for a directory with no build half — most discovery packages have none, and asking is a legitimate question");
+
+  // --- 36.6 the package is SDK-free by its import graph -----------------------------------------
+  // portal/lib/ is where the SDK lives, so a module from there imported by this file is the one
+  // place the invariant could be lost. Read as TEXT, because an import proves what a module has and
+  // never what it does not.
+  const storeSrc = readFileSync(join(ROOT_DIR, "portal/lib/canvas-store.mjs"), "utf8");
+  const storeImports = [...storeSrc.matchAll(/^import .*? from "([^"]+)";/gm)].map((m) => m[1]);
+  ok(storeImports.every((i) => i.startsWith("node:")),
+    `portal/lib/canvas-store.mjs imports ${deep(storeImports)} — it must reach node built-ins alone, because CI runs this group with no portal/node_modules at all`);
+
+  group("build package", `discovery/faster-payment/build/ — MVP 14's spine, and the first committed artifact here whose subject is a DESIGN · the ledger half: ${lines.length} op lines, seqs gapless and 1-based, every one source "owner" because no agent ran and the contract forbids saying one did, every one stamped and applied, and NO x or y on any line — where a thing sits is the arrangement's business, and an op carrying one would make the two files two sources for one fact · REPRODUCE: the committed ops replayed through the real applier give the frames and arrows canvas.json references, WIDTHS included, which is the half that catches a frame.size op silently dropped where an id-only compare passes · the REFS compared too, which is the one place the artifact reaches the ops' CONTENT rather than their shape — without it a corrupted screenId reproduces the same ids and the same widths and every other case passes · THE MUTATION that decides whether that is vacuous — a corrupted screenId must change the refs — AND ITS INVERSE, a moved frame in canvas.json that must STILL PASS, because a position is not derivable from ops and a gate demanding otherwise would be re-coupling the two files the split exists to separate · D-b: the dialect says what it is, with all FOUR divergences from JSON Canvas 1.0 asserted BY NAME (the invented node types, optional height, the added ref, relation replacing label) because the failure mode is a later edit trimming the header to something shorter and truer-sounding, and a conformant reader refuses type: "frame" · the why asserted on the LEDGER rather than by reproduction, because corrupting it changes nothing the artifact carries and 36.2 stays green — MEASURED, not assumed; a reason is not geometry and has no business in an arrangement file, so the assertion is length-and-decisionRefs here, which is strictly more than the applier's own .trim() can tell from a single word · the round trip BYTE-identical rather than deep-equal, so a save that reordered keys would not churn every future diff · and canvas-store's import graph pinned to node built-ins alone, because CI runs this with no portal/node_modules at all. What it cannot reach: whether the spine RENDERS (studio-journey's, on a browser) and whether the compose op's `+"`"+`why`+"`"+` is a good reason, which is a human read`);
 }
 
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 35 groups pass");
+  console.log("\nbuild ✓  all 36 groups pass");
 }
