@@ -245,7 +245,7 @@ import { CATALOG_COMPONENTS } from "../system/palette.mjs";
 // #221's two pure layers — both modules are Node-import-safe (no DOM outside a function body, no
 // self-boot; system/studio.mjs mounts them).
 import { layerEntries, toggleId } from "../system/studio-layers.mjs";
-import { cellRect, jumpFrom, mapView, trackOffsets, visibleRange } from "../system/studio-minimap.mjs";
+import { jumpFrom, mapView, nodeRect, visibleCount } from "../system/studio-minimap.mjs";
 // The recorder's FENCE — importable here for the same reason group 8 can import the operator path:
 // portal/record-build.mjs loads the Agent SDK lazily, inside runBuild. CI's absence of
 // portal/node_modules is what proves that, and this import now rides on it too.
@@ -5298,19 +5298,30 @@ function scanSvg(svg, label) {
   // ORDER PRESERVATION: DOM order is board order (studio-compile.mjs's positional-swap rule), so
   // input order must be output order — the list never sorts.
   const rows = layerEntries([
-    { id: "s3", name: "Job Detail", col: 3, row: 1, kind: "slot", selected: false },
-    { id: "s1", name: "Verdant prototype", col: 1, row: 3, kind: "frame", cols: 2, rows: 2 },
-    { id: "s2", name: "Today Overview", col: 1, row: 1, kind: "slot", selected: true },
+    { id: "s3", name: "Job Detail", x: 472, y: 0, w: 220, kind: "slot", selected: false },
+    { id: "s1", name: "Verdant prototype", x: 0, y: 312, w: 456, h: 296, kind: "frame" },
+    { id: "s2", name: "Today Overview", x: 0, y: 0, w: 220, kind: "slot", selected: true },
   ]);
   ok(rows.map((r) => r.id).join(",") === "s3,s1,s2",
     `layerEntries must preserve input order — DOM order IS board order (got ${rows.map((r) => r.id).join(",")})`);
 
-  // The position sentences: a 1×1 slot, a spanning frame, and a 1×1 FRAME — the span text belongs
-  // to the footprint, not the family, so a 1×1 frame gets the short sentence too.
-  ok(rows[0].sentence === "column 3, row 1", `the 1×1 sentence drifted: ${rows[0].sentence}`);
-  ok(rows[1].sentence === "column 1, row 3, 2 by 2", `the spanning sentence drifted: ${rows[1].sentence}`);
-  const unitFrame = layerEntries([{ id: "f", name: "F", col: 4, row: 2, kind: "frame", cols: 1, rows: 1 }]);
-  ok(unitFrame[0].sentence === "column 4, row 2", `a 1×1 frame must get the short sentence: ${unitFrame[0].sentence}`);
+  // THE POSITION SENTENCES, in the new units (#302). They read "column C, row R" with ", W by H"
+  // appended for a SPANNING footprint; there are no columns to name, so a sentence is a place on the
+  // stage, and the size clause is appended when there IS an authored size rather than when a span
+  // exceeded 1x1. That is the SAME SET OF ROWS reached by the fact instead of by a comparison
+  // against a default that no longer exists — a slot has no --h and a frame does.
+  //
+  // ROUNDED TO WHOLE PIXELS, and that is a decision rather than formatting: a screen reader saying
+  // "at 236.4, 0" is reading out float noise, and the sub-pixel part of a position is not something
+  // a listener can act on. Driven with a fractional fixture below so the rounding has a case.
+  ok(rows[0].sentence === "at 472, 0", `the slot sentence drifted: ${rows[0].sentence}`);
+  ok(rows[1].sentence === "at 0, 312, 456 by 296", `the sized sentence drifted: ${rows[1].sentence}`);
+  // A FRAME WITH NO AUTHORED HEIGHT still gets the short sentence — the clause follows the SIZE, not
+  // the family, exactly as the span text followed the footprint and not the family before it.
+  const unitFrame = layerEntries([{ id: "f", name: "F", x: 708, y: 156, w: 220, kind: "frame" }]);
+  ok(unitFrame[0].sentence === "at 708, 156", `a frame with no authored height must get the short sentence: ${unitFrame[0].sentence}`);
+  ok(layerEntries([{ id: "r", x: 236.4, y: 155.6, w: 220.5, h: 140.5 }])[0].sentence === "at 236, 156, 221 by 141",
+    `a fractional position must round to whole pixels: ${layerEntries([{ id: "r", x: 236.4, y: 155.6, w: 220.5, h: 140.5 }])[0].sentence}`);
 
   // selectable IS false EXACTLY for kind "frame" — the pure statement of frames-outside-the-
   // selection (system/studio-frames.mjs call 5), and the tripwire for the day someone widens the
@@ -5320,25 +5331,31 @@ function scanSvg(svg, label) {
     "selectable must be false exactly for kind \"frame\" — frames are outside the selection layer");
   // …and an UNKNOWN kind reads as a slot, never as a frame: the honest default is the selectable
   // family, because refusing selection is the frame-specific decision.
-  ok(layerEntries([{ id: "u", col: 1, row: 1, kind: "mystery" }])[0].selectable === true,
+  ok(layerEntries([{ id: "u", x: 0, y: 0, kind: "mystery" }])[0].selectable === true,
     "an unknown kind must read as a selectable slot");
 
   // THE MUTATION that proves the gate can fail: one bad row among good ones. An id-less entry is a
   // wrapper mid-construction and must be SKIPPED, not rendered — counted, so a layerEntries that
   // stopped skipping (or started dropping good rows) goes red here.
-  const mixed = layerEntries([{ id: "a", col: 1, row: 1 }, { name: "no id" }, { id: "", col: 2, row: 1 }, { id: "b", col: 2, row: 1 }]);
+  const mixed = layerEntries([{ id: "a", x: 0, y: 0 }, { name: "no id" }, { id: "", x: 236, y: 0 }, { id: "b", x: 236, y: 0 }]);
   ok(mixed.length === 2 && mixed[0].id === "a" && mixed[1].id === "b",
     `one junk row among good ones: expected exactly a,b — got ${mixed.map((r) => r.id).join(",")}`);
 
-  // Totality over junk shapes, and non-finite geometry coerces to 1 (clampSlot's posture) so NaN
-  // can never reach a rendered sentence.
+  // Totality over junk shapes, and non-finite geometry coerces to 0 so NaN can never reach a
+  // rendered sentence. THE FLOOR MOVED FROM 1 TO 0 with the grid: no grid the canvas could hold had
+  // a column 0, but a free stage really does start there, so 0 is now the honest coercion and 1
+  // would be inventing an offset.
   for (const junk of [null, undefined, 42, "rows", {}, () => {}]) {
     const r = layerEntries(junk);
     ok(Array.isArray(r) && r.length === 0, `layerEntries(${String(junk)}) must answer []`);
   }
-  ok(layerEntries([{ id: "x", col: "junk", row: null }])[0].sentence === "column 1, row 1",
-    "non-finite geometry must coerce to 1, never NaN in a sentence");
-  ok(layerEntries([{ id: "x", col: 1, row: 1 }])[0].name === "Component",
+  ok(layerEntries([{ id: "x", x: "junk", y: null }])[0].sentence === "at 0, 0",
+    "non-finite geometry must coerce to the origin, never NaN in a sentence");
+  // …and a junk SIZE drops the clause rather than printing it — "at 0, 0, NaN by NaN" is the exact
+  // shape the coercion exists to prevent, and a size of 0 is not a size worth saying.
+  ok(layerEntries([{ id: "x", x: 0, y: 0, w: "junk", h: 0 }])[0].sentence === "at 0, 0",
+    "a junk or zero size must drop the size clause, not print it");
+  ok(layerEntries([{ id: "x", x: 0, y: 0 }])[0].name === "Component",
     "a nameless entry must read as \"Component\" — place()'s own fallback label");
 
   // toggleId: both directions, and the answers are NEW ARRAYS — proven by mutating a result and
@@ -5359,7 +5376,7 @@ function scanSvg(svg, label) {
   ok(toggleId(["a"], null).join(",") === "a", "toggleId(list, null) must toggle nothing");
   ok(toggleId(["a", null, "b"], "c").join(",") === "a,b,c", "toggleId must drop null members");
 
-  group("layers", "layerEntries preserves input order (DOM order IS board order) · the position sentences for a 1×1 slot, a spanning frame AND a 1×1 frame (span text belongs to the footprint, not the family) · selectable false EXACTLY for kind \"frame\" — the pure statement of frames-outside-the-selection and the tripwire for the day the selection layer widens — with an unknown kind reading as a selectable slot · the one-junk-row-among-good-ones mutation proving the skipping rule real · totality over 6 junk shapes with non-finite geometry coerced so NaN never reaches a sentence · toggleId both directions, proven to answer NEW arrays by mutate-and-re-derive, total over junk. The running list — the same-interaction reflection, selection parity both ways through the ONE applySelection, the roving tabindex, the announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's layersPass, and this group cannot reach it");
+  group("layers", "layerEntries preserves input order (DOM order IS board order) · the position sentences in #302's units — a slot, a node with an authored size, and a FRAME WITH NONE proving the size clause follows the SIZE rather than the family (as the span text followed the footprint before it), plus a fractional fixture proving the round to whole pixels, because a listener cannot act on an announced 236.4 · selectable false EXACTLY for kind \"frame\" — the pure statement of frames-outside-the-selection and the tripwire for the day the selection layer widens — with an unknown kind reading as a selectable slot · the one-junk-row-among-good-ones mutation proving the skipping rule real · totality over 6 junk shapes with non-finite geometry coerced so NaN never reaches a sentence · toggleId both directions, proven to answer NEW arrays by mutate-and-re-derive, total over junk. The running list — the same-interaction reflection, selection parity both ways through the ONE applySelection, the roving tabindex, the announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's layersPass, and this group cannot reach it");
 }
 
 // --- 27 · the minimap's pure layer (#221) ------------------------------------------------------------
@@ -5462,7 +5479,7 @@ function scanSvg(svg, label) {
       `system/${file} reaches for a timer — the tracking contract is events + rAF coalescing only`);
   }
 
-  group("minimap", "mapView in THREE conditions — at rest (the positive control), panned (the missing-scroll-term detector, expected offsets computed independently) and zoomed at 0,0 (the missing-divide detector, w === clientW/scale with h capped at the content box) — each the sole detector of one coordinate term · the far-edge clamp keeping the rect inside the content box · junk pinned to the HONEST WHOLE VIEW as a contract · jumpFrom's centering with the 0 floor and the max ceiling equal to the browser's own scrollLeft clamp range · trackOffsets' gap-before-next-start rule against a hand-computed fixture · a 2×3 cellRect equal to the union of its six 1×1 rects (footprint()'s definition drawn, not keyed) with the spanless 1×1 default · visibleRange round-tripping mapView's answer and refusing an edge-kissing column · totality throughout · and the no-timer source pin over BOTH #221 modules (rAF coalescing allowed and used, setInterval/setTimeout refused). The running map — the view rect tracking a real pan, the zoom-at-0,0 observer wiring, click-to-jump against the settled scroll, the keyboard path's announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's minimapPass, and this group cannot reach it");
+  group("minimap", "mapView in THREE conditions — at rest (the positive control), panned (the missing-scroll-term detector, expected offsets computed independently) and zoomed at 0,0 (the missing-divide detector, w === clientW/scale with h capped at the content box) — each the sole detector of one coordinate term · the far-edge clamp keeping the rect inside the content box · junk pinned to the HONEST WHOLE VIEW as a contract · jumpFrom's centering with the 0 floor and the max ceiling equal to the browser's own scrollLeft clamp range · nodeRect as the COERCION it now is, total over 6 junk shapes, because the mount feeds it straight into SVG attributes where NaN paints nothing and reports no error — the union proof and trackOffsets' gap rule went with the track list they reconstructed a cell from, and were NOT translated into asserting that reading four numbers back gives four numbers · visibleCount round-tripping mapView's answer, driven on the case that DISTINGUISHES the overlap rule from an origin-inside one (a node wider than the view, whose origin is off-screen left), with the mutation asserting that fixture is not vacuous — the two rules must answer differently on it — plus a panned-off-everything case and a junk VIEW still reporting the honest total · totality throughout · and the no-timer source pin over BOTH #221 modules (rAF coalescing allowed and used, setInterval/setTimeout refused). The running map — the view rect tracking a real pan, the zoom-at-0,0 observer wiring, click-to-jump against the settled scroll, the keyboard path's announcements and the mid-replay non-take-over — is tooling/studio-journey.mjs's minimapPass, and this group cannot reach it");
 }
 
 // --- 28 · the discovery question bank (#282) --------------------------------------------------------
