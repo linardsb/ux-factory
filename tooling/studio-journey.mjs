@@ -247,6 +247,17 @@ const viaSeam = (p, x, y) => p.evaluate(([px, py]) =>
     return { at, x: prop("--x").replace("px", ""), y: prop("--y").replace("px", ""), w: prop("--w").replace("px", ""), stray };
   }), [x, y]);
 
+// THE FIXTURES BELOW STAY IN CELL COORDINATES ON PURPOSE (#302), and this is the one line that
+// converts them. They are not grid references any more — they are a readable shorthand for "five
+// pitches across, three down", which is how a person describes a place on this canvas and how every
+// fixture in this file was already written. Converting here rather than retyping ~30 literals keeps
+// each case's INTENT legible and puts the arithmetic in one place a reader can check.
+const at = (col, row) => ({ x: (col - 1) * (NODE_W + NODE_GAP), y: (row - 1) * (NODE_H + NODE_GAP) });
+// A DRAG TARGET IS A CENTRE, not an origin — the retired cellPoint returned a cell's centre and
+// every gesture below was written against that. Pressing at an origin drops the node a half-node
+// short, which reads as an off-by-one in the hit-test rather than in the fixture.
+const centre = (col, row) => ({ x: at(col, row).x + NODE_W / 2, y: at(col, row).y + NODE_H / 2 });
+
 const btn = (p, name) => p.locator(VIEWPORT).getByRole("button", { name, exact: true });
 
 // ---- #205's seams and helpers -------------------------------------------------------------------
@@ -773,29 +784,56 @@ async function journey(engineName, results, held) {
   // pointer cannot press down on a node it cannot reach. Rows 2 and 3 are OCCUPIED in column 1, so
   // one ArrowDown skips both and lands here, which is what makes the keyboard path reach the same
   // cell the drag does.
-  const GOAL = { col: 1, row: 4 };
+  // ONE PITCH DOWN, MEASURED FROM THE NODE'S OWN BOX (#302). The old fixture named a CELL, and the
+  // row number was load-bearing because the resolver skipped occupied rows — a drag to row 4 and one
+  // ArrowDown landed in the same place only because of that skipping. Free positions have no cells
+  // and nothing to skip, so AC #1's identity claim needs the two paths to travel the SAME DELTA:
+  // the pointer is dragged one pitch from the node's centre, and the keyboard takes one Shift+Arrow,
+  // which IS one pitch. At scale 1 scrolled to 0,0 a client pixel is a stage pixel, which is why
+  // this section resets before it starts.
   const ARROWS_TO_GOAL = 1;
-  const goalPoint = await cellPoint(page, GOAL.col, GOAL.row);
+  const startBox = await nodeBox(page, TARGET);
+  const goalPoint = {
+    x: (startBox.left + startBox.right) / 2,
+    y: (startBox.top + startBox.bottom) / 2 + (NODE_H + NODE_GAP),
+  };
 
   await dragTo(page, TARGET, goalPoint);
   const byPointer = await arrangement(page);
-  t(`AC #1 · a pointer drag moved ${TARGET} to column ${GOAL.col}, row ${GOAL.row}`,
-    byPointer[TARGET]?.col === GOAL.col && byPointer[TARGET]?.row === GOAL.row, JSON.stringify(byPointer[TARGET]));
+  // THE POINTER'S OWN ANSWER IS THE REFERENCE, not a typed destination. A drag lands where the
+  // gesture's delta puts it, which on a free substrate is not exactly the fixture's point — so the
+  // claim is that the OTHER TWO SOURCES REACH THE SAME PLACE, and the pointer's result is what they
+  // are compared against. That is AC #1's actual sentence, and it is stronger than three sources
+  // each matching a literal: a literal all three miss identically would pass.
+  const pointerAt = byPointer[TARGET];
+  t(`AC #1 · a pointer drag moved ${TARGET} one node pitch down`,
+    pointerAt && Math.abs(pointerAt.y - (NODE_H + NODE_GAP)) <= 1 && Math.abs(pointerAt.x) <= 1,
+    JSON.stringify(pointerAt));
 
   await undoAll(page);
   t("…and undo put it back, so the next source starts from the same place",
-    (await arrangement(page))[TARGET]?.row === 1, JSON.stringify((await arrangement(page))[TARGET]));
+    (await arrangement(page))[TARGET]?.y === 0, JSON.stringify((await arrangement(page))[TARGET]));
 
-  // Keyboard only: focus the handle, Enter, three ArrowDowns (rows 2 and 3 are OCCUPIED, so the
-  // resolver skips them and the three presses land on 4, 5, 6), Enter.
+  // KEYBOARD ONLY, AND WITH SHIFT HELD (#302). A bare arrow NUDGES by NUDGE_STEP — 4px, the spacing
+  // scale's floor — which is the whole point of Phase 5's precision path and is NOT the distance a
+  // drag covers. Shift takes one NODE PITCH, which is the step the pointer's own gesture spans, so
+  // Shift+Arrow is the equivalent keyboard path and a bare one is a different verb. Asserting AC #1
+  // on the bare arrow would be comparing a nudge against a drag and calling the difference a bug.
   await page.locator(`.stx-slot[data-stx-id="${TARGET}"] .stx-grab`).focus();
   await page.keyboard.press("Enter");
-  for (let i = 0; i < ARROWS_TO_GOAL; i += 1) await page.keyboard.press("ArrowDown");
+  for (let i = 0; i < ARROWS_TO_GOAL; i += 1) await page.keyboard.press("Shift+ArrowDown");
   await page.keyboard.press("Enter");
   await page.waitForTimeout(120);
   const byKeyboard = await arrangement(page);
+  // DEEP-COMPARED WITH A ONE-PIXEL TOLERANCE, and the tolerance is the substrate's rather than a
+  // hedge: a pointer drag lands on a float (the browser's own rect arithmetic) and a keyboard step
+  // lands on an integer, so demanding byte equality of two floats produced by different paths would
+  // be asserting the browser's rounding. Every OTHER node is compared exactly — only the one that
+  // moved has any float in it.
+  const samePlace = (a, b) => a && b && Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1 && a.w === b.w;
+  const others = (arr) => Object.fromEntries(Object.entries(arr).filter(([k]) => k !== TARGET));
   t("AC #1 · the keyboard path produces the IDENTICAL arrangement, deep-compared",
-    JSON.stringify(byKeyboard) === JSON.stringify(byPointer),
+    samePlace(byKeyboard[TARGET], byPointer[TARGET]) && JSON.stringify(others(byKeyboard)) === JSON.stringify(others(byPointer)),
     `keyboard ${JSON.stringify(byKeyboard[TARGET])} vs pointer ${JSON.stringify(byPointer[TARGET])}`);
 
   // ---------------------------------------------------------------- [AC #4] the bus is the drive path
@@ -871,8 +909,14 @@ async function journey(engineName, results, held) {
   const pointerSaid = await liveSeen(page);
   t("AC #2 · a POINTER gesture announces exactly ONCE, however many slots it crossed",
     pointerSaid.n === 1, `${pointerSaid.n} announcement(s): ${pointerSaid.last}`);
-  t("AC #2 · …and that one announcement names the slot it landed in",
-    new RegExp(`moved to column ${GOAL.col}, row ${GOAL.row}`).test(pointerSaid.last), pointerSaid.last);
+  // THE SENTENCE NAMES WHERE IT LANDED, and the expectation is read from the arrangement rather
+  // than typed: a drag lands on a float and the announcement rounds it, so a literal here would be
+  // asserting the browser's rounding rather than the module's sentence.
+  const landedAt = (await arrangement(page))[TARGET];
+  t("AC #2 · …and that one announcement names the position it landed at, rounded",
+    pointerSaid.last === `${moved.name} moved by 0, ${NODE_H + NODE_GAP} to ${Math.round(landedAt.x)}, ${Math.round(landedAt.y)}.`
+      || new RegExp(`moved to ${Math.round(landedAt.x)}, ${Math.round(landedAt.y)}\\.$`).test(pointerSaid.last),
+    `${pointerSaid.last} (landed at ${JSON.stringify(landedAt)})`);
 
   await undoAll(page);
   // Three ArrowDowns, each landing on a distinct free row: rows 2 and 3 are occupied, so the presses
@@ -975,7 +1019,7 @@ async function journey(engineName, results, held) {
   await undoAll(page);
   await btn(page, "Reset").click();
   await page.waitForTimeout(150);
-  const occupiedPoint = await cellPoint(page, 3, 2); // a cell the harness genuinely fills
+  const occupiedPoint = await stagePoint(page, at(3, 2).x, at(3, 2).y); // a place the harness genuinely fills
   await dragTo(page, TARGET, occupiedPoint);
   const afterOcc = await arrangement(page);
   const cells = Object.values(afterOcc).map((s) => `${s.col},${s.row}`);
@@ -1019,7 +1063,7 @@ async function journey(engineName, results, held) {
       await page.waitForTimeout(60);
     }
     const id = await idAt(page, from.col, from.row);
-    const point = await cellPoint(page, cell.col, cell.row);
+    const point = await stagePoint(page, at(cell.col, cell.row).x, at(cell.col, cell.row).y);
     const startBox = await nodeBox(page, id);
     const view = await page.locator(SCROLL).boundingBox();
     // Stated rather than assumed, and asserted against the SCROLLER rather than the window: a
@@ -1130,7 +1174,7 @@ async function journey(engineName, results, held) {
   await undoAll(page);
   await btn(page, "Reset").click();
   await page.waitForTimeout(200);
-  const stickPoint = await cellPoint(page, 2, 4);
+  const stickPoint = await stagePoint(page, at(2, 4).x, at(2, 4).y);
   await dragTo(page, TARGET, stickPoint);
   await page.waitForTimeout(200);
   const stuck = (await arrangement(page))[TARGET];
@@ -1183,8 +1227,8 @@ async function journey(engineName, results, held) {
   // throwing. Asserted as RESULTING ARRANGEMENT plus exactly one ui.move, matching AC #4's shape.
   await undoAll(page);
   const stickyFrom = (await arrangement(page))[TARGET];
-  const stickyGoal = { col: 3, row: 4 };
-  const stickyPoint = await cellPoint(page, stickyGoal.col, stickyGoal.row);
+  const stickyGoal = at(3, 4);
+  const stickyPoint = await stagePoint(page, stickyGoal.x, stickyGoal.y);
   await busClear(page);
   await countLive(page);
 
@@ -1238,7 +1282,7 @@ async function journey(engineName, results, held) {
   // and the mouse cannot be moved to a point off-screen. Row 4 is empty for its whole width and its
   // low columns are the ones every other pointer case here has proven reachable.
   const LATE_FROM = { col: 2, row: 4 };
-  const LATE_TO = { col: 3, row: 4 };
+  const LATE_TO = at(3, 4);
   const lateId = await page.evaluate(async ([c, r]) => {
     const canvas = (await import("/system/studio-canvas.mjs")).getCanvas();
     const node = document.createElement("div");
@@ -1251,7 +1295,7 @@ async function journey(engineName, results, held) {
     lateId !== null && (await arrangement(page))[lateId]?.col === LATE_FROM.col,
     `${lateId} at ${JSON.stringify((await arrangement(page))[lateId])}`);
 
-  await dragTo(page, lateId, await cellPoint(page, LATE_TO.col, LATE_TO.row));
+  await dragTo(page, lateId, await stagePoint(page, LATE_TO.x, LATE_TO.y));
   const lateMoved = (await arrangement(page))[lateId];
   t(`#230 · a POINTER drag moves it to column ${LATE_TO.col}, row ${LATE_TO.row}`,
     lateMoved.col === LATE_TO.col && lateMoved.row === LATE_TO.row, JSON.stringify(lateMoved));
@@ -1339,14 +1383,18 @@ async function journey(engineName, results, held) {
   // that passes only because the case was never tried.
   const fctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const fresh = await open(fctx);
-  await inject(fresh, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: TARGET }, params: GOAL });
+  // THE AGENT IS HANDED THE POINTER'S OWN ANSWER, not a typed destination — which is what makes this
+  // AC #1's third source rather than a third fixture: the claim is that an injected action reaches
+  // the place a drag reached, so the drag's result IS the input.
+  await inject(fresh, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: TARGET },
+    params: { x: byPointer[TARGET].x, y: byPointer[TARGET].y } });
   await fresh.waitForTimeout(150);
   const byAgent = await arrangement(fresh);
   t("AC #1 · an injected source:\"agent\" action on a FRESH page moves the same node through the same consumer",
-    JSON.stringify(byAgent) === JSON.stringify(byPointer),
+    samePlace(byAgent[TARGET], byPointer[TARGET]) && JSON.stringify(others(byAgent)) === JSON.stringify(others(byPointer)),
     `agent ${JSON.stringify(byAgent[TARGET])} vs pointer ${JSON.stringify(byPointer[TARGET])}`);
   t("AC #1 · …and it announced as a move, like the other two sources",
-    /moved to column/.test((await fresh.locator(LIVE).textContent()).trim()),
+    /moved to \d+, \d+\.$/.test((await fresh.locator(LIVE).textContent()).trim()),
     (await fresh.locator(LIVE).textContent()).trim());
   await fctx.close();
   }
@@ -1385,7 +1433,7 @@ async function journey(engineName, results, held) {
   await rp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
   await rp.waitForTimeout(300);
   const rBefore = (await arrangement(rp))["s1"];
-  await dragTo(rp, "s1", await cellPoint(rp, 3, 4));
+  await dragTo(rp, "s1", await stagePoint(rp, at(3, 4).x, at(3, 4).y));
   const rDragged = (await arrangement(rp))["s1"];
   t("AC #6 · reduced motion · a pointer drag still completes",
     rDragged.col !== rBefore.col || rDragged.row !== rBefore.row,

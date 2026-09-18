@@ -1009,7 +1009,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       if (!gesture || !gesture.raf) return;
       cancelAnimationFrame(gesture.raf);
       gesture.raf = 0;
-      if (gesture.pending) preview(pointOnStage(gesture.pending));
+      if (gesture.pending) preview(pointFor(gesture.pending));
     };
 
     // The drop: exactly ONE ui.move, unless the gesture ended where it began — a click that moved
@@ -1074,6 +1074,27 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // hit-test in three separate conditions for exactly that reason. The scroller's rect and scroll
     // offsets are read LIVE in the handler: they are cheap, and a momentum or keyboard scroll can
     // move them mid-gesture.
+    // THE GRAB OFFSET, and it is the difference between picking a thing up and teleporting it.
+    // preview() takes the ANCHOR'S DESTINATION ORIGIN, because that is what the keyboard path has —
+    // a node and a step. A pointer has neither: it has a POINT, and the point is wherever inside the
+    // node the reader happened to press. Handing that point to preview() directly moves the node's
+    // TOP-LEFT to the cursor, so a node grabbed by its centre jumps half its own width and height
+    // the instant the pointer moves one pixel.
+    //
+    // MEASURED, NOT REASONED ABOUT: a drag from a node's own centre to exactly one pitch below it
+    // landed the node at 111, 198 rather than 0, 156 — off by half a node on each axis, which is
+    // precisely NODE_W/2 and NODE_H/2. No pure gate can see it; the running driver's AC #1 identity
+    // case is what caught it, and it caught it because the keyboard path and the pointer path are
+    // asserted to reach the SAME place.
+    //
+    // Recorded at pick-up and subtracted at every preview, so the point under the reader's finger
+    // stays under it for the whole gesture.
+    const pointFor = (e) => {
+      const at = pointOnStage(e);
+      const off = gesture?.grabOffset ?? { x: 0, y: 0 };
+      return { x: at.x - off.x, y: at.y - off.y };
+    };
+
     const pointOnStage = (e) => {
       const r = scroll.getBoundingClientRect(); // live: a scroll can move mid-gesture
       const s = canvas.scale || 1;
@@ -1179,7 +1200,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         if (!gesture.sticky) return; // a second pointer during a drag is not a second gesture
         e.stopPropagation();
         e.preventDefault();
-        preview(pointOnStage(e));
+        preview(pointFor(e));
         drop("pointer");
         return;
       }
@@ -1203,6 +1224,13 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       e.preventDefault(); // no text selection under the drag
       const g = pickUp(node, "pointer", handle?.classList.contains("stx-resize") ? "resize" : "move");
       g.pointerId = e.pointerId;
+      // WHERE INSIDE THE NODE THE PRESS LANDED, so the point under the finger stays under it. A
+      // RESIZE takes no offset: its argument is the desired bottom-right CORNER, and the corner the
+      // reader is dragging is the cursor itself.
+      if (g.kind !== "resize") {
+        const down = pointOnStage(e);
+        g.grabOffset = { x: down.x - g.origin.x, y: down.y - g.origin.y };
+      }
       g.fromHandle = Boolean(handle);
       // preventDefault() above suppresses the press's own focus, so the handle is focused
       // explicitly: a reader who picked up with the mouse can then finish with the arrow keys.
@@ -1235,7 +1263,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       gesture.raf = requestAnimationFrame(() => {
         if (!gesture) return;
         gesture.raf = 0;
-        preview(pointOnStage(gesture.pending));
+        preview(pointFor(gesture.pending));
       });
     }, { signal });
 
