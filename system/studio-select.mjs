@@ -72,10 +72,13 @@
 // mount it explicitly.
 
 // The ticket's ONE new cross-module import, and it runs select → verbs only: the verbs read the
-// selection off the DOM (call 1 above), so there is no cycle. hitSlot is the coordinate chain's
-// last step and SPOKEN_MAX is the live region's naming bound — both IMPORTED rather than re-typed,
-// because a second copy of either is a thing that drifts.
+// selection off the DOM (call 1 above), so there is no cycle. SPOKEN_MAX is the live region's
+// naming bound, IMPORTED rather than re-typed because a second copy of it is a thing that drifts.
+// The canvas's own constants join it at #302: the stage box bounds the marquee, the node pitch is
+// one keyboard step, and setPos places the menu — the same four values the canvas clamps against,
+// read from the module that owns them rather than re-derived here.
 import { DIRS, SPOKEN_MAX } from "./studio-verbs.mjs";
+import { NODE_GAP, NODE_H, NODE_W, STAGE_H, STAGE_W, setPos } from "./studio-canvas.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Everything below takes plain data and returns plain data, so build-checks group 22 drives it in CI
@@ -108,8 +111,8 @@ const item = (id) => MENU_ITEMS.find((i) => i.id === id);
 // `Select this` and `Deselect this` are exclusive, never both: the item names what activating it
 // will do, and offering both makes the reader guess which one describes the current state.
 // Destructured in the BODY, not the signature: a default parameter covers `undefined` and not
-// `null`, and every export here is total over junk by contract (slotOf below carries the same fix
-// for clampSlot).
+// `null`, and every export here is total over junk by contract (pointOf below carries the same fix
+// for the coercion).
 export function menuItems(state) {
   const { selected, anySelected, canUndo, canRedo } = state && typeof state === "object" ? state : {};
   const out = [selected ? MENU_DESELECT : MENU_SELECT, item("select-all")];
@@ -121,65 +124,95 @@ export function menuItems(state) {
   return out;
 }
 
-// clampSlot's default parameter covers `undefined` and NOT `null`, so a null slot destructures and
-// throws. Every entry point here is total over junk by contract, so the coercion happens once, here,
-// rather than at four call sites that would each have to remember it.
-const slotOf = (v) => clampSlot(v && typeof v === "object" ? v : {});
+// A POINT ON THE STAGE, coerced and clamped once (#302). Until the grid was retired this was
+// the canvas's slot clamp over a {col,row}; the shape changed and the posture did not — a null
+// destructures and throws, every entry point here is total over junk by contract, so the coercion
+// happens once rather
+// than at four call sites that would each have to remember it. Clamped to the stage because that is
+// the only bound left, and because a marquee corner outside it would select by a rule the reader
+// cannot see.
+const pointOf = (v) => {
+  const o = v && typeof v === "object" ? v : {};
+  const axis = (n, max) => {
+    const x = Number(n);
+    return Number.isFinite(x) ? Math.min(max, Math.max(0, x)) : 0;
+  };
+  return { x: axis(o.x, STAGE_W), y: axis(o.y, STAGE_H) };
+};
 
-// Two already-hit-tested slots → the inclusive rectangle between them, normalized (either drag
-// direction gives the same range) and clamped through clampSlot so "on the grid" keeps its ONE
-// definition (studio-canvas.mjs:50).
+// Two points in the stage's unscaled space → the rectangle between them, normalized (either drag
+// direction gives the same range) and clamped through pointOf so "on the stage" keeps its ONE
+// definition. The rectangle is in PIXELS now, not cells, and it is left/top/right/bottom rather than
+// col1/row1/col2/row2 — the old names meant grid lines and would read as cells to the next person.
 export function marqueeRange(a, b) {
-  const p = slotOf(a);
-  const q = slotOf(b);
+  const p = pointOf(a);
+  const q = pointOf(b);
   return {
-    col1: Math.min(p.col, q.col),
-    row1: Math.min(p.row, q.row),
-    col2: Math.max(p.col, q.col),
-    row2: Math.max(p.row, q.row),
+    left: Math.min(p.x, q.x),
+    top: Math.min(p.y, q.y),
+    right: Math.max(p.x, q.x),
+    bottom: Math.max(p.y, q.y),
   };
 }
 
 // Every id inside the inclusive range, IN THE ORDER GIVEN — which on the running page is DOM order,
 // the studio's standing correspondence with board order (studio.mjs:510-516). Total over junk: a
 // missing range or a slot list of nonsense answers [], never a throw.
-export function idsInRange(slots, range) {
+// A NODE IS IN RANGE WHEN ITS BOX OVERLAPS THE RECTANGLE, not when its origin is inside it, and
+// that is the one real change of meaning (#302). A cell either was or was not in the rectangle; a
+// free-positioned node has extent, and a marquee dragged across the middle of a wide node that
+// touches neither of its corners has to select it — anything else is a rule the reader cannot see.
+// Overlap is inclusive on all four edges, exactly as the cell rectangle was.
+export function idsInRange(nodes, range) {
   const r = range && typeof range === "object" ? range : null;
-  if (!r || !Array.isArray(slots)) return [];
+  if (!r || !Array.isArray(nodes)) return [];
   const out = [];
-  for (const s of slots) {
+  for (const s of nodes) {
     if (!s || s.id == null) continue;
-    const col = Number(s.col);
-    const row = Number(s.row);
-    if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
-    if (col >= r.col1 && col <= r.col2 && row >= r.row1 && row <= r.row2) out.push(s.id);
+    const x = Number(s.x);
+    const y = Number(s.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    // A node with no declared size is a point — the honest reading of "I was not told how big this
+    // is", and it makes the answer identical to the old one for a zero-extent node.
+    const w = Number.isFinite(Number(s.w)) ? Number(s.w) : 0;
+    const h = Number.isFinite(Number(s.h)) ? Number(s.h) : 0;
+    if (x <= r.right && x + w >= r.left && y <= r.bottom && y + h >= r.top) out.push(s.id);
   }
   return out;
 }
 
-// The cell the menu is placed in, plus the two booleans saying it must open LEFTWARDS / UPWARDS
-// because the invoker sits in the last column or the last row.
+// The point the menu is placed at, plus the two booleans saying it must open LEFTWARDS / UPWARDS
+// because there is not a menu's width of stage left to its right or below it.
 //
-// WITHOUT THIS a menu opened on a column-12 block renders past the right edge of the stage, outside
-// the scrollable area, where the reader who just right-clicked cannot see it and cannot scroll to
-// it. The whole fix is two attribute selectors in studio.css (justify-self / align-self flip to
-// `end`), which is what keeps this ticket's zero-inline-style claim while still opening a menu at
-// the far corner — a measured pixel offset would have cost a group 7 exception.
+// WITHOUT THIS a menu opened near the far edge renders past it, outside the scrollable area, where
+// the reader who just right-clicked cannot see it and cannot scroll to it. The flip is still two
+// attribute selectors in studio.css rather than a measured offset, which is what keeps the menu out
+// of setPos's budget entirely — it is chrome positioned relative to its own anchor, not a node.
 //
-// The boundary is >=, not >: at column 12 the menu must flip. Group 22 asserts BOTH sides of it
-// (column 11 must NOT flip), because an off-by-one here is invisible on every other column.
-export function menuAnchor(col, row, cols = MAX_COLS, rows = MAX_ROWS) {
-  const c = Number.isFinite(Number(cols)) && Number(cols) > 0 ? Math.round(Number(cols)) : MAX_COLS;
-  const r = Number.isFinite(Number(rows)) && Number(rows) > 0 ? Math.round(Number(rows)) : MAX_ROWS;
-  const slot = clampSlot({ col, row });
-  const at = { col: Math.min(slot.col, c), row: Math.min(slot.row, r) };
-  return { col: at.col, row: at.row, flipX: at.col >= c, flipY: at.row >= r };
+// THE THRESHOLD IS A MENU'S WORTH OF ROOM (#302), not "the last column". Under the grid the last
+// column WAS the threshold and the boundary was >=, so group 22 asserted both sides of it. Free
+// positions have no last column, so the honest question is whether the menu fits, and MENU_W/MENU_H
+// are that question's terms. Both sides are still asserted, for the same reason: an off-by-one here
+// is invisible everywhere except at the edge.
+export const MENU_W = NODE_W;
+export const MENU_H = NODE_H;
+export function menuAnchor(x, y, stageW = STAGE_W, stageH = STAGE_H) {
+  const bound = (v, fallback) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
+  const sw = bound(stageW, STAGE_W);
+  const sh = bound(stageH, STAGE_H);
+  const at = pointOf({ x, y });
+  return {
+    x: Math.min(at.x, sw),
+    y: Math.min(at.y, sh),
+    flipX: at.x + MENU_W > sw,
+    flipY: at.y + MENU_H > sh,
+  };
 }
 
-// One Shift+Arrow press: step the CURSOR one cell in `dir` and return the rectangle from the
-// (unmoving) ANCHOR to it. The cursor is clamped to the grid and NEVER SKIPS AN OCCUPIED CELL — a
-// selection rectangle includes what it covers, which is the opposite of stepSlot's rule for a carry
-// and is why this is its own function rather than a call into that one.
+// One Shift+Arrow press: step the CURSOR one node pitch in `dir` and return the rectangle from the
+// (unmoving) ANCHOR to it. The cursor is clamped to the stage and NEVER SKIPS WHAT IS IN THE WAY — a
+// selection rectangle includes what it covers, which is the opposite of a carry's rule, and is why
+// this is its own function rather than a call into the mover.
 //
 // IT REPLACES, IT DOES NOT UNION, and that is a decision rather than an omission. The rectangle from
 // anchor to cursor becomes the WHOLE selection, so a stray Shift-click from an earlier interaction
@@ -190,15 +223,19 @@ export function menuAnchor(col, row, cols = MAX_COLS, rows = MAX_ROWS) {
 // stays the additive path — that is what it is for. The announcement is the resulting count, which
 // is honest about the discard without narrating it.
 export function extendSelection(anchor, cursor, dir) {
-  const a = slotOf(anchor);
-  const from = slotOf(cursor == null ? anchor : cursor);
+  const a = pointOf(anchor);
+  const from = pointOf(cursor == null ? anchor : cursor);
   if (!Array.isArray(dir) || dir.length !== 2) return { cursor: from, range: marqueeRange(a, from) };
   const dc = Number(dir[0]);
   const dr = Number(dir[1]);
-  // A non-finite direction answers the cursor it was handed rather than letting NaN reach clampSlot,
-  // which would silently answer the origin — a jump, not a refusal.
+  // A non-finite direction answers the cursor it was handed rather than letting NaN reach the
+  // coercion, which would silently answer the origin — a jump, not a refusal.
   if (!Number.isFinite(dc) || !Number.isFinite(dr)) return { cursor: from, range: marqueeRange(a, from) };
-  const next = clampSlot({ col: from.col + dc, row: from.row + dr });
+  // ONE STEP IS ONE NODE PITCH (#302). A cell step was a unit because a cell was the unit; the
+  // keyboard now needs a distance, and the node pitch is the one distance on this stage that means
+  // something to a reader — it is exactly what the rank layout puts between two nodes, so a press
+  // moves the cursor from one to the next rather than by a number nobody chose.
+  const next = pointOf({ x: from.x + dc * (NODE_W + NODE_GAP), y: from.y + dr * (NODE_H + NODE_GAP) });
   return { cursor: next, range: marqueeRange(a, next) };
 }
 
@@ -261,11 +298,14 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
     const slots = () => [...stage.querySelectorAll(".stx-slot")];
     const idOf = (node) => node.getAttribute("data-stx-id");
     const nameOf = (node) => node.getAttribute("data-stx-name") || "Component";
-    const slotOf = (node) => ({
-      id: idOf(node),
-      col: Number(node.getAttribute("data-col")) || 1,
-      row: Number(node.getAttribute("data-row")) || 1,
-    });
+    // The node's BOX in the stage's unscaled space, read off the four custom properties setPos
+    // writes. parseFloat drops the "px" and answers NaN for an unwritten property, which pointOf and
+    // idsInRange both coerce — so a node placed before the module booted reads as a point at the
+    // origin rather than crashing the marquee.
+    const boxOf = (node) => {
+      const prop = (name) => parseFloat(node.style.getPropertyValue(name));
+      return { id: idOf(node), x: prop("--x") || 0, y: prop("--y") || 0, w: prop("--w") || 0, h: prop("--h") || 0 };
+    };
     const chosenNodes = () => [...stage.querySelectorAll(".stx-slot[data-stx-selected]")];
     const chosenIds = () => chosenNodes().map(idOf);
     // A LIVE CARRY OWNS THE CANVAS, and it is detected off the DOM for the same reason the selection
@@ -315,30 +355,24 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       return chosen;
     };
 
-    // --- geometry: studio-verbs.mjs:544-567's four steps, not a fifth derivation -------------------
-    // Read ONCE per gesture: a getComputedStyle in the move handler is the synchronous layout read
-    // spike 2 measured as its pessimistic case. The scroller's rect and scroll offsets are read LIVE
-    // instead — they are cheap, and a momentum scroll can move them mid-marquee.
-    const readGeom = () => {
-      const cs = getComputedStyle(stage);
-      const track = (v) => String(v || "").trim().split(/\s+/).map(parseFloat).filter(Number.isFinite);
-      return {
-        cols: track(cs.gridTemplateColumns),
-        rows: track(cs.gridTemplateRows),
-        colGap: parseFloat(cs.columnGap) || 0,
-        rowGap: parseFloat(cs.rowGap) || 0,
-      };
-    };
+    // --- geometry: a client point → the stage's unscaled space ------------------------------------
+    // THREE STEPS SINCE #302, not four. The grid's track-list read is gone — there are no tracks to
+    // parse, so there is no getComputedStyle in this chain at all, which removes the synchronous
+    // layout read spike 2 measured as its pessimistic case rather than merely hoisting it out of the
+    // move handler. The scroller's rect and scroll offsets are still read LIVE: they are cheap, and
+    // a momentum scroll can move them mid-marquee.
+    //
     // Miss the scroll offset and it is wrong the moment the reader has panned; miss the scale divide
-    // and it is wrong at every level ≠ 1 — and BOTH look fine at 100% scrolled to 0,0, which is
+    // and it is wrong at every scale but 1 — and BOTH look fine at 100% scrolled to 0,0, which is
     // where it gets tested first. studio-journey runs the hit-test in three conditions for that
     // reason, and the marquee joins them.
-    const pointToSlot = (e, geom) => {
+    const pointOnStage = (e) => {
       const r = scroll.getBoundingClientRect();
-      const s = ZOOM_LEVELS[canvas.level] || 1;
-      const x = (e.clientX - r.left + scroll.scrollLeft) / s;
-      const y = (e.clientY - r.top + scroll.scrollTop) / s;
-      return hitSlot(x, y, geom);
+      const s = canvas.scale || 1;
+      return {
+        x: (e.clientX - r.left + scroll.scrollLeft) / s,
+        y: (e.clientY - r.top + scroll.scrollTop) / s,
+      };
     };
 
     const ac = new AbortController();
@@ -417,18 +451,20 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       if (menu && menu.invoker === invoker) return;
       closeMenu({ restoreFocus: false });
       if (carrying()) return; // a live carry owns the canvas
-      const slot = slotOf(node);
-      const at = menuAnchor(slot.col, slot.row);
+      const box = boxOf(node);
+      const at = menuAnchor(box.x, box.y);
       const verb = (which) => viewport?.querySelector(`[data-stx-verb="${which}"]`);
       const list = el("div", {
         class: "stx-menu",
         role: "menu",
         "aria-label": `Actions for ${nameOf(node)}`,
-        "data-col": String(at.col),
-        "data-row": String(at.row),
         "data-flip-x": at.flipX || null,
         "data-flip-y": at.flipY || null,
       });
+      // The menu is a NODE ON THE STAGE, so it is positioned the way every other node is — through
+      // setPos, which is what keeps the write count at group 7's budget. It carries no --h: its
+      // height is its items'.
+      setPos(list, at.x, at.y, MENU_W);
       // ONE SOURCE FOR BOTH OPEN PATHS. The pure menuItems() decides what a menu holds, so the
       // pointer-opened and keyboard-opened lists are identical by construction rather than by two
       // builders that agree today — which is what makes AC #4's "identical items" checkable.
@@ -483,15 +519,20 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
     // empty margin. Caught by driving the real harness, where a Shift-drag across a 2×2 selected
     // exactly one component.
     //
-    // THE THRESHOLD IS A CELL, NOT A PIXEL COUNT. The grid is the grammar (call 3), a cell crossing
-    // is the smallest change a marquee can express, and it needs no literal to drift.
+    // THE THRESHOLD IS A DRAG DISTANCE (#302). Under the grid it was a CELL CROSSING — the smallest
+    // change a marquee could express, and it needed no literal. Free positions have no cell, so the
+    // smallest expressible change is a pixel, and a one-pixel tremor between pointerdown and
+    // pointerup would turn every click into a drag. DRAG_SLOP is the literal that replaces the cell,
+    // and it is stated rather than hidden: 4 px is the usual platform threshold and is well under
+    // the 24 px minimum target size, so it cannot swallow a deliberate small marquee.
+    const DRAG_SLOP = 4;
     const paintMarquee = (m, e) => {
-      const at = pointToSlot(e, m.geom);
+      const at = pointOnStage(e);
       if (!m.dragged) {
-        if (at.col === m.origin.col && at.row === m.origin.row) return null; // still a click
+        if (Math.abs(at.x - m.origin.x) < DRAG_SLOP && Math.abs(at.y - m.origin.y) < DRAG_SLOP) return null; // still a click
         m.dragged = true;
       }
-      return applySelection(idsInRange(slots().map(slotOf), marqueeRange(m.origin, at)), { say: false });
+      return applySelection(idsInRange(slots().map(boxOf), marqueeRange(m.origin, at)), { say: false });
     };
 
     stage.addEventListener("pointerdown", (e) => {
@@ -500,14 +541,12 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       e.stopPropagation();
       e.preventDefault(); // no text selection under the drag, and no native context menu path
       resetAnchor();
-      const geom = readGeom();
-      // NOTHING IS WRITTEN YET. Until the pointer crosses a cell boundary this press is still a
-      // click, and repainting the selection here would make a plain Shift-click briefly replace the
-      // set it is supposed to add to.
+      // NOTHING IS WRITTEN YET. Until the pointer moves past DRAG_SLOP this press is still a click,
+      // and repainting the selection here would make a plain Shift-click briefly replace the set it
+      // is supposed to add to.
       marquee = {
         pointerId: e.pointerId,
-        origin: pointToSlot(e, geom),
-        geom,
+        origin: pointOnStage(e),
         before: chosenIds(),
         node: e.target.closest?.(".stx-slot") || null,
         dragged: false,
@@ -658,12 +697,12 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       if (!dir) return; // not ours — let the page have the key
       e.preventDefault(); // or the scroller also scrolls
       // CAPTURED ONCE (call 4). The focused wrapper is the natural origin; with focus on the
-      // scroller itself the first selected block is, and an empty canvas answers the origin cell.
+      // scroller itself the first selected block is, and an empty canvas answers the stage origin.
       if (!anchor) {
         const focused = document.activeElement?.closest?.(".stx-slot");
         const from = (focused && stage.contains(focused)) ? focused : chosenNodes()[0];
-        const at = from ? slotOf(from) : { col: 1, row: 1 };
-        anchor = { col: at.col, row: at.row };
+        const at = from ? boxOf(from) : { x: 0, y: 0 };
+        anchor = { x: at.x, y: at.y };
         cursor = anchor;
       }
       const next = extendSelection(anchor, cursor, dir);
@@ -671,7 +710,7 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
       // ANNOUNCED ON EVERY PRESS, INCLUDING ONE THE EDGE BLOCKED — studio-verbs.mjs:718-721's rule,
       // and the same reason: a keyboard reader with no per-step feedback cannot tell a rectangle
       // that grew from one that hit the edge.
-      applySelection(idsInRange(slots().map(slotOf), next.range));
+      applySelection(idsInRange(slots().map(boxOf), next.range));
     }, { signal });
 
     // ESCAPE AT THE DOCUMENT LEVEL, for studio-verbs.mjs:733's reason — a body-drag focuses nothing,

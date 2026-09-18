@@ -118,7 +118,7 @@ export const MIN_SIZE = 24;
 // `transform: translate(var(--x), var(--y))` declaration invalid at computed-value time; the
 // declaration drops SILENTLY and the node renders at 0,0, which reads as a layout bug rather than as
 // bad input. Every value is coerced and a non-finite one falls back before anything is written —
-// clampSlot's posture, kept, with cells swapped for pixels.
+// the retired slot clamp's posture, kept, with cells swapped for pixels.
 //
 // CLAMPED TO THE STAGE, AND THAT IS THE ONLY BOUND LEFT. The grid had cells to collide in, so a move
 // could be BLOCKED and the mover said so out loud ("Blocked, still in column X, row Y."). Free
@@ -193,9 +193,17 @@ let live = null; // the mounted canvas — the exported seam below drives THIS o
 // through this, never through a window global — page globals are not this repo's test surface.
 export const getCanvas = () => live;
 
-// A trackpad pinch arrives as many small ctrl+wheel deltas on every engine. Stepping a level per
-// raw event makes zoom unusable, so deltas accumulate and only a gesture past this threshold steps.
-const WHEEL_STEP = 40;
+// The KEYBOARD's step list — a NEW constant with a new name, because the old one was a table of
+// levels the zoom snapped to and this is a multiplier the buttons apply to a continuous scale.
+// system-graph.mjs:263 makes the same call on the same page. 1.25 is four steps from 1 to ~2.44 and
+// four back to ~0.41, which is a usable number of presses across the whole range.
+const ZOOM_STEP = 1.25;
+
+// A trackpad pinch arrives as many small ctrl+wheel deltas on every engine. Under the discrete table
+// these accumulated to a threshold and then STEPPED a level; continuous scale needs no threshold, so
+// each delta is applied directly as an exponential factor. The divisor is tuned so a one-notch mouse
+// wheel (~100) is about one keyboard step.
+const WHEEL_SCALE = 450;
 
 export function initStudioCanvas(root = document) {
   const viewport = root.querySelector("[data-studio-canvas]");
@@ -231,65 +239,99 @@ export function initStudioCanvas(root = document) {
     const announcer = el("p", { class: "stx-live", role: "status", "aria-live": "polite" });
 
     viewport.append(zoomRow, scroll, announcer);
-    viewport.setAttribute("data-zoom", String(ZOOM_REST));
+    setScale(viewport, SCALE_REST);
 
     const say = (message) => { announcer.textContent = message; };
 
     // --- zoom -----------------------------------------------------------------------------------
-    let level = ZOOM_REST;
-    const syncControls = () => {
-      readout.textContent = `${Math.round(ZOOM_LEVELS[level] * 100)}%`;
-      outBtn.disabled = level <= 0;
-      inBtn.disabled = level >= ZOOM_LEVELS.length - 1;
+    // CONTINUOUS since #302. There is no table to index and no attribute to select: setScale writes
+    // --stx-scale and the two scroll-extent values on the viewport, and the sheet reads them.
+    //
+    // THE SCALE WRITE IS COALESCED TO ONE PER FRAME, and that is S1's own recommendation rather
+    // than a precaution — it measured that a per-event write is what costs the drag, and that
+    // `content-visibility: auto` (the mitigation #302's ticket proposed) does not cull this
+    // substrate on Chromium at all, because translate positioning and a scaled ancestor each defeat
+    // it independently. A pinch delivers many wheel events per frame; without this, each one writes
+    // three custom properties and forces the engine to re-resolve the sizer.
+    let scale = SCALE_REST;
+    let scaleFrame = 0;
+    const flushScale = () => {
+      scaleFrame = 0;
+      setScale(viewport, scale);
+    };
+    const queueScale = () => {
+      if (scaleFrame) return;
+      // requestAnimationFrame is the coalescer; a synchronous fallback keeps the harness and any
+      // non-animating host correct rather than silently never writing.
+      scaleFrame = typeof requestAnimationFrame === "function" ? requestAnimationFrame(flushScale) : 0;
+      if (!scaleFrame) flushScale();
     };
 
-    // setZoom(index, anchorX, anchorY) — anchors are box-relative px; the default is the box
-    // centre, measured HERE (call time) and never at mount, because the panel may still be hidden.
-    // The content point under the anchor is read with the OLD scale, the attribute flips, and the
-    // scroll offset is restored so the thing under the cursor stays under the cursor.
-    const setZoom = (index, anchorX, anchorY) => {
-      const next = Math.min(ZOOM_LEVELS.length - 1, Math.max(0, Math.round(Number(index)) || 0));
-      if (next === level) return level;
+    const syncControls = () => {
+      readout.textContent = `${Math.round(scale * 100)}%`;
+      outBtn.disabled = scale <= SCALE_MIN;
+      inBtn.disabled = scale >= SCALE_MAX;
+    };
+
+    // setZoom(next, anchorX, anchorY) — `next` is a SCALE now, not an index. Anchors are box-relative
+    // px; the default is the box centre, measured HERE (call time) and never at mount, because the
+    // panel may still be hidden. The content point under the anchor is read with the OLD scale, the
+    // scale flips, and the scroll offset is restored so the thing under the cursor stays under it.
+    // system/system-graph.mjs:247-260 is the shipped model this follows.
+    const setZoom = (next, anchorX, anchorY) => {
+      const n = Number(next);
+      const clamped = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Number.isFinite(n) ? n : SCALE_REST));
+      if (clamped === scale) return scale;
       const ax = anchorX ?? scroll.clientWidth / 2;
       const ay = anchorY ?? scroll.clientHeight / 2;
-      const cx = (scroll.scrollLeft + ax) / ZOOM_LEVELS[level];
-      const cy = (scroll.scrollTop + ay) / ZOOM_LEVELS[level];
-      level = next;
-      viewport.setAttribute("data-zoom", String(level));
-      scroll.scrollLeft = cx * ZOOM_LEVELS[level] - ax; // the browser clamps both to the new range
-      scroll.scrollTop = cy * ZOOM_LEVELS[level] - ay;
+      const cx = (scroll.scrollLeft + ax) / scale;
+      const cy = (scroll.scrollTop + ay) / scale;
+      scale = clamped;
+      queueScale();
+      scroll.scrollLeft = cx * scale - ax; // the browser clamps both to the new range
+      scroll.scrollTop = cy * scale - ay;
       syncControls();
-      return level;
+      return scale;
     };
 
-    // Measured unscaled, with offsetWidth/offsetHeight rather than a bounding rect: a rect reports
-    // the POST-transform box, so at any level ≠ 1 fit would be computing against its own last
-    // answer and converge on nonsense.
+    // FIT NOW ACTUALLY FITS. The discrete table could only snap DOWN to a level at or below the
+    // ideal ratio, so "fit" was always an under-estimate and the announcement had to say "the level
+    // reached" rather than "everything is in view". A continuous scale can be the ratio itself.
+    //
+    // The stage is a fixed unscaled box, so the ratio is read from the constants rather than
+    // measured — offsetWidth would report the POST-transform box at any scale but 1 and fit would be
+    // computing against its own last answer.
+    //
+    // A ZERO (or non-finite) AVAILABLE DIMENSION means the panel was hidden at call time — #173's
+    // "measure at call time, never at mount" trap arriving as a division by zero. The old answer was
+    // the rest level, and it is kept verbatim: the honest reading of "I cannot measure this" is
+    // "leave it at 1", never Infinity.
     const fit = () => {
-      const chosen = fitLevel(scroll.clientWidth, scroll.clientHeight, stage.offsetWidth, stage.offsetHeight);
-      setZoom(chosen, 0, 0);
+      const aw = scroll.clientWidth;
+      const ah = scroll.clientHeight;
+      const ratio = [aw, ah].every((n) => Number.isFinite(n) && n > 0)
+        ? Math.min(aw / STAGE_W, ah / STAGE_H)
+        : SCALE_REST;
+      setZoom(ratio, 0, 0);
       scroll.scrollLeft = 0;
       scroll.scrollTop = 0;
-      // Announced as the level reached, never as "everything is in view" — below the smallest level
-      // nothing fits, and fit() floors there rather than inventing a scale. Claiming otherwise would
-      // be a sentence the discrete table cannot always keep.
-      say(`Zoom ${Math.round(ZOOM_LEVELS[level] * 100)} percent, fit to the canvas`);
-      return level;
+      say(`Zoom ${Math.round(scale * 100)} percent, fit to the canvas`);
+      return scale;
     };
 
     const reset = () => {
-      setZoom(ZOOM_REST, 0, 0);
+      setZoom(SCALE_REST, 0, 0);
       scroll.scrollLeft = 0;
       scroll.scrollTop = 0;
       say("Zoom 100 percent, back to the top left");
-      return level;
+      return scale;
     };
 
     const ac = new AbortController();
     const { signal } = ac;
 
-    outBtn.addEventListener("click", () => { setZoom(level - 1); }, { signal });
-    inBtn.addEventListener("click", () => { setZoom(level + 1); }, { signal });
+    outBtn.addEventListener("click", () => { setZoom(scale / ZOOM_STEP); }, { signal });
+    inBtn.addEventListener("click", () => { setZoom(scale * ZOOM_STEP); }, { signal });
     fitBtn.addEventListener("click", fit, { signal });
     resetBtn.addEventListener("click", reset, { signal });
 
@@ -298,16 +340,16 @@ export function initStudioCanvas(root = document) {
     // wheel event with ctrlKey set, so pinch needs no extra code. A BARE WHEEL IS NEVER TOUCHED:
     // it scrolls the box and then chains to the page, so a canvas embedded mid-page never traps the
     // reader's scroll. That is the dark pattern this whole handler exists to not be.
-    let wheelAcc = 0;
     scroll.addEventListener("wheel", (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      wheelAcc += e.deltaY;
-      if (Math.abs(wheelAcc) < WHEEL_STEP) return;
-      const direction = wheelAcc < 0 ? 1 : -1; // wheel up / pinch out zooms in
-      wheelAcc = 0;
+      // EXPONENTIAL, not additive: a zoom that added a constant would move fast at 0.2 and crawl at
+      // 3. exp(-delta / WHEEL_SCALE) makes one notch the same proportional change at every scale,
+      // which is also what makes the cursor anchor feel stable. No accumulator any more — the scale
+      // is continuous, so every delta is a real answer, and the per-frame coalescing in queueScale
+      // is what keeps a pinch's event flood to one write.
       const r = scroll.getBoundingClientRect(); // measured in the handler — see setZoom's note
-      setZoom(level + direction, e.clientX - r.left, e.clientY - r.top);
+      setZoom(scale * Math.exp(-e.deltaY / WHEEL_SCALE), e.clientX - r.left, e.clientY - r.top);
     }, { passive: false, signal });
 
     // --- pan ------------------------------------------------------------------------------------
@@ -355,8 +397,9 @@ export function initStudioCanvas(root = document) {
     scroll.addEventListener("pointercancel", endPan, { signal });
 
     // --- arrangement ----------------------------------------------------------------------------
-    // ATTRIBUTES ONLY. data-col/data-row select grid lines from rules in system/studio.css; nothing
-    // here writes a style property, and that is the entire reason the zoom table exists as CSS.
+    // THROUGH setPos, AND ONLY setPos (#302). A position is --x/--y/--w (and --h for a frame), and
+    // the sheet translates by them; nothing here reaches el.style directly, which is what keeps
+    // group 7's function-scoped budget true.
     //
     // The announcement says PLACED, not moved. At #204 nothing has moved — place() is initial
     // placement and the mover is #205 — so "moved to column 2" would be a claim this ticket cannot
@@ -371,9 +414,8 @@ export function initStudioCanvas(root = document) {
     // alternative for the drag (system/studio-verbs.mjs's header records which criterion is which).
     //
     // IDEMPOTENT: called with a node that already IS a wrapper — or with a component already inside
-    // one — it MOVES that wrapper rather than nesting a second. That is what keeps
-    // tooling/studio-journey.mjs:93-100 and tooling/vt-verify.mjs:303-307 green unedited: both do
-    // querySelector(".stx-slot") → place(node) → read data-col off that same node.
+    // one — it MOVES that wrapper rather than nesting a second. Both drivers rely on it: each does
+    // querySelector(".stx-slot") -> place(node) -> read the position off that same node.
     // THE HANDLE IS THIS MODULE'S STRUCTURE AND ANOTHER MODULE'S BEHAVIOUR (#231 L2). place() draws
     // the .stx-grab button, but every listener that makes it do anything — and the #stx-move-help
     // element its aria-describedby points at — are created by studio-verbs.mjs's mountCanvasVerbs.
@@ -422,12 +464,12 @@ export function initStudioCanvas(root = document) {
     // handle-first tab order, the born-inert handle, the re-label fix (#231 L3), the id counter and
     // the say() on placement are six rules someone argued for, and a second wrapper builder in
     // system/studio-frames.mjs would be a second copy of all six.
-    const place = (node, { col, row, name, component, kind, spanCol, spanRow } = {}) => {
+    const place = (node, { x, y, w, h, name, component, kind } = {}) => {
       if (!node) throw new Error("studio-canvas: place() was called with no node");
-      const slot = clampSlot({ col, row });
       // WIDENED WITH THE FAMILY, and the parent test with it. Both drivers do
-      // querySelector(…) → place(node) → read data-col off that same node, so a frame that nested a
-      // second wrapper on its second call would break idempotency for the family that needs it most.
+      // querySelector(...) -> place(node) -> read the position off that same node, so a frame that
+      // nested a second wrapper on its second call would break idempotency for the family that
+      // needs it most.
       const isWrapper = (n) => Boolean(n?.classList?.contains("stx-slot") || n?.classList?.contains(FRAME_CLASS));
       const existing = isWrapper(node)
         ? node
@@ -474,26 +516,24 @@ export function initStudioCanvas(root = document) {
       const grip = wrap.querySelector(":scope > .stx-resize");
       if (grip) grip.setAttribute("aria-label", `Resize ${label}`);
       if (typeof component === "string" && component) wrap.setAttribute("data-stx-component", component);
-      wrap.setAttribute("data-col", String(slot.col));
-      wrap.setAttribute("data-row", String(slot.row));
-      // OUT OF THE CREATE BRANCH, like the label (#231 L3): a re-placed frame must not be left
-      // wearing a stale span. The span is read from the ARGUMENTS when they carry one and from the
-      // wrapper otherwise, so a re-place that mentions no geometry keeps the frame's size instead of
-      // silently shrinking it to 1×1 — and it is re-clamped against the NEW column, which is the
-      // whole reason clampSpan takes a slot.
-      if (wrap.classList.contains(FRAME_CLASS)) {
-        const span = clampSpan(slot, {
-          cols: spanCol ?? wrap.getAttribute("data-span-col"),
-          rows: spanRow ?? wrap.getAttribute("data-span-row"),
-        });
-        wrap.setAttribute("data-span-col", String(span.cols));
-        wrap.setAttribute("data-span-row", String(span.rows));
-      }
+      // THE SIZE IS READ FROM THE ARGUMENTS WHEN THEY CARRY ONE AND FROM THE WRAPPER OTHERWISE, so a
+      // re-place that mentions no geometry keeps what the node already had rather than silently
+      // shrinking it to the floor. That was #231 L3's rule for the label and it is the same rule
+      // here. The fallback for a width nobody has ever supplied is the default node box; for a
+      // HEIGHT it is nothing at all, because a board wrapper has no authored height and inventing
+      // one would give every wrapper a size nobody chose (D-c).
+      const px = (v) => { const n = parseFloat(String(v)); return Number.isFinite(n) ? n : null; };
+      const width = w ?? px(wrap.style.getPropertyValue("--w")) ?? NODE_W;
+      const isFrame = wrap.classList.contains(FRAME_CLASS);
+      const height = isFrame ? (h ?? px(wrap.style.getPropertyValue("--h")) ?? NODE_H) : undefined;
+      const at = setPos(wrap, x ?? px(wrap.style.getPropertyValue("--x")) ?? 0,
+        y ?? px(wrap.style.getPropertyValue("--y")) ?? 0, width, height);
       stage.appendChild(wrap);
-      // Still PLACED, not moved. place() is placement; "moved to column X, row Y" is the mover's
-      // sentence and belongs to system/studio-verbs.mjs's one consumer.
-      say(`${label} in column ${slot.col}, row ${slot.row}`);
-      return slot;
+      // Still PLACED, not moved. place() is placement; "moved to X, Y" is the mover's sentence and
+      // belongs to system/studio-verbs.mjs's one consumer. The numbers are setPos's ANSWER rather
+      // than the arguments, so a node clamped to the stage edge is announced where it actually is.
+      say(`${label} at ${Math.round(at.x)}, ${Math.round(at.y)}`);
+      return at;
     };
 
     const handleObj = {
@@ -507,13 +547,15 @@ export function initStudioCanvas(root = document) {
       fit,
       reset,
       setZoom,
-      get level() { return level; },
+      // `scale` now, not `level`: the old name meant an index into a table that no longer exists,
+      // and a name that means an index while it holds a scale is how the next reader gets it wrong.
+      get scale() { return scale; },
       destroy() {
         ac.abort();
+        if (scaleFrame && typeof cancelAnimationFrame === "function") cancelAnimationFrame(scaleFrame);
         zoomRow.remove();
         announcer.remove();
         scroll.remove();
-        viewport.removeAttribute("data-zoom");
         viewport.classList.remove("stx-viewport");
         if (live === handleObj) live = null;
       },

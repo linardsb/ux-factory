@@ -235,8 +235,12 @@
    opening a menu at the far corner: menuAnchor() reports flipX/flipY as booleans, these two rules
    are what they mean, and group 22 gates the boundary on BOTH sides (column 11 must not flip,
    column 12 must). A measured pixel offset would have cost a group 7 exception. */
-.stx-menu[data-flip-x] { justify-self: end; }
-.stx-menu[data-flip-y] { align-self: end; }
+/* The flip: the menu still opens from its --x/--y, but leftwards/upwards when there is not a menu's
+   worth of stage left in that direction. A translate on top of the position one, so setPos keeps
+   writing the anchor and this sheet decides what "flipped" means (the attribute discipline). */
+.stx-menu[data-flip-x] { translate: -100% 0; }
+.stx-menu[data-flip-y] { translate: 0 -100%; }
+.stx-menu[data-flip-x][data-flip-y] { translate: -100% -100%; }
 
 .stx-menu-item {
   appearance: none;
