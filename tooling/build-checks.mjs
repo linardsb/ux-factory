@@ -212,10 +212,10 @@ import { NO_DESIGN_IMPORTED, specMarkdown, TWO_CLAIMS } from "../system/build-ke
 import { exportHtml, stripImports } from "../system/studio-export.mjs";
 import { DEFAULT_ANSWERS, frequencyVerdictFor, HOOK_STAGES, QUADRANT_MEANINGS, quadrantFor, QUESTIONS, SUMMARY_TERM } from "../system/build-questions.mjs";
 import { assembleReducer, hookComplete, RENDER_SOURCES, verdictFor } from "../system/studio-method.mjs";
-import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS } from "../system/build-share.mjs";
+import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS, SHARE_VERSION, SHARE_VERSIONS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
-import { MIN_SIZE, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
+import { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
 import { createHistory, DIRS, HISTORY_MAX, SPOKEN_MAX } from "../system/studio-verbs.mjs";
 import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_ITEMS, MENU_SELECT, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
@@ -225,7 +225,7 @@ import {
   stepEvent, validateAnswers, withRunLock,
 } from "../portal/lib/builder.mjs";
 import { allowedOrigins, originAllowed } from "../portal/lib/origin.mjs";
-import { applyOps, assertBoard, OPS, parseOpCommand } from "../system/board-ops.mjs";
+import { applyOps, assertBoard, OPS, parseOpCommand, rankLayout } from "../system/board-ops.mjs";
 import { runBoardOp } from "./board-op.mjs";
 import { projectTrace } from "../agent-layer/gen-replay.mjs";
 // #211's two pure functions. gen-vocabulary.mjs is zero-dep and its standalone-run guard means
@@ -1030,73 +1030,77 @@ function pack(obj) {
     ["an affordance leading to its own place", clone({ b: { p: good.b.p, c: [["p1a1", "p1"]] } })],
     ["a malformed place id", clone({ b: { p: [["place-one", "P", []]], c: [] } })],
     ["a malformed edited flag", clone({ e: 2 })],
-    // v2 is REAL now (#208), so the hostile version moves up one. The accept side is asserted below
-    // — a version family that only ever rejects would pass with a decoder that rejects everything.
-    ["v: 3", clone({ v: 3 })],
+    // THE VERSION BOUNDARY, ON BOTH SIDES OF THE READ SET (#302). v3 is real and v2 is not, so the
+    // hostile versions are 2 (retired, and a link that really exists in the wild) and 4 (never
+    // written). The ACCEPT side is asserted below — a version family that only ever rejects would
+    // pass with a decoder that rejects everything, which is the shape this pair exists to avoid.
+    ["v: 2, the retired version", clone({ v: 2 })],
+    ["v: 4, a version never written", clone({ v: 4 })],
+    ["v: 0", clone({ v: 0 })],
     // The envelope audit (#208). v1 validated every field it knew about and ignored every field it
     // did not, which decoded a payload carrying anything extra as a build without it.
     ["an unknown top-level key", clone({ zz: 1 })],
-    // The near-miss a future editor would actually type — the field is `g`, not its English name.
-    ["the arrangement spelled out as a key", clone({ v: 2, arrangement: [[1, 1], [2, 1]] })],
+    // The near-miss a future editor would actually type — the field was `g`, not its English name,
+    // and both are refused now: one by name, one by the envelope audit.
+    ["the arrangement spelled out as a key", clone({ arrangement: [[1, 1], [2, 1]] })],
   ];
 
-  // --- the coordinate family (#208) ----------------------------------------------------------------
-  // EVERY case here gets the same two-place `b` and a two-entry `g`, varying only the thing under
-  // test — a `g` whose length disagrees with `b.p` rejects for the LENGTH reason and would prove
-  // nothing about coordinates at all, which is the "check that cannot fail" shape one level down.
+  // --- the `g` family: the retired field, refused wherever it appears (#302) --------------------
+  // WHAT THIS ARRAY USED TO BE, because the shape is kept on purpose rather than deleted. Until v3
+  // it was 20 coordinate cases — magnitude, type, a duplicate cell, off-board by exactly one on each
+  // axis, a length for a different board, a flood, and `g` on a v1 envelope — each sharing one
+  // two-place `b` so that a case could not reject for the LENGTH reason and prove nothing about the
+  // thing under test. Every one of them had the same subject: a field that no longer exists.
+  //
+  // WHAT IT IS NOW. The refusal moved from "is this coordinate legal" to "this field is retired",
+  // and a refusal that fires on one shape of `g` and not another would be a decoder still reading
+  // it. So the family is the SAME hostile shapes, asserting the SAME whole-payload rejection, with
+  // the expectation inverted: none of them is inspected, all of them are refused, and — the clause
+  // the version cases above cannot make — refused BY NAME rather than by the envelope audit's
+  // generic "not a field this builder reads", which would be true and would not say what happened.
   const twoPlaces = { p: [["p1", "Overview", []], ["p2", "Progress", []]], c: [] };
-  const g2 = (g) => clone({ v: 2, b: structuredClone(twoPlaces), g });
-  const coordinateCases = [
-    // magnitude
-    ["a column of 1e9", g2([[1e9, 1], [2, 1]])],
-    ["a row at MAX_SAFE_INTEGER", g2([[1, Number.MAX_SAFE_INTEGER], [2, 1]])],
-    ["a zero column (the grid is 1-based)", g2([[0, 1], [2, 1]])],
-    ["a negative column", g2([[-1, 1], [2, 1]])],
-    // type — every one of these is a value clampSlot would happily COERCE, and this codec must not
-    ["a string coordinate", g2([["1", "1"], [2, 1]])],
-    ["a fractional coordinate", g2([[1.5, 1], [2, 1]])],
-    ["a null coordinate", g2([[null, 1], [2, 1]])],
-    ["a boolean coordinate", g2([[true, 1], [2, 1]])],
-    ["an object where a pair belongs", g2([[{ col: 1, row: 1 }], [2, 1]])],
-    ["a pair of length 3", g2([[1, 1, 1], [2, 1]])],
+  const g2 = (g, v = 3) => clone({ v, b: structuredClone(twoPlaces), g });
+  const retiredFieldCases = [
+    ["a well-formed g on a v3 envelope", g2([[1, 1], [2, 1]])],
+    ["a well-formed g on a v1 envelope", g2([[1, 1], [2, 1]], 1)],
+    ["a g on the retired v2 envelope", g2([[1, 1], [2, 1]], 2)],
+    ["a g of one entry", g2([[1, 1]])],
+    ["an empty g", g2([])],
     ["g as an object", g2({ p1: [1, 1], p2: [2, 1] })],
     ["g as a string", g2("1,1 2,1")],
-    // duplicate — two places in one cell is a stacking claim the canvas itself refuses
-    ["two places in one cell", g2([[1, 1], [1, 1]])],
-    // off-board, by exactly one on each axis
-    [`a column of ${MAX_COLS + 1}`, g2([[MAX_COLS + 1, 1], [2, 1]])],
-    [`a row of ${MAX_ROWS + 1}`, g2([[1, MAX_ROWS + 1], [2, 1]])],
-    // length — an arrangement for a different board, in both directions, plus a flood
-    ["g longer than b.p", g2([[1, 1], [2, 1], [3, 1]])],
-    ["g shorter than b.p", g2([[1, 1]])],
-    ["g of 1000 entries", g2(Array.from({ length: 1000 }, (_, i) => [(i % MAX_COLS) + 1, (i % MAX_ROWS) + 1]))],
-    ["an empty g", g2([])],
-    // envelope — a v1 link cannot carry a v2 field
-    ["g on a v: 1 envelope", clone({ v: 1, b: structuredClone(twoPlaces), g: [[1, 1], [2, 1]] })],
+    ["g as null", g2(null)],
+    ["g of 1000 entries", g2(Array.from({ length: 1000 }, (_, i) => [i + 1, 1]))],
+    ["a g carrying junk coordinates", g2([[{ col: 1 }, true], ["x", null]])],
   ];
 
-  for (const [label, payload] of [...cases, ...coordinateCases]) {
+  for (const [label, payload] of [...cases, ...retiredFieldCases]) {
     const { state, reason } = await decodeBuild(pack(payload));
     ok(state === null, `${label} was ACCEPTED — it must reject the whole payload`);
     ok(typeof reason === "string" && reason.length > 0, `${label} rejected with no reason`);
   }
 
-  // The ACCEPT side of v2, without which the family above could pass on a decoder that refuses
-  // everything: a well-formed arrangement decodes, and it decodes to the slots that were sent.
-  const goodG = await decodeBuild(pack(g2([[1, 1], [2, 1]])));
-  ok(goodG.state !== null, `a valid v: 2 arrangement should decode: ${goodG.reason}`);
-  ok(goodG.state && JSON.stringify(goodG.state.arrangement) === JSON.stringify([{ id: "p1", col: 1, row: 1 }, { id: "p2", col: 2, row: 1 }]),
-    `a valid arrangement decoded to ${JSON.stringify(goodG.state && goodG.state.arrangement)}`);
-  // The ids come from the VALIDATED places, never from the payload — there is nowhere in `g` to put
-  // one, which is the point of the positional shape.
-  ok(goodG.state && goodG.state.arrangement.every((s, i) => s.id === goodG.state.board.places[i].id),
-    "a decoded arrangement's ids must be the board's own, at the same index");
+  // THE ACCEPT SIDE, without which the family above could pass on a decoder that refuses everything.
+  // v3 is what this builder reads and writes, and a real encode of a real build has to survive the
+  // whole battery's decoder unchanged.
+  const goodV3 = await decodeBuild(await encodeBuild(sample, { compress: false }));
+  ok(goodV3.state !== null, `a real v3 encode should decode: ${goodV3.reason}`);
+  ok(goodV3.state && !Object.hasOwn(goodV3.state, "arrangement"),
+    "a decoded v3 state carries an arrangement key — the field is retired, and an always-null key is a seam a later reader would use");
 
-  // The grid boundary itself, both sides — the LABEL_MAX pair below, applied to coordinates.
-  ok((await decodeBuild(pack(g2([[MAX_COLS, MAX_ROWS], [1, 1]])))).state !== null,
-    `the far corner [${MAX_COLS}, ${MAX_ROWS}] should be accepted — it is on the grid`);
-  ok((await decodeBuild(pack(g2([[MAX_COLS + 1, MAX_ROWS], [1, 1]])))).state === null,
-    `[${MAX_COLS + 1}, ${MAX_ROWS}] should be rejected — one column past the grid`);
+  // REFUSED BY NAME, not by the envelope audit. This is the clause the whole family rests on: with
+  // `g` simply absent from the KNOWN set, every case above would still reject — with "\"g\" is not a
+  // field this builder reads", which is true and tells a reader of a v2 link nothing about why their
+  // link stopped working. Asserted on the MESSAGE, and against the generic sentence explicitly, so a
+  // later edit that deletes the named branch fails here rather than passing on the fallback.
+  const named = await decodeBuild(pack(g2([[1, 1], [2, 1]])));
+  ok(/older version/.test(named.reason || ""),
+    `a payload carrying g was refused with ${JSON.stringify(named.reason)} — it must name the OLDER VERSION, which is what actually happened`);
+  ok(!/is not a field this builder reads/.test(named.reason || ""),
+    "a payload carrying g fell through to the envelope audit's generic unknown-key sentence — the named refusal has been deleted, and the reader is told nothing useful");
+  // …and the envelope audit still owns every OTHER unknown key, so the named branch did not replace it.
+  const other = await decodeBuild(pack(clone({ zz: 1 })));
+  ok(/is not a field this builder reads/.test(other.reason || ""),
+    `an unrelated unknown key was refused with ${JSON.stringify(other.reason)} — the envelope audit must still own it`);
 
   // A `__proto__` key at the TOP level is now REFUSED, and this expectation FLIPPED in #208 — the
   // block used to argue, correctly, that asserting a rejection here would be "a test asserting a
@@ -1154,7 +1158,7 @@ function pack(obj) {
     console.log("build tamper         ·  CompressionStream is absent here, so the bomb case was skipped");
   }
 
-  group("tamper", `${cases.length + coordinateCases.length} hostile payloads (incl. ${coordinateCases.length} coordinate cases — magnitude, type, duplicate cell, off-board by one on each axis, a length for a different board, and g on a v1 envelope) + caps + transport, all rejected whole · v2 asserted on the ACCEPT side too, ids taken from the board and not the payload · the ${MAX_COLS}×${MAX_ROWS} boundary itself, both sides`);
+  group("tamper", `${cases.length + retiredFieldCases.length} hostile payloads + caps + transport, all rejected WHOLE · the version boundary on both sides of the read set — v2 (retired, and a link that really exists), v4 and v0 refused, a real v3 encode accepted · the RETIRED FIELD family, ${retiredFieldCases.length} shapes of a g on v1, v2 and v3 envelopes, every one refused and every one refused BY NAME: the message is asserted to say "older version" and asserted NOT to be the envelope audit's generic unknown-key sentence, because with g merely absent from KNOWN every case here would still reject while telling the reader of a v2 link nothing — and the audit is proven to still own every OTHER unknown key, so the named branch did not replace it · the decoded state proven to carry no arrangement KEY at all, by ownership rather than by === null`);
 }
 
 // --- 6 · SVG well-formedness and escaping --------------------------------------------------------------
@@ -2647,6 +2651,9 @@ function scanSvg(svg, label) {
     "the SHARED four-family rule reads --h — it is the frame's alone (D-c), and a board wrapper must not get a height nobody chose");
 
   // --- 12.3 · setPos and setScale exist and are what studio.css reads --------------------------
+  // Group-local, like every other group's: this file has three of these already, each scoped to its
+  // own block, and a shared one would be a fourth thing to keep in step for no gain.
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
   ok(typeof setPos === "function" && typeof setScale === "function",
     "studio-canvas.mjs no longer exports both write helpers — group 7's function-scoped exception names them, so they are a contract and not an implementation detail");
 
@@ -2956,12 +2963,26 @@ function scanSvg(svg, label) {
   ok(arranged.length === drafted.places.length,
     `arrangeBoard laid out ${arranged.length} of the drafted board's ${drafted.places.length} places`);
   ok(arranged.length > 0, "the drafted default board arranges to nothing — every later assertion here would be vacuous");
-  // Along ROW 1, one column each, left to right, in board order — which is entry-place-first,
-  // because breadboard.mjs builds the entry place first and every edit verb appends after it.
-  ok(arranged.every((e, i) => e.col === i + 1 && e.row === 1),
-    `arrangeBoard did not lay the board along row 1 in order: ${deep(arranged.map((e) => [e.col, e.row]))}`);
+  // ONE COLUMN PER BFS RANK FROM THE ENTRY PLACE (#302), not one per board index. The distinction
+  // is the whole point of the change: under the old rule a four-step flow and four unrelated screens
+  // laid out identically, so the canvas showed what the board CONTAINED and never what it MEANT.
+  // Asserted against rankLayout's own answer rather than against literals, because the two are one
+  // rule and a literal here would be a second copy of it — but the entry place's position IS a
+  // literal, because "rank 0, order 0 is the origin" is the claim everything else is relative to.
+  const ranksOf = (b) => new Map(rankLayout(b).map((r) => [r.id, r]));
+  const dRanks = ranksOf(drafted);
+  ok(arranged.every((e) => {
+    const r = dRanks.get(e.id);
+    return r && e.x === r.rank * (NODE_W + NODE_GAP) && e.y === r.order * (NODE_H + NODE_GAP) && e.w === NODE_W;
+  }), `arrangeBoard's positions are not rankLayout's ranks at the node pitch: ${deep(arranged.map((e) => [e.id, e.x, e.y]))}`);
+  ok(arranged[0].x === 0 && arranged[0].y === 0,
+    `arrangeBoard put the entry place at ${arranged[0].x},${arranged[0].y}; rank 0 order 0 is the stage origin, and every other position is relative to it`);
   ok(arranged[0].id === drafted.places[0].id && arranged[0].label === drafted.places[0].label,
-    `arrangeBoard put ${JSON.stringify(arranged[0].label)} in column 1; the board's entry place is ${JSON.stringify(drafted.places[0].label)}`);
+    `arrangeBoard put ${JSON.stringify(arranged[0].label)} first; the board's entry place is ${JSON.stringify(drafted.places[0].label)}`);
+  // THE RANK RULE IS NOT VACUOUS ON THIS BOARD — it must actually SPREAD it. A drafted board whose
+  // places all landed at rank 0 would satisfy every assertion above while proving nothing about BFS.
+  ok(new Set(arranged.map((e) => e.x)).size > 1,
+    `every place arranged to x=${arranged[0].x} — the drafted board produced ONE rank, so the BFS assertions above are vacuous and this fixture needs a connected board`);
   // The affordances travel WHOLE. The block prints a count and then lists chips, and a slice here
   // would make the two disagree — the surface would print "3 affordances" over two chips.
   ok(arranged.every((e, i) => e.affordances.length === drafted.places[i].affordances.length),
@@ -2969,12 +2990,29 @@ function scanSvg(svg, label) {
   ok(deep(arranged.map((e) => e.affordances.map((a) => a.label)))
      === deep(drafted.places.map((p) => p.affordances.map((a) => a.label))),
     "arrangeBoard's affordance labels are not the board's, in the board's order");
-  // Every slot is on the grid, and it is on the grid by the CANVAS's definition — arrangeBoard
-  // routes through clampSlot rather than clamping in its own way (studio-canvas.mjs:50's rule).
+  // Every position is a finite number the stage can hold. There is no clamp to route through any
+  // more — setPos owns "on the stage" and clamps at the write — so what this asserts is that
+  // arrangeBoard never hands it something setPos would have to repair, which would silently move a
+  // place the layout had a reason to put where it did.
   for (const e of arranged) {
-    ok(deep(clampSlot({ col: e.col, row: e.row })) === deep({ col: e.col, row: e.row }),
-      `arrangeBoard produced ${deep({ col: e.col, row: e.row })}, which clampSlot does not agree is on the grid`);
+    ok([e.x, e.y, e.w].every((n) => Number.isFinite(n) && n >= 0),
+      `arrangeBoard produced ${deep({ x: e.x, y: e.y, w: e.w })} for ${e.id} — a non-finite or negative position would be repaired by setPos, silently moving a place the layout placed deliberately`);
+    ok(e.x + e.w <= STAGE_W,
+      `arrangeBoard put ${e.id} at x ${e.x} with width ${e.w}, past the stage's ${STAGE_W} — setPos would pull it back and two ranks would overlap`);
   }
+  // THE CYCLE, driven rather than reasoned about: replay/build-northwind-restock.board.json really
+  // carries p2a2 -> p1, and a BFS without a visited set does not terminate on it. Run here, on the
+  // COMMITTED board, because a synthetic cycle is a cycle someone chose and this one is a fact.
+  const cyclic = JSON.parse(readFileSync(join(ROOT, "replay/build-northwind-restock.board.json"), "utf8"));
+  ok(cyclic.connections.some(([aff, to]) => {
+    const owner = cyclic.places.find((pl) => (pl.affordances || []).some((a) => a.id === aff));
+    return owner && cyclic.places.indexOf(owner) > cyclic.places.findIndex((pl) => pl.id === to);
+  }), "the committed northwind board no longer carries a back edge — the termination proof below has stopped having a subject and needs a board that does");
+  const cycled = arrangeBoard(cyclic);
+  ok(cycled.length === cyclic.places.length,
+    `the cyclic committed board arranged to ${cycled.length} of ${cyclic.places.length} places`);
+  ok(deep(cycled.map((e) => [e.id, e.x, e.y])) === deep(arrangeBoard(cyclic).map((e) => [e.id, e.x, e.y])),
+    "arrangeBoard is not deterministic on the committed cyclic board — a layout that moves between two calls moves under the reader");
 
   // A board at MAX_PLACES — the widest board the codec will ever hand this function.
   const maxBoard = {
@@ -2986,8 +3024,16 @@ function scanSvg(svg, label) {
   };
   const maxArranged = arrangeBoard(maxBoard);
   ok(maxArranged.length === MAX_PLACES, `a board at MAX_PLACES arranged to ${maxArranged.length} slots, expected ${MAX_PLACES}`);
-  ok(maxArranged.every((e) => e.row === 1 && e.col <= MAX_COLS),
-    "a board at MAX_PLACES left row 1 or overran the column cap");
+  // A BOARD WITH NO CONNECTIONS has one reachable place — the entry, which is the BFS root — and
+  // every other is unreachable. Unreachable places are not dropped: they take the TRAILING rank, in
+  // board order, stacked down its column. So the answer is the entry at the origin and the rest in
+  // the next column, which is the honest picture of "one screen, and five nothing leads to".
+  // Dropping them would make the canvas disagree with buildSummary's count for a reason nobody
+  // chose, and spreading them across ranks would claim a flow the board does not describe.
+  ok(maxArranged[0].x === 0 && maxArranged[0].y === 0,
+    `the entry place of a connectionless board is at ${maxArranged[0].x},${maxArranged[0].y}, not the origin`);
+  ok(maxArranged.slice(1).every((e, i) => e.x === NODE_W + NODE_GAP && e.y === i * (NODE_H + NODE_GAP)),
+    `a board with no connections did not stack its unreachable places down ONE trailing column: ${deep(maxArranged.map((e) => [e.x, e.y]))}`);
 
   // TOTAL, not merely tolerant. mountStudio resolves its readiness handle in a `finally`, but that
   // is a gate contract and not a licence to let a bad store take the page down before the canvas
@@ -3025,23 +3071,14 @@ function scanSvg(svg, label) {
   ok(coerced[0].affordances.length === 1 && coerced[0].affordances[0].label === "9",
     `junk affordance entries were not filtered down to the real one: ${deep(coerced[0].affordances)}`);
 
-  // DELIBERATELY VACUOUS, and it says so rather than being left to read as live coverage. MAX_PLACES
-  // is 6 and MAX_COLS is 12, and system/build-share.mjs validates a restored board against
-  // MAX_PLACES — so no reachable board can overflow row 1, and this case is synthetic by
-  // construction. It is kept for the same reason group 1 keeps its `inLibrary: false ⇒ needs`
-  // clause: it is the contract a MAX_PLACES raise inherits, already written and already checked, so
-  // the raise fails here rather than silently stacking places 13+ onto column 12. Truncation and not
-  // a clamp, because a clamp would put two blocks in one cell, which the canvas explicitly refuses.
-  ok(MAX_PLACES < MAX_COLS,
-    `MAX_PLACES ${MAX_PLACES} is no longer below MAX_COLS ${MAX_COLS} — the truncation clause below has stopped being unreachable and now needs a real case`);
-  const wide = arrange({
-    places: Array.from({ length: MAX_COLS + 4 }, (_, i) => ({ id: `p${i + 1}`, label: `P${i + 1}`, affordances: [] })),
-    connections: [],
-  });
-  ok(wide && wide.length === MAX_COLS, `an over-wide board arranged to ${wide.length} slots, expected the cap of ${MAX_COLS}`);
-  ok(wide && wide.every((e) => e.row === 1), "the truncation spilled onto a second row instead of stopping at the cap");
-  ok(deep((wide || []).map((e) => e.col)) === deep(Array.from({ length: MAX_COLS }, (_, i) => i + 1)),
-    "the truncated arrangement is not a contiguous 1..MAX_COLS run — a clamp would stack the overflow on the last column");
+  // THE TRUNCATION TRIPWIRE IS DELETED, NOT TRANSLATED (#302). What stood here asserted
+  // MAX_PLACES < MAX_COLS and then drove an over-wide board through the truncation clause, so that a
+  // later MAX_PLACES raise would fail HERE rather than silently stacking places 13+ onto column 12.
+  // Free positioning has no column cap for MAX_PLACES to be below and arrangeBoard truncates
+  // nothing, so the tripwire has no subject. Translating it into a comparison against
+  // STAGE_W / NODE_W would be inventing a bound #302 never introduced — setPos clamps each node to
+  // the stage edge, which is a different rule with its own cases in group 12. What replaced the
+  // property it guarded is the assertion above that every arranged x + w is inside STAGE_W.
 
   // --- buildSummary ---------------------------------------------------------------------------
   // EVERY NUMBER COUNTED FROM THE BOARD. The affordance total is asserted against affordanceCount's
@@ -3098,7 +3135,7 @@ function scanSvg(svg, label) {
   ok(buildSummary({ places: "nope", connections: 3 }, DEFAULT_ANSWERS).places === 0,
     "a board whose places are not an array reported a non-zero place count");
 
-  group("studio", `arrangeBoard lays the REAL drafted board along row 1 in board order, entry first, every slot on the grid by clampSlot's own definition · affordances travel whole (the block prints a count over the chips) · total over 9 junk boards, never a throw · the over-wide truncation is DELIBERATELY VACUOUS (MAX_PLACES ${MAX_PLACES} < MAX_COLS ${MAX_COLS}) and guarded by a tripwire that fails the day that stops being true · buildSummary counts places, affordances and connections from the board and asserts the affordance total against affordanceCount rather than re-counting · the pattern id, label and VERBATIM reason are patternFor's and PATTERNS' · an empty board names null · total over 7 shapes incl. null answers · the mount half is studio-journey's, and says so`);
+  group("studio", `arrangeBoard lays the REAL drafted board out by RANK (#302) — one column per BFS step from the entry place, asserted against rankLayout's own answer rather than literals because the two are one rule, with the entry place pinned at the stage origin and a non-vacuity guard proving the fixture really spreads · the COMMITTED cyclic board (northwind's p2a2 -> p1, asserted still present) arranged whole and deterministically, which is the termination proof · every position finite and inside STAGE_W, so setPos never has to repair a place the layout placed deliberately · a connectionless board stacks in ONE column, the honest answer for a board with no flow · affordances travel whole (the block prints a count over the chips) · total over 9 junk boards, never a throw · the truncation tripwire is DELETED with the column cap it guarded rather than translated into a bound #302 never introduced · buildSummary counts places, affordances and connections from the board and asserts the affordance total against affordanceCount rather than re-counting · the pattern id, label and VERBATIM reason are patternFor's and PATTERNS' · an empty board names null · total over 7 shapes incl. null answers · the mount half is studio-journey's, and says so`);
 }
 
 // --- 15 · the compile beat's pure pipeline ----------------------------------------------------------

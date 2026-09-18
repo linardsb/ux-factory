@@ -99,6 +99,14 @@ export const SCALE_MIN = 0.1;
 export const SCALE_MAX = 4;
 export const SCALE_REST = 1;
 
+// The DEFAULT node box and the pitch a laid-out flow uses, in unscaled px. Not caps and not cells:
+// a node may be any size setPos() clamps to, and a caller that wants its own pitch says so (the
+// studio.html harness does). These three are what system/studio.css declares as --stx-slot-w,
+// --stx-slot-h and --stx-gap, hand-mirrored because CSS cannot import; group 12 pins all three.
+export const NODE_W = 220;
+export const NODE_H = 140;
+export const NODE_GAP = 16;
+
 // The smallest a node may be made. WCAG 2.2 SC 2.5.8's 24 x 24 minimum target size, applied to the
 // thing itself rather than only to its handles: a node resized below it cannot be picked up again by
 // pointer, which is a trap the keyboard path would then be the only way out of.

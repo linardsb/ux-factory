@@ -61,7 +61,8 @@
 // mounts this explicitly, like the compile beat, and tooling/build-checks.mjs group 16 drives the
 // pure layer directly.
 
-import { applyOp, emptyBoard } from "./board-ops.mjs";
+import { applyOp, emptyBoard, rankLayout } from "./board-ops.mjs";
+import { NODE_GAP, NODE_H, NODE_W } from "./studio-canvas.mjs";
 import { parseTrace } from "./trace-player.mjs";
 import { trackFactoryTookOver } from "./analytics.mjs";
 
@@ -490,11 +491,12 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
     setState("loading");
 
     // --- the reflection -------------------------------------------------------------------------
-    // THE ONE PLACE THE CANVAS IS WRITTEN by this file. `col` is the place's index in BOARD ORDER,
-    // exactly as studio.mjs's arrangeBoard derives it — the artifact carries no arrangement (that is
-    // #208's codec field, and this run predates any gesture), so board order is the only honest
-    // source for a column. Breaking at MAX_COLS rather than clamping, for arrangeBoard's reason: a
-    // clamp would stack two components in one cell, which the canvas refuses.
+    // THE ONE PLACE THE CANVAS IS WRITTEN by this file, and it reads the SAME rule studio.mjs's
+    // arrangeBoard does (#302). Until then this reimplemented the row-1-in-board-order rule and said
+    // so in this comment, which meant changing arrangeBoard alone left /factory's replay on the old
+    // layout — one rule, two copies, exactly the drift the duplication warned about. board-ops.mjs's
+    // rankLayout is now the one copy: BFS from the entry place, one column per rank. The artifact
+    // carries no arrangement and never did, so the board is still the only source.
     const blockFor = (place) => renderPlace({
       id: place.id,
       label: place.label,
@@ -512,11 +514,18 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
           continue;
         }
         if (!place) continue;
-        const col = board.places.indexOf(place) + 1;
         if (change.kind === "place-added") {
-          if (col > MAX_COLS) continue;
+          // Recomputed per addition rather than cached: an op that adds a place can change the rank
+          // of one already on the stage, and a cached layout would put the new node in a column the
+          // others have since moved out of.
+          const at = rankLayout(board).find((r) => r.id === String(place.id));
           const node = blockFor(place);
-          canvas.place(node, { col, row: 1, name: place.label });
+          canvas.place(node, {
+            x: (at ? at.rank : board.places.indexOf(place)) * (NODE_W + NODE_GAP),
+            y: (at ? at.order : 0) * (NODE_H + NODE_GAP),
+            w: NODE_W,
+            name: place.label,
+          });
           if (node.parentElement) wrappers.set(place.id, node.parentElement);
           continue;
         }
