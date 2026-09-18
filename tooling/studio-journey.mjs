@@ -95,7 +95,7 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 // stage box, the scale bounds, the node pitch and the nudge floor. THE DISCIPLINE IS UNCHANGED and is
 // the whole point of the line — every number below is imported, never retyped, so moving the stage or
 // the scale bounds fails this driver instead of drifting past it.
-const { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W } =
+const { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, ZOOM_STEP } =
   await import(new URL("../system/studio-canvas.mjs", import.meta.url));
 // #214's methodPass computes its expectations IN NODE from the same committed rules the page runs —
 // a hardcoded label list would pass a redraft that silently stopped being draftBoard's.
@@ -143,10 +143,7 @@ const LIVE = `${VIEWPORT} .stx-live`;
 // The readout's own arithmetic, so a case names a SCALE and the expectation follows the shipped
 // rounding rather than a second copy of it.
 const pct = (scale) => `${Math.round(scale * 100)}%`;
-// One keyboard zoom step, mirrored from studio-canvas.mjs's ZOOM_STEP. Not exported — it is a mount
-// constant — so this is the one number in this file that is retyped, and it is pinned by the
-// round-trip case below rather than trusted.
-const ZOOM_STEP = 1.25;
+
 
 // #416 · THE SETTLE WAIT, AND IT SAYS WHAT IT DIED IN. Every wait below for [data-replay="settled"]
 // was a bare waitForSelector, and a bare waitForSelector throws ONE sentence — "Timeout 30000ms
@@ -441,8 +438,12 @@ async function journey(engineName, results, held) {
   await btn(page, "Zoom in").click();
   const zin = await snapshot(page);
   // MULTIPLICATIVE, not a table index: two clicks is SCALE_REST × ZOOM_STEP², and the readout's
-  // rounding is pct()'s own. This is also the one place ZOOM_STEP is pinned — the round trip below
-  // returns EXACTLY to the rest scale, which a wrong step would not.
+  // rounding is pct()'s own. ZOOM_STEP is IMPORTED, like every other number this driver reads, so
+  // this asserts that the page does what the module says rather than that the module says 1.25 —
+  // change the step and this row follows it. That is the discipline the import block states, and it
+  // is worth being explicit about: a lossless round trip is true of ANY ratio, so it pins nothing,
+  // and where a constant's VALUE needs holding, that is build-checks group 12's job and not a
+  // driver's.
   const twoIn = SCALE_REST * ZOOM_STEP * ZOOM_STEP;
   t(`zoom in ×2 multiplies by ZOOM_STEP twice → ${pct(twoIn)}`,
     Math.abs(Number(zin.zoom) - twoIn) < 1e-9 && zin.readout === pct(twoIn), `${zin.zoom} / ${zin.readout}`);

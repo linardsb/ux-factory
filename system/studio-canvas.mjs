@@ -257,11 +257,16 @@ let live = null; // the mounted canvas — the exported seam below drives THIS o
 // through this, never through a window global — page globals are not this repo's test surface.
 export const getCanvas = () => live;
 
-// The KEYBOARD's step list — a NEW constant with a new name, because the old one was a table of
-// levels the zoom snapped to and this is a multiplier the buttons apply to a continuous scale.
-// system-graph.mjs:263 makes the same call on the same page. 1.25 is four steps from 1 to ~2.44 and
-// four back to ~0.41, which is a usable number of presses across the whole range.
-const ZOOM_STEP = 1.25;
+// The KEYBOARD's step — a NEW constant with a new name, because the old one was a table of levels
+// the zoom snapped to and this is a multiplier the buttons apply to a continuous scale.
+// system-graph.mjs makes the same call on the same page. 1.25 is four steps from 1 to ~2.44 and four
+// back to ~0.41, which is a usable number of presses across the whole range.
+//
+// EXPORTED, for the reason tooling/studio-journey.mjs's import block states about every number it
+// reads: a driver that retyped it would compute its expectations from its OWN copy, and a change
+// here would move the page and leave the driver green. A round trip being lossless is true of any
+// ratio, so it pins nothing.
+export const ZOOM_STEP = 1.25;
 
 // A trackpad pinch arrives as many small ctrl+wheel deltas on every engine. Under the discrete table
 // these accumulated to a threshold and then STEPPED a level; continuous scale needs no threshold, so
