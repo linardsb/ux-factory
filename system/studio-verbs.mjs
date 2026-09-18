@@ -125,6 +125,125 @@ export function guidesFor(carried, peers) {
   return { xs: axis("x", "w"), ys: axis("y", "h") };
 }
 
+// ---- align and distribute (#302 Phase 5) --------------------------------------------------------
+
+// THE EIGHT VERBS, as data rather than as eight functions, so the bus wiring, the menu and this
+// file's own switch all read one list and a ninth cannot be half-added. The names obey
+// action-bus.mjs's TYPE_RE — lowercase, hyphens, exactly one dot — so `ui.align-left`, never
+// `ui.alignLeft`.
+//
+// "centre" AND "middle" are the two axes' words for the same idea, which is the convention every
+// design tool uses and the reason the list is not four verbs with an axis param: a reader looking
+// for "middle" should find it.
+export const ALIGN_VERBS = Object.freeze([
+  "align-left", "align-centre", "align-right",
+  "align-top", "align-middle", "align-bottom",
+  "distribute-h", "distribute-v",
+]);
+
+// THE NUDGE STEP, and the floor is a DECISION the plan pins: --spacing-xs = 4px. There is no
+// --spacing-none — #301 decided against it (system/specs/stack.md) and build-checks group 3 asserts
+// its absence — so the scale starts at 4 and so does this. Typed rather than read from the sheet
+// because this is Node-import-safe code and getComputedStyle is not available to it; group 13 pins
+// the pair against tokens.contract.css.
+export const NUDGE_STEP = 4;
+
+// readingOrder(boxes) → ids in ROW-MAJOR order — the order a sighted reader's eye takes across the
+// canvas, which is what "moved to 3 of 7" is counting (#302's T16).
+//
+// ROW-MAJOR NEEDS A DEFINITION OF "SAME ROW", and free positions do not come with one: two nodes at
+// y 100 and y 104 are on the same row to a reader and two different rows to a sort. The band is one
+// node height, which is the smallest thing on this stage that has a height — so nodes whose tops sit
+// within one node of each other read as a row, and the tie is broken left to right.
+//
+// STATED AS REVERSIBLE. A band is a judgement, not a fact, and the architecture marks the snap
+// family as a reversible call; if the canvas later grows a real row concept, this reads from it
+// instead. Nothing else depends on the number it produces except the sentence.
+export const ROW_BAND = NODE_H;
+
+export function readingOrder(boxes) {
+  const list = (Array.isArray(boxes) ? boxes : []).filter((b) => b && b.id != null
+    && Number.isFinite(Number(b.x)) && Number.isFinite(Number(b.y)));
+  return [...list]
+    .sort((a, b) => {
+      const rowA = Math.floor(Number(a.y) / ROW_BAND);
+      const rowB = Math.floor(Number(b.y) / ROW_BAND);
+      return rowA === rowB ? Number(a.x) - Number(b.x) : rowA - rowB;
+    })
+    .map((b) => String(b.id));
+}
+
+// alignMoves(boxes, verb) → [{ id, x, y }] — the destination for every box, or [] when the verb
+// cannot act.
+//
+// TWO OR MORE, ALWAYS. Aligning one thing is a no-op with a sentence, and distributing fewer than
+// three is already distributed — both answer [] rather than moving something to where it is, which
+// is what lets the caller say "nothing to align" instead of announcing a move that did not happen.
+//
+// IT MOVES NOTHING TO ITS OWN POSITION EITHER: a box already on the target line is left out of the
+// answer entirely, so the history entry and the announcement both describe what actually changed.
+//
+// PURE, so build-checks group 13 drives every verb without a browser. Total over junk.
+export function alignMoves(boxes, verb) {
+  const list = (Array.isArray(boxes) ? boxes : []).filter((b) => b && b.id != null
+    && Number.isFinite(Number(b.x)) && Number.isFinite(Number(b.y)));
+  if (!ALIGN_VERBS.includes(verb) || list.length < 2) return [];
+  const n = (v) => Number(v);
+  const w = (b) => (Number.isFinite(Number(b.w)) ? Number(b.w) : 0);
+  const h = (b) => (Number.isFinite(Number(b.h)) ? Number(b.h) : 0);
+  const at = (b) => ({ id: b.id, x: n(b.x), y: n(b.y) });
+
+  // DISTRIBUTE NEEDS THREE. With two, the ends are the ends and there is nothing between them.
+  if (verb === "distribute-h" || verb === "distribute-v") {
+    if (list.length < 3) return [];
+    const horizontal = verb === "distribute-h";
+    // Ordered by position, not by selection order: "distribute" means even gaps along the axis as
+    // the READER sees them, and honouring click order would reshuffle the row.
+    const sorted = [...list].sort((a, b) => (horizontal ? n(a.x) - n(b.x) : n(a.y) - n(b.y)));
+    const size = horizontal ? w : h;
+    const start = horizontal ? n(sorted[0].x) : n(sorted[0].y);
+    const last = sorted[sorted.length - 1];
+    const end = (horizontal ? n(last.x) : n(last.y)) + size(last);
+    // EQUAL GAPS, not equal centres. Equal centres looks wrong the moment two nodes differ in size,
+    // which on this canvas is the normal case — a phone frame beside a board wrapper.
+    const total = sorted.reduce((sum, b) => sum + size(b), 0);
+    const gap = (end - start - total) / (sorted.length - 1);
+    const out = [];
+    let cursor = start;
+    for (const b of sorted) {
+      const want = horizontal ? { ...at(b), x: cursor } : { ...at(b), y: cursor };
+      if (want.x !== n(b.x) || want.y !== n(b.y)) out.push(want);
+      cursor += size(b) + gap;
+    }
+    return out;
+  }
+
+  const xs = list.map((b) => n(b.x));
+  const rights = list.map((b) => n(b.x) + w(b));
+  const ys = list.map((b) => n(b.y));
+  const bottoms = list.map((b) => n(b.y) + h(b));
+  const target = {
+    "align-left": Math.min(...xs),
+    "align-right": Math.max(...rights),
+    "align-centre": (Math.min(...xs) + Math.max(...rights)) / 2,
+    "align-top": Math.min(...ys),
+    "align-bottom": Math.max(...bottoms),
+    "align-middle": (Math.min(...ys) + Math.max(...bottoms)) / 2,
+  }[verb];
+  const out = [];
+  for (const b of list) {
+    const want = { ...at(b) };
+    if (verb === "align-left") want.x = target;
+    else if (verb === "align-right") want.x = target - w(b);
+    else if (verb === "align-centre") want.x = target - w(b) / 2;
+    else if (verb === "align-top") want.y = target;
+    else if (verb === "align-bottom") want.y = target - h(b);
+    else if (verb === "align-middle") want.y = target - h(b) / 2;
+    if (want.x !== n(b.x) || want.y !== n(b.y)) out.push(want);
+  }
+  return out;
+}
+
 // The undo/redo stack over { stack, index }. Every snapshot is structuredClone'd on the way IN and
 // on the way OUT, so a caller can never reach into history and mutate a stored arrangement — the
 // property group 13 proves by mutating a returned snapshot and reading history back, never by
@@ -453,7 +572,33 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       id: "stx-resize-help",
       text: "Enter to start resizing, arrow keys to size it, Enter to finish, Escape to cancel. A frame moves and resizes on its own.",
     });
-    const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, help, selectHelp, resizeHelp);
+    // THE ALIGN ROW (#302 Phase 5.2). A BUTTON EACH, not a menu and not a key chord, for the reason
+    // every other verb on this canvas has a visible control: a bus verb with no affordance is
+    // reachable by an injected action and by nobody, and "each with a keyboard path" is satisfied by
+    // a real <button> for free — it is focusable, it is in Tab order, and Enter and Space work
+    // without this module writing a key handler.
+    //
+    // DISABLED UNTIL TWO ARE SELECTED, which is the same call menuItems makes for Clear: a verb with
+    // nothing to act on is not a verb whose moment has not come. syncControls keeps them in step.
+    //
+    // ONE param-manifest ENTRY, not eight — the manifest's own granularity rule ("a stepped player's
+    // button row = 1").
+    const alignBtns = ALIGN_VERBS.map((verb) => {
+      const btn = el("button", {
+        type: "button", class: "btn btn-secondary stx-verb-btn", "data-stx-verb": verb,
+        // The accessible name is the verb's own words rather than an icon's tooltip: this row is
+        // eight small buttons and a reader tabbing through it hears what each one does.
+        text: verb.replace("align-", "Align ").replace("distribute-h", "Distribute across").replace("distribute-v", "Distribute down"),
+      });
+      // NO { signal } HERE, and that is the reason rather than an omission: `ac` and its signal are
+      // declared ~550 lines below, with the pointer handlers, so naming it here is a temporal dead
+      // zone — the mount throws before the row exists and /factory and /instance both go blank. The
+      // whole row is removed by destroy() with verbRow, which detaches these listeners with it.
+      btn.addEventListener("click", () => bus.emit({ type: `ui.${verb}`, source: "pointer" }));
+      return btn;
+    });
+    const alignRow = el("div", { class: "stx-align", role: "group", "aria-label": "Align and distribute the selection" }, ...alignBtns);
+    const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, alignRow, help, selectHelp, resizeHelp);
     viewport.insertBefore(verbRow, scroll);
     // ARM THE MOVE HANDLES (#231 L2). studio-canvas.mjs draws the .stx-grab button but owns none of
     // its behaviour, so it is born disabled and undescribed; this line is the moment that stops
@@ -463,6 +608,8 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
 
     const history = createHistory(snapshot());
     const syncControls = () => {
+      const chosenCount = stage.querySelectorAll(".stx-slot[data-stx-selected]").length;
+      for (const btn of alignBtns) btn.disabled = chosenCount < 2;
       undoBtn.disabled = !history.canUndo();
       redoBtn.disabled = !history.canRedo();
     };
@@ -609,6 +756,35 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       canvas.say(rest > 0 ? `Moved: ${named}, and ${rest} more.` : `Moved: ${named}.`);
       syncControls();
     });
+
+    // --- align and distribute (#302 Phase 5) ------------------------------------------------------
+    // EIGHT VERBS, ZERO NEW WRITERS. Each one READS the selection, asks the pure alignMoves where
+    // everything should go, and EMITS ui.move-group — so the one consumer that writes a position is
+    // still the one consumer that writes a position, there is still one history entry per gesture,
+    // and an injected agent align is byte-identically the same path as a keyboard one. Applying them
+    // here would have been a second mover, which is the thing this module's header exists to forbid.
+    //
+    // ONE ANNOUNCEMENT, and it is the move-group consumer's. Align moves N nodes synchronously, and
+    // a role="status" region announces only its FINAL textContent per task — writing N sentences in
+    // one task announces the last and silently deletes the rest. This codebase has paid for that
+    // twice (studio-compile.mjs's non-zero reduced-motion pause, replay-driver.mjs's drainActs), so
+    // the verbs below say nothing themselves except when there is nothing to do.
+    const offAlign = ALIGN_VERBS.map((verb) => bus.on(`ui.${verb}`, (action) => {
+      const chosen = [...stage.querySelectorAll(".stx-slot[data-stx-selected]")];
+      if (chosen.length < 2) {
+        canvas.say(`Select two or more components to ${verb.startsWith("align") ? "align" : "distribute"} them.`);
+        return; // DOM untouched
+      }
+      const moves = alignMoves(chosen.map((n) => ({ id: idOf(n), ...boxOf(n) })), verb);
+      if (!moves.length) {
+        // A REAL ANSWER, not a failure: everything is already on the line. Said out loud for the
+        // reason every blocked keypress used to be — a verb that does nothing and says nothing is
+        // worse than no verb.
+        canvas.say(`Already ${verb.startsWith("align") ? "aligned" : "distributed"}.`);
+        return;
+      }
+      bus.emit({ type: "ui.move-group", source: action?.source ?? "keyboard", params: { moves } });
+    }));
 
     // SPOKEN_MAX is module scope since #217 — see its declaration for why it moved. The vocabulary
     // below is unchanged; studio-select.mjs writes the selection's count sentence to the same bound.
@@ -1146,13 +1322,13 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
           if (!step) return; // not ours — let the page have the key
           e.preventDefault(); // or the scroller also scrolls
           // The arrows move the BOTTOM-RIGHT CORNER, which is the corner the pointer path drags.
-          // ONE PRESS IS ONE NODE PITCH, the same distance studio-select.mjs's keyboard rectangle and
-          // studio-minimap.mjs's keyboard pan use — three keyboard paths, one step, so a reader
-          // learns the canvas's travel once. A cell was that distance before, and the pitch is what
-          // replaced the cell everywhere else on this substrate.
+          // See the move branch below: a bare arrow nudges, Shift takes a whole node.
+          // The same two steps the move path takes, for the same reason: a resize is a placement
+          // gesture too, and a frame's width is the kind of thing a reader wants to the pixel.
+          const by = e.shiftKey ? [NODE_W + NODE_GAP, NODE_H + NODE_GAP] : [NUDGE_STEP, NUDGE_STEP];
           previewSize({
-            x: gesture.origin.x + gesture.currentSize.w + step[0] * (NODE_W + NODE_GAP),
-            y: gesture.origin.y + gesture.currentSize.h + step[1] * (NODE_H + NODE_GAP),
+            x: gesture.origin.x + gesture.currentSize.w + step[0] * by[0],
+            y: gesture.origin.y + gesture.currentSize.h + step[1] * by[1],
           });
         }
         // ANNOUNCED ON EVERY PRESS, and the size named is the one REACHED — D-d's rule, applied to
@@ -1175,11 +1351,20 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // and nothing to refuse, and the two collapse into preview()'s one translate-every-member.
       // The deep-equality case group 13 kept to catch a reuse of the wrong one went with them.
       //
-      // ONE PRESS IS ONE NODE PITCH — see the resize branch above for why all three keyboard paths
-      // on this substrate share it.
+      // TWO STEPS, AND THE SMALL ONE IS THE DEFAULT (#302 Phase 5.1). A bare arrow NUDGES by
+      // NUDGE_STEP — the spacing scale's floor, 4px — because a carry is how a reader places a thing
+      // exactly, and a keyboard path that could only move in node-sized jumps would be a worse tool
+      // than the pointer rather than an equal one. SC 2.5.7 asks for an alternative, not a coarser
+      // one.
+      //
+      // Shift gives the node pitch, so crossing the stage is a few presses rather than seven hundred.
+      // That is the same distance studio-select.mjs's Shift+Arrow rectangle and the minimap's arrows
+      // use, so "shift means a whole node" is one rule across three keyboard paths — and Shift is
+      // free here because studio-select.mjs's own Shift+Arrow bails while a carry is live (:688).
+      const step = e.shiftKey ? [NODE_W + NODE_GAP, NODE_H + NODE_GAP] : [NUDGE_STEP, NUDGE_STEP];
       preview({
-        x: gesture.current.x + dir[0] * (NODE_W + NODE_GAP),
-        y: gesture.current.y + dir[1] * (NODE_H + NODE_GAP),
+        x: gesture.current.x + dir[0] * step[0],
+        y: gesture.current.y + dir[1] * step[1],
       });
       // ANNOUNCED ON EVERY PRESS, and the position named is the one REACHED rather than the one
       // asked for (D-d). A keyboard user with no per-step feedback is flying blind for the whole
@@ -1189,9 +1374,19 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       //
       // The group sentence NAMES THE COUNT rather than a component (R8): a whole-canvas selection
       // stopped by the edge is correct and would otherwise be silent about why.
+      // T16's SENTENCE, and it is NEW VOCABULARY rather than an extension of anything: no
+      // announcement in this repo used an ordinal or a pixel value before #302, because a grid
+      // position was already the reader's coordinate. A free position is not, so the sentence says
+      // both — WHERE the thing is in the reading order, which is what a person navigating the canvas
+      // needs, and BY HOW MUCH the press moved it, which is what tells them the nudge landed.
       const n = gesture.members.length;
-      const where = `${Math.round(gesture.current.x)}, ${Math.round(gesture.current.y)}`;
-      canvas.say(n > 1 ? `${n} components at ${where}.` : `At ${where}.`);
+      const order = readingOrder(slots().map((node) => ({ id: idOf(node), ...boxOf(node) })));
+      const place = order.indexOf(gesture.id) + 1;
+      const by = `${Math.round(dir[0] * step[0])}, ${Math.round(dir[1] * step[1])}`;
+      const at = `${Math.round(gesture.current.x)}, ${Math.round(gesture.current.y)}`;
+      canvas.say(n > 1
+        ? `${n} components moved by ${by}, anchor at ${at}.`
+        : (place > 0 ? `Moved by ${by} to ${at}, ${place} of ${order.length}.` : `Moved by ${by} to ${at}.`));
     }, { signal });
 
     // ESCAPE REACHES A POINTER DRAG, and that needs a document listener rather than a stage one. A
@@ -1241,6 +1436,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         clearGesture(); // also removes the guides, on every teardown path
         offMove();
         offMoveGroup();
+        for (const off of offAlign) off();
         offResize();
         offUndo();
         offRedo();

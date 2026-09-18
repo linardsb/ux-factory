@@ -35,6 +35,20 @@
 // DOM-free by construction: a plain Map, no CustomEvent/EventTarget — so #13's build-time
 // composition runs can drive the same bus under Node, not only in the browser.
 
+// THE STUDIO'S PAYLOAD SHAPES ARE PART OF THIS CONTRACT, not module internals — the replay driver,
+// tooling/studio-journey.mjs and any future agent all read them, so a change here is a change every
+// consumer sees. #302 moved all four from grid coordinates to free positions in px:
+//
+//   ui.move        { x, y, w?, h? }               was { col, row }
+//   ui.resize      { w, h }                       was { cols, rows }
+//   ui.move-group  { moves: [{ id, x, y }] }      was [{ id, col, row }]
+//   ui.align-*     no params — the eight align/distribute verbs READ the selection and EMIT
+//   ui.distribute-*  ui.move-group, so the one consumer that writes a position is still the one
+//                    consumer that writes a position
+//
+// A v2 share link carrying the old shapes is refused by system/build-share.mjs BY NAME rather than
+// silently coerced, for the same reason this note exists: two readings of one field is worse than a
+// refusal.
 const SOURCES = new Set(["pointer", "keyboard", "agent", "voice"]);
 const TYPE_RE = /^(ui|agent)\.[a-z][a-z-]*$/;
 

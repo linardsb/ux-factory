@@ -219,7 +219,7 @@ import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS, SHARE_VER
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
 import { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
-import { createHistory, DIRS, guidesFor, HISTORY_MAX, SPOKEN_MAX } from "../system/studio-verbs.mjs";
+import { ALIGN_VERBS, alignMoves, createHistory, DIRS, guidesFor, HISTORY_MAX, NUDGE_STEP, ROW_BAND, readingOrder, SPOKEN_MAX } from "../system/studio-verbs.mjs";
 import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_H, MENU_ITEMS, MENU_SELECT, MENU_W, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
 import {
@@ -2990,6 +2990,82 @@ function scanSvg(svg, label) {
   ok(/^export const SPOKEN_MAX/m.test(readFileSync(join(ROOT, "system/studio-verbs.mjs"), "utf8")),
     "SPOKEN_MAX is no longer a module-scope export of studio-verbs.mjs — studio-select.mjs imports it, and a re-declared copy there is a second bound that drifts");
 
+  // --- the NUDGE floor, align/distribute and the reading order (#302 Phase 5) -----------------
+  {
+    // THE NUDGE FLOOR IS A TOKEN VALUE TYPED IN JS, so the pair is a hand-mirror and this is the pin
+    // behind it. studio-verbs.mjs is Node-import-safe and cannot read a stylesheet, and #301 decided
+    // there is no --spacing-none (group 3 asserts its absence), so the scale's floor IS the nudge's.
+    const contract = readFileSync(join(ROOT, "system/tokens.contract.css"), "utf8");
+    const xs = contract.match(/--spacing-xs:\s*([0-9.]+)px/);
+    ok(xs, "tokens.contract.css no longer declares --spacing-xs in px — the nudge floor has nothing to mirror");
+    ok(xs && Number(xs[1]) === NUDGE_STEP,
+      `NUDGE_STEP is ${NUDGE_STEP} but --spacing-xs is ${xs && xs[1]}px — the nudge floors at the spacing scale's floor, and there is no --spacing-none for it to fall further to`);
+
+    // THE EIGHT VERBS, frozen, and every name legal on the bus. action-bus.mjs's TYPE_RE is
+    // lowercase-with-hyphens and exactly one dot, so `ui.alignLeft` would be refused at emit time —
+    // by which point the verb is wired, the menu offers it, and nothing works.
+    const TYPE_RE = /^(ui|agent)\.[a-z][a-z-]*$/;
+    ok(Object.isFrozen(ALIGN_VERBS) && ALIGN_VERBS.length === 8, `ALIGN_VERBS is ${deep(ALIGN_VERBS)}`);
+    for (const v of ALIGN_VERBS) {
+      ok(TYPE_RE.test(`ui.${v}`), `"ui.${v}" is not a legal bus type — action-bus.mjs refuses it at emit, long after the verb is wired`);
+    }
+
+    // alignMoves: EVERY verb driven over ONE fixture of three differently-sized boxes, and the
+    // expectations computed from the fixture rather than typed, so a box that changes size does not
+    // silently make a row pass for the wrong reason.
+    const BX = [{ id: "a", x: 0, y: 0, w: 100, h: 40 }, { id: "b", x: 50, y: 100, w: 200, h: 60 }, { id: "c", x: 300, y: 20, w: 100, h: 40 }];
+    const by = (moves) => Object.fromEntries(moves.map((m) => [m.id, [m.x, m.y]]));
+    const left = Math.min(...BX.map((b) => b.x));
+    const right = Math.max(...BX.map((b) => b.x + b.w));
+    ok(deep(by(alignMoves(BX, "align-left"))) === deep({ b: [left, 100], c: [left, 20] }),
+      `align-left gave ${deep(by(alignMoves(BX, "align-left")))} — and note "a" is ABSENT because it is already there: a move to where a thing already is would put a no-op in the history and in the sentence`);
+    ok(deep(by(alignMoves(BX, "align-right"))) === deep({ a: [right - 100, 0], b: [right - 200, 100] }),
+      `align-right aligns EDGES, so each box's x is the target minus its OWN width: ${deep(by(alignMoves(BX, "align-right")))}`);
+    ok(deep(by(alignMoves(BX, "align-centre"))) === deep({ a: [150, 0], b: [100, 100], c: [150, 20] }),
+      `align-centre centres each box on the group's centre line: ${deep(by(alignMoves(BX, "align-centre")))}`);
+    for (const v of ["align-top", "align-middle", "align-bottom"]) {
+      const moves = alignMoves(BX, v);
+      ok(moves.length > 0 && moves.every((m) => m.x === BX.find((b) => b.id === m.id).x),
+        `${v} moved something on the X axis — a vertical align must not touch horizontal position: ${deep(moves)}`);
+    }
+    for (const v of ["align-left", "align-centre", "align-right"]) {
+      const moves = alignMoves(BX, v);
+      ok(moves.length > 0 && moves.every((m) => m.y === BX.find((b) => b.id === m.id).y),
+        `${v} moved something on the Y axis: ${deep(moves)}`);
+    }
+    // DISTRIBUTE IS EQUAL GAPS, NOT EQUAL CENTRES, which is the call that matters the moment two
+    // nodes differ in size — the normal case on this canvas. Asserted by RE-DERIVING the gaps from
+    // the answer rather than by comparing against a typed position.
+    const dist = alignMoves(BX, "distribute-h");
+    const after = BX.map((b) => ({ ...b, ...(dist.find((m) => m.id === b.id) ? { x: dist.find((m) => m.id === b.id).x } : {}) }))
+      .sort((p, q) => p.x - q.x);
+    const gaps = after.slice(1).map((b, i) => Math.round((b.x - (after[i].x + after[i].w)) * 1000) / 1000);
+    ok(new Set(gaps).size === 1, `distribute-h left unequal gaps ${deep(gaps)} — equal CENTRES would pass a fixture of equal-width boxes and fail this one`);
+    ok(after[0].x === Math.min(...BX.map((b) => b.x)) && after[after.length - 1].x + after[after.length - 1].w === right,
+      "distribute-h moved an END — the two outermost boxes define the span and stay where they are");
+    // THE REFUSALS, which are what let a caller say "nothing to do" instead of announcing a move
+    // that did not happen.
+    ok(deep(alignMoves([BX[0]], "align-left")) === deep([]), "aligning ONE box answered a move — there is nothing to align it to");
+    ok(deep(alignMoves(BX.slice(0, 2), "distribute-h")) === deep([]), "distributing TWO boxes answered a move — the ends are the ends and there is nothing between them");
+    ok(deep(alignMoves(BX, "align-sideways")) === deep([]), "an unknown verb answered moves");
+    for (const junk of [null, undefined, 42, "x", [null, 7], [{ id: "a", x: NaN, y: 0 }]]) {
+      ok(deep(alignMoves(junk, "align-left")) === deep([]), `alignMoves(${JSON.stringify(junk)}) must answer [], never throw`);
+    }
+
+    // readingOrder: ROW-MAJOR, with a BAND, because free positions have no rows. Two nodes a few
+    // pixels apart read as one row to a person and as two rows to a naive sort — which would make
+    // "3 of 7" name a different thing each time anything moved slightly.
+    const RO = [{ id: "c", x: 300, y: 0 }, { id: "a", x: 0, y: 0 }, { id: "d", x: 0, y: 400 }, { id: "b", x: 100, y: 20 }];
+    ok(deep(readingOrder(RO)) === deep(["a", "b", "c", "d"]),
+      `readingOrder gave ${deep(readingOrder(RO))} — b sits 20px below a and must still read as the SAME row, which a plain y-sort gets wrong`);
+    ok(ROW_BAND === NODE_H, `ROW_BAND is ${ROW_BAND}; it is one node height, the smallest thing on this stage that has one`);
+    ok(deep(readingOrder([{ id: "x", x: 0, y: 0 }, { id: "y", x: 0, y: ROW_BAND + 1 }])) === deep(["x", "y"]),
+      "two nodes more than a band apart did not order top-to-bottom");
+    for (const junk of [null, 42, "x", [{ x: 1 }], [null]]) {
+      ok(deep(readingOrder(junk)) === deep([]), `readingOrder(${JSON.stringify(junk)}) must answer [], never throw`);
+    }
+  }
+
   // --- guidesFor: A GUIDE IS A CLAIM THAT AN ALIGNMENT EXISTS ---------------------------------
   // BOTH HALVES ARE THE RULE, not a refinement of it. A guide over a line holding only CARRIED
   // members says nothing the reader cannot already see; a guide over one holding NEITHER is a claim
@@ -3045,7 +3121,7 @@ function scanSvg(svg, label) {
       "a member with NO width must still align on its origin — a node whose size has not been written yet is a point, not an absence");
   }
 
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports · guidesFor RE-EXPRESSED over free positions and driven on the rule rather than the count: the carried-only line and its peer-only mirror each drawing NOTHING (the "force a guide onto a line nothing is on and watch red" discipline, kept), the three edges per axis asserted SEPARATELY so an origin-only comparison fails on two of three rather than passing the one case that suits it, the Y axis proven to answer at all, EXACT equality pinned by a peer one pixel off drawing nothing — which is the assertion that stops a tolerance being added later — plus dedupe-and-sort for the mount's deterministic first-of-each-axis, and totality with a non-finite member proven SKIPPED rather than contributing a NaN line that would silently suppress a guide. WHAT WENT WITH THE GRID (#302): the occupancy-aware arrow walk, the track-band hit test, #217's all-or-nothing group step and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves: guidesFor came back HERE (above) rather than in Phase 5, because the gesture mount calls it; the nudge floor and align/distribute are still Phase 5's; and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · #302 Phase 5: NUDGE_STEP hand-mirrored against tokens.contract.css's --spacing-xs (there is no --spacing-none for it to fall further to), the eight ALIGN_VERBS frozen and every name proven LEGAL on action-bus.mjs's TYPE_RE — ui.alignLeft is refused at emit, by which point the verb is wired and the menu offers it — alignMoves driven over one fixture of three DIFFERENTLY-SIZED boxes with every expectation computed from the fixture rather than typed: a box already on the line proven ABSENT from the answer, align-right proven to align EDGES (target minus each box's own width), each axis proven not to touch the other, distribute proven to leave EQUAL GAPS by re-deriving them from the answer (equal CENTRES passes a fixture of equal-width boxes and fails this one) with both ends proven to stay, and the three refusals that let a caller say nothing-to-do instead of announcing a move that did not happen · readingOrder proven ROW-MAJOR WITH A BAND, driven on the case a plain y-sort gets wrong — a node 20px below another still reads as the same row, or the ordinal names a different thing every time anything shifts · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports · guidesFor RE-EXPRESSED over free positions and driven on the rule rather than the count: the carried-only line and its peer-only mirror each drawing NOTHING (the "force a guide onto a line nothing is on and watch red" discipline, kept), the three edges per axis asserted SEPARATELY so an origin-only comparison fails on two of three rather than passing the one case that suits it, the Y axis proven to answer at all, EXACT equality pinned by a peer one pixel off drawing nothing — which is the assertion that stops a tolerance being added later — plus dedupe-and-sort for the mount's deterministic first-of-each-axis, and totality with a non-finite member proven SKIPPED rather than contributing a NaN line that would silently suppress a guide. WHAT WENT WITH THE GRID (#302): the occupancy-aware arrow walk, the track-band hit test, #217's all-or-nothing group step and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves: guidesFor came back HERE (above) rather than in Phase 5, because the gesture mount calls it; the nudge floor and align/distribute are still Phase 5's; and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
 }
 
 // --- 14 · the studio orchestrator's pure layer ----------------------------------------------------

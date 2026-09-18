@@ -40,6 +40,10 @@
 .stx-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm, 12px); }
 .stx-zoom-level { font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
 .stx-zoom-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* The align/distribute row (#302). Its own flex group inside .stx-verbs so the eight wrap together
+   rather than interleaving with Undo and Redo at a narrow width. */
+.stx-align { display: flex; flex-wrap: wrap; gap: var(--spacing-xs, 4px); }
+.stx-verb-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .stx-live { margin: 0; font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); min-height: 1.4em; }
 
 /* ---------- the scroll substrate: pan IS scrolling ---------- */
