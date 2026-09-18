@@ -22,6 +22,10 @@ system/                       the shipped design system — brand-agnostic core 
   derive.mjs +oklch +wcag +derive.rules   intake answers → token values + WCAG checks + ethics verdict
   agentic-renderer.mjs        vocabulary-validated {name,props,children} → real components; refuses the rest
   action-bus.mjs              the one bidirectional action contract (agent/click/keyboard, voice-ready)
+  canvas-ops.mjs              the BUILD document's six-op grammar + a pure applier (screens, states,
+                              overrides, the flow) — the third op layer, beside board-ops' shape and
+                              discovery/ops' decisions; no SDK anywhere in its import graph
+  device-presets.mjs          the device width table frame.size reads — names are the contract
   trace-player.mjs            view-time trace replay — a committed trace as stepped PIV cards
   handoff-viewer.mjs          view-time handoff-pack viewer; owns the markdown-subset prose renderer
   catalog.mjs                 the component catalog at /components — MOUNT 1 of renderComponentDocs
@@ -107,7 +111,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            34 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            35 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -175,7 +179,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 34 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 35 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

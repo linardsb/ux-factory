@@ -454,7 +454,11 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // arrangement in `g` and this branch applied it over arrangeBoard's answer. `g` is retired with
   // the grid — a free position means nothing to a receiver whose stage is a different size — so a
   // restored link is laid out exactly as any other board is, by the rule below and nothing else.
-  const arranged = arrangeBoard(board);
+  // `let`, NOT `const`: publishBoard below reassigns it on settle and on take-over. Written const
+  // while #302 deleted the `g` restore branch that used to reassign it here, which made every
+  // publish throw "Assignment to constant variable" one line before compile.setEnabled(true) — so
+  // the replay settled, the beat stayed disabled, and the page otherwise looked correct.
+  let arranged = arrangeBoard(board);
   for (const entry of arranged) {
     canvas.place(placeBlock(entry), { x: entry.x, y: entry.y, w: entry.w, name: entry.label });
   }

@@ -1,7 +1,10 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Thirty-four groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Thirty-five groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// SPELT OUT, AND THEREFORE NOT GATED: drift-check's group-count leg reads /all (\d+) groups pass/,
+// which cannot see a word. This is the fifth prose copy of the count and the only one a ticket has to
+// move by hand — recorded here so the next person moving it knows why their green run said nothing.
 // Committed rather than left in a shell-history line, because these ARE the ticket's named gate
 // and a gate a reviewer cannot re-run is not a gate.
 //
@@ -10665,9 +10668,209 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
 // --- the verdict ------------------------------------------------------------------------------------
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// --- 35 · the build document's op grammar (#302) ---------------------------------------------------
+//
+// system/canvas-ops.mjs, the THIRD op layer in this repo and the first that records screens. Written
+// in group 29's voice rather than group 11's, and the difference is the whole reason this group can
+// exist: group 11 has NO per-verb loop, because system/board-ops.mjs keeps PARAMS private and there
+// is nothing to iterate — a new board verb is covered only if someone remembers to widen a fixture.
+// canvas-ops.mjs exports PARAMS, so every case below iterates OPS and a seventh verb with no fixture
+// fails BY NAME.
+//
+// WHAT THIS GROUP CANNOT REACH, stated as every other group states its own: whether a composition
+// RENDERS (group 3 owns the vocabulary and renderComposition), whether a frame the applier created
+// ever reaches the canvas (studio-journey's), and whether a `why` is any GOOD — it asserts that one
+// was demanded and that an empty one is refused, and a sentence that says nothing while passing
+// `.trim()` is a human read.
+
+{
+  const { OPS: COPS, PARAMS: CPARAMS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, missingStates, resolve } =
+    await import("../system/canvas-ops.mjs");
+  const { DEVICE_PRESETS, PRESET_NAMES, presetWidth } = await import("../system/device-presets.mjs");
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
+
+  // --- 35.1 the roster, BOTH directions, frozen BY MUTATION -------------------------------------
+  ok(COPS.length === 6 && Object.keys(CPARAMS).length === COPS.length
+    && COPS.every((v) => Array.isArray(CPARAMS[v]))
+    && Object.keys(CPARAMS).every((v) => COPS.includes(v)),
+    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same six verbs`);
+  for (const [label, arr] of [["OPS", COPS], ...COPS.map((v) => [`PARAMS.${v}`, CPARAMS[v]])]) {
+    const n = arr.length;
+    ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n,
+      `${label} is not frozen — a push landed. Object.freeze is SHALLOW, so a frozen PARAMS with a pushable entry lets the frozen-by-mutation case pass for the wrong reason`);
+  }
+  ok(Object.isFrozen(STATE_KEYS) && STATE_KEYS.length === 5 && STATE_KEYS[0] === "ideal",
+    `STATE_KEYS is ${deep(STATE_KEYS)}; the required minimum is five and "ideal" leads it — a base frame IS its own ideal`);
+  // NO PARAMS ENTRY CARRIES AN ID FOR WHAT ITS OP CREATES. board-ops.mjs's rule, and the only way to
+  // enforce it is on the KEY SET: a caller cannot smuggle an id through a slot that does not exist.
+  ok(!CPARAMS["screen.compose"].includes("frameId") && !CPARAMS["screen.compose"].includes("id")
+    && !CPARAMS.connect.includes("arrowId") && !CPARAMS.connect.includes("id"),
+    "a PARAMS entry offers an id slot for the thing its op creates — ids are minted from the document, and a slot here is how a caller sets one");
+
+  // --- 35.2 VALID_FOR — one minimal valid op per verb, and a verb with no fixture fails BY NAME --
+  const VALID_FOR = {
+    "screen.compose": { screenId: "pay", why: "the amount leads because discovery says people check it first", composition: { name: "stack", children: [] } },
+    "screen.set": { frameId: "f1", partId: "p1", prop: "label", value: "Pay" },
+    "state.add": { baseId: "f1", stateKey: "error", override: { set: {} } },
+    "frame.size": { frameId: "f1", preset: "tablet" },
+    connect: { from: { frameId: "f1" }, to: { frameId: "f2" }, trigger: "submit" },
+    disconnect: { arrowId: "a1" },
+  };
+  for (const verb of COPS) {
+    ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or this group iterates OPS in name only`);
+  }
+  // …and every fixture's key set is EXACTLY its PARAMS entry minus what may be omitted. A fixture
+  // that quietly dropped a required key would make its verb's happy path untested.
+  for (const verb of COPS) {
+    const keys = Object.keys(VALID_FOR[verb] ?? {});
+    ok(keys.every((k) => CPARAMS[verb].includes(k)),
+      `VALID_FOR["${verb}"] carries ${keys.filter((k) => !CPARAMS[verb].includes(k)).join(", ")}, which is not in its PARAMS entry`);
+  }
+
+  // --- 35.3 the happy fold: six ops, one document, ids minted from the document -----------------
+  // EVERY CONSTRUCTIVE CALL BELOW GOES THROUGH `fold`, and that is not decoration — it is group 14's
+  // recorded lesson applied here. ok() only ACCUMULATES; the failures are reported when group() runs,
+  // so an unguarded throw anywhere in this block kills the process before a single one of them
+  // prints, and the operator reads a stack trace instead of the sentence that says what to do.
+  //
+  // Found by mutation, which is why it is written down: widening a PARAMS entry with an id slot
+  // makes 35.1's own id-slot assertion false AND makes this fold throw. Unguarded, the throw won and
+  // the check that names the problem never spoke.
+  const fold = (ops, doc) => {
+    try { return applyOps(ops, doc); } catch (e) { ok(false, `the happy fold THREW (${e.message}) — every assertion below it is unreachable, and the named failures above it were never printed`); return null; }
+  };
+  const built = fold([
+    { op: "screen.compose", params: VALID_FOR["screen.compose"] },
+    { op: "state.add", params: VALID_FOR["state.add"] },
+    { op: "frame.size", params: VALID_FOR["frame.size"] },
+    { op: "screen.set", params: VALID_FOR["screen.set"] },
+    { op: "connect", params: VALID_FOR.connect },
+    { op: "disconnect", params: VALID_FOR.disconnect },
+  ]) ?? { frames: [{}, {}], arrows: [] };
+  ok(built.frames.length === 2 && built.frames[0].id === "f1" && built.frames[1].id === "f2",
+    `the fold minted ${deep(built.frames.map((f) => f.id))}; ids are the lowest free f<n> and no op carried one`);
+  ok(built.frames[0]?.stateKey === "ideal" && built.frames[1]?.baseId === "f1" && built.frames[1]?.stateKey === "error",
+    `the state frame is not a SIBLING carrying an override: ${deep(built.frames[1])}`);
+  ok(built.frames[0]?.preset === "tablet" && built.frames[0]?.width === DEVICE_PRESETS.tablet,
+    `frame.size recorded ${built.frames[0]?.preset}/${built.frames[0]?.width}; BOTH are recorded, so a later table edit moves new frames and leaves this one`);
+  ok(deep(built.frames[0]?.sets) === deep({ p1: { label: "Pay" } }), `screen.set wrote ${deep(built.frames[0]?.sets)}`);
+  ok(built.arrows.length === 0, `disconnect left ${built.arrows.length} arrow(s); a1 was the one connect made`);
+  // PURITY, by mutating the input and re-folding. An applier that mutated its argument would make
+  // every undo in the studio a lie.
+  const seed = emptyDoc();
+  const once = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }], seed) ?? { frames: [] };
+  ok(seed.frames.length === 0, "applyOp mutated the document it was handed — the caller's copy gained a frame");
+  once.frames.push({ id: "smuggled" });
+  ok((fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }], seed) ?? { frames: [] }).frames.length === 1,
+    "mutating a returned document reached back into the applier");
+
+  // --- 35.4 the refusals, each DRIVEN by a broken op and matched on what it must NAME ------------
+  const one = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc();
+  const broke = (verb, patch) => ({ op: verb, params: { ...VALID_FOR[verb], ...patch } });
+  for (const [label, fn, ...must] of [
+    ["screen.compose with no why", () => applyOp(emptyDoc(), broke("screen.compose", { why: undefined })), "screen.compose", "why", "required"],
+    ["screen.compose with an EMPTY why", () => applyOp(emptyDoc(), broke("screen.compose", { why: "   " })), "screen.compose", "why", "D4"],
+    ["screen.compose with a non-string why", () => applyOp(emptyDoc(), broke("screen.compose", { why: 42 })), "screen.compose", "why", "D4"],
+    ["state.add with a state outside the minimum", () => applyOp(one, broke("state.add", { stateKey: "weird" })), "state.add", "weird", "ideal"],
+    ["state.add against a frame that is not there", () => applyOp(one, broke("state.add", { baseId: "f9" })), "state.add", "baseId", "f9", "does not resolve"],
+    ["frame.size with an unknown preset", () => applyOp(one, broke("frame.size", { preset: "watch" })), "frame.size", "watch", "phone"],
+    ["connect to a frame that is not there", () => applyOp(one, broke("connect", { to: { frameId: "f9" } })), "connect", "to.frameId", "f9"],
+    ["connect with a non-object from", () => applyOp(one, broke("connect", { from: "f1" })), "connect", "from"],
+    ["disconnect an arrow that is not there", () => applyOp(one, broke("disconnect", { arrowId: "a9" })), "disconnect", "a9", "does not resolve"],
+    ["an unknown verb", () => applyOp(one, { op: "screen.delete", params: {} }), "screen.delete", "is not an op"],
+    ["an unknown PARAM", () => applyOp(one, broke("frame.size", { colour: "red" })), "frame.size", "colour", "never carries an id"],
+    ["an unknown ENVELOPE key", () => applyOp(one, { op: "disconnect", params: { arrowId: "a1" }, extra: 1 }), "extra", "exactly { op, params }"],
+    ["params that are an array", () => applyOp(one, { op: "disconnect", params: ["a1"] }), "disconnect", "params"],
+    ["an op that is not an object", () => applyOp(one, "screen.compose"), "must be an object"],
+    ["a document with no frames array", () => applyOp({}, { op: "disconnect", params: { arrowId: "a1" } }), "frames", "emptyDoc"],
+  ]) {
+    ok(names(fn, ...must) === null, `${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
+  }
+  // …and the happy op is ACCEPTED, so the battery above cannot pass on an applier that refuses
+  // everything. discovery/ops.mjs's positive-control rule.
+  for (const verb of COPS) {
+    const doc = fold([
+      { op: "screen.compose", params: VALID_FOR["screen.compose"] },
+      { op: "state.add", params: VALID_FOR["state.add"] },
+      { op: "connect", params: VALID_FOR.connect },
+    ]) ?? emptyDoc();
+    ok(threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] })) === null,
+      `the minimal VALID_FOR op for "${verb}" was REFUSED (${threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] }))}) — every refusal above would pass on an applier that refuses everything`);
+  }
+  // applyOps names the FAILING INDEX, so a fold over twenty ops says which one.
+  ok((threw(() => applyOps([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }, { op: "frame.size", params: { frameId: "f9", preset: "phone" } }])) ?? "").includes("op 1 (frame.size)"),
+    "applyOps does not name the failing index and verb — a fold over twenty ops would say only that one of them broke");
+
+  // --- 35.5 resolve: a dangling override is FLAGGED AND SHOWN, never dropped --------------------
+  const r = resolve({ parts: { p1: { label: "Pay" }, p2: { label: "Cancel" } } },
+    { set: { p1: { label: "Try again" }, p9: { label: "ghost" } }, hide: ["p2", "p8"] });
+  ok(r.resolved.parts.p1.label === "Try again", `resolve did not apply a LANDING override: ${deep(r.resolved.parts.p1)}`);
+  ok(r.resolved.parts.p2.hidden === true, "resolve did not apply a landing hide");
+  ok(deep(r.flags) === deep([{ kind: "dangling-set", partId: "p9" }, { kind: "dangling-hide", partId: "p8" }]),
+    `resolve flagged ${deep(r.flags)} — a dangling override is a real thing someone wrote, and dropping it silently makes the canvas disagree with the document`);
+  ok(!Object.hasOwn(r.resolved.parts, "p9"), "a dangling override reached the RESOLVED parts — it must be flagged, not applied");
+  // TOTAL over junk on both sides: a read that throws takes a page down over a record the applier
+  // already accepted.
+  for (const junk of [null, undefined, 42, "x", [], { parts: null }]) {
+    ok(threw(() => resolve(junk, junk)) === null, `resolve(${JSON.stringify(junk)}) threw — a read is total over junk`);
+  }
+
+  // --- 35.6 missingStates: the LIST, not a count ------------------------------------------------
+  const ms = missingStates(built);
+  ok(ms.length === 1 && ms[0]?.frameId === "f1" && ms[0]?.screenId === "pay",
+    `missingStates answered ${deep(ms)}; only BASE frames are considered — a state is not a base`);
+  // OPTIONAL-CHAINED for fold()'s reason, one level down: when the fold above failed, `built` is the
+  // fallback and this list is empty, and an unguarded ms[0].missing throws — which would once again
+  // kill the run before the named failure that explains WHY it is empty ever prints.
+  ok(deep(ms[0]?.missing) === deep(["empty", "partial", "loading"]),
+    `missingStates listed ${deep(ms[0]?.missing)} — the base is its own ideal and the fold added error, so three remain`);
+  // A base with the floor met is OMITTED, so an empty answer means the floor is met rather than that
+  // nothing was checked.
+  const full = fold(STATE_KEYS.slice(1).map((k) => ({ op: "state.add", params: { baseId: "f1", stateKey: k, override: {} } })),
+    fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc()) ?? emptyDoc();
+  ok(missingStates(full).length === 0, `a base with all five states still reported ${deep(missingStates(full))}`);
+  for (const junk of [null, undefined, 42, "x", { frames: "no" }, { frames: [null, 7] }]) {
+    ok(Array.isArray(missingStates(junk)), `missingStates(${JSON.stringify(junk)}) must answer an array, never throw`);
+  }
+
+  // --- 35.7 canDeleteBasePart: a REFUSAL, and it names every state that blocks ------------------
+  const withState = fold([{ op: "state.add", params: { baseId: "f1", stateKey: "error", override: { set: { p1: { label: "!" } } } } }],
+    fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc()) ?? { frames: [] };
+  ok(names(() => canDeleteBasePart(withState, "f1", "p1"), "p1", "error", "f2", "drop the override first") === null,
+    `deleting a part a state overrides must be refused naming the state, its frame and what to do instead — got ${threw(() => canDeleteBasePart(withState, "f1", "p1"))}`);
+  ok(canDeleteBasePart(withState, "f1", "p2") === true, "deleting a part NOTHING overrides was refused — the refusal fires on every part, so it proves nothing");
+  ok(canDeleteBasePart({ frames: [] }, "f1", "p1") === true, "canDeleteBasePart threw on a document with no states");
+
+  // --- 35.8 the preset table ---------------------------------------------------------------------
+  ok(Object.isFrozen(DEVICE_PRESETS) && PRESET_NAMES.length === Object.keys(DEVICE_PRESETS).length,
+    "DEVICE_PRESETS is not frozen, or PRESET_NAMES has drifted from it");
+  ok(PRESET_NAMES.every((n) => Number.isInteger(DEVICE_PRESETS[n]) && DEVICE_PRESETS[n] > 0),
+    `a preset width is not a positive integer: ${deep(DEVICE_PRESETS)}`);
+  ok(presetWidth("nope") === null,
+    "presetWidth answered a DEFAULT for an unknown name — frame.size's refusal would then be unreachable and a typo would silently make a phone-width frame");
+
+  // --- 35.9 the SDK-free invariant, as a source pin ----------------------------------------------
+  // Read as TEXT rather than by importing, which is the only way to assert an ABSENCE: an import
+  // proves what a module has, never what it does not. CI has no portal/node_modules, so a reach for
+  // the SDK here would fail the whole run rather than this line — which is why the pin names the
+  // import graph rather than trusting the run.
+  const opsSrc = readFileSync(join(ROOT, "system/canvas-ops.mjs"), "utf8");
+  const imports = [...opsSrc.matchAll(/^import .*? from "([^"]+)";/gm)].map((m) => m[1]);
+  ok(deep(imports) === deep(["./device-presets.mjs"]),
+    `system/canvas-ops.mjs imports ${deep(imports)} — it must reach device-presets.mjs and nothing else, which is what lets this group drive it with no browser and no portal/node_modules`);
+  ok(!/\bzod\b/.test(opsSrc),
+    "system/canvas-ops.mjs reaches for zod — it is a hand-written boundary validator, and the one sanctioned zod use is the SDK's tool-schema adapter");
+
+  group("canvas ops", `OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a SEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 15 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, and a document that is not one — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (studio-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 34 groups pass");
+  console.log("\nbuild ✓  all 35 groups pass");
 }

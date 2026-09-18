@@ -8,7 +8,7 @@ Load this when adding a gate, changing one, or working out why a green run prove
 
 ---
 
-## `tooling/build-checks.mjs` — 34 pure groups, in CI
+## `tooling/build-checks.mjs` — 35 pure groups, in CI
 
 PURE: it imports the shipped modules and opens no browser. The count in this heading is drift-checked — `tooling/drift-check.mjs`'s group-count leg reddens if it disagrees with the distinct group names in the source, so a reworded heading fails CI. Groups 1–7 cover /build's pattern rules, slots, compositions against the real generated vocabulary (plus the children-cardinality grammar over a synthetic entry, the one side the real vocabulary cannot show until a spec declares `many` — #298; that `gen-vocabulary` PROJECTS `childrenCardinality` is not reached either, so a typo in the key NAME there would be green here, first proved by #301's regenerated vocabulary), the share codec + its tamper battery, SVG escaping, and the one-application-point vetting invariant.
 
@@ -148,6 +148,11 @@ Three CI jobs plus branch protection on `main` (#387), together making one guara
 - **The advisory delta is a delta.** The pre-existing `tooling/style-dictionary` advisories — five at PR #391, and a live number that moves as advisories are published — do not block and are not tracked here; only an advisory ID the base did not carry does. It cannot see an advisory published after the PR merges.
 - **Fork PRs cannot pass.** A fork's token is `security-events: read`, so the SARIF upload fails, the `codeql` job fails, `gates-green` refuses and the PR cannot merge. No forks today, and no workaround should be added without first deciding what a fork's analysis is allowed to see.
 - **No secret, anywhere in this gate.** CodeQL needs no account and no configuration outside this repo; `gates-green` holds no credential. The one human step is enabling branch protection on `main` — a single API call, and without it every gate still runs and reports while nothing mechanically blocks a merge.
+
+---
+
+
+**group 35 · `canvas ops` (#302)** — `system/canvas-ops.mjs`, the build document's op grammar. Written in group 29's voice rather than group 11's, and the difference is why it can exist at all: group 11 has no per-verb loop because `board-ops.mjs` keeps `PARAMS` private, so a new board verb is covered only if someone widens a fixture by hand. `canvas-ops.mjs` exports `PARAMS`, so every case iterates `OPS` and a seventh verb with no `VALID_FOR` fixture fails **by name**. Fifteen refusals are each driven by a broken op and matched on the words the message must carry — D4's `why` three ways (absent, empty, non-string) included — behind the positive control that every verb's minimal valid op is ACCEPTED, without which the whole battery would pass on an applier that refuses everything. Every constructive call routes through one `fold()` that turns a throw into a NAMED failure: `ok()` only accumulates and `group()` prints at the end, so an unguarded throw kills the process before a single named failure speaks (found by mutation — widening a `PARAMS` entry with an id slot makes the roster assertion false AND makes the fold throw, and unguarded the throw won). **What it cannot reach:** whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (`studio-journey`'s), and whether a `why` is any GOOD — a sentence that says nothing while passing `.trim()` is a human read.
 
 ---
 
