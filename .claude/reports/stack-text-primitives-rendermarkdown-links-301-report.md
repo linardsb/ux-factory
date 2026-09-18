@@ -140,6 +140,15 @@ Every figure below names the command that produced it. All **observed** unless m
 | `npm run update:docker` | 22 passed; **4 PNGs** rewritten |
 | `npx playwright test` in Docker, against the new baselines | `22 passed (36.8s)` |
 
+**Four gates the plan's list did not name, run after the first report draft:**
+
+| Gate | Result |
+|---|---|
+| **CodeQL, locally** — bundle 2.27.0 (the Action pins the major, `@v4`), database created **outside the repo** at `~/.codeql-dbs/`, `--codescanning-config=.github/codeql/codeql-config.yml` at create so the scope matches CI's, `codeql/javascript-queries:codeql-suites/javascript-code-scanning.qls` | **0 results** across the whole allowlisted tree — 166/166 JS/TS files scanned, 307 files in the source archive, `system/handoff-viewer.mjs` · `system/agentic-renderer.mjs` · `system/catalog.mjs` all extracted. So **both legs are clear**: this diff raises nothing, and `main` carries nothing inherited. |
+| **CodeQL positive control** — because a 0-result run is exactly the "check that cannot fail" shape | **Two attempts, and the first one is the point.** A tainted `innerHTML` on an untyped *parameter* fired **nothing** — a zero-result run behind that control would have proven nothing. Rewritten to an unambiguous DOM sink (`document.body.innerHTML` / `document.write` from `document.location.href`) in the same file: **`js/xss` × 2, security-severity 7.8 (the blocking class), `system/handoff-viewer.mjs:152-153`**. The run can see this file and can raise a blocking alert, so the 0 above means something. Mutation restored, `git status` clean. |
+| **`approach` baseline stability** — the fresh pair replaced a battle-tested one, and memory `vr-gate-approach-countup-flake` says approach's two-consecutive-stable-shots pass races a live `countUp` rAF | `npx playwright test --grep approach` in Docker **×3**: 2 passed / 2 passed / 2 passed (6 shots, 0 failures). Not a CI green, but the local flake is ruled out at three samples. |
+| **`tooling/studio-journey.mjs`** — `childrenLine` changed `renderComponentDocs`, which is **mount 2** (`system/studio-docs.mjs:311`), and the plan's validation list never named that driver | `grep -n 'Children:\|cat-meta-line\|childrenLine' tooling/studio-journey.mjs tooling/catalog-journey.mjs` → **no hits in either**. Neither driver pins the meta line's text, so neither went stale. No run needed. |
+
 **Artifact facts, each read off the artifact, not typed:**
 
 - vocabulary: **23** components; `stack.childrenCardinality` = `"many"`; `text` carries **no**
@@ -177,6 +186,11 @@ added, which bring `--color-border`.
 | `node tooling/build-journey.mjs all`, `node tooling/proto-journey.mjs all` (plan Level 5, "optional") | Neither renders `stack` or `text`; both are regression-only here. The `renderMarkdown` import edge they would exercise is covered by `gen-vocabulary` running green (it imports `agentic-renderer.mjs` under Node) and by `catalog-journey` green on three engines. | optional by the plan |
 
 Everything else in the plan's VALIDATION COMMANDS ran.
+
+**Push note.** `git switch -c … origin/main` set this branch's upstream to **`origin/main`**, and
+`main` has no branch protection (memory `main-branch-protection-off`). `push.default` is unset, so
+`simple` refuses a name-mismatched upstream — but push with an explicit refspec anyway:
+`git push -u origin HEAD`.
 
 ## Deviations from the plan
 
