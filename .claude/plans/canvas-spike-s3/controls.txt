@@ -1,0 +1,445 @@
+// S3 controls — eleven controls, each observed green AND red (ticket #300, epic #295).
+//
+// PARKED as controls.txt. Run it by copying to a .mjs in a scratchpad, beside compare.mjs, FROM
+// INSIDE THE REPO:
+//   cp compare.txt /tmp/compare.mjs && cp controls.txt /tmp/controls.mjs && (cd <checkout> && node /tmp/controls.mjs)
+// UXF_ROOT=<checkout> replaces the cwd walk; UXF_VR_TREE=<checkout> points C2's Playwright at a checkout
+// whose tooling/visual-regression HAS node_modules; CIEDE_ORACLE=<python> replaces C1's skimage oracle.
+//
+// Half 1 runs every control against the PRISTINE metric. Half 2 applies each control's mutation and
+// re-runs only that control, expecting its own named failure. A mutation that does not change the
+// source prints "MUTATION DID NOT APPLY" — `grep -c "DID NOT APPLY"` on this output must be 0, which
+// is what stops a mutation harness from proving a check green by never mutating anything.
+//
+// The mutations fall in two classes and the difference matters:
+//   * SOURCE mutations rewrite compare.mjs (a copy) and re-import it — they break the metric.
+//   * INPUT mutations feed the pristine metric a deliberately wrong input — they break the harness.
+// C1/C2/C5/C9/C10 are the first kind; C3/C4b/C7/C8 the second. C6 has no mutation by design.
+
+import { readFileSync, writeFileSync, copyFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+import { createRequire } from "node:module";
+
+// HERE is the SCRATCHPAD this copy runs from, not the checkout — compare.mjs is copied beside it and
+// the mutated copies are written next to it. It is also the reason the preamble below walks the cwd
+// rather than reading `import.meta.url`: that URL resolves here, to the scratchpad.
+const HERE = path.dirname(new URL(import.meta.url).pathname);
+
+// THE REPO ROOT, resolved not hardcoded (shared preamble — the same block is in compare, capture,
+// controls and wcag-probe). These scripts are RUN FROM A SCRATCHPAD COPY, so `import.meta.url` resolves to the
+// scratchpad and not to the checkout — that is why this walks up from the working directory instead,
+// and why tooling/build-checks.mjs:302's `fileURLToPath(import.meta.url)` pattern does not transfer.
+// It THROWS by name rather than falling back to a machine-specific path: the worktree this spike was
+// written in is deleted after merge (report AC14), and the fixture travels with the commit.
+const MARKER = ".claude/plans/canvas-spike-s3/mapping.json";   // committed; present before capture runs
+function repoRoot() {
+  const has = (d) => existsSync(path.join(d, MARKER));
+  if (process.env.UXF_ROOT) {
+    const r = path.resolve(process.env.UXF_ROOT);
+    if (!has(r)) throw new Error(`spike: UXF_ROOT=${r} carries no ${MARKER}`);
+    return r;
+  }
+  let d = process.cwd();
+  for (;;) {
+    if (has(d)) return d;
+    const up = path.dirname(d);
+    if (up === d) throw new Error(`spike: no checkout carrying ${MARKER} at or above ${process.cwd()} — run from inside the repo, or set UXF_ROOT=<checkout>`);
+    d = up;
+  }
+}
+const ROOT = repoRoot();
+
+// PLAYWRIGHT'S TREE (C2 only). `tooling/visual-regression/node_modules` is the CI-pinned copy and a
+// fresh worktree does not have one (memory local-agent-visual-gate-notes), so this is a SEPARATE
+// anchor: it defaults to ROOT and UXF_VR_TREE points it at a checkout that does have them.
+function vrDir() {
+  const tree = process.env.UXF_VR_TREE ? path.resolve(process.env.UXF_VR_TREE) : ROOT;
+  const d = path.join(tree, "tooling", "visual-regression");
+  if (!existsSync(path.join(d, "node_modules", "@playwright", "test"))) {
+    throw new Error(`spike: no @playwright/test under ${d}/node_modules — set UXF_VR_TREE=<checkout whose tooling/visual-regression has node_modules>`);
+  }
+  return d;
+}
+const VR = vrDir();
+const SPIKE = path.join(ROOT, ".claude/plans/canvas-spike-s3");
+const FIX = path.join(SPIKE, "fixture");
+const SRC = path.join(HERE, "compare.mjs");
+
+// C1'S ORACLE is a CPython with scikit-image. The default is this machine's `email-hub` venv — not an
+// arbitrary sibling: email-hub is where E4's own visual_scorer.py lives, which is what C1 compares
+// against. It is a MACHINE DEPENDENCY, disclosed in README § Not done, and CIEDE_ORACLE replaces it
+// with any python that can `import skimage`. Refuses by name rather than failing as a bare ENOENT.
+const PY = process.env.CIEDE_ORACLE ? path.resolve(process.env.CIEDE_ORACLE)
+  : path.join(process.env.HOME, "Desktop/email-hub/.venv/bin/python");
+if (!existsSync(PY)) {
+  throw new Error(`spike: no CIEDE2000 oracle at ${PY} — set CIEDE_ORACLE=<python with scikit-image> (C1 shells out to skimage.color.deltaE_ciede2000)`);
+}
+
+const f4 = (v) => v.toFixed(4);
+let pass = 0, fail = 0;
+const ok = (id, msg) => { console.log(`  ${id} PASS  ${msg}`); pass++; };
+const no = (id, msg) => { console.log(`  ${id} FAIL  ${msg}`); fail++; };
+
+// ------------------------------------------------------------------ helpers
+const clone = (img) => ({ w: img.w, h: img.h, data: Buffer.from(img.data) });
+const setPx = (img, x, y, [r, g, b]) => { const i = (y * img.w + x) * 3; img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; };
+const getPx = (img, x, y) => { const i = (y * img.w + x) * 3; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
+const hexOf = ([r, g, b]) => "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+const HEX = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const blank = (w, h, c) => { const im = { w, h, data: Buffer.alloc(w * h * 3) }; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) setPx(im, x, y, c); return im; };
+const shift = (img, dx, dy) => {           // translate an image, clamping at the edges
+  const out = clone(img);
+  for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) {
+    const sx = Math.min(img.w - 1, Math.max(0, x - dx)), sy = Math.min(img.h - 1, Math.max(0, y - dy));
+    setPx(out, x, y, getPx(img, sx, sy));
+  }
+  return out;
+};
+const statsOne = (M, A, B, r) => M.regionStats(A, B, M.blur(A, 1.5), M.blur(B, 1.5), r);
+const part = (M, name) => M.PARTS().find((r) => r.name === name);
+
+// ------------------------------------------------------------------ the controls
+// Each returns true when the control HOLDS. Half 2 asserts the same call returns false.
+
+// C1 — the CIEDE2000 port equals skimage.color.deltaE_ciede2000 over 500 pseudo-random pairs.
+function C1(M, half) {
+  let seed = 20260917;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const pairs = [];
+  for (let i = 0; i < 500; i++) pairs.push([[0,0,0].map(() => Math.floor(rnd() * 256)), [0,0,0].map(() => Math.floor(rnd() * 256))]);
+  const mine = pairs.map(([a, b]) => M.ciede2000(M.rgbToLab(a), M.rgbToLab(b)));
+  const script = `
+import sys, json, numpy as np
+from skimage.color import rgb2lab, deltaE_ciede2000
+d = json.load(sys.stdin)
+a = np.array([p[0] for p in d], dtype=float).reshape(-1,1,3) / 255.0
+b = np.array([p[1] for p in d], dtype=float).reshape(-1,1,3) / 255.0
+print(json.dumps(deltaE_ciede2000(rgb2lab(a), rgb2lab(b)).reshape(-1).tolist()))`;
+  const theirs = JSON.parse(execFileSync(PY, ["-c", script], { input: JSON.stringify(pairs), encoding: "utf8", maxBuffer: 1 << 24 }));
+  let maxAbs = 0, at = 0;
+  for (let i = 0; i < mine.length; i++) { const d = Math.abs(mine[i] - theirs[i]); if (d > maxAbs) { maxAbs = d; at = i; } }
+  const held = maxAbs < 1e-3;
+  const m = `max |port - skimage| over 500 pairs = ${maxAbs.toExponential(4)} (limit 1e-3), worst pair ${JSON.stringify(pairs[at])} port=${f4(mine[at])} skimage=${f4(theirs[at])}`;
+  held ? ok("C1 ", m) : no("C1 ", m);
+  return held;
+}
+
+// C2 — the decoder is right on CONTENT, not just on length. A canvas of known flat colours,
+// screenshotted by the same Playwright that wrote the fixture, decoded, every block compared to its
+// known hex. ref.png cannot serve here: its correctness is exactly what is in question.
+const C2_BLOCKS = ["#ff0000","#00ff00","#0000ff","#123456","#fedcba","#000000","#ffffff","#7f7f7f","#0c3b2f","#20828d","#f8f8f8","#00c950"];
+function C2(M, half) {
+  const png = path.join(HERE, `c2-control-${half}.png`);
+  const require2 = createRequire(VR + path.sep);
+  const html = `<meta charset="utf-8"><style>html,body{margin:0;padding:0}#c{display:grid;grid-template-columns:repeat(4,40px);grid-auto-rows:40px;gap:0;width:160px}i{display:block;width:40px;height:40px}</style><div id="c">${C2_BLOCKS.map((c) => `<i style="background:${c}"></i>`).join("")}</div>`;
+  execFileSync(process.execPath, ["-e", `
+    const { createRequire } = require("node:module"); const path = require("node:path");
+    const r = createRequire(${JSON.stringify(VR)} + path.sep);
+    const { chromium } = r("@playwright/test");
+    (async () => { const b = await chromium.launch();
+      const p = await (await b.newContext({ viewport:{width:200,height:200}, deviceScaleFactor:1 })).newPage();
+      await p.setContent(${JSON.stringify(html)}, { waitUntil: "load" });
+      await (await p.$("#c")).screenshot({ path: ${JSON.stringify(png)} }); await b.close(); })();`], { stdio: "pipe" });
+  const img = M.decodePng(png);
+  const bad = [];
+  C2_BLOCKS.forEach((want, i) => {
+    const cx = (i % 4) * 40 + 20, cy = Math.floor(i / 4) * 40 + 20;
+    const got = hexOf(getPx(img, cx, cy));
+    if (got !== want) bad.push(`block ${i} want ${want} got ${got}`);
+  });
+  const held = bad.length === 0 && img.w === 160 && img.h === 120;
+  const m = `${img.w}x${img.h}, ${C2_BLOCKS.length} known flat blocks decoded${bad.length ? ": " + bad.slice(0, 4).join("; ") + (bad.length > 4 ? ` (+${bad.length - 4} more)` : "") : " — every one exact"}`;
+  held ? ok("C2 ", m) : no("C2 ", m);
+  return held;
+}
+
+// C3 — identity. ref.png against itself is ΔE 0 and score 1.0 under EVERY rung and EVERY granularity.
+// Its INPUT mutation offsets the candidate by one row: a region reader that silently mis-slices is
+// invisible to every other check here.
+function C3(M, half, mutate = false) {
+  const A = M.decodePng(path.join(FIX, "ref.png"));
+  const B = mutate ? shift(A, 0, 1) : clone(A);
+  const grans = [["a whole", M.WHOLE(A.w, A.h)], ["b ybands", M.YBANDS(A.w, A.h)], ["c parts", M.PARTS()]];
+  let worst = 0, where = "";
+  for (const [g, regs] of grans) for (const s of regs.map((r) => statsOne(M, A, B, r)))
+    for (const r of M.RUNGS) if (Math.abs(s[r.key]) > worst) { worst = Math.abs(s[r.key]); where = `${g} ${s.name} rung ${r.id}`; }
+  const score = M.aggregate(grans[2][1].map((r) => statsOne(M, A, B, r)), "mean").score;
+  const held = worst <= 1e-9 && Math.abs(score - 1) <= 1e-9;
+  const m = `worst non-zero across 3 granularities x 6 rungs = ${worst.toExponential(3)}${where ? ` (${where})` : ""}, E4 score = ${score.toFixed(4)}`;
+  held ? ok("C3 ", m) : no("C3 ", m);
+  return held;
+}
+
+// C4a — a known swap measures EXACTLY, on synthetic input with no anti-aliasing.
+// Paper #ffffff, a solid 20x20 ink block, and a 1px frame at #f8f8f8 (ΔE 1.40 from paper — BELOW the
+// 2.3 mask threshold, ABOVE half of it). Recolour only the block; the ink-masked mean must equal that
+// pair's ΔE to 1e-9. The source mutation halves the threshold: the frame joins the mask, its own ΔE is
+// 0 because it was not recoloured, and the mean falls.
+function C4a(M, half) {
+  const A = blank(40, 40, HEX("#ffffff"));
+  for (let x = 0; x < 40; x++) { setPx(A, x, 0, HEX("#f8f8f8")); setPx(A, x, 39, HEX("#f8f8f8")); setPx(A, 0, x, HEX("#f8f8f8")); setPx(A, 39, x, HEX("#f8f8f8")); }
+  const B = clone(A);
+  for (let y = 10; y < 30; y++) for (let x = 10; x < 30; x++) { setPx(A, x, y, HEX("#454545")); setPx(B, x, y, HEX("#0c3b2f")); }
+  const s = statsOne(M, A, B, { name: "synthetic", x: 0, y: 0, w: 40, h: 40 });
+  const want = M.deltaEHex("#454545", "#0c3b2f");
+  const held = Math.abs(s.inkMean - want) <= 1e-9;
+  const m = `inkMean = ${s.inkMean.toFixed(9)}, ΔE(#454545,#0c3b2f) = ${want.toFixed(9)}, |diff| = ${Math.abs(s.inkMean - want).toExponential(3)} (limit 1e-9); ink ${s.inkN}/${s.n} px, modal ${s.modalHex}`;
+  held ? ok("C4a", m) : no("C4a", m);
+  return held;
+}
+
+// C4b — the same swap on the REAL region, where anti-aliasing is in play. The plan asserted a BOUND,
+// 0.5 x pairΔE <= inkMean <= pairΔE, on the assumption that at least half the ink mask is solid glyph
+// core. MEASURED, the core is 35.1% of the mask, and the bound's lower leg fails — the assumption was
+// never measured (plan error, AMENDMENTS E5). What the measurement gives instead is STRONGER than the
+// bound the plan asked for: the non-core ink pixels are unchanged by an exact-match recolour, so their
+// ΔE is exactly 0 and
+//        inkMean  ===  (coreN / inkN) x pairΔE
+// holds as an IDENTITY to 1e-9 on real anti-aliased input. The bound is replaced by that identity plus
+// the plan's upper leg. This is not a loosened tolerance — it is a tighter assertion with the coverage
+// term measured rather than guessed (the plan's own GOTCHA names that term and declines to predict it).
+// Two mutations: a SOURCE one that dilutes the ink mean over the whole region breaks the identity; the
+// plan's INPUT one (recolour half the core) leaves it holding at the new coverage, which is the
+// positive control that the coverage term is real and not a fitted constant.
+function C4b(M, half, mutate = false) {
+  const A = M.decodePng(path.join(FIX, "m1-faithful.png"));
+  const B = clone(A);
+  const r = part(M, "title");
+  const from = HEX("#454545"), to = HEX("#0c3b2f");
+  let moved = 0, seen = 0;
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    const p = getPx(A, x, y);
+    if (p[0] === from[0] && p[1] === from[1] && p[2] === from[2]) { seen++; if (!mutate || seen % 2 === 0) { setPx(B, x, y, to); moved++; } }
+  }
+  const s = statsOne(M, A, B, r);
+  const pair = M.deltaEHex("#454545", "#0c3b2f");
+  const coverage = moved / s.inkN;
+  const want = coverage * pair;
+  const identity = Math.abs(s.inkMean - want) <= 1e-9;
+  const upper = s.inkMean <= pair;
+  const held = identity && upper;
+  const m = `inkMean = ${s.inkMean.toFixed(9)} === coverage ${(coverage * 100).toFixed(1)}% x ΔE ${pair.toFixed(4)} = ${want.toFixed(9)} (|diff| ${Math.abs(s.inkMean - want).toExponential(3)}, limit 1e-9)${identity ? "" : " IDENTITY BROKEN"}; <= pairΔE? ${upper ? "yes" : "NO"}; ${moved}/${seen} exact-#454545 px moved, ink mask ${s.inkN}/${s.n}`;
+  held ? ok("C4b", m) : no("C4b", m);
+  return held;
+}
+
+// C5 — AN EMPTY MEASUREMENT IS MISSING, NEVER A PASS. Zero regions must throw, naming the failure.
+// The source mutation restores E4's named self-deceiving shape, sum/max(len,1), which returns 1.0
+// exactly when nothing was measured (architecture.md:163 is the refusal this proves fires).
+function C5(M, half) {
+  let threw = null, got = null;
+  try { got = M.aggregate([], "mean"); } catch (e) { threw = e.message; }
+  const held = threw !== null && /empty measurement is missing, never a pass/.test(threw);
+  const m = held ? `aggregate([]) threw: "${threw}"` : `aggregate([]) did NOT throw — it returned ${JSON.stringify(got)}`;
+  held ? ok("C5 ", m) : no("C5 ", m);
+  return held;
+}
+
+// C6 — metric agreement, at the width it actually has. Oklab ΔE (system/oklch.mjs:37, the repo's OWN
+// colour math) must rank the same worst region as CIEDE2000. No mutation by design: a disagreement
+// stops the run and is reported, it is not worked around.
+// WHAT IT CANNOT CATCH, stated because a control that looks wider than it is belongs to the repo's
+// `check-that-cannot-fail` class: BOTH legs consume the same statsOne extraction, so a wrong region
+// box, a wrong mask threshold or a wrong modal colour corrupts both identically and C6 still reports
+// agreement. What it does catch is two distance FORMULAS ranking one already-extracted pair of
+// colours differently — and not even from identical inputs: inkColourDeltaE reads the unquantised
+// float means, oklabDE the 8-bit rounded hex. The boxes are C7's evidence and identity is C3's.
+async function C6(M, half) {
+  const { hexToRgb, rgbToOklab } = await import(path.join(ROOT, "system", "oklch.mjs"));
+  const oklabDE = (h1, h2) => {
+    const a = rgbToOklab(hexToRgb(h1)), b = rgbToOklab(hexToRgb(h2));
+    return Math.hypot(a.l - b.l, a.a - b.a, a.b - b.b);
+  };
+  const A = M.decodePng(path.join(FIX, "ref.png")), B = M.decodePng(path.join(FIX, "m1-wrong.png"));
+  const stats = M.PARTS().map((r) => statsOne(M, A, B, r)).filter((s) => !s.tooSmall && !s.degenerate);
+  const byCiede = [...stats].sort((a, b) => b.inkColourDeltaE - a.inkColourDeltaE)[0];
+  const byOklab = [...stats].sort((a, b) => oklabDE(b.inkMeanHexA, b.inkMeanHexB) - oklabDE(a.inkMeanHexA, a.inkMeanHexB))[0];
+  const held = byCiede.name === byOklab.name;
+  const m = `worst region by CIEDE2000 = ${byCiede.name} (${f4(byCiede.inkColourDeltaE)}), by Oklab ΔE = ${byOklab.name} (${oklabDE(byOklab.inkMeanHexA, byOklab.inkMeanHexB).toFixed(4)}) — ${held ? "agree on ranking, given the same extracted ink means" : "DISAGREE: reported, not worked around"}`;
+  held ? ok("C6 ", m) : no("C6 ", m);
+  return held;
+}
+
+// C7 — the regions land on the right CONTENT. In ref.png the avatar region's modal colour is the
+// avatar's own #f2f5fa and the chip region's is the chip's #f1f7f2. The INPUT mutation shifts every
+// box by 20px; both modal colours change to the surface the boxes slide onto.
+function C7(M, half, mutate = false) {
+  const A = M.decodePng(path.join(FIX, "ref.png"));
+  const d = mutate ? 20 : 0;
+  const want = { avatar: "#f2f5fa", chip: "#f1f7f2" };
+  const got = {};
+  for (const name of Object.keys(want)) {
+    const r = part(M, name);
+    got[name] = statsOne(M, A, clone(A), { ...r, x: r.x + d, y: r.y + d }).modalHex;
+  }
+  const held = Object.keys(want).every((k) => got[k] === want[k]);
+  const m = `avatar modal ${got.avatar} (want ${want.avatar}), chip modal ${got.chip} (want ${want.chip})${mutate ? `  [boxes shifted +${d}px]` : ""}`;
+  held ? ok("C7 ", m) : no("C7 ", m);
+  return held;
+}
+
+// C8 — THE HARNESS MEASURED WHAT IT CLAIMS TO. Under M1 the six dropped roles render at the same
+// literal in both candidates, so avatar / chip / chip-text / chevron must be identical between
+// m1-faithful.png and m1-wrong.png. This catches a wrong pack link, a stale PNG or a mis-parameterised
+// harness — a different failure from anything C1–C7 reaches.
+// The INPUT mutation substitutes m1-faithful for m1-wrong: C8 STAYS GREEN (the drops were never going
+// to move) while the two mapped regions collapse to the floor and rung 1's signal vanishes. Reporting
+// that is the point — C8 is a harness control, not a signal control, and it says so out loud.
+// PRECISELY how green: the substitution makes the comparison mean(ref, fa) against ITSELF, which is
+// zero for EVERY region by construction, not only for the four drops asserted here. So half 2
+// exercises none of the box-placement or region-reading logic — that evidence is C7 and C3, never
+// C8's own mutation. Half 1 is where C8 does its work.
+function C8(M, half, mutate = false) {
+  const ref = M.decodePng(path.join(FIX, "ref.png"));
+  const fa = M.decodePng(path.join(FIX, "m1-faithful.png"));
+  const wr = M.decodePng(path.join(FIX, mutate ? "m1-faithful.png" : "m1-wrong.png"));
+  const drops = ["avatar", "chip", "chip-text", "chevron"];
+  let worst = 0, where = "";
+  for (const n of drops) {
+    const r = part(M, n);
+    const d = Math.abs(statsOne(M, ref, fa, r).mean - statsOne(M, ref, wr, r).mean);
+    if (d > worst) { worst = d; where = n; }
+  }
+  const mapped = ["title", "subtitle"].map((n) => {
+    const r = part(M, n);
+    return `${n} floor=${f4(statsOne(M, ref, fa, r).mean)} signal=${f4(statsOne(M, ref, wr, r).mean)}`;
+  }).join(", ");
+  const held = worst <= 1e-9;
+  const m = `drops worst |floor-signal| = ${worst.toExponential(3)}${where ? ` (${where})` : ""} (limit 1e-9); mapped: ${mapped}${mutate ? "  [m1-wrong SUBSTITUTED by m1-faithful]" : ""}`;
+  held ? ok("C8 ", m) : no("C8 ", m);
+  return held;
+}
+
+// C9 — RUNG 6 IS REGISTRATION-INVARIANT, which is the whole reason it is in the ladder. Shift the
+// candidate by one pixel in x and one in y: inkColourDeltaE must move by < 0.5 while rung 5's
+// inkMean moves by > 5. The source mutation makes rung 6 compare per-pixel ink instead of the two ink
+// AVERAGES; the one-pixel shift then moves it like rung 5 and the invariance is gone.
+function C9(M, half) {
+  const A = M.decodePng(path.join(FIX, "ref.png")), B = M.decodePng(path.join(FIX, "m1-faithful.png"));
+  const r = part(M, "title");
+  const s0 = statsOne(M, A, B, r), s1 = statsOne(M, A, shift(B, 1, 1), r);
+  const d6 = Math.abs(s1.inkColourDeltaE - s0.inkColourDeltaE), d5 = Math.abs(s1.inkMean - s0.inkMean);
+  const held = d6 < 0.5 && d5 > 5;
+  const m = `1px shift: rung 6 ${f4(s0.inkColourDeltaE)} -> ${f4(s1.inkColourDeltaE)} (Δ ${f4(d6)}, limit <0.5); rung 5 ${f4(s0.inkMean)} -> ${f4(s1.inkMean)} (Δ ${f4(d5)}, limit >5)`;
+  held ? ok("C9 ", m) : no("C9 ", m);
+  return held;
+}
+
+// C10 — RUNG 6'S OWN LIMITATION IS STATED, NOT HIDDEN. Under M2 the WRONG pack moves the surface role
+// #f8f8f8 -> #ffffff. Rung 6 then penalises regions whose INK NEVER CHANGED — all four of M1's
+// dropped-role regions — because their anti-aliased edge pixels blend the unchanged ink against a
+// MOVED paper, so the ink AVERAGE moves. Assert that penalty is real and report all four regions.
+//
+// The plan named a different mechanism and a different mutation: "each image's modal colour moves",
+// mutated by holding the modal fixed to the reference's. Both were DRIVEN and the plan is wrong on
+// this fixture (AMENDMENTS E6). The modal does not move on three of the four regions — the avatar's
+// mode is the avatar circle, the chip's is the chip fill — so holding it fixed is a semantic no-op
+// and C10 stayed green under it (measured). Where the modal DOES move (chevron: #f8f8f8 -> #ffffff)
+// the penalty still survives the mutation, because the mechanism is the blend, not the mode.
+// The mutation that does hide the limitation is a CORE-ONLY ink mask (threshold 2.3 -> 20, excluding
+// the anti-aliased edge): the penalty collapses to 0.0000 on avatar and chevron and goes NEGATIVE on
+// the chip, i.e. M2 reads BETTER than M1. That is the "fix" a reader would plausibly reach for, and
+// it is the one that must be shown to destroy the control.
+function C10(M, half) {
+  const ref = M.decodePng(path.join(FIX, "ref.png"));
+  const w1 = M.decodePng(path.join(FIX, "m1-wrong.png")), w2 = M.decodePng(path.join(FIX, "m2-wrong.png"));
+  const rows = ["avatar", "chip", "chip-text", "chevron"].map((n) => {   // M1's dropped-ink regions
+    const r = part(M, n);
+    const a = statsOne(M, ref, w1, r), b = statsOne(M, ref, w2, r);
+    return { n, m1: a.inkColourDeltaE, m2: b.inkColourDeltaE, d: b.inkColourDeltaE - a.inkColourDeltaE,
+             modA: b.modalHex, modB: b.modalHexB };
+  });
+  const worst = rows.reduce((x, y) => (y.d > x.d ? y : x));
+  const held = worst.d > 0.5;
+  const m = `ink-unchanged regions, rung 6 M1 -> M2: ` +
+    rows.map((x) => `${x.n} ${f4(x.m1)}->${f4(x.m2)} (${x.d >= 0 ? "+" : ""}${f4(x.d)}${x.modA !== x.modB ? ", modal MOVED " + x.modA + "->" + x.modB : ""})`).join("; ") +
+    `  worst penalty ${f4(worst.d)} on ${worst.n} (limit >0.5)`;
+  held ? ok("C10", m) : no("C10", m);
+  return held;
+}
+
+// --------------------------------------------------------------- source mutations
+const MUTATIONS = {
+  C1:  ["  const Rt = -Math.sin(2 * dTheta * D2R) * Rc;", "  const Rt = 0; // MUTATED"],
+  C2:  ["          const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);\n          v = raw + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);",
+        "          v = raw + a; // MUTATED: Paeth replaced by Sub"],
+  C4a: ["export const JND = 2.3;", "export const JND = 1.15; // MUTATED: ink threshold halved"],
+  C5:  ["  let worst = scored[0];\n  for (const r of scored) if (r[key] > worst[key]) worst = r;\n  // E4 verbatim: per region score = 1 - mean/100 clipped to [0,1]; overall = MIN(scores).\n  const scores = scored.map((r) => Math.min(1, Math.max(0, 1 - r.mean / 100)));\n  return { worst: worst.name, value: worst[key], score: Math.min(...scores)",
+        "  let worst = scored[0] || { name: \"none\" };\n  for (const r of scored) if (r[key] > worst[key]) worst = r;\n  // MUTATED: E4's named self-deceiving shape restored — sum/max(len,1) scores 1.0 on nothing.\n  const scores = scored.map((r) => Math.min(1, Math.max(0, 1 - r.mean / 100)));\n  return { worst: worst.name, value: worst[key] || 0, score: scores.reduce((s,v)=>s+v,0)/Math.max(scores.length,1)"],
+  C9:  ["  const inkColourDeltaE = inkA.mean && inkB.mean\n    ? ciede2000(rgbToLab(inkA.mean), rgbToLab(inkB.mean)) : 0;",
+        "  let _ic = 0, _icn = 0; // MUTATED: rung 6 compares per-pixel ink, not the two ink averages\n  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) if (inkA.mask[y*r.w+x]) { _ic += de[y*r.w+x]; _icn++; }\n  const inkColourDeltaE = _icn ? _ic / _icn : 0;"],
+  C10: ["    if (ciede2000(rgbToLab(p), mode.lab) > JND) {",
+        "    if (ciede2000(rgbToLab(p), mode.lab) > 20) { // MUTATED: core-only ink mask, the AA edge excluded"],
+  C4b: ["    inkMean: inkA.n ? inkSum / inkA.n : 0,", "    inkMean: inkSum / n, // MUTATED: the ink mean diluted over the whole region"],
+};
+// C5's mutation must also remove the zero-region throw, or the throw fires before the shape is reached.
+const C5_EXTRA = ['  if (regions.length === 0) {\n    throw new Error("fidelity: no region was measured — an empty measurement is missing, never a pass");\n  }', "  // MUTATED: the zero-region refusal removed"];
+const C5_EXTRA2 = ['  if (scored.length === 0) {\n    throw new Error("fidelity: no region was measured — an empty measurement is missing, never a pass");\n  }', "  // MUTATED: the empty-scored refusal removed"];
+
+async function mutated(id, edits) {
+  const src = readFileSync(SRC, "utf8");
+  let out = src, applied = 0;
+  for (const [from, to] of edits) {
+    if (!out.includes(from)) { console.log(`  ${id} MUTATION DID NOT APPLY — source fragment not found`); return null; }
+    out = out.replace(from, to); applied++;
+  }
+  if (out === src) { console.log(`  ${id} MUTATION DID NOT APPLY — source unchanged after ${applied} replacement(s)`); return null; }
+  const p = path.join(HERE, `compare.mut.${id}.mjs`);
+  writeFileSync(p, out);
+  return await import(p + `?v=${Date.now()}`);
+}
+
+// ------------------------------------------------------------------------ run
+const M = await import(SRC);
+console.log(`S3 control battery — ${new Date().toISOString()}`);
+console.log(`metric: ${SRC}\nfixture: ${FIX}\noracle: ${PY}\n`);
+console.log("=".repeat(78) + "\nHALF 1 — PRISTINE. Every control must hold.\n" + "=".repeat(78));
+const h1 = {
+  C1: C1(M, 1), C2: C2(M, 1), C3: C3(M, 1), C4a: C4a(M, 1), C4b: C4b(M, 1),
+  C5: C5(M, 1), C6: await C6(M, 1), C7: C7(M, 1), C8: C8(M, 1), C9: C9(M, 1), C10: C10(M, 1),
+};
+console.log(`\nhalf 1: ${pass} pass, ${fail} fail`);
+
+console.log("\n" + "=".repeat(78) + "\nHALF 2 — MUTATED. Each control must go red under its own mutation.\n" +
+  "C6 has no mutation by design. C8's mutation leaves C8 green — see its note.\n" + "=".repeat(78));
+const reds = {};
+const expectRed = (id, held) => {
+  if (held === null) { reds[id] = "MUTATION DID NOT APPLY"; return; }
+  reds[id] = held ? (id === "C8" ? "STAYED GREEN — by design, see C8's note" : "STAYED GREEN") : "went red";
+  console.log(`  ${id} mutated -> ${held ? "STILL HELD (check cannot fail under this mutation)" : "RED as expected"}`);
+};
+
+let m;
+m = await mutated("C1", [MUTATIONS.C1]);        expectRed("C1", m && C1(m, 2));
+m = await mutated("C2", [MUTATIONS.C2]);        expectRed("C2", m && C2(m, 2));
+console.log("  C3  input mutation: the candidate offset by one row");
+expectRed("C3", C3(M, 2, true));
+m = await mutated("C4a", [MUTATIONS.C4a]);      expectRed("C4a", m && C4a(m, 2));
+m = await mutated("C4b", [MUTATIONS.C4b]);      expectRed("C4b", m && C4b(m, 2));
+console.log("  C4b positive control (NOT a mutation of the metric): only half the core recoloured —");
+console.log("      the identity must STILL hold, at the new coverage. That is what proves the coverage");
+console.log("      term is measured and not a constant fitted to one number.");
+C4b(M, 2, true);
+m = await mutated("C5", [C5_EXTRA, C5_EXTRA2, MUTATIONS.C5]);
+if (m) { const r = m.aggregate([], "mean"); console.log(`  C5  mutated aggregate([]) returned score = ${r.score} — sum/max(len,1) scores 1.0 on nothing`); }
+expectRed("C5", m && (() => { try { m.aggregate([], "mean"); return false; } catch { return true; } })());
+console.log("  C6  no mutation by design — a disagreement stops the run and is reported");
+reds.C6 = "n/a (by design)";
+console.log("  C7  input mutation: every box shifted +20px");
+expectRed("C7", C7(M, 2, true));
+console.log("  C8  input mutation: m1-wrong substituted by m1-faithful");
+expectRed("C8", C8(M, 2, true));
+m = await mutated("C9", [MUTATIONS.C9]);        expectRed("C9", m && C9(m, 2));
+console.log("  C10 the PLAN's mutation first (hold the modal to the reference's) — driven, and a no-op:");
+m = await mutated("C10p", [["  const inkB = inkOf(B, r, modB);", "  const inkB = inkOf(B, r, modA); // MUTATED: modal held to the reference's"]]);
+if (m) C10(m, 2);
+console.log("  C10 the mutation that DOES destroy it (core-only ink mask, threshold 2.3 -> 20):");
+m = await mutated("C10", [MUTATIONS.C10]);      expectRed("C10", m && C10(m, 2));
+
+console.log("\n" + "=".repeat(78));
+console.log("SUMMARY");
+for (const id of ["C1","C2","C3","C4a","C4b","C5","C6","C7","C8","C9","C10"]) {
+  console.log(`  ${id.padEnd(4)} half 1: ${h1[id] ? "PASS" : "FAIL"}   half 2: ${reds[id]}`);
+}
+console.log(`\nhalf 1 totals: ${Object.values(h1).filter(Boolean).length}/11 held`);

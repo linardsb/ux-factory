@@ -1,0 +1,84 @@
+// S3 — checkPairs over BOTH packs (ticket #300). PARKED as wcag-probe.txt. Run FROM INSIDE THE REPO:
+//   cp wcag-probe.txt /tmp/wcag-probe.mjs && (cd <checkout> && node /tmp/wcag-probe.mjs)
+// or from anywhere with  UXF_ROOT=<checkout> node /tmp/wcag-probe.mjs
+// The point of this probe is the half that PASSES: run 3's pack is 12/12 green while its body text is
+// a dark green. A formal contrast check cannot distinguish a right colour from a wrong one.
+import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
+
+// THE REPO ROOT, resolved not hardcoded (shared preamble — the same block is in compare, capture,
+// controls and wcag-probe). These scripts are RUN FROM A SCRATCHPAD COPY, so `import.meta.url` resolves to the
+// scratchpad and not to the checkout — that is why this walks up from the working directory instead,
+// and why tooling/build-checks.mjs:302's `fileURLToPath(import.meta.url)` pattern does not transfer.
+// It THROWS by name rather than falling back to a machine-specific path: the worktree this spike was
+// written in is deleted after merge (report AC14), and the fixture travels with the commit.
+const MARKER = ".claude/plans/canvas-spike-s3/mapping.json";   // committed; present before capture runs
+function repoRoot() {
+  const has = (d) => existsSync(path.join(d, MARKER));
+  if (process.env.UXF_ROOT) {
+    const r = path.resolve(process.env.UXF_ROOT);
+    if (!has(r)) throw new Error(`spike: UXF_ROOT=${r} carries no ${MARKER}`);
+    return r;
+  }
+  let d = process.cwd();
+  for (;;) {
+    if (has(d)) return d;
+    const up = path.dirname(d);
+    if (up === d) throw new Error(`spike: no checkout carrying ${MARKER} at or above ${process.cwd()} — run from inside the repo, or set UXF_ROOT=<checkout>`);
+    d = up;
+  }
+}
+const ROOT = repoRoot();
+const SPIKE = path.join(ROOT, ".claude/plans/canvas-spike-s3");
+const { checkPairs } = await import(path.join(ROOT, "system", "wcag.mjs"));
+const { RULESET } = await import(path.join(ROOT, "system", "derive.rules.mjs"));
+
+// checkPairs THROWS if any pair token is not #rrggbb (wcag.mjs:30). The faithful pack maps two roles
+// (four under M2), so it must be OVERLAID on a full token map — a two-token object alone throws on
+// pair 5. tokens.neutral.css is that full map.
+// tokens.neutral.css binds the SEMANTIC tokens to PRIMITIVES through var() (`--color-fg:
+// var(--color-ink)`), so a hex-only regex returns the primitives and none of the roles checkPairs
+// asks for. Resolve the alias chain, then keep only what resolved to a hex.
+const parse = (css) => {
+  const raw = Object.fromEntries([...css.matchAll(/^\s*--([a-z0-9-]+):\s*([^;]+);/gm)].map((m) => [m[1], m[2].trim()]));
+  const out = {};
+  for (const k of Object.keys(raw)) {
+    let v = raw[k];
+    for (let hops = 0; hops < 8 && /^var\(\s*--([a-z0-9-]+)/.test(v); hops++) {
+      v = raw[v.match(/^var\(\s*--([a-z0-9-]+)/)[1]] ?? "";
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) out[k] = v.toLowerCase();
+  }
+  return out;
+};
+const neutral = parse(readFileSync(path.join(ROOT, "system", "tokens.neutral.css"), "utf8"));
+const mapping = JSON.parse(readFileSync(path.join(SPIKE, "mapping.json"), "utf8"));
+const strip = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.replace(/^--/, ""), v]));
+
+const PACKS = [
+  ["neutral (the contract's own pack, for reference)", neutral],
+  ["faithful (the source's own literals on the mapped roles, over neutral)", { ...neutral, ...strip(mapping.packs.faithful.values) }],
+  ["polaris (run 3) — tokens.polaris.spike.css, the REAL file", { ...neutral, ...parse(readFileSync(path.join(ROOT, ".claude/plans/design-import-spike-a/tokens.polaris.spike.css"), "utf8")) }],
+];
+for (const [label, tokens] of PACKS) {
+  console.log(`\n=== ${label} ===`);
+  const rows = checkPairs(tokens, RULESET.wcagPairs);
+  for (const r of rows) {
+    console.log(`  ${r.pass ? "pass" : "FAIL"}  ${String(r.ratio).padStart(6)}:1  (min ${r.min})  ${r.fg} ${tokens[r.fg]} on ${r.bg} ${tokens[r.bg]}  — ${r.usage}`);
+  }
+  console.log(`  ${label.split(" ")[0]}: ${rows.filter((r) => r.pass).length}/${rows.length} pass`);
+}
+console.log(`\npolaris (run 3): ${checkPairs(PACKS[2][1], RULESET.wcagPairs).filter((r) => r.pass).length}/12 pass`);
+console.log(`--color-fg is ${PACKS[2][1]["color-fg"]} — Polaris's color-text-success-strong, a dark green, on the BODY TEXT role.`);
+console.log(`Every declared pair is green. The formal check has no dimension that can say so.`);
+
+// THE REDDENING CONTROL. It was run by hand for the committed raw/wcag.txt, which left that file's
+// last three lines with no producer in the repo — F8 of the PR #429 review. Folded in here so every
+// line of raw/wcag.txt re-derives from this script. A check that cannot distinguish a right colour
+// from a wrong one must at least be able to FAIL: substituting a low-contrast grey on the same role
+// takes pair 1 red and the total to 10/12 (color-fg appears in two of the twelve pairs — plan
+// AMENDMENT E7a), so the 12/12 above is a measurement, not a check that cannot fire.
+for (const hex of ["#0c3b2f", "#20828d", "#cccccc"]) {
+  const rows = checkPairs({ ...PACKS[2][1], "color-fg": hex }, RULESET.wcagPairs);
+  console.log(`--color-fg ${hex} -> pair 1 = ${rows[0].ratio}:1 ${rows[0].pass ? "pass" : "FAIL"}   total ${rows.filter((r) => r.pass).length}/${rows.length}`);
+}

@@ -1,0 +1,519 @@
+// S3 compare — the wrong-but-green detector's metric (ticket #300, epic #295).
+//
+// PARKED as compare.txt. Node refuses a .txt module entry, so the .txt is a STORAGE decision
+// (tooling/drift-check.mjs:29 runs `node --check` over every tracked .mjs, and a spike script is
+// not a tracked source file). Run it by copying to a .mjs in a scratchpad, FROM INSIDE THE REPO —
+// the repo root is found by walking up from the working directory (see repoRoot below):
+//   cp compare.txt /tmp/compare.mjs && (cd <checkout> && node /tmp/compare.mjs [--self <png>] [--engines])
+// or from anywhere with  UXF_ROOT=<checkout> node /tmp/compare.mjs
+//
+// THROWAWAY. Reads only the COMMITTED PNGs under fixture/ — never a browser, never a re-render.
+// That is deliberate: #307's build-checks group is a pure Node gate, so this is the shape it
+// inherits. Zero dependencies: node:zlib inflates the IDATs, the PNG unfilter and CIEDE2000 are
+// hand-written here (system/oklch.mjs:11 sets the {r,g,b} in [0,1] convention this respects).
+//
+// The aggregation ladder and the predicate were committed to git BEFORE any fixture number was
+// measured — see the plan's § The predicate. Do not tune a threshold or a sigma against the signal.
+
+import { readFileSync, existsSync } from "node:fs";
+import zlib from "node:zlib";
+import path from "node:path";
+
+// THE REPO ROOT, resolved not hardcoded (shared preamble — the same block is in compare, capture,
+// controls and wcag-probe). These scripts are RUN FROM A SCRATCHPAD COPY, so `import.meta.url` resolves to the
+// scratchpad and not to the checkout — that is why this walks up from the working directory instead,
+// and why tooling/build-checks.mjs:302's `fileURLToPath(import.meta.url)` pattern does not transfer.
+// It THROWS by name rather than falling back to a machine-specific path: the worktree this spike was
+// written in is deleted after merge (report AC14), and the fixture travels with the commit.
+const MARKER = ".claude/plans/canvas-spike-s3/mapping.json";   // committed; present before capture runs
+function repoRoot() {
+  const has = (d) => existsSync(path.join(d, MARKER));
+  if (process.env.UXF_ROOT) {
+    const r = path.resolve(process.env.UXF_ROOT);
+    if (!has(r)) throw new Error(`spike: UXF_ROOT=${r} carries no ${MARKER}`);
+    return r;
+  }
+  let d = process.cwd();
+  for (;;) {
+    if (has(d)) return d;
+    const up = path.dirname(d);
+    if (up === d) throw new Error(`spike: no checkout carrying ${MARKER} at or above ${process.cwd()} — run from inside the repo, or set UXF_ROOT=<checkout>`);
+    d = up;
+  }
+}
+const ROOT = repoRoot();
+const SPIKE = path.join(ROOT, ".claude/plans/canvas-spike-s3");
+const FIX = path.join(SPIKE, "fixture");
+
+// ---------------------------------------------------------------- PNG decode
+// Zero-dep decoder. Throws by name on any shape it does not handle rather than guessing —
+// a silently mis-decoded image is the failure mode that would make every number below wrong
+// while looking plausible (the repo's `check-that-cannot-fail` class).
+export function decodePng(file) {
+  const buf = readFileSync(file);
+  const SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (let i = 0; i < 8; i++) {
+    if (buf[i] !== SIG[i]) throw new Error(`png: ${file}: not a PNG (bad signature at byte ${i})`);
+  }
+  let off = 8, w = 0, h = 0, depth = 0, ct = 0, interlace = 0, seenIHDR = false;
+  const idats = [];
+  while (off < buf.length) {
+    const len = buf.readUInt32BE(off);
+    const type = buf.toString("ascii", off + 4, off + 8);
+    const data = buf.subarray(off + 8, off + 8 + len);
+    if (type === "IHDR") {
+      w = data.readUInt32BE(0); h = data.readUInt32BE(4);
+      depth = data[8]; ct = data[9];
+      const compression = data[10], filterMethod = data[11];
+      interlace = data[12];
+      if (depth !== 8) throw new Error(`png: ${file}: bit depth ${depth} unsupported (expected 8)`);
+      // Chromium writes colour type 2 (RGB); Firefox and WebKit write 6 (RGBA) for the SAME
+      // screenshot — observed on this fixture. Both are accepted; anything else throws by name.
+      // The alpha channel is asserted fully opaque below rather than silently dropped: averaging a
+      // transparent pixel's RGB would be a wrong number that looks right.
+      if (ct !== 2 && ct !== 6) throw new Error(`png: ${file}: colour type ${ct} unsupported (expected 2 or 6)`);
+      if (interlace !== 0) throw new Error(`png: ${file}: interlace ${interlace} unsupported (expected 0)`);
+      if (compression !== 0) throw new Error(`png: ${file}: compression method ${compression} unsupported (expected 0)`);
+      if (filterMethod !== 0) throw new Error(`png: ${file}: filter method ${filterMethod} unsupported (expected 0)`);
+      seenIHDR = true;
+    } else if (type === "IDAT") {
+      idats.push(Buffer.from(data));            // MULTIPLE IDATs are normal — concatenate, then
+    } else if (type === "IEND") break;          // inflate ONCE. Inflating only the first truncates.
+    off += 12 + len;
+  }
+  if (!seenIHDR) throw new Error(`png: ${file}: no IHDR chunk`);
+  if (idats.length === 0) throw new Error(`png: ${file}: no IDAT chunk`);
+  const inflated = zlib.inflateSync(Buffer.concat(idats));
+  const bpp = ct === 6 ? 4 : 3;
+  const stride = 1 + w * bpp;
+  if (inflated.length !== h * stride) {
+    throw new Error(`png: ${file}: inflated ${inflated.length} bytes, expected ${h * stride} (${h} rows x ${stride})`);
+  }
+  const raw4 = Buffer.alloc(w * h * bpp);
+  for (let y = 0; y < h; y++) {
+    const ft = inflated[y * stride];
+    const src = y * stride + 1;
+    const dst = y * w * bpp;
+    const prev = dst - w * bpp;
+    for (let x = 0; x < w * bpp; x++) {
+      const raw = inflated[src + x];
+      // Predictors read the ALREADY-UNFILTERED bytes of this row, out of the output, not the raw input.
+      const a = x >= bpp ? raw4[dst + x - bpp] : 0;
+      const b = y > 0 ? raw4[prev + x] : 0;
+      const c = y > 0 && x >= bpp ? raw4[prev + x - bpp] : 0;
+      let v;
+      switch (ft) {
+        case 0: v = raw; break;
+        case 1: v = raw + a; break;
+        case 2: v = raw + b; break;
+        case 3: v = raw + ((a + b) >> 1); break;
+        case 4: {
+          const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+          v = raw + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);
+          break;
+        }
+        default: throw new Error(`png: ${file}: unknown filter type ${ft} on row ${y}`);
+      }
+      raw4[dst + x] = v & 0xff;
+    }
+  }
+  if (bpp === 3) return { w, h, data: raw4 };
+  const out = Buffer.alloc(w * h * 3);
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    if (raw4[j + 3] !== 255) {
+      throw new Error(`png: ${file}: alpha ${raw4[j + 3]} at pixel ${i} is not opaque — the RGB under it is not a colour`);
+    }
+    out[i * 3] = raw4[j]; out[i * 3 + 1] = raw4[j + 1]; out[i * 3 + 2] = raw4[j + 2];
+  }
+  return { w, h, data: out };
+}
+
+// ------------------------------------------------------------------ colour
+// sRGB → CIELAB, matching skimage.color.rgb2lab exactly (D65 2°, the sRGB matrix), because
+// control C1's oracle is skimage's deltaE_ciede2000 and a different white point would show up
+// as a constant bias that looks like a rounding problem.
+const srgbToLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const XYZ_REF = [0.95047, 1.0, 1.08883];
+
+export function rgbToLab([R, G, B]) {
+  const r = srgbToLinear(R / 255), g = srgbToLinear(G / 255), b = srgbToLinear(B / 255);
+  const X = 0.412453 * r + 0.357580 * g + 0.180423 * b;
+  const Y = 0.212671 * r + 0.715160 * g + 0.072169 * b;
+  const Z = 0.019334 * r + 0.119193 * g + 0.950227 * b;
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = f(X / XYZ_REF[0]), fy = f(Y / XYZ_REF[1]), fz = f(Z / XYZ_REF[2]);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+
+// CIEDE2000 (Sharma, Wu & Dalal 2005). kL defaults to 1 — GRAPHIC ARTS, which is skimage's
+// default and E4's. kL=2 (textiles) would disagree on the lightness axis only.
+export function ciede2000(lab1, lab2, { kL = 1, kC = 1, kH = 1 } = {}) {
+  const [L1, a1, b1] = lab1, [L2, a2, b2] = lab2;
+  const C1 = Math.hypot(a1, b1), C2 = Math.hypot(a2, b2);
+  const Cbar = (C1 + C2) / 2;
+  const Cbar7 = Cbar ** 7;
+  const G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + 25 ** 7)));
+  const a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+  const C1p = Math.hypot(a1p, b1), C2p = Math.hypot(a2p, b2);
+  const hp = (b, ap) => {
+    if (b === 0 && ap === 0) return 0;
+    const h = Math.atan2(b, ap) * R2D;
+    return h < 0 ? h + 360 : h;
+  };
+  const h1p = hp(b1, a1p), h2p = hp(b2, a2p);
+  const dLp = L2 - L1;
+  const dCp = C2p - C1p;
+  // Δh' has a branch for C1'C2' == 0 and another for |h2'-h1'| > 180. Both are easy to omit and
+  // both produce plausible-looking numbers; C1 is what catches an omission.
+  let dhp;
+  if (C1p * C2p === 0) dhp = 0;
+  else if (Math.abs(h2p - h1p) <= 180) dhp = h2p - h1p;
+  else if (h2p - h1p > 180) dhp = h2p - h1p - 360;
+  else dhp = h2p - h1p + 360;
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * D2R);
+  const Lbp = (L1 + L2) / 2;
+  const Cbp = (C1p + C2p) / 2;
+  let hbp;
+  if (C1p * C2p === 0) hbp = h1p + h2p;
+  else if (Math.abs(h1p - h2p) <= 180) hbp = (h1p + h2p) / 2;
+  else if (h1p + h2p < 360) hbp = (h1p + h2p + 360) / 2;
+  else hbp = (h1p + h2p - 360) / 2;
+  const T = 1 - 0.17 * Math.cos((hbp - 30) * D2R) + 0.24 * Math.cos(2 * hbp * D2R)
+              + 0.32 * Math.cos((3 * hbp + 6) * D2R) - 0.20 * Math.cos((4 * hbp - 63) * D2R);
+  const dTheta = 30 * Math.exp(-(((hbp - 275) / 25) ** 2));
+  const Cbp7 = Cbp ** 7;
+  const Rc = 2 * Math.sqrt(Cbp7 / (Cbp7 + 25 ** 7));
+  const Sl = 1 + (0.015 * (Lbp - 50) ** 2) / Math.sqrt(20 + (Lbp - 50) ** 2);
+  const Sc = 1 + 0.045 * Cbp;
+  const Sh = 1 + 0.015 * Cbp * T;
+  const Rt = -Math.sin(2 * dTheta * D2R) * Rc;       // the hue-rotation term
+  const tL = dLp / (kL * Sl), tC = dCp / (kC * Sc), tH = dHp / (kH * Sh);
+  return Math.sqrt(tL * tL + tC * tC + tH * tH + Rt * tC * tH);
+}
+
+export const deltaEHex = (h1, h2) => {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return ciede2000(rgbToLab(p(h1)), rgbToLab(p(h2)));
+};
+
+// ------------------------------------------------------------------- blur
+// Separable Gaussian, applied PER CHANNEL (no cross-channel bleed), reflect edges, truncate 4σ —
+// scipy.ndimage.gaussian_filter's conventions, which is what E4 calls (visual_scorer.py:151).
+// σ is FIXED at 1.5 for rung 4 and is not a run-time parameter (see the plan's GOTCHA).
+export function blur(img, sigma) {
+  if (sigma === 0) return img;
+  const { w, h, data } = img;
+  const rad = Math.floor(4 * sigma + 0.5);
+  const k = [];
+  let sum = 0;
+  for (let i = -rad; i <= rad; i++) { const v = Math.exp(-(i * i) / (2 * sigma * sigma)); k.push(v); sum += v; }
+  for (let i = 0; i < k.length; i++) k[i] /= sum;
+  const refl = (i, n) => (i < 0 ? -i - 1 : i >= n ? 2 * n - i - 1 : i);
+  const tmp = new Float64Array(w * h * 3), out = new Float64Array(w * h * 3);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 3; c++) {
+    let acc = 0;
+    for (let i = -rad; i <= rad; i++) acc += k[i + rad] * data[(y * w + refl(x + i, w)) * 3 + c];
+    tmp[(y * w + x) * 3 + c] = acc;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 3; c++) {
+    let acc = 0;
+    for (let i = -rad; i <= rad; i++) acc += k[i + rad] * tmp[(refl(y + i, h) * w + x) * 3 + c];
+    out[(y * w + x) * 3 + c] = acc;
+  }
+  return { w, h, data: out };
+}
+
+// ------------------------------------------------------------ region stats
+export const JND = 2.3;                 // the CIEDE2000 just-noticeable difference
+const MIN_AREA = 256;                   // R2: 16x16. THIS SPIKE'S OWN rule, not E4's — visual_scorer.py:32's
+                                        // _MIN_SECTION_HEIGHT_PX = 8 is a minimum section HEIGHT; this is a
+                                        // minimum AREA at a per-part granularity E4 has no equivalent of.
+                                        // chevron (9x16) passes E4's rule on height and fails this one on
+                                        // area. Declared before the run; its sensitivity is in the README.
+const DEGENERATE = 0.5;                 // F4: a region whose ink share exceeds this is reported, not scored
+
+const px = (img, x, y) => {
+  const i = (y * img.w + x) * 3;
+  return [img.data[i], img.data[i + 1], img.data[i + 2]];
+};
+const hex = ([r, g, b]) => "#" + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const quantile = (sorted, q) => {
+  if (sorted.length === 0) return 0;
+  const i = Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)));
+  return sorted[i];
+};
+
+// The modal colour of a region: the most frequent EXACT 8-bit triple. On this fixture that is the
+// paper the glyphs sit on — which is why "ink" can be defined as "far from the mode".
+function modal(img, r) {
+  const counts = new Map();
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    const p = px(img, x, y);
+    const k = (p[0] << 16) | (p[1] << 8) | p[2];
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  let bk = 0, bc = -1;
+  for (const [k, c] of counts) if (c > bc) { bc = c; bk = k; }
+  const rgb = [(bk >> 16) & 255, (bk >> 8) & 255, bk & 255];
+  return { rgb, lab: rgbToLab(rgb), frac: bc / (r.w * r.h), n: r.w * r.h };
+}
+
+// A region's ink: the pixels whose ΔE from that region's OWN modal colour exceeds the JND.
+function inkOf(img, r, mode) {
+  const mask = new Uint8Array(r.w * r.h);
+  let n = 0, sr = 0, sg = 0, sb = 0;
+  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
+    const p = px(img, r.x + x, r.y + y);
+    if (ciede2000(rgbToLab(p), mode.lab) > JND) {
+      mask[y * r.w + x] = 1; n++; sr += p[0]; sg += p[1]; sb += p[2];
+    }
+  }
+  return { mask, n, mean: n ? [sr / n, sg / n, sb / n] : null };
+}
+
+// All six rungs at once. A is the REFERENCE, B the candidate. blurA/blurB are the σ=1.5 pair.
+export function regionStats(A, B, blurA, blurB, r) {
+  const de = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    de.push(ciede2000(rgbToLab(px(A, x, y)), rgbToLab(px(B, x, y))));
+  }
+  const n = de.length;
+  const sorted = [...de].sort((a, b) => a - b);
+  const mean = de.reduce((s, v) => s + v, 0) / n;
+
+  let blurSum = 0;
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    blurSum += ciede2000(rgbToLab(px(blurA, x, y)), rgbToLab(px(blurB, x, y)));
+  }
+
+  const modA = modal(A, r), modB = modal(B, r);
+  const inkA = inkOf(A, r, modA);                     // rung 5 masks the REFERENCE, applies to both
+  const inkB = inkOf(B, r, modB);                     // rung 6 masks EACH image by its own modal
+  let inkSum = 0;
+  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
+    if (inkA.mask[y * r.w + x]) inkSum += de[y * r.w + x];
+  }
+  // Rung 6: the two ink AVERAGES compared, not the ink pixels. That is what makes it
+  // registration-invariant — a sub-pixel shift moves which pixels are ink, not their average colour.
+  const inkColourDeltaE = inkA.mean && inkB.mean
+    ? ciede2000(rgbToLab(inkA.mean), rgbToLab(inkB.mean)) : 0;
+
+  return {
+    name: r.name, x: r.x, y: r.y, w: r.w, h: r.h, n, area: r.w * r.h,
+    mean, p95: quantile(sorted, 0.95), p99: quantile(sorted, 0.99), max: sorted[n - 1],
+    blurMean: blurSum / n,
+    inkMean: inkA.n ? inkSum / inkA.n : 0,
+    inkColourDeltaE,
+    fracOverJnd: de.filter((v) => v > JND).length / n,
+    fracOver5: de.filter((v) => v > 5).length / n,
+    inkN: inkA.n, inkNB: inkB.n, inkFrac: inkA.n / n,
+    modalHex: hex(modA.rgb), modalFrac: modA.frac, modalHexB: hex(modB.rgb),
+    inkMeanHexA: inkA.mean ? hex(inkA.mean) : "—", inkMeanHexB: inkB.mean ? hex(inkB.mean) : "—",
+    tooSmall: r.w * r.h < MIN_AREA,
+    degenerate: inkA.n / n > DEGENERATE,
+  };
+}
+
+export const RUNGS = [
+  { id: 1, key: "mean",            label: "region mean ΔE — E4 VERBATIM" },
+  { id: 2, key: "p95",             label: "region p95 of ΔE" },
+  { id: 3, key: "p99",             label: "region p99 of ΔE" },
+  { id: 4, key: "blurMean",        label: "blurred region mean, Gaussian σ=1.5 per channel" },
+  { id: 5, key: "inkMean",         label: "ink-masked per-pixel mean" },
+  { id: 6, key: "inkColourDeltaE", label: "ink-COLOUR ΔE (registration-invariant)" },
+];
+
+// The worst region under one rung. R2 and F4 are applied here, and every region they remove is
+// NAMED — a silently dropped region is how an aggregation stops measuring anything.
+export function aggregate(regions, key) {
+  if (regions.length === 0) {
+    throw new Error("fidelity: no region was measured — an empty measurement is missing, never a pass");
+  }
+  const excluded = regions.filter((r) => r.tooSmall).map((r) => `${r.name}(${r.area}px < ${MIN_AREA})`);
+  const degen = regions.filter((r) => !r.tooSmall && r.degenerate)
+    .map((r) => `${r.name}(ink ${(r.inkFrac * 100).toFixed(1)}% > ${DEGENERATE * 100}%, modal ${r.modalHex} @ ${(r.modalFrac * 100).toFixed(1)}%)`);
+  const scored = regions.filter((r) => !r.tooSmall && !r.degenerate);
+  if (scored.length === 0) {
+    throw new Error("fidelity: no region was measured — an empty measurement is missing, never a pass");
+  }
+  let worst = scored[0];
+  for (const r of scored) if (r[key] > worst[key]) worst = r;
+  // E4 verbatim: per region score = 1 - mean/100 clipped to [0,1]; overall = MIN(scores).
+  const scores = scored.map((r) => Math.min(1, Math.max(0, 1 - r.mean / 100)));
+  return { worst: worst.name, value: worst[key], score: Math.min(...scores), excluded, degenerate: degen, nScored: scored.length };
+}
+
+// --------------------------------------------------------------- granularity
+export const WHOLE = (w, h) => [{ name: "whole", x: 0, y: 0, w, h }];
+// FIVE equal-height strips, fixed before the run and arbitrary by admission. E4 derives bands from
+// an email's vertical sections; a list row has none, so any band count is arbitrary. That y-bands
+// misfit a horizontal component is the finding; the number is not a parameter to sweep.
+export const YBANDS = (w, h, k = 5) => Array.from({ length: k }, (_, i) => {
+  const y0 = Math.round((i * h) / k), y1 = Math.round(((i + 1) * h) / k);
+  return { name: `yband${i + 1}`, x: 0, y: y0, w, h: y1 - y0 };
+});
+export const PARTS = () => JSON.parse(readFileSync(path.join(FIX, "regions.json"), "utf8"));
+
+// ------------------------------------------------------------------- report
+const f = (v, d = 4) => v.toFixed(d).padStart(d + 4);
+const load = (name) => decodePng(path.join(FIX, `${name}.png`));
+
+function statsFor(A, B, regions) {
+  const bA = blur(A, 1.5), bB = blur(B, 1.5);
+  return regions.map((r) => regionStats(A, B, bA, bB, r));
+}
+
+function printBlock(title, A, B, granularities) {
+  console.log(`\n${"=".repeat(78)}\n${title}\n${"=".repeat(78)}`);
+  const out = {};
+  for (const [gname, regions] of granularities) {
+    const stats = statsFor(A, B, regions);
+    out[gname] = stats;
+    console.log(`\n--- granularity ${gname} (${stats.length} regions) ---`);
+    console.log("region        area   rung1 mean   rung2 p95   rung3 p99   rung4 blur   rung5 ink   rung6 inkC | >JND%  >5%   ink%  modalA   inkA    inkB");
+    for (const s of stats) {
+      console.log(
+        `${s.name.padEnd(12)} ${String(s.area).padStart(6)} ${f(s.mean)} ${f(s.p95)} ${f(s.p99)} ${f(s.blurMean)} ${f(s.inkMean)} ${f(s.inkColourDeltaE)} | ` +
+        `${(s.fracOverJnd * 100).toFixed(1).padStart(5)} ${(s.fracOver5 * 100).toFixed(1).padStart(5)} ${(s.inkFrac * 100).toFixed(1).padStart(5)} ` +
+        `${s.modalHex} ${s.inkMeanHexA} ${s.inkMeanHexB}` +
+        (s.tooSmall ? "  [EXCLUDED: area < 256px]" : "") + (s.degenerate ? "  [MASK-DEGENERATE: reported, not scored]" : ""));
+    }
+    for (const r of RUNGS) {
+      const a = aggregate(stats, r.key);
+      console.log(`  rung ${r.id} worst=${a.worst.padEnd(12)} value=${f(a.value)}  E4score(MIN)=${a.score.toFixed(4)}  scored=${a.nScored}` +
+        (a.excluded.length ? `  excluded: ${a.excluded.join(", ")}` : "") +
+        (a.degenerate.length ? `  degenerate: ${a.degenerate.join(", ")}` : ""));
+    }
+  }
+  return out;
+}
+
+function readVerdict(floor, signal, gran) {
+  console.log(`\n${"=".repeat(78)}\nTHE PREDICATE, READ (granularity ${gran})\n${"=".repeat(78)}`);
+  console.log("RED at rung r iff  worst(SIGNAL,r) >= T(r)  AND  worst(SIGNAL,r) >= 2 x worst(FLOOR,r)");
+  console.log("T(r) = 2.3 (the CIEDE2000 JND) at rungs 1-5; T(6) = 5.0, 1.86x above the worst floor of three engines.\n");
+  let firstRed = null;
+  for (const r of RUNGS) {
+    const fl = aggregate(floor[gran], r.key), sg = aggregate(signal[gran], r.key);
+    const T = r.id === 6 ? 5.0 : JND;
+    const absOk = sg.value >= T, marOk = sg.value >= 2 * fl.value;
+    const red = absOk && marOk;
+    if (red && firstRed === null) firstRed = r.id;
+    console.log(`rung ${r.id} ${r.label.padEnd(50)} floor=${f(fl.value)} (${fl.worst})  signal=${f(sg.value)} (${sg.worst})  ` +
+      `>=${T.toFixed(1)}? ${absOk ? "yes" : "NO "}  >=2x floor (${f(2 * fl.value)})? ${marOk ? "yes" : "NO "}  => ${red ? "RED" : "green"}`);
+  }
+  console.log(`\nrung 1 (the verdict rung, E4 verbatim): ${firstRed === 1 ? "RED" : "GREEN"}`);
+  console.log(`first rung meeting both conditions: ${firstRed === null ? "none — no rung fires" : "rung " + firstRed}`);
+  return firstRed;
+}
+
+// Standalone-run guard: the control battery IMPORTS this module, so the CLI below must not fire
+// on import (agent-layer's generators keep the same guard for the same reason).
+const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const argv = IS_MAIN ? process.argv.slice(2) : ["--noop"];
+if (argv[0] === "--noop") { /* imported as a library — no output, no fixture read */ }
+else {
+
+if (argv[0] === "--self") {
+  // C3 run against the REAL fixture: an image against itself must read 0 under every rung.
+  const file = argv[1];
+  const A = decodePng(file), B = decodePng(file);
+  console.log(`--self ${path.basename(file)}  ${A.w}x${A.h}`);
+  let bad = 0;
+  for (const [gname, regions] of [["a whole", WHOLE(A.w, A.h)], ["b ybands", YBANDS(A.w, A.h)], ["c parts", PARTS()]]) {
+    const stats = statsFor(A, B, regions);
+    for (const s of stats) {
+      for (const r of RUNGS) if (Math.abs(s[r.key]) > 1e-9) { console.log(`  FAIL ${gname} ${s.name} rung ${r.id} = ${s[r.key]}`); bad++; }
+    }
+    const a = aggregate(stats, "mean");
+    console.log(`  ${gname}: every rung 0 across ${stats.length} regions; E4 score = ${a.score.toFixed(4)}`);
+  }
+  console.log(bad === 0 ? "SELF-IDENTITY PASS — every rung 0, score 1.0000" : `SELF-IDENTITY FAIL — ${bad} non-zero`);
+  process.exit(bad === 0 ? 0 : 1);
+}
+
+if (argv[0] === "--engines") {
+  // R3's platform envelope, from THIS run's own data. Only the FAITHFUL render is captured on the
+  // extra engines: capturing the wrong render three ways would invite reading a verdict off
+  // whichever engine separates best.
+  const ref = load("ref");
+  console.log("R3 — the three-engine floor (ref.png vs the M1-FAITHFUL render, per engine)");
+  console.log("Only the FAITHFUL render is captured on the extra engines: capturing the wrong render three");
+  console.log("ways would invite reading a verdict off whichever engine separates best.\n");
+  console.log("per-region detail (the three text regions the ladder is read from)\n");
+  console.log("engine    title r1   title r6   subtitle r1  subtitle r6  chip-text r6");
+  const perEngine = {};
+  for (const eng of ["chromium", "firefox", "webkit"]) {
+    const name = eng === "chromium" ? "m1-faithful" : `m1-faithful-${eng}`;
+    const B = load(name);
+    if (B.w !== ref.w || B.h !== ref.h) throw new Error(`engines: ${name}.png is ${B.w}x${B.h}, expected ${ref.w}x${ref.h}`);
+    perEngine[eng] = statsFor(ref, B, PARTS());
+    const g = (n) => perEngine[eng].find((s) => s.name === n);
+    console.log(`${eng.padEnd(9)} ${f(g("title").mean)} ${f(g("title").inkColourDeltaE)} ${f(g("subtitle").mean)} ${f(g("subtitle").inkColourDeltaE)} ${f(g("chip-text").inkColourDeltaE)}`);
+  }
+  // Every rung's platform envelope, not just rung 6's. The plan measured rung 1 and rung 6 across
+  // engines and pinned rung 6's threshold from that; a rung named as #307's recommendation needs the
+  // same evidence, and the engine PNGs are already on disk, so there is no reason to guess.
+  console.log("\nthe WHOLE ladder's cross-engine floor (worst scored region per engine, per rung)\n");
+  console.log("rung  chromium   firefox    webkit   | worst      where");
+  const env = {};
+  for (const r of RUNGS) {
+    let worst = 0, where = "", row = [];
+    for (const eng of ["chromium", "firefox", "webkit"]) {
+      const a = aggregate(perEngine[eng], r.key);
+      row.push(f(a.value));
+      if (a.value > worst) { worst = a.value; where = `${eng} ${a.worst}`; }
+    }
+    env[r.id] = { worst, where };
+    console.log(`  ${r.id}  ${row.join(" ")} | ${f(worst)}  ${where}`);
+  }
+  console.log(`\nworst rung-6 floor across three engines: ${env[6].worst.toFixed(4)}  (${env[6].where})`);
+  console.log(`rung 6's absolute threshold is 5.0 — ${(5.0 / env[6].worst).toFixed(2)}x that floor.`);
+  console.log(`\nfor each rung: the SIGNAL it must clear is in raw/deltae.txt. A rung whose cross-engine`);
+  console.log(`floor is close to its chromium floor travels; one whose floor triples does not.`);
+  for (const r of RUNGS) {
+    const cf = aggregate(perEngine.chromium, r.key).value;
+    console.log(`  rung ${r.id}: chromium ${cf.toFixed(4)} -> worst-engine ${env[r.id].worst.toFixed(4)}  (x${(env[r.id].worst / (cf || 1e-9)).toFixed(2)})`);
+  }
+  process.exit(0);
+}
+
+// ------------------------------------------------------------- the full run
+const ref = load("ref");
+console.log(`S3 — ΔE against a foreign render. reference ref.png ${ref.w}x${ref.h}`);
+console.log(`generated ${new Date().toISOString()}`);
+for (const n of ["m1-faithful", "m1-wrong", "m2-faithful", "m2-wrong"]) {
+  const i = load(n);
+  if (i.w !== ref.w || i.h !== ref.h) throw new Error(`compare: ${n}.png is ${i.w}x${i.h}, expected ${ref.w}x${ref.h}`);
+}
+const GRAN = (w, h) => [["a whole", WHOLE(w, h)], ["b ybands", YBANDS(w, h)], ["c parts", PARTS()]];
+
+const m1f = printBlock("M1 FLOOR — ref.png vs m1-faithful.png (the source's own literals)", ref, load("m1-faithful"), GRAN(ref.w, ref.h));
+const m1w = printBlock("M1 SIGNAL — ref.png vs m1-wrong.png (spike A run 3's real pack)", ref, load("m1-wrong"), GRAN(ref.w, ref.h));
+const m2f = printBlock("M2 FLOOR — ref.png vs m2-faithful.png (secondary map, +2 large-area roles)", ref, load("m2-faithful"), GRAN(ref.w, ref.h));
+const m2w = printBlock("M2 SIGNAL — ref.png vs m2-wrong.png", ref, load("m2-wrong"), GRAN(ref.w, ref.h));
+
+// C8's data: under M1 the six dropped roles render at the SAME literal in both candidates, so the
+// drop regions must score identically in FLOOR and SIGNAL. If one moves, the harness has a bug.
+console.log(`\n${"=".repeat(78)}\nTHE DROP-REGION CONTROL (C8) — M1's dropped roles must not move\n${"=".repeat(78)}`);
+const DROPS = ["avatar", "chip", "chip-text", "chevron"];
+let worstDrop = 0;
+for (const name of DROPS) {
+  const a = m1f["c parts"].find((s) => s.name === name), b = m1w["c parts"].find((s) => s.name === name);
+  const d = Math.abs(a.mean - b.mean);
+  worstDrop = Math.max(worstDrop, d);
+  console.log(`${name.padEnd(12)} floor mean=${f(a.mean)}  signal mean=${f(b.mean)}  |diff|=${d.toExponential(3)}`);
+}
+console.log(`worst |floor-signal| across the drop regions: ${worstDrop.toExponential(3)}  (must be <= 1e-9)`);
+console.log(worstDrop <= 1e-9 ? "C8 PASS — the dropped roles did not move" : "C8 FAIL — a dropped role moved; the harness is measuring the harness");
+
+const firstRed = readVerdict(m1f, m1w, "c parts");
+console.log(`\n--- the same reading at the other two granularities, for completeness ---`);
+readVerdict(m1f, m1w, "a whole");
+readVerdict(m1f, m1w, "b ybands");
+console.log(`\n--- M2 (the secondary map — a second row, never the verdict) ---`);
+readVerdict(m2f, m2w, "c parts");
+console.log(`\nVERDICT INPUT: rung 1 ${firstRed === 1 ? "RED" : "GREEN"}; first firing rung = ${firstRed ?? "none"}`);
+}

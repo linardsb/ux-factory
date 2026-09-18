@@ -1,0 +1,32 @@
+R3 — the three-engine floor (ref.png vs the M1-FAITHFUL render, per engine)
+Only the FAITHFUL render is captured on the extra engines: capturing the wrong render three
+ways would invite reading a verdict off whichever engine separates best.
+
+per-region detail (the three text regions the ladder is read from)
+
+engine    title r1   title r6   subtitle r1  subtitle r6  chip-text r6
+chromium    1.3089   0.0030   0.6973   0.8716   0.2833
+firefox     0.5697   0.4077   0.6973   0.8716   0.6906
+webkit      1.4018   2.2093   0.8451   2.6888   0.8756
+
+the WHOLE ladder's cross-engine floor (worst scored region per engine, per rung)
+
+rung  chromium   firefox    webkit   | worst      where
+  1    1.3089   0.6973   1.4018 |   1.4018  webkit title
+  2    3.3462   1.0035   5.1005 |   5.1005  webkit title
+  3   43.9891  24.2755  45.1914 |  45.1914  webkit title
+  4    0.4064   0.1547   0.4130 |   0.4130  webkit title
+  5   20.5240  14.1489  22.0693 |  22.0693  webkit title
+  6    0.8716   0.8716   2.6888 |   2.6888  webkit subtitle
+
+worst rung-6 floor across three engines: 2.6888  (webkit subtitle)
+rung 6's absolute threshold is 5.0 — 1.86x that floor.
+
+for each rung: the SIGNAL it must clear is in raw/deltae.txt. A rung whose cross-engine
+floor is close to its chromium floor travels; one whose floor triples does not.
+  rung 1: chromium 1.3089 -> worst-engine 1.4018  (x1.07)
+  rung 2: chromium 3.3462 -> worst-engine 5.1005  (x1.52)
+  rung 3: chromium 43.9891 -> worst-engine 45.1914  (x1.03)
+  rung 4: chromium 0.4064 -> worst-engine 0.4130  (x1.02)
+  rung 5: chromium 20.5240 -> worst-engine 22.0693  (x1.08)
+  rung 6: chromium 0.8716 -> worst-engine 2.6888  (x3.08)
