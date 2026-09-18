@@ -82,6 +82,18 @@ export const WRAPPER_ATTRS = {
   "status-chip": { value: "value", label: "label" },
 };
 
+// childrenLine(entry) → the "Children: …" meta line, or null when the entry lists none.
+//
+// The CARDINALITY is part of the sentence, not a second line: without " (many)" the catalog
+// documents a container exactly as it documents a single-child one, and #298's key would reach the
+// vocabulary, the pack and the head projection and still be invisible to the only reader who cares
+// (#301's stack is the first entry to declare it). Exported and PURE for the headingTags reason —
+// build-checks drives it under Node; the DOM half is tooling/catalog-journey.mjs's.
+export function childrenLine(entry) {
+  if (!Array.isArray(entry.children) || !entry.children.length) return null;
+  return `Children: ${entry.children.join(" · ")}${entry.childrenCardinality === "many" ? " (many)" : ""}`;
+}
+
 // headingTags(level) → { name, section } — the two heading tags renderComponentDocs uses, and the
 // whole of what #218 spent the `opts` pocket on.
 //
@@ -427,8 +439,8 @@ export function renderComponentDocs(container, component, model, opts = {}) {
   }
   api.appendChild(apiTable);
   api.appendChild(el("p", { class: "cat-meta-line", text: `States: ${(entry.states || []).join(" · ") || "—"}` }));
-  if (Array.isArray(entry.children) && entry.children.length)
-    api.appendChild(el("p", { class: "cat-meta-line", text: `Children: ${entry.children.join(" · ")}` }));
+  const kidsLine = childrenLine(entry);
+  if (kidsLine) api.appendChild(el("p", { class: "cat-meta-line", text: kidsLine }));
   container.appendChild(api);
 
   // -- token table: the graph-joined rows — name · contract group · the three packs' RAW declared

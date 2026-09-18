@@ -1152,6 +1152,122 @@
       ]
     },
     {
+      "component": "stack",
+      "status": "shipped",
+      "class": "ds-stack",
+      "contract": null,
+      "props": {
+        "direction": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "row",
+            "column"
+          ],
+          "description": "which way the children run — the one thing a layout box must state, never defaulted"
+        },
+        "gap": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "xs",
+            "sm",
+            "md",
+            "lg",
+            "xl",
+            "2xl",
+            "3xl",
+            "4xl"
+          ],
+          "description": "the space BETWEEN children, one step of the spacing scale; absent declares none"
+        },
+        "pad": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "xs",
+            "sm",
+            "md",
+            "lg",
+            "xl",
+            "2xl",
+            "3xl",
+            "4xl"
+          ],
+          "description": "the space INSIDE the box on all four sides; absent declares none"
+        },
+        "align": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "description": "how children sit on the CROSS axis; absent leaves the flex default"
+        },
+        "size": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "fill",
+            "hug"
+          ],
+          "description": "how this box sizes itself inside a parent stack — fill takes the free space, hug takes its content"
+        }
+      },
+      "tokens": [
+        "--spacing-xs",
+        "--spacing-sm",
+        "--spacing-md",
+        "--spacing-lg",
+        "--spacing-xl",
+        "--spacing-2xl",
+        "--spacing-3xl",
+        "--spacing-4xl"
+      ],
+      "states": [
+        "default"
+      ],
+      "children": [
+        "card",
+        "ghost-button",
+        "modal-dialog",
+        "nav-tabs",
+        "primary-button",
+        "screen-header",
+        "select-field",
+        "stack",
+        "text",
+        "text-field"
+      ],
+      "childrenCardinality": "many",
+      "example": {
+        "direction": "column",
+        "gap": "sm",
+        "pad": "md"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "The layout box: the one component that takes N children and decides how they sit. Library-generic (`ds-`, cross-scenario). Everything else in the vocabulary is a part; this is the only thing that arranges parts, which is why it is the first spec to declare `childrenCardinality: \"many\"` — the grammar the composition validator grew for it. A composed screen is a `stack` holding the parts, and a `stack` lists itself among its allowed children because real layouts nest: a column of rows is two stacks, not a new component.\n\nFour decisions, all of them enumerated, none of them free:\n\n- **`direction` is required.** A layout box that defaults its axis is a box whose composer never had to say what they meant, and an import that guesses is an import that is wrong half the time.\n- **`gap` and `pad` are spacing-scale steps, never numbers.** The CSS block binds each step to a `--spacing-*` token; the composition never carries a pixel value. A missing `gap` emits no attribute at all, so **absence expresses zero** — there is no `none` enum value and no `--spacing-none` token, which is exactly the verdict spike S2 (#299) reached when it mapped a design tool's auto-layout onto this box. That verdict is conditional: it holds only while the bare `.ds-stack` class declares no default gap and no default padding. A default arriving there would silently override a designer's explicit zero, and build-checks group 3 asserts its absence so the condition cannot quietly lapse.\n- **`align` is the cross axis only.** There is no main-axis distribution prop: a stack packs from the start. S2's intermediate representation carries `{main, cross}`; what to do with `main` is the importer's call (#304), not a prop invented here in advance.\n- **`size` has two values and no fixed-px case.** S2 asked whether a `s(360, hug)` literal from a design file could ride here; the enum is the answer, and it is no. A frame that needs an exact width is describing a canvas artefact, not a composition, and the refusal is visible — `validateComposition` names the enum.\n\nThe `children` list is the epic's own ten generic primitives (`docs/epics/canvas-design-import.prd.md` G24), alphabetical, `stack` and `text` included. It is a deliberate starting width rather than the whole vocabulary: every other committed `children` list in this repo is one to three considered names, and `card.md`'s own prose argues against breadth. Widening it is one line here plus a regeneration, whenever a flow actually needs a part it cannot hold. One name looks wrong and is not — `screen-header` carries a `vd-` class, because Verdant is where it was authored; G24 names it as half of the generic \"nav\" primitive regardless. The class prefix records **who wrote it**; the list records **what it is**. Do not \"fix\" it out."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the only state. A stack is not a control: no hover, no focus, no pressed, nothing to trap. It has no fill, no border, no radius and no shadow of its own, which is what lets it wrap anything without adding a visual frame — framing is `card`'s job, and a stack that grew a background would be a second, quieter card.\n\nEvery prop rides a `data-*` attribute rather than an inline style, so the token bindings live in `system/components.css` where `gen-system-graph` can see them and a composition stays free of literals."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — structural. No record binds here; a stack holds whatever the composing agent put in it and computes nothing.\n\n| Prop | Effect | When absent |\n| --- | --- | --- |\n| `direction` | `flex-direction`, set to `row` or `column` | required — a box with no stated axis is a guess |\n| `gap` | `gap: var(--spacing-<step>)` | no attribute, no rule, no gap |\n| `pad` | `padding: var(--spacing-<step>)` | no attribute, no rule, no padding |\n| `align` | `align-items`, set to `flex-start`, `center`, `flex-end` or `stretch` | the flex default (`stretch`), unstated |\n| `size` | `flex: 1 1 0%` (fill) or `flex: 0 0 auto` (hug), with the matching `align-self` | the flex default — the box sizes to its content in the main axis and stretches in the cross |\n\nChildren render through their own templates, in array order, exactly as they would render alone — the stack adds arrangement, never behaviour. A nested stack renders its own children too: the template passes each child's own `children` array down rather than an empty one."
+        },
+        {
+          "title": "Accessibility",
+          "body": "A plain `<div>` with no role and no accessible name: a stack is layout, and layout that announces itself is noise in the accessibility tree. DOM order is composition order, so the reading order a screen reader hears is the order the composer wrote — which is the whole reason arrangement is a `direction` prop and not a set of positional offsets. `align: \"end\"` and `direction: \"row\"` change where things sit visually and leave DOM order untouched; a composition that needs a different reading order reorders its children, and that is deliberate.\n\n`min-width: 0` on the box itself so a stack holding wide content (a table, a long code span) scrolls its own child rather than blowing out the row it sits in. Nothing here is colour-only — a stack paints nothing at all. Contrast is every child's own concern, unchanged by being inside a stack."
+        }
+      ]
+    },
+    {
       "component": "stat-tile",
       "status": "shipped",
       "class": "vd-stat-tile",
@@ -1360,6 +1476,73 @@
         {
           "title": "Accessibility",
           "body": "The control is nested inside its own `<label>` — implicit association, structural and collision-free, and the reason no template mints `id` attributes (nothing to collide when a composition renders two of these). The label is always visible: a placeholder-as-label disappears on first keystroke, which is the classic failure this shape exists to avoid. The hint sits inside the label element, so its text joins the field's accessible name — a deliberate trade: with no ids there is no `aria-describedby`, and a hint read as part of the name reaches assistive tech on the same terms as sighted readers; a consuming product that needs name/description separation mints its ids at the form layer. Contrast: `--color-fg` on `--color-bg` and `--color-fg-muted` on both grounds are declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5). The input clears 44px min-height."
+        }
+      ]
+    },
+    {
+      "component": "text",
+      "status": "shipped",
+      "class": "ds-text",
+      "contract": null,
+      "props": {
+        "role": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "display",
+            "heading",
+            "body",
+            "caption"
+          ],
+          "description": "which step of the type scale this text is — the ONLY size decision; there is no font-size prop"
+        },
+        "content": {
+          "type": "string",
+          "required": true,
+          "description": "the text, carrying the shared inline subset: bold, code spans, links, soft breaks and `- ` bullet lists"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-bg-surface",
+        "--color-border",
+        "--color-fg",
+        "--color-fg-muted",
+        "--font-display",
+        "--font-mono",
+        "--radius-sm",
+        "--spacing-xs",
+        "--spacing-sm",
+        "--spacing-lg",
+        "--type-display",
+        "--type-h2",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default"
+      ],
+      "children": [],
+      "example": {
+        "role": "heading",
+        "content": "Send a payment"
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "The one text part. Library-generic (`ds-`, cross-scenario). Before it existed, a composed screen's words were either a scenario-specific component's internal prose or nothing at all — a title was a `screen-header` (Verdant chrome) whether or not the screen wanted chrome. This is the part that just says something.\n\nTwo props, and the interesting one is `role`. It names **what the text is** — a display line, a heading, body copy, a caption — and the type token follows from that. There is deliberately no `size`, no `weight`, no `color` and no `align` prop: free styling is how a token contract quietly becomes a suggestion, and four named roles are enough for the screens the epic set out to compose. A composition that wants a fifth role is asking for a spec change here, which is a conversation; a composition that wants 19px is asking for nothing anyone can hold to.\n\n`content` carries the same bounded markdown subset the handoff viewer and the component catalog render, through the **same** `renderMarkdown` in `system/handoff-viewer.mjs` — one renderer, now three mounts, never a fork. Bold, code spans, soft-broken paragraphs, `- ` bullet lists, pipe tables and fenced code all work because they already worked. Links work as of this component, and they are the one construct added to that census: agent-supplied content that names a source has to be able to point at it. Headings, blockquotes and ordered lists stay out — a `text` that needs a heading is a `text` with `role: \"heading\"`.\n\nBecause `content` is agent-supplied wherever a composition renders, a link's `href` is the only attacker-controlled attribute anywhere in the subset. It goes through a scheme allowlist: resolved against the document base, `http:` and `https:` only. A `javascript:` or `data:` href renders as its own literal source text rather than as a link, visibly, so a refused link reads as a mistake rather than disappearing."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the only state, in four sizes. `display` is `--type-display` in `--font-display` at 700; `heading` is `--type-h2` in `--font-display` at 600; `body` is `--type-body` at 1.6; `caption` is `--type-caption` at 1.5 in `--color-fg-muted`. A text part is not a control — no hover, no focus, no pressed.\n\n`heading` maps to `--type-h2` (clamp 24–34px) rather than `--type-h3` (20px), so the four roles are visibly distinct — `--type-h3` sits close enough to `--type-body` (16px) that a composition using both would read as one size with a weight change. The consequence is worth stating plainly: every existing product component titles itself at `--type-h3` (`screen-header`, `modal-dialog`), so a `text` with `role: \"heading\"` will **not** match a card's title. That is a screen-level heading against a component-internal one, which is the distinction the two sizes are drawing. If they should match, it is a one-token edit here and in `tokens`."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. No record binds here; the composing agent computes the string.\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `role` | the `data-role` attribute the type rules bind to | required — refused by the enum before any DOM |\n| `content` | the rendered subtree, built element-by-element | required — a text part with nothing to say is not a part |\n\nBoth props are required, and both refusals are `validateComposition`'s rather than this template's: a missing `role` throws `required prop of text is missing`, an unknown one throws naming the enum, and both happen before a single element is created. The template is only ever reached with a role the CSS has a rule for."
+        },
+        {
+          "title": "Accessibility",
+          "body": "A plain `<div>` carrying the rendered subtree — no heading element, at any role. A composition can place a `text` at any depth, and a hard-coded `<h2>` would lie about the document outline more often than it helped; the composing page owns its heading structure, which is the same call `card.md` makes about its title. `role: \"heading\"` is a size, and it says so.\n\nText contrast: `--color-fg` and `--color-fg-muted` on `--color-bg` are both declared AA pairs (`system/derive.rules.mjs` `wcagPairs`, 4.5), and so is `--color-accent` on `--color-bg` — the link colour, usage \"accent text / links on the page ground\". So a link is contrast-safe by the contract, and it is underlined anyway: contrast is SC 1.4.3, and an underline is SC 1.4.1, which says colour alone may not be the only way a link is distinguishable from the text around it. The two rules answer different questions and both have to be answered.\n\nEvery link carries `rel=\"noopener noreferrer\"`. Nothing here truncates, nothing is colour-only, and the part adds no interaction to trap. `min-width: 0` so a long unbroken string inside a flex row shrinks rather than blowing out the row."
         }
       ]
     },

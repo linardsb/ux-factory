@@ -2409,6 +2409,90 @@ p, .body {
 .ds-modal-dialog-dismiss:active { color: var(--color-accent-active); }
 .ds-modal-dialog-dismiss:focus-visible { outline: 2px solid var(--color-accent-active); outline-offset: 2px; }
 
+/* ---------- ds-stack (system/specs/stack.md) — cross-scenario library primitive ---------- */
+
+/* THE BARE CLASS DECLARES NO GAP AND NO PADDING, DELIBERATELY. Spike S2 (#299) measured that a
+   design tool's auto-layout maps cleanly onto this box, and its verdict was "absence suffices":
+   a frame with no spacing between its children imports as a stack with no `gap` prop, and no
+   token is needed to say zero. That verdict holds ONLY while this rule declares no default — a
+   `gap: var(--spacing-sm)` here would silently override a designer's explicit zero and turn an
+   accurate import into a wrong-but-green one. build-checks group 3 asserts the absence.
+
+   Two tripwires, and the answer to BOTH is --spacing-none in the contract, never a default here:
+     1. a default gap or padding arriving on .ds-stack for a layout reason;
+     2. #302's override format needing to zero a value a base layer already set.
+
+   Not to be confused with .vd-stack (below, Verdant screen scaffolding), which is one character
+   away, is NOT a spec'd component, and DOES carry a default gap. Leave it alone.
+
+   Every prop rides a data-* attribute rather than an inline style: the token bindings live here so
+   gen-system-graph can SEE them and a composition stays free of literals. An absent gap/pad emits
+   no attribute at all (agentic-renderer's el() skips a null value), so absence is expressible
+   without a "none" enum value. */
+.ds-stack { display: flex; min-width: 0; }
+
+.ds-stack[data-direction="row"]    { flex-direction: row; }
+.ds-stack[data-direction="column"] { flex-direction: column; }
+
+.ds-stack[data-gap="xs"]  { gap: var(--spacing-xs); }
+.ds-stack[data-gap="sm"]  { gap: var(--spacing-sm); }
+.ds-stack[data-gap="md"]  { gap: var(--spacing-md); }
+.ds-stack[data-gap="lg"]  { gap: var(--spacing-lg); }
+.ds-stack[data-gap="xl"]  { gap: var(--spacing-xl); }
+.ds-stack[data-gap="2xl"] { gap: var(--spacing-2xl); }
+.ds-stack[data-gap="3xl"] { gap: var(--spacing-3xl); }
+.ds-stack[data-gap="4xl"] { gap: var(--spacing-4xl); }
+
+.ds-stack[data-pad="xs"]  { padding: var(--spacing-xs); }
+.ds-stack[data-pad="sm"]  { padding: var(--spacing-sm); }
+.ds-stack[data-pad="md"]  { padding: var(--spacing-md); }
+.ds-stack[data-pad="lg"]  { padding: var(--spacing-lg); }
+.ds-stack[data-pad="xl"]  { padding: var(--spacing-xl); }
+.ds-stack[data-pad="2xl"] { padding: var(--spacing-2xl); }
+.ds-stack[data-pad="3xl"] { padding: var(--spacing-3xl); }
+.ds-stack[data-pad="4xl"] { padding: var(--spacing-4xl); }
+
+/* Cross axis only — a stack packs from the start on the main axis, and no justify-content prop
+   exists yet (S2's IR carries {main, cross}; #304 decides what to do with main). */
+.ds-stack[data-align="start"]   { align-items: flex-start; }
+.ds-stack[data-align="center"]  { align-items: center; }
+.ds-stack[data-align="end"]     { align-items: flex-end; }
+.ds-stack[data-align="stretch"] { align-items: stretch; }
+
+/* How this box sizes itself INSIDE a parent stack. There is deliberately no fixed-px case —
+   that is S2's leg-2 question (s(360,hug)) answered by refusal rather than by a literal. */
+.ds-stack[data-size="fill"] { flex: 1 1 0%; align-self: stretch; }
+.ds-stack[data-size="hug"]  { flex: 0 0 auto; align-self: flex-start; }
+
+/* ---------- ds-text (system/specs/text.md) — cross-scenario library primitive ---------- */
+
+/* One part, one decision: `role` picks a step of the type scale and there is no font-size prop.
+   min-width: 0 so a text inside a flex row can shrink rather than blow the row out. */
+.ds-text { color: var(--color-fg); min-width: 0; }
+
+.ds-text[data-role="display"] { font-family: var(--font-display); font-size: var(--type-display); line-height: 1.05; font-weight: 700; }
+.ds-text[data-role="heading"] { font-family: var(--font-display); font-size: var(--type-h2); line-height: 1.2; font-weight: 600; }
+.ds-text[data-role="body"]    { font-size: var(--type-body); line-height: 1.6; }
+.ds-text[data-role="caption"] { font-size: var(--type-caption); line-height: 1.5; color: var(--color-fg-muted); }
+
+/* The SHARED renderMarkdown (system/handoff-viewer.mjs) emits hv-* classes, so ds-text has to
+   style them. These scoped rules (0,2,0) win over catalog.css's docs-surface copies (0,1,0), and
+   they are why ds-text renders correctly on every page that links components.css — /build, the
+   protos and the studio do not link catalog.css. The table and fence rules are unlikely inside a
+   ds-text and are here anyway: the renderer is shared, not forked, so nothing it can emit may
+   render unstyled. */
+.ds-text .hv-p { font-size: inherit; line-height: inherit; margin: 0; max-width: none; }
+.ds-text .hv-p + .hv-p, .ds-text .hv-list, .ds-text .hv-table, .ds-text .hv-code { margin-top: var(--spacing-sm); }
+.ds-text .hv-list { padding-left: var(--spacing-lg); display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.ds-text .hv-list li { font-size: inherit; line-height: inherit; }
+.ds-text .hv-inline-code { font-family: var(--font-mono); background: var(--color-bg-surface); border-radius: var(--radius-sm); padding: 0 var(--spacing-xs); }
+.ds-text .hv-link { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+.ds-text .hv-code { overflow-x: auto; background: var(--color-bg-surface); border-radius: var(--radius-sm); padding: var(--spacing-sm); }
+.ds-text .hv-code code { font-family: var(--font-mono); white-space: pre; }
+.ds-text .hv-table { border-collapse: collapse; display: block; overflow-x: auto; font-size: var(--type-caption); }
+.ds-text .hv-table th, .ds-text .hv-table td { border: 1px solid var(--color-border); padding: var(--spacing-xs) var(--spacing-sm); text-align: left; vertical-align: top; }
+.ds-text .hv-table th { background: var(--color-bg-surface); }
+
 /* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
 
 .vd-screen-body {

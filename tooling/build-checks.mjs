@@ -205,7 +205,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { hasTemplate, validateComposition } from "../system/agentic-renderer.mjs";
+import { hasTemplate, renderComposition, validateComposition } from "../system/agentic-renderer.mjs";
 import { vetTokens } from "../system/pack-imported.mjs";
 import { boardSvg, cardSvg } from "../system/build-card.mjs";
 import { NO_DESIGN_IMPORTED, specMarkdown, TWO_CLAIMS } from "../system/build-keep.mjs";
@@ -231,14 +231,16 @@ import { projectTrace } from "../agent-layer/gen-replay.mjs";
 // #211's two pure functions. gen-vocabulary.mjs is zero-dep and its standalone-run guard means
 // importing it writes nothing — but do NOT call genVocabulary() from a check, which writes to disk.
 // handoff-viewer.mjs's top level is Node-safe (every DOM reference sits inside a function body);
-// prepareHandoff is the pure half and is the only thing called here — never renderHandoffViewer.
+// prepareHandoff is the pure half. renderMarkdown is the DOM half and is driven here anyway (#301),
+// under the stub below and only ever inside a try/finally that deletes globalThis.document —
+// renderHandoffViewer, which reaches much further into the DOM, is still never called.
 import { validateExamples } from "../agent-layer/gen-vocabulary.mjs";
 import { parseComponentSpec } from "../agent-layer/lib.mjs";
-import { prepareHandoff } from "../system/handoff-viewer.mjs";
+import { prepareHandoff, renderMarkdown } from "../system/handoff-viewer.mjs";
 // #215's pure layer — DOM-free above the fold by design (vdMarkup's body is browser-only but is
 // never called here). palette.mjs is Node-import-safe (self-boot behind typeof document) and is
 // imported for the ONE static list group 21 pins against the vocabulary.
-import { controlFor, reactSnippet, specPath, tabsFor, WRAPPER_ATTRS } from "../system/catalog.mjs";
+import { childrenLine, controlFor, reactSnippet, specPath, tabsFor, WRAPPER_ATTRS } from "../system/catalog.mjs";
 import { CATALOG_COMPONENTS } from "../system/palette.mjs";
 // #221's two pure layers — both modules are Node-import-safe (no DOM outside a function body, no
 // self-boot; system/studio.mjs mounts them).
@@ -318,6 +320,72 @@ function group(name, detail) {
     return;
   }
   console.log(`build ${name.padEnd(14)} ✓  ${detail}`);
+}
+
+// --- the DOM stub (#301) -------------------------------------------------------------------------
+//
+// A minimal DOM, for the two VIEW-TIME functions this file drives directly: renderMarkdown
+// (system/handoff-viewer.mjs, group 18) and renderComposition over a stack/text tree (group 3).
+// Neither reaches past createElement / createElementNS / createTextNode / createDocumentFragment /
+// setAttribute / textContent / appendChild / baseURI — that set was read off both modules, fence
+// and table branches included — so this is a faithful RECORDER rather than a second DOM.
+//
+// A stub is a second implementation and can lie, so every caller below runs the POSITIVE CONTROL
+// first (domStubControl) before asserting anything through it. Group 10's precedent for the
+// lifecycle: set globalThis.document, use it, delete it in a finally — leaving it defined changes
+// what "Node" means for every later group, and a module that feature-detects `document` then
+// behaves differently.
+function domStub(baseURI = "https://example.test/page") {
+  const node = (tag, ns = null) => ({
+    tagName: String(tag).toUpperCase(), ns, attrs: {}, children: [], _text: "",
+    get textContent() {
+      return this._text + this.children.map((c) => c.textContent).join("");
+    },
+    set textContent(v) { this._text = String(v); this.children.length = 0; },
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    getAttribute(k) { return Object.hasOwn(this.attrs, k) ? this.attrs[k] : null; },
+    appendChild(c) { this.children.push(c); return c; },
+    addEventListener() {},
+  });
+  return {
+    baseURI,
+    createElement: (tag) => node(tag),
+    createElementNS: (ns, tag) => node(tag, ns),
+    createDocumentFragment: () => node("#fragment"),
+    createTextNode: (t) => ({
+      tagName: "#text", attrs: {}, children: [], _text: String(t),
+      get textContent() { return this._text; },
+      set textContent(v) { this._text = String(v); },
+      appendChild(c) { return c; },
+    }),
+  };
+}
+// Depth-first text of a stub tree, and every descendant of a given tag. Both walk `children`,
+// which is the only structure the stub records.
+const stubText = (n) => (n ? String(n.textContent) : "");
+function stubFindAll(n, tag) {
+  const want = String(tag).toUpperCase();
+  const out = [];
+  const walk = (x) => { if (!x) return; if (x.tagName === want) out.push(x); (x.children || []).forEach(walk); };
+  walk(n);
+  return out;
+}
+// The positive control: the stub records a tag name, an attribute, appended structure and
+// depth-first text. Run it before any assertion is DRIVEN through the stub — if it fails, nothing
+// below it means anything, and it says so.
+function domStubControl() {
+  const d = domStub();
+  const p = d.createElement("p");
+  p.setAttribute("class", "x");
+  const kid = d.createElement("em");
+  kid.textContent = "inner";
+  p.appendChild(kid);
+  p.appendChild(d.createTextNode(" tail"));
+  ok(p.tagName === "P", "the DOM stub does not record a tag name — every assertion driven through it is meaningless");
+  ok(p.getAttribute("class") === "x", "the DOM stub does not record an attribute — the href/class assertions below would pass on nothing");
+  ok(stubFindAll(p, "em").length === 1, "the DOM stub does not record appended children — the tree walkers below would find nothing");
+  ok(stubText(p) === "inner tail", `the DOM stub does not compose depth-first text — got ${JSON.stringify(stubText(p))}`);
+  ok(d.baseURI === "https://example.test/page", "the DOM stub carries no baseURI — safeHref would refuse every site-relative href for the wrong reason");
 }
 
 const answersWith = (patch) => ({ ...DEFAULT_ANSWERS, ...patch });
@@ -678,7 +746,112 @@ const BARE_BOARD = {
   ok(deepThrew && /children\[2\]/.test(deepThrew.message),
     `a bad child at index 2 was not named at 2 — got: ${deepThrew && deepThrew.message}`);
 
-  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. Synthetic deliberately: no committed spec declares \`many\` yet (#301, #303), so the real vocabulary cannot reach this side of the grammar. What this cannot reach: that gen-vocabulary PROJECTS the key — genVocabulary reads system/specs off a module const with no seam for a synthetic spec, so the projection's first real proof is #301's regenerated vocabulary, and a typo in the key name there would be green here`);
+  // --- #301: the grammar's FIRST REAL USER, over the committed vocabulary ------------------
+  //
+  // Everything above this line is synthetic: #298 shipped the cardinality with no spec declaring
+  // it, so the only `many` entry those cases could reach was one built in this file. stack is the
+  // first committed spec to declare it, which makes the next five assertions the first that can
+  // see the REAL chain — spec head → parser → gen-vocabulary's conditional projection → artifact.
+
+  // 1 · THE PROJECTED KEY, BY NAME. Nothing in #298's gate stack could see this: genVocabulary
+  // reads system/specs off a module const with no seam for a synthetic spec, so a typo in the
+  // projected key's name ("childrenCardinallity") regenerated green and every group stayed green
+  // with it. Asserting the NAME on the committed artifact is what closes that.
+  ok(VOCAB.components.stack?.childrenCardinality === "many",
+    `stack's vocabulary entry does not carry childrenCardinality: "many" (got ${JSON.stringify(VOCAB.components.stack?.childrenCardinality)}) — gen-vocabulary dropped or misspelled the projected key`);
+  // …and the negative half on the same artifact: a LEAF must not gain the key. text declares no
+  // cardinality, so an unconditional spread would show up here as an injected "one" nobody wrote.
+  ok(!Object.hasOwn(VOCAB.components.text ?? {}, "childrenCardinality"),
+    "text's vocabulary entry carries a childrenCardinality key — the projection is unconditional, so every leaf now documents a rule it does not have");
+
+  // 2 · THE SPINE VALIDATES — #302's exact composition, a stack holding three DIFFERENT parts,
+  // driven through the real validator against the real vocabulary. A local literal, not an import:
+  // #302 builds this as real screen.compose ops rather than consuming a fixture from here.
+  const SPINE_301 = [{
+    name: "stack", props: { direction: "column", gap: "md" },
+    children: [
+      { name: "text", props: { role: "heading", content: "Send a payment" } },
+      { name: "text-field", props: { label: "Amount" } },
+      { name: "primary-button", props: { label: "Continue" } },
+    ],
+  }];
+  let spineThrew = null;
+  try { validateComposition(VOCAB, SPINE_301); } catch (err) { spineThrew = err; }
+  ok(spineThrew === null,
+    `the three-child spine was refused against the real vocabulary — ${spineThrew && spineThrew.message}`);
+
+  // 3 · AND IT CANNOT PASS VACUOUSLY. The SAME three children under a vocabulary whose stack entry
+  // differs only in having lost the cardinality must be refused, and refused by COUNT. Without
+  // this, an implementation that simply stopped counting children passes case 2.
+  const { childrenCardinality: _stackCard, ...stackNoCard } = VOCAB.components.stack;
+  const VOCAB_NO_CARD = { ...VOCAB, components: { ...VOCAB.components, stack: stackNoCard } };
+  let spineMutThrew = null;
+  try { validateComposition(VOCAB_NO_CARD, SPINE_301); } catch (err) { spineMutThrew = err; }
+  ok(spineMutThrew && /at most one child \(got 3\)/.test(spineMutThrew.message),
+    `dropping stack's cardinality still accepted three children — the spine case proves nothing (got: ${spineMutThrew && spineMutThrew.message})`);
+
+  // 4 · text's ROLE REFUSALS, which AC #1 names and nothing else proves. Both are
+  // validateComposition's existing required/enum branches, before any DOM — so the MESSAGE is the
+  // thing asserted, not just the throw: a gate that throws with the wrong message is a gate nobody
+  // can debug.
+  let roleMissing = null;
+  try { validateComposition(VOCAB, [{ name: "text", props: { content: "x" } }]); } catch (err) { roleMissing = err; }
+  ok(roleMissing && /required prop of text is missing/.test(roleMissing.message),
+    `a text with no role was not refused by name — got: ${roleMissing && roleMissing.message}`);
+  let roleUnknown = null;
+  try { validateComposition(VOCAB, [{ name: "text", props: { role: "huge", content: "x" } }]); } catch (err) { roleUnknown = err; }
+  ok(roleUnknown && /"huge" is not in enum \[display \| heading \| body \| caption\]/.test(roleUnknown.message),
+    `an unknown text role was not refused by its enum — got: ${roleUnknown && roleUnknown.message}`);
+
+  // 5 · NESTING RENDERS — the [] -vs- child.children trap, made mechanical. card and empty-state
+  // both render their one child as TEMPLATES[...](props, [], …), which is correct for THEM; copying
+  // that line into stack would drop every grandchild with every gate green, because group 3 above
+  // asserts a template EXISTS and nothing in this file renders. So: render a real stack > stack >
+  // text through the real renderer under the stub, and look for the innermost text.
+  domStubControl();
+  globalThis.document = domStub();
+  let nested = null;
+  try {
+    nested = renderComposition(VOCAB, {
+      name: "stack", props: { direction: "column" },
+      children: [{ name: "stack", props: { direction: "row" },
+        children: [{ name: "text", props: { role: "body", content: "deep" } }] }],
+    }, null);
+  } finally { delete globalThis.document; }
+  ok(nested && stubText(nested).includes("deep"),
+    `the inner text did not render — the stack template dropped its grandchildren (got ${JSON.stringify(stubText(nested))})`);
+  ok(nested && nested.getAttribute("class") === "ds-stack" && nested.getAttribute("data-direction") === "column",
+    "the outer stack did not render as a ds-stack with its direction attribute");
+  // The absence half of the same render: no gap prop was given, so NO data-gap attribute exists.
+  // This is what "absence suffices" means at the DOM — el() skips a null value — and it is what
+  // lets the CSS block carry no default without a --spacing-none token.
+  ok(nested && nested.getAttribute("data-gap") === null && nested.getAttribute("data-pad") === null,
+    "an absent gap/pad emitted an attribute anyway — absence no longer expresses zero, and S2's verdict rests on it");
+
+  // 6 · S2's CONDITION, MADE MECHANICAL. The verdict "absence suffices" (spike S2, #299) holds only
+  // while the BARE .ds-stack rule declares no default gap and no default padding — a default there
+  // would silently override a designer's explicit zero. Slice the bare rule out of components.css
+  // by its own selector and assert the two properties are absent from it.
+  //
+  // The attribute rules (.ds-stack[data-gap="md"] { gap: … }) MUST NOT trip this — they are the
+  // whole design — so the slice anchors on the exact `.ds-stack {` opener and stops at the first
+  // `}`. .vd-stack is 60-odd lines below, is NOT a spec'd component and DOES carry a default gap
+  // (S2's F8); anchoring on the leading dot plus `ds-stack {` is what keeps it out of reach.
+  const CSS_301 = readFileSync(join(ROOT, "system/components.css"), "utf8");
+  const bareStart = CSS_301.indexOf(".ds-stack {");
+  ok(bareStart !== -1, "components.css has no bare `.ds-stack {` rule — the S2-condition case has lost its subject");
+  const bareRule = bareStart === -1 ? "" : CSS_301.slice(bareStart, CSS_301.indexOf("}", bareStart) + 1);
+  ok(!/(^|[;{\s])gap\s*:/.test(bareRule),
+    `.ds-stack declares a default gap — S2's condition is broken, and an imported frame with explicit zero spacing now renders with a gap nobody asked for: ${bareRule}`);
+  ok(!/(^|[;{\s])padding\s*:/.test(bareRule),
+    `.ds-stack declares a default padding — S2's condition is broken: ${bareRule}`);
+  // The INVERSE control: the attribute rules the design DEPENDS on must be present and must NOT be
+  // what the two assertions above are reading. If deleting the data-gap rule reddened them, they
+  // would be testing the opposite of what they claim.
+  ok(/\.ds-stack\[data-gap="md"\]\s*\{[^}]*gap:\s*var\(--spacing-md\)/.test(CSS_301),
+    "the .ds-stack[data-gap=\"md\"] rule is gone — the bare-rule assertions above are now reading a block with no gap binding at all, which is green for the wrong reason");
+
+  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
@@ -3867,6 +4040,124 @@ function scanSvg(svg, label) {
   ok(strippedJoin.components.every((c) => c.consumer !== null && c.tokens.length > 0),
     "stripping `example` disturbed the rest of the join");
 
+  // The SAME explicit-pick trap, one key later: childrenCardinality (#298) is optional and
+  // container-only, and #301's stack is the first spec to declare it. A head projection that does
+  // not name it shows a container documented as taking ONE child while its spec says many — and
+  // the whole point of the "Source (spec head)" panel is that it is a faithful picture of the head.
+  // Anchored on the PACK, deliberately: the joined component carries the key ONLY inside `head`,
+  // so finding it on the joined side would be the assertion asking itself.
+  const cardSource = PACK.components.find((c) => c.childrenCardinality === "many");
+  ok(cardSource, "no pack component declares childrenCardinality — this pair has lost its subject, so the projection is ungated again");
+  const withCardinality = cardSource && joined.components.find((c) => c.name === cardSource.component);
+  ok(withCardinality && withCardinality.head.childrenCardinality === "many",
+    `childrenCardinality reached the component but NOT the head projection — it was dropped by the explicit pick (${cardSource && cardSource.component})`);
+  // The negative half, over a stripped synthetic pack, the `example` technique exactly: with the
+  // key gone from every component, NO head may carry it. An unconditional spread would inject the
+  // key (as undefined) on all 23 and fail here.
+  const strippedCardPack = { ...PACK, components: PACK.components.map(({ childrenCardinality, ...rest }) => rest) };
+  const strippedCardJoin = prepareHandoff(strippedCardPack, VOCAB, GRAPH);
+  ok(strippedCardJoin.components.every((c) => !("childrenCardinality" in c.head)),
+    'the head projection injected a "childrenCardinality" key for a spec that declares none');
+  ok(strippedCardJoin.components.every((c) => c.consumer !== null && c.tokens.length > 0),
+    "stripping `childrenCardinality` disturbed the rest of the join");
+
+  // --- B2 · renderMarkdown, driven (#301) ------------------------------------------------------
+  //
+  // The shared markdown-subset renderer had ZERO gate coverage before this: its only callers were
+  // handoff-viewer.mjs itself and system/catalog.mjs, both view-time. #301 extends it with links —
+  // the one construct in the census that turns input into an ATTRIBUTE rather than text — so the
+  // allowlist needs a gate, and the census bound needs one too or "we added exactly one thing"
+  // is a claim nobody can check.
+  //
+  // Everything here runs under the DOM stub, behind its positive control, inside a finally that
+  // deletes globalThis.document.
+  domStubControl();
+  globalThis.document = domStub("https://example.test/page");
+  try {
+    const md = (src) => renderMarkdown(document.createElement("div"), src);
+
+    // POSITIVE CONTROL FIRST — the pre-existing census still renders, every branch of the line
+    // walker included. If these fail, every link assertion below is meaningless.
+    ok(stubFindAll(md("**b**"), "strong").length === 1, "renderMarkdown no longer renders **bold** — the link cases below prove nothing");
+    const codeEl = stubFindAll(md("`c`"), "code")[0];
+    ok(codeEl && codeEl.getAttribute("class") === "hv-inline-code", "renderMarkdown no longer renders a `code` span as code.hv-inline-code");
+    const listRoot = md("- one\n- two");
+    ok(stubFindAll(listRoot, "ul").length === 1 && stubFindAll(listRoot, "li").length === 2,
+      "renderMarkdown no longer renders a `- ` list as a ul.hv-list of items");
+    const tableRoot = md("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    ok(stubFindAll(tableRoot, "table").length === 1 && stubFindAll(tableRoot, "th").length === 2 && stubFindAll(tableRoot, "td").length === 2,
+      "renderMarkdown no longer renders a pipe table with its separator row dropped — the real-spec case below walks this branch");
+    ok(stubFindAll(md("```\nx\n```"), "pre").length === 1, "renderMarkdown no longer renders a fence as a pre.hv-code");
+
+    // The link, whole: element, href, text, class and rel.
+    const linkRoot = md("see [a](https://x.test/p) now");
+    const links = stubFindAll(linkRoot, "a");
+    ok(links.length === 1, `expected an <a>, got ${links.length} — the link branch did not fire`);
+    ok(links[0] && links[0].getAttribute("href") === "https://x.test/p", `the link's href is ${links[0] && links[0].getAttribute("href")}`);
+    ok(links[0] && stubText(links[0]) === "a", `the link's text is ${links[0] && JSON.stringify(stubText(links[0]))}, expected "a"`);
+    ok(links[0] && links[0].getAttribute("class") === "hv-link", "the link carries no hv-link class, so neither style home reaches it");
+    ok(links[0] && links[0].getAttribute("rel") === "noopener noreferrer", "the link carries no rel=noopener noreferrer");
+    ok(stubText(linkRoot) === "see a now", `the text around the link was lost — got ${JSON.stringify(stubText(linkRoot))}`);
+
+    // A site-relative href IS a link: it resolves against the base's scheme. This is the case the
+    // stub's baseURI exists for — under a file: base it would be refused for the wrong reason.
+    ok(stubFindAll(md("[a](/handoff/verdant/pack.json)"), "a").length === 1,
+      "a site-relative href was refused — safeHref is not resolving against document.baseURI");
+
+    // The REFUSED schemes: no <a>, and the literal source text survives so the mistake is visible.
+    for (const src of ["[x](javascript:alert(1))", "[x](data:text/html,<script>)", "[x](vbscript:msgbox)"]) {
+      const root = md(src);
+      ok(stubFindAll(root, "a").length === 0, `expected literal text for a refused scheme, got <a> — ${src}`);
+      ok(stubText(root) === src, `a refused scheme did not survive as its own source text — got ${JSON.stringify(stubText(root))} for ${src}`);
+    }
+
+    // A BARE `[` stays literal — the split needs `](` AND a closing `)`. 73 bare `[` live across
+    // the committed specs, so this is not hypothetical, and the next case drives a real one.
+    const bare = md("an array [0] and a note [see below]");
+    ok(stubFindAll(bare, "a").length === 0, "a bare [ produced a link — the split regex is too loose");
+    ok(stubText(bare) === "an array [0] and a note [see below]", `a bare [ did not survive literally — got ${JSON.stringify(stubText(bare))}`);
+
+    // …and the same claim over REAL committed prose rather than a fixture: every section body of
+    // every committed spec, through the renderer, must produce zero links. This is what says
+    // "enabling links moved nothing that already renders" as a measurement.
+    //
+    // MEASURED, and not what #301's plan predicted: the 85 "[" across system/specs/*.md all live
+    // in the JSON HEADS (enum, tokens and children arrays), which the renderer never sees — the
+    // committed PROSE carries none. So the bare-[ guard above is the fixture's job, and this loop's
+    // job is the other half of the claim: enabling links changed nothing that already renders.
+    let bodiesChecked = 0;
+    let elementsSeen = 0;
+    for (const c of PACK.components) {
+      for (const sec of c.sections || []) {
+        bodiesChecked += 1;
+        const root = md(sec.body);
+        elementsSeen += root.children.length;
+        ok(stubFindAll(root, "a").length === 0,
+          `a committed spec section rendered a link — enabling links changed existing prose, which #301 measured it would not: ${c.component} § ${sec.title}`);
+      }
+    }
+    ok(bodiesChecked >= 20, `only ${bodiesChecked} section bodies driven — the real-prose case needs the whole committed set to mean anything`);
+    ok(elementsSeen >= bodiesChecked, `the ${bodiesChecked} committed bodies rendered only ${elementsSeen} block elements — they are not actually reaching the renderer, so a zero-link result means nothing`);
+    // …and the control that says the loop CAN go red: the SAME real bodies with one link appended
+    // must each produce exactly one. Without it, a renderer that silently dropped every <a> would
+    // pass the loop above and this whole case would be a tautology.
+    for (const c of PACK.components) {
+      const first = (c.sections || [])[0];
+      if (!first) continue;
+      ok(stubFindAll(md(`${first.body}\n\nSee [the pack](https://x.test/pack.json).`), "a").length === 1,
+        `a real spec body with a link appended produced no link (${c.component}) — the zero-link loop above is a tautology`);
+    }
+
+    // THE CENSUS BOUND. Links are the ONE extension: a heading, a blockquote and an ordered-list
+    // line each still render as an ordinary paragraph, not as h1/blockquote/ol.
+    for (const [src, tag] of [["# heading", "h1"], ["> quote", "blockquote"], ["1. ordered", "ol"]]) {
+      const root = md(src);
+      ok(stubFindAll(root, tag).length === 0, `renderMarkdown grew a <${tag}> — the census bound moved past links`);
+      ok(stubFindAll(root, "p").length === 1 && stubText(root) === src,
+        `"${src}" no longer renders as one paragraph carrying its own source text — got ${JSON.stringify(stubText(root))}`);
+    }
+  } finally { delete globalThis.document; }
+
   // The TWO-ARG call — the compatibility claim handoff.html:196 rests on. Full shape, joined graph
   // fields null, and `example` still present because it rides the pack rather than the graph.
   const twoArg = prepareHandoff(PACK, VOCAB);
@@ -3987,7 +4278,7 @@ function scanSvg(svg, label) {
     parserRefusalNames = refusals.map((r) => r.why).join(" · ");
   }
 
-  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
+  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap, and `+ "`childrenCardinality`" + ` the same way — the real declaring component's head carrying it, and a STRIPPED synthetic pack proving no head gains the key when no spec declares it · renderMarkdown DRIVEN for the first time (it had zero gate coverage before #301), under a DOM stub behind its own positive control: the pre-existing census re-proven branch by branch (bold, code, list, pipe table, fence) BEFORE anything else, then the one extension — a link asserted whole (element, href, text, hv-link class, rel), a site-relative href accepted because the stub carries a real baseURI, javascript:/data:/vbscript: each refused with the WHOLE source text surviving literally, a bare [ left literal, and the CENSUS BOUND held: a heading, a blockquote and an ordered-list line each still one paragraph carrying its own text · every committed spec section body driven through the renderer and proven to produce zero links — the measured claim that enabling links moved nothing that already renders (the 85 [ in system/specs all live in the JSON heads the renderer never sees, so the bare-[ guard is the fixture's) — behind the control that the same bodies WITH a link appended each produce exactly one · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
 }
 
 // --- 19 · the flow: places become screens, connections become navigation (#212) ---------------------
@@ -4428,7 +4719,12 @@ function scanSvg(svg, label) {
   // components ship wrapper-less, and the absent vd/react tabs are honest), and the next wrapper
   // or component moves it again — move it on purpose, with the vd tab's honesty note re-checked,
   // never by reflex. The design-import spike moved it 3/17 → 3/18: avatar (the Polaris port,
-  // system/specs/avatar.md) ships wrapper-less, so its absent vd/react tabs are honest.
+  // system/specs/avatar.md) ships wrapper-less, so its absent vd/react tabs are honest. #301 moved
+  // it 3/18 → 3/20: stack and text (the first two of epic #295's five generic primitives) likewise
+  // ship wrapper-less — there is no vd-stack or vd-text custom element and the pack does not claim
+  // one — so their absent vd/react tabs are honest in exactly the same way. The number is read off
+  // this assertion's OWN failure message rather than derived by hand: the portability block lists
+  // wrappers as wc/vd-<name>.mjs, so a join on the component's ds- class answers zero.
   let withWrapper = 0;
   let withoutWrapper = 0;
   for (const c of model.components) {
@@ -4439,8 +4735,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 18,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/18; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 20,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/20; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,
@@ -4520,7 +4816,42 @@ function scanSvg(svg, label) {
       `the baked fictional notice drifted from scenarios/verdant/copy.json — the re-confirm swap is no longer a no-op and the pixel gate can flake. Baked: "${baked[1]}" · copy.json: "${copy.fictionalNotice}"`);
   }
 
-  group("catalog", `pack↔vocabulary set identity over ${vocabNames.length} components · the palette's static list pinned against the artifact (the memoization is why it is static, #188) · controlFor over all ${propsChecked} real props — ${boundedNumbers} bounded number (stat-tile.value, fields compared to the artifact's own), ${unboundedNumbers} unbounded, bounds NEVER invented (hasOwn asserted both ways, plus the partial-bounds synthetic) · tabsFor's ${withWrapper}/${withoutWrapper} wrapper histogram pinned as the #220 tripwire · WRAPPER_ATTRS pinned in BOTH directions (wrapper source text · vocabulary props · exact component set · every prop mapped, so a regenerated wrapper cannot silently under-project) with the type:"type" mutation proving the fabricated-API refusal real · reactSnippet projects type→action, escapes quotes, booleans present-when-true · ${specFiles} committed spec files behind the copy buttons · the baked fictional notice byte-pinned to copy.json so the outside-the-ready-handle re-confirm stays a no-op. The running page — deep links, live serialization, the byte-identical copy, the ⌘K race, the refusal line — is tooling/catalog-journey.mjs's, and says so`);
+  // --- 21.9 childrenLine — the catalog's "Children:" meta line, extracted and exported at #301 so
+  // this gate can drive it. The CARDINALITY is part of the sentence: without " (many)" the catalog
+  // documents a container exactly as it documents a single-child one, and #298's key would reach
+  // the vocabulary, the pack and the head projection and still be invisible to its only reader.
+  //
+  // Driven over the REAL entries, not fixtures, so a renamed key or a dropped list reds here.
+  {
+    const entryFor = (name) => ({ ...VOCAB.components[name], name });
+    const many = Object.keys(VOCAB.components).filter((n) => VOCAB.components[n].childrenCardinality === "many");
+    const one = Object.keys(VOCAB.components).filter((n) => VOCAB.components[n].children?.length && !VOCAB.components[n].childrenCardinality);
+    const leaf = Object.keys(VOCAB.components).filter((n) => !VOCAB.components[n].children?.length);
+    ok(many.length > 0 && one.length > 0 && leaf.length > 0,
+      `childrenLine needs all three real shapes to mean anything — got ${many.length} many / ${one.length} single-child / ${leaf.length} leaf`);
+
+    for (const n of many) {
+      const line = childrenLine(entryFor(n));
+      ok(line && line.endsWith(" (many)"), `childrenLine(${n}) does not end " (many)" — the catalog documents a many-children container as if it took one: ${JSON.stringify(line)}`);
+      ok(line && line.startsWith(`Children: ${VOCAB.components[n].children.join(" · ")}`),
+        `childrenLine(${n}) does not carry its allowed names in order: ${JSON.stringify(line)}`);
+      // The mutation, inline: an entry identical EXCEPT for the cardinality must lose the suffix.
+      // Without this the suffix could be unconditional and every assertion above would still pass.
+      const { childrenCardinality: _drop, ...noCard } = entryFor(n);
+      ok(!String(childrenLine(noCard)).endsWith(" (many)"),
+        `childrenLine still says "(many)" for ${n} with the cardinality removed — the suffix is unconditional and proves nothing`);
+    }
+    for (const n of one) ok(!String(childrenLine(entryFor(n))).endsWith(" (many)"),
+      `childrenLine(${n}) says "(many)" for a single-child entry`);
+    for (const n of leaf) ok(childrenLine(entryFor(n)) === null,
+      `childrenLine(${n}) returned a line for an entry that lists no children: ${JSON.stringify(childrenLine(entryFor(n)))}`);
+    // Totality — a caller's entry is artifact data, but the helper must not throw on a shape the
+    // artifact could take: absent, empty, and not-an-array all answer null.
+    for (const junk of [{}, { children: [] }, { children: null }, { children: "card" }, { children: {} }])
+      ok(childrenLine(junk) === null, `childrenLine did not answer null for ${JSON.stringify(junk)}`);
+  }
+
+  group("catalog", `pack↔vocabulary set identity over ${vocabNames.length} components · the palette's static list pinned against the artifact (the memoization is why it is static, #188) · controlFor over all ${propsChecked} real props — ${boundedNumbers} bounded number (stat-tile.value, fields compared to the artifact's own), ${unboundedNumbers} unbounded, bounds NEVER invented (hasOwn asserted both ways, plus the partial-bounds synthetic) · tabsFor's ${withWrapper}/${withoutWrapper} wrapper histogram pinned as the #220 tripwire · WRAPPER_ATTRS pinned in BOTH directions (wrapper source text · vocabulary props · exact component set · every prop mapped, so a regenerated wrapper cannot silently under-project) with the type:"type" mutation proving the fabricated-API refusal real · reactSnippet projects type→action, escapes quotes, booleans present-when-true · childrenLine driven over the REAL entries in all three shapes — every many-children container's line ending " (many)" and carrying its allowed names in order, every single-child entry's NOT, every leaf answering null, five junk shapes answering null, and the per-container MUTATION (the same entry with the cardinality removed) proving the suffix is conditional rather than unconditional · ${specFiles} committed spec files behind the copy buttons · the baked fictional notice byte-pinned to copy.json so the outside-the-ready-handle re-confirm stays a no-op. The running page — deep links, live serialization, the byte-identical copy, the ⌘K race, the refusal line — is tooling/catalog-journey.mjs's, and says so`);
 }
 
 // --- 22 · the canvas selection --------------------------------------------------------------------

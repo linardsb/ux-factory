@@ -171,6 +171,8 @@
   text-align: left; vertical-align: top;
 }
 .hv-table th { background: var(--color-bg-surface); }
+/* Underlined, not colour alone — WCAG 2.2 SC 1.4.1 (#301). */
+.hv-link { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 900px) {
   .cat-playground { grid-template-columns: 1fr; }

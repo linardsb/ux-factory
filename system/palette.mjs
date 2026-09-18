@@ -36,8 +36,8 @@ export const CATALOG_COMPONENTS = [
   "avatar", "card", "care-task-row", "demo-notice", "empty-state", "ghost-button",
   "list-row", "metric-tile", "modal-dialog", "nav-tabs", "plant-card",
   "primary-button", "progress-indicator", "screen-header", "search-input",
-  "select-field", "sequence-step", "stat-tile", "status-chip", "text-field",
-  "toggle-switch",
+  "select-field", "sequence-step", "stack", "stat-tile", "status-chip", "text",
+  "text-field", "toggle-switch",
 ];
 
 // --- DOM builder (inspect.mjs / glossary.mjs shape) — text via textContent, never innerHTML.
