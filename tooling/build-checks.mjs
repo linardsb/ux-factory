@@ -49,12 +49,12 @@
 //                     whether the reproduce check is real, every refusal, real pacing, the honest
 //                     label, and the curate-trace KEEP_WHOLE coupling proven by running curateTrace
 //                     over a >700-char command rather than by grepping for the constant (#203)
-//  12 canvas         the studio's canvas substrate: studio.css's scale table and slot rules mirror
-//                     studio-canvas.mjs's exported caps EXHAUSTIVELY and in both directions (CSS
-//                     cannot import, so the mirror is by hand and this is what pins it), plus
-//                     clampSlot and fitLevel driven over their real edges (#204)
+//  12 canvas         the studio's canvas substrate: studio.css hand-mirrors the stage box and the
+//                     rest scale in both directions (CSS cannot import, so the mirror is by hand and
+//                     this is what pins it), the numbered-attribute mechanism is proven GONE from
+//                     the sheet, and setPos + setScale are driven over their real edges (#204, #302)
 //  13 verbs          the canvas's manipulation layer, pure half: the history stack incl. #230's
-//                     adopt, stepSlot and hitSlot (#205)
+//                     adopt, its free-position snapshot shape, and guidesFor (#205, #302)
 //  14 studio         the /factory orchestrator's pure layer: arrangeBoard over the REAL drafted
 //                     board and nine junk ones, buildSummary's counts asserted against
 //                     affordanceCount and patternFor rather than re-derived (#206)
@@ -107,9 +107,9 @@
 //  24 frames         the studio's device frames as DATA: FRAMES frozen at both levels by mutation,
 //                     every src a real committed file (with the mutation that proves that check can
 //                     fail, which matters because the pixel gate MASKS this content), both
-//                     footprints on the grid by clampSpan's own definition, disjoint and clear of
-//                     arrangeBoard's row 1, and packHref's contract-line trap over a stub
-//                     document (#219)
+//                     rectangles on the stage by setPos's own bound, disjoint by overlap and clear
+//                     of arrangeBoard's top band, and packHref's contract-line trap over a stub
+//                     document (#219, #302)
 //  25 instance stamp the per-company shell stamp: stampShell over the real committed shell,
 //                     Mechanism A anchors thrown by name, Mechanism B as a global pass, and
 //                     auditRefs' deploy-listing predicate (#222)
@@ -118,9 +118,9 @@
 //                     for the day the selection widens), toggleId's isolation, totality (#221)
 //  27 minimap        the minimap's pure layer: mapView in three conditions (each the sole detector
 //                     of one missing coordinate term), the far-edge clamps, jumpFrom's centering
-//                     and both clamps, trackOffsets' gap rule, cellRect's footprint consistency,
-//                     visibleRange's round-trip, and the no-timer source pin over both new
-//                     modules (#221)
+//                     and both clamps, nodeRect's totality, visibleCount's round-trip and its
+//                     overlap-not-origin rule, and the no-timer source pin over both new
+//                     modules (#221, #302)
 //  28 bank           the discovery question bank as data: the count and per-stage counts pinned,
 //                     ids unique and stage-prefixed, every field on every entry, the twelve as an
 //                     ORDER assertion, each depth's exact documented set with whole-bank pinned as a
@@ -2591,7 +2591,7 @@ function scanSvg(svg, label) {
   // tables, a five-entry scale table — and drove five pure clamp functions over hostile slots. The
   // grid is retired and all of it is gone. What replaced it is smaller because free positioning IS
   // smaller: two numbers for the stage, three for the scale, and two functions. The hostile-input
-  // discipline did NOT shrink — it moved from clampSlot's cells to setPos's pixels, and case 12.4
+  // discipline did NOT shrink — it moved from the slot clamp's cells to setPos's pixels, and 12.4
   // below is the same battery in the new units.
   //
   // Every regex is asserted to have matched SOMETHING before its content is judged. A mirror check
@@ -2626,7 +2626,7 @@ function scanSvg(svg, label) {
 
   // --- 12.2 · NOTHING is placed by attribute any more ------------------------------------------
   // The both-directions half of the mirror, inverted. Until #302 this loop asserted that every
-  // family placed by data-col/data-row was one group 12 mirror-checked; now the honest assertion is
+  // family placed by a numbered attribute was one group 12 mirror-checked; now the honest claim is
   // that the SET IS EMPTY. Derived from the sheet rather than typed, so a later ticket reaching for
   // the old mechanism fails HERE, where the message says what to do instead.
   const placed = [...css.matchAll(/(\.stx-[a-z-]+)\[data-(?:col|row|span-col|span-row|zoom)="\d+"\]/g)].map((m) => m[1]);
@@ -2658,7 +2658,7 @@ function scanSvg(svg, label) {
     "studio-canvas.mjs no longer exports both write helpers — group 7's function-scoped exception names them, so they are a contract and not an implementation detail");
 
   // --- 12.4 · setPos over hostile input — the clamp battery, in pixels -------------------------
-  // clampSlot's discipline, moved to the new units and kept whole: coerce first, never let a
+  // the retired slot clamp's discipline, moved to the new units and kept whole: coerce first, never let a
   // non-finite value reach a property, and clamp to the ONE bound that is left. `--x: NaN` makes the
   // whole translate() declaration invalid at computed-value time — it drops SILENTLY and the node
   // renders at 0,0 — so this is not defensive, it is the difference between a refusal and a lie.
@@ -2679,7 +2679,7 @@ function scanSvg(svg, label) {
     [[99999, 99999, 220], { x: `${STAGE_W - 220}px`, y: `${STAGE_H}px`, w: "220px", h: "" }, "past the far edge clamps to it, and the x bound accounts for the node's own width"],
     [[NaN, 0, 220], { x: "0px", y: "0px", w: "220px", h: "" }, "NaN never reaches a property — the whole translate() would drop silently"],
     [[Infinity, -Infinity, 220], { x: "0px", y: "0px", w: "220px", h: "" }, "non-finite never reaches a property"],
-    [["120", "40", "220"], { x: "120px", y: "40px", w: "220px", h: "" }, "a decoded string is coerced, not refused — clampSlot's rule, kept"],
+    [["120", "40", "220"], { x: "120px", y: "40px", w: "220px", h: "" }, "a decoded string is coerced, not refused — the retired clamp's rule, kept"],
     [[10, 10, 2], { x: "10px", y: "10px", w: `${MIN_SIZE}px`, h: "" }, `a width under MIN_SIZE floors at ${MIN_SIZE} — below it the node cannot be picked up by pointer again`],
     [[10, 10, 220, 300], { x: "10px", y: "10px", w: "220px", h: "300px" }, "a height given is a height written"],
     [[10, 99999, 220, 300], { x: "10px", y: `${STAGE_H - 300}px`, w: "220px", h: "300px" }, "the y bound accounts for an authored height"],
@@ -2743,7 +2743,7 @@ function scanSvg(svg, label) {
   ok(SHARE_VERSION === 3 && SHARE_VERSIONS.length === 2 && SHARE_VERSIONS.includes(1) && SHARE_VERSIONS.includes(3),
     `build-share.mjs reads v${SHARE_VERSIONS.join(" and v")} writing v${SHARE_VERSION}; #302 moved it to 3 and dropped 2 with the field only 2 could carry`);
 
-  group("canvas", `studio.css hand-mirrors the stage box (${STAGE_W} x ${STAGE_H}) and the rest scale ${SCALE_REST} in BOTH directions, with the sizer's un-booted fallbacks pinned to the same two numbers · the numbered-attribute mechanism proven GONE from the sheet (the set is derived from it, so a later ticket reaching for data-col fails here rather than on a reader's screen) and the four families proven to share ONE position rule, with --h on the frame alone (D-c) · setPos over 11 hostile inputs — negative, past both edges, NaN, non-finite, decoded strings, an under-floor width, an absent everything — never writing a non-finite value, clamping to the stage on both axes with the node's OWN size accounted for, omitting --h entirely when none is given, returning where the node LANDED and throwing on a null element · setScale over 8, continuous between ${SCALE_MIN} and ${SCALE_MAX}, with the scroll extent written in the SAME call · and #208's tripwire discharged by deletion: the codec imports nothing from the canvas, emits no arrangement, and reads v1 and v3 only. What it cannot reach: whether the sheet's translate actually MOVES anything, which needs layout — tooling/studio-journey.mjs owns that, and Gate B owns the claim that the style attribute carries only these seven properties`);
+  group("canvas", `studio.css hand-mirrors the stage box (${STAGE_W} x ${STAGE_H}) and the rest scale ${SCALE_REST} in BOTH directions, with the sizer's un-booted fallbacks pinned to the same two numbers · the numbered-attribute mechanism proven GONE from the sheet (the set is derived from it, so a later ticket reaching for the old spelling fails here rather than on a reader's screen) and the four families proven to share ONE position rule, with --h on the frame alone (D-c) · setPos over 11 hostile inputs — negative, past both edges, NaN, non-finite, decoded strings, an under-floor width, an absent everything — never writing a non-finite value, clamping to the stage on both axes with the node's OWN size accounted for, omitting --h entirely when none is given, returning where the node LANDED and throwing on a null element · setScale over 8, continuous between ${SCALE_MIN} and ${SCALE_MAX}, with the scroll extent written in the SAME call · and #208's tripwire discharged by deletion: the codec imports nothing from the canvas, emits no arrangement, and reads v1 and v3 only. What it cannot reach: whether the sheet's translate actually MOVES anything, which needs layout — tooling/studio-journey.mjs owns that, and Gate B owns the claim that the style attribute carries only these seven properties`);
 }
 
 // --- 13 · the canvas verbs ----------------------------------------------------------------------
@@ -2932,15 +2932,15 @@ function scanSvg(svg, label) {
   ok(cloneAdoptH.current().late2.col === 3, "an id adopted into history is handed back as a live reference");
 
   // DIRS is the shared arrow vocabulary — four keys, each a unit step on exactly one axis. A
-  // diagonal entry here would silently make stepSlot's single-axis bound the wrong bound.
+  // diagonal entry here would silently make a carry's single-axis step move on two axes at once.
   ok(Object.keys(DIRS).length === 4, `DIRS declares ${Object.keys(DIRS).length} directions, expected 4`);
   for (const [key, [dc, dr]] of Object.entries(DIRS)) {
     ok(Math.abs(dc) + Math.abs(dr) === 1,
-      `DIRS.${key} is [${dc}, ${dr}] — every direction must be a UNIT step on ONE axis, or stepSlot's per-axis bound is wrong`);
+      `DIRS.${key} is [${dc}, ${dr}] — every direction must be a UNIT step on ONE axis, or one press moves on two`);
   }
 
   // SPOKEN_MAX moved to module scope at #217 so system/studio-select.mjs can IMPORT the bound
-  // rather than re-type it (the MAX_COLS / LABEL_MAX / SLOT_MAX precedent). Pinned here as an
+  // rather than re-type it (the LABEL_MAX / SLOT_MAX precedent). Pinned here as an
   // export, and asserted to be a usable bound rather than to equal a number typed twice: a cap of 0
   // would make every group sentence say "and N more" with nothing named, and a huge one would
   // restore the unbounded sentence the cap exists to prevent.
@@ -2949,7 +2949,7 @@ function scanSvg(svg, label) {
   ok(/^export const SPOKEN_MAX/m.test(readFileSync(join(ROOT, "system/studio-verbs.mjs"), "utf8")),
     "SPOKEN_MAX is no longer a module-scope export of studio-verbs.mjs — studio-select.mjs imports it, and a re-declared copy there is a second bound that drifts");
 
-  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports. WHAT WENT WITH THE GRID (#302): stepSlot's occupancy-aware walk, hitSlot's track bands, #217's all-or-nothing groupDelta/groupStep/groupOccupancy and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves have new owners — the nudge floor and the snap guides are #302 Phase 5's, and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
+  group("verbs", `history: undo/redo round-trip · no-ops at both ends · redo tail discarded · caps at ${HISTORY_MAX} with the index intact · clones in and out (proven by mutation) · adopt teaches every entry a post-mount id, fills MISSING ids only, stays inert and clones both ways — the pick-up call site is studio-journey's · the SNAPSHOT SHAPE is a free position per id ({x, y, w} and {x, y, w, h}), driven through the same canonical stringify, with a deep-compare on a snapshot differing ONLY in --h proving the clone reaches every field of the new shape rather than the two the old one had · DIRS is four UNIT steps on one axis each · SPOKEN_MAX pinned as the exported bound studio-select.mjs imports. WHAT WENT WITH THE GRID (#302): the occupancy-aware arrow walk, the track-band hit test, #217's all-or-nothing group step and the cell-based guidesFor — 264 lines of cases over five functions that no longer exist, because free positions have no cells to collide in (D-d) and nothing blocks a free move. They are DELETED rather than translated: a group-move gate over a rule that cannot refuse would be asserting that a translation equals itself. The re-expressed halves have new owners — the nudge floor and the snap guides are #302 Phase 5's, and the single-consumer invariant, the group announcements and the guides on a running stage stay studio-journey's, and say so`);
 }
 
 // --- 14 · the studio orchestrator's pure layer ----------------------------------------------------
@@ -3102,7 +3102,7 @@ function scanSvg(svg, label) {
     `junk affordance entries were not filtered down to the real one: ${deep(coerced[0].affordances)}`);
 
   // THE TRUNCATION TRIPWIRE IS DELETED, NOT TRANSLATED (#302). What stood here asserted
-  // MAX_PLACES < MAX_COLS and then drove an over-wide board through the truncation clause, so that a
+  // MAX_PLACES below the column cap and then drove an over-wide board through the truncation, so a
   // later MAX_PLACES raise would fail HERE rather than silently stacking places 13+ onto column 12.
   // Free positioning has no column cap for MAX_PLACES to be below and arrangeBoard truncates
   // nothing, so the tripwire has no subject. Translating it into a comparison against
@@ -3177,7 +3177,7 @@ function scanSvg(svg, label) {
 //
 // THE BOUNDARY THIS GROUP DOES NOT REACH, stated as groups 9, 11, 13 and 14 state theirs. The beat
 // itself is a running-page fact and none of it is visible from here: that the swap is POSITIONAL and
-// IN PLACE (so data-stx-id, data-col and data-row survive it and the undo history stays coherent),
+// IN PLACE (so data-stx-id and the position properties survive it and the undo history stays coherent),
 // that the settled DOM is byte-identical across a compile → revert → compile and across two page
 // loads, that the vocabulary is fetched on FIRST COMPILE and never at load, that the crossfade opens
 // no view transition, and that reduced motion reaches the same end state. Their owners are
@@ -4927,7 +4927,7 @@ function scanSvg(svg, label) {
     "menuAnchor must clamp an off-stage invoker rather than placing a menu where nothing can scroll to it");
 
   // --- 22.6 totality ---------------------------------------------------------------------------
-  // Every export answers junk with a shape, never a throw. clampSlot's default parameter covers
+  // Every export answers junk with a shape, never a throw. A default parameter covers
   // `undefined` and NOT `null`, so a null slot destructures and throws — found by running this,
   // which is why the module coerces once rather than at four call sites.
   const junk = [null, undefined, 0, "x", [], {}, NaN, true, { x: "a" }, [{ id: null }]];
