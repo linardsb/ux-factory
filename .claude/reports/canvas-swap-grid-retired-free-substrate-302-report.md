@@ -254,6 +254,8 @@ in prose rather than in code. Caught on review; the assertions now exist and are
 | `node tooling/drift-check.mjs` | **✓ thirteen legs** — syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
 | `node tooling/token-lint.mjs` | **✓ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid** |
 | the DoD grep (AC #1's seven) | **80** lines across 2 files, from 435 across 15 — both of them journey drivers |
+| `node tooling/vt-stack-audit.mjs /studio.html` | **✓** — and **vacuously**: `0 named element(s)`. The studio names nothing for a view transition, which its own module header claims and this confirms |
+| `node tooling/vt-stack-audit.mjs /factory.html` | **✗ 1 state with layout shift**, 294 elements — **and BYTE-IDENTICAL on the base tree at `287445e`**, driven from a clean detached worktree on a second private port. Not this PR's (see H8) |
 | the journey drivers, `vt-verify`, `vt-stack-audit` | **not run** — Phase 8 |
 | the pixel gate | **not run** — Phase 9 |
 
@@ -398,6 +400,33 @@ and the group bodies are bare top-level blocks, so one `ReferenceError` ends the
 below it goes unreported. This shaped Phase 1's probe, and it is why the current run says nothing
 about groups 23-34.
 
+**H8 — `vt-stack-audit` is red on `/factory.html`, it is NOT #302's, and `gates.md` understates the
+surface.** Run before writing Phase 3.4's overlay, for the before-reading the plan's GOTCHA asks for.
+Observed: `✗ 1 state(s) with layout shift`, 294 elements. The same script run against the **base tree
+at `287445e`** — a clean detached worktree, served on its own port, `curl`-verified to be the base by
+the absence of #302's `--stx-extent-w` rule — produces **byte-identical output**, the same eight
+sample rows and the same numbers. So it predates this PR.
+
+`gates.md:158` records this class of false positive as affecting "`/index` and `/roundtrip` (2 of the
+7 shipped IA pages)", with #190 as the fix. **`/factory` is a third and is not on that list**, so the
+prose understates it. Not fixed here — #190's, and `vt-stack-audit` is operator-run rather than a
+merge blocker (`gates.md:7`).
+
+**H9 — `vt-stack-audit` cannot see the hazard #302 actually introduces, and this matters for 3.4.**
+Its instrument is name-removal: `for (const e of document.querySelectorAll("[style*='view-transition']"))
+e.style.removeProperty("view-transition-name")`, measure, compare. It detects a containing block
+created by a **`view-transition-name`**. Every node on this canvas is now a containing block for
+absolutely positioned descendants because it carries a **`transform`** (CSS Transforms 1 §3) — a
+different property, which name-removal does not touch.
+
+The proof is the `/studio.html` run above: a page saturated with transforms and therefore with
+containing blocks reads `✓ nothing moves`, because there are no names to remove. It is the right
+gate to run before NAMING anything — which is what the plan's GOTCHA says — and it is **not** the
+detector for the overlay's coordinate space. Phase 3.4's overlay is absolutely positioned inside a
+stage that carries `transform: scale(...)`, so its coordinate space is the stage's; **nothing in the
+repo currently gates that**, and it needs its own running-page assertion in Phase 8 measuring an
+arrow's endpoints against the node positions it claims to connect.
+
 **H4 — Three plan anchors were wrong by a line or two**, and were resolved by content instead:
 `studio-verbs.mjs`'s `createHistory` comment is at :287 not :286, `keepPass`'s republish call is
 indented 6 not 8, and `studio-canvas.mjs`'s `removeAttribute` is indented 8 not 6. All three would
@@ -420,19 +449,22 @@ how the repo's largest class of process finding gets in through a door no gate w
 
 Tightest constraint first. Steps 1-4 reach Task 2.9, the first green tree since `287445e`.
 
-1. **`system/studio-verbs.mjs`'s gesture mount** — the last source module. **Do `animateTo` first**
-   (H1: three lines, already diagnosed). Then `snapshot`/`restore`/`applySlot`/`applySpan` (Task 3.3)
-   and the move/resize gestures. D-d governs: nothing blocks a free move, so the "Blocked, still in
-   column X, row Y." sentence is **deleted, not translated**, and `studio-verbs.mjs`'s header must say
-   so.
-2. **Group 22** — its source is done. The fixtures are mechanical (`{col,row}` → `{x,y,w,h}`,
-   `col1/row1/col2/row2` → `left/top/right/bottom`); keep 22.4 (`menuItems`/`MENU_ITEMS`) untouched.
-   **The one non-mechanical case is 22.2's four just-outside twins**: under overlap-not-origin they
-   need re-deriving, not renaming.
-3. **`studio-frames.mjs`'s `FRAMES` literals, then group 24** — resolve H6's aliases first.
-4. **`tooling/build-checks.mjs`'s own header index at :55, :57, :110, :121** — four prose lines
-   naming retired functions. They keep AC #1 red and cost nothing.
-5. **Task 2.9's checkpoint**, then Phases 3.4 (the arrow overlay + `vt-stack-audit`) and 4-10.
+Steps 1-5 are **done** (they were this session's second half). What remains:
 
-**Add H2's driver assertion when Phase 8 reaches `layersPass` and `minimapPass`** — it is the
-highest-value one in this PR, and nothing currently covers it.
+1. **Phase 3.4 — the SVG arrow overlay.** Its before-reading is taken (H8). Design its gate FIRST:
+   per H9 nothing in the repo can see a transform-induced containing block, so the overlay needs a
+   running-page assertion measuring an arrow's endpoints against the two node positions it claims to
+   connect, at a scale **other than 1** — at 100% scrolled to 0,0 a wrong coordinate space looks
+   right, which is the trap every other coordinate chain in this module set carries a note about.
+2. **Phase 4** — `canvas-ops.mjs` and `device-presets.mjs`, then group 35. The applier is
+   copy-and-adapt, not blank-page: `.claude/plans/canvas-swap-302-reference/canvas-ops.reference.txt`
+   is 25/25. `PARAMS` must be EXPORTED and frozen at both levels or the group cannot iterate `OPS`.
+3. **Phase 5** — the nudge floor and align/distribute. `guidesFor` already landed with the mount.
+4. **Phase 6** — the spine and its package, then group 36.
+5. **Phase 7** — re-run `gen-loc-summary` (it will move again), `gen-param-count`, and the
+   vocabulary + handoff cascade the `id` node key forces.
+6. **Phases 8-10** — the drivers on three engines, the INP gate, the baselines, the prose.
+
+**Two assertions to add when Phase 8 gets there**, both of which nothing currently covers:
+**H2**'s `attributeFilter` check in `layersPass` and `minimapPass`, and **H9**'s overlay coordinate
+space.
