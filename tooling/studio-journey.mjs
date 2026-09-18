@@ -91,7 +91,12 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 
 // Imported from the shipped module, never retyped — moving a cap or a level fails this driver
 // instead of drifting past it (proto-journey.mjs:54-56's discipline).
-const { MAX_COLS, ZOOM_LEVELS, ZOOM_REST } = await import(new URL("../system/studio-canvas.mjs", import.meta.url));
+// #302: the caps and the zoom table are gone; what this driver computes expectations from now is the
+// stage box, the scale bounds, the node pitch and the nudge floor. THE DISCIPLINE IS UNCHANGED and is
+// the whole point of the line — every number below is imported, never retyped, so moving the stage or
+// the scale bounds fails this driver instead of drifting past it.
+const { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W } =
+  await import(new URL("../system/studio-canvas.mjs", import.meta.url));
 // #214's methodPass computes its expectations IN NODE from the same committed rules the page runs —
 // a hardcoded label list would pass a redraft that silently stopped being draftBoard's.
 const { draftBoard } = await import(new URL("../system/breadboard.mjs", import.meta.url));
@@ -110,7 +115,10 @@ const { FRAMES } = await import(new URL("../system/studio-frames.mjs", import.me
 // #221's two passes compute every expectation through the same pure functions the page runs — a
 // literal sentence or rect would pass a list or a map that silently stopped being the canvas's.
 const { layerEntries } = await import(new URL("../system/studio-layers.mjs", import.meta.url));
-const { cellRect, jumpFrom, mapView, visibleRange } = await import(new URL("../system/studio-minimap.mjs", import.meta.url));
+const { jumpFrom, mapView, nodeRect, visibleCount } = await import(new URL("../system/studio-minimap.mjs", import.meta.url));
+// #302 Phase 5's pure layer, for the same reason: the nudge step, the eight verbs and the reading
+// order are all computed here through the functions the page runs.
+const { ALIGN_VERBS, alignMoves, NUDGE_STEP, readingOrder } = await import(new URL("../system/studio-verbs.mjs", import.meta.url));
 
 // The stale-serve guard (tooling/catalog-journey.mjs's, copied): a long-lived serve.mjs can belong
 // to another session and serve ANOTHER tree, and every assertion below would then be about the
@@ -132,7 +140,13 @@ const SCROLL = `${VIEWPORT} .stx-scroll`;
 const READOUT = `${VIEWPORT} .stx-zoom-level`;
 const LIVE = `${VIEWPORT} .stx-live`;
 
-const pct = (i) => `${Math.round(ZOOM_LEVELS[i] * 100)}%`;
+// The readout's own arithmetic, so a case names a SCALE and the expectation follows the shipped
+// rounding rather than a second copy of it.
+const pct = (scale) => `${Math.round(scale * 100)}%`;
+// One keyboard zoom step, mirrored from studio-canvas.mjs's ZOOM_STEP. Not exported — it is a mount
+// constant — so this is the one number in this file that is retyped, and it is pinned by the
+// round-trip case below rather than trusted.
+const ZOOM_STEP = 1.25;
 
 // #416 · THE SETTLE WAIT, AND IT SAYS WHAT IT DIED IN. Every wait below for [data-replay="settled"]
 // was a bare waitForSelector, and a bare waitForSelector throws ONE sentence — "Timeout 30000ms
@@ -172,13 +186,22 @@ async function settleWait(p, timeout = 30000) {
 }
 
 // The state the assertions below read, taken in one round trip so nothing races a re-layout.
-const snapshot = (p) => p.evaluate(() => {
+const snapshot = (p) => p.evaluate(async () => {
   const vp = document.querySelector("[data-studio-canvas]");
   const scroll = vp.querySelector(".stx-scroll");
   const stage = vp.querySelector(".stx-stage");
   const slots = [...stage.querySelectorAll(".stx-slot")];
+  // SETTLE FOR THE COALESCED SCALE WRITE (#302). setScale is deferred to one write per animation
+  // frame — S1's own recommendation, and the reason a pinch's event flood costs one write rather
+  // than forty — so --stx-scale on the viewport is up to a frame behind the module's own variable.
+  // Reading without this gives the PREVIOUS scale while the readout, written synchronously, already
+  // shows the new one: a driver that did not wait would report the two disagreeing and be right
+  // about the frame and wrong about the page. Two frames, because one only guarantees the callback
+  // is queued.
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return {
-    zoom: vp.getAttribute("data-zoom"),
+    // #302: the zoom is a continuous --stx-scale on the viewport, not an index into a table.
+    zoom: vp.style.getPropertyValue("--stx-scale") || null,
     readout: vp.querySelector(".stx-zoom-level").textContent.trim(),
     live: vp.querySelector(".stx-live").textContent.trim(),
     scrollLeft: Math.round(scroll.scrollLeft),
@@ -192,22 +215,40 @@ const snapshot = (p) => p.evaluate(() => {
     contentH: stage.offsetHeight,
     panning: scroll.classList.contains("is-panning"),
     slotCount: slots.length,
-    // The attribute-not-style claim, read off the RUNNING page rather than out of the source.
-    inlineStyled: [...slots, stage, scroll].filter((n) => n.hasAttribute("style")).length,
+    // GATE B (#302). It was "no node carries a style attribute at all", which was true while
+    // arrangement was attributes and is false now — setPos writes four custom properties and
+    // setScale three. So the claim is not ABSENCE, it is the EXACT SET: every style attribute on the
+    // canvas carries only those seven properties and nothing else.
+    //
+    // READ PROPERTY BY PROPERTY off the CSSStyleDeclaration rather than by matching the attribute's
+    // text: a longhand written by a third party would be invisible to a substring check and is
+    // exactly what this exists to catch. The offenders are NAMED, so a failure says which property
+    // on which element rather than a count.
+    inlineStyled: (() => {
+      const ALLOWED = new Set(["--x", "--y", "--w", "--h", "--stx-scale", "--stx-extent-w", "--stx-extent-h"]);
+      const bad = [];
+      for (const n of [...slots, ...stage.querySelectorAll(".stx-frame, .stx-guide, .stx-menu, .stx-arrows"), stage, scroll, vp]) {
+        for (const prop of n.style) if (!ALLOWED.has(prop)) bad.push(`${n.className || n.tagName}.${prop}`);
+      }
+      return bad;
+    })(),
     outDisabled: vp.querySelector(".stx-zoom-btn").disabled,
   };
 });
 
 // The exported driver seam, reached by the SAME specifier the harness imports — a different string
 // resolves to a second module record whose `live` is null (vt-verify.mjs:209's idiom).
-const viaSeam = (p, col, row) => p.evaluate(([c, r]) =>
+const viaSeam = (p, x, y) => p.evaluate(([px, py]) =>
   import("/system/studio-canvas.mjs").then((m) => {
     const canvas = m.getCanvas();
     if (!canvas) return { error: "getCanvas() returned nothing — the module record the page mounted is not this one" };
     const node = canvas.stage.querySelector(".stx-slot");
-    const slot = canvas.place(node, { col: c, row: r, name: "Driven tile" });
-    return { slot, col: node.getAttribute("data-col"), row: node.getAttribute("data-row"), styled: node.hasAttribute("style") };
-  }), [col, row]);
+    const at = canvas.place(node, { x: px, y: py, name: "Driven tile" });
+    const prop = (k) => node.style.getPropertyValue(k);
+    // GATE B's per-node half: the style attribute this node carries is ONLY the position properties.
+    const stray = [...node.style].filter((k) => !["--x", "--y", "--w", "--h"].includes(k));
+    return { at, x: prop("--x").replace("px", ""), y: prop("--y").replace("px", ""), w: prop("--w").replace("px", ""), stray };
+  }), [x, y]);
 
 const btn = (p, name) => p.locator(VIEWPORT).getByRole("button", { name, exact: true });
 
@@ -244,32 +285,37 @@ const busRecord = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").the
 const busSeen = (p) => p.evaluate(() => (window.__busLog || []).slice());
 const busClear = (p) => p.evaluate(() => { window.__busLog = []; });
 
-// The client-space centre of a grid cell, derived from MEASURED slot boxes — the origin from the
-// slot at column 2 row 1, the pitch from its neighbours in column 3 and row 2. Deliberately not
-// computed from getComputedStyle(stage).gridTemplateColumns: that is the same read the module's own
-// hit-test makes, and a driver that reproduces the implementation's arithmetic agrees with its bugs.
+// A STAGE POINT → A CLIENT POINT, measured from the stage's own rect rather than reconstructed from
+// three reference nodes (#302). The old helper interpolated between slots (2,1) (3,1) (2,2) because
+// a cell's client position could only be found by looking at a cell; a free position is written on
+// the node, so the conversion is the scroller's rect, the scroll offset and the scale — the same
+// three steps the module's own pointOnStage takes, INVERTED.
 //
-// The references are (2,1) (3,1) (2,2) rather than the origin cell, because the node this section
-// moves around starts at (1,1) — anchoring on a cell the test itself empties would make the whole
-// helper stop resolving halfway through the run.
-const cellPoint = (p, col, row) => p.evaluate(([c, r]) => {
-  const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-  const box = (sel) => { const n = stage.querySelector(sel); return n && n.getBoundingClientRect(); };
-  const a = box('.stx-slot[data-col="2"][data-row="1"]');
-  const bx = box('.stx-slot[data-col="3"][data-row="1"]');
-  const by = box('.stx-slot[data-col="2"][data-row="2"]');
-  if (!a || !bx || !by) return { error: "the three reference slots (2,1) (3,1) (2,2) are not all placed" };
-  return {
-    x: a.left + (c - 2) * (bx.left - a.left) + a.width / 2,
-    y: a.top + (r - 1) * (by.top - a.top) + a.height / 2,
-  };
-}, [col, row]);
+// Deliberately NOT reading the module's function: a driver that calls the implementation's own
+// arithmetic agrees with its bugs. These three reads are the browser's.
+const stagePoint = (p, x, y) => p.evaluate(([sx, sy]) => {
+  const vp = document.querySelector("[data-studio-canvas]");
+  const scroll = vp.querySelector(".stx-scroll");
+  const r = scroll.getBoundingClientRect();
+  const scale = parseFloat(vp.style.getPropertyValue("--stx-scale")) || 1;
+  return { x: r.left + sx * scale - scroll.scrollLeft, y: r.top + sy * scale - scroll.scrollTop };
+}, [x, y]);
 
-// The stable id of whatever currently sits in a cell — so a case can name its start node by where
-// it is rather than by which order the harness happened to place things in.
-const idAt = (p, col, row) => p.evaluate(([c, r]) =>
-  document.querySelector(`.stx-slot[data-col="${c}"][data-row="${r}"]`)?.getAttribute("data-stx-id") ?? null,
-[col, row]);
+// The stable id of whatever sits NEAREST a stage point — so a case can name its start node by where
+// it is rather than by which order the harness happened to place things in. Nearest rather than
+// exact, because a free position is a float and an equality test on one is a coin toss.
+const idAt = (p, x, y) => p.evaluate(([sx, sy]) => {
+  const nodes = [...document.querySelectorAll("[data-studio-canvas] .stx-slot")];
+  let best = null;
+  let bestD = Infinity;
+  for (const n of nodes) {
+    const nx = parseFloat(n.style.getPropertyValue("--x")) || 0;
+    const ny = parseFloat(n.style.getPropertyValue("--y")) || 0;
+    const d = (nx - sx) ** 2 + (ny - sy) ** 2;
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best?.getAttribute("data-stx-id") ?? null;
+}, [x, y]);
 
 // The measured box of one node, by its stable id.
 const nodeBox = (p, id) => p.evaluate((i) => {
@@ -376,12 +422,17 @@ async function journey(engineName, results, held) {
 
   // ---------------------------------------------------------------- [1] at rest
   const rest = await snapshot(page);
-  t(`at rest the canvas is data-zoom=${ZOOM_REST} (scale 1), scrolled to 0,0, readout 100%`,
-    rest.zoom === String(ZOOM_REST) && rest.scrollLeft === 0 && rest.scrollTop === 0 && rest.readout === "100%",
+  t(`at rest the canvas is --stx-scale ${SCALE_REST}, scrolled to 0,0, readout 100%`,
+    Number(rest.zoom) === SCALE_REST && rest.scrollLeft === 0 && rest.scrollTop === 0 && rest.readout === "100%",
     JSON.stringify({ zoom: rest.zoom, l: rest.scrollLeft, t: rest.scrollTop, readout: rest.readout }));
   t(`the stage holds real components (${rest.slotCount} placed)`, rest.slotCount >= 30, `slots=${rest.slotCount}`);
-  t("no `style` attribute on the stage, the scroller or any slot — arrangement is attributes, on the running page",
-    rest.inlineStyled === 0, `${rest.inlineStyled} element(s) carry one`);
+  // GATE B (#302), and the claim CHANGED with the substrate rather than being dropped. It read "no
+  // style attribute anywhere", which was true while arrangement was attributes; setPos and setScale
+  // write seven custom properties, so what is asserted now is the EXACT SET — every style attribute
+  // on this canvas carries only those seven and nothing else. Read property by property, so a
+  // longhand a third party wrote is named rather than hidden inside an attribute's text.
+  t("every inline style on the canvas carries ONLY --x/--y/--w/--h and the three scale properties — on the running page",
+    rest.inlineStyled.length === 0, rest.inlineStyled.join(", "));
   t("the sizer gives the scroller a real pannable range", rest.scrollW > rest.clientW,
     `scrollWidth=${rest.scrollW} clientWidth=${rest.clientW}`);
 
@@ -389,59 +440,62 @@ async function journey(engineName, results, held) {
   await btn(page, "Zoom in").click();
   await btn(page, "Zoom in").click();
   const zin = await snapshot(page);
-  t(`zoom in ×2 tracks ZOOM_LEVELS → ${pct(ZOOM_REST + 2)}`,
-    zin.zoom === String(ZOOM_REST + 2) && zin.readout === pct(ZOOM_REST + 2), `${zin.zoom} / ${zin.readout}`);
-  t("at the top level the Zoom in button is disabled",
-    await btn(page, "Zoom in").isDisabled(), "");
+  // MULTIPLICATIVE, not a table index: two clicks is SCALE_REST × ZOOM_STEP², and the readout's
+  // rounding is pct()'s own. This is also the one place ZOOM_STEP is pinned — the round trip below
+  // returns EXACTLY to the rest scale, which a wrong step would not.
+  const twoIn = SCALE_REST * ZOOM_STEP * ZOOM_STEP;
+  t(`zoom in ×2 multiplies by ZOOM_STEP twice → ${pct(twoIn)}`,
+    Math.abs(Number(zin.zoom) - twoIn) < 1e-9 && zin.readout === pct(twoIn), `${zin.zoom} / ${zin.readout}`);
 
   await btn(page, "Zoom out").click();
   await btn(page, "Zoom out").click();
   const zout = await snapshot(page);
-  t("zoom out ×2 comes back to 100%", zout.zoom === String(ZOOM_REST) && zout.readout === "100%", `${zout.zoom} / ${zout.readout}`);
+  t("zoom out ×2 comes back EXACTLY to the rest scale — the step is a ratio, so the round trip is lossless",
+    Math.abs(Number(zout.zoom) - SCALE_REST) < 1e-9 && zout.readout === "100%", `${zout.zoom} / ${zout.readout}`);
 
-  // Exactly ZOOM_REST clicks from 100% reaches index 0 — clicking past it would hang on the button
-  // this very assertion expects to be disabled.
-  for (let i = 0; i < ZOOM_REST; i += 1) await btn(page, "Zoom out").click();
-  t("at the bottom level the Zoom out button is disabled", (await snapshot(page)).outDisabled, "");
+  // THE FLOOR IS A BOUND, NOT A TABLE END. Enough presses to cross it from rest, computed from the
+  // bound itself rather than counted — clicking past it would hang on the button this very
+  // assertion expects to be disabled.
+  const toFloor = Math.ceil(Math.log(SCALE_REST / SCALE_MIN) / Math.log(ZOOM_STEP));
+  for (let i = 0; i < toFloor; i += 1) await btn(page, "Zoom out").click();
+  const floored = await snapshot(page);
+  t(`at the ${SCALE_MIN} floor the Zoom out button is disabled`, floored.outDisabled, `scale=${floored.zoom}`);
+  t("…and the scale STOPPED at the floor rather than going under it",
+    Math.abs(Number(floored.zoom) - SCALE_MIN) < 1e-9, `scale=${floored.zoom}`);
+  const toCeil = Math.ceil(Math.log(SCALE_MAX / SCALE_MIN) / Math.log(ZOOM_STEP));
+  for (let i = 0; i < toCeil; i += 1) await btn(page, "Zoom in").click();
+  t(`at the ${SCALE_MAX} ceiling the Zoom in button is disabled`, await btn(page, "Zoom in").isDisabled(), "");
+  await btn(page, "Reset").click();
 
-  // FIT — the only check that catches --stx-slot-w / --stx-slot-h drifting away from what fitLevel
-  // assumes. Phrased as "the NEXT level up does not fit", which is true both when fit found a
-  // fitting level and when it floored at the smallest because nothing fits.
+  // FIT NOW ACTUALLY FITS, and that is the claim that changed. The discrete table could only snap
+  // DOWN to a level at or below the ideal ratio, so every assertion here was phrased as "the NEXT
+  // level up does not fit" — true both when fit found one and when it floored because nothing fits.
+  // A continuous scale can BE the ratio, so the assertion is equality with the ratio itself, which
+  // is strictly stronger and is the whole reason the table was retired.
   await btn(page, "Fit").click();
   const fitted = await snapshot(page);
   const chosen = Number(fitted.zoom);
-  const fitsAt = (i) => ZOOM_LEVELS[i] * fitted.contentW <= fitted.clientW + 1 && ZOOM_LEVELS[i] * fitted.contentH <= fitted.clientH + 1;
-  t("fit picks the largest level that actually fits the measured viewport — the next one up does not",
-    chosen === ZOOM_LEVELS.length - 1 || !fitsAt(chosen + 1),
-    `chose ${chosen} (${pct(chosen)}); content ${fitted.contentW}×${fitted.contentH} in ${fitted.clientW}×${fitted.clientH}`);
-  t("fit is either a fitting level or the floor, never a level nothing could reach",
-    fitsAt(chosen) || chosen === 0, `chose ${chosen}, fits=${fitsAt(chosen)}`);
-  t("fit announces the level it reached", /^Zoom \d+ percent/.test(fitted.live), fitted.live);
+  const ratio = Math.min(fitted.clientW / STAGE_W, fitted.clientH / STAGE_H);
+  t("fit lands on the RATIO itself, not on the largest level at or below it — the stepped table's whole cost, gone",
+    Math.abs(chosen - Math.min(SCALE_MAX, Math.max(SCALE_MIN, ratio))) < 1e-6,
+    `chose ${chosen}, the ratio is ${ratio} (stage ${STAGE_W}×${STAGE_H} in ${fitted.clientW}×${fitted.clientH})`);
+  // …and it genuinely fits, measured rather than derived from the same arithmetic: the scaled stage
+  // is inside the box on both axes.
+  t("…and the scaled stage really is inside the viewport on both axes",
+    chosen * STAGE_W <= fitted.clientW + 1 && chosen * STAGE_H <= fitted.clientH + 1,
+    `${chosen * STAGE_W}×${chosen * STAGE_H} in ${fitted.clientW}×${fitted.clientH}`);
+  t("fit announces the scale it reached", /^Zoom \d+ percent/.test(fitted.live), fitted.live);
 
-  // The harness's real grid (12 × 220px) is far wider than the scroller, so the check above only
-  // ever exercises fit's FLOOR branch — which catches a slot size that grew, but not one that
-  // shrank. Shrinking the slots in the page reaches a level fit can genuinely land on, so the
-  // "largest level that fits" claim is asserted in the branch where it can be wrong in both
-  // directions. The override is the driver's, not the harness's, and it is removed straight after.
-  await page.evaluate(() => {
-    const s = document.createElement("style");
-    s.id = "journey-fit-probe";
-    s.textContent = ".stx-viewport { --stx-slot-w: 80px; --stx-slot-h: 60px; }";
-    document.head.appendChild(s);
-  });
-  await btn(page, "Fit").click();
-  const small = await snapshot(page);
-  const smallChosen = Number(small.zoom);
-  const smallFits = (i) => ZOOM_LEVELS[i] * small.contentW <= small.clientW + 1 && ZOOM_LEVELS[i] * small.contentH <= small.clientH + 1;
-  t("fit on a grid that genuinely fits lands ABOVE the floor, on the largest fitting level",
-    smallChosen > 0 && smallFits(smallChosen) && (smallChosen === ZOOM_LEVELS.length - 1 || !smallFits(smallChosen + 1)),
-    `chose ${smallChosen} (${pct(smallChosen)}); content ${small.contentW}×${small.contentH} in ${small.clientW}×${small.clientH}`);
-  await page.evaluate(() => document.getElementById("journey-fit-probe").remove());
+  // THE SHRUNKEN-GRID PROBE IS DELETED, NOT TRANSLATED (#302). It injected a stylesheet shrinking
+  // --stx-slot-w/h so that fit could land ABOVE its floor, because the real 12×220 grid was far
+  // wider than the scroller and the check otherwise only ever exercised the floor branch. A
+  // continuous fit has no floor branch to miss: it lands on the ratio at every viewport size, which
+  // the equality assertion above tests directly and in one case rather than two.
 
   await btn(page, "Reset").click();
   const afterReset = await snapshot(page);
-  t("reset returns to scale 1 and scroll 0,0",
-    afterReset.zoom === String(ZOOM_REST) && afterReset.scrollLeft === 0 && afterReset.scrollTop === 0,
+  t("reset returns to the rest scale and scroll 0,0",
+    Number(afterReset.zoom) === SCALE_REST && afterReset.scrollLeft === 0 && afterReset.scrollTop === 0,
     JSON.stringify({ zoom: afterReset.zoom, l: afterReset.scrollLeft, t: afterReset.scrollTop }));
 
   // ---------------------------------------------------------------- [2b] #213 · the zoom verbs BY KEYBOARD
@@ -454,14 +508,15 @@ async function journey(engineName, results, held) {
   await btn(page, "Zoom in").focus();
   await page.keyboard.press("Enter");
   const kzin = await snapshot(page);
-  t(`#213 · Zoom in by Enter steps to ${pct(ZOOM_REST + 1)} and the aria-live readout says so`,
-    kzin.zoom === String(ZOOM_REST + 1) && kzin.readout === pct(ZOOM_REST + 1), `${kzin.zoom} / ${kzin.readout}`);
+  t(`#213 · Zoom in by Enter steps to ${pct(SCALE_REST * ZOOM_STEP)} and the aria-live readout says so`,
+    Math.abs(Number(kzin.zoom) - SCALE_REST * ZOOM_STEP) < 1e-9 && kzin.readout === pct(SCALE_REST * ZOOM_STEP),
+    `${kzin.zoom} / ${kzin.readout}`);
 
   await btn(page, "Zoom out").focus();
   await page.keyboard.press("Enter");
   const kzout = await snapshot(page);
   t("#213 · Zoom out by Enter returns to 100% and the readout tracks it",
-    kzout.zoom === String(ZOOM_REST) && kzout.readout === "100%", `${kzout.zoom} / ${kzout.readout}`);
+    Math.abs(Number(kzout.zoom) - SCALE_REST) < 1e-9 && kzout.readout === "100%", `${kzout.zoom} / ${kzout.readout}`);
 
   await countLive(page);
   await btn(page, "Fit").focus();
@@ -469,11 +524,10 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(120);
   const kfit = await snapshot(page);
   const kfitSaid = await liveSeen(page);
-  const kfits = (i) => ZOOM_LEVELS[i] * kfit.contentW <= kfit.clientW + 1 && ZOOM_LEVELS[i] * kfit.contentH <= kfit.clientH + 1;
   const kchosen = Number(kfit.zoom);
-  t("#213 · Fit by Enter lands on a level the measured layout agrees with",
-    (kfits(kchosen) || kchosen === 0) && (kchosen === ZOOM_LEVELS.length - 1 || !kfits(kchosen + 1)),
-    `chose ${kchosen}; content ${kfit.contentW}×${kfit.contentH} in ${kfit.clientW}×${kfit.clientH}`);
+  const kratio = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(kfit.clientW / STAGE_W, kfit.clientH / STAGE_H)));
+  t("#213 · Fit by Enter lands on the same ratio the pointer path does — one fit, two input paths",
+    Math.abs(kchosen - kratio) < 1e-6, `chose ${kchosen}, the ratio is ${kratio}`);
   t("#213 · …and announces the level through .stx-live, once",
     kfitSaid.n === 1 && /^Zoom \d+ percent, fit to the canvas$/.test(kfitSaid.last), `${kfitSaid.n}: ${kfitSaid.last}`);
 
@@ -483,8 +537,8 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(120);
   const kreset = await snapshot(page);
   const kresetSaid = await liveSeen(page);
-  t("#213 · Reset by Enter returns to scale 1, scroll 0,0",
-    kreset.zoom === String(ZOOM_REST) && kreset.scrollLeft === 0 && kreset.scrollTop === 0,
+  t("#213 · Reset by Enter returns to the rest scale, scroll 0,0",
+    Number(kreset.zoom) === SCALE_REST && kreset.scrollLeft === 0 && kreset.scrollTop === 0,
     JSON.stringify({ zoom: kreset.zoom, l: kreset.scrollLeft, t: kreset.scrollTop }));
   t("#213 · …and announces the return through .stx-live",
     kresetSaid.n === 1 && kresetSaid.last === "Zoom 100 percent, back to the top left", `${kresetSaid.n}: ${kresetSaid.last}`);
@@ -496,7 +550,7 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(200);
   const bare = await snapshot(page);
   t("a BARE wheel over the stage never zooms — it scrolls, and chains to the page",
-    bare.zoom === String(ZOOM_REST), `data-zoom=${bare.zoom}`);
+    Number(bare.zoom) === SCALE_REST, `--stx-scale=${bare.zoom}`);
   t("…and it did scroll the canvas", bare.scrollTop > 0, `scrollTop=${bare.scrollTop}`);
 
   await page.keyboard.down("Control");
@@ -505,7 +559,7 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(200);
   const held2 = await snapshot(page);
   t("⌘/Ctrl + wheel DOES zoom — the same gesture a trackpad pinch delivers",
-    Number(held2.zoom) > ZOOM_REST, `data-zoom=${held2.zoom}`);
+    Number(held2.zoom) > SCALE_REST, `--stx-scale=${held2.zoom}`);
 
   await btn(page, "Reset").click();
 
@@ -545,11 +599,18 @@ async function journey(engineName, results, held) {
   // ---------------------------------------------------------------- [5] keyboard reachability
   // The property pan-by-scroll exists to preserve: a component in the far column is focusable and
   // the browser scrolls it into view natively. A transform-translate stage fails exactly here.
-  const reached = await page.evaluate((cols) => {
+  const reached = await page.evaluate(() => {
     const vp = document.querySelector("[data-studio-canvas]");
     const scroll = vp.querySelector(".stx-scroll");
-    const far = vp.querySelector(`.stx-slot[data-col="${cols}"]`);
-    if (!far) return { ok: false, why: `no slot in column ${cols}` };
+    // THE FARTHEST NODE, found by reading positions rather than by naming a column (#302). The claim
+    // is unchanged and is the one pan-by-scroll exists to preserve — a component at the far edge is
+    // focusable and the browser scrolls it into view natively, which a transform-translate stage
+    // fails exactly here. What changed is how the driver finds it: there is no last column to name.
+    const far = [...vp.querySelectorAll(".stx-slot")]
+      .sort((a, b) => (parseFloat(b.style.getPropertyValue("--x")) || 0) - (parseFloat(a.style.getPropertyValue("--x")) || 0))[0];
+    if (!far) return { ok: false, why: "no slot on the stage at all" };
+    const farX = parseFloat(far.style.getPropertyValue("--x")) || 0;
+    if (farX <= scroll.clientWidth) return { ok: false, why: `the farthest node is at x ${farX}, inside the ${scroll.clientWidth}px viewport — nothing to scroll to` };
     // Scoped PAST the move handle (#205). The slot is now a wrapper whose first child is a
     // .stx-grab button, so a bare querySelector would return the handle and this check would keep
     // passing while its stated subject — "a COMPONENT in the far column is focusable" — had quietly
@@ -558,20 +619,25 @@ async function journey(engineName, results, held) {
       : [...far.querySelectorAll("button, a, input, [tabindex]")].find((n) => !n.classList.contains("stx-grab"));
     (target || far).focus({ preventScroll: false });
     if (!target) far.scrollIntoView({ block: "nearest", inline: "nearest" });
-    return { ok: true, scrollLeft: Math.round(scroll.scrollLeft) };
-  }, MAX_COLS);
-  t(`focusing a component in column ${MAX_COLS} scrolls it into view`,
+    return { ok: true, scrollLeft: Math.round(scroll.scrollLeft), farX: Math.round(farX) };
+  });
+  t("focusing the component FARTHEST from the origin scrolls it into view — the property pan-by-scroll exists to preserve",
     reached.ok && reached.scrollLeft > 0, JSON.stringify(reached));
 
   await btn(page, "Reset").click();
 
   // ---------------------------------------------------------------- [6] arrangement via the seam
-  const driven = await viaSeam(page, 5, 3);
-  t("place() through the exported getCanvas() seam writes data-col / data-row",
-    driven.col === "5" && driven.row === "3", JSON.stringify(driven));
-  t("…and writes no inline style doing it", driven.styled === false, JSON.stringify(driven));
+  const DRIVEN = { x: 5 * (NODE_W + NODE_GAP), y: 2 * (NODE_H + NODE_GAP) };
+  const driven = await viaSeam(page, DRIVEN.x, DRIVEN.y);
+  t("place() through the exported getCanvas() seam writes --x / --y / --w",
+    Number(driven.x) === DRIVEN.x && Number(driven.y) === DRIVEN.y && Number(driven.w) === NODE_W, JSON.stringify(driven));
+  // GATE B, per node: the style attribute place() wrote carries the position properties and NOTHING
+  // else. "no style attribute at all" was the claim while arrangement was attributes; this is its
+  // successor, and it is the stronger of the two — it names a stray property rather than counting.
+  t("…and writes NOTHING but the position properties doing it", driven.stray.length === 0, driven.stray.join(", "));
   const announced = (await page.locator(LIVE).textContent()).trim();
-  t("…and the live region announced the placement", /column 5, row 3/.test(announced), announced);
+  t("…and the live region announced the placement in the new units",
+    announced === `Driven tile at ${DRIVEN.x}, ${DRIVEN.y}`, announced);
 
   // #231 L3 · the re-place above passed a NEW name, and the handle's ACCESSIBLE name has to follow
   // it. data-stx-name was written on every call and `aria-label: Move <name>` only on the first, so
@@ -591,9 +657,12 @@ async function journey(engineName, results, held) {
   t("#231 · re-placing under a new name re-labels the move handle to match it",
     relabelled.name === "Driven tile" && relabelled.label === "Move Driven tile", JSON.stringify(relabelled));
 
-  const clamped = await viaSeam(page, MAX_COLS + 9, -4);
-  t("an out-of-range slot is clamped by clampSlot, never written raw",
-    clamped.col === String(MAX_COLS) && clamped.row === "1", JSON.stringify(clamped));
+  // THE CLAMP IS setPos's NOW, and the bound is the stage rather than a cap. Asserted against
+  // STAGE_W minus the node's own width, because that is what setPos actually does — a position past
+  // the edge is pulled back far enough that the whole node stays on, not merely its origin.
+  const clamped = await viaSeam(page, STAGE_W + 9999, -4);
+  t("an off-stage position is clamped by setPos, never written raw",
+    Number(clamped.x) === STAGE_W - Number(clamped.w) && Number(clamped.y) === 0, JSON.stringify(clamped));
 
   // ------------------------------------------------------- [7] #231 L2 · the canvas mounted ALONE
   // The gate hole this ticket names: build-checks cannot mount a DOM and both existing driver
@@ -686,7 +755,7 @@ async function journey(engineName, results, held) {
 
   const startArr = await arrangement(page);
   t("the verbs mounted and the arrangement reads back through the getVerbs() seam",
-    startArr && !startArr.error && startArr[TARGET] && startArr[TARGET].col === 1 && startArr[TARGET].row === 1,
+    startArr && !startArr.error && startArr[TARGET] && startArr[TARGET].x === 0 && startArr[TARGET].y === 0,
     JSON.stringify(startArr?.[TARGET] ?? startArr));
   t("every placed component carries a stable id — the snapshot is keyed by something that survives re-slotting",
     Object.keys(startArr).length === rest.slotCount,

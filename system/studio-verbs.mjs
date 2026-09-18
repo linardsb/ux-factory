@@ -584,11 +584,19 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // ONE param-manifest ENTRY, not eight — the manifest's own granularity rule ("a stepped player's
     // button row = 1").
     const alignBtns = ALIGN_VERBS.map((verb) => {
+      // SHORT TEXT, FULL ACCESSIBLE NAME. Eight buttons reading "Distribute across" wrapped the verb
+      // row onto three lines and pushed the canvas below the fold on a 1000px viewport — measured,
+      // not guessed: the scroller's centre landed at y 1005 and a wheel over it hit the window
+      // instead. The visible word is enough under the group's own "Align and distribute the
+      // selection" label; aria-label carries the whole verb, so a reader tabbing through still hears
+      // what each one does rather than a bare "Left".
+      const full = verb.replace("align-", "Align ").replace("distribute-h", "Distribute across").replace("distribute-v", "Distribute down");
       const btn = el("button", {
         type: "button", class: "btn btn-secondary stx-verb-btn", "data-stx-verb": verb,
-        // The accessible name is the verb's own words rather than an icon's tooltip: this row is
-        // eight small buttons and a reader tabbing through it hears what each one does.
-        text: verb.replace("align-", "Align ").replace("distribute-h", "Distribute across").replace("distribute-v", "Distribute down"),
+        "aria-label": full,
+        text: verb.startsWith("align-")
+          ? verb.slice(6, 7).toUpperCase() + verb.slice(7)
+          : (verb === "distribute-h" ? "Across" : "Down"),
       });
       // NO { signal } HERE, and that is the reason rather than an omission: `ac` and its signal are
       // declared ~550 lines below, with the pointer handlers, so naming it here is a temporal dead
