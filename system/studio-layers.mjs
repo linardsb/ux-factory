@@ -48,39 +48,52 @@ import { FRAME_CLASS, MOVABLE } from "./studio-canvas.mjs";
 // same split every studio module carries.
 
 // layerEntries(nodes) → [{ id, name, kind, selectable, sentence }], IN THE ORDER GIVEN — which on
-// the running page is DOM order, i.e. board order. `sentence` is the row's position text:
-// "column C, row R" for a 1×1, with ", W by H" appended for a spanning footprint (the frames').
+// the running page is DOM order, i.e. board order. `sentence` is the row's position text.
+//
+// THE SENTENCE IS A POSITION, AND POSITIONS ARE PIXELS NOW (#302). It read "column C, row R", with
+// ", W by H" appended for a spanning frame — four exact strings build-checks group 26 pinned. A free
+// position has no column to name, so the sentence is the node's place on the stage, ROUNDED to whole
+// pixels: a screen reader saying "at 236.4, 0" is reading out float noise, and the sub-pixel part of
+// a position is not something a listener can act on.
+//
+// THE SIZE CLAUSE SURVIVES, on a different condition. It used to be appended for a SPANNING
+// footprint, because a 1x1 was the default and anything larger was the thing worth saying; a frame
+// now carries an authored height and a slot does not, so the clause is appended exactly when there
+// IS an authored size — which is the same set of rows, reached by the fact rather than by a
+// comparison against a default that no longer exists.
 //
 // `selectable` is false EXACTLY for kind "frame" — the pure statement of call 3 above, and the
 // tripwire build-checks group 25 pins for the day someone widens the selection layer.
 //
 // Total over junk: a non-array answers []; an entry with no id is skipped (a wrapper the canvas has
-// not finished placing is not a row); non-finite geometry coerces to 1, clampSlot's posture.
+// not finished placing is not a row); non-finite geometry coerces to 0, which is the origin — the
+// floor moved from 1 to 0 with the grid, because a free stage really does start at 0.
 export function layerEntries(nodes) {
   if (!Array.isArray(nodes)) return [];
   const num = (v) => {
     const n = Math.round(Number(v));
-    // Floored at 1, not merely finite: `null` coerces to a finite 0, and no grid the canvas can
-    // hold has a column 0 — clampSlot's floor, without importing the caps for a sentence.
-    return Number.isFinite(n) && n >= 1 ? n : 1;
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+  const size = (v) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n > 0 ? n : null;
   };
   const out = [];
   for (const node of nodes) {
     if (!node || typeof node !== "object" || node.id == null || node.id === "") continue;
     const kind = node.kind === "frame" ? "frame" : "slot";
-    const col = num(node.col);
-    const row = num(node.row);
-    const cols = Math.round(Number(node.cols));
-    const rows = Math.round(Number(node.rows));
-    const spanning = Number.isFinite(cols) && Number.isFinite(rows) && (cols > 1 || rows > 1);
+    const x = num(node.x);
+    const y = num(node.y);
+    const w = size(node.w);
+    const h = size(node.h);
     out.push({
       id: String(node.id),
       name: typeof node.name === "string" && node.name ? node.name : "Component",
       kind,
       selectable: kind !== "frame",
-      sentence: spanning
-        ? `column ${col}, row ${row}, ${cols} by ${rows}`
-        : `column ${col}, row ${row}`,
+      sentence: w !== null && h !== null
+        ? `at ${x}, ${y}, ${w} by ${h}`
+        : `at ${x}, ${y}`,
     });
   }
   return out;
@@ -152,8 +165,10 @@ export function mountStudioLayers(root, { canvas, select } = {}) {
     const entryOf = (node) => ({
       id: node.getAttribute("data-stx-id"),
       name: node.getAttribute("data-stx-name"),
-      col: node.getAttribute("data-col"),
-      row: node.getAttribute("data-row"),
+      x: parseFloat(node.style.getPropertyValue("--x")),
+      y: parseFloat(node.style.getPropertyValue("--y")),
+      w: parseFloat(node.style.getPropertyValue("--w")),
+      h: parseFloat(node.style.getPropertyValue("--h")),
       kind: node.classList.contains(FRAME_CLASS) ? "frame" : "slot",
       selected: node.hasAttribute("data-stx-selected"),
       cols: node.getAttribute("data-span-col"),
@@ -247,7 +262,7 @@ export function mountStudioLayers(root, { canvas, select } = {}) {
     };
 
     // --- reflection -----------------------------------------------------------------------------
-    // ONE observer, coalesced to one flush per animation frame: gestures churn data-col per rAF
+    // ONE observer, coalesced to one flush per animation frame: gestures churn the position per rAF
     // frame and a flush per record would do the same work N times. Records are FILTERED to MOVABLE
     // stage wrappers — .stx-guide, .stx-menu and compiled inner content also mutate under this
     // subtree and none of them is a row.
@@ -285,7 +300,10 @@ export function mountStudioLayers(root, { canvas, select } = {}) {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-col", "data-row", "data-stx-name", "data-stx-selected", "data-span-col", "data-span-row"],
+      // THE POSITION IS AN INLINE STYLE NOW, so `style` is what a move mutates and the filter has to
+      // name it (#302). Four attribute names came out and one went in; missing this leaves the list
+      // silently frozen at its first render for every move, which no gate on the pure layer can see.
+      attributeFilter: ["style", "data-stx-name", "data-stx-selected"],
     });
 
     const ac = new AbortController();

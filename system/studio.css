@@ -179,12 +179,12 @@
 .stx-verb-help { margin: 0; font-size: var(--type-caption, 0.85rem); color: var(--color-fg-muted); }
 
 /* ---------- full canvas affordances (#217) ---------- */
-/* Selection, alignment guides and the context menu. EVERYTHING HERE IS A GRID CHILD PLACED BY
-   ATTRIBUTE, exactly like .stx-slot above — which is what lets system/studio-select.mjs and #217's
-   half of studio-verbs.mjs write zero inline styles and join build-checks group 7 with no exception
-   argued. CSS cannot import, so the 12 + 8 rule sets below hand-mirror MAX_COLS / MAX_ROWS a second
-   and third time, and group 12's mirror check was widened to all THREE selector families in the same
-   commit: a rule set with no pin behind it is a mirror that drifts silently.
+/* Selection, alignment guides and the context menu. EVERYTHING HERE IS A NODE AT A FREE POSITION,
+   exactly like .stx-slot above: the shared four-family rule near the top of this sheet translates all
+   of them by --x/--y, so a guide and a menu are placed by the same one writer every other node is
+   (#302). Until then they were grid children placed by attribute, which is what let their modules
+   write zero inline styles; the write-site gate moved to two named functions instead, and group 7
+   holds them to an exact budget. */
 
    NOTHING BELOW IS NAMED FOR A VIEW TRANSITION, and nothing below animates — see the reduced-motion
    note at the foot of this block. */

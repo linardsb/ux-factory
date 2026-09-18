@@ -5,7 +5,7 @@
 //
 // The two data-connected prototypes — Verdant's phone screen and Fieldwork's dispatch board — sit on
 // the /factory canvas as real <iframe>s of the shipped proto pages, arranged by the same
-// data-col / data-row grammar as everything else, moved by the same handle and the same ui.move
+// free-position grammar as everything else, moved by the same handle and the same ui.move
 // verb, and resized by ui.resize. Seven calls are made here so a later editor inherits rather than
 // re-argues them.
 //

@@ -16,7 +16,7 @@
 //
 //   1. A SECOND AUTHOR, NEVER A SECOND MOVER. system/studio-verbs.mjs's single ui.move consumer is
 //      the only thing on this canvas that MOVES a wrapper. This file never emits ui.move, never
-//      calls applySlot and never writes data-col / data-row on an existing wrapper. It changes the
+//      calls applySlot and never writes a position on an existing wrapper. It changes the
 //      BOARD and reflects that change onto the stage; where a block sits stays #205's sentence.
 //   2. ONLY place.add CALLS place(). studio-canvas.mjs:340 appends unconditionally — even on the
 //      idempotent re-place path — and :343 announces on every call. So re-placing a wrapper to
