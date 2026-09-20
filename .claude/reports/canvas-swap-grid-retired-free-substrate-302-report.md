@@ -3,7 +3,7 @@
 **Plan**: `.claude/plans/canvas-swap-grid-retired-free-substrate-302.md`
 **Branch**: `feature/canvas-swap-grid-retired-302`
 **Base**: `287445e` → `70f9563`
-**Status**: **Phases 0 through 8 complete.** `node tooling/build-checks.mjs` →
+**Status**: **Phases 0 through 10 complete.** `node tooling/build-checks.mjs` →
 `build ✓ all 36 groups pass`, exit 0 (and exit 0 again with `portal/node_modules` moved aside);
 `drift-check` ✓ thirteen legs; `token-lint` ✓; the page-error sweep clean on twelve pages; MVP 14's
 spine rendering on chromium, firefox and webkit; **`studio-journey` ✓ three engines — 525 · 521 · 521, zero failed**;
@@ -17,9 +17,9 @@ test treating a board block as a zero-height line — meant the shipped `/factor
 canvas as a 2,800px column and could not be marquee-selected at all. See **Phase 8 — six product
 defects**.
 
-**Phase 9 remains** (Task 9.1's `verdant` pack and the regeneration); **Phase 10 is complete**.
-The baseline cascade is the plan's 15 after all — counted against `visual.spec.mjs`'s own `PAGES`
-list rather than estimated; see **What is NOT done**.
+**Every phase is complete.** Phase 9 wrote **exactly 15 PNGs, 33 files after** — the plan's
+arithmetic, reached by counting against `visual.spec.mjs`'s own `PAGES` list rather than estimated.
+What remains is **Level 5 alone**, which is the owner's own read and which this PR must not write.
 
 ## Phase 0 — the before-state, observed 2026-09-18 on `287445e`
 
@@ -584,6 +584,32 @@ and `catalog-journey` on chromium, a built instance through `instance-journey`, 
 error sweep. What no figure here covers is a HUMAN's read of either surface — Level 5 is the
 owner's own, and this PR does not write it.
 
+### Phase 9
+
+Driven from a CLEAN DETACHED WORKTREE at `48ad1c0` under `/Users/Berzins/Documents/wt-302-vr`
+(not `/private/tmp` — Docker file sharing), carrying the 9.1 spec edit and nothing else, so the
+captures are of the committed tree plus the one deliberate change.
+
+| Command | Observed |
+|---|---|
+| `npx playwright test --list` after 9.1 | **`Total: 33 tests in 1 file`** — 11 pages × 3 packs, up from 22 |
+| `npm run update:docker` | **`33 passed (1.0m)`**, exit 0 |
+| `git status --short …/baselines` | **11 added + 4 modified = 15 written, 33 files after** — the plan's arithmetic, counted |
+| the 11 added | one `*-verdant.png` per page |
+| the 4 modified | `factory-{neutral,saulera}.png` (P1 + P2) · `approach-{neutral,saulera}.png` (`loc-summary` 31,400 → 31,500) |
+
+**The approach pair was FORCED by `rm`-ing both PNGs first**, and that is the row that would
+otherwise have gone wrong silently: its only change is a few digits, and `maxDiffPixels: 100`
+swallows that, so `update:docker` would have reported them unchanged and left a stale number in a
+committed baseline. The other thirteen were left to the comparison to decide.
+
+**`studio.html` did not cascade and could not**: `PAGES` is eleven entries and neither `studio.html`
+nor `instance.html` is among them, which the `git status` above confirms by producing no such file.
+
+**Not reachable here**: a green local Docker run is not CI green — `gh pr checks` is the gate that
+counts, and the verdant `/factory` capture legitimately shows the proto iframes in their OWN pack,
+because custom properties do not cross document boundaries (#268).
+
 ## Not run
 
 Everything below is a plan step that did not execute. None of it is blocked by an external
@@ -591,7 +617,6 @@ dependency — all of it is remaining work.
 
 | Step | Why | Tracker |
 |---|---|---|
-| the baseline regeneration | Phase 9, and **Task 9.1 is part of it**: `visual.spec.mjs`'s `PACKS` still has two entries, so `verdant` has never entered the pixel gate. 11 new + factory ×2 + approach ×2 = the plan's 15 | this PR |
 | Level 5, by hand in a real browser | the owner's own read | this PR |
 | the SDK-free reproduction (`mv portal/node_modules …`) | run once at Phase 2 and green; not re-run, because Phase 8 adds no module to `portal/lib/` | this PR |
 | the owner's verdict on `/factory` | the owner's own hand, and the plan says this PR must not write it | epic close-out |
@@ -785,17 +810,10 @@ how the repo's largest class of process finding gets in through a door no gate w
 
 ## Resume order
 
-Phases 0–8 are complete and green. What is left:
+Every phase is complete and green. What is left:
 
-1. **Phase 9, and it is two tasks not one.** **9.1** — add `verdant` to `visual.spec.mjs`'s `PACKS`
-   (the pack file already exists; the line is still two entries). **9.2** — regenerate from a clean
-   detached worktree under `/Users` (not `/private/tmp` — Docker sharing),
-   `cd tooling/visual-regression && npm run update:docker`. **15 PNGs, 33 files after**: 11 new
-   verdant, `/factory` ×2 for P1 and P2, `approach` ×2 for `loc-summary`'s 31,400 → 31,500. The
-   approach pair is sub-perceptual digits that `maxDiffPixels: 100` will swallow — `rm` those two
-   to force them.
-2. **Level 5** — the owner's own read of `/factory` and `/studio.html` in a real browser, and their
-   verdict, which this PR must not write.
+1. **Level 5** — the owner's own read of `/factory` and `/studio.html` in a real browser, and their
+   verdict, which this PR must not write. **It is the only step left.**
 
 **One assertion still owed**, and nothing covers it: **H9**'s overlay coordinate space.
 (**H2**'s `attributeFilter` check landed in `minimapPass` — see Issues.)
