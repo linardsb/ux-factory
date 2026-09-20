@@ -3,12 +3,23 @@
 **Plan**: `.claude/plans/canvas-swap-grid-retired-free-substrate-302.md`
 **Branch**: `feature/canvas-swap-grid-retired-302`
 **Base**: `287445e` → `70f9563`
-**Status**: **PARTIAL — Phases 0 through 7 complete.** `node tooling/build-checks.mjs` →
+**Status**: **Phases 0 through 8 complete.** `node tooling/build-checks.mjs` →
 `build ✓ all 36 groups pass`, exit 0 (and exit 0 again with `portal/node_modules` moved aside);
-`drift-check` ✓ thirteen legs; `token-lint` ✓; `vt-verify` 159 green / 0 failures on three engines;
-`vt-stack-audit` clean; the page-error sweep clean on twelve pages; MVP 14's spine rendering on
-chromium, firefox and webkit. **Phases 8, 9 and 10 remain.** **Not yet ready for a PR**:
-`tooling/studio-journey.mjs` is un-migrated and the 15 pixel baselines are unwritten.
+`drift-check` ✓ thirteen legs; `token-lint` ✓; the page-error sweep clean on twelve pages; MVP 14's
+spine rendering on chromium, firefox and webkit; **`studio-journey` ✓ three engines — 525 · 521 · 521, zero failed**;
+`catalog-journey` ✓; `instance-journey` ✓ 25/0; `vt-verify` ✓, with its movement proof reddened by mutation. **The DoD
+grep is EMPTY** over AC #1's own scope — `system/`, `tooling/` and every `*.html` — AC #1 met.
+
+**Phase 8 found and fixed SIX product defects**, every one of which passed all 36 build-checks
+groups, `drift-check`, `token-lint`, and would have passed the pixel gate. Two of them —
+`.stx-slot { position: relative }` putting every node back in normal flow, and the selection hit
+test treating a board block as a zero-height line — meant the shipped `/factory` rendered its
+canvas as a 2,800px column and could not be marquee-selected at all. See **Phase 8 — six product
+defects**.
+
+**Phase 9 remains** (Task 9.1's `verdant` pack and the regeneration); **Phase 10 is complete**.
+The baseline cascade is the plan's 15 after all — counted against `visual.spec.mjs`'s own `PAGES`
+list rather than estimated; see **What is NOT done**.
 
 ## Phase 0 — the before-state, observed 2026-09-18 on `287445e`
 
@@ -132,16 +143,73 @@ door:
 | `0c2d0bd` | phase 5 — the nudge, eight align/distribute verbs, and T16's sentence |
 | `70f9563` | MVP 14's spine — one frame, one stack, one state, one arrow, saved and reloaded |
 
-**The DoD grep: 435 lines across 15 files → 70 in ONE file** (observed, AC #1's seven symbols).
-Everything under `system/`, `tooling/build-checks.mjs` and `tooling/vt-verify.mjs` is clear; only
-`tooling/studio-journey.mjs` remains, and it is Phase 8's whole subject.
+**The DoD grep: 435 lines across 15 files → ZERO** (observed, AC #1's seven symbols, over the
+scope the AC names: `system/`, `tooling/` and every `*.html`). `tooling/studio-journey.mjs` was the last holder at 70 and is clear;
+so are the two retired-name residues Phase 8 found on the way — `studio-layers.mjs`'s dead
+`data-span-*` keys on an entry `layerEntries` no longer reads, and `studio-frames.mjs`'s call 4,
+which still argued "GEOMETRY IS ATTRIBUTES, AND RESIZE IS SPAN — NOT PIXELS" for a module that has
+been writing pixels since Phase 3.
 
-| File | Remaining | Why |
-|---|---|---|
-| `tooling/studio-journey.mjs` | 70 | Phase 8, untouched except Task 1.5b's two deletions |
-| `tooling/build-checks.mjs` | 34 | groups 22 and 24, plus the file's own header index at :55/:110/:121 |
-| `system/studio-verbs.mjs` | 20 | the gesture mount — the one source module not migrated |
-| `tooling/vt-verify.mjs` | 10 | Phase 8 |
+`docs/epics/*.architecture.md`, `__canvas_planning_PRD.md` and the `.claude/plans/` +
+`.claude/code-reviews/` series keep theirs — 343 lines across 38 files outside `docs/`, counted
+rather than assumed. That is correct and is stated so a later reader does not "finish the job":
+they are the historical record of the decision to retire the grid, not live code.
+
+**Phase 8 — complete.**
+
+| Task | State |
+|---|---|
+| 8.1 the module-scope import | **done** at `70f9563`; this phase changed only what it imports (adding `rankLayout` from `board-ops.mjs`, for the same never-retype reason) |
+| 8.2 Gate B | **done** — ONE `STYLE_ALLOWED` array and one `strayStyles(p, selector)` helper, read property by property off the `CSSStyleDeclaration`, at **eight** call sites. Two of the nine sites the plan lists stay absence-checks on purpose: the keep rail and the layers/minimap rail are chrome, `setPos` never touches them, and "no style attribute at all" is still the true and stronger claim there |
+| 8.3 the coordinate assertions | **done**, thirteen passes. Helpers rewritten rather than call sites wherever the helper existed: `slotsNow`, `cell`, `movables`, `frameState`, `boxOfFrame`, `wrapBoxes`, `mapCells`, `guidesHonest`, `openAt`, `posOf`, plus the new `places()` projection |
+| 8.4 the INP gate | **done** — the five track reads inside `perfPass` are the imported node pitch now; the 26-row list, the calibration click and the synthetic 250 ms comparator proof are untouched |
+| 8.5 `vt-verify` | **done** — zero residue, and RUN |
+| 8.6 `catalog-journey` + `instance-journey` | **run** |
+| 8.7 the checkpoint | this commit |
+
+**Three anti-shapes the plan named, and none was written:**
+
+- **No assertion that pointer coalescing engaged.** Playwright cannot outpace the frame rate on
+  chromium or firefox, so such a row could only ever pass on one of three engines (#423's G1).
+  `studio-canvas.mjs`'s own header says the same thing about the arrow overlay's rAF coalescing.
+- **No assertion that every pan produces a `scrollend`.** It fires 31/40 on WebKit.
+- **No INP row for zoom.** A wheel is not an interaction the Event Timing API reports, so an INP
+  row there would be green by construction; the rAF-gap sample (chromium-only, and the driver says
+  so) is where a zoom's cost is gated.
+
+**Two fixture defects the three-engine run found, both mine and both in the driver.** Recorded
+because each looked exactly like a module bug from the row that failed:
+
+- **The AC #1 drag measured before the scroller had stopped.** `pointOnStage` converts every
+  pointermove through a LIVE `scroll.getBoundingClientRect()`, so a page still sliding under a
+  stationary pointer is added to the gesture's stage delta pixel for pixel. Firefox reported
+  `y 174.43` where the keyboard path reached exactly 156 — a mover that over-travels, seemingly.
+  It is 18.43px of residual scroll. `hitCase` already carried the wait (#196's lesson); it is one
+  shared `scrollSettled()` now, used by both. **This fix was INCOMPLETE and the entry is left
+  standing rather than rewritten, because the incompleteness is the lesson:** it named the inner
+  scroller as the thing that was moving, and the thing that was moving was the window. It reduced
+  the overshoot to 4.98 and the row stayed red. See **F1** under Proving the checks — Phase 8.
+- **The marquee pressed on the stage's BOUNDARY pixel.** The listener is on `.stx-stage` and the
+  scroller carries a 1px border, so stage-space 0,0 converts to the boundary. Chromium resolved
+  that pixel to the stage and firefox did not — `[] vs ["s3","s4"]` with **zero** announcements,
+  which is a press that never landed rather than a selection rule that disagreed. The press is
+  clamped one pixel inside now, and the epsilon cannot change an answer: `idsInRange` is an overlap
+  test over nodes with real extents.
+
+**Two rows DELETED with their reason, rather than translated.** Both asserted the opposite of a
+shipped decision, which is worse than no check — a red on correct code gets "fixed" by restoring
+the retired rule:
+
+- **the occupancy pair** (`journey`) — D-d retired occupancy, so two components overlapping is
+  correct behaviour. The hit-test cases are what now prove a drag lands where it was dropped.
+- **the frame's footprint step** (`framesPass`) — a frame CAN now be nudged over its neighbour.
+  What that row really guarded, that a frame moves as a whole carrying its size, is a conjunct of
+  the row that replaced it, which the old one never made.
+
+**Three rows whose CLAIM changed and are kept, each saying so in its own comment:** the "blocked"
+arrow press (there is no blocked variant; the repeat IS the feedback), the keep rail's arrangement
+link (retired with `g`), and Fit on a compiled canvas (the stage is a fixed box now, so there is no
+floor to reach and fit lands on the ratio).
 
 ### Tasks completed
 
@@ -181,17 +249,68 @@ answer does not exist** (the plan's own Task 2.0 precedent, applied three more t
 
 ## What is NOT done
 
-- **Phase 8 entirely** — `tooling/studio-journey.mjs` rewritten (70 DoD lines, ~101 on the full grid
-  vocabulary, 13 passes of which 3 need no work), Gate B's eight `inlineStyled` pairs, the INP gate on
-  the new substrate, and `catalog-journey` + `instance-journey` on three engines.
-- **Phase 9 entirely** — the 15 pixel baselines.
-- **Phase 10's `discovery/README.md`** — the `build/` section. CLAUDE.md's map rows, `gates.md`'s two
-  new group paragraphs and the group count in all five prose copies are **done**, phase by phase.
+- **Phase 9 entirely** — the pixel baselines, and the cascade is now larger than the plan's 15.
+  See below.
+- **Phase 10's `discovery/README.md`** — the `build/` section. CLAUDE.md's map rows (including the
+  two stale `studio-canvas.mjs` / `studio.css` rows this phase found), `gates.md`'s group
+  paragraphs for 12, 13, 26 and 27 and its two journey-pass paragraphs, and the group count in all
+  five prose copies are **done**.
+- **The `/factory` menu's double correction at the far right edge**, recorded rather than fixed:
+  within a menu's width of the right edge the menu is BOTH clamped by `setPos` (to
+  `STAGE_W − MENU_W`) and flipped by `translate: -100%`, so it renders up to `MENU_W` left of the
+  component it belongs to. The clamp alone would keep it on the stage. Which of the two should win
+  is a design call, not a coordinate migration — the driver asserts the shipped geometry and names
+  the gap in its own comment.
+- **Level 5, by hand in a real browser** — the owner's own read of `/factory` and `/studio.html`.
+- **The owner's verdict on `/factory`** — the owner's own hand; the plan says this PR must not
+  write it.
 
-**The baseline cascade this PR has already opened**, recorded so Phase 9 does not discover it:
-`loc-summary`'s runtime group moved 30,800 → 30,600, and `approach.html` renders that number — so
-`approach-neutral.png` and `approach-saulera.png` are stale on top of the 11 new verdant captures and
-`factory` ×2.
+**The baseline cascade, counted rather than predicted — and it is the plan's 15 after all.** An
+earlier draft of this section said "larger", reasoning that every node on `studio.html` and
+`/factory` rendered at its flow offset plus `--y` before this phase, so every committed capture of
+either page is of a broken layout rather than of a layout that merely moved. The first half holds
+and the second does not: **`studio.html` has no committed capture.** `visual.spec.mjs`'s `PAGES` is
+eleven entries, `baselines/` holds 11 × 2 = 22 files (observed), and `studio.html` and
+`instance.html` are not among them — `grep -l "studio.css" *.html` gives `factory.html`,
+`studio.html`, `instance.html`, and only the first is captured. So P1's correction reaches
+`/factory` and nothing else:
+
+| Cascade | Why |
+|---|---|
+| `loc-summary`'s runtime group 31,400 → **31,500** | `approach.html` fetches and renders that number, so `approach-neutral.png` and `approach-saulera.png` are stale |
+| every `/factory` capture | P1 — the at-rest layout was wrong in the committed state, so these are not "moved", they are corrected. **`studio.html` has no capture**: `visual.spec.mjs`'s `PAGES` is 11 entries and `studio.html` / `instance.html` are not among them, which is why the cascade is the plan's 15 after all rather than larger. `/factory` is the only captured page that loads `studio.css` |
+| `/factory`'s replay-settled captures | P2 — the settled canvas is the rank layout now rather than one stacked column |
+| the frame captures | the resize grab-offset fix (P6) does not move an at-rest frame, so these move only with P1 |
+
+`param-count` did **not** cascade: `--check` is green at 121.
+
+## Phase 8 — six product defects the driver's own migration found
+
+Every one of these was live on `main`'s successor tree, passed all 36 build-checks groups, passed
+`drift-check`, passed `token-lint`, and would have passed the pixel gate. They are listed before the
+mutation tables because they ARE the strongest evidence the rewritten checks work: each was found by
+a rewritten assertion going red on correct-looking code, and each was confirmed on the running page
+with a standalone probe before anything was changed.
+
+| | Defect | How it presented | Fix |
+|---|---|---|---|
+| **P1** | `system/studio.css` — `.stx-slot { position: relative }` sat AFTER the four-family `position: absolute` rule at equal specificity and won the cascade | Every node was back in normal FLOW, so `transform: translate(var(--x), var(--y))` offset it from its stacked flow position. `--x` looked right (a block's flow x is 0); `--y` was added to the accumulated height of every slot before it. 31 slots rendered as a ~2,800px column while every property, every `snapshot()` and every pure group read exactly right | drop the `position`; the family rule places these and is already a positioned ancestor for `.stx-grab` |
+| **P2** | `system/replay-driver.mjs` — the reflection recomputed the rank only for the node being ADDED | Every `place.add` op in `build-fieldwork-dispatch` runs before every `connect`, so each place is an ORPHAN at insertion and the seven connections arrive when nothing re-reads the layout. `/factory`'s settled canvas was one stacked column: neither the retired row-1 rule nor the rank layout | a `relayout()` through `setPos` (silent — `place()` announces and appends), called from the `connections-changed` and `place-added` branches |
+| **P3** | `system/studio-select.mjs` — `boxOf`'s `h: prop("--h") \|\| 0` | A board wrapper carries no `--h`, so every block on `/factory` was a zero-height LINE at its own top edge. **A marquee dragged straight across all four blocks selected nothing** (measured). The only rectangle that could have caught them needed a top edge of exactly 0, which a pointer cannot reach through the scroller's 1px border. #217's AC #1 was dead on the shipped route | the MEASURED height when none is authored — a hit test asks what a node occupies, which is a different question from the snapshot's `h: null` |
+| **P4** | `system/studio-verbs.mjs` — `preview`'s delta was `at − gesture.current`, and `gesture.current` is read back off the anchor's CLAMPED box | Once the anchor hit the stage edge and stopped, every later frame recomputed the same negative delta from the clamped position and applied it again. A group dragged down the left edge did not deform, it SHEARED: the anchor stood at x 0 while the others slid left ~34px a frame until they stacked on it. Two selected blocks at 0 and 236 both ended at 0 — #217's AC #2, "the selection keeps its shape", false for any drag touching an edge | anchor-driven: apply the anchor, read its REAL travel from `setPos`, translate the rest by that. Members still deform independently at the edge (D-d); only the anchor's own clamp no longer drives it |
+| **P6** | `system/studio-verbs.mjs` — the resize path recorded no grab offset, and its comment argued it needed none ("the corner the reader is dragging is the cursor itself") | True of the CORNER, false of the CONTROL: the press lands on `.stx-resize`, whose centre is inset from the corner it represents, so the first preview snapped the corner to the cursor and the frame lost that inset on BOTH axes. Measured at 14px per axis on a drag whose x never moved. It is `3f2b367`'s move teleport, one gesture over; a grid resize snapped to a track and absorbed it | record the offset from the CORNER for a resize and from the ORIGIN for a move — `pointFor()` already subtracts whichever was recorded |
+| **P5** | `tooling/studio-journey.mjs` keepPass — Task 1.5b's **fifth** site | Two rows still asserted that the copied link CARRIED the sender's arrangement and that its label said "arrangement included". `g` is deleted and `param-manifest.json:96` records the label change; only this assertion was missed | retired with a stated reason; what is asserted now is the retirement — the link decodes to the same board and carries no arrangement key |
+
+**P1, P2, P3, P4 and P6 are all the same shape**, and it is worth naming: every property the modules
+wrote was individually correct, every pure function answered correctly for its inputs, and the
+defect was in what the browser did with those properties or in which inputs were handed over. No
+DOM-free gate can reach any of them. That is precisely what `gates.md` says the journey drivers are
+for, and it is the first time this repo has had all four fire in one ticket.
+
+**What P2 and P4 cost, stated:** both were found only because the rewritten assertion was stronger
+than the one it replaced. The old rank row asserted "row 1, columns 1..n", which the new layout was
+never going to satisfy either way; the old group row asserted "+1 row", which a sheared group whose
+anchor was clamped would have satisfied on the y axis alone.
 
 ## Phases 3-7, in brief
 
@@ -291,7 +410,130 @@ field they never looked at** — an undo would silently restore a frame's positi
 `e7d1858` describing an assertion that did not exist — the repo's largest class of process finding,
 in prose rather than in code. Caught on review; the assertions now exist and are proven able to fail.
 
+## Proving the checks — Phase 8
+
+Two shapes of evidence here, and the difference matters. Most of the rewritten checks were reddened
+by a **real defect** during the rewrite — which is strictly stronger than an injected mutation,
+because the red came from code someone had written and believed, not from a line added to provoke
+it. Where a check has never been red on real code, a mutation was **run**.
+
+### Reddened by a real defect (observed, not injected)
+
+| Check | The red it produced | Which defect |
+|---|---|---|
+| `#209 · …laid out by the RANK LAYOUT` | `[["0px","0px"],["236px","0px"],["236px","156px"],["236px","312px"]] vs [["0px","0px"],["236px","0px"],["472px","0px"],["708px","0px"]]` — the page had one stacked column where the rank layout has four | **P2** |
+| `#217/AC1 · a Shift-drag marquee selects exactly the components inside the dragged rectangle` | `[] vs ["s3","s4"]` — the page selected nothing at all | **P3** |
+| `#217/AC2 · dragging ONE selected member lands EVERY member at the SAME offset` | `deltas [[0,141],[-236,141]]` — the second member had slid a whole pitch left | **P4** |
+| `hit-test · after panning` (both rows) | `node s15 at {"left":349,"top":1463…}` against a canvas at `y 190, height 640` — the node was 633px below the scroller | **P1** (and the fixture's own coordinate-space error, fixed with it) |
+| `#219 · AC #3 · a POINTER drag of the corner resizes the frame by one pitch (±2px)` | `{"w":"442px","h":"438px"} vs {"w":"456","h":"452"}` — 14px short on BOTH axes, on a drag whose x never moved | **P6** |
+
+The ±2px tolerance is the row worth pausing on: it was added in the same pass that caught **P6**,
+and it did **not** swallow it. 14px is seven times the tolerance, and a missing coordinate term
+(the case the "after panning" condition is the sole detector of) moves a node by hundreds. The
+tolerance covers device-pixel rounding on a float and nothing larger, which is what it claims.
+
+### Reddened by an injected mutation (run)
+
+#### Task 8.2 — Gate B's running-page predicate
+
+The claim CHANGED rather than being dropped: it read "no element on the canvas carries a style
+attribute at all", true while an arrangement was attributes and false the moment `setPos` writes
+four custom properties. What replaced it is the EXACT SET — every style attribute on the canvas
+carries only `--x`, `--y`, `--w`, `--h` and the three scale properties — read property by property
+off the `CSSStyleDeclaration`, so a longhand a third party wrote is NAMED rather than hidden inside
+an attribute's text. One `STYLE_ALLOWED` array, eight call sites.
+
+| | Mutation | Observed |
+|---|---|---|
+| **control** | none | `── chromium: 525 passed, 0 failed` |
+| M1 | `node.style.transform = "translate(1px,1px)"` added to `applyBox` — the restore path, and exactly the write the predicate exists to catch | **RED** — `R11 · after a drag, an undo and a redo every style attribute STILL carries only the position and scale properties …  stx-slot.transform, stx-slot.transform, stx-slot.transform` |
+
+**M1 is the row that carries AC #8**, and the reason is what it does NOT say. The at-rest Gate B
+row stayed green under the mutation (observed, line 5) — nothing had moved yet, so nothing had
+written a transform. The claim is only reachable AFTER travel, which is what R11 has always been
+for. And the naive fix — "allow a style attribute on a slot" — would be **green here**: the
+offender is a property, not a presence, and only a per-property read can name it.
+
+#### H2 — the observers' `attributeFilter`, which nothing covered
+
+`system/studio-layers.mjs` and `system/studio-minimap.mjs` both watch `attributeFilter: ["style"]`,
+because a position IS a style property now where it used to be a pair of data attributes. If either
+filter names the wrong attribute the surface FREEZES for the whole of a move while the page
+otherwise works perfectly: the node travels, the announcement fires, the history entry lands, and
+only the mirror is stale. Invisible to build-checks (no browser), to drift-check (no artifact) and
+to the pixel gate (the map is captured at rest, where a frozen cell is in the right place anyway).
+
+| | Mutation | Observed |
+|---|---|---|
+| **control** | none | `── chromium: 525 passed, 0 failed` |
+| M1 | `studio-minimap.mjs`'s per-node observer pointed at `["data-col"]` — an attribute nothing writes | **RED ×2** — `#221 · H2 · the map's cell tracked a move that changed ONLY a style property …  {"before":{"x":0,"y":312,…},"after":{"x":1180,"y":156,…}}`, and the positive row it hangs off with it. The node moved; its cell did not |
+
+**What the mutation's OWN output shows, and it is the whole point of the row:** the run reached
+487 green before this, and the page it was driving worked. The node travelled to 1180, 156. The
+announcement fired. The history entry landed. Only the map was stale — one frozen rectangle among
+six correct ones, which is what "the surface freezes with the page otherwise working" means and
+why no gate that does not look at the running rail can see it.
+
+#### F1 — the smooth-scroll wait was watching a scroller that never moved
+
+**Found by a real red on the three-engine run, after the row had already been "fixed" twice.** It
+sits in this section rather than among the product defects because the module was right throughout:
+`system/studio-verbs.mjs` is untouched by it. It is recorded at length because the failure shape —
+a check that gets *closer* to green on every revision — is the one that reads as "nearly right" and
+is in fact "measuring the wrong quantity".
+
+`scrollSettled` exists because `pointOnStage` converts every `pointermove` through a LIVE
+`scroll.getBoundingClientRect()`. Playwright drives the mouse in CLIENT coordinates, so a page
+still sliding under a stationary pointer moves the rect while `clientY` stays put, and the
+difference is added to the gesture's stage delta pixel for pixel. That much the helper's header
+already said. **What it had wrong was which scroller.** The setup calls `scrollIntoView` on
+`[data-studio-canvas]`; `.stx-scroll` is that element's DESCENDANT, not its ancestor, so the scroll
+it starts belongs to the WINDOW — and `system/components.css:27`'s `html { scroll-behavior: smooth }`
+makes it a smooth one. Sampling `.stx-scroll` alone sampled something that had never moved: it
+agreed with itself twice immediately and returned while the window still had pixels to travel.
+
+The AC #1 row's overshoot, every figure observed on firefox against a keyboard path that reaches
+exactly 156:
+
+| Wait | Overshoot | |
+|---|---|---|
+| none | **18.43** | |
+| rounded, `.stx-scroll` | **8.35** | |
+| unrounded + two agreeing samples, `.stx-scroll` | **4.98** | the three-engine run — smaller again, still red |
+| *probe, arm A — the same key, head to head* | **4.50** | settled after 2 iterations |
+| *probe, arm B —* **`+ window.scrollX/Y` in the key** | **0.000** | settled after 9 iterations |
+
+**Both keys were run in one probe against one page**, so the control is measured rather than
+asserted: the old key overshot, the new key did not, on the same engine in the same minute. The
+probe also printed the window's own settle curve — `window.scrollY` 0 → 387 by t+300 ms, which is
+exactly where the setup's fixed wait ends, and not still until 395 at t+550 ms. The fixed wait was
+never long enough; the three revisions of `scrollSettled` were each buying a little more of the
+tail by accident.
+
+**A SECOND SITE, found by auditing rather than by waiting for it.** Rather than fix the one row and
+pay for another three-engine run to meet the next, every `mouse.down()` in the file (19 of them) was
+listed against the nearest preceding scroll signal and the nearest following assertion. Exactly one
+other pointer gesture sat behind a bare smooth `scrollIntoView` while asserting a tight delta:
+`framesPass`'s pointer resize, which had no `scrollSettled` at all. It duly reds on firefox in the
+same run:
+
+| | Observed |
+|---|---|
+| `#219 · AC #3 · a POINTER drag of the corner resizes the frame by one pitch (±2px)` | `{"w":"456px","h":"454.316650390625px"}` against `WANT {"w":"456","h":"452"}` |
+
+**The width is exactly right and only the height is over**, by 2.32 against a ±2 tolerance — which
+is the signature rather than a detail: a window scroll has no x component, so a residual that lands
+in `h` and not in `w` names its own cause. The fix is `scrollSettled` before the handle's box is
+measured, after `scrollIntoViewIfNeeded`, so both scrolls on that page are covered.
+
+The other seventeen gestures are either behind an existing `scrollSettled`, behind a
+`behavior: "instant"` scroll, or assert something a few pixels cannot change ("the arrangement
+changed", "the block genuinely moved"). They were left alone deliberately: a speculative wait added
+to a passing row buys nothing and hides the next instance of this class.
+
 ## Validation results
+
+### Phases 0–7
 
 | Command | Observed |
 |---|---|
@@ -310,11 +552,37 @@ in prose rather than in code. Caught on review; the assertions now exist and are
 | the journey drivers, `vt-verify`, `vt-stack-audit` | **not run** — Phase 8 |
 | the pixel gate | **not run** — Phase 9 |
 
-**Every figure in THIS SECTION is from a clean run of the whole file.** The Phase 1 red table above
+### Phase 8
+
+Every figure is from a run of the whole file on this tree, at the serve on a private port
+(`PORT=4791`), with the driver's own stale-serve guard green.
+
+| Command | Observed |
+|---|---|
+| `node --check` on every edited `.mjs` | clean, after every edit |
+| `node tooling/build-checks.mjs` | **`build ✓  all 36 groups pass`**, after each of the six source fixes |
+| `node tooling/drift-check.mjs` | **✓ thirteen legs**, with `system/loc-summary.json` regenerated and STAGED first — `--check` against an unstaged tree is a false green (repo memory) |
+| `node tooling/token-lint.mjs` | **✓ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid** |
+| `node agent-layer/gen-param-count.mjs --check` | **✓ 121 controls — no drift.** Phase 8 adds no control |
+| `node agent-layer/gen-loc-summary.mjs` | runtime **31,400 → 31,500** — a Phase 9 cascade, see below |
+| the page-error sweep (12 pages, chromium) | **✓ all clean** |
+| MVP 14's spine, chromium + firefox + webkit | **✓ 10 assertions per engine, 0 page errors** |
+| `node tooling/vt-stack-audit.mjs /studio.html` | **✓** — `0 named element(s)`, vacuously, which is what the module's own header claims |
+| `node tooling/vt-stack-audit.mjs /factory.html` | **✗ 1 state with layout shift** — H8's, unchanged: the SAME state (`at rest`) and the SAME three named elements (`site-header`, `nav-active`, `page-title`), all site chrome, none of it the canvas's. The element count moved **294 → 304** because P1's fix means more of the page now renders where it belongs; the finding did not move |
+| `node tooling/catalog-journey.mjs chromium` | **✓ 33 passed, 0 failed** — the renderer changed under it (Task 4.4) |
+| `node tooling/studio-journey.mjs chromium` | **`── chromium: 525 passed, 0 failed`** |
+| `node tooling/studio-journey.mjs all` | **`── chromium: 525 passed, 0 failed` · `── firefox: 521 passed, 0 failed` · `── webkit: 521 passed, 0 failed`**, `studio-journey ✓`, exit 0. The 4-row gap between chromium and the other two is the CDP frame check, which is chromium-only by definition. Firefox reached this only after **F1** — the run before it was `520 passed, 1 failed`** |
+| `node tooling/vt-verify.mjs` | **✓**, exit 0 — /build, three site-wide surfaces, the studio canvas and /factory's replay, compile, take-over, keep-rail, method and #217 verbs, on all three engines. **And its movement proof reddened by MUTATION**: the canvas position read pinned to a constant gives `vt-verify ✗ 3 assertion(s) failed`, one per engine — with `zoom` still moving 1 → 1.25 and `box` still moving, so the failure is the position term alone and "zero pseudos after movement" is not vacuous** |
+| `node tooling/instance-journey.mjs chromium` | **✓ chromium: 25 passed, 0 failed**, exit 0 — a fresh instance built from THIS `system/` into a tmpdir outside the repo, so all six product fixes rode along. The stage's place count read through the page's own config chain against the SERVED board file (5 places), the compile beat end to end, the declined `?b=` mount, zero non-2xx across the visit and no page errors** |
+| the DoD grep (AC #1's seven symbols) | **0 lines over `system/`, `tooling/` and every `*.html`** — AC #1's own scope, from 435 across 15. Counted rather than asserted, the rest of the tree still carries **343** lines in **38** files, and every one is a planning or review document: `docs/epics/*.architecture.md`, `__canvas_planning_PRD.md`, and `.claude/plans/` + `.claude/code-reviews/`. That is correct — they are the historical record of the decision, not live code — but "empty everywhere outside `docs/`" would not have been true, so it is not claimed |
+
+**Every figure in both tables is from a clean run of the whole file.** The Phase 1 red table above
 is the exception and says so in its own words: it is probe-derived, because a link error loads zero
-groups and there was no clean run to be had. What no figure anywhere covers is the RUNNING page —
-nothing in this PR has been rendered in a browser, and the only three-engine measurement taken is
-H1's FLIP probe, which drove a synthetic page rather than the studio.
+groups and there was no clean run to be had. The RUNNING page, which the Phases 0–7 table could not
+reach at all, is what the Phase 8 table adds: three engines through `studio-journey`, `vt-verify`
+and `catalog-journey` on chromium, a built instance through `instance-journey`, and the twelve-page
+error sweep. What no figure here covers is a HUMAN's read of either surface — Level 5 is the
+owner's own, and this PR does not write it.
 
 ## Not run
 
@@ -323,14 +591,12 @@ dependency — all of it is remaining work.
 
 | Step | Why | Tracker |
 |---|---|---|
-| `studio-journey all` · `catalog-journey all` · `instance-journey` | Phase 8; the studio does not mount at all in this state | this PR |
-| `vt-verify` · `vt-stack-audit` | Phase 8; and 3.4's overlay, the thing `vt-stack-audit` exists to check here, is not written | this PR |
-| the baseline regeneration | Phase 9 | this PR |
-| Level 5, by hand in a real browser | nothing renders yet | this PR |
-| the SDK-free reproduction (`mv portal/node_modules …`) | Phase 4 adds the module it would test | this PR |
+| the baseline regeneration | Phase 9, and **Task 9.1 is part of it**: `visual.spec.mjs`'s `PACKS` still has two entries, so `verdant` has never entered the pixel gate. 11 new + factory ×2 + approach ×2 = the plan's 15 | this PR |
+| Level 5, by hand in a real browser | the owner's own read | this PR |
+| the SDK-free reproduction (`mv portal/node_modules …`) | run once at Phase 2 and green; not re-run, because Phase 8 adds no module to `portal/lib/` | this PR |
 | the owner's verdict on `/factory` | the owner's own hand, and the plan says this PR must not write it | epic close-out |
 
-**Nothing here spent a token or needed a credential**, as the plan predicted.
+**Nothing in Phase 8 spent a token or needed a credential**, as the plan predicted.
 
 ## Deviations from the plan
 
@@ -391,8 +657,10 @@ rather than translated into a bound #302 never introduced.
    `setPos` and D-d's "nothing blocks a free move" — which is why `occupancyKey`, `spanFrom`,
    `UNIT_SPAN` and `occupancyExcept` were deleted as orphaned rather than translated.
 2. **S1's verdict is inherited, not re-run** — configuration (a), no `content-visibility`. Its
-   named mitigation (coalescing the scale write) is implemented in `queueScale`, **but no INP
-   measurement has been taken on this substrate.** Phase 8.4 owns that.
+   named mitigation (coalescing the scale write) is implemented in `queueScale`, and Phase 8.4 has
+   now **taken the measurement**: `perfPass`'s 26 rows against the 200 ms budget, on the new
+   substrate, with the calibration click proving the observer pipeline alive on every engine and
+   the synthetic 250 ms interaction proving the comparator can still flag.
 3. **The stage keeps the retired grid's exact outer dimensions** (2,816 x 1,232 = 12x220+11x16 by
    8x140+7x16). Chosen so the canvas is the size it has always been rather than a size nobody
    decided; it also keeps the pixel baselines as close as the change allows.
@@ -413,10 +681,23 @@ rather than translated into a bound #302 never introduced.
 4. **The DOM stub gained a custom-property `style`** plus three control assertions, including one
    proving each element gets its OWN style object. Without it group 12's `setPos` battery cannot run.
 5. **Both MutationObservers' `attributeFilter` changed to `["style", …]`** (`studio-layers.mjs`,
-   `studio-minimap.mjs`). Not in the plan, and load-bearing — the coverage gap it leaves is **H2**
-   under Issues.
+   `studio-minimap.mjs`). Not in the plan, and load-bearing. The coverage gap it left — **H2** —
+   is **CLOSED** in Phase 8: `minimapPass` now asserts that a map cell tracked a move which
+   changed only a style property, and the mutation table shows the row going red when the filter
+   names an attribute nothing writes.
 6. **The codec probe** (`scratchpad/codec-probe.mjs`, not committed) — its text is reproducible from
    the Proving-the-checks table.
+7. **`STYLE_ALLOWED` + `strayStyles()` in the driver** (Phase 8). Gate B was nine scattered
+   `hasAttribute("style")` reads; it is one array and one helper now, so the allowed set cannot
+   drift between call sites.
+8. **`places()` in `selectPass`** (Phase 8). Three rows compare an arrangement ACROSS a compile or
+   a redraft, and `slotsNow` reports the MEASURED height for a node with no authored one — which a
+   compile legitimately changes. Projecting to `[id, x, y]` is what keeps "every member back at
+   its origin" a claim about position. Without it the row reds on correct code, which is exactly
+   how a good check gets weakened.
+9. **`rankLayout` imported by the driver** (Phase 8), for the reason its import block already
+   states: the expected position of every block on `/factory` is computed from the board the page
+   itself fetched, never typed.
 
 ## Issues encountered
 
@@ -439,12 +720,18 @@ depend on a second, less-read option, and `{transform: "none", composite: "add"}
 budget AND the running-page assertion — and neither reaches an animation's composite behaviour. It
 was found by reading the module while migrating it, and it would have shipped green.
 
-**H2 — A COVERAGE GAP I INTRODUCED AND DID NOT CLOSE: the two `attributeFilter` changes have no gate.**
-`studio-layers.mjs` and `studio-minimap.mjs` now observe `["style", …]` instead of the four position
-attributes. If either filter is wrong, the layers list and every minimap cell freeze for the whole of
-a move — silently, with the page otherwise working. **No gate on the pure layer can see it** (both
-observers are mount-only) and the Phase 8 assertion that would is not written. Whoever does
-`layersPass` and `minimapPass` must add one; it is the highest-value driver assertion in this PR.
+**H2 — A COVERAGE GAP I INTRODUCED, NOW CLOSED (Phase 8).** `studio-layers.mjs` and
+`studio-minimap.mjs` observe `["style", …]` instead of the four position attributes. If either
+filter is wrong, the layers list and every minimap cell freeze for the whole of a move — silently,
+with the page otherwise working. **No gate on the pure layer can see it** (both observers are
+mount-only), and neither can drift-check (no artifact) or the pixel gate (the map is captured at
+rest, where a frozen cell is in the right place anyway).
+
+`minimapPass` now carries the row, beside the positive proof it hangs off: an injected agent move
+changes only a style property, and the map's cell must be at `nodeRect`'s answer for the wrapper's
+NEW box afterwards. `layersPass`'s pointer-drag row is the same claim for the list. The mutation
+table above shows the minimap row going red when the filter is pointed at an attribute nothing
+writes.
 
 **H3 — The gate is a hard stop, not a report.** `group()` (`build-checks.mjs:315`) has no try/catch
 and the group bodies are bare top-level blocks, so one `ReferenceError` ends the run and every group
@@ -498,24 +785,22 @@ how the repo's largest class of process finding gets in through a door no gate w
 
 ## Resume order
 
-Tightest constraint first. Steps 1-4 reach Task 2.9, the first green tree since `287445e`.
+Phases 0–8 are complete and green. What is left:
 
-Steps 1-5 are **done** (they were this session's second half). What remains:
+1. **Phase 9, and it is two tasks not one.** **9.1** — add `verdant` to `visual.spec.mjs`'s `PACKS`
+   (the pack file already exists; the line is still two entries). **9.2** — regenerate from a clean
+   detached worktree under `/Users` (not `/private/tmp` — Docker sharing),
+   `cd tooling/visual-regression && npm run update:docker`. **15 PNGs, 33 files after**: 11 new
+   verdant, `/factory` ×2 for P1 and P2, `approach` ×2 for `loc-summary`'s 31,400 → 31,500. The
+   approach pair is sub-perceptual digits that `maxDiffPixels: 100` will swallow — `rm` those two
+   to force them.
+2. **Level 5** — the owner's own read of `/factory` and `/studio.html` in a real browser, and their
+   verdict, which this PR must not write.
 
-1. **Phase 3.4 — the SVG arrow overlay.** Its before-reading is taken (H8). Design its gate FIRST:
-   per H9 nothing in the repo can see a transform-induced containing block, so the overlay needs a
-   running-page assertion measuring an arrow's endpoints against the two node positions it claims to
-   connect, at a scale **other than 1** — at 100% scrolled to 0,0 a wrong coordinate space looks
-   right, which is the trap every other coordinate chain in this module set carries a note about.
-2. **Phase 4** — `canvas-ops.mjs` and `device-presets.mjs`, then group 35. The applier is
-   copy-and-adapt, not blank-page: `.claude/plans/canvas-swap-302-reference/canvas-ops.reference.txt`
-   is 25/25. `PARAMS` must be EXPORTED and frozen at both levels or the group cannot iterate `OPS`.
-3. **Phase 5** — the nudge floor and align/distribute. `guidesFor` already landed with the mount.
-4. **Phase 6** — the spine and its package, then group 36.
-5. **Phase 7** — re-run `gen-loc-summary` (it will move again), `gen-param-count`, and the
-   vocabulary + handoff cascade the `id` node key forces.
-6. **Phases 8-10** — the drivers on three engines, the INP gate, the baselines, the prose.
+**One assertion still owed**, and nothing covers it: **H9**'s overlay coordinate space.
+(**H2**'s `attributeFilter` check landed in `minimapPass` — see Issues.)
 
-**Two assertions to add when Phase 8 gets there**, both of which nothing currently covers:
-**H2**'s `attributeFilter` check in `layersPass` and `minimapPass`, and **H9**'s overlay coordinate
-space.
+**One design call parked rather than taken**: the `/factory` menu is both `setPos`-clamped and
+`translate: -100%`-flipped within a menu's width of the right edge, so it renders up to `MENU_W`
+left of the component it belongs to. The clamp alone would keep it on the stage. The driver
+asserts the shipped geometry and names the gap in its own comment.

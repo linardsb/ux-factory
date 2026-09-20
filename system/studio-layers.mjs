@@ -171,8 +171,6 @@ export function mountStudioLayers(root, { canvas, select } = {}) {
       h: parseFloat(node.style.getPropertyValue("--h")),
       kind: node.classList.contains(FRAME_CLASS) ? "frame" : "slot",
       selected: node.hasAttribute("data-stx-selected"),
-      cols: node.getAttribute("data-span-col"),
-      rows: node.getAttribute("data-span-row"),
     });
 
     // --- structure ------------------------------------------------------------------------------

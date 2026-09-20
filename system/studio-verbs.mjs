@@ -1155,16 +1155,36 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // corner rather than a destination, which is what makes the pointer path free: the same
       // pointOnStage() chain feeds both.
       if (gesture.kind === "resize") return previewSize(at);
-      const dx = at.x - gesture.current.x;
-      const dy = at.y - gesture.current.y;
-      if (!dx && !dy) return false;
-      // EVERY MEMBER TRANSLATES BY THE SAME DELTA, and there is no all-or-nothing test left to make
-      // (D-d). setPos clamps each member to the stage independently, which means a group dragged
-      // into a corner DEFORMS — the members that hit the edge stop and the others keep coming. That
-      // is stated rather than guarded against: the alternative is refusing the whole gesture, which
-      // is the "blocked" behaviour #302 deleted, and a reader dragging a group into a corner expects
-      // it to stack up there rather than to stop dead.
+      // THE ANCHOR MOVES FIRST AND ITS REAL TRAVEL IS WHAT THE OTHERS FOLLOW (#302). The delta used
+      // to be `at - gesture.current`, and `gesture.current` is read back off the anchor's LANDED
+      // box — so the moment the anchor hit the stage edge and stopped, every later frame recomputed
+      // the same negative delta from the clamped position and applied it AGAIN. A group dragged
+      // downwards along the left edge did not deform, it SHEARED: the anchor stood still at x 0
+      // while every other member slid left at ~34 px a frame until they stacked on top of it.
+      // Measured on /factory: two selected blocks at 0 and 236 both ended at 0. #217's AC #2 — "the
+      // selection keeps its shape" — was false on the shipped route for any drag that touched an
+      // edge, and no pure gate can see it because every property written was individually correct.
+      //
+      // Anchor-driven removes the feedback loop entirely: the anchor is asked for `at`, setPos says
+      // where it actually landed, and THAT travel is what the rest translate by. A clamped anchor
+      // yields a zero delta, so the group stops as one — which is what the thing under the reader's
+      // hand not moving should mean.
+      //
+      // MEMBERS STILL DEFORM AT THE EDGE, and that stays deliberate (D-d): setPos clamps each one
+      // independently, so a member that reaches the edge stops while the others keep coming. The
+      // alternative is refusing the whole gesture, which is the "blocked" behaviour #302 deleted.
+      // What is gone is only the case where the ANCHOR's own clamp drove the deformation.
+      if (at.x === gesture.current.x && at.y === gesture.current.y) return false;
+      const anchorWas = boxOf(gesture.node);
+      const anchorAt = applyBox(gesture.node, { x: at.x, y: at.y, w: anchorWas.w, h: anchorWas.h });
+      const dx = anchorAt.x - anchorWas.x;
+      const dy = anchorAt.y - anchorWas.y;
       for (const m of gesture.members) {
+        if (m.node === gesture.node) {
+          m.current = { x: anchorAt.x, y: anchorAt.y, w: anchorAt.w, h: anchorAt.h };
+          continue;
+        }
+        if (!dx && !dy) continue;
         const want = { x: m.current.x + dx, y: m.current.y + dy, w: m.current.w, h: m.current.h };
         const landed = applyBox(m.node, want);
         m.current = { x: landed.x, y: landed.y, w: landed.w, h: landed.h };
@@ -1224,13 +1244,23 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       e.preventDefault(); // no text selection under the drag
       const g = pickUp(node, "pointer", handle?.classList.contains("stx-resize") ? "resize" : "move");
       g.pointerId = e.pointerId;
-      // WHERE INSIDE THE NODE THE PRESS LANDED, so the point under the finger stays under it. A
-      // RESIZE takes no offset: its argument is the desired bottom-right CORNER, and the corner the
-      // reader is dragging is the cursor itself.
-      if (g.kind !== "resize") {
-        const down = pointOnStage(e);
-        g.grabOffset = { x: down.x - g.origin.x, y: down.y - g.origin.y };
-      }
+      // WHERE INSIDE THE NODE THE PRESS LANDED, so the point under the finger stays under it.
+      //
+      // A RESIZE TAKES ONE TOO, and the comment here used to say it did not: "its argument is the
+      // desired bottom-right CORNER, and the corner the reader is dragging is the cursor itself".
+      // That is true of the corner and false of the CONTROL — the press lands on .stx-resize, whose
+      // centre is inset from the corner it represents, so the first preview snapped the corner to
+      // the cursor and the frame lost that inset on BOTH axes the instant the pointer moved. It is
+      // 3f2b367's move teleport exactly, one gesture over: measured at 14px per axis on the
+      // shipped frames, on a drag whose x never moved at all. A grid resize snapped to a track and
+      // absorbed it unless the inset happened to cross a boundary; free sizes cannot.
+      //
+      // Measured from the CORNER for a resize and from the ORIGIN for a move, because those are the
+      // two points their previews are expressed in. pointFor() subtracts whichever was recorded.
+      const down = pointOnStage(e);
+      g.grabOffset = g.kind === "resize"
+        ? { x: down.x - (g.origin.x + g.currentSize.w), y: down.y - (g.origin.y + g.currentSize.h) }
+        : { x: down.x - g.origin.x, y: down.y - g.origin.y };
       g.fromHandle = Boolean(handle);
       // preventDefault() above suppresses the press's own focus, so the handle is focused
       // explicitly: a reader who picked up with the mouse can then finish with the arrow keys.

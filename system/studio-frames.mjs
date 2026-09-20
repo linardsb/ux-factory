@@ -29,12 +29,13 @@
 //     order, the born-inert handles, the re-label fix (#231 L3), the id counter and the say() on
 //     placement. Thirty duplicated lines here would be six re-argued rules.
 //
-//  4. GEOMETRY IS ATTRIBUTES, AND RESIZE IS SPAN — NOT PIXELS. build-checks group 7 asserts
-//     `writes === 1` inline-style write across every studio module, and this is a studio module, so
-//     #176's px `--frame-w` mechanism is not available to it. data-span-col / data-span-row select
-//     `grid-*-end: span K` rules from system/studio.css. The trade this inherits is that resize is
-//     STEPPED — which is also what makes it announceable ("3 columns by 3 rows") and gives it a
-//     finite tamper surface, exactly the trade fit() records for zoom.
+//  4. GEOMETRY IS PIXELS, AND SO IS RESIZE (#302). This call USED to read the other way — geometry
+//     was attributes and a resize was a span — because group 7 caps inline-style writes and a
+//     studio module had no px mechanism available to it. setPos is that mechanism: it is one of the
+//     two named writers the group now allows, it writes --x/--y/--w/--h, and a frame's descriptor
+//     below carries its place and size directly. What the stepped span bought — an announceable
+//     size and a finite tamper surface — survives as the sentence "<name> resized to W by H" and as
+//     setPos's own clamp, which is the one definition of a size on this stage.
 //
 //  5. A FRAME IS OUTSIDE #217's SELECTION LAYER, AND THAT IS A LINE RATHER THAN AN OMISSION. A
 //     selection is a set of components you act on together; a device frame is an exhibit on the same

@@ -62,7 +62,7 @@
 // pure layer directly.
 
 import { applyOp, emptyBoard, rankLayout } from "./board-ops.mjs";
-import { NODE_GAP, NODE_H, NODE_W } from "./studio-canvas.mjs";
+import { NODE_GAP, NODE_H, NODE_W, setPos } from "./studio-canvas.mjs";
 import { parseTrace } from "./trace-player.mjs";
 import { trackFactoryTookOver } from "./analytics.mjs";
 
@@ -503,21 +503,48 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       affordances: place.affordances.map((f) => ({ id: f.id, label: f.label })),
     });
 
+    // THE LAYOUT CONVERGES, AND IT HAS TO BE A SEPARATE PASS (#302). The comment below used to say
+    // the rank was "recomputed per addition rather than cached" because an op that adds a place can
+    // change the rank of one already on the stage — which was the right diagnosis and only half the
+    // cure. It recomputed the rank of the NODE BEING ADDED and never touched the others, and the
+    // committed runs make that the normal case rather than an edge one: every `place.add` in
+    // build-fieldwork-dispatch runs BEFORE every `connect`, so at insertion each place is an
+    // ORPHAN — rankLayout's trailing-rank branch — and the seven connections that give the board
+    // its shape arrive when nothing re-reads the layout. The settled canvas was one column of
+    // stacked blocks: neither the retired row-1 rule nor the rank layout, and wrong in a way that
+    // only shows on the running page.
+    //
+    // THROUGH setPos, NOT place(). place() announces on every call and appends unconditionally —
+    // the same two reasons the place-changed branch below refuses to re-place — so a relayout of
+    // four nodes per connect op would flood the live region and re-order the stage. setPos is the
+    // one writer of a position and says nothing, which is exactly what a layout correction is:
+    // nothing happened that a reader needs told, the blocks are simply where they now belong.
+    //
+    // Called from BOTH branches that can change a rank. A connection obviously can; so can a place
+    // added after one already exists, which is why the addition path calls it too rather than
+    // trusting the rank it just computed for the one node.
+    const relayout = () => {
+      for (const at of rankLayout(board)) {
+        const wrapper = wrappers.get(at.id);
+        if (wrapper) setPos(wrapper, at.rank * (NODE_W + NODE_GAP), at.order * (NODE_H + NODE_GAP), NODE_W);
+      }
+    };
+
     const reflect = (changes) => {
       for (const change of changes) {
         if (change.kind === "refused") { canvas.say(`Refused: ${change.text}`); continue; }
-        if (change.kind === "connections-changed") continue; // the board changed; no node did
+        // The board changed and no node was added or removed — but every node may have MOVED, and
+        // for these runs that is the only thing the connections do.
+        if (change.kind === "connections-changed") { relayout(); continue; }
         const place = board.places.find((p) => p.id === change.placeId);
         if (change.kind === "place-removed") {
           wrappers.get(change.placeId)?.remove();
           wrappers.delete(change.placeId);
+          relayout();
           continue;
         }
         if (!place) continue;
         if (change.kind === "place-added") {
-          // Recomputed per addition rather than cached: an op that adds a place can change the rank
-          // of one already on the stage, and a cached layout would put the new node in a column the
-          // others have since moved out of.
           const at = rankLayout(board).find((r) => r.id === String(place.id));
           const node = blockFor(place);
           canvas.place(node, {
@@ -527,6 +554,7 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
             name: place.label,
           });
           if (node.parentElement) wrappers.set(place.id, node.parentElement);
+          relayout(); // the peers, whose ranks this addition may have moved
           continue;
         }
         // place-changed — RENAMED IN PLACE, never re-placed. See call 2 in the header: place()

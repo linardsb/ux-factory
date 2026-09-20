@@ -302,9 +302,29 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
     // writes. parseFloat drops the "px" and answers NaN for an unwritten property, which pointOf and
     // idsInRange both coerce — so a node placed before the module booted reads as a point at the
     // origin rather than crashing the marquee.
+    // THE MEASURED HEIGHT WHEN NONE IS AUTHORED (#302), and it is the difference between a working
+    // marquee and one that selects nothing. idsInRange asks whether a node's BOX overlaps the
+    // rectangle — its own comment says a rule the reader cannot see is the thing to avoid — and a
+    // board wrapper carries no --h at all, so `prop("--h") || 0` made every block on /factory a
+    // zero-height LINE at its own top edge. Two consequences, both measured on the running page:
+    // a marquee dragged straight across all four blocks selected none of them, and the only
+    // rectangle that could have caught them needed a top edge of exactly 0, which a pointer cannot
+    // reach through the scroller's 1px border. #217's AC #1 was dead on the shipped route.
+    //
+    // NOT the same question studio-verbs.mjs's boxOf answers, which is why the two differ and both
+    // are right. That one feeds the SNAPSHOT, where `h: null` means "this node has never carried a
+    // height" and inventing one would claim a property in a structure two drivers deep-compare.
+    // This one feeds a HIT TEST, where the honest extent is what the node actually occupies.
     const boxOf = (node) => {
       const prop = (name) => parseFloat(node.style.getPropertyValue(name));
-      return { id: idOf(node), x: prop("--x") || 0, y: prop("--y") || 0, w: prop("--w") || 0, h: prop("--h") || 0 };
+      const h = prop("--h");
+      return {
+        id: idOf(node),
+        x: prop("--x") || 0,
+        y: prop("--y") || 0,
+        w: prop("--w") || node.offsetWidth || 0,
+        h: (Number.isFinite(h) ? h : node.offsetHeight) || 0,
+      };
     };
     const chosenNodes = () => [...stage.querySelectorAll(".stx-slot[data-stx-selected]")];
     const chosenIds = () => chosenNodes().map(idOf);

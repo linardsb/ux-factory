@@ -39,8 +39,8 @@ system/                       the shipped design system — brand-agnostic core 
   param-count.json            GENERATED control totals — approach.html renders the total
   instance.mjs                view-time private-instance shell config; boots the studio band
   ── the studio (epic #202) ──
-  studio-canvas.mjs           the canvas SUBSTRATE — native-scroll stage, zoom table, data-col/data-row
-  studio.css                  the studio's surface styles; hand-mirrors the caps group 12 pins
+  studio-canvas.mjs           the canvas SUBSTRATE — native-scroll stage, free positions, continuous zoom
+  studio.css                  the studio's surface styles; hand-mirrors the stage box group 12 pins
   studio-verbs.mjs            the MANIPULATION verbs — move, resize, undo/redo, all through the bus
   studio-flow.mjs             the flow's screen surface — renderScreen + wireFlow
   studio-method.mjs           the METHOD BAND — the ten questions as cards, Hook loop, ethics verdict

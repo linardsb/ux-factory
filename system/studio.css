@@ -160,7 +160,18 @@
    system/studio-canvas.mjs's place(). Nothing below mirrors a value studio-verbs.mjs exports:
    build-checks group 12 pins the existing --stx-* mirror exhaustively, and a second mirror with no
    pin behind it is a thing that drifts silently. */
-.stx-slot { position: relative; display: flex; }
+/* NO `position` HERE (#302). It said `position: relative` for the whole of the grid era, because a
+   grid item needed to be positioned for .stx-grab's absolute placement — and while the stage was a
+   grid that was harmless, since the track placed the wrapper and `relative` left it in its cell.
+   Under free positioning it is a REGRESSION: this rule sits after the four-family rule above, at
+   equal specificity, so it won that cascade and put every slot back in normal FLOW. The wrapper
+   then stacked under its predecessors and `transform: translate(var(--x), var(--y))` offset it from
+   THERE, so --x looked right (a block's flow x is 0) and --y was added to the accumulated height of
+   every slot before it. Thirty-one slots rendered as a 2,800px column while every property, every
+   snapshot and every build-checks group read exactly right.
+   The family rule's `position: absolute` is what places these now, and it is also a positioned
+   ancestor for .stx-grab, so nothing here needs a `position` of its own. */
+.stx-slot { display: flex; }
 .stx-slot > :not(.stx-grab) { flex: 1 1 auto; min-width: 0; }
 
 /* Always visible, never hover-revealed: a hover-only handle is unreachable by a keyboard user with
