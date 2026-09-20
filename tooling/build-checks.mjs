@@ -218,7 +218,7 @@ import { assembleReducer, hookComplete, RENDER_SOURCES, verdictFor } from "../sy
 import { decodeBuild, encodeBuild, MAX_DECODED_BYTES, MAX_PARAM_CHARS, SHARE_VERSION, SHARE_VERSIONS } from "../system/build-share.mjs";
 import { draftBoard, LABEL_MAX, MAX_AFFORDANCES, MAX_PLACES } from "../system/breadboard.mjs";
 import { compose, streamNote } from "../system/pattern-render.mjs";
-import { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
+import { arrowPath, MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, setPos, setScale } from "../system/studio-canvas.mjs";
 import { ALIGN_VERBS, alignMoves, createHistory, DIRS, guidesFor, HISTORY_MAX, NUDGE_STEP, ROW_BAND, readingOrder, SPOKEN_MAX } from "../system/studio-verbs.mjs";
 import { extendSelection, idsInRange, marqueeRange, MENU_DESELECT, MENU_H, MENU_ITEMS, MENU_SELECT, MENU_W, menuAnchor, menuItems } from "../system/studio-select.mjs";
 import { affordanceCount, PATTERNS, patternFor, screensFor, slotsFor, SLOT_MAX } from "../system/pattern-rules.mjs";
@@ -2787,7 +2787,64 @@ function scanSvg(svg, label) {
   ok(SHARE_VERSION === 3 && SHARE_VERSIONS.length === 2 && SHARE_VERSIONS.includes(1) && SHARE_VERSIONS.includes(3),
     `build-share.mjs reads v${SHARE_VERSIONS.join(" and v")} writing v${SHARE_VERSION}; #302 moved it to 3 and dropped 2 with the field only 2 could carry`);
 
-  group("canvas", `studio.css hand-mirrors the stage box (${STAGE_W} x ${STAGE_H}) and the rest scale ${SCALE_REST} in BOTH directions, with the sizer's un-booted fallbacks pinned to the same two numbers · the numbered-attribute mechanism proven GONE from the sheet (the set is derived from it, so a later ticket reaching for the old spelling fails here rather than on a reader's screen) and the four families proven to share ONE position rule, with --h on the frame alone (D-c) · setPos over 11 hostile inputs — negative, past both edges, NaN, non-finite, decoded strings, an under-floor width, an absent everything — never writing a non-finite value, clamping to the stage on both axes with the node's OWN size accounted for, omitting --h entirely when none is given, returning where the node LANDED and throwing on a null element · setScale over 8, continuous between ${SCALE_MIN} and ${SCALE_MAX}, with the scroll extent written in the SAME call · and #208's tripwire discharged by deletion: the codec imports nothing from the canvas, emits no arrangement, and reads v1 and v3 only. What it cannot reach: whether the sheet's translate actually MOVES anything, which needs layout — tooling/studio-journey.mjs owns that, and Gate B owns the claim that the style attribute carries only these seven properties`);
+  // --- 12.7 · arrowPath — pure, total, and until now covered by nothing at all (PR #432's F6) ----
+  // THE CHEAP HALF OF A GAP WHOSE OTHER HALF IS STILL OPEN. The arrow overlay ships with no caller
+  // — setArrows has none anywhere in the repo until #306's live page — so no running-page assertion
+  // and no pixel can reach any of it. arrowPath is the part that needs neither: it is pure, total
+  // and takes two boxes, which makes it drivable here and leaves only the DOM half owed.
+  //
+  // THE ENDPOINTS ARE DERIVED, NEVER TYPED. Every case below asserts that the answer lands ON the
+  // boundary of its own box — one coordinate at an edge, the other inside that edge's span — so a
+  // clip that moved to the wrong axis fails here rather than matching a literal someone copied out
+  // of a passing run.
+  const onBoundary = (b, x, y) => {
+    const near = (u, v) => Math.abs(u - v) < 1e-9;
+    const withinX = x >= b.x - 1e-9 && x <= b.x + b.w + 1e-9;
+    const withinY = y >= b.y - 1e-9 && y <= b.y + b.h + 1e-9;
+    const onVertical = (near(x, b.x) || near(x, b.x + b.w)) && withinY;
+    const onHorizontal = (near(y, b.y) || near(y, b.y + b.h)) && withinX;
+    return onVertical || onHorizontal;
+  };
+  const SQ = (x, y) => ({ x, y, w: 100, h: 100 });
+  for (const [why, from, to] of [
+    ["side by side — the ray leaves through the vertical edges", SQ(0, 0), SQ(200, 0)],
+    ["stacked — through the horizontal edges", SQ(0, 0), SQ(0, 200)],
+    ["THE BACK EDGE: `to` is to the LEFT, so the line starts on `from`'s own left edge", SQ(200, 0), SQ(0, 0)],
+    ["the back edge upward", SQ(0, 200), SQ(0, 0)],
+    ["a diagonal the ray leaves sideways (|dx| dominates the half-extents)", SQ(0, 0), { x: 400, y: 100, w: 100, h: 100 }],
+    ["a WIDE pair the same ray leaves through the BOTTOM — the Math.min(tx, ty) branch",
+      { x: 0, y: 0, w: 400, h: 40 }, { x: 100, y: 300, w: 400, h: 40 }],
+  ]) {
+    const seg = arrowPath(from, to);
+    ok(seg !== null && onBoundary(from, seg.x1, seg.y1) && onBoundary(to, seg.x2, seg.y2),
+      `arrowPath(${JSON.stringify(from)}, ${JSON.stringify(to)}) gave ${JSON.stringify(seg)} — ${why}; an endpoint must sit ON its own box's boundary`);
+    // …and the segment runs BETWEEN them: neither endpoint may be strictly inside the other box.
+    ok(seg !== null && !(seg.x1 > to.x && seg.x1 < to.x + to.w && seg.y1 > to.y && seg.y1 < to.y + to.h),
+      `arrowPath's start landed INSIDE the target box: ${JSON.stringify(seg)} — ${why}`);
+  }
+  // SYMMETRY, which is what says the two clips are the same computation rather than two that agree
+  // on the fixtures above: reversing the arguments must reverse the segment exactly.
+  const fwd = arrowPath(SQ(0, 0), { x: 400, y: 100, w: 100, h: 100 });
+  const rev = arrowPath({ x: 400, y: 100, w: 100, h: 100 }, SQ(0, 0));
+  ok(fwd && rev && JSON.stringify([fwd.x1, fwd.y1, fwd.x2, fwd.y2]) === JSON.stringify([rev.x2, rev.y2, rev.x1, rev.y1]),
+    `arrowPath is not symmetric: ${JSON.stringify(fwd)} vs ${JSON.stringify(rev)}`);
+  // NULL RATHER THAN A ZERO-LENGTH OR INSIDE-OUT SEGMENT. An arrow between two boxes that overlap
+  // is a picture of nothing, and the overlap test IS `ta + tb >= 1` — driven at both sides of it.
+  ok(arrowPath(SQ(0, 0), SQ(10, 0)) === null, "overlapping boxes answered a segment rather than null");
+  ok(arrowPath(SQ(0, 0), SQ(0, 0)) === null, "two boxes at the same place answered a segment — there is no direction to draw");
+  ok(arrowPath(SQ(0, 0), SQ(100, 0)) === null,
+    "boxes exactly touching answered a segment — ta + tb is 1 there, and the test is >= 1 so the zero-length case is refused");
+  ok(arrowPath(SQ(0, 0), SQ(101, 0)) !== null,
+    "a one-pixel gap answered null — the positive control for the row above, without which `always null` would pass it");
+  for (const junk of [null, undefined, 42, "x", {}, { x: 0, y: 0 }, { x: 0, y: 0, w: 0, h: 10 },
+    { x: 0, y: 0, w: -5, h: 10 }, { x: NaN, y: 0, w: 10, h: 10 }, { x: 0, y: 0, w: Infinity, h: 10 }]) {
+    ok(threw(() => arrowPath(junk, SQ(200, 0))) === null && arrowPath(junk, SQ(200, 0)) === null,
+      `arrowPath(${JSON.stringify(junk)}, box) must answer null and never throw`);
+    ok(threw(() => arrowPath(SQ(0, 0), junk)) === null && arrowPath(SQ(0, 0), junk) === null,
+      `arrowPath(box, ${JSON.stringify(junk)}) must answer null and never throw`);
+  }
+
+  group("canvas", `studio.css hand-mirrors the stage box (${STAGE_W} x ${STAGE_H}) and the rest scale ${SCALE_REST} in BOTH directions, with the sizer's un-booted fallbacks pinned to the same two numbers · the numbered-attribute mechanism proven GONE from the sheet (the set is derived from it, so a later ticket reaching for the old spelling fails here rather than on a reader's screen) and the four families proven to share ONE position rule, with --h on the frame alone (D-c) · setPos over 11 hostile inputs — negative, past both edges, NaN, non-finite, decoded strings, an under-floor width, an absent everything — never writing a non-finite value, clamping to the stage on both axes with the node's OWN size accounted for, omitting --h entirely when none is given, returning where the node LANDED and throwing on a null element · setScale over 8, continuous between ${SCALE_MIN} and ${SCALE_MAX}, with the scroll extent written in the SAME call · arrowPath driven over six geometries with every endpoint asserted ON its own box's boundary rather than against a typed literal (the back edge both ways, and the wide pair that takes the OTHER branch of Math.min(tx, ty)), symmetry under reversal, the overlap test driven at BOTH sides of `+"`"+`ta + tb >= 1`+"`"+` with the one-pixel gap as the positive control, and 20 junk shapes each answering null without throwing · and #208's tripwire discharged by deletion: the codec imports nothing from the canvas, emits no arrangement, and reads v1 and v3 only. What it cannot reach: whether the sheet's translate actually MOVES anything, which needs layout — tooling/studio-journey.mjs owns that, and Gate B owns the claim that the style attribute carries only these seven properties; and the whole DOM half of the arrow overlay — the SVG layer, its marker def, the MutationObserver and setArrows, which has NO CALLER anywhere in this repo until #306's live page, so no running-page row and no pixel reaches any of it either`);
 }
 
 // --- 13 · the canvas verbs ----------------------------------------------------------------------
@@ -3055,6 +3112,35 @@ function scanSvg(svg, label) {
       ok(deep(alignMoves(junk, "align-left")) === deep([]), `alignMoves(${JSON.stringify(junk)}) must answer [], never throw`);
     }
 
+    // A MISSING HEIGHT IS THE SHAPE THE PAGE ACTUALLY PRODUCES (#302, PR #432's F2). Every row above
+    // hands every box an explicit `h`, and that is the one shape /factory never sends: the align
+    // handler queries `.stx-slot[data-stx-selected]` — board wrappers only, frames being deliberately
+    // unselectable — and a wrapper carries no --h, so snapshot's boxOf answers `h: null` for 100% of
+    // them. Three of the eight verbs therefore shipped wrong on every input they could take, with
+    // this group green. The page-side fix is studio-verbs.mjs's measuredBoxOf; these rows are what
+    // would have made the gap visible from Node.
+    //
+    // THE CONTRACT IS NOT ASSERTED AWAY. `h()` coercing a null to 0 stays — alignMoves is pure and
+    // has no way to measure — so what is pinned is that the coercion is LOAD-BEARING: the three
+    // verbs that do arithmetic on a bottom edge answer something DIFFERENT when the heights are
+    // missing, which is what makes an unmeasured caller a silent wrong answer rather than a
+    // graceful degradation. BV, not BX: BX's first and last boxes are the same height, and
+    // distribute-v's middle position works out to h_a - h_c + the span, so on that fixture the two
+    // answers COINCIDE and a difference row over it would pass for the wrong reason.
+    const BV = [{ id: "a", x: 0, y: 0, w: 100, h: 198 }, { id: "b", x: 50, y: 400, w: 200, h: 60 }, { id: "c", x: 300, y: 250, w: 100, h: 48 }];
+    const BVN = BV.map((b) => ({ ...b, h: null }));
+    for (const v of ["align-bottom", "align-middle", "distribute-v"]) {
+      ok(deep(by(alignMoves(BVN, v))) !== deep(by(alignMoves(BV, v))),
+        `${v} answered the SAME moves with h: null as with real heights (${deep(by(alignMoves(BV, v)))}) — it is not reading height at all, so nothing in this file could tell a measured caller from an unmeasured one`);
+    }
+    const lowestTop = Math.max(...BV.map((b) => b.y));
+    ok(Object.values(by(alignMoves(BVN, "align-bottom"))).every(([, y]) => y === lowestTop),
+      `with no heights align-bottom aligns TOPS to the bottom-most node's TOP (${lowestTop}), which is what a reader saw on /factory: ${deep(by(alignMoves(BVN, "align-bottom")))}`);
+    for (const v of ["align-left", "align-right", "align-centre", "distribute-h"]) {
+      ok(deep(by(alignMoves(BVN, v))) === deep(by(alignMoves(BV, v))),
+        `${v} reads x and w only and must be untouched when the heights vanish: ${deep(by(alignMoves(BVN, v)))} vs ${deep(by(alignMoves(BV, v)))}`);
+    }
+
     // readingOrder: ROW-MAJOR, with a BAND, because free positions have no rows. Two nodes a few
     // pixels apart read as one row to a person and as two rows to a naive sort — which would make
     // "3 of 7" name a different thing each time anything moved slightly.
@@ -3064,6 +3150,16 @@ function scanSvg(svg, label) {
     ok(ROW_BAND === NODE_H, `ROW_BAND is ${ROW_BAND}; it is one node height, the smallest thing on this stage that has one`);
     ok(deep(readingOrder([{ id: "x", x: 0, y: 0 }, { id: "y", x: 0, y: ROW_BAND + 1 }])) === deep(["x", "y"]),
       "two nodes more than a band apart did not order top-to-bottom");
+    // THE BAND IS FIXED BUCKETING, AND THE FIXTURE MUST STRADDLE A BOUNDARY TO SAY SO (PR #432's
+    // F11). The RO fixture above sits y 0 vs y 20 — inside ONE bucket — so it passes under a
+    // relative band and under a fixed one alike, and the module's comment claimed the first while
+    // implementing the second. These two rows pin what is actually implemented: 1 px APART across
+    // the boundary reads as two rows, and ROW_BAND - 1 px apart INSIDE one reads as one row and
+    // sorts left to right. Anything that made the band relative turns the first row red by name.
+    ok(deep(readingOrder([{ id: "below", x: 0, y: ROW_BAND }, { id: "above", x: 999, y: ROW_BAND - 1 }])) === deep(["above", "below"]),
+      `two nodes ONE PIXEL apart across a band boundary must read as two rows — fixed bucketing, not "within one node of each other": ${deep(readingOrder([{ id: "below", x: 0, y: ROW_BAND }, { id: "above", x: 999, y: ROW_BAND - 1 }]))}`);
+    ok(deep(readingOrder([{ id: "right", x: 999, y: 0 }, { id: "left", x: 0, y: ROW_BAND - 1 }])) === deep(["left", "right"]),
+      `two nodes ${ROW_BAND - 1} px apart INSIDE one band must read as ONE row, left to right — the inverse of the row above, and without it "always two rows" would pass it: ${deep(readingOrder([{ id: "right", x: 999, y: 0 }, { id: "left", x: 0, y: ROW_BAND - 1 }]))}`);
     for (const junk of [null, 42, "x", [{ x: 1 }], [null]]) {
       ok(deep(readingOrder(junk)) === deep([]), `readingOrder(${JSON.stringify(junk)}) must answer [], never throw`);
     }
@@ -10899,6 +10995,27 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   once.frames.push({ id: "smuggled" });
   ok((fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }], seed) ?? { frames: [] }).frames.length === 1,
     "mutating a returned document reached back into the applier");
+  // …AND THE ALIAS THAT RUNS THE OTHER WAY (#302, PR #432's F5). The two rows above protect the
+  // caller's DOCUMENT; neither says anything about what the returned document points AT. clone(doc)
+  // left screen.compose's composition, state.add's override and connect's from/to stored BY
+  // REFERENCE, so `built.frames[0].composition === op.params.composition` was true and a caller
+  // editing the returned document silently rewrote the op record it was built from — which is
+  // exactly what a canvas surface editing a loaded build does. Asserted by IDENTITY first, because
+  // an equal-looking deep compare passes on an alias, and then by the consequence.
+  const aliasOp = { op: "screen.compose", params: structuredClone(VALID_FOR["screen.compose"]) };
+  const aliased = fold([aliasOp]) ?? { frames: [{}] };
+  ok(aliased.frames[0]?.composition !== aliasOp.params.composition,
+    "the returned document's composition IS the op's own object — editing the document rewrites the op record");
+  const stateOp = { op: "state.add", params: structuredClone(VALID_FOR["state.add"]) };
+  const aliasState = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }, stateOp]) ?? { frames: [{}, {}] };
+  ok(!Object.values(aliasState.frames[1] ?? {}).some((v) => v === stateOp.params.override),
+    "the state frame holds the op's OWN override object rather than a copy of it");
+  const before5 = deep(aliasOp.params);
+  if (aliased.frames[0]?.composition && typeof aliased.frames[0].composition === "object") {
+    aliased.frames[0].composition.name = "MUTATED-BY-THE-CALLER";
+  }
+  ok(deep(aliasOp.params) === before5,
+    `editing the RETURNED document changed the op record: ${deep(aliasOp.params)}`);
 
   // --- 35.4 the refusals, each DRIVEN by a broken op and matched on what it must NAME ------------
   const one = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc();

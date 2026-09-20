@@ -15,9 +15,23 @@
 // compile beat (#207). The load-bearing calls, made here so #210/#212/#213 inherit them:
 //
 //   1. A SECOND AUTHOR, NEVER A SECOND MOVER. system/studio-verbs.mjs's single ui.move consumer is
-//      the only thing on this canvas that MOVES a wrapper. This file never emits ui.move, never
-//      calls applySlot and never writes a position on an existing wrapper. It changes the
-//      BOARD and reflects that change onto the stage; where a block sits stays #205's sentence.
+//      the only thing on this canvas that MOVES a wrapper. This file never emits ui.move and never
+//      calls applySlot. It changes the BOARD and reflects that change onto the stage; where a block
+//      sits stays #205's sentence.
+//
+//      ONE EXCEPTION, ADDED AT #302 AND STATED RATHER THAN LEFT TO BE FOUND (PR #432's F10). Free
+//      positions are computed from the board, so a connection that changes a place's RANK changes
+//      where every downstream block belongs: relayout() writes setPos on existing wrappers for
+//      exactly that. It is a LAYOUT CORRECTION, not a move — no ui.move, no history entry, no
+//      announcement — and the clause above said "never writes a position on an existing wrapper",
+//      which this PR made false in the same edit that left the sentence standing.
+//
+//      IT CANNOT REACH A READER'S OWN PLACEMENT, and that bound is what makes the exception safe
+//      rather than merely declared: relayout() runs only from reflect(), reflect() only from
+//      advance(), and a take-over sets tookOver, calls pause() and disables step, skip and seek
+//      together — so no further beat can play and no op can reflect once the canvas is the
+//      visitor's. Measured on the module, not assumed; if a later ticket gives the transport a path
+//      that survives a take-over, this exception has to be gated on tookOver rather than restated.
 //   2. ONLY place.add CALLS place(). studio-canvas.mjs:340 appends unconditionally — even on the
 //      idempotent re-place path — and :343 announces on every call. So re-placing a wrapper to
 //      re-label it would re-order the stage by append order AND turn four announcements into eleven

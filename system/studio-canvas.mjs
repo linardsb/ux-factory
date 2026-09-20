@@ -363,9 +363,32 @@ export function initStudioCanvas(root = document) {
     // three custom properties and forces the engine to re-resolve the sizer.
     let scale = SCALE_REST;
     let scaleFrame = 0;
+    // THE SCROLL OFFSET THE PENDING SCALE OWES (#302, PR #432's F3), held as the CONTENT POINT to
+    // keep under the anchor rather than as a pixel offset — the target is a function of the scale,
+    // and the scale has not been written yet. setZoom used to write scrollLeft/scrollTop on the two
+    // lines after queueScale() with the comment "the browser clamps both to the new range"; that
+    // was true on main, where data-zoom was written synchronously. It stopped being true the moment
+    // the scale write moved into an rAF: the scroll range comes from --stx-extent-w/h, .stx-sizer
+    // reads them (studio.css:70-74) and setScale writes them INSIDE this flush, so a zoom-in
+    // clamped against the OLD, smaller extent and nothing re-applied the target afterwards. Derived
+    // for 1 → 1.25 at scrollLeft 1500, anchor x 800, clientWidth 1000: wanted 2075, old max 1816,
+    // so 259 screen px of drift, growing with how far the reader had panned.
+    //
+    // FLUSHING EARLY INSTEAD WAS MEASURED AND REJECTED. Chromium, 4x CPU throttle, 120 ctrl+wheel
+    // events over 40 frames: coalesced held a p50 frame gap of 16.7 ms with no frame over 33 ms,
+    // a synchronous flush gave 23.9-25.6 ms and dropped 1-3 frames (two samples each). The write
+    // the header's own S1 note is about is the one being coalesced, so it stays coalesced and the
+    // scroll target rides with it — scale and scroll land in the SAME frame, which is a stronger
+    // property than the old code had, not a weaker one.
+    let pendingAnchor = null;
     const flushScale = () => {
       scaleFrame = 0;
       setScale(viewport, scale);
+      if (!pendingAnchor) return;
+      const { cx, cy, ax, ay } = pendingAnchor;
+      pendingAnchor = null;
+      scroll.scrollLeft = cx * scale - ax; // the extent is current now, so this clamp is the right one
+      scroll.scrollTop = cy * scale - ay;
     };
     const queueScale = () => {
       if (scaleFrame) return;
@@ -392,12 +415,17 @@ export function initStudioCanvas(root = document) {
       if (clamped === scale) return scale;
       const ax = anchorX ?? scroll.clientWidth / 2;
       const ay = anchorY ?? scroll.clientHeight / 2;
-      const cx = (scroll.scrollLeft + ax) / scale;
-      const cy = (scroll.scrollTop + ay) / scale;
+      // A SECOND CALL INSIDE THE SAME FRAME — which is every pinch — would read a scroll offset the
+      // first call has not written yet, so the content point comes from the pending target when
+      // there is one. `scale` is still the pending call's scale at this line, which is exactly the
+      // scale that target will be applied at.
+      const fromLeft = pendingAnchor ? pendingAnchor.cx * scale - pendingAnchor.ax : scroll.scrollLeft;
+      const fromTop = pendingAnchor ? pendingAnchor.cy * scale - pendingAnchor.ay : scroll.scrollTop;
+      const cx = (fromLeft + ax) / scale;
+      const cy = (fromTop + ay) / scale;
       scale = clamped;
+      pendingAnchor = { cx, cy, ax, ay };
       queueScale();
-      scroll.scrollLeft = cx * scale - ax; // the browser clamps both to the new range
-      scroll.scrollTop = cy * scale - ay;
       syncControls();
       return scale;
     };
@@ -421,6 +449,10 @@ export function initStudioCanvas(root = document) {
         ? Math.min(aw / STAGE_W, ah / STAGE_H)
         : SCALE_REST;
       setZoom(ratio, 0, 0);
+      // THE ORIGIN, WHATEVER THE READER HAD PANNED TO, so setZoom's anchored target is dropped
+      // rather than re-applied on the next frame (#302, PR #432's F3). These two writes stay
+      // SYNCHRONOUS and stay correct: 0 is inside every extent, so no flush can clamp it away.
+      pendingAnchor = null;
       scroll.scrollLeft = 0;
       scroll.scrollTop = 0;
       say(`Zoom ${Math.round(scale * 100)} percent, fit to the canvas`);
@@ -429,6 +461,10 @@ export function initStudioCanvas(root = document) {
 
     const reset = () => {
       setZoom(SCALE_REST, 0, 0);
+      // THE ORIGIN, WHATEVER THE READER HAD PANNED TO, so setZoom's anchored target is dropped
+      // rather than re-applied on the next frame (#302, PR #432's F3). These two writes stay
+      // SYNCHRONOUS and stay correct: 0 is inside every extent, so no flush can clamp it away.
+      pendingAnchor = null;
       scroll.scrollLeft = 0;
       scroll.scrollTop = 0;
       say("Zoom 100 percent, back to the top left");

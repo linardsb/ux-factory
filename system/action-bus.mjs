@@ -46,8 +46,9 @@
 //   ui.distribute-*  ui.move-group, so the one consumer that writes a position is still the one
 //                    consumer that writes a position
 //
-// A v2 share link carrying the old shapes is refused by system/build-share.mjs BY NAME rather than
-// silently coerced, for the same reason this note exists: two readings of one field is worse than a
+// A v2 share link carrying the old shapes is refused by system/build-share.mjs at the VERSION check
+// — "this link is format v2; this builder reads v1 and v3" — rather than silently coerced, for the
+// same reason this note exists: two readings of one field is worse than a
 // refusal.
 const SOURCES = new Set(["pointer", "keyboard", "agent", "voice"]);
 const TYPE_RE = /^(ui|agent)\.[a-z][a-z-]*$/;

@@ -153,8 +153,18 @@ export const NUDGE_STEP = 4;
 //
 // ROW-MAJOR NEEDS A DEFINITION OF "SAME ROW", and free positions do not come with one: two nodes at
 // y 100 and y 104 are on the same row to a reader and two different rows to a sort. The band is one
-// node height, which is the smallest thing on this stage that has a height — so nodes whose tops sit
-// within one node of each other read as a row, and the tie is broken left to right.
+// node height, which is the smallest thing on this stage that has a height, and the tie inside a
+// band is broken left to right.
+//
+// IT IS FIXED BUCKETING, NOT A RELATIVE BAND, and the difference is worth stating because the
+// obvious reading of the paragraph above is the one this does not do (#302, PR #432's F11).
+// Math.floor(y / ROW_BAND) cuts the stage into fixed stripes: y 0 and y 139 share a row while y 130
+// and y 150 do not, so it is NOT "within one node of each other" — two nodes a few pixels apart
+// read as two rows whenever the boundary happens to fall between them. That is the deliberate
+// choice rather than a bug: bucketing is total, order-independent and deterministic, which is what
+// an ordinal in a live-region sentence needs, and a true relative band is a clustering pass whose
+// answer depends on which node you start from. Group 13's fixture straddles a boundary so the
+// property asserted is the one implemented.
 //
 // STATED AS REVERSIBLE. A band is a judgement, not a fact, and the architecture marks the snap
 // family as a reversible call; if the canvas later grows a real row concept, this reads from it
@@ -370,6 +380,23 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         h: Number.isFinite(h) ? h : null,
       };
     };
+    // THE SAME BOX, MEASURED (#302, PR #432's F2). boxOf answers what the node has AUTHORED, and for
+    // a board wrapper that is `h: null` — right for the snapshot, wrong for anything doing ARITHMETIC
+    // on a bottom edge. alignMoves coerces a null height to 0, so align-bottom aligned TOPS to the
+    // bottom-most node's top, align-middle aligned tops to the mid-line and distribute-v equalised
+    // top spacing; guidesFor's edges() drops the centre and bottom guides for a box with no height.
+    // Both readers take `.stx-slot` only — frames are deliberately unselectable — so every one of
+    // those was wrong on 100% of the nodes it can act on, with build-checks green: the BX fixture
+    // hands alignMoves an explicit h on every box, which is the shape the page never produces.
+    //
+    // offsetHeight is the UNSCALED layout height — a transform on an ancestor does not reach it — so
+    // it lands in stage units beside --x/--y/--w. studio-select.mjs:331 (the hit test) and
+    // studio-minimap.mjs:315 already read geometry exactly this way, and for the same reason.
+    // snapshot()'s boxOf is left alone: the two questions are genuinely different.
+    const measuredBoxOf = (node) => {
+      const b = boxOf(node);
+      return { ...b, h: Number.isFinite(b.h) ? b.h : (node.offsetHeight || 0) };
+    };
     const isFrame = (node) => node.classList.contains(FRAME_CLASS);
     const idOf = (node) => node.getAttribute("data-stx-id");
     const nameOf = (node) => node.getAttribute("data-stx-name") || "Component";
@@ -455,8 +482,16 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const renderGuides = () => {
       if (!gesture) { clearGuides(); return; }
       const carriedNodes = new Set(gesture.members.map((m) => m.node));
-      const peers = slots().filter((n) => !carriedNodes.has(n)).map(boxOf);
-      const { xs, ys } = guidesFor(gesture.members.map((m) => m.current), peers);
+      const peers = slots().filter((n) => !carriedNodes.has(n)).map(measuredBoxOf);
+      // MEASURED ON BOTH SIDES (#302, PR #432's F2). members[].current comes from boxOf, so a carried
+      // board wrapper arrived here with `h: null` and edges() gave it a top edge and nothing else —
+      // the centre and bottom guides this function's own comment promises never fired for one. The
+      // members themselves keep the authored box: applyBox writes it back on a cancel, and inventing
+      // an --h there would claim a property the wrapper has never carried.
+      const carried = gesture.members.map((m) => (Number.isFinite(m.current.h)
+        ? m.current
+        : { ...m.current, h: m.node.offsetHeight || 0 }));
+      const { xs, ys } = guidesFor(carried, peers);
       xGuide = setGuide(xGuide, true, xs.length ? xs[0] : null);
       yGuide = setGuide(yGuide, false, ys.length ? ys[0] : null);
     };
@@ -783,7 +818,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         canvas.say(`Select two or more components to ${verb.startsWith("align") ? "align" : "distribute"} them.`);
         return; // DOM untouched
       }
-      const moves = alignMoves(chosen.map((n) => ({ id: idOf(n), ...boxOf(n) })), verb);
+      const moves = alignMoves(chosen.map((n) => ({ id: idOf(n), ...measuredBoxOf(n) })), verb);
       if (!moves.length) {
         // A REAL ANSWER, not a failure: everything is already on the line. Said out loud for the
         // reason every blocked keypress used to be — a verb that does nothing and says nothing is
@@ -1357,8 +1392,8 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         e.preventDefault();
         const node = handle.closest(MOVABLE); // MOVABLE (#219): a frame's handle finds no .stx-slot
         if (!node) return;
-        const g = pickUp(node, "keyboard", handle.classList.contains("stx-resize") ? "resize" : "move");
-          return;
+        pickUp(node, "keyboard", handle.classList.contains("stx-resize") ? "resize" : "move");
+        return;
       }
 
       if (e.key === "Escape") { e.preventDefault(); cancel(); return; }

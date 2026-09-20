@@ -109,9 +109,16 @@ const ANSWERS_NOTE = "The spec carries the ten method answers this page runs on,
   + "recommended ones and not yours — the board above is the recorded run's work, and the pattern is "
   + "named from those answers. Answer them yourself on the builder and the spec is yours too.";
 
-const SHARE_NOTE = "The whole build travels in the link itself: the board, the design values, and — "
-  + "because this page has a canvas and the builder does not — where each block sits on it. There is "
-  + "no server in this, and nothing is saved anywhere.";
+// WHAT THE LINK CARRIES, AND ONLY THAT (#302, PR #432's F4). Until v3 the codec had a `g` field and
+// this sentence named it: "because this page has a canvas and the builder does not — where each
+// block sits on it". `g` is retired and refused by name in build-share.mjs; the arrangement does not
+// travel. The button label and both aria variants were corrected with the codec and this paragraph
+// was not, which left the one honesty claim the reader actually reads making a promise the link
+// cannot keep. The retirement is stated rather than merely unsaid: a reader who copied a link from
+// this page before v3 has a reason to look for the difference.
+const SHARE_NOTE = "The link itself carries the build: the board and the design values. Where each "
+  + "block sits on this canvas does not travel with it. There is no server in this, and nothing is "
+  + "saved anywhere.";
 
 const EMPTY = "Nothing to keep yet. This board has no places on it, so there is no product to export, "
   + "no spec to write and no link worth sharing. A board with something on it brings all three back.";

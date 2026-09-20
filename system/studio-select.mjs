@@ -556,11 +556,21 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
     // pointerup would turn every click into a drag. DRAG_SLOP is the literal that replaces the cell,
     // and it is stated rather than hidden: 4 px is the usual platform threshold and is well under
     // the 24 px minimum target size, so it cannot swallow a deliberate small marquee.
+    //
+    // AND IT IS FOUR SCREEN PIXELS, NOT FOUR STAGE PIXELS (#302, PR #432's F9). pointOnStage has
+    // already divided by the scale, so comparing the literal against a stage-space delta made the
+    // effective threshold 4 × scale on the reader's screen: 0.4 px at the 0.1 floor, where a hand
+    // tremor on a Shift-click crosses it, paintMarquee flips m.dragged and marqueeRange REPLACES
+    // the selection the reader was building instead of adding to it; and 16 px at the 4 ceiling,
+    // which swallows the deliberate small marquee the paragraph above promises it cannot. The
+    // threshold is a property of the hand, so it is converted INTO stage units at the comparison
+    // rather than the literal being reinterpreted.
     const DRAG_SLOP = 4;
     const paintMarquee = (m, e) => {
       const at = pointOnStage(e);
       if (!m.dragged) {
-        if (Math.abs(at.x - m.origin.x) < DRAG_SLOP && Math.abs(at.y - m.origin.y) < DRAG_SLOP) return null; // still a click
+        const slop = DRAG_SLOP / (canvas.scale || 1);
+        if (Math.abs(at.x - m.origin.x) < slop && Math.abs(at.y - m.origin.y) < slop) return null; // still a click
         m.dragged = true;
       }
       return applySelection(idsInRange(slots().map(boxOf), marqueeRange(m.origin, at)), { say: false });

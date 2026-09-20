@@ -302,7 +302,7 @@ const DRAFTED = "This board is drafted from your ten answers by the committed ru
 // The "This build" panel — the at-rest panel, and the only one this file renders itself.
 // `provenance` decides the closing note: the counted numbers above it are true of any board, but
 // whose board they count is a claim, and it has three honest values (see boardProvenance).
-function renderSummary(mount, summary, arranged, provenance) {
+function renderSummary(mount, summary, provenance) {
   if (!mount) return;
   mount.textContent = "";
 
@@ -515,7 +515,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // the replay path there is nothing to count yet — and a panel reading "Places 0" for the first
   // five seconds would be a set of true numbers about nothing. factory.html's own markup says what
   // is coming instead, and onSettle below replaces it with the counted panel.
-  if (arranged.length) renderSummary(summaryMount, summary, arranged, boardProvenance);
+  if (arranged.length) renderSummary(summaryMount, summary, boardProvenance);
 
   const inspector = wireInspector(shell);
 
@@ -566,7 +566,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
       // "Places 0" is a set of true numbers about nothing. It was unreachable while settle() was
       // the only publisher — a settled run always has places — and a take-over is reachable from
       // the moment the driver is `ready`, which is several beats before the first place.add.
-      if (arranged.length) renderSummary(summaryMount, summary, arranged, boardProvenance);
+      if (arranged.length) renderSummary(summaryMount, summary, boardProvenance);
       if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
     }
     compile.setEnabled(true);

@@ -233,7 +233,7 @@
    of them by --x/--y, so a guide and a menu are placed by the same one writer every other node is
    (#302). Until then they were grid children placed by attribute, which is what let their modules
    write zero inline styles; the write-site gate moved to two named functions instead, and group 7
-   holds them to an exact budget. */
+   holds them to an exact budget.
 
    NOTHING BELOW IS NAMED FOR A VIEW TRANSITION, and nothing below animates — see the reduced-motion
    note at the foot of this block. */
@@ -249,10 +249,14 @@
    carried (studio-verbs.mjs's guidesFor) — a guide over an empty column is the lie AC #3 forbids,
    and the gate forces one there and watches red rather than counting guides.
 
-   PREPENDED TO THE STAGE and left at z-index auto, deliberately: .stx-slot is position: relative
-   (:124), so it paints in the positioned phase above this static grid item whatever the DOM order
-   is, and the guide stays a ground wash UNDER the components rather than a tint over them. A
-   z-index here would promote it above them and obscure the very alignment it is pointing out. */
+   PREPENDED TO THE STAGE and left at z-index auto, deliberately — and DOM ORDER is the whole
+   mechanism since #302. The guide and the wrapper are two members of the same four-family rule, so
+   both are position: absolute and both are transformed; a transform makes an element paint as a
+   positioned box with z-index 0, which puts them in the same layer and leaves tree order to decide.
+   First child, therefore underneath: the guide stays a ground wash UNDER the components rather than
+   a tint over them, and a z-index here would promote it above them and obscure the very alignment
+   it is pointing out. (The old reason read ".stx-slot is position: relative (:124) … above this
+   static grid item"; P1 deleted that declaration and there is no grid item left to be above.) */
 .stx-guide {
   pointer-events: none;
   background: color-mix(in srgb, var(--color-bg), var(--color-accent) 12%);
@@ -269,8 +273,6 @@
    with the stage, because it is canvas content. */
 .stx-menu {
   z-index: 3;
-  align-self: start;
-  justify-self: start;
   min-width: max-content;
   display: flex;
   flex-direction: column;
@@ -310,12 +312,15 @@
 
 
 
-/* ---------- frames: the FOURTH grid family (#219) ---------- */
-/* A frame is on the grid but is NOT a board wrapper. system/studio-compile.mjs's identity and count
-   tripwires and system/studio.mjs's adoptBoard removal loop both mean `.stx-slot`
+/* ---------- frames: the FOURTH NODE FAMILY (#219) ---------- */
+/* A frame is a node on this stage but is NOT a board wrapper. system/studio-compile.mjs's identity
+   and count tripwires and system/studio.mjs's adoptBoard removal loop both mean `.stx-slot`
    and must keep meaning it, so the two device frames join .stx-guide and .stx-menu as a family that
-   is a grid child without being a wrapper. Registered in build-checks group 12's GRID_FAMILIES — the
-   fourth-family detector fails on the first rule below without it, which is that check working.
+   is positioned like a wrapper without being one. The registry is the SHARED FOUR-FAMILY POSITION
+   RULE at :104, which build-checks group 12 matches on its exact selector list — a family left out
+   of it would sit at the origin under everything else, and that check names it. (The old spelling
+   was "the fourth GRID family", registered in a GRID_FAMILIES list; #302 retired the grid and that
+   list has no occurrence in tooling/build-checks.mjs.)
 
    A FRAME IS A RECTANGLE AT A FREE POSITION (#302). It carries --w and --h where the other node
    classes carry --w alone, because a device frame's height is AUTHORED rather than derived from its
@@ -325,26 +330,13 @@
    NOTHING HERE IS NAMED FOR A VIEW TRANSITION, and nothing here animates — the frames join the
    reduced-motion off-ramp below for the standing prophylactic reason. */
 
-/* START AND END ARE SPLIT DELIBERATELY. `grid-column: N` is a SHORTHAND: declared in a rule of equal
-   specificity it resets grid-column-end back to `auto`, so a frame would silently be one cell wide
-   whichever rule happened to come last. The three families above can use the shorthand because none
-   of them spans. */
-
-
-
-/* Each row-span rule declares its own index TWICE — once as the grid span, once as the row count the
-   height calc below reads. Group 12 asserts the pair agrees, because a height and a span that
-   disagree is a frame claiming grid area it does not paint for a reason nobody chose. */
-
 /* THE HEIGHT DOES NOT RIDE --stx-slot-h, and that is the one call in this block worth arguing.
-   :638 flips --stx-slot-h to 480px in the compiled state, so a grid-stretched 3-row frame would be
-   452px at rest and 1,472px after Compile — a depicted phone that grows when you compile a board is
-   a lie about the device it depicts. align-self: start plus an explicit height off the AT-REST row
-   unit keeps the device the same size in both states; the frame then claims more grid area than it
-   paints once compiled, which is visible whitespace and honest.
-
-   Rejected alternative: a per-compile-state span override. It would make the announcement ("3 rows")
-   false in one of the two states.
+   --stx-slot-h flips to 480px in the compiled state, so a frame whose height derived from it would
+   be one size at rest and a much taller one after Compile — a depicted phone that grows when you
+   compile a board is a lie about the device it depicts. An EXPLICIT height is what keeps the device
+   the same size in both states, and it is now the only thing that does: the rule carried
+   `align-self: start` as half the reason, which was true while the frame was a grid child and is
+   inert on an absolutely-positioned child of a plain block stage.
 
    UNDER FREE POSITIONING (#302) the same argument holds and the source changes: the height is
    setPos()'s --h, in px, authored by the caller. The fallback is the one-row unit rather than 0, so
@@ -357,7 +349,6 @@
   display: flex;
   min-width: 0;
   overflow: hidden;
-  align-self: start;
   height: var(--h, var(--stx-frame-unit));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 8px);
@@ -483,7 +474,7 @@
   .stx-menu,
   .stx-menu-item,
   /* #219's frames join on the same terms, and prophylactically for the same reason: nothing in the
-     frame block transitions or animates, and a resize is an attribute flip the grid resolves. The
+     frame block transitions or animates, and a resize is a --w/--h write setPos makes (#302). The
      names are here so a later CSS transition on a frame or its handle cannot slip past the off-ramp.
      The frames' CONTENTS are separate documents with their own reduced-motion handling — a rule here
      could not reach them even if it wanted to. */

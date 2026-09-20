@@ -21,8 +21,10 @@
 //     studio-compile.mjs's identity and count tripwires and adoptBoard's removal loop both depend
 //     on that meaning (arrangementNow, the third reader, went with #302's codec field). Teaching
 //     four shipped mechanisms and ~100 driver assertions the difference between a wrapper and a
-//     frame costs far more than one exported selector; .stx-guide and .stx-menu (#217) made the same call and left the registry
-//     (build-checks group 12's GRID_FAMILIES) that catches a fourth.
+//     frame costs far more than one exported selector; .stx-guide and .stx-menu (#217) made the same
+//     call. The registry that catches a fourth is the SHARED FOUR-FAMILY POSITION RULE in
+//     system/studio.css, which build-checks group 12 matches on its exact selector list — #302
+//     retired the grid, and with it the GRID_FAMILIES list this line used to name.
 //
 //  3. IT DRAWS NO WRAPPER. studio-canvas.mjs's place() builds it, through one `kind: "frame"` branch,
 //     so the frames inherit the idempotency contract two drivers rely on, the handle-first tab

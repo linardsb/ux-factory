@@ -21,9 +21,13 @@
 //
 // IT LIVES IN system/ AND THEREFORE COSTS LOC, which is a decision rather than an oversight.
 // discovery/ops.mjs sits OUTSIDE system/ precisely because agent-layer/gen-loc-summary.mjs counts
-// system/*.mjs as the design system and approach.html renders the number. This file is in because a
-// SHIPPED PAGE loads it — the canvas replays a committed build the way the replay driver replays a
-// committed run — which is board-ops.mjs's side of the same argument.
+// system/*.mjs as the design system and approach.html renders the number. This file is in because
+// #306 WILL LOAD IT ON A SHIPPED PAGE — the canvas replaying a committed build the way the replay
+// driver replays a committed run — which is board-ops.mjs's side of the same argument. Stated in
+// the future tense on purpose (PR #432's F12): as of #302 the only importers are
+// tooling/build-checks.mjs and comments, so the lines it adds to the group approach.html labels
+// "view-time modules" are not yet view-time. Whether a module with no runtime consumer should count
+// against that rendered total before #306 lands is the owner's call, and it is open.
 //
 // THE CONVENTIONS ARE discovery/ops.mjs's, COPIED RATHER THAN RE-ARGUED: a frozen OPS list, a PARAMS
 // map whose entry per verb is EXACT rather than minimal, a private checkOp that validates the
@@ -115,7 +119,7 @@ function checkOp(op) {
   }
   const params = op.params;
   if (!params || typeof params !== "object" || Array.isArray(params)) {
-    throw new Error(`${op.op}: "params" must be an object`);
+    throw new Error(`${op.op}: "params" must be an object, not ${op.params === null ? "null" : Array.isArray(op.params) ? "an array" : typeof op.params}`);
   }
   const allowed = PARAMS[op.op];
   for (const k of Object.keys(params)) {
@@ -135,7 +139,14 @@ export function applyOp(doc, op) {
   if (!doc || !Array.isArray(doc.frames) || !Array.isArray(doc.arrows)) {
     throw new Error("applyOp: the document must carry frames and arrows arrays — start from emptyDoc()");
   }
-  const p = checkOp(op);
+  // THE PARAMS ARE CLONED TOO (#302, PR #432's F5). clone(doc) protects the ARGUMENT; it does
+  // nothing about what the returned document points AT. screen.compose stored p.composition,
+  // state.add stored p.override and connect stored p.from/p.to by reference, so
+  // `doc.arrows[0].from === op.params.from` was true and a caller editing the returned document
+  // silently rewrote the op record it was built from — which is precisely what a canvas surface
+  // editing a loaded build does. Group 35 proved purity by mutating the input document and by
+  // mutating the return; neither reaches an alias that runs the other way.
+  const p = clone(checkOp(op));
   const next = clone(doc);
   const frameIds = () => new Set(next.frames.map((f) => f.id));
   // Named by the verb that asked, so a dangling reference says which op could not resolve it rather
@@ -207,7 +218,7 @@ export function applyOp(doc, op) {
     }
     case "connect": {
       if (!p.from || typeof p.from !== "object" || !p.to || typeof p.to !== "object") {
-        throw new Error("connect: \"from\" and \"to\" are each an object naming a frame — { frameId, partId? } and { frameId }");
+        throw new Error(`connect: "from" and "to" are each an object naming a frame — { frameId, partId? } and { frameId } — and this op carried from: ${JSON.stringify(p.from)}, to: ${JSON.stringify(p.to)}`);
       }
       frame(p.from.frameId, "from.frameId");
       frame(p.to.frameId, "to.frameId");

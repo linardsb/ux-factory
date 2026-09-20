@@ -15,7 +15,9 @@
 //
 // WHY THESE FOUR. 390 is the iPhone 14/15 logical width and the commonest phone target; 430 its Pro
 // Max sibling, which is the width a "does this still work on a big phone" check wants; 834 the iPad
-// portrait width; 1440 the desktop width this site's own pixel gate captures at. Four is deliberately
+// portrait width; 1440 a common desktop breakpoint and the width tooling/studio-journey.mjs drives
+// this canvas at. (NOT the pixel gate's: that captures at 1280, and 1440 appears nowhere under
+// tooling/visual-regression/ — PR #432's F14.) Four is deliberately
 // short — a table nobody can hold in their head becomes a menu nobody reads.
 //
 // Node-import safe: data only, no DOM, no import of its own.
