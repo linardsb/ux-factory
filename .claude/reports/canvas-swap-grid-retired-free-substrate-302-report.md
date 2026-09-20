@@ -19,6 +19,9 @@ defects**.
 
 **Every phase is complete.** Phase 9 wrote **exactly 15 PNGs, 33 files after** — the plan's
 arithmetic, reached by counting against `visual.spec.mjs`'s own `PAGES` list rather than estimated.
+**One thing beyond the plan**: the `/factory` menu's double correction, reported here as a parked
+design call and then DECIDED by the owner (2026-09-20) — the flip is arithmetic in `menuAnchor`
+now, the sheet has no rule, and the gates that pinned the old shape were rewritten and re-proved.
 What remains is **Level 5 alone**, which is the owner's own read and which this PR must not write.
 
 ## Phase 0 — the before-state, observed 2026-09-18 on `287445e`
@@ -255,12 +258,6 @@ answer does not exist** (the plan's own Task 2.0 precedent, applied three more t
   two stale `studio-canvas.mjs` / `studio.css` rows this phase found), `gates.md`'s group
   paragraphs for 12, 13, 26 and 27 and its two journey-pass paragraphs, and the group count in all
   five prose copies are **done**.
-- **The `/factory` menu's double correction at the far right edge**, recorded rather than fixed:
-  within a menu's width of the right edge the menu is BOTH clamped by `setPos` (to
-  `STAGE_W − MENU_W`) and flipped by `translate: -100%`, so it renders up to `MENU_W` left of the
-  component it belongs to. The clamp alone would keep it on the stage. Which of the two should win
-  is a design call, not a coordinate migration — the driver asserts the shipped geometry and names
-  the gap in its own comment.
 - **Level 5, by hand in a real browser** — the owner's own read of `/factory` and `/studio.html`.
 - **The owner's verdict on `/factory`** — the owner's own hand; the plan says this PR must not
   write it.
@@ -530,6 +527,49 @@ The other seventeen gestures are either behind an existing `scrollSettled`, behi
 `behavior: "instant"` scroll, or assert something a few pixels cannot change ("the arrangement
 changed", "the block genuinely moved"). They were left alone deliberately: a speculative wait added
 to a passing row buys nothing and hides the next instance of this class.
+
+## The `/factory` menu's double correction, and the call that ended it
+
+**Reported as a parked design call, then decided by the owner rather than by me** — which is the
+only reason it is a change in this PR at all. The migration had left the `/factory` context menu
+corrected TWICE near the right edge: `menuAnchor` returned the raw invoker point plus a
+`flipX`/`flipY` pair, `setPos` clamped the menu to `STAGE_W − MENU_W` like every other node, and
+then `.stx-menu[data-flip-x] { translate: -100% 0 }` moved it a further `MENU_W`. Both corrections
+are individually defensible and the menu never left the stage, so no gate could call it wrong; what
+it produced was a menu rendering up to 220px from the component it acts on.
+
+**The decision: fold the flip into the anchor.** One correction, computed in one place, still
+written through `setPos` so that clamp goes back to being the safety net it is everywhere else
+rather than a second opinion. A menu that does not fit to the right now opens LEFTWARD FROM ITS
+INVOKER — its right edge on the component's left edge — which is what a context menu is expected to
+do, and it cannot leave the stage.
+
+| Surface | What changed |
+|---|---|
+| `system/studio-select.mjs` | `menuAnchor` returns the corrected point; `flipX`/`flipY` gone, and the consumer's two `data-flip-*` attributes with them — the only thing that ever read them was the rule that has gone |
+| `system/studio.css` | the three `translate` rules deleted. Nothing replaced them: no inline style, no group 7 exception, no attribute. The comment that remains says WHY, because the reason outlives the rules |
+| `tooling/build-checks.mjs` 22.5 | asserts the **coordinate**, not a flag — plus a new row proving every flipped answer is a FIXED POINT of `setPos`'s clamp, which is the row a returning second correction cannot survive |
+| `tooling/studio-journey.mjs` R5 | four rows for four: the menu's right edge on its invoker's left edge, the menu **not** at `STAGE_W − MENU_W` (where a clamp-only regression would leave it, `MIN_SIZE` away), an interior menu opening rightward, and the pair proven to open in OPPOSITE directions — because either row alone passes on a menu that always opens the same way |
+| the driver's bounds string | the third copy of the claim. `gates.md` has no #217 bullet, so this and the `group()` string are the only two others |
+
+**The rewritten gate was proven able to fail before it was trusted**, which matters more here than
+usual: a flag-based check can be green while the thing it drives is missing OR doubled, and doubled
+is exactly what shipped.
+
+| | Mutation | Observed |
+|---|---|---|
+| **control** | none | `build ✓  all 36 groups pass` |
+| M1 | the flip never fires — the "clamp only" option, reintroduced | **RED, 3 failures** — `menuAnchor(2597, 1092) gave 2596, 1092, expected 2377, 1092` |
+| M2 | a second correction reintroduced after the flip | **RED, 14 failures** — `menuAnchor(0, 0) gave 220, 140, expected 0, 0` |
+
+M2 is the one worth keeping: it reds on the ORIGIN, not at the edge, because a correction applied
+unconditionally is wrong everywhere rather than only where it was needed. A boundary-only fixture
+would have missed it.
+
+**No pixel baseline moves.** The menu is closed at rest and the deleted rules only ever matched
+`.stx-menu[data-flip-x]`, which exists in no capture. Confirmed by the three-engine run rather than
+assumed: chromium **525/0** — the identical count to the run before this change, so the four
+rewritten rows replaced four and lost no coverage — firefox **521/0**, webkit **521/0**.
 
 ## Validation results
 
@@ -818,7 +858,5 @@ Every phase is complete and green. What is left:
 **One assertion still owed**, and nothing covers it: **H9**'s overlay coordinate space.
 (**H2**'s `attributeFilter` check landed in `minimapPass` — see Issues.)
 
-**One design call parked rather than taken**: the `/factory` menu is both `setPos`-clamped and
-`translate: -100%`-flipped within a menu's width of the right edge, so it renders up to `MENU_W`
-left of the component it belongs to. The clamp alone would keep it on the stage. The driver
-asserts the shipped geometry and names the gap in its own comment.
+**The one design call parked in this PR has been TAKEN** (owner, 2026-09-20) — see
+**The `/factory` menu's double correction, and the call that ended it**.

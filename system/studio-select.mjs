@@ -194,6 +194,17 @@ export function idsInRange(nodes, range) {
 // positions have no last column, so the honest question is whether the menu fits, and MENU_W/MENU_H
 // are that question's terms. Both sides are still asserted, for the same reason: an off-by-one here
 // is invisible everywhere except at the edge.
+//
+// ONE CORRECTION, AND IT IS THIS ONE (owner's call, 2026-09-20). This used to return the raw point
+// plus a flipX/flipY pair, and `.stx-menu[data-flip-x] { translate: -100% 0 }` did the moving. But
+// setPos clamps EVERY node to `STAGE_W - w`, so the menu was already fully on the stage before the
+// sheet moved it again — two corrections for one problem, and near the right edge the menu rendered
+// up to MENU_W away from the component it belongs to. The flip is arithmetic on the anchor now: a
+// menu that does not fit to the right opens LEFTWARD FROM its invoker, which is what a context menu
+// is supposed to do, and setPos's clamp goes back to being the safety net it is everywhere else
+// rather than a second opinion. There is no flip FLAG and no `data-flip-*` attribute, because the
+// only thing that ever read them was the rule that has gone: the correction is in the coordinate
+// now, so the coordinate is what group 22 asserts.
 export const MENU_W = NODE_W;
 export const MENU_H = NODE_H;
 export function menuAnchor(x, y, stageW = STAGE_W, stageH = STAGE_H) {
@@ -201,12 +212,14 @@ export function menuAnchor(x, y, stageW = STAGE_W, stageH = STAGE_H) {
   const sw = bound(stageW, STAGE_W);
   const sh = bound(stageH, STAGE_H);
   const at = pointOf({ x, y });
-  return {
-    x: Math.min(at.x, sw),
-    y: Math.min(at.y, sh),
-    flipX: at.x + MENU_W > sw,
-    flipY: at.y + MENU_H > sh,
+  // Flip about the invoker, then keep the whole menu on the stage. The second clamp is a no-op
+  // whenever the first branch did not fire (v + size <= max implies v <= max - size); it is there
+  // for the off-stage invoker, whose flipped point is still nowhere a reader could scroll to.
+  const fit = (v, size, max) => {
+    const flipped = v + size > max ? v - size : v;
+    return Math.min(Math.max(0, flipped), Math.max(0, max - size));
   };
+  return { x: fit(at.x, MENU_W, sw), y: fit(at.y, MENU_H, sh) };
 }
 
 // One Shift+Arrow press: step the CURSOR one node pitch in `dir` and return the rectangle from the
@@ -478,8 +491,6 @@ export function mountCanvasSelect(canvas, { bus } = {}) {
         class: "stx-menu",
         role: "menu",
         "aria-label": `Actions for ${nameOf(node)}`,
-        "data-flip-x": at.flipX || null,
-        "data-flip-y": at.flipY || null,
       });
       // The menu is a NODE ON THE STAGE, so it is positioned the way every other node is — through
       // setPos, which is what keeps the write count at group 7's budget. It carries no --h: its

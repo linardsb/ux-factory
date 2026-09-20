@@ -280,16 +280,14 @@
   border-radius: var(--radius-md, 8px);
   box-shadow: var(--shadow-md);
 }
-/* R5's whole off-edge fix, and the reason this ticket keeps its zero-inline-style claim while still
-   opening a menu at the far corner: menuAnchor() reports flipX/flipY as booleans, these two rules
-   are what they mean, and group 22 gates the boundary on BOTH sides (column 11 must not flip,
-   column 12 must). A measured pixel offset would have cost a group 7 exception. */
-/* The flip: the menu still opens from its --x/--y, but leftwards/upwards when there is not a menu's
-   worth of stage left in that direction. A translate on top of the position one, so setPos keeps
-   writing the anchor and this sheet decides what "flipped" means (the attribute discipline). */
-.stx-menu[data-flip-x] { translate: -100% 0; }
-.stx-menu[data-flip-y] { translate: 0 -100%; }
-.stx-menu[data-flip-x][data-flip-y] { translate: -100% -100%; }
+/* R5's off-edge fix USED TO LIVE HERE — three `.stx-menu[data-flip-*] { translate: -100% }` rules
+   driven by a flipX/flipY pair menuAnchor returned. It has moved into menuAnchor itself (owner's
+   call, 2026-09-20) and this note is what is left of it, because the reason matters more than the
+   rules did: setPos already clamps every node to STAGE_W - w, so the sheet was applying a SECOND
+   correction and a far-edge menu rendered up to a menu's width from the component it belongs to.
+   The flip is arithmetic on the anchor now, a menu that does not fit opens leftward from its
+   invoker, and there is nothing here to keep in step with it. Nothing replaced these rules: no
+   inline style, no group 7 exception, no attribute. */
 
 .stx-menu-item {
   appearance: none;

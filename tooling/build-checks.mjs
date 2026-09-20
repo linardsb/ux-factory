@@ -5078,27 +5078,42 @@ function scanSvg(svg, label) {
   // last column, so the honest question is whether the menu fits. Both sides of both boundaries are
   // still asserted, for the same reason as before: an off-by-one here is invisible everywhere except
   // at the edge, which is not where a menu gets tried first.
+  // ASSERTED AS A COORDINATE, NOT A FLAG (owner's call, 2026-09-20). menuAnchor used to return the
+  // raw point plus flipX/flipY and let `.stx-menu[data-flip-x] { translate: -100% 0 }` move the box;
+  // it returns the CORRECTED point now and the sheet has no rule. That is strictly more to assert,
+  // not less: a flag can be right while the thing it drives is missing or doubled, which is exactly
+  // the defect this replaced — setPos already clamps every node to `STAGE_W - w`, so the flip was a
+  // SECOND correction and a far-edge menu rendered a menu's width away from its own component.
+  // A row here can no longer pass on a menu that never moves.
   const fitsX = STAGE_W - MENU_W;
   const fitsY = STAGE_H - MENU_H;
-  for (const [x, y, flipX, flipY, why] of [
-    [0, 0, false, false, "the origin opens down and to the right, like everywhere with room"],
-    [fitsX, fitsY, false, false, "EXACTLY a menu's worth of room on both axes must NOT flip"],
-    [fitsX + 1, fitsY, true, false, "one pixel short on X flips only the X axis"],
-    [fitsX, fitsY + 1, false, true, "one pixel short on Y flips only the Y axis"],
-    [STAGE_W, STAGE_H, true, true, "the far corner flips both"],
+  for (const [x, y, wantX, wantY, why] of [
+    [0, 0, 0, 0, "the origin opens down and to the right, like everywhere with room"],
+    [fitsX, fitsY, fitsX, fitsY, "EXACTLY a menu's worth of room on both axes must NOT flip"],
+    [fitsX + 1, fitsY, fitsX + 1 - MENU_W, fitsY, "one pixel short on X flips only the X axis, about the invoker"],
+    [fitsX, fitsY + 1, fitsX, fitsY + 1 - MENU_H, "one pixel short on Y flips only the Y axis, about the invoker"],
+    [STAGE_W, STAGE_H, fitsX, fitsY, "the far corner flips both and lands flush inside the stage"],
   ]) {
     const a = menuAnchor(x, y);
-    ok(a.flipX === flipX && a.flipY === flipY,
-      `menuAnchor(${x}, ${y}) gave flipX ${a.flipX} / flipY ${a.flipY}, expected ${flipX} / ${flipY} — ${why}`);
-    ok(a.x === x && a.y === y,
-      `menuAnchor(${x}, ${y}) moved the anchor to ${a.x}, ${a.y}; the menu opens AT the invoker's point and flips about it, never relocated`);
+    ok(a.x === wantX && a.y === wantY,
+      `menuAnchor(${x}, ${y}) gave ${a.x}, ${a.y}, expected ${wantX}, ${wantY} — ${why}`);
+    ok(a.x >= 0 && a.y >= 0 && a.x + MENU_W <= STAGE_W && a.y + MENU_H <= STAGE_H,
+      `menuAnchor(${x}, ${y}) put the menu's far corner at ${a.x + MENU_W}, ${a.y + MENU_H}, outside the ${STAGE_W} x ${STAGE_H} stage`);
+  }
+  // NOT DOUBLE-CORRECTED, and this is the row the design call turns on: setPos clamps a node to
+  // `STAGE_W - w`, so an anchor that has ALREADY flipped must be a fixed point of that clamp. If a
+  // second correction ever comes back — here or in the sheet — these stop agreeing.
+  for (const x of [fitsX + 1, STAGE_W - 1, STAGE_W]) {
+    const a = menuAnchor(x, 0);
+    ok(a.x === Math.min(Math.max(0, a.x), STAGE_W - MENU_W),
+      `menuAnchor(${x}, 0) gave ${a.x}, which setPos's own clamp would move — the menu is being corrected twice`);
   }
   // The stage size is a PARAMETER, so a smaller stage flips earlier — which is what proves the
   // boundary is read from it rather than from a literal baked into the comparison.
-  ok(menuAnchor(400, 0, 400 + MENU_W - 1, STAGE_H).flipX === true
-    && menuAnchor(400, 0, 400 + MENU_W, STAGE_H).flipX === false,
+  ok(menuAnchor(400, 0, 400 + MENU_W - 1, STAGE_H).x === 400 - MENU_W
+    && menuAnchor(400, 0, 400 + MENU_W, STAGE_H).x === 400,
     "menuAnchor's flip boundary does not follow its stageW/stageH arguments — a hard-coded bound here drifts the day the stage resizes");
-  ok(menuAnchor(99999, 99999).x === STAGE_W && menuAnchor(-5, -5).x === 0,
+  ok(menuAnchor(99999, 99999).x === fitsX && menuAnchor(-5, -5).x === 0,
     "menuAnchor must clamp an off-stage invoker rather than placing a menu where nothing can scroll to it");
 
   // --- 22.6 totality ---------------------------------------------------------------------------
@@ -5119,7 +5134,7 @@ function scanSvg(svg, label) {
   ok(deep(extendSelection({ x: 400, y: 400 }, { x: 400, y: 400 }, [NaN, 1]).cursor) === deep({ x: 400, y: 400 }),
     "a non-finite direction must leave the cursor where it is; letting NaN reach the coercion answers the ORIGIN, which is a jump rather than a refusal");
 
-  group("select", `marqueeRange normalized identically from all 4 drag directions and clamped to the exported ${STAGE_W} x ${STAGE_H}, its keys renamed to EDGES because col1/row1 would read as cells · idsInRange on the rule that CHANGED rather than the units that did: a node is in range when its BOX OVERLAPS, so the four just-outside twins are RE-DERIVED by edge (its near edge one pixel past the rectangle's far edge) and each is paired with its KISSING twin one pixel back that MUST be picked up — which is what makes the pair an off-by-one detector rather than a statement that far-away things are not selected — plus the case the grid's rule could not express, a node the rectangle sits INSIDE, with the vacuity guard proving an origin test would answer differently · extendSelection is AC #1's PURE half — the keyboard rectangle asserted to BE marqueeRange's over the same corners and the resulting ID SETS compared, the anchor proven not to re-derive from the cursor, the REPLACE-not-union rule pinned on the id set, the held-key clamp on both edges, and one press proven to be one NODE PITCH, the step all three keyboard paths on this substrate share · menuItems' contextual pair asserted both ways and never both, Clear conditional, the disabled flags following canUndo/canRedo, no invented verb, MENU_ITEMS frozen BY MUTATION at both levels and its stateful items proven to be copies · menuAnchor's flips on BOTH sides of BOTH boundaries — the threshold being a MENU'S WORTH OF ROOM now that there is no last column, asserted at exactly-fits and one pixel short on each axis — with the stage size proven to be a parameter · total over ${junk.length} junk inputs per export. The two input paths actually selecting the same set, the two menu open paths, the arrow navigation, Escape's non-interference and the take-over coupling are tooling/studio-journey.mjs's selectPass, and say so`);
+  group("select", `marqueeRange normalized identically from all 4 drag directions and clamped to the exported ${STAGE_W} x ${STAGE_H}, its keys renamed to EDGES because col1/row1 would read as cells · idsInRange on the rule that CHANGED rather than the units that did: a node is in range when its BOX OVERLAPS, so the four just-outside twins are RE-DERIVED by edge (its near edge one pixel past the rectangle's far edge) and each is paired with its KISSING twin one pixel back that MUST be picked up — which is what makes the pair an off-by-one detector rather than a statement that far-away things are not selected — plus the case the grid's rule could not express, a node the rectangle sits INSIDE, with the vacuity guard proving an origin test would answer differently · extendSelection is AC #1's PURE half — the keyboard rectangle asserted to BE marqueeRange's over the same corners and the resulting ID SETS compared, the anchor proven not to re-derive from the cursor, the REPLACE-not-union rule pinned on the id set, the held-key clamp on both edges, and one press proven to be one NODE PITCH, the step all three keyboard paths on this substrate share · menuItems' contextual pair asserted both ways and never both, Clear conditional, the disabled flags following canUndo/canRedo, no invented verb, MENU_ITEMS frozen BY MUTATION at both levels and its stateful items proven to be copies · menuAnchor's flips on BOTH sides of BOTH boundaries — the threshold being a MENU'S WORTH OF ROOM now that there is no last column, asserted at exactly-fits and one pixel short on each axis, and asserted as the CORRECTED COORDINATE rather than as a flag, because there is no flag and no data-flip-* attribute since the owner folded the flip into the anchor (2026-09-20): a flag can be right while the thing it drove is missing or DOUBLED, which is the defect that change fixed. Every answer is proven to keep the menu's far corner inside the stage, and every FLIPPED answer is proven a FIXED POINT of setPos's own clamp — the row a second correction, here or in the sheet, cannot survive — with the stage size proven to be a parameter · total over ${junk.length} junk inputs per export. The two input paths actually selecting the same set, the two menu open paths, the arrow navigation, Escape's non-interference and the take-over coupling are tooling/studio-journey.mjs's selectPass, and say so`);
 }
 
 // --- 23 · the studio's docked docs (#218) -----------------------------------------------------------
