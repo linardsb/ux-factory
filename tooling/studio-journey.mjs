@@ -703,9 +703,9 @@ async function journey(engineName, results, held) {
   // .stx-viewport is a min-width:auto grid item, so the scroller's client box grows with the extent
   // and there is no horizontal scroll range to clamp against. Measured at BOTH 1440 and the pixel
   // gate's 1280 — .stx-scroll 3172 wide inside a 776px column — and measured the same way on the
-  // PR's base tree (2818 against the same 776), so it is pre-existing and not #302's. If that
-  // blowout is ever fixed, a horizontal range appears and this row should gain an X-axis assertion
-  // rather than keep this note.
+  // PR's base tree (2818 against the same 776), so it is pre-existing and not #302's — it is #433.
+  // When that lands a horizontal range appears, and this row should gain an X-axis assertion rather
+  // than keep this note; #433 asks for exactly that, so the note has a ticket and not just a wish.
   await btn(page, "Reset").click();
   await page.waitForTimeout(150);
   const preZoomPan = await page.evaluate(() => {
