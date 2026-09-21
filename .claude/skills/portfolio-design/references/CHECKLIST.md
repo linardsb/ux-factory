@@ -35,6 +35,17 @@ MUST/SHOULD/NEVER format (vercel-labs/web-interface-guidelines lineage, merged w
 - MUST: humanizer pass on all visible copy — no em/en dashes, no "not X but Y", no aphorism headlines, no -ing padding, active voice, plain words; jargon either replaced or defined inline once.
 - MUST: nothing presented as agent output is hand-written; a weak run is re-run with a tighter prompt, never edited.
 
+## Refusals (the slop tells — a NEVER each)
+
+- NEVER: a coloured `border-left`/`border-right` over 1px on a card — the side-stripe border reads as a template, not a decision (Impeccable `craft-floor.md`, Apache-2.0).
+- NEVER: hard-offset shadows (`box-shadow: 4px 4px 0`) outside a deliberately neobrutalist world; ours is not one (Impeccable `craft-floor.md`, Apache-2.0).
+- NEVER: sparklines or progress rings as decorative chrome — a chart that carries no measured number is ornament, and the honesty contract forbids it (Impeccable `craft-floor.md`, Apache-2.0).
+- NEVER: a system display face (Arial Black, Impact) standing in for a headline voice — display type is the personality carrier, and it comes from the type tokens (taste-skill §9.F, MIT).
+- NEVER: generic step labels ("Stage 1/2/3", "Phase 01") — a step is named by what happens in it, and the ordinal is the *Rejected* note below (taste-skill §9.F, MIT).
+- NEVER: scroll-cue affordances ("Scroll ↓", animated mouse icons) — the fold is not a wall, and a cue admits the page failed to invite (Impeccable `craft-floor.md`, Apache-2.0).
+- *Rejected, and why:* taste-skill also bans section-number eyebrows. **Numbered stations stay** — the pipeline (intake → system → prototype → handoff) is genuinely ordered, and the number is the order, not a decoration. The refusal above is for ordinals standing in for names, not for an order the reader must follow.
+- *Rejected, and why:* Impeccable bans the "hero metric template". **The hero stat stays** — it is the Hooked self-reward (the measured number the reader came for), and its exception is the count-up rule above: a real text node, the exact measured string as the last frame, never a "0+" placeholder. A hero number that is not measured is the template; ours is refused on that line, not on its position.
+
 ## Token & pipeline discipline
 
 - MUST: zero literals in `components.css` — new values enter `tokens.source.json` (both groups) first.
