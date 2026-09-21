@@ -240,12 +240,24 @@ export function mountStudioFrames(canvas, { root = document } = {}) {
 
     const wrappers = [];
     for (const frame of FRAMES) {
-      // loading="lazy" is a HEDGE, not a contract (two full proto boots are real added load on a
-      // page that already spends 14 s on the replay). Nothing below depends on when it resolves:
-      // the wrapper's height is CSS, the readiness handle is set at mount in the `finally`, and the
-      // pixel gate masks the iframe's content — so an engine that ignores the attribute inside a
-      // scroll container changes nothing that is asserted anywhere.
-      const iframe = el("iframe", { src: frame.src, title: frame.title, loading: "lazy" });
+      // NO loading="lazy", AND ITS REMOVAL IS #433's. It was a HEDGE, never a contract — two full
+      // proto boots are real added load on a page that already spends 14 s on the replay — and the
+      // note that carried it reasoned that an engine ignoring the attribute inside a scroll
+      // container changed nothing asserted anywhere. That reasoning had the failure mode backwards.
+      // The moment #433 gave the canvas a real horizontal range, the column went to 776px and this
+      // frame (x 472, w 692) was clipped to 302px of itself — and WEBKIT THEN NEVER LOADS IT:
+      // /proto/fieldwork.html is not requested at all, the iframe stays at about:blank, and panning
+      // does not revive it. Measured at rest AND at scrollLeft 600 on the fixed tree, against the
+      // same probe on the pinned tree where it is requested and complete, and against chromium and
+      // firefox which load it on both. A permanently blank prototype on the page this site is built
+      // around costs more than two same-origin boots that two of three engines already perform. The
+      // removal was verified the same way it was diagnosed: drop the attribute, re-run the probe,
+      // watch webkit request the page.
+      //
+      // Nothing that WAS true of the hedge is lost: the wrapper's height is still CSS, the
+      // readiness handle is still set at mount in the `finally` rather than on iframe load, and the
+      // pixel gate still masks the iframe's content.
+      const iframe = el("iframe", { src: frame.src, title: frame.title });
       anchorFrame(iframe, frame.anchor, ac.signal);
       const caption = el("div", { class: "stx-frame-cap" },
         el("p", { text: frame.caption }),

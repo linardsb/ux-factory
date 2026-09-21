@@ -31,17 +31,18 @@
 //     element, and the programmatic scrollLeft/scrollTop writes below fire only a `scroll` event,
 //     which the driver does not watch. A minimap jump mid-replay is therefore the zoom-row/⌘A
 //     class — asserted by the journey, never made true by code here.
-//  5. TWO WIDTHS, EACH HONEST FOR ITS OWN QUESTION. On /factory the scroller NEVER overflows
-//     horizontally: #214's `.stu-shell .stx-viewport { width: max-content }` pin sizes the whole
-//     viewport to the sizer, so scrollWidth <= clientWidth at every zoom, scrollLeft stays pinned
-//     at 0, and the PAGE WINDOW is the only horizontal clip there is (recorded in
-//     tooling/studio-journey.mjs:4027-4033 — "a block at column 12 sits off-screen and
-//     un-scrollable-to"). The scroller's clientWidth is therefore not a viewport statement on that
-//     page. So the VIEW RECT and the announcement measure the reader-visible width — the
-//     scroller's box intersected with the window edge, in the update, never at mount — while the
-//     JUMP targets use the scroller's real client size, the scroll-range truth, so the computed
-//     clamp agrees with the browser's own. On a bounded scroller (studio.html's harness) the two
-//     widths are identical and this call costs nothing. Vertical is deliberately NOT
+//  5. TWO WIDTHS, EACH HONEST FOR ITS OWN QUESTION — AND ON BOTH SURFACES THEY NOW AGREE (#433).
+//     The split was written for /factory, where #214's `.stu-shell .stx-viewport { width:
+//     max-content }` pin sized the whole viewport to the sizer: scrollWidth <= clientWidth at every
+//     zoom, scrollLeft pinned at 0, and the PAGE WINDOW the only horizontal clip there was, so the
+//     scroller's clientWidth was not a viewport statement. #433 deleted that pin and the scroller
+//     is the column's own 776px box with a real horizontal range, exactly like studio.html's
+//     harness — so visibleWidth() and clientWidth answer the same number on every surface this
+//     module mounts on, and the split costs nothing on either. IT IS KEPT rather than collapsed
+//     because the two questions are still different ones: the VIEW RECT and the announcement ask
+//     what the reader can SEE, which a scroller running past the window edge would still overstate,
+//     and the JUMP targets ask what the browser will ACCEPT, so the computed clamp agrees with the
+//     scroll-range truth. Measured in the update, never at mount. Vertical is deliberately NOT
 //     window-clipped: the scroller genuinely scrolls that axis, and page scroll is the PAGE's
 //     viewport, not the canvas's — this is a canvas instrument, not a browser-window one.
 //  6. THE KEYBOARD AFFORDANCE RIDES A VISIBLE CAPTION, NEVER aria-label (#273). The map is a
@@ -256,11 +257,12 @@ export function mountStudioMinimap(root, { canvas } = {}) {
 
     // --- the metrics, read live every update ----------------------------------------------------
     // The reader-visible width (call 5 in the header): the scroller's box intersected with the
-    // window edge, because on /factory the scroller itself never overflows horizontally and the
-    // window is the only horizontal clip there is. Measured in the update, never at mount — #173's
-    // measure-at-call-time trap; the box is post-layout, and the scroller carries no transform (the
-    // stage inside it does), so the rect is safe to intersect. documentElement.clientWidth rather
-    // than innerWidth: the page's own scrollbar is not visible canvas.
+    // window edge, so a scroller running past that edge cannot overstate what is on screen. Since
+    // #433 it never does on either surface, and this is the term that would catch it if one did.
+    // Measured in the update, never at mount — #173's measure-at-call-time trap; the box is
+    // post-layout, and the scroller carries no transform (the stage inside it does), so the rect is
+    // safe to intersect. documentElement.clientWidth rather than innerWidth: the page's own
+    // scrollbar is not visible canvas.
     const visibleWidth = () => {
       const r = scroll.getBoundingClientRect();
       const docW = document.documentElement.clientWidth;
@@ -276,8 +278,9 @@ export function mountStudioMinimap(root, { canvas } = {}) {
       contentH,
     });
     // The jump's metrics are the SCROLL-RANGE truth — the scroller's real client size — so
-    // jumpFrom's clamp and the browser's own scrollLeft clamp agree by construction: on /factory
-    // the horizontal range is 0 and both answer 0, never a target the write silently discards.
+    // jumpFrom's clamp and the browser's own scrollLeft clamp agree by construction, never a target
+    // the write silently discards. Vacuous on /factory until #433 (the horizontal range was 0 and
+    // both answered 0); the range is 2042px there now and the agreement is a real claim.
     const jumpMetrics = () => ({
       clientW: scroll.clientWidth,
       clientH: scroll.clientHeight,
@@ -365,9 +368,9 @@ export function mountStudioMinimap(root, { canvas } = {}) {
 
     scroll.addEventListener("scroll", schedule, { passive: true, signal });
 
-    // The window edge is a term in visibleWidth() and the scroller's own box never moves when the
-    // window resizes (it is max-content on /factory), so the resize is its own event source. An
-    // event, not a timer — call 2 holds.
+    // The window edge is a term in visibleWidth(), and a resize can move it without moving the
+    // scroller's own box, so the resize is its own event source alongside the ResizeObserver below.
+    // An event, not a timer — call 2 holds.
     window.addEventListener("resize", schedule, { passive: true, signal });
 
     // THE ZOOM OBSERVER IS THE SOLE CORRECT PATH FOR A ZOOM TAKEN AT SCROLL 0,0: setZoom restores
