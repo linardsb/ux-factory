@@ -11346,6 +11346,83 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("build package", `discovery/faster-payment/build/ — MVP 14's spine, and the first committed artifact here whose subject is a DESIGN · the ledger half: ${lines.length} op lines, seqs gapless and 1-based, every one source "owner" because no agent ran and the contract forbids saying one did, every one stamped and applied, and NO x or y on any line — where a thing sits is the arrangement's business, and an op carrying one would make the two files two sources for one fact · REPRODUCE: the committed ops replayed through the real applier give the frames and arrows canvas.json references, WIDTHS included, which is the half that catches a frame.size op silently dropped where an id-only compare passes · the REFS compared too, which is the one place the artifact reaches the ops' CONTENT rather than their shape — without it a corrupted screenId reproduces the same ids and the same widths and every other case passes · THE MUTATION that decides whether that is vacuous — a corrupted screenId must change the refs — AND ITS INVERSE, a moved frame in canvas.json that must STILL PASS, because a position is not derivable from ops and a gate demanding otherwise would be re-coupling the two files the split exists to separate · D-b: the dialect says what it is, with all FOUR divergences from JSON Canvas 1.0 asserted BY NAME (the invented node types, optional height, the added ref, relation replacing label) because the failure mode is a later edit trimming the header to something shorter and truer-sounding, and a conformant reader refuses type: "frame" · the why asserted on the LEDGER rather than by reproduction, because corrupting it changes nothing the artifact carries and 36.2 stays green — MEASURED, not assumed; a reason is not geometry and has no business in an arrangement file, so the assertion is length-and-decisionRefs here, which is strictly more than the applier's own .trim() can tell from a single word · the round trip BYTE-identical rather than deep-equal, so a save that reordered keys would not churn every future diff · and canvas-store's import graph pinned to node built-ins alone, because CI runs this with no portal/node_modules at all. What it cannot reach: whether the spine RENDERS (studio-journey's, on a browser) and whether the compose op's `+"`"+`why`+"`"+` is a good reason, which is a human read`);
 }
 
+// --- 37 · the ledger (#434) ------------------------------------------------------------------------
+
+{
+  // system/studio-ledger.mjs's PURE half — createLedger's fold and note — driven over a synthetic
+  // action stream with no browser, and its renderer driven under the DOM stub. What it cannot reach:
+  // whether a refusal on the RUNNING page survives the next announcement, whether a relayout on the
+  // committed run yields a row, whether the denied-call count matches the trace, and whether the
+  // take-over is a row — those four are tooling/studio-journey.mjs's ledgerPass, on three engines.
+  const { createLedger, describeAction, renderLedger, KINDS, SOURCES } = await import("../system/studio-ledger.mjs");
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const deep = (v) => JSON.stringify(v);
+  ok(deep(KINDS) === deep(["did", "refused", "corrected", "narrated", "took-over"]), `KINDS is the ticket's five, in order — got ${deep(KINDS)}`);
+  ok(Object.isFrozen(KINDS) && Object.isFrozen(SOURCES), "KINDS and SOURCES must be frozen");
+  // 1 · a synthetic stream, in order: the five kinds, both feeds, the sources preserved
+  const L = createLedger();
+  L.fold({ type: "ui.move", source: "pointer", target: { id: "b1", label: "Card" }, params: { x: 40.4, y: 119.6 } });
+  L.note("narrated", "Reading the brief.", "agent");
+  L.note("refused", "Refused — Bash: off-fence.", "agent");
+  L.fold({ type: "ui.undo", source: "keyboard" });
+  L.note("corrected", "2 blocks moved to follow a connection.", "agent");
+  L.note("took-over", "The canvas is yours.", "pointer");
+  const rows = L.rows();
+  ok(rows.map((r) => r.at).join(",") === "1,2,3,4,5,6", `rows are numbered 1..n in order — got ${rows.map((r) => r.at).join(",")}`);
+  ok(deep(rows.map((r) => r.kind)) === deep(["did", "narrated", "refused", "did", "corrected", "took-over"]), `the kinds in stream order — got ${deep(rows.map((r) => r.kind))}`);
+  ok(new Set(rows.map((r) => r.kind)).size === 5, "the stream above must exercise all five kinds");
+  ok(deep(rows.map((r) => r.source)) === deep(["pointer", "agent", "agent", "keyboard", "agent", "pointer"]), `sources preserved — got ${deep(rows.map((r) => r.source))}`);
+  ok(rows[0].text === "Card moved to 40, 120." && rows[3].text === "Undo.", `the fold writes the verbs' own sentence shape — got ${deep([rows[0].text, rows[3].text])}`);
+  ok(Object.isFrozen(rows[0]), "a row must be frozen");
+  rows.push({ at: 99 });
+  ok(L.rows().length === 6, "rows() must answer a COPY — pushing onto it reached the ledger");
+  // 2 · the fold ignores the driver's beat type (the driver notes beats itself) and unknown targets still read
+  ok(L.fold({ type: "agent.build-op", source: "agent", params: {} }) === null && L.fold({ type: "agent.note", source: "agent", params: {} }) === null && L.rows().length === 6,
+    "agent.build-op and agent.note must NOT fold — the driver notes each beat, and a fold would make two rows for one fact (measured: every note beat read \"note.\" twice before this case)");
+  ok(describeAction({ type: "ui.move-group", source: "pointer", params: { moves: [{}, {}, {}] } }) === "Moved 3 components.", "a group move counts its moves");
+  ok(describeAction({ type: "ui.resize", source: "keyboard", target: { id: "f2" }, params: { w: 375, h: 700 } }) === "Component f2 resized to 375 by 700.", "a resize with no label names the id");
+  ok(describeAction(null) === null && describeAction({ type: 7 }) === null, "junk actions fold to nothing, never throw");
+  // 3 · the refusals, each BY NAME
+  for (const [label, fn, ...must] of [
+    ["an unknown kind", () => L.note("logged", "x", "agent"), "logged", "not a kind"],
+    ["a non-string text", () => L.note("did", 42, "agent"), "did", "needs a sentence", "number"],
+    ["an empty text", () => L.note("did", "  ", "agent"), "empty string"],
+    ["an unknown source", () => L.note("did", "x", "robot"), "robot", "not a source"],
+  ]) {
+    const got = threw(fn);
+    ok(got !== null && must.every((w) => got.includes(w)), `${label} must be refused naming ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${got ?? "NO THROW"}`);
+  }
+  ok(L.rows().length === 6, "a refused note must add no row");
+  // 4 · the renderer: textContent only, un-hides on the first row, hostile text stays text
+  domStubControl();
+  globalThis.document = domStub();
+  try {
+    const host = document.createElement("section"); host.hidden = true;
+    const list = document.createElement("ol");
+    const R = createLedger();
+    const off = renderLedger({ host, list }, R);
+    ok(host.hidden === true && list.children.length === 0, "an empty ledger must leave the mount hidden and empty");
+    const hostile = '<img src=x onerror="alert(1)"> & "quotes"';
+    R.note("refused", hostile, "agent");
+    R.fold({ type: "ui.move", source: "keyboard", target: { id: "b1" }, params: { x: 0, y: 0 } });
+    ok(host.hidden === false, "the first row must un-hide the mount");
+    ok(list.children.length === 2 && list.children[0].tagName === "LI", `two rows → two <li> — got ${list.children.length}`);
+    ok(list.children[0].textContent === hostile && list.children[0].children.length === 0,
+      `hostile text must land as TEXT, verbatim, with no child element — got ${deep(list.children[0].textContent)} with ${list.children[0].children.length} child(ren); a renderer writing innerHTML leaves the stub's text empty and fails here`);
+    ok(list.children[0].getAttribute("data-kind") === "refused" && list.children[1].getAttribute("data-source") === "keyboard", "each <li> carries data-kind and data-source");
+    off();
+    R.note("did", "after unsubscribe", "agent");
+    ok(list.children.length === 2, "after the unsubscribe the renderer must add nothing");
+  } finally { delete globalThis.document; }
+  // 5 · the at-rest DOM: the mount is present, empty and hidden in factory.html; absent from instance.html
+  const factory = readFileSync(join(ROOT, "factory.html"), "utf8");
+  const m = /<section[^>]*data-studio-ledger[^>]*>([\s\S]*?)<\/section>/.exec(factory);
+  ok(m && /\shidden[\s>]/.test(m[0].slice(0, m[0].indexOf(">"))), "factory.html's ledger mount must carry `hidden` at rest");
+  ok(m && /<ol[^>]*>\s*<\/ol>/.test(m[1]), "factory.html's ledger <ol> must be EMPTY at rest — a page with modules blocked shows nothing new");
+  ok(!/data-studio-ledger/.test(readFileSync(join(ROOT, "instance.html"), "utf8")), "instance.html carries no ledger mount (the ticket scopes /factory); the in-memory ledger there has no DOM");
+  group("ledger", `KINDS the ticket's five in order, both lists frozen · a synthetic stream through BOTH feeds (the bus fold and note) read back in order with 1..n numbering, every kind, the sources preserved and the fold writing the verbs' own sentence shape · rows frozen and rows() a copy · the driver's two echo types (agent.build-op, agent.note) NOT folded — the driver notes beats, and a fold doubled every note beat as "note." until this case · four refusals BY NAME (an unknown kind, a non-string text, an empty text, an unknown source) adding no row · the renderer under the DOM stub: hidden and empty until the first row, hostile text landing as textContent verbatim with no child element (innerHTML would leave the stub's text empty and go red), data-kind/data-source on each <li>, nothing after the unsubscribe · the at-rest DOM: factory.html's mount present, hidden and empty; instance.html carrying none. What it cannot reach: the four running-page facts — a refusal surviving the next announcement, the relayout rows on the committed run, the denied-call count against the trace, the take-over row — which are studio-journey's ledgerPass on three engines`);
+}
+
 // --- 38 · the composition judge (#420) -----------------------------------------------------------
 
 {
