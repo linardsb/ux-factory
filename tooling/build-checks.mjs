@@ -853,6 +853,62 @@ const BARE_BOARD = {
   ok(nested && nested.getAttribute("data-gap") === null && nested.getAttribute("data-pad") === null,
     "an absent gap/pad emitted an attribute anyway — absence no longer expresses zero, and S2's verdict rests on it");
 
+  // 5c · EVERY CONTAINER'S DECLARED CHILDREN, ONE LEVEL DEEPER (#431). Case 5 renders stack > stack >
+  // text and nothing else, so the day card.children gains "stack" every grandchild inside a card
+  // vanishes with this group green — card and empty-state hardcode `[]` for their one child, which
+  // is correct for every spec that exists today and wrong the moment the list widens. So the
+  // assertion is DRIVEN OFF THE SPEC LISTS rather than written once: for every entry with a
+  // children list, for every name in it that is itself a container, compose parent > child > leaf
+  // through the real renderer and look for the leaf's marker text. A container whose template drops
+  // grandchildren then fails BY NAME, and a future widening is covered by construction.
+  //
+  // Props are the MINIMAL VALID set derived from the vocabulary (a required string gets the marker or
+  // a word, a required enum its first value) so the walk validates against the same contract the
+  // compose agent writes to. And the control is built in rather than left to a hand mutation: the
+  // same walk over a COPY whose card.children gains "stack" must report card > stack > <leaf> as
+  // dropped — that is the exact widening the ticket predicts, and a walk that stays green on it
+  // would be the check-that-cannot-fail shape.
+  const isContainer = (vocab, name) => Array.isArray(vocab.components[name]?.children) && vocab.components[name].children.length > 0;
+  const minimalProps = (vocab, name, marker) => Object.fromEntries(Object.entries(vocab.components[name].props ?? {})
+    .filter(([, d]) => d.required)
+    .map(([k, d]) => [k, d.enum ? d.enum[0] : d.type === "number" ? 1 : d.type === "boolean" ? true : marker]));
+  const deepPairs = (vocab) => {
+    const out = [];
+    for (const [parent, pe] of Object.entries(vocab.components)) {
+      if (!isContainer(vocab, parent)) continue;
+      for (const child of pe.children) {
+        if (!isContainer(vocab, child)) continue; // a leaf child has nothing to lose
+        const leaf = vocab.components[child].children.find((n) => !isContainer(vocab, n));
+        if (!leaf) continue;
+        const marker = `deep-${parent}-${child}-${leaf}`;
+        domStubControl();
+        globalThis.document = domStub();
+        let node = null;
+        let error = null;
+        try {
+          node = renderComposition(vocab, {
+            name: parent, props: minimalProps(vocab, parent, "p"),
+            children: [{ name: child, props: minimalProps(vocab, child, "c"),
+              children: [{ name: leaf, props: minimalProps(vocab, leaf, marker) }] }],
+          }, null);
+        } catch (err) { error = err.message; } finally { delete globalThis.document; }
+        out.push({ path: `${parent} > ${child} > ${leaf}`, survived: !!node && stubText(node).includes(marker), error });
+      }
+    }
+    return out;
+  };
+  const pairs = deepPairs(VOCAB);
+  ok(pairs.length >= 2, `the container walk found ${pairs.length} nested pair(s) in the committed vocabulary — case 5's stack > stack alone is at least two (stack > card, stack > stack), so a shorter walk is reading the wrong lists`);
+  for (const pr of pairs) {
+    ok(pr.survived, `${pr.path}: the leaf's text did not survive — ${pr.error ?? "the middle container rendered its child with a hardcoded [] and dropped the grandchild"}`);
+  }
+  // THE BUILT-IN CONTROL: the widening the ticket predicts, applied to a copy.
+  const widened = structuredClone(VOCAB);
+  widened.components.card.children = [...widened.components.card.children, "stack"];
+  const predicted = deepPairs(widened).find((pr) => pr.path.startsWith("card > stack > "));
+  ok(predicted && !predicted.survived,
+    `the walk over a vocabulary whose card.children gains "stack" must report card > stack > <leaf> as DROPPED (card's template hardcodes []) — got ${JSON.stringify(predicted)}; a walk that stays green here cannot fail on the widening it exists for`);
+
   // 5b · THE OPTIONAL `id` NODE KEY → data-part (#302), AT EVERY DEPTH. This is case 5's trap in a
   // second costume and it was found the same way: build() is the root's choke point, but three
   // templates render their own children directly, so a consumer written at build() alone reaches
@@ -914,7 +970,7 @@ const BARE_BOARD = {
   ok(/\.ds-stack\[data-gap="md"\]\s*\{[^}]*gap:\s*var\(--spacing-md\)/.test(CSS_301),
     "the .ds-stack[data-gap=\"md\"] rule is gone — the bare-rule assertions above are now reading a block with no gap binding at all, which is green for the wrong reason");
 
-  group("composition", `all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate · #302's optional id node key proven to reach data-part AT EVERY DEPTH — asserted on the CHILD with the root beside it as the control, because build() is the root's choke point and three templates render their own children directly, so a consumer written there alone reaches the root and nothing else (measured: the stack got its data-part and its child did not, every gate green) — with both absence halves pinned so data-part does not become a selector surface nobody designed, and the vocabulary's own shape string asserted to NAME the key, because a renderer consuming what the grammar does not mention is a private extension — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines`);
+  group("composition", `EVERY container's declared children rendered one level deeper (#431) — ${pairs.length} parent > child > leaf pairs walked off the spec lists with minimal valid props, the leaf's marker asserted to survive, and the control BUILT IN: the same walk over a copy whose card.children gains "stack" reports card > stack > <leaf> dropped · all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate · #302's optional id node key proven to reach data-part AT EVERY DEPTH — asserted on the CHILD with the root beside it as the control, because build() is the root's choke point and three templates render their own children directly, so a consumer written there alone reaches the root and nothing else (measured: the stack got its data-part and its child did not, every gate green) — with both absence halves pinned so data-part does not become a selector surface nobody designed, and the vocabulary's own shape string asserted to NAME the key, because a renderer consuming what the grammar does not mention is a private extension — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
