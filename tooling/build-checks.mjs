@@ -203,7 +203,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -238,6 +238,12 @@ import { projectTrace } from "../agent-layer/gen-replay.mjs";
 // under the stub below and only ever inside a try/finally that deletes globalThis.document —
 // renderHandoffViewer, which reaches much further into the DOM, is still never called.
 import { validateExamples } from "../agent-layer/gen-vocabulary.mjs";
+// #419's pack index + the bundle it is excluded from. Both are zero-dep generators whose
+// standalone-run guard means IMPORTING them writes nothing; only the pure half is called here —
+// renderIndex/indexLine/routeIndex project, genPackIndex/genPackBundle write and are never called.
+// BUNDLE_NAME is aliased because both modules declare the name, which is one of the things pinned.
+import { BUNDLE_NAME as INDEX_BUNDLE_NAME, indexLine, INDEX_NAME, renderIndex, ROUTES, routeIndex, SEP } from "../agent-layer/gen-pack-index.mjs";
+import { BUNDLE_NAME } from "../agent-layer/gen-pack-bundle.mjs";
 import { parseComponentSpec } from "../agent-layer/lib.mjs";
 import { prepareHandoff, renderMarkdown } from "../system/handoff-viewer.mjs";
 // #215's pure layer — DOM-free above the fold by design (vdMarkup's body is browser-only but is
@@ -11573,9 +11579,176 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("composition judge", `every one of ${Object.keys(PREDICATES).length} predicates restates a phrase found in its stated home (the exported PIV_COMPOSE_SYSTEM, a slot bound, the copy sentence) so no rule is graded that the agent was never told · ${scenarios.length} scenarios' evals.json resolve every slug to a committed composition and the judge runs every predicate over every one · MUTATIONS on a committed summary-strip with the unmutated composition as the positive control: a bare "4" label, a third toned tile and a sentence value each turn their predicate red · an undefined predicate refused BY NAME. What it cannot reach: whether the committed compositions PASS (that is the judge's own verdict, run by the operator, and a failure there is a re-record, not an edit), and whether a green composition is defensible`);
 }
 
+// --- 39 · the handoff pack's routing index (#419) -------------------------------------------------
+
+{
+  // handoff/verdant/llms.txt — one line per pack file, `path · bytes · what it is · read when`,
+  // written by agent-layer/gen-pack-index.mjs (epic #329's "landed in a directory of eight things
+  // with no map"). What makes it gateable is that every field is CHECKABLE against the directory
+  // it describes: a file with no line, a line naming a file that is gone, and a byte count that
+  // has moved are three different lies, and each is named here BY PATH.
+  //
+  // The audit below is a SECOND implementation on purpose — it walks handoff/verdant/ itself and
+  // rebuilds each line through the generator's exported indexLine, rather than re-running the
+  // generator (which writes, and which group 18's rule forbids calling from a check). The whole
+  // artifact is pinned beside it by renderIndex, which also covers the header and the routing
+  // ORDER; the audit is what turns a single moved byte into a path.
+  //
+  // The bundle/index exclusion is pinned in BOTH directions: pack.bundle.json carries no llms.txt
+  // key, llms.txt carries a line for pack.bundle.json, and the two sets agree. They are one
+  // decision — the bundle inlines what it lists and the index measures the bundle, so each would
+  // otherwise depend on the other's byte count and no single generation pass could be right.
+  //
+  // WHAT THIS CANNOT REACH: whether a purpose or a read-when sentence is TRUE — that a file is
+  // what its line says, and that an engineer's agent routed by it opens the right file first.
+  // That is the epic's third fenced run (#329, "Later, not sliced"), a real run, never a gate.
+  const PACK = join(ROOT, "handoff/verdant");
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const at = (rel) => join(PACK, ...rel.split("/"));
+
+  const walkPack = (dir, prefix = "") => {
+    const out = [];
+    for (const ent of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (ent.name.startsWith(".")) continue;
+      const rel = prefix + ent.name;
+      if (ent.isDirectory()) out.push(...walkPack(join(dir, ent.name), `${rel}/`));
+      else out.push(rel);
+    }
+    return out;
+  };
+
+  // 1 · the committed artifact IS what the generator would write for the directory as it stands
+  const onDisk = walkPack(PACK);
+  const listed = onDisk.filter((rel) => rel !== INDEX_NAME).sort();
+  const files = listed.map((rel) => ({ rel, bytes: statSync(at(rel)).size }));
+  // Existence is asserted BEFORE the read, and the read is conditional on it: every literal path
+  // below names a file this group is checking, so a DELETED one has to report as a named failure.
+  // Read first and a `rm handoff/verdant/llms.txt` ends the process on an unnamed ENOENT instead,
+  // taking the remaining groups with it — measured, and the same trap as the unrouted-file case.
+  ok(onDisk.includes(INDEX_NAME), `handoff/verdant/${INDEX_NAME} must exist — the pack ships its own map (regenerate: node agent-layer/gen-pack-index.mjs)`);
+  const text = onDisk.includes(INDEX_NAME) ? readFileSync(at(INDEX_NAME), "utf8") : "";
+  // renderIndex refuses an unrouted pack file by throwing (that IS the totality contract), so it is
+  // caught here rather than allowed to abort the run and take the remaining groups with it.
+  let rendered = null;
+  const renderErr = threw(() => { rendered = renderIndex(files); });
+  ok(renderErr === null, `renderIndex() refused the pack as it stands — ${renderErr}`);
+  ok(rendered === text,
+    `handoff/verdant/${INDEX_NAME} is not what renderIndex() writes for the pack as it stands — regenerate: node agent-layer/gen-pack-index.mjs`);
+
+  // The line-level audit: pure over (text, [{rel, bytes}]) so the mutations below drive the SAME
+  // function over edited copies of the committed file. Every problem it returns names a path.
+  const audit = (src, entries) => {
+    const parts = src.split("\n## Files\n");
+    if (parts.length !== 2) return [`${INDEX_NAME}: expected exactly one "## Files" heading, got ${parts.length - 1}`];
+    const problems = [];
+    const byPath = new Map();
+    for (const line of parts[1].split("\n").filter((l) => l.trim())) {
+      const fields = line.split(SEP);
+      if (fields.length !== 4) { problems.push(`${INDEX_NAME}: ${JSON.stringify(line.slice(0, 48))} is not four ${JSON.stringify(SEP)}-separated fields`); continue; }
+      if (byPath.has(fields[0])) problems.push(`handoff/verdant/${fields[0]}: listed twice in ${INDEX_NAME}`);
+      byPath.set(fields[0], line);
+    }
+    for (const { rel, bytes } of entries) {
+      const got = byPath.get(rel);
+      if (got === undefined) { problems.push(`handoff/verdant/${rel}: no line in ${INDEX_NAME}`); continue; }
+      const want = indexLine(rel, bytes);
+      if (got !== want) problems.push(`handoff/verdant/${rel}: its ${INDEX_NAME} line disagrees with the file — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+    }
+    const known = new Set(entries.map((e) => e.rel));
+    for (const p of byPath.keys()) if (!known.has(p)) problems.push(`handoff/verdant/${p}: ${INDEX_NAME} names a file the pack does not carry`);
+    return problems;
+  };
+  ok(audit(text, files).length === 0, `the committed ${INDEX_NAME} must audit clean — got: ${audit(text, files).join(" | ")}`);
+  ok(files.length >= 17, `the pack must carry at least the 17 files the map was written against — got ${files.length}`);
+
+  // 2 · THE MUTATIONS — driven over the index renderIndex() WOULD write, not over the committed
+  // bytes, so the battery states whether the auditor can fail even on a tree where the committed
+  // file has drifted (that drift is case 1's failure, and should not also break the control here).
+  // `good` is the positive control: case 1 asserts the committed file equals it and audits clean.
+  const good = rendered ?? text;
+  // The subject is LOOKED UP, never a literal path: a battery keyed to a file that can be deleted
+  // is a battery that throws instead of reporting. The last fallback keeps an empty pack directory
+  // reporting too — every assertion below then fails by name rather than on an undefined read.
+  const subject = files.find((f) => f.rel === "vocabulary.json") ?? files[0] ?? { rel: "vocabulary.json", bytes: 0 };
+  const subjLine = indexLine(subject.rel, subject.bytes);
+  const field = subjLine.split(SEP);
+  for (const [label, mutated, mustName, mustSay] of [
+    ["a dropped line", good.replace(`${subjLine}\n`, ""), subject.rel, "no line"],
+    ["a moved byte count", good.replace(subjLine, indexLine(subject.rel, subject.bytes + 1)), subject.rel, "disagrees"],
+    ["a reworded purpose", good.replace(subjLine, [field[0], field[1], `not ${field[2]}`, field[3]].join(SEP)), subject.rel, "disagrees"],
+    ["a ghost line", `${good.trimEnd()}\nghost.json${SEP}1 B${SEP}nothing${SEP}read when never\n`, "ghost.json", "does not carry"],
+  ]) {
+    const problems = audit(mutated, files);
+    ok(problems.some((p) => p.includes(`handoff/verdant/${mustName}`) && p.includes(mustSay)),
+      `${label} must be caught naming handoff/verdant/${mustName} and saying ${JSON.stringify(mustSay)} — got ${problems.length ? problems.join(" | ") : "NO PROBLEM REPORTED"}`);
+  }
+  ok(audit(good.replace("\n## Files\n", "\n## files\n"), files).length === 1, "a renamed listing heading must be one clean refusal, not a hundred missing files");
+
+  // 3 · the routing table is TOTAL, and refuses an unrouted file BY NAME. The two paths #332 will
+  // add are driven here as SYNTHETIC inputs, so its files already have a home and it lands into a
+  // green gate rather than a red one; figma-parity.json is a real-run-only file that exists on no
+  // clean checkout and would otherwise leave its rule undriven.
+  const FUTURE = ["components.css", "contracts/commands/log-care.json", "figma-parity.json"];
+  const routable = [...listed, ...FUTURE];
+  for (const rel of routable) ok(threw(() => routeIndex(rel)) === null, `handoff/verdant/${rel} must route — got ${threw(() => routeIndex(rel))}`);
+  for (const junk of ["README.md", "notes.txt", "contracts/README.md", "tokens/css/brand.scss"]) {
+    const got = threw(() => routeIndex(junk));
+    ok(got !== null && got.includes(junk) && got.includes("no routing rule"),
+      `an unrouted pack file must be refused BY PATH — ${junk} got ${got ?? "NO THROW"}`);
+  }
+  // Every rule driven by at least one of those paths: an undriven rule is prose nothing proves.
+  // Only the paths that DO route are searched — an unrouted one is already a named failure above,
+  // and routeIndex throws, which inside a .find() would abort the run instead of reporting.
+  const routed = routable.filter((rel) => threw(() => routeIndex(rel)) === null);
+  const witness = ROUTES.map((_, i) => routed.find((rel) => routeIndex(rel) === i));
+  ok(witness.every(Boolean), `every one of ROUTES' ${ROUTES.length} rules needs a driven example — undriven: ${witness.map((w, i) => (w ? null : i)).filter((i) => i !== null).join(", ")}`);
+  // …and no rule's own text may carry the separator, or the parser above splits into the wrong
+  // fields and the whole audit goes hollow while staying green.
+  // .filter(Boolean): an undriven rule is already the named failure above, and feeding its missing
+  // witness to indexLine throws on `undefined` and kills the run (measured — deleting the bundle
+  // leaves its rule unwitnessed, and the crash replaced every named failure with a stack trace).
+  for (const rel of witness.filter(Boolean)) ok(indexLine(rel, 1).split(SEP).length === 4, `${rel}: its purpose or read-when text carries ${JSON.stringify(SEP)} — got ${indexLine(rel, 1).split(SEP).length} fields`);
+
+  // 4 · the bundle/index exclusion, pinned both ways (one decision, two files)
+  ok(onDisk.includes(BUNDLE_NAME), `handoff/verdant/${BUNDLE_NAME} must exist — the map lists it and the two projections are compared against each other (regenerate: node agent-layer/gen-pack-bundle.mjs)`);
+  const bundle = onDisk.includes(BUNDLE_NAME) ? JSON.parse(readFileSync(at(BUNDLE_NAME), "utf8")) : { files: {}, $description: "" };
+  const bundleKeys = Object.keys(bundle.files);
+  ok(INDEX_BUNDLE_NAME === BUNDLE_NAME, `the two generators must spell the bundle the same way — index says ${INDEX_BUNDLE_NAME}, bundle says ${BUNDLE_NAME}`);
+  ok(!bundleKeys.includes(INDEX_NAME), `${BUNDLE_NAME} must NOT inline ${INDEX_NAME} — the index measures the bundle, so inlining it makes each depend on the other's size`);
+  ok(!bundleKeys.includes(BUNDLE_NAME), `${BUNDLE_NAME} must not inline itself`);
+  ok(listed.includes(BUNDLE_NAME), `${INDEX_NAME} must carry a line for ${BUNDLE_NAME} — it is the single-file form and the map is where a reader learns its size`);
+  ok(JSON.stringify([...bundleKeys, BUNDLE_NAME].sort()) === JSON.stringify(listed),
+    `the two whole-pack projections must agree on the pack's contents — bundle keys + the bundle = ${JSON.stringify([...bundleKeys, BUNDLE_NAME].sort())}, ${INDEX_NAME} lists ${JSON.stringify(listed)}`);
+  // The artifact says so itself — a reader who finds llms.txt missing from the bundle gets the reason.
+  const header = text.split("\n## Files\n")[0];
+  ok(header.includes(INDEX_NAME) && header.includes(BUNDLE_NAME) && header.includes("no single generation pass"),
+    `${INDEX_NAME}'s header must name both files and state why the exclusion exists`);
+  ok(bundle.$description.includes(INDEX_NAME),
+    `${BUNDLE_NAME}'s $description must name ${INDEX_NAME} as the exclusion — its old text claimed every file under handoff/verdant/`);
+  // The one place the exclusion is consumer-visible: handoff.html offers the bundle as a download,
+  // so a reader who takes it gets the pack without its map unless the page links the map beside it.
+  ok(/href="\/handoff\/verdant\/llms\.txt"/.test(readFileSync(join(ROOT, "handoff.html"), "utf8")),
+    `handoff.html offers ${BUNDLE_NAME} as a download and must link /handoff/verdant/${INDEX_NAME} beside it — the map is the one file that download does not carry`);
+
+  // 5 · the chain ORDER, source-pinned: the index measures three artifacts written before it, so a
+  // reordering that puts it anywhere but last makes every byte count one pass stale — and the
+  // drift gate would then be red on a tree nobody touched.
+  for (const [file, src] of [
+    ["tooling/drift-check.mjs", readFileSync(join(ROOT, "tooling/drift-check.mjs"), "utf8")],
+    ["agent-layer/build.mjs", readFileSync(join(ROOT, "agent-layer/build.mjs"), "utf8")],
+  ]) {
+    const iBundle = src.indexOf("genPackBundle(");
+    const iIndex = src.indexOf("genPackIndex(");
+    ok(iBundle !== -1 && iIndex !== -1 && iIndex > iBundle,
+      `${file} must call genPackIndex() AFTER genPackBundle() — bundle at ${iBundle}, index at ${iIndex}`);
+  }
+
+  group("handoff-seam", `the pack's routing index (#419): handoff/verdant/${INDEX_NAME}, ${files.length} lines of \`path · bytes · what it is · read when\`, pinned twice over — the WHOLE artifact against renderIndex() (header and routing order included) and, line by line, against a SECOND walk of the directory that rebuilds each line through indexLine and reports every disagreement BY PATH · the four MUTATIONS that decide whether that audit can fail, each driven over an edited copy of the committed file with the unmutated file as the positive control: a dropped line, a byte count moved by one, a reworded purpose and a ghost line each named by path, and a renamed "## Files" heading refused ONCE rather than as ${files.length} missing files · a DELETED pack file REPORTS rather than ending the run — every existence check sits before its read, the mutation battery's subject is looked up instead of named as a literal, and an unwitnessed rule is filtered out of the field-count loop; measured three ways (llms.txt, pack.bundle.json and a wc wrapper each removed: named failures, exit 1, no stack trace) · the routing table proven TOTAL over every committed pack file plus the two paths #332 will add (components.css, contracts/commands/log-care.json) and the real-run-only figma-parity.json, so those land into a green gate and no rule ships undriven — with four unrouted paths each REFUSED by path, and every rule's rendered line proven to split into exactly four fields, because a ${JSON.stringify(SEP)} inside a purpose sentence would make the parser read the wrong columns and the audit would stay green while checking nothing · the bundle/index exclusion pinned in BOTH directions (${BUNDLE_NAME} inlines neither itself nor the index; the index carries a line for the bundle; the two key sets agree exactly) with both artifacts stating the reason in their own text, and handoff.html — the one surface that offers the bundle as a DOWNLOAD, and so the one place the exclusion is visible to a reader — pinned to link the map beside it · and the chain order source-pinned in drift-check.mjs and build.mjs, since an index that runs before the bundle measures a file that is about to be rewritten. What it cannot reach: whether a purpose or a read-when sentence is TRUE — that a file is what its line says, and that an engineer's agent routed by it opens the right file first — which is the epic's third fenced run, a real run, never a gate`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 38 groups pass");
+  console.log("\nbuild ✓  all 39 groups pass");
 }

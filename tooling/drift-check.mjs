@@ -19,6 +19,7 @@ import { genInspectData } from "../agent-layer/gen-inspect-data.mjs";
 import { genHandoff } from "../agent-layer/gen-handoff.mjs";
 import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
 import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
+import { genPackIndex } from "../agent-layer/gen-pack-index.mjs";
 import { genReplay } from "../agent-layer/gen-replay.mjs";
 import { validateScenarios } from "../scenarios/validate.mjs";
 import { validateTrace } from "./validate-trace.mjs";
@@ -119,11 +120,12 @@ function checkInspectMounts() {
 
 // 3. Handoff/vocabulary drift — these generators WRITE under handoff/ (deterministic), then
 // git porcelain (not `git diff`: porcelain also lists a newly-emitted untracked file). Scoped
-// to handoff/ — the only tree these three generators write.
+// to handoff/ — the only tree these four generators write.
 function checkHandoff() {
   genHandoff();
   genVocabulary();
-  genPackBundle(); // bundles the two above — must run last, must be deterministic
+  genPackBundle(); // bundles the two above — must run before the index, must be deterministic
+  genPackIndex(); // MEASURES all three — must run last, or every byte count is one pass stale (#419)
   const out = execFileSync("git", ["status", "--porcelain", "--", "handoff/"], {
     cwd: ROOT,
     encoding: "utf8",
