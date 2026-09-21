@@ -517,17 +517,27 @@
    track. Harmless while every row was short or ch-capped text — and a real defect the moment the
    method band filled its box: its auto-fill card grid resolved against ~2818px and put cards past
    the window's right edge, where body{overflow-x:clip} makes them POINTER-UNREACHABLE (no page
-   scroll can reach them). minmax(0, 1fr) sizes the track to the column's real box. The canvas
-   keeps its exact pre-#214 geometry through the width pin below — measured before/after at 1440:
-   viewport, scroll, stage and every slot byte-identical; only the band narrows. */
+   scroll can reach them). minmax(0, 1fr) sizes the track to the column's real box. */
 .stu-canvas-col { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--spacing-sm); }
 
-/* The pin that keeps the explicit track from being an at-rest canvas change: the viewport's box
-   was the inflated track's max-content, so pinning it AT max-content reproduces today's geometry
-   exactly — it overflows its grid area now instead of inflating the track (every zoom level
-   included, since both forms track the sizer). Scoped to .stu-shell so studio.html's raw harness,
-   which has no .stu-canvas-col, keeps its untouched responsive layout. */
-.stu-shell .stx-viewport { width: max-content; }
+/* THE WIDTH PIN IS GONE (#433), AND ITS REMOVAL IS THE FIX — there is no rule here to read, only
+   the reason not to put one back. #214 added `.stu-shell .stx-viewport { width: max-content }` so
+   that the explicit track above would not move the canvas: the viewport's box HAD BEEN the inflated
+   track's max-content, and pinning it there reproduced that geometry exactly. What it also
+   reproduced was the geometry's defect. A viewport explicitly sized to max-content OVERFLOWS its
+   776px grid area instead of scrolling inside it, so .stx-scroll measured 3172 wide with
+   scrollWidth == clientWidth — no horizontal pan at any zoom, scrollLeft pinned at 0, and about
+   2,400px of canvas painted outside the page and swallowed by body{overflow-x:clip}. Deleting the
+   one declaration gives the scroller the column's own box (776) over the sizer's 2816, and a 2042px
+   horizontal range: measured at 1440 and at the pixel gate's 1280, on chromium, firefox and webkit.
+
+   NO min-width: 0 CAME WITH IT, and that is a measurement rather than an economy. #433 proposed one
+   on .stx-viewport and .stx-scroll — PR #54's rule, which this column above really does need — but
+   here the automatic minimum never binds: .stx-scroll is overflow: auto, whose min-content
+   contribution is 0, so the flex column above it has no wide min-content to push through a track
+   that already carries min-width: 0. Patched all three ways at 1440 on all three engines and every
+   number was identical. A declaration that changes nothing, carrying a comment that names a cause,
+   is worse than no declaration. */
 
 /* One column under the site's own 900px step (portfolio.css:237, 298, 1518 all break there), with
    the inspector below the canvas rather than beside it. */
@@ -547,22 +557,19 @@
 .stu-canvas-label { margin: 0; color: var(--color-fg-muted); font-size: var(--type-caption); }
 
 /* ---------- the docked inspector ---------- */
-/* THE RAIL TAKES POINTER PRECEDENCE OVER THE CANVAS COLUMN, and this is a pointer fix, not a paint
-   one (#218). The overflow it works around is #206's, is already recorded at .stu-compile-step
-   below, and is deliberately left alone there: .stx-viewport is ~2818px wide inside a 776px column,
-   so the canvas column's box extends transparently ACROSS the inspector. Nothing paints there —
-   which is why every pixel baseline has always looked correct and no gate could see it — but the
-   box is still the topmost hit-test target, so a pointer aimed at the rail lands on the canvas.
-   It went unnoticed while the rail's only controls were the tab pills at its very top; #218 puts a
-   playground, a code-tab row and a copy button several hundred pixels down it, and a reader
-   clicking those was hitting the stage instead (measured on chromium, identical on origin/main —
-   the defect predates this ticket and only its REACH is new).
+/* THE RAIL TOOK POINTER PRECEDENCE OVER THE CANVAS COLUMN, and the hazard it was written for is
+   retired (#218, then #433). While .stx-viewport was pinned at max-content the canvas column's box
+   extended transparently ACROSS the inspector: nothing painted there — which is why every pixel
+   baseline looked correct and no gate could see it — but the box was still the topmost hit-test
+   target, so a pointer aimed at the rail landed on the canvas. #433 deleted the pin, so the column
+   now ends at its own 776px edge and there is no overlap left to lose a pointer to.
 
-   A stacking context rather than a narrower column: narrowing is an at-rest change to the canvas
-   with its own baselines and its own gates to argue (studio.css's own words below). This changes no
-   computed geometry, no at-rest pixel and nothing about the canvas — Task 11b's comparison across
-   both trees is what says so. It names nothing for a view transition, so #171's hazard class is not
-   in play; the inspect bubble is appended to <body> and is unaffected. */
+   THE DECLARATION IS INERT NOW, AND STAYS ANYWAY. Nothing overlaps this rail, so it orders nothing
+   — that is a measurement, not a hope, and no claim is made here about what it would buy a future
+   layout, because none was tested. It stays for one reason: removing a stacking context is an
+   unrequested paint change on a captured surface, and #433 is not the ticket that argues it. It
+   names nothing for a view transition, so #171's hazard class is not in play; the inspect bubble
+   is appended to <body> and is unaffected. */
 .stu-inspector {
   min-width: 0;
   position: relative;
@@ -755,16 +762,15 @@
 /* The visible mirror of the live region, never a second one (studio-compile.mjs says why).
    Two decisions, both measured rather than eyeballed:
 
-   ITS OWN LINE, AND THE CAP IS IN ch. .stx-viewport is WIDER THAN THE COLUMN IT SITS IN: measured at
-   1280, .stu-canvas-col is 776px and .stx-viewport inside it is ~2818px, which is invisible today
-   only because every other row's content is short and left-aligned. That is an OBSERVATION, taken off
-   the running page; this comment deliberately does not name a cause, because the obvious one is
-   already ruled out — the min-width: 0 above IS applied and the column really is 776px. Two
-   consequences decided this rule: a wrapping row CANNOT wrap (the container has room for anything),
-   and a readout sitting beside the buttons runs under the docked inspector at exactly the width the
-   pixel gate captures. So it starts at the column's own left edge and is capped in ch, which is
-   independent of the container. (The overflow itself is #206's and is left alone here: narrowing
-   the column is an at-rest change to the canvas with its own baselines and its own gates to argue.)
+   ITS OWN LINE, AND THE CAP IS IN ch. This rule was written against a viewport WIDER THAN THE
+   COLUMN IT SAT IN — ~2818px inside 776px, measured at 1280 — where a wrapping row could not wrap
+   because the container had room for anything, and a readout beside the buttons ran under the
+   docked inspector at exactly the width the pixel gate captures. #433 found the cause this comment
+   declined to name (#214's max-content pin, not the min-width: 0 above, which was applied and
+   correct all along) and deleted it, so the container is now the column's own 776px and the row
+   genuinely can wrap. Both decisions stay on their own merits: its own line keeps the readout off
+   the buttons at every width, and the ch cap is a MEASURE cap — independent of the container, which
+   is what a line of prose wants whatever the box does.
 
    AND IT RESERVES TWO LINES. Every sentence the beat writes fits in two at this measure, so the row
    height is the same for all four steps and the stage below never jumps mid-beat — .stx-live's
@@ -892,10 +898,12 @@
    NOTHING HERE IS NAMED FOR A VIEW TRANSITION — the same call the compile block above makes, and for
    the same #171 reason. The only thing that animates is the seek input's own native thumb.
 
-   IT SITS ABOVE THE CANVAS, IN THE COLUMN, not inside .stx-viewport. The viewport is far wider than
-   the column it sits in (see .stu-compile-step's note), so a chrome row placed inside it would run
-   under the docked inspector at exactly the width the pixel gate captures. The markup node in
-   factory.html is inside .stu-canvas-col, which is the column's own width. */
+   IT SITS ABOVE THE CANVAS, IN THE COLUMN, not inside .stx-viewport. The reason recorded here was
+   the overflow #433 has since fixed — the viewport was far wider than its column, so a chrome row
+   placed inside it ran under the docked inspector at exactly the width the pixel gate captures.
+   Both boxes are 776px now and either placement would measure the same, so the markup node in
+   factory.html stays in .stu-canvas-col: moving it is an at-rest change to a captured surface with
+   no behaviour to gain. */
 .stu-replay { display: flex; flex-direction: column; gap: var(--spacing-xs, 8px); margin-bottom: var(--spacing-sm, 12px); }
 /* Empty until the two committed files land, and DISPLAY:NONE while empty rather than merely
    unpadded: this is a flex column with a gap, so an empty box costs one gap in every capture. */
