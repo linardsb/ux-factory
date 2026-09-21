@@ -4952,6 +4952,42 @@ async function selectPass(browser, engineName, t, errors) {
   t("#217 · …and the run still reaches the committed board it was building",
     (await replayNow(pb)).state === "settled");
   await pb.close();
+
+  // --- 6 · #436: a Shift-CLICK at the ZOOM FLOOR still ADDS to the selection ----------------------
+  // studio-select.mjs divides DRAG_SLOP by the scale (#302, PR #432's F9): at the 0.1 floor a
+  // 4-screen-pixel press covers 40 stage pixels, so an UN-divided threshold turned a Shift-click
+  // with any hand tremor into a Shift-DRAG whose marquee REPLACED the set being built. DRAG_SLOP is
+  // unexported and the path is DOM-only, so build-checks structurally cannot reach it; this is its
+  // one verification surface. Playwright's click() moves nothing between down and up, so a clean
+  // click cannot see the bug — the press below carries a 2-screen-pixel jitter: 20 stage px at the
+  // floor, inside the divided slop (40) and far past the un-divided one (4). Reverting
+  // `/ (canvas.scale || 1)` turns the last row red (measured while writing it).
+  const pz = await openSettled(ctx, "select zoom-floor");
+  const toFloorZ = Math.ceil(Math.log(SCALE_REST / SCALE_MIN) / Math.log(ZOOM_STEP));
+  for (let i = 0; i < toFloorZ; i += 1) await btn(pz, "Zoom out").click();
+  await pz.waitForTimeout(150);
+  const scaleZ = await pz.evaluate(() => parseFloat(document.querySelector("[data-studio-canvas]").style.getPropertyValue("--stx-scale")));
+  t("#436 · the fixture is AT the zoom floor", Math.abs(scaleZ - SCALE_MIN) < 1e-9, `scale=${scaleZ}`);
+  const gridZ = await slotsNow(pz);
+  t("#436 · two blocks to build a selection from", gridZ.length >= 2, JSON.stringify(gridZ.map((v) => v.id)));
+  const [aIdZ, bIdZ] = gridZ.map((v) => v.id);
+  await pz.locator(`.stx-slot[data-stx-id="${aIdZ}"]`).click({ modifiers: ["Shift"] });
+  await pz.waitForTimeout(100);
+  t("#436 · a clean Shift-click at the floor selects the first block", JSON.stringify(await chosen(pz)) === JSON.stringify([aIdZ]), JSON.stringify(await chosen(pz)));
+  const bBoxZ = await pz.locator(`.stx-slot[data-stx-id="${bIdZ}"]`).boundingBox();
+  const bxZ = bBoxZ.x + bBoxZ.width / 2;
+  const byZ = bBoxZ.y + bBoxZ.height / 2;
+  await pz.keyboard.down("Shift");
+  await pz.mouse.move(bxZ, byZ);
+  await pz.mouse.down();
+  await pz.mouse.move(bxZ + 2, byZ + 1, { steps: 2 });
+  await pz.mouse.up();
+  await pz.keyboard.up("Shift");
+  await pz.waitForTimeout(150);
+  const setZ = (await chosen(pz)).slice().sort();
+  t("#436 · a Shift-click with a 2-screen-pixel tremor at the 0.1 floor ADDS the second block rather than replacing the set with a marquee — DRAG_SLOP is four SCREEN pixels, divided by the scale at the comparison",
+    JSON.stringify(setZ) === JSON.stringify([aIdZ, bIdZ].slice().sort()), JSON.stringify({ chosen: setZ, scale: scaleZ, jitter: "2×1 screen px" }));
+  await pz.close();
   await ctx.close();
 
   // --- 12 · AC #6: reduced motion completes every verb ------------------------------------------
@@ -7289,6 +7325,94 @@ async function perfPass(browser, engineName, t, errors) {
     await tp.waitForTimeout(250);
     await tp.close();
     await tctx.close();
+
+    // --- #423 · THE SAME DRAG AT HALF SCALE, with the rows S1's driver printed and never asserted.
+    // S1's @0.5 block (.claude/plans/canvas-spike-s1/driver.txt:245-255) measured INP and LoAF and
+    // asserted neither (G2), and only its @1.0 block carried the frame-count floor (G3). The
+    // harness the spike said should carry them is this one, and this block is the @1.0 block above
+    // with three things changed: the scale is read off the page after the zoom verb (ZOOM_STEP may
+    // not land on 0.5 exactly, so every stage delta is divided by what was READ), the movement row
+    // asserts the stage delta the screen delta implies rather than "more than zero", and the INP
+    // observer is on this context so the same gesture yields the latency row. G1 — every picked
+    // frame moved, not `--x > 0` — is #217/AC2's same-delta-over-every-member row in selectPass and
+    // needs nothing here.
+    const hctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    await hctx.addInitScript(OBSERVER_INIT);
+    const hp = await hctx.newPage();
+    watch(hp, "perf throttled-drag @0.5");
+    await hp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+    await settled(hp);
+    await hp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
+    await hp.waitForFunction(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame iframe")]
+      .every((f) => f.contentDocument?.querySelector("#source[data-source]")), null, { timeout: 30000 })
+      .catch(() => {});
+    const toHalf = Math.round(Math.log(SCALE_REST / 0.5) / Math.log(ZOOM_STEP));
+    for (let i = 0; i < toHalf; i += 1) await btn(hp, "Zoom out").click();
+    await hp.waitForTimeout(500);
+    const halfScale = await hp.evaluate(() => parseFloat(document.querySelector("[data-studio-canvas]").style.getPropertyValue("--stx-scale")) || 1);
+    t("#423 · @0.5 · the fixture is at half scale — READ off the page after the zoom verb, not assumed", halfScale > 0.4 && halfScale < 0.6, `scale=${halfScale}`);
+    const hcdp = await hctx.newCDPSession(hp);
+    await hcdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    await hp.evaluate(() => {
+      window.__frames = [];
+      window.__loaf = [];
+      const loop = (now) => { window.__frames.push(now); window.__rafId = requestAnimationFrame(loop); };
+      window.__rafId = requestAnimationFrame(loop);
+      window.__loafObs = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) window.__loaf.push({ start: e.startTime, duration: e.duration });
+      });
+      window.__loafObs.observe({ type: "long-animation-frame" });
+    });
+    const hgeom = await hp.evaluate((pitchScreen) => {
+      const slot = document.querySelector("[data-studio-canvas] .stx-slot");
+      const grab = slot.querySelector(".stx-grab").getBoundingClientRect();
+      const r = slot.getBoundingClientRect();
+      return { fromX: (grab.left + grab.right) / 2, fromY: (grab.top + grab.bottom) / 2,
+        toX: (r.left + r.right) / 2, toY: (r.top + r.bottom) / 2 + pitchScreen,
+        yBefore: parseFloat(slot.style.getPropertyValue("--y")) || 0 };
+    }, (NODE_H + NODE_GAP) * halfScale);
+    const hInpBefore = await count(hp);
+    const h0 = await hp.evaluate(() => performance.now());
+    await hp.mouse.move(hgeom.fromX, hgeom.fromY);
+    await hp.mouse.down();
+    for (let i = 1; i <= 40; i += 1) {
+      await hp.mouse.move(hgeom.fromX + (hgeom.toX - hgeom.fromX) * (i / 40), hgeom.fromY + (hgeom.toY - hgeom.fromY) * (i / 40));
+      await hp.waitForTimeout(15);
+    }
+    await hp.mouse.up();
+    const h1 = await hp.evaluate(() => performance.now());
+    const hs = await hp.evaluate(() => {
+      cancelAnimationFrame(window.__rafId);
+      window.__loafObs.disconnect();
+      return { frames: window.__frames, loaf: window.__loaf };
+    });
+    await hcdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    await hp.waitForTimeout(300); // the observer delivers the pointerup/click entries after the fact
+    const hIn = hs.frames.filter((v) => v >= h0 && v <= h1);
+    const hGaps = hIn.slice(1).map((v, i) => v - hIn[i]).sort((a, b) => a - b);
+    const hWorst = hGaps[hGaps.length - 1] ?? 0;
+    const hLoaf = hs.loaf.filter((e) => e.start + e.duration >= h0 && e.start <= h1);
+    const hInp = summarize(await entriesFrom(hp, hInpBefore));
+    const hLatency = hInp.length ? Math.max(...hInp.map((g) => g.latency)) : null;
+    const yAfter = await hp.evaluate(() => parseFloat(document.querySelector("[data-studio-canvas] .stx-slot").style.getPropertyValue("--y")) || 0);
+    // The pointer went from the GRAB HANDLE's centre to the block's centre plus a pitch, so the
+    // stage delta the gesture implies is that screen distance ÷ the scale — not the pitch alone
+    // (measured while writing: 80 screen px at 0.512 landed +190 stage, the extra 34 being the
+    // handle-to-centre offset the first draft forgot).
+    const wantDy = (hgeom.toY - hgeom.fromY) / halfScale;
+    console.log(`  frame check @${halfScale} · ${hGaps.length + 1} drag frames over ${Math.round(h1 - h0)} ms · max ${hWorst.toFixed(1)} · LoAF in window ${hLoaf.length} · INP ${hLatency === null ? "< 16 ms (no entry)" : `${hLatency} ms`}`);
+    t("#423 · @0.5 · the throttled drag moved the block by the STAGE delta the screen delta implies (screen ÷ scale) — a scale-aware movement check, not \"more than zero\"",
+      Math.abs((yAfter - hgeom.yBefore) - wantDy) <= 8, `--y ${hgeom.yBefore} → ${yAfter}, want +${wantDy.toFixed(1)} ± 8 (${(hgeom.toY - hgeom.fromY).toFixed(1)} screen px ÷ ${halfScale})`);
+    t("#423 · @0.5 · a genuinely sampled drag — dozens of frames inside the drag window (G3: the floor S1 carried on one block in five)",
+      hGaps.length >= 20, `${hGaps.length} gap(s)`);
+    t("#423 · @0.5 · worst rAF gap inside the throttled drag ≤ 50 ms", hWorst <= 50, `${hWorst.toFixed(1)} ms`);
+    t("#423 · @0.5 · zero long-animation-frame entries overlap the drag window (G2)", hLoaf.length === 0, JSON.stringify(hLoaf));
+    t(`#423 · @0.5 · the drag's INP ≤ ${BUDGET_MS} ms (G2) — no entry means under the observer's 16 ms floor, inside the budget`,
+      hLatency === null || hLatency <= BUDGET_MS, `${hLatency} ms`);
+    await btn(hp, "Undo").click();
+    await hp.waitForTimeout(250);
+    await hp.close();
+    await hctx.close();
   }
 }
 
