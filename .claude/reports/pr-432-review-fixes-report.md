@@ -135,7 +135,7 @@ The sentence opened "The whole build travels in the link itself" and now opens "
 | `node tooling/token-lint.mjs` | `✓ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid` |
 | `node tooling/drift-check.mjs` (staged) | `✓` thirteen legs |
 | `PORT=4788 node portal/server.mjs` + `/api/health` | `{"ok":true,…}` |
-| `node tooling/studio-journey.mjs chromium` | **not brought to a clean full run on this machine** — see below |
+| `node tooling/studio-journey.mjs chromium` | **`── chromium: 533 passed, 0 failed`**, exit 0 — run 6, on the committed tree at `36c7d52` |
 | `npm run update:docker` | 6 baselines rewritten, and nothing else churned — see below |
 
 `loc-summary` moved **31,500 → 31,600** in the runtime group once the changes were staged (`gen-loc` reads git-tracked content, so a `--check` before staging is a false pass). **Six baselines, not four:** this PR added `verdant` as a third pack, so `approach` churns on the rendered number and `/factory` on F4's copy, across neutral · saulera · verdant.
@@ -146,7 +146,11 @@ The sentence opened "The whole build travels in the link itself" and now opens "
 
 That is this review round's own finding restated: a check that cannot fail, and a total that cannot tell you what did not run. The two rows that had already printed passed — `#302/F3 · …it zooms TO THE CURSOR after a pan` and `#217/AC1 · …the selection is actually PAINTED`.
 
-### The driver never reached a clean full run — stated plainly, with what was measured
+### The driver: green on run 6, after five machine-bound failures
+
+**Run 6 is the one that counts: `── chromium: 533 passed, 0 failed`, exit 0**, driven against the committed tree at `36c7d52` once the machine was quiet (1-minute load 1.95, down from 3.67; the Lima VM at 25%, down from 70%). **533 is 525 + exactly the eight rows this round adds**, and all eight printed ✓ — including section 14, which had never executed in any earlier attempt. The corrected summary line is what a green run now prints: zero matches for `WITH ITS ARRANGEMENT`, `CARRIES the arrangement` or `g-restore` in the run's own output.
+
+The five failures before it are kept here rather than deleted, because one of them was real and the other four are the reason a total is not evidence.
 
 **Five runs, five different stopping points, always the same thing and never an assertion:**
 
@@ -166,7 +170,7 @@ Runs 2–5 are a **replay that did not finish inside the driver's own 30 s budge
 
 Nothing in this round touches replay pacing either: `measuredBoxOf` runs only inside a carry or an align verb, `pendingAnchor` only on a zoom, the slop only inside a marquee, and `canvas-ops.mjs` is loaded by no page.
 
-**So the new rows were verified individually rather than inferred from a total.** The F3 anchor pair printed ✓ in runs 2, 3, 4 and 5; the F1 `PAINTED` row printed ✓ in runs 1 and 3; section 14's sequence was driven standalone against both trees with PR head failing it (the table under F2). **What was NOT re-run end to end is the rest of the driver**, and the honest reading of that is: the suite that was green on `f544b0a` has not been re-observed green on this tree. It should be re-run on a quiet machine before merge. The gate's timeout was not touched — raising it to get a pass is the thing this whole round is about.
+While those five stood, the new rows were verified individually rather than inferred from a total — the F3 anchor pair in runs 2–5, the F1 `PAINTED` row in runs 1 and 3, and section 14 standalone against both trees with PR head failing it (the table under F2). Run 6 then re-observed the whole suite green, so that stands as the gate and the standalone work stands as the discrimination evidence. **The gate's timeout was never touched** — raising it to get a pass is the thing this whole round is about.
 
 **The regen is also the control on one of this round's claims.** F17 deleted `align-self` / `justify-self` from `.stx-menu` and `.stx-frame` as inert on absolutely-positioned children of a plain block stage (`.stx-stage` declares no `display`). If that reading were wrong, `.stx-frame` would move at rest and baselines beyond `factory` and `approach` would churn. **Exactly six changed** — `factory` and `approach` across neutral · saulera · verdant — and nothing else, so the inert reading holds and F1's restored rule moved no at-rest pixel either.
 
