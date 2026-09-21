@@ -5527,8 +5527,9 @@ async function framesPass(browser, engineName, t, errors) {
   // THE HANDLE FIRST, THEN THE SETTLE. [data-studio-frames="ready"] fires at MOUNT and the frames are
   // placed there, so it resolves long before the replay finishes — but every assertion below is about
   // a canvas the run has finished authoring, and #209's own opener records why waiting for that
-  // matters. The frames' CONTENT is waited for separately, per frame, because loading="lazy" makes
-  // its timing an engine's business rather than a contract (studio-frames.mjs says so).
+  // matters. The frames' CONTENT is waited for separately, per frame: they boot at MOUNT now (#433
+  // removed loading="lazy" — webkit never requested a clipped lazy frame), and an engine's load
+  // timing was never a contract even before that (studio-frames.mjs says so).
   const open = async (context = ctx, tag = "frames", allowResourceErrors = false) => {
     const p = await context.newPage();
     watch(p, tag, allowResourceErrors);
@@ -5573,8 +5574,9 @@ async function framesPass(browser, engineName, t, errors) {
   }, key);
   const idOf = (p, key) => p.evaluate((k) => document.querySelector(`[data-stx-frame="${k}"]`)?.getAttribute("data-stx-id"), key);
   const depth = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => m.getVerbs().history.depth()));
-  // A frame's CONTENT, waited for rather than assumed: loading="lazy" is a hedge and nothing in the
-  // shipped module depends on when it resolves, so the driver must not either.
+  // A frame's CONTENT, waited for rather than assumed: the frames boot at mount (#433 removed
+  // loading="lazy") and nothing in the shipped module depends on when a boot resolves, so the
+  // driver must not either.
   const loaded = (p, key) => p.waitForFunction((k) => {
     const f = document.querySelector(`[data-stx-frame="${k}"] iframe`);
     return Boolean(f?.contentDocument?.body?.dataset?.page || f?.contentDocument?.querySelector(".vd-plant-card, .fw-lane"));
@@ -6455,7 +6457,10 @@ async function minimapPass(browser, engineName, t, errors) {
   t("#433 · the horizontal axis HAS a scroll range on /factory now the width pin is gone (scrollWidth > clientWidth) — the retired constraint the two cases below were shaped by, asserted so it cannot come back unnoticed",
     mRest.scrollW > mRest.realClientW, JSON.stringify({ scrollW: mRest.scrollW, clientW: mRest.realClientW }));
   // …and the two widths COINCIDE here, which is what says the reader-visible clip is a no-op on
-  // this page rather than a term quietly doing work (studio-minimap.mjs call 5's own claim).
+  // this page rather than a term quietly doing work (studio-minimap.mjs call 5's own claim). A
+  // COROLLARY of the row above with a few px of slack, not an independent witness: `visible` is a
+  // border box and clientWidth a padding box, so the equality is Math.min'd and can only fire once
+  // a re-proportioned column runs past the window by more than the borders (PR #435 review, F4).
   t("#433 · …and the reader-visible width equals the scroller's own clientWidth — the canvas no longer runs past the window edge",
     mRest.clientW === mRest.realClientW, JSON.stringify({ visible: mRest.clientW, client: mRest.realClientW }));
   // PANNED — the missing-scroll-term detector, on the axis this page can actually scroll.
@@ -6504,13 +6509,21 @@ async function minimapPass(browser, engineName, t, errors) {
     for (let y = Math.min(r.bottom, window.innerHeight) - 20; y > top + 140; y -= 20) {
       for (let x = Math.min(r.right, window.innerWidth) - 40; x > Math.max(r.left, 0) + 40; x -= 40) {
         const hit = document.elementFromPoint(x, y);
-        if (hit && scroll.contains(hit) && !hit.closest(".stx-slot, .stx-frame")) return { x, y };
+        if (hit && scroll.contains(hit) && !hit.closest(".stx-slot, .stx-frame")) return { x, y, empty: true };
       }
     }
-    return null;
+    // NOTHING EMPTY IN THE WINDOW: answer the scroller's in-window centre with `empty: false`, so
+    // the row below goes red BY NAME and the rows after it still run. Returning null here made
+    // `panPt.x` a TypeError that propagated out of minimapPass and silently took every later row
+    // with it — the webkit-at-427 shape this PR fixed elsewhere (PR #435 review, F1).
+    return {
+      x: (Math.max(r.left, 0) + Math.min(r.right, window.innerWidth)) / 2,
+      y: (top + Math.min(r.bottom, window.innerHeight)) / 2,
+      empty: false,
+    };
   });
   t("#221/AC3 · the stage has empty background a drag can grab INSIDE THE WINDOW — a point the mouse cannot visit would make the row below read as a broken observer",
-    panPt !== null, "no empty in-window point inside the scroller");
+    panPt.empty, "no empty in-window point inside the scroller; pressing its centre instead " + JSON.stringify(panPt));
   const v3a = await viewAttr(p1);
   await p1.mouse.move(panPt.x, panPt.y);
   await p1.mouse.down();
@@ -7087,9 +7100,10 @@ async function perfPass(browser, engineName, t, errors) {
     await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await settled(tp);
     await tp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
-    // #219 · THE DEVICE FRAMES ARE PART OF THE BOOTSTRAP NOW, and the line above is what starts them:
-    // the two <iframe>s are loading="lazy", so scrolling the canvas into view is the moment two whole
-    // proto pages begin booting. Under the 4× CPU throttle applied below that work lands squarely
+    // #219 · THE DEVICE FRAMES ARE PART OF THE BOOTSTRAP NOW: the two <iframe>s boot at MOUNT (#433
+    // removed loading="lazy"; before it, the scrollIntoView above was what started them), so two
+    // whole proto pages are booting as this pass reaches the canvas. Under the 4× CPU throttle
+    // applied below that work lands squarely
     // inside the measured drag window — observed as one 61 ms long-animation-frame — which is the
     // IDENTICAL argument the 500 ms rest already makes for site.js/dock.mjs's chrome injection. So it
     // is WAITED FOR on each frame's own settle handle rather than slept past. Swallowed on timeout

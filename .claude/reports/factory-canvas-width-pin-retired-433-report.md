@@ -1,6 +1,6 @@
 # Fix #433 — /factory's canvas blows out of its grid cell: the width pin retired
 
-**Branch** `feature/canvas-swap-grid-retired-302` · **Issue** [#433](https://github.com/linardsb/ux-factory/issues/433) · **Plan** `.claude/plans/factory-canvas-width-pin-retired-433.md`
+**Branch** `fix/factory-canvas-width-pin-433` (base `main`, rebased from `feature/canvas-swap-grid-retired-302` @ `a10a3d0` after its squash-merge) · **Issue** [#433](https://github.com/linardsb/ux-factory/issues/433) · **Plan** `.claude/plans/factory-canvas-width-pin-retired-433.md`
 
 **The ticket's proposed cause is measured false, and the fix is a deletion rather than an addition.** #433 asks for `min-width: 0` on `.stx-viewport` and `.stx-scroll` — PR #54's rule — and asks that it be verified rather than assumed. Verified: that rule changes nothing here. The blowout is `#214`'s `.stu-shell .stx-viewport { width: max-content }`, and removing that one declaration is the whole fix.
 
@@ -12,7 +12,7 @@ Chromium, 1440 viewport, after `[data-replay="settled"]`, walking up from `[data
 
 | | `.stx-scroll` | `.stx-viewport` | `.stu-canvas-col` | scroller `scrollW / clientW` | X range |
 |---|---|---|---|---|---|
-| before | 3172 | 3172 (`width: 3171.81px`) | 776 (`min-width: 0`) | 2816 / 3170 | **0** |
+| before | 3172 | 3172 (`width: 3171.81px`) | 776 (`min-width: 0`) | 3170 / 3170 | **0** |
 | after | 776 | 776 | 776 | 2816 / 774 | **2042** |
 
 Identical at 1280. Firefox measured 3174 → 776 and webkit 3172 → 776; both land on the same 2042.
@@ -95,7 +95,7 @@ Committed plans and reports are historical records of what was true when written
 |---|---|
 | `node tooling/build-checks.mjs` | ✅ all 36 groups pass |
 | `node tooling/token-lint.mjs` | ✅ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid |
-| `node agent-layer/gen-loc-summary.mjs --check` (after staging) | ✅ no drift — net +10 lines in `system/`, absorbed by the nearest-100 rounding, so the `approach` baselines do **not** move |
+| `node agent-layer/gen-loc-summary.mjs --check` (after staging) | ✅ no drift — `git diff --numstat` over `system/` is +89 −66, net +23 (the report first said +10, corrected by the review's F7); the `--check` line is the proof the `approach` baselines do **not** move, not the arithmetic |
 | `node tooling/drift-check.mjs` | ✅ syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
 | portal boot + `/api/health` | ✅ `{"ok":true,…}` on a private port (4796) |
 | `node tooling/studio-journey.mjs all` | ✅ **chromium 537 · firefox 533 · webkit 533, 0 failed**, `studio-journey ✓` — plus a second webkit-only leg at 533/0 |
@@ -104,7 +104,7 @@ Committed plans and reports are historical records of what was true when written
 
 **One flake, recorded rather than hidden.** An intermediate run had chromium red on `frame check · zero long-animation-frame entries overlap the drag window` with a single 52ms entry. That row is the 4×-CDP-throttled drag sample; it was green on the run before it and green on the final run, on an otherwise identical tree. Treated as load sensitivity, not a regression — and said here rather than left out of the tally.
 
-**Row counts.** chromium 536 → 537 and firefox/webkit 533 → 533 hides a real change: three rows were added (visible width == clientWidth, ArrowRight pans, the marquee-ends reachability row) and one was replaced in place (the no-range control inverted). Webkit's previous number was **427 and a throw**, not a pass count.
+**Row counts.** Counted off the diff: eight `t(` rows added and four removed, net **+4 per engine**, all in passes every engine runs (the anchor pair in `journey()`, one in `layersPass`, five in `minimapPass`). The after-tallies above are observed. No before-tally was observed on the base tree — webkit threw at 427 there, and the chromium/firefox figures an earlier draft of this paragraph quoted (536, 533) were not measured and are withdrawn (review F2); by subtraction they would have been 533 and 529.
 
 **What actually says the baselines are right.** The same 900px band was cropped out of the old and new `factory-neutral.png` and compared by eye. Old: the canvas runs off to the right with **no boundary at all** — the fourth block cut by the page, the area past it blank white with the column extending transparently across. New: the scroller ends at the column's own edge with its border and radius, and the fourth block is clipped by the scroller, which is what "scrollable-to" looks like. The masked iframe rectangle overhangs the rail in **both**, so that artefact is pre-existing and not something the fix introduced.
 
@@ -120,4 +120,17 @@ Narrowing or re-proportioning the canvas column; moving `.stu-replay` inside the
 
 **`instance.html` was not driven.** It carries the same `.stu-shell` / `.stu-canvas-col` band, so it inherits both the width fix and the `loading` removal, including the webkit defect. `tooling/instance-journey.mjs` is operator-run, needs a built instance dir, and was **not** run here — its one canvas interaction (`click .stx-scroll` at 40,40) is inside the narrowed column either way, so nothing in it is expected to move, but that is reasoning rather than a run.
 
+**The `<900px` layout is a third visible change, and it is not measured.** The deleted rule carried no media scoping, so below the 900px step where `.stu-shell` collapses to one column (`studio.css`) the scroller also gains a horizontal range for the first time. Every figure here is at 1440 or 1280; no driver row and no pixel spec opens a narrow viewport, so nothing in the repo captures it (review F5).
+
+**The base moved under the PR.** Every figure and all three PNGs were taken against `feature/canvas-swap-grid-retired-302` @ `a10a3d0`. That branch was squash-merged as `4550925` and this branch rebased onto it; `git diff a10a3d0 4550925` is two review documents, one `gates.md` line and six comment lines in the driver, no shipped file — so the baselines still describe the tree they sit on (review F8).
+
 **Webkit was re-run, because one observation is not two.** It threw at 427 on both runs before the frames fix, so the three-engine run above was the first time the driver executed the rewritten minimap rows and the layers marquee fix on that engine at all. A second webkit-only leg was run on the final tree: **533 passed, 0 failed**, `studio-journey ✓`. The focused probe had already covered those same rows on webkit separately (9/9 green).
+
+## Review fixes (PR #435, `.claude/code-reviews/pr-435-review.md`)
+
+- **F1 fixed** · the in-window background scan answers the scroller's centre with `empty: false` instead of `null`, so the reachability row goes red by name and the rows after it still run; before, `panPt.x` threw out of `minimapPass`. Mutation below.
+- **F2 fixed** · the row-count paragraph withdraws the unobserved before-tallies and states the diff count: +8 −4, net +4 per engine.
+- **F3 fixed** · the three driver comments naming `loading="lazy"` as live now say it left with #433 and what starts the frames instead; `grep -n 'loading="lazy"' tooling/*.mjs system/*.mjs` leaves only `studio-frames.mjs:243`, which records the removal.
+- **F4 fixed** · the visible-width row's comment calls it a corollary with border-box slack, not an independent witness.
+- **F5, F6, F7, F8 recorded** · the `<900px` change named as unmeasured; the before-row reads `3170 / 3170`; the `system/` delta is +23 with the `--check` line as the proof; the base SHA and the post-merge tree diff are stated above.
+
