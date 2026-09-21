@@ -6,7 +6,7 @@
 
 **Two of the review's own citations were wrong and were re-derived before acting:**
 
-- **F8b named `:3347`**, which is already correct on this tree ("THE CLAIM IS RETIRED, NOT TRANSLATED"). The three real sites are `:3007`, `:3296` and the summary string — `:3007` the review missed. A fourth turned up beside them: the comment at `:3395` cited `:2965-2991` for "the four the report names", which on the tree that wrote it pointed at the keep rail's tier and request rows. Replaced with a description, since a line citation drifts on the next insertion.
+- **F8b named `:3347`, and that citation was RIGHT — this bullet was wrong when it was written, and is corrected here (round 2, F7).** `f544b0a:3347` reads ``// are at :2965-2991 and in studio.mjs, keepPass's g-restore row and param-manifest.json). These`` — the stale line citation and the `g-restore` row, both. This bullet originally read the comment's HEADING a line above it (`:3346`, "THE CLAIM IS RETIRED, NOT TRANSLATED") and called the citation already-correct, then reported the same comment a second time as "a fourth site at `:3395`" — a line number from the part-edited tree, where `f544b0a:3395` is the 503 console exemption in `teardownPass`. One site, not two, and the review found it. The three the review did miss are `:3007`, `:3296` and the summary string. The comment now names its four siblings rather than citing them by line, since a line citation drifts on the next insertion. **No code consequence — the fix landed either way.**
 - **F3's horizontal arithmetic is unreachable on `/factory`.** `.stx-viewport` is a `min-width: auto` grid item, so the scroller's client box grows with the extent and there is never a horizontal scroll range to clamp against. Measured on the PR's base tree too (`.stx-viewport` 2818 against a 776px column), so it is **pre-existing and not #302's** — reported below, not fixed here. The vertical axis is where the drift is provable, and that is where it was proven.
 
 ---
@@ -22,7 +22,7 @@
 | F3 | the zoom anchor drifts once the reader has panned | **fixed**, and the fix shape decided by measurement (open question 5) + a gate row |
 | F4 | shipped copy still claims the link carries the arrangement | **fixed** |
 | F5 | the applier aliases the op's params into the returned document | **fixed** + a gate case |
-| F6 | `arrowPath` has no coverage; the overlay has no consumer | **the cheap half fixed** — 20 driven cases; the DOM half stated as owed in `gates.md` and the PR body |
+| F6 | `arrowPath` has no coverage; the overlay has no consumer | **the cheap half fixed** — 20 driven cases; the DOM half stated as owed in build-checks' own group 12 summary, and in `gates.md` only since round 2's F2 — this row claimed `gates.md` when round 1 had not touched it |
 | F7 | "would have passed the pixel gate" is not observed | **PR body corrected** |
 | F8 | eight comments naming gates that no longer exist | **fixed**, all eight |
 | F8b | the green-run summary asserts the retired `g`, three times | **fixed**, three sites + the stale citation above |
@@ -138,7 +138,7 @@ The sentence opened "The whole build travels in the link itself" and now opens "
 | `node tooling/studio-journey.mjs chromium` | **`── chromium: 533 passed, 0 failed`**, exit 0 — run 6, on the committed tree at `36c7d52` |
 | `npm run update:docker` | 6 baselines rewritten, and nothing else churned — see below |
 
-`loc-summary` moved **31,500 → 31,600** in the runtime group once the changes were staged (`gen-loc` reads git-tracked content, so a `--check` before staging is a false pass). **Six baselines, not four:** this PR added `verdant` as a third pack, so `approach` churns on the rendered number and `/factory` on F4's copy, across neutral · saulera · verdant.
+`loc-summary` moved **31,500 → 31,600** in the runtime group at `36c7d52` once the changes were staged — and then **31,600 → 31,700** at `37e76f9`, when the four open questions were closed, which is what the tree carries (round 2, F8b: this line read as the PR's final state and was not scoped to its commit). The grand total moved once, 39,500 → 39,600, and stayed there. Staging matters either way (`gen-loc` reads git-tracked content, so a `--check` before staging is a false pass). **Six baselines, not four:** this PR added `verdant` as a third pack, so `approach` churns on the rendered number and `/factory` on F4's copy, across neutral · saulera · verdant.
 
 ### The first journey run found a defect in one of these gates
 

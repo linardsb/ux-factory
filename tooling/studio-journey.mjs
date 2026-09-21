@@ -2988,8 +2988,10 @@ async function flowPass(browser, t, errors) {
 // #210 · THE KEEP RAIL, THE EXPORT AND THE ?b= RESTORE. Everything here is a running-page fact that
 // tooling/build-checks.mjs group 17 structurally cannot reach, and group 17's own summary says so:
 // that group owns the STRING the exporter produces, and this owns whether a browser really hands a
-// file over, whether the tiers really hide, whether the address bar really carries the arrangement,
-// and whether the declined mount really leaves a live Compile button.
+// file over, whether the tiers really hide, whether the address bar really carries NO arrangement —
+// `g` is retired with the grid and the decoder refuses one BY NAME (#302), so what travels is the
+// board alone, and the two rows that asserted the old claim were retired with it — and whether the
+// declined mount really leaves a live Compile button.
 //
 // THE BARE-BOARD STATE IS BUILT HERE, WITH THE PAGE'S OWN CODEC. /factory has no remove verb
 // (studio-verbs.mjs owns move/undo/redo only) and Act 0's "Clear the canvas" clears the PACK, not
