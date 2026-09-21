@@ -38,9 +38,16 @@ Existing tokens: `motion-bounce` 300ms · `motion-count` 900ms · `motion-ease-b
 - **Count-ups write the exact measured string as the last frame** (real text node, honesty contract). Never a counter that shows 0 until JS runs — the acmeminds "0+ Years" failure is the canonical counterexample.
 - **Never attach entrance animations to nodes rebuilt on every input tick** (colour drag) — they restart-and-blank. Gate behind a discrete-render class (recorded trap, PR #55).
 
-## Interactive states (all six, every component)
+## Interactive states (all ten, every component)
 
 Design hover · focus-visible · active · disabled · loading · error/empty for every interactive component before calling it done. Also: real content, working controls, responsive composition to 360px.
+
+Four more, for anything that talks to a Worker, a fixture or an agent (Tranz007 `state-sweep`, MIT):
+
+- **Permission-blocked:** the reader lacks the right to do this — say what is blocked and who can unblock it; never a disabled control with no sentence.
+- **Timeout:** the request outlived its budget — say so with the budget, offer retry, keep what was already shown (the fixture-degradation path on every data page).
+- **Stale data:** what is shown was true at a time — carry the time, and mark it visibly once it is older than the surface's refresh promise.
+- **Interrupt-and-resume:** the reader left mid-flow (a take-over, a tab switch, a dropped connection) — the surface says where they were and resumes there; nothing they had done is lost on return.
 
 - **Hit areas:** effective target ≥44×44px on touch, ≥24px minimum anywhere; if the visible control is smaller, extend with a pseudo-element.
 - **Press feedback:** the squish vocabulary (`:active` scale, release through bounce) on everything pressable.
