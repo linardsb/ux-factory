@@ -98,7 +98,7 @@ Committed plans and reports are historical records of what was true when written
 | `node agent-layer/gen-loc-summary.mjs --check` (after staging) | ✅ no drift — net +10 lines in `system/`, absorbed by the nearest-100 rounding, so the `approach` baselines do **not** move |
 | `node tooling/drift-check.mjs` | ✅ syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
 | portal boot + `/api/health` | ✅ `{"ok":true,…}` on a private port (4796) |
-| `node tooling/studio-journey.mjs all` | ✅ **chromium 537 · firefox 533 · webkit 533, 0 failed**, `studio-journey ✓` |
+| `node tooling/studio-journey.mjs all` | ✅ **chromium 537 · firefox 533 · webkit 533, 0 failed**, `studio-journey ✓` — plus a second webkit-only leg at 533/0 |
 | pixel gate, committed baselines | ✅ 33/33 in the Docker image CI pins — but this confirms DETERMINISM, not correctness: the baselines were regenerated from this tree, so the gate is self-confirming after a regen (PR #246's own recorded note). The correctness evidence is the eyeball comparison below. |
 | pixel baselines `factory-{neutral,saulera,verdant}` | ✅ regenerated; the other 30 byte-identical |
 
@@ -120,4 +120,4 @@ Narrowing or re-proportioning the canvas column; moving `.stu-replay` inside the
 
 **`instance.html` was not driven.** It carries the same `.stu-shell` / `.stu-canvas-col` band, so it inherits both the width fix and the `loading` removal, including the webkit defect. `tooling/instance-journey.mjs` is operator-run, needs a built instance dir, and was **not** run here — its one canvas interaction (`click .stx-scroll` at 40,40) is inside the narrowed column either way, so nothing in it is expected to move, but that is reasoning rather than a run.
 
-**Webkit's 533 is its first complete leg on this tree.** It threw at 427 on the two runs before the frames fix, so the driver executed the rewritten minimap rows and the layers marquee fix on webkit exactly once. The focused probe covered those same rows on webkit separately (9/9 green), so they are not unobserved — but the three-engine table should not be read as equal repetition across engines.
+**Webkit was re-run, because one observation is not two.** It threw at 427 on both runs before the frames fix, so the three-engine run above was the first time the driver executed the rewritten minimap rows and the layers marquee fix on that engine at all. A second webkit-only leg was run on the final tree: **533 passed, 0 failed**, `studio-journey ✓`. The focused probe had already covered those same rows on webkit separately (9/9 green).
