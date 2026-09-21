@@ -15,9 +15,23 @@
 // compile beat (#207). The load-bearing calls, made here so #210/#212/#213 inherit them:
 //
 //   1. A SECOND AUTHOR, NEVER A SECOND MOVER. system/studio-verbs.mjs's single ui.move consumer is
-//      the only thing on this canvas that MOVES a wrapper. This file never emits ui.move, never
-//      calls applySlot and never writes data-col / data-row on an existing wrapper. It changes the
-//      BOARD and reflects that change onto the stage; where a block sits stays #205's sentence.
+//      the only thing on this canvas that MOVES a wrapper. This file never emits ui.move and never
+//      calls applySlot. It changes the BOARD and reflects that change onto the stage; where a block
+//      sits stays #205's sentence.
+//
+//      ONE EXCEPTION, ADDED AT #302 AND STATED RATHER THAN LEFT TO BE FOUND (PR #432's F10). Free
+//      positions are computed from the board, so a connection that changes a place's RANK changes
+//      where every downstream block belongs: relayout() writes setPos on existing wrappers for
+//      exactly that. It is a LAYOUT CORRECTION, not a move — no ui.move, no history entry, no
+//      announcement — and the clause above said "never writes a position on an existing wrapper",
+//      which this PR made false in the same edit that left the sentence standing.
+//
+//      IT CANNOT REACH A READER'S OWN PLACEMENT, and that bound is what makes the exception safe
+//      rather than merely declared: relayout() runs only from reflect(), reflect() only from
+//      advance(), and a take-over sets tookOver, calls pause() and disables step, skip and seek
+//      together — so no further beat can play and no op can reflect once the canvas is the
+//      visitor's. Measured on the module, not assumed; if a later ticket gives the transport a path
+//      that survives a take-over, this exception has to be gated on tookOver rather than restated.
 //   2. ONLY place.add CALLS place(). studio-canvas.mjs:340 appends unconditionally — even on the
 //      idempotent re-place path — and :343 announces on every call. So re-placing a wrapper to
 //      re-label it would re-order the stage by append order AND turn four announcements into eleven
@@ -61,8 +75,8 @@
 // mounts this explicitly, like the compile beat, and tooling/build-checks.mjs group 16 drives the
 // pure layer directly.
 
-import { applyOp, emptyBoard } from "./board-ops.mjs";
-import { MAX_COLS } from "./studio-canvas.mjs";
+import { applyOp, emptyBoard, rankLayout } from "./board-ops.mjs";
+import { NODE_GAP, NODE_H, NODE_W, setPos } from "./studio-canvas.mjs";
 import { parseTrace } from "./trace-player.mjs";
 import { trackFactoryTookOver } from "./analytics.mjs";
 
@@ -491,34 +505,70 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
     setState("loading");
 
     // --- the reflection -------------------------------------------------------------------------
-    // THE ONE PLACE THE CANVAS IS WRITTEN by this file. `col` is the place's index in BOARD ORDER,
-    // exactly as studio.mjs's arrangeBoard derives it — the artifact carries no arrangement (that is
-    // #208's codec field, and this run predates any gesture), so board order is the only honest
-    // source for a column. Breaking at MAX_COLS rather than clamping, for arrangeBoard's reason: a
-    // clamp would stack two components in one cell, which the canvas refuses.
+    // THE ONE PLACE THE CANVAS IS WRITTEN by this file, and it reads the SAME rule studio.mjs's
+    // arrangeBoard does (#302). Until then this reimplemented the row-1-in-board-order rule and said
+    // so in this comment, which meant changing arrangeBoard alone left /factory's replay on the old
+    // layout — one rule, two copies, exactly the drift the duplication warned about. board-ops.mjs's
+    // rankLayout is now the one copy: BFS from the entry place, one column per rank. The artifact
+    // carries no arrangement and never did, so the board is still the only source.
     const blockFor = (place) => renderPlace({
       id: place.id,
       label: place.label,
       affordances: place.affordances.map((f) => ({ id: f.id, label: f.label })),
     });
 
+    // THE LAYOUT CONVERGES, AND IT HAS TO BE A SEPARATE PASS (#302). The comment below used to say
+    // the rank was "recomputed per addition rather than cached" because an op that adds a place can
+    // change the rank of one already on the stage — which was the right diagnosis and only half the
+    // cure. It recomputed the rank of the NODE BEING ADDED and never touched the others, and the
+    // committed runs make that the normal case rather than an edge one: every `place.add` in
+    // build-fieldwork-dispatch runs BEFORE every `connect`, so at insertion each place is an
+    // ORPHAN — rankLayout's trailing-rank branch — and the seven connections that give the board
+    // its shape arrive when nothing re-reads the layout. The settled canvas was one column of
+    // stacked blocks: neither the retired row-1 rule nor the rank layout, and wrong in a way that
+    // only shows on the running page.
+    //
+    // THROUGH setPos, NOT place(). place() announces on every call and appends unconditionally —
+    // the same two reasons the place-changed branch below refuses to re-place — so a relayout of
+    // four nodes per connect op would flood the live region and re-order the stage. setPos is the
+    // one writer of a position and says nothing, which is exactly what a layout correction is:
+    // nothing happened that a reader needs told, the blocks are simply where they now belong.
+    //
+    // Called from BOTH branches that can change a rank. A connection obviously can; so can a place
+    // added after one already exists, which is why the addition path calls it too rather than
+    // trusting the rank it just computed for the one node.
+    const relayout = () => {
+      for (const at of rankLayout(board)) {
+        const wrapper = wrappers.get(at.id);
+        if (wrapper) setPos(wrapper, at.rank * (NODE_W + NODE_GAP), at.order * (NODE_H + NODE_GAP), NODE_W);
+      }
+    };
+
     const reflect = (changes) => {
       for (const change of changes) {
         if (change.kind === "refused") { canvas.say(`Refused: ${change.text}`); continue; }
-        if (change.kind === "connections-changed") continue; // the board changed; no node did
+        // The board changed and no node was added or removed — but every node may have MOVED, and
+        // for these runs that is the only thing the connections do.
+        if (change.kind === "connections-changed") { relayout(); continue; }
         const place = board.places.find((p) => p.id === change.placeId);
         if (change.kind === "place-removed") {
           wrappers.get(change.placeId)?.remove();
           wrappers.delete(change.placeId);
+          relayout();
           continue;
         }
         if (!place) continue;
-        const col = board.places.indexOf(place) + 1;
         if (change.kind === "place-added") {
-          if (col > MAX_COLS) continue;
+          const at = rankLayout(board).find((r) => r.id === String(place.id));
           const node = blockFor(place);
-          canvas.place(node, { col, row: 1, name: place.label });
+          canvas.place(node, {
+            x: (at ? at.rank : board.places.indexOf(place)) * (NODE_W + NODE_GAP),
+            y: (at ? at.order : 0) * (NODE_H + NODE_GAP),
+            w: NODE_W,
+            name: place.label,
+          });
           if (node.parentElement) wrappers.set(place.id, node.parentElement);
+          relayout(); // the peers, whose ranks this addition may have moved
           continue;
         }
         // place-changed — RENAMED IN PLACE, never re-placed. See call 2 in the header: place()

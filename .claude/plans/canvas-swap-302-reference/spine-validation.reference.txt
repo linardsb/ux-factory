@@ -1,0 +1,37 @@
+// P3 — validate MVP 14's spine composition against the REAL validateComposition and the REAL
+// committed vocabulary, before the plan claims it composes.
+import { readFileSync } from "node:fs";
+const R = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+const { validateComposition } = await import(`${R}/system/agentic-renderer.mjs`);
+const vocab = JSON.parse(readFileSync(`${R}/handoff/verdant/vocabulary.json`, "utf8"));
+
+const spine = {
+  name: "stack", props: { direction: "column", gap: "md", pad: "lg" },
+  children: [
+    { name: "text", props: { role: "heading", content: "Confirm the payee" } },
+    { name: "text-field", props: { label: "Sort code", placeholder: "00-00-00" } },
+    { name: "primary-button", props: { label: "Send payment" } },
+  ],
+};
+// the error state, as an OVERRIDE would resolve it (a hint added, the button relabelled)
+const errored = structuredClone(spine);
+errored.children[1].props.hint = "We could not match that account name";
+errored.children[2].props.label = "Send anyway";
+
+for (const [label, tree] of [["base frame", spine], ["error state (resolved)", errored]]) {
+  try { validateComposition(vocab, tree); console.log(`✓ ${label} validates`); }
+  catch (e) { console.log(`✗ ${label}: ${e.message}`); }
+}
+// negative controls — the validator must refuse these
+const bad = [
+  ["a child not in stack's allowed list", { ...spine, children: [{ name: "plant-card", props: { name: "x", status: "healthy" } }] }],
+  ["a prop that does not exist",          { ...spine, props: { ...spine.props, align: "middle" } }],
+  ["a missing required prop",             { name: "stack", props: { gap: "md" }, children: [] }],
+  ["an id key (the #302 addition)",       { ...spine, id: "p1" }],
+];
+for (const [label, tree] of bad) {
+  try { validateComposition(vocab, tree); console.log(`  ACCEPTED · ${label}`); }
+  catch (e) { console.log(`  refused  · ${label} — ${e.message.slice(0, 90)}`); }
+}
+console.log("\nstack allows:", vocab.components.stack.children.join(" "));
+console.log("stack cardinality:", vocab.components.stack.childrenCardinality);

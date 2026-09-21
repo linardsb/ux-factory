@@ -1,0 +1,23 @@
+
+build-fieldwork-dispatch: 4 places, 7 connections, 0ms
+  deterministic: true
+    p1  rank 0  order 0   Today Overview
+    p2  rank 1  order 0   At-Risk Queue
+    p3  rank 2  order 0   Job Detail
+    p4  rank 3  order 0   Reassignment Confirmation
+  columns: {"0":1,"1":1,"2":1,"3":1}
+
+build-northwind-restock: 5 places, 10 connections, 1ms
+  deterministic: true
+    p1  rank 0  order 0   Warehouse Overview
+    p2  rank 1  order 0   At-Risk SKU Queue
+    p3  rank 2  order 0   SKU Detail
+    p4  rank 3  order 0   Restock Request
+    p5  rank 3  order 1   Stock Transfer
+  columns: {"0":1,"1":1,"2":1,"3":2}
+junk ok: []
+junk ok: []
+junk ok: []
+junk ok: []
+junk THREW: p.affordances is not iterable
+junk ok: [{"id":"p1","rank":0,"order":0}]

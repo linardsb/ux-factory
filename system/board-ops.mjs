@@ -331,3 +331,74 @@ export function parseOpCommand(command) {
   checkOp(op); // throws naming the op / the offending param
   return { kind: "op", scriptPath, boardPath, op };
 }
+
+// ---- a pure READ beside the applier (#302) -------------------------------------------------------
+// A READ IS NOT A VERB. rankLayout takes the epic's op-verb lock no more than discovery/ops.mjs's
+// five reads take theirs: it touches OPS, PARAMS and the switch not at all, and adding it changes
+// nothing about what an op can say. It lives here rather than in either of its two callers because
+// THEY ARE TWO and the duplication was a recorded defect — system/studio.mjs's arrangeBoard and
+// system/replay-driver.mjs's reflection each carried the old row-1 rule, and replay-driver's own
+// comment admitted the copy. studio.mjs imports replay-driver, so the shared rule cannot live in
+// either; board-ops.mjs is what both already reach for, and a layout over a board is a board read.
+//
+// THE RULE: breadth-first from the entry place, ONE COLUMN PER RANK, ordered within a rank by
+// arrival. A flow reads left to right, which is what the old rule could not express — everything
+// sat in row 1 in board order, so a four-step flow and four unrelated screens looked identical.
+//
+// THE CYCLE GUARD IS LOAD-BEARING, not defensive: replay/build-northwind-restock.board.json really
+// contains p2a2 -> p1, and a BFS without a visited set does not terminate on it.
+//
+// TOTAL OVER JUNK, and this is where a reference implementation of this function was found wrong
+// while #302 was being planned: the obvious `for (const a of p.affordances)` throws on a place whose
+// affordances key is missing, and arrangeBoard's contract is that a garbage board answers [] rather
+// than crashing the page before the canvas exists. Every read below is guarded for that reason.
+//
+// Returns [{ id, rank, order }] in BOARD ORDER, so a caller can zip it against its own places
+// without a lookup. It answers ranks, never pixels: how wide a column is and how far apart two ranks
+// sit are the canvas's business, and a layout rule that knew about pixels could not be driven in CI.
+export function rankLayout(board) {
+  const places = (board && Array.isArray(board.places) ? board.places : [])
+    .filter((p) => p && typeof p === "object" && p.id != null);
+  if (!places.length) return [];
+  const ids = places.map((p) => String(p.id));
+  const known = new Set(ids);
+
+  // An affordance belongs to a place, and a connection is [affordanceId, placeId] — so the edge's
+  // SOURCE has to be looked up rather than read off the connection.
+  const ownerOf = new Map();
+  for (const p of places) {
+    for (const a of (Array.isArray(p.affordances) ? p.affordances : [])) {
+      if (a && typeof a === "object" && a.id != null) ownerOf.set(String(a.id), String(p.id));
+    }
+  }
+  const adj = new Map(ids.map((id) => [id, []]));
+  for (const pair of (Array.isArray(board.connections) ? board.connections : [])) {
+    if (!Array.isArray(pair) || pair.length !== 2) continue;
+    const from = ownerOf.get(String(pair[0]));
+    const to = String(pair[1]);
+    if (from && adj.has(from) && known.has(to)) adj.get(from).push(to);
+  }
+
+  const out = new Map();
+  const seen = new Set([ids[0]]); // board order puts the entry place first (breadboard.mjs:124)
+  let frontier = [ids[0]];
+  let rank = 0;
+  while (frontier.length) {
+    frontier.forEach((id, i) => out.set(id, { rank, order: i }));
+    const next = [];
+    for (const id of frontier) {
+      for (const to of adj.get(id) || []) {
+        if (seen.has(to)) continue; // THE CYCLE GUARD
+        seen.add(to);
+        next.push(to);
+      }
+    }
+    frontier = next;
+    rank += 1;
+  }
+  // A place nothing reaches is not dropped — it gets its own trailing rank, in board order. Dropping
+  // it would make the canvas disagree with buildSummary's count for a reason nobody chose.
+  const orphans = ids.filter((id) => !out.has(id));
+  orphans.forEach((id, i) => out.set(id, { rank, order: i }));
+  return ids.map((id) => ({ id, ...out.get(id) }));
+}

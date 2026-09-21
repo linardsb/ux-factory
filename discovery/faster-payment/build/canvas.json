@@ -1,0 +1,29 @@
+{
+  "$description": "JSON Canvas–SHAPED, and deliberately NOT JSON Canvas 1.0 (jsoncanvas.org/spec/1.0, read 2026-09-18). Four divergences, named rather than left for a reader to hit: (1) `type` is frame|note|decision|exhibit, where the spec allows only text|file|link|group; (2) `height` is OPTIONAL here and REQUIRED there, because a frame's height is its content's until someone authors one; (3) `ref` is added, pointing a node at the op or decision it came from, and the spec has no such key; (4) `relation` replaces the spec's `label` on an edge, because flows and embodies are a closed set rather than free text. A conformant reader REFUSES type: \"frame\", so this file must never be described as JSON Canvas flat. WHAT IS DERIVED AND WHAT IS NOT, stated exactly (corrected 2026-09-21, PR #432's open question 4). Every node and edge here — which frames exist, their ids, widths, screen and base refs, and which arrows connect them — is rewritten from ops.jsonl on save, and build-checks group 36 replays the committed ops through the real applier and compares. POSITIONS ARE AUTHORED. The ops carry no geometry by design: where a thing sits is the arrangement's business, and an op that carried an x would make these two files two sources for one fact. That is why group 36's inverse case requires a MOVED frame to still pass, and it is why nothing here can drift-check an x. The earlier wording said positions came from the rank layout — they do not, that layout has no concept of a state frame, and f2.x is 472 where its pitch is 236.",
+  "nodes": [
+    {
+      "id": "f1",
+      "type": "frame",
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "ref": "screen:add-payee"
+    },
+    {
+      "id": "f2",
+      "type": "frame",
+      "x": 472,
+      "y": 0,
+      "width": 390,
+      "ref": "state:error of f1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "a1",
+      "fromNode": "f1",
+      "toNode": "f2",
+      "relation": "flows"
+    }
+  ]
+}

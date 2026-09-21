@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ux factory · studio canvas harness</title>
-  <meta name="description" content="Internal test harness for the prototype studio's canvas substrate: a DOM stage that pans on a native scroller, zooms through a fixed level table, and holds real token-skinned components in grid slots." />
+  <meta name="description" content="Internal test harness for the prototype studio's canvas substrate: a DOM stage that pans on a native scroller, zooms continuously, and holds real token-skinned components at free positions." />
   <meta name="robots" content="noindex" />
 
   <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
@@ -45,9 +45,9 @@
     <p class="lede">The prototype studio's substrate, raw. The stage below is ordinary DOM holding real
       components from the system's own vocabulary — so the token contract, focus order and the inspect
       bubbles keep working by construction rather than by re-implementation. Pan is native scrolling;
-      zoom is a <code>data-zoom</code> attribute against a scale table declared in CSS; arrangement is
-      <code>data-col</code> / <code>data-row</code>, and moving something rewrites exactly those two
-      attributes. Nothing here writes an inline style.</p>
+      zoom is a continuous scale on the stage; arrangement is a free position per node. Both are
+      custom properties, and both are written through exactly two named helpers —
+      <code>setPos</code> and <code>setScale</code> — which is what the gate is pinned to.</p>
 
     <div class="strip" id="capability"><p>Loading the vocabulary…</p></div>
 
@@ -72,7 +72,7 @@
         a real scroll container and not a translated element. That property is the whole reason pan is scroll.</p>
     </div>
 
-    <p class="tail">Placement is still programmatic — <code>place(node, {col, row})</code> — but arrangement is
+    <p class="tail">Placement is still programmatic — <code>place(node, {x, y, w})</code> — but arrangement is
       now the reader's. Marquee select, alignment guides and multi-move (#217), the layers list and the
       minimap (#221) have since shipped on the designed surface, <a href="/factory">/factory</a>.
       This page exists so the substrate can be driven and gated before anything designed depends on it.</p>
@@ -81,7 +81,7 @@
   <script type="module">
     import { renderComposition } from "/system/agentic-renderer.mjs";
     import { createBus } from "/system/action-bus.mjs";
-    import { initStudioCanvas, MAX_COLS, MAX_ROWS } from "/system/studio-canvas.mjs";
+    import { initStudioCanvas } from "/system/studio-canvas.mjs";
     import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
     import { mountCanvasSelect } from "/system/studio-select.mjs";
 
@@ -125,17 +125,22 @@
       const canvas = initStudioCanvas();
       if (!canvas) throw new Error("studio.html: the canvas viewport is missing");
 
-      // Column-major so the far columns are genuinely occupied — the Tab-scrolls-into-view claim is
-      // worth nothing if everything sits in the first screenful.
+      // Laid out in rows so the far right of the stage is genuinely occupied — the
+      // Tab-scrolls-into-view claim is worth nothing if everything sits in the first screenful.
+      // THE HARNESS OWNS THESE FOUR NUMBERS, and that is the point of #302's substrate: a position
+      // is free, so a caller chooses its own pitch rather than reading a cap out of the module. They
+      // reproduce the retired grid's geometry exactly (220 x 140 at a 16 px gap, 12 per row), which
+      // keeps this page's stage the same shape it has always had.
+      const NODE_W = 220, NODE_H = 140, GAP = 16, PER_ROW = 12;
       let placed = 0;
       for (const spec of SPECS) {
         const node = renderComposition(vocab, spec.node);
         node.dataset.stxName = spec.label;
-        const col = (placed % MAX_COLS) + 1;
-        const row = (Math.floor(placed / MAX_COLS) % MAX_ROWS) + 1;
+        const x = (placed % PER_ROW) * (NODE_W + GAP);
+        const y = Math.floor(placed / PER_ROW) * (NODE_H + GAP);
         // `component` is the vocabulary shape, `name` the display label — the harness knows both,
         // and the shape is what studio-verbs.mjs puts on the bus (#232).
-        canvas.place(node, { col, row, name: spec.label, component: spec.name });
+        canvas.place(node, { x, y, w: NODE_W, name: spec.label, component: spec.name });
         placed += 1;
       }
 
@@ -151,7 +156,7 @@
 
       const p = document.createElement("p");
       p.className = "cap-live";
-      p.textContent = `Live in your browser, right now: ${placed} real components validated against the vocabulary and placed on the stage by attribute — ${MAX_COLS} columns × ${MAX_ROWS} rows, nothing precomputed and no inline style written.`;
+      p.textContent = `Live in your browser, right now: ${placed} real components validated against the vocabulary and placed on the stage at free positions, ${PER_ROW} to a row — nothing precomputed, and every position written through one named helper.`;
       capability.replaceChildren(p);
     } catch (e) {
       const p = document.createElement("p");

@@ -142,7 +142,7 @@ const PAGES = [
   { name: 'proto-fieldwork', url: '/proto/fieldwork.html', kind: 'proto', rows: '.fw-lane',
     waitReady: '[data-bus-toggles="ready"]' },
 ];
-const PACKS = { neutral: null, saulera: path.join(REPO, 'system/tokens.saulera.css') };
+const PACKS = { neutral: null, saulera: path.join(REPO, 'system/tokens.saulera.css'), verdant: path.join(REPO, 'system/tokens.verdant.css') };
 
 test.beforeEach(async ({ page }) => {
   // Hermeticity: allow only the local static server (127.0.0.1:4757); abort everything else. This

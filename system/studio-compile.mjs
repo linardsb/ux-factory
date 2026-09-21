@@ -12,7 +12,7 @@
 // The four load-bearing calls, made here so #209's replay and #212's flows inherit rather than
 // re-argue them:
 //
-//   1. IMPORT, NEVER FORK. patternFor, slotsFor, compose, renderComposition, clampSlot, INSPECT_IDS
+//   1. IMPORT, NEVER FORK. patternFor, slotsFor, compose, renderComposition, setPos, INSPECT_IDS
 //      and the two honesty sentences are all imported. This module contributes NO RULE: what names
 //      the pattern, what counts the slots and what a slot becomes are decided in
 //      system/pattern-rules.mjs and system/pattern-render.mjs, and /build changes with them. A
@@ -27,7 +27,7 @@
 //      behind #190 plus a studio state-matrix vt-stack-audit. tooling/vt-verify.mjs asserts the
 //      absence AFTER proving the beat actually ran.
 //   3. THE SWAP TOUCHES CONTENT, NEVER SLOTS. Movement belongs to system/studio-verbs.mjs's single
-//      ui.move consumer. Nothing here emits ui.move, calls applySlot or writes data-col / data-row
+//      ui.move consumer. Nothing here emits ui.move, calls applySlot or writes a node's position
 //      on an existing wrapper — otherwise #209's replay driver inherits a second mover to fight.
 //      Swapping content in place is also what keeps data-stx-id stable, which is what keeps the undo
 //      history coherent across the beat.
@@ -39,9 +39,10 @@
 // than a hope. Screens are places (pattern-rules.mjs's screensFor), and every wrapper on /factory's
 // canvas is one place's: the replay driver places exactly one wrapper per place.add and never adds
 // or removes one, no canvas verb creates or deletes a wrapper (studio-verbs.mjs only moves them),
-// and the ?b= restore arranges places.length wrappers — studio.mjs's arrangeBoard breaks at
-// MAX_COLS = 12, which MAX_PLACES = 6 never reaches, and its sent-arrangement branch requires equal
-// lengths. The EXTRA and SURPLUS branches #207 wrote for a board that could differ from the canvas
+// and the ?b= restore arranges places.length wrappers — studio.mjs's arrangeBoard lays out EVERY
+// place since #302 retired the column cap it used to break at, so the two counts agree by
+// construction rather than by a bound. The EXTRA and SURPLUS branches #207 wrote for a board that
+// could differ from the canvas
 // are therefore DELETED rather than fixed (PR #235's finding L3, closed structurally): they were
 // written for a state flows remove, and fixing their id instability and missing occupancy scan
 // would have been building correctness into dead code. What guards the unforeseen is the pair of
@@ -381,7 +382,7 @@ export function mountCompile(canvas, { board, getBoard, answers, getAnswers, bus
     // --- the swap ------------------------------------------------------------------------------
     // POSITIONAL and IN PLACE: the wrappers in DOM order against the screens in board order — the
     // same correspondence, because stage order IS board order (the studio's standing fact). Every
-    // attribute that survives the beat — data-stx-id, data-col, data-row, data-stx-name, the aria
+    // attribute that survives the beat — data-stx-id, data-stx-name, the position properties, the aria
     // wiring, the undo history — survives because the wrapper is never rebuilt AND never renamed:
     // a screen keeps the place's own label, which is the name the wrapper already carries, and a
     // screen has no single vocabulary shape, so data-stx-component is not written either (#232's

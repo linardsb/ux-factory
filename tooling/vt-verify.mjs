@@ -306,7 +306,11 @@ for (const name of toRun) {
       const vp = document.querySelector("[data-studio-canvas]");
       const node = vp.querySelector(".stx-slot");
       const r = node.getBoundingClientRect();
-      return { zoom: vp.getAttribute("data-zoom"), col: node.getAttribute("data-col"), box: `${Math.round(r.width)}x${Math.round(r.left)}` };
+      // #302: the zoom is a continuous --stx-scale on the viewport and a position is --x on the
+      // node. Every read in this file is a movement PRECONDITION rather than a claim — it exists so
+      // "zero ::view-transition-* pseudos" cannot pass on a page where nothing moved — so what
+      // changed is the spelling, not what any of them is for.
+      return { zoom: vp.style.getPropertyValue("--stx-scale") || null, x: node.style.getPropertyValue("--x") || null, box: `${Math.round(r.width)}x${Math.round(r.left)}` };
     });
     // The #205 verbs, driven through their exported seam. A keyboard move and an undo, taken as one
     // step so the precondition below can prove BOTH happened before anything is asserted about
@@ -317,16 +321,17 @@ for (const name of toRun) {
       if (!v) throw new Error("vt-verify: getVerbs() returned nothing — studio-verbs did not mount");
       const node = document.querySelector("[data-studio-canvas] .stx-slot");
       const id = node.getAttribute("data-stx-id");
-      const to = { col: Number(node.getAttribute("data-col")) === 9 ? 10 : 9, row: 7 };
+      const at = () => node.style.getPropertyValue("--x");
+      const to = { x: at() === "900px" ? 1200 : 900, y: 700 };
       v.bus.emit({ type: "ui.move", source: "agent", target: { component: "probe", id }, params: to });
-      const moved = node.getAttribute("data-col");
+      const moved = at();
       v.bus.emit({ type: "ui.undo", source: "agent" });
-      return { moved, undone: node.getAttribute("data-col") };
+      return { moved, undone: at() };
     }));
     const movePlace = () => cp.evaluate(() => import("/system/studio-canvas.mjs").then((m) => {
       const c = m.getCanvas();
       const node = c.stage.querySelector(".stx-slot");
-      c.place(node, { col: Number(node.getAttribute("data-col")) === 6 ? 2 : 6, row: 4, name: "vt probe" });
+      c.place(node, { x: node.style.getPropertyValue("--x") === "600px" ? 200 : 600, y: 400, name: "vt probe" });
     }));
 
     await reset(cp);
@@ -338,7 +343,7 @@ for (const name of toRun) {
     const cafter = await canvasState();
     const cmoved = await read(cp);
     t("studio canvas · the zoom and the placement actually changed the surface",
-      cafter.zoom !== cbefore.zoom && cafter.col !== cbefore.col && cafter.box !== cbefore.box,
+      cafter.zoom !== cbefore.zoom && cafter.x !== cbefore.x && cafter.box !== cbefore.box,
       `${JSON.stringify(cbefore)} → ${JSON.stringify(cafter)}`);
     t("studio canvas · …and the #205 move verbs moved something and undid it",
       verbs.moved !== verbs.undone, `${verbs.moved} → ${verbs.undone}`);
@@ -364,10 +369,10 @@ for (const name of toRun) {
     }));
     const grp217 = await cp.evaluate((ids) => import("/system/studio-verbs.mjs").then((m) => {
       const v = m.getVerbs();
-      const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getAttribute("data-row");
+      const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).style.getPropertyValue("--y");
       const before = ids.map(at);
       v.bus.emit({ type: "ui.move-group", source: "agent",
-        params: { moves: ids.map((id, i) => ({ id, col: 2 + i, row: 6 })) } });
+        params: { moves: ids.map((id, i) => ({ id, x: 472 + i * 236, y: 780 })) } });
       const after = ids.map(at);
       v.bus.emit({ type: "ui.undo", source: "agent" });
       return { before, after, undone: ids.map(at) };
@@ -400,23 +405,23 @@ for (const name of toRun) {
     // /^\d+%$/ readout test and `calls === 0`.
     await crp.waitForSelector('[data-canvas-verbs="ready"]', { timeout: 20000 });
     await reset(crp);
-    const rbefore = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
+    const rbefore = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").style.getPropertyValue("--stx-scale"));
     await crp.locator("[data-studio-canvas]").getByRole("button", { name: "Fit", exact: true }).click();
     const rverbs = await crp.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
       const v = m.getVerbs();
       const node = document.querySelector("[data-studio-canvas] .stx-slot");
       const id = node.getAttribute("data-stx-id");
-      v.bus.emit({ type: "ui.move", source: "agent", target: { component: "probe", id }, params: { col: 9, row: 7 } });
-      const moved = node.getAttribute("data-col");
+      v.bus.emit({ type: "ui.move", source: "agent", target: { component: "probe", id }, params: { x: 1888, y: 936 } });
+      const moved = node.style.getPropertyValue("--x");
       v.bus.emit({ type: "ui.undo", source: "agent" });
-      return { moved, undone: node.getAttribute("data-col") };
+      return { moved, undone: node.style.getPropertyValue("--x") };
     }));
     await crp.waitForTimeout(400);
     const crm = await read(crp);
-    const rafter = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"));
+    const rafter = await crp.evaluate(() => document.querySelector("[data-studio-canvas]").style.getPropertyValue("--stx-scale"));
     // Quiet is not enough — the verb still has to work, and "it worked" has to be a change.
     t("studio canvas · reduced motion · fit actually moved the zoom level",
-      rafter !== rbefore, `data-zoom ${rbefore} → ${rafter}`);
+      rafter !== rbefore, `--stx-scale ${rbefore} → ${rafter}`);
     t("studio canvas · reduced motion · the move verbs still move and still undo",
       rverbs.moved !== rverbs.undone, `${rverbs.moved} → ${rverbs.undone}`);
     // #217's three verbs under reduced motion, with the same movement precondition: quiet is not
@@ -434,9 +439,9 @@ for (const name of toRun) {
     }));
     const rgrp = await crp.evaluate((ids) => import("/system/studio-verbs.mjs").then((m) => {
       const v = m.getVerbs();
-      const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getAttribute("data-row");
+      const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).style.getPropertyValue("--y");
       const before = ids.map(at);
-      v.bus.emit({ type: "ui.move-group", source: "agent", params: { moves: ids.map((id, i) => ({ id, col: 4 + i, row: 5 })) } });
+      v.bus.emit({ type: "ui.move-group", source: "agent", params: { moves: ids.map((id, i) => ({ id, x: 708 + i * 236, y: 624 })) } });
       return { before, after: ids.map(at) };
     }), rsel.ids);
     await crp.waitForTimeout(400);
@@ -606,9 +611,9 @@ for (const name of toRun) {
         }));
         const grp217 = await fp.evaluate((ids) => import("/system/studio-verbs.mjs").then((m) => {
           const v = m.getVerbs();
-          const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getAttribute("data-row");
+          const at = (id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`).style.getPropertyValue("--y");
           const before = ids.map(at);
-          v.bus.emit({ type: "ui.move-group", source: "agent", params: { moves: ids.map((id, i) => ({ id, col: 1 + i, row: 3 })) } });
+          v.bus.emit({ type: "ui.move-group", source: "agent", params: { moves: ids.map((id, i) => ({ id, x: i * 236, y: 312 })) } });
           const after = ids.map(at);
           v.bus.emit({ type: "ui.undo", source: "agent" });
           return { before, after, undone: ids.map(at) };

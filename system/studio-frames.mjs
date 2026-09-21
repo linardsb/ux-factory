@@ -5,7 +5,7 @@
 //
 // The two data-connected prototypes — Verdant's phone screen and Fieldwork's dispatch board — sit on
 // the /factory canvas as real <iframe>s of the shipped proto pages, arranged by the same
-// data-col / data-row grammar as everything else, moved by the same handle and the same ui.move
+// free-position grammar as everything else, moved by the same handle and the same ui.move
 // verb, and resized by ui.resize. Seven calls are made here so a later editor inherits rather than
 // re-argues them.
 //
@@ -18,23 +18,26 @@
 //     structurally cannot make.
 //
 //  2. THE FOURTH GRID FAMILY, NOT A FIFTH .stx-slot. `.stx-slot` means BOARD WRAPPER:
-//     studio-compile.mjs's identity and count tripwires, studio.mjs's arrangementNow() (#208's `g`)
-//     and adoptBoard's removal loop all depend on that meaning. Teaching four shipped mechanisms and
-//     ~100 driver assertions the difference between a wrapper and a frame costs far more than one
-//     exported selector; .stx-guide and .stx-menu (#217) made the same call and left the registry
-//     (build-checks group 12's GRID_FAMILIES) that catches a fourth.
+//     studio-compile.mjs's identity and count tripwires and adoptBoard's removal loop both depend
+//     on that meaning (arrangementNow, the third reader, went with #302's codec field). Teaching
+//     four shipped mechanisms and ~100 driver assertions the difference between a wrapper and a
+//     frame costs far more than one exported selector; .stx-guide and .stx-menu (#217) made the same
+//     call. The registry that catches a fourth is the SHARED FOUR-FAMILY POSITION RULE in
+//     system/studio.css, which build-checks group 12 matches on its exact selector list — #302
+//     retired the grid, and with it the GRID_FAMILIES list this line used to name.
 //
 //  3. IT DRAWS NO WRAPPER. studio-canvas.mjs's place() builds it, through one `kind: "frame"` branch,
 //     so the frames inherit the idempotency contract two drivers rely on, the handle-first tab
 //     order, the born-inert handles, the re-label fix (#231 L3), the id counter and the say() on
 //     placement. Thirty duplicated lines here would be six re-argued rules.
 //
-//  4. GEOMETRY IS ATTRIBUTES, AND RESIZE IS SPAN — NOT PIXELS. build-checks group 7 asserts
-//     `writes === 1` inline-style write across every studio module, and this is a studio module, so
-//     #176's px `--frame-w` mechanism is not available to it. data-span-col / data-span-row select
-//     `grid-*-end: span K` rules from system/studio.css. The trade this inherits is that resize is
-//     STEPPED — which is also what makes it announceable ("3 columns by 3 rows") and gives it a
-//     finite tamper surface, exactly the trade fit() records for zoom.
+//  4. GEOMETRY IS PIXELS, AND SO IS RESIZE (#302). This call USED to read the other way — geometry
+//     was attributes and a resize was a span — because group 7 caps inline-style writes and a
+//     studio module had no px mechanism available to it. setPos is that mechanism: it is one of the
+//     two named writers the group now allows, it writes --x/--y/--w/--h, and a frame's descriptor
+//     below carries its place and size directly. What the stepped span bought — an announceable
+//     size and a finite tamper surface — survives as the sentence "<name> resized to W by H" and as
+//     setPos's own clamp, which is the one definition of a size on this stage.
 //
 //  5. A FRAME IS OUTSIDE #217's SELECTION LAYER, AND THAT IS A LINE RATHER THAN AN OMISSION. A
 //     selection is a set of components you act on together; a device frame is an exhibit on the same
@@ -86,20 +89,24 @@ import { watchPackSwap } from "./catalog.mjs";
 
 // The two committed prototypes, and nothing else — a module-level descriptor list rather than page
 // markup, so build-checks group 24 can assert every `src` is a real committed file and that the two
-// footprints are on the grid, disjoint from each other and CLEAR OF ROW 1. Row 1 is where
-// studio.mjs's arrangeBoard puts every place, so a frame overlapping it would collide with a board
-// the replay driver has not built yet.
+// rectangles are on the stage, disjoint from each other and CLEAR OF THE BOARD'S BAND. The board's
+// entry rank sits at the stage origin, so a frame overlapping the top band would collide with a
+// board the replay driver has not built yet.
 //
-// THE FOOTPRINTS WERE DECIDED IN A BROWSER AT THE REAL CAPTURE WIDTH, against two constraints the
-// grid arithmetic hides. .stx-scroll is 640px tall on /factory and the canvas column shows about five
-// columns before the page clips it, so rows 3–4 (312–608px) is the lowest band that is WHOLLY visible
+// THE RECTANGLES WERE DECIDED IN A BROWSER AT THE REAL CAPTURE WIDTH, against two constraints the
+// arithmetic hides. .stx-scroll is 640px tall on /factory and the canvas column shows about five
+// node-widths before the page clips it, so 312–608px down is the lowest band that is WHOLLY visible
 // at rest — which is what factory-neutral.png shows.
 //
-// AND ROW 2 IS LEFT FREE ON PURPOSE. The pointer-reachable free canvas is small — cols 1–5 × rows 1–4,
-// with the board holding row 1 — so a pair of frames filling rows 2–4 leaves exactly ONE free cell a
-// reader can drag a block into, which quietly contradicts the page's own "a canvas you can move". The
-// row directly under the board is where a block goes, so the frames start below it. Changing these
-// numbers is a baseline change; build-checks group 24 keeps them honest either way.
+// AND THE BAND DIRECTLY UNDER THE BOARD IS LEFT FREE ON PURPOSE. The pointer-reachable area is small,
+// with the board holding the top of it, so frames filling everything below would leave almost nowhere
+// a reader can drag a block into, which quietly contradicts the page's own "a canvas you can move".
+//
+// THE NUMBERS ARE #302's, AND THEY ARE THE OLD ONES ARITHMETICALLY. They read col 1 / row 3 /
+// spanCol 2 / spanRow 2 and col 3 / row 3 / spanCol 3 / spanRow 2 against a 12 x 8 grid of 220 x 140
+// cells at a 16px gap; x = (col-1) * 236, y = (row-1) * 156, w = spanCol * 220 + (spanCol-1) * 16 and
+// h likewise. Converted rather than re-chosen, so this PR moves no pixel here that it did not have
+// to. Changing them is a baseline change; build-checks group 24 keeps them honest either way.
 //
 // `anchor` IS WHERE THE FRAME OPENS, AND IT IS NOT AN EDIT TO EITHER PROTO PAGE. Both pages open with
 // a lede — an honesty notice, a title, a paragraph, a data-source badge — that is right for a page and
@@ -118,7 +125,7 @@ export const FRAMES = Object.freeze([
     anchor: "screen-header",
     title: "Verdant — plant overview, the real prototype",
     name: "Verdant prototype",
-    col: 1, row: 3, spanCol: 2, spanRow: 2,
+    x: 0, y: 312, w: 456, h: 296,
     caption: "Verdant, running for real. It wears this site's pack — a brand you drop re-skins the canvas around it, not inside it.",
     link: "Open Verdant on its own page",
   }),
@@ -129,7 +136,7 @@ export const FRAMES = Object.freeze([
     anchor: "board",
     title: "Fieldwork — dispatch board, the real prototype",
     name: "Fieldwork prototype",
-    col: 3, row: 3, spanCol: 3, spanRow: 2,
+    x: 472, y: 312, w: 692, h: 296,
     caption: "Fieldwork, running for real. It wears this site's pack — a brand you drop re-skins the canvas around it, not inside it.",
     link: "Open Fieldwork on its own page",
   }),
@@ -246,8 +253,7 @@ export function mountStudioFrames(canvas, { root = document } = {}) {
       const box = el("div", { class: "stx-frame-box" }, iframe, caption);
       canvas.place(box, {
         kind: "frame",
-        col: frame.col, row: frame.row,
-        spanCol: frame.spanCol, spanRow: frame.spanRow,
+        x: frame.x, y: frame.y, w: frame.w, h: frame.h,
         name: frame.name,
       });
       // place() returns the SLOT, not the wrapper, so the wrapper is read back off the node it

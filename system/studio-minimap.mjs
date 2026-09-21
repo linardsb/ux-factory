@@ -8,18 +8,18 @@
 //
 //  1. GEOMETRY IS ATTRIBUTES — SVG PRESENTATION ATTRIBUTES. build-checks group 7 pins
 //     `writes === 1` inline-style write across every studio module, and the viewport rectangle is
-//     continuous geometry, so the mechanism had to be one the regex has nothing to count:
+//     continuous geometry, so the mechanism had to be one the write-site gate has nothing to count:
 //     setAttribute("x"|"y"|"width"|"height") on SVG rects is the studio's own "geometry is
 //     attributes" grammar applied literally — the same forcing function that made #219 resize in
 //     grid spans instead of px. system-graph.mjs already establishes SVG-with-token-fills on this
 //     very page.
 //  2. TRACKED BY EVENTS, NEVER A TIMER: a passive scroll listener (rAF-coalesced), a
-//     MutationObserver on the viewport's data-zoom + data-compile-state (a compile re-sizes the
+//     MutationObserver on the viewport's style + data-compile-state (a compile re-sizes the
 //     tracks themselves, so the content box and viewBox are re-measured on that path), a
 //     ResizeObserver on the scroller, a window resize listener, and the stage observer for the
 //     cells — which PATCHES a moved wrapper's own cell per frame and reserves the full
 //     measure-and-redraw for childList and compile-state changes, the split #213's 4×-throttled
-//     drag check is the measurement of. The data-zoom observer is the SOLE correct path for a zoom
+//     drag check is the measurement of. The scale observer is the SOLE correct path for a zoom
 //     taken at scroll 0,0 — no scroll event fires there, but the visible fraction changed — which
 //     is why that observer exists at all and why the journey's sole-detector case rides on it.
 //  3. NO BUS VERB, DELIBERATELY. Viewport position is view state — no history entry, no share
@@ -68,7 +68,7 @@
 // Node-import safe: no DOM outside a function body and no self-boot — system/studio.mjs mounts
 // this exactly as it mounts the layers list. build-checks group 26 drives the pure layer.
 
-import { FRAME_CLASS, MOVABLE, ZOOM_LEVELS } from "./studio-canvas.mjs";
+import { FRAME_CLASS, MOVABLE, NODE_GAP, NODE_H, NODE_W } from "./studio-canvas.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Plain data in, plain data out, so build-checks group 26 drives it in CI with no browser. The
@@ -118,71 +118,53 @@ export function jumpFrom(point, metrics) {
   return { left: axis(x, w, cw), top: axis(y, h, chh) };
 }
 
-// trackOffsets(tracks, gap) → cumulative START offsets [0, t0+g, t0+g+t1+g, …] — the inverse of
-// hitSlot's walk, with the same rule: the gap belongs to the track BEFORE the next start. Total
-// over junk: a non-array answers [], an unreadable track or gap reads as 0.
-export function trackOffsets(tracks, gap) {
-  if (!Array.isArray(tracks)) return [];
-  const g = Number(gap) || 0;
-  const out = [];
-  let edge = 0;
-  for (const track of tracks) {
-    out.push(edge);
-    edge += (Number(track) || 0) + g;
+// nodeRect(box) → { x, y, w, h } — a wrapper's rectangle in unscaled stage space.
+//
+// IT IS A COERCION NOW, AND THAT IS THE POINT (#302). What stood here was ~70 lines over three
+// functions — trackOffsets walking a CSS Grid track list, cellRect turning a slot and a span into a
+// rectangle by summing covered tracks plus interior gaps, and the assertion that a 2x3 rect equals
+// the union of its six 1x1 rects. Every one of them existed to answer "where is this cell", and the
+// answer had to be reconstructed because the position was a grid line rather than a place. A free
+// position IS the rectangle: setPos wrote --x/--y/--w/--h and this reads them back. The union
+// property the old gate proved is not translated, because there is nothing left to derive that could
+// disagree with itself.
+//
+// Total over junk: zeros, never a throw — an unmounted wrapper's properties read as "".
+export function nodeRect(box) {
+  const o = box && typeof box === "object" ? box : {};
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  return { x: num(o.x), y: num(o.y), w: num(o.w), h: num(o.h) };
+}
+
+// visibleCount(view, boxes) → { visible, total } — how many nodes the viewport rect actually shows.
+//
+// THE ANNOUNCEMENT'S SUBJECT CHANGED WITH THE SUBSTRATE. It used to be "columns 2 to 4, rows 1 to 3",
+// which visibleRange derived by walking the same track list cellRect did. There are no columns to
+// name, and naming a pixel range instead ("viewing 236 to 1,180") is a sentence no listener can act
+// on. What a reader actually wants to know from a minimap is how much of their work is on screen, so
+// that is what it says.
+//
+// THE OVERLAP RULE IS studio-select.mjs's idsInRange, deliberately: a node is visible when its box
+// overlaps the view, not when its origin is inside it, or a wide node the viewport sits in the
+// middle of would be counted as off screen. Two modules, one definition of "this rectangle touches
+// that one" — re-deriving it here would be a second answer waiting to disagree.
+//
+// Total over junk: { visible: 0, total: 0 }.
+export function visibleCount(view, boxes) {
+  const v = view && typeof view === "object" ? view : null;
+  const list = Array.isArray(boxes) ? boxes : [];
+  if (!v || !list.length) return { visible: 0, total: list.length };
+  const left = Number(v.x);
+  const top = Number(v.y);
+  const right = left + Number(v.w);
+  const bottom = top + Number(v.h);
+  if (![left, top, right, bottom].every(Number.isFinite)) return { visible: 0, total: list.length };
+  let visible = 0;
+  for (const b of list) {
+    const r = nodeRect(b);
+    if (r.x <= right && r.x + r.w >= left && r.y <= bottom && r.y + r.h >= top) visible += 1;
   }
-  return out;
-}
-
-// cellRect(slot, span, geom) → { x, y, w, h } — a wrapper's footprint in unscaled stage space,
-// from the MEASURED tracks (readGeom's { cols, rows, colGap, rowGap } shape). Span-aware: a 1×1
-// span is one track, and a W×H rect equals the union of its W·H unit rects by construction — the
-// width is the covered tracks plus the (span − 1) interior gaps, which is footprint()'s definition
-// drawn instead of keyed. Total over junk: { x: 0, y: 0, w: 0, h: 0 }.
-export function cellRect(slot, span, geometry) {
-  const geom = geometry && typeof geometry === "object" ? geometry : {};
-  const axis = (index, count, tracks, gap) => {
-    const list = Array.isArray(tracks) ? tracks : [];
-    if (!list.length) return { at: 0, size: 0 };
-    const g = Number(gap) || 0;
-    const i = Math.min(list.length, Math.max(1, Math.round(Number(index)) || 1)) - 1;
-    const n = Math.min(list.length - i, Math.max(1, Math.round(Number(count)) || 1));
-    const offsets = trackOffsets(list, g);
-    let size = (n - 1) * g;
-    for (let k = 0; k < n; k += 1) size += Number(list[i + k]) || 0;
-    return { at: offsets[i], size };
-  };
-  const x = axis(slot?.col, span?.cols, geom.cols, geom.colGap);
-  const y = axis(slot?.row, span?.rows, geom.rows, geom.rowGap);
-  return { x: x.at, y: y.at, w: x.size, h: y.size };
-}
-
-// visibleRange(view, geom) → { col1, col2, row1, row2 } — the inclusive cell range the viewport
-// rect covers, for the announcement sentence. The band rule is hitSlot's: a point in a gap belongs
-// to the track before it. The far edge is sampled one pixel inside the rect, so a viewport whose
-// edge kisses the next track's start does not claim a column it shows nothing of. Total over junk:
-// the 1,1 cell.
-export function visibleRange(view, geometry) {
-  const geom = geometry && typeof geometry === "object" ? geometry : {};
-  const band = (v, tracks, gap) => {
-    const list = Array.isArray(tracks) ? tracks : [];
-    const n = Number(v);
-    if (!Number.isFinite(n) || !list.length) return 1;
-    let edge = 0;
-    for (let i = 0; i < list.length; i += 1) {
-      edge += (Number(list[i]) || 0) + (Number(gap) || 0);
-      if (n < edge) return i + 1;
-    }
-    return list.length;
-  };
-  const x = Number(view?.x);
-  const y = Number(view?.y);
-  const w = Number(view?.w);
-  const h = Number(view?.h);
-  const col1 = band(x, geom.cols, geom.colGap);
-  const row1 = band(y, geom.rows, geom.rowGap);
-  const col2 = Math.max(col1, band(Number.isFinite(w) ? x + Math.max(0, w - 1) : x, geom.cols, geom.colGap));
-  const row2 = Math.max(row1, band(Number.isFinite(h) ? y + Math.max(0, h - 1) : y, geom.rows, geom.rowGap));
-  return { col1, col2, row1, row2 };
+  return { visible, total: list.length };
 }
 
 // ---- the mount ---------------------------------------------------------------------------------
@@ -228,8 +210,8 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     if (!mount) return null;
 
     if (!canvas || !canvas.viewport || !canvas.scroll || !canvas.stage || typeof canvas.say !== "function"
-      || !Number.isFinite(canvas.level)) {
-      throw new Error("studio-minimap: a mounted canvas handle { viewport, scroll, stage, say, level } is required");
+      || !Number.isFinite(canvas.scale)) {
+      throw new Error("studio-minimap: a mounted canvas handle { viewport, scroll, stage, say, scale } is required");
     }
 
     const { viewport, scroll, stage } = canvas;
@@ -244,20 +226,11 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     let contentW = stage.offsetWidth;
     let contentH = stage.offsetHeight;
 
-    // The measured tracks (readGeom — the verbs'/select's idiom, third copy is the convention).
-    // Read once at mount for the offsets; re-read inside the mutation rebuild, where it is cheap
-    // and rare, so a compiled state's grown tracks draw where they really are.
-    const readGeom = () => {
-      const cs = getComputedStyle(stage);
-      const track = (v) => String(v || "").trim().split(/\s+/).map(parseFloat).filter(Number.isFinite);
-      return {
-        cols: track(cs.gridTemplateColumns),
-        rows: track(cs.gridTemplateRows),
-        colGap: parseFloat(cs.columnGap) || 0,
-        rowGap: parseFloat(cs.rowGap) || 0,
-      };
-    };
-    let geom = readGeom();
+    // NO TRACK MEASUREMENT AT ALL SINCE #302, and that is the largest thing this module lost. It
+    // read the stage's resolved gridTemplateColumns/Rows through getComputedStyle — a forced style
+    // recalc, kept off the gesture's frames only by the rebuild/patch split below — in order to
+    // reconstruct where a cell was. A node's rectangle is now written on the node, so the read is a
+    // parseFloat and the recalc is gone from this file entirely.
 
     // --- structure ------------------------------------------------------------------------------
     const title = el("h3", { class: "stu-panel-title", text: "Minimap" });
@@ -298,7 +271,7 @@ export function mountStudioMinimap(root, { canvas } = {}) {
       scrollTop: scroll.scrollTop,
       clientW: Math.min(scroll.clientWidth, visibleWidth()),
       clientH: scroll.clientHeight,
-      scale: ZOOM_LEVELS[canvas.level] || 1,
+      scale: canvas.scale || 1,
       contentW,
       contentH,
     });
@@ -308,7 +281,7 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     const jumpMetrics = () => ({
       clientW: scroll.clientWidth,
       clientH: scroll.clientHeight,
-      scale: ZOOM_LEVELS[canvas.level] || 1,
+      scale: canvas.scale || 1,
       contentW,
       contentH,
     });
@@ -331,17 +304,22 @@ export function mountStudioMinimap(root, { canvas } = {}) {
 
     // --- the cells ------------------------------------------------------------------------------
     const cellsOf = () => [...map.querySelectorAll(".stu-map-cell")];
-    const wrapperRect = (wrapper) => cellRect(
-      { col: wrapper.getAttribute("data-col"), row: wrapper.getAttribute("data-row") },
-      { cols: wrapper.getAttribute("data-span-col"), rows: wrapper.getAttribute("data-span-row") },
-      geom,
-    );
+    // A wrapper's rect is the four properties setPos wrote. A slot carries no --h, so its height is
+    // its rendered one — measured rather than invented, because a board wrapper's height really is
+    // its component's and there is nothing authored to read.
+    const wrapperRect = (wrapper) => {
+      const prop = (name) => parseFloat(wrapper.style.getPropertyValue(name));
+      const h = prop("--h");
+      return nodeRect({
+        x: prop("--x"), y: prop("--y"), w: prop("--w"),
+        h: Number.isFinite(h) ? h : wrapper.offsetHeight,
+      });
+    };
     // The FULL rebuild: tracks, content box and viewBox re-measured, every cell redrawn. This is
     // the childList / compile-state path — never the per-frame one (see the observer below): a
     // getComputedStyle here is a forced style recalc, and #213's 4×-throttled drag check is what
     // keeps it off the gesture's frames.
     const rebuildCells = () => {
-      geom = readGeom();
       contentW = stage.offsetWidth;
       contentH = stage.offsetHeight;
       svg.setAttribute("viewBox", `0 0 ${contentW} ${contentH}`);
@@ -401,7 +379,11 @@ export function mountStudioMinimap(root, { canvas } = {}) {
       if (records.some((r) => r.attributeName === "data-compile-state")) scheduleCells(true);
       schedule();
     });
-    zoomObserver.observe(viewport, { attributes: true, attributeFilter: ["data-zoom", "data-compile-state"] });
+    // THE ZOOM IS AN INLINE --stx-scale ON THE VIEWPORT NOW (#302), so the filter is `style`. This
+    // observer is the SOLE correct path for a zoom taken at scroll 0,0 — no scroll event fires
+    // there, but the visible fraction changed — so a stale filter here silently freezes the view
+    // rect for exactly the case the observer exists to catch.
+    zoomObserver.observe(viewport, { attributes: true, attributeFilter: ["style", "data-compile-state"] });
 
     // A window resize changes clientWidth with no scroll and no zoom.
     const resizeObserver = new ResizeObserver(schedule);
@@ -410,7 +392,7 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     // The stage observer, with studio-layers.mjs's record discipline: only MOVABLE stage wrappers
     // are cell events — guides, menus and compiled inner content churn under the same subtree.
     // SPLIT LIKE THE LAYERS LIST'S, and for a measured reason rather than symmetry: a childList
-    // change (a placed or removed wrapper) is a FULL rebuild, but a gesture churns data-col/row on
+    // change (a placed or removed wrapper) is a FULL rebuild, but a gesture churns the position on
     // every cell crossing, and a full rebuild there — a getComputedStyle plus a whole-SVG redraw
     // inside the drag's frame — is what #213's 4×-throttled drag check flagged as a long animation
     // frame. Attribute records therefore PATCH the touched wrappers' own cells.
@@ -449,7 +431,10 @@ export function mountStudioMinimap(root, { canvas } = {}) {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-col", "data-row", "data-span-col", "data-span-row"],
+      // THE POSITION IS AN INLINE STYLE NOW (#302) — four attribute names came out and `style` went
+      // in. Missing this leaves every cell frozen where it was first drawn for the whole of a move,
+      // which no gate on the pure layer can see.
+      attributeFilter: ["style"],
     });
 
     // --- the announcement -----------------------------------------------------------------------
@@ -457,8 +442,11 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     // a scrollLeft write on assignment, so reading back is what makes an edge-blocked press
     // honestly announce the unchanged range.
     const sayRange = () => {
-      const { col1, col2, row1, row2 } = visibleRange(mapView(viewMetrics()), geom);
-      canvas.say(`Viewing columns ${col1} to ${col2}, rows ${row1} to ${row2}.`);
+      const { visible, total } = visibleCount(mapView(viewMetrics()),
+        [...stage.querySelectorAll(MOVABLE)].map(wrapperRect));
+      canvas.say(total === 0
+        ? "Nothing on the canvas yet."
+        : `Showing ${visible} of ${total} on the canvas.`);
     };
 
     // --- pointer: click-to-jump -----------------------------------------------------------------
@@ -486,13 +474,16 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     }, { signal });
 
     // --- keyboard (SC 2.1.1's path) -------------------------------------------------------------
-    // Arrows pan one CELL — track size + gap, times the current scale, so one press moves the view
-    // by one grid cell regardless of zoom. Home returns to the top left. Every press announces the
-    // range REACHED, an edge-blocked press included.
+    // Arrows pan ONE NODE PITCH — times the current scale, so one press moves the view by the same
+    // visible distance at every zoom. It was one grid CELL, read off the measured track list; the
+    // pitch is what replaced the cell everywhere else on this substrate (studio-select.mjs's
+    // keyboard step reads the same two constants), so the two paths still agree by construction.
+    // Home returns to the top left. Every press announces what is REACHED, an edge-blocked press
+    // included.
     map.addEventListener("keydown", (e) => {
-      const s = ZOOM_LEVELS[canvas.level] || 1;
-      const stepX = ((geom.cols[0] || 0) + geom.colGap) * s;
-      const stepY = ((geom.rows[0] || 0) + geom.rowGap) * s;
+      const s = canvas.scale || 1;
+      const stepX = (NODE_W + NODE_GAP) * s;
+      const stepY = (NODE_H + NODE_GAP) * s;
       if (e.key === "ArrowLeft") scroll.scrollLeft -= stepX;
       else if (e.key === "ArrowRight") scroll.scrollLeft += stepX;
       else if (e.key === "ArrowUp") scroll.scrollTop -= stepY;

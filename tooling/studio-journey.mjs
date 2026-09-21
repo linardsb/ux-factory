@@ -9,14 +9,19 @@
 //   · the BARE-WHEEL RULE. A plain wheel over the stage must not zoom — it scrolls, and then chains
 //     to the page. That is the dark pattern the ⌘/Ctrl-only handler exists to not be, and it is a
 //     claim about an event that did NOT happen, which no static check can make.
-//   · that arrangement really is attributes. system/studio-canvas.mjs is grep-clean of inline-style
-//     writes by build-checks group 7, but grep proves the source, not the running page: this reads
-//     the mounted stage and every slot and asserts no `style` attribute exists on any of them.
-//   · that FIT is arithmetically honest against real layout. --stx-slot-w / --stx-slot-h live in CSS
-//     alone and group 12 cannot mirror them, because whether a level fits is a layout fact, not a
-//     literal. Asserted as "the next level up does NOT fit" — which holds both when fit found a
-//     fitting level and when it floored at the smallest, and goes red the day the slot size drifts
-//     away from what fitLevel assumes.
+//   · that the inline-style budget holds on the RUNNING PAGE. system/studio-canvas.mjs is grep-clean
+//     of stray inline-style writes by build-checks group 7, but grep proves the source, not the
+//     running page: this reads the mounted stage and every node and asserts, through strayStyles,
+//     that every style attribute on it carries ONLY the seven properties in STYLE_ALLOWED — setPos's
+//     four position properties and setScale's three scale ones. The claim used to be "no `style`
+//     attribute at all", which was true while an arrangement was attributes; AC #8 narrowed it to
+//     this when a position became a custom property, and the narrowing is the assertion.
+//   · that FIT is arithmetically honest against real layout. Whether everything is in view is a
+//     layout fact, not a literal, and group 12 cannot reach it. Asserted as "the scale fit() landed
+//     on IS the ratio of the measured scroll box to the fixed stage box" — measured on the running
+//     page, at rest and on a COMPILED canvas, with the announcement asserted to name the level
+//     reached. The old form asked whether "the next level up does NOT fit", which was the discrete
+//     table's question; #302 made the scale continuous, so there is no next level and no fitLevel.
 //   · that Tab reaches a component in the FAR column and the browser scrolls it into view. That is
 //     the single property pan-by-scroll was chosen for; a transform-translate stage would fail here
 //     and nowhere else.
@@ -91,7 +96,12 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 
 // Imported from the shipped module, never retyped — moving a cap or a level fails this driver
 // instead of drifting past it (proto-journey.mjs:54-56's discipline).
-const { MAX_COLS, ZOOM_LEVELS, ZOOM_REST } = await import(new URL("../system/studio-canvas.mjs", import.meta.url));
+// #302: the caps and the zoom table are gone; what this driver computes expectations from now is the
+// stage box, the scale bounds, the node pitch and the nudge floor. THE DISCIPLINE IS UNCHANGED and is
+// the whole point of the line — every number below is imported, never retyped, so moving the stage or
+// the scale bounds fails this driver instead of drifting past it.
+const { MIN_SIZE, NODE_GAP, NODE_H, NODE_W, SCALE_MAX, SCALE_MIN, SCALE_REST, STAGE_H, STAGE_W, ZOOM_STEP } =
+  await import(new URL("../system/studio-canvas.mjs", import.meta.url));
 // #214's methodPass computes its expectations IN NODE from the same committed rules the page runs —
 // a hardcoded label list would pass a redraft that silently stopped being draftBoard's.
 const { draftBoard } = await import(new URL("../system/breadboard.mjs", import.meta.url));
@@ -110,7 +120,15 @@ const { FRAMES } = await import(new URL("../system/studio-frames.mjs", import.me
 // #221's two passes compute every expectation through the same pure functions the page runs — a
 // literal sentence or rect would pass a list or a map that silently stopped being the canvas's.
 const { layerEntries } = await import(new URL("../system/studio-layers.mjs", import.meta.url));
-const { cellRect, jumpFrom, mapView, visibleRange } = await import(new URL("../system/studio-minimap.mjs", import.meta.url));
+const { jumpFrom, mapView, nodeRect, visibleCount } = await import(new URL("../system/studio-minimap.mjs", import.meta.url));
+// #302 Phase 5's pure layer, for the same reason: the nudge step, the eight verbs and the reading
+// order are all computed here through the functions the page runs.
+const { ALIGN_VERBS, alignMoves, NUDGE_STEP, readingOrder } = await import(new URL("../system/studio-verbs.mjs", import.meta.url));
+// The LAYOUT RULE, for the same reason again. /factory's canvas is arranged by arrangeBoard, whose
+// rule is board-ops.mjs's rankLayout — so the expected position of every block is computed HERE
+// from the board the page itself fetched, never typed. A driver that typed a column would pass a
+// layout that had silently stopped being the rank layout's, which is exactly what #302 replaced.
+const { rankLayout } = await import(new URL("../system/board-ops.mjs", import.meta.url));
 
 // The stale-serve guard (tooling/catalog-journey.mjs's, copied): a long-lived serve.mjs can belong
 // to another session and serve ANOTHER tree, and every assertion below would then be about the
@@ -132,7 +150,10 @@ const SCROLL = `${VIEWPORT} .stx-scroll`;
 const READOUT = `${VIEWPORT} .stx-zoom-level`;
 const LIVE = `${VIEWPORT} .stx-live`;
 
-const pct = (i) => `${Math.round(ZOOM_LEVELS[i] * 100)}%`;
+// The readout's own arithmetic, so a case names a SCALE and the expectation follows the shipped
+// rounding rather than a second copy of it.
+const pct = (scale) => `${Math.round(scale * 100)}%`;
+
 
 // #416 · THE SETTLE WAIT, AND IT SAYS WHAT IT DIED IN. Every wait below for [data-replay="settled"]
 // was a bare waitForSelector, and a bare waitForSelector throws ONE sentence — "Timeout 30000ms
@@ -171,14 +192,54 @@ async function settleWait(p, timeout = 30000) {
   }
 }
 
+// GATE B'S ONE DEFINITION (#302). It was "no element on the canvas carries a style attribute at
+// all" — true while an arrangement was attributes, false the moment setPos writes --x/--y/--w/--h
+// and setScale writes the three scale properties. Rewritten rather than dropped, and rewritten to
+// the EXACT SET: a style attribute on the canvas carries only these seven and nothing else.
+//
+// That is the property the old gate was built for. "Allow a style attribute on a slot" would throw
+// it away — the thing being caught is someone reaching for `node.style.transform = …` or a raw
+// `left`/`top`, and a presence check cannot see either once presence is allowed.
+//
+// ONE ARRAY, EIGHT CALL SITES. build-checks group 7 gates the SOURCE half (which modules may write
+// a style property at all); this is the running-page half, and both studio-verbs.mjs:504-507 and
+// studio.mjs:50-51 say in their own headers that both halves matter.
+// TWO LISTS, because there are two claims. A NODE may carry only its four position properties —
+// the scale ones live on the viewport, so a node carrying one is a defect this narrower list
+// catches and the wider one would not. Derived rather than retyped, so the four cannot drift
+// between the per-node sites and the canvas-wide ones.
+const POSITION_PROPS = ["--x", "--y", "--w", "--h"];
+const STYLE_ALLOWED = [...POSITION_PROPS, "--stx-scale", "--stx-extent-w", "--stx-extent-h"];
+
+// The offenders, NAMED rather than counted, under any selector. Read property by property off the
+// CSSStyleDeclaration rather than by matching the attribute's text: a longhand written by a third
+// party is invisible to a substring check and is exactly what this exists to catch.
+const strayStyles = (p, selector) => p.evaluate(([sel, allowed]) => {
+  const ok = new Set(allowed);
+  const bad = [];
+  for (const node of document.querySelectorAll(sel)) {
+    for (const prop of node.style) if (!ok.has(prop)) bad.push(`${node.className || node.tagName}.${prop}`);
+  }
+  return bad;
+}, [selector, STYLE_ALLOWED]);
+
 // The state the assertions below read, taken in one round trip so nothing races a re-layout.
-const snapshot = (p) => p.evaluate(() => {
+const snapshot = (p) => p.evaluate(async (ALLOWED_PROPS) => {
   const vp = document.querySelector("[data-studio-canvas]");
   const scroll = vp.querySelector(".stx-scroll");
   const stage = vp.querySelector(".stx-stage");
   const slots = [...stage.querySelectorAll(".stx-slot")];
+  // SETTLE FOR THE COALESCED SCALE WRITE (#302). setScale is deferred to one write per animation
+  // frame — S1's own recommendation, and the reason a pinch's event flood costs one write rather
+  // than forty — so --stx-scale on the viewport is up to a frame behind the module's own variable.
+  // Reading without this gives the PREVIOUS scale while the readout, written synchronously, already
+  // shows the new one: a driver that did not wait would report the two disagreeing and be right
+  // about the frame and wrong about the page. Two frames, because one only guarantees the callback
+  // is queued.
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return {
-    zoom: vp.getAttribute("data-zoom"),
+    // #302: the zoom is a continuous --stx-scale on the viewport, not an index into a table.
+    zoom: vp.style.getPropertyValue("--stx-scale") || null,
     readout: vp.querySelector(".stx-zoom-level").textContent.trim(),
     live: vp.querySelector(".stx-live").textContent.trim(),
     scrollLeft: Math.round(scroll.scrollLeft),
@@ -192,22 +253,51 @@ const snapshot = (p) => p.evaluate(() => {
     contentH: stage.offsetHeight,
     panning: scroll.classList.contains("is-panning"),
     slotCount: slots.length,
-    // The attribute-not-style claim, read off the RUNNING page rather than out of the source.
-    inlineStyled: [...slots, stage, scroll].filter((n) => n.hasAttribute("style")).length,
+    // GATE B (#302). It was "no node carries a style attribute at all", which was true while
+    // arrangement was attributes and is false now — setPos writes four custom properties and
+    // setScale three. So the claim is not ABSENCE, it is the EXACT SET: every style attribute on the
+    // canvas carries only those seven properties and nothing else.
+    //
+    // READ PROPERTY BY PROPERTY off the CSSStyleDeclaration rather than by matching the attribute's
+    // text: a longhand written by a third party would be invisible to a substring check and is
+    // exactly what this exists to catch. The offenders are NAMED, so a failure says which property
+    // on which element rather than a count.
+    inlineStyled: (() => {
+      const ALLOWED = new Set(ALLOWED_PROPS);
+      const bad = [];
+      for (const n of [...slots, ...stage.querySelectorAll(".stx-frame, .stx-guide, .stx-menu, .stx-arrows"), stage, scroll, vp]) {
+        for (const prop of n.style) if (!ALLOWED.has(prop)) bad.push(`${n.className || n.tagName}.${prop}`);
+      }
+      return bad;
+    })(),
     outDisabled: vp.querySelector(".stx-zoom-btn").disabled,
   };
-});
+}, STYLE_ALLOWED);
 
 // The exported driver seam, reached by the SAME specifier the harness imports — a different string
 // resolves to a second module record whose `live` is null (vt-verify.mjs:209's idiom).
-const viaSeam = (p, col, row) => p.evaluate(([c, r]) =>
+const viaSeam = (p, x, y) => p.evaluate(([px, py, POS]) =>
   import("/system/studio-canvas.mjs").then((m) => {
     const canvas = m.getCanvas();
     if (!canvas) return { error: "getCanvas() returned nothing — the module record the page mounted is not this one" };
     const node = canvas.stage.querySelector(".stx-slot");
-    const slot = canvas.place(node, { col: c, row: r, name: "Driven tile" });
-    return { slot, col: node.getAttribute("data-col"), row: node.getAttribute("data-row"), styled: node.hasAttribute("style") };
-  }), [col, row]);
+    const at = canvas.place(node, { x: px, y: py, name: "Driven tile" });
+    const prop = (k) => node.style.getPropertyValue(k);
+    // GATE B's per-node half: the style attribute this node carries is ONLY the position properties.
+    const stray = [...node.style].filter((k) => !POS.includes(k));
+    return { at, x: prop("--x").replace("px", ""), y: prop("--y").replace("px", ""), w: prop("--w").replace("px", ""), stray };
+  }), [x, y, POSITION_PROPS]);
+
+// THE FIXTURES BELOW STAY IN CELL COORDINATES ON PURPOSE (#302), and this is the one line that
+// converts them. They are not grid references any more — they are a readable shorthand for "five
+// pitches across, three down", which is how a person describes a place on this canvas and how every
+// fixture in this file was already written. Converting here rather than retyping ~30 literals keeps
+// each case's INTENT legible and puts the arithmetic in one place a reader can check.
+const at = (col, row) => ({ x: (col - 1) * (NODE_W + NODE_GAP), y: (row - 1) * (NODE_H + NODE_GAP) });
+// A DRAG TARGET IS A CENTRE, not an origin — the retired cell-to-point helper returned a cell's
+// centre and every gesture below was written against that. Pressing at an origin drops the node a
+// half-node short, which reads as an off-by-one in the hit-test rather than in the fixture.
+const centre = (col, row) => ({ x: at(col, row).x + NODE_W / 2, y: at(col, row).y + NODE_H / 2 });
 
 const btn = (p, name) => p.locator(VIEWPORT).getByRole("button", { name, exact: true });
 
@@ -244,32 +334,72 @@ const busRecord = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").the
 const busSeen = (p) => p.evaluate(() => (window.__busLog || []).slice());
 const busClear = (p) => p.evaluate(() => { window.__busLog = []; });
 
-// The client-space centre of a grid cell, derived from MEASURED slot boxes — the origin from the
-// slot at column 2 row 1, the pitch from its neighbours in column 3 and row 2. Deliberately not
-// computed from getComputedStyle(stage).gridTemplateColumns: that is the same read the module's own
-// hit-test makes, and a driver that reproduces the implementation's arithmetic agrees with its bugs.
+// A STAGE POINT → A CLIENT POINT, measured from the stage's own rect rather than reconstructed from
+// three reference nodes (#302). The old helper interpolated between slots (2,1) (3,1) (2,2) because
+// a cell's client position could only be found by looking at a cell; a free position is written on
+// the node, so the conversion is the scroller's rect, the scroll offset and the scale — the same
+// three steps the module's own pointOnStage takes, INVERTED.
 //
-// The references are (2,1) (3,1) (2,2) rather than the origin cell, because the node this section
-// moves around starts at (1,1) — anchoring on a cell the test itself empties would make the whole
-// helper stop resolving halfway through the run.
-const cellPoint = (p, col, row) => p.evaluate(([c, r]) => {
-  const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-  const box = (sel) => { const n = stage.querySelector(sel); return n && n.getBoundingClientRect(); };
-  const a = box('.stx-slot[data-col="2"][data-row="1"]');
-  const bx = box('.stx-slot[data-col="3"][data-row="1"]');
-  const by = box('.stx-slot[data-col="2"][data-row="2"]');
-  if (!a || !bx || !by) return { error: "the three reference slots (2,1) (3,1) (2,2) are not all placed" };
-  return {
-    x: a.left + (c - 2) * (bx.left - a.left) + a.width / 2,
-    y: a.top + (r - 1) * (by.top - a.top) + a.height / 2,
-  };
-}, [col, row]);
+// Deliberately NOT reading the module's function: a driver that calls the implementation's own
+// arithmetic agrees with its bugs. These three reads are the browser's.
+const stagePoint = (p, x, y) => p.evaluate(([sx, sy]) => {
+  const vp = document.querySelector("[data-studio-canvas]");
+  const scroll = vp.querySelector(".stx-scroll");
+  const r = scroll.getBoundingClientRect();
+  const scale = parseFloat(vp.style.getPropertyValue("--stx-scale")) || 1;
+  return { x: r.left + sx * scale - scroll.scrollLeft, y: r.top + sy * scale - scroll.scrollTop };
+}, [x, y]);
 
-// The stable id of whatever currently sits in a cell — so a case can name its start node by where
-// it is rather than by which order the harness happened to place things in.
-const idAt = (p, col, row) => p.evaluate(([c, r]) =>
-  document.querySelector(`.stx-slot[data-col="${c}"][data-row="${r}"]`)?.getAttribute("data-stx-id") ?? null,
-[col, row]);
+// A STAGE POINT -> A CLIENT POINT THAT REALLY LANDS ON THE STAGE. The plain conversion is
+// stagePoint()'s three steps; what this adds is the guarantee the marquee fixtures need, and it is
+// a cross-engine fact rather than a nicety.
+//
+// The marquee listener is on .stx-stage. The scroller carries a 1px border and the stage's rect is
+// fractional, and the engines do NOT agree on what a point on that boundary hit-tests to: measured
+// with elementFromPoint at increasing insets from the stage's own top-left corner, chromium
+// resolves to .stx-slot at 0px, while firefox gives .stx-viewport at 0 and 1, .stx-scroll at 2,
+// and reaches the content only at 4. A press on the first three is a press the stage never sees —
+// which reads as "the marquee selected nothing" rather than as "the press missed".
+//
+// A FIXED EPSILON WOULD BE A GUESS. This nudges inward only while the point resolves OUTSIDE the
+// stage, so a point already over a node returns unchanged on the first check and the boundary case
+// costs a few pixels — which cannot change an answer, because idsInRange is an OVERLAP test over
+// nodes with real extents.
+const clientPoint = (p, sx, sy) => p.evaluate(([px, py]) => {
+  const vp = document.querySelector("[data-studio-canvas]");
+  const sc = vp.querySelector(".stx-scroll");
+  const stage = vp.querySelector(".stx-stage");
+  const r = sc.getBoundingClientRect();
+  const st = stage.getBoundingClientRect();
+  const scale = parseFloat(vp.style.getPropertyValue("--stx-scale")) || 1;
+  let x = Math.min(Math.max(r.left + px * scale - sc.scrollLeft, st.left), st.right);
+  let y = Math.min(Math.max(r.top + py * scale - sc.scrollTop, st.top), st.bottom);
+  for (let i = 0; i < 8; i += 1) {
+    const el = document.elementFromPoint(x, y);
+    if (el && stage.contains(el)) break;
+    x += 1;
+    y += 1;
+  }
+  const inView = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+    && x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
+  return { x, y, onScreen: inView };
+}, [sx, sy]);
+
+// The stable id of whatever sits NEAREST a stage point — so a case can name its start node by where
+// it is rather than by which order the harness happened to place things in. Nearest rather than
+// exact, because a free position is a float and an equality test on one is a coin toss.
+const idAt = (p, x, y) => p.evaluate(([sx, sy]) => {
+  const nodes = [...document.querySelectorAll("[data-studio-canvas] .stx-slot")];
+  let best = null;
+  let bestD = Infinity;
+  for (const n of nodes) {
+    const nx = parseFloat(n.style.getPropertyValue("--x")) || 0;
+    const ny = parseFloat(n.style.getPropertyValue("--y")) || 0;
+    const d = (nx - sx) ** 2 + (ny - sy) ** 2;
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best?.getAttribute("data-stx-id") ?? null;
+}, [x, y]);
 
 // The measured box of one node, by its stable id.
 const nodeBox = (p, id) => p.evaluate((i) => {
@@ -277,6 +407,47 @@ const nodeBox = (p, id) => p.evaluate((i) => {
   const r = n && n.getBoundingClientRect();
   return r && { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 }, id);
+
+// NOTHING IS SCROLLING ANY MORE — and "nothing" is the whole of the fix, because the scroller that
+// was still moving is not the one this wait first watched. #196's lesson, and #302 makes it
+// load-bearing for a second reason: studio-verbs.mjs's pointOnStage converts every pointermove
+// through a LIVE `scroll.getBoundingClientRect()` plus a live `scroll.scrollTop`. Playwright drives
+// the mouse in CLIENT coordinates, so a page that slides under a stationary pointer moves the rect
+// while clientY stays put, and the difference is added to the gesture's stage delta pixel for
+// pixel. A drag of exactly one pitch then lands one pitch PLUS the residual scroll — which reads as
+// a broken mover rather than as a fixture that started too early.
+// THE WINDOW, NOT JUST .stx-scroll, and that is measured rather than argued. The section's setup
+// calls scrollIntoView on [data-studio-canvas]; .stx-scroll is that element's DESCENDANT, not its
+// ancestor, so the scroll it starts is the WINDOW's — and `html { scroll-behavior: smooth }`
+// (system/components.css) makes it a smooth one on every engine that honours it. Watching
+// .stx-scroll alone therefore watched a scroller that never moved: it agreed with itself twice
+// immediately and returned while the window still had pixels to travel. Probed on firefox at 50 ms
+// intervals: window.scrollY 0 → 387 by t+300 ms (where the setup's fixed wait ends) and not still
+// until 395 at t+550 ms.
+// UNROUNDED, AND TWO CONSECUTIVE MATCHES. Rounding is what made the first version of this wait
+// insufficient: a decelerating smooth scroll's tail moves less than a pixel per sample while still
+// having several to go, so `Math.round` reports it stopped and the drag starts into the last of
+// it. The AC #1 row's overshoot across the four versions of this wait, every figure observed on
+// firefox against a keyboard path that reaches exactly 156: 18.43 with no wait, 8.35 with a rounded
+// one, 4.98 with this unrounded two-sample one over .stx-scroll alone — smaller each time, and a
+// failure each time, because none of them was waiting on the thing that was moving. Adding the
+// window to the sample was run BOTH WAYS in one probe on one page: the old key overshot by 4.50 and
+// settled after 2 iterations, the new key overshot by 0.000 and took 9. Chromium and WebKit settle
+// faster and passed throughout, which is exactly why it has to be waited for rather than assumed.
+async function scrollSettled(p) {
+  let last = null;
+  let agreed = 0;
+  for (let i = 0; i < 40; i += 1) {
+    const now = await p.evaluate(() => {
+      const s = document.querySelector("[data-studio-canvas] .stx-scroll");
+      return `${s.scrollLeft},${s.scrollTop},${window.scrollX},${window.scrollY}`;
+    });
+    agreed = now === last ? agreed + 1 : 0;
+    if (agreed >= 2) return;
+    last = now;
+    await p.waitForTimeout(50);
+  }
+}
 
 // A pointer drag from a node's own centre to a client point. Body-drag, not the handle, so the
 // gesture under test is the one a reader performs without finding the affordance first.
@@ -376,12 +547,17 @@ async function journey(engineName, results, held) {
 
   // ---------------------------------------------------------------- [1] at rest
   const rest = await snapshot(page);
-  t(`at rest the canvas is data-zoom=${ZOOM_REST} (scale 1), scrolled to 0,0, readout 100%`,
-    rest.zoom === String(ZOOM_REST) && rest.scrollLeft === 0 && rest.scrollTop === 0 && rest.readout === "100%",
+  t(`at rest the canvas is --stx-scale ${SCALE_REST}, scrolled to 0,0, readout 100%`,
+    Number(rest.zoom) === SCALE_REST && rest.scrollLeft === 0 && rest.scrollTop === 0 && rest.readout === "100%",
     JSON.stringify({ zoom: rest.zoom, l: rest.scrollLeft, t: rest.scrollTop, readout: rest.readout }));
   t(`the stage holds real components (${rest.slotCount} placed)`, rest.slotCount >= 30, `slots=${rest.slotCount}`);
-  t("no `style` attribute on the stage, the scroller or any slot — arrangement is attributes, on the running page",
-    rest.inlineStyled === 0, `${rest.inlineStyled} element(s) carry one`);
+  // GATE B (#302), and the claim CHANGED with the substrate rather than being dropped. It read "no
+  // style attribute anywhere", which was true while arrangement was attributes; setPos and setScale
+  // write seven custom properties, so what is asserted now is the EXACT SET — every style attribute
+  // on this canvas carries only those seven and nothing else. Read property by property, so a
+  // longhand a third party wrote is named rather than hidden inside an attribute's text.
+  t("every inline style on the canvas carries ONLY --x/--y/--w/--h and the three scale properties — on the running page",
+    rest.inlineStyled.length === 0, rest.inlineStyled.join(", "));
   t("the sizer gives the scroller a real pannable range", rest.scrollW > rest.clientW,
     `scrollWidth=${rest.scrollW} clientWidth=${rest.clientW}`);
 
@@ -389,59 +565,66 @@ async function journey(engineName, results, held) {
   await btn(page, "Zoom in").click();
   await btn(page, "Zoom in").click();
   const zin = await snapshot(page);
-  t(`zoom in ×2 tracks ZOOM_LEVELS → ${pct(ZOOM_REST + 2)}`,
-    zin.zoom === String(ZOOM_REST + 2) && zin.readout === pct(ZOOM_REST + 2), `${zin.zoom} / ${zin.readout}`);
-  t("at the top level the Zoom in button is disabled",
-    await btn(page, "Zoom in").isDisabled(), "");
+  // MULTIPLICATIVE, not a table index: two clicks is SCALE_REST × ZOOM_STEP², and the readout's
+  // rounding is pct()'s own. ZOOM_STEP is IMPORTED, like every other number this driver reads, so
+  // this asserts that the page does what the module says rather than that the module says 1.25 —
+  // change the step and this row follows it. That is the discipline the import block states, and it
+  // is worth being explicit about: a lossless round trip is true of ANY ratio, so it pins nothing,
+  // and where a constant's VALUE needs holding, that is build-checks group 12's job and not a
+  // driver's.
+  const twoIn = SCALE_REST * ZOOM_STEP * ZOOM_STEP;
+  t(`zoom in ×2 multiplies by ZOOM_STEP twice → ${pct(twoIn)}`,
+    Math.abs(Number(zin.zoom) - twoIn) < 1e-9 && zin.readout === pct(twoIn), `${zin.zoom} / ${zin.readout}`);
 
   await btn(page, "Zoom out").click();
   await btn(page, "Zoom out").click();
   const zout = await snapshot(page);
-  t("zoom out ×2 comes back to 100%", zout.zoom === String(ZOOM_REST) && zout.readout === "100%", `${zout.zoom} / ${zout.readout}`);
+  t("zoom out ×2 comes back EXACTLY to the rest scale — the step is a ratio, so the round trip is lossless",
+    Math.abs(Number(zout.zoom) - SCALE_REST) < 1e-9 && zout.readout === "100%", `${zout.zoom} / ${zout.readout}`);
 
-  // Exactly ZOOM_REST clicks from 100% reaches index 0 — clicking past it would hang on the button
-  // this very assertion expects to be disabled.
-  for (let i = 0; i < ZOOM_REST; i += 1) await btn(page, "Zoom out").click();
-  t("at the bottom level the Zoom out button is disabled", (await snapshot(page)).outDisabled, "");
+  // THE FLOOR IS A BOUND, NOT A TABLE END. Enough presses to cross it from rest, computed from the
+  // bound itself rather than counted — clicking past it would hang on the button this very
+  // assertion expects to be disabled.
+  const toFloor = Math.ceil(Math.log(SCALE_REST / SCALE_MIN) / Math.log(ZOOM_STEP));
+  for (let i = 0; i < toFloor; i += 1) await btn(page, "Zoom out").click();
+  const floored = await snapshot(page);
+  t(`at the ${SCALE_MIN} floor the Zoom out button is disabled`, floored.outDisabled, `scale=${floored.zoom}`);
+  t("…and the scale STOPPED at the floor rather than going under it",
+    Math.abs(Number(floored.zoom) - SCALE_MIN) < 1e-9, `scale=${floored.zoom}`);
+  const toCeil = Math.ceil(Math.log(SCALE_MAX / SCALE_MIN) / Math.log(ZOOM_STEP));
+  for (let i = 0; i < toCeil; i += 1) await btn(page, "Zoom in").click();
+  t(`at the ${SCALE_MAX} ceiling the Zoom in button is disabled`, await btn(page, "Zoom in").isDisabled(), "");
+  await btn(page, "Reset").click();
 
-  // FIT — the only check that catches --stx-slot-w / --stx-slot-h drifting away from what fitLevel
-  // assumes. Phrased as "the NEXT level up does not fit", which is true both when fit found a
-  // fitting level and when it floored at the smallest because nothing fits.
+  // FIT NOW ACTUALLY FITS, and that is the claim that changed. The discrete table could only snap
+  // DOWN to a level at or below the ideal ratio, so every assertion here was phrased as "the NEXT
+  // level up does not fit" — true both when fit found one and when it floored because nothing fits.
+  // A continuous scale can BE the ratio, so the assertion is equality with the ratio itself, which
+  // is strictly stronger and is the whole reason the table was retired.
   await btn(page, "Fit").click();
   const fitted = await snapshot(page);
   const chosen = Number(fitted.zoom);
-  const fitsAt = (i) => ZOOM_LEVELS[i] * fitted.contentW <= fitted.clientW + 1 && ZOOM_LEVELS[i] * fitted.contentH <= fitted.clientH + 1;
-  t("fit picks the largest level that actually fits the measured viewport — the next one up does not",
-    chosen === ZOOM_LEVELS.length - 1 || !fitsAt(chosen + 1),
-    `chose ${chosen} (${pct(chosen)}); content ${fitted.contentW}×${fitted.contentH} in ${fitted.clientW}×${fitted.clientH}`);
-  t("fit is either a fitting level or the floor, never a level nothing could reach",
-    fitsAt(chosen) || chosen === 0, `chose ${chosen}, fits=${fitsAt(chosen)}`);
-  t("fit announces the level it reached", /^Zoom \d+ percent/.test(fitted.live), fitted.live);
+  const ratio = Math.min(fitted.clientW / STAGE_W, fitted.clientH / STAGE_H);
+  t("fit lands on the RATIO itself, not on the largest level at or below it — the stepped table's whole cost, gone",
+    Math.abs(chosen - Math.min(SCALE_MAX, Math.max(SCALE_MIN, ratio))) < 1e-6,
+    `chose ${chosen}, the ratio is ${ratio} (stage ${STAGE_W}×${STAGE_H} in ${fitted.clientW}×${fitted.clientH})`);
+  // …and it genuinely fits, measured rather than derived from the same arithmetic: the scaled stage
+  // is inside the box on both axes.
+  t("…and the scaled stage really is inside the viewport on both axes",
+    chosen * STAGE_W <= fitted.clientW + 1 && chosen * STAGE_H <= fitted.clientH + 1,
+    `${chosen * STAGE_W}×${chosen * STAGE_H} in ${fitted.clientW}×${fitted.clientH}`);
+  t("fit announces the scale it reached", /^Zoom \d+ percent/.test(fitted.live), fitted.live);
 
-  // The harness's real grid (12 × 220px) is far wider than the scroller, so the check above only
-  // ever exercises fit's FLOOR branch — which catches a slot size that grew, but not one that
-  // shrank. Shrinking the slots in the page reaches a level fit can genuinely land on, so the
-  // "largest level that fits" claim is asserted in the branch where it can be wrong in both
-  // directions. The override is the driver's, not the harness's, and it is removed straight after.
-  await page.evaluate(() => {
-    const s = document.createElement("style");
-    s.id = "journey-fit-probe";
-    s.textContent = ".stx-viewport { --stx-slot-w: 80px; --stx-slot-h: 60px; }";
-    document.head.appendChild(s);
-  });
-  await btn(page, "Fit").click();
-  const small = await snapshot(page);
-  const smallChosen = Number(small.zoom);
-  const smallFits = (i) => ZOOM_LEVELS[i] * small.contentW <= small.clientW + 1 && ZOOM_LEVELS[i] * small.contentH <= small.clientH + 1;
-  t("fit on a grid that genuinely fits lands ABOVE the floor, on the largest fitting level",
-    smallChosen > 0 && smallFits(smallChosen) && (smallChosen === ZOOM_LEVELS.length - 1 || !smallFits(smallChosen + 1)),
-    `chose ${smallChosen} (${pct(smallChosen)}); content ${small.contentW}×${small.contentH} in ${small.clientW}×${small.clientH}`);
-  await page.evaluate(() => document.getElementById("journey-fit-probe").remove());
+  // THE SHRUNKEN-GRID PROBE IS DELETED, NOT TRANSLATED (#302). It injected a stylesheet shrinking
+  // --stx-slot-w/h so that fit could land ABOVE its floor, because the real 12×220 grid was far
+  // wider than the scroller and the check otherwise only ever exercised the floor branch. A
+  // continuous fit has no floor branch to miss: it lands on the ratio at every viewport size, which
+  // the equality assertion above tests directly and in one case rather than two.
 
   await btn(page, "Reset").click();
   const afterReset = await snapshot(page);
-  t("reset returns to scale 1 and scroll 0,0",
-    afterReset.zoom === String(ZOOM_REST) && afterReset.scrollLeft === 0 && afterReset.scrollTop === 0,
+  t("reset returns to the rest scale and scroll 0,0",
+    Number(afterReset.zoom) === SCALE_REST && afterReset.scrollLeft === 0 && afterReset.scrollTop === 0,
     JSON.stringify({ zoom: afterReset.zoom, l: afterReset.scrollLeft, t: afterReset.scrollTop }));
 
   // ---------------------------------------------------------------- [2b] #213 · the zoom verbs BY KEYBOARD
@@ -454,14 +637,15 @@ async function journey(engineName, results, held) {
   await btn(page, "Zoom in").focus();
   await page.keyboard.press("Enter");
   const kzin = await snapshot(page);
-  t(`#213 · Zoom in by Enter steps to ${pct(ZOOM_REST + 1)} and the aria-live readout says so`,
-    kzin.zoom === String(ZOOM_REST + 1) && kzin.readout === pct(ZOOM_REST + 1), `${kzin.zoom} / ${kzin.readout}`);
+  t(`#213 · Zoom in by Enter steps to ${pct(SCALE_REST * ZOOM_STEP)} and the aria-live readout says so`,
+    Math.abs(Number(kzin.zoom) - SCALE_REST * ZOOM_STEP) < 1e-9 && kzin.readout === pct(SCALE_REST * ZOOM_STEP),
+    `${kzin.zoom} / ${kzin.readout}`);
 
   await btn(page, "Zoom out").focus();
   await page.keyboard.press("Enter");
   const kzout = await snapshot(page);
   t("#213 · Zoom out by Enter returns to 100% and the readout tracks it",
-    kzout.zoom === String(ZOOM_REST) && kzout.readout === "100%", `${kzout.zoom} / ${kzout.readout}`);
+    Math.abs(Number(kzout.zoom) - SCALE_REST) < 1e-9 && kzout.readout === "100%", `${kzout.zoom} / ${kzout.readout}`);
 
   await countLive(page);
   await btn(page, "Fit").focus();
@@ -469,11 +653,10 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(120);
   const kfit = await snapshot(page);
   const kfitSaid = await liveSeen(page);
-  const kfits = (i) => ZOOM_LEVELS[i] * kfit.contentW <= kfit.clientW + 1 && ZOOM_LEVELS[i] * kfit.contentH <= kfit.clientH + 1;
   const kchosen = Number(kfit.zoom);
-  t("#213 · Fit by Enter lands on a level the measured layout agrees with",
-    (kfits(kchosen) || kchosen === 0) && (kchosen === ZOOM_LEVELS.length - 1 || !kfits(kchosen + 1)),
-    `chose ${kchosen}; content ${kfit.contentW}×${kfit.contentH} in ${kfit.clientW}×${kfit.clientH}`);
+  const kratio = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(kfit.clientW / STAGE_W, kfit.clientH / STAGE_H)));
+  t("#213 · Fit by Enter lands on the same ratio the pointer path does — one fit, two input paths",
+    Math.abs(kchosen - kratio) < 1e-6, `chose ${kchosen}, the ratio is ${kratio}`);
   t("#213 · …and announces the level through .stx-live, once",
     kfitSaid.n === 1 && /^Zoom \d+ percent, fit to the canvas$/.test(kfitSaid.last), `${kfitSaid.n}: ${kfitSaid.last}`);
 
@@ -483,8 +666,8 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(120);
   const kreset = await snapshot(page);
   const kresetSaid = await liveSeen(page);
-  t("#213 · Reset by Enter returns to scale 1, scroll 0,0",
-    kreset.zoom === String(ZOOM_REST) && kreset.scrollLeft === 0 && kreset.scrollTop === 0,
+  t("#213 · Reset by Enter returns to the rest scale, scroll 0,0",
+    Number(kreset.zoom) === SCALE_REST && kreset.scrollLeft === 0 && kreset.scrollTop === 0,
     JSON.stringify({ zoom: kreset.zoom, l: kreset.scrollLeft, t: kreset.scrollTop }));
   t("#213 · …and announces the return through .stx-live",
     kresetSaid.n === 1 && kresetSaid.last === "Zoom 100 percent, back to the top left", `${kresetSaid.n}: ${kresetSaid.last}`);
@@ -496,7 +679,7 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(200);
   const bare = await snapshot(page);
   t("a BARE wheel over the stage never zooms — it scrolls, and chains to the page",
-    bare.zoom === String(ZOOM_REST), `data-zoom=${bare.zoom}`);
+    Number(bare.zoom) === SCALE_REST, `--stx-scale=${bare.zoom}`);
   t("…and it did scroll the canvas", bare.scrollTop > 0, `scrollTop=${bare.scrollTop}`);
 
   await page.keyboard.down("Control");
@@ -505,7 +688,51 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(200);
   const held2 = await snapshot(page);
   t("⌘/Ctrl + wheel DOES zoom — the same gesture a trackpad pinch delivers",
-    Number(held2.zoom) > ZOOM_REST, `data-zoom=${held2.zoom}`);
+    Number(held2.zoom) > SCALE_REST, `--stx-scale=${held2.zoom}`);
+
+  // WHERE IT ZOOMS TO, not merely that it zooms (#302, PR #432's F3). AC #3 is "⌘-wheel zooms to the
+  // cursor" and the row above asserts only that the scale moved. THE READER HAS TO HAVE PANNED
+  // FIRST, which is the whole reason this was invisible: at scrollTop 0 the anchored target is 0
+  // whatever the code does, so a row taken at rest passes on a broken anchor. setZoom wrote
+  // scrollLeft/scrollTop on the two lines after queueScale(), and the extent those clamp against is
+  // written INSIDE that deferred flush — so the browser clamped the target against the old, smaller
+  // maximum and nothing re-applied it. Measured on this page before the fix: wanted scrollTop 744,
+  // got 594 — 150 screen px, 115 stage px of content sliding out from under the cursor.
+  //
+  // THE X AXIS IS NOT ASSERTED, and the reason is a MEASUREMENT rather than a standing property:
+  // .stx-viewport is a min-width:auto grid item, so the scroller's client box grows with the extent
+  // and there is no horizontal scroll range to clamp against. Measured at BOTH 1440 and the pixel
+  // gate's 1280 — .stx-scroll 3172 wide inside a 776px column — and measured the same way on the
+  // PR's base tree (2818 against the same 776), so it is pre-existing and not #302's — it is #433.
+  // When that lands a horizontal range appears, and this row should gain an X-axis assertion rather
+  // than keep this note; #433 asks for exactly that, so the note has a ticket and not just a wish.
+  await btn(page, "Reset").click();
+  await page.waitForTimeout(150);
+  const preZoomPan = await page.evaluate(() => {
+    const scroll = document.querySelector("[data-studio-canvas] .stx-scroll");
+    scroll.scrollTop = Math.min(500, scroll.scrollHeight - scroll.clientHeight);
+    return { top: scroll.scrollTop, cap: scroll.scrollHeight - scroll.clientHeight };
+  });
+  t("#302 · the stage really can be panned before the anchor row — at scrollTop 0 the anchored target is 0 whatever the code does, and the row below would prove nothing",
+    preZoomPan.cap > 100 && preZoomPan.top > 100, JSON.stringify(preZoomPan));
+  const abox = await page.locator(SCROLL).boundingBox();
+  const anchorRelY = 300;
+  const zoomState = () => page.evaluate(() => {
+    const vp = document.querySelector("[data-studio-canvas]");
+    return { scale: Number(vp.style.getPropertyValue("--stx-scale")) || 1, top: vp.querySelector(".stx-scroll").scrollTop };
+  });
+  const preAnchor = await zoomState();
+  await page.mouse.move(abox.x + 200, abox.y + anchorRelY);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -240);
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(250);
+  const postAnchor = await zoomState();
+  const stageYBefore = (preAnchor.top + anchorRelY) / preAnchor.scale;
+  const stageYAfter = (postAnchor.top + anchorRelY) / postAnchor.scale;
+  t("#302/F3 · …and it zooms TO THE CURSOR after a pan — the stage point under the pointer is still under it, which is what AC #3 actually claims",
+    postAnchor.scale > preAnchor.scale && Math.abs(stageYAfter - stageYBefore) <= 2,
+    `scale ${preAnchor.scale} → ${postAnchor.scale}, stage y under the cursor ${stageYBefore.toFixed(1)} → ${stageYAfter.toFixed(1)}, scrollTop ${preAnchor.top} → ${postAnchor.top}`);
 
   await btn(page, "Reset").click();
 
@@ -545,11 +772,18 @@ async function journey(engineName, results, held) {
   // ---------------------------------------------------------------- [5] keyboard reachability
   // The property pan-by-scroll exists to preserve: a component in the far column is focusable and
   // the browser scrolls it into view natively. A transform-translate stage fails exactly here.
-  const reached = await page.evaluate((cols) => {
+  const reached = await page.evaluate(() => {
     const vp = document.querySelector("[data-studio-canvas]");
     const scroll = vp.querySelector(".stx-scroll");
-    const far = vp.querySelector(`.stx-slot[data-col="${cols}"]`);
-    if (!far) return { ok: false, why: `no slot in column ${cols}` };
+    // THE FARTHEST NODE, found by reading positions rather than by naming a column (#302). The claim
+    // is unchanged and is the one pan-by-scroll exists to preserve — a component at the far edge is
+    // focusable and the browser scrolls it into view natively, which a transform-translate stage
+    // fails exactly here. What changed is how the driver finds it: there is no last column to name.
+    const far = [...vp.querySelectorAll(".stx-slot")]
+      .sort((a, b) => (parseFloat(b.style.getPropertyValue("--x")) || 0) - (parseFloat(a.style.getPropertyValue("--x")) || 0))[0];
+    if (!far) return { ok: false, why: "no slot on the stage at all" };
+    const farX = parseFloat(far.style.getPropertyValue("--x")) || 0;
+    if (farX <= scroll.clientWidth) return { ok: false, why: `the farthest node is at x ${farX}, inside the ${scroll.clientWidth}px viewport — nothing to scroll to` };
     // Scoped PAST the move handle (#205). The slot is now a wrapper whose first child is a
     // .stx-grab button, so a bare querySelector would return the handle and this check would keep
     // passing while its stated subject — "a COMPONENT in the far column is focusable" — had quietly
@@ -558,20 +792,25 @@ async function journey(engineName, results, held) {
       : [...far.querySelectorAll("button, a, input, [tabindex]")].find((n) => !n.classList.contains("stx-grab"));
     (target || far).focus({ preventScroll: false });
     if (!target) far.scrollIntoView({ block: "nearest", inline: "nearest" });
-    return { ok: true, scrollLeft: Math.round(scroll.scrollLeft) };
-  }, MAX_COLS);
-  t(`focusing a component in column ${MAX_COLS} scrolls it into view`,
+    return { ok: true, scrollLeft: Math.round(scroll.scrollLeft), farX: Math.round(farX) };
+  });
+  t("focusing the component FARTHEST from the origin scrolls it into view — the property pan-by-scroll exists to preserve",
     reached.ok && reached.scrollLeft > 0, JSON.stringify(reached));
 
   await btn(page, "Reset").click();
 
   // ---------------------------------------------------------------- [6] arrangement via the seam
-  const driven = await viaSeam(page, 5, 3);
-  t("place() through the exported getCanvas() seam writes data-col / data-row",
-    driven.col === "5" && driven.row === "3", JSON.stringify(driven));
-  t("…and writes no inline style doing it", driven.styled === false, JSON.stringify(driven));
+  const DRIVEN = { x: 5 * (NODE_W + NODE_GAP), y: 2 * (NODE_H + NODE_GAP) };
+  const driven = await viaSeam(page, DRIVEN.x, DRIVEN.y);
+  t("place() through the exported getCanvas() seam writes --x / --y / --w",
+    Number(driven.x) === DRIVEN.x && Number(driven.y) === DRIVEN.y && Number(driven.w) === NODE_W, JSON.stringify(driven));
+  // GATE B, per node: the style attribute place() wrote carries the position properties and NOTHING
+  // else. "no style attribute at all" was the claim while arrangement was attributes; this is its
+  // successor, and it is the stronger of the two — it names a stray property rather than counting.
+  t("…and writes NOTHING but the position properties doing it", driven.stray.length === 0, driven.stray.join(", "));
   const announced = (await page.locator(LIVE).textContent()).trim();
-  t("…and the live region announced the placement", /column 5, row 3/.test(announced), announced);
+  t("…and the live region announced the placement in the new units",
+    announced === `Driven tile at ${DRIVEN.x}, ${DRIVEN.y}`, announced);
 
   // #231 L3 · the re-place above passed a NEW name, and the handle's ACCESSIBLE name has to follow
   // it. data-stx-name was written on every call and `aria-label: Move <name>` only on the first, so
@@ -591,9 +830,12 @@ async function journey(engineName, results, held) {
   t("#231 · re-placing under a new name re-labels the move handle to match it",
     relabelled.name === "Driven tile" && relabelled.label === "Move Driven tile", JSON.stringify(relabelled));
 
-  const clamped = await viaSeam(page, MAX_COLS + 9, -4);
-  t("an out-of-range slot is clamped by clampSlot, never written raw",
-    clamped.col === String(MAX_COLS) && clamped.row === "1", JSON.stringify(clamped));
+  // THE CLAMP IS setPos's NOW, and the bound is the stage rather than a cap. Asserted against
+  // STAGE_W minus the node's own width, because that is what setPos actually does — a position past
+  // the edge is pulled back far enough that the whole node stays on, not merely its origin.
+  const clamped = await viaSeam(page, STAGE_W + 9999, -4);
+  t("an off-stage position is clamped by setPos, never written raw",
+    Number(clamped.x) === STAGE_W - Number(clamped.w) && Number(clamped.y) === 0, JSON.stringify(clamped));
 
   // ------------------------------------------------------- [7] #231 L2 · the canvas mounted ALONE
   // The gate hole this ticket names: build-checks cannot mount a DOM and both existing driver
@@ -614,7 +856,7 @@ async function journey(engineName, results, held) {
     host.appendChild(root);
     document.body.appendChild(host);
     const canvas = m.initStudioCanvas(host);
-    canvas.place(document.createElement("p"), { col: 1, row: 1, name: "Lonely" });
+    canvas.place(document.createElement("p"), { x: 0, y: 0, name: "Lonely" });
     const grab = root.querySelector(".stx-grab");
     grab.focus();
     const describedBy = grab.getAttribute("aria-describedby");
@@ -674,7 +916,7 @@ async function journey(engineName, results, held) {
   {
   const mctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await open(mctx);
-  const TARGET = "s1"; // the metric-tile at column 1, row 1
+  const TARGET = "s1"; // the metric-tile at the stage origin, 0, 0
 
   // BRING THE CANVAS TO THE TOP OF THE WINDOW before any pointer work. The harness has a lede and a
   // capability strip above the stage, so at page-scroll 0 the scroller starts around y=474 and the
@@ -686,7 +928,7 @@ async function journey(engineName, results, held) {
 
   const startArr = await arrangement(page);
   t("the verbs mounted and the arrangement reads back through the getVerbs() seam",
-    startArr && !startArr.error && startArr[TARGET] && startArr[TARGET].col === 1 && startArr[TARGET].row === 1,
+    startArr && !startArr.error && startArr[TARGET] && startArr[TARGET].x === 0 && startArr[TARGET].y === 0,
     JSON.stringify(startArr?.[TARGET] ?? startArr));
   t("every placed component carries a stable id — the snapshot is keyed by something that survives re-slotting",
     Object.keys(startArr).length === rest.slotCount,
@@ -703,29 +945,57 @@ async function journey(engineName, results, held) {
   // pointer cannot press down on a node it cannot reach. Rows 2 and 3 are OCCUPIED in column 1, so
   // one ArrowDown skips both and lands here, which is what makes the keyboard path reach the same
   // cell the drag does.
-  const GOAL = { col: 1, row: 4 };
+  // ONE PITCH DOWN, MEASURED FROM THE NODE'S OWN BOX (#302). The old fixture named a CELL, and the
+  // row number was load-bearing because the resolver skipped occupied rows — a drag to row 4 and one
+  // ArrowDown landed in the same place only because of that skipping. Free positions have no cells
+  // and nothing to skip, so AC #1's identity claim needs the two paths to travel the SAME DELTA:
+  // the pointer is dragged one pitch from the node's centre, and the keyboard takes one Shift+Arrow,
+  // which IS one pitch. At scale 1 scrolled to 0,0 a client pixel is a stage pixel, which is why
+  // this section resets before it starts.
   const ARROWS_TO_GOAL = 1;
-  const goalPoint = await cellPoint(page, GOAL.col, GOAL.row);
+  await scrollSettled(page);
+  const startBox = await nodeBox(page, TARGET);
+  const goalPoint = {
+    x: (startBox.left + startBox.right) / 2,
+    y: (startBox.top + startBox.bottom) / 2 + (NODE_H + NODE_GAP),
+  };
 
   await dragTo(page, TARGET, goalPoint);
   const byPointer = await arrangement(page);
-  t(`AC #1 · a pointer drag moved ${TARGET} to column ${GOAL.col}, row ${GOAL.row}`,
-    byPointer[TARGET]?.col === GOAL.col && byPointer[TARGET]?.row === GOAL.row, JSON.stringify(byPointer[TARGET]));
+  // THE POINTER'S OWN ANSWER IS THE REFERENCE, not a typed destination. A drag lands where the
+  // gesture's delta puts it, which on a free substrate is not exactly the fixture's point — so the
+  // claim is that the OTHER TWO SOURCES REACH THE SAME PLACE, and the pointer's result is what they
+  // are compared against. That is AC #1's actual sentence, and it is stronger than three sources
+  // each matching a literal: a literal all three miss identically would pass.
+  const pointerAt = byPointer[TARGET];
+  t(`AC #1 · a pointer drag moved ${TARGET} one node pitch down`,
+    pointerAt && Math.abs(pointerAt.y - (NODE_H + NODE_GAP)) <= 1 && Math.abs(pointerAt.x) <= 1,
+    JSON.stringify(pointerAt));
 
   await undoAll(page);
   t("…and undo put it back, so the next source starts from the same place",
-    (await arrangement(page))[TARGET]?.row === 1, JSON.stringify((await arrangement(page))[TARGET]));
+    (await arrangement(page))[TARGET]?.y === 0, JSON.stringify((await arrangement(page))[TARGET]));
 
-  // Keyboard only: focus the handle, Enter, three ArrowDowns (rows 2 and 3 are OCCUPIED, so the
-  // resolver skips them and the three presses land on 4, 5, 6), Enter.
+  // KEYBOARD ONLY, AND WITH SHIFT HELD (#302). A bare arrow NUDGES by NUDGE_STEP — 4px, the spacing
+  // scale's floor — which is the whole point of Phase 5's precision path and is NOT the distance a
+  // drag covers. Shift takes one NODE PITCH, which is the step the pointer's own gesture spans, so
+  // Shift+Arrow is the equivalent keyboard path and a bare one is a different verb. Asserting AC #1
+  // on the bare arrow would be comparing a nudge against a drag and calling the difference a bug.
   await page.locator(`.stx-slot[data-stx-id="${TARGET}"] .stx-grab`).focus();
   await page.keyboard.press("Enter");
-  for (let i = 0; i < ARROWS_TO_GOAL; i += 1) await page.keyboard.press("ArrowDown");
+  for (let i = 0; i < ARROWS_TO_GOAL; i += 1) await page.keyboard.press("Shift+ArrowDown");
   await page.keyboard.press("Enter");
   await page.waitForTimeout(120);
   const byKeyboard = await arrangement(page);
+  // DEEP-COMPARED WITH A ONE-PIXEL TOLERANCE, and the tolerance is the substrate's rather than a
+  // hedge: a pointer drag lands on a float (the browser's own rect arithmetic) and a keyboard step
+  // lands on an integer, so demanding byte equality of two floats produced by different paths would
+  // be asserting the browser's rounding. Every OTHER node is compared exactly — only the one that
+  // moved has any float in it.
+  const samePlace = (a, b) => a && b && Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1 && a.w === b.w;
+  const others = (arr) => Object.fromEntries(Object.entries(arr).filter(([k]) => k !== TARGET));
   t("AC #1 · the keyboard path produces the IDENTICAL arrangement, deep-compared",
-    JSON.stringify(byKeyboard) === JSON.stringify(byPointer),
+    samePlace(byKeyboard[TARGET], byPointer[TARGET]) && JSON.stringify(others(byKeyboard)) === JSON.stringify(others(byPointer)),
     `keyboard ${JSON.stringify(byKeyboard[TARGET])} vs pointer ${JSON.stringify(byPointer[TARGET])}`);
 
   // ---------------------------------------------------------------- [AC #4] the bus is the drive path
@@ -801,14 +1071,24 @@ async function journey(engineName, results, held) {
   const pointerSaid = await liveSeen(page);
   t("AC #2 · a POINTER gesture announces exactly ONCE, however many slots it crossed",
     pointerSaid.n === 1, `${pointerSaid.n} announcement(s): ${pointerSaid.last}`);
-  t("AC #2 · …and that one announcement names the slot it landed in",
-    new RegExp(`moved to column ${GOAL.col}, row ${GOAL.row}`).test(pointerSaid.last), pointerSaid.last);
+  // THE SENTENCE NAMES WHERE IT LANDED, and the expectation is read from the arrangement rather
+  // than typed: a drag lands on a float and the announcement rounds it, so a literal here would be
+  // asserting the browser's rounding rather than the module's sentence.
+  const landedAt = (await arrangement(page))[TARGET];
+  t("AC #2 · …and that one announcement names the position it landed at, rounded",
+    pointerSaid.last === `${moved.name} moved by 0, ${NODE_H + NODE_GAP} to ${Math.round(landedAt.x)}, ${Math.round(landedAt.y)}.`
+      || new RegExp(`moved to ${Math.round(landedAt.x)}, ${Math.round(landedAt.y)}\\.$`).test(pointerSaid.last),
+    `${pointerSaid.last} (landed at ${JSON.stringify(landedAt)})`);
 
   await undoAll(page);
-  // Three ArrowDowns, each landing on a distinct free row: rows 2 and 3 are occupied, so the presses
-  // land on 4, 5 and 6. The keyboard needs no on-screen drop point, so this can go past row 4.
+  // Three ArrowDowns, each a NUDGE (#302). A bare arrow no longer steps a whole row — it moves by
+  // NUDGE_STEP, the spacing scale's 4px floor — so the landing point is the origin plus three
+  // steps. Nothing is occupied any more (D-d), so no press can be skipped and the arithmetic is
+  // exact. Computed from the arrangement rather than typed, for the pointer row's reason: the
+  // module rounds what it announces, so a literal would assert the browser's rounding.
   const N = 3;
-  const KB_LANDS = { col: 1, row: 6 };
+  const kbOrigin = (await arrangement(page))[TARGET];
+  const KB_LANDS = { x: kbOrigin.x, y: kbOrigin.y + N * NUDGE_STEP };
   await countLive(page);
   await page.locator(`.stx-slot[data-stx-id="${TARGET}"] .stx-grab`).focus();
   await page.keyboard.press("Enter");
@@ -818,8 +1098,12 @@ async function journey(engineName, results, held) {
   const kbSaid = await liveSeen(page);
   t(`AC #2 · a KEYBOARD gesture announces once per discrete keypress — pick-up + ${N} arrows + drop = ${N + 2}`,
     kbSaid.n === N + 2, `${kbSaid.n} announcement(s), expected ${N + 2}; last: ${kbSaid.last}`);
-  t("AC #2 · …and the FINAL announcement is the drop's, naming the landed slot",
-    new RegExp(`moved to column ${KB_LANDS.col}, row ${KB_LANDS.row}`).test(kbSaid.last), kbSaid.last);
+  // THE DROP'S SENTENCE, not a step's. The per-press sentence is "Moved by …" and the drop's is the
+  // consumer's "<name> moved to X, Y." — asserted whole rather than by substring, so a drop that
+  // announced a step's wording would fail here rather than match a loose regex.
+  t("AC #2 · …and the FINAL announcement is the drop's, naming the landed position",
+    kbSaid.last === `${moved.name} moved to ${Math.round(KB_LANDS.x)}, ${Math.round(KB_LANDS.y)}.`,
+    `${kbSaid.last} — expected the drop at ${Math.round(KB_LANDS.x)}, ${Math.round(KB_LANDS.y)}`);
 
   // A BLOCKED press still announces, and still counts. Without this a keyboard user at the grid edge
   // gets silence and cannot tell a dead key from a refused move — and the N + 2 count above would
@@ -828,15 +1112,28 @@ async function journey(engineName, results, held) {
   await countLive(page);
   await page.locator(`.stx-slot[data-stx-id="${TARGET}"] .stx-grab`).focus();
   await page.keyboard.press("Enter");
-  await page.keyboard.press("ArrowUp");   // already on row 1 — the grid edge
-  await page.keyboard.press("ArrowLeft"); // already on column 1 — the other edge
+  await page.keyboard.press("ArrowUp");   // already at y 0 — the stage edge
+  await page.keyboard.press("ArrowLeft"); // already at x 0 — the other edge
   await page.keyboard.press("Escape");
   await page.waitForTimeout(120);
   const blocked = await liveSeen(page);
-  t("AC #2 · two BLOCKED arrow presses still announce, one each — silence at the edge is not feedback",
-    blocked.n === 4, `${blocked.n} announcement(s), expected 4 (pick-up + 2 blocked + cancel); last: ${blocked.last}`);
-  t("…and a blocked press says so rather than repeating the slot as if it had moved",
-    /Blocked/i.test(blocked.last) || /Cancelled/i.test(blocked.last), blocked.last);
+  t("AC #2 · two EDGE arrow presses still announce, one each — silence at the edge is not feedback",
+    blocked.n === 4, `${blocked.n} announcement(s), expected 4 (pick-up + 2 at the edge + cancel); last: ${blocked.last}`);
+  // THE CLAIM CHANGED WITH THE SUBSTRATE, and this row is where it shows. There WAS a "Blocked,
+  // still in column X, row Y." sentence, because a grid move could be refused by an occupied cell.
+  // Nothing blocks a free move (D-d), so studio-verbs.mjs deleted that variant and a press at the
+  // edge announces THE SAME NUMBERS TWICE — the repeat IS the feedback. Asserted as exactly that:
+  // the two edge presses say the same position, and it is the position the node actually holds.
+  // The old row passed only because Escape's "Cancelled" was the last text, which is why it stayed
+  // green through a change that removed the sentence it was named for.
+  // The two sentences differ in their `by` clause — one press was vertical and the other
+  // horizontal — and AGREE on the position, which is the half that carries the claim.
+  const edgeSaid = blocked.texts.slice(1, 3);
+  const atEdge = (await arrangement(page))[TARGET];
+  const heldAt = `to ${Math.round(atEdge.x)}, ${Math.round(atEdge.y)},`;
+  t("…and an edge press REPEATS the position rather than inventing a refusal it no longer has",
+    edgeSaid.length === 2 && edgeSaid.every((line) => line.includes(heldAt)),
+    `${JSON.stringify(edgeSaid)} vs the node at ${JSON.stringify(atEdge)}`);
 
   // ---------------------------------------------------------------- [AC #5] Escape restores, and emits nothing
   for (const [label, gesture] of [
@@ -863,8 +1160,8 @@ async function journey(engineName, results, held) {
     await gesture();
     await page.waitForTimeout(150);
     const after = (await arrangement(page))[TARGET];
-    t(`AC #5 · Escape mid-${label}-gesture restores the pre-drag slot`,
-      after.col === origin.col && after.row === origin.row,
+    t(`AC #5 · Escape mid-${label}-gesture restores the pre-drag position`,
+      after.x === origin.x && after.y === origin.y,
       `${JSON.stringify(origin)} → ${JSON.stringify(after)}`);
     t(`AC #5 · …and emits no ui.move and adds no history entry (${label})`,
       (await busSeen(page)).filter((a) => a.type === "ui.move").length === 0
@@ -898,22 +1195,21 @@ async function journey(engineName, results, held) {
       return seen.some((a) => a.type === "ui.undo") && JSON.stringify(await arrangement(page)) === JSON.stringify(undone);
     })(), JSON.stringify(await busSeen(page)));
 
-  // ---------------------------------------------------------------- occupancy
-  // Dragged AT an occupied peer, the node keeps the last free slot it crossed and never lands on it.
-  // Asserted as "no two slots share a cell", which is the sentence "moved to column 2, row 1" has to
-  // be able to keep.
-  await undoAll(page);
-  await btn(page, "Reset").click();
-  await page.waitForTimeout(150);
-  const occupiedPoint = await cellPoint(page, 3, 2); // a cell the harness genuinely fills
-  await dragTo(page, TARGET, occupiedPoint);
-  const afterOcc = await arrangement(page);
-  const cells = Object.values(afterOcc).map((s) => `${s.col},${s.row}`);
-  t("occupancy · after dragging AT an occupied cell no two components share one",
-    new Set(cells).size === cells.length,
-    `${cells.length - new Set(cells).size} collision(s)`);
-  t("occupancy · …and the dragged node did not land on the peer's cell",
-    !(afterOcc[TARGET].col === 3 && afterOcc[TARGET].row === 2), JSON.stringify(afterOcc[TARGET]));
+  // ---------------------------------------------------------------- occupancy: DELETED (#302)
+  // There were two rows here — "after dragging AT an occupied cell no two components share one" and
+  // "the dragged node did not land on the peer's cell" — and they are GONE rather than translated.
+  //
+  // They asserted a rule this substrate does not have. On the grid a cell held one component, so a
+  // drag at an occupied peer had to keep the last free cell it crossed, and "no two slots share a
+  // cell" was the property that made "moved to column 2, row 1" nameable. D-d retired occupancy
+  // entirely: a free position is a float, nothing blocks a move, and two components overlapping is
+  // CORRECT behaviour — it is how a reader stacks a label over a card. studio-verbs.mjs says the
+  // same thing in its own header ("Nothing blocks a free move (D-d)"), and its two keyboard
+  // resolvers collapsed into one because of it.
+  //
+  // Translating these would have produced a check asserting the opposite of the shipped decision,
+  // which is worse than no check: it would go red on correct code and be "fixed" by re-introducing
+  // the rule. The hit-test cases below are what now prove a drag lands where it was dropped.
 
   // ---------------------------------------------------------------- the hit-test, in three conditions
   // THE ASSERTION SHAPE, and it is deliberately independent of the module's arithmetic: drop at a
@@ -936,20 +1232,16 @@ async function journey(engineName, results, held) {
     await btn(page, "Reset").click();
     await page.waitForTimeout(200);
     await prepare();
-    // #196: hover/pointer probes racing a smooth scroll produced a false bug once already. Wait for
-    // the scroll offset to stop moving before any geometry is read.
-    let last = -1;
-    for (let i = 0; i < 20; i += 1) {
-      const now = await page.evaluate(() => {
-        const s = document.querySelector("[data-studio-canvas] .stx-scroll");
-        return `${Math.round(s.scrollLeft)},${Math.round(s.scrollTop)}`;
-      });
-      if (now === last) break;
-      last = now;
-      await page.waitForTimeout(60);
-    }
-    const id = await idAt(page, from.col, from.row);
-    const point = await cellPoint(page, cell.col, cell.row);
+    // #196: hover/pointer probes racing a smooth scroll produced a false bug once already, and
+    // #302 gives the same wait a second job — see scrollSettled's own header.
+    await scrollSettled(page);
+    // BOTH ENDS CONVERTED THROUGH THE ONE HELPER, and the two ends take DIFFERENT helpers on
+    // purpose. `from` names which node to pick up, so it is an ORIGIN — that is where a node's
+    // --x/--y sit and it is what idAt compares against. `cell` is a DROP TARGET, so it is a
+    // CENTRE: pressing at an origin releases the node half a node short, which reads as an
+    // off-by-one in the hit-test rather than in the fixture.
+    const id = await idAt(page, at(from.col, from.row).x, at(from.col, from.row).y);
+    const point = await stagePoint(page, centre(cell.col, cell.row).x, centre(cell.col, cell.row).y);
     const startBox = await nodeBox(page, id);
     const view = await page.locator(SCROLL).boundingBox();
     // Stated rather than assumed, and asserted against the SCROLLER rather than the window: a
@@ -969,10 +1261,19 @@ async function journey(engineName, results, held) {
       `node ${id} at ${JSON.stringify(startBox)}, point ${Math.round(point?.x)},${Math.round(point?.y)}, canvas ${JSON.stringify(view)}`);
     await dragTo(page, id, point);
     const landed = await nodeBox(page, id);
-    const inside = point.x >= landed.left && point.x <= landed.right
-      && point.y >= landed.top && point.y <= landed.bottom;
-    t(`hit-test · ${label} · the node lands under the point it was dropped on`,
-      inside, `point ${Math.round(point.x)},${Math.round(point.y)} vs box ${JSON.stringify(landed)} — slot ${JSON.stringify((await arrangement(page))[id])}`);
+    // ±2px, AND THE TOLERANCE IS A CONSEQUENCE OF THE SUBSTRATE RATHER THAN A LOOSENING. A grid
+    // drop snapped to a track, so the point was inside the cell by construction and an exact
+    // containment test was free. A free drop lands on a FLOAT — the pointer's own sub-pixel
+    // position, minus the grab offset, divided by a continuous scale — and the browser rounds the
+    // painted box to device pixels. So a point on the box's own edge can measure a fraction
+    // outside it. Two pixels is the smallest window that covers that rounding and is far below the
+    // half-node (110px) error the case exists to detect: a missing scroll or scale term moves the
+    // node by tens of pixels, not by one.
+    const SLOP = 2;
+    const inside = point.x >= landed.left - SLOP && point.x <= landed.right + SLOP
+      && point.y >= landed.top - SLOP && point.y <= landed.bottom + SLOP;
+    t(`hit-test · ${label} · the node lands under the point it was dropped on (±${SLOP}px)`,
+      inside, `point ${Math.round(point.x)},${Math.round(point.y)} vs box ${JSON.stringify(landed)} — at ${JSON.stringify((await arrangement(page))[id])}`);
   };
 
   await hitCase("at rest (zoom 1, scrolled 0,0)", async () => {}, { col: 1, row: 1 }, { col: 3, row: 4 });
@@ -990,7 +1291,7 @@ async function journey(engineName, results, held) {
     // column 3 rather than 5, because column 5 of row 2 holds a plant-card, which renders as a real
     // <a> and so is deliberately handle-only (see the body-drag guard's own check below).
   }, { col: 3, row: 2 }, { col: 6, row: 4 });
-  // ZOOM ≠ 1 — the sole detector of a missing `÷ ZOOM_LEVELS[level]`. At scale 1 the divide is
+  // ZOOM ≠ 1 — the sole detector of a missing `÷ scale` in the coordinate chain. At scale 1 the
   // identity, so both cases above pass without it. Zoom OUT rather than in: at 1.5× the empty rows
   // sit below the scroller's 640px box and the drop point would be off-screen, which would make this
   // case fail for a reason that has nothing to do with the term it exists to catch.
@@ -1008,7 +1309,7 @@ async function journey(engineName, results, held) {
   // Read what the animation DOES. Seek it to time 0 and measure the node: a FLIP starts by putting
   // the element back exactly where the reader last saw it, so at t=0 its box must equal the box it
   // had before the undo. getBoundingClientRect deltas are POST-transform while a translate() on the
-  // child applies in the child's UNSCALED local space, so without `÷ ZOOM_LEVELS[level]` the node
+  // child applies in the child's UNSCALED local space, so without the `÷ scale` divide the node
   // starts only `scale` of the way back — at 0.75 that is a quarter of the travel missing, and it
   // looks perfect at 100%, which is where it would be tested first.
   await undoAll(page);
@@ -1060,12 +1361,20 @@ async function journey(engineName, results, held) {
   await undoAll(page);
   await btn(page, "Reset").click();
   await page.waitForTimeout(200);
-  const stickPoint = await cellPoint(page, 2, 4);
+  const stickOrigin = (await arrangement(page))[TARGET];
+  const stickPoint = await stagePoint(page, centre(2, 4).x, centre(2, 4).y);
   await dragTo(page, TARGET, stickPoint);
   await page.waitForTimeout(200);
   const stuck = (await arrangement(page))[TARGET];
-  t("R4 · after a normal pointerup the node is in the TARGET slot, not back at its origin",
-    stuck.row === 4 && stuck.col === 2, JSON.stringify(stuck));
+  // ASSERTED AS "IT IS NEAR WHERE IT WAS DROPPED", not as an exact position. The old row could name
+  // a cell because a drop snapped to one; a free drop lands on a float carrying the grab offset, so
+  // the honest claim is that the node sits within half a node of the target centre — which a revert
+  // to the origin (a whole cell away, and the bug this row exists for) fails by a wide margin.
+  const wantStick = at(2, 4);
+  t("R4 · after a normal pointerup the node is AT THE TARGET, not back at its origin",
+    JSON.stringify(stuck) !== JSON.stringify(stickOrigin)
+      && Math.abs(stuck.x - wantStick.x) < NODE_W / 2 && Math.abs(stuck.y - wantStick.y) < NODE_H / 2,
+    `${JSON.stringify(stickOrigin)} → ${JSON.stringify(stuck)}, target ${JSON.stringify(wantStick)}`);
 
   // ---------------------------------------------------------------- the body-drag guard
   // A component with a control of its own keeps its own events: plant-card renders a real <a>, and a
@@ -1087,7 +1396,7 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(150);
   const linkAfter = (await arrangement(page))[linkId];
   t("a body-drag on a component that owns a control does NOT move it — the component keeps its events",
-    linkAfter.col === linkBefore.col && linkAfter.row === linkBefore.row,
+    linkAfter.x === linkBefore.x && linkAfter.y === linkBefore.y,
     `${JSON.stringify(linkBefore)} → ${JSON.stringify(linkAfter)}`);
 
   // …and the same component IS movable by its handle, so the guard costs nothing in reach. Moved by
@@ -1098,8 +1407,12 @@ async function journey(engineName, results, held) {
   await page.keyboard.press("Enter");
   await page.waitForTimeout(150);
   const linkMoved = (await arrangement(page))[linkId];
-  t("…and its move HANDLE still moves it, so the guard costs no reach",
-    linkMoved.row !== linkBefore.row, `${JSON.stringify(linkBefore)} → ${JSON.stringify(linkMoved)}`);
+  // ONE ArrowDown is ONE NUDGE now (#302) — 4px, not a row — so the assertion names the step it
+  // expects rather than "a different row". Exact: the nudge is integer arithmetic on an integer
+  // origin, so there is nothing here to round.
+  t("…and its move HANDLE still moves it by one nudge, so the guard costs no reach",
+    linkMoved.y === linkBefore.y + NUDGE_STEP,
+    `${JSON.stringify(linkBefore)} → ${JSON.stringify(linkMoved)} (one nudge is ${NUDGE_STEP}px)`);
 
   // ---------------------------------------------------------------- [SC 2.5.7] the single-pointer path, COMPLETED (#229)
   // THE CRITERION THE MODULE HEADER IS MOST CAREFUL ABOUT, and until #229 the one criterion nothing
@@ -1113,8 +1426,8 @@ async function journey(engineName, results, held) {
   // throwing. Asserted as RESULTING ARRANGEMENT plus exactly one ui.move, matching AC #4's shape.
   await undoAll(page);
   const stickyFrom = (await arrangement(page))[TARGET];
-  const stickyGoal = { col: 3, row: 4 };
-  const stickyPoint = await cellPoint(page, stickyGoal.col, stickyGoal.row);
+  const stickyGoal = centre(3, 4);
+  const stickyPoint = await stagePoint(page, stickyGoal.x, stickyGoal.y);
   await busClear(page);
   await countLive(page);
 
@@ -1138,9 +1451,18 @@ async function journey(engineName, results, held) {
   await page.waitForTimeout(150);
 
   const stickyArr = (await arrangement(page))[TARGET];
-  t(`SC 2.5.7 · …and a second click drops it in column ${stickyGoal.col}, row ${stickyGoal.row} — the drag's destination, reached with no dragging movement`,
-    stickyArr.col === stickyGoal.col && stickyArr.row === stickyGoal.row,
-    `${JSON.stringify(stickyFrom)} → ${JSON.stringify(stickyArr)}`);
+  // THE SAME CLAIM THE DRAG PATH MAKES, asserted the same way (#302). The old row could name a
+  // destination cell because a drop snapped to one. A free drop lands wherever the pointer released
+  // MINUS the grab offset, so the nameable property is the hit-test's: the point the reader released
+  // on lies inside the node they were carrying. That is what "reached the drag's destination with no
+  // dragging movement" actually means here, and it fails identically if the second click drops
+  // nothing, drops it back at the origin, or drops it somewhere the pointer never was.
+  const stickyBox = await nodeBox(page, TARGET);
+  t("SC 2.5.7 · …and a second click drops it UNDER THE POINTER — the drag's destination, reached with no dragging movement",
+    JSON.stringify(stickyArr) !== JSON.stringify(stickyFrom)
+      && stickyPoint.x >= stickyBox.left - 2 && stickyPoint.x <= stickyBox.right + 2
+      && stickyPoint.y >= stickyBox.top - 2 && stickyPoint.y <= stickyBox.bottom + 2,
+    `${JSON.stringify(stickyFrom)} → ${JSON.stringify(stickyArr)}; released at ${Math.round(stickyPoint.x)},${Math.round(stickyPoint.y)} vs box ${JSON.stringify(stickyBox)}`);
   const stickyMoves = (await busSeen(page)).filter((a) => a.type === "ui.move");
   t("SC 2.5.7 · …emitting exactly ONE ui.move, like the drag and the keyboard paths",
     stickyMoves.length === 1, JSON.stringify(await busSeen(page)));
@@ -1167,32 +1489,38 @@ async function journey(engineName, results, held) {
   // row 3's tail — but at this viewport column 9 sits at x≈2025, well outside the 1440px window,
   // and the mouse cannot be moved to a point off-screen. Row 4 is empty for its whole width and its
   // low columns are the ones every other pointer case here has proven reachable.
-  const LATE_FROM = { col: 2, row: 4 };
-  const LATE_TO = { col: 3, row: 4 };
-  const lateId = await page.evaluate(async ([c, r]) => {
+  const LATE_FROM = at(2, 4);
+  const LATE_TO = at(3, 4);
+  const lateId = await page.evaluate(async ([x, y]) => {
     const canvas = (await import("/system/studio-canvas.mjs")).getCanvas();
     const node = document.createElement("div");
     node.className = "card";
     node.textContent = "Placed after the verbs mounted";
-    canvas.place(node, { col: c, row: r, name: "Late arrival" });
+    canvas.place(node, { x, y, name: "Late arrival" });
     return node.closest(".stx-slot")?.getAttribute("data-stx-id") ?? null;
-  }, [LATE_FROM.col, LATE_FROM.row]);
+  }, [LATE_FROM.x, LATE_FROM.y]);
+  // NOT `?.x === LATE_FROM.x` ALONE. `undefined === undefined` is true, so a read of a key the
+  // snapshot no longer carries would pass this vacuously — which is exactly how the grid version of
+  // this row stayed green after place() stopped taking a cell. The id and the position are both
+  // named, and the position is compared to a number.
+  const latePlaced = (await arrangement(page))[lateId];
   t("#230 · the harness can place a component AFTER the verbs mounted — otherwise the case below is untested",
-    lateId !== null && (await arrangement(page))[lateId]?.col === LATE_FROM.col,
-    `${lateId} at ${JSON.stringify((await arrangement(page))[lateId])}`);
+    lateId !== null && latePlaced?.x === LATE_FROM.x && latePlaced?.y === LATE_FROM.y,
+    `${lateId} at ${JSON.stringify(latePlaced)}, expected ${JSON.stringify(LATE_FROM)}`);
 
-  await dragTo(page, lateId, await cellPoint(page, LATE_TO.col, LATE_TO.row));
+  await dragTo(page, lateId, await stagePoint(page, centre(3, 4).x, centre(3, 4).y));
   const lateMoved = (await arrangement(page))[lateId];
-  t(`#230 · a POINTER drag moves it to column ${LATE_TO.col}, row ${LATE_TO.row}`,
-    lateMoved.col === LATE_TO.col && lateMoved.row === LATE_TO.row, JSON.stringify(lateMoved));
+  t(`#230 · a POINTER drag moves it to about ${LATE_TO.x}, ${LATE_TO.y}`,
+    Math.abs(lateMoved.x - LATE_TO.x) < NODE_W / 2 && Math.abs(lateMoved.y - LATE_TO.y) < NODE_H / 2,
+    `${JSON.stringify(lateMoved)} vs ${JSON.stringify(LATE_TO)}`);
 
   await countLive(page);
   await btn(page, "Undo").click();
   await page.waitForTimeout(300);
   const lateUndone = (await arrangement(page))[lateId];
   t("#230 · …and UNDO puts it back where it was placed, rather than consuming a step and moving nothing",
-    lateUndone.col === LATE_FROM.col && lateUndone.row === LATE_FROM.row,
-    `${JSON.stringify(lateMoved)} → ${JSON.stringify(lateUndone)}`);
+    lateUndone.x === LATE_FROM.x && lateUndone.y === LATE_FROM.y,
+    `${JSON.stringify(lateMoved)} → ${JSON.stringify(lateUndone)}, expected ${JSON.stringify(LATE_FROM)}`);
   t("#230 · …announcing the restore by name, never \"Nothing to undo.\" on a step it just consumed",
     /Late arrival/.test((await liveSeen(page)).last || ""), (await liveSeen(page)).last);
 
@@ -1204,25 +1532,28 @@ async function journey(engineName, results, held) {
   //
   // Off-screen cells on purpose: injection needs no pointer, so this is free of the reachability
   // constraint the drag above is bounded by.
-  const INJ_FROM = { col: 9, row: 5 };
-  const INJ_TO = { col: 10, row: 5 };
-  const injId = await page.evaluate(async ([c, r]) => {
+  const INJ_FROM = at(9, 5);
+  const INJ_TO = at(10, 5);
+  const injId = await page.evaluate(async ([x, y]) => {
     const canvas = (await import("/system/studio-canvas.mjs")).getCanvas();
     const node = document.createElement("div");
     node.className = "card";
     node.textContent = "Placed after the verbs mounted, moved only by an injected action";
-    canvas.place(node, { col: c, row: r, name: "Late agent arrival" });
+    canvas.place(node, { x, y, name: "Late agent arrival" });
     return node.closest(".stx-slot")?.getAttribute("data-stx-id") ?? null;
-  }, [INJ_FROM.col, INJ_FROM.row]);
+  }, [INJ_FROM.x, INJ_FROM.y]);
   await inject(page, { type: "ui.move", source: "agent", target: { component: "card", id: injId }, params: INJ_TO });
   await page.waitForTimeout(150);
+  const injMoved = (await arrangement(page))[injId];
   t("#230 · a post-mount component moved ONLY by an injected action moves — no gesture, no pick-up",
-    (await arrangement(page))[injId]?.col === INJ_TO.col, JSON.stringify((await arrangement(page))[injId]));
+    injMoved?.x === INJ_TO.x && injMoved?.y === INJ_TO.y,
+    `${JSON.stringify(injMoved)}, expected ${JSON.stringify(INJ_TO)}`);
   await btn(page, "Undo").click();
   await page.waitForTimeout(300);
   const injUndone = (await arrangement(page))[injId];
   t("#230 · …and undo returns IT to where it was placed too — the consumer adopts what no pick-up could have",
-    injUndone.col === INJ_FROM.col && injUndone.row === INJ_FROM.row, JSON.stringify(injUndone));
+    injUndone.x === INJ_FROM.x && injUndone.y === INJ_FROM.y,
+    `${JSON.stringify(injUndone)}, expected ${JSON.stringify(INJ_FROM)}`);
 
   // Leave the stage as the sections below expect to find it.
   await page.evaluate((ids) => { for (const i of ids) document.querySelector(`.stx-slot[data-stx-id="${i}"]`)?.remove(); },
@@ -1231,7 +1562,7 @@ async function journey(engineName, results, held) {
   // ---------------------------------------------------------------- refusals go to the live region
   await countLive(page);
   const beforeRefusal = await arrangement(page);
-  await inject(page, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: "no-such-node" }, params: { col: 2, row: 2 } });
+  await inject(page, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: "no-such-node" }, params: { x: 236, y: 156 } });
   await page.waitForTimeout(120);
   const refused = await liveSeen(page);
   t("a ui.move for an id that is not on the stage refuses in the LIVE REGION and leaves the DOM untouched",
@@ -1239,21 +1570,29 @@ async function journey(engineName, results, held) {
       && JSON.stringify(await arrangement(page)) === JSON.stringify(beforeRefusal),
     `${refused.n} announcement(s): ${refused.last}`);
 
-  // Hostile params never reach an attribute — clampSlot is the one definition of "on the grid" and
-  // the consumer applies it before anything is written.
-  await inject(page, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: TARGET }, params: { col: 1e9, row: NaN } });
+  // Hostile params never reach a property — setPos is the one definition of "on the stage" (#302,
+  // replacing the retired slot clamp) and the consumer hands it the caller's numbers unchecked, so
+  // this is the running-page proof that the clamp is AT THE WRITE and not at the caller. Both
+  // hostile shapes at once: an out-of-range finite number clamps to the far edge, and a NaN falls
+  // back to 0 rather than writing "NaNpx" and silently voiding the declaration.
+  await inject(page, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: TARGET }, params: { x: 1e9, y: NaN } });
   await page.waitForTimeout(120);
   const clampedMove = (await arrangement(page))[TARGET];
-  t("a ui.move with a hostile slot is clampSlot'd, never written raw",
-    clampedMove.col === MAX_COLS && clampedMove.row === 1, JSON.stringify(clampedMove));
+  t("a ui.move with a hostile position is clamped by setPos, never written raw",
+    clampedMove.x === STAGE_W - clampedMove.w && clampedMove.y === 0,
+    `${JSON.stringify(clampedMove)}, expected x ${STAGE_W - clampedMove.w} and y 0 on a ${STAGE_W}-wide stage`);
 
   // ---------------------------------------------------------------- still no inline styles
   await undoAll(page);
   await btn(page, "Redo").click();
   await page.waitForTimeout(250);
   const afterMoves = await snapshot(page);
-  t("R11 · no `style` attribute after a drag, an undo and a redo — the FLIP is element.animate(), which never touches .style",
-    afterMoves.inlineStyled === 0, `${afterMoves.inlineStyled} element(s) carry one`);
+  // GATE B AFTER TRAVEL (#302), and R11's reason survives the change of claim intact: undo/redo
+  // travel is element.animate(), which never touches .style. What changed is what "clean" means —
+  // setPos writes four custom properties, so the claim is the EXACT SET rather than absence, and a
+  // `node.style.transform = …` written by the restore path is named here rather than counted.
+  t("R11 · after a drag, an undo and a redo every style attribute STILL carries only the position and scale properties — the FLIP is element.animate(), which never touches .style",
+    afterMoves.inlineStyled.length === 0, afterMoves.inlineStyled.join(", "));
 
   await mctx.close();
 
@@ -1269,14 +1608,18 @@ async function journey(engineName, results, held) {
   // that passes only because the case was never tried.
   const fctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const fresh = await open(fctx);
-  await inject(fresh, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: TARGET }, params: GOAL });
+  // THE AGENT IS HANDED THE POINTER'S OWN ANSWER, not a typed destination — which is what makes this
+  // AC #1's third source rather than a third fixture: the claim is that an injected action reaches
+  // the place a drag reached, so the drag's result IS the input.
+  await inject(fresh, { type: "ui.move", source: "agent", target: { component: "metric-tile", id: TARGET },
+    params: { x: byPointer[TARGET].x, y: byPointer[TARGET].y } });
   await fresh.waitForTimeout(150);
   const byAgent = await arrangement(fresh);
   t("AC #1 · an injected source:\"agent\" action on a FRESH page moves the same node through the same consumer",
-    JSON.stringify(byAgent) === JSON.stringify(byPointer),
+    samePlace(byAgent[TARGET], byPointer[TARGET]) && JSON.stringify(others(byAgent)) === JSON.stringify(others(byPointer)),
     `agent ${JSON.stringify(byAgent[TARGET])} vs pointer ${JSON.stringify(byPointer[TARGET])}`);
   t("AC #1 · …and it announced as a move, like the other two sources",
-    /moved to column/.test((await fresh.locator(LIVE).textContent()).trim()),
+    /moved to \d+, \d+\.$/.test((await fresh.locator(LIVE).textContent()).trim()),
     (await fresh.locator(LIVE).textContent()).trim());
   await fctx.close();
   }
@@ -1296,17 +1639,19 @@ async function journey(engineName, results, held) {
   // tautological — syncControls derives one from the other, so the two sides are equal whether or
   // not the verb did anything. Zoom in has to leave rest; fit has to leave where zoom in put it AND
   // land on a level the measured layout agrees with; reset has to come all the way back.
-  const rfits = (i) => ZOOM_LEVELS[i] * rfit.contentW <= rfit.clientW + 1 && ZOOM_LEVELS[i] * rfit.contentH <= rfit.clientH + 1;
+  // The same three claims the full-motion block makes, against the continuous scale (#302): a step
+  // is a RATIO, and fit lands on the ratio itself rather than on the largest table level below it.
   const rchosen = Number(rfit.zoom);
-  t("reduced motion · zoom in still moves off the rest level",
-    rzoomed.zoom === String(ZOOM_REST + 1), `data-zoom=${rzoomed.zoom}`);
-  t("reduced motion · fit still recomputes a level the layout agrees with",
-    rfit.zoom !== rzoomed.zoom && (rfits(rchosen) || rchosen === 0) && (rchosen === ZOOM_LEVELS.length - 1 || !rfits(rchosen + 1)),
-    `${rzoomed.zoom} → ${rfit.zoom}; content ${rfit.contentW}×${rfit.contentH} in ${rfit.clientW}×${rfit.clientH}`);
-  t("reduced motion · reset still returns to scale 1 and scroll 0,0",
-    rrest.zoom === String(ZOOM_REST) && rrest.scrollLeft === 0 && rrest.scrollTop === 0,
+  const rratio = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(rfit.clientW / STAGE_W, rfit.clientH / STAGE_H)));
+  t("reduced motion · zoom in still multiplies off the rest scale",
+    Math.abs(Number(rzoomed.zoom) - SCALE_REST * ZOOM_STEP) < 1e-9, `--stx-scale=${rzoomed.zoom}`);
+  t("reduced motion · fit still lands on the RATIO the measured layout agrees with",
+    rfit.zoom !== rzoomed.zoom && Math.abs(rchosen - rratio) < 1e-6,
+    `${rzoomed.zoom} → ${rfit.zoom}; the ratio is ${rratio} (stage ${STAGE_W}×${STAGE_H} in ${rfit.clientW}×${rfit.clientH})`);
+  t("reduced motion · reset still returns to the rest scale and scroll 0,0",
+    Math.abs(Number(rrest.zoom) - SCALE_REST) < 1e-9 && rrest.scrollLeft === 0 && rrest.scrollTop === 0,
     JSON.stringify({ zoom: rrest.zoom, l: rrest.scrollLeft, t: rrest.scrollTop }));
-  t("reduced motion · placement still completes", rdriven.col === "2" && rdriven.row === "2", JSON.stringify(rdriven));
+  t("reduced motion · placement still completes", rdriven.x === "2" && rdriven.y === "2", JSON.stringify(rdriven));
 
   // AC #6 — the off-ramp has to leave the VERBS working, not just quiet. Each one asserted against
   // something it could get wrong: the arrangement has to actually change.
@@ -1315,10 +1660,10 @@ async function journey(engineName, results, held) {
   await rp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
   await rp.waitForTimeout(300);
   const rBefore = (await arrangement(rp))["s1"];
-  await dragTo(rp, "s1", await cellPoint(rp, 3, 4));
+  await dragTo(rp, "s1", await stagePoint(rp, centre(3, 4).x, centre(3, 4).y));
   const rDragged = (await arrangement(rp))["s1"];
   t("AC #6 · reduced motion · a pointer drag still completes",
-    rDragged.col !== rBefore.col || rDragged.row !== rBefore.row,
+    rDragged.x !== rBefore.x || rDragged.y !== rBefore.y,
     `${JSON.stringify(rBefore)} → ${JSON.stringify(rDragged)}`);
 
   await rp.locator('.stx-slot[data-stx-id="s1"] .stx-grab').focus();
@@ -1328,7 +1673,8 @@ async function journey(engineName, results, held) {
   await rp.waitForTimeout(120);
   const rKeyed = (await arrangement(rp))["s1"];
   t("AC #6 · reduced motion · a keyboard move still completes",
-    rKeyed.row !== rDragged.row, `${JSON.stringify(rDragged)} → ${JSON.stringify(rKeyed)}`);
+    rKeyed.y === rDragged.y + NUDGE_STEP,
+    `${JSON.stringify(rDragged)} → ${JSON.stringify(rKeyed)} (one nudge is ${NUDGE_STEP}px)`);
 
   // The undo still restores AND runs no animated travel. Read immediately after the click, before
   // any animation could have finished on its own and made this vacuously true.
@@ -1338,7 +1684,8 @@ async function journey(engineName, results, held) {
   await rp.waitForTimeout(250);
   const rUndone = (await arrangement(rp))["s1"];
   t("AC #6 · reduced motion · undo still restores the arrangement",
-    rUndone.row === rDragged.row, `${JSON.stringify(rKeyed)} → ${JSON.stringify(rUndone)}`);
+    rUndone.x === rDragged.x && rUndone.y === rDragged.y,
+    `${JSON.stringify(rKeyed)} → ${JSON.stringify(rUndone)}, expected ${JSON.stringify(rDragged)}`);
   t("AC #6 · …and runs NO animated travel — element.animate() is not switched off by CSS, so the module gates it",
     rAnims === 0, `${rAnims} animation(s) running on the slots straight after the undo`);
   await rctx.close();
@@ -1460,10 +1807,13 @@ async function factoryPass(browser, t, errors) {
   // in the replay pass below, because a gesture PREVIEWS before it commits and an injected move
   // passes against a design that only adopts in the consumer.
   const first = await p.locator(`${VIEWPORT} .stx-slot`).first().getAttribute("data-stx-id");
-  const before = await p.evaluate((i) => {
+  // #302: a place is --x/--y, read as numbers so the nudge arithmetic below is exact.
+  const posOf = (page, id) => page.evaluate((i) => {
     const n = document.querySelector(`.stx-slot[data-stx-id="${i}"]`);
-    return { col: n.getAttribute("data-col"), row: n.getAttribute("data-row") };
-  }, first);
+    return { x: parseFloat(n.style.getPropertyValue("--x")) || 0, y: parseFloat(n.style.getPropertyValue("--y")) || 0,
+      name: n.getAttribute("data-stx-name") };
+  }, id);
+  const before = await posOf(p, first);
   await countLive(p);
   await busRecord(p);
   await busClear(p);
@@ -1473,16 +1823,17 @@ async function factoryPass(browser, t, errors) {
   await p.keyboard.press("Enter");
   await p.waitForTimeout(150);
   const said = await liveSeen(p);
-  const after = await p.evaluate((i) => {
-    const n = document.querySelector(`.stx-slot[data-stx-id="${i}"]`);
-    return { col: n.getAttribute("data-col"), row: n.getAttribute("data-row") };
-  }, first);
-  t("#206 · a keyboard move on the shipped surface rewrites data-col / data-row",
-    after.row !== before.row || after.col !== before.col, `${JSON.stringify(before)} → ${JSON.stringify(after)}`);
+  const after = await posOf(p, first);
+  // ONE ArrowDown is ONE NUDGE (#302) — NUDGE_STEP, not a row — and the step is named rather than
+  // "it changed", so a nudge that silently became a node pitch fails here instead of passing.
+  t("#206 · a keyboard move on the shipped surface nudges --y by one step",
+    after.y === before.y + NUDGE_STEP && after.x === before.x,
+    `${JSON.stringify(before)} → ${JSON.stringify(after)} (one nudge is ${NUDGE_STEP}px)`);
   t("#206 · …announcing once per keypress — pick-up + 1 arrow + drop = 3",
     said.n === 3, `${said.n} announcement(s); last: ${said.last}`);
-  t("#206 · …and the last announcement names the slot it landed in",
-    new RegExp(`moved to column ${after.col}, row ${after.row}`).test(said.last), said.last);
+  t("#206 · …and the last announcement names the position it landed at",
+    said.last === `${after.name} moved to ${Math.round(after.x)}, ${Math.round(after.y)}.`,
+    `${said.last} — the node is at ${Math.round(after.x)}, ${Math.round(after.y)}`);
   // #232's other half, and the reason `component` is optional rather than always-present: what this
   // page moves is a FAT-MARKER BLOCK — the drafted board, not a library component. The action must
   // carry no shape at all rather than a made-up one, and must still say which thing moved.
@@ -1495,10 +1846,9 @@ async function factoryPass(browser, t, errors) {
 
   // Group 7's claim, on the running page. The source is grep-clean; this is the half grep cannot
   // make — and it is asserted AFTER a move, which is when a style-writing implementation would show.
-  const styled = await p.evaluate(() => [...document.querySelectorAll(".stx-slot, .stx-stage, .stx-scroll")]
-    .filter((n) => n.hasAttribute("style")).length);
-  t("#206 · no `style` attribute on the stage, the scroller or any slot after a move",
-    styled === 0, `${styled} element(s) carry one`);
+  const styled = await strayStyles(p, ".stx-slot, .stx-stage, .stx-scroll");
+  t("#206 · every style attribute on the stage, the scroller and the slots carries ONLY a position or scale property after a move",
+    styled.length === 0, styled.join(", "));
 
   // Act 0 mounted here too — the import act reached a second page for the cost of markup, which is
   // the whole "import, never fork" claim. build-import.mjs returns SILENTLY when a required node is
@@ -1589,7 +1939,7 @@ async function factoryPass(browser, t, errors) {
 
   // The dock left the canvas ALIVE: one keyboard move still works and still announces per keypress.
   const dFirst = await dp.locator(`${VIEWPORT} .stx-slot`).first().getAttribute("data-stx-id");
-  const dBefore = await dp.evaluate((i) => document.querySelector(`.stx-slot[data-stx-id="${i}"]`).getAttribute("data-row"), dFirst);
+  const dBefore = await dp.evaluate((i) => parseFloat(document.querySelector(`.stx-slot[data-stx-id="${i}"]`).style.getPropertyValue("--y")) || 0, dFirst);
   await countLive(dp);
   await dp.locator(`.stx-slot[data-stx-id="${dFirst}"] .stx-grab`).focus();
   await dp.keyboard.press("Enter");
@@ -1597,9 +1947,10 @@ async function factoryPass(browser, t, errors) {
   await dp.keyboard.press("Enter");
   await dp.waitForTimeout(150);
   const dSaid = await liveSeen(dp);
-  const dAfter = await dp.evaluate((i) => document.querySelector(`.stx-slot[data-stx-id="${i}"]`).getAttribute("data-row"), dFirst);
+  const dAfter = await dp.evaluate((i) => parseFloat(document.querySelector(`.stx-slot[data-stx-id="${i}"]`).style.getPropertyValue("--y")) || 0, dFirst);
   t("#213 · …and a move verb still works after the dock, announced per keypress",
-    dAfter !== dBefore && dSaid.n === 3, `row ${dBefore} → ${dAfter}; ${dSaid.n} announcement(s): ${dSaid.last}`);
+    dAfter === dBefore + NUDGE_STEP && dSaid.n === 3,
+    `--y ${dBefore} → ${dAfter} (one nudge is ${NUDGE_STEP}px); ${dSaid.n} announcement(s): ${dSaid.last}`);
   await dctx.close();
   }
 
@@ -1644,19 +1995,30 @@ async function replayPass(browser, t, errors) {
     const want = await (await fetch("/replay/build-fieldwork-dispatch.board.json")).json();
     const wraps = [...document.querySelectorAll("[data-studio-canvas] .stx-slot")];
     return {
+      board: want,
       wanted: want.places.map((x) => x.label),
       got: wraps.map((w) => w.getAttribute("data-stx-name")),
-      cols: wraps.map((w) => w.getAttribute("data-col")),
-      rows: wraps.map((w) => w.getAttribute("data-row")),
+      at: wraps.map((w) => [w.style.getPropertyValue("--x"), w.style.getPropertyValue("--y")]),
       affordances: want.places.reduce((n, x) => n + x.affordances.length, 0),
       connections: want.connections.length,
     };
   });
   t("#209 · the settled canvas holds one block per place of the COMMITTED board, in board order",
     JSON.stringify(match.got) === JSON.stringify(match.wanted), `${JSON.stringify(match.got)} vs ${JSON.stringify(match.wanted)}`);
-  t("#209 · …laid along row 1 in columns 1..n, exactly as arrangeBoard derives them",
-    match.cols.join(",") === match.wanted.map((_, i) => i + 1).join(",") && match.rows.every((r) => r === "1"),
-    `cols=${match.cols.join(",")} rows=${match.rows.join(",")}`);
+  // THE RANK LAYOUT, COMPUTED IN NODE FROM THE BOARD THE PAGE FETCHED (#302). The old row was
+  // "row 1, columns 1..n", which is the rule arrangeBoard retired: everything in board order meant
+  // a four-step flow and four unrelated screens drew identically. What replaced it is one column
+  // per BFS rank from the entry place, and this expectation runs the SAME pure function the page
+  // runs — so swapping two connections in the committed board moves the expectation with the page
+  // and a layout that stopped being the rank layout's fails by name.
+  const ranks = new Map(rankLayout(match.board).map((r) => [r.id, r]));
+  const wantAt = match.board.places.map((place, i) => {
+    const r = ranks.get(String(place.id)) ?? { rank: i, order: 0 };
+    return [`${r.rank * (NODE_W + NODE_GAP)}px`, `${r.order * (NODE_H + NODE_GAP)}px`];
+  });
+  t("#209 · …laid out by the RANK LAYOUT — one column per BFS rank from the entry place, exactly as rankLayout derives it",
+    JSON.stringify(match.at) === JSON.stringify(wantAt),
+    `${JSON.stringify(match.at)} vs ${JSON.stringify(wantAt)}`);
   const panel = await p1.locator("#this-build-summary").innerText();
   t("#209 · …and the This build panel is COUNTED from that board, not from the empty mount-time one",
     panel.includes(String(match.wanted.length)) && panel.includes(String(match.affordances))
@@ -1690,10 +2052,12 @@ async function replayPass(browser, t, errors) {
   const stage2 = await p2.evaluate(() => document.querySelector("[data-studio-canvas] .stx-stage").outerHTML);
   t("#209 · a second load produces a BYTE-IDENTICAL settled stage", stage1 === stage2,
     stage1 === stage2 ? "" : `${stage1.length} vs ${stage2.length} chars`);
-  const styled = await p2.evaluate(() => [...document.querySelectorAll(".stu-replay *, .stx-slot, .stx-stage")]
-    .filter((n) => n.hasAttribute("style")).length);
-  t("#209 · nothing the driver drew carries a style attribute — group 7's claim, on the running page",
-    styled === 0, `${styled} element(s) carry one`);
+  // The transport chrome carries no style attribute at all and the nodes carry their positions, so
+  // ONE predicate covers both: the chrome contributes nothing to the list and a node contributes
+  // only what it is allowed to.
+  const styled = await strayStyles(p2, ".stu-replay *, .stx-slot, .stx-stage");
+  t("#209 · nothing the driver drew wrote a style property it is not allowed — group 7's claim, on the running page",
+    styled.length === 0, styled.join(", "));
   await p2.close();
 
   // --- 3 · agent.* AND ONLY agent.*, with the single consumer doing the work ----------------------
@@ -2265,21 +2629,30 @@ async function compilePass(browser, t, errors) {
   // The stage as data. `kinds` is what each slot HOLDS — the fat-marker block or a library primitive
   // — and it is read as a class name rather than as a count, so "the blocks became components" and
   // "the components stayed put" are two readings of one snapshot.
-  const stageState = async (page) => (await docsSettled(page), page.evaluate(() => {
+  const stageState = async (page) => (await docsSettled(page), page.evaluate((ALLOWED_PROPS) => {
     const stage = document.querySelector("[data-studio-canvas] .stx-stage");
     return {
       html: stage.outerHTML,
       slots: [...stage.querySelectorAll(".stx-slot")].map((n) => ({
         id: n.getAttribute("data-stx-id"),
-        col: n.getAttribute("data-col"),
-        row: n.getAttribute("data-row"),
+        // #302: a slot's place is --x/--y, read as the written strings so the comparison below is
+        // the same character-for-character equality the retired attribute pair gave it.
+        x: n.style.getPropertyValue("--x"),
+        y: n.style.getPropertyValue("--y"),
         kind: [...n.children].filter((c) => !c.classList.contains("stx-grab"))
           .map((c) => c.className.split(" ")[0]).join("+"),
       })),
       state: document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state"),
-      styled: [...stage.querySelectorAll(".stx-slot, .stx-slot > *")].filter((n) => n.hasAttribute("style")).length,
+      styled: (() => {
+        const ok = new Set(ALLOWED_PROPS);
+        const bad = [];
+        for (const node of stage.querySelectorAll(".stx-slot, .stx-slot > *")) {
+          for (const prop of node.style) if (!ok.has(prop)) bad.push(`${node.className || node.tagName}.${prop}`);
+        }
+        return bad;
+      })(),
     };
-  }));
+  }, STYLE_ALLOWED));
   const settled = (page, want) => page.waitForFunction(
     (w) => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === w,
     want, { timeout: 20000 });
@@ -2331,10 +2704,10 @@ async function compilePass(browser, t, errors) {
     screensHold.length > 0 && screensHold.every(Boolean), JSON.stringify(screensHold));
   // AC #1: the reader's arrangement survives the swap. This is the assertion that catches a
   // repopulate-instead-of-swap — a rebuilt stage would keep the same COUNT and hand out new ids.
-  t("#207 · …in the same slots: every data-stx-id, data-col and data-row is unchanged",
-    JSON.stringify(done.slots.map((s) => [s.id, s.col, s.row]))
-      === JSON.stringify(rest.slots.map((s) => [s.id, s.col, s.row])),
-    JSON.stringify(done.slots.map((s) => [s.id, s.col, s.row])));
+  t("#207 · …in the same places: every data-stx-id and every --x / --y is unchanged",
+    JSON.stringify(done.slots.map((s) => [s.id, s.x, s.y]))
+      === JSON.stringify(rest.slots.map((s) => [s.id, s.x, s.y])),
+    JSON.stringify(done.slots.map((s) => [s.id, s.x, s.y])));
   t("#207 · four steps announced, one per step, plus the settled sentence = 5",
     said.n === 5, `${said.n} announcement(s); last: ${said.last}`);
   // AND SPACED, which the count alone cannot see: an aria-live="polite" region announces only its
@@ -2360,7 +2733,8 @@ async function compilePass(browser, t, errors) {
   }
   // Group 7's claim on the RUNNING page, taken after the beat — the crossfade is the one effect an
   // implementer reaches for an inline opacity to write.
-  t("#207 · no `style` attribute on any slot or composed node after the beat", done.styled === 0, `${done.styled}`);
+  t("#207 · every style attribute on a slot or a composed node still carries ONLY a position property after the beat",
+    done.styled.length === 0, done.styled.join(", "));
   // AC #4's first net. The second is tooling/vt-verify.mjs's wrapped startViewTransition counter,
   // which catches a transition that OPENED and was skipped — this one cannot see that.
   const pseudos = await p.evaluate(() => document.getAnimations()
@@ -2579,31 +2953,32 @@ async function flowPass(browser, t, errors) {
   const cp = await open(ctx);
   const carryOrigin = await cp.evaluate(() => {
     const w = document.querySelector("[data-studio-canvas] .stx-slot");
-    return { col: w.getAttribute("data-col"), row: w.getAttribute("data-row") };
+    return { x: w.style.getPropertyValue("--x"), y: w.style.getPropertyValue("--y") };
   });
   await cp.locator(`${VIEWPORT} .stx-slot`).nth(0).locator(".stx-grab").click();
   await cp.waitForFunction(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.includes("picked up"),
     null, { timeout: 5000 });
   // One real step before the swap (PR #255 review M1): a carry that never moved satisfies the
   // at-origin conjunct below vacuously — origin === current from pick-up, so cancel()'s restore
-  // line could be deleted and the row would stay green. Displacing the preview to row 2 (free on
-  // the committed board — every place arranges along row 1) makes the restore the only way back,
-  // and the wait proves the displacement really happened rather than assuming the keypress landed.
+  // line could be deleted and the row would stay green. Displacing the preview makes the restore
+  // the only way back, and the wait proves the displacement really happened rather than assuming
+  // the keypress landed. ONE ARROW IS ONE NUDGE NOW (#302) — 4px, not a row — and nothing can
+  // block it, so one press always displaces; under the grid this needed a free row to move into.
   await cp.keyboard.press("ArrowDown");
-  await cp.waitForFunction((o) => document.querySelector("[data-studio-canvas] .stx-slot").getAttribute("data-row") !== o,
-    carryOrigin.row, { timeout: 5000 });
+  await cp.waitForFunction((o) => document.querySelector("[data-studio-canvas] .stx-slot").style.getPropertyValue("--y") !== o,
+    carryOrigin.y, { timeout: 5000 });
   await compileNow(cp);
   const carried = await cp.evaluate(() => import("/system/studio-verbs.mjs").then((m) => {
     const w = document.querySelector("[data-studio-canvas] .stx-slot");
     return {
       gestureLive: m.getVerbs().gesture !== null,
       picked: document.querySelectorAll("[data-studio-canvas] .is-picked").length,
-      col: w.getAttribute("data-col"), row: w.getAttribute("data-row"),
+      x: w.style.getPropertyValue("--x"), y: w.style.getPropertyValue("--y"),
     };
   }));
   t("#251 · a live sticky carry is cancelled when the compile swap lands — gesture void, node at origin",
     !carried.gestureLive && carried.picked === 0
-      && carried.col === carryOrigin.col && carried.row === carryOrigin.row,
+      && carried.x === carryOrigin.x && carried.y === carryOrigin.y,
     JSON.stringify({ origin: carryOrigin, after: carried }));
   await cp.close();
   await ctx.close();
@@ -2613,8 +2988,10 @@ async function flowPass(browser, t, errors) {
 // #210 · THE KEEP RAIL, THE EXPORT AND THE ?b= RESTORE. Everything here is a running-page fact that
 // tooling/build-checks.mjs group 17 structurally cannot reach, and group 17's own summary says so:
 // that group owns the STRING the exporter produces, and this owns whether a browser really hands a
-// file over, whether the tiers really hide, whether the address bar really carries the arrangement,
-// and whether the declined mount really leaves a live Compile button.
+// file over, whether the tiers really hide, whether the address bar really carries NO arrangement —
+// `g` is retired with the grid and the decoder refuses one BY NAME (#302), so what travels is the
+// board alone, and the two rows that asserted the old claim were retired with it — and whether the
+// declined mount really leaves a live Compile button.
 //
 // THE BARE-BOARD STATE IS BUILT HERE, WITH THE PAGE'S OWN CODEC. /factory has no remove verb
 // (studio-verbs.mjs owns move/undo/redo only) and Act 0's "Clear the canvas" clears the PACK, not
@@ -2678,8 +3055,9 @@ async function keepPass(browser, t, errors) {
   // Parsed as HTML BY A BROWSER rather than pattern-matched: group 17 already owns the string, and
   // what this adds is that a real engine reads it as a document containing the composed flow.
   // (#210's coordinate assertion retired with the coordinates: since #212 the file's layout is
-  // board order × affordance order, the share link carries the arrangement, and the provenance
-  // claims no geometry — so there is nothing on the canvas for the file to be compared against.)
+  // board order × affordance order and the provenance claims no geometry — so there is nothing on
+  // the canvas for the file to be compared against. #302 retired the share link's half of that
+  // sentence too: the link carries no arrangement at all now, and the row below asserts it.)
   const parsed = await p1.evaluate((html) => {
     const doc = new DOMParser().parseFromString(html, "text/html");
     return {
@@ -2706,29 +3084,15 @@ async function keepPass(browser, t, errors) {
     parsed.tiles === boardCounts.places, `${parsed.tiles} tiles for ${boardCounts.places} places`);
   t("#210 · …and it carries no script at all — nothing in it can run, and nothing needs to",
     parsed.scripts === 0, `${parsed.scripts} script(s)`);
-  const canvasSlots = await p1.locator(`${VIEWPORT} .stx-slot`).evaluateAll((ws) => ws.map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`));
-
-  // --- 3 · the copy click, the address bar, and the `g` field only this page can produce ---------
+  // --- 3 · the copy click, and the address bar --------------------------------------------------
   //
-  // THE MOVE FIRST, AND IT IS WHAT MAKES EVERY COORDINATE ASSERTION BELOW A DISCRIMINATOR. The
-  // replay places every block at { col: index + 1, row: 1 } (replay-driver.mjs:499-503), which is
-  // byte-for-byte what arrangeBoard produces with no `g` in the link at all (studio.mjs:90-92) — so
-  // the receiver in section 6 reached the identical layout whether or not studio.mjs:396-399 ever
-  // applied the sender's field. Deleting that whole restore branch left this pass green, which
-  // means the `?b=` arrangement round trip had running-page coverage of its ENCODE half and none of
-  // its DECODE half: the `check-that-cannot-fail` shape, in the check written for the ticket's
-  // headline claim. One block off row 1 — through the same getVerbs() injection seam #205 uses,
-  // never a window.__ global — is the whole fix. (PR #241 review, Medium 3.)
-  const movedId = await idAt(p1, 2, 1);
-  await inject(p1, { type: "ui.move", source: "agent", target: { component: "block", id: movedId }, params: { col: 2, row: 3 } });
-  await p1.waitForFunction((id) => document.querySelector(`.stx-slot[data-stx-id="${id}"]`)?.getAttribute("data-row") === "3",
-    movedId, { timeout: 5000 });
-  const movedSlots = await p1.locator(`${VIEWPORT} .stx-slot`).evaluateAll((ws) => ws.map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`));
-  // The anti-vacuity guard on the guard: if the injection silently did nothing, the arrangement is
-  // the default one again and everything downstream is back to proving nothing.
-  t("#210 · …and the arrangement about to be copied is NOT the default row-1 one, or nothing below can fail",
-    JSON.stringify(movedSlots) !== JSON.stringify(canvasSlots) && movedSlots.some((s) => !s.endsWith("-r1")),
-    `${JSON.stringify(movedSlots)} vs ${JSON.stringify(canvasSlots)}`);
+  // NO ARRANGEMENT ASSERTION, AND NO MOVE BEFORE THE COPY (#302). Until v3 the link carried the
+  // sender's grid arrangement in `g`, and this section asserted that it came back — with a
+  // deliberate off-row-1 move first, added by PR #241's Medium 3, that existed ONLY to make that
+  // assertion a discriminator (the replay's default layout and arrangeBoard's answer are
+  // byte-identical, so without the move the receiver reached the same layout whether the field was
+  // applied or not). `g` is retired with the grid. The move and the assertion go together: keeping
+  // the move and comparing positions would be asserting that the rank layout equals itself.
   await p1.locator("[data-keep-share] button").click();
   await p1.waitForTimeout(400);
   const shared = p1.url();
@@ -2742,16 +3106,14 @@ async function keepPass(browser, t, errors) {
     const param = new URL(location.href).searchParams.get(SHARE_PARAM);
     if (!param) return { reason: "no ?b= in the address bar at all" };
     const { state, reason } = await decodeBuild(param);
-    return { reason, places: state && state.board.places.length, arrangement: state && state.arrangement };
+    return { reason, places: state && state.board.places.length, arrangement: state && "arrangement" in state };
   });
   t("#210 · …and it decodes back to this board", decoded.places === onCanvas, JSON.stringify(decoded).slice(0, 160));
-  // THE HEADLINE. /build's rail structurally cannot produce a `g` — it has no canvas — so this is
-  // the assertion that distinguishes the two rails, and the codec drops `g` SILENTLY when the
-  // arrangement stops describing the board, which is exactly how this could ship green and wrong.
-  t("#210 · …carrying the ARRANGEMENT, which is the one thing /build's rail cannot express",
-    Array.isArray(decoded.arrangement) && decoded.arrangement.length === onCanvas
-    && JSON.stringify(decoded.arrangement.map((a) => `sx-c${a.col}-r${a.row}`)) === JSON.stringify(movedSlots),
-    JSON.stringify(decoded.arrangement));
+  // The positive half of #302's retirement, asserted rather than left as an absence: a v3 decode
+  // carries no `arrangement` key at all. An always-null key would be a seam a later reader would try
+  // to use, and "the assertion was deleted" is not evidence the field went with it.
+  t("#302 · …and it carries NO arrangement key — the grid, and `g` with it, are retired",
+    decoded.arrangement === false, JSON.stringify(decoded).slice(0, 160));
   await p1.close();
 
   // --- 4 · both routes fire ONCE each, and the real URL comes back -------------------------------
@@ -2841,7 +3203,7 @@ async function keepPass(browser, t, errors) {
     replay: document.querySelector("[data-studio]").getAttribute("data-replay"),
     provenance: document.querySelector("[data-studio]").getAttribute("data-provenance"),
     slots: [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
-      .map((w) => `sx-c${w.getAttribute("data-col")}-r${w.getAttribute("data-row")}`),
+      .map((w) => w.getAttribute("data-stx-name")),
     transport: document.querySelector(".stu-replay-controls")
       ? getComputedStyle(document.querySelector(".stu-replay-controls")).display : "gone",
     note: document.querySelector(".stu-replay-provenance")?.textContent || "",
@@ -2849,11 +3211,14 @@ async function keepPass(browser, t, errors) {
   }));
   t("#210 · the driver mounts DECLINED on a ?b= arrival rather than assembling over the visitor's board",
     declined.replay === "declined", declined.replay);
-  // Against movedSlots, NOT the default row-1 layout the replay produces: the receiver can only
-  // reach these coordinates by applying the link's `g` field, which is what makes this the decode
-  // half's only running-page proof (see section 3's note).
-  t("#210 · …with the SENDER'S board on the canvas, at the SENDER'S coordinates — reachable only through the link's `g`",
-    JSON.stringify(declined.slots) === JSON.stringify(movedSlots), `${JSON.stringify(declined.slots)} vs ${JSON.stringify(movedSlots)}`);
+  // THE SENDER'S BOARD, NOT THE SENDER'S COORDINATES (#302). Until v3 this compared the receiver's
+  // slots against the sender's moved ones, because only the link's `g` field could get it there —
+  // that was the decode half's one running-page proof. `g` is retired, so what the link carries is
+  // the board, and the receiver lays it out by the rank rule like any other. The claim shrinks to
+  // what is actually true, rather than being translated into a comparison of a layout with itself.
+  t("#210 · …with the SENDER'S board on the canvas — the places came through the link",
+    declined.slots.length === onCanvas && declined.slots.every((n) => typeof n === "string" && n.length > 0),
+    `${JSON.stringify(declined.slots)} for ${onCanvas} place(s)`);
   t("#210 · …and NOTHING was emitted — a declined driver plays no beat at all",
     declined.acts.length === 0, JSON.stringify(declined.acts));
   t("#210 · …the transport is genuinely not painted (COMPUTED display — `hidden` is inert under an author rule)",
@@ -2979,10 +3344,12 @@ async function keepPass(browser, t, errors) {
   // the screen, screens are 1:1 with wrappers by construction, and the six feed rows render INSIDE
   // the entry screen with streamNote's truncation sentence beside them. The state this section
   // drove is therefore unreachable, and the SAME LINK now proves the new truth instead: the wrapper
-  // count never moves, the truncation is stated on the stage, and the copied link DOES carry the
-  // arrangement, labelled as carrying it. The no-arrangement caveat machinery stays in
-  // studio-keep.mjs on the tripwire's terms — it only speaks when the state occurs — and no known
-  // path produces it, which is exactly what these assertions would catch changing.
+  // count never moves, the truncation is stated on the stage, and the copied link decodes back to
+  // this board carrying NO arrangement key at all — `g` is retired and refused by name, which #302
+  // asserted here by inverting the two rows rather than deleting them (see :3348 below). The
+  // no-arrangement caveat machinery stays in studio-keep.mjs on the tripwire's terms — it only
+  // speaks when the state occurs — and no known path produces it, which is exactly what these
+  // assertions would catch changing.
   const p10 = await ctx.newPage();
   watch(p10, "keep-feed");
   await p10.goto(`${BASE}/factory.html`, { waitUntil: "load" });
@@ -3003,7 +3370,11 @@ async function keepPass(browser, t, errors) {
   const feedState = await p10.evaluate(() => ({
     wrappers: document.querySelectorAll("[data-studio-canvas] .stx-slot").length,
     screens: document.querySelectorAll("[data-studio-canvas] .stx-slot > .stf-screen").length,
-    rows: document.querySelectorAll("[data-studio-canvas] .stx-slot:first-child .stf-screen .ds-list-row").length,
+    // NOT `.stx-slot:first-child` (#302). The arrow overlay is now the stage's FIRST child — a
+    // sibling of the nodes, prepended so lines paint under them — so that selector matches
+    // nothing and this row read 0 on a correct page. The entry place is the first slot in DOM
+    // order, which is board order, so ask for that directly.
+    rows: document.querySelector("[data-studio-canvas] .stx-slot")?.querySelectorAll(".stf-screen .ds-list-row").length ?? 0,
     note: document.querySelector("[data-studio-canvas] .stf-note")?.textContent || "",
   }));
   t("#212 · a `shape: stream` link compiles IN PLACE — the wrapper count never moves, so the state M2 lived in is gone",
@@ -3026,11 +3397,22 @@ async function keepPass(browser, t, errors) {
       label: document.querySelector(".stu-keep-link").getAttribute("aria-label"),
     };
   });
-  t("#212 · …and the copied link CARRIES the arrangement — with screens 1:1 to wrappers nothing stops it travelling",
-    Array.isArray(feedOut.arrangement) && feedOut.arrangement.length === 4, JSON.stringify(feedOut.arrangement));
-  t("#212 · …and neither the confirmation nor the field's label hedges about it",
-    !/did not travel/.test(feedOut.note) && /arrangement included/.test(feedOut.label),
-    `${feedOut.note} | ${feedOut.label}`);
+  // THE CLAIM IS RETIRED, NOT TRANSLATED (#302, Task 1.5b's fifth site — the other four are
+  // keepPass's own no-arrangement row above, the SHARE_NOTE paragraph in system/studio-keep.mjs,
+  // the button label and its two aria variants, and param-manifest.json's note on that label. Named
+  // rather than cited by line: this comment carried ":2965-2991", which pointed at the keep rail's
+  // tier and request rows on the tree that wrote it — PR #432's F8, one file down). These
+  // two rows asserted that the copied link CARRIED the sender's arrangement, which was the codec's
+  // `g` field; `g` is deleted and its refusal is named. So what is asserted now is the retirement
+  // itself: the link still decodes to the same board, and it carries NO arrangement key at all.
+  //
+  // The LABEL row goes with it rather than being inverted. It read `/arrangement included/`, and
+  // the shipped label is now "The link that rebuilds this build" — param-manifest.json:96 records
+  // the same change. A row asserting the absence of a phrase nothing writes is a row that cannot
+  // fail; the decode above is where the retirement is actually proven.
+  t("#302 · …and the copied link carries NO arrangement — `g` is retired, so what travels is the board alone",
+    feedOut.arrangement === null && !/arrangement/i.test(feedOut.label),
+    `${JSON.stringify(feedOut.arrangement)} | ${feedOut.label}`);
   await p10.close();
 
   // --- 11 · reduced motion -----------------------------------------------------------------------
@@ -3643,7 +4025,7 @@ async function methodPass(browser, engineName, t, errors) {
   // the cancel + placements + redraft sentence are one synchronous burst, so `last` never holds it.
   const draftSaid = await liveSeen(p7);
   t("#264 · …and the redraft announces the cancellation NAMING the carried block, spoken while its node still existed",
-    draftSaid.texts.some((s) => s.startsWith(`Cancelled, ${carried} back in column `)),
+    draftSaid.texts.some((line) => line.startsWith(`Cancelled, ${carried} back at `)),
     `${draftSaid.n} record(s): ${JSON.stringify(draftSaid.texts)}`);
   // Escape after the redraft: the document listener (studio-verbs.mjs's body-drag route) finds no
   // gesture, so NOTHING is announced — on the pre-fix tree this is where the phantom spoke,
@@ -3717,43 +4099,59 @@ async function selectPass(browser, engineName, t, errors) {
     return p;
   };
 
+  // THE ARRANGEMENT AS idsInRange'S OWN INPUT SHAPE (#302). It returned { id, col, row } and now
+  // returns { id, x, y, w, h } — which is not a translation but a requirement: idsInRange takes
+  // extent into account ("a node is in range when its BOX overlaps the rectangle"), so a reader
+  // that dropped w and h would compute a different answer from the page's and the AC #1 identity
+  // rows would compare two wrong things.
   const slotsNow = (p) => p.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
     .map((n) => ({
       id: n.getAttribute("data-stx-id"),
-      col: Number(n.getAttribute("data-col")),
-      row: Number(n.getAttribute("data-row")),
+      x: parseFloat(n.style.getPropertyValue("--x")) || 0,
+      y: parseFloat(n.style.getPropertyValue("--y")) || 0,
+      w: parseFloat(n.style.getPropertyValue("--w")) || n.offsetWidth || 0,
+      // THE MEASURED HEIGHT WHEN NONE IS AUTHORED, matching studio-select.mjs's boxOf exactly. A
+      // board wrapper has no --h, and reading 0 here would make this driver compute a different
+      // rectangle from the page's and call the disagreement a pass or a fail at random.
+      h: (Number.isFinite(parseFloat(n.style.getPropertyValue("--h")))
+        ? parseFloat(n.style.getPropertyValue("--h")) : n.offsetHeight) || 0,
     })));
+  // JUST THE PLACES, for the two rows that compare an arrangement across a state change. slotsNow
+  // reports the MEASURED height for a node with no authored one (studio-select.mjs's boxOf rule,
+  // mirrored so the marquee expectations agree with the page) — and a compile legitimately changes
+  // that height, so a whole-record identity would call a correct "every member back at its origin"
+  // a failure. The claim is POSITION; this is the claim.
+  const places = (list) => JSON.stringify(list.map((v) => [v.id, v.x, v.y]));
   const chosen = async (p) => (await p.evaluate(() =>
     [...document.querySelectorAll("[data-studio-canvas] .stx-slot[data-stx-selected]")]
       .map((n) => n.getAttribute("data-stx-id")))).sort();
   const picked = (p) => p.locator(`${VIEWPORT} .stx-slot.is-picked`).count();
 
-  // The client-space centre of a cell on /factory. The X pitch is MEASURED from two real slot boxes
-  // (journey's cellPoint discipline); the Y pitch has to come from the resolved grid, because the
-  // committed board fills ROW 1 ONLY and there is no second occupied row to measure against —
-  // perfPass's drag row makes the identical call for the identical reason. /factory sits at scale 1
-  // (ZOOM_REST) and nothing here zooms, so the unscaled track is the painted track.
-  const cell = (p, col, row) => p.evaluate(([c, r]) => {
-    const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-    const box = (cc) => stage.querySelector(`.stx-slot[data-col="${cc}"][data-row="1"]`)?.getBoundingClientRect();
-    const a = box(1);
-    const b = box(2);
-    if (!a || !b) return { error: "the reference slots (1,1) and (2,1) are not both placed" };
-    const cs = getComputedStyle(stage);
-    const pitchY = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
-    const x = a.left + (c - 1) * (b.left - a.left) + a.width / 2;
-    const y = a.top + (r - 1) * pitchY + a.height / 2;
-    // REACHABILITY IS REPORTED, NOT ASSUMED. A cell can be perfectly valid and still be somewhere no
-    // pointer can go: .stx-scroll is 640 px tall so anything past row ~4 is below it, and on
-    // /factory the scroller is wider than the window so the far columns are off-screen with no
-    // horizontal scroll to reach them. A raw mouse.move to such a point silently does nothing, and
-    // the row that used it fails somewhere else entirely — three separate fixtures in this pass
-    // were written wrong that way before this flag existed.
-    const sr = document.querySelector("[data-studio-canvas] .stx-scroll").getBoundingClientRect();
-    const onScreen = x >= sr.left && x <= sr.right && y >= sr.top && y <= sr.bottom
-      && x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
-    return { x, y, onScreen };
-  }, [col, row]);
+  // A CELL SHORTHAND → A CLIENT POINT (#302). There are no tracks to measure any more, and there
+  // is no longer any need to: a position is written on the node, so the conversion is the stage's
+  // OWN rect plus the point, scaled. Anchored on the stage rather than on two reference slots —
+  // the old helper interpolated between (1,1) and (2,1) because a cell's client position could
+  // only be found by looking at a cell, and it threw on this board the moment the rank layout
+  // stopped guaranteeing a second occupant in row 1.
+  //
+  // THE EXACT INVERSE OF studio-select.mjs's pointOnStage, deliberately: the SCROLLER's rect plus
+  // its scroll offsets, divided by the scale. The stage's own rect looks like the simpler anchor
+  // and is wrong by the scroller's 1px border — which sounds ignorable and is not. A block with no
+  // authored height is a ZERO-HEIGHT POINT to idsInRange (studio-select.mjs's stated rule: "a node
+  // with no declared size is a point"), so every one of these blocks sits AT y = 0, and a marquee
+  // whose top edge came back as 1 instead of 0 missed all four. Measured, not reasoned about.
+  //
+  // THE POINT IS AN ORIGIN, NOT A CENTRE, and that is the call this pass needs: every consumer
+  // below is a MARQUEE CORNER, and the expected id set is computed from marqueeRange over the very
+  // same at() origins. Corners that agreed with the range only approximately would make every
+  // identity row a coincidence.
+  // A CELL SHORTHAND -> A CLIENT POINT. The cell numbers stay because every fixture below is
+  // written in them and they read as "five pitches across, three down"; the conversion is
+  // clientPoint's, shared with layersPass, and the ORIGIN rather than the centre — every consumer
+  // here is a MARQUEE CORNER, and the expected id set is computed from marqueeRange over the very
+  // same at() origins, so corners that agreed only approximately would make every identity row a
+  // coincidence.
+  const cell = (p, col, row) => clientPoint(p, at(col, row).x, at(col, row).y);
 
   // Every pointer gesture below goes through these two, so an off-screen fixture is a NAMED throw at
   // the point of use rather than a green row that tested nothing.
@@ -3796,7 +4194,9 @@ async function selectPass(browser, engineName, t, errors) {
     grid1.length >= 3, `${grid1.length} slot(s)`);
   // The RECTANGLE is the fixture, and the expected id set is derived from it in Node through the
   // page's own marqueeRange + idsInRange. Two blocks, because the committed board fills row 1.
-  const RANGE = marqueeRange({ col: 1, row: 1 }, { col: 2, row: 2 });
+  // marqueeRange takes two POINTS on the stage now, not two cells — and the two corners are the
+  // same at() origins cell() converts, so the drag and the expectation describe one rectangle.
+  const RANGE = marqueeRange(at(1, 1), at(2, 2));
   const want = idsInRange(grid1, RANGE).slice().sort();
   await countLive(p1);
   await shiftDrag(p1, await cell(p1, 1, 1), await cell(p1, 2, 2));
@@ -3806,6 +4206,26 @@ async function selectPass(browser, engineName, t, errors) {
   const said1 = await liveSeen(p1);
   t("#217/AC1 · …announced EXACTLY ONCE for the whole drag, on release (D12: the reader is watching their own hand)",
     said1.n === 1 && /^\d+ selected: /.test(said1.last), JSON.stringify(said1));
+  // THE SELECTION IS VISIBLE, READ AS A COMPUTED STYLE (#302, PR #432's F1). Every other selection
+  // row in this file asserts through `data-stx-selected`, which a node still carries when the rule
+  // that paints it never parsed: a stray `*/` in studio.css let CSS error recovery swallow
+  // `.stx-slot.is-selected` whole, and every one of those rows stayed green while marquee select
+  // gave the reader no feedback at all. The pixel gate cannot reach it either — a selection outline
+  // is not a state any at-rest capture holds.
+  //
+  // BOTH DIRECTIONS, because "every node has an outline" satisfies the first half on its own. The
+  // unselected peer is drawn from the SAME marquee, so the pair is one page state, not two.
+  const outlines = await p1.evaluate(() => {
+    const read = (el) => (el ? { style: getComputedStyle(el).outlineStyle, width: getComputedStyle(el).outlineWidth } : null);
+    return {
+      on: read(document.querySelector("[data-studio-canvas] .stx-slot[data-stx-selected]")),
+      off: read(document.querySelector("[data-studio-canvas] .stx-slot:not([data-stx-selected])")),
+    };
+  });
+  t("#217/AC1 · …and the selection is actually PAINTED — a selected node computes a dashed outline of non-zero width and an unselected peer computes none",
+    Boolean(outlines.on) && outlines.on.style === "dashed" && parseFloat(outlines.on.width) > 0
+      && Boolean(outlines.off) && outlines.off.style === "none",
+    JSON.stringify(outlines));
   // A marquee that caught nothing says so, and says the OTHER sentence — it never had a selection
   // to clear. TWO CONSTRAINTS decide which cells this may use, not one: the pair must be provably
   // empty (asserted below from the live arrangement, never assumed) AND on screen. A far column
@@ -3813,24 +4233,31 @@ async function selectPass(browser, engineName, t, errors) {
   // mouse.move to either lands somewhere else entirely — which is exactly how this row failed on
   // firefox while passing on chromium. The committed board fills ROW 1 only, so rows 2-3 of the
   // first columns are both empty and visible.
-  const emptyA = { col: 1, row: 2 };
-  const emptyB = { col: 2, row: 3 };
+  // ROWS 3-4 rather than 2-3 (#302). idsInRange is an OVERLAP test now, not a containment one, so
+  // a rectangle starting one pitch below a node still catches it: the committed board's blocks are
+  // ~83px tall but a node's declared box is NODE_H, and row 2's rectangle touches row 1's boxes.
+  // The emptiness is asserted from the live arrangement either way, so a wrong pair fails loudly
+  // here rather than making the sentence below about the wrong event.
+  const emptyA = { col: 1, row: 3 };
+  const emptyB = { col: 2, row: 4 };
   t("#217 · the empty-marquee fixture really is empty — otherwise the sentence below would be about the wrong event",
-    idsInRange(grid1, marqueeRange(emptyA, emptyB)).length === 0, JSON.stringify(grid1));
+    idsInRange(grid1, marqueeRange(at(emptyA.col, emptyA.row), at(emptyB.col, emptyB.row))).length === 0,
+    JSON.stringify(grid1));
   await countLive(p1);
   await shiftDrag(p1, await cell(p1, emptyA.col, emptyA.row), await cell(p1, emptyB.col, emptyB.row));
   const said1b = await liveSeen(p1);
   t("#217 · a marquee over empty canvas says \"Nothing to select.\", not \"Selection cleared.\" — it never had a selection to clear",
     said1b.n === 1 && said1b.last === "Nothing to select." && (await chosen(p1)).length === 0,
     JSON.stringify(said1b));
-  t("#217 · …and no style attribute exists anywhere on the canvas after a marquee",
-    (await p1.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-stage, [data-studio-canvas] .stx-scroll, [data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-guide, [data-studio-canvas] .stx-menu")].filter((n) => n.hasAttribute("style")).length)) === 0);
+  const afterMarquee = await strayStyles(p1, "[data-studio-canvas] .stx-stage, [data-studio-canvas] .stx-scroll, [data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-guide, [data-studio-canvas] .stx-menu");
+  t("#217 · …and every style attribute on the canvas still carries ONLY a position or scale property after a marquee",
+    afterMarquee.length === 0, afterMarquee.join(", "));
   await p1.close();
 
   // --- 2 · AC #1's whole claim: the KEYBOARD path selects the SAME SET ----------------------------
   const p2 = await openSettled();
   const grid2 = await slotsNow(p2);
-  const anchorId = grid2.find((s) => s.col === 1 && s.row === 1).id;
+  const anchorId = grid2.find((s) => s.x === at(1, 1).x && s.y === at(1, 1).y).id;
   await p2.locator(`.stx-slot[data-stx-id="${anchorId}"] .stx-grab`).focus();
   await countLive(p2);
   await p2.keyboard.press("Shift+ArrowRight");
@@ -3876,13 +4303,22 @@ async function selectPass(browser, engineName, t, errors) {
   const depth0 = await historyDepth(p3);
   await dragHandle(p3, members[0], await cell(p3, 1, 2));
   const grid3b = await slotsNow(p3);
-  const landed = members.every((id) => {
-    const was = grid3.find((s) => s.id === id);
-    const now = grid3b.find((s) => s.id === id);
-    return now.col === was.col && now.row === was.row + 1;
-  });
-  t("#217/AC2 · dragging ONE selected member lands EVERY member at its own offset — the selection keeps its shape",
-    landed, JSON.stringify(grid3b.filter((s) => members.includes(s.id))));
+  // THE CLAIM IS THE SHAPE, AND IT IS NOW THE ONLY THING NAMEABLE (#302). The old row could say
+  // "+1 row" because a drop snapped to a track; a free drop lands on the float the pointer
+  // released at, minus the grab offset. What "the selection keeps its shape" means is that EVERY
+  // member moved by the SAME delta — which is exactly what a per-member recompute would break, and
+  // is a stronger statement than the old one, since it holds over N members rather than over one
+  // axis. The non-zero conjunct is what stops a drag that did nothing passing it vacuously.
+  const delta = (id) => {
+    const was = grid3.find((x) => x.id === id);
+    const now = grid3b.find((x) => x.id === id);
+    return [now.x - was.x, now.y - was.y];
+  };
+  const d0 = delta(members[0]);
+  const landed = (d0[0] !== 0 || d0[1] !== 0)
+    && members.every((id) => JSON.stringify(delta(id)) === JSON.stringify(d0));
+  t("#217/AC2 · dragging ONE selected member lands EVERY member at the SAME offset — the selection keeps its shape",
+    landed, `deltas ${JSON.stringify(members.map(delta))}`);
   const bus3 = await busSeen(p3);
   t("#217/AC2 · …emitting exactly ONE ui.move-group and NO ui.move at all",
     bus3.filter((a) => a.type === "ui.move-group").length === 1 && bus3.filter((a) => a.type === "ui.move").length === 0,
@@ -3902,10 +4338,10 @@ async function selectPass(browser, engineName, t, errors) {
   const grid3c = await slotsNow(p3);
   t("#217/AC2 · ONE Undo puts EVERY member back where it was",
     members.every((id) => {
-      const was = grid3.find((s) => s.id === id);
-      const now = grid3c.find((s) => s.id === id);
-      return now.col === was.col && now.row === was.row;
-    }), JSON.stringify(grid3c.filter((s) => members.includes(s.id))));
+      const was = grid3.find((x) => x.id === id);
+      const now = grid3c.find((x) => x.id === id);
+      return now.x === was.x && now.y === was.y;
+    }), JSON.stringify(grid3c.filter((x) => members.includes(x.id))));
   t("#217 · …and the selection SURVIVES the undo — undoing a move is not a reason to lose the set",
     JSON.stringify(await chosen(p3)) === JSON.stringify(members));
   await p3.close();
@@ -3930,12 +4366,14 @@ async function selectPass(browser, engineName, t, errors) {
   await p4.keyboard.press("Enter");
   await p4.waitForTimeout(160);
   const grid4b = await slotsNow(p4);
-  t("#217/AC2 · the KEYBOARD group move (Enter, ArrowDown, Enter) lands every member at the same offset",
+  // ONE ArrowDown is ONE NUDGE for a group exactly as it is for a single node (#302) — one
+  // resolver, which is the whole reason the two keyboard paths collapsed into one.
+  t("#217/AC2 · the KEYBOARD group move (Enter, ArrowDown, Enter) lands every member one nudge down, at the same offset",
     members4.every((id) => {
-      const was = grid4.find((s) => s.id === id);
-      const now = grid4b.find((s) => s.id === id);
-      return now.col === was.col && now.row === was.row + 1;
-    }), JSON.stringify(grid4b.filter((s) => members4.includes(s.id))));
+      const was = grid4.find((x) => x.id === id);
+      const now = grid4b.find((x) => x.id === id);
+      return now.x === was.x && now.y === was.y + NUDGE_STEP;
+    }), `${JSON.stringify(grid4b.filter((x) => members4.includes(x.id)))} (one nudge is ${NUDGE_STEP}px)`);
   const bus4 = await busSeen(p4);
   t("#217/AC2 · …through the same ONE ui.move-group, which is what makes pointer/keyboard parity true by construction rather than by two paths that agree",
     bus4.filter((a) => a.type === "ui.move-group").length === 1 && bus4.filter((a) => a.type === "ui.move").length === 0,
@@ -3949,11 +4387,14 @@ async function selectPass(browser, engineName, t, errors) {
   // R8 — the group sentences name the COUNT, not a component: a whole-canvas selection that only the
   // edge can stop is correct and would otherwise be silent about why. Read as the region's value AT
   // each moment, never as a flag, and never with an `|| true` escape hatch that cannot fail.
+  // T16's NEW VOCABULARY (#302): a free position is not the reader's coordinate the way a cell was,
+  // so the pick-up names the anchor in pixels and the step names BOTH how far it moved and where
+  // that left the anchor. Both shapes asserted whole rather than by substring.
   t("#217 · the group PICK-UP sentence names the count and the instructions, not one component (R8)",
-    new RegExp(`^${members4.length} components picked up, column \\d+, row \\d+\\. Arrow keys to move, Enter to drop, Escape to cancel\\.$`)
+    new RegExp(`^${members4.length} components picked up at -?\\d+, -?\\d+\\. Arrow keys to move, Enter to drop, Escape to cancel\\.$`)
       .test((pickupSaid || "").trim()), JSON.stringify(pickupSaid));
-  t("#217 · …and the group ARROW STEP sentence names the count and the slot it reached",
-    new RegExp(`^${members4.length} components in column \\d+, row \\d+\\.$`).test((stepSaid || "").trim()),
+  t("#217 · …and the group ARROW STEP sentence names the count, the distance and the anchor it reached",
+    new RegExp(`^${members4.length} components moved by 0, ${NUDGE_STEP}, anchor at -?\\d+, -?\\d+\\.$`).test((stepSaid || "").trim()),
     JSON.stringify(stepSaid));
   t("#217/AC2 · one Undo restores the whole keyboard group move too",
     await (async () => {
@@ -3961,9 +4402,9 @@ async function selectPass(browser, engineName, t, errors) {
       await p4.waitForTimeout(260);
       const g = await slotsNow(p4);
       return members4.every((id) => {
-        const was = grid4.find((s) => s.id === id);
-        const now = g.find((s) => s.id === id);
-        return now.col === was.col && now.row === was.row;
+        const was = grid4.find((x) => x.id === id);
+        const now = g.find((x) => x.id === id);
+        return now.x === was.x && now.y === was.y;
       });
     })());
   await p4.close();
@@ -3972,46 +4413,63 @@ async function selectPass(browser, engineName, t, errors) {
   const p5 = await openSettled();
   // The honesty predicate, written ONCE and used twice: for the real guides, and for the mutation
   // that decides whether it can fail at all.
-  const guidesHonest = (p) => p.evaluate(() => {
+  const guidesHonest = (p, minSize) => p.evaluate((MIN) => {
+    const num = (n, k) => parseFloat(n.style.getPropertyValue(k));
     const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-    const guides = [...stage.querySelectorAll(".stx-guide")]
-      .map((n) => ({ col: n.getAttribute("data-col"), row: n.getAttribute("data-row") }));
+    // A GUIDE IS A POSITIONED NODE NOW, like everything else on this stage, and its AXIS is read
+    // off its SHAPE: setGuide writes a MIN_SIZE-wide full-height box for a vertical line and the
+    // reverse for a horizontal one, so `x` is the claim when it is thin and `y` when it is flat.
+    const guides = [...stage.querySelectorAll(".stx-guide")].map((n) => {
+      const vertical = num(n, "--w") === MIN;
+      return { x: vertical ? num(n, "--x") : null, y: vertical ? null : num(n, "--y") };
+    });
     // BOTH SETS ARE THE MOVABLE FAMILIES SINCE #219, not .stx-slot alone. studio-verbs.mjs's
     // renderGuides reads the same widened set, and it is RIGHT to: a device frame is on the grid, so
     // a block sharing its column really is aligned with something. Left narrow, this predicate calls
     // an honest guide a lie — which is how it failed the moment the frames landed.
     const peers = [...stage.querySelectorAll(".stx-slot:not(.is-picked), .stx-frame:not(.is-picked)")]
-      .map((n) => ({ col: Number(n.getAttribute("data-col")), row: Number(n.getAttribute("data-row")) }));
+      .map((n) => ({ x: num(n, "--x"), y: num(n, "--y") }));
     const carried = [...stage.querySelectorAll(".stx-slot.is-picked, .stx-frame.is-picked")]
-      .map((n) => ({ col: Number(n.getAttribute("data-col")), row: Number(n.getAttribute("data-row")) }));
-    const honest = guides.every((g) => (g.col != null
-      ? peers.some((s) => s.col === Number(g.col)) && carried.some((s) => s.col === Number(g.col))
-      : peers.some((s) => s.row === Number(g.row)) && carried.some((s) => s.row === Number(g.row))));
+      .map((n) => ({ x: num(n, "--x"), y: num(n, "--y") }));
+    const honest = guides.every((g) => (g.x != null
+      ? peers.some((v) => v.x === g.x) && carried.some((v) => v.x === g.x)
+      : peers.some((v) => v.y === g.y) && carried.some((v) => v.y === g.y)));
     return { guides, honest, peers, carried };
-  });
+  }, minSize);
   const grid5 = await slotsNow(p5);
   await p5.locator(`.stx-slot[data-stx-id="${grid5[0].id}"] .stx-grab`).focus();
   await p5.keyboard.press("Enter");
   await p5.waitForTimeout(120);
-  const gs = await guidesHonest(p5);
+  const gs = await guidesHonest(p5, MIN_SIZE);
   t("#217/AC3 · every alignment guide drawn mid-carry sits on a column or row where a NON-CARRIED peer really is",
     gs.honest, JSON.stringify(gs));
   t("#217/AC3 · …and the carry really did draw at least one — a guide check over zero guides is vacuous",
     gs.guides.length >= 1, JSON.stringify(gs.guides));
   // THE MUTATION THAT DECIDES WHETHER THAT CHECK CAN FAIL AT ALL (memory check-that-cannot-fail).
   // A guide is forced onto a PROVABLY EMPTY column and the same predicate must go red.
-  const emptyCol5 = (() => { for (let c = 1; c <= MAX_COLS; c += 1) if (!grid5.some((s) => s.col === c)) return c; return null; })();
-  await p5.evaluate((c) => {
+  // A PROVABLY EMPTY x, SEARCHED RATHER THAN NAMED. There is no column cap to iterate any more, so
+  // the pitch is walked across the stage until an x no node sits on is found — which is the same
+  // claim the retired column-cap loop made, over the bound that replaced it.
+  const emptyX5 = (() => {
+    for (let x = 0; x + NODE_W <= STAGE_W; x += NODE_W + NODE_GAP) if (!grid5.some((v) => v.x === x)) return x;
+    return null;
+  })();
+  t("#217/AC3 · …and the mutation below has a provably empty column to use", emptyX5 !== null,
+    JSON.stringify(grid5.map((v) => v.x)));
+  await p5.evaluate(([x, min]) => {
     const stage = document.querySelector("[data-studio-canvas] .stx-stage");
     const fake = document.createElement("div");
     fake.className = "stx-guide";
-    fake.setAttribute("data-col", String(c));
+    // The MUTATION writes the same shape setGuide does — thin and tall — so guidesHonest reads it
+    // as a vertical guide rather than skipping it for the wrong reason.
+    fake.style.setProperty("--x", `${x}px`);
+    fake.style.setProperty("--w", `${min}px`);
     fake.setAttribute("data-stx-mutation", "");
     stage.insertBefore(fake, stage.firstChild);
-  }, emptyCol5);
-  const mutated = await guidesHonest(p5);
+  }, [emptyX5, MIN_SIZE]);
+  const mutated = await guidesHonest(p5, MIN_SIZE);
   t("#217/AC3 · THE MUTATION — a guide forced onto a provably empty column makes the honesty check go RED, so the green above is a result rather than a shape",
-    mutated.honest === false, `empty column ${emptyCol5}: ${JSON.stringify(mutated)}`);
+    mutated.honest === false, `empty x ${emptyX5}: ${JSON.stringify(mutated)}`);
   await p5.evaluate(() => document.querySelector("[data-stx-mutation]")?.remove());
   // Gone after the drop, and gone after a cancel — a guide is carry feedback, not decoration.
   await p5.keyboard.press("ArrowDown");
@@ -4160,10 +4618,16 @@ async function selectPass(browser, engineName, t, errors) {
   const p7 = await openSettled();
   const grid7 = await slotsNow(p7);
   const edgeId = grid7[0].id;
-  const openAt = async (col, { stripFlip = false } = {}) => {
-    await inject(p7, { type: "ui.move", source: "agent", target: { id: edgeId }, params: { col, row: 1 } });
+  // THE FLIP IS REACHED BY NARROWING THE NODE, not by naming a last column (#302). menuAnchor
+  // flips when `x + MENU_W > STAGE_W`, and setPos clamps a node to `STAGE_W - w` — so a node at
+  // the full NODE_W can only ever reach x = STAGE_W - NODE_W, where MENU_W (= NODE_W) lands
+  // exactly ON the edge and the flip is unreachable. A MIN_SIZE-wide node clamps further right and
+  // is genuinely in the flip zone. The `w` is passed on the move because the consumer keeps the
+  // node's current width otherwise.
+  const openAt = async (x, { w = NODE_W } = {}) => {
+    await inject(p7, { type: "ui.move", source: "agent", target: { id: edgeId }, params: { x, y: 0, w } });
     await p7.waitForTimeout(150);
-    return p7.evaluate(async ([id, strip]) => {
+    return p7.evaluate(async (id) => {
       const m = await import("/system/studio-select.mjs");
       const sel = m.getSelect();
       sel.closeMenu({ restoreFocus: false });
@@ -4171,39 +4635,59 @@ async function selectPass(browser, engineName, t, errors) {
       sel.openMenu(node, node);
       const menu = document.querySelector("[data-studio-canvas] .stx-menu");
       if (!menu) return null;
-      if (strip) menu.removeAttribute("data-flip-x"); // the MUTATION: undo the fix, keep everything else
       const stage = document.querySelector("[data-studio-canvas] .stx-stage");
       const mr = menu.getBoundingClientRect();
+      const nr = node.getBoundingClientRect();
       const sr = stage.getBoundingClientRect();
       return {
-        flipX: menu.hasAttribute("data-flip-x"),
-        col: menu.getAttribute("data-col"),
+        x: menu.style.getPropertyValue("--x"),
+        nodeX: node.style.getPropertyValue("--x"),
         right: Math.round(mr.right), left: Math.round(mr.left), width: Math.round(mr.width),
-        stageRight: Math.round(sr.right),
+        nodeLeft: Math.round(nr.left), nodeRight: Math.round(nr.right),
+        stageLeft: Math.round(sr.left), stageRight: Math.round(sr.right),
       };
-    }, [edgeId, stripFlip]);
+    }, edgeId);
   };
-  const flipped = await openAt(MAX_COLS);
-  t(`#217 · R5 — a menu opened on a LAST-COLUMN (${MAX_COLS}) component sets data-flip-x, and the CSS rule is LIVE: its right edge lands on its grid area's right edge`,
-    Boolean(flipped) && flipped.flipX === true && flipped.col === String(MAX_COLS)
-    && Math.abs(flipped.right - flipped.stageRight) <= 1, JSON.stringify(flipped));
-  // THE MUTATION that decides whether the row above can fail: same menu, same cell, attribute
-  // removed. If .stx-menu[data-flip-x] { justify-self: end } ever stopped being in the sheet, the
-  // two measurements would be identical and this goes red.
-  const unflipped = await openAt(MAX_COLS, { stripFlip: true });
-  t("#217 · R5 · THE MUTATION — removing data-flip-x really moves the box, so the rule is wired rather than merely written",
-    unflipped.right < flipped.right - 1 && unflipped.width === flipped.width,
-    `${JSON.stringify(unflipped)} vs ${JSON.stringify(flipped)}`);
+  const FAR_X = STAGE_W - MIN_SIZE; // setPos's own clamp for a MIN_SIZE-wide node — the far edge
+  const flipped = await openAt(FAR_X, { w: MIN_SIZE });
+  // ONE CORRECTION, IN THE COORDINATE (owner's call, 2026-09-20), and these rows moved with it.
+  // They used to assert `data-flip-x` plus a `translate: -100% 0` rule, and recorded as a known gap
+  // that the menu was ALSO clamped by setPos — two corrections, so a far-edge menu rendered up to
+  // MENU_W away from the component it belongs to. menuAnchor returns the corrected point now, the
+  // sheet has no rule and the attribute is gone, so what is asserted is where the menu IS.
+  //
+  // THE CLAIM: a menu that does not fit to the right opens LEFTWARD FROM ITS INVOKER, so its RIGHT
+  // edge lands on the invoker's LEFT edge — adjacent to the thing it acts on, which is the whole
+  // point of the change — and the whole box stays on the stage.
+  t(`#217 · R5 — a menu on a FAR-EDGE (x ${FAR_X}) component opens LEFTWARD FROM ITS INVOKER: its right edge lands on the component's left edge`,
+    Boolean(flipped) && Math.abs(flipped.right - flipped.nodeLeft) <= 1
+    && flipped.left >= flipped.stageLeft - 1 && flipped.right <= flipped.stageRight + 1,
+    JSON.stringify(flipped));
+  // THE DISCRIMINATOR that decides whether the row above can fail, named rather than assumed. If
+  // the flip regressed to clamp-only — the shape this replaced — setPos alone would put the menu at
+  // STAGE_W - MENU_W. The flipped answer is FAR_X - MENU_W, which is MIN_SIZE short of that, so the
+  // two are distinguishable and a regression moves the box by exactly MIN_SIZE. Group 22 pins the
+  // same fact purely and from both directions; this is its running-page half.
+  t("#217 · R5 · …and NOT at setPos's own clamp, which is where a regression to clamp-only would leave it",
+    flipped.x === `${FAR_X - NODE_W}px` && flipped.x !== `${STAGE_W - NODE_W}px`,
+    `menu --x ${flipped.x}, node --x ${flipped.nodeX}, clamp-only would be ${STAGE_W - NODE_W}px, MIN_SIZE is ${MIN_SIZE}`);
   // …and it is CONDITIONAL, not always on — the other side of an off-by-one that group 22 pins purely.
-  const interior = await openAt(3);
-  t("#217 · …while an INTERIOR component's menu carries no flip at all, so the attribute is proven conditional rather than always on",
-    interior.flipX === false && interior.col === "3", JSON.stringify(interior));
+  const INTERIOR_X = at(3, 1).x;
+  const interior = await openAt(INTERIOR_X);
+  t("#217 · …while an INTERIOR component's menu opens RIGHTWARD from the same edge, so the flip is proven conditional rather than always on",
+    interior.x === `${INTERIOR_X}px` && Math.abs(interior.left - interior.nodeLeft) <= 1,
+    JSON.stringify(interior));
+  // The two directions stated as one fact, because each row alone would pass on a menu that always
+  // opened the same way: the interior menu grows right from its invoker, the far-edge one grows left.
+  t("#217 · …and the two open in OPPOSITE directions from their invokers — the pair, not either row alone, is what says the flip fires exactly where it should",
+    interior.left >= interior.nodeLeft - 1 && flipped.right <= flipped.nodeLeft + 1,
+    `interior left ${interior.left} vs node ${interior.nodeLeft}; far-edge right ${flipped.right} vs node ${flipped.nodeLeft}`);
   // R7: the menu is anchored to a CELL, so a pan leaves it detached from the block it belongs to.
   // Scrolled VERTICALLY — the horizontal axis does not scroll here at all (see note 1 above), so a
   // scrollLeft nudge would fire no scroll event and this row would pass for the wrong reason.
   await p7.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop += 120; });
   await p7.waitForTimeout(300);
-  t("#217 · R7 — scrolling the canvas CLOSES an open menu, which is anchored to a cell and would otherwise float over an unrelated component",
+  t("#217 · R7 — scrolling the canvas CLOSES an open menu, which is anchored to a place and would otherwise float over an unrelated component",
     (await p7.locator(`${VIEWPORT} .stx-menu`).count()) === 0,
     `scrollTop=${await p7.evaluate(() => Math.round(document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop))}`);
   await p7.close();
@@ -4239,7 +4723,7 @@ async function selectPass(browser, engineName, t, errors) {
   await p8.waitForTimeout(160);
   const after8 = await slotsNow(p8);
   t("#217/AC5 · Escape mid-group-CARRY puts EVERY member back at its own origin",
-    JSON.stringify(after8) === JSON.stringify(before8), `${JSON.stringify(after8)} vs ${JSON.stringify(before8)}`);
+    places(after8) === places(before8), `${places(after8)} vs ${places(before8)}`);
   t("#217/AC5 · …announced once, naming the count", (await liveSeen(p8)).last.startsWith("Cancelled, "),
     (await liveSeen(p8)).last);
   t("#217/AC5 · …and the SELECTION survives the cancel — a cancelled move is not a reason to lose the set",
@@ -4321,20 +4805,31 @@ async function selectPass(browser, engineName, t, errors) {
   const members9 = await chosen(p9);
   t("#217 · R3 — even a QUICK marquee (no settling wait before release) selects the whole rectangle rather than one cell short",
     JSON.stringify(members9) === JSON.stringify(want), `${JSON.stringify(members9)} vs ${JSON.stringify(want)}`);
-  // ROW 2, one row down rather than two: rows 3-4 are #219's device frames, and an occupied cell is
-  // not enterable, so a two-row drag would be BLOCKED and this row would be asserting the collision
-  // rule rather than the stale-frame flush it exists for. One row still crosses a cell boundary,
-  // which is all the quick-release bug needs.
+  // ONE PITCH DOWN. Nothing blocks a free move any more (D-d), so the old "an occupied cell is not
+  // enterable" constraint on this fixture is gone with it — what the distance has to be is far
+  // enough that a stale frame is measurable, and one pitch is that.
   const target9 = await cell(p9, 1, 2);
   await dragHandle(p9, members9[0], target9, { quick: true });
   await p9.waitForTimeout(300);
   const grid9b = await slotsNow(p9);
-  t(`#217 · R3 — a QUICK group drag lands on the cell the reader RELEASED on, not one short (${engineName}; webkit is the engine this reproduces on)`,
-    members9.every((id) => {
-      const was = grid9.find((s) => s.id === id);
-      const now = grid9b.find((s) => s.id === id);
-      return now.col === was.col && now.row === was.row + 1;
-    }), JSON.stringify(grid9b.filter((s) => members9.includes(s.id))));
+  // THE RELEASE POINT IS THE CLAIM, which is exactly what the bug breaks: a stale rAF frame lands
+  // the group one frame's travel short, so the node the reader was dragging does not end up under
+  // their pointer. Asserted as the hit-test property (±2px, journey()'s reason: a free drop lands
+  // on a float and the painted box is rounded to device pixels), plus the group's shape held.
+  const box9 = await p9.evaluate((i) => {
+    const r = document.querySelector(`.stx-slot[data-stx-id="${i}"]`).getBoundingClientRect();
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  }, members9[0]);
+  const d9 = (id) => {
+    const was = grid9.find((x) => x.id === id);
+    const now = grid9b.find((x) => x.id === id);
+    return [now.x - was.x, now.y - was.y];
+  };
+  t(`#217 · R3 — a QUICK group drag lands where the reader RELEASED, not one frame short, and every member keeps its offset (${engineName}; webkit is the engine this reproduces on)`,
+    target9.x >= box9.left - 2 && target9.x <= box9.right + 2
+      && target9.y >= box9.top - 2 && target9.y <= box9.bottom + 2
+      && members9.every((id) => JSON.stringify(d9(id)) === JSON.stringify(d9(members9[0]))),
+    `released at ${Math.round(target9.x)},${Math.round(target9.y)} vs ${JSON.stringify(box9)}; deltas ${JSON.stringify(members9.map(d9))}`);
   await p9.close();
 
   // --- 10 · R10: a compile keeps the SELECTION and cancels a CARRY — two properties, not one ------
@@ -4362,8 +4857,8 @@ async function selectPass(browser, engineName, t, errors) {
   await p10.waitForSelector('[data-compile-state="blocks"]', { timeout: 30000 });
   await p10.waitForTimeout(200);
   t("#217 · R10b — the same beat CANCELS a live group carry: every member back at its origin, nothing left picked up",
-    (await picked(p10)) === 0 && JSON.stringify(await slotsNow(p10)) === JSON.stringify(before10),
-    `picked=${await picked(p10)} ${JSON.stringify(await slotsNow(p10))} vs ${JSON.stringify(before10)}`);
+    (await picked(p10)) === 0 && places(await slotsNow(p10)) === places(before10),
+    `picked=${await picked(p10)} ${places(await slotsNow(p10))} vs ${places(before10)}`);
   t("#217 · …while the selection still survives it — two properties, asserted as two rows",
     JSON.stringify(await chosen(p10)) === JSON.stringify(members10));
   await p10.close();
@@ -4452,16 +4947,19 @@ async function selectPass(browser, engineName, t, errors) {
     JSON.stringify(membersR) === JSON.stringify(want), JSON.stringify(membersR));
   await dragHandle(pr, membersR[0], await cell(pr, 1, 2));
   const gridR2 = await slotsNow(pr);
+  const dR = (id) => {
+    const was = gridR.find((x) => x.id === id);
+    const now = gridR2.find((x) => x.id === id);
+    return [now.x - was.x, now.y - was.y];
+  };
   t("#217/AC6 · …the group move still COMPLETES and reaches the identical end state",
-    membersR.every((id) => {
-      const was = gridR.find((s) => s.id === id);
-      const now = gridR2.find((s) => s.id === id);
-      return now.col === was.col && now.row === was.row + 1;
-    }), JSON.stringify(gridR2.filter((s) => membersR.includes(s.id))));
+    (dR(membersR[0])[0] !== 0 || dR(membersR[0])[1] !== 0)
+      && membersR.every((id) => JSON.stringify(dR(id)) === JSON.stringify(dR(membersR[0]))),
+    `deltas ${JSON.stringify(membersR.map(dR))}`);
   await btn(pr, "Undo").click();
   await pr.waitForTimeout(240);
   t("#217/AC6 · …one Undo still restores every member",
-    JSON.stringify(await slotsNow(pr)) === JSON.stringify(gridR));
+    places(await slotsNow(pr)) === places(gridR), `${places(await slotsNow(pr))} vs ${places(gridR)}`);
   await pr.locator(`.stx-slot[data-stx-id="${membersR[0]}"] .stx-grab`).focus();
   await pr.keyboard.press("Shift+F10");
   await pr.waitForTimeout(120);
@@ -4486,28 +4984,89 @@ async function selectPass(browser, engineName, t, errors) {
   await rctx.close();
 
   // --- 13 · FIT WHILE COMPILED — the running-page proof no one had ------------------------------
-  // studio-canvas.mjs:174-177 words fit()'s announcement as the level REACHED, never as "everything
-  // is in view", precisely because below the smallest level nothing fits and fit() floors there
-  // rather than inventing a scale. That branch is unreachable at rest (the blocks are small) and
-  // reachable the moment the beat compiles: the stage grows past .stx-scroll's 640px cap, so Fit
-  // pins at the 0.5 FLOOR. Group 12 gates fitLevel's floor as arithmetic; this is the only place
-  // the honest SENTENCE and the floored level are read off a real compiled page.
+  // THE CLAIM CHANGED WITH THE SUBSTRATE (#302) and is worth stating rather than quietly dropping.
+  // It used to be that a compiled stage GREW past .stx-scroll's box and the discrete table had no
+  // level small enough, so fit() floored at 0.5 and its sentence had to name the level reached
+  // rather than promise everything was in view. The stage is a FIXED STAGE_W × STAGE_H box now —
+  // compiling changes what the nodes hold, never how big the canvas is — so there is no floor to
+  // reach on this page and fit lands on the ratio, compiled or not.
+  //
+  // The row is KEPT rather than deleted because the property it really guards survived: fit's
+  // sentence names the level it REACHED. Asserted here on a compiled page, where the at-rest
+  // block above cannot reach, and computed from the measured box rather than a literal.
   const fctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const pf = await openSettled(fctx, "select fit-compiled");
   await pf.locator("[data-studio-compile] button").filter({ hasText: /^Compile/ }).first().click();
   await pf.waitForSelector('[data-compile-state="rendered"]', { timeout: 30000 });
   await btn(pf, "Fit").click();
   await pf.waitForTimeout(200);
-  const fit = await pf.evaluate(() => ({
-    zoom: document.querySelector("[data-studio-canvas]").getAttribute("data-zoom"),
-    live: document.querySelector("[data-studio-canvas] .stx-live").textContent.trim(),
-  }));
-  t(`#217 · Fit on a COMPILED canvas floors at zoom level 0 (${Math.round(ZOOM_LEVELS[0] * 100)}%) — the compiled stage is far larger than the scroller, which is graceful degradation rather than a fit`,
-    fit.zoom === "0", JSON.stringify(fit));
-  t("#217 · …and says the level it REACHED, never that everything is in view — a claim the discrete table cannot always keep",
-    fit.live === `Zoom ${Math.round(ZOOM_LEVELS[0] * 100)} percent, fit to the canvas`, fit.live);
+  const fit = await pf.evaluate(() => {
+    const vp = document.querySelector("[data-studio-canvas]");
+    const scroll = vp.querySelector(".stx-scroll");
+    return {
+      scale: parseFloat(vp.style.getPropertyValue("--stx-scale")),
+      clientW: scroll.clientWidth,
+      clientH: scroll.clientHeight,
+      live: vp.querySelector(".stx-live").textContent.trim(),
+    };
+  });
+  const fitRatio = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(fit.clientW / STAGE_W, fit.clientH / STAGE_H)));
+  t("#217 · Fit on a COMPILED canvas still lands on the RATIO — the stage is a fixed box, so compiling changes what the nodes hold and never how far out the canvas has to go",
+    Math.abs(fit.scale - fitRatio) < 1e-6,
+    `${fit.scale} vs ${fitRatio} (stage ${STAGE_W}×${STAGE_H} in ${fit.clientW}×${fit.clientH})`);
+  t("#217 · …and says the level it REACHED, never that everything is in view — the sentence fit() is careful about",
+    fit.live === `Zoom ${Math.round(fitRatio * 100)} percent, fit to the canvas`, fit.live);
   await pf.close();
   await fctx.close();
+
+  // --- 14 · THE ALIGN VERBS ON REAL NODES — the running-page half nothing had (#302, PR #432's F2) -
+  // ALIGN_VERBS and alignMoves were imported at the top of this file and never used once: the eight
+  // verbs shipped with a pure-function fixture and NO running-page assertion at all. Three of them
+  // were wrong on 100% of the nodes they can act on, and every gate in the repo was green —
+  // build-checks' BX fixture hands every box an explicit `h`, which is the one shape /factory never
+  // sends, because the handler queries `.stx-slot[data-stx-selected]` (board wrappers; frames are
+  // deliberately unselectable) and a wrapper carries no --h at all.
+  //
+  // THE EXPECTATION IS COMPUTED IN NODE FROM THE LIVE MEASURED BOXES through the page's own
+  // alignMoves, this file's standing idiom. That row alone is not enough: slotsNow measures, so a
+  // page that did NOT would simply disagree with it — which is the right answer here but reads as
+  // an accident. So the reader's own property is asserted beside it (one bottom line), and the
+  // VACUITY GUARD comes first: the selected nodes' rendered heights must actually DIFFER, because
+  // with equal heights align-bottom and align-top are the same picture and this section would pass
+  // for exactly the reason the fixture did. Observed on the committed board: 96, 124, 124, 144.
+  // ITS OWN CONTEXT. `ctx` is closed three sections up (:4933) and the fit block above runs in
+  // `fctx` for the same reason — a page opened on a closed context throws at newPage, which the
+  // driver reports as one failure and then stops the engine, so every row below it would be
+  // silently absent from a run that otherwise looks like 382 green. Caught exactly that way.
+  const actx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const pal = await openSettled(actx, "select align");
+  const gridAl = await slotsNow(pal);
+  t("#302 · the align fixture's nodes have DIFFERENT rendered heights — with equal heights every vertical verb collapses to align-top and the rows below would prove nothing",
+    new Set(gridAl.map((s) => s.h)).size >= 2 && gridAl.every((s) => s.h > 0),
+    JSON.stringify(gridAl.map((s) => [s.id, s.h])));
+  t("#302 · …and NOT ONE of them carries an authored --h — the board-wrapper shape the handler has to MEASURE rather than read, and the shape no fixture in build-checks can produce",
+    await pal.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")]
+      .every((n) => !n.style.getPropertyValue("--h"))),
+    "a .stx-slot carried an authored --h, so this board no longer exercises the missing-height path");
+  await pal.locator(SCROLL).focus();
+  await pal.keyboard.press(modA);
+  await pal.waitForTimeout(150);
+  t("#302 · select-all took every component, so the verb below acts on the whole board",
+    (await chosen(pal)).length === gridAl.length, `${(await chosen(pal)).length} of ${gridAl.length}`);
+  const wantAl = alignMoves(gridAl, "align-bottom");
+  await inject(pal, { type: "ui.align-bottom", source: "agent" });
+  await pal.waitForTimeout(250);
+  const afterAl = await slotsNow(pal);
+  const alById = Object.fromEntries(afterAl.map((s) => [s.id, s]));
+  t("#302/F2 · ui.align-bottom lands every node where the page's OWN alignMoves puts it, computed in Node from the LIVE MEASURED boxes",
+    wantAl.length > 0 && wantAl.every((m) => alById[m.id] && Math.abs(alById[m.id].y - m.y) < 0.5),
+    `${JSON.stringify(wantAl)} vs ${JSON.stringify(afterAl.map((s) => [s.id, s.y]))}`);
+  const bottoms = afterAl.map((s) => Math.round(s.y + s.h));
+  t("#302/F2 · …and the READER'S property: every node's BOTTOM edge on ONE line — false the moment the handler hands alignMoves a box whose height it never measured",
+    new Set(bottoms).size === 1,
+    JSON.stringify(afterAl.map((s) => [s.id, s.y, s.h, s.y + s.h])));
+  await pal.close();
+  await actx.close();
 }
 
 // engines): the Event Timing API's durationThreshold floors at 16 ms and a healthy studio
@@ -4967,11 +5526,11 @@ async function framesPass(browser, engineName, t, errors) {
     await p.waitForTimeout(400);
     return p;
   };
-  const frameState = (p) => p.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")].map((n) => ({
+  const frameState = (p) => p.evaluate((POS) => [...document.querySelectorAll("[data-studio-canvas] .stx-frame")].map((n) => ({
     key: n.getAttribute("data-stx-frame"),
     id: n.getAttribute("data-stx-id"),
-    col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
-    cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
+    x: n.style.getPropertyValue("--x"), y: n.style.getPropertyValue("--y"),
+    w: n.style.getPropertyValue("--w"), h: n.style.getPropertyValue("--h"),
     src: n.querySelector("iframe")?.getAttribute("src"),
     title: n.querySelector("iframe")?.getAttribute("title"),
     grab: n.querySelector(".stx-grab") ? !n.querySelector(".stx-grab").disabled : null,
@@ -4984,13 +5543,17 @@ async function framesPass(browser, engineName, t, errors) {
     grabLabel: n.querySelector(".stx-grab")?.getAttribute("aria-label"),
     resizeLabel: n.querySelector(".stx-resize")?.getAttribute("aria-label"),
     describedBy: n.querySelector(".stx-resize")?.getAttribute("aria-describedby"),
-    styled: n.hasAttribute("style"),
-  })));
+    // GATE B's per-frame half (#302). A frame DOES carry a style attribute now — four position
+    // properties — so what is read is the STRAY set: anything else on it is named.
+    stray: [...n.style].filter((k) => !POS.includes(k)),
+  })), POSITION_PROPS);
   const live = (p) => p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live").textContent.trim());
-  const spanOf = (p, key) => p.evaluate((k) => {
+  // #302: a footprint is a SIZE and a place is a POSITION, both in pixels — the span pair and the
+  // cell pair are gone, and so is the resolution step that turned one into the other.
+  const boxOfFrame = (p, key) => p.evaluate((k) => {
     const n = document.querySelector(`[data-stx-frame="${k}"]`);
-    return { cols: n?.getAttribute("data-span-col"), rows: n?.getAttribute("data-span-row"),
-      col: n?.getAttribute("data-col"), row: n?.getAttribute("data-row") };
+    return { w: n?.style.getPropertyValue("--w"), h: n?.style.getPropertyValue("--h"),
+      x: n?.style.getPropertyValue("--x"), y: n?.style.getPropertyValue("--y") };
   }, key);
   const idOf = (p, key) => p.evaluate((k) => document.querySelector(`[data-stx-frame="${k}"]`)?.getAttribute("data-stx-id"), key);
   const depth = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => m.getVerbs().history.depth()));
@@ -5011,9 +5574,9 @@ async function framesPass(browser, engineName, t, errors) {
     const got = rest.find((f) => f.key === want.id);
     t(`#219 · the ${want.id} frame is an <iframe> of the shipped page at its declared footprint`,
       Boolean(got) && got.src === want.src && got.title === want.title
-      && got.col === String(want.col) && got.row === String(want.row)
-      && got.cols === String(want.spanCol) && got.rows === String(want.spanRow),
-      JSON.stringify(got));
+      && got.x === `${want.x}px` && got.y === `${want.y}px`
+      && got.w === `${want.w}px` && got.h === `${want.h}px`,
+      JSON.stringify({ got, want: { x: want.x, y: want.y, w: want.w, h: want.h } }));
     t(`#219 · …with a stable id and BOTH handles armed, each describing itself through a resolving IDREF`,
       Boolean(got?.id) && got.grab === true && got.resize === true && got.describedBy === "stx-resize-help",
       JSON.stringify({ id: got?.id, grab: got?.grab, resize: got?.resize, describedBy: got?.describedBy }));
@@ -5099,15 +5662,17 @@ async function framesPass(browser, engineName, t, errors) {
   }
 
   // --- 4 · THREE-SOURCE RESIZE PARITY (AC #3) ---------------------------------------------------
-  // Pointer, keyboard and an injected source:"agent" action, compared on the RESULTING data-span-*
+  // Pointer, keyboard and an injected source:"agent" action, compared on the RESULTING --w / --h
   // rather than on "an action was emitted" — which would pass with no consumer at all. The agent leg
   // runs on a FRESH page with no gesture first, because that freshness is the whole discriminator:
   // a mover that applied directly and merely emitted would pass the other two (#205's recorded rule).
   const TARGET = "verdant";
-  // DERIVED FROM THE DESCRIPTOR, never typed: one row taller than Verdant ships. It can only grow
-  // DOWNWARD — Fieldwork sits directly beside it — which is why every leg below steps ROWS.
+  // DERIVED FROM THE DESCRIPTOR, never typed: one NODE PITCH taller than Verdant ships (#302 —
+  // a footprint is pixels, and the pointer leg drags by a pitch so the three legs can agree). It
+  // grows DOWNWARD — Fieldwork sits directly beside it — which is why every leg steps the height.
   const TARGET_FRAME = FRAMES.find((f) => f.id === TARGET);
-  const WANT = { cols: String(TARGET_FRAME.spanCol), rows: String(TARGET_FRAME.spanRow + 1) };
+  const PITCH = NODE_H + NODE_GAP;
+  const WANT = { w: String(TARGET_FRAME.w), h: String(TARGET_FRAME.h + PITCH) };
   {
     const pp = await open(ctx, "frames/pointer");
     const before = await depth(pp);
@@ -5117,12 +5682,19 @@ async function framesPass(browser, engineName, t, errors) {
     // the row read as a bug in the module rather than in the fixture.
     await pp.evaluate(() => document.querySelector("[data-studio-canvas] .stx-scroll").scrollIntoView({ block: "start" }));
     await pp.waitForTimeout(300);
-    const pitch = await pp.evaluate(() => {
-      const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
-      return parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
-    });
+    // THE DELTA IS THE IMPORTED PITCH. It came off the resolved grid rows because a resize had to
+    // cross a track boundary to count; a free resize takes the reader's own request to the pixel,
+    // so the drag distance IS the expected growth and both sides read the same constant.
+    const pitch = PITCH;
     const h = pp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`);
     await h.scrollIntoViewIfNeeded();
+    // AND THEN WAIT FOR IT, for scrollSettled's own reason and after paying for it twice. BOTH
+    // scrolls above are smooth on the window (`html { scroll-behavior: smooth }`), and the fixed
+    // 300 ms is not long enough — probed at 387 of an eventual 395 px at exactly that mark. A
+    // resize converts the pointer through the same live rect a move does, so the residual lands in
+    // the frame's HEIGHT: observed on firefox at 454.32 against a WANT of 452, one third of a pixel
+    // outside the ±2 tolerance, with the WIDTH exactly right because a window scroll has no x.
+    await scrollSettled(pp);
     const b = await h.boundingBox();
     const said = [];
     await pp.evaluate(() => {
@@ -5136,9 +5708,14 @@ async function framesPass(browser, engineName, t, errors) {
     await pp.mouse.up();
     await pp.waitForTimeout(250);
     said.push(...await pp.evaluate(() => window.__said));
-    const byPointer = await spanOf(pp, TARGET);
-    t("#219 · AC #3 · a POINTER drag of the corner resizes the frame",
-      byPointer.cols === WANT.cols && byPointer.rows === WANT.rows, JSON.stringify(byPointer));
+    const byPointer = await boxOfFrame(pp, TARGET);
+    // ±2px, journey()'s hit-test reason: a pointer resize lands on a float and the corner the
+    // reader released at carries the grab offset, so the honest claim is the growth, not an exact
+    // string. The keyboard and agent legs below ARE exact — integer arithmetic on an integer size.
+    const grew = (got, want, tol = 2) => Math.abs(parseFloat(got.w) - Number(want.w)) <= tol
+      && Math.abs(parseFloat(got.h) - Number(want.h)) <= tol;
+    t("#219 · AC #3 · a POINTER drag of the corner resizes the frame by one pitch (±2px)",
+      grew(byPointer, WANT), JSON.stringify({ byPointer, WANT }));
     t("#219 · AC #3 · …in exactly ONE history entry", (await depth(pp)) - before === 1,
       `Δ${(await depth(pp)) - before}`);
     // ANNOUNCEMENTS COUNTED EXACTLY AND PER PATH, because the two paths differ ON PURPOSE and the
@@ -5162,25 +5739,39 @@ async function framesPass(browser, engineName, t, errors) {
     await kp.keyboard.press("Enter");
     await kp.waitForTimeout(200);
     const said = await kp.evaluate(() => window.__said);
-    const byKeyboard = await spanOf(kp, TARGET);
-    t("#219 · AC #3 · the KEYBOARD path (Enter · arrows · Enter) reaches the SAME span",
-      byKeyboard.cols === WANT.cols && byKeyboard.rows === WANT.rows, JSON.stringify(byKeyboard));
+    const byKeyboard = await boxOfFrame(kp, TARGET);
+    // ONE ArrowDown is ONE NUDGE on the resize path too (#302), so the keyboard leg reaches a
+    // DIFFERENT size from the pointer leg's pitch — stated rather than forced into agreement,
+    // because making them equal would mean typing a pointer distance the reader never dragged.
+    const KB_WANT = { w: String(TARGET_FRAME.w), h: String(TARGET_FRAME.h + NUDGE_STEP) };
+    t("#219 · AC #3 · the KEYBOARD path (Enter · arrows · Enter) grows it by exactly one nudge",
+      byKeyboard.w === `${KB_WANT.w}px` && byKeyboard.h === `${KB_WANT.h}px`,
+      JSON.stringify({ byKeyboard, KB_WANT }));
     t("#219 · AC #3 · …in exactly ONE history entry, so Undo undoes THE RESIZE and not its last column",
       (await depth(kp)) - before === 1, `Δ${(await depth(kp)) - before}`);
     // pick-up + one per arrow press + the drop = N + 2, the move path's own formula.
     t("#219 · AC #3 · …and announces the pick-up, EVERY arrow press and the drop — N + 2, never once",
       said.length === 3 && /ready to resize/.test(said[0])
-      && said[1] === `${WANT.cols} columns by ${WANT.rows} rows.`
-      && said[2] === `${TARGET_FRAME.name} resized to ${WANT.cols} columns by ${WANT.rows} rows.`,
+      && said[1] === `${KB_WANT.w} by ${KB_WANT.h}.`
+      && said[2] === `${TARGET_FRAME.name} resized to ${KB_WANT.w} by ${KB_WANT.h}.`,
       JSON.stringify(said));
-    // A BLOCKED press still announces, which is what tells a keyboard reader why nothing moved.
+    // THE "BLOCKED" ROW IS GONE, and this is what replaced it. Nothing blocks a free resize (D-d),
+    // so studio-verbs.mjs deleted the sentence rather than translating it: a press at the stage
+    // edge announces the same numbers twice, and that repetition is the feedback. Asserted as
+    // exactly that, against the edge the stage still has, so the row still proves a press at a
+    // bound is not silent — which is the property the old one was really for.
     await kp.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
     await kp.keyboard.press("Enter");
-    await kp.keyboard.press("ArrowRight");
-    const blocked = await live(kp);
+    await kp.evaluate(() => { window.__said = []; });
+    await kp.keyboard.press("End");   // the largest that fits — the frame is now at the stage edge
+    await kp.waitForTimeout(80);
+    await kp.keyboard.press("ArrowRight"); // …and there is nothing left to grow into
+    await kp.waitForTimeout(80);
+    const atEdge = await kp.evaluate(() => window.__said);
     await kp.keyboard.press("Escape");
-    t("#219 · AC #3 · …and a press blocked by a PEER's footprint says so rather than going silent",
-      /^Blocked, still /.test(blocked), blocked);
+    t("#219 · AC #3 · …and a press at the stage EDGE repeats the size rather than going silent — the sentence that replaced \"Blocked\"",
+      atEdge.length === 2 && atEdge[0] === atEdge[1] && /^\d+ by \d+\.$/.test(atEdge[1]),
+      JSON.stringify(atEdge));
     await kp.close();
   }
   {
@@ -5192,57 +5783,64 @@ async function framesPass(browser, engineName, t, errors) {
       getVerbs().bus.on("*", (a) => types.push(a.type));
       getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id }, params: want });
       return types;
-    }, [await idOf(ap, TARGET), { cols: Number(WANT.cols), rows: Number(WANT.rows) }]).catch(() => null);
-    const byAgent = await spanOf(ap, TARGET);
-    t("#219 · AC #3 · an injected source:\"agent\" ui.resize reaches the SAME span on a FRESH page — the three sources are one consumer",
-      byAgent.cols === WANT.cols && byAgent.rows === WANT.rows, JSON.stringify({ byAgent, seen }));
+    }, [await idOf(ap, TARGET), { w: Number(WANT.w), h: Number(WANT.h) }]).catch(() => null);
+    const byAgent = await boxOfFrame(ap, TARGET);
+    t("#219 · AC #3 · an injected source:\"agent\" ui.resize reaches the SAME size on a FRESH page — the three sources are one consumer",
+      byAgent.w === `${WANT.w}px` && byAgent.h === `${WANT.h}px`, JSON.stringify({ byAgent, WANT, seen }));
     // The two refusals the consumer owns, each CONTENT and never a throw.
     const refusals = await ap.evaluate(async () => {
       const { getVerbs } = await import("/system/studio-verbs.mjs");
       const region = document.querySelector("[data-studio-canvas] .stx-live");
       const out = {};
       const slot = document.querySelector("[data-studio-canvas] .stx-slot");
-      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: slot.getAttribute("data-stx-id") }, params: { cols: 3, rows: 3 } });
+      const slotWas = slot.style.getPropertyValue("--w");
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: slot.getAttribute("data-stx-id") }, params: { w: 600, h: 600 } });
       out.notResizable = region.textContent.trim();
-      out.slotUntouched = !slot.hasAttribute("data-span-col") && !slot.hasAttribute("data-span-row");
-      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: "nope" }, params: { cols: 2, rows: 2 } });
+      // A SLOT'S GEOMETRY IS UNTOUCHED — read as its own width and the ABSENCE of a height, which
+      // is what "the refusal wrote nothing" means now that every node carries position properties.
+      out.slotUntouched = slot.style.getPropertyValue("--w") === slotWas && !slot.style.getPropertyValue("--h");
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: "nope" }, params: { w: 300, h: 300 } });
       out.unknown = region.textContent.trim();
       const f = document.querySelector('[data-stx-frame="verdant"]');
-      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: f.getAttribute("data-stx-id") }, params: { cols: "abc", rows: -9 } });
-      out.clamped = [f.getAttribute("data-span-col"), f.getAttribute("data-span-row")];
+      getVerbs().bus.emit({ type: "ui.resize", source: "agent", target: { id: f.getAttribute("data-stx-id") }, params: { w: "abc", h: -9 } });
+      out.clamped = [f.style.getPropertyValue("--w"), f.style.getPropertyValue("--h")];
       return out;
     });
-    t("#219 · a ui.resize naming a BOARD WRAPPER is refused as not resizable, and writes no span attribute",
+    t("#219 · a ui.resize naming a BOARD WRAPPER is refused as not resizable, and writes no size at all",
       /is not resizable\.$/.test(refusals.notResizable) && refusals.slotUntouched, JSON.stringify(refusals));
     t("#219 · …a ui.resize naming nothing on the canvas is refused by id",
       /^Refused: no component "nope"/.test(refusals.unknown), refusals.unknown);
-    t("#219 · …and hostile params are CLAMPED rather than reaching an attribute as NaN",
-      refusals.clamped[0] === "1" && refusals.clamped[1] === "1", JSON.stringify(refusals.clamped));
+    // setPos's floor, which is the one definition of a size now: a non-finite number and a negative
+    // one both land on MIN_SIZE rather than reaching a property as "NaNpx" or a negative length —
+    // either of which voids the declaration silently and leaves the frame at whatever it was.
+    t("#219 · …and hostile params are CLAMPED to MIN_SIZE rather than reaching a property as NaN",
+      refusals.clamped[0] === `${MIN_SIZE}px` && refusals.clamped[1] === `${MIN_SIZE}px`,
+      JSON.stringify(refusals.clamped));
     await ap.close();
   }
 
   // --- 5 · Undo restores the SPAN, and the mixed sequence walks back through ONE history ---------
   {
     const up = await open(ctx, "frames/undo");
-    const start = await spanOf(up, TARGET);
+    const start = await boxOfFrame(up, TARGET);
     await up.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
     await up.keyboard.press("Enter");
     await up.keyboard.press("ArrowDown");
     await up.keyboard.press("Enter");
-    const resized = await spanOf(up, TARGET);
+    const resized = await boxOfFrame(up, TARGET);
     await up.locator('[data-stx-verb="undo"]').click();
     await up.waitForTimeout(200);
-    const undone = await spanOf(up, TARGET);
+    const undone = await boxOfFrame(up, TARGET);
     const undoneSaid = await live(up);
     await up.locator('[data-stx-verb="redo"]').click();
     await up.waitForTimeout(200);
-    const redone = await spanOf(up, TARGET);
-    t("#219 · AC #3 · Undo restores the span the resize changed",
-      resized.rows !== start.rows && undone.rows === start.rows && undone.cols === start.cols,
+    const redone = await boxOfFrame(up, TARGET);
+    t("#219 · AC #3 · Undo restores the size the resize changed",
+      resized.h !== start.h && undone.h === start.h && undone.w === start.w,
       JSON.stringify({ start, resized, undone }));
-    t("#219 · …announced as a SIZE, not as a column and row the frame never left",
-      /at \d+ columns by \d+ rows/.test(undoneSaid), undoneSaid);
-    t("#219 · …and Redo returns it", redone.rows === resized.rows && redone.cols === resized.cols,
+    t("#219 · …announced as a SIZE, not as a place the frame never left",
+      /at \d+ by \d+/.test(undoneSaid), undoneSaid);
+    t("#219 · …and Redo returns it", redone.h === resized.h && redone.w === resized.w,
       JSON.stringify(redone));
 
     // THE MIXED SEQUENCE — the one a per-verb history would fail. Move, resize, move; then three
@@ -5250,22 +5848,22 @@ async function framesPass(browser, engineName, t, errors) {
     const grab = up.locator(`[data-stx-frame="${TARGET}"] .stx-grab`);
     await grab.focus();
     await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
-    const m1 = await spanOf(up, TARGET);
+    const m1 = await boxOfFrame(up, TARGET);
     await up.locator(`[data-stx-frame="${TARGET}"] .stx-resize`).focus();
     await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
-    const r1 = await spanOf(up, TARGET);
+    const r1 = await boxOfFrame(up, TARGET);
     await grab.focus();
     await up.keyboard.press("Enter"); await up.keyboard.press("ArrowDown"); await up.keyboard.press("Enter");
-    const m2 = await spanOf(up, TARGET);
-    const moved = m1.row !== redone.row || m2.row !== m1.row;
+    const m2 = await boxOfFrame(up, TARGET);
+    const moved = m1.y !== redone.y || m2.y !== m1.y;
     await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
-    const back1 = await spanOf(up, TARGET);
+    const back1 = await boxOfFrame(up, TARGET);
     await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
-    const back2 = await spanOf(up, TARGET);
+    const back2 = await boxOfFrame(up, TARGET);
     await up.locator('[data-stx-verb="undo"]').click(); await up.waitForTimeout(150);
-    const back3 = await spanOf(up, TARGET);
+    const back3 = await boxOfFrame(up, TARGET);
     t("#219 · the mixed sequence really moved AND resized (or the three Undos below prove nothing)",
-      moved && r1.rows !== m1.rows, JSON.stringify({ redone, m1, r1, m2 }));
+      moved && r1.h !== m1.h, JSON.stringify({ redone, m1, r1, m2 }));
     t("#219 · AC #3 · three Undos walk back move · resize · move IN ORDER, through ONE history",
       JSON.stringify(back1) === JSON.stringify(r1)
       && JSON.stringify(back2) === JSON.stringify(m1)
@@ -5300,24 +5898,31 @@ async function framesPass(browser, engineName, t, errors) {
     await sp.close();
   }
 
-  // --- 7 · a frame is MOVABLE, and its whole FOOTPRINT blocks ------------------------------------
+  // --- 7 · a frame is MOVABLE by the same handle and the same verb -------------------------------
   {
     const mp = await open(ctx, "frames/move");
-    const from = await spanOf(mp, TARGET);
+    const from = await boxOfFrame(mp, TARGET);
     await mp.locator(`[data-stx-frame="${TARGET}"] .stx-grab`).focus();
     await mp.keyboard.press("Enter");
     await mp.keyboard.press("ArrowRight");
     await mp.keyboard.press("Enter");
-    const to = await spanOf(mp, TARGET);
-    t("#219 · a frame moves by the SAME grab handle and the SAME ui.move verb everything else uses",
-      to.col !== from.col && to.cols === from.cols && to.rows === from.rows,
-      JSON.stringify({ from, to }));
-    // THE FOOTPRINT, not the corner: the step landed past the OTHER frame's whole rectangle rather
-    // than one column along. A top-left-only occupancy set would have let it stop inside.
+    const to = await boxOfFrame(mp, TARGET);
+    t("#219 · a frame moves by the SAME grab handle and the SAME ui.move verb everything else uses — one nudge right, its size untouched",
+      parseFloat(to.x) === parseFloat(from.x) + NUDGE_STEP && to.y === from.y
+      && to.w === from.w && to.h === from.h,
+      JSON.stringify({ from, to, nudge: NUDGE_STEP }));
+    // THE FOOTPRINT ROW IS RETIRED, with its reason. It asserted that a step landed PAST the other
+    // frame's whole rectangle rather than inside it — the occupancy claim, and the one thing a
+    // top-left-only occupancy set would have got wrong. Nothing blocks a free move (D-d), so a
+    // frame CAN now be nudged over its neighbour and that is correct behaviour; keeping the row
+    // would be asserting the opposite of the shipped decision. What it really guarded — that a
+    // frame moves as a whole, carrying its size — is the row above's `to.w === from.w` conjunct,
+    // which the old one never made.
     const other = FRAMES.find((f) => f.id !== TARGET);
-    t("#219 · …and it stepped clear of the other frame's WHOLE footprint, not just its top-left cell",
-      Number(to.col) >= other.col + other.spanCol,
-      `landed at column ${to.col}; ${other.id} covers ${other.col}..${other.col + other.spanCol - 1}`);
+    t("#219 · …and the OTHER frame did not move with it — a move names one subject, even between two frames on one stage",
+      JSON.stringify(await boxOfFrame(mp, other.id))
+        === JSON.stringify({ w: `${other.w}px`, h: `${other.h}px`, x: `${other.x}px`, y: `${other.y}px` }),
+      JSON.stringify({ got: await boxOfFrame(mp, other.id), want: other }));
     await mp.close();
   }
 
@@ -5401,15 +6006,21 @@ async function layersPass(browser, engineName, t, errors) {
   };
   // The stage's MOVABLE wrappers as the pure layer's input shape, in DOM order — which is board
   // order, the correspondence the whole list rides on.
+  // #302: layerEntries takes { id, name, kind, x, y, w, h } — a place and a size, not a cell and a
+  // span. `h` is read as NULL when the node carries none, which is the condition the sentence's
+  // size clause now hangs on, so coercing it to 0 here would append ", 220 by 0" to every board
+  // wrapper's row and the mirror would compare two wrong strings.
   const movables = (p) => p.evaluate(() =>
-    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => ({
-      id: n.getAttribute("data-stx-id"),
-      name: n.getAttribute("data-stx-name"),
-      col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
-      kind: n.classList.contains("stx-frame") ? "frame" : "slot",
-      selected: n.hasAttribute("data-stx-selected"),
-      cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
-    })));
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => {
+      const num = (k) => { const v = parseFloat(n.style.getPropertyValue(k)); return Number.isFinite(v) ? v : null; };
+      return {
+        id: n.getAttribute("data-stx-id"),
+        name: n.getAttribute("data-stx-name"),
+        x: num("--x") ?? 0, y: num("--y") ?? 0, w: num("--w"), h: num("--h"),
+        kind: n.classList.contains("stx-frame") ? "frame" : "slot",
+        selected: n.hasAttribute("data-stx-selected"),
+      };
+    }));
   const rowsNow = (p) => p.evaluate(() =>
     [...document.querySelectorAll("[data-studio-layers] .stu-layer")].map((b) => ({
       id: b.getAttribute("data-layer-id"),
@@ -5438,6 +6049,24 @@ async function layersPass(browser, engineName, t, errors) {
   const rows1 = await rowsNow(p1);
   t("#221/AC1 · the list mirrors the stage — count, ids, names and ORDER, computed through the page's own layerEntries, never literals",
     mirrors(rows1, wraps1), JSON.stringify({ rows: rows1.map((r) => r.id), wraps: wraps1.map((w) => w.id) }));
+  // THE SENTENCE'S SHAPE, ASSERTED AS A SHAPE (#302). mirrors() compares each row against
+  // layerEntries' answer, which is the right coupling and is ALSO satisfied by a layerEntries that
+  // silently changed what it says — the driver would move with it and never notice. Group 26 used
+  // to pin four exact strings against the grid's wording; these are their replacement, and they
+  // are two assertions rather than four because the wording now has exactly two forms.
+  //
+  // THE CONDITION IS AN AUTHORED SIZE, not a "span": a frame carries --h and a board wrapper does
+  // not, so the size clause appears on exactly the frame rows. Both directions are asserted, which
+  // is what makes it a condition rather than a coincidence — appending it everywhere and appending
+  // it nowhere both go red here.
+  const sized1 = rows1.filter((r, i) => wraps1[i].h !== null);
+  const unsized1 = rows1.filter((r, i) => wraps1[i].h === null);
+  t("#221 · a row for a node with NO authored size says \"at X, Y\" and stops there — a free position, rounded to whole pixels",
+    unsized1.length >= 3 && unsized1.every((r) => /^at \d+, \d+$/.test(r.pos)),
+    JSON.stringify(unsized1.map((r) => r.pos)));
+  t("#221 · …and a row for one that HAS an authored size appends \", W by H\" — the clause the retired span condition was replaced by",
+    sized1.length === FRAMES.length && sized1.every((r) => /^at \d+, \d+, \d+ by \d+$/.test(r.pos)),
+    JSON.stringify(sized1.map((r) => r.pos)));
   t("#221 · frame rows are marked and carry NO aria-pressed (actions, not toggles); board rows carry it",
     rows1.filter((r) => r.kind === "frame").length === FRAMES.length
     && rows1.filter((r) => r.kind === "frame").every((r) => r.pressed === null)
@@ -5447,13 +6076,11 @@ async function layersPass(browser, engineName, t, errors) {
   // --- 2 · same-interaction reflection: a pointer drag, then an injected agent move ---------------
   const dragId = wraps1.find((w) => w.kind === "slot").id;
   const posBefore = rows1.find((r) => r.id === dragId).pos;
-  const g1 = await p1.evaluate((id) => {
+  const g1 = await p1.evaluate(([id, pitch]) => {
     const r = document.querySelector(`.stx-slot[data-stx-id="${id}"] .stx-grab`).getBoundingClientRect();
-    const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
-    const pitch = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
     const b = document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getBoundingClientRect();
     return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2, dropX: (b.left + b.right) / 2, dropY: (b.top + b.bottom) / 2 + pitch };
-  }, dragId);
+  }, [dragId, NODE_H + NODE_GAP]);
   await p1.mouse.move(g1.x, g1.y);
   await p1.mouse.down();
   await p1.mouse.move(g1.dropX, g1.dropY, { steps: 8 });
@@ -5467,15 +6094,17 @@ async function layersPass(browser, engineName, t, errors) {
 
   const p2 = await open(ctx, "layers agent");
   const agentId = (await movables(p2)).find((w) => w.kind === "slot").id;
-  await inject(p2, { type: "ui.move", source: "agent", target: { id: agentId }, params: { col: 6, row: 2 } });
+  const agentTo = at(6, 2);
+  await inject(p2, { type: "ui.move", source: "agent", target: { id: agentId }, params: { x: agentTo.x, y: agentTo.y } });
   await p2.waitForTimeout(250);
   const rows2b = await rowsNow(p2);
   const wraps2b = await movables(p2);
   t("#221/AC1 · an injected source:\"agent\" ui.move on a FRESH page updates the row too — the reflection is the observer, not the gesture",
     mirrors(rows2b, wraps2b)
     && rows2b.find((r) => r.id === agentId).pos === layerEntries(wraps2b).find((e) => e.id === agentId).sentence
-    && wraps2b.find((w) => w.id === agentId).col === "6",
-    JSON.stringify(rows2b.find((r) => r.id === agentId)));
+    && wraps2b.find((w) => w.id === agentId).x === agentTo.x
+    && wraps2b.find((w) => w.id === agentId).y === agentTo.y,
+    JSON.stringify({ row: rows2b.find((r) => r.id === agentId), wrap: wraps2b.find((w) => w.id === agentId), agentTo }));
   await p2.close();
 
   // --- 3 · a method redraft rebuilds the rows; the frames' rows SURVIVE ---------------------------
@@ -5520,19 +6149,24 @@ async function layersPass(browser, engineName, t, errors) {
     JSON.stringify({ said4, row4 }));
   // The canvas direction: a Shift-drag marquee, its expected set computed through the page's own
   // marqueeRange + idsInRange (the selectPass idiom) — the rows' pressed set must equal it.
+  // THE EXTENT IS READ, not defaulted, for studio-select.mjs's boxOf reason: a board wrapper carries
+  // no --h, and the hit test uses the MEASURED height for one — so a driver reading 0 would compute
+  // a different rectangle from the page's.
   const grid4 = await p3.evaluate(() => [...document.querySelectorAll("[data-studio-canvas] .stx-slot")].map((n) => ({
-    id: n.getAttribute("data-stx-id"), col: Number(n.getAttribute("data-col")), row: Number(n.getAttribute("data-row")) })));
-  const want4 = idsInRange(grid4, marqueeRange({ col: 1, row: 1 }, { col: 2, row: 2 })).slice().sort();
-  const pts4 = await p3.evaluate(() => {
-    const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-    const a = stage.querySelector('.stx-slot[data-col="1"][data-row="1"]')?.getBoundingClientRect();
-    if (!a) return null;
-    const cs = getComputedStyle(stage);
-    const px = parseFloat(cs.gridTemplateColumns) + (parseFloat(cs.columnGap) || 0);
-    const py = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
-    const from = { x: a.left + a.width / 2, y: a.top + a.height / 2 };
-    return { from, to: { x: from.x + px, y: from.y + py } };
-  });
+    id: n.getAttribute("data-stx-id"),
+    x: parseFloat(n.style.getPropertyValue("--x")) || 0,
+    y: parseFloat(n.style.getPropertyValue("--y")) || 0,
+    w: parseFloat(n.style.getPropertyValue("--w")) || n.offsetWidth || 0,
+    h: (Number.isFinite(parseFloat(n.style.getPropertyValue("--h")))
+      ? parseFloat(n.style.getPropertyValue("--h")) : n.offsetHeight) || 0,
+  })));
+  const want4 = idsInRange(grid4, marqueeRange(at(1, 1), at(2, 2))).slice().sort();
+  // selectPass's cell() arithmetic, inline: the scroller's rect plus the point, clamped into the
+  // stage so the press lands on the element the marquee listener is attached to.
+  const pts4 = {
+    from: await clientPoint(p3, at(1, 1).x, at(1, 1).y),
+    to: await clientPoint(p3, at(2, 2).x, at(2, 2).y),
+  };
   await p3.keyboard.down("Shift");
   await p3.mouse.move(pts4.from.x, pts4.from.y);
   await p3.mouse.down();
@@ -5686,7 +6320,7 @@ async function layersPass(browser, engineName, t, errors) {
 // view rect tracking a real pan, the ZOOM-AT-0,0 observer wiring (the sole detector), content
 // tracking, click-to-jump against the settled scroll, the keyboard path's per-press announcements
 // including a blocked press, the zero-request rail, and the mid-replay non-take-over. Expectations
-// are computed through the imported mapView/jumpFrom/cellRect/visibleRange from measured page
+// are computed through the imported mapView / jumpFrom / nodeRect / visibleCount from measured page
 // state — never literal rects.
 //
 // THE HORIZONTAL AXIS ON /factory HAS NO SCROLL RANGE — its own recorded truth (the R5 note in
@@ -5727,19 +6361,31 @@ async function minimapPass(browser, engineName, t, errors) {
       scrollLeft: s.scrollLeft, scrollTop: s.scrollTop,
       clientW: Math.min(s.clientWidth, visible), clientH: s.clientHeight,
       realClientW: s.clientWidth, scrollW: s.scrollWidth,
-      zoom: Number(document.querySelector("[data-studio-canvas]").getAttribute("data-zoom")),
+      scale: parseFloat(document.querySelector("[data-studio-canvas]").style.getPropertyValue("--stx-scale")) || 1,
       contentW: stage.offsetWidth, contentH: stage.offsetHeight,
     };
   });
-  const geomOf = (p) => p.evaluate(() => {
-    const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
-    const track = (v) => String(v || "").trim().split(/\s+/).map(parseFloat).filter(Number.isFinite);
-    return { cols: track(cs.gridTemplateColumns), rows: track(cs.gridTemplateRows), colGap: parseFloat(cs.columnGap) || 0, rowGap: parseFloat(cs.rowGap) || 0 };
-  });
-  const expectView = (m) => mapView({ scrollLeft: m.scrollLeft, scrollTop: m.scrollTop, clientW: m.clientW, clientH: m.clientH, scale: ZOOM_LEVELS[m.zoom], contentW: m.contentW, contentH: m.contentH });
+  // THE BOXES THE MAP DRAWS FROM (#302), which is what replaced the track walk. The retired reader
+  // took a cell and a span and resolved them against the grid's measured tracks; nodeRect takes the
+  // four properties setPos wrote and answers the rectangle directly, so there are no tracks to read
+  // and nothing to resolve. Read EXACTLY as studio-minimap.mjs's wrapperRect reads them, measured
+  // height included — a slot carries no --h and its height really is its component's.
+  const wrapBoxes = (p) => p.evaluate(() =>
+    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => {
+      const prop = (name) => parseFloat(n.style.getPropertyValue(name));
+      const h = prop("--h");
+      return {
+        id: n.getAttribute("data-stx-id"),
+        x: prop("--x"), y: prop("--y"), w: prop("--w"),
+        h: Number.isFinite(h) ? h : n.offsetHeight,
+        frame: n.classList.contains("stx-frame"),
+      };
+    }));
+  const expectView = (m) => mapView({ scrollLeft: m.scrollLeft, scrollTop: m.scrollTop, clientW: m.clientW, clientH: m.clientH, scale: m.scale, contentW: m.contentW, contentH: m.contentH });
   const close = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
   const sameRect = (v, e, tol = 1.5) => close(v.x, e.x, tol) && close(v.y, e.y, tol) && close(v.w, e.w, tol) && close(v.h, e.h, tol);
-  const cellRects = (p) => p.evaluate(() => [...document.querySelectorAll(".stu-map-cell")].map((c) => ({
+  // Named for the MAP's rects, not for the retired pure reader that used to compute them.
+  const mapCells = (p) => p.evaluate(() => [...document.querySelectorAll(".stu-map-cell")].map((c) => ({
     x: Number(c.getAttribute("x")), y: Number(c.getAttribute("y")), w: Number(c.getAttribute("width")), h: Number(c.getAttribute("height")),
     frame: c.classList.contains("stu-map-cell--frame"),
   })));
@@ -5759,22 +6405,14 @@ async function minimapPass(browser, engineName, t, errors) {
     && (await p1.locator("[data-studio-minimap] .stu-map").getAttribute("aria-describedby")) === "stu-map-help");
 
   // --- 1 · the cells and the view rect, in THREE conditions ---------------------------------------
-  const geom1 = await geomOf(p1);
-  const wrapGeo = await p1.evaluate(() =>
-    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => ({
-      col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
-      cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
-      frame: n.classList.contains("stx-frame"),
-    })));
-  const cells1 = await cellRects(p1);
+  const wrapGeo = await wrapBoxes(p1);
+  const cells1 = await mapCells(p1);
   t("#221/AC3 · one map cell per MOVABLE wrapper at settle, frames wearing their own modifier",
     cells1.length === wrapGeo.length && cells1.filter((c) => c.frame).length === FRAMES.length && wrapGeo.length >= 5,
     JSON.stringify({ cells: cells1.length, wrappers: wrapGeo.length }));
-  t("#221/AC3 · …and every cell sits at cellRect's answer for its wrapper's attributes over the MEASURED tracks — span-aware, in order",
-    cells1.every((c, i) => {
-      const e = cellRect({ col: wrapGeo[i].col, row: wrapGeo[i].row }, { cols: wrapGeo[i].cols, rows: wrapGeo[i].rows }, geom1);
-      return sameRect(c, e) && c.frame === wrapGeo[i].frame;
-    }), JSON.stringify({ cells1, wrapGeo }));
+  t("#221/AC3 · …and every cell sits at nodeRect's answer for its wrapper's own four properties — in order, frames wearing their modifier",
+    cells1.every((c, i) => sameRect(c, nodeRect(wrapGeo[i])) && c.frame === wrapGeo[i].frame),
+    JSON.stringify({ cells1, wrapGeo }));
 
   const mRest = await metricsOf(p1);
   const vRest = await viewAttr(p1);
@@ -5790,7 +6428,8 @@ async function minimapPass(browser, engineName, t, errors) {
   t("#221/AC3 · panned (scrollTop 170): the rect moved and equals the computed expectation — the missing-scroll-term detector",
     sameRect(vPan, expectView(mPan)) && vPan.y > vRest.y && close(mPan.scrollTop, 170),
     JSON.stringify({ vPan, expect: expectView(mPan) }));
-  // ZOOMED AT 0,0 — no scroll event can fire, so only the data-zoom observer can move the rect:
+  // ZOOMED AT 0,0 — no scroll event can fire, so only the style observer on the viewport can move
+  // the rect (the scale is a custom property now, which is why that filter names "style"):
   // the sole detector of the observer wiring, and the no-timer AC's positive proof.
   await p1.evaluate(() => { const s = document.querySelector("[data-studio-canvas] .stx-scroll"); s.scrollLeft = 0; s.scrollTop = 0; });
   await p1.waitForTimeout(200);
@@ -5799,19 +6438,20 @@ async function minimapPass(browser, engineName, t, errors) {
   await p1.waitForTimeout(200);
   const mZoom = await metricsOf(p1);
   const vZoom = await viewAttr(p1);
-  t("#221/AC3 · THE ZOOM-AT-0,0 CASE: the rect GREW to mapView's zoomed answer with no scroll event fired — only the data-zoom observer can have done this",
-    sameRect(vZoom, expectView(mZoom)) && vZoom.w > vAt100.w && mZoom.zoom !== ZOOM_REST,
+  t("#221/AC3 · THE ZOOM-AT-0,0 CASE: the rect GREW to mapView's zoomed answer with no scroll event fired — only the viewport's style observer can have done this",
+    sameRect(vZoom, expectView(mZoom)) && vZoom.w > vAt100.w && mZoom.scale !== SCALE_REST,
     JSON.stringify({ vZoom, expect: expectView(mZoom), mZoom }));
   await btn(p1, "Reset").click();
   await p1.waitForTimeout(200);
 
   // --- 3 · pan tracking through a real drag (the scroll-event path) -------------------------------
-  const panPt = await p1.evaluate(() => {
-    const a = document.querySelector('[data-studio-canvas] .stx-slot[data-col="1"][data-row="1"]').getBoundingClientRect();
-    const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
-    const py = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
-    return { x: a.left + a.width / 2, y: a.top + a.height / 2 + py };
-  });
+  // ONE NODE PITCH BELOW THE FIRST BLOCK — EMPTY CANVAS, which is what a pan needs to grab. The
+  // pitch came from the grid's resolved rows; it is now the imported constant, like every other
+  // number this driver uses.
+  const panPt = await p1.evaluate((pitch) => {
+    const a = document.querySelector("[data-studio-canvas] .stx-slot").getBoundingClientRect();
+    return { x: a.left + a.width / 2, y: a.top + a.height / 2 + pitch };
+  }, NODE_H + NODE_GAP);
   const v3a = await viewAttr(p1);
   await p1.mouse.move(panPt.x, panPt.y);
   await p1.mouse.down();
@@ -5823,15 +6463,33 @@ async function minimapPass(browser, engineName, t, errors) {
     v3b.y > v3a.y && sameRect(v3b, expectView(await metricsOf(p1))), JSON.stringify({ v3a, v3b }));
 
   // --- 4 · content tracking: an injected agent move re-draws that block's cell --------------------
-  const movedId = await p1.evaluate(() => document.querySelector('[data-studio-canvas] .stx-slot[data-col="1"][data-row="1"]').getAttribute("data-stx-id"));
-  await inject(p1, { type: "ui.move", source: "agent", target: { id: movedId }, params: { col: 6, row: 2 } });
+  const before4 = (await wrapBoxes(p1))[0];
+  const movedId = before4.id;
+  const to4 = at(6, 2);
+  await inject(p1, { type: "ui.move", source: "agent", target: { id: movedId }, params: { x: to4.x, y: to4.y } });
   await p1.waitForTimeout(250);
-  const cells4 = await cellRects(p1);
-  const newRect = cellRect({ col: 6, row: 2 }, undefined, geom1);
-  const oldRect = cellRect({ col: 1, row: 1 }, undefined, geom1);
-  t("#221/AC3 · an injected agent move re-draws that block's cell at its new footprint (and nothing is left at the old one)",
-    cells4.some((c) => sameRect(c, newRect)) && !cells4.some((c) => sameRect(c, oldRect)),
-    JSON.stringify({ cells4, newRect }));
+  const cells4 = await mapCells(p1);
+  const after4 = (await wrapBoxes(p1)).find((w) => w.id === movedId);
+  // THE CELL FOLLOWS THE NODE, and both sides are read from the page rather than typed: the
+  // expectation is nodeRect over the wrapper's own properties AFTER the move, and the negative is
+  // the rectangle it used to occupy. Asserted as a pair because "it drew a new cell" and "it did
+  // not leave the old one behind" are two failures that look the same from a count.
+  t("#221/AC3 · an injected agent move re-draws that block's cell at its new rectangle (and nothing is left at the old one)",
+    cells4.some((c) => sameRect(c, nodeRect(after4)))
+    && !cells4.some((c) => sameRect(c, nodeRect(before4))),
+    JSON.stringify({ cells4, want: nodeRect(after4), gone: nodeRect(before4) }));
+  // H2 · THE OBSERVER'S attributeFilter, and nothing else covers it. studio-minimap.mjs and
+  // studio-layers.mjs both watch attributeFilter: ["style"] — the position IS a style property
+  // now, where it used to be a pair of data attributes — and if either filter names the wrong one
+  // the surface FREEZES for the whole of a move while the page otherwise works perfectly: the node
+  // travels, the announcement fires, the history entry lands, and only the mirror is stale. It is
+  // invisible to build-checks (no browser), to drift-check (no artifact) and to the pixel gate (the
+  // map is captured at rest, where a frozen cell is in the right place anyway). The row above is
+  // the positive proof for the map; this is the same claim made where it can be read as a fact.
+  t("#221 · H2 · the map's cell tracked a move that changed ONLY a style property — the observer's attributeFilter names \"style\", and a wrong one freezes every cell with the page still working",
+    !sameRect(nodeRect(after4), nodeRect(before4))
+    && cells4.some((c) => sameRect(c, nodeRect(after4))),
+    JSON.stringify({ before: nodeRect(before4), after: nodeRect(after4) }));
 
   // --- 5 · click-to-jump against the settled scroll, announced once -------------------------------
   // PARKED AT CENTER FIRST, instantly (methodPass's rule): after open() the rail's top sits at the
@@ -5849,15 +6507,19 @@ async function minimapPass(browser, engineName, t, errors) {
   await p1.mouse.click(click5.x, click5.y);
   await p1.waitForTimeout(300);
   const m5 = await metricsOf(p1);
-  const exp5 = jumpFrom(frac5, { clientW: m5.realClientW, clientH: m5.clientH, scale: ZOOM_LEVELS[m5.zoom], contentW: m5.contentW, contentH: m5.contentH });
+  const exp5 = jumpFrom(frac5, { clientW: m5.realClientW, clientH: m5.clientH, scale: m5.scale, contentW: m5.contentW, contentH: m5.contentH });
   const said5 = await liveSeen(p1);
-  const range5 = visibleRange(expectView(m5), geom1);
+  // THE SENTENCE'S SUBJECT CHANGED WITH THE SUBSTRATE (#302). The retired reader named a column
+  // and row span, which a free stage has none of; visibleCount answers how much of the reader's
+  // work is on screen, which is what a minimap is for. Computed in Node from the same boxes the map
+  // draws from, so the expectation moves with the page.
+  const count5 = visibleCount(expectView(m5), await wrapBoxes(p1));
   t("#221/AC3 · click-to-jump: the scroller settles at jumpFrom's clamped target — the same clamp range the browser applies, so computed === settled on BOTH axes",
     close(m5.scrollLeft, exp5.left, 3) && close(m5.scrollTop, exp5.top, 3),
     JSON.stringify({ settled: { left: m5.scrollLeft, top: m5.scrollTop }, exp5 }));
-  t("#221/AC3 · …announced exactly once, with visibleRange's own sentence",
-    said5.n === 1 && said5.last === `Viewing columns ${range5.col1} to ${range5.col2}, rows ${range5.row1} to ${range5.row2}.`,
-    JSON.stringify({ said5, range5 }));
+  t("#221/AC3 · …announced exactly once, with visibleCount's own sentence",
+    said5.n === 1 && said5.last === `Showing ${count5.visible} of ${count5.total} on the canvas.`,
+    JSON.stringify({ said5, count5 }));
 
   // --- 6 · the keyboard: one cell per press, the blocked press honest, Home -----------------------
   await p1.focus("[data-studio-minimap] .stu-map");
@@ -5869,9 +6531,11 @@ async function minimapPass(browser, engineName, t, errors) {
   await p1.waitForTimeout(200);
   const m6b = await metricsOf(p1);
   const said6 = await liveSeen(p1);
-  const pitchY = (geom1.rows[0] + geom1.rowGap) * ZOOM_LEVELS[m6b.zoom];
-  t("#221/AC3 · ArrowDown on the focused map pans exactly one cell — track + gap, × the current scale — and announces the range reached",
-    close(m6b.scrollTop - m6a.scrollTop, pitchY) && said6.n === 1 && /^Viewing columns \d+ to \d+, rows \d+ to \d+\.$/.test(said6.last),
+  // ONE NODE PITCH × THE SCALE — the module's own stepY, imported rather than measured off tracks
+  // that no longer exist.
+  const pitchY = (NODE_H + NODE_GAP) * m6b.scale;
+  t("#221/AC3 · ArrowDown on the focused map pans exactly one node pitch — × the current scale — and announces what is on screen",
+    close(m6b.scrollTop - m6a.scrollTop, pitchY) && said6.n === 1 && /^Showing \d+ of \d+ on the canvas\.$/.test(said6.last),
     JSON.stringify({ delta: m6b.scrollTop - m6a.scrollTop, pitchY, said6 }));
   await countLive(p1);
   await p1.keyboard.press("ArrowRight");
@@ -5894,35 +6558,36 @@ async function minimapPass(browser, engineName, t, errors) {
     reqs.length === 0, JSON.stringify(reqs));
 
   // --- 9 · compile round-trip: the data-compile-state full-rebuild branch -------------------------
-  // The one branch no other gate can see (group 27 is DOM-free, so it cannot read computed tracks;
-  // the pixel gate captures the pre-compile settled state): Compile flips --stx-slot-h under the
-  // stage, so the map must RE-MEASURE tracks, content box and viewBox. Delete the observer's
-  // data-compile-state branch, or the re-measure inside rebuildCells(), and this goes red. It runs
-  // AFTER the zero-request claim deliberately — the first compile legitimately fetches
-  // vocabulary.json, which is studio-compile.mjs's request, not the rail's.
-  const geomPre = await geomOf(p1);
+  // The one branch no other gate can see (group 27 is DOM-free; the pixel gate captures the
+  // pre-compile settled state): Compile flips --stx-slot-h under the stage, so every wrapper's
+  // RENDERED HEIGHT changes and the map must re-measure. Delete the observer's data-compile-state
+  // branch, or the re-measure inside rebuildCells(), and this goes red. It runs AFTER the
+  // zero-request claim deliberately — the first compile legitimately fetches vocabulary.json,
+  // which is studio-compile.mjs's request, not the rail's.
+  //
+  // WHAT CHANGED (#302): the stage is a FIXED STAGE_W × STAGE_H box, so the viewBox does NOT move
+  // when a board compiles — it used to, because the grid's tracks grew and the stage grew with
+  // them. Asserting a changed viewBox would now be asserting the opposite of the substrate. The
+  // re-measure is still there to catch, and the thing that carries it is the CELLS: a slot with no
+  // authored height is drawn at its rendered one, and that is what a compile changes.
   const boxPre = await p1.evaluate(() => document.querySelector(".stu-map svg").getAttribute("viewBox"));
-  const cellsPre = await cellRects(p1);
+  const cellsPre = await mapCells(p1);
   await p1.locator(VIEWPORT).getByRole("button", { name: "Compile the board", exact: true }).click();
   await p1.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "rendered", null, { timeout: 20000 });
   await p1.waitForTimeout(400);
-  const geomC = await geomOf(p1);
-  const wrapC = await p1.evaluate(() =>
-    [...document.querySelectorAll("[data-studio-canvas] .stx-slot, [data-studio-canvas] .stx-frame")].map((n) => ({
-      col: n.getAttribute("data-col"), row: n.getAttribute("data-row"),
-      cols: n.getAttribute("data-span-col"), rows: n.getAttribute("data-span-row"),
-    })));
+  const wrapC = await wrapBoxes(p1);
   const boxC = await p1.evaluate(() => document.querySelector(".stu-map svg").getAttribute("viewBox"));
   const stageC = await p1.evaluate(() => {
     const s = document.querySelector("[data-studio-canvas] .stx-stage");
     return { w: s.offsetWidth, h: s.offsetHeight };
   });
-  const cellsC = await cellRects(p1);
-  t("#221/AC3 · Compile RE-MEASURES the map: the viewBox is the compiled stage's own box (the tracks grew under it) and every cell sits at cellRect's answer over the FRESHLY measured tracks",
-    boxC === `0 0 ${stageC.w} ${stageC.h}` && boxC !== boxPre && geomC.rows[0] > geomPre.rows[0]
+  const cellsC = await mapCells(p1);
+  t("#221/AC3 · Compile RE-MEASURES the map: the viewBox is still the fixed stage's own box, every cell is redrawn at nodeRect's answer over the FRESH wrapper boxes, and the blocks genuinely GREW — so a missing re-measure cannot pass",
+    boxC === `0 0 ${stageC.w} ${stageC.h}` && boxC === boxPre
     && cellsC.length === cellsPre.length
-    && cellsC.every((c, i) => sameRect(c, cellRect({ col: wrapC[i].col, row: wrapC[i].row }, { cols: wrapC[i].cols, rows: wrapC[i].rows }, geomC))),
-    JSON.stringify({ boxPre, boxC, rows0: [geomPre.rows[0], geomC.rows[0]] }));
+    && cellsC.every((c, i) => sameRect(c, nodeRect(wrapC[i])))
+    && cellsC.some((c, i) => !close(c.h, cellsPre[i].h)),
+    JSON.stringify({ boxPre, boxC, heights: [cellsPre.map((c) => c.h), cellsC.map((c) => c.h)] }));
   t("#221/AC3 · …and the view rect tracks the compiled geometry — re-scaled against the new viewBox, never left at the pre-compile scale",
     sameRect(await viewAttr(p1), expectView(await metricsOf(p1))),
     JSON.stringify({ v: await viewAttr(p1), expect: expectView(await metricsOf(p1)) }));
@@ -5930,7 +6595,7 @@ async function minimapPass(browser, engineName, t, errors) {
   await p1.waitForFunction(() => document.querySelector("[data-studio-canvas]").getAttribute("data-compile-state") === "blocks", null, { timeout: 20000 });
   await p1.waitForTimeout(400);
   const boxR = await p1.evaluate(() => document.querySelector(".stu-map svg").getAttribute("viewBox"));
-  const cellsR = await cellRects(p1);
+  const cellsR = await mapCells(p1);
   t("#221/AC3 · Back to blocks restores it: the viewBox back exactly, every cell back at its pre-compile rect",
     boxR === boxPre && cellsR.length === cellsPre.length && cellsR.every((c, i) => sameRect(c, cellsPre[i]) && c.frame === cellsPre[i].frame),
     JSON.stringify({ boxR, boxPre }));
@@ -6037,13 +6702,10 @@ async function perfPass(browser, engineName, t, errors) {
         const r = document.querySelector(`.stx-slot[data-stx-id="${id}"] .stx-grab`).getBoundingClientRect();
         return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
       }, st.id);
-      const drop = await p.evaluate((id) => {
-        const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-        const cs = getComputedStyle(stage);
-        const pitch = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
+      const drop = await p.evaluate(([id, pitch]) => {
         const r = document.querySelector(`.stx-slot[data-stx-id="${id}"]`).getBoundingClientRect();
         return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 + pitch };
-      }, st.id);
+      }, [st.id, NODE_H + NODE_GAP]);
       await p.mouse.move(g.x, g.y);
       await p.mouse.down();
       for (let i = 1; i <= 4; i += 1) {
@@ -6093,15 +6755,12 @@ async function perfPass(browser, engineName, t, errors) {
     // throttle, and every operation here is strictly lighter (a marquee is a class toggle over the
     // covered cells; a guide is two attribute writes).
     { label: "marquee drag", act: async (p) => {
-      const pts = await p.evaluate(() => {
+      const pts = await p.evaluate(([px, py]) => {
         const stage = document.querySelector("[data-studio-canvas] .stx-stage");
         const a = stage.querySelector(".stx-slot").getBoundingClientRect();
-        const cs = getComputedStyle(stage);
-        const px = parseFloat(cs.gridTemplateColumns) + (parseFloat(cs.columnGap) || 0);
-        const py = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
         const from = { x: a.left + a.width / 2, y: a.top + a.height / 2 };
         return { from, to: { x: from.x + px, y: from.y + py } };
-      });
+      }, [NODE_W + NODE_GAP, NODE_H + NODE_GAP]);
       await p.keyboard.down("Shift");
       await p.mouse.move(pts.from.x, pts.from.y);
       await p.mouse.down();
@@ -6113,16 +6772,13 @@ async function perfPass(browser, engineName, t, errors) {
       await p.waitForTimeout(120);
     } },
     { label: "group pointer-drag", act: async (p) => {
-      const pts = await p.evaluate(() => {
+      const pts = await p.evaluate((py) => {
         const n = document.querySelector("[data-studio-canvas] .stx-slot[data-stx-selected] .stx-grab");
         if (!n) return null;
-        const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-        const cs = getComputedStyle(stage);
-        const py = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
         const r = n.getBoundingClientRect();
         const from = { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
         return { from, to: { x: from.x, y: from.y + py } };
-      });
+      }, NODE_H + NODE_GAP);
       if (!pts) return; // the marquee row above caught nothing — its own assertion owns that
       await p.mouse.move(pts.from.x, pts.from.y);
       await p.mouse.down();
@@ -6156,10 +6812,7 @@ async function perfPass(browser, engineName, t, errors) {
       const h = p.locator('[data-stx-frame="verdant"] .stx-resize');
       if (!(await h.count())) return;
       await h.scrollIntoViewIfNeeded();
-      const pitch = await p.evaluate(() => {
-        const cs = getComputedStyle(document.querySelector("[data-studio-canvas] .stx-stage"));
-        return parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
-      });
+      const pitch = NODE_H + NODE_GAP;
       const b = await h.boundingBox();
       if (!b) return;
       await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
@@ -6394,16 +7047,16 @@ async function perfPass(browser, engineName, t, errors) {
       });
       window.__loafObs.observe({ type: "long-animation-frame" });
     });
-    const geom = await tp.evaluate(() => {
+    // THE PITCH IS THE IMPORTED CONSTANT (#302). It was read off the stage's resolved grid rows,
+    // which no longer exist — a getComputedStyle here would answer "none" and the drag would be a
+    // NaN-length gesture that silently sampled nothing.
+    const geom = await tp.evaluate((pitch) => {
       const slot = document.querySelector("[data-studio-canvas] .stx-slot");
       const grab = slot.querySelector(".stx-grab").getBoundingClientRect();
-      const stage = document.querySelector("[data-studio-canvas] .stx-stage");
-      const cs = getComputedStyle(stage);
-      const pitch = parseFloat(cs.gridTemplateRows) + (parseFloat(cs.rowGap) || 0);
       const r = slot.getBoundingClientRect();
       return { fromX: (grab.left + grab.right) / 2, fromY: (grab.top + grab.bottom) / 2,
         toX: (r.left + r.right) / 2, toY: (r.top + r.bottom) / 2 + pitch };
-    });
+    }, NODE_H + NODE_GAP);
     const t0 = await tp.evaluate(() => performance.now());
     await tp.mouse.move(geom.fromX, geom.fromY);
     await tp.mouse.down();
@@ -6432,9 +7085,9 @@ async function perfPass(browser, engineName, t, errors) {
     console.log("  frame check · chromium only (CDP + LoAF are chromium-only by definition) · 4× CPU throttle · thresholds: worst rAF gap ≤ 50 ms, zero LoAF (≥ 50 ms) in the drag window");
     console.log(`    idle median ${fmt(idleMedian)} ms · ${gaps.length + 1} drag frames over ${Math.round(t1 - t0)} ms · p50 ${fmt(pctl(0.5))} · p95 ${fmt(pctl(0.95))} · max ${fmt(worst)} · >33 ms: ${over33} · LoAF: ${loafInWindow.length}`);
     // Movement proven first — "no dropped frames" is trivially true of a drag that never engaged.
-    const movedRow = await tp.evaluate(() => document.querySelector("[data-studio-canvas] .stx-slot").getAttribute("data-row"));
+    const movedTo = await tp.evaluate(() => parseFloat(document.querySelector("[data-studio-canvas] .stx-slot").style.getPropertyValue("--y")) || 0);
     t("frame check · the throttled drag genuinely moved the block — the sampled window holds a real gesture",
-      movedRow === "2", `data-row=${movedRow}`);
+      movedTo > 0, `--y=${movedTo}`);
     t("frame check · a genuinely sampled drag — dozens of frames inside the drag window",
       gaps.length >= 20, `${gaps.length} gap(s)`);
     t("frame check · worst rAF gap inside the throttled drag ≤ 50 ms", worst <= 50, `${fmt(worst)} ms`);
@@ -6472,5 +7125,5 @@ console.log('\nstudio-journey bounds · #218\'s docsPass asserts the docs panel\
 
 console.log(totalFails
   ? `\nstudio-journey ✗  ${totalFails} assertion(s) failed`
-  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · arrangement is attributes on the running page · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · occupancy holds · the hit-test in all three conditions · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board WITH ITS ARRANGEMENT — the one thing /build's rail cannot express, and the field the codec drops silently — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: the arrangement moved OFF the default row-1 layout before the copy, which is what turns the sender's-coordinates assertion into the g-restore's only running-page proof rather than a claim both branches satisfy; a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage — so the copied link now CARRIES the arrangement, labelled as carrying it · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state · AND #214's METHOD BAND: the ten questions as cards on the shipped canvas — disabled while the driver plays with a disabled-band pointerdown proven NOT a take-over and not a redraft, enabled in settle's own task, a pointer answer and a native radio-arrow keyboard answer each redrafting the canvas to draftBoard's OWN board computed in Node label for label, announced once per placement plus the one redraft sentence, provenance flipped in both standing places in the same words, the driver RELINQUISHED (transport dead, still settled, the set-aside sentence, no take-over route), the Hook loop assembled by pointer AND by keyboard with every select and placement announced counted exactly, a wrong-stage placement refused with the fixed reason and an untouched DOM, the verdict locked until completion and then the imported rules' sentences BY IDENTITY, re-rendering when an ethics card moves afterwards, the keep rail's link decoding back to the drafted board and answers, and the ?b= #193 mode populating cards, diagram and verdict with zero interaction on a never-disabled band · AND #213's MEASUREMENT GATE: INP measured per named interaction — twenty-six rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset \u00b7 AND #217's FULL CANVAS AFFORDANCES on the shipped /factory: a Shift-drag marquee selecting exactly the components inside the dragged rectangle (computed in Node from the LIVE arrangement through the page's own marqueeRange + idsInRange, never a literal) and announced EXACTLY ONCE on release, the KEYBOARD path selecting the SAME SET from a captured-once anchor — AC #1's whole claim — and proven to REPLACE rather than union by a deliberate stray Shift-click first, a marquee over empty canvas saying \"Nothing to select.\" rather than \"Selection cleared.\", the group move by pointer AND by keyboard landing every member at its own offset through ONE ui.move-group with no ui.move at all and no target on the envelope, one announcement, one history entry and ONE Undo restoring all of them, alignment guides proven to sit only where a NON-CARRIED peer really is WITH the mutation that forces one onto a provably empty column and watches the check go red, the context menu opening by Shift+F10 and by right-click with IDENTICAL items, full Arrow/Home/End navigation over items that stay focusable because they are aria-disabled rather than disabled, Escape returning focus to the invoker, an item press starting neither a pan nor a drag, the far-column menu flipping and staying inside the scroller while an interior one does not, a scroll closing it, Escape cancelling each multi-verb back to its pre-verb state with the selection surviving a cancel and an undo, a Shift-drag mid-carry starting no marquee (so the two Escape listeners are never both armed), the QUICK group drag landing where the reader released, a compile KEEPING the selection while CANCELLING a live group carry (two rows, because they look like one property), both sides of the replay take-over coupling — a marquee hands over exactly once, \u2318/Ctrl+A deliberately does not — reduced motion completing every verb, and Fit on a COMPILED canvas flooring at 50% with the honest sentence rather than a claim that everything is in view \u00b7 AND #218's DOCKED COMPONENT DOCS, the half build-checks group 23 structurally cannot be: the panel fetching NONE of its three artifacts at rest and carrying no trigger on the canvas until the visitor compiles — the lazy discriminator, invisible to the pixel gate (identical pixels), to drift-check (no artifact) and to CI (no browser) — then EVERY rendered primitive proven a doc trigger that is focusable and described, with the count read off the running page, a pointer click and a keyboard FOCUS each opening that component's docs while focus STAYS ON THE CANVAS (the sole detector of activate(i, true), which would make the keyboard route unusable and leave every other assertion green), the heading level shifted to h4/h5 under the panel's own h3, exactly one code panel painted and changing on a tab press read as COMPUTED display (the hidden attribute is inert under an author rule — the whole reason that rule moved into the shared sheet), the API and token tables printed by the inspector compared STRING FOR STRING against /components in a second page with the live-value column included and BEFORE the pack swap, four more canvas re-renders fetching nothing further with pack.json pinned at exactly one request across the visit and the triggers re-decorated on the new nodes each time, the dock switched to saulera moving live token values with not one var(--\u2026) binding among them, the inspect bubble still opening after a revert+recompile replaced every node, the expert toggle off-by-default and persisted in both directions with the key GONE rather than left as "off", and a 500 on an artifact becoming a SENTENCE in the panel while the canvas stays compiled and nothing the page itself said reaches the console · AND #221's LAYERS LIST + MINIMAP, the running-page halves build-checks groups 26/27 structurally cannot be: the list mirroring the stage in count, ids, names AND order through the page's own layerEntries, a pointer drag and an injected agent move each updating a row's position sentence in the same interaction, a method redraft rebuilding the rows with the frames' rows SURVIVING, selection parity BOTH ways through the one applySelection — a row click announced once with its own count sentence, a marquee's computed id set equal to the rows' pressed set, a second click deselecting — ONE tab stop with roving arrows, Enter on a frame row bringing it into view without touching the selection, the vanished-wrapper refusal as CONTENT, zero inline styles and no position:sticky pinned at runtime, a rebuild UNDER FOCUS keeping focus on the surviving row, a mid-replay row click and map jump both NOT take-overs with the driver still authoring, the view rect equal to mapView's computed answer at rest · panned · zoomed-at-0,0 (the data-zoom observer's sole detector, and the no-timer AC's positive proof), every map cell at cellRect's answer over the measured tracks, click-to-jump settling at jumpFrom's clamped target with visibleRange's own sentence announced once, one-cell keyboard pans with a BLOCKED press honestly announcing the unchanged range, the rail issuing ZERO main-frame requests across every interaction, a Compile RE-MEASURING the map — tracks, content box and viewBox, every cell at cellRect's answer over the fresh tracks — with Back to blocks restoring it exactly (the data-compile-state rebuild branch's only gate), and reduced motion reflecting and tracking identically (${toRun.join(", ")})`);
+  : `\nstudio-journey ✓  pan by scroll · four zoom verbs · the bare wheel never zooms · every inline style on the canvas carrying only the four position and three scale properties · far column reachable by keyboard · three sources one arrangement (the third on a fresh page) · announcements counted per path · ui.move carrying the vocabulary shape under target.component and the display label under target.label, and NO component for a fat-marker block (#232) · escape restores · the hit-test in all three conditions (±2px, because a free drop lands on a float, and with the occupancy pair DELETED rather than translated: nothing blocks a free move, so two components overlapping is correct) · a clean drop sticks · SC 2.5.7's click-move-click completed against the drag as its control · a component placed AFTER mount undoes by both call sites · a re-place re-labels the move handle and a canvas mounted WITHOUT its verbs hands out no dead tab stop and no dangling IDREF (#231) · reduced motion · AND #209's REPLAY DRIVER on the shipped /factory: the canvas assembling itself from a committed real run, settling on that run's own board block for block in board order and laid out by board-ops.mjs's RANK LAYOUT computed in Node from the board the page itself fetched, a BYTE-IDENTICAL settled stage on a second load, one action per beat and every one of them agent.*/source:"agent" carrying no target.component and no ui.move at all, pause · step · seek all driven from the keyboard and each announced, the take-over on a FRESH page mid-replay pausing the run and shifting provenance and firing /factory/took-over exactly once before restoring the real URL, that same handover one-shot, Tab and the driver's own transport correctly NOT counting as take-over, reduced motion reaching the identical end state immediately with manual stepping intact, the Pause button genuinely not painted there (read as COMPUTED display, since the hidden attribute is inert wherever an author rule sets one) and the handover still shifting provenance and still firing the route, the TWO DEGRADATIONS — a 404 artifact settling as an honest card with no dead transport and, load-bearing, NO take-over route at all, because a visitor moving blocks on a canvas the run never built has taken nothing over; and a 404 trace still playing the ops while the surface STATES the words are missing — and destroy() mid-playback writing nothing further · AND #240's REVIEW FIXES: the compile beat dead while the driver authors and live the moment the visitor takes over, the WHOLE transport dying with the handover rather than seek alone (a Resume after a compile would replace compiled components with fat markers), Compile pressed MID-REPLAY compiling the blocks actually on the canvas and nothing overwriting them afterwards, the earliest take-over there is publishing an empty board without rendering a zeros panel, a press in the LOADING window taking nothing over and firing no route while the run still plays through, and the two INSTANT paths — reduced motion and Skip to end — naming the acts in the one sentence a polite region can actually speak, with the autoplayed arrival as the control · AND THE SHIPPED /factory: the replay's board on the canvas, a cold #shape deep-link into a MOUNTED graph, all three absorbed exhibits rendered after activation (their only coverage now they are lazy), the panel list by arrow keys, a keyboard move announced per keypress, and Act 0 self-booted · AND #207's COMPILE BEAT: at rest fat-marker blocks with no vocabulary request made, the beat swapping every slot to a library primitive with every id, column and row unchanged, one announcement per step counted exactly AND spaced far enough apart to be five announcements rather than fewer (on the second compile too, and under reduced motion), each verb handing focus to its counterpart instead of dropping it to the body, zero ::view-transition-* pseudos, no style attribute after it, a byte-identical stage on a re-run and on a fresh load, and reduced motion reaching the identical end state · AND #236's TEARDOWN: destroy() mid-walk and destroy() inside the vocabulary fetch both letting compile() come back rather than parking its frame, leaving the viewport clean, aborting the request and swapping nothing onto the stage afterwards, and #237's transient 503 settling as the honest card and then RENDERING on the next press with a second request genuinely issued · AND #210's KEEP RAIL, the half build-checks group 17 structurally cannot be: the rail fetching NOTHING at rest, the export click really handing a file over and those bytes parsing IN A BROWSER as one SCREEN per block on the canvas with one nav anchor per connection, every one resolving to a section inside the file, the entry screen still one tile per place, and no script in it, the copy click leaving a REAL pathname carrying a ?b= that decodes back to this board and carries NO arrangement key at all (#302: the g field is retired, the decoder refuses one BY NAME, and what travels is the board and the design values alone) — both new routes firing exactly once across two clicks each and carrying no board into the path, AC #6 asserted BOTH WAYS as client rects rather than as the inert "hidden" attribute (the bare board built here with the page's own encodeBuild, since /factory has no remove verb), and the DECLINED MOUNT that had never run: the sender's board at the sender's slots, not one action emitted, the transport unpainted, the chrome saying why, and the Compile button not merely enabled but COMPILING END TO END — the dead primary control #240 named. Plus a refused link scrubbing its ?b= and keeping its reason visible after the run narrates over the live region, a no-link page painting no notice at all, and reduced motion reaching the same rail · AND PR #241's REVIEW FIXES: a design worn in from HOME by each of its two paths — an imported record and a derived one, seeded through storage and applied by pack-boot before paint — reaching the DOWNLOADED BYTES and being NAMED in their provenance rather than denied; and a shape:stream link compiling IN PLACE — six feed rows inside one entry screen with streamNote's truncation stated on the stage, its copied link decoding to the same board and its label no longer claiming an arrangement · AND #212's FLOW on the shipped page: one screen per place with one nav button per connection, the pointer walk end to end along the dispatch chain with focus landing on each target screen's heading and EXACTLY ONE fixed counted announcement per navigation, the keyboard leg (Tab from the grab handle, Enter) on a fresh compile proving the nav re-wires, the revert byte-identical after navigating, and reduced motion reaching the same end state · AND #214's METHOD BAND: the ten questions as cards on the shipped canvas — disabled while the driver plays with a disabled-band pointerdown proven NOT a take-over and not a redraft, enabled in settle's own task, a pointer answer and a native radio-arrow keyboard answer each redrafting the canvas to draftBoard's OWN board computed in Node label for label, announced once per placement plus the one redraft sentence, provenance flipped in both standing places in the same words, the driver RELINQUISHED (transport dead, still settled, the set-aside sentence, no take-over route), the Hook loop assembled by pointer AND by keyboard with every select and placement announced counted exactly, a wrong-stage placement refused with the fixed reason and an untouched DOM, the verdict locked until completion and then the imported rules' sentences BY IDENTITY, re-rendering when an ethics card moves afterwards, the keep rail's link decoding back to the drafted board and answers, and the ?b= #193 mode populating cards, diagram and verdict with zero interaction on a never-disabled band · AND #213's MEASUREMENT GATE: INP measured per named interaction — twenty-six rows across the settled /factory and a mid-replay page — and ASSERTED ≤ 200 ms per engine through a driver-injected PerformanceObserver that ships nothing, the below-16 ms floor printed as such and made non-vacuous by a forced-slow calibration click proving the delivery pipeline alive on every engine, one over-budget row re-measured ONCE on a fresh page with both numbers printed, the comparator proven able to flag in the same pass that relies on it, the 4×-CDP-throttled drag sampled for rAF gaps and long-animation-frame entries with its histogram printed (chromium only, and stated), the appearance dock switched to saulera MID-REPLAY re-pointing the head's one pack line WITHOUT counting as take-over while the run plays through to the committed board and a move verb still announces after it, and all four zoom verbs activated FROM THE KEYBOARD with exactly the live surfaces the module writes asserted — the readout for in/out, .stx-live for Fit and Reset \u00b7 AND #217's FULL CANVAS AFFORDANCES on the shipped /factory: a Shift-drag marquee selecting exactly the components inside the dragged rectangle (computed in Node from the LIVE arrangement through the page's own marqueeRange + idsInRange, never a literal) and announced EXACTLY ONCE on release, the KEYBOARD path selecting the SAME SET from a captured-once anchor — AC #1's whole claim — and proven to REPLACE rather than union by a deliberate stray Shift-click first, a marquee over empty canvas saying \"Nothing to select.\" rather than \"Selection cleared.\", the group move by pointer AND by keyboard landing every member at its own offset through ONE ui.move-group with no ui.move at all and no target on the envelope, one announcement, one history entry and ONE Undo restoring all of them, alignment guides proven to sit only where a NON-CARRIED peer really is WITH the mutation that forces one onto a provably empty column and watches the check go red, the context menu opening by Shift+F10 and by right-click with IDENTICAL items, full Arrow/Home/End navigation over items that stay focusable because they are aria-disabled rather than disabled, Escape returning focus to the invoker, an item press starting neither a pan nor a drag, a far-edge menu opening LEFTWARD FROM ITS INVOKER so its right edge lands on that component's left edge, proven NOT to be sitting at setPos's own clamp (where a regression to clamp-only would leave it, MIN_SIZE away) and paired with an interior menu opening rightward, because either row alone would pass on a menu that always opened the same way \u2014 the flip is arithmetic in menuAnchor since the owner's 2026-09-20 call, not a data-flip-* attribute and a translate rule, so what is asserted is where the menu IS, a scroll closing it, Escape cancelling each multi-verb back to its pre-verb state with the selection surviving a cancel and an undo, a Shift-drag mid-carry starting no marquee (so the two Escape listeners are never both armed), the QUICK group drag landing where the reader released, a compile KEEPING the selection while CANCELLING a live group carry (two rows, because they look like one property), both sides of the replay take-over coupling — a marquee hands over exactly once, \u2318/Ctrl+A deliberately does not — reduced motion completing every verb, and Fit on a COMPILED canvas flooring at 50% with the honest sentence rather than a claim that everything is in view \u00b7 AND #218's DOCKED COMPONENT DOCS, the half build-checks group 23 structurally cannot be: the panel fetching NONE of its three artifacts at rest and carrying no trigger on the canvas until the visitor compiles — the lazy discriminator, invisible to the pixel gate (identical pixels), to drift-check (no artifact) and to CI (no browser) — then EVERY rendered primitive proven a doc trigger that is focusable and described, with the count read off the running page, a pointer click and a keyboard FOCUS each opening that component's docs while focus STAYS ON THE CANVAS (the sole detector of activate(i, true), which would make the keyboard route unusable and leave every other assertion green), the heading level shifted to h4/h5 under the panel's own h3, exactly one code panel painted and changing on a tab press read as COMPUTED display (the hidden attribute is inert under an author rule — the whole reason that rule moved into the shared sheet), the API and token tables printed by the inspector compared STRING FOR STRING against /components in a second page with the live-value column included and BEFORE the pack swap, four more canvas re-renders fetching nothing further with pack.json pinned at exactly one request across the visit and the triggers re-decorated on the new nodes each time, the dock switched to saulera moving live token values with not one var(--\u2026) binding among them, the inspect bubble still opening after a revert+recompile replaced every node, the expert toggle off-by-default and persisted in both directions with the key GONE rather than left as "off", and a 500 on an artifact becoming a SENTENCE in the panel while the canvas stays compiled and nothing the page itself said reaches the console · AND #221's LAYERS LIST + MINIMAP, the running-page halves build-checks groups 26/27 structurally cannot be: the list mirroring the stage in count, ids, names AND order through the page's own layerEntries, a pointer drag and an injected agent move each updating a row's position sentence in the same interaction, a method redraft rebuilding the rows with the frames' rows SURVIVING, selection parity BOTH ways through the one applySelection — a row click announced once with its own count sentence, a marquee's computed id set equal to the rows' pressed set, a second click deselecting — ONE tab stop with roving arrows, Enter on a frame row bringing it into view without touching the selection, the vanished-wrapper refusal as CONTENT, zero inline styles and no position:sticky pinned at runtime, a rebuild UNDER FOCUS keeping focus on the surviving row, a mid-replay row click and map jump both NOT take-overs with the driver still authoring, the view rect equal to mapView's computed answer at rest · panned · zoomed-at-0,0 (the viewport's own style observer being the sole detector now that the scale is a custom property, and the no-timer AC's positive proof), every map cell at nodeRect's answer over the wrapper's four properties, click-to-jump settling at jumpFrom's clamped target with visibleCount's own sentence announced once, one-pitch keyboard pans with a BLOCKED press honestly announcing the unchanged count, the rail issuing ZERO main-frame requests across every interaction, a Compile RE-MEASURING the map — tracks, content box and viewBox, every cell at nodeRect's answer over the fresh boxes — with Back to blocks restoring it exactly (the data-compile-state rebuild branch's only gate), and reduced motion reflecting and tracking identically (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

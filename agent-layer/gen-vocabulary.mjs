@@ -97,7 +97,7 @@ export function genVocabulary() {
       // scenario, generatedFrom, components, portability). A reader of an older committed pack can
       // tell which grammar their composition validated under.
       version: 2,
-      shape: "a composition is one node or an array of nodes; a node is {name, props, children?}",
+      shape: "a composition is one node or an array of nodes; a node is {name, props, children?, id?} — the optional id is written to the rendered element as data-part, so a build document can name one part of a screen without describing a path through the tree",
       childrenRule:
         "a node may carry children only when its vocabulary entry lists allowed names, and every child's name must be in that list; at most one child unless the entry declares childrenCardinality: \"many\", in which case any number",
       chipRule:

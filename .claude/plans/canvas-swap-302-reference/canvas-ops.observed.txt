@@ -1,0 +1,25 @@
+✓ OPS ↔ PARAMS are the same six verbs
+✓ OPS frozen by mutation
+✓ PARAMS.screen.compose frozen by mutation
+✓ PARAMS.screen.set frozen by mutation
+✓ PARAMS.state.add frozen by mutation
+✓ PARAMS.frame.size frozen by mutation
+✓ PARAMS.connect frozen by mutation
+✓ PARAMS.disconnect frozen by mutation
+✓ the spine's five ops apply  — frames f1,f2 arrows a1
+✓ ids are DETERMINISTIC across two runs
+✓ disconnect removes the arrow
+✓ no op's PARAMS carries an id for what it creates
+✓ D4 · why ABSENT is refused  — screen.compose: "why" is required
+✓ D4 · why EMPTY is refused
+✓ D4 · why BLANK is refused
+✓ an unknown param is refused by name
+✓ an unknown envelope key is refused
+✓ an unknown verb is refused
+✓ a dangling frame ref is refused
+✓ a stateKey off the minimum is refused
+✓ resolve applies the live override
+✓ resolve FLAGS the dangling ones, never drops them silently  — [{"kind":"dangling-set","partId":"p9"},{"kind":"dangling-hide","partId":"p7"}]
+✓ resolve is pure (base untouched)
+✓ deleting an overridden base part is REFUSED  — cannot delete part "p2": error (f2) still override it
+✓ deleting an UNoverridden base part is allowed

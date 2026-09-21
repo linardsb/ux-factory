@@ -63,7 +63,8 @@
 // Node-import safe: no DOM outside a function body, and the self-boot at the bottom is behind a
 // `typeof document` guard, because tooling/build-checks.mjs imports this file for its pure layer.
 
-import { initStudioCanvas, MAX_COLS, clampSlot } from "./studio-canvas.mjs";
+import { initStudioCanvas, NODE_GAP, NODE_H, NODE_W } from "./studio-canvas.mjs";
+import { rankLayout } from "./board-ops.mjs";
 import { mountCanvasVerbs } from "./studio-verbs.mjs";
 import { mountCanvasSelect } from "./studio-select.mjs";
 import { mountCompile } from "./studio-compile.mjs";
@@ -86,35 +87,44 @@ import { mountStudioMinimap } from "./studio-minimap.mjs";
 // Plain data in, plain data out, so build-checks group 14 drives it in CI with no browser — the
 // same split studio-canvas.mjs:34-73 and studio-verbs.mjs:60-235 carry.
 
-// arrangeBoard(board) → [{ id, label, affordances, col, row }].
+// arrangeBoard(board) → [{ id, label, affordances, x, y, w }].
 //
-// The board's places become canvas slots along row 1, in BOARD ORDER — which puts the entry place
-// first, because draftBoard builds it first (breadboard.mjs:124) and every later edit verb appends.
-// Reading the order rather than re-deriving "which one is the entry" keeps one answer to that
-// question, in the module that owns the board.
+// THE LAYOUT IS THE FLOW, NOT THE BOARD ORDER (#302). Until the grid was retired this laid every
+// place along row 1 in board order, and the cost was that a four-step flow and four unrelated
+// screens looked identical — the canvas showed what the board CONTAINED and never what it MEANT.
+// The rank layout is one column per BFS rank from the entry place, so a flow reads left to right.
+//
+// THE RULE ITSELF IS board-ops.mjs's rankLayout, IMPORTED, not re-derived. It used to exist twice —
+// here and again in system/replay-driver.mjs, whose own comment admitted the copy — so changing this
+// function left /factory's replay on the old rule. One rule, two callers, and this is the caller
+// that turns ranks into pixels.
 //
 // TOTAL BY CONTRACT: a null, a garbage object or a board whose places are junk returns [], never
 // throws. mountStudio's `finally` resolves the readiness handle on every path, but that is a gate
 // contract, not a licence to let a bad store crash the page before the canvas exists.
 //
-// Every slot goes through the canvas's own clampSlot, so "on the grid" has ONE definition
-// (studio-canvas.mjs:50) rather than a second opinion here. The MAX_COLS truncation is a real
-// break, not a clamp: clamping would pile places 13+ onto column 12, which is a stacking claim the
-// canvas explicitly refuses. What is dropped is STATED by the surface — buildSummary counts the
-// whole board, so the panel's place count and the arranged length disagree visibly when they
-// disagree at all.
+// NO TRUNCATION ANY MORE, and the sentence that announced one goes with it. The old rule broke at
+// the twelfth column because a thirteenth place had no column to sit in; free positions have no such
+// bound, so every place a board carries is laid out, and the canvas's count can no longer disagree with
+// buildSummary's. setPos still clamps each node to the stage edge, which is the only bound left.
 export function arrangeBoard(board) {
   const places = board && Array.isArray(board.places) ? board.places : [];
+  const byId = new Map(rankLayout(board).map((r) => [r.id, r]));
   const out = [];
   for (const place of places) {
     if (!place || typeof place !== "object") continue;
-    const col = out.length + 1;
-    if (col > MAX_COLS) break;
-    const slot = clampSlot({ col, row: 1 });
+    const rank = byId.get(String(place.id)) ?? { rank: out.length, order: 0 };
     const affordances = (Array.isArray(place.affordances) ? place.affordances : [])
       .filter((aff) => aff && typeof aff === "object")
       .map((aff) => ({ id: String(aff.id ?? ""), label: String(aff.label ?? "") }));
-    out.push({ id: String(place.id ?? `p${col}`), label: String(place.label ?? "Place"), affordances, ...slot });
+    out.push({
+      id: String(place.id ?? `p${out.length + 1}`),
+      label: String(place.label ?? "Place"),
+      affordances,
+      x: rank.rank * (NODE_W + NODE_GAP),
+      y: rank.order * (NODE_H + NODE_GAP),
+      w: NODE_W,
+    });
   }
   return out;
 }
@@ -292,7 +302,7 @@ const DRAFTED = "This board is drafted from your ten answers by the committed ru
 // The "This build" panel — the at-rest panel, and the only one this file renders itself.
 // `provenance` decides the closing note: the counted numbers above it are true of any board, but
 // whose board they count is a claim, and it has three honest values (see boardProvenance).
-function renderSummary(mount, summary, arranged, provenance) {
+function renderSummary(mount, summary, provenance) {
   if (!mount) return;
   mount.textContent = "";
 
@@ -310,12 +320,11 @@ function renderSummary(mount, summary, arranged, provenance) {
   // The rule VERBATIM. See buildSummary's note: this sentence is the rule, not a report about it.
   mount.appendChild(el("p", { class: "stu-reason", text: summary.reason }));
 
-  // Only ever rendered when something really was dropped, so it can never read as a hedge on a
-  // board that fits. arrangeBoard breaks at MAX_COLS; the count above is the whole board's.
-  if (summary.places > arranged.length) {
-    mount.appendChild(el("p", { class: "stu-note", text:
-      `The canvas holds the first ${arranged.length} of ${summary.places} places — row 1 is ${MAX_COLS} columns wide.` }));
-  }
+  // THE TRUNCATION NOTICE IS DELETED, NOT SOFTENED (#302). It existed because arrangeBoard broke at
+  // the twelfth column and a thirteenth place had nowhere to go; free positions have no such bound,
+  // so arrangeBoard now lays out every place a board carries and `summary.places > arranged.length`
+  // cannot become true. Keeping the branch would be shipping a sentence no state produces, which is
+  // worse than none: a later reader would take it as evidence that a bound exists.
 
   // TWO SOURCES, AND THEY ARE NOT THE SAME ONE (#209) — until the visitor makes them one (#214).
   // On "run" the places were built by the recorded run and the PATTERN is named from the ten method
@@ -441,19 +450,17 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // closing note renders from this, so it can never credit the run with a board it did not build.
   let boardProvenance = declined ? "restored" : "run";
 
-  // THE SENDER'S ARRANGEMENT, WHEN THE LINK CARRIED ONE. decodeBuild returns [{ id, col, row }] in
-  // board order with every id taken from the validated place at that index and never from the
-  // payload (build-share.mjs:452), and every pair already inside the grid — so this is a lookup, not
-  // a second validation. clampSlot all the same, because "on the grid" has ONE definition
-  // (studio-canvas.mjs:50) and the day the caps move it is the only line that must be right.
-  // Without a `g` the link still restores the board, laid out along row 1 like any other.
+  // ONE LAYOUT, AND IT IS COMPUTED HERE (#302). Until v3 a link could carry the sender's own
+  // arrangement in `g` and this branch applied it over arrangeBoard's answer. `g` is retired with
+  // the grid — a free position means nothing to a receiver whose stage is a different size — so a
+  // restored link is laid out exactly as any other board is, by the rule below and nothing else.
+  // `let`, NOT `const`: publishBoard below reassigns it on settle and on take-over. Written const
+  // while #302 deleted the `g` restore branch that used to reassign it here, which made every
+  // publish throw "Assignment to constant variable" one line before compile.setEnabled(true) — so
+  // the replay settled, the beat stayed disabled, and the page otherwise looked correct.
   let arranged = arrangeBoard(board);
-  const sent = restored && Array.isArray(restored.arrangement) ? restored.arrangement : null;
-  if (sent && sent.length === arranged.length) {
-    arranged = arranged.map((entry, i) => ({ ...entry, ...clampSlot({ col: sent[i].col, row: sent[i].row }) }));
-  }
   for (const entry of arranged) {
-    canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
+    canvas.place(placeBlock(entry), { x: entry.x, y: entry.y, w: entry.w, name: entry.label });
   }
 
   // AFTER the placement loop, which since #209 usually places NOTHING: the canvas starts empty and
@@ -508,7 +515,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // the replay path there is nothing to count yet — and a panel reading "Places 0" for the first
   // five seconds would be a set of true numbers about nothing. factory.html's own markup says what
   // is coming instead, and onSettle below replaces it with the counted panel.
-  if (arranged.length) renderSummary(summaryMount, summary, arranged, boardProvenance);
+  if (arranged.length) renderSummary(summaryMount, summary, boardProvenance);
 
   const inspector = wireInspector(shell);
 
@@ -547,18 +554,6 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // called and the other is not, one of the two layers is wired to elements that are gone.
   let docs = null;
 
-  // WHERE EACH BLOCK SITS, read off the RUNNING canvas in DOM order, which is board order (the
-  // studio's standing correspondence: studio-compile.mjs:382-383's positional swap and
-  // replay-driver.mjs's rename-in-place both rest on it). This is the one thing /build's rail
-  // structurally cannot produce, and it is what #208's `g` field carries. Read live rather than
-  // tracked, for the reason the beat reads the board live: the verbs, the driver and an undo all
-  // write these two attributes, and a mirror here would be a second copy of the arrangement that
-  // could disagree with the canvas the reader is looking at.
-  const arrangementNow = () => [...canvas.stage.querySelectorAll(".stx-slot")].map((w) => ({
-    col: Number(w.getAttribute("data-col")),
-    row: Number(w.getAttribute("data-row")),
-  }));
-
   const publishBoard = (finalBoard, provenance) => {
     // Only a caller that CLAIMS a provenance moves it (#214's adoptBoard passes "drafted");
     // settle and take-over pass nothing and inherit whatever the board already was.
@@ -571,7 +566,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
       // "Places 0" is a set of true numbers about nothing. It was unreachable while settle() was
       // the only publisher — a settled run always has places — and a take-over is reachable from
       // the moment the driver is `ready`, which is several beats before the first place.add.
-      if (arranged.length) renderSummary(summaryMount, summary, arranged, boardProvenance);
+      if (arranged.length) renderSummary(summaryMount, summary, boardProvenance);
       if (live) { live.board = board; live.arranged = arranged; live.summary = summary; }
     }
     compile.setEnabled(true);
@@ -621,12 +616,11 @@ function mountStudioCore(root, shell, restored, opts = {}) {
 
   // #210's keep rail, LAST — after the driver, so the board it reads is the one the driver is
   // about to fill, and so its own `finally` handle resolves where the gates already wait. Mounted
-  // from here rather than self-booting on its own script tag: it takes the board, the arrangement,
-  // the beat and the canvas, and all four are this file's, so a tag would have to reach them
-  // through getStudio() and would race the ?b= branch below.
+  // from here rather than self-booting on its own script tag: it takes the board, the beat and the
+  // canvas, and all three are this file's, so a tag would have to reach them through getStudio() and
+  // would race the ?b= branch below.
   keep = mountStudioKeep(root.querySelector("[data-studio-keep]"), {
     getBoard: () => board,
-    getArrangement: arrangementNow,
     compile,
     canvas,
   });
@@ -664,7 +658,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
     // the canvas owns; the slots are what this board put there (studio-canvas.mjs:114-117).
     for (const wrapper of canvas.stage.querySelectorAll(".stx-slot")) wrapper.remove();
     for (const entry of arrangeBoard(nextBoard)) {
-      canvas.place(placeBlock(entry), { col: entry.col, row: entry.row, name: entry.label });
+      canvas.place(placeBlock(entry), { x: entry.x, y: entry.y, w: entry.w, name: entry.label });
     }
     publishBoard(nextBoard, "drafted");
     // Where the provenance sentence STAYS PUT — canvas.say is transient by design, and the panel's

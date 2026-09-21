@@ -1,0 +1,9 @@
+✓ base frame validates
+✓ error state (resolved) validates
+  refused  · a child not in stack's allowed list — composition.children[0]: "plant-card" is not an allowed child of stack (allowed: card | gh
+  refused  · a prop that does not exist — composition.props.align: "middle" is not in enum [start | center | end | stretch]
+  refused  · a missing required prop — composition.props.direction: required prop of stack is missing
+  ACCEPTED · an id key (the #302 addition)
+
+stack allows: card ghost-button modal-dialog nav-tabs primary-button screen-header select-field stack text text-field
+stack cardinality: many

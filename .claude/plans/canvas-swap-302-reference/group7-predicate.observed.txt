@@ -1,0 +1,11 @@
+green  CONTROL · the good tree
+RED    M1 · a write OUTSIDE the named writers
+         · studio-canvas.mjs: 1 inline-style write(s) OUTSIDE setPos / setScale
+RED    M2 · a write in a module with no writer
+         · studio-canvas.mjs: named writer setPos() not found — the slice cannot be taken
+         · studio-canvas.mjs: named writer setScale() not found — the slice cannot be taken
+         · studio-verbs.mjs writes an inline style; only applyToStage, setPos and setScale may
+RED    M3 · a FOURTH write inside setPos
+         · studio-canvas.mjs: setPos() makes 4 inline-style writes, the invariant is 3
+RED    M4 · the file-scoped shortcut (the trap)
+         · studio-canvas.mjs: 2 inline-style write(s) OUTSIDE setPos / setScale

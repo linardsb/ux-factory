@@ -63,15 +63,7 @@
 // imports this file directly for its pure exports. The harness (studio.html) mounts it explicitly;
 // the designed surface is /factory, and that is #206's route surgery.
 
-import { FRAME_CLASS, MAX_COLS, MAX_ROWS, MIN_SPAN, MOVABLE, ZOOM_LEVELS, clampSlot, clampSpan, fits, footprint } from "./studio-canvas.mjs";
-
-// A slot that carries no span reads as a 1×1 RECTANGLE, and that default is the whole reason #219's
-// widening is safe: every function below answers byte-identically for a .stx-slot, which is what lets
-// build-checks group 13's existing cases run unedited as the proof the widening preserved behaviour.
-const UNIT_SPAN = Object.freeze({ cols: MIN_SPAN, rows: MIN_SPAN });
-const spanFrom = (m) => (m && (m.cols != null || m.rows != null)
-  ? { cols: Number(m.cols) || MIN_SPAN, rows: Number(m.rows) || MIN_SPAN }
-  : UNIT_SPAN);
+import { FRAME_CLASS, MIN_SIZE, MOVABLE, NODE_GAP, NODE_H, NODE_W, STAGE_H, STAGE_W, setPos } from "./studio-canvas.mjs";
 
 // ---- the pure layer ----------------------------------------------------------------------------
 // Everything below takes plain data and returns plain data, so build-checks group 13 drives it in CI
@@ -94,194 +86,172 @@ export const HISTORY_MAX = 50;
 // spoken end to end, so a verb that moved twenty of them would otherwise be one sentence a screen
 // reader user has to sit through before they can do anything else; past the bound the count is the
 // useful part. Hoisted to module scope and exported at #217 (it lived inside mountCanvasVerbs) for
-// the MAX_COLS / LABEL_MAX / SLOT_MAX reason: system/studio-select.mjs writes the same shape of
+// the LABEL_MAX / SLOT_MAX reason: system/studio-select.mjs writes the same shape of
 // sentence for the selection, and a cap re-typed there is a second copy that drifts. Nothing about
 // its value or its use changed in the move; build-checks group 13 pins it.
 export const SPOKEN_MAX = 3;
 
-// One string per cell, so occupancy is a Set lookup rather than an array scan per candidate.
-export function occupancyKey({ col, row } = {}) {
-  return `${col},${row}`;
-}
-
-// ONE arrow step. Walks one cell in `dir` and KEEPS WALKING in the same direction while candidates
-// are occupied, so a peer in the way is skipped rather than landed on (call 3 in the header). Stops
-// at the grid edge and returns `from` UNCHANGED when no free cell exists that way — a blocked step
-// is a real answer the keyboard path announces, not a silent no-op.
+// The alignment guides for a carry: the x values and the y values where a CARRIED member and a
+// non-carried PEER line up. Deduplicated, sorted ascending, empty when nothing aligns.
 //
-// Never returns an occupied or off-grid slot.
+// BOTH HALVES ARE REQUIRED, and that is the whole rule rather than a refinement. A guide over a line
+// holding only carried members says nothing the reader cannot already see; a guide over one holding
+// neither is a claim about an alignment that does not exist — the lie the AC forbids. So the gate
+// does not count guides: it forces one onto a line nothing is on and watches red.
 //
-// WHAT ACTUALLY TERMINATES THE WALK is the grid-edge return: the walk is SINGLE-AXIS — it never
-// turns — so every iteration moves one cell further out and the edge is reached in at most that
-// axis's cap. `limit` is a BACKSTOP the current code makes unreachable, and saying so is the point:
-// removing it and re-running group 13 leaves every case green, which was verified by mutation
-// rather than assumed. It is kept because the edge test is the kind of condition a later edit
-// (#217's multi-node gesture) could get wrong, and an unreachable bound is cheaper than a hang —
-// but the check that proves a fully occupied direction returns is proving the EDGE test, not this.
+// IT COMPARES EDGES, NOT ORIGINS (#302). Under the grid a column was a column and two nodes either
+// shared it or did not. Free positions align on any of THREE lines per axis — leading edge, centre,
+// trailing edge — and a reader dragging a 220-wide node under a 456-wide one is aligning centres far
+// more often than origins. Only exact equality counts, on each of the three separately: a tolerance
+// would make the guide appear before the alignment is real, which is the same false claim by a
+// slower route.
 //
-// `span` IS A 1×1 RECTANGLE BY DEFAULT (#219), so a .stx-slot's answers are byte-identical: the
-// candidate test below becomes fits({col,row}, 1×1, taken), which on an on-grid cell is exactly
-// `!taken.has(key)`. A frame is tested by its WHOLE footprint, which is the difference that matters —
-// a 2×3 blocked by ONE of its six cells is a real refusal that a top-left-only test would let
-// through, and would land the frame overlapping a peer.
-export function stepSlot(from, dir, occupied, span) {
-  const start = clampSlot(from);
-  if (!Array.isArray(dir) || dir.length !== 2) return start;
-  const [dc, dr] = dir;
-  const taken = occupied instanceof Set ? occupied : new Set(occupied || []);
-  const limit = dc ? MAX_COLS : MAX_ROWS;
-  const size = spanFrom(span);
-
-  let { col, row } = start;
-  for (let i = 0; i < limit; i += 1) {
-    col += dc;
-    row += dr;
-    if (col < 1 || col > MAX_COLS || row < 1 || row > MAX_ROWS) return start; // walked off the grid
-    if (fits({ col, row }, size, taken)) return { col, row };
-  }
-  return start;
-}
-
-// A point ALREADY IN THE STAGE'S UNSCALED LOCAL SPACE → a slot. `geom` is
-// { cols: number[], rows: number[], colGap, rowGap } — USED track sizes, read from the resolved grid
-// (getComputedStyle(stage).gridTemplateColumns) rather than from --stx-slot-w, because a used value
-// is a layout fact and needs no per-engine argument about whether var(--spacing-md, 16px) resolves
-// inside a computed custom property. system/breadboard.mjs:628 reads the grid the same way.
-//
-// THE GAP RULE, decided rather than discovered because group 13 asserts it: a point landing IN A GAP
-// resolves to the track BEFORE it. The band for track i therefore runs from its start to the start of
-// track i+1, and the last track's band runs to infinity (clamped).
-//
-// THIS FUNCTION DOES NO COORDINATE CONVERSION. Getting from a clientX/clientY to its argument is a
-// four-step chain that lives in the mount, deliberately, so this stays pure and CI-drivable.
-export function hitSlot(x, y, geom = {}) {
-  const walk = (v, tracks, gap) => {
-    const list = Array.isArray(tracks) ? tracks : [];
-    const n = Number(v);
-    if (!Number.isFinite(n) || list.length === 0) return 1; // clampSlot's posture: never NaN onward
-    let edge = 0;
-    for (let i = 0; i < list.length; i += 1) {
-      edge += (Number(list[i]) || 0) + (Number(gap) || 0); // the gap belongs to the track BEFORE it
-      if (n < edge) return i + 1;
-    }
-    // Deliberately UNCLAMPED here: clampSlot below is the one definition of "on the grid", so a
-    // stylesheet that drifted to more tracks than the cap is caught in exactly one place. An
-    // Math.min() here as well would read as belt-and-braces and is worse than that — it makes the
-    // clampSlot call unreachable, so the check that exists to prove the clamp can no longer fail.
-    // Found by mutating it: with both, removing clampSlot left group 13 green.
-    return list.length;
-  };
-  return clampSlot({
-    col: walk(x, geom.cols, geom.colGap),
-    row: walk(y, geom.rows, geom.rowGap),
-  });
-}
-
-// ---- the GROUP layer (#217) ---------------------------------------------------------------------
-// One selection moves as one thing. Everything below is the multi-node twin of stepSlot's answers,
-// and the reason it is a separate set of functions rather than a loop over stepSlot is stated at
-// groupDelta: a group step is ALL-OR-NOTHING, and stepSlot is deliberately not.
-
-// The occupancy set for a GROUP: every slot in `all` whose id is NOT a member. Excluding EVERY
-// member is the whole point — exclude only an anchor and each member blocks its neighbour's
-// destination, so a group of two adjacent blocks can never move at all in the direction they are
-// adjacent along. occupancyExcept() in the mount is the single-node shape this generalises.
-//
-// NOT WIDENED TO FOOTPRINTS AT #219, and that is a stated boundary rather than an oversight. Nothing
-// calls it with a spanning member while device frames stay outside #217's selection layer
-// (system/studio-frames.mjs's header records why they do), and widening a function no caller
-// exercises would be a rule with no gate behind it. THE DAY A LATER TICKET PUTS FRAMES IN THE
-// SELECTION, THIS IS THE FUNCTION TO WIDEN: the failure mode of forgetting it is a group move that
-// lets a frame overlap a peer — silent, and with nothing watching.
-export function groupOccupancy(all, members) {
-  const held = new Set(Array.isArray(members) ? members : []);
-  const taken = new Set();
-  for (const slot of Array.isArray(all) ? all : []) {
-    if (!slot || held.has(slot.id)) continue;
-    taken.add(occupancyKey(slot));
-  }
-  return taken;
-}
-
-// Translate EVERY member by [dcol, drow], or return `members` UNCHANGED. There is no partial answer:
-// if any destination leaves the grid or lands on a non-member peer, the whole set stays put, and the
-// keyboard path announces that as a blocked step exactly as it does for one node.
-//
-// WHY NOT stepSlot PER MEMBER, since that is the shape a reader reaches for first: stepSlot KEEPS
-// WALKING past occupied cells (see its comment), which for N nodes lands members at DIFFERENT
-// offsets and deforms the selection — two blocks a column apart come back adjacent. Skipping is the
-// right answer for one node (a peer in the way is a thing to step over) and the wrong one for a
-// group (the group's shape is the thing being moved). Detected by deep-equality on the blocked case
-// in build-checks group 13, never by "did anything move?", which a partial move passes.
-//
-// The grid test is clampSlot's, so "on the grid" keeps its one definition (studio-canvas.mjs:50):
-// a destination the clamp would CHANGE is a destination off the grid.
-export function groupDelta(members, dcol, drow, occupied) {
-  const list = Array.isArray(members) ? members.filter((m) => m && Number.isFinite(Number(m.col)) && Number.isFinite(Number(m.row))) : [];
-  if (!list.length) return Array.isArray(members) ? members : [];
-  // ALL-OR-NOTHING COVERS VALIDITY TOO, not just the grid edge and the occupied peer. A MIXED array
-  // — some entries readable, some not — otherwise came back SHORTER than it went in, which is a
-  // partial move wearing the shape of a successful one: the caller gets a list it can apply and the
-  // unreadable members simply vanish from the selection, silently. Unreachable from either live call
-  // site (both build their entries from the live DOM), but the identity return is the contract this
-  // function states, and group 13's totality sweep only ever fed it WHOLESALE-invalid arrays, so the
-  // gap sat behind a green gate (PR #263 review, finding 3). Placed AFTER the empty-list return, not
-  // before: past that line `members` is provably a non-empty array, so reading .length is safe.
-  if (list.length !== members.length) return members;
-  const dc = Number(dcol);
-  const dr = Number(drow);
-  if (!Number.isFinite(dc) || !Number.isFinite(dr)) return members;
-  const taken = occupied instanceof Set ? occupied : new Set(occupied || []);
-
-  const moved = [];
-  for (const m of list) {
-    const want = { col: Number(m.col) + dc, row: Number(m.row) + dr };
-    const clamped = clampSlot(want);
-    if (clamped.col !== want.col || clamped.row !== want.row) return members; // off the grid
-    // A MEMBER MAY BE A RECTANGLE (#219). The clampSlot test above still owns "is the ORIGIN on the
-    // grid" — kept rather than folded into fits(), because it rejects a fractional destination that
-    // fits()'s rounding would accept, and that is an existing answer. fits() then adds the two
-    // questions a spanning member brings: does the whole FOOTPRINT stay on the grid, and is every
-    // covered cell free. For a 1×1 member it is exactly the taken.has() line it replaces.
-    //
-    // NOT OPTIONAL, and easy to miss: preview() routes EVERY gesture through groupDelta, single-node
-    // ones included — so a frame dragged on its own would otherwise be collision-tested by its
-    // top-left cell alone and would happily overlap a peer with the rest of its footprint.
-    if (!fits(clamped, spanFrom(m), taken)) return members; // a non-member peer holds a covered cell
-    moved.push({ ...m, col: clamped.col, row: clamped.row });
-  }
-  return moved;
-}
-
-// ONE arrow step for a group, in DIRS' vocabulary. Written over groupDelta rather than beside it so
-// there is one all-or-nothing rule, not two that agree today.
-export function groupStep(members, dir, occupied) {
-  if (!Array.isArray(dir) || dir.length !== 2) return Array.isArray(members) ? members : [];
-  return groupDelta(members, dir[0], dir[1], occupied);
-}
-
-// The alignment guides for a carry: the columns and rows where a CARRIED member and a non-carried
-// PEER line up. Deduplicated, sorted ascending, empty when nothing aligns.
-//
-// BOTH HALVES ARE REQUIRED, and that is AC #3's whole sentence rather than a refinement. A guide
-// over a column holding only carried members says nothing the reader cannot already see; a guide
-// over a column holding neither is a claim about an alignment that does not exist — the lie the AC
-// forbids. So the gate does not count guides: it forces one onto an empty column and watches red.
+// Total over junk: a non-array on either side answers empty, and a member with a non-finite position
+// is skipped rather than contributing a NaN line nothing can equal.
 export function guidesFor(carried, peers) {
-  const axis = (key) => {
+  const edges = (n, key, sizeKey) => {
+    const at = Number(n && n[key]);
+    if (!Number.isFinite(at)) return [];
+    const size = Number(n && n[sizeKey]);
+    return Number.isFinite(size) && size > 0 ? [at, at + size / 2, at + size] : [at];
+  };
+  const axis = (key, sizeKey) => {
     const mine = new Set();
-    for (const s of Array.isArray(carried) ? carried : []) {
-      const n = Number(s && s[key]);
-      if (Number.isFinite(n)) mine.add(n);
-    }
+    for (const c of Array.isArray(carried) ? carried : []) for (const e of edges(c, key, sizeKey)) mine.add(e);
     const out = new Set();
-    for (const p of Array.isArray(peers) ? peers : []) {
-      const n = Number(p && p[key]);
-      if (Number.isFinite(n) && mine.has(n)) out.add(n);
-    }
+    for (const p of Array.isArray(peers) ? peers : []) for (const e of edges(p, key, sizeKey)) if (mine.has(e)) out.add(e);
     return [...out].sort((a, b) => a - b);
   };
-  return { cols: axis("col"), rows: axis("row") };
+  return { xs: axis("x", "w"), ys: axis("y", "h") };
+}
+
+// ---- align and distribute (#302 Phase 5) --------------------------------------------------------
+
+// THE EIGHT VERBS, as data rather than as eight functions, so the bus wiring, the menu and this
+// file's own switch all read one list and a ninth cannot be half-added. The names obey
+// action-bus.mjs's TYPE_RE — lowercase, hyphens, exactly one dot — so `ui.align-left`, never
+// `ui.alignLeft`.
+//
+// "centre" AND "middle" are the two axes' words for the same idea, which is the convention every
+// design tool uses and the reason the list is not four verbs with an axis param: a reader looking
+// for "middle" should find it.
+export const ALIGN_VERBS = Object.freeze([
+  "align-left", "align-centre", "align-right",
+  "align-top", "align-middle", "align-bottom",
+  "distribute-h", "distribute-v",
+]);
+
+// THE NUDGE STEP, and the floor is a DECISION the plan pins: --spacing-xs = 4px. There is no
+// --spacing-none — #301 decided against it (system/specs/stack.md) and build-checks group 3 asserts
+// its absence — so the scale starts at 4 and so does this. Typed rather than read from the sheet
+// because this is Node-import-safe code and getComputedStyle is not available to it; group 13 pins
+// the pair against tokens.contract.css.
+export const NUDGE_STEP = 4;
+
+// readingOrder(boxes) → ids in ROW-MAJOR order — the order a sighted reader's eye takes across the
+// canvas, which is what "moved to 3 of 7" is counting (#302's T16).
+//
+// ROW-MAJOR NEEDS A DEFINITION OF "SAME ROW", and free positions do not come with one: two nodes at
+// y 100 and y 104 are on the same row to a reader and two different rows to a sort. The band is one
+// node height, which is the smallest thing on this stage that has a height, and the tie inside a
+// band is broken left to right.
+//
+// IT IS FIXED BUCKETING, NOT A RELATIVE BAND, and the difference is worth stating because the
+// obvious reading of the paragraph above is the one this does not do (#302, PR #432's F11).
+// Math.floor(y / ROW_BAND) cuts the stage into fixed stripes: y 0 and y 139 share a row while y 130
+// and y 150 do not, so it is NOT "within one node of each other" — two nodes a few pixels apart
+// read as two rows whenever the boundary happens to fall between them. That is the deliberate
+// choice rather than a bug: bucketing is total, order-independent and deterministic, which is what
+// an ordinal in a live-region sentence needs, and a true relative band is a clustering pass whose
+// answer depends on which node you start from. Group 13's fixture straddles a boundary so the
+// property asserted is the one implemented.
+//
+// STATED AS REVERSIBLE. A band is a judgement, not a fact, and the architecture marks the snap
+// family as a reversible call; if the canvas later grows a real row concept, this reads from it
+// instead. Nothing else depends on the number it produces except the sentence.
+export const ROW_BAND = NODE_H;
+
+export function readingOrder(boxes) {
+  const list = (Array.isArray(boxes) ? boxes : []).filter((b) => b && b.id != null
+    && Number.isFinite(Number(b.x)) && Number.isFinite(Number(b.y)));
+  return [...list]
+    .sort((a, b) => {
+      const rowA = Math.floor(Number(a.y) / ROW_BAND);
+      const rowB = Math.floor(Number(b.y) / ROW_BAND);
+      return rowA === rowB ? Number(a.x) - Number(b.x) : rowA - rowB;
+    })
+    .map((b) => String(b.id));
+}
+
+// alignMoves(boxes, verb) → [{ id, x, y }] — the destination for every box, or [] when the verb
+// cannot act.
+//
+// TWO OR MORE, ALWAYS. Aligning one thing is a no-op with a sentence, and distributing fewer than
+// three is already distributed — both answer [] rather than moving something to where it is, which
+// is what lets the caller say "nothing to align" instead of announcing a move that did not happen.
+//
+// IT MOVES NOTHING TO ITS OWN POSITION EITHER: a box already on the target line is left out of the
+// answer entirely, so the history entry and the announcement both describe what actually changed.
+//
+// PURE, so build-checks group 13 drives every verb without a browser. Total over junk.
+export function alignMoves(boxes, verb) {
+  const list = (Array.isArray(boxes) ? boxes : []).filter((b) => b && b.id != null
+    && Number.isFinite(Number(b.x)) && Number.isFinite(Number(b.y)));
+  if (!ALIGN_VERBS.includes(verb) || list.length < 2) return [];
+  const n = (v) => Number(v);
+  const w = (b) => (Number.isFinite(Number(b.w)) ? Number(b.w) : 0);
+  const h = (b) => (Number.isFinite(Number(b.h)) ? Number(b.h) : 0);
+  const at = (b) => ({ id: b.id, x: n(b.x), y: n(b.y) });
+
+  // DISTRIBUTE NEEDS THREE. With two, the ends are the ends and there is nothing between them.
+  if (verb === "distribute-h" || verb === "distribute-v") {
+    if (list.length < 3) return [];
+    const horizontal = verb === "distribute-h";
+    // Ordered by position, not by selection order: "distribute" means even gaps along the axis as
+    // the READER sees them, and honouring click order would reshuffle the row.
+    const sorted = [...list].sort((a, b) => (horizontal ? n(a.x) - n(b.x) : n(a.y) - n(b.y)));
+    const size = horizontal ? w : h;
+    const start = horizontal ? n(sorted[0].x) : n(sorted[0].y);
+    const last = sorted[sorted.length - 1];
+    const end = (horizontal ? n(last.x) : n(last.y)) + size(last);
+    // EQUAL GAPS, not equal centres. Equal centres looks wrong the moment two nodes differ in size,
+    // which on this canvas is the normal case — a phone frame beside a board wrapper.
+    const total = sorted.reduce((sum, b) => sum + size(b), 0);
+    const gap = (end - start - total) / (sorted.length - 1);
+    const out = [];
+    let cursor = start;
+    for (const b of sorted) {
+      const want = horizontal ? { ...at(b), x: cursor } : { ...at(b), y: cursor };
+      if (want.x !== n(b.x) || want.y !== n(b.y)) out.push(want);
+      cursor += size(b) + gap;
+    }
+    return out;
+  }
+
+  const xs = list.map((b) => n(b.x));
+  const rights = list.map((b) => n(b.x) + w(b));
+  const ys = list.map((b) => n(b.y));
+  const bottoms = list.map((b) => n(b.y) + h(b));
+  const target = {
+    "align-left": Math.min(...xs),
+    "align-right": Math.max(...rights),
+    "align-centre": (Math.min(...xs) + Math.max(...rights)) / 2,
+    "align-top": Math.min(...ys),
+    "align-bottom": Math.max(...bottoms),
+    "align-middle": (Math.min(...ys) + Math.max(...bottoms)) / 2,
+  }[verb];
+  const out = [];
+  for (const b of list) {
+    const want = { ...at(b) };
+    if (verb === "align-left") want.x = target;
+    else if (verb === "align-right") want.x = target - w(b);
+    else if (verb === "align-centre") want.x = target - w(b) / 2;
+    else if (verb === "align-top") want.y = target;
+    else if (verb === "align-bottom") want.y = target - h(b);
+    else if (verb === "align-middle") want.y = target - h(b) / 2;
+    if (want.x !== n(b.x) || want.y !== n(b.y)) out.push(want);
+  }
+  return out;
 }
 
 // The undo/redo stack over { stack, index }. Every snapshot is structuredClone'd on the way IN and
@@ -397,77 +367,94 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // studio-compile.mjs's tripwires, studio.mjs's arrangementNow() or adoptBoard's removal loop
     // query: those three mean BOARD WRAPPER and must keep meaning it.
     const slots = () => [...stage.querySelectorAll(MOVABLE)];
-    const slotOf = (node) => ({
-      col: Number(node.getAttribute("data-col")) || 1,
-      row: Number(node.getAttribute("data-row")) || 1,
-    });
-    // A node with no span attribute IS 1×1 (#219). Read rather than assumed, so the frame's real
-    // rectangle reaches the occupancy set and the gesture's collision test.
-    const spanOf = (node) => spanFrom({
-      cols: node.getAttribute("data-span-col"),
-      rows: node.getAttribute("data-span-row"),
-    });
+    // The node's BOX, read off the four properties setPos wrote. `h` is NULL for a board wrapper and
+    // a number for a frame, which is D-c's distinction carried through every reader below: a wrapper
+    // has no authored height, and reading one as 0 would make a resize think it had shrunk.
+    const boxOf = (node) => {
+      const prop = (name) => parseFloat(node.style.getPropertyValue(name));
+      const h = prop("--h");
+      return {
+        x: prop("--x") || 0,
+        y: prop("--y") || 0,
+        w: prop("--w") || NODE_W,
+        h: Number.isFinite(h) ? h : null,
+      };
+    };
+    // THE SAME BOX, MEASURED (#302, PR #432's F2). boxOf answers what the node has AUTHORED, and for
+    // a board wrapper that is `h: null` — right for the snapshot, wrong for anything doing ARITHMETIC
+    // on a bottom edge. alignMoves coerces a null height to 0, so align-bottom aligned TOPS to the
+    // bottom-most node's top, align-middle aligned tops to the mid-line and distribute-v equalised
+    // top spacing; guidesFor's edges() drops the centre and bottom guides for a box with no height.
+    // Both readers take `.stx-slot` only — frames are deliberately unselectable — so every one of
+    // those was wrong on 100% of the nodes it can act on, with build-checks green: the BX fixture
+    // hands alignMoves an explicit h on every box, which is the shape the page never produces.
+    //
+    // offsetHeight is the UNSCALED layout height — a transform on an ancestor does not reach it — so
+    // it lands in stage units beside --x/--y/--w. studio-select.mjs:331 (the hit test) and
+    // studio-minimap.mjs:315 already read geometry exactly this way, and for the same reason.
+    // snapshot()'s boxOf is left alone: the two questions are genuinely different.
+    const measuredBoxOf = (node) => {
+      const b = boxOf(node);
+      return { ...b, h: Number.isFinite(b.h) ? b.h : (node.offsetHeight || 0) };
+    };
     const isFrame = (node) => node.classList.contains(FRAME_CLASS);
     const idOf = (node) => node.getAttribute("data-stx-id");
     const nameOf = (node) => node.getAttribute("data-stx-name") || "Component";
 
-    // A SNAPSHOT ENTRY SAYS WHAT THE NODE'S GEOMETRY IS, so cols/rows are recorded only for a node
-    // that HAS a span — a board wrapper does not, and writing `cols: 1` for it would be claiming a
-    // property it has never carried, in a structure two drivers deep-compare. Every existing entry
-    // is therefore byte-identical to what #205 recorded.
+    // A SNAPSHOT ENTRY SAYS WHAT THE NODE'S GEOMETRY IS, so `h` is recorded only for a node that HAS
+    // one — a board wrapper does not, and writing `h: 0` for it would be claiming a property it has
+    // never carried, in a structure two drivers deep-compare. That rule is #205's, kept verbatim
+    // through #302's change of units; build-checks group 13 asserts both halves and proves the
+    // comparison reaches the fourth field.
     const snapshot = () => {
       const out = {};
       for (const node of slots()) {
         const id = idOf(node);
         if (!id) continue;
-        out[id] = isFrame(node) ? { ...slotOf(node), ...spanOf(node) } : slotOf(node);
+        const box = boxOf(node);
+        out[id] = box.h == null
+          ? { x: box.x, y: box.y, w: box.w }
+          : { x: box.x, y: box.y, w: box.w, h: box.h };
       }
       return out;
     };
 
-    // The ONE place data-col / data-row are written after placement. Attributes only — the grid
-    // lines come from rules in system/studio.css, which is what keeps this module's inline-style
-    // write count at zero (studio-canvas.mjs's call 3, inherited).
-    const applySlot = (node, slot) => {
-      node.setAttribute("data-col", String(slot.col));
-      node.setAttribute("data-row", String(slot.row));
-    };
-
-    // applySlot's sibling for the rectangle (#219), and the ONE place data-span-* are written after
-    // placement. Attributes only, for applySlot's reason — the span tables are rules in
-    // system/studio.css, which is what keeps this module's inline-style write count at zero.
-    const applySpan = (node, span) => {
-      node.setAttribute("data-span-col", String(span.cols));
-      node.setAttribute("data-span-row", String(span.rows));
-    };
-
-    // Built at gesture start — peers do not move during a gesture — and EXCLUDING every node being
-    // carried, or a member could never move off its own cell and a group could never move at all
-    // (each member would block its neighbour's destination). One member is the #205 case; the pure
-    // groupOccupancy above is the same rule written over plain data so CI can drive it.
+    // THE ONE PLACE A POSITION IS WRITTEN AFTER PLACEMENT, and it writes through setPos rather than
+    // touching a style property — which is what keeps this module out of build-checks group 7's
+    // named-writer list entirely. applySlot and applySpan were two functions because a slot and a
+    // span were two attribute pairs; setPos takes both, so this is one.
     //
-    // EVERY CELL OF EVERY PEER since #219, not one key per peer: a device frame occupies a rectangle,
-    // and a set built from top-left corners would let a block step into the middle of one. footprint()
-    // produces the same string form occupancyKey does — and for a 1×1 peer it produces exactly
-    // [occupancyKey(slot)], which is why every existing answer is unchanged.
-    const occupancyExcept = (nodes) => {
-      const carried = new Set(Array.isArray(nodes) ? nodes : [nodes]);
-      const taken = new Set();
-      for (const peer of slots()) {
-        if (carried.has(peer)) continue;
-        for (const cell of footprint(slotOf(peer), spanOf(peer))) taken.add(cell);
-      }
-      return taken;
-    };
+    // A missing `h` is passed through as undefined rather than as a number: setPos omits the
+    // property entirely for it, so a board wrapper never acquires a height on a move.
+    const applyBox = (node, box) => setPos(node, box.x, box.y, box.w, box.h ?? undefined);
+
+    // NOTHING BLOCKS A FREE MOVE (#302, D-d). What stood here was occupancyExcept — the set of every
+    // cell every non-carried peer covered, rebuilt at gesture start, which the pure group layer
+    // tested every candidate destination against. Free positions have no cells to collide in, so
+    // there is no occupancy to compute and no destination to refuse; inventing a collision rule
+    // would be inventing a rule #302 never asked for, and one the reader would experience as the
+    // canvas refusing to put a thing where they put it.
+    //
+    // TWO CONSEQUENCES, WRITTEN DOWN RATHER THAN DISCOVERED. First, "blocked" stops existing as a
+    // state, and the sentence that announced it ("Blocked, still in column X, row Y.") is DELETED
+    // rather than translated — an announcement for a state nothing produces is worse than none,
+    // because a later reader takes it as evidence the state exists. Second, the only bound left is
+    // the stage edge, setPos clamps to it, and every announcement below names THE POSITION REACHED
+    // rather than the position asked for. An arrow press at the edge therefore announces the same
+    // numbers twice, and that repetition is the feedback.
 
     // --- the alignment guides (#217) ------------------------------------------------------------
-    // At most two elements — one column, one row — created lazily, placed by data-col / data-row on
-    // the SAME grid every slot uses, and removed on drop, cancel and clear. Attributes only, so this
-    // ticket's half of the module keeps the zero-inline-style property #204 established.
+    // At most two elements — one vertical, one horizontal — created lazily, positioned by the SAME
+    // setPos every node uses, and removed on drop, cancel and clear.
     //
-    // PREPENDED to the stage rather than appended: .stx-slot is position: relative, so it paints
-    // above this static grid item whatever the order, and a guide is a ground wash UNDER the
-    // components rather than a tint over the alignment it is pointing out (studio.css says the same).
+    // A GUIDE IS A LINE, so it takes its cross-axis extent from the stage: the vertical one is
+    // MIN_SIZE wide and the full stage tall, the horizontal one the reverse. Sized here rather than
+    // in the sheet because setPos writes --w and --h and the sheet reads them — a guide that took
+    // its size from a rule would be the only node on this stage whose geometry came from two places.
+    //
+    // PREPENDED to the stage rather than appended: every node is positioned, so paint order is DOM
+    // order, and a guide is a ground wash UNDER the components rather than a tint over the alignment
+    // it is pointing out (studio.css says the same).
     //
     // A GUIDE IS A CLAIM THAT AN ALIGNMENT EXISTS. guidesFor only reports a line where a CARRIED
     // member and a non-carried PEER share it, and the mount adds nothing to that: the first of each
@@ -475,18 +462,19 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // column would be honest too, and is not done because three highlighted columns read as noise —
     // but showing one where none aligns is the lie AC #3 forbids, which is why the gate forces a
     // guide onto a provably empty column and watches the check go red rather than counting guides.
-    let colGuide = null;
-    let rowGuide = null;
-    const setGuide = (existing, attr, value) => {
+    let xGuide = null;
+    let yGuide = null;
+    const setGuide = (existing, vertical, value) => {
       if (value == null) { existing?.remove(); return null; }
       const node = existing || el("div", { class: "stx-guide", "aria-hidden": "true" });
-      node.setAttribute(attr, String(value));
+      if (vertical) setPos(node, value, 0, MIN_SIZE, STAGE_H);
+      else setPos(node, 0, value, STAGE_W, MIN_SIZE);
       if (!node.isConnected) stage.insertBefore(node, stage.firstChild);
       return node;
     };
     const clearGuides = () => {
-      colGuide = setGuide(colGuide, "data-col", null);
-      rowGuide = setGuide(rowGuide, "data-row", null);
+      xGuide = setGuide(xGuide, true, null);
+      yGuide = setGuide(yGuide, false, null);
     };
     // Rendered for a SINGLE-node carry too, not only for a group: AC #3 does not scope guides to
     // groups, guidesFor handles one member as naturally as N, and a single drag is the commonest
@@ -494,31 +482,58 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const renderGuides = () => {
       if (!gesture) { clearGuides(); return; }
       const carriedNodes = new Set(gesture.members.map((m) => m.node));
-      const peers = slots().filter((n) => !carriedNodes.has(n)).map(slotOf);
-      const { cols, rows } = guidesFor(gesture.members.map((m) => m.current), peers);
-      colGuide = setGuide(colGuide, "data-col", cols.length ? cols[0] : null);
-      rowGuide = setGuide(rowGuide, "data-row", rows.length ? rows[0] : null);
+      const peers = slots().filter((n) => !carriedNodes.has(n)).map(measuredBoxOf);
+      // MEASURED ON BOTH SIDES (#302, PR #432's F2). members[].current comes from boxOf, so a carried
+      // board wrapper arrived here with `h: null` and edges() gave it a top edge and nothing else —
+      // the centre and bottom guides this function's own comment promises never fired for one. The
+      // members themselves keep the authored box: applyBox writes it back on a cancel, and inventing
+      // an --h there would claim a property the wrapper has never carried.
+      const carried = gesture.members.map((m) => (Number.isFinite(m.current.h)
+        ? m.current
+        : { ...m.current, h: m.node.offsetHeight || 0 }));
+      const { xs, ys } = guidesFor(carried, peers);
+      xGuide = setGuide(xGuide, true, xs.length ? xs[0] : null);
+      yGuide = setGuide(yGuide, false, ys.length ? ys[0] : null);
     };
 
     // --- the FLIP, used by undo/redo ONLY -------------------------------------------------------
-    // element.animate() never touches .style, so build-checks group 7's STYLE_WRITE regex does not
-    // count it AND tooling/studio-journey.mjs's running-page hasAttribute("style") assertion stays
-    // literally true. Both halves matter: the first alone would read as a regex dodge; the second is
-    // what makes zero-inline-styles a real property of the shipped page rather than of its source.
+    // element.animate() never touches .style, so build-checks group 7's STYLE_WRITE predicate does
+    // not count it AND tooling/studio-journey.mjs's running-page style assertion stays true. Both
+    // halves matter: the first alone would read as a dodge; the second is what makes the write-site
+    // claim a property of the shipped page rather than of its source.
+    //
+    // IT ANIMATES `translate`, NOT `transform`, AND THAT IS NOT A STYLE CHOICE (#302). Every node now
+    // carries `transform: translate(var(--x), var(--y))` from the sheet, and a Web Animations
+    // keyframe on `transform` REPLACES the computed value for the animation's whole duration — it
+    // does not add to it. MEASURED on all three engines with the real rule: a node at rest at
+    // 300,200 given `[{transform: "translate(-40px,-30px)"}, {transform: "none"}]` renders at
+    // -40,-30 — it snaps to the stage origin, applies the delta from THERE, and slides back. Not a
+    // subtle wrongness: the node leaves the canvas entirely, on every undo.
+    //
+    // The individual transform properties (`translate`/`rotate`/`scale`) are applied BEFORE
+    // `transform` when the used value is built (CSS Transforms 2), so a keyframe on `translate`
+    // COMPOSES with the sheet's transform instead of replacing it. Same measurement, same three
+    // engines: 260,170 — exactly rest minus the delta. `composite: "add"` on the transform animation
+    // is the other correct answer and was not taken: it makes the keyframes' meaning depend on a
+    // second, less-read option, and `{ transform: "none", composite: "add" }` reads as a no-op.
+    //
+    // NOTHING ELSE MAY PUT A `translate` ON A MOVABLE NODE, for the mirror of the same reason. The
+    // context menu's flip uses one (system/studio.css), and that is safe precisely because a menu is
+    // not in MOVABLE and never reaches this function.
     //
     // THE SCALE DIVIDE IS LOAD-BEARING. getBoundingClientRect deltas are POST-transform, and a
-    // translate() on the child applies in the child's UNSCALED local space — so without the divide
-    // the travel is wrong at every level ≠ 1, and looks perfect at 100%, which is where it gets
-    // tested first. studio-canvas.mjs:166-168 documents the identical trap for fit().
+    // translate on the child applies in the child's UNSCALED local space — so without the divide the
+    // travel is wrong at every scale but 1, and looks perfect at 100%, which is where it gets tested
+    // first. studio-canvas.mjs's fit() documents the identical trap.
     const animateTo = (node, before) => {
       if (reduceMotion()) return;
       const after = node.getBoundingClientRect();
-      const s = ZOOM_LEVELS[canvas.level] || 1;
+      const s = canvas.scale || 1;
       const dx = (before.left - after.left) / s;
       const dy = (before.top - after.top) / s;
       if (!dx && !dy) return;
       node.animate(
-        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
+        [{ translate: `${dx}px ${dy}px` }, { translate: "none" }],
         { duration: 160, easing: "ease-out" },
       );
     };
@@ -535,23 +550,18 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         // post-mount PLACEMENT is adopted into every entry the moment it is first moved (#230), so
         // this `continue` is no longer the phantom-undo path it used to be. Do not read it as one.
         if (!want) continue;
-        const now = slotOf(node);
-        // THE SPAN IS PART OF "DID ANYTHING CHANGE" (#219), and this line is where forgetting that
-        // costs the whole feature: a resize leaves col and row untouched, so a slot-only comparison
-        // drops every pure resize out of `moving` — Undo then reports "Nothing to undo" while the
-        // frame keeps its new size. `want.cols` is absent for a board wrapper, which is the 1×1
-        // default arriving as undefined on both sides and comparing equal.
-        const wantSpan = want.cols == null ? null : { cols: want.cols, rows: want.rows };
-        const nowSpan = wantSpan ? spanOf(node) : null;
-        const sameSlot = now.col === want.col && now.row === want.row;
-        const sameSpan = !wantSpan || (nowSpan.cols === wantSpan.cols && nowSpan.rows === wantSpan.rows);
-        if (sameSlot && sameSpan) continue;
-        moving.push({ node, want, wantSpan, spanOnly: sameSlot, before: node.getBoundingClientRect() });
+        const now = boxOf(node);
+        // THE SIZE IS PART OF "DID ANYTHING CHANGE" (#219's rule, kept), and this line is where
+        // forgetting that costs the whole feature: a resize leaves x and y untouched, so a
+        // position-only comparison drops every pure resize out of `moving` — Undo then reports
+        // "Nothing to undo" while the frame keeps its new size. `want.h` is absent for a board
+        // wrapper, which arrives as undefined on both sides and compares equal.
+        const samePos = now.x === want.x && now.y === want.y;
+        const sameSize = now.w === want.w && (want.h ?? null) === now.h;
+        if (samePos && sameSize) continue;
+        moving.push({ node, want, sizeOnly: samePos, before: node.getBoundingClientRect() });
       }
-      for (const m of moving) {
-        applySlot(m.node, m.want);
-        if (m.wantSpan) applySpan(m.node, m.wantSpan);
-      }
+      for (const m of moving) applyBox(m.node, m.want);
       for (const m of moving) animateTo(m.node, m.before);
       return moving;
     };
@@ -597,7 +607,41 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       id: "stx-resize-help",
       text: "Enter to start resizing, arrow keys to size it, Enter to finish, Escape to cancel. A frame moves and resizes on its own.",
     });
-    const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, help, selectHelp, resizeHelp);
+    // THE ALIGN ROW (#302 Phase 5.2). A BUTTON EACH, not a menu and not a key chord, for the reason
+    // every other verb on this canvas has a visible control: a bus verb with no affordance is
+    // reachable by an injected action and by nobody, and "each with a keyboard path" is satisfied by
+    // a real <button> for free — it is focusable, it is in Tab order, and Enter and Space work
+    // without this module writing a key handler.
+    //
+    // DISABLED UNTIL TWO ARE SELECTED, which is the same call menuItems makes for Clear: a verb with
+    // nothing to act on is not a verb whose moment has not come. syncControls keeps them in step.
+    //
+    // ONE param-manifest ENTRY, not eight — the manifest's own granularity rule ("a stepped player's
+    // button row = 1").
+    const alignBtns = ALIGN_VERBS.map((verb) => {
+      // SHORT TEXT, FULL ACCESSIBLE NAME. Eight buttons reading "Distribute across" wrapped the verb
+      // row onto three lines and pushed the canvas below the fold on a 1000px viewport — measured,
+      // not guessed: the scroller's centre landed at y 1005 and a wheel over it hit the window
+      // instead. The visible word is enough under the group's own "Align and distribute the
+      // selection" label; aria-label carries the whole verb, so a reader tabbing through still hears
+      // what each one does rather than a bare "Left".
+      const full = verb.replace("align-", "Align ").replace("distribute-h", "Distribute across").replace("distribute-v", "Distribute down");
+      const btn = el("button", {
+        type: "button", class: "btn btn-secondary stx-verb-btn", "data-stx-verb": verb,
+        "aria-label": full,
+        text: verb.startsWith("align-")
+          ? verb.slice(6, 7).toUpperCase() + verb.slice(7)
+          : (verb === "distribute-h" ? "Across" : "Down"),
+      });
+      // NO { signal } HERE, and that is the reason rather than an omission: `ac` and its signal are
+      // declared ~550 lines below, with the pointer handlers, so naming it here is a temporal dead
+      // zone — the mount throws before the row exists and /factory and /instance both go blank. The
+      // whole row is removed by destroy() with verbRow, which detaches these listeners with it.
+      btn.addEventListener("click", () => bus.emit({ type: `ui.${verb}`, source: "pointer" }));
+      return btn;
+    });
+    const alignRow = el("div", { class: "stx-align", role: "group", "aria-label": "Align and distribute the selection" }, ...alignBtns);
+    const verbRow = el("div", { class: "stx-verbs" }, undoBtn, redoBtn, alignRow, help, selectHelp, resizeHelp);
     viewport.insertBefore(verbRow, scroll);
     // ARM THE MOVE HANDLES (#231 L2). studio-canvas.mjs draws the .stx-grab button but owns none of
     // its behaviour, so it is born disabled and undescribed; this line is the moment that stops
@@ -607,6 +651,8 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
 
     const history = createHistory(snapshot());
     const syncControls = () => {
+      const chosenCount = stage.querySelectorAll(".stx-slot[data-stx-selected]").length;
+      for (const btn of alignBtns) btn.disabled = chosenCount < 2;
       undoBtn.disabled = !history.canUndo();
       redoBtn.disabled = !history.canRedo();
     };
@@ -626,7 +672,11 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         canvas.say(`Refused: no component ${JSON.stringify(id)} on this canvas.`);
         return; // DOM untouched
       }
-      const slot = clampSlot(action?.params); // hostile input never reaches an attribute
+      // HOSTILE INPUT NEVER REACHES A PROPERTY. setPos coerces and clamps at the write, so this is
+      // the one place the params are read and nothing here has to repeat the clamp — the caller's
+      // numbers go in and setPos's ANSWER comes back, which is what the sentence below names.
+      const p = action?.params || {};
+      const now = boxOf(node);
       // The OTHER adopt (#230), for the source with no gesture behind it: an injected agent move
       // previewed nothing, so here — and only here — snapshot() still reports the node's origin.
       // The two call sites compose precisely BECAUSE adopt fills missing ids only: after a pick-up
@@ -645,9 +695,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // one, which is precisely the parity AC #1 is about. The consequence, stated rather than
       // discovered: an injected move CAN stack two components on one cell. That is the caller's
       // business, and #209's replay only ever plays back slots a real gesture produced.
-      applySlot(node, slot);
+      const at = setPos(node, p.x, p.y, p.w ?? now.w, (p.h ?? now.h) ?? undefined);
       history.push(snapshot());
-      canvas.say(`${nameOf(node)} moved to column ${slot.col}, row ${slot.row}.`);
+      canvas.say(`${nameOf(node)} moved to ${Math.round(at.x)}, ${Math.round(at.y)}.`);
       syncControls();
     });
 
@@ -681,7 +731,10 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         canvas.say(`Refused: ${nameOf(node)} is not resizable.`);
         return; // DOM untouched
       }
-      const span = clampSpan(slotOf(node), action?.params); // hostile input never reaches an attribute
+      // setPos coerces and clamps, so hostile params never reach a property; the position is the
+      // node's own, because a resize moves nothing.
+      const at = boxOf(node);
+      const want = action?.params || {};
       // #230's adopt, for the source with no gesture behind it — the same call ui.move's consumer
       // makes, composing for the same reason: adopt fills MISSING ids only.
       history.adopt(snapshot());
@@ -690,9 +743,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // behave differently from a pointer one — precisely the parity AC #3 turns on. The consequence,
       // stated rather than discovered: an injected resize CAN grow a frame over a peer's cells. That
       // is the caller's business, and no gesture and no replay can produce it.
-      applySpan(node, span);
+      const sized = setPos(node, at.x, at.y, want.w ?? at.w, want.h ?? at.h ?? NODE_H);
       history.push(snapshot());
-      canvas.say(`${nameOf(node)} resized to ${span.cols} columns by ${span.rows} rows.`);
+      canvas.say(`${nameOf(node)} resized to ${Math.round(sized.w)} by ${Math.round(sized.h)}.`);
       syncControls();
     });
 
@@ -729,20 +782,52 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
           canvas.say(`Refused: no component ${JSON.stringify(id)} on this canvas.`);
           return; // DOM untouched — nothing has been applied yet
         }
-        resolved.push({ node, slot: clampSlot(move) }); // hostile input never reaches an attribute
+        resolved.push({ node, want: move }); // setPos clamps at the write; nothing hostile reaches a property
       }
       // #230's adopt, for the source with no gesture behind it — the same call ui.move's consumer
       // makes, and it composes for the same reason: adopt fills MISSING ids only.
       history.adopt(snapshot());
-      for (const r of resolved) applySlot(r.node, r.slot);
+      for (const r of resolved) {
+        const was = boxOf(r.node);
+        r.at = setPos(r.node, r.want.x, r.want.y, r.want.w ?? was.w, (r.want.h ?? was.h) ?? undefined);
+      }
       history.push(snapshot()); // ONE entry, so ONE undo puts every member back
       const named = resolved.slice(0, SPOKEN_MAX)
-        .map((r) => `${nameOf(r.node)} in column ${r.slot.col}, row ${r.slot.row}`)
+        .map((r) => `${nameOf(r.node)} at ${Math.round(r.at.x)}, ${Math.round(r.at.y)}`)
         .join("; ");
       const rest = resolved.length - SPOKEN_MAX;
       canvas.say(rest > 0 ? `Moved: ${named}, and ${rest} more.` : `Moved: ${named}.`);
       syncControls();
     });
+
+    // --- align and distribute (#302 Phase 5) ------------------------------------------------------
+    // EIGHT VERBS, ZERO NEW WRITERS. Each one READS the selection, asks the pure alignMoves where
+    // everything should go, and EMITS ui.move-group — so the one consumer that writes a position is
+    // still the one consumer that writes a position, there is still one history entry per gesture,
+    // and an injected agent align is byte-identically the same path as a keyboard one. Applying them
+    // here would have been a second mover, which is the thing this module's header exists to forbid.
+    //
+    // ONE ANNOUNCEMENT, and it is the move-group consumer's. Align moves N nodes synchronously, and
+    // a role="status" region announces only its FINAL textContent per task — writing N sentences in
+    // one task announces the last and silently deletes the rest. This codebase has paid for that
+    // twice (studio-compile.mjs's non-zero reduced-motion pause, replay-driver.mjs's drainActs), so
+    // the verbs below say nothing themselves except when there is nothing to do.
+    const offAlign = ALIGN_VERBS.map((verb) => bus.on(`ui.${verb}`, (action) => {
+      const chosen = [...stage.querySelectorAll(".stx-slot[data-stx-selected]")];
+      if (chosen.length < 2) {
+        canvas.say(`Select two or more components to ${verb.startsWith("align") ? "align" : "distribute"} them.`);
+        return; // DOM untouched
+      }
+      const moves = alignMoves(chosen.map((n) => ({ id: idOf(n), ...measuredBoxOf(n) })), verb);
+      if (!moves.length) {
+        // A REAL ANSWER, not a failure: everything is already on the line. Said out loud for the
+        // reason every blocked keypress used to be — a verb that does nothing and says nothing is
+        // worse than no verb.
+        canvas.say(`Already ${verb.startsWith("align") ? "aligned" : "distributed"}.`);
+        return;
+      }
+      bus.emit({ type: "ui.move-group", source: action?.source ?? "keyboard", params: { moves } });
+    }));
 
     // SPOKEN_MAX is module scope since #217 — see its declaration for why it moved. The vocabulary
     // below is unchanged; studio-select.mjs writes the selection's count sentence to the same bound.
@@ -763,9 +848,9 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // would be a true sentence about the wrong fact — the reader pressed Undo to get the size back
       // and needs to hear that it came back.
       const named = moved.slice(0, SPOKEN_MAX)
-        .map((m) => (m.spanOnly
-          ? `${nameOf(m.node)} at ${m.wantSpan.cols} columns by ${m.wantSpan.rows} rows`
-          : `${nameOf(m.node)} in column ${m.want.col}, row ${m.want.row}`))
+        .map((m) => (m.sizeOnly
+          ? `${nameOf(m.node)} at ${Math.round(m.want.w)} by ${Math.round(m.want.h)}`
+          : `${nameOf(m.node)} at ${Math.round(m.want.x)}, ${Math.round(m.want.y)}`))
         .join("; ");
       const rest = moved.length - SPOKEN_MAX;
       canvas.say(rest > 0 ? `${word}: ${named}, and ${rest} more.` : `${word}: ${named}.`);
@@ -809,13 +894,10 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // entry. An action with no `component` is the honest shape of "the canvas moved a node".
     const shapeOf = (node) => node.getAttribute("data-stx-component") || null;
 
-    // The plain-data entry the pure group layer takes, built in ONE place (#219) because the span is
-    // easy to omit from the second copy: a member carrying no cols/rows is tested by its top-left
-    // cell alone, so a frame dragged on its own — preview() routes EVERY gesture through groupDelta,
-    // single-node ones included — would happily overlap a peer with the rest of its footprint. For a
-    // .stx-slot, spanOf() answers 1×1 and the entry is what it always was, plus two fields the pure
-    // layer's default already assumed.
-    const memberEntry = (m) => ({ id: m.id, col: m.current.col, row: m.current.row, ...spanOf(m.node) });
+    // The plain-data entry the pure layer takes, built in ONE place: guidesFor compares EDGES, so a
+    // member handed no width aligns on its origin alone and the centre and trailing-edge guides
+    // silently never fire for it.
+    const memberEntry = (m) => ({ id: m.id, ...m.current });
 
     const emitGesture = (source) => {
       // #219's third branch. A resize names ONE subject and carries a size rather than a slot, and it
@@ -827,7 +909,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
           type: "ui.resize",
           source,
           target: { ...(shape ? { component: shape } : {}), id: gesture.id, label: nameOf(gesture.node) },
-          params: { cols: gesture.currentSpan.cols, rows: gesture.currentSpan.rows },
+          params: { w: gesture.currentSize.w, h: gesture.currentSize.h },
         });
         return;
       }
@@ -839,7 +921,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         bus.emit({
           type: "ui.move-group",
           source,
-          params: { moves: gesture.members.map((m) => ({ id: m.id, col: m.current.col, row: m.current.row })) },
+          params: { moves: gesture.members.map((m) => ({ id: m.id, x: m.current.x, y: m.current.y })) },
         });
         return;
       }
@@ -848,7 +930,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         type: "ui.move",
         source,
         target: { ...(shape ? { component: shape } : {}), id: gesture.id, label: nameOf(gesture.node) },
-        params: { col: gesture.current.col, row: gesture.current.row },
+        params: { x: gesture.current.x, y: gesture.current.y },
       });
     };
 
@@ -861,9 +943,13 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     //
     // For a resize, `members` is [the frame] — a frame is outside the selection layer by decision —
     // and `origin` / `current` NEVER change: the top-left corner is fixed and the reader is dragging
-    // the bottom-right one. `originSpan` / `currentSpan` are the two fields that do.
+    // the bottom-right one. `originSize` / `currentSize` are the two fields that do.
     const pickUp = (node, source, kind = "move") => {
-      const origin = slotOf(node);
+      const origin = boxOf(node);
+      // A frame being resized must have a height to change, and a board wrapper reached here would
+      // have none — the ui.resize consumer refuses that case by name, and this is the gesture path's
+      // own fallback rather than a second refusal.
+      const size = { w: origin.w, h: origin.h ?? NODE_H };
       // THE SELECTION IS READ LIVE OFF THE DOM, at pick-up, with no cross-module handle — which is
       // what lets system/studio-select.mjs own the selection without this file importing it, and
       // what makes a selection cleared by a board redraft (studio.mjs:614 removes the wrappers)
@@ -892,10 +978,12 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         node,
         origin,
         current: origin,
-        originSpan: spanOf(node),
-        currentSpan: spanOf(node),
-        members: carried.map((n) => ({ node: n, id: idOf(n), origin: slotOf(n), current: slotOf(n) })),
-        occupied: occupancyExcept(carried),
+        originSize: size,
+        currentSize: size,
+        members: carried.map((n) => {
+          const b = boxOf(n);
+          return { node: n, id: idOf(n), origin: b, current: b };
+        }),
         source,
         sticky: false,
       };
@@ -916,11 +1004,11 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // announces from its own branch in the pointerup handler.
       if (source === "keyboard") {
         if (kind === "resize") {
-          canvas.say(`${nameOf(node)} ready to resize, ${gesture.currentSpan.cols} columns by ${gesture.currentSpan.rows} rows. Arrow keys to size it, Enter to finish, Escape to cancel.`);
+          canvas.say(`${nameOf(node)} ready to resize, ${Math.round(size.w)} by ${Math.round(size.h)}. Arrow keys to size it, Enter to finish, Escape to cancel.`);
         } else {
           canvas.say(gesture.members.length > 1
-            ? `${gesture.members.length} components picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`
-            : `${nameOf(node)} picked up, column ${origin.col}, row ${origin.row}. Arrow keys to move, Enter to drop, Escape to cancel.`);
+            ? `${gesture.members.length} components picked up at ${Math.round(origin.x)}, ${Math.round(origin.y)}. Arrow keys to move, Enter to drop, Escape to cancel.`
+            : `${nameOf(node)} picked up at ${Math.round(origin.x)}, ${Math.round(origin.y)}. Arrow keys to move, Enter to drop, Escape to cancel.`);
         }
       }
       return gesture;
@@ -956,7 +1044,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       if (!gesture || !gesture.raf) return;
       cancelAnimationFrame(gesture.raf);
       gesture.raf = 0;
-      if (gesture.pending) preview(pointToSlot(gesture.pending, gesture.geom));
+      if (gesture.pending) preview(pointFor(gesture.pending));
     };
 
     // The drop: exactly ONE ui.move, unless the gesture ended where it began — a click that moved
@@ -973,17 +1061,17 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // KIND-AWARE SINCE #219: a resize never moves, so the members test would report every resize
       // as a null gesture and emit nothing at all.
       const moved = gesture.kind === "resize"
-        ? (gesture.currentSpan.cols !== gesture.originSpan.cols || gesture.currentSpan.rows !== gesture.originSpan.rows)
-        : gesture.members.some((m) => m.current.col !== m.origin.col || m.current.row !== m.origin.row);
+        ? (gesture.currentSize.w !== gesture.originSize.w || gesture.currentSize.h !== gesture.originSize.h)
+        : gesture.members.some((m) => m.current.x !== m.origin.x || m.current.y !== m.origin.y);
       if (moved) emitGesture(source);
       const g = clearGesture();
       if (!moved) {
         if (g.kind === "resize") {
-          canvas.say(`${nameOf(g.node)} left at ${g.originSpan.cols} columns by ${g.originSpan.rows} rows.`);
+          canvas.say(`${nameOf(g.node)} left at ${Math.round(g.originSize.w)} by ${Math.round(g.originSize.h)}.`);
         } else {
           canvas.say(g.members.length > 1
-            ? `${g.members.length} components put down in column ${g.origin.col}, row ${g.origin.row}.`
-            : `${nameOf(g.node)} put down in column ${g.origin.col}, row ${g.origin.row}.`);
+            ? `${g.members.length} components put down at ${Math.round(g.origin.x)}, ${Math.round(g.origin.y)}.`
+            : `${nameOf(g.node)} put down at ${Math.round(g.origin.x)}, ${Math.round(g.origin.y)}.`);
         }
       }
     };
@@ -994,46 +1082,61 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const cancel = () => {
       if (!gesture) return;
       const g = gesture;
-      if (g.kind === "resize") applySpan(g.node, g.originSpan);
-      else for (const m of g.members) applySlot(m.node, m.origin);
+      if (g.kind === "resize") applyBox(g.node, { ...g.origin, ...g.originSize });
+      else for (const m of g.members) applyBox(m.node, m.origin);
       clearGesture();
       if (g.kind === "resize") {
-        canvas.say(`Cancelled, ${nameOf(g.node)} back at ${g.originSpan.cols} columns by ${g.originSpan.rows} rows.`);
+        canvas.say(`Cancelled, ${nameOf(g.node)} back at ${Math.round(g.originSize.w)} by ${Math.round(g.originSize.h)}.`);
         return;
       }
       canvas.say(g.members.length > 1
         ? `Cancelled, ${g.members.length} components back where they were.`
-        : `Cancelled, ${nameOf(g.node)} back in column ${g.origin.col}, row ${g.origin.row}.`);
+        : `Cancelled, ${nameOf(g.node)} back at ${Math.round(g.origin.x)}, ${Math.round(g.origin.y)}.`);
     };
 
     // --- geometry -------------------------------------------------------------------------------
-    // Read ONCE per gesture, at gesture start: a getComputedStyle in the move handler is the
-    // synchronous layout read spike 2 deliberately measured as its pessimistic case. The scroller's
-    // rect and scrollLeft/scrollTop are read LIVE in the move handler instead — they are cheap, and
-    // a momentum or keyboard scroll can move them mid-gesture.
-    const readGeom = () => {
-      const cs = getComputedStyle(stage);
-      const track = (v) => String(v || "").trim().split(/\s+/).map(parseFloat).filter(Number.isFinite);
-      return {
-        cols: track(cs.gridTemplateColumns),
-        rows: track(cs.gridTemplateRows),
-        colGap: parseFloat(cs.columnGap) || 0,
-        rowGap: parseFloat(cs.rowGap) || 0,
-      };
+    // THREE STEPS SINCE #302, not four, and no per-gesture measurement at all. The fourth step was a
+    // hit-test against the stage's resolved grid track list, read once per gesture through
+    // getComputedStyle — the synchronous layout read spike 2 measured as its pessimistic case, kept
+    // off the move handler's frames by being hoisted rather than by being removed. There are no
+    // tracks to read, so it is removed: this file now makes no getComputedStyle call on any path.
+    //
+    // THE PART MOST LIKELY TO BE SILENTLY WRONG is what remains. The stage's UNSCALED local space is
+    // what every reader below works in; getting there from a pointer event is the rect, the scroll
+    // offset and the scale divide, in that order. Miss the scroll offset and it is wrong the moment
+    // the reader has panned; miss the divide and it is wrong at every scale but 1 — and BOTH look
+    // fine at 100% scrolled to 0,0, which is where it will be tested first. studio-journey runs the
+    // hit-test in three separate conditions for exactly that reason. The scroller's rect and scroll
+    // offsets are read LIVE in the handler: they are cheap, and a momentum or keyboard scroll can
+    // move them mid-gesture.
+    // THE GRAB OFFSET, and it is the difference between picking a thing up and teleporting it.
+    // preview() takes the ANCHOR'S DESTINATION ORIGIN, because that is what the keyboard path has —
+    // a node and a step. A pointer has neither: it has a POINT, and the point is wherever inside the
+    // node the reader happened to press. Handing that point to preview() directly moves the node's
+    // TOP-LEFT to the cursor, so a node grabbed by its centre jumps half its own width and height
+    // the instant the pointer moves one pixel.
+    //
+    // MEASURED, NOT REASONED ABOUT: a drag from a node's own centre to exactly one pitch below it
+    // landed the node at 111, 198 rather than 0, 156 — off by half a node on each axis, which is
+    // precisely NODE_W/2 and NODE_H/2. No pure gate can see it; the running driver's AC #1 identity
+    // case is what caught it, and it caught it because the keyboard path and the pointer path are
+    // asserted to reach the SAME place.
+    //
+    // Recorded at pick-up and subtracted at every preview, so the point under the reader's finger
+    // stays under it for the whole gesture.
+    const pointFor = (e) => {
+      const at = pointOnStage(e);
+      const off = gesture?.grabOffset ?? { x: 0, y: 0 };
+      return { x: at.x - off.x, y: at.y - off.y };
     };
 
-    // THE COORDINATE CHAIN, and the part most likely to be silently wrong. hitSlot takes a point in
-    // the stage's UNSCALED local space; getting there from a pointer event is four steps in this
-    // order. Miss the scroll offset and the hit-test is wrong the moment the reader has panned; miss
-    // the divide and it is wrong at every level ≠ 1 — and BOTH look fine at 100% scrolled to 0,0,
-    // which is where it will be tested first. studio-journey runs the hit-test in three separate
-    // conditions for exactly that reason.
-    const pointToSlot = (e, geom) => {
+    const pointOnStage = (e) => {
       const r = scroll.getBoundingClientRect(); // live: a scroll can move mid-gesture
-      const s = ZOOM_LEVELS[canvas.level] || 1;
-      const x = (e.clientX - r.left + scroll.scrollLeft) / s;
-      const y = (e.clientY - r.top + scroll.scrollTop) / s;
-      return hitSlot(x, y, geom);
+      const s = canvas.scale || 1;
+      return {
+        x: (e.clientX - r.left + scroll.scrollLeft) / s,
+        y: (e.clientY - r.top + scroll.scrollTop) / s,
+      };
     };
 
     // A preview is instant and silent on the pointer path — the reader is watching their own hand
@@ -1046,84 +1149,85 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // path its own entry point would have meant deciding, three times, which of them the group goes
     // through; there is nothing to decide if there is one function.
     //
-    // `slot` is the ANCHOR's destination; every member translates by the same delta, all-or-nothing
-    // through the pure groupDelta. Blocked (or off-grid) leaves the whole set on its last valid
-    // position, which is exactly what the single-node path already did — groupDelta returns the very
-    // array it was handed, so identity is the "nothing changed" signal and no member is half-moved.
+    // `at` is the ANCHOR's destination and every member translates by the same delta. There is no
+    // all-or-nothing rule any more: it existed because a destination could be OCCUPIED, and the
+    // identity-with-the-input return was the only signal a partially-moved set could fail. Nothing
+    // blocks a free move (D-d), so every member always moves and the only thing that stops one is
+    // setPos's clamp at the stage edge — see preview() for what that means for a group.
+
     // The resize half of preview(), and the reason it is a private function rather than a second
     // entry point: `preview` keeps its NAME and its three call sites (the rAF callback, flushPreview
     // and the sticky-drop branch), so there is nothing to decide about which of them a resize goes
-    // through. It sets a span from a desired BOTTOM-RIGHT corner, clamps it to the grid, and previews
-    // only if the whole footprint fits — otherwise the last valid span stands, exactly as a blocked
-    // move keeps the last valid slot.
-    // PER-AXIS FALLBACK, and it is the difference between a corner that resizes and one that feels
-    // dead. A pointer drag moves BOTH axes at once, so an all-or-nothing test refuses the growth the
-    // frame does have room for whenever the other axis is blocked — on the shipped canvas that is
-    // the commonest gesture on the commonest frame, because Verdant sits directly left of Fieldwork
-    // and can only grow downwards. So: try the whole request, then the request with the blocked axis
-    // left where it is. Every candidate is still the reader's own request in at least one axis and
-    // the frame never goes anywhere they did not drag it.
+    // through. It sets a size from a desired BOTTOM-RIGHT corner and clamps it to the stage.
     //
-    // The KEYBOARD path is unaffected by construction, which is why there is one implementation and
-    // not two: an arrow changes ONE axis, so both fallbacks collapse to the current span, are skipped
-    // by the equality test, and the press is announced as blocked — the honest per-press answer.
-    const applyPreviewSpan = (want) => {
-      const asked = clampSpan(gesture.origin, want);
-      const candidates = [
-        asked,
-        { cols: gesture.currentSpan.cols, rows: asked.rows }, // the row change alone
-        { cols: asked.cols, rows: gesture.currentSpan.rows }, // the column change alone
-      ];
-      for (const span of candidates) {
-        if (span.cols === gesture.currentSpan.cols && span.rows === gesture.currentSpan.rows) continue;
-        if (!fits(gesture.origin, span, gesture.occupied)) continue; // keep the last valid span
-        gesture.currentSpan = span;
-        applySpan(gesture.node, span);
-        renderGuides();
-        return true;
-      }
-      return false;
+    // NO PER-AXIS FALLBACK ANY MORE, and that is #302 removing a mechanism rather than dropping one.
+    // It existed because an all-or-nothing OCCUPANCY test refused the growth a frame did have room
+    // for whenever the other axis was blocked by a peer — on the shipped canvas the commonest
+    // gesture on the commonest frame. Nothing blocks a free resize (D-d), so both axes always take
+    // the reader's own request and the three candidates collapse to one.
+    const applyPreviewSize = (want) => {
+      const at = gesture.origin;
+      const w = Math.max(MIN_SIZE, Math.min(Number(want.w) || MIN_SIZE, STAGE_W - at.x));
+      const h = Math.max(MIN_SIZE, Math.min(Number(want.h) || MIN_SIZE, STAGE_H - at.y));
+      if (w === gesture.currentSize.w && h === gesture.currentSize.h) return false;
+      gesture.currentSize = { w, h };
+      applyBox(gesture.node, { x: at.x, y: at.y, w, h });
+      renderGuides();
+      return true;
     };
-    const previewSpan = (corner) => applyPreviewSpan({
-      cols: corner.col - gesture.origin.col + 1,
-      rows: corner.row - gesture.origin.row + 1,
+    const previewSize = (corner) => applyPreviewSize({
+      w: corner.x - gesture.origin.x,
+      h: corner.y - gesture.origin.y,
     });
-    // "The largest that fits" has exactly one honest definition — maximal AREA, widest on a tie —
-    // and it needs occupancy, which is why fits() is pure and shared rather than folded into the
-    // clamp. At most MAX_COLS × MAX_ROWS candidates, once per End press.
-    const largestSpan = () => {
-      const max = clampSpan(gesture.origin, { cols: MAX_COLS, rows: MAX_ROWS });
-      let best = { cols: MIN_SPAN, rows: MIN_SPAN };
-      let bestArea = 0;
-      for (let cols = MIN_SPAN; cols <= max.cols; cols += 1) {
-        for (let rows = MIN_SPAN; rows <= max.rows; rows += 1) {
-          if (!fits(gesture.origin, { cols, rows }, gesture.occupied)) continue;
-          const area = cols * rows;
-          if (area > bestArea || (area === bestArea && cols > best.cols)) { best = { cols, rows }; bestArea = area; }
-        }
-      }
-      return best;
-    };
+    // "The largest that fits" had exactly one honest definition under the grid — maximal AREA,
+    // widest on a tie — and it needed OCCUPANCY, which is why it was a search over every candidate
+    // span. Nothing blocks a free resize, so the largest that fits is simply the stage's remaining
+    // room from the frame's own origin: one expression, no search.
+    const largestSize = () => ({ w: STAGE_W - gesture.origin.x, h: STAGE_H - gesture.origin.y });
 
-    const preview = (slot) => {
+    const preview = (at) => {
       // ONE ENTRY POINT, TWO KINDS (#219). For a resize the argument is the desired BOTTOM-RIGHT
       // corner rather than a destination, which is what makes the pointer path free: the same
-      // pointToSlot() chain feeds both.
-      if (gesture.kind === "resize") return previewSpan(slot);
-      const dcol = slot.col - gesture.current.col;
-      const drow = slot.row - gesture.current.row;
-      if (!dcol && !drow) return false;
-      const before = gesture.members.map(memberEntry);
-      const after = groupDelta(before, dcol, drow, gesture.occupied);
-      if (after === before) return false; // keep the last valid slot
-      for (let i = 0; i < gesture.members.length; i += 1) {
-        const m = gesture.members[i];
-        m.current = { col: after[i].col, row: after[i].row };
-        applySlot(m.node, m.current);
+      // pointOnStage() chain feeds both.
+      if (gesture.kind === "resize") return previewSize(at);
+      // THE ANCHOR MOVES FIRST AND ITS REAL TRAVEL IS WHAT THE OTHERS FOLLOW (#302). The delta used
+      // to be `at - gesture.current`, and `gesture.current` is read back off the anchor's LANDED
+      // box — so the moment the anchor hit the stage edge and stopped, every later frame recomputed
+      // the same negative delta from the clamped position and applied it AGAIN. A group dragged
+      // downwards along the left edge did not deform, it SHEARED: the anchor stood still at x 0
+      // while every other member slid left at ~34 px a frame until they stacked on top of it.
+      // Measured on /factory: two selected blocks at 0 and 236 both ended at 0. #217's AC #2 — "the
+      // selection keeps its shape" — was false on the shipped route for any drag that touched an
+      // edge, and no pure gate can see it because every property written was individually correct.
+      //
+      // Anchor-driven removes the feedback loop entirely: the anchor is asked for `at`, setPos says
+      // where it actually landed, and THAT travel is what the rest translate by. A clamped anchor
+      // yields a zero delta, so the group stops as one — which is what the thing under the reader's
+      // hand not moving should mean.
+      //
+      // MEMBERS STILL DEFORM AT THE EDGE, and that stays deliberate (D-d): setPos clamps each one
+      // independently, so a member that reaches the edge stops while the others keep coming. The
+      // alternative is refusing the whole gesture, which is the "blocked" behaviour #302 deleted.
+      // What is gone is only the case where the ANCHOR's own clamp drove the deformation.
+      if (at.x === gesture.current.x && at.y === gesture.current.y) return false;
+      const anchorWas = boxOf(gesture.node);
+      const anchorAt = applyBox(gesture.node, { x: at.x, y: at.y, w: anchorWas.w, h: anchorWas.h });
+      const dx = anchorAt.x - anchorWas.x;
+      const dy = anchorAt.y - anchorWas.y;
+      for (const m of gesture.members) {
+        if (m.node === gesture.node) {
+          m.current = { x: anchorAt.x, y: anchorAt.y, w: anchorAt.w, h: anchorAt.h };
+          continue;
+        }
+        if (!dx && !dy) continue;
+        const want = { x: m.current.x + dx, y: m.current.y + dy, w: m.current.w, h: m.current.h };
+        const landed = applyBox(m.node, want);
+        m.current = { x: landed.x, y: landed.y, w: landed.w, h: landed.h };
       }
       // The anchor's own current is what every existing branch reads, so it is kept in step here
-      // rather than recomputed at each reader.
-      gesture.current = { col: gesture.current.col + dcol, row: gesture.current.row + drow };
+      // rather than recomputed at each reader. Read back off the ANCHOR's landed position, not by
+      // adding the delta: at the stage edge the two differ, and the announcement names this one.
+      gesture.current = { ...gesture.current, ...boxOf(gesture.node) };
       renderGuides();
       return true;
     };
@@ -1151,7 +1255,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         if (!gesture.sticky) return; // a second pointer during a drag is not a second gesture
         e.stopPropagation();
         e.preventDefault();
-        preview(pointToSlot(e, gesture.geom));
+        preview(pointFor(e));
         drop("pointer");
         return;
       }
@@ -1175,8 +1279,24 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       e.preventDefault(); // no text selection under the drag
       const g = pickUp(node, "pointer", handle?.classList.contains("stx-resize") ? "resize" : "move");
       g.pointerId = e.pointerId;
+      // WHERE INSIDE THE NODE THE PRESS LANDED, so the point under the finger stays under it.
+      //
+      // A RESIZE TAKES ONE TOO, and the comment here used to say it did not: "its argument is the
+      // desired bottom-right CORNER, and the corner the reader is dragging is the cursor itself".
+      // That is true of the corner and false of the CONTROL — the press lands on .stx-resize, whose
+      // centre is inset from the corner it represents, so the first preview snapped the corner to
+      // the cursor and the frame lost that inset on BOTH axes the instant the pointer moved. It is
+      // 3f2b367's move teleport exactly, one gesture over: measured at 14px per axis on the
+      // shipped frames, on a drag whose x never moved at all. A grid resize snapped to a track and
+      // absorbed it unless the inset happened to cross a boundary; free sizes cannot.
+      //
+      // Measured from the CORNER for a resize and from the ORIGIN for a move, because those are the
+      // two points their previews are expressed in. pointFor() subtracts whichever was recorded.
+      const down = pointOnStage(e);
+      g.grabOffset = g.kind === "resize"
+        ? { x: down.x - (g.origin.x + g.currentSize.w), y: down.y - (g.origin.y + g.currentSize.h) }
+        : { x: down.x - g.origin.x, y: down.y - g.origin.y };
       g.fromHandle = Boolean(handle);
-      g.geom = readGeom();
       // preventDefault() above suppresses the press's own focus, so the handle is focused
       // explicitly: a reader who picked up with the mouse can then finish with the arrow keys.
       if (handle) handle.focus?.({ preventScroll: true });
@@ -1208,7 +1328,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       gesture.raf = requestAnimationFrame(() => {
         if (!gesture) return;
         gesture.raf = 0;
-        preview(pointToSlot(gesture.pending, gesture.geom));
+        preview(pointFor(gesture.pending));
       });
     }, { signal });
 
@@ -1226,8 +1346,8 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // report every resize drag as a click and leave the reader stickily carrying a frame they had
       // just finished sizing — the drop would never happen and the ui.resize would never be emitted.
       const still = gesture.kind === "resize"
-        ? (gesture.currentSpan.cols === gesture.originSpan.cols && gesture.currentSpan.rows === gesture.originSpan.rows)
-        : (gesture.current.col === gesture.origin.col && gesture.current.row === gesture.origin.row);
+        ? (gesture.currentSize.w === gesture.originSize.w && gesture.currentSize.h === gesture.originSize.h)
+        : (gesture.current.x === gesture.origin.x && gesture.current.y === gesture.origin.y);
       if (still && gesture.fromHandle) {
         // A CLICK on the handle, not a drag: stay picked up. This is SC 2.5.7's single-pointer
         // alternative — the reader moves the pointer with no button held and presses again to drop.
@@ -1237,10 +1357,10 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         gesture.pointerId = null;
         try { gesture.node.releasePointerCapture(e.pointerId); } catch { /* already released */ }
         canvas.say(gesture.kind === "resize"
-          ? `${nameOf(gesture.node)} ready to resize, ${gesture.currentSpan.cols} columns by ${gesture.currentSpan.rows} rows. Move the pointer and click to finish, or use the arrow keys; Escape cancels.`
+          ? `${nameOf(gesture.node)} ready to resize, ${Math.round(gesture.currentSize.w)} by ${Math.round(gesture.currentSize.h)}. Move the pointer and click to finish, or use the arrow keys; Escape cancels.`
           : (gesture.members.length > 1
-            ? `${gesture.members.length} components picked up, column ${gesture.origin.col}, row ${gesture.origin.row}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`
-            : `${nameOf(gesture.node)} picked up, column ${gesture.origin.col}, row ${gesture.origin.row}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`));
+            ? `${gesture.members.length} components picked up at ${Math.round(gesture.origin.x)}, ${Math.round(gesture.origin.y)}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`
+            : `${nameOf(gesture.node)} picked up at ${Math.round(gesture.origin.x)}, ${Math.round(gesture.origin.y)}. Move the pointer and click to drop, or use the arrow keys; Escape cancels.`));
         return;
       }
       drop("pointer");
@@ -1272,8 +1392,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         e.preventDefault();
         const node = handle.closest(MOVABLE); // MOVABLE (#219): a frame's handle finds no .stx-slot
         if (!node) return;
-        const g = pickUp(node, "keyboard", handle.classList.contains("stx-resize") ? "resize" : "move");
-        g.geom = readGeom();
+        pickUp(node, "keyboard", handle.classList.contains("stx-resize") ? "resize" : "move");
         return;
       }
 
@@ -1293,29 +1412,32 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // handle is a <button> rather than a role="separator" because a splitter is ONE-DIMENSIONAL and
       // this control sizes two axes — recorded here rather than left for a reviewer to wonder about.
       if (gesture.kind === "resize") {
-        let sized;
         if (e.key === "Home") {
           e.preventDefault();
-          sized = applyPreviewSpan({ cols: MIN_SPAN, rows: MIN_SPAN });
+          applyPreviewSize({ w: MIN_SIZE, h: MIN_SIZE });
         } else if (e.key === "End") {
           e.preventDefault();
-          sized = applyPreviewSpan(largestSpan());
+          applyPreviewSize(largestSize());
         } else {
           const step = DIRS[e.key];
           if (!step) return; // not ours — let the page have the key
           e.preventDefault(); // or the scroller also scrolls
           // The arrows move the BOTTOM-RIGHT CORNER, which is the corner the pointer path drags.
-          sized = previewSpan({
-            col: gesture.origin.col + gesture.currentSpan.cols - 1 + step[0],
-            row: gesture.origin.row + gesture.currentSpan.rows - 1 + step[1],
+          // See the move branch below: a bare arrow nudges, Shift takes a whole node.
+          // The same two steps the move path takes, for the same reason: a resize is a placement
+          // gesture too, and a frame's width is the kind of thing a reader wants to the pixel.
+          const by = e.shiftKey ? [NODE_W + NODE_GAP, NODE_H + NODE_GAP] : [NUDGE_STEP, NUDGE_STEP];
+          previewSize({
+            x: gesture.origin.x + gesture.currentSize.w + step[0] * by[0],
+            y: gesture.origin.y + gesture.currentSize.h + step[1] * by[1],
           });
         }
-        // ANNOUNCED ON EVERY PRESS, INCLUDING A BLOCKED ONE, for the reason the move path records
-        // below: a keyboard reader with no per-step feedback cannot tell a step blocked by a peer
-        // from one blocked by the grid edge.
-        canvas.say(sized
-          ? `${gesture.currentSpan.cols} columns by ${gesture.currentSpan.rows} rows.`
-          : `Blocked, still ${gesture.currentSpan.cols} columns by ${gesture.currentSpan.rows} rows.`);
+        // ANNOUNCED ON EVERY PRESS, and the size named is the one REACHED — D-d's rule, applied to
+        // the resize path. There is no blocked variant any more because nothing blocks a free
+        // resize: a press at the stage edge announces the same numbers twice, and that repetition is
+        // the feedback a keyboard reader gets instead of a sentence about a state that no longer
+        // exists.
+        canvas.say(`${Math.round(gesture.currentSize.w)} by ${Math.round(gesture.currentSize.h)}.`);
         return;
       }
 
@@ -1323,38 +1445,49 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       if (!dir) return; // not ours — let the page have the key
       e.preventDefault(); // or the scroller also scrolls
 
-      // TWO RESOLVERS, AND THEY ARE NOT THE SAME ONE. stepSlot KEEPS WALKING past an occupied cell,
-      // which is right for one node — a peer in the way is a thing to step over. groupStep is
-      // ALL-OR-NOTHING, which is right for many — walking would land members at different offsets
-      // and deform the selection the reader is holding. Reusing stepSlot here is the silent bug
-      // group 13's deep-equality case exists to catch (R1).
-      let moved;
-      if (gesture.members.length > 1) {
-        const before = gesture.members.map(memberEntry);
-        const after = groupStep(before, dir, gesture.occupied);
-        moved = after !== before && preview({ col: gesture.current.col + dir[0], row: gesture.current.row + dir[1] });
-      } else {
-        // The span is passed (#219) so a MOVING frame is stepped by its whole footprint. For a
-        // .stx-slot spanOf() answers 1×1 and this is byte-identical to the call it replaces.
-        moved = preview(stepSlot(gesture.current, dir, gesture.occupied, spanOf(gesture.node)));
-      }
-      // ANNOUNCED ON EVERY PRESS, INCLUDING A BLOCKED ONE. A keyboard user with no per-step feedback
-      // is flying blind for the whole gesture, unable to tell a step blocked by a peer from one
-      // blocked by the grid edge. Announcing unconditionally is also what makes the driver's exact
-      // N + 2 count independent of which N it chose.
+      // ONE RESOLVER, WHERE THERE WERE TWO (#302). The single-node path walked past an occupied
+      // cell and the group path was all-or-nothing, and the whole reason they had to differ was
+      // OCCUPANCY: skipping is right for one node and deforms a group, refusing is right for a group
+      // and makes one node feel stuck. Nothing blocks a free move (D-d), so there is nothing to skip
+      // and nothing to refuse, and the two collapse into preview()'s one translate-every-member.
+      // The deep-equality case group 13 kept to catch a reuse of the wrong one went with them.
+      //
+      // TWO STEPS, AND THE SMALL ONE IS THE DEFAULT (#302 Phase 5.1). A bare arrow NUDGES by
+      // NUDGE_STEP — the spacing scale's floor, 4px — because a carry is how a reader places a thing
+      // exactly, and a keyboard path that could only move in node-sized jumps would be a worse tool
+      // than the pointer rather than an equal one. SC 2.5.7 asks for an alternative, not a coarser
+      // one.
+      //
+      // Shift gives the node pitch, so crossing the stage is a few presses rather than seven hundred.
+      // That is the same distance studio-select.mjs's Shift+Arrow rectangle and the minimap's arrows
+      // use, so "shift means a whole node" is one rule across three keyboard paths — and Shift is
+      // free here because studio-select.mjs's own Shift+Arrow bails while a carry is live (:688).
+      const step = e.shiftKey ? [NODE_W + NODE_GAP, NODE_H + NODE_GAP] : [NUDGE_STEP, NUDGE_STEP];
+      preview({
+        x: gesture.current.x + dir[0] * step[0],
+        y: gesture.current.y + dir[1] * step[1],
+      });
+      // ANNOUNCED ON EVERY PRESS, and the position named is the one REACHED rather than the one
+      // asked for (D-d). A keyboard user with no per-step feedback is flying blind for the whole
+      // gesture; announcing unconditionally is also what makes the driver's exact N + 2 count
+      // independent of which N it chose. There is no blocked variant: a press at the stage edge
+      // announces the same numbers twice, which is the feedback.
       //
       // The group sentence NAMES THE COUNT rather than a component (R8): a whole-canvas selection
-      // that can only be stopped by the edge is correct and would otherwise be silent about why.
+      // stopped by the edge is correct and would otherwise be silent about why.
+      // T16's SENTENCE, and it is NEW VOCABULARY rather than an extension of anything: no
+      // announcement in this repo used an ordinal or a pixel value before #302, because a grid
+      // position was already the reader's coordinate. A free position is not, so the sentence says
+      // both — WHERE the thing is in the reading order, which is what a person navigating the canvas
+      // needs, and BY HOW MUCH the press moved it, which is what tells them the nudge landed.
       const n = gesture.members.length;
-      if (n > 1) {
-        canvas.say(moved
-          ? `${n} components in column ${gesture.current.col}, row ${gesture.current.row}.`
-          : `Blocked, ${n} components still in column ${gesture.current.col}, row ${gesture.current.row}.`);
-      } else {
-        canvas.say(moved
-          ? `Column ${gesture.current.col}, row ${gesture.current.row}.`
-          : `Blocked, still in column ${gesture.current.col}, row ${gesture.current.row}.`);
-      }
+      const order = readingOrder(slots().map((node) => ({ id: idOf(node), ...boxOf(node) })));
+      const place = order.indexOf(gesture.id) + 1;
+      const by = `${Math.round(dir[0] * step[0])}, ${Math.round(dir[1] * step[1])}`;
+      const at = `${Math.round(gesture.current.x)}, ${Math.round(gesture.current.y)}`;
+      canvas.say(n > 1
+        ? `${n} components moved by ${by}, anchor at ${at}.`
+        : (place > 0 ? `Moved by ${by} to ${at}, ${place} of ${order.length}.` : `Moved by ${by} to ${at}.`));
     }, { signal });
 
     // ESCAPE REACHES A POINTER DRAG, and that needs a document listener rather than a stage one. A
@@ -1404,6 +1537,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         clearGesture(); // also removes the guides, on every teardown path
         offMove();
         offMoveGroup();
+        for (const off of offAlign) off();
         offResize();
         offUndo();
         offRedo();
