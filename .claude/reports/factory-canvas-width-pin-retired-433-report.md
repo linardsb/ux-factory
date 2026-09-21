@@ -99,6 +99,7 @@ Committed plans and reports are historical records of what was true when written
 | `node tooling/drift-check.mjs` | ✅ syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
 | portal boot + `/api/health` | ✅ `{"ok":true,…}` on a private port (4796) |
 | `node tooling/studio-journey.mjs all` | ✅ **chromium 537 · firefox 533 · webkit 533, 0 failed**, `studio-journey ✓` — plus a second webkit-only leg at 533/0 |
+| `studio-journey.mjs all`, re-run on the rebased tree with the review fixes (2026-09-21) | firefox **533 · 0**, webkit **533 · 0**; chromium 536 · 1 — the same throttled-drag LoAF row (one 54.5 ms entry) while build-checks runs were loading the machine — then chromium alone on a quiet machine: **537 · 0**, `EXIT 0` (observed, both logs kept in the session scratchpad) |
 | pixel gate, committed baselines | ✅ 33/33 in the Docker image CI pins — but this confirms DETERMINISM, not correctness: the baselines were regenerated from this tree, so the gate is self-confirming after a regen (PR #246's own recorded note). The correctness evidence is the eyeball comparison below. |
 | pixel baselines `factory-{neutral,saulera,verdant}` | ✅ regenerated; the other 30 byte-identical |
 
