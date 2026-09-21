@@ -99,12 +99,14 @@ Committed plans and reports are historical records of what was true when written
 | `node tooling/drift-check.mjs` | ✅ syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count |
 | portal boot + `/api/health` | ✅ `{"ok":true,…}` on a private port (4796) |
 | `node tooling/studio-journey.mjs all` | ✅ **chromium 537 · firefox 533 · webkit 533, 0 failed**, `studio-journey ✓` |
-| pixel gate, committed baselines | ✅ 33/33 in the Docker image CI pins |
+| pixel gate, committed baselines | ✅ 33/33 in the Docker image CI pins — but this confirms DETERMINISM, not correctness: the baselines were regenerated from this tree, so the gate is self-confirming after a regen (PR #246's own recorded note). The correctness evidence is the eyeball comparison below. |
 | pixel baselines `factory-{neutral,saulera,verdant}` | ✅ regenerated; the other 30 byte-identical |
 
 **One flake, recorded rather than hidden.** An intermediate run had chromium red on `frame check · zero long-animation-frame entries overlap the drag window` with a single 52ms entry. That row is the 4×-CDP-throttled drag sample; it was green on the run before it and green on the final run, on an otherwise identical tree. Treated as load sensitivity, not a regression — and said here rather than left out of the tally.
 
 **Row counts.** chromium 536 → 537 and firefox/webkit 533 → 533 hides a real change: three rows were added (visible width == clientWidth, ArrowRight pans, the marquee-ends reachability row) and one was replaced in place (the no-range control inverted). Webkit's previous number was **427 and a throw**, not a pass count.
+
+**What actually says the baselines are right.** The same 900px band was cropped out of the old and new `factory-neutral.png` and compared by eye. Old: the canvas runs off to the right with **no boundary at all** — the fourth block cut by the page, the area past it blank white with the column extending transparently across. New: the scroller ends at the column's own edge with its border and radius, and the fourth block is clipped by the scroller, which is what "scrollable-to" looks like. The masked iframe rectangle overhangs the rail in **both**, so that artefact is pre-existing and not something the fix introduced.
 
 ## Out of scope, and why
 
@@ -112,4 +114,10 @@ Narrowing or re-proportioning the canvas column; moving `.stu-replay` inside the
 
 ## What this does not claim
 
-The at-rest canvas on `/factory` and `instance.html` now shows a 776px window onto a 2816px stage with a visible right edge, where it previously showed the same 776px with the remainder painted into the clipped region. That is the same content, plus a way to reach the rest — but it IS a visible change to the designed surface, and whether the column should now be re-proportioned is a design call for the owner, not this fix.
+**The canvas window.** `/factory` and `instance.html` now show a 776px window onto a 2816px stage with a visible right edge, where they previously showed the same 776px with the remainder painted into the clipped region. Same content, plus a way to reach the rest — but it IS a visible change to a designed surface, and whether the column should be re-proportioned is a design call for the owner, not this fix.
+
+**The control row now wraps, and that is a second visible change.** The eight align/distribute verbs were one 44px row in a 3172px container and are two rows (92px) in a 776px one; the canvas viewport grew 874 → 1082 and the page 7961 → 8168. It is in the regenerated baselines. It is also strictly better than what it replaced — two of those buttons were unreachable — but a control row that quietly became two rows is a look change, and the owner's standing verdict on `/factory` is about look.
+
+**`instance.html` was not driven.** It carries the same `.stu-shell` / `.stu-canvas-col` band, so it inherits both the width fix and the `loading` removal, including the webkit defect. `tooling/instance-journey.mjs` is operator-run, needs a built instance dir, and was **not** run here — its one canvas interaction (`click .stx-scroll` at 40,40) is inside the narrowed column either way, so nothing in it is expected to move, but that is reasoning rather than a run.
+
+**Webkit's 533 is its first complete leg on this tree.** It threw at 427 on the two runs before the frames fix, so the driver executed the rewritten minimap rows and the layers marquee fix on webkit exactly once. The focused probe covered those same rows on webkit separately (9/9 green), so they are not unobserved — but the three-engine table should not be read as equal repetition across engines.

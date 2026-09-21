@@ -564,11 +564,12 @@
    target, so a pointer aimed at the rail landed on the canvas. #433 deleted the pin, so the column
    now ends at its own 776px edge and there is no overlap left to lose a pointer to.
 
-   THE STACKING CONTEXT STAYS ANYWAY, and deliberately. Removing it is an unrequested paint change
-   on a captured surface, it orders this rail against anything the canvas column may put near it
-   later, and the blowout it backstopped is one re-added declaration away from coming back. It names
-   nothing for a view transition, so #171's hazard class is not in play; the inspect bubble is
-   appended to <body> and is unaffected. */
+   THE DECLARATION IS INERT NOW, AND STAYS ANYWAY. Nothing overlaps this rail, so it orders nothing
+   — that is a measurement, not a hope, and no claim is made here about what it would buy a future
+   layout, because none was tested. It stays for one reason: removing a stacking context is an
+   unrequested paint change on a captured surface, and #433 is not the ticket that argues it. It
+   names nothing for a view transition, so #171's hazard class is not in play; the inspect bubble
+   is appended to <body> and is unaffected. */
 .stu-inspector {
   min-width: 0;
   position: relative;
