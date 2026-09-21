@@ -108,7 +108,9 @@ export function loadComposeConfig(scenario) {
   return { scenario, dir, ...cfg };
 }
 
-const PIV_COMPOSE_SYSTEM = `You are the ux-factory UI-composition agent. You answer a question by composing a
+// EXPORTED FOR THE JUDGE'S GATE (#420): build-checks asserts every composition-judge predicate
+// restates a line of THIS text, so a rule cannot be graded that the agent was never told.
+export const PIV_COMPOSE_SYSTEM = `You are the ux-factory UI-composition agent. You answer a question by composing a
 DASHBOARD VIEW as a JSON array of {name, props, children?} nodes over a fixed component
 vocabulary — and NOTHING else. Hard rules:
 • You may use ONLY the components in the provided vocabulary, ONLY their declared props,
@@ -129,6 +131,13 @@ vocabulary — and NOTHING else. Hard rules:
   over the whole dataset and a component that reports ONE NAMED ENTITY are different entries in
   the vocabulary — read each one's usage guidance and pick per answer, not per habit. When you
   report named entities, report only the few that carry the answer; never one node per record.
+• Copy rules (#420), because copy drift is the one kind a token-only renderer cannot stop: a
+  button label is an IMPERATIVE verb phrase ("Save", "Assign" — never "Submit" or "OK"); link
+  or button text says where it goes, never "Learn more"; an error reads reason + action, so a
+  critical row says WHY in its secondary field (meta, detail), not only that it is critical; an
+  empty state carries a next step (a sentence or a button); and every string you write is in
+  SENTENCE CASE — first word capitalised, the rest lower unless a name or an acronym ("East
+  warehouse", "East • updated today", "SLA at risk").
 
 Everything you do is recorded as a four-act engineering trace with these phases, in this
 exact order: plan, gate, implement, validate. Emit four phase markers, each ALONE on the

@@ -1,0 +1,95 @@
+{
+  "$description": "#420 — expectations per committed fieldwork composition, evaluated by tooling/composition-judge.mjs. Each expectation names a predicate the judge defines; every predicate restates a rule the compose prompt or this scenario's compose.json already states. Shape after shadcn's evals.json (prompt → the expectations that restate the rules). Every composition carries the whole predicate set — the slot-specific ones say so when they do not apply — because grading a composition only on the rules it happens to satisfy is how a judge stops being one.",
+  "evals": [
+    {
+      "slug": "backlog-urgency",
+      "question": "How urgent is the open backlog, and what is its priority mix?",
+      "slot": "insight-panel",
+      "expectations": [
+        "label-reads-state-without-tone",
+        "value-is-number-or-le-2-words",
+        "tone-on-at-most-two-tiles",
+        "tile-count-within-slot-bounds",
+        "no-one-node-per-record",
+        "copy-uses-scenario-labels",
+        "cta-is-imperative",
+        "link-text-is-descriptive",
+        "error-carries-reason",
+        "empty-state-has-next-step",
+        "sentence-case"
+      ]
+    },
+    {
+      "slug": "operational-state",
+      "question": "What's the operational state of the board right now?",
+      "slot": "summary-strip",
+      "expectations": [
+        "label-reads-state-without-tone",
+        "value-is-number-or-le-2-words",
+        "tone-on-at-most-two-tiles",
+        "tile-count-within-slot-bounds",
+        "no-one-node-per-record",
+        "copy-uses-scenario-labels",
+        "cta-is-imperative",
+        "link-text-is-descriptive",
+        "error-carries-reason",
+        "empty-state-has-next-step",
+        "sentence-case"
+      ]
+    },
+    {
+      "slug": "sla-risk-and-load",
+      "question": "Where is SLA-breach risk concentrated, and is technician load balanced today?",
+      "slot": "insight-panel",
+      "expectations": [
+        "label-reads-state-without-tone",
+        "value-is-number-or-le-2-words",
+        "tone-on-at-most-two-tiles",
+        "tile-count-within-slot-bounds",
+        "no-one-node-per-record",
+        "copy-uses-scenario-labels",
+        "cta-is-imperative",
+        "link-text-is-descriptive",
+        "error-carries-reason",
+        "empty-state-has-next-step",
+        "sentence-case"
+      ]
+    },
+    {
+      "slug": "work-by-region",
+      "question": "How is the open workload distributed across the four regions?",
+      "slot": "summary-strip",
+      "expectations": [
+        "label-reads-state-without-tone",
+        "value-is-number-or-le-2-words",
+        "tone-on-at-most-two-tiles",
+        "tile-count-within-slot-bounds",
+        "no-one-node-per-record",
+        "copy-uses-scenario-labels",
+        "cta-is-imperative",
+        "link-text-is-descriptive",
+        "error-carries-reason",
+        "empty-state-has-next-step",
+        "sentence-case"
+      ]
+    },
+    {
+      "slug": "backlog-urgency-420",
+      "question": "How urgent is the open backlog, and what is its priority mix?",
+      "slot": "insight-panel",
+      "expectations": [
+        "label-reads-state-without-tone",
+        "value-is-number-or-le-2-words",
+        "tone-on-at-most-two-tiles",
+        "tile-count-within-slot-bounds",
+        "no-one-node-per-record",
+        "copy-uses-scenario-labels",
+        "cta-is-imperative",
+        "link-text-is-descriptive",
+        "error-carries-reason",
+        "empty-state-has-next-step",
+        "sentence-case"
+      ]
+    }
+  ]
+}

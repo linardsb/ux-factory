@@ -11502,9 +11502,80 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("ledger", `KINDS the ticket's five in order, both lists frozen · a synthetic stream through BOTH feeds (the bus fold and note) read back in order with 1..n numbering, every kind, the sources preserved and the fold writing the verbs' own sentence shape · rows frozen and rows() a copy · the driver's two echo types (agent.build-op, agent.note) NOT folded — the driver notes beats, and a fold doubled every note beat as "note." until this case · four refusals BY NAME (an unknown kind, a non-string text, an empty text, an unknown source) adding no row · the renderer under the DOM stub: hidden and empty until the first row, hostile text landing as textContent verbatim with no child element (innerHTML would leave the stub's text empty and go red), data-kind/data-source on each <li>, nothing after the unsubscribe · the at-rest DOM: factory.html's mount present, hidden and empty; instance.html carrying none. What it cannot reach: the four running-page facts — a refusal surviving the next announcement, the relayout rows on the committed run, the denied-call count against the trace, the take-over row — which are studio-journey's ledgerPass on three engines`);
 }
 
+// --- 38 · the composition judge (#420) -----------------------------------------------------------
+
+{
+  // tooling/composition-judge.mjs, a pure post-hoc judge over committed compositions — graded, never
+  // fed to a prompt (fieldwork-kpis.mjs's rule). This group asserts the MECHANISM, not that every
+  // committed composition passes: a composition that fails an expectation is a finding the judge
+  // names, and the fix is a re-record under a tighter prompt, never an edit here. So the four things
+  // driven are (1) every predicate restates a line the agent was actually told, by substring against
+  // the exported PIV_COMPOSE_SYSTEM or a scenario's slot/copy sentence; (2) every scenario with an
+  // evals.json resolves every slug to a committed composition and names only defined predicates;
+  // (3) a predicate goes RED under an in-memory mutation of a committed composition — a label made
+  // a bare "4", a third toned tile on a summary-strip — with the unmutated composition as the
+  // positive control beside it; (4) an evals entry naming an undefined predicate is REFUSED by name.
+  //
+  // WHAT THIS CANNOT REACH: whether the rules are the right rules, and whether a green composition
+  // is defensible — the judge's header says so, and this group inherits the limit.
+  const { PREDICATES, judgeComposition, judgeScenario, loadEvals, compositionPath } = await import("../tooling/composition-judge.mjs");
+  const { readdirSync, existsSync, readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const ROOT = new URL("..", import.meta.url).pathname;
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const fold = (fn) => { try { return fn(); } catch { return null; } };
+  const { PIV_COMPOSE_SYSTEM } = await import("../portal/record-composition.mjs");
+  const scenarios = readdirSync(join(ROOT, "scenarios"), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && existsSync(join(ROOT, "scenarios", d.name, "evals.json"))).map((d) => d.name);
+  ok(scenarios.length >= 2, `expected evals.json under at least fieldwork and northwind — found ${scenarios.join(", ") || "none"}`);
+  const slotText = scenarios.map((sc) => Object.values(JSON.parse(readFileSync(join(ROOT, "scenarios", sc, "compose.json"), "utf8")).slots).join("\n")).join("\n");
+  const copyText = scenarios.map((sc) => JSON.parse(readFileSync(join(ROOT, "scenarios", sc, "compose.json"), "utf8")).copy ?? "").join("\n");
+  // 1 · predicate ↔ the line it restates
+  for (const [id, p] of Object.entries(PREDICATES)) {
+    ok(typeof p.phrase === "string" && p.phrase && ["prompt", "slot", "copy"].includes(p.source), `predicate "${id}" must name its source and phrase`);
+    const home = p.source === "prompt" ? PIV_COMPOSE_SYSTEM : p.source === "slot" ? slotText : copyText;
+    ok(home.includes(p.phrase), `predicate "${id}" grades ${JSON.stringify(p.phrase)}, which its ${p.source} does not state — a rule the agent was never told cannot be judged`);
+  }
+  // 2 · every eval resolves, and the judge runs end to end over the committed artifacts
+  for (const sc of scenarios) {
+    const evals = fold(() => loadEvals(sc));
+    ok(Array.isArray(evals) && evals.length > 0, `scenarios/${sc}/evals.json did not load: ${threw(() => loadEvals(sc))}`);
+    for (const e of evals ?? []) ok(existsSync(fold(() => compositionPath(sc, e.slug)) ?? ""), `scenarios/${sc}/evals.json names "${e.slug}" with no committed composition behind it`);
+    const report = fold(() => judgeScenario(sc));
+    ok(Array.isArray(report) && report.every((c) => c.results.length === Object.keys(PREDICATES).length),
+      `the judge did not run every predicate over every ${sc} composition: ${threw(() => judgeScenario(sc)) ?? JSON.stringify(report?.map((c) => [c.slug, c.results.length]))}`);
+  }
+  // 3 · mutations, on a summary-strip composition read from disk (the positive control first)
+  const ctxOf = (sc) => {
+    const dir = join(ROOT, "scenarios", sc);
+    return { config: JSON.parse(readFileSync(join(dir, "compose.json"), "utf8")), copy: JSON.parse(readFileSync(join(dir, "copy.json"), "utf8")),
+      fixtureSizes: Object.fromEntries(readdirSync(join(dir, "fixtures")).filter((f) => f.endsWith(".json")).map((f) => [f.replace(/\.json$/, ""), JSON.parse(readFileSync(join(dir, "fixtures", f), "utf8")).length])) };
+  };
+  const strip = loadEvals("fieldwork").find((e) => e.slot === "summary-strip");
+  const base = JSON.parse(readFileSync(compositionPath("fieldwork", strip.slug), "utf8"));
+  const grade = (nodes, ids) => Object.fromEntries(judgeComposition(nodes, { ...strip, expectations: ids }, ctxOf("fieldwork")).map((r) => [r.id, r]));
+  const control = grade(base, ["label-reads-state-without-tone", "tone-on-at-most-two-tiles"]);
+  ok(control["label-reads-state-without-tone"].pass && control["tone-on-at-most-two-tiles"].pass,
+    `the positive control failed on the committed ${strip.slug}: ${JSON.stringify(control)} — the mutations below would then prove nothing`);
+  const bare = structuredClone(base); bare[0].props.label = "4";
+  ok(!grade(bare, ["label-reads-state-without-tone"])["label-reads-state-without-tone"].pass,
+    'a label mutated to a bare "4" was not caught by label-reads-state-without-tone');
+  const toned = structuredClone(base); for (const n of toned.slice(0, 3)) n.props.tone = "warn";
+  ok(!grade(toned, ["tone-on-at-most-two-tiles"])["tone-on-at-most-two-tiles"].pass,
+    "a third toned tile on a summary-strip was not caught by tone-on-at-most-two-tiles");
+  const sentence = structuredClone(base); sentence[0].props.value = "eleven jobs still open";
+  ok(!grade(sentence, ["value-is-number-or-le-2-words"])["value-is-number-or-le-2-words"].pass,
+    "a sentence in the value slot was not caught by value-is-number-or-le-2-words");
+  // 4 · an undefined predicate is refused BY NAME, in-memory and from a file shape
+  const unknown = threw(() => judgeComposition(base, { ...strip, expectations: ["copy-is-nice"] }, ctxOf("fieldwork")));
+  ok(unknown && unknown.includes("copy-is-nice") && unknown.includes("not defined"),
+    `an evals entry naming an undefined predicate must be refused naming it — got ${unknown ?? "NO THROW"}`);
+  group("composition judge", `every one of ${Object.keys(PREDICATES).length} predicates restates a phrase found in its stated home (the exported PIV_COMPOSE_SYSTEM, a slot bound, the copy sentence) so no rule is graded that the agent was never told · ${scenarios.length} scenarios' evals.json resolve every slug to a committed composition and the judge runs every predicate over every one · MUTATIONS on a committed summary-strip with the unmutated composition as the positive control: a bare "4" label, a third toned tile and a sentence value each turn their predicate red · an undefined predicate refused BY NAME. What it cannot reach: whether the committed compositions PASS (that is the judge's own verdict, run by the operator, and a failure there is a re-record, not an edit), and whether a green composition is defensible`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 37 groups pass");
+  console.log("\nbuild ✓  all 38 groups pass");
 }
