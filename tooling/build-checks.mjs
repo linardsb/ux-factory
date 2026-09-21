@@ -11346,7 +11346,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("build package", `discovery/faster-payment/build/ — MVP 14's spine, and the first committed artifact here whose subject is a DESIGN · the ledger half: ${lines.length} op lines, seqs gapless and 1-based, every one source "owner" because no agent ran and the contract forbids saying one did, every one stamped and applied, and NO x or y on any line — where a thing sits is the arrangement's business, and an op carrying one would make the two files two sources for one fact · REPRODUCE: the committed ops replayed through the real applier give the frames and arrows canvas.json references, WIDTHS included, which is the half that catches a frame.size op silently dropped where an id-only compare passes · the REFS compared too, which is the one place the artifact reaches the ops' CONTENT rather than their shape — without it a corrupted screenId reproduces the same ids and the same widths and every other case passes · THE MUTATION that decides whether that is vacuous — a corrupted screenId must change the refs — AND ITS INVERSE, a moved frame in canvas.json that must STILL PASS, because a position is not derivable from ops and a gate demanding otherwise would be re-coupling the two files the split exists to separate · D-b: the dialect says what it is, with all FOUR divergences from JSON Canvas 1.0 asserted BY NAME (the invented node types, optional height, the added ref, relation replacing label) because the failure mode is a later edit trimming the header to something shorter and truer-sounding, and a conformant reader refuses type: "frame" · the why asserted on the LEDGER rather than by reproduction, because corrupting it changes nothing the artifact carries and 36.2 stays green — MEASURED, not assumed; a reason is not geometry and has no business in an arrangement file, so the assertion is length-and-decisionRefs here, which is strictly more than the applier's own .trim() can tell from a single word · the round trip BYTE-identical rather than deep-equal, so a save that reordered keys would not churn every future diff · and canvas-store's import graph pinned to node built-ins alone, because CI runs this with no portal/node_modules at all. What it cannot reach: whether the spine RENDERS (studio-journey's, on a browser) and whether the compose op's `+"`"+`why`+"`"+` is a good reason, which is a human read`);
 }
 
-// --- 37 · the composition judge (#420) -----------------------------------------------------------
+// --- 38 · the composition judge (#420) -----------------------------------------------------------
 
 {
   // tooling/composition-judge.mjs, a pure post-hoc judge over committed compositions — graded, never
@@ -11421,5 +11421,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 37 groups pass");
+  console.log("\nbuild ✓  all 38 groups pass");
 }

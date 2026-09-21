@@ -63,7 +63,7 @@ const boundsOf = (sentence) => {
 
 // ---- the predicates: id → { rule, source, phrase, check(composition, ctx) → { pass, detail } } --
 // `rule` quotes the prompt line (or slot bound) each predicate restates; `source` says where it
-// lives (prompt · slot · copy) and `phrase` is the exact substring build-checks group 37 looks for
+// lives (prompt · slot · copy) and `phrase` is the exact substring build-checks group 38 looks for
 // there, so a predicate cannot grade a rule the agent was never told. ctx carries the entry
 // ({ slug, question, slot }), the scenario's compose config, its copy.json and its fixture sizes.
 export const PREDICATES = Object.freeze({

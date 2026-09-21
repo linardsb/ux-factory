@@ -4,7 +4,7 @@
 
 ## Predicate → the line it restates (AC #3)
 
-| predicate | home | phrase asserted by group 37 |
+| predicate | home | phrase asserted by group 38 |
 |---|---|---|
 | `label-reads-state-without-tone` | `PIV_COMPOSE_SYSTEM` | "without its tone" |
 | `value-is-number-or-le-2-words` | `PIV_COMPOSE_SYSTEM` | "≤2-word phrase" |
@@ -38,9 +38,9 @@ in sentence case, so pairs that differ only in case are left to `sentence-case`;
 
 | gate | result |
 |---|---|
-| `node tooling/build-checks.mjs` | ✅ all 37 groups pass |
-| group 37 mutation — the tone predicate made to always pass | ❌ `a third toned tile on a summary-strip was not caught` → restored ✅ |
-| `node tooling/drift-check.mjs` | ✅ (group-count leg agrees at 37 across the four claim sites) |
+| `node tooling/build-checks.mjs` | ✅ all 38 groups pass |
+| group 38 mutation — the tone predicate made to always pass | ❌ `a third toned tile on a summary-strip was not caught` → restored ✅ |
+| `node tooling/drift-check.mjs` | ✅ (group-count leg agrees at 38 across the four claim sites) |
 | `node agent-layer/gen-loc-summary.mjs --check` | ✅ no drift |
 | `node tooling/composition-judge.mjs fieldwork` | ✅ exit 0 |
 | `node tooling/composition-judge.mjs northwind` | ❌ exit 1, the two findings above named with node paths |
