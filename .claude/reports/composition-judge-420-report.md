@@ -45,31 +45,38 @@ in sentence case, so pairs that differ only in case are left to `sentence-case`;
 | `node tooling/composition-judge.mjs fieldwork` | ✅ exit 0 |
 | `node tooling/composition-judge.mjs northwind` | ❌ exit 1, the two findings above named with node paths |
 
-## AC #4 — NOT MET: the re-record under the new prompt
+## AC #4 — MET on the second attempt: the re-record under the new prompt
 
-Run 2026-09-21 17:29, four attempts in order (`--dry` fieldwork, real fieldwork, `--dry` northwind,
-real northwind), new slugs `backlog-urgency-420` and `sku-attention-list-420`. Every one failed in
-under five seconds with the same first step:
+**First attempt, 2026-09-21 17:29:** all four recorder calls failed at step one with the Console
+spend limit (`400 … specified API usage limits … regain access on 2026-10-01`). Nothing recorded.
+The owner raised the limit the same evening.
 
-```
-API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"You have reached
-your specified API usage limits. You will regain access on 2026-10-01 at 00:00 UTC."}}
-```
+**Second attempt, 2026-09-21 20:04–20:15, on this branch after merging `main`** (new slugs, no committed
+composition edited):
 
-That is the owner's own Console spend limit (Billing → Spend limits), not a tier cap — a tier cap
-answers 429. Nothing was recorded; the two raw residue files (one error line each) were removed and
-no composition, trace or manifest changed. The commands to run once the limit is raised, from the
-repo root, in this order:
+| run | result | cost |
+|---|---|---|
+| fieldwork `--dry` | ✓ 13 steps · plan→gate→implement→validate · 0 denied · `in-process validateComposition ✓` | $0.48 |
+| fieldwork real, `backlog-urgency-420` | ✓ 13 steps · 6 nodes · valid ✓ · trace ✓ · manifest 1 entry (`proto/compositions/fieldwork/`, new dir — the root manifest is the study's and untouched) | $0.40 |
+| northwind `--dry` | ✓ 11 steps · 0 denied · `validateComposition ✓` | $0.31 |
+| northwind real, first | ✗ the agent **ended its turn after its plan** — `result ok, numTurns 4`, no Write, no file; `INVALID (not shipped)` | $0.19 |
+| northwind real, `--force` | ✓ 11 steps · 7 nodes · valid ✓ · trace ✓ · manifest 5 entries | $0.35 |
 
-```
-node portal/record-composition.mjs fieldwork "How urgent is the open backlog, and what is its priority mix?" insight-panel --slug backlog-urgency-420 --dry
-node portal/record-composition.mjs fieldwork "How urgent is the open backlog, and what is its priority mix?" insight-panel --slug backlog-urgency-420
-node portal/record-composition.mjs northwind "Which specific SKUs need a buyer's attention first, and where does each one stand?" insight-panel --slug sku-attention-list-420 --dry
-node portal/record-composition.mjs northwind "Which specific SKUs need a buyer's attention first, and where does each one stand?" insight-panel --slug sku-attention-list-420
-```
+The stopped-short run is model variance, not a fence or a credit stop (the dry run five minutes earlier
+walked all four phases on the same prompt); the honesty rule's answer is a re-run, and the `--force`
+run replaced its raw trace. No prompt was edited between the two.
 
-Then add each new slug to its scenario's `evals.json` and run the judge over it — the northwind run
-is the one that tests whether the new bullet fixes the lowercase `meta` lines.
+**Numbers against the fixture (northwind, computed here):** 3 oversold SKUs, 5 low; shortfalls
+Pallet wrap 85, Wooden pallet 70, Stretch film 40 — the composition's values, exactly. Fieldwork's
+six figures (35 · 8 · 4 · 9 · 15 · 11) equal the committed `backlog-urgency` run's.
+
+**The judge over the new runs:** `backlog-urgency-420` 11/11; `sku-attention-list-420` 11/11 — its
+`meta` lines now read `East • updated today`, i.e. the new SENTENCE CASE bullet did what the two
+older compositions' failures predicted it would. Northwind stands at 53/55 across five compositions:
+the two failures are the two older, unedited runs, as before.
+
+`validate-trace` ✓ on both curated traces; build-checks 38/38 (group 38 now sees five evals per
+scenario); drift-check ✓.
 
 ## What this does not claim
 

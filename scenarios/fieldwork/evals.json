@@ -72,6 +72,24 @@
         "empty-state-has-next-step",
         "sentence-case"
       ]
+    },
+    {
+      "slug": "backlog-urgency-420",
+      "question": "How urgent is the open backlog, and what is its priority mix?",
+      "slot": "insight-panel",
+      "expectations": [
+        "label-reads-state-without-tone",
+        "value-is-number-or-le-2-words",
+        "tone-on-at-most-two-tiles",
+        "tile-count-within-slot-bounds",
+        "no-one-node-per-record",
+        "copy-uses-scenario-labels",
+        "cta-is-imperative",
+        "link-text-is-descriptive",
+        "error-carries-reason",
+        "empty-state-has-next-step",
+        "sentence-case"
+      ]
     }
   ]
 }

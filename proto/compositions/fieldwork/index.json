@@ -1,0 +1,9 @@
+[
+  {
+    "slug": "backlog-urgency-420",
+    "question": "How urgent is the open backlog, and what is its priority mix?",
+    "slot": "insight-panel",
+    "proposal": "/proto/compositions/fieldwork/backlog-urgency-420.json",
+    "trace": "/traces/backlog-urgency-420.jsonl"
+  }
+]
