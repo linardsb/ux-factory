@@ -4952,6 +4952,42 @@ async function selectPass(browser, engineName, t, errors) {
   t("#217 · …and the run still reaches the committed board it was building",
     (await replayNow(pb)).state === "settled");
   await pb.close();
+
+  // --- 6 · #436: a Shift-CLICK at the ZOOM FLOOR still ADDS to the selection ----------------------
+  // studio-select.mjs divides DRAG_SLOP by the scale (#302, PR #432's F9): at the 0.1 floor a
+  // 4-screen-pixel press covers 40 stage pixels, so an UN-divided threshold turned a Shift-click
+  // with any hand tremor into a Shift-DRAG whose marquee REPLACED the set being built. DRAG_SLOP is
+  // unexported and the path is DOM-only, so build-checks structurally cannot reach it; this is its
+  // one verification surface. Playwright's click() moves nothing between down and up, so a clean
+  // click cannot see the bug — the press below carries a 2-screen-pixel jitter: 20 stage px at the
+  // floor, inside the divided slop (40) and far past the un-divided one (4). Reverting
+  // `/ (canvas.scale || 1)` turns the last row red (measured while writing it).
+  const pz = await openSettled(ctx, "select zoom-floor");
+  const toFloorZ = Math.ceil(Math.log(SCALE_REST / SCALE_MIN) / Math.log(ZOOM_STEP));
+  for (let i = 0; i < toFloorZ; i += 1) await btn(pz, "Zoom out").click();
+  await pz.waitForTimeout(150);
+  const scaleZ = await pz.evaluate(() => parseFloat(document.querySelector("[data-studio-canvas]").style.getPropertyValue("--stx-scale")));
+  t("#436 · the fixture is AT the zoom floor", Math.abs(scaleZ - SCALE_MIN) < 1e-9, `scale=${scaleZ}`);
+  const gridZ = await slotsNow(pz);
+  t("#436 · two blocks to build a selection from", gridZ.length >= 2, JSON.stringify(gridZ.map((v) => v.id)));
+  const [aIdZ, bIdZ] = gridZ.map((v) => v.id);
+  await pz.locator(`.stx-slot[data-stx-id="${aIdZ}"]`).click({ modifiers: ["Shift"] });
+  await pz.waitForTimeout(100);
+  t("#436 · a clean Shift-click at the floor selects the first block", JSON.stringify(await chosen(pz)) === JSON.stringify([aIdZ]), JSON.stringify(await chosen(pz)));
+  const bBoxZ = await pz.locator(`.stx-slot[data-stx-id="${bIdZ}"]`).boundingBox();
+  const bxZ = bBoxZ.x + bBoxZ.width / 2;
+  const byZ = bBoxZ.y + bBoxZ.height / 2;
+  await pz.keyboard.down("Shift");
+  await pz.mouse.move(bxZ, byZ);
+  await pz.mouse.down();
+  await pz.mouse.move(bxZ + 2, byZ + 1, { steps: 2 });
+  await pz.mouse.up();
+  await pz.keyboard.up("Shift");
+  await pz.waitForTimeout(150);
+  const setZ = (await chosen(pz)).slice().sort();
+  t("#436 · a Shift-click with a 2-screen-pixel tremor at the 0.1 floor ADDS the second block rather than replacing the set with a marquee — DRAG_SLOP is four SCREEN pixels, divided by the scale at the comparison",
+    JSON.stringify(setZ) === JSON.stringify([aIdZ, bIdZ].slice().sort()), JSON.stringify({ chosen: setZ, scale: scaleZ, jitter: "2×1 screen px" }));
+  await pz.close();
   await ctx.close();
 
   // --- 12 · AC #6: reduced motion completes every verb ------------------------------------------
