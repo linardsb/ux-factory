@@ -78,9 +78,11 @@ const PAGES = [
   // THREE HANDLES SINCE #219, and the third is deliberately the WEAKEST of the three. The two device
   // frames (system/studio-frames.mjs) are <iframe>s of the shipped proto pages, and
   // [data-studio-frames="ready"] resolves when the frame ELEMENTS and their attributes exist — set
-  // in a finally at mount — NOT on iframe load. That is the whole point: their content loads async
-  // behind loading="lazy", so a load-based handle would make this gate's timing depend on two more
-  // page boots, and a proto page that failed to load would hang the capture for the wrong reason.
+  // in a finally at mount — NOT on iframe load. That is the whole point: a load-based handle would
+  // make this gate's timing depend on two more page boots, and a proto page that failed to load
+  // would hang the capture for the wrong reason. (It used to say the content loads async behind
+  // loading="lazy"; #433 removed that attribute — webkit would not load the clipped fieldwork frame
+  // with it — and the handle's argument never rested on it.)
   // What the handle does buy is the frames' own CHROME (the box, the caption, the two handles), which
   // IS in the baseline and is what a mount that silently stopped placing them would remove.
   //
