@@ -69,6 +69,7 @@ import { mountCanvasVerbs } from "./studio-verbs.mjs";
 import { mountCanvasSelect } from "./studio-select.mjs";
 import { mountCompile } from "./studio-compile.mjs";
 import { mountReplay } from "./replay-driver.mjs";
+import { createLedger, renderLedger } from "./studio-ledger.mjs";
 import { createBus } from "./action-bus.mjs";
 import { isBoard } from "./breadboard.mjs";
 import { decodeBuild, SHARE_PARAM } from "./build-share.mjs";
@@ -471,7 +472,13 @@ function mountStudioCore(root, shell, restored, opts = {}) {
   // handles are fine for the same kind of reason: #231's armMoveHandles is FORWARD-ACTING, so
   // place() arms every handle it creates after this line (studio-canvas.mjs:278-287, :324-326).
   const bus = createBus();
-  const verbs = mountCanvasVerbs(canvas, { bus });
+  // THE LEDGER (#434): fed from the bus's "*" channel, rendered only where the page carries a mount
+  // (factory.html; instance.html carries none and gets the in-memory ledger and no DOM).
+  const ledger = createLedger();
+  bus.on("*", (action) => ledger.fold(action));
+  const ledgerHost = root.querySelector("[data-studio-ledger]");
+  if (ledgerHost) renderLedger({ host: ledgerHost, list: ledgerHost.querySelector("ol") }, ledger);
+  const verbs = mountCanvasVerbs(canvas, { bus, ledger });
   // #217's selection layer, AFTER the verbs and for one reason: the context menu emits ui.undo /
   // ui.redo, and their consumers are the verbs' — so mounting the other way round gives the menu a
   // window in which its two history items do nothing. The marquee itself is order-independent (its
@@ -605,6 +612,7 @@ function mountStudioCore(root, shell, restored, opts = {}) {
       onTakeOver: () => publishBoard(replay ? replay.board : null),
       declined,
       source: opts.replay,
+      ledger,
     });
   } catch (err) {
     // The driver reports a boundary failure by throwing (replay-driver.mjs:864-869) and leaves

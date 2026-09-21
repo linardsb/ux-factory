@@ -436,7 +436,7 @@ export const getReplay = () => live;
 // is what makes it reachable. It is one early return in start(), and it adopts `tookOver` rather
 // than `ready` — a declined mount is closer to "already handed over" than to "about to play", and
 // tookOver is what makes the whole transport dead (see syncControls). (PR #240 review, finding 6.)
-export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver, declined, source } = {}) {
+export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeOver, declined, source, ledger } = {}) {
   const host = shell || null;
   const artifactUrl = source?.artifact || ARTIFACT_URL;
   const traceUrl = source?.trace || TRACE_URL;
@@ -538,15 +538,29 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
     // added after one already exists, which is why the addition path calls it too rather than
     // trusting the rank it just computed for the one node.
     const relayout = () => {
+      // COUNTED, THEN WRITTEN (#434): a relayout is a layout correction the reader was never told
+      // about — no ui.move, no history entry, no announcement — so the ledger is the one place it
+      // becomes readable, and only when a block actually moved. Read before write, per wrapper.
+      let moved = 0;
       for (const at of rankLayout(board)) {
         const wrapper = wrappers.get(at.id);
-        if (wrapper) setPos(wrapper, at.rank * (NODE_W + NODE_GAP), at.order * (NODE_H + NODE_GAP), NODE_W);
+        if (!wrapper) continue;
+        const x = at.rank * (NODE_W + NODE_GAP);
+        const y = at.order * (NODE_H + NODE_GAP);
+        const was = [parseFloat(wrapper.style.getPropertyValue("--x")), parseFloat(wrapper.style.getPropertyValue("--y"))];
+        setPos(wrapper, x, y, NODE_W);
+        if (was[0] !== x || was[1] !== y) moved += 1;
       }
+      if (moved) ledger?.note("corrected", `${moved} block${moved === 1 ? "" : "s"} moved to follow a connection.`, "agent");
     };
 
     const reflect = (changes) => {
       for (const change of changes) {
-        if (change.kind === "refused") { canvas.say(`Refused: ${change.text}`); continue; }
+        if (change.kind === "refused") {
+          canvas.say(`Refused: ${change.text}`);
+          ledger?.note("refused", `Refused: ${change.text}`, "agent"); // the row that stays (#434)
+          continue;
+        }
         // The board changed and no node was added or removed — but every node may have MOVED, and
         // for these runs that is the only thing the connections do.
         if (change.kind === "connections-changed") { relayout(); continue; }
@@ -689,6 +703,11 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       const beat = beats[index];
       index += 1;
       emitBeat(beat);
+      // EVERY BEAT IS A ROW, at any pacing (#434): an op the agent did, a note it narrated, a call
+      // the fence denied — the fence's message verbatim from the curated trace. Noted here rather
+      // than in announceBeat because a skip-to-end announces nothing per beat and the ledger must
+      // not depend on what was said aloud. The bus fold ignores agent.build-op for this reason.
+      ledger?.note(beat.kind === "refusal" ? "refused" : beat.kind === "note" ? "narrated" : "did", describeBeat(beat), "agent");
       announceBeat(beat, driven);
       if (index >= beats.length) settle();
       syncControls();
@@ -836,6 +855,9 @@ export function mountReplay(canvas, { shell, renderPlace, bus, onSettle, onTakeO
       // caught it). The provenance line still shifts visibly on both paths, and the route still
       // fires on both: what is conditional here is the SENTENCE, not the handover.
       if (wasPlaying) canvas.say("Replay paused — the canvas is yours.");
+      // THE TAKE-OVER IS A ROW, whatever was said (#434): the announcement is conditional on having
+      // interrupted something; the record is not. Every agent row before it stays readable after.
+      ledger?.note("took-over", wasPlaying ? "Replay paused — the canvas is yours." : "The canvas is yours.", e?.type === "keydown" ? "keyboard" : "pointer");
       syncControls();
       // FROM THIS LINE AND ONLY THIS LINE (#75's lesson: a settled-state flag fires whether the
       // thing happened or not).

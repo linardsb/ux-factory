@@ -699,40 +699,54 @@ async function journey(engineName, results, held) {
   // maximum and nothing re-applied it. Measured on this page before the fix: wanted scrollTop 744,
   // got 594 — 150 screen px, 115 stage px of content sliding out from under the cursor.
   //
-  // THE X AXIS IS NOT ASSERTED, and the reason is a MEASUREMENT rather than a standing property:
-  // .stx-viewport is a min-width:auto grid item, so the scroller's client box grows with the extent
-  // and there is no horizontal scroll range to clamp against. Measured at BOTH 1440 and the pixel
-  // gate's 1280 — .stx-scroll 3172 wide inside a 776px column — and measured the same way on the
-  // PR's base tree (2818 against the same 776), so it is pre-existing and not #302's — it is #433.
-  // When that lands a horizontal range appears, and this row should gain an X-axis assertion rather
-  // than keep this note; #433 asks for exactly that, so the note has a ticket and not just a wish.
+  // BOTH AXES ARE ASSERTED SINCE #433, and the note that used to sit here was wrong in a way worth
+  // recording: it said the X axis could not be checked because the scroller's client box grows with
+  // the extent, and it cited .stx-scroll at 3172 inside a 776px column. That measurement is real —
+  // it is #433's, and #214's `.stu-shell .stx-viewport { width: max-content }` pin was its cause —
+  // but it was taken on /factory and transplanted onto a row that runs on studio.html, which has
+  // no .stu-shell, never carried the pin, and has had a ~1650px horizontal range all along. So the
+  // X half was always available here; #433 additionally gives /factory one (2042px), which is what
+  // makes the same arithmetic reachable on the shipped page. The pan below sets BOTH offsets and
+  // both caps are asserted, so neither axis can go vacuous the way scrollTop 0 would.
   await btn(page, "Reset").click();
   await page.waitForTimeout(150);
   const preZoomPan = await page.evaluate(() => {
     const scroll = document.querySelector("[data-studio-canvas] .stx-scroll");
     scroll.scrollTop = Math.min(500, scroll.scrollHeight - scroll.clientHeight);
-    return { top: scroll.scrollTop, cap: scroll.scrollHeight - scroll.clientHeight };
+    scroll.scrollLeft = Math.min(500, scroll.scrollWidth - scroll.clientWidth);
+    return {
+      top: scroll.scrollTop, capY: scroll.scrollHeight - scroll.clientHeight,
+      left: scroll.scrollLeft, capX: scroll.scrollWidth - scroll.clientWidth,
+    };
   });
-  t("#302 · the stage really can be panned before the anchor row — at scrollTop 0 the anchored target is 0 whatever the code does, and the row below would prove nothing",
-    preZoomPan.cap > 100 && preZoomPan.top > 100, JSON.stringify(preZoomPan));
+  t("#302 · the stage really can be panned ON BOTH AXES before the anchor row — at scroll 0,0 the anchored target is 0 whatever the code does, and the row below would prove nothing",
+    preZoomPan.capY > 100 && preZoomPan.top > 100 && preZoomPan.capX > 100 && preZoomPan.left > 100,
+    JSON.stringify(preZoomPan));
   const abox = await page.locator(SCROLL).boundingBox();
+  const anchorRelX = 200;
   const anchorRelY = 300;
   const zoomState = () => page.evaluate(() => {
     const vp = document.querySelector("[data-studio-canvas]");
-    return { scale: Number(vp.style.getPropertyValue("--stx-scale")) || 1, top: vp.querySelector(".stx-scroll").scrollTop };
+    const s = vp.querySelector(".stx-scroll");
+    return { scale: Number(vp.style.getPropertyValue("--stx-scale")) || 1, left: s.scrollLeft, top: s.scrollTop };
   });
   const preAnchor = await zoomState();
-  await page.mouse.move(abox.x + 200, abox.y + anchorRelY);
+  await page.mouse.move(abox.x + anchorRelX, abox.y + anchorRelY);
   await page.keyboard.down("Control");
   await page.mouse.wheel(0, -240);
   await page.keyboard.up("Control");
   await page.waitForTimeout(250);
   const postAnchor = await zoomState();
-  const stageYBefore = (preAnchor.top + anchorRelY) / preAnchor.scale;
-  const stageYAfter = (postAnchor.top + anchorRelY) / postAnchor.scale;
-  t("#302/F3 · …and it zooms TO THE CURSOR after a pan — the stage point under the pointer is still under it, which is what AC #3 actually claims",
-    postAnchor.scale > preAnchor.scale && Math.abs(stageYAfter - stageYBefore) <= 2,
-    `scale ${preAnchor.scale} → ${postAnchor.scale}, stage y under the cursor ${stageYBefore.toFixed(1)} → ${stageYAfter.toFixed(1)}, scrollTop ${preAnchor.top} → ${postAnchor.top}`);
+  // The stage point under the pointer, on each axis: (offset + cursor) ÷ scale. The scroller's 1px
+  // border makes both conversions a pixel out in the same direction, which is inside the ±2px the
+  // row already allows and far under the ~115 stage px the anchor bug moved things by.
+  const stageUnder = (st) => ({ x: (st.left + anchorRelX) / st.scale, y: (st.top + anchorRelY) / st.scale });
+  const under0 = stageUnder(preAnchor);
+  const under1 = stageUnder(postAnchor);
+  t("#302/F3 · …and it zooms TO THE CURSOR after a pan — the stage point under the pointer is still under it ON BOTH AXES, which is what AC #3 actually claims",
+    postAnchor.scale > preAnchor.scale
+    && Math.abs(under1.x - under0.x) <= 2 && Math.abs(under1.y - under0.y) <= 2,
+    `scale ${preAnchor.scale} → ${postAnchor.scale}, stage point under the cursor ${under0.x.toFixed(1)},${under0.y.toFixed(1)} → ${under1.x.toFixed(1)},${under1.y.toFixed(1)}, scroll ${preAnchor.left},${preAnchor.top} → ${postAnchor.left},${postAnchor.top}`);
 
   await btn(page, "Reset").click();
 
@@ -1709,6 +1723,7 @@ async function journey(engineName, results, held) {
   await framesPass(browser, engineName, t, errors);
   await layersPass(browser, engineName, t, errors);
   await minimapPass(browser, engineName, t, errors);
+  await ledgerPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -4601,13 +4616,14 @@ async function selectPass(browser, engineName, t, errors) {
   // --- 7 · R5: the far-edge FLIP, and an honest account of what it actually buys -----------------
   // TWO THINGS THE PLAN GOT WRONG ABOUT THIS ROW, both found by running it rather than reasoning:
   //
-  //   1. A POINTER CANNOT REACH COLUMN 12 AT THIS VIEWPORT. On /factory the scroller measures ~2818
-  //      px wide — wider than the 1440 px window — so scrollWidth <= clientWidth, scrollLeft stays
-  //      pinned at 0 and a block at column 12 sits at x ≈ 2741, off-screen and un-scrollable-to.
-  //      That is this driver's own standing constraint (an EMPTY cell is not automatically a
-  //      REACHABLE one) arriving on the far axis. The menu is therefore opened through the module's
-  //      OWN entry point, which is the one both real paths call; the POINTER open path is proven on
-  //      a reachable interior block in section 6, so nothing is lost.
+  //   1. A POINTER COULD NOT REACH THE FAR EDGE AT THIS VIEWPORT, and since #433 it can. The
+  //      scroller used to measure ~2818 px wide — wider than the 1440 px window — so
+  //      scrollWidth <= clientWidth, scrollLeft stayed pinned at 0 and a block near x ≈ 2741 was
+  //      off-screen and un-scrollable-to. Deleting #214's width pin gave the page a 2042 px
+  //      horizontal range, so that block is now a pan away. The menu is STILL opened through the
+  //      module's OWN entry point, which is the one both real paths call: routing it through a pan
+  //      fixture would make this row partly about panning, and what it exists to pin is the flip
+  //      arithmetic. The POINTER open path is proven on a reachable interior block in section 6.
   //   2. THE MENU IS NARROWER THAN A TRACK (≈91 px against a 220 px column), so it never overflows
   //      the stage and "the menu's rect is inside the scroller" is VACUOUSLY true with the flip and
   //      without it. Asserting that would have been a check that cannot fail. What the flip really
@@ -4683,8 +4699,9 @@ async function selectPass(browser, engineName, t, errors) {
     interior.left >= interior.nodeLeft - 1 && flipped.right <= flipped.nodeLeft + 1,
     `interior left ${interior.left} vs node ${interior.nodeLeft}; far-edge right ${flipped.right} vs node ${flipped.nodeLeft}`);
   // R7: the menu is anchored to a CELL, so a pan leaves it detached from the block it belongs to.
-  // Scrolled VERTICALLY — the horizontal axis does not scroll here at all (see note 1 above), so a
-  // scrollLeft nudge would fire no scroll event and this row would pass for the wrong reason.
+  // Scrolled VERTICALLY, which used to be forced — the horizontal axis did not scroll here at all,
+  // so a scrollLeft nudge fired no scroll event and would have passed for the wrong reason. Since
+  // #433 either axis would do; one is all the claim needs, and this is the one with the history.
   await p7.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop += 120; });
   await p7.waitForTimeout(300);
   t("#217 · R7 — scrolling the canvas CLOSES an open menu, which is anchored to a place and would otherwise float over an unrelated component",
@@ -5511,8 +5528,9 @@ async function framesPass(browser, engineName, t, errors) {
   // THE HANDLE FIRST, THEN THE SETTLE. [data-studio-frames="ready"] fires at MOUNT and the frames are
   // placed there, so it resolves long before the replay finishes — but every assertion below is about
   // a canvas the run has finished authoring, and #209's own opener records why waiting for that
-  // matters. The frames' CONTENT is waited for separately, per frame, because loading="lazy" makes
-  // its timing an engine's business rather than a contract (studio-frames.mjs says so).
+  // matters. The frames' CONTENT is waited for separately, per frame: they boot at MOUNT now (#433
+  // removed loading="lazy" — webkit never requested a clipped lazy frame), and an engine's load
+  // timing was never a contract even before that (studio-frames.mjs says so).
   const open = async (context = ctx, tag = "frames", allowResourceErrors = false) => {
     const p = await context.newPage();
     watch(p, tag, allowResourceErrors);
@@ -5557,8 +5575,9 @@ async function framesPass(browser, engineName, t, errors) {
   }, key);
   const idOf = (p, key) => p.evaluate((k) => document.querySelector(`[data-stx-frame="${k}"]`)?.getAttribute("data-stx-id"), key);
   const depth = (p) => p.evaluate(() => import("/system/studio-verbs.mjs").then((m) => m.getVerbs().history.depth()));
-  // A frame's CONTENT, waited for rather than assumed: loading="lazy" is a hedge and nothing in the
-  // shipped module depends on when it resolves, so the driver must not either.
+  // A frame's CONTENT, waited for rather than assumed: the frames boot at mount (#433 removed
+  // loading="lazy") and nothing in the shipped module depends on when a boot resolves, so the
+  // driver must not either.
   const loaded = (p, key) => p.waitForFunction((k) => {
     const f = document.querySelector(`[data-stx-frame="${k}"] iframe`);
     return Boolean(f?.contentDocument?.body?.dataset?.page || f?.contentDocument?.querySelector(".vd-plant-card, .fw-lane"));
@@ -6161,12 +6180,27 @@ async function layersPass(browser, engineName, t, errors) {
       ? parseFloat(n.style.getPropertyValue("--h")) : n.offsetHeight) || 0,
   })));
   const want4 = idsInRange(grid4, marqueeRange(at(1, 1), at(2, 2))).slice().sort();
+  // RE-CENTRED FIRST (#433), and this is a fixture owed to the fix rather than a page defect. The
+  // row click above is in the inspector rail and Playwright scrolls the PAGE to reach it; with the
+  // column at 776px the align row wraps and the canvas viewport is 208 px taller, so the scroller
+  // settles with its top at y ≈ 900 in a 1000 px window and at(2, 2) converts to y = 1064 —
+  // outside it. Measured both ways: with #214's pin restored the same two points are y 321 and 473
+  // and both on screen, on chromium and firefox alike. chromium happened to stay green on the
+  // clamped press and firefox did not, which is exactly the kind of engine luck a driver should
+  // not rest on.
+  await p3.$eval("[data-studio-canvas] .stx-scroll", (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+  await p3.waitForTimeout(200);
   // selectPass's cell() arithmetic, inline: the scroller's rect plus the point, clamped into the
   // stage so the press lands on the element the marquee listener is attached to.
   const pts4 = {
     from: await clientPoint(p3, at(1, 1).x, at(1, 1).y),
     to: await clientPoint(p3, at(2, 2).x, at(2, 2).y),
   };
+  // ASSERTED, not trusted — clientPoint has always answered onScreen and this caller ignored it.
+  // A press the mouse cannot deliver reads as "the marquee selected nothing", which is
+  // indistinguishable from the selection bug the two rows below exist to catch.
+  t("#221/AC1 · both marquee ends are inside the window — a press the mouse cannot deliver would make the two rows below read as a selection bug",
+    pts4.from.onScreen && pts4.to.onScreen, JSON.stringify(pts4));
   await p3.keyboard.down("Shift");
   await p3.mouse.move(pts4.from.x, pts4.from.y);
   await p3.mouse.down();
@@ -6323,11 +6357,14 @@ async function layersPass(browser, engineName, t, errors) {
 // are computed through the imported mapView / jumpFrom / nodeRect / visibleCount from measured page
 // state — never literal rects.
 //
-// THE HORIZONTAL AXIS ON /factory HAS NO SCROLL RANGE — its own recorded truth (the R5 note in
-// selectPass: #214's width:max-content pin makes scrollWidth <= clientWidth at every zoom), so the
-// "panned" condition rides the VERTICAL axis and the blocked-press case rides the horizontal one.
-// The view rect's width term is the reader-VISIBLE width (the scroller's box clipped by the window
-// edge — studio-minimap.mjs call 5), measured here exactly as the module measures it.
+// BOTH AXES SCROLL ON /factory SINCE #433, and that changed what two of these rows can claim.
+// While #214's width:max-content pin held, scrollWidth <= clientWidth at every zoom, so the
+// "panned" condition rode the vertical axis and the blocked press was free on the horizontal one —
+// ArrowRight could not move because nothing could. The pin is gone (a 2042 px range at 1440), so
+// the horizontal press now PANS and is asserted as a pan, and the blocked press has to be MADE by
+// parking at the right edge. The view rect's width term is the reader-VISIBLE width (the
+// scroller's box clipped by the window edge — studio-minimap.mjs call 5), measured here exactly as
+// the module measures it; on this page it now equals the scroller's own clientWidth.
 async function minimapPass(browser, engineName, t, errors) {
   console.log(`\n[minimap] #221 · the minimap in the inspector rail (${engineName})`);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -6418,8 +6455,15 @@ async function minimapPass(browser, engineName, t, errors) {
   const vRest = await viewAttr(p1);
   t("#221/AC3 · at rest the view rect equals mapView's answer computed in Node from measured page state — the positive control",
     sameRect(vRest, expectView(mRest)), JSON.stringify({ vRest, expect: expectView(mRest), mRest }));
-  t("#221 · the horizontal axis genuinely has no scroll range on /factory (scrollWidth <= clientWidth) — the recorded constraint the two cases below are shaped by",
-    mRest.scrollW <= mRest.realClientW, JSON.stringify({ scrollW: mRest.scrollW, clientW: mRest.realClientW }));
+  t("#433 · the horizontal axis HAS a scroll range on /factory now the width pin is gone (scrollWidth > clientWidth) — the retired constraint the two cases below were shaped by, asserted so it cannot come back unnoticed",
+    mRest.scrollW > mRest.realClientW, JSON.stringify({ scrollW: mRest.scrollW, clientW: mRest.realClientW }));
+  // …and the two widths COINCIDE here, which is what says the reader-visible clip is a no-op on
+  // this page rather than a term quietly doing work (studio-minimap.mjs call 5's own claim). A
+  // COROLLARY of the row above with a few px of slack, not an independent witness: `visible` is a
+  // border box and clientWidth a padding box, so the equality is Math.min'd and can only fire once
+  // a re-proportioned column runs past the window by more than the borders (PR #435 review, F4).
+  t("#433 · …and the reader-visible width equals the scroller's own clientWidth — the canvas no longer runs past the window edge",
+    mRest.clientW === mRest.realClientW, JSON.stringify({ visible: mRest.clientW, client: mRest.realClientW }));
   // PANNED — the missing-scroll-term detector, on the axis this page can actually scroll.
   await p1.evaluate(() => { document.querySelector("[data-studio-canvas] .stx-scroll").scrollTop = 170; });
   await p1.waitForTimeout(200);
@@ -6445,13 +6489,42 @@ async function minimapPass(browser, engineName, t, errors) {
   await p1.waitForTimeout(200);
 
   // --- 3 · pan tracking through a real drag (the scroll-event path) -------------------------------
-  // ONE NODE PITCH BELOW THE FIRST BLOCK — EMPTY CANVAS, which is what a pan needs to grab. The
-  // pitch came from the grid's resolved rows; it is now the imported constant, like every other
-  // number this driver uses.
-  const panPt = await p1.evaluate((pitch) => {
-    const a = document.querySelector("[data-studio-canvas] .stx-slot").getBoundingClientRect();
-    return { x: a.left + a.width / 2, y: a.top + a.height / 2 + pitch };
-  }, NODE_H + NODE_GAP);
+  // RE-CENTRED FIRST, AND THE FIXTURE OWES #433 THAT (the fix broke this row; the page did not).
+  // Section 1 ends with a Zoom out and a Reset, and the align row above the scroller WRAPS now that
+  // the column is 776 px rather than 3172 — the canvas viewport is 208 px taller, so Playwright
+  // scrolls the page to reach those buttons and the scroller settles with its top at y ≈ 939 in a
+  // 1000 px window. A point derived from a node's rect then sits BELOW the window edge,
+  // elementFromPoint answers null, the press lands nowhere, and the drag silently does nothing —
+  // which reads as a broken scroll observer rather than as an unreachable fixture. Measured on this
+  // page: scroller top 420 → 939 across the Zoom out, panPt.y 1144. Section 5's own instant
+  // scrollIntoView, taken one section earlier.
+  await p1.$eval("[data-studio-canvas] .stx-scroll", (n) => n.scrollIntoView({ behavior: "instant", block: "center" }));
+  await p1.waitForTimeout(200);
+  // …and the point is SCANNED rather than derived, clamped to the WINDOW as well as to the
+  // scroller — journey()'s own background scan, whose rule this is (an EMPTY point is not
+  // automatically a REACHABLE one). The y floor leaves room for the 120 px upward drag below.
+  const panPt = await p1.evaluate(() => {
+    const scroll = document.querySelector("[data-studio-canvas] .stx-scroll");
+    const r = scroll.getBoundingClientRect();
+    const top = Math.max(r.top, 0);
+    for (let y = Math.min(r.bottom, window.innerHeight) - 20; y > top + 140; y -= 20) {
+      for (let x = Math.min(r.right, window.innerWidth) - 40; x > Math.max(r.left, 0) + 40; x -= 40) {
+        const hit = document.elementFromPoint(x, y);
+        if (hit && scroll.contains(hit) && !hit.closest(".stx-slot, .stx-frame")) return { x, y, empty: true };
+      }
+    }
+    // NOTHING EMPTY IN THE WINDOW: answer the scroller's in-window centre with `empty: false`, so
+    // the row below goes red BY NAME and the rows after it still run. Returning null here made
+    // `panPt.x` a TypeError that propagated out of minimapPass and silently took every later row
+    // with it — the webkit-at-427 shape this PR fixed elsewhere (PR #435 review, F1).
+    return {
+      x: (Math.max(r.left, 0) + Math.min(r.right, window.innerWidth)) / 2,
+      y: (top + Math.min(r.bottom, window.innerHeight)) / 2,
+      empty: false,
+    };
+  });
+  t("#221/AC3 · the stage has empty background a drag can grab INSIDE THE WINDOW — a point the mouse cannot visit would make the row below read as a broken observer",
+    panPt.empty, "no empty in-window point inside the scroller; pressing its centre instead " + JSON.stringify(panPt));
   const v3a = await viewAttr(p1);
   await p1.mouse.move(panPt.x, panPt.y);
   await p1.mouse.down();
@@ -6537,14 +6610,34 @@ async function minimapPass(browser, engineName, t, errors) {
   t("#221/AC3 · ArrowDown on the focused map pans exactly one node pitch — × the current scale — and announces what is on screen",
     close(m6b.scrollTop - m6a.scrollTop, pitchY) && said6.n === 1 && /^Showing \d+ of \d+ on the canvas\.$/.test(said6.last),
     JSON.stringify({ delta: m6b.scrollTop - m6a.scrollTop, pitchY, said6 }));
+  // ARROWRIGHT PANS NOW (#433). It used to be the blocked case for free — there was no horizontal
+  // range at all — so the row asserted an UNCHANGED scrollLeft and got it from a page that could
+  // not move. The pin is gone, so this is the horizontal mirror of the ArrowDown row above, and
+  // the blocked case has to be built deliberately below.
   await countLive(p1);
   await p1.keyboard.press("ArrowRight");
   await p1.waitForTimeout(200);
   const m6c = await metricsOf(p1);
   const said6b = await liveSeen(p1);
-  t("#221/AC3 · a BLOCKED press announces the UNCHANGED range — ArrowRight has no horizontal range on this page, and the map says so instead of going silent",
-    m6c.scrollLeft === m6b.scrollLeft && said6b.n === 1 && said6b.last === said6.last,
-    JSON.stringify({ said6b, was: said6.last }));
+  const pitchX = (NODE_W + NODE_GAP) * m6c.scale;
+  t("#433 · ArrowRight pans exactly one node pitch on the axis that had no range before the width pin came out — and announces what is on screen",
+    close(m6c.scrollLeft - m6b.scrollLeft, pitchX) && said6b.n === 1 && /^Showing \d+ of \d+ on the canvas\.$/.test(said6b.last),
+    JSON.stringify({ delta: m6c.scrollLeft - m6b.scrollLeft, pitchX, said6b }));
+  // THE BLOCKED PRESS, MADE rather than found: parked at the right edge, the browser clamps the
+  // write and the map must still announce the unchanged range instead of going silent. sayRange
+  // reads the RE-MEASURED scroller, which is the whole reason that press says anything at all.
+  await p1.evaluate(() => { const s = document.querySelector("[data-studio-canvas] .stx-scroll"); s.scrollLeft = s.scrollWidth; });
+  await p1.waitForTimeout(200);
+  const m6e = await metricsOf(p1);
+  await countLive(p1);
+  await p1.keyboard.press("ArrowRight");
+  await p1.waitForTimeout(200);
+  const m6f = await metricsOf(p1);
+  const said6c = await liveSeen(p1);
+  t("#221/AC3 · a BLOCKED press announces the UNCHANGED range — parked at the right edge ArrowRight moves nothing, and the map says so instead of going silent",
+    m6e.scrollLeft > 0 && m6f.scrollLeft === m6e.scrollLeft
+    && said6c.n === 1 && /^Showing \d+ of \d+ on the canvas\.$/.test(said6c.last),
+    JSON.stringify({ parked: m6e.scrollLeft, after: m6f.scrollLeft, said6c }));
   await countLive(p1);
   await p1.keyboard.press("Home");
   await p1.waitForTimeout(200);
@@ -6634,6 +6727,103 @@ async function minimapPass(browser, engineName, t, errors) {
     sameRect(vR, expectView(mR)) && vR.y > 0, JSON.stringify({ vR, expect: expectView(mR) }));
   await p3.close();
   await ctxRM.close();
+  await ctx.close();
+}
+
+// #434 · THE LEDGER — the four running-page facts build-checks group 37 states it cannot reach. The
+// ledger is read off the DOM ([data-studio-ledger] li), never off a module export, because what the
+// ticket promises is that a READER can find these sentences afterwards.
+async function ledgerPass(browser, engineName, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
+  };
+  const rowsOf = (p) => p.evaluate(() => [...document.querySelectorAll("[data-studio-ledger] li")]
+    .map((li) => ({ kind: li.getAttribute("data-kind"), source: li.getAttribute("data-source"), text: li.textContent })));
+  const liveOf = (p) => p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live")?.textContent ?? "");
+  const hiddenOf = (p) => p.evaluate(() => document.querySelector("[data-studio-ledger]")?.hidden ?? null);
+
+  // --- 1 · AC: a refusal SURVIVES the next announcement --------------------------------------------
+  // Mid-replay, paused: emit a ui.move naming no component (the verbs refuse it into the live
+  // region), then Step one beat (the driver announces it over the refusal). The live region has
+  // moved on; the ledger has not. The second assertion is the ticket.
+  const p1 = await ctx.newPage();
+  watch(p1, "ledger refusal");
+  await p1.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p1.waitForSelector('[data-replay="ready"]', { timeout: 20000 });
+  await p1.locator(".stu-replay-controls").getByRole("button", { name: "Pause", exact: true }).click();
+  await p1.waitForTimeout(120);
+  await p1.evaluate(() => import("/system/studio-verbs.mjs").then((m) =>
+    m.getVerbs().bus.emit({ type: "ui.move", source: "keyboard", target: { id: "no-such-block" }, params: { x: 0, y: 0 } })));
+  await p1.waitForTimeout(80);
+  const liveNow = await liveOf(p1);
+  t("#434 · the refusal is SAID first — the live region carries it the moment the bad move lands (the announcement path is untouched)",
+    /^Refused: no component "no-such-block"/.test(liveNow), JSON.stringify(liveNow));
+  await p1.locator(".stu-replay-controls").getByRole("button", { name: "Step", exact: true }).click();
+  await p1.waitForTimeout(200);
+  const liveAfter = await liveOf(p1);
+  const rows1 = await rowsOf(p1);
+  const kept = rows1.find((r) => r.kind === "refused" && r.source === "keyboard" && /no-such-block/.test(r.text));
+  t("#434 · …one beat later the live region has MOVED ON — the refusal is no longer there to be read",
+    !/no-such-block/.test(liveAfter), JSON.stringify(liveAfter));
+  t("#434/AC · …and the LEDGER still carries it, as a refused row from the keyboard, verbatim — the sentence a reader can find afterwards",
+    Boolean(kept) && kept.text === liveNow, JSON.stringify({ kept, rows: rows1.length }));
+  t("#434 · the mount is un-hidden once it holds a row", (await hiddenOf(p1)) === false, "");
+  await p1.close();
+
+  // --- 2 · AC: relayouts and denied calls are rows, on the committed run, settled --------------------
+  const p2 = await ctx.newPage();
+  watch(p2, "ledger settled");
+  await p2.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settleWait(p2, 30000);
+  const rows2 = await rowsOf(p2);
+  const corrected = rows2.filter((r) => r.kind === "corrected");
+  t("#434/AC · every relayout that moved a block is a `corrected` row naming how many — at least one on the committed run, each a counted sentence",
+    corrected.length >= 1 && corrected.every((r) => r.source === "agent" && /^\d+ blocks? moved to follow a connection\.$/.test(r.text)),
+    JSON.stringify(corrected));
+  // The trace's own denied count, fetched off the page rather than typed here.
+  const deniedInTrace = await p2.evaluate(async () => {
+    const text = await (await fetch("/traces/build-fieldwork-dispatch.jsonl")).text();
+    return text.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((s) => s.denied === true).length;
+  });
+  const refusedByFence = rows2.filter((r) => r.kind === "refused" && r.source === "agent" && /^Refused — /.test(r.text));
+  t(`#434/AC · the run's denied calls are rows carrying the fence's message — ${deniedInTrace} in the curated trace, the same count in the ledger`,
+    deniedInTrace > 0 && refusedByFence.length === deniedInTrace, JSON.stringify({ deniedInTrace, refusedByFence }));
+  const did = rows2.filter((r) => r.kind === "did" && r.source === "agent").length;
+  const narrated = rows2.filter((r) => r.kind === "narrated").length;
+  t("#434 · the ops the agent DID and the notes it NARRATED are rows too — the whole run is readable, in order",
+    did >= 10 && narrated >= 1 && rows2.length === did + narrated + corrected.length + refusedByFence.length,
+    JSON.stringify({ did, narrated, corrected: corrected.length, refused: refusedByFence.length, total: rows2.length }));
+  await p2.close();
+
+  // --- 3 · AC: the take-over is a row, and every agent row before it stays readable ---------------------
+  const p3 = await ctx.newPage();
+  watch(p3, "ledger take-over");
+  await p3.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p3.waitForSelector('[data-replay="ready"]', { timeout: 20000 });
+  await p3.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 20000 });
+  await p3.waitForTimeout(300);
+  const before = await rowsOf(p3);
+  // Enter picks the handle up (the take-over), ArrowRight nudges, Enter drops — the drop is what
+  // emits ui.move, so the reader's own row lands after the take-over's.
+  await p3.locator("[data-studio-canvas] .stx-slot .stx-grab").first().focus();
+  await p3.keyboard.press("Enter");
+  await p3.waitForTimeout(80);
+  await p3.keyboard.press("ArrowRight");
+  await p3.waitForTimeout(80);
+  await p3.keyboard.press("Enter");
+  await p3.waitForTimeout(200);
+  const after = await rowsOf(p3);
+  const tookAt = after.findIndex((r) => r.kind === "took-over");
+  t("#434/AC · the take-over is a row, from the keyboard, with the sentence the page says",
+    tookAt >= 0 && after[tookAt].source === "keyboard" && /canvas is yours/.test(after[tookAt].text), JSON.stringify(after[tookAt] ?? after.slice(-2)));
+  t("#434/AC · …and every row written BEFORE it is still there, unchanged, in order",
+    before.length >= 1 && before.every((r, i) => JSON.stringify(after[i]) === JSON.stringify(r)) && tookAt >= before.length,
+    JSON.stringify({ before: before.length, tookAt, after: after.length }));
+  t("#434 · the reader's own move after the take-over lands in the same list, labelled keyboard",
+    after.some((r, i) => i > tookAt && r.kind === "did" && r.source === "keyboard" && /moved to/.test(r.text)), JSON.stringify(after.slice(tookAt)));
+  await p3.close();
   await ctx.close();
 }
 
@@ -7008,9 +7198,10 @@ async function perfPass(browser, engineName, t, errors) {
     await tp.goto(`${BASE}/factory.html`, { waitUntil: "load" });
     await settled(tp);
     await tp.evaluate(() => document.querySelector("[data-studio-canvas]").scrollIntoView({ block: "start" }));
-    // #219 · THE DEVICE FRAMES ARE PART OF THE BOOTSTRAP NOW, and the line above is what starts them:
-    // the two <iframe>s are loading="lazy", so scrolling the canvas into view is the moment two whole
-    // proto pages begin booting. Under the 4× CPU throttle applied below that work lands squarely
+    // #219 · THE DEVICE FRAMES ARE PART OF THE BOOTSTRAP NOW: the two <iframe>s boot at MOUNT (#433
+    // removed loading="lazy"; before it, the scrollIntoView above was what started them), so two
+    // whole proto pages are booting as this pass reaches the canvas. Under the 4× CPU throttle
+    // applied below that work lands squarely
     // inside the measured drag window — observed as one 61 ms long-animation-frame — which is the
     // IDENTICAL argument the 500 ms rest already makes for site.js/dock.mjs's chrome injection. So it
     // is WAITED FOR on each frame's own settle handle rather than slept past. Swallowed on timeout
