@@ -1723,6 +1723,7 @@ async function journey(engineName, results, held) {
   await framesPass(browser, engineName, t, errors);
   await layersPass(browser, engineName, t, errors);
   await minimapPass(browser, engineName, t, errors);
+  await ledgerPass(browser, engineName, t, errors);
   await perfPass(browser, engineName, t, errors);
 
   t("no page errors and no console errors across the whole journey", errors.length === 0, errors.join(" | "));
@@ -6726,6 +6727,103 @@ async function minimapPass(browser, engineName, t, errors) {
     sameRect(vR, expectView(mR)) && vR.y > 0, JSON.stringify({ vR, expect: expectView(mR) }));
   await p3.close();
   await ctxRM.close();
+  await ctx.close();
+}
+
+// #434 · THE LEDGER — the four running-page facts build-checks group 37 states it cannot reach. The
+// ledger is read off the DOM ([data-studio-ledger] li), never off a module export, because what the
+// ticket promises is that a READER can find these sentences afterwards.
+async function ledgerPass(browser, engineName, t, errors) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const watch = (p, tag) => {
+    p.on("pageerror", (e) => errors.push(`${tag} pageerror: ${e.message}`));
+    p.on("console", (m) => { if (m.type() === "error" && !EXPECTED_NOISE.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
+  };
+  const rowsOf = (p) => p.evaluate(() => [...document.querySelectorAll("[data-studio-ledger] li")]
+    .map((li) => ({ kind: li.getAttribute("data-kind"), source: li.getAttribute("data-source"), text: li.textContent })));
+  const liveOf = (p) => p.evaluate(() => document.querySelector("[data-studio-canvas] .stx-live")?.textContent ?? "");
+  const hiddenOf = (p) => p.evaluate(() => document.querySelector("[data-studio-ledger]")?.hidden ?? null);
+
+  // --- 1 · AC: a refusal SURVIVES the next announcement --------------------------------------------
+  // Mid-replay, paused: emit a ui.move naming no component (the verbs refuse it into the live
+  // region), then Step one beat (the driver announces it over the refusal). The live region has
+  // moved on; the ledger has not. The second assertion is the ticket.
+  const p1 = await ctx.newPage();
+  watch(p1, "ledger refusal");
+  await p1.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p1.waitForSelector('[data-replay="ready"]', { timeout: 20000 });
+  await p1.locator(".stu-replay-controls").getByRole("button", { name: "Pause", exact: true }).click();
+  await p1.waitForTimeout(120);
+  await p1.evaluate(() => import("/system/studio-verbs.mjs").then((m) =>
+    m.getVerbs().bus.emit({ type: "ui.move", source: "keyboard", target: { id: "no-such-block" }, params: { x: 0, y: 0 } })));
+  await p1.waitForTimeout(80);
+  const liveNow = await liveOf(p1);
+  t("#434 · the refusal is SAID first — the live region carries it the moment the bad move lands (the announcement path is untouched)",
+    /^Refused: no component "no-such-block"/.test(liveNow), JSON.stringify(liveNow));
+  await p1.locator(".stu-replay-controls").getByRole("button", { name: "Step", exact: true }).click();
+  await p1.waitForTimeout(200);
+  const liveAfter = await liveOf(p1);
+  const rows1 = await rowsOf(p1);
+  const kept = rows1.find((r) => r.kind === "refused" && r.source === "keyboard" && /no-such-block/.test(r.text));
+  t("#434 · …one beat later the live region has MOVED ON — the refusal is no longer there to be read",
+    !/no-such-block/.test(liveAfter), JSON.stringify(liveAfter));
+  t("#434/AC · …and the LEDGER still carries it, as a refused row from the keyboard, verbatim — the sentence a reader can find afterwards",
+    Boolean(kept) && kept.text === liveNow, JSON.stringify({ kept, rows: rows1.length }));
+  t("#434 · the mount is un-hidden once it holds a row", (await hiddenOf(p1)) === false, "");
+  await p1.close();
+
+  // --- 2 · AC: relayouts and denied calls are rows, on the committed run, settled --------------------
+  const p2 = await ctx.newPage();
+  watch(p2, "ledger settled");
+  await p2.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await settleWait(p2, 30000);
+  const rows2 = await rowsOf(p2);
+  const corrected = rows2.filter((r) => r.kind === "corrected");
+  t("#434/AC · every relayout that moved a block is a `corrected` row naming how many — at least one on the committed run, each a counted sentence",
+    corrected.length >= 1 && corrected.every((r) => r.source === "agent" && /^\d+ blocks? moved to follow a connection\.$/.test(r.text)),
+    JSON.stringify(corrected));
+  // The trace's own denied count, fetched off the page rather than typed here.
+  const deniedInTrace = await p2.evaluate(async () => {
+    const text = await (await fetch("/traces/build-fieldwork-dispatch.jsonl")).text();
+    return text.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((s) => s.denied === true).length;
+  });
+  const refusedByFence = rows2.filter((r) => r.kind === "refused" && r.source === "agent" && /^Refused — /.test(r.text));
+  t(`#434/AC · the run's denied calls are rows carrying the fence's message — ${deniedInTrace} in the curated trace, the same count in the ledger`,
+    deniedInTrace > 0 && refusedByFence.length === deniedInTrace, JSON.stringify({ deniedInTrace, refusedByFence }));
+  const did = rows2.filter((r) => r.kind === "did" && r.source === "agent").length;
+  const narrated = rows2.filter((r) => r.kind === "narrated").length;
+  t("#434 · the ops the agent DID and the notes it NARRATED are rows too — the whole run is readable, in order",
+    did >= 10 && narrated >= 1 && rows2.length === did + narrated + corrected.length + refusedByFence.length,
+    JSON.stringify({ did, narrated, corrected: corrected.length, refused: refusedByFence.length, total: rows2.length }));
+  await p2.close();
+
+  // --- 3 · AC: the take-over is a row, and every agent row before it stays readable ---------------------
+  const p3 = await ctx.newPage();
+  watch(p3, "ledger take-over");
+  await p3.goto(`${BASE}/factory.html`, { waitUntil: "load" });
+  await p3.waitForSelector('[data-replay="ready"]', { timeout: 20000 });
+  await p3.waitForSelector("[data-studio-canvas] .stx-slot", { timeout: 20000 });
+  await p3.waitForTimeout(300);
+  const before = await rowsOf(p3);
+  // Enter picks the handle up (the take-over), ArrowRight nudges, Enter drops — the drop is what
+  // emits ui.move, so the reader's own row lands after the take-over's.
+  await p3.locator("[data-studio-canvas] .stx-slot .stx-grab").first().focus();
+  await p3.keyboard.press("Enter");
+  await p3.waitForTimeout(80);
+  await p3.keyboard.press("ArrowRight");
+  await p3.waitForTimeout(80);
+  await p3.keyboard.press("Enter");
+  await p3.waitForTimeout(200);
+  const after = await rowsOf(p3);
+  const tookAt = after.findIndex((r) => r.kind === "took-over");
+  t("#434/AC · the take-over is a row, from the keyboard, with the sentence the page says",
+    tookAt >= 0 && after[tookAt].source === "keyboard" && /canvas is yours/.test(after[tookAt].text), JSON.stringify(after[tookAt] ?? after.slice(-2)));
+  t("#434/AC · …and every row written BEFORE it is still there, unchanged, in order",
+    before.length >= 1 && before.every((r, i) => JSON.stringify(after[i]) === JSON.stringify(r)) && tookAt >= before.length,
+    JSON.stringify({ before: before.length, tookAt, after: after.length }));
+  t("#434 · the reader's own move after the take-over lands in the same list, labelled keyboard",
+    after.some((r, i) => i > tookAt && r.kind === "did" && r.source === "keyboard" && /moved to/.test(r.text)), JSON.stringify(after.slice(tookAt)));
+  await p3.close();
   await ctx.close();
 }
 
