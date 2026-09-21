@@ -148,6 +148,21 @@ export const ALIGN_VERBS = Object.freeze([
 // the pair against tokens.contract.css.
 export const NUDGE_STEP = 4;
 
+// THE MEASURED BOX, PURE (#437, PR #432's F5). boxOf answers what a node has AUTHORED and a board
+// wrapper authors no height; the readers that do ARITHMETIC (guides, align, distribute) need one,
+// and offsetHeight supplies it. The old fallback was `offsetHeight || 0`, which is the exact shape
+// round-1's F2 fixed — a zero-height box makes every board block a line, so align-bottom aligns
+// tops and a marquee across four blocks selects nothing — restored silently whenever offsetHeight
+// reads 0 (a hidden or not-yet-laid-out canvas). fit()'s posture for an unmeasurable read is to
+// say so rather than coerce a number, and this matches it: the caller decides what a refusal
+// means (the align verbs announce it; the guides skip the peer). Pure so group 13 can prove the
+// refusal fires.
+export function measuredBox(box, offsetHeight, id = "a component") {
+  if (Number.isFinite(box?.h)) return box;
+  if (Number.isFinite(offsetHeight) && offsetHeight > 0) return { ...box, h: offsetHeight };
+  throw new Error(`${id} has no measurable height (offsetHeight ${offsetHeight}) — the canvas is hidden or not laid out yet, and a 0 here would put every edge on one line`);
+}
+
 // readingOrder(boxes) → ids in ROW-MAJOR order — the order a sighted reader's eye takes across the
 // canvas, which is what "moved to 3 of 7" is counting (#302's T16).
 //
@@ -393,10 +408,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     // it lands in stage units beside --x/--y/--w. studio-select.mjs:331 (the hit test) and
     // studio-minimap.mjs:315 already read geometry exactly this way, and for the same reason.
     // snapshot()'s boxOf is left alone: the two questions are genuinely different.
-    const measuredBoxOf = (node) => {
-      const b = boxOf(node);
-      return { ...b, h: Number.isFinite(b.h) ? b.h : (node.offsetHeight || 0) };
-    };
+    const measuredBoxOf = (node) => measuredBox(boxOf(node), node.offsetHeight, node.getAttribute("data-stx-id") || "a component");
     const isFrame = (node) => node.classList.contains(FRAME_CLASS);
     const idOf = (node) => node.getAttribute("data-stx-id");
     const nameOf = (node) => node.getAttribute("data-stx-name") || "Component";
@@ -482,7 +494,11 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const renderGuides = () => {
       if (!gesture) { clearGuides(); return; }
       const carriedNodes = new Set(gesture.members.map((m) => m.node));
-      const peers = slots().filter((n) => !carriedNodes.has(n)).map(measuredBoxOf);
+      // A peer that cannot be measured contributes NO guide rather than a zero-height one (#437):
+      // a guide is advisory, and a refusal mid-drag would end the gesture over a peer's geometry.
+      const peers = slots().filter((n) => !carriedNodes.has(n)).flatMap((n) => {
+        try { return [measuredBoxOf(n)]; } catch { return []; }
+      });
       // MEASURED ON BOTH SIDES (#302, PR #432's F2). members[].current comes from boxOf, so a carried
       // board wrapper arrived here with `h: null` and edges() gave it a top edge and nothing else —
       // the centre and bottom guides this function's own comment promises never fired for one. The
@@ -818,7 +834,14 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         canvas.say(`Select two or more components to ${verb.startsWith("align") ? "align" : "distribute"} them.`);
         return; // DOM untouched
       }
-      const moves = alignMoves(chosen.map((n) => ({ id: idOf(n), ...measuredBoxOf(n) })), verb);
+      let boxes;
+      try {
+        boxes = chosen.map((n) => ({ id: idOf(n), ...measuredBoxOf(n) }));
+      } catch (e) {
+        canvas.say(`Refused: ${e.message}`); // said, never coerced — see measuredBox (#437)
+        return; // DOM untouched
+      }
+      const moves = alignMoves(boxes, verb);
       if (!moves.length) {
         // A REAL ANSWER, not a failure: everything is already on the line. Said out loud for the
         // reason every blocked keypress used to be — a verb that does nothing and says nothing is
