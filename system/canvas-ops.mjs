@@ -132,7 +132,24 @@ function checkOp(op) {
       throw new Error(`${op.op}: "${k}" is required`);
     }
   }
+  plainData(params, op.op, "params");
   return params;
+}
+
+// PARAMS ARE PLAIN DATA, REFUSED BY PATH (#437, PR #432's F6). applyOp structuredClones the params,
+// and structuredClone throws a DataCloneError on a function or a symbol anywhere inside them — a
+// message that names no path, against the convention every other refusal in this file keeps. That
+// is unreachable from JSONL, the stated write path, and reachable from a JS caller composing an op
+// in memory, which is what #306's page does. So the walk runs before the clone and names the
+// offending path; group 35 drives it and would meet the unnamed DataCloneError without it.
+function plainData(value, verb, path) {
+  const t = typeof value;
+  if (t === "function" || t === "symbol") {
+    throw new Error(`${verb}: ${path} is a ${t} — an op's params are plain data a JSONL line can carry`);
+  }
+  if (value && t === "object") {
+    for (const [k, v] of Object.entries(value)) plainData(v, verb, `${path}.${k}`);
+  }
 }
 
 // CONNECT'S TWO ENDPOINTS, EXACT THE WAY PARAMS IS (#302, PR #432's open question 3, owner's call
