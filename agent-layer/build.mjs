@@ -10,6 +10,7 @@ import { genTokens } from "./gen-tokens.mjs";
 import { genHandoff } from "./gen-handoff.mjs";
 import { genVocabulary } from "./gen-vocabulary.mjs";
 import { genPackBundle } from "./gen-pack-bundle.mjs";
+import { genPackIndex } from "./gen-pack-index.mjs";
 import { genReplay } from "./gen-replay.mjs";
 import { genLlms } from "./gen-llms.mjs";
 import { genHeaders } from "./gen-headers.mjs";
@@ -39,6 +40,10 @@ console.log(`  vocabulary      ✓  ${v.components} components (handoff/verdant/
 
 const pb = genPackBundle();
 console.log(`  pack bundle     ✓  ${pb.files} files (handoff/verdant/pack.bundle.json)`);
+
+// Last of the pack chain — it MEASURES what the three above wrote (see gen-pack-index.mjs's header).
+const pi = genPackIndex();
+console.log(`  pack index      ✓  ${pi.files} files (handoff/verdant/llms.txt)`);
 
 const rp = genReplay();
 console.log(`  replay          ✓  ${rp.runs} run(s) → ${rp.ops} ops (replay/)`);
