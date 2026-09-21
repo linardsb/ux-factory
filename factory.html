@@ -211,7 +211,10 @@
         <p class="beat-lead max-prose">
           This canvas starts empty. What fills it is a real recorded agent run — one brief about a
           field-service dispatch tool, read once, and eighteen build ops played back in the order and
-          at the pacing shape the run itself had, narration and refused calls included. There is an
+          at the pacing shape the run itself had, narration and refused calls included. Everything the
+          run did, refused and corrected, and everything you do after taking over, is written to a
+          ledger under the canvas that never clears; it is a record rather than a console, and it
+          cannot be filtered, dismissed or exported. There is an
           industry name for that: a <dfn class="term" data-term="management-flight-simulator"
           tabindex="0">management flight simulator</dfn>, illustrative rather than predictive — you
           watch decisions run and consequences land, then take the controls yourself.
@@ -272,6 +275,15 @@
                  ([data-studio-frames="ready"], set in a finally) the pixel gate waits on —
                  [data-studio-keep]'s idiom, hook and state in one attribute. -->
             <div data-studio-canvas id="canvas" data-studio-frames></div>
+            <!-- The ledger (#434). Empty and `hidden` at rest — a page with modules blocked shows
+                 nothing new here, and the pixel gate's at-rest capture is unchanged until the replay
+                 autoplays into it. system/studio-ledger.mjs renders rows into the <ol> as the bus
+                 and the replay driver produce them (textContent only) and un-hides the section on
+                 the first one. Read-only by construction: no control, no filter, no export. -->
+            <section class="stu-ledger" data-studio-ledger hidden aria-labelledby="ledger-title">
+              <h3 class="stu-panel-title" id="ledger-title">The ledger</h3>
+              <ol class="stu-ledger-list"></ol>
+            </section>
             <noscript>
               <p class="muted">The canvas needs scripting to draw, to move and to compile, and to replay the
                 recorded run that builds it. The run itself is committed and readable as it is:

@@ -1138,6 +1138,32 @@
   min-height: 36px;
 }
 
+/* ---------- the ledger (#434) ---------- */
+/* Hidden and empty at rest (factory.html's [hidden] rule wins over the block below); un-hidden by
+   system/studio-ledger.mjs on the first row. A list that grows downward and scrolls inside its own
+   box — never the page. Token-only. */
+.stu-ledger {
+  min-width: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+.stu-ledger-list {
+  margin: 0;
+  padding: 0 0 0 var(--spacing-md);
+  font-size: var(--type-small);
+  line-height: 1.6;
+  color: var(--color-fg-muted);
+}
+.stu-ledger-list li { margin: 0; }
+.stu-ledger-list li[data-kind="refused"] { color: var(--color-fg); }
+.stu-ledger-list li[data-kind="took-over"] { color: var(--color-fg); }
+.stu-ledger-list li[data-source="pointer"]::marker,
+.stu-ledger-list li[data-source="keyboard"]::marker { color: var(--color-accent); }
+
 /* The shared-link notice (#210). Empty and `hidden` unless a ?b= arrived, so it paints nothing at
    rest and is not in the pixel baseline; factory.html:91's `[hidden] { display: none !important }`
    is what makes that stick over the block below. */

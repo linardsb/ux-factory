@@ -49,6 +49,8 @@ system/                       the shipped design system — brand-agnostic core 
   studio-layers.mjs           the LAYERS LIST — everything on the stage as a keyboard list
   studio-minimap.mjs          the MINIMAP — the whole stage at a glance, with a live viewport rect
   replay-driver.mjs           the REPLAY DRIVER — plays a committed projection over the agent.* half
+  studio-ledger.mjs           the LEDGER — what the agent did, refused and corrected, and what the reader did
+                              after taking over, as rows that stay; a pure fold + a textContent renderer
   board-ops.mjs               the BUILD-OP vocabulary + a pure applier (DOM-free; three layers need it)
   bus-toggles.mjs             Fieldwork's agentic-slot state commands — the only agent.* exerciser
   device-frame.mjs            Verdant's resizable device frame (pointer + splitter keys)

@@ -344,7 +344,7 @@ let live = null; // the mounted mover — the exported seam below drives THIS on
 // mechanism proven a wave early.
 export const getVerbs = () => live;
 
-export function mountCanvasVerbs(canvas, { bus } = {}) {
+export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
   const viewport = canvas && canvas.viewport;
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
@@ -379,6 +379,13 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         w: prop("--w") || NODE_W,
         h: Number.isFinite(h) ? h : null,
       };
+    };
+    // A REFUSAL IS SAID AND WRITTEN IN ONE CALL (#434). canvas.say is the live region, transient by
+    // design; ledger.note is the row that stays. One helper so the two cannot drift (R2 in the
+    // ticket) — the sentence is the same string on both paths, and the source is the action's own.
+    const refuse = (action, sentence) => {
+      canvas.say(sentence);
+      ledger?.note("refused", sentence, action?.source === "pointer" || action?.source === "agent" || action?.source === "voice" ? action.source : "keyboard");
     };
     // THE SAME BOX, MEASURED (#302, PR #432's F2). boxOf answers what the node has AUTHORED, and for
     // a board wrapper that is `h: null` — right for the snapshot, wrong for anything doing ARITHMETIC
@@ -669,7 +676,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       const id = String(action?.target?.id ?? "");
       const node = slots().find((n) => idOf(n) === id);
       if (!node) {
-        canvas.say(`Refused: no component ${JSON.stringify(id)} on this canvas.`);
+        refuse(action, `Refused: no component ${JSON.stringify(id)} on this canvas.`);
         return; // DOM untouched
       }
       // HOSTILE INPUT NEVER REACHES A PROPERTY. setPos coerces and clamps at the write, so this is
@@ -719,7 +726,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       const id = String(action?.target?.id ?? "");
       const node = slots().find((n) => idOf(n) === id);
       if (!node) {
-        canvas.say(`Refused: no component ${JSON.stringify(id)} on this canvas.`);
+        refuse(action, `Refused: no component ${JSON.stringify(id)} on this canvas.`);
         return; // DOM untouched
       }
       // THE ONE REFUSAL THIS CONSUMER OWNS THAT ui.move's does not. Span attributes on a .stx-slot
@@ -728,7 +735,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
       // action-bus.mjs:71-81 would turn a throw into a console line the reader never sees AND trip
       // studio-journey's no-page-errors contract.
       if (!isFrame(node)) {
-        canvas.say(`Refused: ${nameOf(node)} is not resizable.`);
+        refuse(action, `Refused: ${nameOf(node)} is not resizable.`);
         return; // DOM untouched
       }
       // setPos coerces and clamps, so hostile params never reach a property; the position is the
@@ -770,7 +777,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
     const offMoveGroup = bus.on("ui.move-group", (action) => {
       const moves = Array.isArray(action?.params?.moves) ? action.params.moves : [];
       if (!moves.length) {
-        canvas.say("Refused: that group move named no components.");
+        refuse(action, "Refused: that group move named no components.");
         return; // DOM untouched
       }
       const known = slots();
@@ -779,7 +786,7 @@ export function mountCanvasVerbs(canvas, { bus } = {}) {
         const id = String(move?.id ?? "");
         const node = known.find((n) => idOf(n) === id);
         if (!node) {
-          canvas.say(`Refused: no component ${JSON.stringify(id)} on this canvas.`);
+          refuse(action, `Refused: no component ${JSON.stringify(id)} on this canvas.`);
           return; // DOM untouched — nothing has been applied yet
         }
         resolved.push({ node, want: move }); // setPos clamps at the write; nothing hostile reaches a property
