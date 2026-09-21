@@ -10912,7 +10912,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 // `.trim()` is a human read.
 
 {
-  const { OPS: COPS, PARAMS: CPARAMS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, missingStates, resolve } =
+  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, missingStates, resolve } =
     await import("../system/canvas-ops.mjs");
   const { DEVICE_PRESETS, PRESET_NAMES, presetWidth } = await import("../system/device-presets.mjs");
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -11036,15 +11036,55 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ["params that are an array", () => applyOp(one, { op: "disconnect", params: ["a1"] }), "disconnect", "params"],
     ["an op that is not an object", () => applyOp(one, "screen.compose"), "must be an object"],
     ["a document with no frames array", () => applyOp({}, { op: "disconnect", params: { arrowId: "a1" } }), "frames", "emptyDoc"],
+    // #432's open questions 1-3, closed by the owner on 2026-09-21. Each was ACCEPTED before, and
+    // each is driven here the way every refusal above is — by a broken op, matched on what it NAMES.
+    ["a state OF a state (open question 1)",
+      () => applyOps([{ op: "screen.compose", params: VALID_FOR["screen.compose"] },
+        { op: "state.add", params: VALID_FOR["state.add"] },
+        { op: "state.add", params: { ...VALID_FOR["state.add"], baseId: "f2", stateKey: "loading" } }]),
+      "f2", "sibling of a SCREEN", "missingStates"],
+    ["a DUPLICATE (baseId, stateKey) (open question 2)",
+      () => applyOps([{ op: "screen.compose", params: VALID_FOR["screen.compose"] },
+        { op: "state.add", params: VALID_FOR["state.add"] },
+        { op: "state.add", params: VALID_FOR["state.add"] }]),
+      "already carries", "f2", "distinct keys"],
+    ["an unknown key INSIDE connect's from (open question 3)",
+      () => applyOps([{ op: "screen.compose", params: VALID_FOR["screen.compose"] },
+        { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId: "second" } },
+        { op: "connect", params: { ...VALID_FOR.connect, from: { frameId: "f1", bogus: 1 } } }]),
+      "bogus", "from", "does not read"],
+    ["partId on `to`, which takes frameId ALONE — the asymmetry, driven rather than asserted",
+      () => applyOps([{ op: "screen.compose", params: VALID_FOR["screen.compose"] },
+        { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId: "second" } },
+        { op: "connect", params: { ...VALID_FOR.connect, to: { frameId: "f2", partId: "p1" } } }]),
+      "partId", "to", "frameId"],
   ]) {
     ok(names(fn, ...must) === null, `${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
   }
+  // ENDPOINT_KEYS, frozen at BOTH levels for PARAMS' reason — Object.freeze is shallow, and a
+  // pushable side would let a frozen case pass for the wrong reason. `partId` is `from`'s ALONE: an
+  // arrow leaves a PART of a screen and arrives at the screen, the asymmetry studio-canvas.mjs's own
+  // arrow shape already documents, and a `to` quietly taking partId would record a landing nothing
+  // draws. Asserted here AND driven as a refusal above, because a roster nothing reads is a list.
+  ok(Object.isFrozen(ENDPOINT_KEYS) && Object.isFrozen(ENDPOINT_KEYS.from) && Object.isFrozen(ENDPOINT_KEYS.to),
+    `ENDPOINT_KEYS is not frozen at both levels: ${deep(ENDPOINT_KEYS)}`);
+  ok(deep(ENDPOINT_KEYS.from) === deep(["frameId", "partId"]) && deep(ENDPOINT_KEYS.to) === deep(["frameId"]),
+    `ENDPOINT_KEYS is ${deep(ENDPOINT_KEYS)} — from carries the optional partId, to does not`);
+  ok(CPARAMS.connect.includes("from") && CPARAMS.connect.includes("to"),
+    "connect's PARAMS entry no longer names from and to, so ENDPOINT_KEYS governs nothing");
+
   // …and the happy op is ACCEPTED, so the battery above cannot pass on an applier that refuses
   // everything. discovery/ops.mjs's positive-control rule.
   for (const verb of COPS) {
+    // THE SETUP MUST NOT ALREADY CONTAIN WHAT THE VERB CREATES (PR #432's open question 2). It used
+    // to mint f2 with a state.add, so by the time this loop applied state.add's own minimal op the
+    // document already carried that (baseId, stateKey) — invisible while duplicates were allowed,
+    // and a red positive control the moment they were refused. A second screen.compose mints f2 just
+    // as well and leaves the document with no state at all, which is the right floor for a control:
+    // every verb's minimal op is applied to a document that owes it nothing.
     const doc = fold([
       { op: "screen.compose", params: VALID_FOR["screen.compose"] },
-      { op: "state.add", params: VALID_FOR["state.add"] },
+      { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId: "second" } },
       { op: "connect", params: VALID_FOR.connect },
     ]) ?? emptyDoc();
     ok(threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] })) === null,
@@ -11138,7 +11178,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(!/\bzod\b/.test(opsSrc),
     "system/canvas-ops.mjs reaches for zod — it is a hand-written boundary validator, and the one sanctioned zod use is the SDK's tool-schema adapter");
 
-  group("canvas ops", `OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a SEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 15 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, and a document that is not one — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (studio-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  group("canvas ops", `OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a SEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (studio-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------

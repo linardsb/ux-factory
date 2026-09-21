@@ -178,9 +178,24 @@ Two notes on getting there. `approach` did **not** rewrite on the first pass: `3
 
 ---
 
+## The five open questions — answered 2026-09-21
+
+All four of the owner's calls were "close it". Each was **verified open first** against the shipped applier, then closed, then re-verified by the same probe — the review carried Q1–Q4 without checking them, and all four were real.
+
+| | Observed OPEN | Owner's call | Now |
+|---|---|---|---|
+| **Q1** a state of a state | `f3` a state of `f2`, itself a state of `f1`; `missingStates` still reported `f1` as missing three | refuse by name | refused, naming the base, the word SCREEN and `missingStates` |
+| **Q2** duplicate `(baseId, stateKey)` | `f2` and `f3` both `(f1, "error")`; the floor check counted them as one | refuse a second one | refused, naming the twin's id |
+| **Q3** exactness one level down | `{frameId: "f1", bogus: 1}` stored verbatim, while the same key on the op was refused | close it | `ENDPOINT_KEYS` frozen beside `PARAMS`; `partId` is `from`'s alone, driven as its own refusal |
+| **Q4** `canvas.json`'s derivation claim | `$description` said positions come from the rank layout; `f2.x` is 472 where the pitch is 236, and `f2` is a *state*, which that layout has no concept of | correct the claim | the file now states exactly what is derived (every node, edge, id, width and ref, replayed by group 36) and that **positions are authored**, which is what group 36's inverse case already assumed |
+| **Q5** the pinch cost | — | — | answered by measurement in F3 above; nothing owed |
+
+**Q2 exposed a defect in group 35's own positive control.** Its setup minted `f2` with a `state.add`, so the loop then applied `state.add`'s minimal op to a document that already carried that pair. Invisible while duplicates were legal; a red control the moment they were not. It composes a second screen instead — every verb's minimal op now meets a document that owes it nothing.
+
+Four new refusal cases, each driven by a broken op and matched on what it must name. Mutating all three refusals away reds exactly those four, by name.
+
 ## Not fixed, and why
 
-- **The five open questions** are the owner's: a state of a state, duplicate `(baseId, stateKey)` pairs, `connect`'s inexact `from`/`to`, `canvas.json`'s unverifiable derivation claim, and the pinch measurement — which **is now answered**, above.
 - **F12's second half** — whether a module with no runtime consumer should count against the total `approach.html` renders before #306 lands. The header now states the reason truthfully; the accounting decision is not a review fix.
 - **`.stx-viewport` blows out of its grid cell** (new, not in the review). The scroller's client box is **3172** against a **776px** column, clipped by `body { overflow-x: clip }`, so the canvas has no horizontal scroll range and part of it is unreachable. Measured at **both 1440 and the pixel gate's 1280**, and on the PR's **base tree** (2818 against the same 776) — so it is pre-existing and not #302's. Out of scope here; worth its own ticket. F3's gate row records it as a measurement with the condition that retires it, not as a standing property, so the X axis gains an assertion the day the blowout is fixed rather than keeping a note that has quietly gone false.
 - **`.claude/plans/canvas-swap-grid-retired-free-substrate-302.html`** and two sibling `.html` plans are untracked in this shared worktree and are not mine to commit; the `.md` they render is already tracked.

@@ -135,6 +135,19 @@ function checkOp(op) {
   return params;
 }
 
+// CONNECT'S TWO ENDPOINTS, EXACT THE WAY PARAMS IS (#302, PR #432's open question 3, owner's call
+// 2026-09-21: close it). The rule this file states about itself — a recorded op never says more than
+// the op that was applied — was enforced on the ENVELOPE and one level down was open: an unknown key
+// on the op is refused by name, and the same key inside `from` was accepted and stored verbatim, so
+// a document could carry a claim no applier ever read. `from` takes an optional partId because an
+// arrow may leave a specific part of a screen; `to` arrives at the screen, so it takes none — the
+// asymmetry is the shape studio-canvas.mjs:685 already documents. Declared rather than inlined so
+// the roster is iterable and a third endpoint cannot be half-added.
+export const ENDPOINT_KEYS = Object.freeze({
+  from: Object.freeze(["frameId", "partId"]),
+  to: Object.freeze(["frameId"]),
+});
+
 export function applyOp(doc, op) {
   if (!doc || !Array.isArray(doc.frames) || !Array.isArray(doc.arrows)) {
     throw new Error("applyOp: the document must carry frames and arrows arrays — start from emptyDoc()");
@@ -188,8 +201,26 @@ export function applyOp(doc, op) {
     }
     case "state.add": {
       const base = frame(p.baseId, "baseId");
+      // A STATE IS A SIBLING OF A SCREEN, NOT OF ANOTHER STATE (#302, PR #432's open question 1,
+      // owner's call 2026-09-21: refuse by name). A state of a state resolved fine and read as
+      // sensible, and it sat OUTSIDE the floor check entirely: missingStates considers base frames
+      // only, so a nested one is never asked for its five states and never reported missing one.
+      // Refusing it here is the only place that can tell, because by the time missingStates runs the
+      // nesting looks like an ordinary frame with a baseId.
+      if (base.baseId) {
+        throw new Error(`state.add: "${p.baseId}" is itself the ${base.stateKey} state of "${base.baseId}" — a state is a sibling of a SCREEN, and a state of a state sits outside missingStates' floor check entirely`);
+      }
       if (!STATE_KEYS.includes(p.stateKey)) {
         throw new Error(`state.add: "${p.stateKey}" is not one of the required minimum ${STATE_KEYS.join(" · ")} — the enum is open, but a screen declares a state of its own before a frame can carry it`);
+      }
+      // ONE STATE PER KEY PER SCREEN (#302, PR #432's open question 2, owner's call 2026-09-21:
+      // refuse a second one). Two frames claiming the same (baseId, stateKey) is two designs for one
+      // state, and missingStates counts DISTINCT keys — so the duplicate was absorbed and the screen
+      // still read as covered. The refusal names the twin, because "already has one" without saying
+      // which one leaves the author hunting.
+      const twin = next.frames.find((f) => f.baseId === base.id && f.stateKey === p.stateKey);
+      if (twin) {
+        throw new Error(`state.add: "${base.id}" already carries a "${p.stateKey}" state (${twin.id}) — one design per state per screen, and missingStates counts distinct keys so a second one would be absorbed rather than reported`);
       }
       // A STATE IS A SIBLING FRAME CARRYING AN OVERRIDE, never a copy of the base. The architecture's
       // call, and the reason resolve() exists: a copy drifts from its base the first time the base
@@ -219,6 +250,15 @@ export function applyOp(doc, op) {
     case "connect": {
       if (!p.from || typeof p.from !== "object" || !p.to || typeof p.to !== "object") {
         throw new Error(`connect: "from" and "to" are each an object naming a frame — { frameId, partId? } and { frameId } — and this op carried from: ${JSON.stringify(p.from)}, to: ${JSON.stringify(p.to)}`);
+      }
+      // EXACT ONE LEVEL DOWN TOO — see ENDPOINT_KEYS. Iterated rather than written twice, so `to`
+      // gaining a key is one edit to the roster and not a second forgotten branch here.
+      for (const side of ["from", "to"]) {
+        for (const k of Object.keys(p[side])) {
+          if (!ENDPOINT_KEYS[side].includes(k)) {
+            throw new Error(`connect: unknown key "${k}" on "${side}" — it takes ${ENDPOINT_KEYS[side].join(", ")}, and an op never records a field the applier does not read`);
+          }
+        }
       }
       frame(p.from.frameId, "from.frameId");
       frame(p.to.frameId, "to.frameId");
