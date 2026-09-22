@@ -147,7 +147,21 @@ Because `maxDiffPixels` swallows a few changed digits, the figures were read off
 ```
 cd tooling/icons && npm audit --json
   → {"info":0,"low":0,"moderate":0,"high":0,"critical":0,"total":0}      (A2 held)
+
+node tooling/audit-delta.mjs d512047            # the exact call the CI `audit` job makes
+  → audit-delta: comparing d512047 → working tree across 4 directories:
+      portal, tooling/icons, tooling/style-dictionary, tooling/visual-regression
+    tooling/icons: absent at base — every advisory it carries reads as new
+    tooling/icons: base 0 advisories, head 0, new 0
+    tooling/style-dictionary: base 5 advisories, head 5, new 0
+  → audit-delta ✓  no advisory ID present at head that the base did not carry   (exit 0)
 ```
+The second command is what proves the claim, and it is a different claim from the first: `npm audit`
+says the package is clean, `audit-delta` says **the gate can see the new directory**. It
+auto-discovered `tooling/icons` with no edit (the plan's prediction), stated the absent-at-base case
+in its own words, and the delta is empty — so the `audit` job is green on this diff for a measured
+reason rather than an inferred one. `tooling/style-dictionary`'s 5 pre-existing build-time advisories
+are carried at base and head, which is exactly the case the delta design exists for.
 `@phosphor-icons/core` **2.1.1**, MIT ("Copyright (c) 2023 Phosphor Icons"), 37 MB of `node_modules`, **1,512** regular-weight SVGs, 19-line lockfile, `node_modules/` covered by the repo-root `.gitignore` rule (`git check-ignore -v` → `.gitignore:2`). The shape survey was **re-run on this install**, not inherited: all 1,512 are exactly one `<path>`, `viewBox="0 0 256 256"`, `fill="currentColor"`, with **zero** `circle`/`rect`/`line`/`polyline`/`polygon`/`ellipse`/`g`. `back.svg`, `close.svg` and `chevron-right.svg` do **not** exist; all six committed names do.
 
 ## Not run
