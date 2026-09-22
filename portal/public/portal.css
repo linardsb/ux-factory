@@ -271,3 +271,96 @@
   display: flex; flex-wrap: wrap; gap: var(--spacing-xs); align-items: center;
 }
 .discovery-verdict-row input { flex: 1 1 12rem; min-width: 0; }
+
+/* canvas.html (#306) — the build canvas page. Contract tokens only. PRD Q4's 44×44 targets, the
+   discovery drawer's rule extended: every button min 44×44, select/number input min-height 44, and a
+   checkbox's hit area from its label, never from swelling the box. */
+.cv-main { padding: var(--spacing-md) var(--gutter) var(--spacing-xl); }
+.cv-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+.cv-toolbar-text { flex: 1 1 24rem; min-width: 0; }
+.cv-label { margin: 0; font-weight: 600; }
+.cv-slug { font-weight: 400; color: var(--color-fg-muted); }
+.cv-where, .cv-save { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); }
+.cv-flag { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); font-style: italic; }
+.cv-mismatch { color: var(--color-fg); }
+.cv-btn { min-height: 44px; min-width: 44px; }
+.cv-layout { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: var(--spacing-md); }
+.cv-layout > * { min-width: 0; }
+.cv-rail { display: flex; flex-direction: column; gap: var(--spacing-md); }
+@media (max-width: 900px) { .cv-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* frames, notes, decision cards on the stage */
+/* system/studio.css's .stx-frame block (:348) still says `position: relative`, which overrides the
+   node families' `position: absolute` (:104) — so frames FLOW, each one below the last, and --y is an
+   offset from wherever the flow put it. This page places frames at authored coordinates, so it
+   restores absolute here, scoped to the page. Not fixed in studio.css: that would move /factory at
+   rest, which #306 must not (R1) — flagged in the report for its own ticket. */
+.cv-stage .stx-frame { position: absolute; }
+.cv-frame { background: var(--color-bg); }
+.cv-screen { flex: 0 0 auto; padding: var(--spacing-sm); }
+.cv-cap { justify-content: space-between; }
+.cv-chips { display: inline-flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.cv-chip {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 0 var(--spacing-xs); font-size: var(--type-caption); color: var(--color-fg);
+}
+.cv-chip-none { color: var(--color-fg-muted); font-style: italic; }
+.cv-note, .cv-card {
+  background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm); font-size: var(--type-caption);
+}
+.cv-note-editor {
+  box-sizing: border-box; width: 100%; min-height: 88px; font: inherit; color: var(--color-fg);
+  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-xs); white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; resize: vertical;
+}
+.cv-note-editor:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.cv-card p { margin: 0 0 var(--spacing-xs); overflow-wrap: anywhere; }
+.cv-card-title { font-weight: 600; }
+.cv-card-q { color: var(--color-fg); }
+.cv-card-a, .cv-card-w, .cv-card-by { color: var(--color-fg-muted); }
+/* A transcript answer can run to a paragraph; the card shows its opening and the stage stays legible. */
+.cv-card-a { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* the frame inspector — a popover; the anchor branch applies only when canvas.mjs took it */
+.cv-inspector {
+  width: min(22rem, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto;
+  margin: 0; padding: var(--spacing-md); box-sizing: border-box;
+  background: var(--color-bg); color: var(--color-fg);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+@supports (anchor-name: --a) {
+  .cv-inspector[data-cv-pos="anchor"] {
+    position-anchor: --cv-inspector;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    margin-block-start: var(--spacing-sm);
+  }
+}
+.cv-inspector-title { margin: 0 0 var(--spacing-sm); font-weight: 600; }
+.cv-fieldset {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm); margin: 0 0 var(--spacing-sm);
+  display: flex; flex-direction: column; gap: var(--spacing-xs);
+}
+.cv-fieldset legend { font-size: var(--type-caption); color: var(--color-fg-muted); padding: 0 var(--spacing-xs); }
+.cv-field { font-size: var(--type-caption); }
+.cv-inspector select, .cv-inspector input:not([type="checkbox"]) { min-height: 44px; font: inherit; }
+.cv-checks { display: flex; flex-direction: column; max-height: 40vh; overflow: auto; }
+.cv-check {
+  display: flex; align-items: center; gap: var(--spacing-sm); min-height: 44px; min-width: 44px;
+  font-size: var(--type-caption); cursor: pointer;
+}
+.cv-inspector-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+
+/* the run list (#/canvas) */
+.cv-runs { list-style: none; padding: 0; margin: 0 0 var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.cv-run {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-sm) var(--spacing-md);
+}
+.cv-run a { display: inline-flex; align-items: center; min-height: 44px; }
+.cv-run-meta { font-size: var(--type-caption); color: var(--color-fg-muted); }

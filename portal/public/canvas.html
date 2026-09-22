@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!-- portal/public/canvas.html — the build canvas (epic #295 ticket #306; .claude/plans/
+     canvas-page-run-list-arrangement-ops-306.md, Task 5.1). THE ONE MODULE PAGE in the portal: it
+     needs system/ modules a classic script cannot import, so it is a page of its own that the SPA
+     links to from #/canvas. Served by server.mjs's PUBLIC_DIR fallback; no route. -->
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canvas · ux factory portal</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-neutral.svg" />
+  <link rel="stylesheet" href="/system/tokens.contract.css" />
+  <link rel="stylesheet" href="/system/tokens.neutral.css" />
+  <link rel="stylesheet" href="/system/components.css" />
+  <link rel="stylesheet" href="/system/studio.css" />
+  <link rel="stylesheet" href="/portal.css" />
+</head>
+<body data-page="portal-canvas">
+
+  <header class="portal-bar">
+    <a class="portal-brand" href="/#/canvas">ux factory <span class="hl">portal</span></a>
+    <span class="portal-bar-spacer"></span>
+  </header>
+
+  <main class="cv-main">
+    <div class="cv-toolbar">
+      <div class="cv-toolbar-text">
+        <p class="cv-label" data-canvas-label>Loading…</p>
+        <p class="cv-where" data-canvas-where></p>
+      </div>
+      <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="annotate">Add note</button>
+      <p class="cv-save" role="status" data-canvas-save></p>
+    </div>
+    <div class="cv-layout">
+      <div class="cv-stage" data-studio-canvas></div>
+      <aside class="cv-rail">
+        <div data-studio-minimap></div>
+        <div data-studio-layers></div>
+      </aside>
+    </div>
+  </main>
+
+  <div popover="auto" class="cv-inspector" id="cv-inspector"></div>
+
+  <script type="module" src="/canvas.mjs"></script>
+</body>
+</html>
