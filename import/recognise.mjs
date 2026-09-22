@@ -15,7 +15,7 @@
 // shape trivially true instead of dependent on path resolution (this repo's checkout path contains
 // a space).
 //
-// ─── THE THREE RULES, STATED BEFORE THE NUMBERS ──────────────────────────────────────────────────
+// ─── THE FOUR RULES, STATED BEFORE THE NUMBERS ───────────────────────────────────────────────────
 // The one real risk in a matcher is weights fitted backwards from the answers you wanted. The
 // defence is a principle argued first and numbers chosen to serve it. Both human recognitions above
 // were made BY NAME, in under a minute; neither counted props. So:
@@ -50,6 +50,42 @@
 //        checks on the thing that matters — adequate, and named here so the next reader does not
 //        assume either one covers the other.
 //
+//   R4 · A GLYPH IS NAMED BY THE SOURCE. THE NAME IS READ; THE BOX IS NOT (#449). `svg(icon:caret-
+//        right)` is not a drawing this file has to interpret — it is the design tool NAMING A PART
+//        OUT OF A LIBRARY, the same act as `inst()`'s master name, which nameOf() already prefers
+//        over the layer name. The converter routes one into `component.name`, where name-match reads
+//        it, and the other into `icon.name`, where nothing did. That asymmetry was the defect, and
+//        the fix is to read the slot, not to invent a weight: `node.icon.name` fills the glyph part's
+//        `name`, and `kind-fit` fires on an icon-kind node against AN ENTRY THAT DECLARES A GLYPH
+//        BOX — at the same 0.25 every other kind-fit answer carries, because it is the same claim
+//        ("the source's kind and the entry's shape agree") and there is no argument for this one
+//        being worth more.
+//
+//        `icon.size` IS NOT FILLED, AND THAT IS THE RULE RATHER THAN A GAP. The glyph box is
+//        `md|lg|xl` — 16, 24 and 32px — and the Chevron is drawn 8.73 × 16. Reading 16 → `md` is the
+//        SNAP STEP, which is #307's (ir.mjs invariant 1), not this file's. THE TYPE-ROLE MAPPING
+//        BELOW IS NOT THE PRECEDENT THAT WOULD LICENSE IT, and the difference is checkable:
+//        `["text", "size"]` is one of ir.mjs's TOKEN_SLOTS, so a type step arrives BOUND and carries
+//        a `ref` naming the source's own step — only the TAXONOMY differs. `style.size` is raw
+//        measured geometry with no ref at all, which is why the converter already files it as
+//        `literal-size`, read-then-dropped. Bound token versus measured pixels: that is the line.
+//
+//        WHAT THAT COSTS, WRITTEN DOWN SO NOBODY HAS TO REDERIVE IT. The Chevron takes kind-fit plus
+//        prop-fit on one of two required props and lands BELOW the threshold: it reads NOT COVERED,
+//        with a scored candidate and named hits where it used to have an empty list. THAT IS R1
+//        WORKING, not failing — the system has no 8.73px glyph box and the finding says so. A reader
+//        who wants it covered must move the snap boundary, which is a ticket, and NOT a weight: a
+//        pair of numbers chosen to land on the bar is the one thing this header forbids.
+//
+//        AND THAT TICKET OWES `BUILDERS.icon` IN THE SAME CHANGE. There is no builder for `icon`
+//        here, deliberately: under an uncovered verdict build() returns at its first line and one
+//        could not be driven. The day the box fills, the Chevron reads covered and falls into
+//        build()'s `!builder` branch instead — a `no-vocabulary-slot` row saying "recognised but not
+//        emittable at this ticket", which puts `icon` in the RECOGNISED-BUT-REFUSED set and reds
+//        case 40.4's whole-set compare. That is the right failure, and it is written here so it
+//        reads as this file's known consequence rather than as a surprise in a ticket that never
+//        opened it.
+//
 // ─── WHAT A DESIGN READ CARRIES, AND WHAT IT DOES NOT ────────────────────────────────────────────
 // STRUCTURE AND LABELS, NEVER DATA. PROP_SOURCES below says which slot of a read fills which prop,
 // and A PROP WITH NO ROW IS NOT FILLABLE — the honest default, not a gap. `list-row.value` is "the
@@ -82,16 +118,19 @@ export const STRUCTURAL_FALLBACK = "stack";
 export const TYPE_ROLE_PX = Object.freeze({ display: 40, heading: 24, body: 16, caption: 13 });
 
 // WHICH SLOT OF A DESIGN READ FILLS WHICH PROP. A prop with no row here is not fillable from a read
-// (see the header). Two enums are resolved structurally BEFORE this table is consulted — a prop whose
-// enum is exactly {row, column} fills from `layout.dir`, and one whose enum is exactly the four type
-// roles fills from the nearest `text.size` — and any OTHER enum fills only from a string the source
-// actually drew that is literally in it.
+// (see the header). THREE SLOTS ARE RESOLVED STRUCTURALLY BEFORE THIS TABLE IS CONSULTED — a prop
+// whose enum is exactly {row, column} fills from `layout.dir`, one whose enum is exactly the four
+// type roles fills from the nearest `text.size`, and the glyph part's `name` fills from `icon.name`
+// (R4) — and any OTHER enum fills only from a string the source actually drew that is literally in
+// it.
 export const PROP_SOURCES = Object.freeze({
   content: "own-text",      // a `text`'s content IS its own words — never a descendant's, which is
   text: "own-text",         //   what keeps "Text block" (a frame of two texts) off the `text` entry
   label: "first-text",      // the visible name of the thing: the node's own words, else the first read under it
   title: "first-text",
-  name: "first-text",
+  name: "first-text",       // …EXCEPT on a glyph part, where the source named artwork rather than
+                            //   words a designer drew — R4, resolved above this table
+
   meta: "second-text",      // the secondary line a row draws beneath its label
   status: "chip-text",      // the words inside a descendant this matcher recognised as a status-chip
   value: "drawn-figure",    // a COMPUTED figure — present only if the designer drew one
@@ -101,12 +140,23 @@ export const PROP_SOURCES = Object.freeze({
 
 const ROW_ENUM = ["row", "column"];
 const ROLE_NAMES = Object.keys(TYPE_ROLE_PX);
+// THE GLYPH BOX: md | lg | xl, the three spacing steps a drawing's box binds to (system/specs/icon.md
+// — "there is no pixel prop"). An entry declaring it as a REQUIRED enum is an entry saying it is one
+// drawing, which is what R4's two branches key on. READ OFF THE ENTRY'S DECLARED SHAPE, NEVER OFF ITS
+// SLUG — the same move kind-fit's text branch makes when it reads PROP_SOURCES rather than the word
+// "text". So a second glyph part would be found by the same rule and a renamed `icon` would not
+// silently stop being one. Exactly one shipped entry matches, and case 40.18 asserts that rather than
+// leaving it assumed.
+const GLYPH_BOX_ENUM = ["md", "lg", "xl"];
 // A drawn figure: what a designer types into a cell when they draw a number. Leading sign (ASCII or
 // the typographic minus the list-row spec's own example uses), digits, separators, optional percent.
 const FIGURE = /^[+\-−]?\d[\d.,]*\s*%?$/;
 
 const sameSet = (a, b) => a.length === b.length && a.every((v) => b.includes(v));
 const words = (s) => String(s ?? "").toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
+
+const requiredOf = (entry) => Object.entries(entry.props).filter(([, s]) => s.required);
+const declaresGlyphBox = (entry) => requiredOf(entry).some(([, s]) => s.enum && sameSet(s.enum, GLYPH_BOX_ENUM));
 
 // The name the matcher reads, AND THE FIELD IT CAME FROM. The fallback is load-bearing: S2's
 // end-anchored nodeName() returns "Frame 1" for fixture 1's root line, whose master name sits inside
@@ -141,8 +191,15 @@ const nearestRole = (px) => {
 // footnote lost the footnote in silence. Indices, not values, so two descendants drawing the SAME
 // words are two texts and consuming one does not absorb the other. `ctx.consumed` is absent on the
 // scoring pass (recognise()), where nothing is emitted and nothing can be lost — hence `?.`.
-function fillProp(node, propName, spec, ctx) {
+function fillProp(node, propName, spec, ctx, entry) {
   const take = (i) => { if (i >= 0) ctx.consumed?.add(i); };
+  // R4's fill, and it consumes no text: a glyph name is not among `ctx.texts` and never was. GATED ON
+  // BOTH SIDES — the node drew a glyph AND the entry declares a glyph box — because `name` is three
+  // different questions across this vocabulary: `avatar.name` is a person's and `plant-card.name` is
+  // a plant's, both words a designer drew, and both stay first-text. Gated on the node alone, a
+  // chevron would carry `avatar` in its candidates list on the strength of "caret-right" fitting a
+  // person's name, which is a claim the record would then have to defend.
+  if (propName === "name" && node.kind === "icon" && declaresGlyphBox(entry)) return node.icon?.name ?? null;
   if (spec.enum && sameSet(spec.enum, ROW_ENUM)) return node.layout?.dir ?? null;
   if (spec.enum && sameSet(spec.enum, ROLE_NAMES)) {
     const near = node.text ? nearestRole(node.text.size?.value) : null;
@@ -172,8 +229,6 @@ function fillProp(node, propName, spec, ctx) {
   }
 }
 
-const requiredOf = (entry) => Object.entries(entry.props).filter(([, s]) => s.required);
-
 // THE FOUR SIGNALS. Independent, each named, each weighted, each returning `{score, field, detail}`
 // or null. `field` is what lets a verdict show its working (D4).
 export const SIGNALS = Object.freeze([
@@ -194,16 +249,18 @@ export const SIGNALS = Object.freeze([
     name: "kind-fit",
     weight: 0.25,
     test(node, entry) {
-      // A container reads as a container; a text reads as a text-bearing leaf. An `icon` kind matches
-      // NOTHING — and NOT because the vocabulary lacks an `icon` entry: #305 added one and this stayed
-      // true, because there is no BRANCH here for node.kind === "icon". #449 is the ticket that
-      // changes it, and it owes a defended weight rather than one chosen to clear the threshold.
+      // A container reads as a container; a text reads as a text-bearing leaf; an icon reads as the
+      // one drawing (R4). EACH BRANCH KEYS ON THE ENTRY'S DECLARED SHAPE, never on its slug, so the
+      // rule survives a rename and would find a second part of the same shape.
       if (node.layout && entry.childrenCardinality === "many") {
         return { score: 1, field: "layout", detail: `a laid-out node against an entry that takes many children` };
       }
       if (node.kind === "text" && entry.children.length === 0
         && requiredOf(entry).some(([p]) => PROP_SOURCES[p] === "own-text")) {
         return { score: 1, field: "kind", detail: `a text node against a childless entry with a text-bearing required prop` };
+      }
+      if (node.kind === "icon" && entry.children.length === 0 && declaresGlyphBox(entry)) {
+        return { score: 1, field: "kind", detail: `an icon node against a childless entry that declares a glyph box (${GLYPH_BOX_ENUM.join(" | ")})` };
       }
       return null;
     },
@@ -215,7 +272,7 @@ export const SIGNALS = Object.freeze([
       const req = requiredOf(entry);
       // An entry with no required props is no evidence either way — 0, never 0/0.
       if (!req.length) return null;
-      const filled = req.filter(([p, s]) => fillProp(node, p, s, ctx) !== null).map(([p]) => p);
+      const filled = req.filter(([p, s]) => fillProp(node, p, s, ctx, entry) !== null).map(([p]) => p);
       if (!filled.length) return null;
       return {
         score: filled.length / req.length,
@@ -335,7 +392,7 @@ export function recognise(ir, vocab, path = "ir") {
 const propsFor = (entry, node, verdict, ctx, drops) => {
   const props = {};
   for (const [p, spec] of Object.entries(entry.props)) {
-    const v = fillProp(node, p, spec, ctx);
+    const v = fillProp(node, p, spec, ctx, entry);
     if (v !== null) { props[p] = v; continue; }
     if (spec.required) {
       drops.push(drop({

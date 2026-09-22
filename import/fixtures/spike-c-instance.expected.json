@@ -1658,7 +1658,24 @@
           "via": "scored"
         },
         {
-          "candidates": [],
+          "candidates": [
+            {
+              "hits": [
+                {
+                  "detail": "an icon node against a childless entry that declares a glyph box (md | lg | xl)",
+                  "field": "kind",
+                  "signal": "kind-fit"
+                },
+                {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.375,
+              "slug": "icon"
+            }
+          ],
           "children": [],
           "covered": false,
           "drops": [
@@ -1681,17 +1698,28 @@
             {
               "class": "read-but-never-emitted",
               "kind": "no-vocabulary-slot",
-              "reason": "no vocabulary entry scored at or above 0.5 and the node carries no layout — not covered",
+              "reason": "no vocabulary entry scored at or above 0.5 (best: icon at 0.375) and the node carries no layout — not covered",
               "ref": null,
               "slot": "node",
               "value": "Chevron"
             }
           ],
-          "hits": [],
+          "hits": [
+            {
+              "detail": "an icon node against a childless entry that declares a glyph box (md | lg | xl)",
+              "field": "kind",
+              "signal": "kind-fit"
+            },
+            {
+              "detail": "1/2 required props fillable from the read (name)",
+              "field": "name",
+              "signal": "prop-fit"
+            }
+          ],
           "kind": "icon",
           "name": null,
           "path": "ir.children[0].children[3]",
-          "score": 0,
+          "score": 0.375,
           "via": "floor"
         }
       ],
