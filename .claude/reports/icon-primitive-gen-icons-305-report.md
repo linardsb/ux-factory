@@ -348,4 +348,34 @@ an unrelated failure mode in a ticket about icons. It is the reason F1's table h
 
 ### Gates re-run after the fixes
 
-See the PR's own CI run for `verify`, `visual`, `audit` and both CodeQL legs.
+Local, at `4a5d3e2`:
+
+| Gate | Result |
+| --- | --- |
+| `node tooling/build-checks.mjs` | `build ✓  all 41 groups pass` |
+| `node tooling/drift-check.mjs` (staged) | `drift-check ✓` — 14 legs incl. `icons` and `loc-summary` |
+| `node tooling/token-lint.mjs` | `63 contract tokens · 0 undeclared · 0 orphan · DTCG valid` |
+| `node agent-layer/gen-icons.mjs --check` | `icons ✓  6 icons — no drift` |
+| `node import/regen-expected.mjs --check` | `54924 bytes` — unmoved, no spec changed |
+| portal smoke (`PORT=4791`) | `/api/health` 200 `ok:true`, `/` 200; port-scoped kill |
+
+**`loc-summary` regenerated.** The grand total moved **40,400 → 40,500** (`gen-icons.mjs` 173 → 184 lines
+for `parseManifest`). The `runtime` group is unchanged at 80 files / 32,100 lines, and `approach.html:272`
+reads **only** the `runtime` group — read from the page, not assumed — so no visual baseline churns. The
+first staged run caught this as `build import-chain ✗ 1 failure(s)` plus a red `drift-check` leg; both go
+green after the regen.
+
+CI at this head, **read after confirming `headRefOid` equals the local `HEAD`**: `verify` 25s, `visual`
+1m30s, `audit` 15s, `codeql` 1m40s, `CodeQL` 3s, `gates-green` 3s — all pass; `mergeStateStatus` CLEAN.
+
+**A trap worth recording:** `gh pr checks 450 --watch` run immediately after the push reported six greens
+that belonged to the **pre-push** head. GitHub took ~2.5 minutes to move `headRefOid` off `8aa5db0`, and a
+run on the new SHA did not exist until then. The PR head must be compared to the local `HEAD` before any
+check read is trusted.
+
+### Not re-run, and why
+
+`catalog-journey` (the review's 49/48/48 at `8aa5db0`): the only change to `tooling/catalog-journey.mjs` is
+one comment on line 14, and `drift-check`'s `syntax` leg `node --check`s every tracked `.mjs`. The other
+journey drivers and `vt-verify` cover nothing these edits touch — no shipped page's at-rest render changed,
+which the green `visual` job confirms independently.
