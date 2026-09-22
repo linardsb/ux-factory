@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The twenty-three templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The twenty-four templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -253,7 +253,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the twenty-three specs, one per vocabulary
+// Templates — the canonical DOM realization of the twenty-four specs, one per vocabulary
 // entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
@@ -463,6 +463,24 @@ const TEMPLATES = {
     // renders). build-checks group 3 renders a stack > stack > text and looks for the inner text.
     kids.forEach((child, i) =>
       box.appendChild(renderChild(child, bus, `${path}.children[${i}]`)));
+    return box;
+  },
+
+  // The LIST CONTAINER (#303, epic #295 G31) — the second entry to declare childrenCardinality:
+  // "many" and the first whose allowed list is a single name. Two branches of one state, and the
+  // branch is the CHILD COUNT: rows, or the empty copy. The empty copy is a PROP rendered on the
+  // zero branch, never a hidden child — `hidden` is defeated by any author rule that sets display
+  // (#138), and a child that must not render is a child that will.
+  //
+  // Children go through renderChild with their OWN children, the `stack` line above and NOT card's
+  // hardcoded `[]`: list-row is a leaf today so the two behave identically, and copying the wrong
+  // one would silently drop grandchildren the day it stops being one. build-checks group 3's
+  // container walk renders stack > list > list-row and looks for the row's text.
+  "list": (props, kids, bus, path) => {
+    const box = el("div", { class: "ds-list" });
+    if (props.header != null) box.appendChild(el("p", { class: "ds-list-header", text: props.header }));
+    kids.forEach((child, i) => box.appendChild(renderChild(child, bus, `${path}.children[${i}]`)));
+    if (kids.length === 0) box.appendChild(el("p", { class: "ds-list-empty", text: props.empty }));
     return box;
   },
 
