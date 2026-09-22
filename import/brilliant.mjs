@@ -450,7 +450,13 @@ const readLine = (line) => {
   let position = null, text = null, icon = null, component = null;
   let layout = null;
   const style = {};
-  let sawSize = false;
+  // WHETHER THE LINE HAS AN al(), NOT WHICH ATOM CAME FIRST. toStack() reads the WHOLE line, s()
+  // included, so an s( reached before the al( on the same line would expand its size onto `style`
+  // AND emit its drop rows, then toStack would emit them again — two rows for one source atom,
+  // against the "A drop is recorded ONCE PER SOURCE ATOM" invariant stated above toStack, and the
+  // independent grep that invariant offers as a cross-check would double-count. Both committed
+  // fixtures write al( first, so this is latent here and goes live at #307's converter (PR #448 F3).
+  let sawSize = atoms.some((a) => a.startsWith("al("));
 
   for (const atom of atoms) {
     if (atom.startsWith('"')) continue;                       // the node's own name — nodeName() owns it
@@ -561,12 +567,20 @@ const parseTree = (blueprintText) => {
   const stack = [];                                           // stack[d] = the node at depth d
   for (const [i, raw] of blueprintText.split("\n").entries()) {
     if (!raw.trim()) continue;
-    if (i === 0 && raw.startsWith("lookup ")) continue;
+    // THE FIRST CONTENT LINE, not split index 0. A leading blank line sent the provenance header to
+    // readLine, which accepted it silently and put the literal "lookup" into source.ids — the field
+    // the honesty contract turns on (PR #448 F13). `roots.length` is the test because the header can
+    // only precede every node.
+    if (!roots.length && !stack.length && raw.trimStart().startsWith("lookup ")) continue;
     const indent = raw.length - raw.trimStart().length;
     if (raw.trimStart().startsWith("#")) continue;
     if (indent % 2 !== 0) throw new Error(`line ${i + 1}: indent of ${indent} is not a multiple of 2 — in: ${raw.trim()}`);
     const depth = indent / 2;
-    if (depth > stack.length) throw new Error(`line ${i + 1}: indent jumps from depth ${stack.length - 1} to ${depth} — in: ${raw.trim()}`);
+    // `stack.length - 1` is the deepest node so far and reads -1 on an indented FIRST content line,
+    // where there is no node at all. The refusal is correct either way; only the wording was.
+    if (depth > stack.length) throw new Error(stack.length === 0
+      ? `line ${i + 1}: the first content line is indented to depth ${depth} — a blueprint's first node sits at depth 0 — in: ${raw.trim()}`
+      : `line ${i + 1}: indent jumps from depth ${stack.length - 1} to ${depth} — in: ${raw.trim()}`);
     const node = readLine(raw);
     if (depth === 0) roots.push(node); else stack[depth - 1].children.push(node);
     stack.length = depth;

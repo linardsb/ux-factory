@@ -7,30 +7,34 @@
 Three Node-only modules under a new top-level `import/` take a Brilliant blueprint read, turn it into a typed
 IR, and score every node against `handoff/verdant/vocabulary.json` with four named signal predicates, an
 explicit `stack` fallback and an explicit "not covered" floor. Everything read and not carried becomes a drop
-row in one of E1's three classes. `build-checks` group 40 (15 cases) drives the whole chain over spike C's two
-committed reads and asserts the same answer every run; nineteen mutations were driven to prove each case can
-fail. No portal, no agent, no network, no token spend.
+row in one of E1's three classes. `build-checks` group 40 (**17 cases** after PR #448's review round) drives the
+whole chain over spike C's two committed reads and asserts the same answer every run; **25 mutations** were
+driven to prove each case can fail — the 23 table rows below, `9a–c` being three — plus **seven more** in the
+review round (§Review round). No portal, no agent, no network, no token spend.
 
 ## Tasks completed
 - the IR → `import/ir.mjs` (CREATE) — kinds, `tok`, `DROP_CLASS_OF` (the E1 fold), `drop`, `node`, `root`, `checkIr`, `walk`
 - the converter → `import/brilliant.mjs` (CREATE) — S2's layout branch lifted verbatim + the indentation tree parser and the atom grammar
 - the matcher → `import/recognise.mjs` (CREATE) — `THRESHOLD`, `STRUCTURAL_FALLBACK`, `TYPE_ROLE_PX`, `PROP_SOURCES`, `SIGNALS`, `scoreNode`, `recognise`, `BUILDERS`, `build`
 - fixtures → `import/fixtures/` (CREATE) — two blueprint reads copied byte-for-byte, the frozen S2 baseline, the generated expected verdict
-- the gate → `tooling/build-checks.mjs` (UPDATE) — group 40, 15 cases
+- the gate → `tooling/build-checks.mjs` (UPDATE) — group 40, 15 cases at the first round, **17** after PR #448
 - the regen chain → `import/regen-expected.mjs` (CREATE) + one clause on CLAUDE.md's **New component spec** bullet
 - the group count → `tooling/build-checks.mjs` · `CLAUDE.md` ×2 · `.claude/references/gates.md` (UPDATE) — four claims, 39 → 40
 - the docs → `CLAUDE.md` map + a "Where new code goes" bullet, `gates.md` group 40 paragraph (UPDATE)
 
 ## Tests added
-No suite — CLAUDE.md § Ground rules. The gate is the test. `build-checks` group 40, cases 40.1–40.15:
-determinism against the committed verdict · the lift · the floor vs the fallback · the size-axis refusal ·
-all three E1 classes + the `DROP_CLASS_OF` census · built compositions through the real `validateComposition`
-+ D5's absorption in both halves · the import graph · `genLocSummary({check:true})` · nine tables frozen by
-mutation · mode/grain · `args()`' boundary (synthetic) · the `list` builder (synthetic) · R3 over all 24
-entries (synthetic) · R2 (`stack` in no candidates list) · the three tie-break rungs (synthetic).
+No suite — CLAUDE.md § Ground rules. The gate is the test. `build-checks` group 40, cases 40.1–40.17:
+determinism against the committed verdict, with the "Status chip" named by path beside the other three answers ·
+the lift · the floor vs the fallback · the size-axis refusal, plus WHICH names survive `build()` on these two
+reads and which are recognised-but-refused · all three E1 classes + the `DROP_CLASS_OF` census · built
+compositions through the real `validateComposition` + D5's absorption per TEXT, with the props' CONTENT asserted
+against the fixture's own words · the import graph · `genLocSummary({check:true})` · nine tables frozen by
+mutation · mode/grain · `args()`' boundary (synthetic) · the `list` builder, direct AND through `build()`
+(synthetic) · R3 over all 24 entries (synthetic) · R2 (`stack` in no candidates list) · the three tie-break
+rungs (synthetic) · the atom order (synthetic, 40.16) · the parse boundary (synthetic, 40.17).
 
 ## Proving the checks
-**24 mutations, 24 reddened, 0 silent passes** — the whole battery re-driven at the final HEAD by a scripted
+**24 of the 25 re-driven, 24 reddened, 0 silent passes** — the battery re-driven at the final HEAD by a scripted
 runner, because rows 1–16 were first measured before the tie-break and the F1/F2 fixes landed and would
 otherwise have been inherited figures. Positive control between every row and again after the last:
 `build ✓ all 40 groups pass` (observed).
@@ -69,10 +73,63 @@ hand earlier in the session all used `2>&1` and were unaffected, which is why th
 | 22 | edit a `"score"` in the committed expected JSON | 40.1 + `regen-expected --check` | `expected verdict ✗  drift: …` and the gate naming the regenerator |
 
 Row counts at the final HEAD (failures per mutation): 13→5 · 1→1 · 2→2 · 3→30 · 4→3 · 5→1 · 5b→2 · 6→14 · 7→1 · 9a/9b/9c→1 each · 10→1 · 11→1 · 12→2 · 14→26 · 15→4 · 16→12 · 17→2 · 18→2 · 19→3 · 20→1 · 21→1 · 22→1.
+**#8 is the one row with no final-HEAD count, deliberately**: it mutates by `git add system/probe.mjs`, so the
+scripted runner would have written to the shared git index of a working directory sibling sessions use. It was
+driven by hand once, at the row's own message above, and left out of the re-driven set rather than re-run
+inside a loop that could not clean up after itself. So "every row re-derived at this head" is 24 of 25, and
+this is the 25th.
 
 **Two mutations initially did NOT redden and both exposed a real gate defect, fixed before the battery was
 trusted** (PE2 and PE9 in the plan's AMENDMENTS): #5 left the gate fully green, and #9/#16 killed the process
 with a raw stack trace instead of naming a failure. Both were then re-driven and are the rows above.
+
+## Review round — PR #448
+
+Thirteen findings, all thirteen actioned (`.claude/code-reviews/pr-448-review.md`). Four were behaviour, four
+were the gate not being able to see a break, five were prose or a unit.
+
+**Behaviour.** `recognise.mjs` now tracks WHICH text each prop consumed, by index, so a child that lands some of
+its texts drops the rest instead of being skipped whole — a label + subtitle + footnote row lost its footnote
+with no drop row and a clean count line (F10). `brilliant.mjs` decides a size's home by whether the line HAS an
+`al()` rather than by which atom came first, so one source atom is one drop row in either order (F3), and the
+provenance header is skipped by being the first *content* line rather than split index 0, after a leading blank
+line put the literal `"lookup"` into `source.ids` (F13). `regen-expected.mjs` reports `Buffer.byteLength` — the
+observed figure was 22 short on this artifact, `52900` against `wc -c`'s `52922` (F8) — and treats an absent
+artifact as a write rather than an `ENOENT` from the script whose job is to create it (F9).
+
+**The gate.** Group 40 gained two cases and four assertions, and the point of each is that the thing it names
+could break silently before it existed: `build()` over a `list` verdict, because everything asserting the list
+builder called `BUILDERS.list` directly and a `build()` that threw on every list verdict left all 40 groups
+passing (F6); the person row's prop CONTENT against the fixture's own words, because moving `PROP_SOURCES.meta`
+to `"chip-text"` passed all 40 groups (F11); the "Status chip" named by path, because losing that recognition
+failed only as the stale-baseline message, which invites a regeneration (F2); and which names survive `build()`
+on these two reads, because only `stack` and `text` do and every claim resting on that sweep is scoped to them
+(F12). Cases 40.16 and 40.17 cover F3's atom order and F13's parse boundary.
+
+**Prose.** The R2 justification was stated **backwards** in the gate's own failure message and in
+`recognise.mjs`'s header: re-derived here, `stack` scores 0.6 on the committed chip against `status-chip`'s
+0.575, so the chip **loses** by 0.025 and the exclusion is what saves the ticket's own recognition — read as
+written, that sentence argued *for* removing R2 at the moment a reader is considering it (F1). `BUILDERS.list`'s
+header claimed rows that `build()` discards; the refusal stands and the header now says so, which was the
+owner's call between the two (F6). `gates.md`'s Group 40 paragraph was fused with Group 34's entry for want of a
+blank line (F4), and both prose surfaces undercounted the synthetic cases and never named the tie-break (F5).
+
+**Seven mutations, seven reddened by name**, each with `build ✓ all 40 groups pass` as the positive control
+immediately before it and the file restored by `cmp`-verified copy after:
+
+| # | mutation | case | first failure line |
+|---|---|---|---|
+| R1 | absorption back to the per-child skip | 40.6 | `a text the row could not absorb produced 0 drop rows` |
+| R2 | `PROP_SOURCES.meta` `"second-text"` → `"chip-text"` | 40.6 | `the person row's props read {…"meta":"On call"…}` |
+| R3 | `status-chip` skipped as a candidate | 40.1 ×3 | `("Status chip") reads "stack" via structural-fallback` |
+| R4 | `build()` throws on any `list` verdict | 40.12 ×3 | `build() over the SYNTHETIC list verdict threw instead of answering` |
+| R5 | `sawSize` back to `false` | 40.16 ×2 | `ONE source atom produced 2 literal-size rows in s-then-al order` |
+| R6 | header skip back to `i === 0` | 40.17 | `a blank line before the provenance header changed source.ids to [lookup, …]` |
+| R7 | depth message back to unconditional | 40.17 | `an indented FIRST content line was accepted, or refused without naming depth 0` |
+
+The committed expected verdict does **not** move under any of the four behaviour fixes:
+`node import/regen-expected.mjs --check` is clean at this head (observed), which is the point — F10 and F3 are
+both latent on these two reads and go live at #307's converter.
 
 ## Validation results
 | command | result |

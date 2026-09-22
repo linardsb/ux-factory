@@ -11915,6 +11915,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     `ir.children[0].children[1] ("Text block") reads ${JSON.stringify(container.name)} via ${container.via} — D2's rule says a laid-out node with no candidate above ${R1.THRESHOLD} IS a stack, by rule and not by a won contest`);
   ok(label.name === "text" && label.hits.some((h) => h.signal === "prop-fit" && h.field.includes("role")),
     `ir.children[0].children[1].children[0] ("Text 1") reads ${JSON.stringify(label.name)} without a role hit — the label must resolve to text BY ROLE`);
+  // THE NODE R2 IS ARGUED ON, named here for the same reason the three above are. Case 40.14 asserts
+  // that `stack` appears in no candidates list; WHY it must not is that with stack scored it takes
+  // this node — 0.6 against the chip's 0.575 — so the exclusion is what keeps this answer, not
+  // tidiness. A weight that moved and sent the chip under the threshold fails only as 40.1's
+  // stale-baseline message above, which invites a regeneration: the wrong response, and the one that
+  // message asks for (PR #448 F2). Driven: skipping status-chip as a candidate reds exactly one
+  // case, and it is the baseline message.
+  const chipV = at(v1, [0, 2]);
+  ok(chipV.name === "status-chip" && chipV.via === "scored",
+    `ir.children[0].children[2] ("Status chip") reads ${JSON.stringify(chipV.name)} via ${chipV.via} — it must read status-chip, SCORED. This is the node R2 rests on, and it is the recognition the exclusion saves`);
 
   // --- 40.2 THE LIFT IS FAITHFUL (#299) ----------------------------------------------------------
   // Read the FROZEN copy, not .claude/plans/canvas-spike-s2/layout-branch.txt: that directory holds
@@ -11961,6 +11971,25 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     vts.forEach((vd, i) => { const d = []; const out = fold(`build at ${vd.path}`, () => R1.build(irs[i], vd, VOCAB, d)); if (out) built.push([vd, out, d]); });
   }
   ok(built.length > 0, "no node in either fixture built at all — case 40.6's validation battery would pass vacuously");
+  // #305 CHANGES BOTH EXPECTED SETS: when `icon` enters the vocabulary the Chevron becomes covered
+  // and either builds (joining `builtNames`) or refuses (joining `refused`), so one of the two
+  // equalities below reds on a ticket that never touched import/. That is deliberate — a whole-set
+  // compare is what makes a name silently joining or leaving READABLE — and case 40.3 carries the
+  // same warning for the same reason.
+  //
+  // WHICH NAMES, not just "some". `built` holds the two structurally-driven primitives and nothing
+  // else, and both absences are EXPECTED and load-bearing: `list-row.value` is a computed figure
+  // nobody drew, and `status-chip.value`'s enum is ok|due|overdue while the fixtures say "On call" /
+  // "Active" / "Away". So every claim resting on this sweep — the validateComposition battery in
+  // 40.6, the numeric-size sweep above — reaches `stack` and `text` ONLY, and a reader who takes it
+  // for the whole chain is over-reading a green run (PR #448 F12). If a name ever joins or leaves
+  // this set that is a real change in what the sweep covers, and it should be read, not absorbed.
+  const builtNames = [...new Set(built.map(([, out]) => out.name))].sort();
+  const refused = [...new Set([...flat(v1), ...flat(mV)].filter((vd) => vd.covered && !built.some(([b]) => b === vd)).map((vd) => vd.name))].sort();
+  ok(deep(builtNames) === deep(["stack", "text"]),
+    `build() emitted [${builtNames.join(", ")}] across both fixtures — expected exactly ["stack","text"]. Everything this sweep feeds is scoped to those two names, and the group's prose says so. #305 MOVES THIS: \`icon\` in the vocabulary makes the Chevron covered`);
+  ok(deep(refused) === deep(["list-row", "status-chip"]),
+    `the recognised-but-refused set is [${refused.join(", ")}] — expected exactly ["list-row","status-chip"], each refused by an unfillable required prop (a figure nobody drew; an enum the design read carries the LABEL for, never the code). A name leaving this set means a refusal stopped refusing, and #305 ADDS to it if the Chevron refuses once \`icon\` is in the vocabulary`);
   const numericWidth = [];
   for (const [vd, out] of built) {
     const go = (n, p) => { if (typeof n.props?.size === "number") numericWidth.push(`${p} (${n.props.size})`); (n.children ?? []).forEach((c, i) => go(c, `${p}.children[${i}]`)); };
@@ -12014,6 +12043,42 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     `the person row scored list-row (children: []) and its avatar disc and chevron were neither absorbed into a prop nor recorded — rows present: ${rootDrops.map((d) => d.slot).join(", ")}`);
   ok(rootDrops.some((d) => d.kind === "unfillable-required-prop" && d.slot === "list-row.value"),
     `list-row.value ("the row's primary computed figure") has no slot in a design read and must be recorded as read-but-never-emitted — rows present: ${rootDrops.map((d) => d.kind).join(", ")}`);
+
+  // PROP CONTENT, not only the drop rows. NEITHER COMMITTED ROW SURVIVES build() — `list-row.value`
+  // is a figure nobody drew — so everything above can assert that label, meta and status were
+  // absorbed and never that they absorbed the RIGHT words. Measured: moving PROP_SOURCES.meta from
+  // "second-text" to "chip-text" makes the row's secondary line read the chip's words ("On call")
+  // instead of the subtitle, and all 40 groups still pass (PR #448 F11). The subject is the
+  // COMMITTED read with ONE line added — the drawn figure that makes the row emittable — so every
+  // word asserted below is the fixture's own, and the added line is the only thing synthetic here.
+  const figLines = INSTANCE.split("\n");
+  const chevAt = figLines.findIndex((l) => l.includes('"Chevron"'));
+  ok(chevAt > 0, `the committed read no longer carries a "Chevron" line — the drawn-figure subject below is spliced in beside it and would otherwise be built on nothing`);
+  const figIndent = figLines[chevAt].match(/^\s*/)[0];
+  figLines.splice(chevAt + 1, 0, `${figIndent}aaaa2222 t("85",Manrope:$font.family,16:$font.size.md,r,align(l)) s(hug,hug) "Figure"`);
+  const figIr = fold("convert the committed read + a drawn figure", () => B1.convert(figLines.join("\n")), { children: [] });
+  const figV = fold("recognise the committed read + a drawn figure", () => R1.recognise(figIr, VOCAB), { children: [{}] });
+  const figRow = fold("build the person row that CAN be emitted", () => R1.build(at(figIr, [0]), at(figV, [0]), VOCAB, []), null);
+  ok(figRow !== null && figRow.props?.label === "Amara Okafor" && figRow.props?.meta === "Last seen 2 min ago"
+    && figRow.props?.status === "On call" && figRow.props?.value === "85",
+    `the person row's props read ${deep(figRow?.props ?? null)} — label must be the row's own first text ("Amara Okafor"), meta its SECOND ("Last seen 2 min ago"), status the words inside the descendant read as a status-chip ("On call") and value the drawn figure ("85"). A prop that lands the wrong text is a row that silently says something the designer did not draw`);
+
+  // ABSORPTION IS PER TEXT, NOT PER CHILD. Same committed subject, one MORE text under "Text block"
+  // than the row has string-fillable props. Measured before the fix: ZERO drop rows for it — a
+  // source text reached neither a prop nor the loss list and the count line read clean, which is
+  // ir.mjs invariant 4 broken by the module that cites it (PR #448 F10). It fires on any row with a
+  // label, a subtitle and a footnote.
+  const surLines = INSTANCE.split("\n");
+  const t2At = surLines.findIndex((l) => l.includes('"Text 2"'));
+  ok(t2At > 0, `the committed read no longer carries a "Text 2" line — the surplus-text subject below is spliced in beside it and would otherwise be built on nothing`);
+  surLines.splice(t2At + 1, 0, surLines[t2At].replace("Last seen 2 min ago", "SURPLUS_FOOTNOTE").replace('"Text 2"', '"Text 2b"').replace(/^(\s*)\S+/, "$1aaaa3333"));
+  const surIr = fold("convert the committed read + a surplus text", () => B1.convert(surLines.join("\n")), { children: [] });
+  const surV = fold("recognise the committed read + a surplus text", () => R1.recognise(surIr, VOCAB), { children: [{}] });
+  const surDrops = [];
+  fold("build the person row carrying a surplus text", () => R1.build(at(surIr, [0]), at(surV, [0]), VOCAB, surDrops));
+  const surRows = surDrops.filter((d) => d.value === "SURPLUS_FOOTNOTE");
+  ok(surRows.length === 1 && surRows[0].class === "read-but-never-emitted",
+    `a text the row could not absorb produced ${surRows.length} drop rows — it must produce exactly one, naming the TEXT. A per-child skip keyed on "does this child hold any absorbed string" carries the whole child away and loses the rest in silence; rows present: ${surDrops.map((d) => `${d.kind}@${d.slot}`).join(", ")}`);
 
   // --- 40.7 THE IMPORT GRAPH (AC #2) -------------------------------------------------------------
   const graph = [];
@@ -12125,6 +12190,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const bad = threw(() => validateComposition(VOCAB, kid));
     ok(bad === null, `SYNTHETIC: a built list-row is refused by the renderer: ${bad}`);
   }
+  // …AND THROUGH build(), THE ONLY CALLER A SOURCE EVER HAS. Everything above calls BUILDERS.list
+  // directly, and that is the whole reach of it: a build() that THREW on every list verdict left all
+  // 40 groups passing (PR #448 F6, driven in an isolated clone). build()'s closing required-prop
+  // check applies to every verdict, `list` included, so the container and its rows are refused
+  // TOGETHER — the rows above are what the builder COMPUTES, never what the chain emits.
+  const listBuilt = [];
+  ok(fold("build() over the SYNTHETIC list verdict", () => R1.build(at(synthList, [0]), listV, VOCAB, listBuilt), "threw") === null,
+    `SYNTHETIC: build() emitted a list. \`list.empty\` is required and no design read fills it, so the WHOLE container is refused — rows included. If the rows are ever meant to survive that is a change to build()'s closing check and to the BUILDERS.list header, together`);
+  ok(listBuilt.some((d) => d.kind === "unfillable-required-prop" && d.slot === "list.empty"),
+    `SYNTHETIC: build() refused the list with no row naming list.empty — a refusal nobody recorded is a refusal #307's import record cannot report (rows: ${listBuilt.map((d) => d.slot).join(", ")})`);
 
   // --- 40.13 A NAME ALONE NEVER CLEARS THE THRESHOLD (R3), OVER EVERY ENTRY ----------------------
   // The kind is `shape` with no layout, no text and no children ON PURPOSE: any other kind would
@@ -12142,7 +12217,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const stackAsCandidate = [];
   for (const vt of [v1, mV, lv]) for (const vd of flat(vt)) if (vd.candidates.some((c) => c.slug === R1.STRUCTURAL_FALLBACK)) stackAsCandidate.push(vd.path);
   ok(stackAsCandidate.length === 0,
-    `"${R1.STRUCTURAL_FALLBACK}" appears in a candidates list at ${stackAsCandidate.join(", ")} — it is the DECLARED structural fallback and is excluded from scoring: as a candidate its always-fillable \`direction\` takes kind-fit + prop-fit on every laid-out node and the committed chip clears it by 0.025`);
+    `"${R1.STRUCTURAL_FALLBACK}" appears in a candidates list at ${stackAsCandidate.join(", ")} — it is the DECLARED structural fallback and is excluded from scoring — and what that exclusion SAVES is the ticket's own recognition, not tidiness: as a candidate its always-fillable \`direction\` takes kind-fit + prop-fit on every laid-out node, and on the committed "Status chip" it adds child-fit and reaches 0.6 against status-chip's 0.575, so the chip LOSES TO IT BY 0.025. Putting it back costs case 40.1's named answer`);
   const fallbacks = [...flat(v1), ...flat(mV)].filter((vd) => vd.via === "structural-fallback");
   ok(fallbacks.length > 0 && fallbacks.every((vd) => vd.name === R1.STRUCTURAL_FALLBACK),
     "no node in either fixture reached the structural fallback — case 40.14 would be asserting a property of an empty set");
@@ -12179,7 +12254,34 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(ut.candidates.filter((c) => c.score === ut.score).length >= 2,
     `SYNTHETIC: the unnamed text node no longer TIES (candidates: ${ut.candidates.slice(0, 3).map((c) => `${c.slug}=${c.score}`).join(", ")}) — this case measures a tie-break, so a subject that stopped tying measures nothing`);
 
-  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the Chevron reads NOT COVERED with its top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it (#305 changes this answer when icon enters the vocabulary) · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition, and D5's absorption rule asserted in BOTH halves — the person row absorbs its label, meta and status into props, and its avatar disc and chevron are RECORDED as read-but-never-emitted rather than discarded, without which a builder that dropped them silently would pass · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its private regexes · nine tables frozen BY MUTATION at both levels · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and three SYNTHETIC cases that say what they are: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows and then REFUSED by name on \`empty\`, the copy for a state nobody drew, and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — #307's snap rules, both fixtures being bound on every layout slot; and whether a built composition RENDERS — group 3 owns renderComposition`);
+  // --- 40.16 A SIZE LANDS BY WHETHER THE LINE HAS AN al(), NOT BY ATOM ORDER --------------------
+  // SYNTHETIC: every line in both committed fixtures that carries both atoms writes al( first, so
+  // this is latent here and goes live at #307's converter, whose source emits atoms in its own
+  // order. The two lines below carry IDENTICAL atoms in the two orders. Before the fix, s-then-al
+  // put the size on `style` AS WELL as on the layout and emitted its drop row TWICE — one source
+  // atom, two rows, against the "A drop is recorded ONCE PER SOURCE ATOM" invariant stated above
+  // toStack, which offers an independent grep as its cross-check (PR #448 F3). The gate passed BOTH
+  // ways before this case existed, which is the finding rather than the reassurance.
+  const alFirst = fold("convert al-then-s", () => B1.convert('aaaa4444 al(v,g(4:$spacing.xs)) s(360,hug) "Ordered box"').children[0], { drops: [] });
+  const sFirst = fold("convert s-then-al", () => B1.convert('aaaa4444 s(360,hug) al(v,g(4:$spacing.xs)) "Ordered box"').children[0], { drops: [] });
+  ok(deep(alFirst.layout?.size ?? null) === deep(sFirst.layout?.size ?? null) && (sFirst.style?.size ?? null) === null,
+    `SYNTHETIC: the same atoms in the two orders read differently — al-then-s layout.size=${deep(alFirst.layout?.size ?? null)} style.size=${deep(alFirst.style?.size ?? null)}; s-then-al layout.size=${deep(sFirst.layout?.size ?? null)} style.size=${deep(sFirst.style?.size ?? null)}. A size on a line that HAS an al() belongs to that layout whichever atom the source wrote first, and a duplicate on \`style\` would give a laid-out node a second size for recognise.mjs to choose between`);
+  const litRows = (nd) => (nd.drops ?? []).filter((d) => d.kind === "literal-size").map((d) => d.slot);
+  ok(deep(litRows(alFirst)) === deep(litRows(sFirst)) && litRows(sFirst).length === 1,
+    `SYNTHETIC: ONE source atom produced ${litRows(sFirst).length} literal-size rows in s-then-al order (${litRows(sFirst).join(", ") || "none"}) against ${litRows(alFirst).length} in al-then-s (${litRows(alFirst).join(", ") || "none"}) — a drop is recorded ONCE PER SOURCE ATOM, and the independent grep that invariant offers as a cross-check would double-count`);
+
+  // --- 40.17 THE PARSE BOUNDARY: THE PROVENANCE HEADER, AND THE FIRST CONTENT LINE ---------------
+  // SYNTHETIC — both committed reads start with the header on split index 0, so neither reaches
+  // either branch. Keying the skip off that index sent the header to readLine the moment a blank
+  // line preceded it: checkIr accepted the result and the literal "lookup" landed in source.ids,
+  // the field the honesty contract turns on (PR #448 F13).
+  const ledIds = fold("convert a read behind a leading blank line", () => B1.convert("\n" + INSTANCE).source.ids, ["THREW"]);
+  ok(deep(ledIds) === deep(B1.convert(INSTANCE).source.ids),
+    `SYNTHETIC: a blank line before the provenance header changed source.ids to [${ledIds.slice(0, 2).join(", ")}…] — the header is not a node at any position, and "lookup" in the id list is a provenance claim about a node that does not exist`);
+  ok(names(() => B1.convert('  aaaa5555 s(10,10) "Indented first"'), "depth 0") === null,
+    `SYNTHETIC: an indented FIRST content line was accepted, or refused without naming depth 0 — stack.length - 1 reads -1 there, and "indent jumps from depth -1" describes nothing a reader can act on`);
+
+  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the Chevron reads NOT COVERED with its top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it (#305 changes this answer when icon enters the vocabulary) · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\` and \`text\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its private regexes · nine tables frozen BY MUTATION at both levels · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SIX MORE SYNTHETIC cases — SEVEN in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left all 40 groups passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #307), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — #307's snap rules, both fixtures being bound on every layout slot; and whether a built composition RENDERS — group 3 owns renderComposition`);
 }
 
   if (failures) {

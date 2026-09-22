@@ -31,8 +31,13 @@
 //        a node with NO layout and no candidate hits the floor. So a chip a designer called "Pill"
 //        reads `stack` honestly — a laid-out box we could not name — with its drops beside it,
 //        instead of by a coin flip. A LATER READER WILL WANT TO "FIX" THIS by putting `stack` back
-//        in the scored set; the defect that prevents is invisible on the committed fixture, which
-//        is why the reason is here and build-checks group 40 case 14 asserts the property.
+//        in the scored set. WHAT THAT COSTS IS THE TICKET'S OWN RECOGNITION: with `stack` scored,
+//        fixture 1's "Status chip" reads `stack` at 0.6 — kind-fit + prop-fit + child-fit — against
+//        status-chip's 0.575, so the chip LOSES BY 0.025 and the first answer this matcher exists to
+//        give is gone. The flip itself is not invisible: case 40.1 compares the whole committed
+//        verdict and case 40.1 now names the chip. What IS invisible is that `stack` is a PLAUSIBLE
+//        answer for a laid-out chip, so the diff reads as a judgement call rather than as a defect —
+//        which is why the number is here, and why case 40.14 asserts the property.
 //
 //   R3 · A NAME ALONE NEVER CLEARS THE THRESHOLD. `name-match` is word-containment, so `{text}` ⊆
 //        `{text, block}` fires on a node that is plainly not a `text`. A name is EVIDENCE; one
@@ -129,7 +134,15 @@ const nearestRole = (px) => {
 };
 
 // One prop → the value a design read can put in it, or null. `ctx` carries the reads the node offers.
+// EVERY TEXT-SOURCED BRANCH RECORDS WHICH TEXT IT TOOK, by index into `ctx.texts`. That set is what
+// lets build()'s absorption branch drop a descendant's REMAINING texts instead of skipping the whole
+// descendant because one of its texts reached a prop — a source text that reaches neither a prop nor
+// the loss list is ir.mjs invariant 4 broken, and it was: a row with a label, a subtitle and a
+// footnote lost the footnote in silence. Indices, not values, so two descendants drawing the SAME
+// words are two texts and consuming one does not absorb the other. `ctx.consumed` is absent on the
+// scoring pass (recognise()), where nothing is emitted and nothing can be lost — hence `?.`.
 function fillProp(node, propName, spec, ctx) {
+  const take = (i) => { if (i >= 0) ctx.consumed?.add(i); };
   if (spec.enum && sameSet(spec.enum, ROW_ENUM)) return node.layout?.dir ?? null;
   if (spec.enum && sameSet(spec.enum, ROLE_NAMES)) {
     const near = node.text ? nearestRole(node.text.size?.value) : null;
@@ -138,15 +151,23 @@ function fillProp(node, propName, spec, ctx) {
   if (spec.enum) {
     // The source has to have drawn the enum's own word. A design read carries the LABEL ("On call"),
     // not the code ("ok"), so this is usually a miss — and a miss is the finding.
-    const hit = ctx.texts.find((t) => spec.enum.includes(String(t).toLowerCase()));
-    return hit ? String(hit).toLowerCase() : null;
+    const at = ctx.texts.findIndex((t) => spec.enum.includes(String(t).toLowerCase()));
+    if (at < 0) return null;
+    take(at);
+    return String(ctx.texts[at]).toLowerCase();
   }
   switch (PROP_SOURCES[propName]) {
-    case "own-text": return node.text?.content ?? null;
-    case "first-text": return ctx.texts[0] ?? null;
-    case "second-text": return ctx.texts[1] ?? null;
-    case "chip-text": return ctx.chipText ?? null;
-    case "drawn-figure": return ctx.texts.find((t) => FIGURE.test(String(t).trim())) ?? null;
+    // The node's own text is `ctx.texts[0]`: textsUnder() is ir.mjs's pre-order walk, node first.
+    case "own-text": { const v = node.text?.content ?? null; if (v !== null) take(0); return v; }
+    case "first-text": { const v = ctx.texts[0] ?? null; if (v !== null) take(0); return v; }
+    case "second-text": { const v = ctx.texts[1] ?? null; if (v !== null) take(1); return v; }
+    case "chip-text": { const v = ctx.chipText ?? null; if (v !== null) take(ctx.chipIndex ?? -1); return v; }
+    case "drawn-figure": {
+      const at = ctx.texts.findIndex((t) => FIGURE.test(String(t).trim()));
+      if (at < 0) return null;
+      take(at);
+      return ctx.texts[at];
+    }
     default: return null;                                    // no slot in a design read
   }
 }
@@ -384,8 +405,13 @@ export const BUILDERS = Object.freeze({
   "list-row": (node, verdict, entry, ctx, drops) => ({ name: "list-row", props: propsFor(entry, node, verdict, ctx, drops) }),
   "status-chip": (node, verdict, entry, ctx, drops) => ({ name: "status-chip", props: propsFor(entry, node, verdict, ctx, drops) }),
   // The ticket's "a source list maps to `list` + N `list-row`s". The rows are built from the node's
-  // own children; `list.empty` has no slot in any design read, so the container itself is refused by
-  // propsFor and the rows are what survives — the honest answer, recorded, never invented copy.
+  // own children and each one validates. THE CONTAINER AND ITS ROWS ARE THEN REFUSED TOGETHER, and
+  // this builder is not where that happens: `list.empty` has no slot in any design read, so propsFor
+  // records it unfillable and build()'s closing required-prop check discards this whole object —
+  // rows included, for any input, always. What survives a design read of a list is the LOSS LIST,
+  // not the rows. That is the honest answer: an importer that emitted the rows under an invented
+  // empty-state copy would be writing the designer's words for them. Case 40.12 asserts BOTH halves
+  // — what this builder computes, and what build() emits through the only entry point a source has.
   list: (node, verdict, entry, ctx, drops) => ({
     name: "list",
     props: propsFor(entry, node, verdict, ctx, drops),
@@ -408,18 +434,40 @@ export function build(node, verdict, vocab, drops = []) {
     return null;
   }
   const texts = textsUnder(node);
-  const chip = verdict.children.find((c) => c.name === "status-chip");
-  const ctx = { texts, children: verdict.children, vocab, chipText: chip ? (textsUnder(node.children[verdict.children.indexOf(chip)])[0] ?? null) : null };
+  // Each child's texts occupy a CONTIGUOUS RUN of `texts`, because textsUnder() is ir.mjs's
+  // pre-order walk: the node's own text, then child 0's run, then child 1's. So a child's offset is
+  // the sum of the runs before it, and `consumed` (indices, filled by fillProp) maps straight back
+  // onto the children below without a value comparison.
+  const kidTexts = verdict.children.map((_, i) => textsUnder(node.children[i]));
+  const offsets = [];
+  { let off = node.text?.content ? 1 : 0; kidTexts.forEach((t, i) => { offsets[i] = off; off += t.length; }); }
+  const chipAt = verdict.children.findIndex((c) => c.name === "status-chip");
+  const ctx = {
+    texts, children: verdict.children, vocab, consumed: new Set(),
+    chipText: chipAt >= 0 ? (kidTexts[chipAt][0] ?? null) : null,
+    chipIndex: chipAt >= 0 && kidTexts[chipAt].length ? offsets[chipAt] : -1,
+  };
 
   const out = builder(node, verdict, entry, ctx, drops);
 
   if (verdict.name !== "list") {
     // Everything below a leaf entry is absorbed into a prop or dropped — never emitted as a child.
     if (entry.children.length === 0) {
-      const absorbed = new Set(Object.values(out.props ?? {}).filter((v) => typeof v === "string"));
       for (const [i, cv] of verdict.children.entries()) {
-        const kidTexts = textsUnder(node.children[i]);
-        if (kidTexts.some((t) => absorbed.has(t))) continue;               // absorbed into a prop
+        // ABSORPTION IS PER TEXT, NOT PER CHILD. A child whose every text reached a prop is carried
+        // whole and needs no row; a child that landed SOME of its texts loses the rest, and those
+        // are the rows. Keying the skip on "does this child contain any absorbed string anywhere"
+        // made a label + subtitle + footnote row lose its footnote with no drop row and a clean
+        // count line — ir.mjs invariant 4, broken by the module that cites it (PR #448 F10).
+        const left = kidTexts[i].map((t, k) => [offsets[i] + k, t]).filter(([ix]) => !ctx.consumed.has(ix));
+        if (kidTexts[i].length && left.length === 0) continue;             // absorbed into props, whole
+        if (left.length < kidTexts[i].length) {
+          for (const [, t] of left) drops.push(drop({
+            kind: "no-vocabulary-slot", slot: `${verdict.path}.children[${i}]`, value: t,
+            reason: `${verdict.name} absorbed part of a descendant read as ${cv.name ?? "not covered"} into its props; "${t}" has no prop left to land in and is not emitted`,
+          }));
+          continue;
+        }
         drops.push(drop({
           kind: "no-vocabulary-slot", slot: `${verdict.path}.children[${i}]`, value: cv.name,
           reason: `${verdict.name} declares children: [] — a descendant read as ${cv.name ?? "not covered"} has no prop to land in and is not emitted`,

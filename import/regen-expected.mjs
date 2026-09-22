@@ -14,7 +14,7 @@
 // Canonical form, and the gate depends on all three: keys sorted at every level, two-space indent,
 // one trailing newline.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -35,10 +35,16 @@ export function genExpectedVerdict({ check = false } = {}) {
   const vocab = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8"));
   const ir = convert(readFileSync(join(ROOT, SOURCE), "utf8"));
   const out = `${JSON.stringify(sortKeys(recognise(ir, vocab)), null, 2)}\n`;
-  const onDisk = readFileSync(join(ROOT, DEST), "utf8");
-  if (check) return { bytes: out.length, drifted: onDisk === out ? [] : [DEST] };
+  // An ABSENT artifact is drift under --check and a write otherwise. Reading it first made the
+  // script that exists to CREATE the file throw ENOENT on the one tree where it has to run: a fresh
+  // fixture, which is the shape #310's converter arrives with (PR #448 F9).
+  const onDisk = existsSync(join(ROOT, DEST)) ? readFileSync(join(ROOT, DEST), "utf8") : null;
+  // BYTES, not UTF-16 code units: the artifact carries "·", "—" and the typographic minus, so
+  // out.length under-reports it by 22 on this fixture (PR #448 F8).
+  const bytes = Buffer.byteLength(out, "utf8");
+  if (check) return { bytes, drifted: onDisk === out ? [] : [DEST] };
   if (onDisk !== out) writeFileSync(join(ROOT, DEST), out);
-  return { bytes: out.length, drifted: [] };
+  return { bytes, drifted: [] };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
