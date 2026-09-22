@@ -1546,3 +1546,76 @@ which.
 ## AMENDMENTS
 
 <!-- newest at the bottom; leave empty at creation -->
+
+### 2026-09-22 — implementation (PIV run)
+
+Six plan errors and one clarification, each found by driving something the plan asserted.
+
+**A1 (plan error, omission) — the renderer's OWN template count.** `system/agentic-renderer.mjs:21`
+("The twenty-four templates") and `:256` ("the twenty-four specs"). The plan lists neither, and
+`git log -S` shows #303 (`d04faac`) is the commit that moved them to twenty-four — so the convention
+is established and #305 owed both. No gate reads them (`checkGroupCount` reads build-checks,
+CLAUDE.md and gates.md, not the renderer), so this would have stayed green and landed as a reviewer
+finding. It is D6's own argument applied one file over. **Both moved to twenty-five.**
+
+**A2 (plan error, undercount) — the wrapper histogram has FIVE copies, not four.** Task 16 names
+`build-checks.mjs:5039`, gates.md ×2 and `catalog.mjs`. It misses `tooling/build-checks.mjs:94`, the
+file's own group index ("tabsFor's 3/21 wrapper histogram pinned as the #220 tripwire"), and the
+current-state tail of the tripwire note at `:5024`. Both moved. The earlier arrows in that note
+(`3/7 → 3/17`, `3/17 → 3/18`, `3/18 → 3/20`, `3/20 → 3/21`) are HISTORY and stay as written; #305
+appends its own. (Memory: *gate prose has three copies* — here it was five.)
+
+**A3 (plan error, a real blocker the plan could not have predicted) — the 41st group makes
+`drift-check` red on the committed tree, for a reason nothing in Task 17 covers.**
+`checkGroupCount`'s claim regex for build-checks is `/all (\d+) groups pass/g`, and group 40's own
+prose contains "a build() broken on every list verdict left all 40 groups passing" — which that
+regex matches. With 40 groups both readings agreed and the leg was green; at 41 it reported
+`tooling/build-checks.mjs: says 40 groups, build-checks defines 41` on a clean tree. Fixed by
+REWORDING the prose ("left every other group passing"), not by touching the regex: the sentence was
+never a claim about how many groups exist, and stating a count there made it a silent second copy of
+the gate's own claim. The mirror of that sentence in `gates.md` was reworded in the same edit.
+(`passed all 40 groups before this`, in both files, does NOT match the regex, is unambiguously past
+tense, and is left alone.)
+
+**A4 (plan error) — Task 15's REDDENS claim "cases 4–6 fail" is wrong as written: the group CRASHES
+instead.** Measured by deleting the `icon` template. Three seams throw, and an uncaught throw ends
+the whole run with a stack trace before group 41 reports anything at all — so the mutation that is
+supposed to prove cases 4–6 can fail actually proves nothing. Each was a real crash, found in this
+order: `renderComposition` (the named "no template for it" Error), then `renderChild` inside 41.8's
+`stack > icon` case (a raw `TypeError: TEMPLATES[child.name] is not a function`, because
+`renderChild` at `agentic-renderer.mjs:166` has NO `hasTemplate` guard where `build()` does), then
+`genIcons` in 41.7 (found separately, by flipping the manifest weight — Phosphor's bold assets are
+`<name>-bold.svg`, so the generator cannot answer). All three now fold into ONE named failure, on
+group 39's stated rule that a deletion must report rather than end the run. With the fix, deleting
+the template reds group 3 by name AND group 41 with 62 named failures, and the run completes.
+
+**A5 (clarification, not a plan error) — `example` is not in `vocabulary.json`.** Case 4b has to
+read `handoff/verdant/pack.json`: `gen-vocabulary` drops `example` from its entries entirely (the
+icon entry's keys are class/status/props/states/children/usage/contract), and `system/catalog.mjs`
+seeds the playground from the PREPARED PACK ROW. The plan's citation of `catalog.mjs:310-320` is
+correct about the mechanism and silent about the artifact; reading the vocabulary handed
+`renderComposition` an undefined props object and the case threw. The plan would be clearer saying
+"read it off the pack".
+
+**A6 (plan error) — Task 7's CSS block and the spec's States prose both state a false mechanism.**
+Both say the `<path>` carries `fill="currentColor"` from the package. It does not: `pathOf` returns
+the `d` attribute and nothing else, `system/icons.mjs` contains the string "fill" zero times, and
+the template sets `fill="currentColor"` on the `<svg>` itself
+(`agentic-renderer.mjs:529`) — the colour then reaches the glyph by inheritance. The package's own
+file does carry it, on its root `<svg>`, which is presumably where the sentence came from. Corrected
+in both places, and the corrected fact is now asserted in `catalog-journey` case 13. Found by a
+probe, which is the only reason it is not still written down.
+
+**Assumptions, resolved:** A4 (the rounding boundary) **held** — runtime went 32,004 → 32,109 exact,
+so the rounded digit moved 32,000 → 32,100 and all three approach baselines churned on the line
+figure as well as on `runtime.files`. A5 (the 30 s shot budget at 25 components) **held** — in the
+pinned container `/components` took 18.2 s, 20.6 s and 13.8 s across the three packs. A2 (`npm
+audit`) **held** — 0 at every severity. A3 (no concurrent PR) **held** — `gh pr list --state open`
+→ `[]` at the start and at the baseline regen.
+
+**One addition beyond the plan, and its reason:** `tooling/catalog-journey.mjs` case 13. Group 41's
+`detail` string says it cannot reach the computed sizes or the refusal's frame winning at runtime,
+**and names this driver for both** — but `catalog-journey` had no such case, so the deferral pointed
+at a gate that checked nothing, which is the check-that-cannot-fail shape one level up. #303 set the
+precedent one ticket earlier with its own case 12 (a list's divider ownership in computed style), and
+gates.md already lists it there.
