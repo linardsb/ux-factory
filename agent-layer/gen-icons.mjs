@@ -86,14 +86,25 @@ export function emitIcons(manifest, readIcon) {
   ].join("\n");
 }
 
-export function readManifest() {
-  const text = readFileSync(join(ROOT, MANIFEST), "utf8");
-  const m = JSON.parse(text);
+// PURE — text in, manifest out, no fs. Exported for the same reason emitIcons is (validateExamples'
+// precedent): all three of its refusals can then be DRIVEN by build-checks over synthetic strings,
+// which is the only thing that proves they can fail at all. readManifest is the fs half and nothing
+// more. The parse throw names the path like the two validation throws below it — a bare SyntaxError
+// says "position 2" and never WHICH file, and this chain carries a dozen generated JSON artifacts a
+// reader could be looking at instead (CLAUDE.md's Errors ground rule: name the offending path).
+export function parseManifest(text) {
+  let m;
+  try { m = JSON.parse(text); }
+  catch (e) { throw new Error(`gen-icons: ${MANIFEST} is not valid JSON — ${e.message}`); }
   if (typeof m.weight !== "string" || !m.weight)
     throw new Error(`gen-icons: ${MANIFEST} needs a non-empty "weight"`);
   if (!Array.isArray(m.icons) || !m.icons.length || !m.icons.every((n) => typeof n === "string" && /^[a-z0-9-]+$/.test(n)))
     throw new Error(`gen-icons: ${MANIFEST} "icons" must be a non-empty array of lowercase Phosphor names`);
   return m;
+}
+
+export function readManifest() {
+  return parseManifest(readFileSync(join(ROOT, MANIFEST), "utf8"));
 }
 
 // Emit the artifact (or, with {check: true}, compare against disk and report drift).

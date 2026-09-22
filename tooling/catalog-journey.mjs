@@ -11,7 +11,7 @@
 // artifact's own attributes, the HTML tab being a RE-serialization rather than a stored string,
 // copy-as-Markdown byte-equal to the committed spec source, the palette's commands existing
 // BEFORE the catalog could have registered anything (a held route, never a sleep), the vd tab's
-// 3/7 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
+// 3/22 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
 // as content with a clean console, the playground bus readout from pointer and keyboard, the
 // palette's same-page hash routing, and the pack swap's cell re-resolve + listener hygiene
 // (chromium-CDP half stated as such).

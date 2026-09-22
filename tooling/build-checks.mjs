@@ -12309,16 +12309,30 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 {
   const { ICONS, ICON_VIEWBOX } = await import("../system/icons.mjs");
-  const { emitIcons, genIcons, pathOf, readManifest } = await import("../agent-layer/gen-icons.mjs");
-  // EVERY case below reads the manifest, so its own validation throwing must be ONE named failure
-  // rather than the end of the run. The fallback parses the same bytes directly — only readManifest's
-  // VALIDATION is skipped, and that it validated is what the assertion beside it states.
+  const { emitIcons, genIcons, parseManifest, pathOf, readManifest } = await import("../agent-layer/gen-icons.mjs");
+  // EVERY case below reads the manifest, so its own refusal must be ONE named failure rather than the
+  // end of the run. WHICH fallback is possible depends on why readManifest refused, and the two are
+  // one `catch` apart:
+  //   · a VALIDATION refusal (a bad weight, a bad icons array) leaves bytes that still parse, so the
+  //     cases below run against the REAL manifest and only the validation is skipped — that it
+  //     validated is what the assertion beside it states.
+  //   · a PARSE refusal leaves nothing to read, and re-parsing the same bytes here is GUARANTEED to
+  //     re-throw rather than merely at risk of it: readManifest's only non-validation throw source is
+  //     that same JSON.parse. Measured — the uncaught SyntaxError ended the run and this group printed
+  //     nothing at all, no ✓, no ✗, and the script's own tally never ran. So it degrades to the
+  //     COMMITTED MAP's own shape instead: 41.2, 41.3 and 41.9 become self-comparisons rather than
+  //     assertions, the two named failures above and in 41.7 are the group's whole report, and every
+  //     template, refusal, pathOf and validator case below still runs for real.
   let MANIFEST;
   try {
     MANIFEST = readManifest();
   } catch (e) {
-    ok(false, `41: readManifest() refused system/icons.manifest.json — ${e.message}. The cases below fall back to parsing the same bytes, so they still report.`);
-    MANIFEST = JSON.parse(readFileSync(join(ROOT, "system/icons.manifest.json"), "utf8"));
+    ok(false, `41: readManifest() refused system/icons.manifest.json — ${e.message}`);
+    try {
+      MANIFEST = JSON.parse(readFileSync(join(ROOT, "system/icons.manifest.json"), "utf8"));
+    } catch {
+      MANIFEST = { weight: "regular", icons: Object.keys(ICONS) };
+    }
   }
   // The renderer keeps SVGNS private, so it is restated here as a LITERAL rather than imported.
   // That is deliberate: if the two ever disagree, case 4's ns assertions go red naming the tag,
@@ -12466,9 +12480,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // reported nothing at all. So it becomes one named failure.
     const cleanErr = threw(() => genIcons({ check: true }));
     ok(cleanErr === null, `41.7: genIcons({check:true}) THREW — ${cleanErr && cleanErr.message}`);
-    const clean = cleanErr === null ? genIcons({ check: true }) : { drifted: ["(threw)"], icons: -1 };
-    ok(clean.drifted.length === 0, `41.7: genIcons({check:true}) reports drift on the committed tree: ${clean.drifted.join(", ")} — regenerate: node agent-layer/gen-icons.mjs`);
-    ok(clean.icons === MANIFEST.icons.length, `41.7: the check leg counted ${clean.icons} icons, the manifest names ${MANIFEST.icons.length}`);
+    // Guarded on the root rather than run over a `{drifted:["(threw)"], icons:-1}` placeholder, which
+    // 41.4's own throw-catch already does for its root: measured with the package uninstalled, the
+    // placeholder printed two further failures describing a DRIFTED artifact and a count of -1 —
+    // neither of which happened — so one cause read as three defects.
+    const clean = cleanErr === null ? genIcons({ check: true }) : null;
+    if (clean) {
+      ok(clean.drifted.length === 0, `41.7: genIcons({check:true}) reports drift on the committed tree: ${clean.drifted.join(", ")} — regenerate: node agent-layer/gen-icons.mjs`);
+      ok(clean.icons === MANIFEST.icons.length, `41.7: the check leg counted ${clean.icons} icons, the manifest names ${MANIFEST.icons.length}`);
+    }
     const readIcon = (n) => ICONS[n];
     const committed = readFileSync(join(ROOT, "system/icons.mjs"), "utf8");
     let emitted = null;
@@ -12506,6 +12526,35 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // The positive control: the real committed shape passes the same function.
     ok(pathOf(`<svg xmlns="${SVGNS}" viewBox="0 0 256 256" fill="currentColor"><path d="${ICONS.check}"/></svg>`, "check.svg") === ICONS.check,
       "41.7b: pathOf REFUSED the shape the package actually ships — the five refusals above are then refusing everything, which is not a gate");
+  }
+
+  // 41.7c THE MANIFEST'S OWN THREE REFUSALS, driven over synthetic strings rather than described.
+  // parseManifest is PURE and exported for exactly this (emitIcons' precedent) — readManifest is the
+  // fs half, so none of this touches disk. The FIRST case is the one that earns the block: a bare
+  // JSON.parse here threw an unnamed SyntaxError, which the fallback at the top of this group
+  // re-raised and the run ended with a stack trace while group 41 printed nothing at all. Every throw
+  // is required to name the FILE, because "position 2" is not actionable in a chain carrying a dozen
+  // generated JSON artifacts.
+  {
+    const bad = [
+      ["{ % not json }", "is not valid JSON"],
+      [`{"weight":"","icons":["check"]}`, `needs a non-empty "weight"`],
+      [`{"icons":["check"]}`, `needs a non-empty "weight"`],
+      [`{"weight":"regular","icons":[]}`, `"icons" must be a non-empty array`],
+      [`{"weight":"regular","icons":"check"}`, `"icons" must be a non-empty array`],
+      [`{"weight":"regular","icons":["Check"]}`, `"icons" must be a non-empty array`],
+    ];
+    for (const [text, phrase] of bad) {
+      const e = threw(() => parseManifest(text));
+      ok(e !== null, `41.7c: parseManifest ACCEPTED ${JSON.stringify(text)} — the manifest's refusal is prose, not a guard`);
+      ok(e !== null && e.message.includes("system/icons.manifest.json"), `41.7c: the throw for ${JSON.stringify(text)} does not name the FILE — got ${JSON.stringify(e && e.message)}`);
+      ok(e !== null && e.message.includes(phrase), `41.7c: the throw for ${JSON.stringify(text)} does not say what is wrong (expected to mention ${JSON.stringify(phrase)}) — got ${JSON.stringify(e && e.message)}`);
+    }
+    // The positive control: a well-formed manifest passes the same function, so the six above are
+    // not refusing everything.
+    const good = parseManifest(`{"weight":"regular","icons":["arrow-left","check"]}`);
+    ok(good.weight === "regular" && deep(good.icons) === deep(["arrow-left", "check"]),
+      `41.7c: parseManifest REFUSED or mangled a well-formed manifest — got ${deep(good)}`);
   }
 
   // --- 41.8 THE VOCABULARY ENTRY + THE VALIDATOR. The refusals that matter here are
@@ -12558,7 +12607,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     `41.9: the committed set is [${MANIFEST.icons.join(", ")}] — #305 landed exactly arrow-left, caret-right, check, info, warning, x (back → arrow-left, close → x, chevron-right → caret-right). A seventh is fine: update this line and say in the PR which flow asked for it.`);
   ok(MANIFEST.weight === "regular", `41.9: the manifest pins weight ${JSON.stringify(MANIFEST.weight)} — #305 committed "regular" and copied no second weight`);
 
-  group("icons", `the committed Phosphor subset (#305, epic #295 G8): a hand-maintained system/icons.manifest.json → agent-layer/gen-icons.mjs → a frozen system/icons.mjs → the \`icon\` template, with no runtime icon library anywhere and the package itself in a build-time tool dir no page can reach · THE CONTROLS FIRST, and one of them is NEW: the standing domStubControl() exercises createElement only, so a namespace control of its own proves the stub records the NS it was given AND that a createElement node records null — without it every ns assertion below would pass against a template built with el(), which yields an HTMLUnknownElement that paints nothing while every other assertion still passes · MANIFEST ↔ MAP identity IN ORDER (the emitted key order is the manifest's, which is why the generator refuses an unsorted one), the viewBox pinned, the map frozen, every \`d\` a non-empty moveto · A SUBSET rather than a vendoring (AC #2), asserted BY COUNT against the 1512 icons the package ships per weight, so a generator that started copying them all fails by a number rather than as a 37 MB diff nobody reads · EVERY manifest name RENDERED through the real renderComposition over the real DOM stub — span.ds-icon with its data-size and no data-refused, exactly one namespaced <svg> carrying the viewBox, currentColor, aria-hidden and focusable, exactly one namespaced <path>, and its \`d\` compared to ICONS[n] BY LOOP VARIABLE, because a template drawing one glyph for every name would pass every other assertion in the case · the spec's OWN example asserted separately, since that is what /components mounts · A NON-MANIFEST NAME REFUSED VISIBLY (AC #1b): data-refused set, the literal name as text, data-size kept, and ZERO svg and ZERO path — the empty box being the exact failure mode the branch replaces · FIVE PROTOTYPE-CHAIN names refused (constructor, toString, __proto__, hasOwnProperty, valueOf), beside THE MUTATION that decides whether that case can fail at all: the ICONS[name] truthiness form must still RENDER "constructor", or 41.6 is green against a trap the template never had · \`gen-icons --check\` proven able to fail (AC #1c) through the PURE emitIcons — the clean leg as the positive control, then a manifest with one name dropped emitting different text, plus the unsorted and duplicate refusals, all in memory with NOTHING written to disk · pathOf's SHAPE GUARD driven over five synthetic SVGs (a moved viewBox, an absent one, two paths, a <circle>, a path with no moveto), each throw required to name the FILE and say what moved, with the package's real shape as the positive control so the five are not refusing everything · and THE VALIDATOR, where the refusals actually live: a valid icon passes, each missing required prop is refused as one, a size outside the enum is refused NAMING [md|lg|xl], an icon holding a child is refused, and a stack holding an icon both validates AND renders the glyph through renderChild. What it cannot reach: how the glyph LOOKS — that \`check\` draws a tick and not a cross, that md/lg/xl are visibly distinct, that a refused icon reads as a mistake — which is the pixel gate's and a human read's; and that the refusal's border and auto size WIN at runtime, which is catalog-journey's, because a regex over the stylesheet sees neither specificity nor a pack override`);
+  group("icons", `the committed Phosphor subset (#305, epic #295 G8): a hand-maintained system/icons.manifest.json → agent-layer/gen-icons.mjs → a frozen system/icons.mjs → the \`icon\` template, with no runtime icon library anywhere and the package itself in a build-time tool dir no page can reach · THE CONTROLS FIRST, and one of them is NEW: the standing domStubControl() exercises createElement only, so a namespace control of its own proves the stub records the NS it was given AND that a createElement node records null — without it every ns assertion below would pass against a template built with el(), which yields an HTMLUnknownElement that paints nothing while every other assertion still passes · MANIFEST ↔ MAP identity IN ORDER (the emitted key order is the manifest's, which is why the generator refuses an unsorted one), the viewBox pinned, the map frozen, every \`d\` a non-empty moveto · A SUBSET rather than a vendoring (AC #2), asserted by an UPPER BOUND of 20 and never by reading the package — deliberately loose, a seventh or nineteenth glyph being fine, because what it refuses is a category error and not growth; the 1512 per weight is the number that bound refuses and it appears only in the failure message, so a generator that started copying them all fails by a number rather than as a 37 MB diff nobody reads · EVERY manifest name RENDERED through the real renderComposition over the real DOM stub — span.ds-icon with its data-size and no data-refused, exactly one namespaced <svg> carrying the viewBox, currentColor, aria-hidden and focusable, exactly one namespaced <path>, and its \`d\` compared to ICONS[n] BY LOOP VARIABLE, because a template drawing one glyph for every name would pass every other assertion in the case · the spec's OWN example asserted separately, since that is what /components mounts · A NON-MANIFEST NAME REFUSED VISIBLY (AC #1b): data-refused set, the literal name as text, data-size kept, and ZERO svg and ZERO path — the empty box being the exact failure mode the branch replaces · FIVE PROTOTYPE-CHAIN names refused (constructor, toString, __proto__, hasOwnProperty, valueOf), beside THE MUTATION that decides whether that case can fail at all: the ICONS[name] truthiness form must still RENDER "constructor", or 41.6 is green against a trap the template never had · \`gen-icons --check\` proven able to fail (AC #1c) through the PURE emitIcons — the clean leg as the positive control, then a manifest with one name dropped emitting different text, plus the unsorted and duplicate refusals, all in memory with NOTHING written to disk · THE MANIFEST'S OWN THREE REFUSALS driven over six synthetic strings through the PURE parseManifest — malformed JSON, a bad weight and a bad icons array — each throw required to NAME the file, because a bare SyntaxError says \"position 2\" and this chain carries a dozen generated JSON artifacts; the malformed case is the one that earns the block, since an unnamed throw there was re-raised by this group's own fallback and ENDED the run with a stack trace while group 41 printed nothing at all · pathOf's SHAPE GUARD driven over five synthetic SVGs (a moved viewBox, an absent one, two paths, a <circle>, a path with no moveto), each throw required to name the FILE and say what moved, with the COMMITTED map's own shape REPRODUCED as the positive control so the five are not refusing everything — nothing in this case reads node_modules, which is why the group survives a missing install, and a package whose shape genuinely MOVED is caught by the drift leg (genIcons → pathOf over the real files) rather than here · and THE VALIDATOR, where the refusals actually live: a valid icon passes, each missing required prop is refused as one, a size outside the enum is refused NAMING [md|lg|xl], an icon holding a child is refused, and a stack holding an icon both validates AND renders the glyph through renderChild. What it cannot reach: how the glyph LOOKS — that \`check\` draws a tick and not a cross, that md/lg/xl are visibly distinct, that a refused icon reads as a mistake — which is the pixel gate's and a human read's; and that the refusal's border and auto size WIN at runtime, which is catalog-journey's, because a regex over the stylesheet sees neither specificity nor a pack override`);
 }
 
   if (failures) {

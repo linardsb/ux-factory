@@ -214,3 +214,138 @@ Everything else listed under § Deviations is a correction the plan asked for in
 **`renderChild` has no `hasTemplate` guard** where `build()` does (`agentic-renderer.mjs:166` vs `:690`), so a missing template for a **child** surfaces as a raw `TypeError` rather than the renderer's own named Error. Pre-existing and left alone (surgical changes); recorded in case 41.8's comment, in the gates.md paragraph, and here, because it is the reason that seam needed its own catch.
 
 **`--add` on a weight whose assets are named differently fails at the generator, not at 41.9.** Phosphor's bold files are `<name>-bold.svg`, so flipping `weight` to `"bold"` makes `gen-icons` throw on `arrow-left` before the weight pin is ever read. 41.9's weight assertion is still reachable — by editing the manifest without regenerating, which is what M-J does — and it reds by name there.
+
+---
+
+## Review fixes — PR #450, round 1
+
+Review: `.claude/code-reviews/pr-450-review.md` (posted as
+[a PR comment](https://github.com/linardsb/ux-factory/pull/450#issuecomment-5779323118); solo repo, so
+`gh pr review --request-changes` is refused on one's own PR). Verdict: **request changes on F1 alone**.
+
+**6 of 6 fixed.** Owner triage: all six, not the reviewer's F1+F6-then-F2 order.
+
+- [x] **F1** (High) — group 41's fallback re-parses the same bad bytes inside its own `catch`
+- [x] **F2** (Medium) — two stale wrapper-histogram copies
+- [x] **F3** (Low) — "asserted by count against the 1,512 icons" describes a bound of 20
+- [x] **F4** (Low) — 41.7b's "positive control" never reads the package
+- [x] **F5** (Low) — "Six plan errors" is five plan errors and one clarification
+- [x] **F6** (Low) — 41.7's degraded path emits two cascading failures
+
+### F1 · `agent-layer/gen-icons.mjs` + `tooling/build-checks.mjs`
+
+**Mechanism.** `readManifest`'s only non-validation throw source is its own `JSON.parse`, so the guard
+written to turn a bad manifest into a *named failure* re-ran the identical parser over the identical
+bytes inside the `catch` — guaranteed to re-throw, not merely at risk of it.
+
+**What it was:** genuinely reachable, for anyone running `node tooling/build-checks.mjs` standalone —
+CLAUDE.md's main gate. Not reachable in CI, where `verify.yml` runs `Drift check` first and that leg exits
+1 on the same bytes. Nothing in `system/` is implicated.
+
+Two edits. The parse is now a **pure, exported `parseManifest(text)`** whose throw names the path, on the
+`emitIcons` / `validateExamples` precedent ("exported so build-checks can drive it… which is the only
+thing that proves this gate can fail at all"); `readManifest()` is the fs half and nothing more. The
+group's fallback is one `catch` deeper: a **validation** refusal still leaves parseable bytes, so every
+case runs against the real manifest; a **parse** refusal degrades to the committed map's own shape.
+
+**Driven four ways** (each mutation restored, `md5 system/icons.manifest.json` → `ff05c2f9f378d3336db77220bbe6e249`
+verified, tree re-run to `build ✓  all 41 groups pass`):
+
+```
+malformed JSON, BEFORE:   SyntaxError at tooling/build-checks.mjs:12321 — group 41 prints NOTHING,
+                          no ✓, no ✗, and the script's own tally never runs
+malformed JSON, AFTER:    build icons  ✗  2 failure(s)
+                            · 41: readManifest() refused system/icons.manifest.json — gen-icons:
+                              system/icons.manifest.json is not valid JSON — Expected property name…
+                            · 41.7: genIcons({check:true}) THREW — gen-icons: system/icons.manifest.json
+                              is not valid JSON — Expected property name…
+                          build ✗  2 failure(s)          ← the tally runs; no stack trace
+weight: "" (VALIDATION):  4 named failures, unchanged — the raw-bytes path still serves
+node_modules removed:     3 failures → 1 (F6), the one naming the directory and the fix verbatim
+```
+
+**The review's proposed fallback was measured, not adopted.** `.claude/references/…` memory rule "a
+review's proposed fix is a claim" — `catch { MANIFEST = { weight: "regular", icons: [] }; }` under the
+same mutation produces **8** failures where the committed-map fallback produces 2:
+
+```
+· 41.2: system/icons.mjs and the manifest disagree — map [arrow-left, …] vs manifest []
+· 41.3: the map carries 6 glyphs and the manifest names 0
+· 41.7: emitIcons over the committed manifest does not reproduce system/icons.mjs
+· 41.7: an UNSORTED manifest was accepted
+· 41.7: a DUPLICATE name was accepted
+· 41.9: the committed set is []
+```
+
+Six of those describe defects that did not happen, which is F6's complaint one level up. Worse, 41.4's
+`for (const n of MANIFEST.icons)` loop (`:12399`) runs **zero** times under it, so the render coverage
+goes silently to nothing — the check-that-cannot-fail shape. The committed-map fallback keeps every
+template, refusal, `pathOf` and validator case running for real and makes three identity cases
+self-comparisons, which the top-of-group comment now states in full.
+
+**41.7c pins it, and the pin is proven able to fail.** Six synthetic strings through `parseManifest`
+(malformed JSON, empty `weight`, absent `weight`, empty `icons`, non-array `icons`, a capitalised name),
+each throw required to name the **file** and say what is wrong, with a well-formed manifest as the
+positive control. Reverting F1's named parse throw:
+
+```
+build icons  ✗  2 failure(s)
+  · 41.7c: the throw for "{ % not json }" does not name the FILE — got "Expected property name or '}'
+    in JSON at position 2"
+  · 41.7c: the throw for "{ % not json }" does not say what is wrong (expected to mention "is not valid
+    JSON") — got "Expected property name or '}' in JSON at position 2"
+```
+
+Restored → `build ✓  all 41 groups pass`.
+
+### F2 · `system/handoff-viewer.mjs:123` · `tooling/catalog-journey.mjs:14`
+
+**What it was:** a false completeness claim in prose, no gate implicated. `handoff-viewer.mjs:123` was
+reported as F1b on PR #447 one ticket ago, not applied, and this ticket incremented its denominator again
+— it had survived two reviews. Re-derived from the artifacts rather than from the review:
+
+```
+handoff/verdant/vocabulary.json   → 25 components
+handoff/verdant/pack.json         → portability.webComponents.files = 3
+                                    ["wc/vd-care-task-row.mjs","wc/vd-plant-card.mjs","wc/vd-status-chip.mjs"]
+```
+
+`3 of 23 today; the 20` → `3 of 25 today; the 22`; `3/7` → `3/22`. Comment-only, and `handoff-viewer.mjs`
+keeps its line count (371 → 371), so the `runtime` loc group does not move and no baseline cascades.
+The complete current-state set is five files — `gates.md` ×2, `system/catalog.mjs`,
+`tooling/build-checks.mjs` ×3 (`:94`, `:5026`, `:5041`), `handoff-viewer.mjs`, `catalog-journey.mjs` — all
+now reading 3/22, found by a search that does not encode the current value:
+`git grep -nE '3/[0-9]{1,2}|3 of [0-9]+ today' -- '*.mjs' '*.md'`.
+
+### F3 · F4 — analyser-legible prose, no behaviour change
+
+Group 41's `detail` string and `gates.md`'s Group 41 paragraph, the two surfaces the review named, both
+now say the subset claim is asserted by an **upper bound of 20** (`1512` appears only in the failure
+message; nothing there reads the package), and that 41.7b's positive control is the **committed map's**
+shape reproduced from `ICONS.check` — which is why the group survives a missing install, and why a
+package whose shape genuinely moved is caught by the **drift leg** instead. The inline comment at
+`:12373–12376` already stated both correctly and is left as written. Swept for further copies:
+`git grep -ln "package's real shape"` and `"three throwing seams"` both return nothing.
+
+### F5 — the PR body
+
+"Six plan errors" → "Six amendments — five plan errors and one clarification", matching this report's own
+classification of A5. Amendment 2 rewritten to the verified five-file set; amendment 4 records the fourth
+throwing seam. `gen-icons.mjs` line count 173 → 184.
+
+### F6 · `tooling/build-checks.mjs` 41.7
+
+The two follow-on assertions are guarded on `cleanErr === null` rather than run over a
+`{ drifted: ["(threw)"], icons: -1 }` placeholder, which 41.4's own throw-catch already did for its root.
+Measured with the package uninstalled: 3 failures → 1.
+
+### Deferred — none
+
+Every finding was fixed. The review's one out-of-scope note — `tooling/build-checks.mjs:6242`, group 28's
+file sweep crashing uncaught on a missing git-tracked `system/`-prefixed file — is pre-existing, untouched
+by this PR, and stays out: it is a defect in a sweep this ticket never wrote, and folding it in would put
+an unrelated failure mode in a ticket about icons. It is the reason F1's table has only one fixable row.
+
+### Gates re-run after the fixes
+
+See the PR's own CI run for `verify`, `visual`, `audit` and both CodeQL legs.
