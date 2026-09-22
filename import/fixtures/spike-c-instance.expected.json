@@ -131,6 +131,17 @@
         {
           "hits": [
             {
+              "detail": "1/2 required props fillable from the read (name)",
+              "field": "name",
+              "signal": "prop-fit"
+            }
+          ],
+          "score": 0.125,
+          "slug": "icon"
+        },
+        {
+          "hits": [
+            {
               "detail": "1/2 required props fillable from the read (label)",
               "field": "label",
               "signal": "prop-fit"
@@ -399,6 +410,17 @@
             {
               "hits": [
                 {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "icon"
+            },
+            {
+              "hits": [
+                {
                   "detail": "1/2 required props fillable from the read (label)",
                   "field": "label",
                   "signal": "prop-fit"
@@ -634,6 +656,17 @@
                   ],
                   "score": 0.25,
                   "slug": "screen-header"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "icon"
                 },
                 {
                   "hits": [
@@ -907,6 +940,17 @@
                   ],
                   "score": 0.25,
                   "slug": "screen-header"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "icon"
                 },
                 {
                   "hits": [
@@ -1193,6 +1237,17 @@
             {
               "hits": [
                 {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "icon"
+            },
+            {
+              "hits": [
+                {
                   "detail": "1/2 required props fillable from the read (label)",
                   "field": "label",
                   "signal": "prop-fit"
@@ -1417,6 +1472,17 @@
                   ],
                   "score": 0.25,
                   "slug": "screen-header"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "icon"
                 },
                 {
                   "hits": [

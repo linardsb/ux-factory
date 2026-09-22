@@ -34,10 +34,10 @@ import { trackToolPalette } from "./analytics.mjs";
 // components by editing this list, and the pin is what forces that edit.
 export const CATALOG_COMPONENTS = [
   "avatar", "card", "care-task-row", "demo-notice", "empty-state", "ghost-button",
-  "list", "list-row", "metric-tile", "modal-dialog", "nav-tabs", "plant-card",
-  "primary-button", "progress-indicator", "screen-header", "search-input",
-  "select-field", "sequence-step", "stack", "stat-tile", "status-chip", "text",
-  "text-field", "toggle-switch",
+  "icon", "list", "list-row", "metric-tile", "modal-dialog", "nav-tabs",
+  "plant-card", "primary-button", "progress-indicator", "screen-header",
+  "search-input", "select-field", "sequence-step", "stack", "stat-tile",
+  "status-chip", "text", "text-field", "toggle-switch",
 ];
 
 // --- DOM builder (inspect.mjs / glossary.mjs shape) — text via textContent, never innerHTML.

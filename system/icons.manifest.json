@@ -1,0 +1,5 @@
+{
+  "$description": "Hand-maintained: the Phosphor icons this repo has committed (epic #295 ticket #305, G8). agent-layer/gen-icons.mjs copies exactly these out of tooling/icons/node_modules/@phosphor-icons/core into system/icons.mjs. Add one with: node agent-layer/gen-icons.mjs --add <phosphor-name>. Names are Phosphor's own (phosphoricons.com), never a role word — 'back' is arrow-left, 'close' is x, 'chevron-right' is caret-right.",
+  "weight": "regular",
+  "icons": ["arrow-left", "caret-right", "check", "info", "warning", "x"]
+}

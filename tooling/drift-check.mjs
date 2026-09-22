@@ -4,7 +4,9 @@
 // Repo contents ONLY — the company-projection chain (build.mjs, gen-decisions/tokens/llms/
 // headers, inject-jsonld) needs the sibling jobs folder + a decisions ledger and is NOT
 // covered here. Standalone:  node tooling/drift-check.mjs
-// Requires tooling/style-dictionary/node_modules (gen-handoff child-process-invokes SD).
+// Requires tooling/style-dictionary/node_modules (gen-handoff child-process-invokes SD) and
+// tooling/icons/node_modules (the icons leg REGENERATES the committed subset from the package,
+// so a missing install is a throw naming the directory rather than a vacuous "no drift").
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
@@ -13,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { genTokenCss } from "../agent-layer/gen-token-css.mjs";
 import { genAnnotatedSource } from "../agent-layer/gen-annotated-source.mjs";
 import { genLocSummary } from "../agent-layer/gen-loc-summary.mjs";
+import { genIcons } from "../agent-layer/gen-icons.mjs";
 import { genParamCount } from "../agent-layer/gen-param-count.mjs";
 import { genSystemGraph } from "../agent-layer/gen-system-graph.mjs";
 import { genInspectData } from "../agent-layer/gen-inspect-data.mjs";
@@ -75,6 +78,15 @@ function checkParamCount() {
     throw new Error(
       `param-count drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-param-count.mjs`
     );
+}
+
+// 2c3. Icons drift — check mode writes nothing; compares in-memory regen vs disk. It THROWS
+// rather than passing when tooling/icons/node_modules is absent (the generator's fail-closed
+// rule), so a CI job that lost its install fails loudly instead of measuring nothing.
+function checkIcons() {
+  const r = genIcons({ check: true });
+  if (r.drifted.length)
+    throw new Error(`icons drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-icons.mjs`);
 }
 
 // 2d. System-graph drift — check mode writes nothing; compares in-memory regen vs disk.
@@ -200,6 +212,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkAnnotatedSource();
     checkLocSummary();
     checkParamCount();
+    checkIcons();
     checkSystemGraph();
     checkInspectData();
     checkInspectMounts();
@@ -208,7 +221,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkTraces();
     checkReplay();
     checkGroupCount();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count");
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · icons · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);

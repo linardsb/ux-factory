@@ -2547,6 +2547,50 @@ p, .body {
   text-align: center;
 }
 
+/* ---------- ds-icon (system/specs/icon.md) — cross-scenario library primitive ---------- */
+
+/* One drawing, by Phosphor name (#305, epic #295 G8). The artwork is a GENERATED SUBSET —
+   system/icons.mjs, emitted by agent-layer/gen-icons.mjs from a hand-maintained manifest — never a
+   runtime library and never a vendored package; the package it came from is a build-time tool dir
+   no page can reach. Size is named by the SPACING STEP it binds to, so a composition carries no
+   pixel value (the ds-stack gap/pad argument), and a name the subset does not carry is a VISIBLE
+   REFUSAL rather than an empty box: ds-text's refused-link precedent (#301) applied to a name. */
+.ds-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* A glyph keeps its box inside a flex row rather than being squeezed into an ellipse. */
+  flex: 0 0 auto;
+  /* currentColor, so a glyph takes the colour of whatever it sits in and wears every pack
+     without a rule of its own. The <path> carries fill="currentColor" from the package. */
+  color: inherit;
+}
+.ds-icon > svg { display: block; width: 100%; height: 100%; }
+
+/* Three rules, not one with a local custom property: tooling/token-lint.mjs treats EVERY var()
+   in this file as a contract reference, and this file has none that are not (checked). So a
+   --ds-icon-size would be an instant red build, and the box binds to the token directly. */
+.ds-icon[data-size="md"] { width: var(--spacing-md); height: var(--spacing-md); }
+.ds-icon[data-size="lg"] { width: var(--spacing-lg); height: var(--spacing-lg); }
+.ds-icon[data-size="xl"] { width: var(--spacing-xl); height: var(--spacing-xl); }
+
+/* The refusal. A name the committed subset does not carry reads as its own literal source text —
+   ds-text's refused-link precedent — so a typo is a mistake a reader can SEE rather than a gap
+   they read as a design decision. width/height go back to auto so the name is not clipped by the
+   size box above; the attribute stays on the element, because two branches differing in a second,
+   undesigned way is how one of them quietly stops being tested. No dashed frame: that is
+   ds-empty-state's vocabulary, and absence-by-design and a typo must not look alike. */
+.ds-icon[data-refused] {
+  width: auto;
+  height: auto;
+  padding: 0 var(--spacing-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+}
+
 /* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
 
 .vd-screen-body {

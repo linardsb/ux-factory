@@ -195,7 +195,9 @@ export const SIGNALS = Object.freeze([
     weight: 0.25,
     test(node, entry) {
       // A container reads as a container; a text reads as a text-bearing leaf. An `icon` kind matches
-      // NOTHING today, because `icon` is not in the vocabulary — #305 is the ticket that changes it.
+      // NOTHING — and NOT because the vocabulary lacks an `icon` entry: #305 added one and this stayed
+      // true, because there is no BRANCH here for node.kind === "icon". #449 is the ticket that
+      // changes it, and it owes a defended weight rather than one chosen to clear the threshold.
       if (node.layout && entry.childrenCardinality === "many") {
         return { score: 1, field: "layout", detail: `a laid-out node against an entry that takes many children` };
       }

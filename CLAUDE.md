@@ -35,6 +35,8 @@ system/                       the shipped design system — brand-agnostic core 
   system-graph.json           GENERATED graph of contract tokens × consumers × pack bindings
   derivation-roundtrip.mjs    the committed Verdant fidelity diff, rendered
   loc-summary.json            GENERATED file/line counts — approach.html renders them
+  icons.manifest.json         hand-maintained: the Phosphor names this repo has committed (--add appends)
+  icons.mjs                   GENERATED subset — name → path data; the icon template's only source
   param-manifest.json         hand-maintained: one entry per live-manipulable control (counting rules inside)
   param-count.json            GENERATED control totals — approach.html renders the total
   instance.mjs                view-time private-instance shell config; boots the studio band
@@ -84,6 +86,7 @@ agent-layer/                  build-time Node ESM generators: machine-readable p
   build-instance.mjs          SIBLING orchestrator — one company brief → a self-contained deploy dir
   lib.mjs                     ledger parser + shared helpers
   gen-replay.mjs              GENERATED + drift-checked: a committed build run → replay/<slug>.json
+  gen-icons.mjs               GENERATED + drift-checked: the manifest's names → system/icons.mjs; --add <name>
   gen-*.mjs · inject-jsonld.mjs   one file per emitted artifact; each runnable standalone
 
 portal/                       local-first workbench (127.0.0.1 only, never deployed)
@@ -121,7 +124,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            40 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            41 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -138,6 +141,7 @@ tooling/
   figma/figma-parity.mjs      READ-BACK: a Figma file diffed against the token contract
   figma/figma-pull.mjs        IMPORT: a Figma file's ramps → system/tokens.<slug>.css, mapped by ROLE
   mcp/                        local MCP helper scripts
+  icons/                      the Phosphor package — a dependency-carrying tool dir, never loaded by a page
   style-dictionary/           a dependency-carrying tool; emits css/ios/android token targets
   wc-sandbox/                 React 19 harness for the wc wrappers (esm.sh import map, no install)
 ```
@@ -149,6 +153,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Machine-layer artifact** → `agent-layer/gen-<output>.mjs` exporting `gen<Name>(ledger)`; register in `build.mjs` (import + call + `✓` log line), keep the standalone-run guard. Shared parsing belongs in `lib.mjs`.
 - **Component** → token-only CSS in `system/components.css`; a new semantic token gets added to `system/tokens.source.json` (contract group) first, then regenerate: `node agent-layer/gen-token-css.mjs`.
 - **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`. The chain is not finished at the spec: a component also needs its **`components.css` block** (header `/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) **and its `agentic-renderer.mjs` template**, because `build-checks` group 3 asserts that EVERY generated vocabulary entry has a render path. A spec with a vocabulary entry and no block and no template is *documented but not composable*, and it is a red build. The optional `example` head key is validated SEMANTICALLY at generation time — it must actually render, or CI `verify` goes red naming the spec. A new spec also moves the **design importer's** committed verdict, because `import/fixtures/spike-c-instance.expected.json` carries a candidates list scored against the WHOLE vocabulary: run `node import/regen-expected.mjs` in the same PR, or build-checks group 40 reds on a ticket that never touched `import/`.
+- **New icon** → `node agent-layer/gen-icons.mjs --add <phosphor-name>` (Phosphor's own name, not a role word — phosphoricons.com; the command refuses an unknown one and suggests near misses); commit the regenerated `system/icons.mjs`. No spec, no CSS, no template: one manifest line.
 - **New /build pattern** → a rule in `system/pattern-rules.mjs` (the rule NAMES the pattern from the board and the slots are COUNTED from it, never invented) + its entry in `PATTERNS`. Spec-first: it may only compose components that already exist in `system/specs/` and validate against the generated `handoff/verdant/vocabulary.json`. Add a `BOARD_FOR` fixture in `tooling/build-checks.mjs` too — every group iterates `PATTERNS`, so a new entry with no board fails loudly rather than being silently skipped. Then `node tooling/build-checks.mjs` and `node tooling/build-journey.mjs all`.
 - **WC wrapper** → `system/wc/<tag>.mjs`, spec-first (a wrapper exists only for a `system/specs/` component; shadow CSS uses only spec-head tokens, no literals, no var() fallbacks), copied into the pack by `gen-handoff`.
 - **Brand/company skin** → clone `system/tokens.neutral.css` → `tokens.<company>.css` and `client.neutral.config.js` → `client.<company>.config.js`; never fork components.
@@ -193,7 +198,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 40 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 41 groups, the five journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

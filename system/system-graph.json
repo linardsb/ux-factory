@@ -1323,6 +1323,22 @@
       ]
     },
     {
+      "id": "ds-icon-cross-scenario-library-primitive",
+      "label": "ds-icon — cross-scenario library primitive",
+      "spec": "system/specs/icon.md",
+      "tokens": [
+        "--spacing-md",
+        "--spacing-lg",
+        "--spacing-xl",
+        "--spacing-xs",
+        "--color-border",
+        "--radius-sm",
+        "--color-fg-muted",
+        "--font-mono",
+        "--type-caption"
+      ]
+    },
+    {
       "id": "verdant-screen-scaffolding-layout-not-spec-d-components",
       "label": "Verdant screen scaffolding (layout, not spec'd components)",
       "spec": null,
@@ -1443,7 +1459,7 @@
   ],
   "counts": {
     "tokens": 63,
-    "consumers": 47,
-    "edges": 541
+    "consumers": 48,
+    "edges": 550
   }
 }
