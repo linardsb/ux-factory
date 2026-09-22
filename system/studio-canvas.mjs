@@ -608,7 +608,7 @@ export function initStudioCanvas(root = document) {
     // handle-first tab order, the born-inert handle, the re-label fix (#231 L3), the id counter and
     // the say() on placement are six rules someone argued for, and a second wrapper builder in
     // system/studio-frames.mjs would be a second copy of all six.
-    const place = (node, { x, y, w, h, name, component, kind } = {}) => {
+    const place = (node, { x, y, w, h, name, component, kind, id } = {}) => {
       if (!node) throw new Error("studio-canvas: place() was called with no node");
       // WIDENED WITH THE FAMILY, and the parent test with it. Both drivers do
       // querySelector(...) -> place(node) -> read the position off that same node, so a frame that
@@ -622,8 +622,15 @@ export function initStudioCanvas(root = document) {
       const label = name || node.dataset?.stxName || wrap.dataset.stxName || "Component";
 
       if (!existing) {
+        // AN ID THE CALLER OWNS (#306). The canvas page places build-document nodes under the
+        // document's own ids (f1, n1, d7) so setArrows resolves them by the ids the ops use. The
+        // counter still advances, so a page mixing both kinds cannot collide, and a duplicate is
+        // refused: a second node answering setArrows' lookup would draw arrows to the wrong one.
+        if (id != null && stage.querySelector(`[data-stx-id="${CSS.escape(String(id))}"]`)) {
+          throw new Error(`studio-canvas: place() was given id "${id}", which is already on the stage`);
+        }
         nextId += 1;
-        wrap.setAttribute("data-stx-id", `s${nextId}`);
+        wrap.setAttribute("data-stx-id", id != null ? String(id) : `s${nextId}`);
         // The handle FIRST, so it is the wrapper's first tab stop and a reader meets the move
         // affordance before the component's own controls. Its behaviour and its instructions
         // element both belong to system/studio-verbs.mjs, which is why it is born INERT and armed

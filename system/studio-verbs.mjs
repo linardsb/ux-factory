@@ -30,6 +30,13 @@
 //      it instead of the driver eyeballing the stage. At #205 the snapshot is the ARRANGEMENT; #206's
 //      board extends its CONTENTS without touching the stack.
 //
+//      #306 EXTENDS THE CONTENTS AGAIN, the stack itself unchanged. A caller may pass a `docHook`
+//      ({ capture, restore, resized }); the snapshot then carries an opaque `$doc` value beside the
+//      positions, restore() hands it back BEFORE positions are put back (the hook re-creates or
+//      removes nodes), and a resize tells the hook the new box between its setPos and its push — so
+//      ONE entry, ONE Cmd+Z, and no dependency on the order consumers were registered in. With no
+//      hook, a snapshot is byte-identical to the one before #306: /factory and studio.html pass none.
+//
 // #219 ADDED A SECOND VERB, ui.resize, AND IT HAD TO EARN ITSELF. Two later tickets recorded "NO BUS
 // VERB, deliberately" (studio-flow.mjs, studio-docs.mjs), so a third verb is a claim against them
 // rather than an analogy with ui.move — the argument is at the consumer. What it operates on is
@@ -359,7 +366,9 @@ let live = null; // the mounted mover — the exported seam below drives THIS on
 // mechanism proven a wave early.
 export const getVerbs = () => live;
 
-export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
+// `docHook`, never `document`: the mount body uses the DOM global `document`, and a destructured
+// parameter of that name would shadow it on every page that passes no hook (#306 plan, D8).
+export function mountCanvasVerbs(canvas, { bus, ledger, docHook } = {}) {
   const viewport = canvas && canvas.viewport;
   try {
     // Validated at the boundary, throwing a plain Error naming what is missing — the project
@@ -370,6 +379,13 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
     }
     if (!bus || typeof bus.emit !== "function" || typeof bus.on !== "function") {
       throw new Error("studio-verbs: an action bus { emit, on } is required");
+    }
+    // BESIDE THE BUS CHECK and before any DOM access, so a half-built hook is refused by name rather
+    // than failing mid-gesture on a page that is otherwise working (#306, R1).
+    if (docHook !== undefined) {
+      for (const k of ["capture", "restore", "resized"]) {
+        if (typeof docHook?.[k] !== "function") throw new Error(`studio-verbs: docHook.${k} must be a function — a document hook is { capture, restore, resized }`);
+      }
     }
 
     const { stage, scroll } = canvas;
@@ -435,6 +451,8 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
           ? { x: box.x, y: box.y, w: box.w }
           : { x: box.x, y: box.y, w: box.w, h: box.h };
       }
+      // `$doc` can never collide with a data-stx-id, and without a hook the key is absent entirely.
+      if (docHook) out.$doc = docHook.capture();
       return out;
     };
 
@@ -566,6 +584,10 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
     // first re-lays out the grid, so the second's "before" is already stale. At #205 one entry moves
     // and either shape looks right; #217's multi-move inherits this one.
     const restore = (snap) => {
+      // THE DOCUMENT FIRST (#306): it re-creates or removes nodes, and the position loop below then
+      // finds the stage the snapshot describes. `said` is the hook's sentence, "" when nothing but
+      // positions changed.
+      const said = docHook && snap.$doc !== undefined ? docHook.restore(snap.$doc) : null;
       const moving = [];
       for (const node of slots()) {
         const want = snap[idOf(node)];
@@ -586,7 +608,7 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
       }
       for (const m of moving) applyBox(m.node, m.want);
       for (const m of moving) animateTo(m.node, m.before);
-      return moving;
+      return { moving, said };
     };
 
     // --- the verb controls ----------------------------------------------------------------------
@@ -767,6 +789,10 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
       // stated rather than discovered: an injected resize CAN grow a frame over a peer's cells. That
       // is the caller's business, and no gesture and no replay can produce it.
       const sized = setPos(node, at.x, at.y, want.w ?? at.w, want.h ?? at.h ?? NODE_H);
+      // A NAMED HOOK rather than a second bus consumer (#306, D8): the resize is ONE history entry
+      // holding the new width in both the arrangement and the document, with no dependency on the
+      // order consumers were registered in.
+      docHook?.resized(id, sized);
       history.push(snapshot());
       canvas.say(`${nameOf(node)} resized to ${Math.round(sized.w)} by ${Math.round(sized.h)}.`);
       syncControls();
@@ -871,9 +897,12 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
     // emits no ui.move at all), but an INJECTED agent move to the slot a node already occupies
     // pushes an entry identical to its predecessor, and undoing across it moves nothing.
     const restoreVerb = (snap, word, verb) => {
-      const moved = restore(snap);
+      const { moving: moved, said } = restore(snap);
       syncControls();
-      if (!moved.length) { canvas.say(`Nothing to ${verb}.`); return; }
+      if (!moved.length && !said) { canvas.say(`Nothing to ${verb}.`); return; }
+      // The document's sentence LEADS (#306): a removed frame coming back is the news; where the
+      // nodes landed follows it, when any moved.
+      if (said && !moved.length) { canvas.say(said); return; }
       // A RESTORED RESIZE IS NAMED AS A SIZE (#219). The node did not move, so "in column 3, row 2"
       // would be a true sentence about the wrong fact — the reader pressed Undo to get the size back
       // and needs to hear that it came back.
@@ -883,7 +912,8 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
           : `${nameOf(m.node)} at ${Math.round(m.want.x)}, ${Math.round(m.want.y)}`))
         .join("; ");
       const rest = moved.length - SPOKEN_MAX;
-      canvas.say(rest > 0 ? `${word}: ${named}, and ${rest} more.` : `${word}: ${named}.`);
+      const where = rest > 0 ? `${word}: ${named}, and ${rest} more.` : `${word}: ${named}.`;
+      canvas.say(said ? `${said} ${where}` : where);
     };
 
     const offUndo = bus.on("ui.undo", () => {
@@ -1560,6 +1590,13 @@ export function mountCanvasVerbs(canvas, { bus, ledger } = {}) {
       bus,
       history,
       snapshot,
+      // The canvas page's call after it applies an op (#306): teach every entry any new node, then
+      // push ONE entry holding the document and the arrangement together.
+      commit() {
+        history.adopt(snapshot());
+        history.push(snapshot());
+        syncControls();
+      },
       cancel, // the orchestrator's carry-across-swap guard (#251); a silent no-op with no live gesture
       get gesture() { return gesture; },
       destroy() {
