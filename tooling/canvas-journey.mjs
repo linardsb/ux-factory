@@ -421,6 +421,16 @@ async function leg(engine, base, results) {
         l.length === before + 1 && line?.op === "annotate" && line.params?.noteId === "n1" && line.params?.text?.endsWith(" (pointer)"), JSON.stringify(l.slice(before)));
     });
 
+    // BEFORE THE RELOAD, and that is the whole point: after one, the page's document IS the server's
+    // fold of disk, so comparing it with a Node fold of disk compares a thing with itself. Here the
+    // page's document is the one it built through its own applyOp and adapter.restore across ten
+    // gestures, and the ledger it sent must fold to exactly that.
+    await step("12a · the page's own document equals the ledger it wrote", async () => {
+      await page.waitForFunction(() => import("/canvas.mjs").then((m) => m.getCanvasPage().pending.length === 0), null, { timeout: 6000 }).catch(() => {});
+      const disk = foldLedger(ledger("fp-journey")).doc;
+      t("12a · before any reload, the document the page built equals foldLedger(ops.jsonl)", canon(disk) === canon(await pageDoc(page)));
+    });
+
     await step("11 · reload", async () => {
       await page.reload({ waitUntil: "load" });
       await page.waitForSelector('html[data-canvas-page="ready"]', { timeout: 20000 });
@@ -434,8 +444,9 @@ async function leg(engine, base, results) {
       const pkg = loadBuild(buildDir("fp-journey"));
       const fails = verifyBuild(pkg);
       t("12 · verifyBuild over the package on disk → []", fails.length === 0, fails.join(" | "));
-      const disk = foldLedger(pkg.ops).doc;
-      t("12 · the document folded from disk deep-equals the page's", canon(disk) === canon(await pageDoc(page)));
+      // After the reload this is the server's fold vs a Node fold of the same file — kept as a check
+      // that the route serves the fold, NOT as the page-equals-disk claim (that is 12a's).
+      t("12 · after reload, the route serves the ledger's fold", canon(foldLedger(pkg.ops).doc) === canon(await pageDoc(page)));
     });
 
     await step("13 · the origin guard and the 409", async () => {

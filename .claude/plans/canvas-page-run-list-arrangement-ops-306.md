@@ -1383,3 +1383,39 @@ Moved into § RISKS as R5, with its clamp, its forced-fallback leg and its redde
   stays green) with the D7 control moved onto the frozen prefix, the in-repo save notice, the journey's
   preflight / health / teardown hardening and forced-fallback leg, and a rewritten Task 7.4 with a
   measured regen rule and read-back. Before the plan was approved, so no executed work changes.
+- 2026-09-22 (implementation, base `eb58d54`) — plan errors found by running the plan, each fixed in
+  place in the code and logged here rather than corrected silently:
+  - **Line citations off by one.** `origin/main` moved from `34ffc82` to `eb58d54` (a merge with an
+    identical tree), and group 35/36 anchors sit one line lower (`VALID_FOR` `:11121`, the six-line pin
+    `:11406`). No behavioural difference.
+  - **36.6's REDDENS could not redden.** The store's import pin matched `import … from "x";` only, so the
+    plan's own mutation (a bare `import "@anthropic-ai/claude-agent-sdk";`) passed the pin. The regex now
+    matches bare imports; 35.9 (the canvas-ops pin) had the identical gap and got the identical fix.
+  - **Group 40 red between Phase 1 and Task 7.4.** The plan's per-phase VALIDATE expected "all 41 groups
+    pass", but group 40 runs the loc-summary drift check, which reads COMMITTED blobs — so every
+    committed `system/` edit reds it until Task 7.4 regenerates. Expected, not a regression.
+  - **R5's clamp mutation stayed green.** At 1000 px the rightmost frame's Details button lands mid-view
+    after scrollIntoView and a popover's width fits beside it either way. The forced-fallback leg now runs
+    at 760 px with the button pinned to the scroller's right edge; the mutation reddens.
+  - **The `tabindex` mutation (M9) stayed green.** Step 4 is keyboard-only, and a contenteditable takes
+    focus without a tabindex; the tabindex only matters to a POINTER press (the body-drag guard). Added
+    step 10b (click-then-type edit of n1); the mutation reddens it.
+  - **"Emit a bus action on load" (M3) is absorbed by design.** The save queue skips when nothing is
+    pending and positions equal the last save, so an emit on load sends nothing — correct behaviour. The
+    reddening mutation used is R2's own wording, "make the page save once on load".
+  - **M5 fails at step 6's boundary, not step 7.** The step wrapper checks the child after each step, so a
+    kill inside step 6 aborts the leg naming "portal exited (code null) during 6 · …" — the property the
+    plan wanted (named exit, not a timeout) holds one step earlier.
+  - **Step 12's page-vs-disk compare was vacuous as written.** After step 11's reload the page's document
+    IS the server's fold of disk, so comparing it with a Node fold of disk compares a thing with itself.
+    Added 12a BEFORE the reload (the page's own applyOp/adapter.restore document vs `foldLedger(ops)`),
+    proven by a mutation that sends a different frame.link list than the page applied (12a red; the
+    post-reload compare stays green, which is the proof it was vacuous).
+  - **"Add note" at the view centre landed on top of frames**, which made the note unclickable under a
+    re-created frame (found by step 10b). A new note now goes below everything placed, at the visible
+    left edge, and is scrolled into view.
+  - **`.stx-frame { position: relative }` (`system/studio.css:348`) overrides the node families'
+    `position: absolute` (`:104`), so frames FLOW.** Measured on `/factory` at `eb58d54`: frame s2's
+    authored `--y` is 312 and it renders at 608 (s1's height below). Not fixed in `studio.css` (that
+    moves `/factory` at rest, which R1 forbids); `portal.css` restores `absolute` scoped to
+    `.cv-stage .stx-frame`. Flagged for its own ticket.
