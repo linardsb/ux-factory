@@ -561,13 +561,17 @@ function registerConsumers() {
   });
 }
 
+// A NEW NOTE GOES WHERE NOTHING IS: at the left edge of the visible stage, below everything already
+// placed, then scrolled into view. The centre of the view was the first answer and it landed notes on
+// top of frames — a note under a frame cannot be clicked, and one over it hides the screen.
 function addNote() {
   const id = nextNoteId();
   drafts.add(id);
   const s = canvas.scale || 1;
-  const x = Math.round((canvas.scroll.scrollLeft + canvas.scroll.clientWidth / 2) / s - NOTE_W / 2);
-  const y = Math.round((canvas.scroll.scrollTop + canvas.scroll.clientHeight / 2) / s - 60);
-  const entry = placeNote({ id, text: "" }, { x: Math.max(0, x), y: Math.max(0, y), w: NOTE_W });
+  const x = Math.round(canvas.scroll.scrollLeft / s + 24);
+  const bottom = Math.max(0, ...[...onStage.values()].map((e) => { const b = readBox(e.wrap); return b.y + (b.h ?? e.wrap.offsetHeight); }));
+  const entry = placeNote({ id, text: "" }, { x: Math.max(0, x), y: Math.round(bottom + 32), w: NOTE_W });
+  entry.wrap.scrollIntoView({ block: "nearest", inline: "nearest" });
   entry.editor.focus();
   canvas.say("New note — type, then Tab away to save.");
 }

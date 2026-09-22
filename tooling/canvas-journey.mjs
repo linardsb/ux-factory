@@ -308,7 +308,10 @@ async function leg(engine, base, results) {
       t(`5b · the open inspector lies inside the viewport (branch: ${r.pos})`, inView(r), JSON.stringify(r));
       await page.keyboard.press("Escape");
       if (engine === "chromium") {
-        const ctx2 = await browser.newContext({ viewport: { width: 1000, height: 800 } });
+        // NARROW ON PURPOSE: at 760 px the layout is one column and the rightmost frame's Details
+        // button sits within a popover's width of the right edge, so an unclamped fallback overflows.
+        // At 1000 px it did not, and removing the clamp stayed green — found by running the mutation.
+        const ctx2 = await browser.newContext({ viewport: { width: 760, height: 700 } });
         const p2 = await ctx2.newPage();
         watch(p2);
         await p2.addInitScript(() => {
@@ -318,6 +321,15 @@ async function leg(engine, base, results) {
         await openCanvas(p2, base, "real", "fp-journey");
         const rightmost = await p2.evaluate(() => [...document.querySelectorAll(".stx-frame")]
           .sort((a, b) => parseFloat(b.style.getPropertyValue("--x")) - parseFloat(a.style.getPropertyValue("--x")))[0]?.dataset.stxId);
+        // Scroll the canvas so the button's right edge sits at the scroller's right edge: the case an
+        // unclamped fallback gets wrong. Left to scrollIntoView, the button lands mid-view and a
+        // popover's width fits beside it either way — the clamp mutation stayed green until this.
+        await p2.evaluate((id) => {
+          const sc = document.querySelector(".stx-scroll");
+          const b = document.querySelector(`[data-cv-details="${id}"]`).getBoundingClientRect();
+          sc.scrollLeft += b.right - (sc.getBoundingClientRect().right - 6);
+        }, rightmost);
+        await settleScroll(p2);
         await openDetails(p2, rightmost);
         const r2 = await popRect(p2);
         t(`5b · FORCED fallback (chromium, CSS.supports stubbed): data-cv-pos="fallback" and inside the viewport on the rightmost frame (${rightmost})`,
@@ -389,6 +401,24 @@ async function leg(engine, base, results) {
       t("10 · ONE undo restores 390 and appends exactly one undone line",
         (await wOf(page, "f1")) === 390 && l2.length === before + 2 && l2[before + 1]?.status === "undone" && l2[before + 1]?.op === "frame.size",
         `w=${await wOf(page, "f1")} ${JSON.stringify(l2.slice(before))}`);
+    });
+
+    await step("10b · a note edited by POINTER", async () => {
+      // The editor's tabindex is what keeps a press in it from starting a canvas move (studio-verbs'
+      // body-drag guard matches [tabindex] and not [contenteditable]). Step 4 is keyboard-only and
+      // cannot see that — removing the tabindex stayed green there — so this step clicks.
+      const ed = page.locator('[data-stx-id="n1"] .cv-note-editor');
+      await ed.scrollIntoViewIfNeeded();
+      await settleScroll(page);
+      const before = ledger("fp-journey").length;
+      await ed.click();
+      await page.keyboard.press("End");
+      await page.keyboard.type(" (pointer)");
+      await page.keyboard.press("Tab");
+      const l = await waitLines("fp-journey", before + 1);
+      const line = l[before];
+      t("10b · a click-then-type edit lands as ONE annotate {noteId n1} line",
+        l.length === before + 1 && line?.op === "annotate" && line.params?.noteId === "n1" && line.params?.text?.endsWith(" (pointer)"), JSON.stringify(l.slice(before)));
     });
 
     await step("11 · reload", async () => {
