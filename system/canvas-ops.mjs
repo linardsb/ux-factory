@@ -21,13 +21,12 @@
 //
 // IT LIVES IN system/ AND THEREFORE COSTS LOC, which is a decision rather than an oversight.
 // discovery/ops.mjs sits OUTSIDE system/ precisely because agent-layer/gen-loc-summary.mjs counts
-// system/*.mjs as the design system and approach.html renders the number. This file is in because
-// #306 WILL LOAD IT ON A SHIPPED PAGE — the canvas replaying a committed build the way the replay
-// driver replays a committed run — which is board-ops.mjs's side of the same argument. Stated in
-// the future tense on purpose (PR #432's F12): as of #302 the only importers are
-// tooling/build-checks.mjs and comments, so the lines it adds to the group approach.html labels
-// "view-time modules" are not yet view-time. Whether a module with no runtime consumer should count
-// against that rendered total before #306 lands is the owner's call, and it is open.
+// system/*.mjs as the design system and approach.html renders the number. This file is in because a
+// browser page loads it — board-ops.mjs's side of the same argument. As of #306 its first runtime
+// consumer is portal/public/canvas.mjs, the build canvas: an OPERATOR page on the local portal, not a
+// shipped one. So the lines it adds to the group approach.html labels "view-time modules" are loaded
+// at view time, but not by a reader of the public site; whether that should count against the
+// rendered total is the owner's call, and it is still open.
 //
 // THE CONVENTIONS ARE discovery/ops.mjs's, COPIED RATHER THAN RE-ARGUED: a frozen OPS list, a PARAMS
 // map whose entry per verb is EXACT rather than minimal, a private checkOp that validates the
@@ -44,7 +43,8 @@
 //
 // AN OP NEVER CARRIES THE ID OF WHAT IT CREATES. board-ops.mjs's rule, verbatim in behaviour: ids are
 // minted from the document's current state as the lowest free <prefix><n>, and there is no id slot in
-// any PARAMS entry to smuggle one through. Frames get f1, arrows a1.
+// any PARAMS entry to smuggle one through. Frames get f1, arrows a1, notes n1 — annotate's noteId
+// names a note to EDIT and must resolve, so it is not a slot either.
 
 import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
