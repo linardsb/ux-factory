@@ -46,13 +46,13 @@
 // minted from the document's current state as the lowest free <prefix><n>, and there is no id slot in
 // any PARAMS entry to smuggle one through. Frames get f1, arrows a1.
 
-import { DEVICE_PRESETS, presetWidth } from "./device-presets.mjs";
+import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
-// The six #302 lands. The architecture projects fourteen; the other eight (frame.remove, frame.link,
-// annotate, group.define, group.place, variant.add, component.propose, proposal.ratify) are later
-// tickets, and THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not add ops here concurrently,
-// because a verb is four edits in three files and a merge that takes both halves of two of them
-// leaves a verb with no PARAMS entry or a PARAMS entry with no case.
+// The six #302 landed and the four #306 lands (frame.remove, frame.link, annotate, variant.add). The
+// architecture projects fourteen; the remaining four (group.define, group.place, component.propose,
+// proposal.ratify) are #315's and #313's, and THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not
+// add ops here concurrently, because a verb is four edits in three files and a merge that takes both
+// halves of two of them leaves a verb with no PARAMS entry or a PARAMS entry with no case.
 export const OPS = Object.freeze([
   "screen.compose",
   "screen.set",
@@ -60,6 +60,10 @@ export const OPS = Object.freeze([
   "frame.size",
   "connect",
   "disconnect",
+  "frame.remove",
+  "frame.link",
+  "annotate",
+  "variant.add",
 ]);
 
 // EXACT, NOT MINIMAL — an unknown key throws rather than being ignored. discovery/ops.mjs's rule and
@@ -69,17 +73,30 @@ export const PARAMS = Object.freeze({
   "screen.compose": Object.freeze(["screenId", "why", "composition", "decisionRefs"]),
   "screen.set": Object.freeze(["frameId", "partId", "prop", "value"]),
   "state.add": Object.freeze(["baseId", "stateKey", "override"]),
-  "frame.size": Object.freeze(["frameId", "preset"]),
+  "frame.size": Object.freeze(["frameId", "preset", "width"]),
   connect: Object.freeze(["from", "to", "trigger"]),
   disconnect: Object.freeze(["arrowId"]),
+  "frame.remove": Object.freeze(["frameId"]),
+  "frame.link": Object.freeze(["frameId", "decisionRefs"]),
+  annotate: Object.freeze(["noteId", "text"]),
+  "variant.add": Object.freeze(["key", "overrides"]),
 });
 
 // The params a verb may omit. Everything else in its PARAMS entry is required, which is the half of
-// "exact" that catches a caller who knows the key and forgot the value.
+// "exact" that catches a caller who knows the key and forgot the value. frame.size's two are
+// optional HERE because the rule is "exactly one of them", which the case enforces by name.
 const OPTIONAL = Object.freeze({
   "screen.compose": Object.freeze(["decisionRefs"]),
+  "frame.size": Object.freeze(["preset", "width"]),
   connect: Object.freeze(["trigger"]),
+  annotate: Object.freeze(["noteId"]),
 });
+
+// A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
+// is refused rather than normalised — a key the author did not type is a lane they cannot find.
+const VARIANT_KEY_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
+
+const plainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
 // THE REQUIRED MINIMUM, not the whole enum. A screen that only exists in its happy state is a screen
 // nobody has designed the failure of, and these five are the states the architecture names as the
@@ -178,6 +195,9 @@ export function applyOp(doc, op) {
   // mutating the return; neither reaches an alias that runs the other way.
   const p = clone(checkOp(op));
   const next = clone(doc);
+  // emptyDoc() carries both; a document hand-built in a test, or saved before #306, may not.
+  next.notes ??= [];
+  next.variants ??= [];
   const frameIds = () => new Set(next.frames.map((f) => f.id));
   // Named by the verb that asked, so a dangling reference says which op could not resolve it rather
   // than which lookup failed. discovery/ops.mjs's resolveAnswer shape.
@@ -254,6 +274,21 @@ export function applyOp(doc, op) {
     }
     case "frame.size": {
       const f = frame(p.frameId, "frameId");
+      // EXACTLY ONE OF preset / width (#306). A preset names a device; a width is a frame dragged or
+      // typed to a size no device names. Both at once would be two claims about one fact.
+      if ((p.preset === undefined) === (p.width === undefined)) {
+        throw new Error(`frame.size: give "preset" or "width", exactly one — this op carried ${p.preset === undefined ? "neither" : "both"}`);
+      }
+      if (p.width !== undefined) {
+        if (!Number.isInteger(p.width) || p.width < WIDTH_MIN || p.width > WIDTH_MAX) {
+          throw new Error(`frame.size: width ${JSON.stringify(p.width)} is not a whole number of px in ${WIDTH_MIN}–${WIDTH_MAX} — a free width is refused by name, never clamped`);
+        }
+        // preset: null IS the recorded fact "custom, chosen by dragging or typing", not a missing
+        // value — the frame no longer claims to be any device.
+        f.preset = null;
+        f.width = p.width;
+        break;
+      }
       const w = presetWidth(p.preset);
       if (w === null) {
         throw new Error(`frame.size: "${p.preset}" is not a device preset — the table is ${Object.keys(DEVICE_PRESETS).join(", ")}`);
@@ -295,7 +330,79 @@ export function applyOp(doc, op) {
       next.arrows.splice(i, 1);
       break;
     }
-    // Unreachable: checkOp refused every verb outside OPS. Kept because the day a seventh verb is
+    case "frame.remove": {
+      const f = frame(p.frameId, "frameId");
+      // A WHOLE FRAME, NOT A PART — which is why this is not canDeleteBasePart. A state is its base
+      // plus its differences, and a variant lane overrides frames by id; removing the frame under
+      // either would leave it overriding nothing. The refusal names every blocker.
+      const states = next.frames.filter((x) => x.baseId === f.id);
+      const lanes = next.variants.filter((v) => v && Object.hasOwn(v.overrides ?? {}, f.id));
+      if (states.length || lanes.length) {
+        const blockers = [...states.map((s) => `${s.stateKey} (${s.id})`), ...lanes.map((v) => `variant ${v.key}`)];
+        throw new Error(`frame.remove: "${f.id}" is still overridden — ${blockers.join(", ")} — remove those first, because each is this frame plus its differences and would be left overriding nothing`);
+      }
+      next.frames.splice(next.frames.indexOf(f), 1);
+      // The arrows touching it go with it (Q7): an arrow to nothing is not a flow.
+      next.arrows = next.arrows.filter((a) => a?.from?.frameId !== f.id && a?.to?.frameId !== f.id);
+      break;
+    }
+    case "frame.link": {
+      const f = frame(p.frameId, "frameId");
+      // REPLACES THE LIST, so one verb is link, unlink and #318's re-confirm. The applier cannot see
+      // the transcript, so whether a ref names a real decision is the save route's check (D4).
+      if (!Array.isArray(p.decisionRefs)) {
+        throw new Error(`frame.link: "decisionRefs" must be an array of decision ids — this op carried ${JSON.stringify(p.decisionRefs)}`);
+      }
+      const bad = p.decisionRefs.find((r) => typeof r !== "string" || !r.trim());
+      if (bad !== undefined) {
+        throw new Error(`frame.link: every decision ref is a non-empty string — this op carried ${JSON.stringify(bad)}`);
+      }
+      const dup = p.decisionRefs.find((r, i) => p.decisionRefs.indexOf(r) !== i);
+      if (dup !== undefined) {
+        throw new Error(`frame.link: decision "${dup}" is listed twice — a frame embodies a decision once`);
+      }
+      f.decisionRefs = [...p.decisionRefs];
+      break;
+    }
+    case "annotate": {
+      if (typeof p.text !== "string" || !p.text.trim()) {
+        throw new Error(`annotate: "text" must say something — a note left blank records nothing (T8)`);
+      }
+      if (p.noteId !== undefined) {
+        // noteId is an EDIT target and must resolve — otherwise it is the slot a caller would use to
+        // mint an id of its own choosing.
+        const n = next.notes.find((x) => x && x.id === p.noteId);
+        if (!n) {
+          throw new Error(`annotate: noteId "${p.noteId}" does not resolve — this document holds ${next.notes.map((x) => x.id).join(", ") || "no notes"}; an op names a note to EDIT, never the id of one it creates`);
+        }
+        n.text = p.text;
+        break;
+      }
+      next.notes.push({ id: nextId("n", new Set(next.notes.map((n) => n.id))), text: p.text });
+      break;
+    }
+    case "variant.add": {
+      if (typeof p.key !== "string" || !VARIANT_KEY_RE.test(p.key)) {
+        throw new Error(`variant.add: key ${JSON.stringify(p.key)} is not a lane key — lowercase letters, digits and hyphens, 1–24, starting with a letter or digit`);
+      }
+      if (next.variants.some((v) => v && v.key === p.key)) {
+        throw new Error(`variant.add: variant "${p.key}" already exists — one lane per key`);
+      }
+      if (!plainObject(p.overrides)) {
+        throw new Error(`variant.add: "overrides" must be an object keyed by frame id — this op carried ${Array.isArray(p.overrides) ? "an array" : JSON.stringify(p.overrides)}`);
+      }
+      for (const [fid, ov] of Object.entries(p.overrides)) {
+        frame(fid, "overrides key");
+        if (!plainObject(ov)) {
+          throw new Error(`variant.add: the override for "${fid}" must be an object — this op carried ${JSON.stringify(ov)}`);
+        }
+      }
+      // Stored as an override map keyed by frame id (G33). The lane UI and the per-variant
+      // completeness check are #314's.
+      next.variants.push({ key: p.key, overrides: p.overrides });
+      break;
+    }
+    // Unreachable: checkOp refused every verb outside OPS. Kept because the day an eleventh verb is
     // added to OPS and not to the switch, this is the line that says so.
     default: throw new Error(`"${op.op}" is in OPS but has no case in the applier`);
   }
@@ -382,4 +489,82 @@ export function canDeleteBasePart(doc, baseId, partId) {
     throw new Error(`cannot delete part "${partId}" from "${baseId}": ${blockers.map((b) => `${b.stateKey} (${b.id})`).join(", ")} still override it — drop the override first`);
   }
   return true;
+}
+
+// frameTree(doc, frameId) → { tree, flags } — the renderable composition for one frame (#306).
+//
+// A base frame is its composition with its own sets applied; a state is the SAME, then the state's
+// override, then the state's own later sets — the base-then-state layering group 35 gates on
+// resolve(). ONE MERGE RULE, reused rather than re-written: the tree is flattened to {id: props},
+// folded through resolve() once per layer, and written back by id. Nodes without an id cannot be
+// addressed by any layer and pass through untouched.
+//
+// A HIDDEN NODE IS DROPPED, NEVER WRITTEN BACK WITH `hidden`: agentic-renderer.mjs's
+// validateComposition enum-checks every prop key, and `hidden` is in no component's vocabulary, so
+// a tree carrying it would be refused whole. A hidden ROOT is flagged and kept — dropping it would
+// leave nothing to render and nothing to say why. `overrides.add` (G19's dialogs, later) is flagged
+// and ignored. Total over junk: an unknown frame answers tree: null with a flag, never a throw.
+export function frameTree(doc, frameId) {
+  const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => f && typeof f === "object") : [];
+  const f = frames.find((x) => x.id === frameId);
+  if (!f) return { tree: null, flags: [{ kind: "unknown-frame", frameId }] };
+  const state = f.baseId != null ? f : null;
+  const base = state ? frames.find((x) => x.id === state.baseId) : f;
+  if (!base) return { tree: null, flags: [{ kind: "unknown-frame", frameId: state.baseId }] };
+  if (!plainObject(base.composition)) return { tree: null, flags: [{ kind: "no-composition", frameId: base.id }] };
+
+  const tree = structuredClone(base.composition);
+  const parts = {};
+  const walk = (node, fn, parent = null) => {
+    if (!plainObject(node)) return;
+    fn(node, parent);
+    for (const c of Array.isArray(node.children) ? [...node.children] : []) walk(c, fn, node);
+  };
+  walk(tree, (n) => { if (typeof n.id === "string" && !Object.hasOwn(parts, n.id)) parts[n.id] = plainObject(n.props) ? n.props : {}; });
+
+  const flags = [];
+  let acc = { parts };
+  const layers = [{ set: base.sets }, state?.overrides, state ? { set: state.sets } : null];
+  for (const layer of layers) {
+    if (!plainObject(layer)) continue;
+    if (layer.add !== undefined) flags.push({ kind: "unsupported-add", frameId: f.id });
+    const r = resolve(acc, layer);
+    acc = r.resolved;
+    flags.push(...r.flags);
+  }
+
+  walk(tree, (n, parent) => {
+    if (typeof n.id !== "string" || !Object.hasOwn(acc.parts, n.id)) return;
+    const { hidden, ...props } = acc.parts[n.id];
+    if (hidden === true && parent) {
+      parent.children = parent.children.filter((c) => c !== n);
+      return;
+    }
+    if (hidden === true) flags.push({ kind: "hide-root", partId: n.id });
+    if (Object.keys(props).length || n.props !== undefined) n.props = props;
+  });
+  return { tree, flags };
+}
+
+// placeDecision(anchor, taken, size?, gap?) → { x, y } — where a newly shown decision card sits by
+// default (#306).
+//
+// IN THE ANCHOR'S ROW, RIGHT OF EVERYTHING ALREADY IN IT. A box is in the row when its vertical band
+// [y, y + h) meets the anchor's (a box with no authored h counts as size.h tall); the card's x is the
+// row's rightmost edge plus the gap, its y the anchor's. A second card for the same row therefore
+// lands right of the first. Not "right of the anchor": on the committed spine that is x 422, on top
+// of f2 at x 472.
+//
+// ONE RULE FOR BOTH SIDES. `taken` is AUTHORED boxes (canvas.json's, or this session's placements),
+// never measured ones, so the page placing a card on load and Node regenerating a committed
+// canvas.json compute the same answer — no position in a committed file is hand-chosen. Total: junk
+// boxes are skipped; a junk anchor answers the origin.
+export function placeDecision(anchor, taken, size = { w: 280, h: 160 }, gap = 32) {
+  const fin = Number.isFinite;
+  const box = (b) => (b && fin(b.x) && fin(b.y) && fin(b.w) ? { x: b.x, y: b.y, w: b.w, h: fin(b.h) ? b.h : size.h } : null);
+  const a = box(anchor);
+  if (!a) return { x: 0, y: 0 };
+  const row = [a, ...(Array.isArray(taken) ? taken.map(box).filter(Boolean) : [])]
+    .filter((b) => b.y < a.y + a.h && a.y < b.y + b.h);
+  return { x: Math.max(...row.map((b) => b.x + b.w)) + gap, y: a.y };
 }

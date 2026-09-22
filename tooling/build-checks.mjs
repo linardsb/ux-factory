@@ -11090,9 +11090,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 // `.trim()` is a human read.
 
 {
-  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, missingStates, resolve } =
+  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, frameTree, missingStates, placeDecision, resolve } =
     await import("../system/canvas-ops.mjs");
-  const { DEVICE_PRESETS, PRESET_NAMES, presetWidth } = await import("../system/device-presets.mjs");
+  const { DEVICE_PRESETS, PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } = await import("../system/device-presets.mjs");
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
     ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
     : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
@@ -11100,10 +11100,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
 
   // --- 35.1 the roster, BOTH directions, frozen BY MUTATION -------------------------------------
-  ok(COPS.length === 6 && Object.keys(CPARAMS).length === COPS.length
+  ok(COPS.length === 10 && Object.keys(CPARAMS).length === COPS.length
     && COPS.every((v) => Array.isArray(CPARAMS[v]))
     && Object.keys(CPARAMS).every((v) => COPS.includes(v)),
-    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same six verbs`);
+    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same ten verbs — #302's six and #306's four`);
   for (const [label, arr] of [["OPS", COPS], ...COPS.map((v) => [`PARAMS.${v}`, CPARAMS[v]])]) {
     const n = arr.length;
     ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n,
@@ -11125,6 +11125,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     "frame.size": { frameId: "f1", preset: "tablet" },
     connect: { from: { frameId: "f1" }, to: { frameId: "f2" }, trigger: "submit" },
     disconnect: { arrowId: "a1" },
+    "frame.remove": { frameId: "f2" },
+    "frame.link": { frameId: "f1", decisionRefs: ["7"] },
+    annotate: { text: "check the copy with legal" },
+    "variant.add": { key: "b", overrides: { f1: { set: {} } } },
   };
   for (const verb of COPS) {
     ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or this group iterates OPS in name only`);
@@ -11194,6 +11198,64 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
   ok(deep(aliasOp.params) === before5,
     `editing the RETURNED document changed the op record: ${deep(aliasOp.params)}`);
+
+  // --- 35.3b #306's four verbs and frame.size's width form, folded through the same fold() --------
+  // compose f1, a state f2 on it, an arrow between them, then a note created and edited IN PLACE, a
+  // relink that REPLACES the list, a free width, a lane — and last, frame.remove of the state on a
+  // document WITHOUT the lane, which must take the arrow with it.
+  {
+    const base306 = [
+      { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], decisionRefs: ["7", "8"] } },
+      { op: "state.add", params: VALID_FOR["state.add"] },
+      { op: "connect", params: VALID_FOR.connect },
+      { op: "annotate", params: VALID_FOR.annotate },
+    ];
+    const noted = fold(base306) ?? emptyDoc();
+    ok(noted.notes?.length === 1 && noted.notes[0].id === "n1" && noted.notes[0].text === VALID_FOR.annotate.text,
+      `annotate minted ${deep(noted.notes)}; a note's id is the lowest free n<k> and no op carried it`);
+    const edited = fold([{ op: "annotate", params: { noteId: "n1", text: "legal signed it off" } }], noted) ?? emptyDoc();
+    ok(edited.notes?.length === 1 && edited.notes[0].text === "legal signed it off",
+      `annotate with a noteId must EDIT in place — got ${deep(edited.notes)}`);
+    const linked = fold([{ op: "frame.link", params: { frameId: "f1", decisionRefs: ["10"] } }], noted) ?? emptyDoc();
+    ok(deep(linked.frames[0]?.decisionRefs) === deep(["10"]),
+      `frame.link must REPLACE the list (["7","8"] → ["10"]) — got ${deep(linked.frames[0]?.decisionRefs)}`);
+    const wide = fold([{ op: "frame.size", params: { frameId: "f1", width: 600 } }], noted) ?? emptyDoc();
+    ok(wide.frames[0]?.preset === null && wide.frames[0]?.width === 600,
+      `frame.size {width: 600} recorded ${wide.frames[0]?.preset}/${wide.frames[0]?.width} — a free width is preset null, width 600`);
+    const laned = fold([{ op: "variant.add", params: VALID_FOR["variant.add"] }], noted) ?? emptyDoc();
+    ok(laned.variants?.length === 1 && laned.variants[0].key === "b", `variant.add left ${deep(laned.variants)}`);
+    const removed = fold([{ op: "frame.remove", params: { frameId: "f2" } }], noted) ?? emptyDoc();
+    ok(removed.frames.length === 1 && removed.frames[0].id === "f1" && removed.arrows.length === 0,
+      `frame.remove f2 left frames ${deep(removed.frames.map((f) => f.id))} and arrows ${deep(removed.arrows.map((a) => a.id))} — the frame AND its arrow go (Q7)`);
+
+    // The refusals for the four, each matched on what it must NAME.
+    const withLane = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] },
+      { op: "variant.add", params: VALID_FOR["variant.add"] }]) ?? emptyDoc();
+    for (const [label, fn, ...must] of [
+      ["frame.remove of a base a state overrides", () => applyOp(noted, { op: "frame.remove", params: { frameId: "f1" } }), "frame.remove", "f1", "error (f2)", "remove those first"],
+      ["frame.remove of a frame a variant overrides", () => applyOp(withLane, { op: "frame.remove", params: { frameId: "f1" } }), "frame.remove", "variant b"],
+      ["frame.remove of a frame that is not there", () => applyOp(noted, { op: "frame.remove", params: { frameId: "f9" } }), "frame.remove", "f9", "does not resolve"],
+      ["frame.link with a string", () => applyOp(noted, { op: "frame.link", params: { frameId: "f1", decisionRefs: "7" } }), "frame.link", "array"],
+      ["frame.link with an empty ref", () => applyOp(noted, { op: "frame.link", params: { frameId: "f1", decisionRefs: [""] } }), "frame.link", "non-empty string"],
+      ["frame.link with a duplicate", () => applyOp(noted, { op: "frame.link", params: { frameId: "f1", decisionRefs: ["7", "7"] } }), "frame.link", "\"7\"", "twice"],
+      ["annotate with blank text", () => applyOp(noted, { op: "annotate", params: { text: "   " } }), "annotate", "text", "blank"],
+      ["annotate with a noteId that does not resolve", () => applyOp(noted, { op: "annotate", params: { noteId: "n9", text: "x" } }), "annotate", "n9", "does not resolve"],
+      ["annotate with non-string text", () => applyOp(noted, { op: "annotate", params: { text: 7 } }), "annotate", "text"],
+      ["variant.add with a bad key", () => applyOp(noted, { op: "variant.add", params: { key: "B!", overrides: {} } }), "variant.add", "B!", "lane key"],
+      ["variant.add with a duplicate key", () => applyOp(withLane, { op: "variant.add", params: VALID_FOR["variant.add"] }), "variant.add", "\"b\"", "already exists"],
+      ["variant.add overriding a frame that is not there", () => applyOp(noted, { op: "variant.add", params: { key: "c", overrides: { f9: {} } } }), "variant.add", "overrides key", "f9"],
+      ["variant.add with array overrides", () => applyOp(noted, { op: "variant.add", params: { key: "c", overrides: [] } }), "variant.add", "an array"],
+      ["variant.add with a non-object override", () => applyOp(noted, { op: "variant.add", params: { key: "c", overrides: { f1: 3 } } }), "variant.add", "f1", "must be an object"],
+      ["frame.size with both preset and width", () => applyOp(noted, { op: "frame.size", params: { frameId: "f1", preset: "phone", width: 600 } }), "frame.size", "exactly one", "both"],
+      ["frame.size with neither", () => applyOp(noted, { op: "frame.size", params: { frameId: "f1" } }), "frame.size", "exactly one", "neither"],
+      [`frame.size below ${WIDTH_MIN}`, () => applyOp(noted, { op: "frame.size", params: { frameId: "f1", width: WIDTH_MIN - 1 } }), "frame.size", String(WIDTH_MIN - 1), "never clamped"],
+      [`frame.size above ${WIDTH_MAX}`, () => applyOp(noted, { op: "frame.size", params: { frameId: "f1", width: WIDTH_MAX + 1 } }), "frame.size", String(WIDTH_MAX + 1)],
+      ["frame.size with a fractional width", () => applyOp(noted, { op: "frame.size", params: { frameId: "f1", width: 390.5 } }), "frame.size", "390.5", "whole number"],
+    ]) {
+      ok(names(fn, ...must) === null, `${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
+    }
+    ok(WIDTH_MIN === 320 && WIDTH_MAX === 2560, `the free-width bounds are ${WIDTH_MIN}–${WIDTH_MAX}; the page's numeric input reads the same pair`);
+  }
 
   // --- 35.4 the refusals, each DRIVEN by a broken op and matched on what it must NAME ------------
   const one = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc();
@@ -11363,7 +11425,55 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(!/\bzod\b/.test(opsSrc),
     "system/canvas-ops.mjs reaches for zod — it is a hand-written boundary validator, and the one sanctioned zod use is the SDK's tool-schema adapter");
 
-  group("canvas ops", `non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a SEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas (studio-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  // --- 35.10 frameTree: the renderable composition, layers resolved, hidden nodes DROPPED ---------
+  {
+    const comp = { name: "stack", id: "screen", props: { direction: "column", gap: "md" }, children: [
+      { name: "text", id: "title", props: { role: "heading", content: "Pay" } },
+      { name: "text-field", id: "account", props: { label: "Account number" } },
+      { name: "primary-button", id: "go", props: { label: "Continue" } },
+    ] };
+    const ftDoc = fold([
+      { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], composition: comp } },
+      { op: "screen.set", params: { frameId: "f1", partId: "account", prop: "hint", value: "base hint" } },
+      { op: "state.add", params: { baseId: "f1", stateKey: "error", override: { set: { go: { label: "Try again" }, ghost: { label: "x" } }, hide: ["title"] } } },
+      { op: "screen.set", params: { frameId: "f2", partId: "go", prop: "label", value: "Send anyway" } },
+    ]) ?? emptyDoc();
+    const t1 = frameTree(ftDoc, "f1");
+    const t2 = frameTree(ftDoc, "f2");
+    const find = (tree, id) => (tree?.id === id ? tree : (tree?.children ?? []).map((c) => find(c, id)).find(Boolean));
+    const anyHidden = (tree) => !!tree && (Object.hasOwn(tree.props ?? {}, "hidden") || (tree.children ?? []).some(anyHidden));
+    ok(find(t1.tree, "account")?.props?.hint === "base hint", `frameTree(f1) did not apply the base's own set: ${deep(find(t1.tree, "account"))}`);
+    ok(find(t2.tree, "account")?.props?.hint === "base hint", "a state did not inherit its base's set — the layers are base-then-state");
+    ok(find(t2.tree, "go")?.props?.label === "Send anyway", `the state's own later set did not land on top of its override: ${deep(find(t2.tree, "go"))}`);
+    ok(!find(t2.tree, "title") && !!find(t1.tree, "title"), "a hidden node must be DROPPED from the state's tree and kept in the base's");
+    ok(!anyHidden(t1.tree) && !anyHidden(t2.tree), "a `hidden` prop reached a returned tree — validateComposition enum-checks prop keys and would refuse it");
+    ok(t2.flags.some((fl) => fl.kind === "dangling-set" && fl.partId === "ghost"), `a dangling set was not flagged: ${deep(t2.flags)}`);
+    for (const [label, tree] of [["f1", t1.tree], ["f2", t2.tree]]) {
+      ok(threw(() => validateComposition(VOCAB, tree)) === null, `frameTree(${label}) does not pass the real validateComposition: ${threw(() => validateComposition(VOCAB, tree))}`);
+    }
+    const hideRoot = frameTree({ frames: [{ id: "f1", composition: comp, sets: {} }, { id: "f2", baseId: "f1", overrides: { hide: ["screen"] } }] }, "f2");
+    ok(hideRoot.tree?.id === "screen" && hideRoot.flags.some((fl) => fl.kind === "hide-root"), `a hidden ROOT must be flagged and kept: ${deep(hideRoot)}`);
+    ok(frameTree(ftDoc, "f9").tree === null && frameTree(ftDoc, "f9").flags[0]?.kind === "unknown-frame", "an unknown frame must answer tree: null with a flag");
+    for (const junk of [null, undefined, 42, { frames: "no" }, { frames: [null, { id: "f1" }] }]) {
+      ok(threw(() => frameTree(junk, "f1")) === null, `frameTree(${JSON.stringify(junk)}) threw — a read is total over junk`);
+    }
+  }
+
+  // --- 35.11 placeDecision: right of the anchor's whole ROW, over authored boxes -----------------
+  {
+    const f1 = { x: 0, y: 0, w: 390 };
+    const f2 = { x: 472, y: 0, w: 390 };
+    const first = placeDecision(f1, [f1, f2]);
+    ok(first.x === 894 && first.y === 0, `the first card for the spine landed at ${deep(first)}; right of the row is 862 + 32 = 894 (right of the anchor alone is 422, on top of f2)`);
+    const second = placeDecision(f1, [f1, f2, { ...first, w: 280 }]);
+    ok(second.x === 1206 && second.y === 0, `the second card landed at ${deep(second)}; right of the first is 894 + 280 + 32 = 1206`);
+    ok(placeDecision(f1, [f1, f2, { x: 5000, y: 900, w: 390 }]).x === 894, "a box in a LOWER row moved the card — only the anchor's row counts");
+    ok(threw(() => placeDecision(f1, [null, 7, { x: "a" }, f2])) === null && placeDecision(f1, [null, 7, { x: "a" }, f2]).x === 894,
+      "junk in `taken` threw or moved the card — the read is total over junk");
+    ok(deep(placeDecision(null, [])) === deep({ x: 0, y: 0 }), "a junk anchor must answer the origin, never throw");
+  }
+
+  group("canvas ops", `#306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so an ELEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------
