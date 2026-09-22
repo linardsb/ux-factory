@@ -355,6 +355,66 @@ async function journey(engineName, results, held) {
   }
   await swapPack("/system/tokens.neutral.css"); // leave the page as it was found
 
+  // ---------------------------------------------- [12] a list's dividers are the CONTAINER's (#303)
+  //
+  // The one claim in #303 nothing else in the repo can observe. build-checks group 3 reads the
+  // STYLESHEET and proves the two rules are written; it cannot prove they WIN — specificity, file
+  // order, a later rule and a pack override are all invisible to a regex over source text. And the
+  // pixel gate never reaches this branch at all: the playground renders {name, props} with NO
+  // children (system/catalog.mjs), so every committed screenshot of `list` shows the EMPTY case
+  // forever. So drive a real three-row list into the real page and read the COMPUTED styles back.
+  //
+  // The loose row is the whole case. Without it, deleting list-row's border globally makes every
+  // other assertion here green — it must render in the SAME document under the SAME pack, or it
+  // proves nothing about specificity. It runs LAST because replaceChildren destroys #list's own
+  // specimen, and a case reading it afterwards would see these rows instead.
+  console.log("\n[12] a list's dividers are the container's, in computed style (#303 AC #1)");
+  const dividers = await page.evaluate(async () => {
+    const stage = document.querySelector("#list .cat-stage");
+    // A null stage would throw out of page.evaluate and abort this engine's whole leg, which reads
+    // as "stopped here" rather than as coverage. Report it as data instead.
+    if (!stage) return { error: "#list .cat-stage is not on the page" };
+    const { renderComposition } = await import("/system/agentic-renderer.mjs");
+    const vocab = await fetch("/handoff/verdant/vocabulary.json").then((r) => r.json());
+    const rowsNode = renderComposition(vocab, {
+      name: "list", props: { header: "Short this week", empty: "SHOULD NOT RENDER" },
+      children: [1, 2, 3].map((n) => ({ name: "list-row", props: { label: `Row ${n}`, value: String(n) } })),
+    }, null);
+    stage.replaceChildren(rowsNode);
+    const inList = [...stage.querySelectorAll(".ds-list-row")];
+    if (inList.length < 3) return { error: `only ${inList.length} rows reached the stage` };
+    // THE CONTROL, in the same document and the same pack: a row OUTSIDE a list keeps its card.
+    const loose = renderComposition(vocab, { name: "list-row", props: { label: "Loose", value: "1" } }, null);
+    stage.appendChild(loose);
+    const cs = (node) => getComputedStyle(node);
+    return {
+      rows: inList.length,
+      firstTop: cs(inList[0]).borderTopWidth,
+      secondTop: cs(inList[1]).borderTopWidth,
+      thirdTop: cs(inList[2]).borderTopWidth,
+      firstRadius: cs(inList[0]).borderTopLeftRadius,
+      looseTop: cs(loose).borderTopWidth,
+      looseRadius: cs(loose).borderTopLeftRadius,
+      emptyRendered: Boolean(rowsNode.querySelector(".ds-list-empty")),
+      headerText: rowsNode.querySelector(".ds-list-header")?.textContent ?? null,
+    };
+  });
+  t("the list stage was reachable and rendered three rows",
+    !dividers.error && dividers.rows === 3, dividers.error || JSON.stringify(dividers));
+  t("the FIRST row has no top border — the container's edge is the container's",
+    dividers.firstTop === "0px", `got ${dividers.firstTop}`);
+  t("rows 2 and 3 carry the 1px divider — drawn BETWEEN neighbours, never after the last",
+    dividers.secondTop === "1px" && dividers.thirdTop === "1px",
+    `got ${dividers.secondTop} / ${dividers.thirdTop}`);
+  t("a row inside a list is square — the card corners are the container's",
+    dividers.firstRadius === "0px", `got ${dividers.firstRadius}`);
+  // THE CONTROL: without it every assertion above is satisfied by deleting list-row's border.
+  t("a row OUTSIDE a list still has its own border and radius (the control)",
+    dividers.looseTop === "1px" && dividers.looseRadius !== "0px",
+    `got ${dividers.looseTop} / ${dividers.looseRadius}`);
+  t("a list holding rows renders NO empty copy", dividers.emptyRendered === false, JSON.stringify(dividers));
+  t("the header renders above the rows", dividers.headerText === "Short this week", `got ${dividers.headerText}`);
+
   await page.close();
   await deep.close();
   await ctx.close();

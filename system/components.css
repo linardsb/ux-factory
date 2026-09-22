@@ -2493,6 +2493,60 @@ p, .body {
 .ds-text .hv-table th, .ds-text .hv-table td { border: 1px solid var(--color-border); padding: var(--spacing-xs) var(--spacing-sm); text-align: left; vertical-align: top; }
 .ds-text .hv-table th { background: var(--color-bg-surface); }
 
+/* ---------- ds-list (system/specs/list.md) — cross-scenario library primitive ---------- */
+
+/* The container of ds-list-rows (#303, epic #295 G31), and the FIRST block in this file to style
+   another component's class. That is deliberate and it is bounded: list-row's own block is
+   untouched, so a row rendered anywhere else keeps its card. Inside a list it should not be a card
+   — a column of bordered, rounded boxes is a pile, not a list — so the container takes the row's
+   chrome off and draws ONE hairline between neighbours instead. The row cannot do this itself: it
+   does not know whether it has a neighbour, so a self-drawn separator is one after the last row or
+   none at all. The selectors are (0,2,0) and (0,3,0) against list-row's own (0,1,0)/(0,2,0), so
+   this wins on specificity rather than on file order. */
+.ds-list {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  /* The rows go square so their corners cannot poke through the container's radius. */
+  overflow: hidden;
+  /* A list inside a flex row shrinks rather than blowing it out (the ds-stack/ds-text precedent).
+     NOTE: the overflow above makes any position:sticky descendant a no-op. Nothing in a list-row
+     is sticky today; if a future row wants one, this is the line it will fight. */
+  min-width: 0;
+}
+
+/* A <p>, not a heading: a composed screen's outline is the composition's business, not a
+   container's (spec's Accessibility note). Same quiet eyebrow vocabulary as .ds-row-status. */
+.ds-list-header {
+  margin: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-fg-muted);
+  font-size: var(--type-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* border-WIDTH, not `border: none`: list-row's tone variants set border-COLOR and never width, so
+   zeroing the width leaves is-warn's accent available to the divider rule below. Background is
+   left alone for the same reason — is-critical's accent fill is the row's own signal and must
+   survive being put in a list. */
+.ds-list > .ds-list-row { border-width: 0; border-radius: 0; }
+.ds-list > .ds-list-row + .ds-list-row { border-top-width: 1px; }
+
+/* Absence, stated in the reading position the rows would have occupied. Rendered ONLY when there
+   are no rows (agentic-renderer's list template) — a hidden child is a thing that renders when it
+   should not (#138). No dashed frame here: that is ds-empty-state's, and a second frame inside
+   this container's own would be two boxes for one absence. */
+.ds-list-empty {
+  margin: 0;
+  padding: var(--spacing-lg) var(--spacing-md);
+  color: var(--color-fg-muted);
+  font-size: var(--type-body);
+  text-align: center;
+}
+
 /* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
 
 .vd-screen-body {

@@ -91,7 +91,7 @@
 //  21 catalog        the component catalog's pure layer: pack↔vocabulary set identity, the
 //                     palette's static CATALOG_COMPONENTS pinned against the generated vocabulary,
 //                     controlFor's bounds fidelity over every real prop (declared subsets only,
-//                     nothing invented), tabsFor's 3/18 wrapper histogram pinned as the #220
+//                     nothing invented), tabsFor's 3/21 wrapper histogram pinned as the #220
 //                     tripwire, WRAPPER_ATTRS pinned against each wrapper source's
 //                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
 //                     that proves the fabricated-API refusal is real), reactSnippet's attribute
@@ -976,7 +976,103 @@ const BARE_BOARD = {
   ok(/\.ds-stack\[data-gap="md"\]\s*\{[^}]*gap:\s*var\(--spacing-md\)/.test(CSS_301),
     "the .ds-stack[data-gap=\"md\"] rule is gone — the bare-rule assertions above are now reading a block with no gap binding at all, which is green for the wrong reason");
 
-  group("composition", `EVERY container's declared children rendered one level deeper (#431) — ${pairs.length} parent > child > leaf pairs walked off the spec lists with minimal valid props, the leaf's marker asserted to survive, and the control BUILT IN: the same walk over a copy whose card.children gains "stack" reports card > stack > <leaf> dropped · all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate · #302's optional id node key proven to reach data-part AT EVERY DEPTH — asserted on the CHILD with the root beside it as the control, because build() is the root's choke point and three templates render their own children directly, so a consumer written there alone reaches the root and nothing else (measured: the stack got its data-part and its child did not, every gate green) — with both absence halves pinned so data-part does not become a selector surface nobody designed, and the vocabulary's own shape string asserted to NAME the key, because a renderer consuming what the grammar does not mention is a private extension — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines`);
+  // --- #303: `list`, the SECOND real user of the cardinality ------------------------------
+  //
+  // Why these are here and not in group 18: validateExamples feeds an example as
+  // { name, props: head.example } with NO children array (gen-vocabulary.mjs), so a
+  // many-children EXAMPLE is unreachable there — #298 and #301 both landed their many cases
+  // beside the grammar cases for the same reason. What group 18 DOES prove for this component is
+  // the EMPTY case, because a childless render is exactly what it drives.
+
+  // 1 · THE PROJECTED KEY, BY NAME — the #301 assertion, for the second declaring spec. list is the
+  // first whose allowed list is a SINGLE name, which is the shape #304's importer targets.
+  ok(VOCAB.components.list?.childrenCardinality === "many",
+    `list's vocabulary entry does not carry childrenCardinality: "many" (got ${JSON.stringify(VOCAB.components.list?.childrenCardinality)})`);
+  // JSON.stringify, NOT deep(): `deep` is declared inside each group block that uses it and the
+  // earliest declaration is far below — it is not in scope here.
+  ok(JSON.stringify(VOCAB.components.list?.children) === JSON.stringify(["list-row"]),
+    `list's allowed children are not exactly ["list-row"] — got ${JSON.stringify(VOCAB.components.list?.children)}`);
+  // …and list-row, the child, must NOT have gained the key: this ticket changes nothing about it.
+  ok(!Object.hasOwn(VOCAB.components["list-row"] ?? {}, "childrenCardinality"),
+    "list-row's vocabulary entry carries a childrenCardinality key — this ticket must not change list-row");
+
+  // 2 · THREE ROWS VALIDATE against the real vocabulary.
+  const ROWS_303 = [1, 2, 3].map((n) => ({ name: "list-row", props: { label: `Row ${n}`, value: String(n) } }));
+  const LIST_303 = { name: "list", props: { header: "Short this week", empty: "Nothing short." }, children: ROWS_303 };
+  let listThrew = null;
+  try { validateComposition(VOCAB, [LIST_303]); } catch (err) { listThrew = err; }
+  ok(listThrew === null, `a list holding three list-rows was refused — ${listThrew && listThrew.message}`);
+
+  // 3 · AND IT CANNOT PASS VACUOUSLY — the #301 mutation, applied to list.
+  const { childrenCardinality: _listCard, ...listNoCard } = VOCAB.components.list;
+  let listMutThrew = null;
+  try { validateComposition({ ...VOCAB, components: { ...VOCAB.components, list: listNoCard } }, [LIST_303]); }
+  catch (err) { listMutThrew = err; }
+  ok(listMutThrew && /at most one child \(got 3\)/.test(listMutThrew.message),
+    `dropping list's cardinality still accepted three rows — case 2 proves nothing (got: ${listMutThrew && listMutThrew.message})`);
+
+  // 4 · A NON-list-row CHILD IS REFUSED, by index and by name. Asserted on the MESSAGE: this is the
+  // refusal #304's recogniser will read when a source list holds something that is not a row, and a
+  // refusal that does not name the offender is a refusal nobody can act on.
+  let badKidThrew = null;
+  try {
+    validateComposition(VOCAB, [{ name: "list", props: { empty: "x" },
+      children: [ROWS_303[0], { name: "card", props: { title: "T" } }] }]);
+  } catch (err) { badKidThrew = err; }
+  ok(badKidThrew && /children\[1\]: "card" is not an allowed child of list \(allowed: list-row\)/.test(badKidThrew.message),
+    `a non-list-row child was not refused by index AND name — got: ${badKidThrew && badKidThrew.message}`);
+
+  // 5 · THE TWO BRANCHES RENDER, and the empty copy is a BRANCH rather than a hidden child. The
+  // hidden-child failure mode is real in this repo (#138: `hidden` is defeated by any author rule
+  // that sets display), so the assertion is that the element does not EXIST, not that it is hidden.
+  domStubControl();
+  globalThis.document = domStub();
+  let emptyNode = null;
+  let filledNode = null;
+  let headerlessNode = null;
+  try {
+    emptyNode = renderComposition(VOCAB, { name: "list", props: { header: "Short this week", empty: "Nothing short." } }, null);
+    filledNode = renderComposition(VOCAB, LIST_303, null);
+    headerlessNode = renderComposition(VOCAB, { name: "list", props: { empty: "Nothing short." } }, null);
+  } finally { delete globalThis.document; }
+  const elems303 = (n) => (n?.children ?? []).filter((c) => c.tagName !== "#text");
+  ok(emptyNode && stubText(emptyNode).includes("Nothing short.") && stubText(emptyNode).includes("Short this week"),
+    `the empty branch did not render its header and empty copy — got ${JSON.stringify(stubText(emptyNode))}`);
+  ok(filledNode && stubText(filledNode).includes("Row 3"),
+    `the rows branch dropped a row — got ${JSON.stringify(stubText(filledNode))}`);
+  ok(filledNode && !stubText(filledNode).includes("Nothing short."),
+    "a list holding rows rendered its empty copy anyway — the empty case must be a BRANCH, not a hidden child");
+  ok(filledNode && !elems303(filledNode).some((c) => c.getAttribute("class") === "ds-list-empty"),
+    "a list holding rows still emitted a .ds-list-empty element — `hidden` is defeated by any author display rule (#138), so absence must be absence");
+  ok(headerlessNode && !elems303(headerlessNode).some((c) => c.getAttribute("class") === "ds-list-header"),
+    "an absent header emitted a .ds-list-header element anyway — absence must express itself as no element");
+  // …and the COUNT, because every assertion above is satisfied by a template that appends its header
+  // twice. Header + three rows = four elements; header + the empty copy = two.
+  ok(filledNode && elems303(filledNode).length === 4,
+    `the rows branch emitted ${filledNode && elems303(filledNode).length} elements, not 4 (header + 3 rows) — an element is duplicated or missing`);
+  ok(emptyNode && elems303(emptyNode).length === 2,
+    `the empty branch emitted ${emptyNode && elems303(emptyNode).length} elements, not 2 (header + empty copy)`);
+  ok(emptyNode && emptyNode.getAttribute("class") === "ds-list",
+    `the list did not render as a .ds-list (got ${JSON.stringify(emptyNode && emptyNode.getAttribute("class"))})`);
+
+  // 6 · THE DIVIDERS ARE THE CONTAINER'S, asserted on the SHEET the way S2's condition above is —
+  // the renderer cannot see CSS, and the pixel gate cannot say WHOSE rule drew a line. Both halves:
+  // list's block takes the row's chrome off and puts the divider back between neighbours, and
+  // list-row's OWN block still declares its standalone border. The claim that these rules WIN at
+  // runtime is tooling/catalog-journey.mjs's — computed style, three engines, a loose row beside them.
+  const CSS_303 = CSS_301; // the same file already read above
+  ok(/\.ds-list\s*>\s*\.ds-list-row\s*\{[^}]*border-width:\s*0/.test(CSS_303),
+    "the ds-list block does not zero the row's border-width — rows inside a list are still cards");
+  ok(/\.ds-list\s*>\s*\.ds-list-row\s*\+\s*\.ds-list-row\s*\{[^}]*border-top-width:\s*1px/.test(CSS_303),
+    "the ds-list block draws no divider between adjacent rows — the dividers are the container's");
+  // The INVERSE control: list-row standalone is UNCHANGED, which is the ticket's own constraint.
+  const rowStart303 = CSS_303.indexOf(".ds-list-row {");
+  ok(rowStart303 !== -1, "components.css has no bare `.ds-list-row {` rule — this pair has lost its subject");
+  const rowRule303 = rowStart303 === -1 ? "" : CSS_303.slice(rowStart303, CSS_303.indexOf("}", rowStart303) + 1);
+  ok(/border:\s*1px solid var\(--color-border\)/.test(rowRule303) && /border-radius:\s*var\(--radius-md\)/.test(rowRule303),
+    `list-row's own block lost its border or radius — a row outside a list must still be a card: ${rowRule303}`);
+
+  group("composition", `EVERY container's declared children rendered one level deeper (#431) — ${pairs.length} parent > child > leaf pairs walked off the spec lists with minimal valid props, the leaf's marker asserted to survive, and the control BUILT IN: the same walk over a copy whose card.children gains "stack" reports card > stack > <leaf> dropped · all 5 patterns validate against handoff/verdant/vocabulary.json · ${names.size} components emitted by compose, each in the vocabulary · every one of ${Object.keys(VOCAB.components).length} vocabulary entries has a template — the whole vocabulary since #211, not just the emitted set · the children cardinality driven straight through validateComposition: three children accepted under a SYNTHETIC \`many\` entry, two refused under the real card with the refusal naming the children array and the count, a bad child at index 2 named at 2, and the TWO MUTATIONS that decide whether the many case can fail — the same three children under an entry differing only in the cardinality, once with the key ABSENT (what gen-vocabulary projects) and once with it PRESENT and not \`many\`, because a guard reading the key's presence rather than its value goes green against the first alone. The synthetic entry stays because it isolates the GUARD; #301 landed the first committed spec that declares \`many\`, so the REAL chain is now driven beside it — the projected key asserted BY NAME on the committed artifact (the gap #298 could not close: genVocabulary reads system/specs off a module const, so a typo in the projected key regenerated green and every group stayed green with it), a leaf proven NOT to gain the key, #302's exact three-child spine validated against the real vocabulary with the cardinality-removed mutation refusing it by count, text's two role refusals asserted BY MESSAGE, and a real stack > stack > text RENDERED through renderComposition under a positive-controlled DOM stub so the []-vs-child.children trap has a gate · #302's optional id node key proven to reach data-part AT EVERY DEPTH — asserted on the CHILD with the root beside it as the control, because build() is the root's choke point and three templates render their own children directly, so a consumer written there alone reaches the root and nothing else (measured: the stack got its data-part and its child did not, every gate green) — with both absence halves pinned so data-part does not become a selector surface nobody designed, and the vocabulary's own shape string asserted to NAME the key, because a renderer consuming what the grammar does not mention is a private extension — plus S2's condition made mechanical: the bare .ds-stack rule sliced out of components.css and proven to declare no default gap and no default padding, with the data-gap rule asserted present as the inverse control \u00b7 #303's list, the second committed spec to declare the cardinality and the first whose allowed list is a SINGLE name: the projected key by name with list-row proven NOT to have gained it, three rows accepted with the cardinality-removed mutation refusing them BY COUNT, a non-list-row child refused by INDEX and by NAME (the refusal #304's recogniser reads), both branches RENDERED under the stub with the empty copy proven to be a BRANCH rather than a hidden child (#138's failure mode: hidden is defeated by any author display rule), both absence halves asserted as absent ELEMENTS and the element COUNT pinned in BOTH branches — every other case here is satisfied by a template that appends its header twice — and the dividers proven to be the CONTAINER's on the sheet: list's block zeroing the row's border-width and putting one back between neighbours, with list-row's own bare rule asserted UNCHANGED as the inverse control, because the renderer cannot see CSS and the pixel gate cannot say whose rule drew a line. What this cannot reach: how any of it LOOKS — the four type roles being visibly distinct, a nested stack's real flex behaviour and a link's underline are tooling/catalog-journey.mjs's and the pixel gate's, and the four-role distinctness is finally a human read in two engines; nor whether list's two divider rules WIN at runtime — a regex over source text sees neither specificity, file order nor a pack override, so tooling/catalog-journey.mjs reads getComputedStyle off three in-list rows with a loose row rendered in the SAME document as the control, and the pixel gate never reaches that branch at all because the playground renders {name, props} with no children`);
 }
 
 // --- 4 · codec round-trip ---------------------------------------------------------------------------
@@ -4924,7 +5020,10 @@ function scanSvg(svg, label) {
   // system/specs/avatar.md) ships wrapper-less, so its absent vd/react tabs are honest. #301 moved
   // it 3/18 → 3/20: stack and text (the first two of epic #295's five generic primitives) likewise
   // ship wrapper-less — there is no vd-stack or vd-text custom element and the pack does not claim
-  // one — so their absent vd/react tabs are honest in exactly the same way. The number is read off
+  // one — so their absent vd/react tabs are honest in exactly the same way. #303 moved it 3/20 →
+  // 3/21: list (the third of those five, the container of list-rows) likewise ships wrapper-less —
+  // there is no vd-list custom element and the pack does not claim one — so its absent vd/react
+  // tabs are honest in exactly the same way. The number is read off
   // this assertion's OWN failure message rather than derived by hand: the portability block lists
   // wrappers as wc/vd-<name>.mjs, so a join on the component's ds- class answers zero.
   let withWrapper = 0;
@@ -4937,8 +5036,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 20,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/20; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 21,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/21; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,

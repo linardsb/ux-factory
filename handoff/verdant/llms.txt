@@ -14,8 +14,8 @@
 > Verdant is a fictional demo scenario. The components, tokens and contracts are real.
 
 ## Files
-vocabulary.json · 51587 B · the agentic vocabulary: every component the renderer accepts, with its props, enums and children · read when composing a screen — a tree that does not validate against this is refused
-pack.json · 108662 B · every ComponentSpec: the machine head, the engineer prose (purpose, states, accessibility) and the portability block · read when you want the prose behind a component, or the whole spec set as one object
+vocabulary.json · 55135 B · the agentic vocabulary: every component the renderer accepts, with its props, enums and children · read when composing a screen — a tree that does not validate against this is refused
+pack.json · 116982 B · every ComponentSpec: the machine head, the engineer prose (purpose, states, accessibility) and the portability block · read when you want the prose behind a component, or the whole spec set as one object
 contracts/care-task-row.contract.json · 1456 B · JSON Schema 2020-12 for the record care-task-row binds · read when binding real records to care-task-row
 contracts/plant-card.contract.json · 1960 B · JSON Schema 2020-12 for the record plant-card binds · read when binding real records to plant-card
 contracts/stat-tile.contract.json · 1249 B · JSON Schema 2020-12 for the record stat-tile binds · read when binding real records to stat-tile
@@ -30,4 +30,4 @@ wc/vd-care-task-row.mjs · 5312 B · a standalone custom element wrapping care-t
 wc/vd-plant-card.mjs · 6487 B · a standalone custom element wrapping plant-card, themed by the token contract alone · read when you want plant-card as an element instead of copy-paste markup
 wc/vd-status-chip.mjs · 2739 B · a standalone custom element wrapping status-chip, themed by the token contract alone · read when you want status-chip as an element instead of copy-paste markup
 figma-import.md · 13877 B · the DTCG-to-Figma import path, written for the design-tool end · read when taking the tokens into a design tool
-pack.bundle.json · 250582 B · every other file in this pack inlined into one JSON object, lossless UTF-8 · read when you want the whole pack in one fetch
+pack.bundle.json · 262791 B · every other file in this pack inlined into one JSON object, lossless UTF-8 · read when you want the whole pack in one fetch
