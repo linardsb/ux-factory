@@ -76,6 +76,12 @@ jobs:
       - name: Install Style Dictionary
         run: npm ci
         working-directory: tooling/style-dictionary
+      # The icon subset generator reads @phosphor-icons/core off disk (#305), and drift-check's
+      # icons leg regenerates the committed map from it — so the package must be present or that
+      # leg THROWS rather than passing vacuously. Lockfile present → npm ci.
+      - name: Install Phosphor icons
+        run: npm ci
+        working-directory: tooling/icons
       - name: Drift check
         run: node tooling/drift-check.mjs
       - name: Token lint
@@ -94,7 +100,8 @@ jobs:
       # "all 8 groups pass" afterwards. A red group 8 with "Cannot find package
       # '@anthropic-ai/claude-agent-sdk'" means someone added a static SDK import under portal/lib/
       # — that import is the bug (epic #134, ticket #140). The npm ci steps above are deliberately
-      # scoped to tooling/style-dictionary and tooling/visual-regression only.
+      # scoped to tooling/style-dictionary, tooling/icons and tooling/visual-regression only —
+      # three dependency-carrying TOOL dirs, none of which any shipped page or portal module reaches.
       - name: Build checks
         run: node tooling/build-checks.mjs
 

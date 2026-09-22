@@ -120,7 +120,7 @@ export function prepareHandoff(pack, vocab, graph = null) {
       example: c.example ?? null,
       // Wrapper presence — read off the pack's OWN portability block; no new input, no fs. Joined on
       // the component's CLASS, not its name: wrappers are wc/vd-plant-card.mjs, and library
-      // primitives like metric-tile (class ds-metric-tile) correctly have none. 3 of 23 today; the 20
+      // primitives like metric-tile (class ds-metric-tile) correctly have none. 3 of 25 today; the 22
       // missing wrappers are riding debt the architecture records, and the catalog's vd-* code tab
       // stays presence-gated on this rather than promising a file that is not in the pack.
       wrapper: wrapperFiles.has(`wc/${c.class}.mjs`) ? `wc/${c.class}.mjs` : null,

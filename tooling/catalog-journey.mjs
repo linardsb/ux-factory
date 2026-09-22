@@ -11,7 +11,7 @@
 // artifact's own attributes, the HTML tab being a RE-serialization rather than a stored string,
 // copy-as-Markdown byte-equal to the committed spec source, the palette's commands existing
 // BEFORE the catalog could have registered anything (a held route, never a sleep), the vd tab's
-// 3/7 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
+// 3/22 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
 // as content with a clean console, the playground bus readout from pointer and keyboard, the
 // palette's same-page hash routing, and the pack swap's cell re-resolve + listener hygiene
 // (chromium-CDP half stated as such).
@@ -414,6 +414,90 @@ async function journey(engineName, results, held) {
     `got ${dividers.looseTop} / ${dividers.looseRadius}`);
   t("a list holding rows renders NO empty copy", dividers.emptyRendered === false, JSON.stringify(dividers));
   t("the header renders above the rows", dividers.headerText === "Short this week", `got ${dividers.headerText}`);
+
+  // ------------------------------------------- [13] the icon's sizes and its REFUSAL, computed (#305)
+  //
+  // The two claims build-checks group 41 states it CANNOT reach, and it names this driver for both.
+  // Group 41 reads the DOM the template builds — the data-size attribute is there, the refusal's
+  // marker is there — and a regex over components.css proves the rules are WRITTEN. Neither can
+  // prove they WIN: specificity, file order, a later rule and a pack override are all invisible to
+  // both. So the glyph goes into the real page under the real stylesheet and the computed box, the
+  // refusal's frame and the inherited colour are read back.
+  //
+  // The refusal's CONTROL is a rendered glyph in the same document and the same pack. Without it,
+  // "the refused box is wider than 24px and has a border" is satisfied by a stylesheet that gave
+  // EVERY .ds-icon a border and no size — which is the reading that made the refusal indistinguishable
+  // from the thing it refuses.
+  console.log("\n[13] the icon's three sizes and its refusal, in computed style (#305 AC #1a/#1b)");
+  const glyphs = await page.evaluate(async () => {
+    const stage = document.querySelector("#icon .cat-stage");
+    // Reported as data, never thrown: a null stage would abort this engine's leg and read as
+    // coverage rather than as "stopped here" (case 12's rule).
+    if (!stage) return { error: "#icon .cat-stage is not on the page" };
+    const { renderComposition } = await import("/system/agentic-renderer.mjs");
+    const { ICONS } = await import("/system/icons.mjs");
+    const vocab = await fetch("/handoff/verdant/vocabulary.json").then((r) => r.json());
+    const draw = (props) => renderComposition(vocab, { name: "icon", props }, null);
+    const cs = (n) => getComputedStyle(n);
+    const box = {};
+    for (const size of ["md", "lg", "xl"]) {
+      const n = draw({ name: "check", size });
+      stage.replaceChildren(n);
+      box[size] = `${cs(n).width}/${cs(n).height}`;
+    }
+    // A wrapper with its own colour: currentColor's whole mechanism is INHERITANCE, so this is the
+    // claim "wears every pack without a rule of its own" reduced to something an engine can answer
+    // without swapping a stylesheet (case 11 owns the pack swap).
+    const wrap = document.createElement("div");
+    wrap.style.color = "rgb(1, 2, 3)";
+    const inherited = draw({ name: "warning", size: "lg" });
+    wrap.appendChild(inherited);
+    const refused = draw({ name: "not-an-icon", size: "lg" });
+    const control = draw({ name: "check", size: "lg" });
+    stage.replaceChildren(wrap, refused, control);
+    return {
+      box,
+      inheritedColor: cs(inherited).color,
+      svgFill: inherited.querySelector("svg").getAttribute("fill"),
+      pathFill: inherited.querySelector("svg path").getAttribute("fill"),
+      pathNs: inherited.querySelector("svg path").namespaceURI,
+      pathD: inherited.querySelector("svg path").getAttribute("d"),
+      wantD: ICONS.warning,
+      refusedText: refused.textContent,
+      refusedSvgs: refused.querySelectorAll("svg").length,
+      refusedBorder: `${cs(refused).borderTopWidth} ${cs(refused).borderTopStyle}`,
+      refusedFont: cs(refused).fontFamily,
+      refusedW: Math.round(refused.getBoundingClientRect().width),
+      controlBorder: `${cs(control).borderTopWidth} ${cs(control).borderTopStyle}`,
+      controlW: Math.round(control.getBoundingClientRect().width),
+    };
+  });
+  t("the icon stage was reachable and the glyph rendered",
+    !glyphs.error && glyphs.pathD === glyphs.wantD,
+    glyphs.error || `path data is not ICONS.warning — ${JSON.stringify(glyphs.pathD)}`);
+  t("the <path> is in the SVG namespace in a real engine, so it PAINTS",
+    glyphs.pathNs === "http://www.w3.org/2000/svg", `got ${glyphs.pathNs}`);
+  t("md / lg / xl compute 16 / 24 / 32 px — the spacing steps, winning at runtime",
+    glyphs.box && glyphs.box.md === "16px/16px" && glyphs.box.lg === "24px/24px" && glyphs.box.xl === "32px/32px",
+    `got ${JSON.stringify(glyphs.box)}`);
+  t("the glyph takes its parent's colour — currentColor by INHERITANCE, no rule of its own",
+    glyphs.inheritedColor === "rgb(1, 2, 3)", `got ${glyphs.inheritedColor}`);
+  t("the fill sits on the <svg> and the <path> carries none (gen-icons copies only `d`)",
+    glyphs.svgFill === "currentColor" && glyphs.pathFill === null,
+    `svg=${glyphs.svgFill} path=${glyphs.pathFill}`);
+  t("a refused name reads as its own literal text, with NO svg — never an empty box",
+    glyphs.refusedText === "not-an-icon" && glyphs.refusedSvgs === 0,
+    `text=${JSON.stringify(glyphs.refusedText)} svgs=${glyphs.refusedSvgs}`);
+  t("the refusal's 1px frame and mono family WIN over the size rules above it",
+    glyphs.refusedBorder === "1px solid" && /mono/i.test(String(glyphs.refusedFont)),
+    `border=${glyphs.refusedBorder} font=${glyphs.refusedFont}`);
+  // THE CONTROL: without it, every refusal assertion above is satisfied by a sheet that framed
+  // EVERY .ds-icon and sized none — the reading where a refusal looks exactly like a glyph.
+  t("a RENDERED glyph beside it has no frame and keeps its 24px box (the control)",
+    glyphs.controlBorder === "0px none" && glyphs.controlW === 24,
+    `border=${glyphs.controlBorder} width=${glyphs.controlW}px`);
+  t("and the refusal is WIDER than that box, because it grew to fit the name",
+    glyphs.refusedW > glyphs.controlW, `refused ${glyphs.refusedW}px vs glyph ${glyphs.controlW}px`);
 
   await page.close();
   await deep.close();

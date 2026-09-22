@@ -1,0 +1,8 @@
+{
+  "name": "factory-icons",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@phosphor-icons/core": "^2.1.1"
+  }
+}

@@ -91,7 +91,7 @@
 //  21 catalog        the component catalog's pure layer: pack↔vocabulary set identity, the
 //                     palette's static CATALOG_COMPONENTS pinned against the generated vocabulary,
 //                     controlFor's bounds fidelity over every real prop (declared subsets only,
-//                     nothing invented), tabsFor's 3/21 wrapper histogram pinned as the #220
+//                     nothing invented), tabsFor's 3/22 wrapper histogram pinned as the #220
 //                     tripwire, WRAPPER_ATTRS pinned against each wrapper source's
 //                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
 //                     that proves the fabricated-API refusal is real), reactSnippet's attribute
@@ -5023,7 +5023,8 @@ function scanSvg(svg, label) {
   // one — so their absent vd/react tabs are honest in exactly the same way. #303 moved it 3/20 →
   // 3/21: list (the third of those five, the container of list-rows) likewise ships wrapper-less —
   // there is no vd-list custom element and the pack does not claim one — so its absent vd/react
-  // tabs are honest in exactly the same way. The number is read off
+  // tabs are honest in exactly the same way. #305 moved it 3/21 → 3/22: icon (the fourth) draws a
+  // glyph out of a generated subset and has no custom element either. The number is read off
   // this assertion's OWN failure message rather than derived by hand: the portability block lists
   // wrappers as wc/vd-<name>.mjs, so a join on the component's ds- class answers zero.
   let withWrapper = 0;
@@ -5036,8 +5037,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 21,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/21; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 22,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/22; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,
@@ -11944,10 +11945,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 
   // --- 40.3 THE FLOOR, AND THAT IT IS NOT THE FALLBACK -------------------------------------------
-  // #305 CHANGES THIS EXPECTED ANSWER: when `icon` enters the vocabulary the Chevron becomes covered.
+  // #305 LANDED AND THIS ANSWER DID NOT MOVE — measured, not predicted. `icon` IS in the vocabulary
+  // as of #305 and the Chevron still reads NOT COVERED: the node draws no text, so `prop-fit` cannot
+  // fill `icon.name` (PROP_SOURCES.name is "first-text"); `name-match` is word containment and
+  // {chevron} is not a superset of {icon}; and `kind-fit` has NO BRANCH for node.kind === "icon".
+  // Score 0, no candidate, floor. The IR does carry icon: {name: "caret-right"} — one of #305's own
+  // six committed glyphs — and nothing reads it. Covering it needs a kind-fit branch plus a
+  // structural fill that sum to exactly THRESHOLD, a pair of weights fitted backwards from the
+  // wanted answer, which import/recognise.mjs's header forbids. See #449.
   const chevron = at(v1, [0, 3]);
   ok(chevron.covered === false && chevron.name === null && chevron.via === "floor",
-    `"Chevron" (kind ${chevron.kind}) reads ${JSON.stringify(chevron.name)} via ${chevron.via} — icon is not in the vocabulary (${Object.keys(VOCAB.components).length} entries), so it must read NOT COVERED`);
+    `"Chevron" (kind ${chevron.kind}) reads ${JSON.stringify(chevron.name)} via ${chevron.via} — no signal reaches an icon-kind node that draws no text, even with \`icon\` in the vocabulary (${Object.keys(VOCAB.components).length} entries, #305), so it must read NOT COVERED (#449)`);
   ok(chevron.via !== "structural-fallback",
     `"Chevron" reached the structural fallback — the fallback and the floor are one \`if\` apart, and a fallback that stopped testing for \`layout\` would turn every unrecognised node into a stack while every other case here stayed green`);
   ok((chevron.candidates[0]?.score ?? 0) < R1.THRESHOLD,
@@ -11971,11 +11979,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     vts.forEach((vd, i) => { const d = []; const out = fold(`build at ${vd.path}`, () => R1.build(irs[i], vd, VOCAB, d)); if (out) built.push([vd, out, d]); });
   }
   ok(built.length > 0, "no node in either fixture built at all — case 40.6's validation battery would pass vacuously");
-  // #305 CHANGES BOTH EXPECTED SETS: when `icon` enters the vocabulary the Chevron becomes covered
-  // and either builds (joining `builtNames`) or refuses (joining `refused`), so one of the two
-  // equalities below reds on a ticket that never touched import/. That is deliberate — a whole-set
-  // compare is what makes a name silently joining or leaving READABLE — and case 40.3 carries the
-  // same warning for the same reason.
+  // #305 LANDED AND NEITHER SET MOVED — measured, not predicted. `icon` is in the vocabulary and the
+  // Chevron is still not covered (case 40.3's note has the three-leg mechanism, and #449 owns the
+  // fix), so it joins neither `builtNames` nor `refused`. The whole-set compares below stay as they
+  // are, and they are still the right shape: a whole-set compare is what makes a name silently
+  // joining or leaving READABLE, which is why a vocabulary-growing ticket is expected to READ them
+  // rather than to expect them to move.
   //
   // WHICH NAMES, not just "some". `built` holds the two structurally-driven primitives and nothing
   // else, and both absences are EXPECTED and load-bearing: `list-row.value` is a computed figure
@@ -11987,9 +11996,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const builtNames = [...new Set(built.map(([, out]) => out.name))].sort();
   const refused = [...new Set([...flat(v1), ...flat(mV)].filter((vd) => vd.covered && !built.some(([b]) => b === vd)).map((vd) => vd.name))].sort();
   ok(deep(builtNames) === deep(["stack", "text"]),
-    `build() emitted [${builtNames.join(", ")}] across both fixtures — expected exactly ["stack","text"]. Everything this sweep feeds is scoped to those two names, and the group's prose says so. #305 MOVES THIS: \`icon\` in the vocabulary makes the Chevron covered`);
+    `build() emitted [${builtNames.join(", ")}] across both fixtures — expected exactly ["stack","text"]. Everything this sweep feeds is scoped to those two names, and the group's prose says so. #305 put \`icon\` in the vocabulary and this set did NOT move — the Chevron is still not covered (#449)`);
   ok(deep(refused) === deep(["list-row", "status-chip"]),
-    `the recognised-but-refused set is [${refused.join(", ")}] — expected exactly ["list-row","status-chip"], each refused by an unfillable required prop (a figure nobody drew; an enum the design read carries the LABEL for, never the code). A name leaving this set means a refusal stopped refusing, and #305 ADDS to it if the Chevron refuses once \`icon\` is in the vocabulary`);
+    `the recognised-but-refused set is [${refused.join(", ")}] — expected exactly ["list-row","status-chip"], each refused by an unfillable required prop (a figure nobody drew; an enum the design read carries the LABEL for, never the code). A name leaving this set means a refusal stopped refusing; #305 put \`icon\` in the vocabulary and added nothing, because the Chevron is never recognised in the first place (#449)`);
   const numericWidth = [];
   for (const [vd, out] of built) {
     const go = (n, p) => { if (typeof n.props?.size === "number") numericWidth.push(`${p} (${n.props.size})`); (n.children ?? []).forEach((c, i) => go(c, `${p}.children[${i}]`)); };
@@ -12281,12 +12290,329 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(names(() => B1.convert('  aaaa5555 s(10,10) "Indented first"'), "depth 0") === null,
     `SYNTHETIC: an indented FIRST content line was accepted, or refused without naming depth 0 — stack.length - 1 reads -1 there, and "indent jumps from depth -1" describes nothing a reader can act on`);
 
-  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the Chevron reads NOT COVERED with its top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it (#305 changes this answer when icon enters the vocabulary) · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\` and \`text\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its private regexes · nine tables frozen BY MUTATION at both levels · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SIX MORE SYNTHETIC cases — SEVEN in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left all 40 groups passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #307), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — #307's snap rules, both fixtures being bound on every layout slot; and whether a built composition RENDERS — group 3 owns renderComposition`);
+  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the Chevron reads NOT COVERED with its top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it — and it STILL does with \`icon\` in the vocabulary as of #305, because no signal reaches an icon-kind node that draws no text (#449) · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\` and \`text\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its private regexes · nine tables frozen BY MUTATION at both levels · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SIX MORE SYNTHETIC cases — SEVEN in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #307), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — #307's snap rules, both fixtures being bound on every layout slot; and whether a built composition RENDERS — group 3 owns renderComposition`);
+}
+
+// --- 41 · the committed icon subset (#305) ---------------------------------------------------------
+//
+// system/icons.manifest.json + agent-layer/gen-icons.mjs + system/icons.mjs + the `icon` template:
+// one glyph, by Phosphor name, out of a GENERATED SUBSET rather than a runtime library. Written in
+// group 40's voice — the controls stated before anything is driven through them, every refusal
+// driven rather than grepped, and the mutation that decides whether the sharpest case can fail at
+// all run beside the case itself.
+//
+// WHAT THIS GROUP CANNOT REACH, stated as every other group states its own: how the glyph LOOKS —
+// that `check` draws a tick and not a cross, that md/lg/xl are visibly distinct, that a refused
+// icon reads as a mistake — is the pixel gate's and a human read's; and that the refusal's border
+// WINS at runtime is catalog-journey's, because a regex over the sheet sees neither specificity nor
+// a pack override.
+
+{
+  const { ICONS, ICON_VIEWBOX } = await import("../system/icons.mjs");
+  const { emitIcons, genIcons, parseManifest, pathOf, readManifest } = await import("../agent-layer/gen-icons.mjs");
+  // EVERY case below reads the manifest, so its own refusal must be ONE named failure rather than the
+  // end of the run. WHICH fallback is possible depends on why readManifest refused, and the two are
+  // one `catch` apart:
+  //   · a VALIDATION refusal (a bad weight, a bad icons array) leaves bytes that still parse, so the
+  //     cases below run against the REAL manifest and only the validation is skipped — that it
+  //     validated is what the assertion beside it states.
+  //   · a PARSE refusal leaves nothing to read, and re-parsing the same bytes here is GUARANTEED to
+  //     re-throw rather than merely at risk of it: readManifest's only non-validation throw source is
+  //     that same JSON.parse. Measured — the uncaught SyntaxError ended the run and this group printed
+  //     nothing at all, no ✓, no ✗, and the script's own tally never ran. So it degrades to the
+  //     COMMITTED MAP's own shape instead: 41.2, 41.3 and 41.9 become self-comparisons rather than
+  //     assertions, the two named failures above and in 41.7 are the group's whole report, and every
+  //     template, refusal, pathOf and validator case below still runs for real.
+  let MANIFEST;
+  try {
+    MANIFEST = readManifest();
+  } catch (e) {
+    ok(false, `41: readManifest() refused system/icons.manifest.json — ${e.message}`);
+    try {
+      MANIFEST = JSON.parse(readFileSync(join(ROOT, "system/icons.manifest.json"), "utf8"));
+    } catch {
+      MANIFEST = { weight: "regular", icons: Object.keys(ICONS) };
+    }
+  }
+  // The renderer keeps SVGNS private, so it is restated here as a LITERAL rather than imported.
+  // That is deliberate: if the two ever disagree, case 4's ns assertions go red naming the tag,
+  // which is the disagreement being tested.
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const deep = (v) => JSON.stringify(v);
+  // `threw` is not a shared helper in this file (the name is a local boolean in two other groups),
+  // so it is declared here: the Error a call threw, or null. Asserting on the MESSAGE is what makes
+  // each refusal below a named one rather than "something went wrong".
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+
+  // --- 41.1 THE CONTROLS, FIRST. The standing domStubControl() exercises createElement only, so
+  // WITHOUT a namespace control of its own every `ns === SVGNS` assertion below could pass against
+  // a stub that silently dropped the namespace — the check-that-cannot-fail shape, one layer down.
+  domStubControl();
+  {
+    const d = domStub();
+    const ns = d.createElementNS(SVGNS, "svg");
+    ns.setAttribute("viewBox", "0 0 1 1");
+    const plain = d.createElement("span");
+    ok(ns.tagName === "SVG", `41.1: the DOM stub does not record a namespaced tag name — got ${JSON.stringify(ns.tagName)}; every svg assertion below is meaningless`);
+    ok(ns.ns === SVGNS, `41.1: the DOM stub does not record the NAMESPACE it was given — got ${JSON.stringify(ns.ns)}; a template using el() instead of createElementNS would pass every case below`);
+    ok(ns.getAttribute("viewBox") === "0 0 1 1", "41.1: the DOM stub does not record an attribute on a namespaced node — the viewBox/aria-hidden assertions below would pass on nothing");
+    ok(plain.ns === null, `41.1: a createElement node records ns ${JSON.stringify(plain.ns)} rather than null — the two creation paths are indistinguishable, so the namespace assertions cannot fail`);
+  }
+
+  // --- 41.2 MANIFEST ↔ MAP IDENTITY, in order. The emitted map's key order IS the manifest's, and
+  // the generator refuses an unsorted manifest for that reason: a churning artifact is a diff
+  // nobody reads.
+  ok(deep(Object.keys(ICONS)) === deep(MANIFEST.icons),
+    `41.2: system/icons.mjs and the manifest disagree — map [${Object.keys(ICONS).join(", ")}] vs manifest [${MANIFEST.icons.join(", ")}]; regenerate: node agent-layer/gen-icons.mjs`);
+  ok(ICON_VIEWBOX === "0 0 256 256", `41.2: ICON_VIEWBOX is ${JSON.stringify(ICON_VIEWBOX)}, expected "0 0 256 256" — the package's shape moved and every glyph would draw at the wrong scale`);
+  ok(Object.isFrozen(ICONS), "41.2: ICONS is not frozen — a view-time module could add a name the manifest never recorded, and the subset claim would stop being true");
+  for (const [n, d] of Object.entries(ICONS))
+    ok(typeof d === "string" && d.length > 0 && d.startsWith("M"),
+      `41.2: ${n}'s path data is ${JSON.stringify(String(d).slice(0, 12))}… — not a non-empty moveto, so it draws nothing`);
+
+  // --- 41.3 A SUBSET, NEVER A VENDORING (AC #2). The package ships 1,512 icons PER WEIGHT; a
+  // generator that started copying them all fails here BY COUNT rather than as a 37 MB diff nobody
+  // reads. The bound is deliberately loose — a seventh, tenth or nineteenth glyph is fine — because
+  // what it refuses is a category error, not growth.
+  ok(Object.keys(ICONS).length === MANIFEST.icons.length,
+    `41.3: the map carries ${Object.keys(ICONS).length} glyphs and the manifest names ${MANIFEST.icons.length}`);
+  ok(Object.keys(ICONS).length < 20,
+    `41.3: system/icons.mjs carries ${Object.keys(ICONS).length} glyphs — the committed set is a NAMED SUBSET, and @phosphor-icons/core ships 1512 per weight, so a count this high means the generator started copying the package rather than the manifest`);
+
+  // --- 41.4 EVERY MANIFEST NAME RENDERS (AC #1a), over the loop rather than over one name: a
+  // template that special-cased the example would pass a single-name check.
+  // A THROW REPORTS RATHER THAN ENDING THE RUN (group 39's rule, and this group needed it: with the
+  // `icon` template deleted, renderComposition throws "no template for it" and an uncaught throw
+  // here killed the process with a stack trace before any case below could name what was wrong).
+  // So a throw becomes ONE named failure plus a null root, and every assertion below reds by name
+  // — stubFindAll and stubText both already answer emptily for null.
+  const renderIcon = (props) => {
+    domStubControl();
+    globalThis.document = domStub();
+    try {
+      return renderComposition(VOCAB, { name: "icon", props }, null);
+    } catch (e) {
+      ok(false, `41.4: rendering icon ${deep(props)} THREW — ${e.message}`);
+      return null;
+    } finally { delete globalThis.document; }
+  };
+  for (const n of MANIFEST.icons) {
+    const root = renderIcon({ name: n, size: "lg" });
+    ok(root && root.tagName === "SPAN", `41.4 (${n}): the root is ${root && root.tagName}, expected SPAN`);
+    ok(root && root.getAttribute("class") === "ds-icon", `41.4 (${n}): the root's class is ${JSON.stringify(root && root.getAttribute("class"))}, expected "ds-icon" — the CSS block would not apply`);
+    ok(root && root.getAttribute("data-size") === "lg", `41.4 (${n}): data-size is ${JSON.stringify(root && root.getAttribute("data-size"))}, expected "lg" — the box rules bind to that attribute`);
+    ok(root && root.getAttribute("data-refused") === null, `41.4 (${n}): a manifest name rendered the REFUSAL branch — data-refused is set on a glyph the map carries`);
+    const svgs = stubFindAll(root, "svg");
+    const paths = stubFindAll(root, "path");
+    ok(svgs.length === 1, `41.4 (${n}): ${svgs.length} <svg> elements, expected exactly 1`);
+    ok(paths.length === 1, `41.4 (${n}): ${paths.length} <path> elements, expected exactly 1`);
+    if (svgs.length === 1) {
+      const s = svgs[0];
+      ok(s.ns === SVGNS, `41.4 (${n}): the <svg> was created with namespace ${JSON.stringify(s.ns)} — el()/createElement yields an HTMLUnknownElement that paints NOTHING while every other assertion here still passes`);
+      ok(s.getAttribute("viewBox") === ICON_VIEWBOX, `41.4 (${n}): viewBox is ${JSON.stringify(s.getAttribute("viewBox"))}, expected ${JSON.stringify(ICON_VIEWBOX)}`);
+      ok(s.getAttribute("fill") === "currentColor", `41.4 (${n}): fill is ${JSON.stringify(s.getAttribute("fill"))}, expected "currentColor" — the glyph would not wear the pack`);
+      ok(s.getAttribute("aria-hidden") === "true", `41.4 (${n}): aria-hidden is ${JSON.stringify(s.getAttribute("aria-hidden"))} — the spec says the primitive is decorative by construction`);
+      ok(s.getAttribute("focusable") === "false", `41.4 (${n}): focusable is ${JSON.stringify(s.getAttribute("focusable"))} — legacy engines put SVG in the tab order without it`);
+    }
+    if (paths.length === 1) {
+      ok(paths[0].ns === SVGNS, `41.4 (${n}): the <path> was created with namespace ${JSON.stringify(paths[0].ns)}, expected the SVG namespace`);
+      // The LOOP VARIABLE, not a literal: this is what makes the case say "each name draws ITS OWN
+      // glyph" rather than "some glyph was drawn six times".
+      ok(paths[0].getAttribute("d") === ICONS[n], `41.4 (${n}): the rendered path data is not ICONS[${JSON.stringify(n)}] — a template that drew one glyph for every name would pass every other assertion in this case`);
+    }
+  }
+  // 41.4b THE SPEC'S OWN EXAMPLE, by name, because that is what /components actually mounts — and
+  // read out of handoff/verdant/pack.json, NOT the vocabulary: gen-vocabulary drops `example` from
+  // its entries entirely (checked — the icon entry's keys are class/status/props/states/children/
+  // usage/contract), and system/catalog.mjs seeds the playground from the PREPARED PACK ROW's
+  // `example`. Reading the vocabulary here handed renderComposition an undefined props object and
+  // the case threw instead of asserting, which is how this was found.
+  {
+    const pack = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/pack.json"), "utf8"));
+    const row = pack.components.find((c) => c.component === "icon");
+    const ex = row && row.example;
+    ok(deep(ex) === deep({ name: "check", size: "lg" }), `41.4b: the pack's icon example is ${deep(ex)} — the playground seeds from it and invents nothing, so it must be a REAL manifest name`);
+    ok(ex !== undefined, "41.4b: the pack row carries no `example` — /components would open the icon panel on empty defaults, which for two REQUIRED props is a validator refusal");
+    ok(ex !== undefined && Object.hasOwn(ICONS, ex.name), `41.4b: the example names "${ex && ex.name}", which the committed map does not carry — /components would open on a refusal`);
+    ok(ex !== undefined && stubFindAll(renderIcon(ex), "path").length === 1, "41.4b: the spec's own example does not render a path");
+  }
+
+  // --- 41.5 A NON-MANIFEST NAME REFUSES, VISIBLY (AC #1b). The failure mode this case exists for is
+  // an EMPTY BOX, so zero svg and zero path is asserted as hard as the literal text is.
+  {
+    const root = renderIcon({ name: "not-an-icon", size: "md" });
+    ok(root && root.tagName === "SPAN" && root.getAttribute("class") === "ds-icon", `41.5: the refusal root is ${root && root.tagName}.${root && root.getAttribute("class")}, expected SPAN.ds-icon`);
+    ok(root && root.getAttribute("data-refused") === "", `41.5: data-refused is ${JSON.stringify(root && root.getAttribute("data-refused"))} — the refusal's own CSS rule binds to that attribute, so without it the box renders at glyph size with text in it`);
+    ok(stubText(root) === "not-an-icon", `41.5: the refusal reads ${JSON.stringify(stubText(root))}, expected the literal name — a refusal a reader cannot SEE is the gap this branch exists to replace`);
+    ok(stubFindAll(root, "svg").length === 0, `41.5: a refused name still built ${stubFindAll(root, "svg").length} <svg> — an empty box is exactly the failure mode this branch replaces`);
+    ok(stubFindAll(root, "path").length === 0, `41.5: a refused name still built ${stubFindAll(root, "path").length} <path>`);
+    ok(root && root.getAttribute("data-size") === "md", `41.5: data-size is ${JSON.stringify(root && root.getAttribute("data-size"))} — the refusal keeps the attribute, so the two branches differ in ONE designed way and not two`);
+  }
+
+  // --- 41.6 THE PROTOTYPE-CHAIN TRAP. A name like "constructor" resolves through Object.prototype
+  // to a FUNCTION, and Object.freeze does not stop that. Object.hasOwn is what refuses it.
+  for (const n of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+    const root = renderIcon({ name: n, size: "lg" });
+    ok(root && root.getAttribute("data-refused") === "", `41.6 (${n}): a prototype-chain name did not refuse — ICONS[${JSON.stringify(n)}] resolved through Object.prototype and the template treated it as path data`);
+    ok(stubFindAll(root, "path").length === 0, `41.6 (${n}): a prototype-chain name built a <path> — its "path data" is a Function, stringified into a d attribute`);
+  }
+  // 41.6b THE MUTATION THAT DECIDES WHETHER 41.6 CAN FAIL. A local copy of the branch using
+  // ICONS[name] truthiness instead of Object.hasOwn must RENDER for "constructor" — without this,
+  // 41.6 could be green against a template that never had the trap to begin with.
+  {
+    const truthy = (name) => (ICONS[name] ? "rendered" : "refused");
+    ok(truthy("constructor") === "rendered",
+      `41.6b: the truthiness form REFUSED "constructor", so 41.6 proves nothing — ICONS[\"constructor\"] is ${typeof ICONS.constructor}, and if that ever stops being truthy this mutation has to be replaced rather than deleted`);
+    ok(truthy("not-an-icon") === "refused", "41.6b: the truthiness form accepted a plainly absent name — the mutation is not the mutation it claims to be");
+    ok(Object.hasOwn(ICONS, "constructor") === false, "41.6b: the map has its OWN \"constructor\" key, so the trap this case describes is not the trap the template faces");
+  }
+
+  // --- 41.7 `gen-icons --check` CAN FAIL (AC #1c). The clean leg first, as the positive control;
+  // then the PURE emitIcons driven over a manifest copy with one name removed. emitIcons and pathOf
+  // are exported for exactly this (the validateExamples precedent: "exported so build-checks can
+  // drive it… which is the only thing that proves this gate can fail at all"). NOTHING writes to
+  // disk — the reader is a closure over the committed map.
+  {
+    // genIcons THROWS by design when the package cannot answer the manifest (a missing install, a
+    // weight whose files are named differently — Phosphor's bold assets are <name>-bold.svg, so a
+    // weight flip lands here). That is the right behaviour for a CI leg and the wrong behaviour for
+    // this one line: measured, an uncaught throw here ended the run with a stack trace and group 41
+    // reported nothing at all. So it becomes one named failure.
+    const cleanErr = threw(() => genIcons({ check: true }));
+    ok(cleanErr === null, `41.7: genIcons({check:true}) THREW — ${cleanErr && cleanErr.message}`);
+    // Guarded on the root rather than run over a `{drifted:["(threw)"], icons:-1}` placeholder, which
+    // 41.4's own throw-catch already does for its root: measured with the package uninstalled, the
+    // placeholder printed two further failures describing a DRIFTED artifact and a count of -1 —
+    // neither of which happened — so one cause read as three defects.
+    const clean = cleanErr === null ? genIcons({ check: true }) : null;
+    if (clean) {
+      ok(clean.drifted.length === 0, `41.7: genIcons({check:true}) reports drift on the committed tree: ${clean.drifted.join(", ")} — regenerate: node agent-layer/gen-icons.mjs`);
+      ok(clean.icons === MANIFEST.icons.length, `41.7: the check leg counted ${clean.icons} icons, the manifest names ${MANIFEST.icons.length}`);
+    }
+    const readIcon = (n) => ICONS[n];
+    const committed = readFileSync(join(ROOT, "system/icons.mjs"), "utf8");
+    let emitted = null;
+    try { emitted = emitIcons(MANIFEST, readIcon); } catch (e) { ok(false, `41.7: emitIcons over the committed manifest THREW — ${e.message}`); }
+    ok(emitted === committed,
+      "41.7: emitIcons over the committed manifest does not reproduce system/icons.mjs — the drift leg is comparing something other than what it emits");
+    const shorter = { ...MANIFEST, icons: MANIFEST.icons.filter((n) => n !== MANIFEST.icons[MANIFEST.icons.length - 1]) };
+    ok(emitIcons(shorter, readIcon) !== committed,
+      `41.7: dropping "${MANIFEST.icons[MANIFEST.icons.length - 1]}" from the manifest emitted the SAME text as the committed map — the drift leg cannot see a manifest edit at all`);
+    // The manifest's own two refusals, driven rather than described.
+    ok(threw(() => emitIcons({ ...MANIFEST, icons: [...MANIFEST.icons].reverse() }, readIcon))?.message?.includes("is not sorted") === true,
+      "41.7: an UNSORTED manifest was accepted — the emitted key order is the manifest's, so it would churn the artifact on every reorder");
+    ok(threw(() => emitIcons({ ...MANIFEST, icons: [...MANIFEST.icons, MANIFEST.icons[0]].sort() }, readIcon))?.message?.includes("duplicate") === true,
+      "41.7: a DUPLICATE name was accepted — the emitted map would carry the same key twice");
+  }
+  // 41.7b `pathOf` REFUSES A MOVED SHAPE. Three synthetic SVG strings, each the shape the package
+  // does not have today (surveyed: all 1512 regular-weight icons are one path, viewBox 0 0 256 256,
+  // no circle/rect/line/g). A bump that changes that must be a loud failure, never a half-copied
+  // glyph — so each throw is asserted to name the FILE it was given.
+  {
+    const P = 'M1,1L2,2Z';
+    const cases = [
+      ["moved-viewbox.svg", `<svg viewBox="0 0 24 24"><path d="${P}"/></svg>`, "viewBox"],
+      ["two-paths.svg", `<svg viewBox="0 0 256 256"><path d="${P}"/><path d="${P}"/></svg>`, "<path> elements"],
+      ["has-circle.svg", `<svg viewBox="0 0 256 256"><circle cx="1" cy="1" r="1"/><path d="${P}"/></svg>`, "<circle>"],
+      ["no-viewbox.svg", `<svg><path d="${P}"/></svg>`, "viewBox"],
+      ["no-moveto.svg", `<svg viewBox="0 0 256 256"><path d="L2,2Z"/></svg>`, "moveto"],
+    ];
+    for (const [file, svg, phrase] of cases) {
+      const e = threw(() => pathOf(svg, file));
+      ok(e !== null, `41.7b (${file}): pathOf ACCEPTED a shape the package does not have — a bump would half-copy the glyph silently`);
+      ok(e !== null && e.message.includes(file), `41.7b (${file}): the throw does not name the file — got ${JSON.stringify(e && e.message)}`);
+      ok(e !== null && e.message.includes(phrase), `41.7b (${file}): the throw does not say WHAT moved (expected to mention ${JSON.stringify(phrase)}) — got ${JSON.stringify(e && e.message)}`);
+    }
+    // The positive control: the real committed shape passes the same function.
+    ok(pathOf(`<svg xmlns="${SVGNS}" viewBox="0 0 256 256" fill="currentColor"><path d="${ICONS.check}"/></svg>`, "check.svg") === ICONS.check,
+      "41.7b: pathOf REFUSED the shape the package actually ships — the five refusals above are then refusing everything, which is not a gate");
+  }
+
+  // 41.7c THE MANIFEST'S OWN THREE REFUSALS, driven over synthetic strings rather than described.
+  // parseManifest is PURE and exported for exactly this (emitIcons' precedent) — readManifest is the
+  // fs half, so none of this touches disk. The FIRST case is the one that earns the block: a bare
+  // JSON.parse here threw an unnamed SyntaxError, which the fallback at the top of this group
+  // re-raised and the run ended with a stack trace while group 41 printed nothing at all. Every throw
+  // is required to name the FILE, because "position 2" is not actionable in a chain carrying a dozen
+  // generated JSON artifacts.
+  {
+    const bad = [
+      ["{ % not json }", "is not valid JSON"],
+      [`{"weight":"","icons":["check"]}`, `needs a non-empty "weight"`],
+      [`{"icons":["check"]}`, `needs a non-empty "weight"`],
+      [`{"weight":"regular","icons":[]}`, `"icons" must be a non-empty array`],
+      [`{"weight":"regular","icons":"check"}`, `"icons" must be a non-empty array`],
+      [`{"weight":"regular","icons":["Check"]}`, `"icons" must be a non-empty array`],
+    ];
+    for (const [text, phrase] of bad) {
+      const e = threw(() => parseManifest(text));
+      ok(e !== null, `41.7c: parseManifest ACCEPTED ${JSON.stringify(text)} — the manifest's refusal is prose, not a guard`);
+      ok(e !== null && e.message.includes("system/icons.manifest.json"), `41.7c: the throw for ${JSON.stringify(text)} does not name the FILE — got ${JSON.stringify(e && e.message)}`);
+      ok(e !== null && e.message.includes(phrase), `41.7c: the throw for ${JSON.stringify(text)} does not say what is wrong (expected to mention ${JSON.stringify(phrase)}) — got ${JSON.stringify(e && e.message)}`);
+    }
+    // The positive control: a well-formed manifest passes the same function, so the six above are
+    // not refusing everything.
+    const good = parseManifest(`{"weight":"regular","icons":["arrow-left","check"]}`);
+    ok(good.weight === "regular" && deep(good.icons) === deep(["arrow-left", "check"]),
+      `41.7c: parseManifest REFUSED or mangled a well-formed manifest — got ${deep(good)}`);
+  }
+
+  // --- 41.8 THE VOCABULARY ENTRY + THE VALIDATOR. The refusals that matter here are
+  // validateComposition's, before any DOM: the template is only ever reached with a size the CSS has
+  // a rule for, which is exactly why the NAME refusal has to live in the template instead.
+  {
+    const entry = VOCAB.components.icon;
+    ok(entry !== undefined, "41.8: the vocabulary has no `icon` entry — regenerate: node agent-layer/gen-vocabulary.mjs");
+    ok(entry && deep(entry.children) === deep([]), `41.8: icon.children is ${deep(entry && entry.children)}, expected [] — it is a leaf`);
+    ok(entry && !Object.hasOwn(entry, "childrenCardinality"), "41.8: icon declares childrenCardinality — absent ≡ at most one, and a leaf that takes none should not restate the grammar");
+    ok(entry && entry.contract === null, `41.8: icon.contract is ${deep(entry && entry.contract)}, expected null — the primitive is presentational`);
+    ok(VOCAB.components.stack.children.includes("icon"), `41.8: stack.children is [${VOCAB.components.stack.children.join(", ")}] — icon is not in it, so no composition can place a glyph`);
+    ok(hasTemplate("icon"), "41.8: the renderer has no `icon` template — group 3 asserts a template exists for every entry, and this states it by name");
+
+    const v = (node) => threw(() => validateComposition(VOCAB, node))?.message ?? null;
+    ok(v({ name: "icon", props: { name: "check", size: "lg" } }) === null, `41.8: a valid icon was refused — ${v({ name: "icon", props: { name: "check", size: "lg" } })}`);
+    ok((v({ name: "icon", props: { size: "lg" } }) ?? "").includes("required prop"), `41.8: a missing \`name\` was not refused as a required prop — got ${deep(v({ name: "icon", props: { size: "lg" } }))}`);
+    ok((v({ name: "icon", props: { name: "check" } }) ?? "").includes("required prop"), `41.8: a missing \`size\` was not refused as a required prop — got ${deep(v({ name: "icon", props: { name: "check" } }))}`);
+    const bad = v({ name: "icon", props: { name: "check", size: "huge" } });
+    ok((bad ?? "").includes("md") && (bad ?? "").includes("lg") && (bad ?? "").includes("xl"), `41.8: a size outside the enum was not refused NAMING the enum — got ${deep(bad)}`);
+    ok((v({ name: "icon", props: { name: "check", size: "lg" }, children: [{ name: "text", props: { role: "body", content: "x" } }] }) ?? "").includes("no children"),
+      `41.8: an icon holding a child was not refused — got ${deep(v({ name: "icon", props: { name: "check", size: "lg" }, children: [{ name: "text", props: { role: "body", content: "x" } }] }))}`);
+    ok(v({ name: "stack", props: { direction: "row" }, children: [{ name: "icon", props: { name: "caret-right", size: "md" } }] }) === null,
+      `41.8: a stack holding an icon was refused — ${v({ name: "stack", props: { direction: "row" }, children: [{ name: "icon", props: { name: "caret-right", size: "md" } }] })}`);
+    // And it RENDERS nested, not only validates: stack renders its children through renderChild.
+    // The catch is load-bearing for the same reason renderIcon's is, and MORE so here: renderChild
+    // (agentic-renderer.mjs:166) calls TEMPLATES[child.name] with NO hasTemplate guard — build()
+    // has one, renderChild does not — so a missing template for a CHILD is a raw
+    // "TEMPLATES[child.name] is not a function" TypeError rather than the renderer's own named
+    // Error. Measured by deleting the template: it ended the run here with a stack trace.
+    {
+      domStubControl();
+      globalThis.document = domStub();
+      let nested = null;
+      let nestedError = null;
+      try {
+        nested = renderComposition(VOCAB, { name: "stack", props: { direction: "row" }, children: [{ name: "icon", props: { name: "caret-right", size: "md" } }] }, null);
+      } catch (e) { nestedError = e.message; } finally { delete globalThis.document; }
+      ok(nestedError === null, `41.8: rendering a stack > icon THREW — ${nestedError}`);
+      ok(stubFindAll(nested, "path").length === 1 && stubFindAll(nested, "path")[0].getAttribute("d") === ICONS["caret-right"],
+        "41.8: a stack holding an icon validated but did not RENDER the glyph — stack passes children through renderChild, and this is the one place that pairing is driven");
+    }
+  }
+
+  // --- 41.9 THE MANIFEST IS THE SIX THE TICKET NAMES, as a tripwire rather than a rule. A seventh
+  // glyph is fine and expected; this line is simply where it gets NOTICED, so the report says which
+  // flow asked for it. The six are DERIVED from Faster Payment's four screens — the brief names no
+  // icons — and three of them resolve to a Phosphor name no designer would reach for first.
+  ok(deep([...MANIFEST.icons].sort()) === deep(["arrow-left", "caret-right", "check", "info", "warning", "x"]),
+    `41.9: the committed set is [${MANIFEST.icons.join(", ")}] — #305 landed exactly arrow-left, caret-right, check, info, warning, x (back → arrow-left, close → x, chevron-right → caret-right). A seventh is fine: update this line and say in the PR which flow asked for it.`);
+  ok(MANIFEST.weight === "regular", `41.9: the manifest pins weight ${JSON.stringify(MANIFEST.weight)} — #305 committed "regular" and copied no second weight`);
+
+  group("icons", `the committed Phosphor subset (#305, epic #295 G8): a hand-maintained system/icons.manifest.json → agent-layer/gen-icons.mjs → a frozen system/icons.mjs → the \`icon\` template, with no runtime icon library anywhere and the package itself in a build-time tool dir no page can reach · THE CONTROLS FIRST, and one of them is NEW: the standing domStubControl() exercises createElement only, so a namespace control of its own proves the stub records the NS it was given AND that a createElement node records null — without it every ns assertion below would pass against a template built with el(), which yields an HTMLUnknownElement that paints nothing while every other assertion still passes · MANIFEST ↔ MAP identity IN ORDER (the emitted key order is the manifest's, which is why the generator refuses an unsorted one), the viewBox pinned, the map frozen, every \`d\` a non-empty moveto · A SUBSET rather than a vendoring (AC #2), asserted by an UPPER BOUND of 20 and never by reading the package — deliberately loose, a seventh or nineteenth glyph being fine, because what it refuses is a category error and not growth; the 1512 per weight is the number that bound refuses and it appears only in the failure message, so a generator that started copying them all fails by a number rather than as a 37 MB diff nobody reads · EVERY manifest name RENDERED through the real renderComposition over the real DOM stub — span.ds-icon with its data-size and no data-refused, exactly one namespaced <svg> carrying the viewBox, currentColor, aria-hidden and focusable, exactly one namespaced <path>, and its \`d\` compared to ICONS[n] BY LOOP VARIABLE, because a template drawing one glyph for every name would pass every other assertion in the case · the spec's OWN example asserted separately, since that is what /components mounts · A NON-MANIFEST NAME REFUSED VISIBLY (AC #1b): data-refused set, the literal name as text, data-size kept, and ZERO svg and ZERO path — the empty box being the exact failure mode the branch replaces · FIVE PROTOTYPE-CHAIN names refused (constructor, toString, __proto__, hasOwnProperty, valueOf), beside THE MUTATION that decides whether that case can fail at all: the ICONS[name] truthiness form must still RENDER "constructor", or 41.6 is green against a trap the template never had · \`gen-icons --check\` proven able to fail (AC #1c) through the PURE emitIcons — the clean leg as the positive control, then a manifest with one name dropped emitting different text, plus the unsorted and duplicate refusals, all in memory with NOTHING written to disk · THE MANIFEST'S OWN THREE REFUSALS driven over six synthetic strings through the PURE parseManifest — malformed JSON, a bad weight and a bad icons array — each throw required to NAME the file, because a bare SyntaxError says \"position 2\" and this chain carries a dozen generated JSON artifacts; the malformed case is the one that earns the block, since an unnamed throw there was re-raised by this group's own fallback and ENDED the run with a stack trace while group 41 printed nothing at all · pathOf's SHAPE GUARD driven over five synthetic SVGs (a moved viewBox, an absent one, two paths, a <circle>, a path with no moveto), each throw required to name the FILE and say what moved, with the COMMITTED map's own shape REPRODUCED as the positive control so the five are not refusing everything — nothing in this case reads node_modules, which is why the group survives a missing install, and a package whose shape genuinely MOVED is caught by the drift leg (genIcons → pathOf over the real files) rather than here · and THE VALIDATOR, where the refusals actually live: a valid icon passes, each missing required prop is refused as one, a size outside the enum is refused NAMING [md|lg|xl], an icon holding a child is refused, and a stack holding an icon both validates AND renders the glyph through renderChild. What it cannot reach: how the glyph LOOKS — that \`check\` draws a tick and not a cross, that md/lg/xl are visibly distinct, that a refused icon reads as a mistake — which is the pixel gate's and a human read's; and that the refusal's border and auto size WIN at runtime, which is catalog-journey's, because a regex over the stylesheet sees neither specificity nor a pack override`);
 }
 
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 40 groups pass");
+  console.log("\nbuild ✓  all 41 groups pass");
 }
