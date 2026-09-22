@@ -2562,7 +2562,8 @@ p, .body {
   /* A glyph keeps its box inside a flex row rather than being squeezed into an ellipse. */
   flex: 0 0 auto;
   /* currentColor, so a glyph takes the colour of whatever it sits in and wears every pack
-     without a rule of its own. The <path> carries fill="currentColor" from the package. */
+     without a rule of its own. The fill sits on the <svg>, set by the template — gen-icons copies
+     the path `d` and nothing else, so system/icons.mjs holds no fill and the colour inherits. */
   color: inherit;
 }
 .ds-icon > svg { display: block; width: 100%; height: 100%; }
