@@ -1,0 +1,10 @@
+lookup { scope:["1db1b29957b949ca"], format:"blueprint", expandInstances:true } — verbatim blueprint field, real run 2026-08-27
+1db1b29957b949ca inst("Spike List Row") at(state(active)) p(16,288) s(360,hug) "Frame 1" #spikec_inst
+  # derived instance children (read-only): real ids you can target with lookup/execute_commands; edit them via override(...) on the instance, do not re-create them.
+  d9512c65b8ba59a7 c s(32,32) f[(2c2cf1a59b8a9d25,tok(color.primary.container,#F2F5FA,dark(#00295B)))] "Avatar"
+  4e5f949b06664b86 al(v,g(4:$spacing.xs),pad(0:$spacing.none)) s(fill,hug) f[] "Text block"
+    0677e5352f9b7e97 t("Amara Okafor",Manrope:$font.family,16:$font.size.md,sb,align(l)) s(fill,hug:100) f[(3915ac669768657f,tok(color.text.primary,#454545,dark(#E1E1E1),high-contrast(#373737)))] "Text 1"
+    ce6edd5ebb75ca12 t("Last seen 2 min ago",Manrope:$font.family,14:$font.size.sm,r,align(l),lh(1.5:$font.lineHeight.normal)) s(fill,hug:100) f[(9851cd70da2a4936,tok(color.text.secondary,#575757,dark(#C6C6C6),high-contrast(#454545)))] "Text 2"
+  4678ba04551aae0f al(h,x(c),y(c),g(0:$spacing.none),pad(4:$spacing.xs,8:$spacing.sm,4:$spacing.xs,8:$spacing.sm)) s(hug,hug) f[(20c0571e97f03ddf,tok(color.success.container,#F1F7F2,dark(#003B12)))] rd(9999:$radius.full) "Status chip"
+    573be45a182c5b97 t("On call",Manrope:$font.family,12:$font.size.xs,m,align(l)) s(hug:100,hug:100) f[(c5500a2ff9eaf16e,tok(color.success,#00C950))] "Text 3"
+  ee43cdb97fffec7b svg(icon:caret-right) s(8.73,16) f[(2c3b65d0a3e852d0,tok(color.text.disabled,#C6C6C6,dark(#575757),high-contrast(#E1E1E1)))] "Chevron"

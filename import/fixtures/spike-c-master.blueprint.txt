@@ -1,0 +1,17 @@
+lookup { scope:["6282a5879cdc52a8"], format:"blueprint" } — the MASTER, verbatim, real run 2026-08-27
+6282a5879cdc52a8 fr comp axes[state[active,away]] p(16,16) s(784,260) f[] st[(ef379aaa4f3d71ee,#7C6BF0,w(1),dash(10,5))] rd(16) "Spike List Row" #spikec_row
+  a149ba9068759750 al(h,y(c),g(12:$spacing.md),pad(8:$spacing.sm,12:$spacing.md,8:$spacing.sm,12:$spacing.md)) variant(state(active)) p(20,20) s(360,hug) f[(7330d266544d2f5d,tok(color.surface,#F8F8F8,dark(#292929)))] st[(2a94fd8c8c7d5e0e,tok(color.outline.variant,#E1E1E1,dark(#454545),high-contrast(#F0F0F0)),w(1:$stroke.width.subtle))] rd(6:$radius.md) "Frame 1"
+    1aaa09ca05045707 c s(32,32) f[(2c2cf1a59b8a9d25,tok(color.primary.container,#F2F5FA,dark(#00295B)))] "Avatar" #spikec_avatar
+    48b188852bf67921 al(v,g(4:$spacing.xs),pad(0:$spacing.none)) s(fill,hug) f[] "Text block"
+      7fe2f6584357ca46 t("Amara Okafor",Manrope:$font.family,16:$font.size.md,sb,align(l)) s(fill,hug:100) f[(3915ac669768657f,tok(color.text.primary,#454545,dark(#E1E1E1),high-contrast(#373737)))] "Text 1" #spikec_title
+      a06999c486cd090b t("Last seen 2 min ago",Manrope:$font.family,14:$font.size.sm,r,align(l),lh(1.5:$font.lineHeight.normal)) s(fill,hug:100) f[(9851cd70da2a4936,tok(color.text.secondary,#575757,dark(#C6C6C6),high-contrast(#454545)))] "Text 2" #spikec_subtitle
+    80d31fbd32428d05 al(h,x(c),y(c),g(0:$spacing.none),pad(4:$spacing.xs,8:$spacing.sm,4:$spacing.xs,8:$spacing.sm)) s(hug,hug) f[(20c0571e97f03ddf,tok(color.success.container,#F1F7F2,dark(#003B12)))] rd(9999:$radius.full) "Status chip" #spikec_chip
+      3b04104a946b385a t("Active",Manrope:$font.family,12:$font.size.xs,m,align(l)) s(hug:100,hug:100) f[(c5500a2ff9eaf16e,tok(color.success,#00C950))] "Text 3" #spikec_status
+    4c5b4b144ec7dc32 svg(icon:caret-right) s(8.73,16) f[(2c3b65d0a3e852d0,tok(color.text.disabled,#C6C6C6,dark(#575757),high-contrast(#E1E1E1)))] "Chevron"
+  cecbd7b1136edda4 al(h,y(c),g(12:$spacing.md),pad(8:$spacing.sm,12:$spacing.md,8:$spacing.sm,12:$spacing.md)) variant(state(away)) p(404,20) s(360,hug) f[(3530e861be0ee257,tok(color.surface,#F8F8F8,dark(#292929)))] st[(8368e39a460b01b8,tok(color.outline.variant,#E1E1E1,dark(#454545),high-contrast(#F0F0F0)),w(1:$stroke.width.subtle))] rd(6:$radius.md) "Frame 2"
+    37a9b93fd19f2b3d c s(32,32) f[(04a4408c9f0e9875,tok(color.primary.container,#F2F5FA,dark(#00295B)))] "Avatar"
+    c9f19a9175094f6f al(v,g(4:$spacing.xs),pad(0:$spacing.none)) s(fill,hug) f[] "Text block"
+      3e4010d802fef191 t("Amara Okafor",Manrope:$font.family,16:$font.size.md,sb,align(l)) s(fill,hug:100) f[(5f6f3e40a774e6f2,tok(color.text.primary,#454545,dark(#E1E1E1),high-contrast(#373737)))] "Text 4"
+      d06af61f5363d17e t("Last seen 2 min ago",Manrope:$font.family,14:$font.size.sm,r,align(l),lh(1.5:$font.lineHeight.normal)) s(fill,hug:100) f[(d0f44de51943e862,tok(color.text.secondary,#575757,dark(#C6C6C6),high-contrast(#454545)))] "Text 5"
+    7ab7e95336574c3b al(h,x(c),y(c),g(0:$spacing.none),pad(4:$spacing.xs,8:$spacing.sm,4:$spacing.xs,8:$spacing.sm)) s(hug,hug) f[(769cc5e549e7ae08,tok(color.warning.container,#FAF3F1,dark(#501C00)))] rd(9999:$radius.full) "Status chip"
+      c3324221fcf62986 t("Away",Manrope:$font.family,12:$font.size.xs,m,align(l)) s(hug:100,hug:100) f[(398fd893006b1276,tok(color.on-warning,#292929))] "Text 6"
