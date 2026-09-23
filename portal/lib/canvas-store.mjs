@@ -304,6 +304,8 @@ export function saveConflict(buildRoot, base) {
 // ledger. Every refusal — a status the page never writes, an op the applier refuses, a frame.link
 // ref the transcript does not hold, a node with no position — throws BEFORE any byte is written.
 // `decisions` is loadDecisions' answer: an array checks frame.link refs; null (a stand-in) accepts any.
+// The lines land in ONE append; a crash between it and the canvas.json write leaves canvas.json one save
+// behind, which the next save re-derives from the whole ledger.
 export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now = () => new Date().toISOString() } = {}) {
   const buildRoot = join(pkgRoot, "build");
   const opsPath = join(buildRoot, OPS_FILE);
@@ -328,7 +330,7 @@ export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now
   }
   const canvas = arrangement(doc, positions);
   mkdirSync(buildRoot, { recursive: true });
-  for (const l of lines) appendFileSync(opsPath, `${JSON.stringify(l)}\n`);
+  if (lines.length) appendFileSync(opsPath, lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
   writeFileSync(join(buildRoot, CANVAS_FILE), `${JSON.stringify(canvas, null, 2)}\n`);
   return { count: base + lines.length };
 }
