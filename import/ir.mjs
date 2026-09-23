@@ -20,7 +20,7 @@
 //   1. EVERY TOKENISABLE VALUE IS `{value, ref}` — `tok()`, and nothing else. `value` is what the
 //      source resolved to; `ref` is the source's own token name when the slot is BOUND and `null`
 //      when it is not. AN UNBOUND `ref` IS NEVER GUESSED HERE. Filling it by nearest value is the
-//      snap step, which is #307's (architecture:168), and a converter that guessed would make the
+//      snap step, import/snap-rules.mjs (#307, architecture:168), and a converter that guessed would make the
 //      import record's fidelity block a claim nobody can check.
 //
 //   2. A DROP ROW CARRIES ITS E1 CLASS, DERIVED, NEVER PASSED. The architecture (`:159-160`) puts
@@ -76,6 +76,11 @@ export const DROP_CLASS_OF = Object.freeze({
   // Understood, carried, and with nowhere to land.
   "unfillable-required-prop": "read-but-never-emitted",
   "no-vocabulary-slot": "read-but-never-emitted",
+  // #307's three. The snap step and the import record's mapping half (import/snap-rules.mjs,
+  // import/report.mjs) are the only producers.
+  "no-snap-target": "read-then-dropped",      // an unbound value with no contract token inside its family's tolerance, or no family
+  "unmapped-role": "read-then-dropped",       // the mapping chose not to carry a role the contract has a home for
+  "no-contract-role": "read-but-never-emitted", // the contract has no home for the role
 });
 
 // One drop row. `class` is DERIVED from `kind` and is never a parameter: a caller that could pass

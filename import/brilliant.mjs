@@ -29,7 +29,7 @@
 //      hardcoded literal on a token-contract surface, so the REFUSAL belongs to the consumer
 //      (import/recognise.mjs), not to this converter.
 //
-// TWO DELIBERATE CHANGES TO THE LIFTED CODE, both stated so case 2's layout-only compare is read for
+// THREE DELIBERATE CHANGES TO THE LIFTED CODE, all stated so case 2's layout-only compare is read for
 // what it is rather than as a weakened test:
 //   · every drop row is built through `ir.drop()`, which derives its E1 class. S2's four `kind`s are
 //     spelled exactly as S2 spells them; the fold is import/ir.mjs's DROP_CLASS_OF. This is why case 2
@@ -37,6 +37,12 @@
 //   · toStack's size-drop loop moved into `sizeDrops()` so the SAME rows fire for a node with no
 //     `al()`. S2 only ever saw al() lines; #304 reads every line, and a fixed size on a plain frame
 //     is the same loss as a fixed size on an auto-layout one.
+//   · an UNBOUND spacing value (a gap or pad side read with no ref at all, `g(12)`) is carried as
+//     `tok(value, null)` with NO drop row, so it reaches the snap step (import/snap-rules.mjs, #307,
+//     architecture:168). S2 dropped it as `no-token`. A BOUND ref the contract lacks
+//     (`$spacing.none`) is still a `no-token` drop exactly as before — mapping is by role for those.
+//     Case 2's compare is unchanged because every committed al() value is bound; ON AN UNBOUND LINE
+//     THE S2 BASELINE WOULD DIFFER, and that difference is this change, not a lift defect to "fix".
 //
 // ─── THE SCOPE LINE MOVES, AND THAT IS THIS FILE'S OWN CONTRIBUTION ──────────────────────────────
 // At #299 every atom OUTSIDE al() was read past, unrecorded (layout-branch.txt:13) — correct for a
@@ -51,8 +57,8 @@
 //     writes $-prefixed refs for spacing/type/radius and bare ones inside tok(); one convention in
 //     the IR beats two, and the prefix is the one the rest of the read already uses.
 //   · A tokenisable slot read with no ref at all (fixture 2's raw `#7C6BF0` stroke and its `rd(16)`)
-//     yields `tok(value, null)` and sets the root's `source.bound` false. NOTHING IS GUESSED — snap
-//     is #307's (architecture:168).
+//     yields `tok(value, null)` and sets the root's `source.bound` false. NOTHING IS GUESSED — the
+//     snap step is import/snap-rules.mjs (#307, architecture:168), run after this converter.
 
 import { checkIr, drop, node as irNode, root as irRoot, tok, walk } from "./ir.mjs";
 
@@ -284,13 +290,13 @@ export const toStack = (node) => {
   const emitted = [], drops = [];
 
   const spacing = (slot, v) => {
+    // UNBOUND: carried for the snap step, never guessed and never dropped here (the third change).
+    if (v.ref === null) return tok(v.value, null);
     const m = mapSpacing(v);
     if (!m) {
       drops.push(drop({
         kind: "no-token", slot, ref: v.ref, value: v.value,
-        reason: v.ref
-          ? `no contract token for role ${v.ref} (source value ${v.value}px)`
-          : `unbound value ${v.value}px — by-value snapping is #307's, not this converter's`,
+        reason: `no contract token for role ${v.ref} (source value ${v.value}px)`,
       }));
       return null;
     }
@@ -317,6 +323,7 @@ export const toStack = (node) => {
     const note = arity === 4 ? "" : ` (${arity}-value pad, expands to all four sides)`;
     const mappedAtoms = padSrc.map((v, i) => {
       const slot = arity === 4 ? `pad.${PAD_SIDE[i]}` : `pad[${i}]`;
+      if (v.ref === null) return tok(v.value, null);          // unbound → the snap step (the third change)
       const m = mapSpacing(v);
       if (!m) {
         drops.push(drop({
@@ -455,7 +462,7 @@ const readLine = (line) => {
   // AND emit its drop rows, then toStack would emit them again — two rows for one source atom,
   // against the "A drop is recorded ONCE PER SOURCE ATOM" invariant stated above toStack, and the
   // independent grep that invariant offers as a cross-check would double-count. Both committed
-  // fixtures write al( first, so this is latent here and goes live at #307's converter (PR #448 F3).
+  // fixtures write al( first, so this is latent here and goes live at #310's converter (PR #448 F3).
   let sawSize = atoms.some((a) => a.startsWith("al("));
 
   for (const atom of atoms) {

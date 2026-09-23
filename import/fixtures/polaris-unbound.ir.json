@@ -1,0 +1,201 @@
+{
+  "note": "SYNTHETIC — hand-built for #307's gate. Not a design-tool read. Every value is a real Polaris v7 value from spike A (.claude/plans/design-import-spike-a/spike-a-engine-output.txt: spacing 16 values 1–128, radius 2/4/8/12/16/20/30, type 12–48; colours from tokens.polaris.spike.css).",
+  "ir": {
+    "mode": 1,
+    "grain": "component",
+    "source": {
+      "tool": "synthetic",
+      "ids": [],
+      "bound": false
+    },
+    "children": [
+      {
+        "kind": "frame",
+        "id": null,
+        "name": "Card",
+        "position": null,
+        "layout": {
+          "dir": "column",
+          "gap": {
+            "value": 12,
+            "ref": null
+          },
+          "pad": [
+            {
+              "value": 16,
+              "ref": null
+            },
+            {
+              "value": 16,
+              "ref": null
+            },
+            {
+              "value": 16,
+              "ref": null
+            },
+            {
+              "value": 16,
+              "ref": null
+            }
+          ],
+          "align": {
+            "main": null,
+            "cross": null
+          },
+          "size": null
+        },
+        "style": {
+          "fill": {
+            "value": "#ffffff",
+            "ref": null
+          },
+          "radius": {
+            "value": 12,
+            "ref": null
+          }
+        },
+        "text": null,
+        "icon": null,
+        "component": null,
+        "children": [
+          {
+            "kind": "text",
+            "id": null,
+            "name": "Title",
+            "position": null,
+            "layout": null,
+            "style": {
+              "fill": {
+                "value": "#0c3b2f",
+                "ref": null
+              }
+            },
+            "text": {
+              "content": "Order 1042",
+              "family": null,
+              "size": {
+                "value": 20,
+                "ref": null
+              },
+              "weight": null,
+              "align": null,
+              "lineHeight": null
+            },
+            "icon": null,
+            "component": null,
+            "children": [],
+            "drops": []
+          },
+          {
+            "kind": "text",
+            "id": null,
+            "name": "Body",
+            "position": null,
+            "layout": null,
+            "style": {
+              "fill": {
+                "value": "#20828d",
+                "ref": null
+              }
+            },
+            "text": {
+              "content": "Ships in 2 days",
+              "family": null,
+              "size": {
+                "value": 14,
+                "ref": null
+              },
+              "weight": null,
+              "align": null,
+              "lineHeight": {
+                "value": 1.5,
+                "ref": null
+              }
+            },
+            "icon": null,
+            "component": null,
+            "children": [],
+            "drops": []
+          },
+          {
+            "kind": "frame",
+            "id": null,
+            "name": "Badge",
+            "position": null,
+            "layout": {
+              "dir": "row",
+              "gap": {
+                "value": 2,
+                "ref": null
+              },
+              "pad": [
+                {
+                  "value": 4,
+                  "ref": null
+                },
+                {
+                  "value": 4,
+                  "ref": null
+                },
+                {
+                  "value": 4,
+                  "ref": null
+                },
+                {
+                  "value": 4,
+                  "ref": null
+                }
+              ],
+              "align": {
+                "main": null,
+                "cross": null
+              },
+              "size": null
+            },
+            "style": {
+              "radius": {
+                "value": 4,
+                "ref": null
+              },
+              "fill": {
+                "value": "#e8f0fd",
+                "ref": null
+              }
+            },
+            "text": null,
+            "icon": null,
+            "component": null,
+            "children": [
+              {
+                "kind": "text",
+                "id": null,
+                "name": "Label",
+                "position": null,
+                "layout": null,
+                "style": null,
+                "text": {
+                  "content": "Paid",
+                  "family": null,
+                  "size": {
+                    "value": 12,
+                    "ref": null
+                  },
+                  "weight": null,
+                  "align": null,
+                  "lineHeight": null
+                },
+                "icon": null,
+                "component": null,
+                "children": [],
+                "drops": []
+              }
+            ],
+            "drops": []
+          }
+        ],
+        "drops": []
+      }
+    ],
+    "drops": []
+  }
+}
