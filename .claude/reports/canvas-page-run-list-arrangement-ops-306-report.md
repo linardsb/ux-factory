@@ -1,0 +1,152 @@
+# Implementation Report — canvas.html, the run list, canvas-store's routes, and the four arrangement ops (#306)
+
+**Plan**: `.claude/plans/canvas-page-run-list-arrangement-ops-306.md`   **Branch**: `feature/canvas-page-arrangement-ops-306` (worktree `../wt-306`)   **Base**: `eb58d54` → `57584b8 (the report commit's parent carries every code change)` (origin/main was `eb58d54` at the last successful fetch; the final `git fetch` failed on a DNS timeout — re-check before the PR)   **Status**: COMPLETE — with the studio-journey after-run NOT fully green for an environmental reason (see Not run) and Q2 awaiting the owner
+
+## Summary
+
+The owner can open a build run from the portal (`#/canvas`), arrange its frames, notes and decision cards on
+#302's free canvas, and every change lands in the run package: `ops.jsonl` by append, `canvas.json` rewritten
+from the derivation. Four ops arrive in `system/canvas-ops.mjs` (`frame.remove`, `frame.link`, `annotate`,
+`variant.add`) plus `frame.size`'s free `width`; `portal/lib/canvas-store.mjs` gains the ledger fold with
+last-in-first-out undo lines, the `canvas.json` derivation, the gate predicate `verifyBuild`, the run list, the
+decision reader and an append-only, conflict-checked `saveRun`; three routes serve them. One undo stack covers
+positions and the document through a `docHook` on the shared verbs. `tooling/canvas-journey.mjs` proves the
+page on three engines by booting its own portal.
+
+## Tasks completed
+
+- 0.1 worktree + before-state → `../wt-306` from `origin/main` (`eb58d54`); deps installed in portal, visual-regression, style-dictionary, icons
+- 1.1 → `system/device-presets.mjs` (UPDATE): `WIDTH_MIN`/`WIDTH_MAX` 320/2560
+- 1.2 → `system/canvas-ops.mjs` (UPDATE): four verbs, `frame.size` width form, `notes`/`variants` guard
+- 1.3 → `system/canvas-ops.mjs` (UPDATE): `frameTree`, `placeDecision`
+- 1.4 → `tooling/build-checks.mjs` group 35 (UPDATE)
+- 2.1–2.2 → `portal/lib/canvas-store.mjs` (UPDATE): `CANVAS_DESCRIPTION`, `foldLedger`, `arrangement`, `positionsOf`, `verifyBuild`, `listBuilds`, `loadDecisions`, `provenanceLabel`, `saveConflict`, `saveRun`
+- 2.3 → `discovery/faster-payment/build/canvas.json` (REGENERATED through the store; `ops.jsonl` untouched)
+- 2.4 → `tooling/build-checks.mjs` group 36 (REWRITTEN: 36.0–36.10)
+- 3.1 → `portal/server.mjs` (UPDATE): `GET /api/canvas/runs`, `GET /api/canvas/run`, `POST /api/canvas/save`, `/handoff/` in the static proxy
+- 4.1 → `system/studio-canvas.mjs` (UPDATE): `place()` takes an `id`, refuses a duplicate
+- 4.2 → `system/studio-verbs.mjs` (UPDATE): `docHook` boundary check, `$doc` in snapshot, `restore` → `{moving, said}`, `resized` hook, `commit()`; group 13 case
+- 4.3 → `system/studio-minimap.mjs` (UPDATE): `scrollend`
+- 4.5 → `tooling/studio-journey.mjs` (UPDATE): two hook-off assertions
+- 5.1 → `portal/public/canvas.html` (CREATE)
+- 5.2–5.4 → `portal/public/canvas.mjs` (CREATE); `.cv-*` rules in `portal/public/portal.css` (UPDATE)
+- 5.5 → `portal/public/portal.js` (`renderRuns`, `#/canvas`), `portal/public/index.html` (Canvas link) (UPDATE)
+- 6.1 → `tooling/canvas-journey.mjs` (CREATE)
+- 7.1 → `CLAUDE.md` (UPDATE); 7.2 → `.claude/references/gates.md`, `discovery/README.md`, `system/canvas-ops.mjs` header (UPDATE)
+- 7.4 → `system/loc-summary.json` (REGENERATED); approach baselines regenerated (the three approach PNGs, Task 7.4)
+
+## Tests added
+
+- **Group 35** (build-checks): the roster at ten; `VALID_FOR` fixtures for the four verbs; 35.3b happy fold (n1 minted and edited in place, relink replaces, `width: 600` → `preset: null`, one lane, remove f2 takes a1); 19 new refusals matched on what they name; 35.10 `frameTree` (base set, state override, state's own set on top, hidden node DROPPED, no `hidden` prop anywhere, both trees pass the real `validateComposition`, dangling set flagged, hidden root flagged and kept, unknown frame → `tree: null`, total over junk); 35.11 `placeDecision` (894 then 1206 on the spine, a lower row ignored, junk skipped, junk anchor → origin). 35.9's import regex now matches bare imports.
+- **Group 36**: 36.0 discovery floor; 36.1 `checkPackage` over every committed package + the spine's prefix pin; 36.2 D7 control in memory from the frozen prefix; 36.3 four mutations through `verifyBuild`; 36.4 `$description === CANVAS_DESCRIPTION`; 36.5 round trip (unchanged); 36.6 import pin widened by exactly `canvas-ops.mjs` + bare imports + `RUN_SLUG_RE` byte-equal to `discovery.mjs`'s; 36.7 `foldLedger`; 36.8 `saveRun`; 36.9a `provenanceLabel`; 36.9 `listBuilds`/`loadDecisions`; 36.10 the owner's edit stays green.
+- **Group 13**: a `docHook` missing `resized` refused by name at the boundary, in Node.
+- **studio-journey**: "no document value in the snapshot without a hook (#306)" on `studio.html` and on `/factory`.
+- **canvas-journey** (new, operator-run): steps 1–16 of the plan plus 10b (pointer edit) and 12a (page document before reload vs `foldLedger(ops)`); 46 assertions on chromium (the forced-fallback leg is chromium-only), 45 on firefox and webkit.
+
+## Proving the checks
+
+Every mutation was applied, run, and reverted (`git status` clean after each; observed).
+
+| # | Check | Mutation | Went red (observed) | Positive control |
+|---|---|---|---|---|
+| 1.2 | 35.1/35.2 roster | add the four verbs before touching group 35 | `OPS … not the same six verbs`; `no VALID_FOR fixture for "frame.remove"` (and the other three) | — |
+| M0 | 35.3b | `nextId("n", …)` → `nextId("f", …)` | `annotate minted [{"id":"f1",…}]` + the fold threw on the n1 edit | this IS the positive control (run first) |
+| 35-a | VALID_FOR | delete `annotate`'s fixture | `no VALID_FOR fixture for "annotate"` | the happy fold applies all four |
+| 35-b | frame.remove blocker | variant half dropped (`lanes = []`) | `…variant b — got NO THROW` | the state-blocker case still passes |
+| 35-c | frameTree | write `hidden` back instead of dropping | the drop case, the no-`hidden` case, and `validateComposition` refusing `"hidden" is not a prop of text` | both trees validate on the clean tree |
+| 35-d | annotate noteId | stop resolving `noteId` | `n9 … got NO THROW` | the edit-in-place case |
+| 35-e | placeDecision | `x = anchor.x + anchor.w + gap` | first card at `{"x":422}` | 894/1206 on the clean tree |
+| 35.9 | canvas-ops import pin | add `import "node:fs";` | `imports ["node:fs","./device-presets.mjs"]` | — |
+| 36.0 | discovery floor | point the dir at an empty scratch dir | `found no committed build package` | faster-payment found |
+| 36.6 | store import pin | add `import "@anthropic-ai/claude-agent-sdk";` | **stayed GREEN at first** (regex missed bare imports) → after the regex fix: `imports [… ,"@anthropic-ai/claude-agent-sdk"]` | — |
+| 36.7 | foldLedger LIFO | pop without comparing | the wrong-op case `got null` and 36.10's past-load undo | apply-undo-redo equals plain apply |
+| 36.8 | saveRun append-only | `saveBuild` truncate-rewrite instead of append | `did not leave the original ledger as a BYTE-identical prefix` | the byte prefix holds on the clean tree |
+| 36.3 | embodies derivation | `arrangement` skips embodies edges | `faster-payment: canvas.json edges "e-f1-d7" carries a fact the ops do not` (×2) + the prefix control | — |
+| 36.10 | prefix pin | restore `lines.length === 6` | `the owner's edits … turned the per-package check red` | 36.10 green on the clean tree |
+| 36.9a | provenanceLabel | root wins | `read {"mismatch":true,"text":"Real product, neutral skin"}` | the agreeing pair |
+| R2 | D7 control's source | owner relink dropping decision 7 saved into the spine through `saveRun`; (a) gate as written → **green**; (b) D7 control read off the committed `canvas.json` → `derives nodes ["f1","f2","d8"]` red | (a) is the control | spine restored with `git checkout` |
+| G13 | docHook boundary | move the check below `const { stage, scroll }` and touch `stage` | `got stage.querySelector is not a function` | — |
+| R1 | hook-off snapshot | `snapshot()` adds `$doc: null` without a hook | both studio-journey rows red: `studio.html […"$doc"…]`, `/factory ["s1",…,"$doc"]` (run on chromium, killed by PID once both printed) | green on the clean tree (both rows ✓ on all three engines in the after-run) |
+| M1 | canvas-journey 8 | `adapter.restore` pushes no `undone` lines | `8 · ledger line 10 is undone …` (and 9/10 cascade) | clean run 46/46 |
+| M2 | canvas-journey 10 | remove `docHook?.resized(...)` | `10 · exactly one new frame.size line from the drag — []` | clean run |
+| M3 | canvas-journey 2 | **plan's wording (emit on load) stayed green — absorbed by the save dedupe by design**; R2's wording, save once on load | `2 · ZERO save requests … 1 request(s)` | clean run |
+| M4 | health jobsDir | `JOBS_DIR` unset in the child env | `the portal's jobsDir is …/Linards jobs folder, not the scratch dir …` before any leg | clean run |
+| M5 | named exit | `child.kill("SIGKILL")` inside step 6 | `chromium threw: portal exited (code null) during 6 · …` (one step earlier than the plan said) | clean run |
+| M6 | preflight | `mv portal/node_modules` | `portal/node_modules/@anthropic-ai/claude-agent-sdk is missing — run cd portal && npm ci first … Nothing was spawned.`; 0 scratch dirs left | — |
+| M7 | 5b forced fallback clamp | `left = r.left` | **stayed GREEN at 1000 px** → after pinning the button to the right edge at 760 px: `{"l":613.9,…,"r":965.9,…,"vw":760}` red | clean forced leg in view |
+| M8 | in-repo notice | `discovery/${run.provenance}/build/` | `2 · the save notice names … discovery/fictional/build/` | clean run |
+| M9 | editor tabindex | drop `ed.tabIndex = 0` | **stayed GREEN on keyboard-only step 4** → new step 10b: `10b · a click-then-type edit lands as ONE annotate … []` | clean 10b |
+| M10 | 12a page = disk | `pending` carries a different frame.link list than the page applied | `12a · … equals foldLedger(ops.jsonl)` red; the post-reload `12` compare stayed GREEN (why it is no longer the page=disk claim) | clean run |
+
+Assertions no single mutation reddens: none known among the new ones.
+
+## Validation results
+
+| Command | Result | Provenance |
+|---|---|---|
+| `node tooling/build-checks.mjs \| tail -1` (before, on `eb58d54`) | `build ✓  all 41 groups pass` | observed |
+| `node agent-layer/gen-loc-summary.mjs --check` (before) | `loc summary ✓  3 groups — no drift`; runtime 80 files / 32,100 | observed |
+| `node tooling/build-checks.mjs \| tail -1` (at `4218800`) | `build ✓  all 41 groups pass` | observed |
+| same with `portal/node_modules` moved away | `build ✓  all 41 groups pass` | observed |
+| `node tooling/drift-check.mjs` | `drift-check ✓  syntax · token-css · … · group-count` | observed |
+| `node tooling/token-lint.mjs` | `token-lint ✓  63 contract tokens · 0 undeclared · 0 orphan · DTCG valid` | observed |
+| `node --check portal/public/portal.js portal/public/canvas.mjs tooling/canvas-journey.mjs` | no output | observed |
+| Task 3.1 curl smoke (`PORT=4871`) | runs list has faster-payment; `[ 'f1', 'f2' ] 20 What would have to be true for this option to work?`; vocab `200`; evil origin `403`; stale base `409` | observed |
+| `node agent-layer/gen-loc-summary.mjs` then `git diff -U0` | runtime `32100 → 32300`, total `40500 → 40700` | observed (the plan derived ~32,300) |
+| `node tooling/canvas-journey.mjs chromium` | `canvas-journey ✓` — chromium 46 passed, 0 failed (final HEAD) | observed |
+| `node tooling/canvas-journey.mjs firefox` | firefox 45 passed, 0 failed (inspector branch: anchor) | observed |
+| `node tooling/canvas-journey.mjs webkit` | webkit 45 passed, 0 failed (inspector branch: fallback — the geometry check fired) | observed |
+| `studio-journey all` BEFORE (clean `eb58d54` worktree on :4797) | chromium 557 passed / 0 failed · firefox 547 / 0 · webkit 205 passed / 1 failed — `webkit threw: [data-replay="settled"] never arrived within 30000 ms at studio-journey.mjs:2623` (beat 16/28) on the UNTOUCHED tree | observed |
+| `studio-journey all` AFTER (wt-306 on :4791) | chromium 349 / 1 · firefox 102 / 1 · webkit 188 / 1 — every ✗ the same `[data-replay="settled"] never arrived within 30000 ms` throw at a different line (:4113, :1757, :2004); a chromium re-run 450 / 1 (same throw, :5583). The A/B covers that throw only: the base tree threw the same way under the same load (132 passed, :1996), and in isolation the replay settles in 14.6–15.1 s on both trees (3 loads each). **No run here reached the chromium perf pass** (the throttled drag and INP rows, ~:7230–7415), so these runs do not show the drag-performance gate green on this head | observed |
+| `studio-journey` completed on `17555be` (PR #452 review, `.claude/code-reviews/pr-452-review.md`) | chromium 558 passed / 1 failed · firefox 549 / 0 · webkit 549 / 0. The chromium red is the drag's first pointerdown frame at 57.2 / 58.6 ms against the 50 ms long-animation-frame floor (`studio-journey.mjs:7329`); base `eb58d54` passed 557 / 0 in parallel. A LoAF probe flagged the same frame on base (1/5 runs, PR 3/5), the same two scripts each time (`replay-driver.mjs onTouch` + `studio-verbs.mjs` pointerdown), and #306's minimap `scrollend` listener never fired inside the drag window. Pre-existing threshold-edge check on `main`, not introduced here; the PR's load makes it trip more often | observed (by the reviewer) || `catalog-journey all` | `catalog-journey ✓  all assertions passed on chromium, firefox, webkit` | observed |
+| `catalog-journey all` | `catalog-journey ✓  all assertions passed on chromium, firefox, webkit` | observed |
+| approach baselines (Docker, clean detached worktree) | exactly `approach-neutral/saulera/verdant.png` changed, no `factory-*.png` (R1); neutral needed one re-run (the first `update:docker` pass failed on it, the countUp flake signature); the neutral PNG read by eye: "80 files, about 32,300 lines" = `loc-summary.json` | observed |
+
+## Not run
+
+- **Level 4 (manual portal walk)** — not run by hand; journey step 2 performs the same check automatically (opens the in-repo `faster-payment`, asserts zero save requests and an unchanged `git status -- discovery/`).
+- **Level 5 (the owner's read in a real browser)** — owner's hand; tracker: epic #295 close-out.
+- **CI `verify`, `visual`, `codeql`** — run on the pushed head; not yet pushed. This PR adds a request-body-to-file-write route (`POST /api/canvas/save`) and a new `innerHTML` sink (`renderRuns`, every value through `esc()` / `encodeURIComponent`). If CodeQL reds on either, the fix belongs in this PR.
+- **Q2 — accepting the regenerated spine `canvas.json`** — the plan marks it blocking and it is the owner's call; **awaiting the owner**, not accepted.
+- **A fully green `studio-journey all` after-run** — not achieved. The review's completed runs are green on firefox and webkit; chromium has one red, the pre-existing zero-long-frame check on the drag's first frame (Validation results), which belongs on `main`, not this PR.
+- **The first baseline attempt** ran against the live worktree on :4791 and was killed at chromium 460 passed / 1 failed ("browser has been closed" — the kill). It is not a baseline; the baseline is the re-run on the clean `eb58d54` worktree.
+
+## Deviations from the plan
+
+- **`.cv-stage .stx-frame { position: absolute; }` in `portal.css`** (plan error). `system/studio.css:348`'s `.stx-frame { position: relative }` overrides the node families' `position: absolute` (`:104`), so frames flow. Measured on `/factory` at `eb58d54`: frame s2's authored `--y` 312 renders at 608. The page restores `absolute` scoped to itself; `studio.css` is not touched (that would move `/factory` at rest, which R1 forbids). **Worth its own ticket — not opened; say if you want one.**
+- **"Add note" places the note below everything, not at the view centre** (plan error). At the centre it landed on top of f2 and became unclickable once f2 was re-created (found by step 10b).
+- **Journey 5b's forced-fallback leg runs at 760 px with the button pinned to the scroller's right edge**, not at the default viewport (plan error: the clamp mutation stayed green).
+- **Journey step 10b and step 12a added** (plan errors: the tabindex mutation and the page=disk claim were unreachable as planned).
+- **The import regexes of 35.9 and 36.6 match bare imports** (plan error: 36.6's own REDDENS could not redden).
+- **M5 reddens at step 6's boundary** rather than step 7 (the leg aborts naming "portal exited" one step earlier).
+- **`frame.size` refusals and `saveRun` error paths map to HTTP 500** through the server's one catch-all, not a 4xx. The plan named only the 409; a refused op never reaches the server from the page (D10).
+
+## Assumptions carried
+
+- Q1 default (no new key; undone line restates the op; LIFO check) — implemented.
+- Q2 default (regenerate the spine through the store) — implemented; acceptance awaits the owner.
+- Q3 default (`width` joins `preset`, exactly one) — implemented.
+- Q4 default (`getCoalescedEvents` deferred) — not implemented.
+- Q5 default (no note delete; undo removes a note just added) — implemented.
+- Q6 default (`variant.add` grammar only, no page control) — implemented.
+- Q7 default (frame.remove cascades arrows and says so) — implemented; the announcement counts them.
+- A height-only pointer resize records no `frame.size` op (the width is the document's fact; the height is arrangement and saves as the frame's authored `h`).
+- A frame's height is saved only once authored (by canvas.json or a resize); until then it is measured from its content and never written.
+
+## Additions beyond the plan
+
+- `place()` duplicate-id refusal names the id (the plan asked for it; the message is new).
+- The canvas page clamps a decision card's transcript answer to four lines (`-webkit-line-clamp`) so a long answer does not dominate the stage.
+- Focus stays on a frame's Details button across a re-render of that frame (re-inserting a focused node blurs it).
+
+## Issues encountered
+
+- The first studio-journey baseline would have taken ~2.5 h reading the live worktree, which blocked Phase 4. It was killed and re-run from a clean detached worktree (`~/Documents/wt-306-base`, :4797) so `system/` could be edited meanwhile.
+- About fifteen canvas-journey runs overlapped the re-run baseline. studio-journey carries timing-sensitive INP rows, so before/after are compared by the SET of ✗ lines, not by pass counts.
+- Port 4792 was held by a sibling session's server; the baseline used 4797, checked with `curl | cmp` against the base tree.
+
+## Review fixes (round 1, `.claude/code-reviews/pr-452-review.md`)
+
+- **F1 — fixed.** The studio-journey row and the "Not run" bullet now say the author-side runs never reached the chromium perf pass, and cite the reviewer's completed runs (chromium 558 / 1, firefox 549 / 0, webkit 549 / 0).
+- **F2 — not filed.** Low and pre-existing on `main`; no open epic ticket touches `tooling/studio-journey.mjs`, `system/replay-driver.mjs` or `system/studio-verbs.mjs`, so under the deferral rule it is recorded here only and will be re-found by the review of the next PR that touches that check.
+- **F3 — fixed.** `saveRun` writes its lines in one `appendFileSync`; the header names the remaining window (ops.jsonl ahead of canvas.json until the next save). Probe on a scratch copy of `faster-payment`: two ops appended as seqs 7, 8 in order with the old ledger a byte-identical prefix; an empty save leaves the ledger unchanged (observed). Build-checks 36.8 green.

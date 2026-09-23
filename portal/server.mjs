@@ -24,6 +24,10 @@ import { projectPrd, readPackage } from '../discovery/prd-projection.mjs';
 import { checkProposalLines, projectProposals, proposalsView, readProposalPackage, VERDICTS, writeProposalsMd } from '../discovery/proposals.mjs';
 // Which commit this process booted from, against where the tree is now (#338 F2).
 import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
+// The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
+// SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
+import { foldLedger, listBuilds, loadBuild, loadDecisions, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+import { questionById } from '../discovery/bank.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -385,6 +389,44 @@ const server = createServer(async (req, res) => {
       return streamChat(body, res);
     }
 
+    // --- the canvas page's three routes (#306) ---
+    // Every one resolves the package root with the same resolveRunRoot + assertProvenanceRoot pair the
+    // discovery routes run, so a real package can never be read or written inside the repo.
+    if (p === '/api/canvas/runs' && req.method === 'GET') {
+      return json(res, 200, listBuilds([
+        { provenance: 'fictional', dir: path.join(REPO_DIR, 'discovery') },
+        { provenance: 'real', dir: path.join(JOBS_DIR, '_discovery') },
+      ]));
+    }
+    if (p === '/api/canvas/run' && req.method === 'GET') {
+      const provenance = url.searchParams.get('provenance');
+      const slug = url.searchParams.get('slug');
+      const root = resolveRunRoot({ provenance, slug });
+      assertProvenanceRoot(provenance, root);
+      const pkg = loadBuild(path.join(root, 'build'));
+      if (!pkg) return notFound(res);
+      const { doc, effective } = foldLedger(pkg.ops);
+      const decisions = loadDecisions(root)?.map((d) => ({ ...d, question: questionById(d.questionId)?.text ?? null })) ?? null;
+      let declared = null;
+      try { declared = JSON.parse(readFileSync(path.join(root, 'run.json'), 'utf8')).provenance ?? null; } catch { /* no run.json: the root decides */ }
+      return json(res, 200, {
+        provenance, slug, label: provenanceLabel({ declared, root: provenance }),
+        doc, effective: effective.map(({ op, params }) => ({ op, params })),
+        count: pkg.ops.length, canvas: pkg.canvas, decisions,
+      });
+    }
+    // APPEND-ONLY AND CONFLICT-CHECKED (D10). saveConflict and saveRun are synchronous, and nothing
+    // awaits between them, so two tabs saving at once get a 409 rather than an interleaved ledger.
+    // Every body parameter is named — never a spread (see the comment on the discovery open route).
+    if (p === '/api/canvas/save' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      const conflict = saveConflict(path.join(root, 'build'), b.base);
+      if (conflict) return json(res, 409, { error: conflict });
+      return json(res, 200, saveRun(root, { base: b.base, ops: b.ops, positions: b.positions, decisions: loadDecisions(root) }));
+    }
+
     // --- embedded site previews: /sites/<slug>/... → the card's site_root on disk ---
     const siteMatch = p.match(/^\/sites\/([a-z0-9-]+)(\/.*)?$/);
     if (siteMatch) {
@@ -393,8 +435,9 @@ const server = createServer(async (req, res) => {
       return serveFile(res, path.resolve(JOBS_DIR, card.site_root), siteMatch[2] || '/index.html');
     }
 
-    // --- system/assets straight from the repo (contract + neutral pack + components) ---
-    if (p.startsWith('/system/') || p.startsWith('/assets/')) return serveFile(res, REPO_DIR, p);
+    // --- system/assets straight from the repo (contract + neutral pack + components), plus the
+    // committed handoff pack the canvas page reads its vocabulary from (#306) — read-only files ---
+    if (p.startsWith('/system/') || p.startsWith('/assets/') || p.startsWith('/handoff/')) return serveFile(res, REPO_DIR, p);
 
     // --- portal UI ---
     return serveFile(res, PUBLIC_DIR, p === '/' ? '/index.html' : p);

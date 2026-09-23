@@ -367,6 +367,9 @@ export function mountStudioMinimap(root, { canvas } = {}) {
     const { signal } = ac;
 
     scroll.addEventListener("scroll", schedule, { passive: true, signal });
+    // A GUARANTEED FINAL SYNC once momentum scrolling ends (#306, T7). The rAF-coalesced scroll
+    // listener above stays the live path, so an engine without scrollend loses nothing.
+    if ("onscrollend" in window) scroll.addEventListener("scrollend", schedule, { passive: true, signal });
 
     // The window edge is a term in visibleWidth(), and a resize can move it without moving the
     // scroller's own box, so the resize is its own event source alongside the ResizeObserver below.

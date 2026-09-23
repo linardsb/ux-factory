@@ -1490,9 +1490,33 @@ $('#discovery-finish').addEventListener('click', async () => {
   }
 });
 
+/* ---------- build runs (#306) — the list the canvas page opens from ---------- */
+// Fictional packages live in this repo (discovery/<slug>/build/), real ones in the jobs folder and are
+// never committed. Each row opens canvas.html, the portal's one module page.
+async function renderRuns() {
+  state.activeSlug = null;
+  updateChatContext();
+  const runs = await api('/api/canvas/runs');
+  const section = (provenance, heading) => {
+    const rows = runs.filter((r) => r.provenance === provenance);
+    const items = rows.map((r) => `
+      <li class="cv-run" data-run="${esc(r.provenance)}/${esc(r.slug)}">
+        <a href="/canvas.html?provenance=${encodeURIComponent(r.provenance)}&amp;slug=${encodeURIComponent(r.slug)}">${esc(r.slug)}</a>
+        <span class="cv-run-meta">${esc(r.label ?? 'no run.json label')}</span>
+        <span class="cv-run-meta">${r.hasTranscript ? 'transcript' : 'stand-in: no transcript'}</span>
+      </li>`).join('');
+    return `<h2 class="h3">${esc(heading)}</h2>${rows.length ? `<ul class="cv-runs">${items}</ul>` : '<p class="muted">No build packages here yet.</p>'}`;
+  };
+  $('#main').innerHTML = `
+    <h1 class="h3" style="font-size:var(--type-h2)">Build runs</h1>
+    ${section('fictional', 'Fictional — in this repo')}
+    ${section('real', 'Real — jobs folder, never committed')}`;
+}
+
 /* ---------- boot + routing ---------- */
 async function loadCards() { state.cards = await api('/api/cards'); }
 async function route() {
+  if (location.hash === '#/canvas') return renderRuns();
   const m = location.hash.match(/^#\/card\/([a-z0-9-]+)/);
   if (m) await renderCard(m[1]);
   else renderLibrary();

@@ -519,11 +519,18 @@ discovery/<slug>/
 listed here so a reader meeting `build/` knows what the folder is eventually for, not because a
 package carries them today.
 
-`portal/lib/canvas-store.mjs` is the only writer — `saveBuild(root, canvas, opLines)` and
-`loadBuild(root)`, package IO and nothing else. It imports `node:fs` and `node:path` and nothing
-else, which is what lets `tooling/build-checks.mjs` group 36 read a package in CI, where
-`portal/node_modules` does not exist at all. The op grammar it knows nothing about lives in
-`system/canvas-ops.mjs`.
+`portal/lib/canvas-store.mjs` is the only writer, with two writers of different kinds (#306).
+`saveRun(pkgRoot, { base, ops, positions, decisions })` is the LIVE path — the portal's
+`/api/canvas/save`, behind `portal/public/canvas.html` — and it only ever APPENDS: it checks the page's
+`base` against the ledger's length (a mismatch is a 409, so two tabs cannot interleave), stamps each op
+`owner` with the next seq, folds the whole ledger through the real applier, refuses a `frame.link` ref
+the package's transcript does not record, and writes nothing if any of that throws.
+`saveBuild(root, canvas, opLines)` writes a NEW package whole (the spine, the round trip). Beside them:
+`loadBuild`, `listBuilds` (the run list), `loadDecisions` (the transcript's `record_decision` lines),
+`foldLedger`, `arrangement` (the `canvas.json` derivation) and `verifyBuild` (the gate predicate). It
+imports node built-ins plus `system/canvas-ops.mjs` — itself SDK-free — which is what lets
+`tooling/build-checks.mjs` group 36 read a package in CI, where `portal/node_modules` does not exist at
+all.
 
 ### `ops.jsonl` — the truth
 
@@ -544,10 +551,19 @@ One line per op, append-only, in the shape the architecture pins:
 - **Positions are never on a line.** Where a thing sits is `canvas.json`'s business; an op carrying
   an `x` would make the two files two sources for one fact, and group 36 refuses it by name.
 - **Undo appends an `undone` line rather than deleting one (G26).** One history for every op,
-  the owner's and the agent's alike, so "proposed, accepted, then undone" stays readable.
+  the owner's and the agent's alike, so "proposed, accepted, then undone" stays readable. **The undone
+  line RESTATES the op it undoes** — `{seq, at, source, op, params, status: "undone"}` with the same
+  `op` and `params` and no new key (#306, D1) — and undo is last-in-first-out, so `foldLedger` checks
+  it against the top of the applied stack and refuses a mismatch naming both seqs. Redo appends the
+  same op again as a new `applied` line. The page's history starts at its load, so it can never undo a
+  line written before it opened.
 
-The six verbs `system/canvas-ops.mjs` knows are `screen.compose` · `screen.set` · `state.add` ·
-`frame.size` · `connect` · `disconnect`. The envelope is EXACT — an unknown key throws rather than
+The ten verbs `system/canvas-ops.mjs` knows are `screen.compose` · `screen.set` · `state.add` ·
+`frame.size` · `connect` · `disconnect` (#302) and `frame.remove` · `frame.link` · `annotate` ·
+`variant.add` (#306). `frame.size` takes exactly one of `preset` or `width` (320–2560; a width records
+`preset: null`). `frame.link` REPLACES the frame's decision list, so it is link, unlink and re-confirm
+in one verb. `frame.remove` is refused while a state or a variant lane overrides the frame, and takes
+its arrows with it. `annotate` creates a note (`n<k>`, minted) or edits one by `noteId`. The envelope is EXACT — an unknown key throws rather than
 being ignored, `discovery/ops.mjs`'s rule and its reason: an op whose recorded text says more than
 the op that was applied is a record of something that did not happen. A new verb is an `OPS` entry,
 a `PARAMS` entry, a switch case and a group 35 case, together.
@@ -566,6 +582,10 @@ later edit trimming that header to something shorter and truer-sounding:
 
 A conformant reader REFUSES `type: "frame"`, so this file must never be described as JSON Canvas
 flat. Nodes are `{id, type, x, y, width, height?, ref}` and edges `{id, fromNode, toNode, relation}`.
+Since #306 the nodes are every frame, every note (`ref: "note:<id>"`) and one decision card per ref any
+frame embodies (`id: "d<ref>"`, `ref: "decision:<ref>"`), and the edges are every arrow (`flows`) and one
+`embodies` edge per frame × decision ref (`id: "e-<frameId>-d<ref>"`). A frame's `height` is written
+only once someone authors one; until then it is its content's.
 
 **DERIVED, NEVER AUTHORED.** Every node and edge is rewritten from `ops.jsonl` on save and the file
 carries no fact the ops do not — except the positions, which are the one thing it owns. That is why
@@ -593,18 +613,29 @@ the op lines to `saveBuild`. No committed CLI, and no editor.
 `discovery/faster-payment/` is a real run (`run.json`: `provenance: "fictional"`, `label: "Real run —
 fictional scenario"`), and its `build/` half inherits that label.
 
+**Regenerated at #306, ops untouched.** Decision cards and `embodies` edges now derive from
+`frame.decisionRefs`, which f1's compose op already set, so the committed `canvas.json` was out of date
+under the new rule. It was rewritten through the store — `loadBuild` → `foldLedger` → the existing
+positions plus, for `d7` then `d8`, `placeDecision(f1's box, the authored boxes so far)` (894, then
+1206) → `arrangement` — and `ops.jsonl` did not change. **The owner may now edit it** through
+`canvas.html`, which appends; the page says so ("saves into this repo … commit to keep it, or
+`git checkout` the folder to discard"), and group 36 pins the first six lines as a prefix rather than
+the whole file.
+
 ### What the gate reads
 
-`tooling/build-checks.mjs` group 36 (`build package`) is the drift guard. It asserts the ledger's
-shape (gapless 1-based seqs, every line stamped, applied and `owner`, no `x` or `y` anywhere), then
-**REPRODUCES**: the committed ops replayed through the real applier give the frames and arrows
-`canvas.json` references, widths and refs included. It asserts D-b's four divergences by name, that a
+`tooling/build-checks.mjs` group 36 (`build package`) is the drift guard, run over EVERY committed
+`discovery/*/build/` since #306. It asserts the ledger's shape (gapless 1-based seqs, every line
+stamped and `owner`, no `x` or `y` anywhere), then **REPRODUCES** through the store's own
+`verifyBuild`: the ledger — undo lines included — folded through the real applier and derived under
+`canvas.json`'s own positions must equal `canvas.json` node by node and edge by edge. It asserts D-b's four divergences by name, that a
 `saveBuild`/`loadBuild` round trip is BYTE-identical rather than merely deep-equal, and that
-`canvas-store`'s import graph reaches node built-ins alone. Its own inverse case matters as much as
+`canvas-store`'s import graph reaches node built-ins plus `canvas-ops.mjs` alone. Its own inverse case matters as much as
 its mutations: a frame MOVED in `canvas.json` must still pass, because a position is not derivable
 from the ops and a gate demanding otherwise would re-couple the two files the split exists to
-separate. What it cannot reach: whether the spine RENDERS — that is `tooling/studio-journey.mjs`'s,
-on a browser — and whether the compose op's `why` is a good reason, which is a human read.
+separate. What it cannot reach: whether the page RENDERS a package and saves only on a gesture — that
+is `tooling/canvas-journey.mjs`'s, on a browser — and whether the compose op's `why` is a good reason,
+which is a human read.
 
 ## The parenting fixture
 

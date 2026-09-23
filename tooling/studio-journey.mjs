@@ -551,6 +551,10 @@ async function journey(engineName, results, held) {
     Number(rest.zoom) === SCALE_REST && rest.scrollLeft === 0 && rest.scrollTop === 0 && rest.readout === "100%",
     JSON.stringify({ zoom: rest.zoom, l: rest.scrollLeft, t: rest.scrollTop, readout: rest.readout }));
   t(`the stage holds real components (${rest.slotCount} placed)`, rest.slotCount >= 30, `slots=${rest.slotCount}`);
+  // #306 (R1): the verbs' docHook is additive — with none passed, the snapshot gains no `$doc` key.
+  const noHookSnap = await arrangement(page);
+  t("no document value in the snapshot without a hook (#306) — studio.html",
+    noHookSnap && !noHookSnap.error && !Object.hasOwn(noHookSnap, "$doc"), JSON.stringify(Object.keys(noHookSnap ?? {})).slice(0, 120));
   // GATE B (#302), and the claim CHANGED with the substrate rather than being dropped. It read "no
   // style attribute anywhere", which was true while arrangement was attributes; setPos and setScale
   // write seven custom properties, so what is asserted now is the EXACT SET — every style attribute
@@ -1761,6 +1765,10 @@ async function factoryPass(browser, t, errors) {
     return s ? { places: s.board.places.length, arranged: s.arranged.length, pattern: s.summary.patternId } : null;
   }));
   t("#206 · /factory mounted the studio and exposes it through getStudio()", Boolean(board), JSON.stringify(board));
+  // #306 (R1): /factory passes no docHook, so its snapshot is byte-identical in shape to #302's.
+  const factorySnap = await arrangement(p);
+  t("no document value in the snapshot without a hook (#306) — /factory",
+    factorySnap && !factorySnap.error && !Object.hasOwn(factorySnap, "$doc"), JSON.stringify(Object.keys(factorySnap ?? {})).slice(0, 120));
   const slotCount = await p.locator(`${VIEWPORT} .stx-slot`).count();
   t("#206 · the canvas holds one slot per place of the board the REPLAY built",
     Boolean(board) && slotCount === board.arranged && board.arranged === board.places,

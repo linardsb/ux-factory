@@ -32,6 +32,13 @@ export const DEVICE_PRESETS = Object.freeze({
 // able to widen the table by pushing at the array it was handed.
 export const PRESET_NAMES = Object.freeze(Object.keys(DEVICE_PRESETS));
 
+// THE BOUNDS OF A FREE WIDTH (#306), for frame.size's `width` form. 320 is the narrowest phone still
+// in use (the iPhone SE's logical width) and 2560 a wide desktop. They exist so a free width outside
+// them is REFUSED BY NAME rather than clamped silently, and the canvas page's numeric input reads the
+// same two numbers rather than a copy of them.
+export const WIDTH_MIN = 320;
+export const WIDTH_MAX = 2560;
+
 // presetWidth(name) → a number, or null. NULL RATHER THAN A DEFAULT, deliberately: the applier
 // refuses an unknown preset BY NAME, and a function that quietly answered 390 for a typo would make
 // that refusal unreachable and put a phone-width frame where the author asked for a tablet.
