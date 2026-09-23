@@ -1,6 +1,6 @@
 # Implementation Report — canvas.html, the run list, canvas-store's routes, and the four arrangement ops (#306)
 
-**Plan**: `.claude/plans/canvas-page-run-list-arrangement-ops-306.md`   **Branch**: `feature/canvas-page-arrangement-ops-306` (worktree `../wt-306`)   **Base**: `eb58d54` → `{{HEAD}}` (origin/main unchanged at `eb58d54` when re-fetched)   **Status**: {{STATUS}}
+**Plan**: `.claude/plans/canvas-page-run-list-arrangement-ops-306.md`   **Branch**: `feature/canvas-page-arrangement-ops-306` (worktree `../wt-306`)   **Base**: `eb58d54` → `{{HEAD}}` (origin/main was `eb58d54` at the last successful fetch; the final `git fetch` failed on a DNS timeout — re-check before the PR)   **Status**: COMPLETE — with the studio-journey after-run NOT fully green for an environmental reason (see Not run) and Q2 awaiting the owner
 
 ## Summary
 
@@ -33,7 +33,7 @@ page on three engines by booting its own portal.
 - 5.5 → `portal/public/portal.js` (`renderRuns`, `#/canvas`), `portal/public/index.html` (Canvas link) (UPDATE)
 - 6.1 → `tooling/canvas-journey.mjs` (CREATE)
 - 7.1 → `CLAUDE.md` (UPDATE); 7.2 → `.claude/references/gates.md`, `discovery/README.md`, `system/canvas-ops.mjs` header (UPDATE)
-- 7.4 → `system/loc-summary.json` (REGENERATED); approach baselines {{VR}}
+- 7.4 → `system/loc-summary.json` (REGENERATED); approach baselines regenerated (the three approach PNGs, Task 7.4)
 
 ## Tests added
 
@@ -66,7 +66,7 @@ Every mutation was applied, run, and reverted (`git status` clean after each; ob
 | 36.9a | provenanceLabel | root wins | `read {"mismatch":true,"text":"Real product, neutral skin"}` | the agreeing pair |
 | R2 | D7 control's source | owner relink dropping decision 7 saved into the spine through `saveRun`; (a) gate as written → **green**; (b) D7 control read off the committed `canvas.json` → `derives nodes ["f1","f2","d8"]` red | (a) is the control | spine restored with `git checkout` |
 | G13 | docHook boundary | move the check below `const { stage, scroll }` and touch `stage` | `got stage.querySelector is not a function` | — |
-| R1 | hook-off snapshot | `snapshot()` adds `$doc: null` without a hook | both studio-journey rows red: `studio.html […"$doc"…]`, `/factory ["s1",…,"$doc"]` (run on chromium, killed by PID once both printed) | green on the clean tree ({{R1COUNT}}) |
+| R1 | hook-off snapshot | `snapshot()` adds `$doc: null` without a hook | both studio-journey rows red: `studio.html […"$doc"…]`, `/factory ["s1",…,"$doc"]` (run on chromium, killed by PID once both printed) | green on the clean tree (both rows ✓ on all three engines in the after-run) |
 | M1 | canvas-journey 8 | `adapter.restore` pushes no `undone` lines | `8 · ledger line 10 is undone …` (and 9/10 cascade) | clean run 46/46 |
 | M2 | canvas-journey 10 | remove `docHook?.resized(...)` | `10 · exactly one new frame.size line from the drag — []` | clean run |
 | M3 | canvas-journey 2 | **plan's wording (emit on load) stayed green — absorbed by the save dedupe by design**; R2's wording, save once on load | `2 · ZERO save requests … 1 request(s)` | clean run |
@@ -93,13 +93,13 @@ Assertions no single mutation reddens: none known among the new ones.
 | `node --check portal/public/portal.js portal/public/canvas.mjs tooling/canvas-journey.mjs` | no output | observed |
 | Task 3.1 curl smoke (`PORT=4871`) | runs list has faster-payment; `[ 'f1', 'f2' ] 20 What would have to be true for this option to work?`; vocab `200`; evil origin `403`; stale base `409` | observed |
 | `node agent-layer/gen-loc-summary.mjs` then `git diff -U0` | runtime `32100 → 32300`, total `40500 → 40700` | observed (the plan derived ~32,300) |
-| `node tooling/canvas-journey.mjs chromium` | {{CJ_CH}} | observed |
-| `node tooling/canvas-journey.mjs firefox` | {{CJ_FF}} (inspector branch: anchor) | observed |
-| `node tooling/canvas-journey.mjs webkit` | {{CJ_WK}} (inspector branch: fallback — the geometry check fired) | observed |
-| `studio-journey all` BEFORE (clean `eb58d54` worktree on :4797) | {{SJ_BEFORE}} | observed |
-| `studio-journey all` AFTER (wt-306 on :4791) | {{SJ_AFTER}} | observed |
-| `catalog-journey all` | {{CAT}} | observed |
-| approach baselines (Docker, clean detached worktree) | {{VRRESULT}} | observed |
+| `node tooling/canvas-journey.mjs chromium` | `canvas-journey ✓` — chromium 46 passed, 0 failed (final HEAD) | observed |
+| `node tooling/canvas-journey.mjs firefox` | firefox 45 passed, 0 failed (inspector branch: anchor) | observed |
+| `node tooling/canvas-journey.mjs webkit` | webkit 45 passed, 0 failed (inspector branch: fallback — the geometry check fired) | observed |
+| `studio-journey all` BEFORE (clean `eb58d54` worktree on :4797) | chromium 557 passed / 0 failed · firefox 547 / 0 · webkit 205 passed / 1 failed — `webkit threw: [data-replay="settled"] never arrived within 30000 ms at studio-journey.mjs:2623` (beat 16/28) on the UNTOUCHED tree | observed |
+| `studio-journey all` AFTER (wt-306 on :4791) | chromium 349 / 1 · firefox 102 / 1 · webkit 188 / 1 — every ✗ the same `[data-replay="settled"] never arrived within 30000 ms` throw at a different line (:4113, :1757, :2004); a chromium re-run 450 / 1 (same throw, :5583). **Not a regression — A/B measured:** the base tree re-run under the same conditions threw the same way at 132 passed (:1996, beat 5/28); in isolation the replay settles in 14.6–15.1 s on BOTH trees (3 loads each, observed). The load difference: the Docker VM left running after the VR regen (~38% CPU, 9.7 GB) and a sibling session. Both #306 assertions (`no document value … — studio.html` / `— /factory`) passed on every engine where reached | observed |
+| `catalog-journey all` | `catalog-journey ✓  all assertions passed on chromium, firefox, webkit` | observed |
+| approach baselines (Docker, clean detached worktree) | exactly `approach-neutral/saulera/verdant.png` changed, no `factory-*.png` (R1); neutral needed one re-run (the first `update:docker` pass failed on it, the countUp flake signature); the neutral PNG read by eye: "80 files, about 32,300 lines" = `loc-summary.json` | observed |
 
 ## Not run
 
@@ -107,6 +107,7 @@ Assertions no single mutation reddens: none known among the new ones.
 - **Level 5 (the owner's read in a real browser)** — owner's hand; tracker: epic #295 close-out.
 - **CI `verify`, `visual`, `codeql`** — run on the pushed head; not yet pushed. This PR adds a request-body-to-file-write route (`POST /api/canvas/save`) and a new `innerHTML` sink (`renderRuns`, every value through `esc()` / `encodeURIComponent`). If CodeQL reds on either, the fix belongs in this PR.
 - **Q2 — accepting the regenerated spine `canvas.json`** — the plan marks it blocking and it is the owner's call; **awaiting the owner**, not accepted.
+- **A fully green `studio-journey all` after-run** — not achieved; every red is the environmental replay-settle timeout the base tree reproduces (Validation results). A clean re-run needs a quiet machine (Docker VM stopped); owner's call whether to spend it before merge.
 - **The first baseline attempt** ran against the live worktree on :4791 and was killed at chromium 460 passed / 1 failed ("browser has been closed" — the kill). It is not a baseline; the baseline is the re-run on the clean `eb58d54` worktree.
 
 ## Deviations from the plan
