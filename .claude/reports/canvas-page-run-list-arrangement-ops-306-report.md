@@ -1,6 +1,6 @@
 # Implementation Report — canvas.html, the run list, canvas-store's routes, and the four arrangement ops (#306)
 
-**Plan**: `.claude/plans/canvas-page-run-list-arrangement-ops-306.md`   **Branch**: `feature/canvas-page-arrangement-ops-306` (worktree `../wt-306`)   **Base**: `eb58d54` → `{{HEAD}}` (origin/main was `eb58d54` at the last successful fetch; the final `git fetch` failed on a DNS timeout — re-check before the PR)   **Status**: COMPLETE — with the studio-journey after-run NOT fully green for an environmental reason (see Not run) and Q2 awaiting the owner
+**Plan**: `.claude/plans/canvas-page-run-list-arrangement-ops-306.md`   **Branch**: `feature/canvas-page-arrangement-ops-306` (worktree `../wt-306`)   **Base**: `eb58d54` → `57584b8 (the report commit's parent carries every code change)` (origin/main was `eb58d54` at the last successful fetch; the final `git fetch` failed on a DNS timeout — re-check before the PR)   **Status**: COMPLETE — with the studio-journey after-run NOT fully green for an environmental reason (see Not run) and Q2 awaiting the owner
 
 ## Summary
 
