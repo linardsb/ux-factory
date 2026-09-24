@@ -1,0 +1,19 @@
+  ✓ clean
+  ✓ clean-after-refusal
+  ✓ runs-ahead-two-screens
+  ✓ runs-ahead-attempted
+  ✓ runs-ahead-repeat
+  ✓ alternatives
+  ✓ escape
+  ✓ escape-bold
+  ✓ empty-yield
+  ✓ two-lanes
+  ✓ picked-one
+  ✓ asked
+  ✓ fork-runs-ahead
+  ✓ fork-empty
+  ✓ session-changed
+  context: 5549 chars, 26 components
+  ✓ context-26
+  ✓ outline-add-payee
+selftest ✓ 17/17

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S6 compose turn</title>
+<style>
+:root { --bg:#fafaf8; --fg:#1d1d1b; --muted:#6b6b66; --line:#dcdcd6; --card:#fff; --accent:#3d5a80; }
+@media (prefers-color-scheme: dark) { :root { --bg:#171716; --fg:#ececea; --muted:#a0a09a; --line:#34342f; --card:#20201e; --accent:#8fb3e0; } }
+* { box-sizing:border-box }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 10px }
+.src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0 }
+.card h3 { margin:0 0 6px; font-size:16px }
+pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0 }
+.flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:8px 10px; font-size:14px }
+.arrow { color:var(--muted) }
+ul { padding-left:20px } li { margin:4px 0 }
+.prompts { list-style:none; padding:0 }
+.prompts li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0 }
+.copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+.copy:hover, .copy:focus-visible { opacity:1 }
+.copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>S6: the compose turn</h1>
+<p class="src">Brief for <a href="canvas-spike-s6-compose-turn-308.md">canvas-spike-s6-compose-turn-308.md</a>, which is the source of truth.</p>
+
+<h2>What we're building and why</h2>
+<p>Nobody knows yet whether an AI asked for one screen stops after one screen or designs the whole app at once. This spike runs it on a real banking PRD (the product requirements document a discovery session produced) and records what it does before the loop is built.</p>
+
+<h2>The concepts this plan rests on</h2>
+<div class="card"><h3>One turn, one screen, then wait</h3>
+<p>The AI proposes a single screen and stops so the owner can accept or refuse it. If it rushes ahead, the owner loses control of the design. That is the risk being tested.</p>
+<pre>turn 1 → propose "add payee"  → wait for owner
+turn 2 → propose "check name" → wait for owner</pre></div>
+
+<div class="card"><h3>Resuming a conversation</h3>
+<p>Each turn picks up the same AI conversation instead of starting a new one. This is called <b>resume</b> (continuing a saved session by its id). The spike checks that the id stays the same across turns, or the test means nothing.</p></div>
+
+<div class="card"><h3>A tool that checks before it records</h3>
+<p>The AI can only act by calling one tool, <code>screen_compose</code>. The tool checks the screen uses only known parts, then records it. It records in memory only: nothing real is saved. This is a <b>dry run</b>.</p>
+<pre>AI calls tool → parts all known? → yes: record "proposed"
+                                 → no:  send the error back</pre></div>
+
+<div class="card"><h3>Grading by rule</h3>
+<p>A small function reads each turn's log and labels it: clean, ran ahead, or stopped with nothing. It is tested on fake logs first, so it has been seen to catch a runaway before any money is spent.</p></div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+<span class="box">Banking PRD + parts list</span><span class="arrow">→</span>
+<span class="box">AI turn (resumed)</span><span class="arrow">→</span>
+<span class="box">checking tool</span><span class="arrow">→</span>
+<span class="box">turn log</span><span class="arrow">→</span>
+<span class="box">grader</span><span class="arrow">→</span>
+<span class="box">verdict posted</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+<li><b>Phase 1:</b> start a separate working copy, make the spike folder.</li>
+<li><b>Phase 2:</b> write the driver; prove the grader and the tool for free. Needs phase 1.</li>
+<li><b>Phase 3:</b> paid run 1; runs 2 and 3 only if the AI ran ahead (run 3 also needs the owner's answer). Needs phase 2 green.</li>
+<li><b>Phase 4:</b> README, comment on the parent issue, pull request. Needs phase 3.</li>
+</ul>
+<pre>.claude/plans/canvas-spike-s6/
+├── driver.txt        # the script, parked as text
+├── raw/selftest.txt  # grader tested on fake logs
+├── raw/preflight.txt # tool tested with no AI
+├── raw/run-1/        # four turn logs, outline, verdict
+└── README.md         # the numbers and the decision</pre>
+<ul>
+<li>README records each turn's screen, check result, time and tokens (units of text the AI reads and writes, which set the cost), which decision was taken, and how the tool was connected.</li>
+<li>The turn logs are committed exactly as recorded.</li>
+<li>The verdict is posted on the parent project's issue.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+<li data-prompt="/learn resume-per-turn agent sessions"><span><b>/learn resume-per-turn agent sessions</b> — how one conversation spans several server-started turns.</span><button class="copy" aria-label="Copy prompt"></button></li>
+<li data-prompt="/learn in-process MCP tools in the Agent SDK"><span><b>/learn in-process MCP tools in the Agent SDK</b> — why the only way to act is one checked tool.</span><button class="copy" aria-label="Copy prompt"></button></li>
+<li data-prompt="/learn vocabulary-validated composition"><span><b>/learn vocabulary-validated composition</b> — how a screen is refused if it uses an unknown part.</span><button class="copy" aria-label="Copy prompt"></button></li>
+<li data-prompt="/learn proving a check can fail"><span><b>/learn proving a check can fail</b> — why the grader meets fake runaways first.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

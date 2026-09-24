@@ -1,0 +1,38 @@
+f1 add-payee-details — Serves seq 12 (scope: a personal customer, in-app, paying a new UK sort code and account number, once, now) and seq 7 (customer must complete payee creation alone, in-app) — this is the entry screen where the customer types the new payee's details.
+    stack {direction: "column", gap: "lg", pad: "lg", align: "stretch", size: "fill"}
+      screen-header {title: "Pay someone new", showBack: true, showSettings: false}
+      text {role: "body", content: "Enter the details of the person or business you want to pay."}
+      text-field {label: "Name on the account", placeholder: "e.g. J Smith or Smith Plumbing Ltd", hint: "Use the name exactly as they gave it to you"}
+      text-field {label: "Sort code", placeholder: "00-00-00"}
+      text-field {label: "Account number", placeholder: "12345678"}
+      primary-button {label: "Check details"}
+  B5: root stack column y · first child heading y · one primary-button, last y · Verdant-locked none · depth 2
+
+f2 confirm-payee-result — Serves seq 6 (the agent's undocumented "close match" explanation step, now surfaced for the customer to read themselves) and seq 7/seq 23 (customer must resolve a non-match Confirmation of Payee result unaided, and cannot skip the check) — shows the name-check result and requires the customer to confirm or go back before proceeding.
+    stack {direction: "column", gap: "lg", pad: "lg", align: "stretch", size: "fill"}
+      screen-header {title: "Confirm payee details", showBack: true, showSettings: false}
+      text {role: "heading", content: "Close match"}
+      text {role: "body", content: "The name you entered is close to, but not exactly, the name on the account. This often happens when you're paying a sole trader using their trading name."}
+      text {role: "caption", content: "You entered: J Smith Plumbing — Account is registered to: J R Smith"}
+      primary-button {label: "This is right — continue"}
+      ghost-button {label: "Change the details"}
+  B5: root stack column y · first child heading y · one primary-button, last n · Verdant-locked none · depth 2
+
+f3 choose-account-and-amount — Serves seq 6 (the undocumented balance-check step before the first payment, so a short account doesn't cause a failed retry) and seq 23/seq 11 (the first-payment limit for new payees is enforced and stated up front) — lets the customer pick which account to pay from and enter the amount for this first payment to the new payee.
+    stack {direction: "column", gap: "lg", pad: "lg", align: "stretch", size: "fill"}
+      screen-header {title: "First payment", showBack: true, showSettings: false}
+      select-field {label: "Pay from", value: "Current account • £1,240.50 available", hint: "Choose the account this payment will come from"}
+      text-field {label: "Amount", placeholder: "£0.00", hint: "New payees have a first-payment limit of £1,000 while we confirm this account"}
+      primary-button {label: "Continue"}
+  B5: root stack column y · first child heading y · one primary-button, last y · Verdant-locked none · depth 2
+
+f4 review-and-send-payment — Serves seq 8/seq 30 (the in-app scam intervention that must do the job the phone agent's ear did — a warning shown before the irrevocable Faster Payment is sent, with the customer's response captured) and seq 6 (the review surfaces every detail the agent would read back before sending) — the final screen before the payment leaves the account.
+    stack {direction: "column", gap: "lg", pad: "lg", align: "stretch", size: "fill"}
+      screen-header {title: "Review and send", showBack: true, showSettings: false}
+      list {header: "Payment details", empty: "No details entered"}
+        list-row {label: "Paying", value: "J R Smith", meta: "Close match confirmed"}
+        list-row {label: "Sort code / account", value: "00-00-00 12345678"}
+        list-row {label: "From", value: "Current account"}
+        list-row {label: "Amount", value: "£150.00"}
+      modal-dialog {title: "Before you send this payment", body: "This payment can't be recalled once sent. If someone is asking you to pay urgently, or is on the phone guiding you through this, stop — that's a common sign of a scam.", confirmLabel: "Send payment", dismissLabel: "I need to stop and check"}
+  B5: root stack column y · first child heading y · one primary-button, last n · Verdant-locked none · depth 3

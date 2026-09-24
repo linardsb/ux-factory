@@ -1,0 +1,10 @@
+[0.1s] run 1 · contract false · stop-hook false · fingerprint c903170484396973 · vocab a2bfea9494d879de · context 5549 chars · system prompt 44203 chars · spent by earlier runs $0.0000 of $3.00
+[4.2s] turn-1 text: Credit balance is too low
+[4.2s] turn-1 result: success is_error=true turns=1 $0 session=fa3abde6-a1bc-4d4d-8a66-08f395954916
+[4.7s] THREW: Error: Claude Code process exited with code 1
+    at ProcessTransport.getProcessExitError (file:///Users/Berzins/Desktop/Linards_current/ux-factory-s6/portal/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs:7850:14)
+    at ChildProcess.exitHandler (file:///Users/Berzins/Desktop/Linards_current/ux-factory-s6/portal/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs:7975:28)
+    at Object.onceWrapper (node:events:639:26)
+    at ChildProcess.emit (node:events:536:35)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+[4.7s] verdict: failed (1 of 4 turns ran; turn-1: success is_error; driver threw: Claude Code process exited with code 1) · fork n/a · $0.0000
