@@ -62,19 +62,21 @@
 //        being worth more.
 //
 //        `icon.size` IS NOT FILLED, AND THAT IS THE RULE RATHER THAN A GAP. The glyph box is
-//        `md|lg|xl` — 16, 24 and 32px — and the Chevron is drawn 8.73 × 16. Reading 16 → `md` is the
-//        SNAP STEP, which is #307's (ir.mjs invariant 1), not this file's. THE TYPE-ROLE MAPPING
-//        BELOW IS NOT THE PRECEDENT THAT WOULD LICENSE IT, and the difference is checkable:
-//        `["text", "size"]` is one of ir.mjs's TOKEN_SLOTS, so a type step arrives BOUND and carries
-//        a `ref` naming the source's own step — only the TAXONOMY differs. `style.size` is raw
-//        measured geometry with no ref at all, which is why the converter already files it as
-//        `literal-size`, read-then-dropped. Bound token versus measured pixels: that is the line.
+//        `md|lg|xl` — 16, 24 and 32px — and the Chevron is drawn 8.73 × 16. The glyph box is MEASURED
+//        GEOMETRY, not one of ir.mjs's TOKEN_SLOTS, so the snap step (import/snap-rules.mjs, #307,
+//        build-checks group 42) does not cover it either: reading 16 → `md` from a drawing is its own
+//        ticket, #456. THE TYPE-ROLE MAPPING BELOW IS NOT THE PRECEDENT THAT WOULD LICENSE IT, and the
+//        difference is checkable: `["text", "size"]` is one of ir.mjs's TOKEN_SLOTS, so a type step
+//        arrives BOUND and carries a `ref` naming the source's own step — only the TAXONOMY differs.
+//        `style.size` is raw measured geometry with no ref at all, which is why the converter already
+//        files it as `literal-size`, read-then-dropped. Bound token versus measured pixels: that is
+//        the line.
 //
 //        WHAT THAT COSTS, WRITTEN DOWN SO NOBODY HAS TO REDERIVE IT. The Chevron takes kind-fit plus
 //        prop-fit on one of two required props and lands BELOW the threshold: it reads NOT COVERED,
 //        with a scored candidate and named hits where it used to have an empty list. THAT IS R1
 //        WORKING, not failing — the system has no 8.73px glyph box and the finding says so. A reader
-//        who wants it covered must move the snap boundary, which is a ticket, and NOT a weight: a
+//        who wants it covered must read the glyph box from geometry, which is #456, and NOT a weight: a
 //        pair of numbers chosen to land on the bar is the one thing this header forbids.
 //
 //        AND THAT TICKET OWES `BUILDERS.icon` IN THE SAME CHANGE. There is no builder for `icon`
@@ -438,8 +440,23 @@ const stackShape = (node, drops) => {
     return out;
   }
   const step = (t) => (t?.ref ? t.ref.replace(/^--spacing-/, "") : null);
-  if (L.gap) out.gap = step(L.gap);
-  if (Array.isArray(L.pad)) {
+  // AN UNBOUND VALUE THE SNAP STEP DID NOT RESOLVE (#307). A `{value, ref: null}` tok is legal IR —
+  // the converter carries it for import/snap-rules.mjs — and step() of it is null. Emitting that as
+  // `gap: null` would be a prop with no value and no row; it is a recorded drop instead.
+  const unsnapped = (t) => !!t && typeof t === "object" && t.ref === null;
+  if (unsnapped(L.gap)) {
+    drops.push(drop({
+      kind: "no-token", slot: "layout.gap", value: L.gap.value,
+      reason: "unbound gap not snapped to a spacing token — see the record's snaps",
+    }));
+  } else if (L.gap) out.gap = step(L.gap);
+  if (Array.isArray(L.pad) && L.pad.some(unsnapped)) {
+    const vals = L.pad.map((t) => (unsnapped(t) ? `${t.value}px` : step(t) ?? "null"));
+    drops.push(drop({
+      kind: "no-token", slot: "layout.pad", value: vals.join(","),
+      reason: `unbound pad [${vals.join(", ")}] not snapped to spacing tokens — see the record's snaps`,
+    }));
+  } else if (Array.isArray(L.pad)) {
     const steps = L.pad.map(step);
     if (steps.every((s) => s !== null && s === steps[0])) out.pad = steps[0];
     else drops.push(drop({

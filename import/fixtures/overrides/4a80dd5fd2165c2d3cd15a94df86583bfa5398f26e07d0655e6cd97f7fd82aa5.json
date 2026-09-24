@@ -1,0 +1,8 @@
+{
+  "source": "4a80dd5fd2165c2d3cd15a94df86583bfa5398f26e07d0655e6cd97f7fd82aa5",
+  "note": "GATE FIXTURE for #307 — not an owner's fix; the owner's real overrides live in import/overrides/.",
+  "snaps": [
+    { "path": "ir.children[0].children[1]", "slot": "text.size", "ref": "--type-body" },
+    { "path": "ir.children[0]", "slot": "layout.gap", "ref": "--spacing-md" }
+  ]
+}

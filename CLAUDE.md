@@ -118,14 +118,19 @@ import/                       the design-import core (epic #295) — Node-only, 
   ir.mjs                      the intermediate representation both converters emit and the matcher reads
   brilliant.mjs               blueprint read → IR; its layout branch is S2's (#299), lifted not rewritten
   recognise.mjs               IR node × vocabulary → a scored verdict with an explicit "not covered" floor
-  fixtures/                   spike C's two committed blueprint reads + the expected verdict
+  fidelity.mjs                the wrong-but-green detector — S3's rung 6, ink-colour ΔE per part, lifted
+  snap-rules.mjs              unbound values → nearest contract token, O3a's three outcomes, the override table
+  report.mjs                  the import record: schema, validator, derived verdict, the md fold
+  overrides/                  the OWNER's per-source snap fixes, keyed by the source file's sha256 (README only)
+  fixtures/                   spike C's two committed blueprint reads + the expected verdict + S3's frozen
+                              renders, the unbound Polaris IR, and the two GENERATED fixture records
   regen-expected.mjs          regenerates the committed verdict — a NEW SPEC moves it (see below)
 handoff/                      GENERATED handoff pack (verdant/) — committed, never edited by hand
 docs/epics/                   PRD + architecture decisions governing the platform build
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            41 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            42 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -138,6 +143,7 @@ tooling/
   curate-trace.mjs · validate-trace.mjs   deterministic curation + the Trace format's drift guard
   board-op.mjs                the fenced build agent's ONLY build tool — one op per call, prints the board
   fieldwork-kpis.mjs          ground-truth KPIs — a post-hoc JUDGE, NEVER fed to an agent prompt
+  regen-import-records.mjs    GENERATES import/fixtures/records/ — here, not in import/, because it reads system/wcag.mjs
   inp-observer.mjs            the driver-injected PerformanceObserver helper; nothing ships
   figma/figma-read.mjs        the shared read — auth, the Enterprise gate, the cache, --from
   figma/figma-parity.mjs      READ-BACK: a Figma file diffed against the token contract
@@ -154,7 +160,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Portal UI feature** → `portal/public/portal.js`: a hash route + render function using the existing `api()` helper; styles in `portal.css`. The one exception is `portal/public/canvas.html` + `canvas.mjs`, a module page (the canvas needs `system/` modules a classic script cannot import); the SPA links to it from `#/canvas`.
 - **Machine-layer artifact** → `agent-layer/gen-<output>.mjs` exporting `gen<Name>(ledger)`; register in `build.mjs` (import + call + `✓` log line), keep the standalone-run guard. Shared parsing belongs in `lib.mjs`.
 - **Component** → token-only CSS in `system/components.css`; a new semantic token gets added to `system/tokens.source.json` (contract group) first, then regenerate: `node agent-layer/gen-token-css.mjs`.
-- **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`. The chain is not finished at the spec: a component also needs its **`components.css` block** (header `/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) **and its `agentic-renderer.mjs` template**, because `build-checks` group 3 asserts that EVERY generated vocabulary entry has a render path. A spec with a vocabulary entry and no block and no template is *documented but not composable*, and it is a red build. The optional `example` head key is validated SEMANTICALLY at generation time — it must actually render, or CI `verify` goes red naming the spec. A new spec also moves the **design importer's** committed verdict, because `import/fixtures/spike-c-instance.expected.json` carries a candidates list scored against the WHOLE vocabulary: run `node import/regen-expected.mjs` in the same PR, or build-checks group 40 reds on a ticket that never touched `import/`.
+- **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`. The chain is not finished at the spec: a component also needs its **`components.css` block** (header `/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) **and its `agentic-renderer.mjs` template**, because `build-checks` group 3 asserts that EVERY generated vocabulary entry has a render path. A spec with a vocabulary entry and no block and no template is *documented but not composable*, and it is a red build. The optional `example` head key is validated SEMANTICALLY at generation time — it must actually render, or CI `verify` goes red naming the spec. A new spec also moves the **design importer's** committed verdict, because `import/fixtures/spike-c-instance.expected.json` carries a candidates list scored against the WHOLE vocabulary: run `node import/regen-expected.mjs` in the same PR, or build-checks group 40 reds on a ticket that never touched `import/`. The same goes for the two fixture import records under `import/fixtures/records/` (a function of the whole vocabulary and `tokens.source.json`): run `node tooling/regen-import-records.mjs` beside it, or group 42 reds.
 - **New icon** → `node agent-layer/gen-icons.mjs --add <phosphor-name>` (Phosphor's own name, not a role word — phosphoricons.com; the command refuses an unknown one and suggests near misses); commit the regenerated `system/icons.mjs`. No spec, no CSS, no template: one manifest line.
 - **New /build pattern** → a rule in `system/pattern-rules.mjs` (the rule NAMES the pattern from the board and the slots are COUNTED from it, never invented) + its entry in `PATTERNS`. Spec-first: it may only compose components that already exist in `system/specs/` and validate against the generated `handoff/verdant/vocabulary.json`. Add a `BOARD_FOR` fixture in `tooling/build-checks.mjs` too — every group iterates `PATTERNS`, so a new entry with no board fails loudly rather than being silently skipped. Then `node tooling/build-checks.mjs` and `node tooling/build-journey.mjs all`.
 - **WC wrapper** → `system/wc/<tag>.mjs`, spec-first (a wrapper exists only for a `system/specs/` component; shadow CSS uses only spec-head tokens, no literals, no var() fallbacks), copied into the pack by `gen-handoff`.
@@ -171,7 +177,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **New composition proposal** → a REAL run. **UI-first path (preferred):** the portal's "Compose a view" drawer — answer /build's ten method questions, and `portal/lib/builder.mjs`'s three committed rules draft the question from two of them; the drafted question is EDITABLE before the run, and the PIV phases stream live. Leave the `--dry` box checked for the first run: a dry run is a full agent run over the real fixtures that writes nothing, so `in-process validateComposition ✓` is what proves the question is answerable before a real one is spent. **The equivalent CLI:** `node portal/record-composition.mjs <scenario> "<question>" <slot> [--slug <slug>]`. The scenario must carry a `scenarios/<scenario>/compose.json`. Verify the numbers against the fixture (Fieldwork has `node tooling/fieldwork-kpis.mjs`). Same honesty rule as traces — never hand-write a composition or hand-feed an example; the `compose.json` computeRules carries DEFINITIONS ONLY.
 - **Design-import core** → a module under `import/` (Node-only; node built-ins + `import/` only in its import
   graph, and it matches no `loc-summary` group — both asserted by build-checks group 40, not assumed). Fixtures are
-  committed `.txt`/`.json`, never `.mjs`. A recognition weight is a rule with a reason in the module header, never a
+  committed `.txt`/`.json` — or `.png` (frozen renders) and `.md` (generated projections) — never `.mjs`. A recognition weight is a rule with a reason in the module header, never a
   number tuned until a ticket-named answer comes out.
 - **Platform capability (epic work)** → check `docs/epics/ai-first-ux-factory.architecture.md` first — most "new" pieces are already-decided Missing pieces with format and placement pinned.
 
@@ -200,7 +206,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 41 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 42 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

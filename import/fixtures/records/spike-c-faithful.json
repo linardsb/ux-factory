@@ -1,0 +1,2548 @@
+{
+  "drops": [
+    {
+      "class": "read-then-dropped",
+      "kind": "literal-size",
+      "path": "ir.children[0]",
+      "reason": "fixed 360px — a size prop of {fill,hug} cannot carry it",
+      "ref": null,
+      "slot": "style.size.w",
+      "value": 360
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "literal-size",
+      "path": "ir.children[0].children[0]",
+      "reason": "fixed 32px — a size prop of {fill,hug} cannot carry it",
+      "ref": null,
+      "slot": "style.size.w",
+      "value": 32
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "literal-size",
+      "path": "ir.children[0].children[0]",
+      "reason": "fixed 32px — a size prop of {fill,hug} cannot carry it",
+      "ref": null,
+      "slot": "style.size.h",
+      "value": 32
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-vocabulary-slot",
+      "path": "ir.children[0].children[0]",
+      "reason": "no vocabulary entry scored at or above 0.5 (best: avatar at 0.45) and the node carries no layout — not covered",
+      "ref": null,
+      "slot": "node",
+      "value": "Avatar"
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-token",
+      "path": "ir.children[0].children[1]",
+      "reason": "no contract token for role $spacing.none (source value 0px) (1-value pad, expands to all four sides)",
+      "ref": "$spacing.none",
+      "slot": "pad[0]",
+      "value": 0
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0].children[1].children[0]",
+      "reason": "hug:100 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "style.size.h",
+      "value": 100
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0].children[1].children[1]",
+      "reason": "hug:100 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "style.size.h",
+      "value": 100
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-token",
+      "path": "ir.children[0].children[2]",
+      "reason": "no contract token for role $spacing.none (source value 0px)",
+      "ref": "$spacing.none",
+      "slot": "gap",
+      "value": 0
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0].children[2].children[0]",
+      "reason": "hug:100 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "style.size.w",
+      "value": 100
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0].children[2].children[0]",
+      "reason": "hug:100 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "style.size.h",
+      "value": 100
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "literal-size",
+      "path": "ir.children[0].children[3]",
+      "reason": "fixed 8.73px — a size prop of {fill,hug} cannot carry it",
+      "ref": null,
+      "slot": "style.size.w",
+      "value": 8.73
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "literal-size",
+      "path": "ir.children[0].children[3]",
+      "reason": "fixed 16px — a size prop of {fill,hug} cannot carry it",
+      "ref": null,
+      "slot": "style.size.h",
+      "value": 16
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-vocabulary-slot",
+      "path": "ir.children[0].children[3]",
+      "reason": "no vocabulary entry scored at or above 0.5 (best: icon at 0.375) and the node carries no layout — not covered",
+      "ref": null,
+      "slot": "node",
+      "value": "Chevron"
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "unfillable-required-prop",
+      "path": "build",
+      "reason": "list-row.value is required and a design read carries nothing that fills it — the row's primary computed figure as a display string, e.g. \"85\", \"−85\", \"94%\" — rendered as-is, no rounding",
+      "ref": null,
+      "slot": "list-row.value",
+      "value": null
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-vocabulary-slot",
+      "path": "build",
+      "reason": "list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted",
+      "ref": null,
+      "slot": "ir.children[0].children[0]",
+      "value": null
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-vocabulary-slot",
+      "path": "build",
+      "reason": "list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted",
+      "ref": null,
+      "slot": "ir.children[0].children[3]",
+      "value": null
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "unmapped-role",
+      "path": "mapping",
+      "reason": "M1 is colour-text-only by scope choice (plan § Out of Scope); mapped under M2",
+      "ref": null,
+      "slot": "mapping.color.surface",
+      "value": "#F8F8F8"
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "unmapped-role",
+      "path": "mapping",
+      "reason": "same scope choice; mapped under M2",
+      "ref": null,
+      "slot": "mapping.color.outline.variant",
+      "value": "#E1E1E1"
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-contract-role",
+      "path": "mapping",
+      "reason": "the contract has no container role",
+      "ref": null,
+      "slot": "mapping.color.primary.container",
+      "value": "#F2F5FA"
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-contract-role",
+      "path": "mapping",
+      "reason": "the contract has no success role",
+      "ref": null,
+      "slot": "mapping.color.success.container",
+      "value": "#F1F7F2"
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-contract-role",
+      "path": "mapping",
+      "reason": "the contract has no success role",
+      "ref": null,
+      "slot": "mapping.color.success",
+      "value": "#00C950"
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "no-contract-role",
+      "path": "mapping",
+      "reason": "the contract has no disabled role",
+      "ref": null,
+      "slot": "mapping.color.text.disabled",
+      "value": "#C6C6C6"
+    }
+  ],
+  "elapsed": {
+    "ratify": null,
+    "recognition": null
+  },
+  "fidelity": {
+    "deltaEMin": {
+      "candidate": {
+        "file": "import/fixtures/s3/m1-faithful.png",
+        "sha256": "fba86d50576bbecc32399409cb94bb1523f8db79f1fd763bb62060db20eed9ca",
+        "source": "a hand-authored harness DOM with M1's two roles set from the pack (S3 capture.txt), not a render of this record's IR through its mapping"
+      },
+      "reference": {
+        "sha256": "ba743a9318eb0f1f85b3d508d3c27c211910d3f9baa63b18020734a455865da8",
+        "source": "Brilliant's 06.svg for instance 1db1b29957b949ca, rasterised in Chromium at DSF 1 (S3)"
+      },
+      "regions": [
+        {
+          "area": 79200,
+          "excluded": null,
+          "name": "row",
+          "value": 0.0977
+        },
+        {
+          "area": 1024,
+          "excluded": null,
+          "name": "avatar",
+          "value": 0.0207
+        },
+        {
+          "area": 29172,
+          "excluded": null,
+          "name": "text-block",
+          "value": 0.5318
+        },
+        {
+          "area": 14300,
+          "excluded": null,
+          "name": "title",
+          "value": 0.003
+        },
+        {
+          "area": 14300,
+          "excluded": null,
+          "name": "subtitle",
+          "value": 0.8716
+        },
+        {
+          "area": 12528,
+          "excluded": null,
+          "name": "chip",
+          "value": 0.1023
+        },
+        {
+          "area": 10000,
+          "excluded": null,
+          "name": "chip-text",
+          "value": 0.2833
+        },
+        {
+          "area": 144,
+          "excluded": "chevron(144px < 256)",
+          "name": "chevron",
+          "value": null
+        }
+      ],
+      "rung": "ink-colour",
+      "scored": 7,
+      "threshold": 5,
+      "worst": {
+        "region": "subtitle",
+        "value": 0.8716
+      }
+    },
+    "verdict": "green",
+    "wcag": {
+      "failing": [],
+      "pass": 12,
+      "total": 12
+    }
+  },
+  "id": "spike-c-faithful",
+  "ir": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "component": null,
+            "drops": [
+              {
+                "class": "read-then-dropped",
+                "kind": "literal-size",
+                "reason": "fixed 32px — a size prop of {fill,hug} cannot carry it",
+                "ref": null,
+                "slot": "style.size.w",
+                "value": 32
+              },
+              {
+                "class": "read-then-dropped",
+                "kind": "literal-size",
+                "reason": "fixed 32px — a size prop of {fill,hug} cannot carry it",
+                "ref": null,
+                "slot": "style.size.h",
+                "value": 32
+              }
+            ],
+            "icon": null,
+            "id": "d9512c65b8ba59a7",
+            "kind": "shape",
+            "layout": null,
+            "name": "Avatar",
+            "position": null,
+            "style": {
+              "fill": {
+                "ref": "$color.primary.container",
+                "value": "#F2F5FA"
+              },
+              "shape": "circle",
+              "size": {
+                "h": 32,
+                "w": 32
+              }
+            },
+            "text": null
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "component": null,
+                "drops": [
+                  {
+                    "class": "read-then-dropped",
+                    "kind": "qualifier-dropped",
+                    "reason": "hug:100 → hug (spike C README:92)",
+                    "ref": null,
+                    "slot": "style.size.h",
+                    "value": 100
+                  }
+                ],
+                "icon": null,
+                "id": "0677e5352f9b7e97",
+                "kind": "text",
+                "layout": null,
+                "name": "Text 1",
+                "position": null,
+                "style": {
+                  "fill": {
+                    "ref": "$color.text.primary",
+                    "value": "#454545"
+                  },
+                  "size": {
+                    "h": "hug",
+                    "w": "fill"
+                  }
+                },
+                "text": {
+                  "align": "l",
+                  "content": "Amara Okafor",
+                  "family": {
+                    "ref": "$font.family",
+                    "value": "Manrope"
+                  },
+                  "lineHeight": null,
+                  "size": {
+                    "ref": "$font.size.md",
+                    "value": 16
+                  },
+                  "weight": "sb"
+                }
+              },
+              {
+                "children": [],
+                "component": null,
+                "drops": [
+                  {
+                    "class": "read-then-dropped",
+                    "kind": "qualifier-dropped",
+                    "reason": "hug:100 → hug (spike C README:92)",
+                    "ref": null,
+                    "slot": "style.size.h",
+                    "value": 100
+                  }
+                ],
+                "icon": null,
+                "id": "ce6edd5ebb75ca12",
+                "kind": "text",
+                "layout": null,
+                "name": "Text 2",
+                "position": null,
+                "style": {
+                  "fill": {
+                    "ref": "$color.text.secondary",
+                    "value": "#575757"
+                  },
+                  "size": {
+                    "h": "hug",
+                    "w": "fill"
+                  }
+                },
+                "text": {
+                  "align": "l",
+                  "content": "Last seen 2 min ago",
+                  "family": {
+                    "ref": "$font.family",
+                    "value": "Manrope"
+                  },
+                  "lineHeight": {
+                    "ref": "$font.lineHeight.normal",
+                    "value": 1.5
+                  },
+                  "size": {
+                    "ref": "$font.size.sm",
+                    "value": 14
+                  },
+                  "weight": "r"
+                }
+              }
+            ],
+            "component": null,
+            "drops": [
+              {
+                "class": "read-then-dropped",
+                "kind": "no-token",
+                "reason": "no contract token for role $spacing.none (source value 0px) (1-value pad, expands to all four sides)",
+                "ref": "$spacing.none",
+                "slot": "pad[0]",
+                "value": 0
+              }
+            ],
+            "icon": null,
+            "id": "4e5f949b06664b86",
+            "kind": "frame",
+            "layout": {
+              "align": {
+                "cross": null,
+                "main": null
+              },
+              "dir": "column",
+              "gap": {
+                "ref": "--spacing-xs",
+                "value": 4
+              },
+              "pad": null,
+              "size": {
+                "h": "hug",
+                "w": "fill"
+              }
+            },
+            "name": "Text block",
+            "position": null,
+            "style": null,
+            "text": null
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "component": null,
+                "drops": [
+                  {
+                    "class": "read-then-dropped",
+                    "kind": "qualifier-dropped",
+                    "reason": "hug:100 → hug (spike C README:92)",
+                    "ref": null,
+                    "slot": "style.size.w",
+                    "value": 100
+                  },
+                  {
+                    "class": "read-then-dropped",
+                    "kind": "qualifier-dropped",
+                    "reason": "hug:100 → hug (spike C README:92)",
+                    "ref": null,
+                    "slot": "style.size.h",
+                    "value": 100
+                  }
+                ],
+                "icon": null,
+                "id": "573be45a182c5b97",
+                "kind": "text",
+                "layout": null,
+                "name": "Text 3",
+                "position": null,
+                "style": {
+                  "fill": {
+                    "ref": "$color.success",
+                    "value": "#00C950"
+                  },
+                  "size": {
+                    "h": "hug",
+                    "w": "hug"
+                  }
+                },
+                "text": {
+                  "align": "l",
+                  "content": "On call",
+                  "family": {
+                    "ref": "$font.family",
+                    "value": "Manrope"
+                  },
+                  "lineHeight": null,
+                  "size": {
+                    "ref": "$font.size.xs",
+                    "value": 12
+                  },
+                  "weight": "m"
+                }
+              }
+            ],
+            "component": null,
+            "drops": [
+              {
+                "class": "read-then-dropped",
+                "kind": "no-token",
+                "reason": "no contract token for role $spacing.none (source value 0px)",
+                "ref": "$spacing.none",
+                "slot": "gap",
+                "value": 0
+              }
+            ],
+            "icon": null,
+            "id": "4678ba04551aae0f",
+            "kind": "frame",
+            "layout": {
+              "align": {
+                "cross": "center",
+                "main": "center"
+              },
+              "dir": "row",
+              "gap": null,
+              "pad": [
+                {
+                  "ref": "--spacing-xs",
+                  "value": 4
+                },
+                {
+                  "ref": "--spacing-sm",
+                  "value": 8
+                },
+                {
+                  "ref": "--spacing-xs",
+                  "value": 4
+                },
+                {
+                  "ref": "--spacing-sm",
+                  "value": 8
+                }
+              ],
+              "size": {
+                "h": "hug",
+                "w": "hug"
+              }
+            },
+            "name": "Status chip",
+            "position": null,
+            "style": {
+              "fill": {
+                "ref": "$color.success.container",
+                "value": "#F1F7F2"
+              },
+              "radius": {
+                "ref": "$radius.full",
+                "value": 9999
+              }
+            },
+            "text": null
+          },
+          {
+            "children": [],
+            "component": null,
+            "drops": [
+              {
+                "class": "read-then-dropped",
+                "kind": "literal-size",
+                "reason": "fixed 8.73px — a size prop of {fill,hug} cannot carry it",
+                "ref": null,
+                "slot": "style.size.w",
+                "value": 8.73
+              },
+              {
+                "class": "read-then-dropped",
+                "kind": "literal-size",
+                "reason": "fixed 16px — a size prop of {fill,hug} cannot carry it",
+                "ref": null,
+                "slot": "style.size.h",
+                "value": 16
+              }
+            ],
+            "icon": {
+              "name": "caret-right"
+            },
+            "id": "ee43cdb97fffec7b",
+            "kind": "icon",
+            "layout": null,
+            "name": "Chevron",
+            "position": null,
+            "style": {
+              "fill": {
+                "ref": "$color.text.disabled",
+                "value": "#C6C6C6"
+              },
+              "size": {
+                "h": 16,
+                "w": 8.73
+              }
+            },
+            "text": null
+          }
+        ],
+        "component": {
+          "name": "Spike List Row",
+          "variant": {
+            "state": "active"
+          }
+        },
+        "drops": [
+          {
+            "class": "read-then-dropped",
+            "kind": "literal-size",
+            "reason": "fixed 360px — a size prop of {fill,hug} cannot carry it",
+            "ref": null,
+            "slot": "style.size.w",
+            "value": 360
+          }
+        ],
+        "icon": null,
+        "id": "1db1b29957b949ca",
+        "kind": "instance",
+        "layout": null,
+        "name": "Frame 1",
+        "position": {
+          "x": 16,
+          "y": 288
+        },
+        "style": {
+          "size": {
+            "h": "hug",
+            "w": 360
+          },
+          "tag": "spikec_inst"
+        },
+        "text": null
+      }
+    ],
+    "drops": [],
+    "grain": "component",
+    "mode": 1,
+    "source": {
+      "bound": true,
+      "ids": [
+        "1db1b29957b949ca",
+        "d9512c65b8ba59a7",
+        "4e5f949b06664b86",
+        "0677e5352f9b7e97",
+        "ce6edd5ebb75ca12",
+        "4678ba04551aae0f",
+        "573be45a182c5b97",
+        "ee43cdb97fffec7b"
+      ],
+      "tool": "brilliant"
+    }
+  },
+  "mapping": {
+    "drops": [
+      {
+        "class": "read-then-dropped",
+        "contractHome": "--color-bg-surface",
+        "literal": "#F8F8F8",
+        "role": "color.surface",
+        "why": "M1 is colour-text-only by scope choice (plan § Out of Scope); mapped under M2"
+      },
+      {
+        "class": "read-then-dropped",
+        "contractHome": "--color-border",
+        "literal": "#E1E1E1",
+        "role": "color.outline.variant",
+        "why": "same scope choice; mapped under M2"
+      },
+      {
+        "class": "read-but-never-emitted",
+        "contractHome": null,
+        "literal": "#F2F5FA",
+        "role": "color.primary.container",
+        "why": "the contract has no container role"
+      },
+      {
+        "class": "read-but-never-emitted",
+        "contractHome": null,
+        "literal": "#F1F7F2",
+        "role": "color.success.container",
+        "why": "the contract has no success role"
+      },
+      {
+        "class": "read-but-never-emitted",
+        "contractHome": null,
+        "literal": "#00C950",
+        "role": "color.success",
+        "why": "the contract has no success role"
+      },
+      {
+        "class": "read-but-never-emitted",
+        "contractHome": null,
+        "literal": "#C6C6C6",
+        "role": "color.text.disabled",
+        "why": "the contract has no disabled role"
+      }
+    ],
+    "map": "M1",
+    "pack": "the source's own literals on the mapped roles (S3 mapping.json packs.faithful)",
+    "roles": {
+      "color.text.primary": "--color-fg",
+      "color.text.secondary": "--color-fg-muted"
+    }
+  },
+  "provenance": {
+    "attribution": "Drawn in Brilliant's web editor under its default design system (spike C, 2026-08-27)",
+    "licence": null,
+    "mode": 1
+  },
+  "recognition": {
+    "buildDrops": [
+      {
+        "class": "read-but-never-emitted",
+        "kind": "unfillable-required-prop",
+        "reason": "list-row.value is required and a design read carries nothing that fills it — the row's primary computed figure as a display string, e.g. \"85\", \"−85\", \"94%\" — rendered as-is, no rounding",
+        "ref": null,
+        "slot": "list-row.value",
+        "value": null
+      },
+      {
+        "class": "read-but-never-emitted",
+        "kind": "no-vocabulary-slot",
+        "reason": "list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted",
+        "ref": null,
+        "slot": "ir.children[0].children[0]",
+        "value": null
+      },
+      {
+        "class": "read-but-never-emitted",
+        "kind": "no-vocabulary-slot",
+        "reason": "list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted",
+        "ref": null,
+        "slot": "ir.children[0].children[3]",
+        "value": null
+      }
+    ],
+    "verdict": {
+      "children": [
+        {
+          "candidates": [
+            {
+              "hits": [
+                {
+                  "detail": "\"Spike List Row\" contains every word of \"list-row\"",
+                  "field": "component.name",
+                  "signal": "name-match"
+                },
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.575,
+              "slug": "list-row"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "\"Spike List Row\" contains every word of \"list\"",
+                  "field": "component.name",
+                  "signal": "name-match"
+                }
+              ],
+              "score": 0.45,
+              "slug": "list"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "avatar"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "card"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "empty-state"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "ghost-button"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "search-input"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "text-field"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "toggle-switch"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "primary-button"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "screen-header"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "icon"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "metric-tile"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "progress-indicator"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "select-field"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "plant-card"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "status-chip"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/3 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "modal-dialog"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/3 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "sequence-step"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/4 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.063,
+              "slug": "stat-tile"
+            }
+          ],
+          "children": [
+            {
+              "candidates": [
+                {
+                  "hits": [
+                    {
+                      "detail": "\"Avatar\" contains every word of \"avatar\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    }
+                  ],
+                  "score": 0.45,
+                  "slug": "avatar"
+                }
+              ],
+              "children": [],
+              "covered": false,
+              "drops": [
+                {
+                  "class": "read-then-dropped",
+                  "kind": "literal-size",
+                  "reason": "fixed 32px — a size prop of {fill,hug} cannot carry it",
+                  "ref": null,
+                  "slot": "style.size.w",
+                  "value": 32
+                },
+                {
+                  "class": "read-then-dropped",
+                  "kind": "literal-size",
+                  "reason": "fixed 32px — a size prop of {fill,hug} cannot carry it",
+                  "ref": null,
+                  "slot": "style.size.h",
+                  "value": 32
+                },
+                {
+                  "class": "read-but-never-emitted",
+                  "kind": "no-vocabulary-slot",
+                  "reason": "no vocabulary entry scored at or above 0.5 (best: avatar at 0.45) and the node carries no layout — not covered",
+                  "ref": null,
+                  "slot": "node",
+                  "value": "Avatar"
+                }
+              ],
+              "hits": [
+                {
+                  "detail": "\"Avatar\" contains every word of \"avatar\"",
+                  "field": "name",
+                  "signal": "name-match"
+                }
+              ],
+              "kind": "shape",
+              "name": null,
+              "path": "ir.children[0].children[0]",
+              "score": 0.45,
+              "via": "floor"
+            },
+            {
+              "candidates": [
+                {
+                  "hits": [
+                    {
+                      "detail": "\"Text block\" contains every word of \"text\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    }
+                  ],
+                  "score": 0.45,
+                  "slug": "text"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "avatar"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "card"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "empty-state"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "ghost-button"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "a laid-out node against an entry that takes many children",
+                      "field": "layout",
+                      "signal": "kind-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "list"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "search-input"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "text-field"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "toggle-switch"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "primary-button"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "screen-header"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "icon"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "list-row"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "metric-tile"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "progress-indicator"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "select-field"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "plant-card"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "status-chip"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "modal-dialog"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "sequence-step"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/4 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.063,
+                  "slug": "stat-tile"
+                }
+              ],
+              "children": [
+                {
+                  "candidates": [
+                    {
+                      "hits": [
+                        {
+                          "detail": "\"Text 1\" contains every word of \"text\"",
+                          "field": "name",
+                          "signal": "name-match"
+                        },
+                        {
+                          "detail": "a text node against a childless entry with a text-bearing required prop",
+                          "field": "kind",
+                          "signal": "kind-fit"
+                        },
+                        {
+                          "detail": "2/2 required props fillable from the read (role, content)",
+                          "field": "role+content",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.95,
+                      "slug": "text"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "a text node against a childless entry with a text-bearing required prop",
+                          "field": "kind",
+                          "signal": "kind-fit"
+                        },
+                        {
+                          "detail": "1/1 required props fillable from the read (text)",
+                          "field": "text",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.5,
+                      "slug": "demo-notice"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "avatar"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "card"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "empty-state"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "ghost-button"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "search-input"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "text-field"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "toggle-switch"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "primary-button"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "screen-header"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "icon"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "list-row"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "metric-tile"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "progress-indicator"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "select-field"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "plant-card"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "status-chip"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/3 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.083,
+                      "slug": "modal-dialog"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/3 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.083,
+                      "slug": "sequence-step"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/4 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.063,
+                      "slug": "stat-tile"
+                    }
+                  ],
+                  "children": [],
+                  "covered": true,
+                  "drops": [
+                    {
+                      "class": "read-then-dropped",
+                      "kind": "qualifier-dropped",
+                      "reason": "hug:100 → hug (spike C README:92)",
+                      "ref": null,
+                      "slot": "style.size.h",
+                      "value": 100
+                    }
+                  ],
+                  "hits": [
+                    {
+                      "detail": "\"Text 1\" contains every word of \"text\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    },
+                    {
+                      "detail": "a text node against a childless entry with a text-bearing required prop",
+                      "field": "kind",
+                      "signal": "kind-fit"
+                    },
+                    {
+                      "detail": "2/2 required props fillable from the read (role, content)",
+                      "field": "role+content",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "kind": "text",
+                  "name": "text",
+                  "path": "ir.children[0].children[1].children[0]",
+                  "score": 0.95,
+                  "via": "scored"
+                },
+                {
+                  "candidates": [
+                    {
+                      "hits": [
+                        {
+                          "detail": "\"Text 2\" contains every word of \"text\"",
+                          "field": "name",
+                          "signal": "name-match"
+                        },
+                        {
+                          "detail": "a text node against a childless entry with a text-bearing required prop",
+                          "field": "kind",
+                          "signal": "kind-fit"
+                        },
+                        {
+                          "detail": "2/2 required props fillable from the read (role, content)",
+                          "field": "role+content",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.95,
+                      "slug": "text"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "a text node against a childless entry with a text-bearing required prop",
+                          "field": "kind",
+                          "signal": "kind-fit"
+                        },
+                        {
+                          "detail": "1/1 required props fillable from the read (text)",
+                          "field": "text",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.5,
+                      "slug": "demo-notice"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "avatar"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "card"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "empty-state"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "ghost-button"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "search-input"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "text-field"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "toggle-switch"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "primary-button"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "screen-header"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "icon"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "list-row"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "metric-tile"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "progress-indicator"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "select-field"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "plant-card"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "status-chip"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/3 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.083,
+                      "slug": "modal-dialog"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/3 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.083,
+                      "slug": "sequence-step"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/4 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.063,
+                      "slug": "stat-tile"
+                    }
+                  ],
+                  "children": [],
+                  "covered": true,
+                  "drops": [
+                    {
+                      "class": "read-then-dropped",
+                      "kind": "qualifier-dropped",
+                      "reason": "hug:100 → hug (spike C README:92)",
+                      "ref": null,
+                      "slot": "style.size.h",
+                      "value": 100
+                    }
+                  ],
+                  "hits": [
+                    {
+                      "detail": "\"Text 2\" contains every word of \"text\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    },
+                    {
+                      "detail": "a text node against a childless entry with a text-bearing required prop",
+                      "field": "kind",
+                      "signal": "kind-fit"
+                    },
+                    {
+                      "detail": "2/2 required props fillable from the read (role, content)",
+                      "field": "role+content",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "kind": "text",
+                  "name": "text",
+                  "path": "ir.children[0].children[1].children[1]",
+                  "score": 0.95,
+                  "via": "scored"
+                }
+              ],
+              "covered": true,
+              "drops": [
+                {
+                  "class": "read-then-dropped",
+                  "kind": "no-token",
+                  "reason": "no contract token for role $spacing.none (source value 0px) (1-value pad, expands to all four sides)",
+                  "ref": "$spacing.none",
+                  "slot": "pad[0]",
+                  "value": 0
+                }
+              ],
+              "hits": [],
+              "kind": "frame",
+              "name": "stack",
+              "path": "ir.children[0].children[1]",
+              "score": 0,
+              "via": "structural-fallback"
+            },
+            {
+              "candidates": [
+                {
+                  "hits": [
+                    {
+                      "detail": "\"Status chip\" contains every word of \"status-chip\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    },
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.575,
+                  "slug": "status-chip"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "avatar"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "card"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "empty-state"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "ghost-button"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "a laid-out node against an entry that takes many children",
+                      "field": "layout",
+                      "signal": "kind-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "list"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "search-input"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "text-field"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "toggle-switch"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "primary-button"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "screen-header"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "icon"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "list-row"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "metric-tile"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "progress-indicator"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "select-field"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "plant-card"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "modal-dialog"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "sequence-step"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/4 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.063,
+                  "slug": "stat-tile"
+                }
+              ],
+              "children": [
+                {
+                  "candidates": [
+                    {
+                      "hits": [
+                        {
+                          "detail": "\"Text 3\" contains every word of \"text\"",
+                          "field": "name",
+                          "signal": "name-match"
+                        },
+                        {
+                          "detail": "a text node against a childless entry with a text-bearing required prop",
+                          "field": "kind",
+                          "signal": "kind-fit"
+                        },
+                        {
+                          "detail": "2/2 required props fillable from the read (role, content)",
+                          "field": "role+content",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.95,
+                      "slug": "text"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "a text node against a childless entry with a text-bearing required prop",
+                          "field": "kind",
+                          "signal": "kind-fit"
+                        },
+                        {
+                          "detail": "1/1 required props fillable from the read (text)",
+                          "field": "text",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.5,
+                      "slug": "demo-notice"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "avatar"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "card"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "empty-state"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "ghost-button"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "search-input"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "text-field"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "toggle-switch"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "primary-button"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/1 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.25,
+                      "slug": "screen-header"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "icon"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "list-row"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "metric-tile"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "progress-indicator"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "select-field"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (name)",
+                          "field": "name",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "plant-card"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/2 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.125,
+                      "slug": "status-chip"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/3 required props fillable from the read (title)",
+                          "field": "title",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.083,
+                      "slug": "modal-dialog"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/3 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.083,
+                      "slug": "sequence-step"
+                    },
+                    {
+                      "hits": [
+                        {
+                          "detail": "1/4 required props fillable from the read (label)",
+                          "field": "label",
+                          "signal": "prop-fit"
+                        }
+                      ],
+                      "score": 0.063,
+                      "slug": "stat-tile"
+                    }
+                  ],
+                  "children": [],
+                  "covered": true,
+                  "drops": [
+                    {
+                      "class": "read-then-dropped",
+                      "kind": "qualifier-dropped",
+                      "reason": "hug:100 → hug (spike C README:92)",
+                      "ref": null,
+                      "slot": "style.size.w",
+                      "value": 100
+                    },
+                    {
+                      "class": "read-then-dropped",
+                      "kind": "qualifier-dropped",
+                      "reason": "hug:100 → hug (spike C README:92)",
+                      "ref": null,
+                      "slot": "style.size.h",
+                      "value": 100
+                    }
+                  ],
+                  "hits": [
+                    {
+                      "detail": "\"Text 3\" contains every word of \"text\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    },
+                    {
+                      "detail": "a text node against a childless entry with a text-bearing required prop",
+                      "field": "kind",
+                      "signal": "kind-fit"
+                    },
+                    {
+                      "detail": "2/2 required props fillable from the read (role, content)",
+                      "field": "role+content",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "kind": "text",
+                  "name": "text",
+                  "path": "ir.children[0].children[2].children[0]",
+                  "score": 0.95,
+                  "via": "scored"
+                }
+              ],
+              "covered": true,
+              "drops": [
+                {
+                  "class": "read-then-dropped",
+                  "kind": "no-token",
+                  "reason": "no contract token for role $spacing.none (source value 0px)",
+                  "ref": "$spacing.none",
+                  "slot": "gap",
+                  "value": 0
+                }
+              ],
+              "hits": [
+                {
+                  "detail": "\"Status chip\" contains every word of \"status-chip\"",
+                  "field": "name",
+                  "signal": "name-match"
+                },
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "kind": "frame",
+              "name": "status-chip",
+              "path": "ir.children[0].children[2]",
+              "score": 0.575,
+              "via": "scored"
+            },
+            {
+              "candidates": [
+                {
+                  "hits": [
+                    {
+                      "detail": "an icon node against a childless entry that declares a glyph box (md | lg | xl)",
+                      "field": "kind",
+                      "signal": "kind-fit"
+                    },
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.375,
+                  "slug": "icon"
+                }
+              ],
+              "children": [],
+              "covered": false,
+              "drops": [
+                {
+                  "class": "read-then-dropped",
+                  "kind": "literal-size",
+                  "reason": "fixed 8.73px — a size prop of {fill,hug} cannot carry it",
+                  "ref": null,
+                  "slot": "style.size.w",
+                  "value": 8.73
+                },
+                {
+                  "class": "read-then-dropped",
+                  "kind": "literal-size",
+                  "reason": "fixed 16px — a size prop of {fill,hug} cannot carry it",
+                  "ref": null,
+                  "slot": "style.size.h",
+                  "value": 16
+                },
+                {
+                  "class": "read-but-never-emitted",
+                  "kind": "no-vocabulary-slot",
+                  "reason": "no vocabulary entry scored at or above 0.5 (best: icon at 0.375) and the node carries no layout — not covered",
+                  "ref": null,
+                  "slot": "node",
+                  "value": "Chevron"
+                }
+              ],
+              "hits": [
+                {
+                  "detail": "an icon node against a childless entry that declares a glyph box (md | lg | xl)",
+                  "field": "kind",
+                  "signal": "kind-fit"
+                },
+                {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "kind": "icon",
+              "name": null,
+              "path": "ir.children[0].children[3]",
+              "score": 0.375,
+              "via": "floor"
+            }
+          ],
+          "covered": true,
+          "drops": [
+            {
+              "class": "read-then-dropped",
+              "kind": "literal-size",
+              "reason": "fixed 360px — a size prop of {fill,hug} cannot carry it",
+              "ref": null,
+              "slot": "style.size.w",
+              "value": 360
+            }
+          ],
+          "hits": [
+            {
+              "detail": "\"Spike List Row\" contains every word of \"list-row\"",
+              "field": "component.name",
+              "signal": "name-match"
+            },
+            {
+              "detail": "1/2 required props fillable from the read (label)",
+              "field": "label",
+              "signal": "prop-fit"
+            }
+          ],
+          "kind": "instance",
+          "name": "list-row",
+          "path": "ir.children[0]",
+          "score": 0.575,
+          "via": "scored"
+        }
+      ],
+      "drops": [],
+      "grain": "component",
+      "mode": 1,
+      "path": "ir",
+      "source": {
+        "bound": true,
+        "ids": [
+          "1db1b29957b949ca",
+          "d9512c65b8ba59a7",
+          "4e5f949b06664b86",
+          "0677e5352f9b7e97",
+          "ce6edd5ebb75ca12",
+          "4678ba04551aae0f",
+          "573be45a182c5b97",
+          "ee43cdb97fffec7b"
+        ],
+        "tool": "brilliant"
+      }
+    }
+  },
+  "snaps": [],
+  "source": {
+    "bound": true,
+    "file": "import/fixtures/spike-c-instance.blueprint.txt",
+    "ids": [
+      "1db1b29957b949ca",
+      "d9512c65b8ba59a7",
+      "4e5f949b06664b86",
+      "0677e5352f9b7e97",
+      "ce6edd5ebb75ca12",
+      "4678ba04551aae0f",
+      "573be45a182c5b97",
+      "ee43cdb97fffec7b"
+    ],
+    "project": null,
+    "sha256": "038f7c03ef138851f9cdb4cd5c3accb5ae6b2ae86469f56bd0f22af8f31b7b3f",
+    "tool": "brilliant"
+  },
+  "unbound": {
+    "dropped": 0,
+    "exact": 0,
+    "overridden": 0,
+    "proposed": 0,
+    "slots": 0
+  }
+}

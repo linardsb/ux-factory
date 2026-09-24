@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import record brief</title>
+<style>
+  :root { --bg:#fbfbfa; --fg:#1d1d1b; --muted:#66645e; --line:#dedcd6; --card:#ffffff; --accent:#2f5d8a; --red:#a3392f; --green:#2f7a4a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe7; --muted:#a09d95; --line:#34332f; --card:#1f1f1d; --accent:#8fb4d9; --red:#e08a80; --green:#8cc9a2; } }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 6px } h2 { font-size:19px; margin:40px 0 12px }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0 }
+  .card h3 { margin:0 0 4px; font-size:16px }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font:13px/1.5 ui-monospace, Menlo, monospace; margin:8px 0 0 }
+  .flow { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; align-items:stretch }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:10px; font-size:14px }
+  .box b { display:block; margin-bottom:2px }
+  .arrow { color:var(--muted); font-size:13px; text-align:center; grid-column:1/-1 }
+  @media (max-width:560px) { .flow { grid-template-columns:1fr } }
+  table { width:100%; border-collapse:collapse; font-size:14px } td { border-top:1px solid var(--line); padding:6px 4px; vertical-align:top }
+  ul.learn { list-style:none; padding:0 } ul.learn li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-top:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+  .red { color:var(--red) } .green { color:var(--green) }
+</style>
+</head>
+<body>
+<main>
+<h1>The import record and the snap rules</h1>
+<p class="src">Plan: <a href="import-record-snap-rules-307.md">import-record-snap-rules-307.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today an import from a design tool leaves no trace of what it lost or whether it looks right. After this, every import writes a record that states both, and raw values get matched to our tokens in the open.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<div class="card"><h3>A record that cannot lie</h3>
+<p>Some fields are worked out from the data, never typed in. A checker recomputes them and refuses the file if they disagree. It is like a receipt whose total is recalculated at the till.</p>
+<pre>drops   = everything the import lost   (derived)
+verdict = red | green | missing        (derived)
+no measurement → "missing", never "green"</pre></div>
+
+<div class="card"><h3>Wrong but green</h3>
+<p>Contrast checks (WCAG, the legibility rules) can all pass while the colours are plainly wrong. So we compare the average colour of the text in each part against the source picture. The difference is ΔE (a standard "how different do these colours look" number).</p>
+<pre>ΔE ≥ 5.0 in any part → <span class="red">red</span>, even at 12/12 WCAG</pre></div>
+
+<div class="card"><h3>Snapping by nearest value</h3>
+<p>A design drawn with raw numbers (say, 14px) gets matched to the closest token (a named design value, like caption = 13px). Only an exact match is accepted without asking.</p>
+<pre>exact  → accepted silently
+near   → shown as a proposal for the owner
+far    → dropped, and listed as lost</pre></div>
+
+<div class="card"><h3>Fixes remembered by fingerprint</h3>
+<p>A hash (a short fingerprint computed from a file's bytes) names each source file. The owner's corrections are saved under it, so importing the same file again reuses them. A changed file gets a new fingerprint and starts clean.</p></div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <div class="box"><b>Design read</b>raw or token-bound values</div>
+  <div class="box"><b>Snap</b>exact · proposal · drop, plus saved fixes</div>
+  <div class="box"><b>Colour check</b>source picture vs our render</div>
+  <div class="arrow">↓ all three feed ↓</div>
+  <div class="box"><b>Record (JSON)</b>derived fields, checked</div>
+  <div class="box"><b>Record (markdown)</b>the same, for engineers</div>
+  <div class="box"><b>The checks</b>prove each rule can fail</div>
+</div>
+
+<h2>The plan at a glance</h2>
+<table>
+<tr><td>1</td><td>Freeze the spike's pictures; lift the colour detector.</td></tr>
+<tr><td>2</td><td>Snap rules, the converter fix, the Polaris fixture and its saved fix. Independent of 1.</td></tr>
+<tr><td>3</td><td>The record, its markdown, two committed example records. Needs 1 and 2.</td></tr>
+<tr><td>4</td><td>The checks, docs, a Linux measurement, a Linux byte-for-byte check. Needs 3.</td></tr>
+</table>
+<pre>import/
+├── fidelity.mjs          # the colour detector
+├── snap-rules.mjs        # families, tolerances, saved fixes
+├── report.mjs            # record, checker, markdown
+├── overrides/README.md   # where the owner's fixes live
+└── fixtures/
+    ├── s3/               # frozen pictures and packs
+    ├── polaris-unbound.ir.json
+    ├── overrides/        # a test fix, labelled as one
+    └── records/          # two generated example records
+tooling/
+├── regen-import-records.mjs   # writes the example records
+└── build-checks.mjs           # + the new checks</pre>
+<table>
+<tr><td>An empty measurement reads missing.</td></tr>
+<tr><td>A record with no drop list is refused.</td></tr>
+<tr><td>The wrong Polaris render reads <span class="red">red</span>; the faithful one <span class="green">green</span>.</td></tr>
+<tr><td>Each record's markdown matches its committed file byte for byte.</td></tr>
+<tr><td>Every snap is listed with its distance.</td></tr>
+<tr><td>A saved fix changes only what it names, and returns on re-import.</td></tr>
+<tr><td>A record's reference picture is never another record's output.</td></tr>
+<tr><td><code>import/</code> needs no portal packages; the line-count summary is unchanged.</td></tr>
+</table>
+
+<h2>Go deeper</h2>
+<ul class="learn">
+  <li data-prompt="/learn derived fields that a validator recomputes"><span><b>/learn derived fields that a validator recomputes</b> — why the record cannot lie.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn CIEDE2000 colour difference"><span><b>/learn CIEDE2000 colour difference</b> — the number behind red and green.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn snapping values to a design token scale"><span><b>/learn snapping values to a design token scale</b> — exact, near, far.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn content hashing as a cache key"><span><b>/learn content hashing as a cache key</b> — remembering fixes per file.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

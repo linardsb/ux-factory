@@ -1,0 +1,109 @@
+{
+  "note": "S3 (#300). The role map for the wrong-but-green detector. M1 is the primary, colour-text-only map; M2 adds two large-area roles and is reported as a second row, never the verdict. 'drops' is M1's drop list; under M2 the first two entries move into the map.",
+  "fixture": {
+    "instance": "1db1b29957b949ca",
+    "master": "6282a5879cdc52a8",
+    "lane": "variant(state(active))",
+    "reference": ".claude/plans/design-import-spike-c/06.svg"
+  },
+  "map": {
+    "M1": {
+      "color.text.primary": {
+        "token": "--color-fg",
+        "sourceValue": "#454545",
+        "wrongValue": "#0c3b2f"
+      },
+      "color.text.secondary": {
+        "token": "--color-fg-muted",
+        "sourceValue": "#575757",
+        "wrongValue": "#20828d"
+      }
+    },
+    "M2": {
+      "color.text.primary": {
+        "token": "--color-fg",
+        "sourceValue": "#454545",
+        "wrongValue": "#0c3b2f"
+      },
+      "color.text.secondary": {
+        "token": "--color-fg-muted",
+        "sourceValue": "#575757",
+        "wrongValue": "#20828d"
+      },
+      "color.surface": {
+        "token": "--color-bg-surface",
+        "sourceValue": "#F8F8F8",
+        "wrongValue": "#ffffff"
+      },
+      "color.outline.variant": {
+        "token": "--color-border",
+        "sourceValue": "#E1E1E1",
+        "wrongValue": "#e8f0fd"
+      }
+    }
+  },
+  "drops": [
+    {
+      "role": "color.surface",
+      "class": "read-then-dropped",
+      "literal": "#F8F8F8",
+      "contractHome": "--color-bg-surface",
+      "why": "M1 is colour-text-only by scope choice (plan § Out of Scope); mapped under M2"
+    },
+    {
+      "role": "color.outline.variant",
+      "class": "read-then-dropped",
+      "literal": "#E1E1E1",
+      "contractHome": "--color-border",
+      "why": "same scope choice; mapped under M2"
+    },
+    {
+      "role": "color.primary.container",
+      "class": "read-but-never-emitted",
+      "literal": "#F2F5FA",
+      "contractHome": null,
+      "why": "the contract has no container role"
+    },
+    {
+      "role": "color.success.container",
+      "class": "read-but-never-emitted",
+      "literal": "#F1F7F2",
+      "contractHome": null,
+      "why": "the contract has no success role"
+    },
+    {
+      "role": "color.success",
+      "class": "read-but-never-emitted",
+      "literal": "#00C950",
+      "contractHome": null,
+      "why": "the contract has no success role"
+    },
+    {
+      "role": "color.text.disabled",
+      "class": "read-but-never-emitted",
+      "literal": "#C6C6C6",
+      "contractHome": null,
+      "why": "the contract has no disabled role"
+    }
+  ],
+  "packs": {
+    "faithful": {
+      "source": "the source's own literals on the mapped tokens",
+      "values": {
+        "--color-fg": "#454545",
+        "--color-fg-muted": "#575757",
+        "--color-bg-surface": "#f8f8f8",
+        "--color-border": "#e1e1e1"
+      }
+    },
+    "wrong": {
+      "source": ".claude/plans/design-import-spike-a/tokens.polaris.spike.css (spike A run 3, read not retyped)",
+      "values": {
+        "--color-fg": "#0c3b2f",
+        "--color-fg-muted": "#20828d",
+        "--color-bg-surface": "#ffffff",
+        "--color-border": "#e8f0fd"
+      }
+    }
+  }
+}
