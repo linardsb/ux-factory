@@ -73,7 +73,9 @@
 //            thing that bounds the box from below. The short side is the glyph's own proportion — a
 //            caret is narrow at every size — and says nothing about the box. An axis that is not a
 //            number (`hug`, `fill`) is not a measurement, and with one of two measured the unmeasured
-//            side might be the longer one, so the box is not read at all.
+//            side might be the longer one, so the box is not read at all. A zero or negative axis
+//            is not a measurement of a drawing either — every box "contains" 0, so reading one would
+//            file a degenerate export as a covered `md` glyph — and it too leaves the box unread.
 //          · THE SMALLEST STEP THAT CONTAINS IT, NOT THE NEAREST. This is where it parts from type's
 //            nearest-value rule, deliberately: a type step that is 2px off renders 2px off, but a box
 //            smaller than its drawing CLIPS the drawing. 16 → `md`; 19 → `lg`, never `md`.
@@ -202,10 +204,12 @@ const textsUnder = (n) => {
 };
 
 // R4's box read: the smallest step whose box contains the drawing's long axis, or null. Both axes
-// must be measured numbers — see the header for why one is not enough.
+// must be measured positive numbers — see the header for why one is not enough.
 const glyphBox = (node) => {
+  // The `??` is safe only because brilliant.mjs's `sawSize` guard puts ONE line's s() on `layout`
+  // (with an al()) or on `style` (without), never both — a converter that fills both is what breaks it.
   const s = node.layout?.size ?? node.style?.size ?? null;
-  if (!s || !Number.isFinite(s.w) || !Number.isFinite(s.h)) return null;
+  if (!s || !Number.isFinite(s.w) || !Number.isFinite(s.h) || !(s.w > 0 && s.h > 0)) return null;
   const long = Math.max(s.w, s.h);
   return GLYPH_BOX_ENUM.find((step) => GLYPH_BOX_PX[step] >= long) ?? null;
 };
