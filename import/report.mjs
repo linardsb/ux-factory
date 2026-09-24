@@ -10,6 +10,9 @@
 //   · `drops`, `snaps`, `unbound` and `fidelity.verdict` are DERIVED — from the verdict tree, the
 //     build() rows, the mapping and the IR — and `checkRecord` recomputes each one and refuses a
 //     record whose stored copy disagrees. A caller cannot hand in a shorter loss list.
+//   · `fidelity.deltaEMin` and `fidelity.wcag` are STORED MEASUREMENTS, not derived: `checkRecord`
+//     checks the record is consistent with the measurements it carries and does not re-measure them.
+//     Re-measuring from the images is the import run's job (#311).
 //   · AN EMPTY MEASUREMENT READS `missing`, NEVER `green` (the architecture's line, E4's
 //     self-deceiving shape). `fidelityVerdict` is total over any input and returns green only when
 //     BOTH measurements exist.

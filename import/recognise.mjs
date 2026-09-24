@@ -66,10 +66,11 @@
 //        GEOMETRY, not one of ir.mjs's TOKEN_SLOTS, so the snap step (import/snap-rules.mjs, #307,
 //        build-checks group 42) does not cover it either: reading 16 → `md` from a drawing is its own
 //        ticket, #456. THE TYPE-ROLE MAPPING BELOW IS NOT THE PRECEDENT THAT WOULD LICENSE IT, and the
-//        difference is checkable: `["text", "size"]` is one of ir.mjs's TOKEN_SLOTS, so a type step arrives BOUND and carries
-//        a `ref` naming the source's own step — only the TAXONOMY differs. `style.size` is raw
-//        measured geometry with no ref at all, which is why the converter already files it as
-//        `literal-size`, read-then-dropped. Bound token versus measured pixels: that is the line.
+//        difference is checkable: `["text", "size"]` is one of ir.mjs's TOKEN_SLOTS, so a type step
+//        arrives BOUND and carries a `ref` naming the source's own step — only the TAXONOMY differs.
+//        `style.size` is raw measured geometry with no ref at all, which is why the converter already
+//        files it as `literal-size`, read-then-dropped. Bound token versus measured pixels: that is
+//        the line.
 //
 //        WHAT THAT COSTS, WRITTEN DOWN SO NOBODY HAS TO REDERIVE IT. The Chevron takes kind-fit plus
 //        prop-fit on one of two required props and lands BELOW the threshold: it reads NOT COVERED,

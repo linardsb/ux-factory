@@ -149,6 +149,8 @@ function snapOne(slot, value, targets) {
   }
   const scored = list.map((t) => ({ ref: t.ref, value: t.value, d: distanceOf(family, t, value) }));
   const min = Math.min(...scored.map((s) => Math.abs(s.d)));
+  // Exact float equality on purpose: `d` is unrounded, so a tie is a true tie. A tolerance here
+  // would merge near-misses into ties and change which snaps come back as `proposed` with candidates.
   const tied = scored.filter((s) => Math.abs(s.d) === min).sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
   const candidates = tied.map((s) => ({ ref: s.ref, value: s.value, distance: r4(s.d) }));
   const distance = tied.every((s) => s.d === tied[0].d) ? r4(tied[0].d) : null;
