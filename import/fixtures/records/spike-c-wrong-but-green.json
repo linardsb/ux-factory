@@ -110,15 +110,6 @@
     },
     {
       "class": "read-but-never-emitted",
-      "kind": "no-vocabulary-slot",
-      "path": "ir.children[0].children[3]",
-      "reason": "no vocabulary entry scored at or above 0.5 (best: icon at 0.375) and the node carries no layout — not covered",
-      "ref": null,
-      "slot": "node",
-      "value": "Chevron"
-    },
-    {
-      "class": "read-but-never-emitted",
       "kind": "unfillable-required-prop",
       "path": "build",
       "reason": "list-row.value is required and a design read carries nothing that fills it — the row's primary computed figure as a display string, e.g. \"85\", \"−85\", \"94%\" — rendered as-is, no rounding",
@@ -139,10 +130,10 @@
       "class": "read-but-never-emitted",
       "kind": "no-vocabulary-slot",
       "path": "build",
-      "reason": "list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted",
+      "reason": "list-row declares children: [] — a descendant read as icon has no prop to land in and is not emitted",
       "ref": null,
       "slot": "ir.children[0].children[3]",
-      "value": null
+      "value": "icon"
     },
     {
       "class": "read-then-dropped",
@@ -739,10 +730,10 @@
       {
         "class": "read-but-never-emitted",
         "kind": "no-vocabulary-slot",
-        "reason": "list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted",
+        "reason": "list-row declares children: [] — a descendant read as icon has no prop to land in and is not emitted",
         "ref": null,
         "slot": "ir.children[0].children[3]",
-        "value": null
+        "value": "icon"
       }
     ],
     "verdict": {
@@ -2414,17 +2405,17 @@
                       "signal": "kind-fit"
                     },
                     {
-                      "detail": "1/2 required props fillable from the read (name)",
-                      "field": "name",
+                      "detail": "2/2 required props fillable from the read (name, size)",
+                      "field": "name+size",
                       "signal": "prop-fit"
                     }
                   ],
-                  "score": 0.375,
+                  "score": 0.5,
                   "slug": "icon"
                 }
               ],
               "children": [],
-              "covered": false,
+              "covered": true,
               "drops": [
                 {
                   "class": "read-then-dropped",
@@ -2441,14 +2432,6 @@
                   "ref": null,
                   "slot": "style.size.h",
                   "value": 16
-                },
-                {
-                  "class": "read-but-never-emitted",
-                  "kind": "no-vocabulary-slot",
-                  "reason": "no vocabulary entry scored at or above 0.5 (best: icon at 0.375) and the node carries no layout — not covered",
-                  "ref": null,
-                  "slot": "node",
-                  "value": "Chevron"
                 }
               ],
               "hits": [
@@ -2458,16 +2441,16 @@
                   "signal": "kind-fit"
                 },
                 {
-                  "detail": "1/2 required props fillable from the read (name)",
-                  "field": "name",
+                  "detail": "2/2 required props fillable from the read (name, size)",
+                  "field": "name+size",
                   "signal": "prop-fit"
                 }
               ],
               "kind": "icon",
-              "name": null,
+              "name": "icon",
               "path": "ir.children[0].children[3]",
-              "score": 0.375,
-              "via": "floor"
+              "score": 0.5,
+              "via": "scored"
             }
           ],
           "covered": true,

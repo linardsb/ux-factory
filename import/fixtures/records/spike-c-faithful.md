@@ -48,7 +48,7 @@ Source refs — the source's own token names on bound slots:
 | `ir.children[0].children[1].children[1]` | text | Text 2 | `text` (scored) |
 | `ir.children[0].children[2]` | frame | Status chip | `status-chip` (scored) |
 | `ir.children[0].children[2].children[0]` | text | Text 3 | `text` (scored) |
-| `ir.children[0].children[3]` | icon | Chevron | NOT COVERED |
+| `ir.children[0].children[3]` | icon | Chevron | `icon` (scored) |
 
 **Snaps**
 
@@ -74,13 +74,12 @@ Bound source — nothing to snap.
 - `unmapped-role` at `mapping` `mapping.color.surface` — `#F8F8F8` — M1 is colour-text-only by scope choice (plan § Out of Scope); mapped under M2
 - `unmapped-role` at `mapping` `mapping.color.outline.variant` — `#E1E1E1` — same scope choice; mapped under M2
 
-**`read-but-never-emitted` — 9 open**
+**`read-but-never-emitted` — 8 open**
 
 - `no-vocabulary-slot` at `ir.children[0].children[0]` `node` — `Avatar` — no vocabulary entry scored at or above 0.5 (best: avatar at 0.45) and the node carries no layout — not covered
-- `no-vocabulary-slot` at `ir.children[0].children[3]` `node` — `Chevron` — no vocabulary entry scored at or above 0.5 (best: icon at 0.375) and the node carries no layout — not covered
 - `unfillable-required-prop` at `build` `list-row.value` — no value — list-row.value is required and a design read carries nothing that fills it — the row's primary computed figure as a display string, e.g. "85", "−85", "94%" — rendered as-is, no rounding
 - `no-vocabulary-slot` at `build` `ir.children[0].children[0]` — no value — list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted
-- `no-vocabulary-slot` at `build` `ir.children[0].children[3]` — no value — list-row declares children: [] — a descendant read as not covered has no prop to land in and is not emitted
+- `no-vocabulary-slot` at `build` `ir.children[0].children[3]` — `icon` — list-row declares children: [] — a descendant read as icon has no prop to land in and is not emitted
 - `no-contract-role` at `mapping` `mapping.color.primary.container` — `#F2F5FA` — the contract has no container role
 - `no-contract-role` at `mapping` `mapping.color.success.container` — `#F1F7F2` — the contract has no success role
 - `no-contract-role` at `mapping` `mapping.color.success` — `#00C950` — the contract has no success role

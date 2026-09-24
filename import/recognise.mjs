@@ -50,8 +50,8 @@
 //        checks on the thing that matters — adequate, and named here so the next reader does not
 //        assume either one covers the other.
 //
-//   R4 · A GLYPH IS NAMED BY THE SOURCE. THE NAME IS READ; THE BOX IS NOT (#449). `svg(icon:caret-
-//        right)` is not a drawing this file has to interpret — it is the design tool NAMING A PART
+//   R4 · A GLYPH IS NAMED BY THE SOURCE AND BOXED BY ITS DRAWING. THE NAME IS READ FROM ITS SLOT
+//        (#449); THE BOX FROM THE MEASURED LONG AXIS (#456). `svg(icon:caret-right)` is not a drawing this file has to interpret — it is the design tool NAMING A PART
 //        OUT OF A LIBRARY, the same act as `inst()`'s master name, which nameOf() already prefers
 //        over the layer name. The converter routes one into `component.name`, where name-match reads
 //        it, and the other into `icon.name`, where nothing did. That asymmetry was the defect, and
@@ -61,32 +61,56 @@
 //        ("the source's kind and the entry's shape agree") and there is no argument for this one
 //        being worth more.
 //
-//        `icon.size` IS NOT FILLED, AND THAT IS THE RULE RATHER THAN A GAP. The glyph box is
-//        `md|lg|xl` — 16, 24 and 32px — and the Chevron is drawn 8.73 × 16. The glyph box is MEASURED
-//        GEOMETRY, not one of ir.mjs's TOKEN_SLOTS, so the snap step (import/snap-rules.mjs, #307,
-//        build-checks group 42) does not cover it either: reading 16 → `md` from a drawing is its own
-//        ticket, #456. THE TYPE-ROLE MAPPING BELOW IS NOT THE PRECEDENT THAT WOULD LICENSE IT, and the
-//        difference is checkable: `["text", "size"]` is one of ir.mjs's TOKEN_SLOTS, so a type step
-//        arrives BOUND and carries a `ref` naming the source's own step — only the TAXONOMY differs.
-//        `style.size` is raw measured geometry with no ref at all, which is why the converter already
-//        files it as `literal-size`, read-then-dropped. Bound token versus measured pixels: that is
-//        the line.
+//        THE BOX IS READ BY ITS OWN RULE, NOT BY THE NAME'S (#456). The glyph box is `md|lg|xl` —
+//        16, 24 and 32px, the spacing steps it binds to — and the Chevron is drawn 8.73 × 16. That is
+//        MEASURED GEOMETRY, not one of ir.mjs's TOKEN_SLOTS: `style.size` carries no `ref`, so the snap
+//        step (import/snap-rules.mjs, #307, build-checks group 42) does not reach it, and the TYPE-ROLE
+//        MAPPING BELOW IS NOT ITS PRECEDENT either — a type step arrives BOUND and only the taxonomy
+//        differs. So the box has a rule of its own, in four parts, each with its reason:
 //
-//        WHAT THAT COSTS, WRITTEN DOWN SO NOBODY HAS TO REDERIVE IT. The Chevron takes kind-fit plus
-//        prop-fit on one of two required props and lands BELOW the threshold: it reads NOT COVERED,
-//        with a scored candidate and named hits where it used to have an empty list. THAT IS R1
-//        WORKING, not failing — the system has no 8.73px glyph box and the finding says so. A reader
-//        who wants it covered must read the glyph box from geometry, which is #456, and NOT a weight: a
-//        pair of numbers chosen to land on the bar is the one thing this header forbids.
+//          · THE LONG AXIS COUNTS, AND ONLY WHEN BOTH AXES ARE MEASURED. The box is square (one step,
+//            both sides) and the drawing sits inside it, so the drawing's longer side is the one
+//            thing that bounds the box from below. The short side is the glyph's own proportion — a
+//            caret is narrow at every size — and says nothing about the box. An axis that is not a
+//            number (`hug`, `fill`) is not a measurement, and with one of two measured the unmeasured
+//            side might be the longer one, so the box is not read at all. A zero or negative axis
+//            is not a measurement of a drawing either — every box "contains" 0, so reading one would
+//            file a degenerate export as a covered `md` glyph — and it too leaves the box unread.
+//          · THE SMALLEST STEP THAT CONTAINS IT, NOT THE NEAREST. This is where it parts from type's
+//            nearest-value rule, deliberately: a type step that is 2px off renders 2px off, but a box
+//            smaller than its drawing CLIPS the drawing. 16 → `md`; 19 → `lg`, never `md`.
+//          · NO TOLERANCE BEYOND THE READ'S OWN PRECISION. The measurement is compared as read, to
+//            the hundredth the source writes; 16.01 is `lg`. A slack of half a pixel would be a
+//            number with no argument behind it but the answer it produces, which is the thing this
+//            header exists to refuse. Over 32 (`xl`) there is no step, the prop stays unfilled and
+//            the node is NOT COVERED — the system has no box for that drawing and the finding says so.
+//          · ITS STATED LIMIT: a glyph drawn small inside a larger box reads the smaller box. A
+//            design tool that exports the artwork's bounds rather than the box's cannot tell a 16px
+//            glyph from a 24px box holding a 16px drawing. The Chevron's long side is 16, exactly
+//            `md`; a drawing that means otherwise is #311's mapping editor's to correct, and the
+//            record shows both measured axes to argue with.
 //
-//        AND THAT TICKET OWES `BUILDERS.icon` IN THE SAME CHANGE. There is no builder for `icon`
-//        here, deliberately: under an uncovered verdict build() returns at its first line and one
-//        could not be driven. The day the box fills, the Chevron reads covered and falls into
-//        build()'s `!builder` branch instead — a `no-vocabulary-slot` row saying "recognised but not
-//        emittable at this ticket", which puts `icon` in the RECOGNISED-BUT-REFUSED set and reds
-//        case 40.4's whole-set compare. That is the right failure, and it is written here so it
-//        reads as this file's known consequence rather than as a surprise in a ticket that never
-//        opened it.
+//        THE PIXELS ARE STILL NOT CARRIED. The composition says `md`, never 16, so the CLASS of the
+//        converter's two `literal-size` rows on `style.size` stays true — read-then-dropped: the
+//        literal was read, fed a step, and is not emitted. Their reason text ("a size prop of
+//        {fill,hug} cannot carry it") is the converter's wording for every numeric axis, written
+//        before it knows the node's kind, and this ticket leaves the converter alone. The rows are
+//        also where the measurement stays on the record, which is why this file adds none of its own.
+//
+//        WHAT IT LANDS ON, AND WHY THAT IS NOT A FITTED PAIR. With the box filled the Chevron takes
+//        kind-fit (0.25) plus prop-fit on two of two required props (0.25 × 1) — 0.5, the threshold
+//        exactly. Before #456 this header named that landing as the forbidden one, and it would be,
+//        IF A WEIGHT HAD MOVED TO REACH IT. None did: 0.5 is what the standing weights give ANY leaf
+//        whose kind matches and whose required props all fill, and it is not new — the tie-break's
+//        second rung below already covers an unnamed text node at exactly 0.5 against `text`, kind-fit
+//        plus prop-fit and no name, since #304. The box fill comes from the rule above, argued without
+//        reference to the score. Case 40.18 asserts the shape of the sum — kind-fit, prop-fit on
+//        `name+size`, no name-match — never 0.5.
+//
+//        `BUILDERS.icon` LANDS WITH IT. A covered verdict with no builder takes build()'s `!builder`
+//        branch and is refused as "recognised but not emittable", so the box and the builder are one
+//        change: the Chevron builds to `{name: "icon", props: {name: "caret-right", size: "md"}}` and
+//        joins case 40.4's EMITTED set, not its refused one.
 //
 // ─── WHAT A DESIGN READ CARRIES, AND WHAT IT DOES NOT ────────────────────────────────────────────
 // STRUCTURE AND LABELS, NEVER DATA. PROP_SOURCES below says which slot of a read fills which prop,
@@ -120,11 +144,11 @@ export const STRUCTURAL_FALLBACK = "stack";
 export const TYPE_ROLE_PX = Object.freeze({ display: 40, heading: 24, body: 16, caption: 13 });
 
 // WHICH SLOT OF A DESIGN READ FILLS WHICH PROP. A prop with no row here is not fillable from a read
-// (see the header). THREE SLOTS ARE RESOLVED STRUCTURALLY BEFORE THIS TABLE IS CONSULTED — a prop
+// (see the header). FOUR SLOTS ARE RESOLVED STRUCTURALLY BEFORE THIS TABLE IS CONSULTED — a prop
 // whose enum is exactly {row, column} fills from `layout.dir`, one whose enum is exactly the four
 // type roles fills from the nearest `text.size`, and the glyph part's `name` fills from `icon.name`
-// (R4) — and any OTHER enum fills only from a string the source actually drew that is literally in
-// it.
+// and its box from the measured size (both R4) — and any OTHER enum fills only from a string the
+// source actually drew that is literally in it.
 export const PROP_SOURCES = Object.freeze({
   content: "own-text",      // a `text`'s content IS its own words — never a descendant's, which is
   text: "own-text",         //   what keeps "Text block" (a frame of two texts) off the `text` entry
@@ -144,12 +168,16 @@ const ROW_ENUM = ["row", "column"];
 const ROLE_NAMES = Object.keys(TYPE_ROLE_PX);
 // THE GLYPH BOX: md | lg | xl, the three spacing steps a drawing's box binds to (system/specs/icon.md
 // — "there is no pixel prop"). An entry declaring it as a REQUIRED enum is an entry saying it is one
-// drawing, which is what R4's two branches key on. READ OFF THE ENTRY'S DECLARED SHAPE, NEVER OFF ITS
+// drawing, which is what R4's three reads (kind-fit, the name fill, the box fill) key on. READ OFF THE ENTRY'S DECLARED SHAPE, NEVER OFF ITS
 // SLUG — the same move kind-fit's text branch makes when it reads PROP_SOURCES rather than the word
 // "text". So a second glyph part would be found by the same rule and a renamed `icon` would not
 // silently stop being one. Exactly one shipped entry matches, and case 40.18 asserts that rather than
 // leaving it assumed.
 const GLYPH_BOX_ENUM = ["md", "lg", "xl"];
+// Each glyph-box step in px, pinned to its token (system/tokens.contract.css:57-59 — --spacing-md,
+// --spacing-lg, --spacing-xl; case 40.9 compares it to the contract). In ascending order, which is
+// what R4's smallest-containing-step read walks.
+export const GLYPH_BOX_PX = Object.freeze({ md: 16, lg: 24, xl: 32 });
 // A drawn figure: what a designer types into a cell when they draw a number. Leading sign (ASCII or
 // the typographic minus the list-row spec's own example uses), digits, separators, optional percent.
 const FIGURE = /^[+\-−]?\d[\d.,]*\s*%?$/;
@@ -173,6 +201,17 @@ const textsUnder = (n) => {
   const out = [];
   walk(n, (m) => { if (m.text?.content) out.push(m.text.content); });
   return out;
+};
+
+// R4's box read: the smallest step whose box contains the drawing's long axis, or null. Both axes
+// must be measured positive numbers — see the header for why one is not enough.
+const glyphBox = (node) => {
+  // The `??` is safe only because brilliant.mjs's `sawSize` guard puts ONE line's s() on `layout`
+  // (with an al()) or on `style` (without), never both — a converter that fills both is what breaks it.
+  const s = node.layout?.size ?? node.style?.size ?? null;
+  if (!s || !Number.isFinite(s.w) || !Number.isFinite(s.h) || !(s.w > 0 && s.h > 0)) return null;
+  const long = Math.max(s.w, s.h);
+  return GLYPH_BOX_ENUM.find((step) => GLYPH_BOX_PX[step] >= long) ?? null;
 };
 
 const nearestRole = (px) => {
@@ -202,6 +241,9 @@ function fillProp(node, propName, spec, ctx, entry) {
   // chevron would carry `avatar` in its candidates list on the strength of "caret-right" fitting a
   // person's name, which is a claim the record would then have to defend.
   if (propName === "name" && node.kind === "icon" && declaresGlyphBox(entry)) return node.icon?.name ?? null;
+  // …and the box, under the same two-sided gate plus the prop being the box itself. It sits above
+  // the generic enum branch, which would otherwise search the drawn texts for the word "md".
+  if (spec.enum && sameSet(spec.enum, GLYPH_BOX_ENUM) && node.kind === "icon" && declaresGlyphBox(entry)) return glyphBox(node);
   if (spec.enum && sameSet(spec.enum, ROW_ENUM)) return node.layout?.dir ?? null;
   if (spec.enum && sameSet(spec.enum, ROLE_NAMES)) {
     const near = node.text ? nearestRole(node.text.size?.value) : null;
@@ -406,8 +448,11 @@ const propsFor = (entry, node, verdict, ctx, drops) => {
   // S2's consumer contract, enforced HERE: an axis that is not "fill" or "hug" is refused rather than
   // passed through as a length. Emitting `width: 360px` from it would put a hardcoded literal on a
   // token-contract surface (CLAUDE.md § Ground rules, token discipline).
+  // Scoped to a {fill, hug} size: `icon.size` is the glyph box, which R4 reads from the same numbers
+  // and the converter's own literal-size rows already record — a second pair here would file one
+  // source atom twice, under a reason that names the wrong enum.
   const size = node.layout?.size ?? node.style?.size ?? null;
-  if (size && Object.hasOwn(entry.props, "size")) {
+  if (size && entry.props.size?.enum && sameSet(entry.props.size.enum, ["fill", "hug"])) {
     for (const axis of ["w", "h"]) {
       const a = size[axis];
       if (a === "fill" || a === "hug" || a === null || a === undefined) continue;
@@ -480,6 +525,7 @@ export const BUILDERS = Object.freeze({
   text: (node, verdict, entry, ctx, drops) => ({ name: "text", props: propsFor(entry, node, verdict, ctx, drops) }),
   "list-row": (node, verdict, entry, ctx, drops) => ({ name: "list-row", props: propsFor(entry, node, verdict, ctx, drops) }),
   "status-chip": (node, verdict, entry, ctx, drops) => ({ name: "status-chip", props: propsFor(entry, node, verdict, ctx, drops) }),
+  icon: (node, verdict, entry, ctx, drops) => ({ name: "icon", props: propsFor(entry, node, verdict, ctx, drops) }),
   // The ticket's "a source list maps to `list` + N `list-row`s". The rows are built from the node's
   // own children and each one validates. THE CONTAINER AND ITS ROWS ARE THEN REFUSED TOGETHER, and
   // this builder is not where that happens: `list.empty` has no slot in any design read, so propsFor
