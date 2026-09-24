@@ -1,0 +1,70 @@
+{
+  "run": 1,
+  "flags": {
+    "contract": false,
+    "stopHook": false
+  },
+  "model": "claude-sonnet-5",
+  "sdk": "0.1.77",
+  "zod": "4.4.3",
+  "node": "v20.20.2",
+  "promptFingerprint": "c903170484396973",
+  "vocabSha": "a2bfea9494d879de",
+  "contextChars": 5549,
+  "systemPromptChars": 44203,
+  "verdict": "failed",
+  "failedBecause": [
+    "1 of 4 turns ran",
+    "turn-1: success is_error",
+    "driver threw: Claude Code process exited with code 1"
+  ],
+  "fork": null,
+  "turns": [
+    {
+      "name": "turn-1",
+      "kind": "screen",
+      "filed": 0,
+      "refused": 0,
+      "ids": [],
+      "attempted": [],
+      "outcome": "empty-yield",
+      "stats": {
+        "k": "stats",
+        "turn": "turn-1",
+        "sessionId": "fa3abde6-a1bc-4d4d-8a66-08f395954916",
+        "numTurns": 1,
+        "durationMs": 1238,
+        "wallMs": 4051,
+        "costUsd": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0,
+        "subtype": "success",
+        "isError": true,
+        "result": "Credit balance is too low",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "a2bfea9494d879de",
+        "contextChars": 5549,
+        "contract": false,
+        "stopHook": false,
+        "stopHookCalls": 0,
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    }
+  ],
+  "b5": [],
+  "totals": {
+    "costUsd": 0,
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "cacheReadTokens": 0,
+    "cacheCreationTokens": 0,
+    "durationMs": 1238,
+    "wallMs": 4051
+  },
+  "spentBeforeThisRun": 0
+}

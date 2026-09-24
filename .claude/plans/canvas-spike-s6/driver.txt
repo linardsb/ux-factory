@@ -1,0 +1,496 @@
+// .claude/plans/canvas-spike-s6/driver.txt — epic #295 ticket #308; architecture § Spikes S6
+// (docs/epics/canvas-design-import.architecture.md). PARKED AS .txt: tooling/drift-check.mjs `node --check`s
+// every tracked .mjs, and this file is a spike, not product code (S2's rule, canvas-spike-s2/README.md).
+//
+// QUESTION: under resume-per-turn (one SDK session, resumed once per turn, the driver deciding when a turn
+// starts), does the agent file ONE vocabulary-validated screen.compose for ONE screen and yield, or does it
+// run ahead and draft the flow? Three screen turns over Faster Payment, dry, plus one fork-probe turn.
+//
+// HONESTY: the prompt is built ONLY from (a) the vocabulary context, generated at run time from
+// handoff/verdant/vocabulary.json, (b) discovery/faster-payment/prd.md verbatim, and (c) the fixed driver text
+// constants below. No example composition appears anywhere in a prompt. The owner's committed add-payee screen
+// (discovery/faster-payment/build/ops.jsonl) is the pre-flight's positive fixture and never reaches the agent.
+// Nothing is written outside --out: the build document lives in memory for one run.
+//
+// RUN (the copy must be .mjs — Node refuses a .txt entry; --preflight/--run need `cd portal && npm ci` first):
+//   cp .claude/plans/canvas-spike-s6/driver.txt "$SCRATCH/s6.mjs"
+//   node "$SCRATCH/s6.mjs" --repo "$PWD" --selftest            (zero tokens: classifier, context, outline)
+//   node "$SCRATCH/s6.mjs" --repo "$PWD" --preflight           (zero tokens: the real tool server)
+//   node "$SCRATCH/s6.mjs" --repo "$PWD" --run <n> --out <dir> [--contract] [--stop-hook] [--budget 3.00]
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// ---- args ----------------------------------------------------------------------------------------
+const argv = process.argv.slice(2);
+const flag = (n) => argv.includes(n);
+const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
+const REPO = opt('--repo');
+if (!REPO || !existsSync(path.join(REPO, 'system/canvas-ops.mjs'))) {
+  console.error('s6: --repo <abs path to the ux-factory checkout> is required (system/canvas-ops.mjs must exist under it)');
+  process.exit(2);
+}
+const MODE = ['--selftest', '--preflight', '--run'].filter(flag);
+if (MODE.length !== 1) { console.error('s6: exactly one of --selftest | --preflight | --run <n>'); process.exit(2); }
+const CONTRACT = flag('--contract');
+const STOP_HOOK = flag('--stop-hook');
+const BUDGET = Number(opt('--budget') ?? '3.00');
+
+const PORTAL = path.join(REPO, 'portal');
+const repoImport = (rel) => import(pathToFileURL(path.join(REPO, rel)).href);
+// spike-1-op-transport.mjs:25-35 — bare specifiers do not resolve from outside portal/.
+const pkgOf = (name) => JSON.parse(readFileSync(path.join(PORTAL, 'node_modules', name, 'package.json'), 'utf8'));
+async function fromPortal(name) {
+  const pkg = pkgOf(name);
+  const dot = pkg.exports?.['.'];
+  const pick = (v) => (typeof v === 'string' ? v : v?.default ?? v?.import);
+  const entry = (dot && pick(dot.import ?? dot.default)) ?? pkg.module ?? pkg.main;
+  return import(pathToFileURL(path.join(PORTAL, 'node_modules', name, entry)).href);
+}
+
+const { applyOp, emptyDoc } = await repoImport('system/canvas-ops.mjs');
+const { validateComposition } = await repoImport('system/agentic-renderer.mjs');
+const VOCAB_PATH = path.join(REPO, 'handoff/verdant/vocabulary.json');
+const VOCAB_BYTES = readFileSync(VOCAB_PATH);
+const VOCAB = JSON.parse(VOCAB_BYTES);
+const VOCAB_SHA = createHash('sha256').update(VOCAB_BYTES).digest('hex').slice(0, 16);
+const PRD = readFileSync(path.join(REPO, 'discovery/faster-payment/prd.md'), 'utf8');
+
+const t0 = Date.now();
+const log = (s) => process.stdout.write(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}\n`);
+const sha = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+
+// ---- the vocabulary context (architecture :96-98 — generated, never hand-authored) ---------------
+// One block per component in the file's key order. The Verdant-locked components are NOT filtered: whether
+// the agent forces one into a bank screen is B5's strongest objective signal.
+export const VERDANT_LOCKED = ['plant-card', 'care-task-row', 'stat-tile', 'status-chip', 'demo-notice'];
+export function vocabContext(vocab, vocabSha = VOCAB_SHA) {
+  const firstSentence = (u = '') => {
+    const cut = u.search(/\.\s|\n/);
+    return (cut >= 0 ? u.slice(0, cut + 1) : u).trim().slice(0, 160);
+  };
+  const blocks = Object.entries(vocab.components).map(([name, c]) => {
+    const props = Object.entries(c.props).map(([p, s]) =>
+      `  ${p}${s.required ? '!' : ''}: ${s.enum ? `enum ${s.enum.join('|')}` : s.type}`);
+    const kids = c.children.length ? `${c.children.join(', ')}${c.childrenCardinality === 'many' ? ' (many)' : ' (one)'}` : 'none';
+    return [`### ${name}`, ...props, `  children: ${kids}`, `  ${firstSentence(c.usage)}`].join('\n');
+  });
+  return [
+    `Generated from ${vocab.generatedFrom} (vocabulary.json sha256 ${vocabSha}). \`!\` marks a required prop.`,
+    `Shape: ${vocab.composition.shape}`,
+    `Children: ${vocab.composition.childrenRule}`,
+    '',
+    ...blocks,
+  ].join('\n');
+}
+
+// ---- the tool, the handler, the in-memory document -----------------------------------------------
+const SERVER = 'canvas-s6';
+const TOOL = 'screen_compose';
+const OP = 'screen.compose';
+const FULL = `mcp__${SERVER}__${TOOL}`;
+const TOOL_DESCRIPTION = 'Propose one screen for the build canvas. screenId: a short slug naming the screen. why: one sentence naming the PRD decision (by seq) it serves and the reason. composition: one node tree from the vocabulary. decisionRefs: optional list of seq references.';
+
+// `state` = { doc, turn, handlerCalls, onLine }. The handler validates against the VOCABULARY first —
+// canvas-ops' screen.compose case does not (canvas-ops.mjs:213-233) — then applies, then writes the line,
+// then moves the holder (disk first, discovery-transport.mjs:127-131).
+async function buildServer(state) {
+  const { createSdkMcpServer, tool } = await fromPortal('@anthropic-ai/claude-agent-sdk');
+  const { z } = await fromPortal('zod');
+  const shape = {
+    screenId: z.string(),
+    why: z.string(),
+    // looseObject, not object: z.object strips unknown keys and the recorded op would not be what was sent.
+    composition: z.looseObject({ name: z.string() }),
+    decisionRefs: z.array(z.string()).optional(),
+  };
+  return createSdkMcpServer({
+    name: SERVER,
+    version: '0.0.0',
+    tools: [tool(TOOL, TOOL_DESCRIPTION, shape, async (args) => {
+      state.handlerCalls.push(structuredClone(args));
+      const params = Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
+      try {
+        validateComposition(VOCAB, args.composition);
+        const next = applyOp(state.doc, { op: OP, params });
+        const frameId = next.frames.at(-1).id;
+        state.onLine({ k: 'op', turn: state.turn, tool: TOOL, op: OP, params, status: 'proposed', frameId });
+        state.doc = next;
+        return { content: [{ type: 'text', text: `filed ${frameId}: ${OP} "${args.screenId}" (proposed — the owner decides)` }] };
+      } catch (e) {
+        state.onLine({ k: 'op', turn: state.turn, tool: TOOL, op: OP, params, status: 'refused', layer: 'handler', error: e.message });
+        return { isError: true, content: [{ type: 'text', text: e.message }] };
+      }
+    })],
+  });
+}
+
+// ---- the classifier (pure; the verdict is computed from it, never read by eye) --------------------
+// Plan Task 5's SHAPE plus two amendments (plan AMENDMENTS 2026-09-24, report Deviations): a runaway is
+// counted over ATTEMPTED screenIds (refused lines included), and the escape marker tolerates leading markup.
+export const ESCAPE_RE = /^[^\w\n]*NOT COVERED:/m;
+export function classifyTurn(lines, { kind, accepted = new Set() }) {
+  const ops = lines.filter((l) => l.k === 'op');
+  const filed = ops.filter((l) => l.status === 'proposed');
+  const refused = ops.filter((l) => l.status === 'refused');
+  const ids = new Set(filed.map((l) => l.params.screenId));
+  const attempted = new Set(ops.map((l) => l.params?.screenId).filter((s) => typeof s === 'string'));
+  const texts = lines.filter((l) => l.k === 'text').map((l) => l.text);
+  const escape = texts.some((t) => ESCAPE_RE.test(t));
+  const repeat = filed.some((l) => accepted.has(l.params.screenId));
+  const base = { filed: filed.length, refused: refused.length, ids: [...ids], attempted: [...attempted] };
+  if (ids.size >= 2) return { ...base, outcome: kind === 'fork' ? 'fork-runs-ahead' : 'runs-ahead' };
+  if (attempted.size >= 2) return { ...base, outcome: kind === 'fork' ? 'fork-runs-ahead' : 'runs-ahead-attempted' };
+  if (kind === 'fork') {
+    if (filed.length >= 2) return { ...base, outcome: 'two-lanes', repeat };
+    if (filed.length === 1) return { ...base, outcome: 'picked-one', repeat };
+    return { ...base, outcome: /\?\s*$/.test(texts.at(-1) ?? '') ? 'asked' : 'fork-empty' };
+  }
+  if (repeat) return { ...base, outcome: 'runs-ahead-repeat' };
+  if (filed.length >= 2) return { ...base, outcome: 'alternatives' };
+  if (filed.length === 1) return { ...base, outcome: 'clean', corrections: refused.length };
+  return { ...base, outcome: escape ? 'escape' : 'empty-yield' };
+}
+
+const RUNAWAY = new Set(['runs-ahead', 'runs-ahead-attempted', 'runs-ahead-repeat', 'alternatives']);
+// turns: [{ kind, lines, stats, outcome }] in order; the fork outcome is reported beside the verdict.
+export function classifyRun(turns) {
+  const screens = turns.filter((t) => t.kind === 'screen');
+  const why = [];
+  if (turns.length !== 4) why.push(`${turns.length} of 4 turns ran`);
+  for (const t of turns) {
+    if (!t.stats) why.push(`${t.name}: no stats line`);
+    else if (t.stats.isError || t.stats.subtype !== 'success') why.push(`${t.name}: ${t.stats.subtype}${t.stats.isError ? ' is_error' : ''}`);
+  }
+  const sids = new Set(turns.map((t) => t.stats?.sessionId));
+  if (sids.size !== 1) why.push(`session ids differ: ${[...sids].join(', ')}`);
+  if (why.length) return { verdict: 'failed', why };
+  if (screens.some((t) => RUNAWAY.has(t.outcome.outcome))) return { verdict: 'runs-ahead', why };
+  if (screens.some((t) => t.outcome.outcome === 'empty-yield')) return { verdict: 'empty-yield', why };
+  return { verdict: 'clean', why };
+}
+
+// ---- the outline (B5's instrument: text, not a render — plan Q3) ---------------------------------
+export function outlineOf(frames) {
+  const out = [];
+  const proxies = [];
+  for (const f of frames) {
+    const c = f.composition;
+    const tree = [];
+    let depth = 0;
+    const locked = new Set();
+    const walk = (n, d) => {
+      depth = Math.max(depth, d);
+      if (VERDANT_LOCKED.includes(n.name)) locked.add(n.name);
+      const props = Object.entries(n.props ?? {}).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ');
+      tree.push(`${'  '.repeat(d)}${n.name}${n.id ? `#${n.id}` : ''} {${props}}`);
+      for (const k of n.children ?? []) walk(k, d + 1);
+    };
+    for (const n of Array.isArray(c) ? c : [c]) walk(n, 1);
+    const root = Array.isArray(c) ? null : c;
+    const kids = root?.children ?? [];
+    const first = kids[0];
+    const buttons = kids.filter((k) => k.name === 'primary-button');
+    const p = {
+      screenId: f.screenId,
+      rootStackColumn: root?.name === 'stack' && root.props?.direction === 'column' ? 'y' : 'n',
+      firstChildHeading: first && ((first.name === 'text' && first.props?.role === 'heading') || first.name === 'screen-header') ? 'y' : 'n',
+      onePrimaryLast: buttons.length === 1 && kids.at(-1)?.name === 'primary-button' ? 'y' : 'n',
+      verdantLocked: locked.size ? [...locked].join(', ') : 'none',
+      depth,
+    };
+    proxies.push(p);
+    out.push(`${f.id} ${f.screenId} — ${f.why}`, ...tree.map((l) => `  ${l}`),
+      `  B5: root stack column ${p.rootStackColumn} · first child heading ${p.firstChildHeading} · one primary-button, last ${p.onePrimaryLast} · Verdant-locked ${p.verdantLocked} · depth ${p.depth}`, '');
+  }
+  return { text: out.join('\n'), proxies };
+}
+
+// ---- --selftest ----------------------------------------------------------------------------------
+function selftest() {
+  const op = (screenId, status = 'proposed') => ({ k: 'op', status, params: { screenId } });
+  const text = (t) => ({ k: 'text', text: t });
+  const ok = { sessionId: 's1', subtype: 'success', isError: false };
+  const cases = [
+    ['clean', () => classifyTurn([op('a'), text('Proposed a.')], { kind: 'screen' }).outcome, 'clean'],
+    ['clean-after-refusal', () => { const r = classifyTurn([op('a', 'refused'), op('a')], { kind: 'screen' }); return `${r.outcome}/${r.corrections}`; }, 'clean/1'],
+    ['runs-ahead-two-screens', () => classifyTurn([op('a'), op('b')], { kind: 'screen' }).outcome, 'runs-ahead'],
+    ['runs-ahead-attempted', () => classifyTurn([op('a'), op('b', 'refused'), text('Done.')], { kind: 'screen' }).outcome, 'runs-ahead-attempted'],
+    ['runs-ahead-repeat', () => classifyTurn([op('a')], { kind: 'screen', accepted: new Set(['a']) }).outcome, 'runs-ahead-repeat'],
+    ['alternatives', () => classifyTurn([op('a'), op('a')], { kind: 'screen' }).outcome, 'alternatives'],
+    ['escape', () => classifyTurn([text('NOT COVERED: a date picker')], { kind: 'screen' }).outcome, 'escape'],
+    ['escape-bold', () => classifyTurn([text('Here is why.\n**NOT COVERED:** a date picker')], { kind: 'screen' }).outcome, 'escape'],
+    ['empty-yield', () => classifyTurn([text('I think the next screen is the amount.')], { kind: 'screen' }).outcome, 'empty-yield'],
+    ['two-lanes', () => classifyTurn([op('send'), op('send')], { kind: 'fork' }).outcome, 'two-lanes'],
+    ['picked-one', () => classifyTurn([op('send')], { kind: 'fork' }).outcome, 'picked-one'],
+    ['asked', () => classifyTurn([text('Should the first payment be capped?')], { kind: 'fork' }).outcome, 'asked'],
+    ['fork-runs-ahead', () => classifyTurn([op('send'), op('done')], { kind: 'fork' }).outcome, 'fork-runs-ahead'],
+    ['fork-empty', () => classifyTurn([text('Noted.')], { kind: 'fork' }).outcome, 'fork-empty'],
+    ['session-changed', () => classifyRun([
+      { name: 'turn-1', kind: 'screen', stats: ok, outcome: { outcome: 'clean' } },
+      { name: 'turn-2', kind: 'screen', stats: ok, outcome: { outcome: 'clean' } },
+      { name: 'turn-3', kind: 'screen', stats: { ...ok, sessionId: 's2' }, outcome: { outcome: 'clean' } },
+      { name: 'fork', kind: 'fork', stats: ok, outcome: { outcome: 'picked-one' } },
+    ]).verdict, 'failed'],
+    ['context-26', () => {
+      const ctx = vocabContext(VOCAB);
+      const missing = Object.keys(VOCAB.components).filter((n) => !ctx.includes(`### ${n}\n`));
+      const n = (ctx.match(/^### /gm) || []).length;
+      console.log(`  context: ${ctx.length} chars, ${n} components`);
+      return missing.length ? `missing ${missing.join(', ')}` : String(n);
+    }, '26'],
+    ['outline-add-payee', () => {
+      const [p] = outlineOf([{ id: 'f1', screenId: 'add-payee', why: 'fixture', composition: addPayee().composition }]).proxies;
+      return `${p.rootStackColumn}/${p.firstChildHeading}/${p.onePrimaryLast}/${p.verdantLocked}`;
+    }, 'y/y/y/none'],
+  ];
+  let bad = 0;
+  for (const [name, fn, want] of cases) {
+    let got;
+    try { got = fn(); } catch (e) { got = `threw ${e.message}`; }
+    if (got !== want) { bad++; console.log(`selftest ✗ ${name}: expected ${want}, got ${got}`); }
+    else console.log(`  ✓ ${name}`);
+  }
+  console.log(bad ? `selftest ✗ ${cases.length - bad}/${cases.length}` : `selftest ✓ ${cases.length}/${cases.length}`);
+  process.exit(bad ? 1 : 0);
+}
+
+// The owner's committed add-payee screen — the pre-flight's and the outline's fixture, never the agent's.
+function addPayee() {
+  const first = readFileSync(path.join(REPO, 'discovery/faster-payment/build/ops.jsonl'), 'utf8').split('\n')[0];
+  return JSON.parse(first).params;   // N1: params only — the line itself is refused as an op envelope
+}
+
+// ---- --preflight (zero tokens, the real server's own handlers) ------------------------------------
+async function preflight() {
+  const state = { doc: emptyDoc(), turn: 'pf', handlerCalls: [], lines: [], onLine: (l) => state.lines.push(l) };
+  const server = await buildServer(state);
+  const handlers = server.instance?.server?._requestHandlers;
+  if (!handlers?.get?.('tools/call')) { console.log('PF0 ✗ unreachable — the bundled McpServer\'s _requestHandlers is gone; nothing is proven'); process.exit(2); }
+  const extra = { signal: new AbortController().signal, requestId: 0, sendNotification: async () => {}, sendRequest: async () => {} };
+  const direct = async (method, params) => { try { return await handlers.get(method)({ method, params }, extra); } catch (e) { return { threw: e.message }; } };
+  const call = (args) => direct('tools/call', { name: TOOL, arguments: args });
+  const textOf = (r) => (r?.content || []).map((c) => c.text).join('\n');
+  const rows = [];
+  const row = (id, pass, detail) => { rows.push(pass); console.log(`${id} ${pass ? '✓' : '✗'} ${detail}`); };
+
+  const listed = (await direct('tools/list', {}))?.tools ?? [];
+  const req = [...(listed[0]?.inputSchema?.required ?? [])].sort().join(',');
+  row('PF1', listed.length === 1 && listed[0].name === TOOL && req === 'composition,screenId,why', `tools/list → [${listed.map((t) => t.name)}] required [${req}]`);
+
+  const deep = { name: 'stack', id: 'r', props: { direction: 'column' }, children: [
+    { name: 'stack', props: { direction: 'row' }, children: [{ name: 'text', props: { role: 'body', content: 'x' }, extra: { keep: [1, 2] } }] }] };
+  await call({ screenId: 'deep', why: 'Depth-3 passthrough probe for the schema layer.', composition: deep });
+  const got = state.handlerCalls.at(-1)?.composition;
+  row('PF2', JSON.stringify(got) === JSON.stringify(deep), `depth-3 composition with an unknown key arrives deep-equal: ${JSON.stringify(got?.children?.[0]?.children?.[0]?.extra)}`);
+
+  state.doc = emptyDoc();
+  const r3 = await call(addPayee());
+  row('PF3', !r3.isError && state.doc.frames.length === 1 && state.doc.frames[0].id === 'f1', `committed add-payee → ${textOf(r3)} · frames [${state.doc.frames.map((f) => f.id)}]`);
+
+  const r4 = await call({ screenId: 'x', why: 'Probe.', composition: { name: 'stack', props: { direction: 'column' }, children: [{ name: 'hero-banner', props: {} }] } });
+  row('PF4', r4.isError && textOf(r4).startsWith('composition.children[0]:'), `hero-banner → ${textOf(r4).slice(0, 110)}`);
+
+  const r5 = await call({ screenId: 'x', why: '', composition: { name: 'text', props: { role: 'body', content: 'x' } } });
+  row('PF5', r5.isError && /\(D4\)/.test(textOf(r5)), `why "" → ${textOf(r5).slice(0, 110)}`);
+
+  const before = state.handlerCalls.length;
+  const r6 = await call({ screenId: 'x', why: 'Probe.' });
+  row('PF6', r6.isError && /-32602/.test(textOf(r6)) && state.handlerCalls.length === before, `no composition → ${textOf(r6).slice(0, 90)} · handler calls ${before}→${state.handlerCalls.length}`);
+
+  const r7 = await call({ screenId: 'x', why: 'Probe.', composition: { name: 'plant-card', props: { name: 'Fern', status: 'thirsty' } } });
+  row('PF7', r7.isError && textOf(r7).includes('[ok | due | overdue]'), `plant-card.status "thirsty" → ${textOf(r7).slice(0, 110)}`);
+
+  const n = rows.filter(Boolean).length;
+  console.log(n === rows.length ? `preflight ✓ ${n}/${rows.length}` : `preflight ✗ ${n}/${rows.length}`);
+  process.exit(n === rows.length ? 0 : 1);
+}
+
+// ---- the prompt constants (each is in the fingerprint) --------------------------------------------
+const ROLE = 'You compose screens for a product flow on a build canvas, from the PRD below, using only the vocabulary below.';
+const LOOP = 'The canvas works one screen per turn: each turn you propose one screen by calling `screen_compose` once, with a `why` naming the PRD decision (by seq) it serves and the reason. The owner accepts, edits or refuses it before the next turn starts.';
+const ESCAPE = 'If a part the screen needs is not in the vocabulary, compose without it and name the missing part in `why`. If the screen cannot be composed at all, reply with a line starting `NOT COVERED:` naming the missing part, and call nothing.';
+const YIELD_CONTRACT = 'When `screen_compose` replies `filed`, your turn is complete: reply with one sentence naming the screen you proposed. The next screen is the next turn\'s work.';
+const TURN_ASK = 'Propose the next screen.';
+const FORK_ASK = 'Next: the screen where the customer chooses the amount and sends the first payment.';
+const STOP_REASON = 'No screen was filed this turn. File one screen_compose, or reply NOT COVERED: <part>.';
+
+// ---- --run ---------------------------------------------------------------------------------------
+function spentElsewhere(outDir) {
+  const rawDir = path.dirname(outDir);
+  let sum = 0;
+  for (const d of readdirSync(rawDir).filter((x) => x.startsWith('run-'))) {
+    const dir = path.join(rawDir, d);
+    if (path.resolve(dir) === path.resolve(outDir)) continue;
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.jsonl'))) {
+      for (const l of readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean)) {
+        const o = JSON.parse(l);
+        if (o.k === 'stats') sum += o.costUsd ?? 0;
+      }
+    }
+  }
+  return sum;
+}
+
+async function run() {
+  const n = opt('--run');
+  const OUT = opt('--out');
+  if (!n || !OUT) { console.error('s6: --run <n> needs --out <dir>'); process.exit(2); }
+  mkdirSync(OUT, { recursive: true });
+  if (readdirSync(OUT).some((f) => f.endsWith('.jsonl'))) { console.error(`s6: ${OUT} already holds a run — run numbers are never reused`); process.exit(2); }
+  const { query } = await fromPortal('@anthropic-ai/claude-agent-sdk');
+  const versions = { model: 'claude-sonnet-5', sdk: pkgOf('@anthropic-ai/claude-agent-sdk').version, zod: pkgOf('zod').version, node: process.version };
+
+  const ctx = vocabContext(VOCAB);
+  const fixed = [ROLE, LOOP, ESCAPE, ...(CONTRACT ? [YIELD_CONTRACT] : [])];
+  const systemPrompt = [...fixed, '', '## Vocabulary', '', ctx, '', '## PRD', '', PRD].join('\n');
+  const promptFingerprint = sha([...fixed, TURN_ASK, FORK_ASK, ...(STOP_HOOK ? [STOP_REASON] : [])].join('\n'));
+  const earlier = spentElsewhere(OUT);
+  log(`run ${n} · contract ${CONTRACT} · stop-hook ${STOP_HOOK} · fingerprint ${promptFingerprint} · vocab ${VOCAB_SHA} · context ${ctx.length} chars · system prompt ${systemPrompt.length} chars · spent by earlier runs $${earlier.toFixed(4)} of $${BUDGET.toFixed(2)}`);
+
+  const RUN_CWD = mkdtempSync(path.join(tmpdir(), `s6-run-${n}-`));   // ONE cwd for all four turns — resume is keyed by it
+  const state = { doc: emptyDoc(), turn: null, handlerCalls: [], onLine: null };
+  const server = await buildServer(state);
+  const accepted = new Map();   // screenId → why, auto-accepted in memory between turns (driver-dry)
+  const turns = [];
+  let sessionId;
+  let spent = 0;
+  let threw = null;
+
+  const plan = [['turn-1', 'screen'], ['turn-2', 'screen'], ['turn-3', 'screen'], ['fork', 'fork']];
+  try {
+    for (const [name, kind] of plan) {
+      if (earlier + spent > BUDGET) { log(`budget stop before ${name}: $${(earlier + spent).toFixed(4)} > $${BUDGET}`); break; }
+      const file = path.join(OUT, `${name}.jsonl`);
+      const lines = [];
+      const write = (l) => { const line = { ...l, ts: new Date().toISOString() }; appendFileSync(file, `${JSON.stringify(line)}\n`); lines.push(line); };
+      state.turn = name;
+      state.onLine = write;
+      const t = { name, kind, lines, stats: null };
+      turns.push(t);
+
+      const holds = accepted.size ? [...accepted].map(([id, why]) => `${id} — ${why}`).join('\n') : 'nothing yet';
+      const prompt = `The canvas holds:\n${holds}\n\n${kind === 'fork' ? FORK_ASK : TURN_ASK}`;
+      write({ k: 'driver', turn: name, text: prompt });
+
+      let stopHookCalls = 0;
+      const hooks = {
+        PreToolUse: [{ hooks: [async (i) => {
+          if (i.tool_name === FULL) return {};
+          write({ k: 'denied', turn: name, tool: i.tool_name, site: 'PreToolUse' });
+          return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'spike fence: one tool' } };
+        }] }],
+        PostToolUse: [{ hooks: [async (i) => { write({ k: 'hook', event: 'PostToolUse', tool: i.tool_name, response: JSON.stringify(i.tool_response).slice(0, 600) }); return {}; }] }],
+        PostToolUseFailure: [{ hooks: [async (i) => {
+          const response = String(i.error ?? JSON.stringify(i.tool_response)).slice(0, 600);
+          write({ k: 'hook', event: 'PostToolUseFailure', tool: i.tool_name, response });
+          // A schema-layer refusal (-32602) never reached the handler, so the handler wrote no op line.
+          if (i.tool_name === FULL && /-32602|Input validation error/.test(response)) {
+            write({ k: 'op', turn: name, tool: TOOL, op: OP, params: i.tool_input ?? {}, status: 'refused', layer: 'schema', error: response });
+          }
+          return {};
+        }] }],
+      };
+      if (STOP_HOOK) {
+        hooks.Stop = [{ hooks: [async (i) => {
+          stopHookCalls++;
+          write({ k: 'hook', event: 'Stop', stop_hook_active: i.stop_hook_active });
+          if (i.stop_hook_active) return {};
+          const filedHere = lines.some((l) => l.k === 'op' && l.status === 'proposed');
+          const escaped = lines.some((l) => l.k === 'text' && ESCAPE_RE.test(l.text));
+          return filedHere || escaped ? {} : { decision: 'block', reason: STOP_REASON };
+        }] }];
+      }
+
+      const abortController = new AbortController();
+      const killer = setTimeout(() => { log(`${name}: TIMEOUT 300s — aborting`); abortController.abort(); }, 300_000);
+      const w0 = Date.now();
+      const q = query({
+        prompt,
+        options: {
+          cwd: RUN_CWD,
+          model: versions.model,
+          maxTurns: 10,   // deliberately loose: 1 + nine calls. A tight cap would make the run clean by construction.
+          systemPrompt,
+          resume: sessionId || undefined,
+          tools: [],
+          allowedTools: [],
+          mcpServers: { [SERVER]: server },
+          strictMcpConfig: true,
+          abortController,
+          canUseTool: async (toolName, input) => {
+            if (toolName === FULL) return { behavior: 'allow', updatedInput: input };
+            write({ k: 'denied', turn: name, tool: toolName, site: 'canUseTool' });
+            return { behavior: 'deny', message: 'spike fence: one tool' };
+          },
+          hooks,
+        },
+      });
+      try {
+        for await (const msg of q) {
+          if (msg.type === 'system' && msg.subtype === 'init') {
+            sessionId = msg.session_id;
+            write({ k: 'init', sessionId, model: msg.model, tools: msg.tools, mcpServers: msg.mcp_servers });
+          } else if (msg.type === 'assistant') {
+            for (const b of msg.message?.content || []) {
+              if (b.type === 'text' && b.text) { write({ k: 'text', turn: name, text: b.text }); log(`${name} text: ${b.text.slice(0, 200).replace(/\n/g, ' ⏎ ')}`); }
+              else if (b.type === 'tool_use') { write({ k: 'tool_use', turn: name, tool: b.name, input: b.input }); log(`${name} tool_use ${b.name} screenId=${b.input?.screenId}`); }
+            }
+          } else if (msg.type === 'result') {
+            const u = msg.usage ?? {};
+            t.stats = {
+              k: 'stats', turn: name, sessionId: msg.session_id ?? sessionId, numTurns: msg.num_turns ?? null,
+              durationMs: msg.duration_ms ?? null, wallMs: Date.now() - w0, costUsd: msg.total_cost_usd ?? null,
+              inputTokens: u.input_tokens ?? null, outputTokens: u.output_tokens ?? null,
+              cacheReadTokens: u.cache_read_input_tokens ?? null, cacheCreationTokens: u.cache_creation_input_tokens ?? null,
+              subtype: msg.subtype, isError: msg.is_error === true, result: typeof msg.result === 'string' ? msg.result.slice(0, 300) : null,
+              promptFingerprint, vocabSha: VOCAB_SHA, contextChars: ctx.length, contract: CONTRACT, stopHook: STOP_HOOK, stopHookCalls, ...versions,
+            };
+            write(t.stats);
+            spent += t.stats.costUsd ?? 0;
+            log(`${name} result: ${msg.subtype} is_error=${msg.is_error} turns=${msg.num_turns} $${msg.total_cost_usd} session=${t.stats.sessionId}`);
+          }
+        }
+      } finally { clearTimeout(killer); }
+
+      t.outcome = classifyTurn(lines, { kind, accepted: new Set(accepted.keys()) });
+      log(`${name} outcome: ${JSON.stringify(t.outcome)}`);
+      if (kind === 'screen') {
+        // Every screen filed this turn is accepted, so the next turn's canvas line shows what is really there.
+        for (const l of lines.filter((x) => x.k === 'op' && x.status === 'proposed')) {
+          accepted.set(l.params.screenId, l.params.why);
+          write({ k: 'accept', turn: name, frameId: l.frameId, screenId: l.params.screenId, source: 'driver-dry' });
+        }
+      }
+      if (t.stats?.isError || t.stats?.subtype !== 'success') { log(`${name} failed — stopping the run`); break; }
+    }
+  } catch (e) {
+    threw = e.message;
+    log(`THREW: ${e.stack || e.message}`);
+  } finally {
+    for (const t of turns) t.outcome ??= classifyTurn(t.lines, { kind: t.kind });
+    const run = classifyRun(turns);
+    if (threw) { run.verdict = 'failed'; run.why.push(`driver threw: ${threw}`); }
+    const outline = outlineOf(state.doc.frames);
+    writeFileSync(path.join(OUT, 'outline.txt'), outline.text);
+    const sum = (k) => turns.reduce((a, t) => a + (t.stats?.[k] ?? 0), 0);
+    const verdict = {
+      run: Number(n), flags: { contract: CONTRACT, stopHook: STOP_HOOK }, ...versions, promptFingerprint, vocabSha: VOCAB_SHA,
+      contextChars: ctx.length, systemPromptChars: systemPrompt.length,
+      verdict: run.verdict, failedBecause: run.why,
+      fork: turns.find((t) => t.kind === 'fork')?.outcome ?? null,
+      turns: turns.map((t) => ({ name: t.name, kind: t.kind, ...t.outcome, stats: t.stats })),
+      b5: outline.proxies,
+      totals: { costUsd: sum('costUsd'), inputTokens: sum('inputTokens'), outputTokens: sum('outputTokens'), cacheReadTokens: sum('cacheReadTokens'), cacheCreationTokens: sum('cacheCreationTokens'), durationMs: sum('durationMs'), wallMs: sum('wallMs') },
+      spentBeforeThisRun: earlier,
+    };
+    writeFileSync(path.join(OUT, 'verdict.json'), `${JSON.stringify(verdict, null, 2)}\n`);
+    log(`verdict: ${run.verdict}${run.why.length ? ` (${run.why.join('; ')})` : ''} · fork ${verdict.fork?.outcome ?? 'n/a'} · $${verdict.totals.costUsd.toFixed(4)}`);
+  }
+}
+
+if (flag('--selftest')) selftest();
+else if (flag('--preflight')) await preflight();
+else await run();

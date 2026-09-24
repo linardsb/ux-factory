@@ -1,0 +1,9 @@
+PF1 ✓ tools/list → [screen_compose] required [composition,screenId,why]
+PF2 ✓ depth-3 composition with an unknown key arrives deep-equal: {"keep":[1,2]}
+PF3 ✓ committed add-payee → filed f1: screen.compose "add-payee" (proposed — the owner decides) · frames [f1]
+PF4 ✓ hero-banner → composition.children[0]: "hero-banner" is not an allowed child of stack (allowed: card | choice | ghost-button
+PF5 ✓ why "" → screen.compose: "why" must be one sentence naming the decision and the reason — a composition nobody can judge
+PF6 ✓ no composition → MCP error -32602: Input validation error: Invalid arguments for tool screen_compose: [
+  { · handler calls 4→4
+PF7 ✓ plant-card.status "thirsty" → composition.props.status: "thirsty" is not in enum [ok | due | overdue]
+preflight ✓ 7/7
