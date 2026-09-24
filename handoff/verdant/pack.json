@@ -214,6 +214,89 @@
       ]
     },
     {
+      "component": "choice",
+      "status": "shipped",
+      "class": "ds-choice",
+      "contract": null,
+      "props": {
+        "kind": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "checkbox",
+            "radio"
+          ],
+          "description": "which control — a checkbox is picked on its own, a radio is one of a set; never defaulted"
+        },
+        "group": {
+          "type": "string",
+          "required": true,
+          "description": "the set this control belongs to, written to the input's native name — radios sharing a group are one exclusive set, checkboxes sharing one stay independent; the scope is the whole document"
+        },
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "what the control picks — \"Email me receipts\" — always visible beside it and read as its accessible name"
+        },
+        "hint": {
+          "type": "string",
+          "required": false,
+          "description": "one persistent line under the label; absent renders nothing"
+        },
+        "checked": {
+          "type": "boolean",
+          "required": false,
+          "description": "the starting state; absent means unchecked"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "native disabled; absent means enabled"
+        }
+      },
+      "tokens": [
+        "--color-accent",
+        "--color-fg",
+        "--color-fg-muted",
+        "--spacing-sm",
+        "--spacing-xs",
+        "--type-body",
+        "--type-caption"
+      ],
+      "states": [
+        "default",
+        "checked",
+        "focus",
+        "disabled"
+      ],
+      "children": [],
+      "example": {
+        "kind": "checkbox",
+        "group": "receipts",
+        "label": "Email me receipts",
+        "hint": "One message per payment.",
+        "checked": true
+      },
+      "sections": [
+        {
+          "title": "Usage",
+          "body": "The one choice part: a checkbox or a radio, beside its own label. Library-generic (`ds-`, cross-scenario). Use it wherever a composed screen depicts picking — a consent line, a delivery option, one answer out of three. It is a REAL `<input>`, not a picture of one (the text-field precedent), so clicking, keyboard selection and the native checked state all behave as the engine does them.\n\n**One part, two kinds.** Checkbox and radio share everything but one rule — whether picking this one un-picks its neighbours — so they are one component with `kind`, not two. That rule is the platform's own: `group` becomes the input's native `name`, and radios sharing a name are one exclusive set while checkboxes sharing a name never are. No script enforces it, so nothing can disagree with the engine about which radio is on. `kind` is required, on `stack.direction`'s argument: a control that defaults to a checkbox is a control whose composer never had to say which one they meant.\n\n**`group` is required for both kinds.** The validator has no conditional rule, so it cannot demand a group from a radio and not from a checkbox — and a radio with no name is a loner the reader can switch on and never switch off. For a checkbox the group is simply the field's name, the thing a form would submit it under. A group is scoped to the **whole document**: two sets that happen to share a group string anywhere on one page are one set, so name them for what they choose (\"delivery\", \"receipts\"), never with a generic word. The site's own appearance dock already uses `pack`.\n\n**A radio set is a composition**, not a part: a `stack` holding one `choice` per option, every one carrying the same `group`. The set's question (\"How should we deliver it?\") is a `text` part above the stack.\n\n**Not a switch.** `toggle-switch` stays its own part: a toggle is an action — it flips a setting now and reports it on the bus — and a choice is a selection a form would submit later. Like the other fields, this part emits nothing onto the bus; the consuming product owns what a pick means."
+        },
+        {
+          "title": "States",
+          "body": "- **default** — the native control at the engine's own size, tinted `--color-accent` through `accent-color`, beside the label in `--color-fg` at `--type-body`; the hint under it in `--color-fg-muted` at `--type-caption`.\n- **checked** — the engine's own tick or dot in `--color-accent`. The mark, not colour alone, states the pick.\n- **focus** — the 2px `--color-accent` outline on the input, offset outside it: the text-field rule, which survives forced-colors mode and never shifts layout.\n- **disabled** — the native `disabled` attribute; the label drops to `--color-fg-muted` and the row takes `cursor: not-allowed`. The control keeps its checked state, so a disabled pick still reads as picked."
+        },
+        {
+          "title": "Data binding",
+          "body": "`contract: null` — presentational. No record binds here; the composing agent passes the display strings and the starting state. A reader's click changes the native checked state and the component never reports it anywhere (see Usage).\n\n| Prop | Element | When absent |\n| --- | --- | --- |\n| `kind` | the input's `type` | required — a choice that does not say which control it is |\n| `group` | the input's `name` | required — a radio with no name cannot be un-picked |\n| `label` | the visible text inside the wrapping `<label>` | required — an unlabelled control fails the reader before it fails a checker |\n| `hint` | the persistent line under the label | renders nothing |\n| `checked` | the native `checked` attribute | renders unchecked |\n| `disabled` | the native `disabled` attribute | absent means enabled |"
+        },
+        {
+          "title": "Accessibility",
+          "body": "The input is nested inside its own `<label>`, the text-field precedent: implicit association, so the whole row — control, label and hint — is one click target at least 44px tall, and no template mints an `id` that two choices on one screen could collide on. The hint sits inside the label, so it joins the accessible name; that is text-field's stated trade and it holds here for the same reason. Radios sharing a group move with the arrow keys and take one Tab stop, and checkboxes take one Tab stop each — both native, both free. Colour is never the only signal: the tick or the dot states the pick. **One gap, named rather than papered over with a role:** the stack a radio set sits in has no group semantics, so assistive tech hears each radio's own label but not the set's question; a consuming product that needs it wraps the set in a `fieldset` with a `legend`. Contrast: `--color-fg` and `--color-fg-muted` on the page ground are declared pairs (`system/derive.rules.mjs` `wcagPairs`, AA 4.5)."
+        }
+      ]
+    },
+    {
       "component": "demo-notice",
       "status": "shipped",
       "class": "vd-demo-notice",
@@ -1351,6 +1434,7 @@
       ],
       "children": [
         "card",
+        "choice",
         "ghost-button",
         "icon",
         "list",
@@ -1372,7 +1456,7 @@
       "sections": [
         {
           "title": "Usage",
-          "body": "The layout box: the one component that takes N children and decides how they sit. Library-generic (`ds-`, cross-scenario). Everything else in the vocabulary is a part; this is the only thing that arranges parts, which is why it is the first spec to declare `childrenCardinality: \"many\"` — the grammar the composition validator grew for it. A composed screen is a `stack` holding the parts, and a `stack` lists itself among its allowed children because real layouts nest: a column of rows is two stacks, not a new component.\n\nFour decisions, all of them enumerated, none of them free:\n\n- **`direction` is required.** A layout box that defaults its axis is a box whose composer never had to say what they meant, and an import that guesses is an import that is wrong half the time.\n- **`gap` and `pad` are spacing-scale steps, never numbers.** The CSS block binds each step to a `--spacing-*` token; the composition never carries a pixel value. A missing `gap` emits no attribute at all, so **absence expresses zero** — there is no `none` enum value and no `--spacing-none` token, which is exactly the verdict spike S2 (#299) reached when it mapped a design tool's auto-layout onto this box. That verdict is conditional: it holds only while the bare `.ds-stack` class declares no default gap and no default padding. A default arriving there would silently override a designer's explicit zero, and build-checks group 3 asserts its absence so the condition cannot quietly lapse.\n- **`align` is the cross axis only.** There is no main-axis distribution prop: a stack packs from the start. S2's intermediate representation carries `{main, cross}`; what to do with `main` is the importer's call (#304), not a prop invented here in advance.\n- **`size` has two values and no fixed-px case.** S2 asked whether a `s(360, hug)` literal from a design file could ride here; the enum is the answer, and it is no. A frame that needs an exact width is describing a canvas artefact, not a composition, and the refusal is visible — `validateComposition` names the enum.\n\nThe `children` list is the epic's own ten generic primitives (`docs/epics/canvas-design-import.prd.md` G24) **as they exist**, alphabetical: `stack` and `text` (#301), `list` (#303) and now `icon` (#305), the fourth to land, with one remaining and arriving the same way. It is a deliberate starting width rather than the whole vocabulary: every other committed `children` list in this repo is one to three considered names, and `card.md`'s own prose argues against breadth. Widening it is one line here plus a regeneration, whenever a flow actually needs a part it cannot hold. One name looks wrong and is not — `screen-header` carries a `vd-` class, because Verdant is where it was authored; G24 names it as half of the generic \"nav\" primitive regardless. The class prefix records **who wrote it**; the list records **what it is**. Do not \"fix\" it out."
+          "body": "The layout box: the one component that takes N children and decides how they sit. Library-generic (`ds-`, cross-scenario). Everything else in the vocabulary is a part; this is the only thing that arranges parts, which is why it is the first spec to declare `childrenCardinality: \"many\"` — the grammar the composition validator grew for it. A composed screen is a `stack` holding the parts, and a `stack` lists itself among its allowed children because real layouts nest: a column of rows is two stacks, not a new component.\n\nFour decisions, all of them enumerated, none of them free:\n\n- **`direction` is required.** A layout box that defaults its axis is a box whose composer never had to say what they meant, and an import that guesses is an import that is wrong half the time.\n- **`gap` and `pad` are spacing-scale steps, never numbers.** The CSS block binds each step to a `--spacing-*` token; the composition never carries a pixel value. A missing `gap` emits no attribute at all, so **absence expresses zero** — there is no `none` enum value and no `--spacing-none` token, which is exactly the verdict spike S2 (#299) reached when it mapped a design tool's auto-layout onto this box. That verdict is conditional: it holds only while the bare `.ds-stack` class declares no default gap and no default padding. A default arriving there would silently override a designer's explicit zero, and build-checks group 3 asserts its absence so the condition cannot quietly lapse.\n- **`align` is the cross axis only.** There is no main-axis distribution prop: a stack packs from the start. S2's intermediate representation carries `{main, cross}`; what to do with `main` is the importer's call (#304), not a prop invented here in advance.\n- **`size` has two values and no fixed-px case.** S2 asked whether a `s(360, hug)` literal from a design file could ride here; the enum is the answer, and it is no. A frame that needs an exact width is describing a canvas artefact, not a composition, and the refusal is visible — `validateComposition` names the enum.\n\nThe `children` list is the epic's own ten generic primitives (`docs/epics/canvas-design-import.prd.md` G24) **as they exist**, alphabetical: `stack` and `text` (#301), `list` (#303), `icon` (#305) and now `choice` (#309), the fifth and last, which completes the ten. It is a deliberate starting width rather than the whole vocabulary: every other committed `children` list in this repo is one to three considered names, and `card.md`'s own prose argues against breadth. Widening it is one line here plus a regeneration, whenever a flow actually needs a part it cannot hold. One name looks wrong and is not — `screen-header` carries a `vd-` class, because Verdant is where it was authored; G24 names it as half of the generic \"nav\" primitive regardless. The class prefix records **who wrote it**; the list records **what it is**. Do not \"fix\" it out."
         },
         {
           "title": "States",

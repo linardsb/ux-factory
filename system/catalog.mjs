@@ -65,10 +65,10 @@ export function controlFor(propName, propSpec) {
 }
 
 // tabsFor(component) → the code-tab ids for one prepareHandoff row. The vd/react pair is
-// presence-gated on the pack's OWN portability block (component.wrapper) — 3 of 25 today; the 22
-// absences are honest, not gaps to fill, and build-checks group 21 pins the 3/22 histogram as the
+// presence-gated on the pack's OWN portability block (component.wrapper) — 3 of 26 today; the 23
+// absences are honest, not gaps to fill, and build-checks group 21 pins the 3/23 histogram as the
 // tripwire the next wrapper (or component) moves. It has been tripped by every component since:
-// #220 took the absences to 17, then #301, #303 and #305's primitives to 22. The number moving is
+// #220 took the absences to 17, then #301, #303, #305 and #309's primitives to 23. The number moving is
 // the point — a wrapper exists only for a component someone actually needs one for.
 export function tabsFor(component) {
   return ["html", ...(component && component.wrapper ? ["vd", "react"] : []), "json"];

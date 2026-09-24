@@ -13,7 +13,7 @@
   },
   "tokens": ["--spacing-xs", "--spacing-sm", "--spacing-md", "--spacing-lg", "--spacing-xl", "--spacing-2xl", "--spacing-3xl", "--spacing-4xl"],
   "states": ["default"],
-  "children": ["card", "ghost-button", "icon", "list", "modal-dialog", "nav-tabs", "primary-button", "screen-header", "select-field", "stack", "text", "text-field"],
+  "children": ["card", "choice", "ghost-button", "icon", "list", "modal-dialog", "nav-tabs", "primary-button", "screen-header", "select-field", "stack", "text", "text-field"],
   "childrenCardinality": "many",
   "example": { "direction": "column", "gap": "sm", "pad": "md" }
 }
@@ -30,7 +30,7 @@ Four decisions, all of them enumerated, none of them free:
 - **`align` is the cross axis only.** There is no main-axis distribution prop: a stack packs from the start. S2's intermediate representation carries `{main, cross}`; what to do with `main` is the importer's call (#304), not a prop invented here in advance.
 - **`size` has two values and no fixed-px case.** S2 asked whether a `s(360, hug)` literal from a design file could ride here; the enum is the answer, and it is no. A frame that needs an exact width is describing a canvas artefact, not a composition, and the refusal is visible — `validateComposition` names the enum.
 
-The `children` list is the epic's own ten generic primitives (`docs/epics/canvas-design-import.prd.md` G24) **as they exist**, alphabetical: `stack` and `text` (#301), `list` (#303) and now `icon` (#305), the fourth to land, with one remaining and arriving the same way. It is a deliberate starting width rather than the whole vocabulary: every other committed `children` list in this repo is one to three considered names, and `card.md`'s own prose argues against breadth. Widening it is one line here plus a regeneration, whenever a flow actually needs a part it cannot hold. One name looks wrong and is not — `screen-header` carries a `vd-` class, because Verdant is where it was authored; G24 names it as half of the generic "nav" primitive regardless. The class prefix records **who wrote it**; the list records **what it is**. Do not "fix" it out.
+The `children` list is the epic's own ten generic primitives (`docs/epics/canvas-design-import.prd.md` G24) **as they exist**, alphabetical: `stack` and `text` (#301), `list` (#303), `icon` (#305) and now `choice` (#309), the fifth and last, which completes the ten. It is a deliberate starting width rather than the whole vocabulary: every other committed `children` list in this repo is one to three considered names, and `card.md`'s own prose argues against breadth. Widening it is one line here plus a regeneration, whenever a flow actually needs a part it cannot hold. One name looks wrong and is not — `screen-header` carries a `vd-` class, because Verdant is where it was authored; G24 names it as half of the generic "nav" primitive regardless. The class prefix records **who wrote it**; the list records **what it is**. Do not "fix" it out.
 
 ## States
 

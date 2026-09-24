@@ -76,6 +76,7 @@
 //                     fail at all, and prepareHandoff's view-time join over the real pack,
 //                     vocabulary and system-graph — the consumer set anchored on the PACK, since a
 //                     graph-derived one moves in lockstep with the thing under test (#211)
+//                     · choice's checkbox example, a rendered radio group and the kind enum's refusal (#309)
 //  19 flow           places become screens, connections become navigation: screensFor over the
 //                     REAL committed replay board (reachability, the counted nav, the pinned type
 //                     mix), a flow fixture per screen type via the BOARD_FOR rule, rules S1–S4
@@ -91,7 +92,7 @@
 //  21 catalog        the component catalog's pure layer: pack↔vocabulary set identity, the
 //                     palette's static CATALOG_COMPONENTS pinned against the generated vocabulary,
 //                     controlFor's bounds fidelity over every real prop (declared subsets only,
-//                     nothing invented), tabsFor's 3/22 wrapper histogram pinned as the #220
+//                     nothing invented), tabsFor's 3/23 wrapper histogram pinned as the #220
 //                     tripwire, WRAPPER_ATTRS pinned against each wrapper source's
 //                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
 //                     that proves the fabricated-API refusal is real), reactSnippet's attribute
@@ -4589,7 +4590,103 @@ function scanSvg(svg, label) {
     parserRefusalNames = refusals.map((r) => r.why).join(" · ");
   }
 
-  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap, and `+ "`childrenCardinality`" + ` the same way — the real declaring component's head carrying it, and a STRIPPED synthetic pack proving no head gains the key when no spec declares it · renderMarkdown DRIVEN for the first time (it had zero gate coverage before #301), under a DOM stub behind its own positive control: the pre-existing census re-proven branch by branch (bold, code, list, pipe table, fence) BEFORE anything else, then the one extension — a link asserted whole (element, href, text, hv-link class, rel), a site-relative href accepted because the stub carries a real baseURI, javascript:/data:/vbscript: each refused with the WHOLE source text surviving literally, a bare [ left literal, and the CENSUS BOUND held: a heading, a blockquote and an ordered-list line each still one paragraph carrying its own text · every committed spec section body driven through the renderer and proven to produce zero links — the measured claim that enabling links moved nothing that already renders (the 85 [ in system/specs all live in the JSON heads the renderer never sees, so the bare-[ guard is the fixture's) — behind the control that the same bodies WITH a link appended each produce exactly one · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
+  // --- D · choice, the fifth primitive (#309, epic #295 G32) ------------------------------------
+  //
+  // The ticket names THIS group for two examples and the enum refusal, and the reason is the
+  // chain: a spec's example is what 18A proves renders, so the checkbox example is asserted here BY
+  // NAME — 18A's loop reads its count off the pack, which passes whether or not choice.md carries an
+  // example at all. A radio GROUP cannot be one spec example (an example is one node's props), so it
+  // is a composition: a stack of three radios, validated against the REAL vocabulary and rendered.
+  //
+  // What this cannot reach: that radios sharing a name are EXCLUSIVE. That is the engine's rule,
+  // not the template's, and a DOM stub has no engine — so this pins the part the template owns (the
+  // group reaching the native name, verbatim, on every input) and tooling/catalog-journey.mjs case
+  // 14 clicks real radios in three engines, beside the two controls that tell exclusivity apart from
+  // a constant name.
+  {
+    const choiceHead = PACK.components.find((c) => c.component === "choice");
+    ok(choiceHead && choiceHead.example && choiceHead.example.kind === "checkbox",
+      `choice's committed example is not a checkbox — 18A's count loop cannot see this (it passes with no example at all): ${JSON.stringify(choiceHead && choiceHead.example)}`);
+    let choiceChecked = null;
+    try { choiceChecked = validateExamples([{ head: choiceHead, path: "system/specs/choice.md" }], VOCAB); }
+    catch (err) { ok(false, `choice's checkbox example does not render: ${err.message}`); }
+    ok(choiceChecked && choiceChecked.checked === 1, `validateExamples checked ${choiceChecked && choiceChecked.checked} choice examples, expected exactly 1`);
+
+    const radioGroup = {
+      name: "stack", props: { direction: "column", gap: "xs" },
+      children: [
+        { name: "choice", props: { kind: "radio", group: "g18-delivery", label: "Standard", checked: true } },
+        { name: "choice", props: { kind: "radio", group: "g18-delivery", label: "Express", hint: "Next working day." } },
+        { name: "choice", props: { kind: "radio", group: "g18-delivery", label: "Collect", disabled: true } },
+      ],
+    };
+    let radioErr = null;
+    try { validateComposition(VOCAB, radioGroup); } catch (err) { radioErr = err.message; }
+    ok(radioErr === null, `a radio group of three choices in a stack is refused by the REAL vocabulary — stack.children must list "choice": ${radioErr}`);
+
+    domStubControl();
+    globalThis.document = domStub();
+    try {
+      const inputsOf = (n) => stubFindAll(n, "input");
+      // Every render folds a throw into a NAMED failure (group 39's rule, and #305's A4: a mutation
+      // that made the render throw CRASHED that group and it reported nothing). Measured here too:
+      // with the example deleted, a bare renderComposition took the whole run down by stack trace.
+      const draw = (composition, what) => {
+        try { return renderComposition(VOCAB, composition, null); }
+        catch (err) { ok(false, `${what} did not render: ${err.message}`); return null; }
+      };
+      // The checkbox example, rendered: one input, type and name straight from the props.
+      const box = choiceHead && choiceHead.example ? draw({ name: "choice", props: choiceHead.example }, "choice's checkbox example") : null;
+      if (box) {
+        const [bi] = inputsOf(box);
+        ok(box.tagName === "LABEL" && box.getAttribute("class") === "ds-choice",
+          `choice's root is not the wrapping <label class="ds-choice"> — got <${box.tagName} class=${box.getAttribute("class")}>`);
+        ok(inputsOf(box).length === 1 && bi.getAttribute("type") === "checkbox" && bi.getAttribute("name") === choiceHead.example.group,
+          `the checkbox example did not render one type=checkbox input named by its group — got ${inputsOf(box).length} input(s), type=${bi && bi.getAttribute("type")} name=${bi && bi.getAttribute("name")}`);
+        ok(bi.getAttribute("checked") === "" && bi.getAttribute("disabled") === null,
+          `checked:true must reach the native attribute and an absent disabled must write none — checked=${bi.getAttribute("checked")} disabled=${bi.getAttribute("disabled")}`);
+      }
+
+      // The radio group, rendered: three radios, ONE name, and the states on exactly the inputs
+      // that asked for them. Asserting the name is identical across the three is the template's
+      // whole share of exclusivity; the name being the GROUP (not a constant) is 14's control.
+      const set = draw(radioGroup, "the radio group");
+      const radios = set ? inputsOf(set) : [];
+      ok(radios.length === 3 && radios.every((r) => r.getAttribute("type") === "radio"),
+        `the radio group rendered ${radios.length} inputs, types [${radios.map((r) => r.getAttribute("type")).join(", ")}]`);
+      ok(radios.every((r) => r.getAttribute("name") === "g18-delivery"),
+        `every radio in the set must carry the group as its native name — got [${radios.map((r) => r.getAttribute("name")).join(", ")}]`);
+      ok(radios.map((r) => r.getAttribute("checked") !== null).join() === "true,false,false"
+        && radios.map((r) => r.getAttribute("disabled") !== null).join() === "false,false,true",
+        "checked and disabled did not land on exactly the radios that declared them");
+      const hints = (set ? stubFindAll(set, "span") : []).filter((s) => s.getAttribute("class") === "ds-choice-hint");
+      ok(hints.length === 1 && stubText(hints[0]) === "Next working day.",
+        `a hint renders only where declared — got ${hints.length} hint element(s)`);
+    } finally { delete globalThis.document; }
+
+    // kind outside the enum, REFUSED by running validateComposition — and "switch" first, because a
+    // toggle is the one kind a composer would plausibly reach for here, and it is a separate part.
+    for (const kind of ["switch", "toggle", "Radio", ""]) {
+      let threw = null;
+      try { validateComposition(VOCAB, { name: "choice", props: { kind, group: "g", label: "x" } }); } catch (err) { threw = err; }
+      ok(threw !== null, `validateComposition accepted choice.kind "${kind}" — the enum cannot fire`);
+      ok(threw && /composition\.props\.kind: ".*" is not in enum \[checkbox \| radio\]/.test(threw.message),
+        `the kind "${kind}" refusal does not name the path and the enum — got: ${threw && threw.message}`);
+    }
+    // …and group is REQUIRED for both kinds (the spec's Usage: the validator has no conditional
+    // rule, and a radio with no name can never be un-picked).
+    for (const kind of ["checkbox", "radio"]) {
+      let threw = null;
+      try { validateComposition(VOCAB, { name: "choice", props: { kind, label: "x" } }); } catch (err) { threw = err; }
+      ok(threw && /composition\.props\.group: required prop of choice is missing/.test(threw.message),
+        `a ${kind} with no group was not refused by name — got: ${threw && threw.message}`);
+    }
+    // toggle-switch stays its own part (G32): still in the vocabulary, and still no `kind`.
+    ok(Object.hasOwn(VOCAB.components, "toggle-switch") && !Object.hasOwn(VOCAB.components["toggle-switch"].props, "kind"),
+      "toggle-switch was folded into choice or grew a kind — G32 keeps the action and the selection apart");
+  }
+
+  group("docs chain", `parseComponentSpec's ${parserRefusals} NEW refusals driven over real fixture files in a tmpdir — ${parserRefusalNames} — each asserted to throw AND to name its own spec path, behind a POSITIVE CONTROL that proves the fixture shape is right (without it a typo'd fixture makes every refusal pass for the wrong reason) and a bare fixture proving both keys stay optional · validateExamples over the ${realSpecs.length} REAL committed specs — ${packExamples} examples, the count read from pack.json rather than typed — plus the MUTATION that decides whether it can fail at all: ${broken.length} synthetic broken examples, one per refusal branch (unknown prop · missing required · wrong type · enum), each asserted to throw AND to name its own spec path, because a gate that throws the right number of times with the wrong messages is a gate nobody can debug · a spec with no example SKIPPED rather than failed, asserted as a checked count of 0 · total over ${junkExamples.length} junk example values · prepareHandoff's join driven over the real pack.json + vocabulary.json + system-graph.json with every count derived from those files: every spec's declared tokens joined 1:1 — ${joinedTokens} across the ${PACK.components.length} components, each resolving to a contract group (a null group would mean a spec declares a token the contract lacks), ${joinedWrappers} wrappers derived from the pack's OWN portability list, and a consumer block for every one of ${PACK.components.length} components — anchored on the PACK deliberately, since a graph-derived expected set moves in lockstep with the thing under test and can never go red · the head projection proven to carry `+ "`example`" + ` in both directions, the explicit-pick trap, and `+ "`childrenCardinality`" + ` the same way — the real declaring component's head carrying it, and a STRIPPED synthetic pack proving no head gains the key when no spec declares it · renderMarkdown DRIVEN for the first time (it had zero gate coverage before #301), under a DOM stub behind its own positive control: the pre-existing census re-proven branch by branch (bold, code, list, pipe table, fence) BEFORE anything else, then the one extension — a link asserted whole (element, href, text, hv-link class, rel), a site-relative href accepted because the stub carries a real baseURI, javascript:/data:/vbscript: each refused with the WHOLE source text surviving literally, a bare [ left literal, and the CENSUS BOUND held: a heading, a blockquote and an ordered-list line each still one paragraph carrying its own text · every committed spec section body driven through the renderer and proven to produce zero links — the measured claim that enabling links moved nothing that already renders (the 85 [ in system/specs all live in the JSON heads the renderer never sees, so the bare-[ guard is the fixture's) — behind the control that the same bodies WITH a link appended each produce exactly one · the two-arg call still returning the full shape with graph fields null · total over ${junkGraphs.length} junk graphs · #309's choice: the committed checkbox example asserted BY NAME (18A's derived count passes with none), a three-radio group in a stack validated against the real vocabulary and RENDERED — one native name on every input, checked and disabled on exactly the radios that declared them, a hint only where declared, every render folding a throw into a named failure — the kind enum refused by RUNNING validateComposition over four values, group required for both kinds, and toggle-switch kept apart. What this cannot reach is EXCLUSIVITY, which is the engine's: tooling/catalog-journey.mjs case 14 clicks real radios beside two controls. That the CATALOG renders any of this is #215's, and there is no catalog yet — this group gates the pure join and says so`);
 }
 
 // --- 19 · the flow: places become screens, connections become navigation (#212) ---------------------
@@ -5037,7 +5134,9 @@ function scanSvg(svg, label) {
   // 3/21: list (the third of those five, the container of list-rows) likewise ships wrapper-less —
   // there is no vd-list custom element and the pack does not claim one — so its absent vd/react
   // tabs are honest in exactly the same way. #305 moved it 3/21 → 3/22: icon (the fourth) draws a
-  // glyph out of a generated subset and has no custom element either. The number is read off
+  // glyph out of a generated subset and has no custom element either. #309 moved it 3/22 → 3/23:
+  // choice (the fifth, completing the ten) renders the engine's own input and has no custom element
+  // either. The number is read off
   // this assertion's OWN failure message rather than derived by hand: the portability block lists
   // wrappers as wc/vd-<name>.mjs, so a join on the component's ds- class answers zero.
   let withWrapper = 0;
@@ -5050,8 +5149,8 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 22,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/22; see the tripwire note above)`);
+  ok(withWrapper === 3 && withoutWrapper === 23,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/23; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,

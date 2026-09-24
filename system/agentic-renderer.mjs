@@ -18,7 +18,7 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The twenty-five templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The twenty-six templates are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -261,7 +261,7 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the twenty-five specs, one per vocabulary
+// Templates — the canonical DOM realization of the twenty-six specs, one per vocabulary
 // entry with no exception since #211 closed demo-notice's gap. Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
@@ -612,6 +612,24 @@ const TEMPLATES = {
         el("select", { class: "ds-select-field-input", disabled: props.disabled === true },
           el("option", { text: props.value }))),
       props.hint != null ? el("span", { class: "ds-select-field-hint", text: props.hint }) : null),
+
+  // A checkbox or a radio (#309, G32) — the text-field shape: a real <input> nested in its own
+  // <label>, no ids minted. `group` IS the native name, which is the whole of radio exclusivity:
+  // the engine enforces it, so no script here can disagree with it about which radio is on, and
+  // checkboxes sharing a name stay independent because that is what the platform does. No bus: a
+  // pick is not an intent in this vocabulary (spec's Usage prose); toggle-switch is the action.
+  "choice": (props) =>
+    el("label", { class: "ds-choice", "data-kind": props.kind },
+      el("input", {
+        type: props.kind,
+        class: "ds-choice-input",
+        name: props.group,
+        checked: props.checked === true,
+        disabled: props.disabled === true,
+      }),
+      el("span", { class: "ds-choice-text" },
+        el("span", { class: "ds-choice-label", text: props.label }),
+        props.hint != null ? el("span", { class: "ds-choice-hint", text: props.hint }) : null)),
 
   // MIRROR of care-task-row: the row flips its OWN state first, then reports the new value — the
   // composing surface owns what "on" means. role="switch" announces on/off, which is the

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choice primitive brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a64; --line:#e3e0d8; --accent:#2f6f4f; --card:#ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161614; --fg:#ecebe6; --muted:#a3a198; --line:#34332f; --accent:#7cc39c; --card:#1f1f1c; } }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width: 780px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px } h2 { font-size: 18px; margin: 36px 0 10px }
+  .src { color: var(--muted); font-size: 14px } a { color: var(--accent) }
+  .concept { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 10px 0 }
+  .concept h3 { margin: 0 0 6px; font-size: 16px }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; font-size: 13px; margin: 8px 0 0 }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+  .box { border: 1px solid var(--accent); border-radius: 6px; padding: 8px 10px; font-size: 14px; background: var(--card) }
+  .arrow { color: var(--muted) }
+  ul { padding-left: 20px } li { margin: 4px 0 }
+  ul.prompts { list-style: none; padding: 0 }
+  ul.prompts li { display: flex; justify-content: space-between; gap: 12px; align-items: center; border-bottom: 1px solid var(--line); padding: 8px 0 }
+  .copy { opacity: .35; border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1 }
+  .copy:hover, .copy:focus-visible { opacity: 1 }
+  .copy::before { content: '⧉' }
+  .copy.copied::before { content: '✓' }
+  .demo label { display: block; margin: 4px 0 }
+</style>
+</head>
+<body>
+<main>
+<h1>A checkbox-or-radio part</h1>
+<p class="src">Full plan: <a href="choice-primitive-through-the-chain-309.md">choice-primitive-through-the-chain-309.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>The design system cannot show "tick this box" or "pick one". After this, a part called <code>choice</code> draws a real checkbox or radio, completing the ten basic building blocks.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<div class="concept">
+  <h3>1. Radio buttons share a name</h3>
+  <p>Radios with the same <code>name</code> (an HTML attribute that groups inputs) form one set: picking one un-picks the rest. The browser does this, so the part just copies its <code>group</code> into <code>name</code>.</p>
+  <div class="demo"><label><input type="radio" name="brief-demo" checked> Standard</label><label><input type="radio" name="brief-demo"> Express</label></div>
+</div>
+
+<div class="concept">
+  <h3>2. A spec, a style, a template</h3>
+  <p>Each part has a spec (the rules), CSS (the look) and a template (code that builds it). Generators then rebuild the shared files, like reprinting every menu after a recipe changes.</p>
+  <pre>choice.md  →  components.css  →  agentic-renderer.mjs
+                      ↓ regenerate
+     vocabulary · pack · importer fixtures · screenshots</pre>
+</div>
+
+<div class="concept">
+  <h3>3. A check needs a control</h3>
+  <p>A test that always passes proves nothing. So each check has a control (a case that must behave differently): radios in <i>different</i> groups must both stay picked.</p>
+</div>
+
+<div class="concept">
+  <h3>4. Some facts only a real browser knows</h3>
+  <p>The fast test uses a fake page that only records attributes, so it sees the <code>name</code>, not a click. A second test clicks in three real browser engines.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Spec + style + template</span><span class="arrow">→</span>
+  <span class="box">Regenerate shared files</span><span class="arrow">→</span>
+  <span class="box">Fast check: the name is written</span><span class="arrow">→</span>
+  <span class="box">Browser check: clicks behave</span><span class="arrow">→</span>
+  <span class="box">New screenshots</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+  <li><b>Phase 1</b> — the part: spec, CSS, template, allowed inside a stack.</li>
+  <li><b>Phase 2</b> — regenerate the pack and importer files (needs 1).</li>
+  <li><b>Phase 3</b> — the checks: the fast test and the browser test (needs 2).</li>
+  <li><b>Phase 4</b> — line count, commit, screenshots, pull request (needs 3).</li>
+</ul>
+<pre>system/specs/choice.md        # new — the rules for the part
+system/specs/stack.md         # a stack may now hold a choice
+system/components.css         # the ds-choice look, tokens only
+system/agentic-renderer.mjs   # builds label + input
+system/palette.mjs            # lists it in the catalog
+handoff/verdant/*             # regenerated
+import/fixtures/*             # regenerated, additions only
+tooling/build-checks.mjs      # fast check
+tooling/catalog-journey.mjs   # browser check
+baselines/*.png               # six screenshots redone</pre>
+<ul>
+  <li>Radios in a group are exclusive, checkboxes never; both states look right in three themes.</li>
+  <li>The fast check covers a checkbox, a radio group and a bad <code>kind</code>.</li>
+  <li>Regenerators, screenshots, browser and token checks pass.</li>
+  <li>The pull request states: ten blocks, five new, none replaced.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn how HTML radio groups use the name attribute"><span><b>/learn how HTML radio groups use the name attribute</b> — why the browser enforces one pick.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn the spec, CSS and template chain in ux-factory"><span><b>/learn the spec, CSS and template chain in ux-factory</b> — how one part reaches every tool.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn positive controls and mutation testing"><span><b>/learn positive controls and mutation testing</b> — proving a check can fail.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn DOM stubs versus real browser tests"><span><b>/learn DOM stubs versus real browser tests</b> — what each one can see.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
