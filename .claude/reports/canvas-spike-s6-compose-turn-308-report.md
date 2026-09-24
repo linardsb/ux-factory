@@ -1,6 +1,6 @@
 # Implementation Report — S6, the compose turn (#308)
 
-**Plan**: `.claude/plans/canvas-spike-s6-compose-turn-308.md`   **Branch**: `spike/canvas-s6-compose-turn-308` (worktree `../ux-factory-s6`)   **Base**: `4d9adf6` → `4d9adf6` (`git fetch && git merge origin/main`: already up to date)   **Status**: PARTIAL — commit done; PR and the #295 comment pending (`piv-create-pr`)
+**Plan**: `.claude/plans/canvas-spike-s6-compose-turn-308.md`   **Branch**: `spike/canvas-s6-compose-turn-308` (worktree `../ux-factory-s6`)   **Base**: `4d9adf6` → `4d9adf6` (`git fetch && git merge origin/main`: already up to date)   **Status**: COMPLETE — PR #460; verdict posted on #295 (issuecomment-5817588719)
 
 ## Summary
 The spike ships a driver kept as `.txt`, two zero-token checks and one paid verdict run over Faster Payment. Under resume-per-turn, the agent filed exactly one vocabulary-validated `screen.compose` per turn and yielded on all three screen turns. The same session id held across all four turns. The decision table therefore took **branch 1 (ship the spine)**, and no `--contract` or `--stop-hook` run was made. The verdict holds for the `LOOP` wording that asks for one call per turn. The fork probe read `picked-one` but missed its target: turn 3 had already filed the amount screen, with a £1,000 limit written into hint copy for the one decision the PRD leaves open. That value cannot be told apart from the example data the agent writes into every screen, so D5 is not answered by this run.
@@ -11,7 +11,7 @@ The spike ships a driver kept as `.txt`, two zero-token checks and one paid verd
 - Task 9: run 1 (failed: no API credit, $0) → run 2, same flags: `clean` → stop
 - Task 10: not triggered (the table stops at `clean`)
 - Task 11: `.claude/plans/canvas-spike-s6/README.md` (CREATE)
-- Task 12: gates and commit done; PR and epic comment pending
+- Task 12: gates, commit, PR #460 (`Closes #308`, linked), verdict comment on #295
 
 ## Tests added
 No suite (CLAUDE.md § Testing). The driver's own checks:
@@ -46,7 +46,6 @@ Each mutation was applied to a scratch copy by exact-string replacement and run.
 ## Not run
 - `--contract` / `--stop-hook` runs: not triggered by the decision table. The `Stop` hook path has never run (README § Not done).
 - B5 read (open or close #321): owner's call.
-- PR (`Closes #308`) and the verdict comment on #295 (AC #3): pending, next step `piv-create-pr`.
 - CI: runs on the PR.
 
 ## Deviations from the plan
