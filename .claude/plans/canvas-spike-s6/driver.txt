@@ -12,7 +12,7 @@
 // (discovery/faster-payment/build/ops.jsonl) is the pre-flight's positive fixture and never reaches the agent.
 // Nothing is written outside --out: the build document lives in memory for one run.
 //
-// RUN (the copy must be .mjs — Node refuses a .txt entry):
+// RUN (the copy must be .mjs — Node refuses a .txt entry; --preflight/--run need `cd portal && npm ci` first):
 //   cp .claude/plans/canvas-spike-s6/driver.txt "$SCRATCH/s6.mjs"
 //   node "$SCRATCH/s6.mjs" --repo "$PWD" --selftest            (zero tokens: classifier, context, outline)
 //   node "$SCRATCH/s6.mjs" --repo "$PWD" --preflight           (zero tokens: the real tool server)
