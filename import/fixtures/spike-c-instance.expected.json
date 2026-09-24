@@ -197,6 +197,17 @@
         {
           "hits": [
             {
+              "detail": "1/3 required props fillable from the read (label)",
+              "field": "label",
+              "signal": "prop-fit"
+            }
+          ],
+          "score": 0.083,
+          "slug": "choice"
+        },
+        {
+          "hits": [
+            {
               "detail": "1/3 required props fillable from the read (title)",
               "field": "title",
               "signal": "prop-fit"
@@ -487,6 +498,17 @@
             {
               "hits": [
                 {
+                  "detail": "1/3 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "choice"
+            },
+            {
+              "hits": [
+                {
                   "detail": "1/3 required props fillable from the read (title)",
                   "field": "title",
                   "signal": "prop-fit"
@@ -733,6 +755,17 @@
                   ],
                   "score": 0.125,
                   "slug": "status-chip"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "choice"
                 },
                 {
                   "hits": [
@@ -1021,6 +1054,17 @@
                 {
                   "hits": [
                     {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "choice"
+                },
+                {
+                  "hits": [
+                    {
                       "detail": "1/3 required props fillable from the read (title)",
                       "field": "title",
                       "signal": "prop-fit"
@@ -1303,6 +1347,17 @@
             {
               "hits": [
                 {
+                  "detail": "1/3 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "choice"
+            },
+            {
+              "hits": [
+                {
                   "detail": "1/3 required props fillable from the read (title)",
                   "field": "title",
                   "signal": "prop-fit"
@@ -1549,6 +1604,17 @@
                   ],
                   "score": 0.125,
                   "slug": "status-chip"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "choice"
                 },
                 {
                   "hits": [

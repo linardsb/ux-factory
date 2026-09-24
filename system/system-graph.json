@@ -1339,6 +1339,20 @@
       ]
     },
     {
+      "id": "ds-choice-cross-scenario-library-primitive",
+      "label": "ds-choice — cross-scenario library primitive",
+      "spec": "system/specs/choice.md",
+      "tokens": [
+        "--spacing-sm",
+        "--spacing-xs",
+        "--color-fg",
+        "--type-body",
+        "--color-accent",
+        "--color-fg-muted",
+        "--type-caption"
+      ]
+    },
+    {
       "id": "verdant-screen-scaffolding-layout-not-spec-d-components",
       "label": "Verdant screen scaffolding (layout, not spec'd components)",
       "spec": null,
@@ -1459,7 +1473,7 @@
   ],
   "counts": {
     "tokens": 63,
-    "consumers": 48,
-    "edges": 550
+    "consumers": 49,
+    "edges": 557
   }
 }

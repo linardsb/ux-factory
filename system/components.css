@@ -2592,6 +2592,54 @@ p, .body {
   font-size: var(--type-caption);
 }
 
+/* ---------- ds-choice (system/specs/choice.md) — cross-scenario library primitive ---------- */
+
+/* The fifth of epic #295's generic primitives (#309, PRD G32): a checkbox or a radio, one part.
+   The control is the engine's own input, tinted through accent-color (the .dock-pack-row
+   precedent) rather than redrawn — a redrawn box is a second implementation of checked, focus and
+   forced-colors that three engines each get slightly wrong. Exclusivity is the input's native
+   name, written by the template from `group`; no rule here takes part in it. The input is nested
+   in its <label>, so the whole row is the target: 44px min-height, the text-field floor. */
+.ds-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  padding: var(--spacing-xs) 0;
+  color: var(--color-fg);
+  font-size: var(--type-body);
+  cursor: pointer;
+}
+.ds-choice-input {
+  flex: 0 0 auto;
+  /* One line-box down from the row's top edge so the control sits on the label's first line. */
+  margin: var(--spacing-xs) 0 0;
+  accent-color: var(--color-accent);
+  cursor: inherit;
+}
+.ds-choice-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.ds-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  /* A long label wraps inside a flex row rather than blowing it out (the ds-stack precedent). */
+  min-width: 0;
+}
+.ds-choice-hint {
+  color: var(--color-fg-muted);
+  font-size: var(--type-caption);
+}
+/* Disabled reads off the INPUT, through the sibling combinator: the template sets `disabled` on
+   the input alone, so there is one source of the state and no class that could disagree with it.
+   The label inherits the muted colour; the hint is muted already. The checked mark stays — a
+   disabled pick still reads as picked. The cursor needs :has() (the .dock-pack-row precedent) and
+   is progressive: without it the row keeps the pointer and the native disabled still refuses. */
+.ds-choice:has(.ds-choice-input:disabled) { cursor: not-allowed; }
+.ds-choice-input:disabled + .ds-choice-text { color: var(--color-fg-muted); }
+
 /* ---------- Verdant screen scaffolding (layout, not spec'd components) ---------- */
 
 .vd-screen-body {

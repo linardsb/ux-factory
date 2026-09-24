@@ -123,8 +123,8 @@ const PAGES = [
   // ~44k px tall (~225 MB of raster per shot) — toHaveScreenshot's stable-generation pass takes TWO
   // consecutive shots, which no longer fit the default 5 s expect budget in the pinned container.
   // A per-shot budget, not a looser diff: the comparison itself stays exactly as strict. #301 took
-  // the catalog to 23 (stack, text), #303 to 24 (list) and #305 to 25 (icon), so the page and its
-  // raster are ~25% taller again than at 20. If the stable-generation pass ever times out, raise
+  // the catalog to 23 (stack, text), #303 to 24 (list), #305 to 25 (icon) and #309 to 26 (choice), so
+  // the page and its raster are ~30% taller again than at 20. If the stable-generation pass ever times out, raise
   // THIS budget — never the diff tolerance.
   { name: 'components',      url: '/components.html',      kind: 'ia', timeout: 60_000, shotTimeout: 30_000,
     waitReady: '[data-catalog-root][data-catalog="ready"]' },

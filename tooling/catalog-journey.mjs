@@ -11,10 +11,11 @@
 // artifact's own attributes, the HTML tab being a RE-serialization rather than a stored string,
 // copy-as-Markdown byte-equal to the committed spec source, the palette's commands existing
 // BEFORE the catalog could have registered anything (a held route, never a sleep), the vd tab's
-// 3/22 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
+// 3/23 gating counted from the fetched pack plus the paste-and-render proof, the refusal landing
 // as content with a clean console, the playground bus readout from pointer and keyboard, the
 // palette's same-page hash routing, and the pack swap's cell re-resolve + listener hygiene
-// (chromium-CDP half stated as such).
+// (chromium-CDP half stated as such), and (#309) choice's radio exclusivity by group beside its two
+// controls plus its checked and disabled states in computed style under all three packs.
 //
 // Playwright is NOT a repo dependency — resolved out of tooling/visual-regression/node_modules,
 // the exact version the pixel gate pins (proto-journey.mjs's discipline). Operator-run, not in CI.
@@ -498,6 +499,109 @@ async function journey(engineName, results, held) {
     `border=${glyphs.controlBorder} width=${glyphs.controlW}px`);
   t("and the refusal is WIDER than that box, because it grew to fit the name",
     glyphs.refusedW > glyphs.controlW, `refused ${glyphs.refusedW}px vs glyph ${glyphs.controlW}px`);
+
+  // ------------------------------------ [14] choice: exclusivity by name, and its states per pack (#309)
+  //
+  // The claim build-checks group 18 states it CANNOT reach: radios sharing a group are exclusive.
+  // That is the ENGINE's rule — the template only writes `group` to the native name — so a DOM stub
+  // can pin the attribute and never the behaviour. Real clicks, then, in three engines, beside TWO
+  // controls, because each name mutation is caught by a different one (measured while planning):
+  //   · two checkboxes sharing a group both stay checked — exclusivity comes from the radio type,
+  //     not from anything this repo adds;
+  //   · two radios in DIFFERENT groups both stay checked — a template writing a CONSTANT name makes
+  //     every radio on the page one set and passes the same-group assertion, and only this sees it.
+  // And AC #1's "under all three packs": the checked tint and the disabled colours read back per
+  // pack, each against a probe span wearing the same token in the same document — so the compare
+  // is rgb against rgb whatever format a pack writes. Saulera goes in by route, the pixel gate's own
+  // mechanism (tooling/visual-regression/visual.spec.mjs:169), with its ../fonts/fonts.css answered
+  // empty: case 11 swaps to verdant only because that @import 404s on this host and trips the
+  // no-console-errors gate, and an answered route keeps that gate armed for everything else.
+  console.log("\n[14] choice: radios exclusive by group, checkboxes never, states under three packs (#309 AC #1)");
+  const CHOICE_PACKS = { neutral: null, saulera: "system/tokens.saulera.css", verdant: "system/tokens.verdant.css" };
+  const accents = [];
+  for (const [pack, file] of Object.entries(CHOICE_PACKS)) {
+    const cp = await newPage(ctx);
+    if (file) {
+      await cp.route("**/system/tokens.neutral.css", (r) => r.fulfill({ path: path.join(ROOT, file) }));
+      await cp.route("**/fonts/fonts.css", (r) => r.fulfill({ status: 200, contentType: "text/css", body: "" }));
+    }
+    await cp.goto(`${BASE}/components.html`, { waitUntil: "load" });
+    await cp.waitForSelector(READY, { timeout: 20000 });
+    const st = await cp.evaluate(async () => {
+      const stage = document.querySelector("#choice .cat-stage");
+      // Reported as data, never thrown (case 12's rule).
+      if (!stage) return { error: "#choice .cat-stage is not on the page" };
+      const { renderComposition } = await import("/system/agentic-renderer.mjs");
+      const vocab = await fetch("/handoff/verdant/vocabulary.json").then((r) => r.json());
+      const c = (props) => renderComposition(vocab, { name: "choice", props }, null);
+      const n = {
+        standard: c({ kind: "radio", group: "cj-delivery", label: "Standard", checked: true }),
+        express: c({ kind: "radio", group: "cj-delivery", label: "Express" }),
+        loneA: c({ kind: "radio", group: "cj-a", label: "Lone A", checked: true }),
+        loneB: c({ kind: "radio", group: "cj-b", label: "Lone B", checked: true }),
+        gift: c({ kind: "checkbox", group: "cj-extras", label: "Gift wrap" }),
+        receipt: c({ kind: "checkbox", group: "cj-extras", label: "Receipt" }),
+        locked: c({ kind: "checkbox", group: "cj-locked", label: "Locked", hint: "Set by your plan.", checked: true, disabled: true }),
+      };
+      const probe = (token) => { const s = document.createElement("span"); s.style.color = `var(${token})`; return s; };
+      const pAccent = probe("--color-accent"); const pMuted = probe("--color-fg-muted"); const pFg = probe("--color-fg");
+      stage.replaceChildren(...Object.values(n), pAccent, pMuted, pFg);
+      const cs = (x) => getComputedStyle(x);
+      const input = (k) => n[k].querySelector("input");
+      return {
+        accent: cs(pAccent).color, muted: cs(pMuted).color, fg: cs(pFg).color,
+        tint: cs(input("gift")).accentColor,
+        enabledLabel: cs(n.gift.querySelector(".ds-choice-label")).color,
+        lockedLabel: cs(n.locked.querySelector(".ds-choice-label")).color,
+        lockedHint: cs(n.locked.querySelector(".ds-choice-hint")).color,
+        lockedChecked: input("locked").checked, lockedDisabled: input("locked").disabled,
+        lockedCursor: cs(n.locked).cursor,
+        rowHeight: Math.round(n.gift.getBoundingClientRect().height),
+        lonesAtRest: [input("loneA").checked, input("loneB").checked],
+      };
+    });
+    t(`${pack}: the choice stage was reachable`, !st.error, st.error);
+    if (!st.error) {
+      accents.push(st.accent);
+      t(`${pack}: the control's tint IS the pack's --color-accent (accent-color, no redrawn box)`,
+        st.tint === st.accent, `tint ${st.tint} vs accent ${st.accent}`);
+      t(`${pack}: disabled keeps its checked mark and is natively disabled`,
+        st.lockedChecked === true && st.lockedDisabled === true, JSON.stringify(st));
+      t(`${pack}: a disabled label and hint drop to --color-fg-muted, not-allowed cursor`,
+        st.lockedLabel === st.muted && st.lockedHint === st.muted && st.lockedCursor === "not-allowed",
+        `label ${st.lockedLabel} hint ${st.lockedHint} muted ${st.muted} cursor ${st.lockedCursor}`);
+      // THE CONTROL for the colour pair: an ENABLED label in the same document reads --color-fg. Without
+      // it, a sheet that muted every .ds-choice label passes the disabled assertion above.
+      t(`${pack}: an enabled label beside it stays --color-fg (the control)`,
+        st.enabledLabel === st.fg && st.fg !== st.muted, `enabled ${st.enabledLabel} fg ${st.fg}`);
+      t(`${pack}: the row is the 44px target`, st.rowHeight >= 44, `${st.rowHeight}px`);
+    }
+    if (pack === "neutral" && !st.error) {
+      // Behaviour once, on the neutral pack: exclusivity is the engine's and no pack can move it.
+      await cp.click("#choice .cat-stage label:has-text('Express')");
+      await cp.click("#choice .cat-stage label:has-text('Gift wrap')");
+      await cp.click("#choice .cat-stage label:has-text('Receipt')");
+      const read = () => cp.evaluate(() => Object.fromEntries([...document.querySelectorAll("#choice .cat-stage label.ds-choice")]
+        .map((l) => [l.querySelector(".ds-choice-label").textContent, l.querySelector("input").checked])));
+      const clicked = await read();
+      t("picking Express un-picks Standard — radios sharing a group are ONE set",
+        clicked.Express === true && clicked.Standard === false, JSON.stringify(clicked));
+      t("two checkboxes sharing a group both stay checked — never exclusive (the control)",
+        clicked["Gift wrap"] === true && clicked.Receipt === true, JSON.stringify(clicked));
+      t("two radios in DIFFERENT groups both stay checked — the name is the group, not a constant (the control)",
+        st.lonesAtRest[0] === true && st.lonesAtRest[1] === true && clicked["Lone A"] === true && clicked["Lone B"] === true,
+        JSON.stringify({ atRest: st.lonesAtRest, clicked }));
+      await cp.focus("#choice .cat-stage label:has-text('Express') input");
+      await cp.keyboard.press("ArrowUp");
+      const keyed = await read();
+      t("ArrowUp moves the pick within the set, natively (no script in the template)",
+        keyed.Standard === true && keyed.Express === false, JSON.stringify(keyed));
+    }
+    await cp.close();
+  }
+  // The loop proves nothing if the route never took: three packs, at least two distinct accents.
+  t("the pack loop really re-skinned — at least two distinct accents across three packs",
+    new Set(accents).size >= 2, JSON.stringify(accents));
 
   await page.close();
   await deep.close();
