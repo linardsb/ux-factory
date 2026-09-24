@@ -43,7 +43,7 @@ Every fenced block was applied mechanically from the plan's text at its named an
 | C4 no disabled colour rule | chromium ✗ 3: disabled label/hint per pack | yes |
 | C5 every label muted | chromium ✗ 3: enabled-label control per pack | yes |
 
-Positive controls: the unmutated tree, `build ✓ all 42 groups pass` and `catalog-journey` 72/71/71 green. In M1, M2 and M4 `handoff-seam` also went red (✗ 2) because the harness regenerated only `gen-handoff` + `gen-vocabulary`, not the bundle/index. That is an artifact of the mutation harness; the full chain was re-run on restore and every group was green again.
+Positive controls: the unmutated tree, `build ✓ all 42 groups pass` and `catalog-journey` 72/71/71 green. In M1, M2 and M4 `handoff-seam` also went red (✗ 2) because the harness regenerated only `gen-handoff` + `gen-vocabulary`, not the bundle/index. That is an artifact of the mutation harness. Restore re-ran those same two generators; the bundle and index were never touched by any mutation, and `handoff-seam` green on the final committed tree proves they match the pack.
 
 ## Validation results
 All observed on `015066f` in `../wt-309`:
@@ -59,6 +59,13 @@ All observed on `015066f` in `../wt-309`:
 - `BASE=http://127.0.0.1:4891 node tooling/catalog-journey.mjs all` (own server, `/system/specs/choice.md` curl-verified) → `chromium: 72 passed` · `firefox: 71` · `webkit: 71` · `catalog-journey ✓`
 - `git grep "3/22"` outside plans/reports → only the tripwire note's history arrows
 - VR (Task 13): the six PNGs were removed first, then `npm run update:docker` ran in a clean detached worktree at `015066f`. It printed six `A snapshot doesn't exist … writing actual` and `33 passed (59.4s)`. A verify pass in the same container, without `--update-snapshots`, gave `33 passed (54.3s)`. `/approach` was served and read off the page after two stable reads: `"80 files, about 32,400 lines"`. The baseline commit `e259964` changes exactly six PNGs. `shotTimeout` is unchanged and no timeout was seen.
+
+## For the PR body (Task 14)
+- `Closes #309`
+- **AC #4, the PRD count (verbatim from the plan):** With `choice`, the PRD's ten generic primitives are complete: five existing (button = `primary-button` + `ghost-button` · card = `card` · dialog = `modal-dialog` · nav = `nav-tabs` + `screen-header` · text field / dropdown = `text-field` + `select-field`) and five new (`stack`, `text`, `list`, `icon`, `choice`). None replaces or duplicates an existing part (G24): `toggle-switch` stays separate, because a toggle is an action and a choice is a selection (G32).
+- Importer diff, measured: `66 0` on each of `import/fixtures/spike-c-instance.expected.json`, `import/fixtures/records/spike-c-faithful.json`, `import/fixtures/records/spike-c-wrong-but-green.json` — six `choice` candidates at score 0.083, no verdict or top candidate moved.
+- loc: runtime `linesApprox` 32,300 → 32,400 (files 80), total 40,700 → 40,800; `/approach` ×3 baselines regenerated.
+- Owner flags: **Q1/D1** — `group` is required for checkboxes too (the validator has no conditional rule; the reversal recipe is in the plan's AMENDMENTS). **Q2** — a radio set in a `stack` has no legend semantics; named as a gap in the spec, follow-up ticket draft in the plan, not filed.
 
 ## Not run
 - Task 14 (push, PR, `gh pr checks`): left for `piv-create-pr`, per the skill's next step. The PR body must carry `Closes #309` and the AC #4 count text from the plan.
