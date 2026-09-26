@@ -30,7 +30,7 @@ import { foldLedger, listBuilds, loadBuild, loadDecisions, provenanceLabel, save
 import { questionById } from '../discovery/bank.mjs';
 // The recorded import (#311). Statically SDK-free (build-checks 43.1); the SDK is reached only inside
 // readBrilliant, which runImport calls for a selection read.
-import { editMapping, importView, readUpload, runImport } from './lib/import-run.mjs';
+import { dropTooLarge, editMapping, importView, isProposalName, readUpload, runImport } from './lib/import-run.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -449,6 +449,8 @@ const server = createServer(async (req, res) => {
       const base = Number(url.searchParams.get('base'));
       const conflict = saveConflict(path.join(root, 'build'), base);
       if (conflict) { req.resume(); return json(res, 409, { error: conflict }); }
+      const tooLarge = dropTooLarge(Number(req.headers['content-length']));
+      if (tooLarge) { req.resume(); return json(res, 200, { refused: tooLarge }); }
       const bytes = await readUpload(req);
       return json(res, 200, await runImport({ pkgRoot: root, provenance, base, entrance: 'drop', mode: Number(url.searchParams.get('mode') || 1),
         file: { name: url.searchParams.get('name') || 'dropped file', bytes } }));
@@ -457,12 +459,15 @@ const server = createServer(async (req, res) => {
       const provenance = url.searchParams.get('provenance');
       const root = resolveRunRoot({ provenance, slug: url.searchParams.get('slug') });
       assertProvenanceRoot(provenance, root);
-      return json(res, 200, importView(root, url.searchParams.get('name')));
+      const name = url.searchParams.get('name');
+      if (!isProposalName(name)) return json(res, 400, { error: `name ${JSON.stringify(name)} is not a component name` });
+      return json(res, 200, importView(root, name));
     }
     if (p === '/api/canvas/import/mapping' && req.method === 'POST') {
       const b = await readBody(req);
       const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
       assertProvenanceRoot(b.provenance, root);
+      if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
       return json(res, 200, editMapping({ pkgRoot: root, provenance: b.provenance, name: b.name, edit: b.edit }));
     }
 

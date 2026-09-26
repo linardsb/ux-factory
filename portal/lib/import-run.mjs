@@ -164,6 +164,14 @@ export const MAX_DROP_BYTES = 8 * 1024 * 1024;
 // The drop route's body, STREAMED with a cap (portal/lib/figma.mjs receiveExport's shape): refused on
 // the declared size before a byte is read, and the request destroyed the moment the cap is passed —
 // never readBody, whose 1 MB cap stays where it is for every other route.
+// A DECLARED size over the cap is the owner's to read, so the route answers it as a refusal (200, one
+// action) before a byte is read; readUpload's throws stay for a body with no Content-Length, which
+// the page never sends — fetch declares a File body's length (PR #462 review F2).
+export function dropTooLarge(declared, max = MAX_DROP_BYTES) {
+  if (!(Number.isFinite(declared) && declared > max)) return null;
+  return { kind: "too-large", message: `The dropped file is ${declared} bytes, over the ${max}-byte cap.`, action: { label: "Drop a smaller export" } };
+}
+
 export async function readUpload(req, max = MAX_DROP_BYTES) {
   const declared = Number(req.headers?.["content-length"]);
   if (Number.isFinite(declared) && declared > max) throw new Error(`import-run: the dropped file is ${declared} bytes, over the ${max}-byte cap`);
@@ -503,10 +511,14 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
       positions: positionsOf(pkg?.canvas), decisions: loadDecisions(pkgRoot),
     });
     return { name, recordId: id, count, view: importView(pkgRoot, name) };
-  });
+  }, "an import");
 }
 
 // --- the view -----------------------------------------------------------------------------------
+
+// The routes check a client-supplied name with this first, so a bad one is a 400 rather than the
+// catch-all's 500; the throws inside importView and editMapping stay as the second line (#462 F4).
+export const isProposalName = (name) => typeof name === "string" && PROPOSAL_NAME_RE.test(name);
 
 export function importView(pkgRoot, name) {
   const buildRoot = path.join(pkgRoot, "build");

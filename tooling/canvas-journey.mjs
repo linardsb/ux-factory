@@ -31,12 +31,13 @@
 // fixture are DROPPED through the page, each writing a record, its markdown, a transcript, a proposal
 // and one component.propose line; the two records share one shape; a mapping edit rewrites mapping.json,
 // re-derives the record and re-renders the view; and a SECOND portal child, whose Brilliant server never
-// answers, holds the run lock while a drop is refused "already in flight". git status over system/,
+// answers, holds the run lock while a drop is refused "already in flight"; a stale drop's one action
+// reloads the page (I7), an oversize drop is a refusal and a traversal name a 400 (I8). git status over system/,
 // handoff/, discovery/ and import/overrides/ is compared across the pass (AC #4).
 //
 // WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set), a live
 // Brilliant READ (the reader is reach-only until the owner-run Phase 0 probe — #311's PR B), and two-tab
-// behaviour beyond the 409 the server returns.
+// behaviour beyond the 409 and the reload its one action performs (I7).
 //
 // Run it:
 //   (cd portal && npm ci)                                   # server.mjs imports the Agent SDK
@@ -522,7 +523,7 @@ async function leg(engine, base, results) {
       await page.keyboard.press("Escape");
     });
 
-    await importPass(engine, base, page, t, step);
+    await importPass(engine, base, page, t, step, errors);
 
     t("16 · no page errors or console errors across the leg", errors.length === 0, errors.slice(0, 3).join(" | "));
     const gitAfter = gitDiscovery();
@@ -549,7 +550,7 @@ async function dropFile(page, file) {
   await page.waitForSelector("[data-import-view]:not([hidden]) [data-import-label]", { timeout: 20000 });
 }
 
-async function importPass(engine, base, page, t, step) {
+async function importPass(engine, base, page, t, step, errors) {
   const gitBefore = gitImportScope();
   await step("I1 · Import selection with the MCP down", async () => {
     await openCanvas(page, base, "real", "fp-import");
@@ -651,6 +652,49 @@ async function importPass(engine, base, page, t, step) {
     }
   });
 
+  // PR #462 review F1: the one action a 409 offers must RELOAD, not focus the file input. The page is
+  // made stale by a drop straight to the API (a second tab), then the page's own drop meets the 409.
+  await step("I7 · a stale drop's one action reloads the page", async () => {
+    const blueprint = readFileSync(path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt"));
+    const q = new URLSearchParams({ provenance: "real", slug: "fp-import", base: String(ledger("fp-import").length), mode: "1", name: "tab-2.txt" });
+    const other = await (await fetch(`${base}/api/canvas/import/drop?${q}`, { method: "POST", body: blueprint })).json();
+    await page.locator("[data-canvas-verb=import]").click();
+    const e0 = errors.length;
+    const resp = page.waitForResponse((r) => r.url().includes("/api/canvas/import/drop"), { timeout: 15000 });
+    await page.locator("[data-import-file]").setInputFiles(path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt"));
+    const status = (await resp).status();
+    await page.waitForSelector("[data-import-refusal] [data-import-action]", { timeout: 5000 });
+    // The 409 is this step's own doing, and an engine may log the failed resource. Only those lines
+    // leave step 16's list; anything else raised here stays in it.
+    errors.push(...errors.splice(e0).filter((e) => !/status of 409/.test(e)));
+    const label = await page.locator("[data-import-action]").textContent();
+    t("I7 · the page's drop after a second tab's gets a 409 with ONE action, \"Reload the page\"", typeof other.recordId === "string" && status === 409 && label === "Reload the page" && (await page.locator("[data-import-action]").count()) === 1, `${status} ${label}`);
+    const load = page.waitForEvent("load", { timeout: 15000 });
+    await page.locator("[data-import-action]").click();
+    const reloaded = await load.then(() => true, () => false);
+    // The page fetches its build after load, so the count is 0 until then: wait for it to settle.
+    const want = ledger("fp-import").length;
+    const count = reloaded ? await page.waitForFunction(async (w) => ((await import("/canvas.mjs")).getCanvasPage().count === w ? w : false), want, { timeout: 10000 })
+      .then((h) => h.jsonValue(), () => page.evaluate(async () => (await import("/canvas.mjs")).getCanvasPage().count)) : null;
+    t("I7 · …clicking it reloads, and the page's base is the ledger's length again", reloaded && count === ledger("fp-import").length, `reloaded ${reloaded}, page ${count}, ledger ${ledger("fp-import").length}`);
+  });
+
+  // F2: an oversize drop is a refusal the owner reads (200, one action), not a 500. F4: a bad name is a 400.
+  await step("I8 · an oversize drop is a refusal; a bad proposal name is a 400", async () => {
+    const n = ledger("fp-import").length;
+    await page.locator("[data-canvas-verb=import]").click();
+    const resp = page.waitForResponse((r) => r.url().includes("/api/canvas/import/drop"), { timeout: 15000 });
+    await page.locator("[data-import-file]").setInputFiles({ name: "huge.txt", mimeType: "text/plain", buffer: Buffer.alloc(9_000_000, 97) });
+    const r = await resp;
+    const body = await r.json();
+    await page.waitForSelector("[data-import-refusal] [data-import-action]", { timeout: 5000 });
+    const label = await page.locator("[data-import-action]").textContent();
+    t("I8 · 9,000,000 bytes → 200 { refused: too-large } with ONE action, and no ledger line", r.status() === 200 && body.refused?.kind === "too-large" && label === "Drop a smaller export" && (await page.locator("[data-import-action]").count()) === 1 && ledger("fp-import").length === n, `${r.status()} ${JSON.stringify(body)} ${label}`);
+    const view = await fetch(`${base}/api/canvas/import/view?${new URLSearchParams({ provenance: "real", slug: "fp-import", name: "../../../etc" })}`);
+    const map = await fetch(`${base}/api/canvas/import/mapping`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provenance: "real", slug: "fp-import", name: "../x", edit: {} }) });
+    t("I8 · a traversal name → 400 on the view and on the mapping route", view.status === 400 && map.status === 400, `${view.status} ${map.status}`);
+  });
+
   t("I6 · git status over system/, handoff/, discovery/ and import/overrides/ unchanged across the pass (AC #4)", gitImportScope() === gitBefore, gitImportScope());
 }
 
@@ -679,5 +723,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action and no result before the abort, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action and no result before the abort, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight", a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

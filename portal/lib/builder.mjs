@@ -236,15 +236,18 @@ export function slugFor(scenario, answers, slot) {
 // Exported rather than an inline boolean inside runBuild, and that is the design decision: an
 // inline flag is unreachable from tooling/build-checks.mjs, which cannot import the SDK, so the
 // guard would ship unproven.
-let inFlight = false;
+//
+// One lock, two callers (a composition run and #311's import): the holder's label is what the refusal
+// names, so a second import is never told a composition is running (PR #462 review F3).
+let inFlight = null;
 
-export async function withRunLock(fn) {
-  if (inFlight) bad('a composition run is already in flight — wait for it to finish (both runs would read-modify-write the same manifest)');
-  inFlight = true;
-  try { return await fn(); } finally { inFlight = false; }
+export async function withRunLock(fn, what = 'a composition run') {
+  if (inFlight) bad(`${inFlight} is already in flight — wait for it to finish (the portal holds one run at a time)`);
+  inFlight = what;
+  try { return await fn(); } finally { inFlight = null; }
 }
 
-export const isRunInFlight = () => inFlight;
+export const isRunInFlight = () => inFlight !== null;
 
 // --- the SSE projection ---------------------------------------------------------------------------
 // recordRun's write() fires for THREE line types: the meta line first, then every step, then the

@@ -58,14 +58,14 @@ function showRefusal(refused) {
   const act = a.href
     ? el("a", { class: "btn btn-secondary cv-btn", href: a.href, target: "_blank", rel: "noopener", "data-import-action": true, text: a.label })
     : el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-action": true, text: a.label });
-  if (!a.href) act.addEventListener("click", () => (a.hint ? statusLine.textContent = `Run: ${a.hint}` : dropInput.focus()));
+  if (!a.href) act.addEventListener("click", () => (a.reload ? location.reload() : a.hint ? statusLine.textContent = `Run: ${a.hint}` : dropInput.focus()));
   refusalBox.appendChild(act);
   if (a.hint) refusalBox.appendChild(el("p", { class: "cv-import-hint", text: a.hint }));
 }
 
 async function done({ status, body }) {
   busy = false;
-  if (status !== 200) { statusLine.textContent = ""; showRefusal({ message: body.error ?? `HTTP ${status}`, action: { label: "Reload the page" } }); return; }
+  if (status !== 200) { statusLine.textContent = ""; showRefusal({ message: body.error ?? `HTTP ${status}`, action: { label: "Reload the page", reload: true } }); return; }
   if (body.refused) { statusLine.textContent = ""; showRefusal(body.refused); return; }
   const next = new URLSearchParams({ provenance, slug, import: body.name });
   history.replaceState(null, "", `?${next}`);
