@@ -48,9 +48,9 @@
 
 import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
-// The six #302 landed and the four #306 lands (frame.remove, frame.link, annotate, variant.add). The
-// architecture projects fourteen; the remaining four (group.define, group.place, component.propose,
-// proposal.ratify) are #315's and #313's, and THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not
+// The six #302 landed, #306's four (frame.remove, frame.link, annotate, variant.add) and #311's
+// component.propose. The architecture projects fourteen; the remaining three (group.define,
+// group.place, proposal.ratify) are #315's and #313's, and THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not
 // add ops here concurrently, because a verb is four edits in three files and a merge that takes both
 // halves of two of them leaves a verb with no PARAMS entry or a PARAMS entry with no case.
 export const OPS = Object.freeze([
@@ -64,6 +64,7 @@ export const OPS = Object.freeze([
   "frame.link",
   "annotate",
   "variant.add",
+  "component.propose",
 ]);
 
 // EXACT, NOT MINIMAL — an unknown key throws rather than being ignored. discovery/ops.mjs's rule and
@@ -80,6 +81,7 @@ export const PARAMS = Object.freeze({
   "frame.link": Object.freeze(["frameId", "decisionRefs"]),
   annotate: Object.freeze(["noteId", "text"]),
   "variant.add": Object.freeze(["key", "overrides"]),
+  "component.propose": Object.freeze(["name", "recordId", "mode"]),
 });
 
 // The params a verb may omit. Everything else in its PARAMS entry is required, which is the half of
@@ -95,6 +97,8 @@ const OPTIONAL = Object.freeze({
 // A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
 // is refused rather than normalised — a key the author did not type is a lane they cannot find.
 const VARIANT_KEY_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
+// A proposal's name is a component name to be: refused, never normalised, by the same rule.
+export const PROPOSAL_NAME_RE = /^[a-z][a-z0-9-]{1,39}$/;
 
 const plainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -198,6 +202,7 @@ export function applyOp(doc, op) {
   // emptyDoc() carries both; a document hand-built in a test, or saved before #306, may not.
   next.notes ??= [];
   next.variants ??= [];
+  next.proposals ??= [];
   const frameIds = () => new Set(next.frames.map((f) => f.id));
   // Named by the verb that asked, so a dangling reference says which op could not resolve it rather
   // than which lookup failed. discovery/ops.mjs's resolveAnswer shape.
@@ -400,6 +405,22 @@ export function applyOp(doc, op) {
       // Stored as an override map keyed by frame id (G33). The lane UI and the per-variant
       // completeness check are #314's.
       next.variants.push({ key: p.key, overrides: p.overrides });
+      break;
+    }
+    case "component.propose": {
+      // The applier sees neither the filesystem nor the vocabulary: that proposals/<name>/ exists and
+      // that name is not a vocabulary component are portal/lib/import-run.mjs's checks. status moves
+      // only through proposal.ratify (#313), which is why nothing here reaches the vocabulary.
+      if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
+        throw new Error(`component.propose: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter`);
+      }
+      if (typeof p.recordId !== "string" || !/^i[1-9][0-9]*$/.test(p.recordId)) {
+        throw new Error(`component.propose: recordId ${JSON.stringify(p.recordId)} is not an import record id (i1, i2, …)`);
+      }
+      if (p.mode !== 1 && p.mode !== 2) throw new Error(`component.propose: mode ${JSON.stringify(p.mode)} must be 1 or 2`);
+      if (next.proposals.some((x) => x.name === p.name)) throw new Error(`component.propose: duplicate name "${p.name}" — a proposal of that name already exists`);
+      if (next.proposals.some((x) => x.recordId === p.recordId)) throw new Error(`component.propose: record "${p.recordId}" already has a proposal — one proposal per import record`);
+      next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, recordId: p.recordId, mode: p.mode, status: "proposed" });
       break;
     }
     // Unreachable: checkOp refused every verb outside OPS. Kept because the day an eleventh verb is
