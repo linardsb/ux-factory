@@ -1028,4 +1028,8 @@ shared worktree — verify the branch before every commit and stage by explicit 
   `sniffDrop` refuses binary and requires 16-hex element ids; and a blueprint cannot carry an unbound text size
   (`t()` reads a size only as `n:$font.size.*`), so 43.7's snap edit runs on a SYNTHETIC unbound Figma export.
   `renameParts` became a one-line hook in `recognise.build` (`verdict.partId` → the node's `id`), because the built
-  tree does not carry IR paths.
+  tree does not carry IR paths. Task 8.3: loc-summary does NOT count the portal (three groups — runtime, pages,
+  generators), so "the total moves" was wrong; nothing regenerated. Task 6.1: `portal.css` already carries a
+  page-wide `[hidden] { display: none !important; }` (:61), so no scoped rule was added. Task 7.2's `costUsd === null`
+  cannot fail on the reach path (the reader aborts on init, so no `result` message arrives); zero spend stays
+  EXPECTED under A1 and the journey's label says so.

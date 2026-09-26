@@ -55,6 +55,11 @@ Each row was applied, run and restored. "Red" means the named case failed (obser
 | 43.7 | `mappingDropRows` returns nothing | "a drop added 0 mapping rows" | remap, rename, snap edit all green |
 | 43.8 | `saveConflict` moved after the reader | "after 1 reader calls" | first run succeeds |
 | 43.8 | `withRunLock` removed | "a second run during the first answered NO REFUSAL" | first run returns `i1` |
+| 43.3 | `classifyReach`'s not-reachable branch ignores `get_selection` | "no get_selection → undefined" + "does not carry exactly one action" | reachable init answers `null` |
+| 43.4 | drop `sniffDrop`'s 16-hex id guard | "43.4: prose was ACCEPTED" | both committed fixtures sniff to their tool |
+| 43.5 (AC #1b pair) | the selection branch changes one word of the read | "gave different records (ir)" | unmutated pair deep-equal |
+| 43.9 | vocabulary names not in the blocked set | "a vocabulary name was not suffixed: list-row" | "Spike List Row" → `spike-list-row` |
+| 43.10 | count bound records instead of unbound | `{"total":3,"unbound":1}` | — |
 | journey I2 | drop `import/fixtures/s3/ref.png` instead of the blueprint | I2 threw (no navigation), I3/I4 red | blueprint drop green |
 | journey I5 | `withRunLock` removed | I5 "NO REFUSAL" and the follow-up drop 409 | lock present: all I5 green |
 
@@ -62,10 +67,24 @@ Each row was applied, run and restored. "Red" means the named case failed (obser
 so the second drop read the first drop's view (I3/I4 red on the first chromium run). Fixed to wait for a
 changed URL before any assertion was trusted.
 
-**Weak assertion kept, with its reason**: 43.6's "draft carries no literal" regex scans a `block.css` that,
-for spike C, has no declarations, because its root carries no contract token. No single mutation of
-`rootDeclarations` reddens it, since the function only emits `var(--…)`. It is kept as a tripwire for a future
-edit that writes raw values.
+**Assertions no single mutation can redden, kept as tripwires, with the reason:**
+
+- **Journey I1's `costUsd === null`.** `readBrilliant` aborts and breaks on the SDK's `init` message, so no
+  `result` message can arrive on the reach path and `costUsd` is null by construction. The label says "no
+  result message arrived before the abort". Zero spend is EXPECTED (plan A1), not proven: nothing here shows
+  whether the CLI's warmup subagents make a model call before `init`. The owner-run probe (PR B) is where a
+  cost would be observed.
+- **43.5's two-source key-set equality and journey I3's.** Both records come from one `recordFor` and one
+  `source` literal, so their key sets are equal whatever the converters do. They are kept as tripwires
+  against someone later giving one entrance its own record builder. 43.5's reader-vs-drop pair is the
+  reddenable half (row above).
+- **Journey I6 and group 43's closing `git status` check.** Tripwires: no code path in this PR writes under
+  `system/`, `handoff/`, `discovery/` or `import/overrides/`, so no mutation of it turns them red short of
+  adding such a write.
+- **43.6's "draft carries no literal".** Its regex scans a `block.css` that, for spike C, has no
+  declarations, because the root carries no contract token. No single mutation of `rootDeclarations`
+  reddens it, since the function only emits `var(--…)`. It is kept as a tripwire for a future edit that
+  writes raw values.
 
 ## Validation results
 
@@ -82,9 +101,9 @@ edit that writes raw values.
 | R3 line budget re-measure (Task 1.1 command) | `32435 under` (observed; the plan expected ≤ 32444) |
 | `node tooling/canvas-journey.mjs all` | ✓ chromium 65 / firefox 64 / webkit 64 (observed, `285ebd3`) |
 | portal smoke, PORT 4799, scratch JOBS_DIR | `/api/health` `stale:false` at `8352b1f`; view route `{error}` for name `x`; drop 200; stale drop 409 (observed) |
-| real-SDK reach, `UXF_BRILLIANT_MCP` exits at once | `not-running`, `costUsd: null`, 2.5 s, no orphan CLI (observed) |
-| real-SDK reach, server never answers, 6–8 s timeout | `stale-binding`, `costUsd: null` (observed) |
-| **real Brilliant MCP** (`npx -y @brilliant-hq/mcp`, no tab open) via the route | `not-reachable`, `costUsd: null` (observed): the server connected and advertised no `get_selection`, which confirms Phase 0 (e)'s expected unreachable signature |
+| real-SDK reach, `UXF_BRILLIANT_MCP` exits at once | `not-running`, no result message before the abort, 2.5 s, no orphan CLI (observed) |
+| real-SDK reach, server never answers, 6–8 s timeout | `stale-binding` (observed) |
+| **real Brilliant MCP** (`npx -y @brilliant-hq/mcp`, no tab open) via the route | `not-reachable` (observed): the server connected and advertised no `get_selection`, which confirms Phase 0 (e)'s expected unreachable signature |
 
 ## Not run
 
@@ -117,6 +136,7 @@ edit that writes raw values.
   already exists there (`portal/public/portal.css:61`).
 - **No `op` line is appended to the transcript after the op.** A draft wrote one; it was removed rather than
   add a fifth line type the plan does not name.
+- **Task 7.2's cost check is a label, not a proof** (F1 of the pre-report review): see "Proving the checks".
 - **The binding line is static** ("project: not exposed by this binding"). Phase 0 (b) decides what it can say.
 
 ## Assumptions carried

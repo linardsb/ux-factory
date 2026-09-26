@@ -102,7 +102,7 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs
   lib/import-run.mjs          the RECORDED IMPORT — Brilliant read (lazy SDK) or a dropped file → record + proposal
   public/                     vanilla SPA — hash routing, template strings, no framework; plus
-                              canvas.html + canvas.mjs (+ canvas-import.mjs, #311), the one MODULE page
+                              canvas.html + canvas.mjs (+ canvas-import.mjs, #311), the one MODULE page (the build canvas, #306)
   record-trace.mjs            build-time trace recorder (CLI) — a REAL agent run
   record-composition.mjs      build-time composition runner (CLI) — a REAL Agent SDK run per scenario
   record-build.mjs            build-time INCREMENTAL build recorder (CLI) — one op per tool call

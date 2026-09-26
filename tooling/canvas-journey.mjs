@@ -25,8 +25,9 @@
 // `git status --porcelain -- discovery/` is compared before and after every leg.
 //
 // THE IMPORT PASS (#311). The portal child runs with UXF_BRILLIANT_MCP pointing at a server that exits
-// at once, so "Import selection" meets the real SDK and gets the not-running refusal with ONE action and
-// no spend (costUsd null — the abort precedes any model call); then the Brilliant fixture and the Figma
+// at once, so "Import selection" meets the real SDK and gets the not-running refusal with ONE action, and
+// no result message before the abort (costUsd null — which cannot fail on this path, since the reader
+// aborts on init; zero spend is expected, not proven); then the Brilliant fixture and the Figma
 // fixture are DROPPED through the page, each writing a record, its markdown, a transcript, a proposal
 // and one component.propose line; the two records share one shape; a mapping edit rewrites mapping.json,
 // re-derives the record and re-renders the view; and a SECOND portal child, whose Brilliant server never
@@ -559,7 +560,10 @@ async function importPass(engine, base, page, t, step) {
     await page.waitForSelector("[data-import-refusal] p", { timeout: 5000 });
     const text = await page.locator("[data-import-refusal]").textContent();
     t("I1 · the refusal names \"did not start\" with exactly ONE action", text.includes("did not start") && (await page.locator("[data-import-action]").count()) === 1, text);
-    t("I1 · …it spent nothing: costUsd null (the abort precedes any model call)", body.refused?.kind === "not-running" && body.refused.costUsd === null, JSON.stringify(body));
+    // NOT a proof of zero spend: the reader aborts on init, so no result message can arrive on this path
+    // and costUsd is null by construction. It asserts the refusal's kind and that no result arrived
+    // before the abort; zero spend stays EXPECTED (plan A1) until the owner-run probe observes a cost.
+    t("I1 · …the refusal is not-running, and no result message arrived before the abort (costUsd null)", body.refused?.kind === "not-running" && body.refused.costUsd === null, JSON.stringify(body));
     t("I1 · …and wrote nothing under build/imports/", !existsSync(importsDir()));
     const small = [];
     for (const sel of ["[data-canvas-verb=import]", "[data-import-selection]", "[data-import-action]", "[data-import-drop]"]) {
@@ -675,5 +679,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action and no spend, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action and no result before the abort, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
