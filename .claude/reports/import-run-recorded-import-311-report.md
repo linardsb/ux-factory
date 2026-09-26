@@ -1,7 +1,7 @@
 # Implementation Report — import-run: the recorded import, PR A "the drop path" (#311)
 
 **Plan**: `.claude/plans/import-run-recorded-import-311.md`   **Branch**: `feat/import-run-311` (worktree `wt-311`)
-**Base**: `cfceeaf` → `36be0b6` (origin/main unchanged at `cfceeaf` when re-checked; the merge was a no-op)   **Status**: COMPLETE for PR A; PR B (the live read) not started
+**Base**: `cfceeaf` → `b9482e1` (origin/main unchanged at `cfceeaf` when re-checked; the merge was a no-op)   **Status**: COMPLETE for PR A; PR B (the live read) not started
 
 ## Summary
 
@@ -29,7 +29,7 @@ because the live read's response shapes are Phase 0's. The PR body should say `P
 - 8.2 → `discovery/README.md`, `import/overrides/README.md`, `CLAUDE.md` map
 - 8.3 loc-summary regenerated: **no change** (see Validation)
 
-Commits: `c955067` (Phases 1–2), `8352b1f` (Phase 3), `285ebd3` (Phases 5–7), `36be0b6` (docs).
+Commits: `c955067` (Phases 1–2), `8352b1f` (Phase 3), `285ebd3` (Phases 5–7), `36be0b6` (docs), `076b4c3` (report), `b9482e1` (review-driven label and proof rows). Journey re-run on chromium at `b9482e1`: 65 passed, 0 failed (observed).
 
 ## Tests added
 
@@ -103,6 +103,7 @@ changed URL before any assertion was trusted.
 | portal smoke, PORT 4799, scratch JOBS_DIR | `/api/health` `stale:false` at `8352b1f`; view route `{error}` for name `x`; drop 200; stale drop 409 (observed) |
 | real-SDK reach, `UXF_BRILLIANT_MCP` exits at once | `not-running`, no result message before the abort, 2.5 s, no orphan CLI (observed) |
 | real-SDK reach, server never answers, 6–8 s timeout | `stale-binding` (observed) |
+| CodeQL 2.27.0 locally: `database create --codescanning-config=.github/codeql/codeql-config.yml` + the `javascript-code-scanning.qls` suite (the Action's default), database outside the repo, at `b9482e1` | **0 results** over 182 files (observed); `portal/lib/import-run.mjs`, `portal/server.mjs`, `portal/public/canvas-import.mjs` and `tooling/canvas-journey.mjs` confirmed in the extracted `src.zip`. CI's two-leg gate still runs on the PR |
 | **real Brilliant MCP** (`npx -y @brilliant-hq/mcp`, no tab open) via the route | `not-reachable` (observed): the server connected and advertised no `get_selection`, which confirms Phase 0 (e)'s expected unreachable signature |
 
 ## Not run
